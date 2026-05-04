@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-05-04
+
+Initial public release.
+
 ### Added
 - Built-in real-time shopping list with offline support (PWA + IndexedDB
   queue), separately installable as its own home-screen icon
@@ -64,5 +68,5 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-The first tagged release will be **v1.0.0**, marking the initial public
-release. Until then everything lives under `[Unreleased]`.
+[Unreleased]: https://github.com/svenger87/familyboard/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/svenger87/familyboard/releases/tag/v1.0.0
