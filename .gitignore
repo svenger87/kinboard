@@ -1,0 +1,61 @@
+webapp/nul
+.claude/settings.local.json
+run-claude-resume.sh
+
+# Temp debug output from Playwright/Chrome DevTools MCP sessions
+.playwright-mcp/
+.superpowers/
+
+# UX audit before-shots — tasks.md is tracked, screenshots are not (too large)
+audit/*.png
+
+# Local env / secrets — never commit anywhere in the repo
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.local
+vapid-keys.json
+*.pem
+*.key
+secrets/
+deploy-config.local.sh
+
+# SSH keys — never track. Generic + the previously-leaked file by name.
+id_rsa
+id_ed25519
+id_ecdsa
+id_dsa
+id_*_*
+*.pub
+known_hosts
+
+# Backup archives (don't belong in source control)
+*.tar.gz
+*.tar
+*.tgz
+*.zip
+*.bak
+
+# Local deployment overrides
+docker-compose.override.yml
+kong.local.yml
+# Exception: the screenshot demo's compose override IS part of the toolchain,
+# not a local override — it ships with the repo.
+!docs/wiki/screenshots/docker-compose.override.yml
+
+# Node deps (any node_modules, anywhere in the tree)
+node_modules/
+
+# There's no root package.json — webapp/ has its own. Block any stray
+# root-level package-lock.json that something might re-create.
+/package-lock.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+hetzner-api-key

@@ -1,0 +1,29 @@
+# Real prod data — never commit, even when "anonymized".
+dump/*.sql
+dump/*.sql.gz
+dump/*.dump
+
+# Demo DB volume
+data/
+
+# Local env files (demo.env has secrets, regenerated each bring-up)
+.env
+.env.local
+demo.env
+
+# Generated artifacts
+kong.yml
+
+# Node deps
+node_modules/
+mocks/*/node_modules/
+
+# Playwright artifacts
+playwright/test-results/
+playwright/playwright-report/
+
+# Mock data caches
+mocks/*/cache/
+
+# Storage state from join bootstrap
+playwright/storageState.json

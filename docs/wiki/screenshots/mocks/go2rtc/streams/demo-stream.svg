@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f1419"/>
+      <stop offset="100%" stop-color="#1a2030"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#2a3142" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <rect width="1280" height="720" fill="url(#grid)"/>
+  <text x="640" y="340" text-anchor="middle" fill="#a8b3c7" font-family="system-ui,sans-serif" font-size="42" font-weight="300">Demo camera</text>
+  <text x="640" y="400" text-anchor="middle" fill="#5b6a85" font-family="system-ui,sans-serif" font-size="20" font-weight="300">Mock go2rtc stream — Familyboard screenshot demo</text>
+  <circle cx="1180" cy="60" r="18" fill="#ef4444">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.4s" repeatCount="indefinite"/>
+  </circle>
+  <text x="1180" y="65" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="14" font-weight="700">REC</text>
+  <text x="40" y="685" fill="#5b6a85" font-family="monospace" font-size="14">1280×720 @ 30fps · MJPEG</text>
+</svg>

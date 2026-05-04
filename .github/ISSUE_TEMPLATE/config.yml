@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/svenger87/familyboard/discussions
+    about: For setup help, ideas, and general questions, please open a GitHub Discussion instead of an issue.
+  - name: Security report
+    url: https://github.com/svenger87/familyboard/blob/main/SECURITY.md
+    about: For anything affecting credentials or data, please follow SECURITY.md instead of opening a public issue.

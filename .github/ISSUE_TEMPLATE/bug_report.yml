@@ -1,0 +1,98 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. The more reproducible the report, the faster it gets fixed.
+
+        **Before filing:** check existing issues to see if it's already reported.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-line description of the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Numbered list. Include the URL or page if relevant.
+      placeholder: |
+        1. Open /shopping
+        2. Add an item with a comma in the name
+        3. Reload the page
+        4. The item shows truncated
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include screenshots, console errors, or relevant log lines.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: "Tagged release, or `git rev-parse --short HEAD`"
+      placeholder: "v1.0.0 or 1f4dec0f"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      multiple: true
+      options:
+        - Wall-mounted kiosk
+        - Phone
+        - Tablet
+        - Desktop browser
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser / OS
+      placeholder: "Chrome 130 on Windows 11"
+
+  - type: dropdown
+    id: locale
+    attributes:
+      label: Locale
+      options:
+        - English (en)
+        - German (de)
+        - Other / mixed
+    validations:
+      required: true
+
+  - type: textarea
+    id: integrations
+    attributes:
+      label: Integrations involved
+      description: Which integrations were active when the bug happened? (e.g. Google Calendar, Home Assistant, Immich)
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Workarounds, related issues, theories about the cause.

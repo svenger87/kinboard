@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs on the same ref to save CI time.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webapp
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  i18n-validate:
+    name: i18n bundles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON syntax
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('webapp/messages/en.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('webapp/messages/de.json','utf8'))"
+
+      - name: Compare key parity (en ↔ de)
+        run: |
+          node -e '
+            const en = require("./webapp/messages/en.json");
+            const de = require("./webapp/messages/de.json");
+            const flatten = (obj, prefix = "") => Object.entries(obj).flatMap(([k, v]) =>
+              v && typeof v === "object" && !Array.isArray(v)
+                ? flatten(v, prefix + k + ".")
+                : [prefix + k]
+            );
+            const enKeys = new Set(flatten(en));
+            const deKeys = new Set(flatten(de));
+            const missingInDe = [...enKeys].filter(k => !deKeys.has(k));
+            const missingInEn = [...deKeys].filter(k => !enKeys.has(k));
+            if (missingInDe.length || missingInEn.length) {
+              if (missingInDe.length) console.log("Missing in de.json:\n" + missingInDe.map(k => "  " + k).join("\n"));
+              if (missingInEn.length) console.log("Missing in en.json:\n" + missingInEn.map(k => "  " + k).join("\n"));
+              process.exit(1);
+            }
+            console.log("en/de parity OK (" + enKeys.size + " keys)");
+          '
+
+  shellcheck:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash -n on shipped scripts
+        run: |
+          for f in setup.sh webapp/deploy.sh webapp/docker/start.sh; do
+            echo "checking $f"
+            bash -n "$f"
+          done

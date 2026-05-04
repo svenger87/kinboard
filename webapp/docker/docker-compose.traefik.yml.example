@@ -1,0 +1,59 @@
+# Traefik reverse-proxy override.
+#
+# Copy to `docker-compose.traefik.yml` and adjust to your setup, then run:
+#   docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d
+#
+# Requirements:
+#   - A Traefik instance running on the host with the entrypoints below
+#   - The `proxy` network exists on the host (`docker network create proxy`)
+#   - Set DOMAIN and TRAEFIK_CERT_RESOLVER in .env
+#
+# Variables read from .env:
+#   DOMAIN                  e.g. familyboard.example.com
+#   TRAEFIK_CERT_RESOLVER   name of your Traefik cert resolver (e.g. letsencrypt, cloudflare)
+#   TRAEFIK_NETWORK         external network Traefik watches (default: proxy)
+
+version: "3.8"
+
+services:
+  kong:
+    networks:
+      - familyboard
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${PROJECT_NAME:-familyboard}-api.rule=Host(`${DOMAIN}`) && (PathPrefix(`/rest`) || PathPrefix(`/auth`) || PathPrefix(`/storage`) || PathPrefix(`/realtime`))"
+      - "traefik.http.routers.${PROJECT_NAME:-familyboard}-api.entrypoints=websecure"
+      - "traefik.http.routers.${PROJECT_NAME:-familyboard}-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.${PROJECT_NAME:-familyboard}-api.priority=100"
+      - "traefik.http.services.${PROJECT_NAME:-familyboard}-api.loadbalancer.server.url=http://${PROJECT_NAME:-familyboard}-kong:8000"
+
+  webapp:
+    networks:
+      - familyboard
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${PROJECT_NAME:-familyboard}-webapp.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${PROJECT_NAME:-familyboard}-webapp.entrypoints=websecure"
+      - "traefik.http.routers.${PROJECT_NAME:-familyboard}-webapp.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.${PROJECT_NAME:-familyboard}-webapp.priority=1"
+      - "traefik.http.services.${PROJECT_NAME:-familyboard}-webapp.loadbalancer.server.url=http://${PROJECT_NAME:-familyboard}-webapp:3000"
+
+  go2rtc:
+    networks:
+      - familyboard
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      # TCP router for WebRTC TCP fallback. Configure a `webrtc` entrypoint
+      # in your Traefik static config first.
+      - "traefik.tcp.routers.go2rtc-webrtc.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.go2rtc-webrtc.entrypoints=webrtc"
+      - "traefik.tcp.routers.go2rtc-webrtc.service=go2rtc-webrtc"
+      - "traefik.tcp.services.go2rtc-webrtc.loadbalancer.server.port=8555"
+
+networks:
+  traefik:
+    name: ${TRAEFIK_NETWORK:-proxy}
+    external: true

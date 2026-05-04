@@ -1,0 +1,45 @@
+# Default: let git auto-detect text vs binary, normalize on commit.
+* text=auto
+
+# Force LF on every shell script + Python script + Node ESM script that
+# ships in this repo, regardless of the contributor's OS. Bash on Linux
+# refuses to interpret \r as part of a command and fails with cryptic
+# "$'\r': command not found" errors otherwise.
+*.sh    text eol=lf
+*.bash  text eol=lf
+*.py    text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.js    text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+
+# Same for any config files Linux services + Docker actually parse
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.json  text eol=lf
+*.sql   text eol=lf
+*.conf  text eol=lf
+*.ini   text eol=lf
+Dockerfile text eol=lf
+.env       text eol=lf
+.env.*     text eol=lf
+*.env      text eol=lf
+*.env.*    text eol=lf
+
+# Binaries — never touch
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.pdf   binary
+*.gz    binary
+*.tar   binary
+*.zip   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.eot   binary

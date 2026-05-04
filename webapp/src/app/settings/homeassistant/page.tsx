@@ -1,0 +1,705 @@
+"use client";
+
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
+import {
+  Home,
+  Check,
+  Unlink,
+  AlertCircle,
+  Server,
+  Key,
+  Loader2,
+  Eye,
+  EyeOff,
+  LayoutGrid,
+  Plus,
+  Trash2,
+  GripVertical,
+  Settings2,
+  Zap,
+} from "lucide-react";
+import { GlassCard } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  useHomeAssistantStatus,
+  useHomeAssistantConfig,
+  useTestHomeAssistantConnection,
+  useSaveHomeAssistantSettings,
+  useDisconnectHomeAssistant,
+  useDashboards,
+  useRemoveCardFromDashboard,
+  useAddCardToDashboard,
+} from "@/hooks";
+import { EntityBrowser } from "@/components/home-assistant/entity-browser";
+import { PageHeader } from "@/components/page-header";
+import Link from "next/link";
+import type { DashboardCard, HAEntity } from "@/types/home-assistant";
+
+function HomeAssistantSettingsContent() {
+  const t = useTranslations("settings.homeassistant");
+  const tDomains = useTranslations("homeAutomation.domainLabels");
+  const searchParams = useSearchParams();
+  const initialDashboardId = searchParams.get("dashboard");
+
+  const { data: settings, isLoading: loadingSettings } = useHomeAssistantStatus();
+  const { data: dashboards = [], isLoading: loadingDashboards } = useDashboards();
+  const saveSettings = useSaveHomeAssistantSettings();
+  const testConnection = useTestHomeAssistantConnection();
+  const disconnectMutation = useDisconnectHomeAssistant();
+  const removeCard = useRemoveCardFromDashboard();
+  const addCard = useAddCardToDashboard();
+
+  const [url, setUrl] = useState("");
+  const [accessToken, setAccessToken] = useState("");
+  const [showToken, setShowToken] = useState(false);
+  const [connectDialogOpen, setConnectDialogOpen] = useState(false);
+  const [entityBrowserOpen, setEntityBrowserOpen] = useState(false);
+  const [connectError, setConnectError] = useState("");
+  const [testSuccess, setTestSuccess] = useState(false);
+  const [selectedDashboardId, setSelectedDashboardId] = useState<string | null>(initialDashboardId);
+
+  const isConnected = !!settings?.url && !!settings?.access_token;
+
+  // Select first custom dashboard when dashboards load
+  useEffect(() => {
+    if (dashboards.length > 0 && !selectedDashboardId) {
+      const customDashboards = dashboards.filter((d) => d.type === "custom");
+      if (customDashboards.length > 0) {
+        setSelectedDashboardId(customDashboards[0].id);
+      }
+    }
+  }, [dashboards, selectedDashboardId]);
+
+  // Get current dashboard and its cards
+  const currentDashboard = dashboards.find((d) => d.id === selectedDashboardId);
+  const dashboardCards = currentDashboard?.cards || [];
+
+  // Filter to only custom dashboards for the selector
+  const customDashboards = dashboards.filter((d) => d.type === "custom");
+
+  // Get config to verify connection is working
+  const { data: config } = useHomeAssistantConfig(isConnected);
+
+  // Show loading state
+  if (loadingSettings || loadingDashboards) {
+    return (
+      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+        <div className="relative z-10 max-w-2xl mx-auto flex flex-col gap-6">
+          <PageHeader
+            icon={Home}
+            title={t("title")}
+            subtitle={t("subtitleLoading")}
+            backHref="/settings"
+          />
+          <GlassCard>
+            <div className="p-6">
+              <div className="flex items-center gap-3">
+                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                <span className="text-muted-foreground">{t("loadingHint")}</span>
+              </div>
+            </div>
+          </GlassCard>
+        </div>
+      </main>
+    );
+  }
+
+  const handleConnect = async () => {
+    if (!url || !accessToken) return;
+
+    setConnectError("");
+    setTestSuccess(false);
+
+    // Clean up URL (remove trailing slash)
+    const cleanUrl = url.replace(/\/+$/, "");
+
+    try {
+      // Test connection first
+      await testConnection.mutateAsync({ url: cleanUrl, access_token: accessToken });
+      setTestSuccess(true);
+
+      // Save settings with empty dashboards array (will be created on first use)
+      await saveSettings.mutateAsync({
+        url: cleanUrl,
+        access_token: accessToken,
+        dashboards: [],
+      });
+
+      setConnectDialogOpen(false);
+      setUrl("");
+      setAccessToken("");
+      setTestSuccess(false);
+    } catch (error) {
+      setConnectError(
+        error instanceof Error ? error.message : t("connectionFailed")
+      );
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await disconnectMutation.mutateAsync();
+    } catch {
+      toast.error(t("disconnectFailed"));
+    }
+  };
+
+  const handleRemoveCard = async (cardId: string) => {
+    if (!selectedDashboardId) return;
+    try {
+      await removeCard.mutateAsync({ dashboardId: selectedDashboardId, cardId });
+    } catch {
+      toast.error(t("removeCardFailed"));
+    }
+  };
+
+  // Helper function to determine card type from domain
+  const getCardType = (domain: string): DashboardCard["card_type"] => {
+    switch (domain) {
+      case "light":
+        return "light";
+      case "switch":
+      case "input_boolean":
+        return "switch";
+      case "vacuum":
+        return "vacuum";
+      case "climate":
+        return "climate";
+      case "cover":
+        return "cover";
+      case "fan":
+        return "fan";
+      case "media_player":
+        return "media_player";
+      case "camera":
+        return "camera";
+      case "lock":
+        return "lock";
+      case "alarm_control_panel":
+        return "alarm_control_panel";
+      case "scene":
+        return "scene";
+      case "script":
+        return "script";
+      case "automation":
+        return "automation";
+      case "person":
+      case "device_tracker":
+        return "person";
+      case "weather":
+        return "weather";
+      case "sensor":
+      case "binary_sensor":
+        return "sensor";
+      default:
+        return "generic";
+    }
+  };
+
+  const handleAddCard = async (entity: HAEntity) => {
+    if (!selectedDashboardId) return;
+    await addCard.mutateAsync({
+      dashboardId: selectedDashboardId,
+      card: {
+        entity_id: entity.entity_id,
+        display_name: entity.name,
+        card_type: getCardType(entity.domain),
+        size: "medium",
+      },
+    });
+  };
+
+  const domainLabel = (domain: string): string => {
+    try {
+      return tDomains(domain);
+    } catch {
+      return domain;
+    }
+  };
+
+  return (
+    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <div className="relative z-10 max-w-2xl mx-auto flex flex-col gap-6">
+        <PageHeader
+          icon={Home}
+          title={t("title")}
+          subtitle={t("subtitle")}
+          backHref="/settings"
+        />
+
+        {/* Connection Status */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <GlassCard>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`p-2 rounded-lg ${
+                      isConnected ? "bg-success/10" : "bg-muted"
+                    }`}
+                  >
+                    <Server
+                      className={`size-5 ${
+                        isConnected ? "text-success" : "text-muted-foreground"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <h2 className="font-medium">{t("statusHeading")}</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {isConnected ? settings?.url : t("statusNotConnectedSubtitle")}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant={isConnected ? "default" : "secondary"}>
+                  {isConnected ? (
+                    <>
+                      <Check className="size-3 mr-1" /> {t("statusConnectedBadge")}
+                    </>
+                  ) : (
+                    t("statusNotConnectedBadge")
+                  )}
+                </Badge>
+              </div>
+
+              {isConnected && config && (
+                <div className="mb-4 p-3 rounded-lg bg-muted/50 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">{t("homeLabel")}</span>
+                    <span className="font-medium">{config.config?.location_name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">{t("versionLabel")}</span>
+                    <span>{config.config?.version}</span>
+                  </div>
+                </div>
+              )}
+
+              {isConnected ? (
+                <div className="flex items-center gap-2">
+                  <Link href="/home-automation">
+                    <Button variant="outline" size="sm">
+                      <LayoutGrid className="size-4 mr-2" />
+                      {t("openDashboard")}
+                    </Button>
+                  </Link>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm">
+                        <Unlink className="size-4 mr-2" />
+                        {t("disconnectButton")}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          {t("disconnectDialogTitle")}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {t("disconnectDialogDescription")}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{t("disconnectCancel")}</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDisconnect}
+                          className="bg-destructive text-destructive-foreground"
+                        >
+                          {t("disconnectButton")}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              ) : (
+                <Dialog open={connectDialogOpen} onOpenChange={setConnectDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Server className="size-4 mr-2" />
+                      {t("connectButton")}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{t("connectDialogTitle")}</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4 mt-4">
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor="url">
+                          <Server className="size-4 inline mr-2" />
+                          {t("urlLabel")}
+                        </Label>
+                        <Input
+                          id="url"
+                          type="url"
+                          placeholder={t("urlPlaceholder")}
+                          value={url}
+                          onChange={(e) => setUrl(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {t("urlHint")}
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor="access-token">
+                          <Key className="size-4 inline mr-2" />
+                          {t("tokenLabel")}
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="access-token"
+                            type={showToken ? "text" : "password"}
+                            placeholder={t("tokenPlaceholder")}
+                            value={accessToken}
+                            onChange={(e) => setAccessToken(e.target.value)}
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowToken(!showToken)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            {showToken ? (
+                              <EyeOff className="size-4" />
+                            ) : (
+                              <Eye className="size-4" />
+                            )}
+                          </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {t("tokenHint")}
+                        </p>
+                      </div>
+
+                      {connectError && (
+                        <div className="flex items-center gap-2 text-destructive text-sm">
+                          <AlertCircle className="size-4" />
+                          {connectError}
+                        </div>
+                      )}
+
+                      {testSuccess && (
+                        <div className="flex items-center gap-2 text-success text-sm">
+                          <Check className="size-4" />
+                          {t("connectionSuccess")}
+                        </div>
+                      )}
+
+                      <Button
+                        onClick={handleConnect}
+                        disabled={!url || !accessToken || testConnection.isPending || saveSettings.isPending}
+                        className="w-full"
+                      >
+                        {testConnection.isPending || saveSettings.isPending ? (
+                          <>
+                            <Loader2 className="size-4 mr-2 animate-spin" />
+                            {t("connecting")}
+                          </>
+                        ) : (
+                          <>
+                            <Check className="size-4 mr-2" />
+                            {t("connectSubmit")}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
+          </GlassCard>
+        </motion.div>
+
+        {/* Dashboard Cards Configuration */}
+        {isConnected && customDashboards.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <GlassCard>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <LayoutGrid className="size-5 text-month-primary" />
+                    <h2 className="font-medium">{t("cardsHeading")}</h2>
+                  </div>
+                </div>
+
+                {/* Dashboard Selector */}
+                {customDashboards.length > 1 && (
+                  <div className="mb-4">
+                    <Label className="text-xs text-muted-foreground mb-2 block">{t("dashboardSelectorLabel")}</Label>
+                    <Select
+                      value={selectedDashboardId || ""}
+                      onValueChange={setSelectedDashboardId}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={t("dashboardSelectPlaceholder")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customDashboards.map((dashboard) => (
+                          <SelectItem key={dashboard.id} value={dashboard.id}>
+                            {dashboard.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Add Card Button */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      {currentDashboard?.name}
+                    </span>
+                    <Badge variant="outline">{t("cardsCount", { count: dashboardCards.length })}</Badge>
+                  </div>
+                  <Dialog open={entityBrowserOpen} onOpenChange={setEntityBrowserOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="size-4 mr-2" />
+                        {t("addCardButton")}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+                      <DialogHeader>
+                        <DialogTitle>
+                          {t("addCardDialogTitle", { name: currentDashboard?.name ?? "" })}
+                        </DialogTitle>
+                      </DialogHeader>
+                      <EntityBrowserWithCallback
+                        onClose={() => setEntityBrowserOpen(false)}
+                        existingEntityIds={dashboardCards.map((c) => c.entity_id)}
+                        onAddEntity={handleAddCard}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                {dashboardCards.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Settings2 className="size-10 mx-auto mb-3 opacity-50" />
+                    <p>{t("emptyCardsTitle")}</p>
+                    <p className="text-sm">
+                      {t("emptyCardsDescription")}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {dashboardCards.map((card) => (
+                      <div
+                        key={card.id}
+                        className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                      >
+                        <GripVertical className="size-4 text-muted-foreground cursor-grab" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">
+                            {card.display_name || card.entity_id}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {domainLabel(card.entity_id.split(".")[0])}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {card.size}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleRemoveCard(card.id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+
+        {/* Energy Dashboard Link */}
+        {isConnected && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <GlassCard>
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-warning/10">
+                      <Zap className="size-5 text-warning" />
+                    </div>
+                    <div>
+                      <h2 className="font-medium">{t("energyHeading")}</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {t("energyDescription")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link href="/energy">
+                      <Button variant="outline" size="sm">
+                        {t("energyDashboardButton")}
+                      </Button>
+                    </Link>
+                    <Link href="/settings/homeassistant/energy">
+                      <Button variant="outline" size="sm">
+                        {t("energyConfigureButton")}
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+
+        {/* Rooms Configuration */}
+        {isConnected && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <GlassCard>
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-indigo-500/10">
+                      <Home className="size-5 text-indigo-500" />
+                    </div>
+                    <div>
+                      <h2 className="font-medium">{t("roomsHeading")}</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {t("roomsDescription")}
+                      </p>
+                    </div>
+                  </div>
+                  <Link href="/settings/homeassistant/rooms">
+                    <Button variant="outline" size="sm">
+                      {t("roomsManageButton")}
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+
+        {/* Info */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <GlassCard>
+            <div className="p-6">
+              <h3 className="font-medium mb-2">{t("infoHeading")}</h3>
+              <ul className="text-sm text-muted-foreground flex flex-col gap-1">
+                <li>• {t("info1")}</li>
+                <li>• {t("info2")}</li>
+                <li>• {t("info3")}</li>
+                <li>• {t("info4")}</li>
+                <li>• {t("info5")}</li>
+                <li>• {t("info6")}</li>
+              </ul>
+            </div>
+          </GlassCard>
+        </motion.div>
+      </div>
+    </main>
+  );
+}
+
+// EntityBrowser wrapper that adds the onAddEntity callback
+interface EntityBrowserWithCallbackProps {
+  onClose: () => void;
+  existingEntityIds: string[];
+  onAddEntity: (entity: HAEntity) => Promise<void>;
+}
+
+function EntityBrowserWithCallback({ onClose, existingEntityIds, onAddEntity }: EntityBrowserWithCallbackProps) {
+  return (
+    <EntityBrowser
+      onClose={onClose}
+      existingEntityIds={existingEntityIds}
+      onAddEntity={onAddEntity}
+    />
+  );
+}
+
+// Main export wrapped in Suspense for useSearchParams
+export default function HomeAssistantSettingsPage() {
+  return (
+    <Suspense fallback={<HomeAssistantSettingsFallback />}>
+      <HomeAssistantSettingsContent />
+    </Suspense>
+  );
+}
+
+function HomeAssistantSettingsFallback() {
+  const t = useTranslations("settings.homeassistant");
+  return (
+    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <div className="relative z-10 max-w-2xl mx-auto flex flex-col gap-6">
+        <PageHeader
+          icon={Home}
+          title={t("title")}
+          subtitle={t("subtitleLoading")}
+          backHref="/settings"
+        />
+        <GlassCard>
+          <div className="p-6">
+            <div className="flex items-center gap-3">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              <span className="text-muted-foreground">{t("loadingHint")}</span>
+            </div>
+          </div>
+        </GlassCard>
+      </div>
+    </main>
+  );
+}

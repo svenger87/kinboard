@@ -1,0 +1,127 @@
+# Overlay on top of webapp/docker/docker-compose.yml for the screenshot demo
+# stack. Run with:
+#
+#   cd docs/wiki/screenshots
+#   docker compose \
+#     -f ../../../webapp/docker/docker-compose.yml \
+#     -f docker-compose.override.yml \
+#     --env-file demo.env \
+#     --project-directory ../../../webapp/docker \
+#     up -d
+#
+# scripts/2-bringup.sh wraps this so you don't have to remember the args.
+#
+# Goals:
+#   - Use a separate PROJECT_NAME so containers don't collide with any prod-on-
+#     localhost. demo.env sets PROJECT_NAME=familyboard-demo.
+#   - Skip Traefik entirely; expose the webapp on a single host port.
+#   - Disable cron container — no scheduled notifications during screenshots.
+#   - Disable real go2rtc — we run a mock with one demo stream instead.
+#   - Storage volumes go to ./data/ inside the screenshots dir, gitignored.
+
+services:
+  kong:
+    ports:
+      - "${KONG_PORT:-8001}:8000"
+    labels:
+      - "traefik.enable=false"
+    volumes:
+      # Bind our demo-rendered kong.yml (with demo ANON_KEY +
+      # SERVICE_ROLE_KEY signed by our demo JWT_SECRET) over the prod
+      # one. Without this, Kong's key-auth plugin only recognizes prod
+      # keys — our demo browser/webapp would be sending demo keys and
+      # getting 401s.
+      - ${SCREENSHOT_ROOT}/kong.yml:/home/kong/kong.yml:ro
+
+  db:
+    volumes:
+      # Neutralize the parent compose's `init.sql` mount: it places our
+      # schema script at a lexical name that sorts BEFORE the supabase
+      # image's own `migrate.sh`, so it runs before the supabase_admin
+      # role exists and fails. Our app schema doesn't actually need
+      # supabase_admin, but the supabase image's startup uses
+      # ON_ERROR_STOP=1 which kills the whole entrypoint on the first
+      # error, so we have to make `init.sql` succeed (no-op) and re-mount
+      # the real file at a later-sorting name.
+      - ${SCREENSHOT_ROOT}/empty-init.sql:/docker-entrypoint-initdb.d/init.sql
+      # Real schema, runs after migrate.sh has created supabase_admin.
+      - ${REPO_ROOT}/webapp/docker/init.sql:/docker-entrypoint-initdb.d/zz-familyboard-init.sql
+
+  webapp:
+    build:
+      args:
+        # Pass demo values into the build so the client JS bundle points
+        # the browser at our local Kong (8001) instead of prod's URL,
+        # and uses our demo ANON_KEY (signed with our demo JWT_SECRET)
+        # instead of prod's anon key.
+        NEXT_PUBLIC_SUPABASE_URL: http://localhost:${KONG_PORT:-8001}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+    environment:
+      # Redirect OpenWeatherMap calls to the local mock so the weather
+      # widget renders without a real API key.
+      OPENWEATHERMAP_BASE_URL: http://mock-weather:8125
+      OPENWEATHERMAP_API_KEY: demo-not-real
+    ports:
+      - "${WEBAPP_PORT:-3201}:3000"
+    labels:
+      - "traefik.enable=false"
+
+  cron:
+    # Demo stack doesn't need scheduled notifications — disable the container
+    # entirely so it doesn't spam the local DB or push to dead endpoints.
+    profiles: ["disabled"]
+
+  go2rtc:
+    # Replaced by the mock below.
+    profiles: ["disabled"]
+
+  mock-go2rtc:
+    image: nginx:alpine
+    container_name: ${PROJECT_NAME:-familyboard-demo}-mock-go2rtc
+    restart: unless-stopped
+    volumes:
+      - ${SCREENSHOT_ROOT}/mocks/go2rtc/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${SCREENSHOT_ROOT}/mocks/go2rtc/streams:/usr/share/nginx/html:ro
+    ports:
+      - "1984:80"
+    networks:
+      - familyboard
+
+  mock-ha:
+    image: node:20-alpine
+    container_name: ${PROJECT_NAME:-familyboard-demo}-mock-ha
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.js"]
+    volumes:
+      - ${SCREENSHOT_ROOT}/mocks/ha:/app
+    ports:
+      - "8123:8123"
+    networks:
+      - familyboard
+
+  mock-tesla:
+    image: node:20-alpine
+    container_name: ${PROJECT_NAME:-familyboard-demo}-mock-tesla
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.js"]
+    volumes:
+      - ${SCREENSHOT_ROOT}/mocks/tesla:/app
+    ports:
+      - "8124:8124"
+    networks:
+      - familyboard
+
+  mock-weather:
+    image: node:20-alpine
+    container_name: ${PROJECT_NAME:-familyboard-demo}-mock-weather
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.js"]
+    volumes:
+      - ${SCREENSHOT_ROOT}/mocks/weather:/app
+    ports:
+      - "8125:8125"
+    networks:
+      - familyboard

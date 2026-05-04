@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wallpaper Model Comparison - Classify</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; }
+
+  .header { background: #16213e; padding: 1rem 2rem; display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; border-bottom: 2px solid #0f3460; }
+  .header h1 { font-size: 1.3rem; color: #e94560; white-space: nowrap; }
+  .header .controls { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+  .header label { font-size: 0.85rem; color: #a0a0b0; }
+  .header select, .header input[type="file"], .header button {
+    background: #0f3460; border: 1px solid #533483; color: #e0e0e0;
+    padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; cursor: pointer;
+  }
+  .header button { background: #e94560; border-color: #e94560; font-weight: 600; }
+  .header button:hover { background: #c73651; }
+  .header button.secondary { background: #533483; border-color: #533483; }
+  .header button.secondary:hover { background: #6a44a8; }
+
+  .stats { background: #16213e; padding: 0.6rem 2rem; display: flex; gap: 2rem; font-size: 0.85rem; color: #a0a0b0; border-bottom: 1px solid #0f3460; }
+  .stats strong { color: #e94560; }
+
+  .main { display: flex; height: calc(100vh - 120px); }
+
+  .sidebar { width: 260px; background: #16213e; overflow-y: auto; border-right: 1px solid #0f3460; flex-shrink: 0; }
+  .sidebar .prompt-item {
+    padding: 0.6rem 1rem; cursor: pointer; border-bottom: 1px solid #0f3460;
+    font-size: 0.8rem; line-height: 1.3; transition: background 0.15s;
+  }
+  .sidebar .prompt-item:hover { background: #1a1a3e; }
+  .sidebar .prompt-item.active { background: #0f3460; border-left: 3px solid #e94560; }
+  .sidebar .prompt-item.classified { opacity: 0.6; }
+  .sidebar .prompt-item.classified::after { content: ' ✓'; color: #4ade80; }
+
+  .content { flex: 1; overflow-y: auto; padding: 1.5rem; }
+
+  .image-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem; }
+  .image-card { background: #16213e; border-radius: 10px; overflow: hidden; border: 2px solid #0f3460; }
+  .image-card.winner { border-color: #4ade80; box-shadow: 0 0 20px rgba(74, 222, 128, 0.2); }
+  .image-card .model-label {
+    padding: 0.5rem 1rem; font-weight: 600; font-size: 0.9rem;
+    background: #0f3460; display: flex; justify-content: space-between; align-items: center;
+  }
+  .image-card img { width: 100%; display: block; cursor: zoom-in; }
+  .image-card img.zoomed { cursor: zoom-out; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: contain; z-index: 1000; background: rgba(0,0,0,0.9); }
+
+  .rating-section { background: #16213e; border-radius: 10px; padding: 1.5rem; border: 1px solid #0f3460; }
+  .rating-section h3 { margin-bottom: 1rem; color: #e94560; }
+
+  .rating-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+  .rating-row label { width: 140px; font-size: 0.85rem; color: #a0a0b0; flex-shrink: 0; }
+
+  .rating-stars { display: flex; gap: 0.25rem; }
+  .rating-stars button {
+    background: none; border: none; font-size: 1.3rem; cursor: pointer;
+    color: #533483; transition: color 0.15s;
+  }
+  .rating-stars button.active { color: #e94560; }
+  .rating-stars button:hover { color: #e94560; }
+
+  .model-selector { display: flex; gap: 0.5rem; }
+  .model-selector button {
+    padding: 0.3rem 0.8rem; border-radius: 6px; border: 1px solid #533483;
+    background: #0f3460; color: #e0e0e0; cursor: pointer; font-size: 0.8rem;
+  }
+  .model-selector button.active { background: #4ade80; color: #1a1a2e; border-color: #4ade80; font-weight: 600; }
+
+  .notes-input {
+    width: 100%; background: #0f3460; border: 1px solid #533483; color: #e0e0e0;
+    padding: 0.5rem; border-radius: 6px; font-size: 0.85rem; resize: vertical; min-height: 60px;
+  }
+
+  .action-row { display: flex; gap: 0.75rem; margin-top: 1rem; }
+  .action-row button { padding: 0.5rem 1.5rem; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+  .btn-save { background: #4ade80; color: #1a1a2e; }
+  .btn-save:hover { background: #22c55e; }
+  .btn-next { background: #533483; color: #e0e0e0; }
+  .btn-next:hover { background: #6a44a8; }
+
+  .empty-state { text-align: center; padding: 4rem; color: #a0a0b0; }
+  .empty-state h2 { color: #e94560; margin-bottom: 1rem; }
+
+  .toast { position: fixed; bottom: 2rem; right: 2rem; background: #4ade80; color: #1a1a2e; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; opacity: 0; transition: opacity 0.3s; z-index: 999; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Wallpaper Classifier</h1>
+  <div class="controls">
+    <label>Load images folder:</label>
+    <input type="file" id="folderInput" webkitdirectory multiple>
+    <button class="secondary" id="loadExampleBtn">Load from assets/comparison</button>
+    <button class="secondary" id="importBtn">Import Ratings</button>
+    <input type="file" id="importInput" accept=".json" style="display:none">
+    <button id="exportBtn">Export Ratings (JSON)</button>
+    <button id="exportCsvBtn" class="secondary">Export CSV</button>
+  </div>
+</div>
+
+<div class="stats" id="statsBar">
+  <span>Images: <strong id="statTotal">0</strong></span>
+  <span>Classified: <strong id="statClassified">0</strong></span>
+  <span>Remaining: <strong id="statRemaining">0</strong></span>
+  <span>Avg Realism: <strong id="statAvgRealism">-</strong></span>
+</div>
+
+<div class="main">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="content" id="content">
+    <div class="empty-state">
+      <h2>Load Images</h2>
+      <p>Use the folder picker above to load your comparison images.<br>
+      Expected structure: <code>assets/comparison/{model-name}/001_seed42.png</code></p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+const state = {
+  // { promptIndex: number, model: string, file: File, url: string }[]
+  images: [],
+  // Unique prompt indices
+  prompts: [],
+  // Current prompt index being viewed
+  activePrompt: null,
+  // { [promptIndex]: { realism: {model: 1-5}, composition: {model: 1-5}, artifacts: {model: 1-5}, overall: {model: 1-5}, winner: string, notes: string } }
+  ratings: {},
+};
+
+const CRITERIA = [
+  { key: 'realism', label: 'Realism' },
+  { key: 'composition', label: 'Composition' },
+  { key: 'artifacts', label: 'Artifact-free' },
+  { key: 'lighting', label: 'Lighting' },
+  { key: 'detail', label: 'Detail/Sharpness' },
+  { key: 'overall', label: 'Overall Quality' },
+];
+
+const MODEL_COLORS = {
+  'z-image-turbo': '#e94560',
+  'flux1-dev': '#4ade80',
+  'qwen-image': '#60a5fa',
+};
+
+// ---------------------------------------------------------------------------
+// File loading
+// ---------------------------------------------------------------------------
+
+document.getElementById('folderInput').addEventListener('change', (e) => {
+  loadFiles(Array.from(e.target.files));
+});
+
+document.getElementById('loadExampleBtn').addEventListener('click', () => {
+  showToast('Use the folder picker to select assets/comparison');
+});
+
+function loadFiles(files) {
+  state.images = [];
+  const promptSet = new Set();
+
+  for (const file of files) {
+    // Parse path: expect model-name/NNN_seedXXXX.png
+    const parts = file.webkitRelativePath?.split('/') || file.name.split('/');
+    let model, filename;
+
+    if (parts.length >= 2) {
+      // folder/model/file.png or comparison/model/file.png
+      model = parts[parts.length - 2];
+      filename = parts[parts.length - 1];
+    } else {
+      filename = file.name;
+      model = 'unknown';
+    }
+
+    if (!filename.match(/\.(png|jpg|jpeg|webp)$/i)) continue;
+
+    const match = filename.match(/^(\d+)/);
+    const promptIndex = match ? parseInt(match[1], 10) : 0;
+
+    promptSet.add(promptIndex);
+    state.images.push({
+      promptIndex,
+      model,
+      file,
+      filename,
+      url: URL.createObjectURL(file),
+    });
+  }
+
+  state.prompts = Array.from(promptSet).sort((a, b) => a - b);
+
+  // Init ratings for all prompts
+  for (const p of state.prompts) {
+    if (!state.ratings[p]) {
+      state.ratings[p] = { winner: null, notes: '' };
+      for (const c of CRITERIA) {
+        state.ratings[p][c.key] = {};
+      }
+    }
+  }
+
+  renderSidebar();
+  updateStats();
+
+  if (state.prompts.length > 0) {
+    selectPrompt(state.prompts[0]);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar
+// ---------------------------------------------------------------------------
+
+function renderSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.innerHTML = '';
+
+  for (const idx of state.prompts) {
+    const div = document.createElement('div');
+    div.className = 'prompt-item' + (isClassified(idx) ? ' classified' : '') + (idx === state.activePrompt ? ' active' : '');
+    div.textContent = `#${idx} — ${getPromptModels(idx).join(', ')}`;
+    div.onclick = () => selectPrompt(idx);
+    sidebar.appendChild(div);
+  }
+}
+
+function getPromptModels(promptIndex) {
+  return [...new Set(state.images.filter(i => i.promptIndex === promptIndex).map(i => i.model))];
+}
+
+function isClassified(promptIndex) {
+  const r = state.ratings[promptIndex];
+  if (!r) return false;
+  return r.winner !== null && r.winner !== '';
+}
+
+// ---------------------------------------------------------------------------
+// Content rendering
+// ---------------------------------------------------------------------------
+
+function selectPrompt(promptIndex) {
+  state.activePrompt = promptIndex;
+  renderSidebar();
+  renderContent();
+}
+
+function renderContent() {
+  const content = document.getElementById('content');
+  const idx = state.activePrompt;
+  if (idx == null) return;
+
+  const images = state.images.filter(i => i.promptIndex === idx);
+  const models = getPromptModels(idx);
+  const rating = state.ratings[idx] || {};
+
+  let html = `<div class="image-grid">`;
+  for (const img of images) {
+    const isWinner = rating.winner === img.model;
+    html += `
+      <div class="image-card ${isWinner ? 'winner' : ''}">
+        <div class="model-label" style="border-bottom: 3px solid ${MODEL_COLORS[img.model] || '#888'}">
+          ${img.model}
+          ${isWinner ? '<span style="color: #4ade80">★ WINNER</span>' : ''}
+        </div>
+        <img src="${img.url}" alt="${img.model}" onclick="toggleZoom(this)">
+      </div>`;
+  }
+  html += `</div>`;
+
+  // Rating section
+  html += `<div class="rating-section">`;
+  html += `<h3>Rate Prompt #${idx}</h3>`;
+
+  // Per-criteria ratings for each model
+  for (const criterion of CRITERIA) {
+    html += `<div class="rating-row"><label>${criterion.label}:</label><div style="display:flex;gap:1.5rem;flex-wrap:wrap;">`;
+    for (const model of models) {
+      const val = rating[criterion.key]?.[model] || 0;
+      html += `<div style="display:flex;align-items:center;gap:0.3rem;">
+        <span style="font-size:0.75rem;color:${MODEL_COLORS[model] || '#888'};min-width:100px;">${model}</span>
+        <div class="rating-stars">`;
+      for (let s = 1; s <= 5; s++) {
+        html += `<button class="${s <= val ? 'active' : ''}" onclick="setRating(${idx},'${criterion.key}','${model}',${s})">★</button>`;
+      }
+      html += `</div></div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  // Winner selector
+  html += `<div class="rating-row"><label>Winner:</label><div class="model-selector">`;
+  for (const model of models) {
+    html += `<button class="${rating.winner === model ? 'active' : ''}" onclick="setWinner(${idx},'${model}')">${model}</button>`;
+  }
+  html += `</div></div>`;
+
+  // Notes
+  html += `<div class="rating-row"><label>Notes:</label>
+    <textarea class="notes-input" id="notesInput" oninput="setNotes(${idx}, this.value)">${rating.notes || ''}</textarea>
+  </div>`;
+
+  // Navigation
+  html += `<div class="action-row">
+    <button class="btn-save" onclick="saveAndNext(${idx})">Save & Next →</button>
+    <button class="btn-next" onclick="goNext(${idx})">Skip →</button>
+  </div>`;
+
+  html += `</div>`;
+  content.innerHTML = html;
+}
+
+// ---------------------------------------------------------------------------
+// Rating actions
+// ---------------------------------------------------------------------------
+
+window.setRating = function(promptIndex, criterion, model, value) {
+  if (!state.ratings[promptIndex]) {
+    state.ratings[promptIndex] = { winner: null, notes: '' };
+    for (const c of CRITERIA) state.ratings[promptIndex][c.key] = {};
+  }
+  if (!state.ratings[promptIndex][criterion]) state.ratings[promptIndex][criterion] = {};
+
+  // Toggle off if clicking same value
+  if (state.ratings[promptIndex][criterion][model] === value) {
+    state.ratings[promptIndex][criterion][model] = 0;
+  } else {
+    state.ratings[promptIndex][criterion][model] = value;
+  }
+  renderContent();
+  updateStats();
+};
+
+window.setWinner = function(promptIndex, model) {
+  if (!state.ratings[promptIndex]) {
+    state.ratings[promptIndex] = { winner: null, notes: '' };
+    for (const c of CRITERIA) state.ratings[promptIndex][c.key] = {};
+  }
+  state.ratings[promptIndex].winner = state.ratings[promptIndex].winner === model ? null : model;
+  renderContent();
+  renderSidebar();
+  updateStats();
+};
+
+window.setNotes = function(promptIndex, text) {
+  if (!state.ratings[promptIndex]) {
+    state.ratings[promptIndex] = { winner: null, notes: '' };
+    for (const c of CRITERIA) state.ratings[promptIndex][c.key] = {};
+  }
+  state.ratings[promptIndex].notes = text;
+};
+
+window.saveAndNext = function(promptIndex) {
+  showToast('Saved!');
+  goNext(promptIndex);
+};
+
+window.goNext = function(promptIndex) {
+  const currentIdx = state.prompts.indexOf(promptIndex);
+  if (currentIdx < state.prompts.length - 1) {
+    selectPrompt(state.prompts[currentIdx + 1]);
+  } else {
+    showToast('All prompts reviewed!');
+  }
+};
+
+window.toggleZoom = function(img) {
+  img.classList.toggle('zoomed');
+};
+
+// Close zoomed image on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.zoomed').forEach(el => el.classList.remove('zoomed'));
+  }
+  // Arrow keys for navigation
+  if (e.key === 'ArrowRight' && state.activePrompt != null) {
+    goNext(state.activePrompt);
+  }
+  if (e.key === 'ArrowLeft' && state.activePrompt != null) {
+    const currentIdx = state.prompts.indexOf(state.activePrompt);
+    if (currentIdx > 0) selectPrompt(state.prompts[currentIdx - 1]);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Stats
+// ---------------------------------------------------------------------------
+
+function updateStats() {
+  const total = state.prompts.length;
+  const classified = state.prompts.filter(p => isClassified(p)).length;
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statClassified').textContent = classified;
+  document.getElementById('statRemaining').textContent = total - classified;
+
+  // Average realism across all rated
+  let sum = 0, count = 0;
+  for (const p of state.prompts) {
+    const r = state.ratings[p]?.realism;
+    if (r) {
+      for (const v of Object.values(r)) {
+        if (v > 0) { sum += v; count++; }
+      }
+    }
+  }
+  document.getElementById('statAvgRealism').textContent = count > 0 ? (sum / count).toFixed(1) : '-';
+}
+
+// ---------------------------------------------------------------------------
+// Export / Import
+// ---------------------------------------------------------------------------
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const data = {
+    exportedAt: new Date().toISOString(),
+    totalPrompts: state.prompts.length,
+    classified: state.prompts.filter(p => isClassified(p)).length,
+    criteria: CRITERIA.map(c => c.key),
+    ratings: state.ratings,
+    summary: buildSummary(),
+  };
+  downloadJSON(data, `wallpaper-ratings-${Date.now()}.json`);
+  showToast('Exported JSON!');
+});
+
+document.getElementById('exportCsvBtn').addEventListener('click', () => {
+  const models = [...new Set(state.images.map(i => i.model))];
+  const header = ['prompt_index', 'winner', ...CRITERIA.flatMap(c => models.map(m => `${c.key}_${m}`)), 'notes'];
+  const rows = [header.join(',')];
+
+  for (const p of state.prompts) {
+    const r = state.ratings[p] || {};
+    const row = [
+      p,
+      r.winner || '',
+      ...CRITERIA.flatMap(c => models.map(m => r[c.key]?.[m] || '')),
+      `"${(r.notes || '').replace(/"/g, '""')}"`,
+    ];
+    rows.push(row.join(','));
+  }
+
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `wallpaper-ratings-${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Exported CSV!');
+});
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('importInput').click();
+});
+
+document.getElementById('importInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const data = JSON.parse(text);
+  if (data.ratings) {
+    state.ratings = { ...state.ratings, ...data.ratings };
+    renderSidebar();
+    renderContent();
+    updateStats();
+    showToast('Imported ratings!');
+  }
+});
+
+function buildSummary() {
+  const models = [...new Set(state.images.map(i => i.model))];
+  const summary = {};
+
+  for (const model of models) {
+    summary[model] = {
+      wins: 0,
+      avgScores: {},
+    };
+    for (const c of CRITERIA) {
+      let sum = 0, count = 0;
+      for (const p of state.prompts) {
+        const val = state.ratings[p]?.[c.key]?.[model];
+        if (val > 0) { sum += val; count++; }
+      }
+      summary[model].avgScores[c.key] = count > 0 ? +(sum / count).toFixed(2) : null;
+    }
+    summary[model].wins = state.prompts.filter(p => state.ratings[p]?.winner === model).length;
+  }
+  return summary;
+}
+
+function downloadJSON(data, filename) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
+// Toast
+// ---------------------------------------------------------------------------
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+</script>
+</body>
+</html>
