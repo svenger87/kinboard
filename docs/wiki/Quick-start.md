@@ -3,7 +3,7 @@
 You'll need:
 
 - **Docker** with Compose v2 (`docker compose ...`)
-- **Node.js 20+** if you want to run the dev server locally; not required for the production stack
+- **Node.js 20+** — `setup.sh` calls `npx web-push generate-vapid-keys` to mint the keypair that signs push notifications. If Node.js isn't on PATH, setup completes but push notifications stay disabled (everything else works); install Node.js + re-run `./setup.sh --force` later to enable.
 - ~2 GB free disk for the Supabase + webapp images
 - A free [OpenWeatherMap API key](https://openweathermap.org/api) (optional, for the weather widget)
 
