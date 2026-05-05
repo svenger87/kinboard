@@ -7,7 +7,8 @@
     "delete": "Löschen",
     "edit": "Bearbeiten",
     "searchClear": "Suche leeren",
-    "newEntriesAria": "{count, plural, one {# neuer Eintrag} other {# neue Einträge}}"
+    "newEntriesAria": "{count, plural, one {# neuer Eintrag} other {# neue Einträge}}",
+    "seeOnDashboardOrNewsPage": "auf dem Dashboard-Widget oder unter /news"
   },
   "components": {
     "back": "Zurück",
@@ -210,7 +211,8 @@
     "energy": "Energie",
     "tesla": "Tesla",
     "cameras": "Kameras",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "news": "Nachrichten"
   },
   "cameras": {
     "title": "Kameras",
@@ -1600,7 +1602,17 @@
       "name_de": "Deutsch"
     },
     "appVersionDynamic": "Kinboard v{version}",
-    "updateAvailable": "Update auf {version} verfügbar"
+    "updateAvailable": "Update auf {version} verfügbar",
+    "itemNewsLabel": "Nachrichtenquellen",
+    "itemNewsDescription": "Welche RSS-Feeds das News-Widget und die /news-Seite befüllen",
+    "news": {
+      "title": "Nachrichtenquellen",
+      "subtitle": "Welche RSS-Feeds das News-Widget und die /news-Seite befüllen",
+      "lang_de": "Deutsch",
+      "lang_en": "Englisch",
+      "noneSelectedHint": "Keine Quellen ausgewählt — das News-Widget und /news bleiben leer, bis mindestens eine Quelle aktiviert ist.",
+      "changesAutosave": "Änderungen werden automatisch gespeichert"
+    }
   },
   "einkaufen": {
     "title": "Einkaufsliste",
@@ -2542,5 +2554,16 @@
     "atTime": "um {time}",
     "nextPeriodHeading": "Nächste Stunde:",
     "noLessonsToday": "Kein Unterricht heute"
+  },
+  "news": {
+    "title": "Nachrichten",
+    "subtitle": "Schlagzeilen aus den ausgewählten Quellen",
+    "searchPlaceholder": "Schlagzeilen durchsuchen…",
+    "refresh": "Aktualisieren",
+    "manageSources": "Quellen verwalten",
+    "allSources": "Alle Quellen",
+    "readArticle": "Artikel lesen",
+    "emptyNoSources": "Keine Quellen ausgewählt. In den Einstellungen einige hinzufügen.",
+    "emptyFiltered": "Keine Schlagzeilen passen zum aktuellen Filter."
   }
 }

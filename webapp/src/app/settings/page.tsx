@@ -24,6 +24,7 @@ import {
   Trash2,
   LayoutGrid,
   Languages,
+  Newspaper,
 } from "lucide-react";
 import { PinGuard } from "@/components/pin-guard";
 import { GlassCard } from "@/components/ui/card";
@@ -227,6 +228,12 @@ export default function SettingsPage() {
           label: t("itemLanguageLabel"),
           description: t("itemLanguageDescription"),
           href: "/settings/language",
+        },
+        {
+          icon: Newspaper,
+          label: t("itemNewsLabel"),
+          description: t("itemNewsDescription"),
+          href: "/settings/news",
         },
       ],
     },

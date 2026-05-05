@@ -12,6 +12,7 @@ import {
   Zap,
   Car,
   Video,
+  Newspaper,
   Settings,
 } from "lucide-react";
 
@@ -36,5 +37,6 @@ export const NAV_ITEMS = [
   { href: "/energy", icon: Zap, labelKey: "energy" },
   { href: "/tesla", icon: Car, labelKey: "tesla" },
   { href: "/cameras", icon: Video, labelKey: "cameras" },
+  { href: "/news", icon: Newspaper, labelKey: "news" },
   { href: "/settings", icon: Settings, labelKey: "settings" },
 ] as const;

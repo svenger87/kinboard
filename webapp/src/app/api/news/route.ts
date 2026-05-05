@@ -1,4 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  NEWS_PROVIDERS,
+  DEFAULT_NEWS_SOURCES,
+  getProvider,
+  type NewsProvider,
+} from "@/lib/news-providers";
 
 interface NewsItem {
   title: string;
@@ -7,98 +13,19 @@ interface NewsItem {
   description?: string;
   image?: string;
   category?: string;
+  /** ID of the news provider, e.g. "spiegel". Lets the UI badge each item. */
+  source: string;
+  /** Display name of the source */
+  sourceName: string;
 }
 
-// Cache news for 10 minutes
-let cachedNews: NewsItem[] | null = null;
-let cacheTimestamp = 0;
-const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+// Per-provider cache so swapping sources doesn't invalidate everything.
+// 10-minute TTL keeps RSS publishers happy and ensures fresh-enough news.
+const PROVIDER_CACHE_TTL_MS = 10 * 60 * 1000;
+const providerCache: Map<string, { items: NewsItem[]; expiresAt: number }> = new Map();
 
-// Der Spiegel RSS feed (includes images)
-const RSS_URL = "https://www.spiegel.de/schlagzeilen/index.rss";
-
-export async function GET() {
-  try {
-    // Return cached news if still valid
-    if (cachedNews && Date.now() - cacheTimestamp < CACHE_DURATION) {
-      return NextResponse.json({ news: cachedNews });
-    }
-
-    // Fetch RSS feed
-    const response = await fetch(RSS_URL, {
-      headers: {
-        "User-Agent": "FamilyCalendar/1.0",
-      },
-      next: { revalidate: 600 }, // Cache for 10 minutes
-    });
-
-    if (!response.ok) {
-      throw new Error(`RSS fetch failed: ${response.status}`);
-    }
-
-    const xml = await response.text();
-
-    // Parse RSS XML
-    const items: NewsItem[] = [];
-    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-    let match;
-
-    while ((match = itemRegex.exec(xml)) !== null) {
-      const itemXml = match[1];
-
-      const title = itemXml.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)?.[1] ||
-                    itemXml.match(/<title>(.*?)<\/title>/)?.[1] || "";
-      const link = itemXml.match(/<link>(.*?)<\/link>/)?.[1] || "";
-      const pubDate = itemXml.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || "";
-      const description = itemXml.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/)?.[1] ||
-                          itemXml.match(/<description>(.*?)<\/description>/)?.[1] || "";
-
-      // Extract image from enclosure or media:content (try multiple patterns)
-      const enclosureUrl = itemXml.match(/<enclosure[^>]*url="([^"]*\.(jpg|jpeg|png|webp)[^"]*)"/i)?.[1] ||
-                           itemXml.match(/<enclosure[^>]*url="([^"]*)"/)?.[1] || "";
-      const mediaContent = itemXml.match(/<media:content[^>]*url="([^"]*)"/)?.[1] || "";
-      const mediaThumbnail = itemXml.match(/<media:thumbnail[^>]*url="([^"]*)"/)?.[1] || "";
-      const imgInDescription = description.match(/src="([^"]*\.(jpg|jpeg|png|webp)[^"]*)"/i)?.[1] || "";
-      const image = enclosureUrl || mediaContent || mediaThumbnail || imgInDescription || "";
-
-      // Extract category (try multiple patterns)
-      const category = itemXml.match(/<category><!\[CDATA\[(.*?)\]\]><\/category>/)?.[1] ||
-                       itemXml.match(/<category[^>]*>(.*?)<\/category>/)?.[1] || "";
-
-      if (title) {
-        items.push({
-          title: decodeHtmlEntities(title),
-          link,
-          pubDate,
-          description: stripHtml(decodeHtmlEntities(description)),
-          image,
-          category: decodeHtmlEntities(category),
-        });
-      }
-
-      // Limit to 10 items
-      if (items.length >= 10) break;
-    }
-
-    // Update cache
-    cachedNews = items;
-    cacheTimestamp = Date.now();
-
-    return NextResponse.json({ news: items });
-  } catch (error) {
-    console.error("News fetch error:", error);
-
-    // Return cached news if available, even if stale
-    if (cachedNews) {
-      return NextResponse.json({ news: cachedNews, stale: true });
-    }
-
-    return NextResponse.json(
-      { error: "Failed to fetch news" },
-      { status: 500 }
-    );
-  }
-}
+const MAX_ITEMS_PER_SOURCE = 15;
+const MAX_ITEMS_TOTAL = 40;
 
 function decodeHtmlEntities(text: string): string {
   return text
@@ -112,7 +39,132 @@ function decodeHtmlEntities(text: string): string {
 
 function stripHtml(text: string): string {
   return text
-    .replace(/<[^>]*>/g, "") // Remove HTML tags
-    .replace(/\s+/g, " ") // Normalize whitespace
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
     .trim();
 }
+
+function parseRss(xml: string, provider: NewsProvider): NewsItem[] {
+  const items: NewsItem[] = [];
+  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+  let match;
+
+  while ((match = itemRegex.exec(xml)) !== null) {
+    const itemXml = match[1];
+
+    const title =
+      itemXml.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)?.[1] ||
+      itemXml.match(/<title>(.*?)<\/title>/)?.[1] ||
+      "";
+    const link = itemXml.match(/<link>(.*?)<\/link>/)?.[1] || "";
+    const pubDate = itemXml.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || "";
+    const description =
+      itemXml.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/)?.[1] ||
+      itemXml.match(/<description>(.*?)<\/description>/)?.[1] ||
+      "";
+
+    const enclosureUrl =
+      itemXml.match(/<enclosure[^>]*url="([^"]*\.(jpg|jpeg|png|webp)[^"]*)"/i)?.[1] ||
+      itemXml.match(/<enclosure[^>]*url="([^"]*)"/)?.[1] ||
+      "";
+    const mediaContent = itemXml.match(/<media:content[^>]*url="([^"]*)"/)?.[1] || "";
+    const mediaThumbnail = itemXml.match(/<media:thumbnail[^>]*url="([^"]*)"/)?.[1] || "";
+    const imgInDescription = description.match(/src="([^"]*\.(jpg|jpeg|png|webp)[^"]*)"/i)?.[1] || "";
+    const image = enclosureUrl || mediaContent || mediaThumbnail || imgInDescription || "";
+
+    const category =
+      itemXml.match(/<category><!\[CDATA\[(.*?)\]\]><\/category>/)?.[1] ||
+      itemXml.match(/<category[^>]*>(.*?)<\/category>/)?.[1] ||
+      "";
+
+    if (title) {
+      items.push({
+        title: decodeHtmlEntities(title),
+        link: link.trim(),
+        pubDate,
+        description: stripHtml(decodeHtmlEntities(description)),
+        image,
+        category: decodeHtmlEntities(category),
+        source: provider.id,
+        sourceName: provider.name,
+      });
+    }
+
+    if (items.length >= MAX_ITEMS_PER_SOURCE) break;
+  }
+
+  return items;
+}
+
+async function fetchProvider(provider: NewsProvider): Promise<NewsItem[]> {
+  const cached = providerCache.get(provider.id);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.items;
+  }
+
+  try {
+    const response = await fetch(provider.url, {
+      headers: { "User-Agent": "Kinboard/1.0 (+https://kinboard.app)" },
+      next: { revalidate: 600 },
+      // 10s connection budget — slow feeds shouldn't block the others
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) {
+      // Stale cache wins over hard failure
+      return cached?.items ?? [];
+    }
+    const xml = await response.text();
+    const items = parseRss(xml, provider);
+    providerCache.set(provider.id, {
+      items,
+      expiresAt: Date.now() + PROVIDER_CACHE_TTL_MS,
+    });
+    return items;
+  } catch (err) {
+    console.error(`[news] fetch ${provider.id} failed:`, err);
+    return cached?.items ?? [];
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const sourcesParam = request.nextUrl.searchParams.get("sources");
+  const requested = sourcesParam
+    ? sourcesParam.split(",").map((s) => s.trim()).filter(Boolean)
+    : DEFAULT_NEWS_SOURCES;
+
+  // Resolve & sanitize: drop unknown IDs silently, fall back to defaults if empty
+  const providers: NewsProvider[] = requested
+    .map(getProvider)
+    .filter((p): p is NewsProvider => Boolean(p));
+  const effective = providers.length > 0
+    ? providers
+    : DEFAULT_NEWS_SOURCES.map(getProvider).filter((p): p is NewsProvider => Boolean(p));
+
+  if (effective.length === 0) {
+    return NextResponse.json({ news: [], providers: [] });
+  }
+
+  // Parallel fetch
+  const results = await Promise.all(effective.map(fetchProvider));
+  const merged = results.flat();
+
+  // Dedupe by canonical link, sort newest-first, cap
+  const seen = new Set<string>();
+  const deduped: NewsItem[] = [];
+  for (const item of merged) {
+    if (!item.link || seen.has(item.link)) continue;
+    seen.add(item.link);
+    deduped.push(item);
+  }
+  deduped.sort((a, b) => {
+    const ad = a.pubDate ? new Date(a.pubDate).getTime() : 0;
+    const bd = b.pubDate ? new Date(b.pubDate).getTime() : 0;
+    return bd - ad;
+  });
+
+  return NextResponse.json({
+    news: deduped.slice(0, MAX_ITEMS_TOTAL),
+    providers: effective.map((p) => ({ id: p.id, name: p.name, lang: p.lang })),
+  });
+}
+

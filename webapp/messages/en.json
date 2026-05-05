@@ -7,7 +7,8 @@
     "delete": "Delete",
     "edit": "Edit",
     "searchClear": "Clear search",
-    "newEntriesAria": "{count, plural, one {# new entry} other {# new entries}}"
+    "newEntriesAria": "{count, plural, one {# new entry} other {# new entries}}",
+    "seeOnDashboardOrNewsPage": "see on the dashboard widget or on /news"
   },
   "components": {
     "back": "Back",
@@ -210,7 +211,8 @@
     "energy": "Energy",
     "tesla": "Tesla",
     "cameras": "Cameras",
-    "settings": "Settings"
+    "settings": "Settings",
+    "news": "News"
   },
   "cameras": {
     "title": "Cameras",
@@ -1600,7 +1602,17 @@
       "name_de": "German"
     },
     "appVersionDynamic": "Kinboard v{version}",
-    "updateAvailable": "update to {version} available"
+    "updateAvailable": "update to {version} available",
+    "itemNewsLabel": "News sources",
+    "itemNewsDescription": "Pick which RSS feeds populate the news widget and the /news page",
+    "news": {
+      "title": "News sources",
+      "subtitle": "Pick which RSS feeds populate the news widget and the /news page",
+      "lang_de": "German",
+      "lang_en": "English",
+      "noneSelectedHint": "No sources selected — the news widget and /news page will stay empty until you pick at least one.",
+      "changesAutosave": "Changes save automatically"
+    }
   },
   "einkaufen": {
     "title": "Shopping list",
@@ -2542,5 +2554,16 @@
     "atTime": "at {time}",
     "nextPeriodHeading": "Next period:",
     "noLessonsToday": "No lessons today"
+  },
+  "news": {
+    "title": "News",
+    "subtitle": "Headlines from your selected sources",
+    "searchPlaceholder": "Search headlines…",
+    "refresh": "Refresh",
+    "manageSources": "Manage sources",
+    "allSources": "All sources",
+    "readArticle": "Read article",
+    "emptyNoSources": "No sources selected. Open settings to pick a few.",
+    "emptyFiltered": "No headlines match the current filter."
   }
 }
