@@ -1595,7 +1595,9 @@
       "current": "current",
       "name_en": "English",
       "name_de": "German"
-    }
+    },
+    "appVersionDynamic": "Kinboard v{version}",
+    "updateAvailable": "update to {version} available"
   },
   "einkaufen": {
     "title": "Shopping list",

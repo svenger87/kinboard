@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Version check on the Settings page.** The footer now shows the live `Kinboard v{X.Y.Z}` from `package.json` (replacing the hardcoded `v1.0.0` translation key) and surfaces a small "update to vY.Z.W available" link when the GitHub releases API reports a newer tag. Backed by a new `/api/version-check` endpoint that polls `api.github.com/repos/svenger87/kinboard/releases/latest`, caches the response in-process for 6 hours, and tolerates the GitHub API being unreachable (falls back to "current only, no badge"). Per-client TanStack Query staleTime is 1h. EN + DE translations added.
+
 ## [1.0.2] - 2026-05-05 — Image-overlay path actually works
 
 ### Fixed
