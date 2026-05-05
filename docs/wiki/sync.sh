@@ -20,6 +20,10 @@ git clone --depth 1 "$WIKI_REPO" "$WORK_DIR" 2>/dev/null || {
 }
 
 echo "→ syncing markdown files"
+# Wipe stale top-level .md files in the wiki so renamed/deleted pages
+# in the source disappear from the published wiki. Leave images/ and
+# .git alone.
+find "$WORK_DIR" -maxdepth 1 -name '*.md' -delete
 cp "$SCRIPT_DIR"/*.md "$WORK_DIR/"
 mkdir -p "$WORK_DIR/images"
 if [[ -d "$SCRIPT_DIR/images" ]]; then

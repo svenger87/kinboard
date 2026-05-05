@@ -1,11 +1,11 @@
 # Smart home
 
-Two pages built on top of [[Integration-Home-Assistant]]:
+Two pages built on top of [[Home-Assistant]]:
 
 - **`/home-automation`** — touch-friendly room view of HA entities
 - **`/energy`** — solar / battery / grid energy dashboard
 
-This page covers what those surfaces *do*. For connecting HA, see [[Integration-Home-Assistant]].
+This page covers what those surfaces *do*. For connecting HA, see [[Home-Assistant]].
 
 | `/home-automation` | `/energy` |
 |---|---|
@@ -17,7 +17,7 @@ This page covers what those surfaces *do*. For connecting HA, see [[Integration-
 
 ### Layout: tabs
 
-The top of the page has a row of room tabs (configured via [[Integration-Home-Assistant#room-configuration|Settings → Home Assistant → Rooms]]):
+The top of the page has a row of room tabs (configured via [[Home-Assistant#room-configuration|Settings → Home Assistant → Rooms]]):
 
 ```
 [ Living room ]  [ Kitchen ]  [ Bedroom ]  [ Garden ]  [ Other ]
@@ -60,7 +60,7 @@ Tap individual lights to toggle, or use the master "all off" / "all on" buttons 
 
 ### Dashboards (custom card grids)
 
-Beyond rooms, [[Integration-Home-Assistant#dashboards|dashboards]] let you curate a flat grid of cards across rooms. Use cases:
+Beyond rooms, [[Home-Assistant#dashboards|dashboards]] let you curate a flat grid of cards across rooms. Use cases:
 
 - A "morning routine" dashboard with the bedroom light, coffee maker, and weather
 - A "media room" dashboard with TV media player + ambient lights + Roku scenes
@@ -70,7 +70,7 @@ Dashboards are the legacy surface (predates rooms in the codebase). The room vie
 
 ## Energy
 
-`/energy` is the solar / battery / grid power dashboard. Pulls live data from HA sensors mapped in [[Integration-Home-Assistant#optional-configure-the-energy-dashboard|Settings → HA → Energy]].
+`/energy` is the solar / battery / grid power dashboard. Pulls live data from HA sensors mapped in [[Home-Assistant#optional-configure-the-energy-dashboard|Settings → HA → Energy]].
 
 ### Live energy flow
 
@@ -103,7 +103,7 @@ Below the flow: configurable line charts, one per timeframe:
 | **Energy** | Today / 7d / 30d / 1y | Cumulative kWh delta per source |
 | **Battery state-of-charge** | Last 24 h / 7 d | Battery % over time |
 
-Each chart's series are configurable in [[Integration-Home-Assistant#optional-configure-the-energy-dashboard|Settings → HA → Energy → Chart configuration]] — pick which entities show up, label them, color them.
+Each chart's series are configurable in [[Home-Assistant#optional-configure-the-energy-dashboard|Settings → HA → Energy → Chart configuration]] — pick which entities show up, label them, color them.
 
 ### Daily / weekly / monthly aggregates
 
@@ -136,5 +136,5 @@ If you toggle **Show on screensaver** in the energy settings, the screensaver ov
 
 ## Related
 
-- [[Integration-Home-Assistant]] — connecting HA, configuring rooms / dashboards / energy
-- [[Integration-Cameras]] — for cameras outside the HA ecosystem (direct go2rtc)
+- [[Home-Assistant]] — connecting HA, configuring rooms / dashboards / energy
+- [[Cameras]] — for cameras outside the HA ecosystem (direct go2rtc)

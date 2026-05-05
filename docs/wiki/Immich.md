@@ -73,5 +73,5 @@ Settings → Photos → **Disconnect** (under the Immich connection panel). The 
 
 ## Related
 
-- [[Integration-OpenWeatherMap]] — Unsplash is the secondary photo source if you don't run Immich
+- [[OpenWeatherMap]] — Unsplash is the secondary photo source if you don't run Immich
 - See [`webapp/src/components/screensaver.tsx`](https://github.com/svenger87/kinboard/blob/main/webapp/src/components/screensaver.tsx) for the screensaver internals

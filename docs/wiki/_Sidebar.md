@@ -13,12 +13,12 @@
 - [[Troubleshooting]]
 
 **Integrations**
-- [[Integration-Google-Calendar|Google Calendar]]
-- [[Integration-Home-Assistant|Home Assistant]]
-- [[Integration-Immich|Immich photos]]
-- [[Integration-Bring|Bring! shopping]]
-- [[Integration-OpenWeatherMap|OpenWeatherMap]]
-- [[Integration-Cameras|Cameras (go2rtc)]]
+- [[Google-Calendar|Google Calendar]]
+- [[Home-Assistant|Home Assistant]]
+- [[Immich|Immich photos]]
+- [[Bring|Bring! shopping]]
+- [[OpenWeatherMap|OpenWeatherMap]]
+- [[Cameras|Cameras (go2rtc)]]
 
 **Kiosk hardware**
 - [[Reference-Build|Reference build (BOM + frame)]]

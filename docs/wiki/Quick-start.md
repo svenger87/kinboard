@@ -98,10 +98,10 @@ You'll land on `/join` with a "Welcome — let's set things up" card because the
 
 Open the menu → **Settings** and walk through the integrations you care about. Each is documented separately:
 
-- [[Integration-OpenWeatherMap]] (5 minutes, just paste the key)
-- [[Integration-Google-Calendar]] (10 minutes, OAuth setup)
-- [[Integration-Home-Assistant]] (15 minutes, generate a token)
-- [[Integration-Immich]] / [[Integration-Bring]] / [[Integration-Cameras]] as needed
+- [[OpenWeatherMap]] (5 minutes, just paste the key)
+- [[Google-Calendar]] (10 minutes, OAuth setup)
+- [[Home-Assistant]] (15 minutes, generate a token)
+- [[Immich]] / [[Bring]] / [[Cameras]] as needed
 
 ## What runs on your machine
 

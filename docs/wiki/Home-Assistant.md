@@ -82,7 +82,7 @@ The energy backend uses HA's `/api/history/period` and `/api/statistics` endpoin
 | `vacuum` | Start/stop/dock |
 | `weather` | Current + forecast (used by widget) |
 | `person`, `device_tracker` | Avatar + location label |
-| `camera` | MJPEG stream (also see [[Integration-Cameras]] for non-HA cameras) |
+| `camera` | MJPEG stream (also see [[Cameras]] for non-HA cameras) |
 
 Unsupported domains render a generic card with the raw state.
 
@@ -101,5 +101,5 @@ Settings → Home Assistant → **Disconnect**. All configured dashboards, rooms
 
 ## Related
 
-- [[Integration-Cameras]] — cameras direct to go2rtc, bypassing HA
+- [[Cameras]] — cameras direct to go2rtc, bypassing HA
 - [[Themes-and-Locales]] — entity-state strings localize via `homeAutomation.entityState.*`

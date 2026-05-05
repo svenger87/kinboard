@@ -107,7 +107,7 @@ Auto-categorization uses a German keyword list (~2000 entries) — works great i
 
 You don't need Bring at all — the built-in shopping list is fully featured on its own. Connect Bring only if your family already uses Bring as their phone shopping app and you want a single list that works in both places.
 
-If you've connected [[Integration-Bring|Bring!]], items sync two-way every 2 minutes:
+If you've connected [[Bring|Bring!]], items sync two-way every 2 minutes:
 
 - Add in Kinboard → appears in Bring! on family members' phones
 - Add in Bring! on a phone → appears in Kinboard
@@ -154,6 +154,6 @@ Tweak in **Settings → Notifications**.
 
 ## Related
 
-- [[Integration-Bring]] — full Bring! sync setup
+- [[Bring]] — full Bring! sync setup
 - [[Recipes-and-Meals]] — adding recipe ingredients to the list
 - [[Notifications]] — push setup for shopping events

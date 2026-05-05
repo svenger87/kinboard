@@ -122,8 +122,8 @@ The shape is intentionally loose — the app reads with `useSetting<T>("key", de
 All under `webapp/src/app/api/`. Highlights:
 
 - `/api/setup/status` — public, returns `{ hasFamilies }`. Used by `/join` to detect fresh installs.
-- `/api/google/*` — OAuth flow + sync ([[Integration-Google-Calendar]]).
-- `/api/homeassistant/*` — HA REST proxy with the family's stored token ([[Integration-Home-Assistant]]).
+- `/api/google/*` — OAuth flow + sync ([[Google-Calendar]]).
+- `/api/homeassistant/*` — HA REST proxy with the family's stored token ([[Home-Assistant]]).
 - `/api/immich/*`, `/api/bring/*` — photo / shopping integration proxies.
 - `/api/weather`, `/api/cities` — OpenWeatherMap proxies (server-side keeps the API key).
 - `/api/cameras/*` — camera proxy (digest auth, snapshot caching).
