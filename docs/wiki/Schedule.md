@@ -4,7 +4,7 @@ The `/schedule` page — kids' weekly school timetable, with per-day pack-list r
 
 ![School schedule — Mon-Fri grid with per-period subjects](images/schedule-week-grid.png)
 
-Configured via [[Family-Members|Settings → Family members]] (mark people as "child / student") and [[Database-Schema|Settings → School schedule]] (period definitions, pack lists). The `/schedule` view is the **consumer** surface — kids check it before leaving for school.
+Configured via [[Settings → Family members|Family-Members]] (mark people as "child / student") and [[Settings → School schedule|Database-Schema]] (period definitions, pack lists). The `/schedule` view is the **consumer** surface — kids check it before leaving for school.
 
 ## Layout
 
@@ -26,7 +26,7 @@ The dashboard's **schedule widget** also picks one child (the one who's most-act
 
 Below the schedule grid, a **pack list** shows what to bring for tomorrow's classes. Pulled from:
 
-- **Per-subject pack items** — "Bring sportswear for PE" — configured in [[Database-Schema|Settings → School schedule → Pack list]]
+- **Per-subject pack items** — "Bring sportswear for PE" — configured in [[Settings → School schedule → Pack list|Database-Schema]]
 - **Tomorrow's actual classes** — only items relevant to subjects in tomorrow's grid show up
 
 Example: tomorrow has PE → pack list shows "Sportswear, Sneakers, Water bottle". Reset every morning.

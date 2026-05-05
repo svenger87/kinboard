@@ -23,9 +23,9 @@ Kinboard's webapp talks to a Supabase API gateway (Kong) that sits in your stack
 
 - **Don't forget the port `:8100`** unless you're using Traefik. The webapp itself runs on `:3001` but the **API** (which the browser fetches from) runs on `:8100`. The setup script wires both correctly once you give it the URL.
 - **Don't put `localhost` if anyone else will use the app.** A phone visiting `localhost` is asking its OWN device, not your server. Use the LAN IP or domain instead.
-- **HTTP vs HTTPS:** plain HTTP is fine for LAN-only use. For internet-facing setups, you need HTTPS — the easiest path is the [[Self-hosting#behind-traefik|Traefik overlay]].
+- **HTTP vs HTTPS:** plain HTTP is fine for LAN-only use. For internet-facing setups, you need HTTPS — the easiest path is the [[Traefik overlay|Self-hosting#behind-traefik]].
 - **Behind Traefik:** if you're using Traefik, your URL is just `https://yourdomain.com` (no port, no `:8100`). Traefik routes `/rest/v1/*` and `/auth/v1/*` to Kong internally.
-- **Browser console shows `CORS policy: No 'Access-Control-Allow-Origin' header`** → the Kong CORS allowlist is missing your webapp's origin. `setup.sh` writes it for you from the URL you enter. If you skipped setup or hand-edited `.env`, see [[Self-hosting#changing-the-url-later|Changing the URL later]] below — re-running `setup.sh` rewrites the CORS lines in `kong.yml`. (For the curious: each CORS plugin block in `webapp/docker/kong.yml` has a line marked `# webapp_origin` that `setup.sh` substitutes from `SITE_URL`. CORS can't use `*` here because credentials are sent — the spec forbids that combo.)
+- **Browser console shows `CORS policy: No 'Access-Control-Allow-Origin' header`** → the Kong CORS allowlist is missing your webapp's origin. `setup.sh` writes it for you from the URL you enter. If you skipped setup or hand-edited `.env`, see [[Changing the URL later|Self-hosting#changing-the-url-later]] below — re-running `setup.sh` rewrites the CORS lines in `kong.yml`. (For the curious: each CORS plugin block in `webapp/docker/kong.yml` has a line marked `# webapp_origin` that `setup.sh` substitutes from `SITE_URL`. CORS can't use `*` here because credentials are sent — the spec forbids that combo.)
 
 ### Changing the URL later
 

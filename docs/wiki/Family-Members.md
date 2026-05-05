@@ -48,7 +48,7 @@ Each person's color drives:
 - **Schedule cell tints** in the school schedule
 - **Birthday ring dots** if linked from a birthday entry
 - **Avatar ring** in the dashboard's family-members row
-- **The mapping rule preview** in [[Google-Calendar|Settings → Google Calendar]]
+- **The mapping rule preview** in [[Settings → Google Calendar|Google-Calendar]]
 
 Pick distinct colors so per-person attribution stays glance-able. The palette has 16 swatches; if you have more than 16 people, repetition will happen. Most families have ≤ 6.
 
@@ -56,7 +56,7 @@ Pick distinct colors so per-person attribution stays glance-able. The palette ha
 
 Marks the person as a school-schedule consumer. When toggled on:
 
-- The person can be selected in [[Schedule|/schedule]] view
+- The person can be selected in [[/schedule|Schedule]] view
 - The schedule widget on the dashboard picks them
 - Their pack list appears on the day-of
 
