@@ -30,8 +30,8 @@
 - [[Dashboard]]
 - [[Calendar]]
 - [[Shopping]]
-- [[Recipes & meal planning|Recipes-and-Meals]]
-- [[Tasks & todos|Tasks-and-Todos]]
+- [[Recipes & meal planning|Recipes]]
+- [[Tasks & todos|Tasks]]
 - [[Notes]]
 - [[Birthdays]]
 - [[School schedule|Schedule]]
@@ -40,7 +40,7 @@
 - [[Family members|Family-Members]]
 - [[Devices]]
 - [[Notifications]]
-- [[Themes-and-Locales]]
+- [[Themes]]
 
 **Contributing**
 - [[Plugin-Authoring]]

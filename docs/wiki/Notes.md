@@ -54,7 +54,7 @@ Like everything else, real-time. Add a note on a phone → kitchen-wall dashboar
 ## Patterns that don't work well
 
 - **Long-form documentation.** Notes are "stickies", not docs. For documentation, use a wiki.
-- **Time-sensitive reminders.** A note doesn't push a notification. Use [[Tasks-and-Todos]] for that.
+- **Time-sensitive reminders.** A note doesn't push a notification. Use [[Tasks]] for that.
 - **Per-person notes.** Notes are family-shared. For private memos, use your phone's notes app.
 
 ## Persistence
@@ -63,5 +63,5 @@ Like everything else, real-time. Add a note on a phone → kitchen-wall dashboar
 
 ## Related
 
-- [[Tasks-and-Todos]] — for actionable items vs. informational notes
+- [[Tasks]] — for actionable items vs. informational notes
 - [[Dashboard]] — notes widget surfaces the latest 3

@@ -44,7 +44,7 @@ A 30,000-foot view of how the pieces fit together. Read this once before you cha
 - **shadcn/ui** primitives + **Tailwind CSS**. Components live in `webapp/src/components/ui/` (don't modify directly) and `webapp/src/components/` (project-specific).
 - **TanStack Query** for server state (cached, background-refetched, optimistic updates). Hooks live in `webapp/src/hooks/`.
 - **Zustand** for ephemeral client state — currently just `family-store.ts` for the active family + device.
-- **next-intl** for i18n. Cookie-based locale switching, no `[locale]` URL prefix. EN + DE shipped; see [[Themes-and-Locales]] for adding more.
+- **next-intl** for i18n. Cookie-based locale switching, no `[locale]` URL prefix. EN + DE shipped; see [[Themes]] for adding more.
 - **Framer Motion** for the slide/fade transitions across pages.
 
 ## Data flow

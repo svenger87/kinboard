@@ -117,4 +117,4 @@ Tapping the screensaver doesn't dismiss it when a news modal is open — only th
 
 - [[Immich]] — Immich photo source setup
 - [[Presence-Sensor]] — LD2410 hardware + script
-- [[Themes-and-Locales]] — locale-aware date formatting on the screensaver
+- [[Themes]] — locale-aware date formatting on the screensaver

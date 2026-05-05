@@ -102,4 +102,4 @@ Settings → Home Assistant → **Disconnect**. All configured dashboards, rooms
 ## Related
 
 - [[Cameras]] — cameras direct to go2rtc, bypassing HA
-- [[Themes-and-Locales]] — entity-state strings localize via `homeAutomation.entityState.*`
+- [[Themes]] — entity-state strings localize via `homeAutomation.entityState.*`
