@@ -1,0 +1,19 @@
+# deploy-config.local.sh
+#
+# Per-host SSH details consumed by webapp/deploy.sh. Copy this file to
+# `deploy-config.local.sh` (gitignored) and fill in your remote.
+
+# Required
+HOST="nas.example.com"
+REMOTE_PATH="/mnt/user/appdata/familyboard"
+
+# Optional — defaults shown
+PORT="22"
+DEPLOY_USER="root"
+SSH_KEY="$HOME/.ssh/id_ed25519"
+
+# Container prefix (must match PROJECT_NAME in webapp/docker/.env)
+PROJECT_NAME="familyboard"
+
+# Optional: URL printed on success
+PUBLIC_URL="https://familyboard.example.com"

@@ -1,0 +1,22 @@
+{
+  "name": "familyboard-screenshots",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local toolchain to clone, anonymize, and screenshot a Familyboard demo instance for the public wiki.",
+  "scripts": {
+    "anonymize": "node scripts/4-anonymize.mjs",
+    "frame-mobile": "node scripts/6-frame-mobile.mjs",
+    "check": "bash scripts/check.sh",
+    "embed": "bash scripts/embed.sh",
+    "capture": "playwright test --config=playwright/playwright.config.ts"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^9.0.0",
+    "pg": "^8.13.0",
+    "sharp": "^0.34.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0"
+  }
+}

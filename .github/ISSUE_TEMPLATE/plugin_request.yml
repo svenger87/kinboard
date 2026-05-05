@@ -1,0 +1,58 @@
+name: Plugin request
+description: Propose a new opt-in integration to ship as a plugin
+labels: ["plugin"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Niche integrations live as plugins under `webapp/src/plugins/` so the core stays clean for the broadest audience. Use this template to propose one — whether you plan to write it yourself or are flagging it for someone else.
+
+  - type: input
+    id: service
+    attributes:
+      label: Service or device
+      description: Name of the integration target (e.g. "Tesla Fleet API", "Zendure SolarFlow", "Bambu Lab printer")
+    validations:
+      required: true
+
+  - type: textarea
+    id: usecase
+    attributes:
+      label: Use case
+      description: What does the family want to see or control on the dashboard?
+    validations:
+      required: true
+
+  - type: textarea
+    id: api
+    attributes:
+      label: API / protocol
+      description: Link to the official API docs, MQTT topic spec, or whatever the plugin would talk to.
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where should it appear?
+      multiple: true
+      options:
+        - Dashboard widget
+        - Dedicated page
+        - Settings card only
+        - Screensaver overlay
+        - Other
+
+  - type: dropdown
+    id: implementer
+    attributes:
+      label: Implementation interest
+      options:
+        - "I'd like to write it"
+        - "I can help test"
+        - "Just suggesting"
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?

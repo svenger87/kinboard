@@ -1,0 +1,304 @@
+"use client";
+
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
+import {
+  Sun,
+  Cloud,
+  CloudRain,
+  CloudSnow,
+  CloudLightning,
+  Wind,
+  Droplets,
+  Thermometer,
+  Sunrise,
+  Sunset,
+  CloudOff,
+} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useWeather, useWeatherForecast } from "@/hooks";
+import { WeatherModal } from "./weather-modal";
+
+interface WeatherProps {
+  className?: string;
+}
+
+const weatherIcons: Record<string, typeof Sun> = {
+  clear: Sun,
+  klar: Sun,
+  sunny: Sun,
+  sonnig: Sun,
+  clouds: Cloud,
+  cloudy: Cloud,
+  bewölkt: Cloud,
+  rain: CloudRain,
+  regen: CloudRain,
+  drizzle: CloudRain,
+  nieselregen: CloudRain,
+  snow: CloudSnow,
+  schnee: CloudSnow,
+  thunderstorm: CloudLightning,
+  gewitter: CloudLightning,
+  wind: Wind,
+  nebel: Cloud,
+  dunst: Cloud,
+};
+
+function getWeatherIcon(condition: string) {
+  const normalizedCondition = condition.toLowerCase();
+  for (const [key, Icon] of Object.entries(weatherIcons)) {
+    if (normalizedCondition.includes(key)) {
+      return Icon;
+    }
+  }
+  return Cloud;
+}
+
+// Subtle atmospheric gradient based on weather condition
+function getWeatherGradient(condition: string): string {
+  const c = condition.toLowerCase();
+  if (c.includes("thunder") || c.includes("gewitter")) return "from-purple-500/5 via-transparent to-transparent";
+  if (c.includes("snow") || c.includes("schnee")) return "from-sky-200/8 via-transparent to-transparent";
+  if (c.includes("rain") || c.includes("regen") || c.includes("drizzle") || c.includes("niesel")) return "from-blue-500/6 via-transparent to-transparent";
+  if (c.includes("clear") || c.includes("klar") || c.includes("sunny") || c.includes("sonnig")) return "from-amber-400/6 via-transparent to-transparent";
+  if (c.includes("cloud") || c.includes("bewölkt")) return "from-slate-400/5 via-transparent to-transparent";
+  if (c.includes("nebel") || c.includes("dunst")) return "from-gray-400/5 via-transparent to-transparent";
+  return "";
+}
+
+function WeatherSkeleton() {
+  const t = useTranslations("weather");
+  return (
+    <Card aria-label={t("loadingAria")} aria-busy="true">
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-4">
+            <Skeleton className="size-16 rounded-xl" />
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-12 w-24" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 text-right">
+            <Skeleton className="h-4 w-20 ml-auto" />
+            <Skeleton className="h-3 w-24 ml-auto" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function WeatherError({ error }: { error: string }) {
+  const t = useTranslations("weather");
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <div className="flex flex-col items-center justify-center text-center py-4">
+          <div className="p-3 rounded-xl bg-destructive/10 mb-3">
+            <CloudOff className="size-10 text-destructive" strokeWidth={1.5} />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {t("errorTitle")}
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-1">{error}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function Weather({ className = "" }: WeatherProps) {
+  const t = useTranslations("weather");
+  const [modalOpen, setModalOpen] = useState(false);
+  const { data: weatherData, isLoading, error } = useWeather();
+  const { data: forecast } = useWeatherForecast();
+
+  if (isLoading) {
+    return <WeatherSkeleton />;
+  }
+
+  if (error || !weatherData) {
+    return <WeatherError error={error?.message || t("errorFallback")} />;
+  }
+
+  const WeatherIcon = getWeatherIcon(weatherData.condition);
+  const weatherGradient = getWeatherGradient(weatherData.condition);
+
+  // Get next 6 days forecast (skip today, show rest of the week)
+  const upcomingDays = forecast?.daily?.slice(1, 7) || [];
+
+  return (
+    <TooltipProvider>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <div
+          onClick={() => setModalOpen(true)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setModalOpen(true); } }}
+          role="button"
+          tabIndex={0}
+          aria-label={t("detailsAria")}
+        >
+          <Card className={`overflow-hidden hover:shadow-lg transition-shadow cursor-pointer accent-border-top bg-gradient-to-br ${weatherGradient} ${className}`}>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-start justify-between gap-3">
+                {/* Left: Icon and Temperature */}
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="p-3 rounded-xl bg-month-primary/10 cursor-help">
+                        <WeatherIcon
+                          className="size-10 text-month-primary"
+                          strokeWidth={1.5}
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{weatherData.condition}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-5xl font-display font-light tracking-tight">
+                        {weatherData.temp}°
+                      </p>
+                      {weatherData.high && weatherData.low && (
+                        <div className="text-sm text-muted-foreground">
+                          <span className="text-foreground/70">{weatherData.high}°</span>
+                          {" / "}
+                          <span>{weatherData.low}°</span>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground font-medium">
+                      {weatherData.condition}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right: Details */}
+                <div className="text-right flex flex-col gap-2">
+                  <Badge variant="outline" className="font-medium">
+                    {weatherData.location}
+                  </Badge>
+                  <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-1 justify-end cursor-help">
+                          <Droplets className="size-3" />
+                          {weatherData.humidity}%
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t("humidityTooltip")}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-1 justify-end cursor-help">
+                          <Wind className="size-3" />
+                          {weatherData.windSpeed} km/h
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t("windSpeedTooltip")}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    {weatherData.feelsLike && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-1 justify-end cursor-help">
+                            <Thermometer className="size-3" />
+                            {t("feelsLike", { temp: weatherData.feelsLike })}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{t("feelsLikeTooltip")}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Mini Forecast */}
+              {upcomingDays.length > 0 && (
+                <div className="flex items-center justify-between gap-2 mt-4 pt-4 border-t border-border/30">
+                  {upcomingDays.map((day) => {
+                    const DayIcon = getWeatherIcon(day.condition);
+                    const showRain = day.precipProbability > 0;
+                    const isHighRain = day.precipProbability > 40;
+                    return (
+                      <Tooltip key={day.date}>
+                        <TooltipTrigger asChild>
+                          <div className="flex flex-col items-center gap-1 flex-1 cursor-help">
+                            <span className="text-xs text-muted-foreground">{day.dayName}</span>
+                            <DayIcon className="size-5 text-month-primary/70" strokeWidth={1.5} />
+                            <div className="text-xs">
+                              <span className="font-medium">{day.tempMax}°</span>
+                              <span className="text-muted-foreground"> {day.tempMin}°</span>
+                            </div>
+                            {showRain && (
+                              <span className={`flex items-center gap-0.5 text-[10px] ${isHighRain ? "text-blue-400" : "text-blue-400/50"}`}>
+                                <Droplets className="size-2.5" />
+                                {day.precipProbability}%
+                              </span>
+                            )}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{t("forecastTooltip", { condition: day.condition, percent: day.precipProbability })}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Sun times */}
+              {weatherData.sunrise && weatherData.sunset && (
+                <div className={`flex items-center justify-center gap-6 ${upcomingDays.length > 0 ? "mt-3 pt-3" : "mt-4 pt-4"} border-t border-border/30`}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-help">
+                        <Sunrise className="size-3.5 text-weather-sunrise" />
+                        {weatherData.sunrise}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{t("sunriseTooltip")}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-help">
+                        <Sunset className="size-3.5 text-weather-sunset" />
+                        {weatherData.sunset}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{t("sunsetTooltip")}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+        <WeatherModal open={modalOpen} onOpenChange={setModalOpen} />
+      </motion.div>
+    </TooltipProvider>
+  );
+}
