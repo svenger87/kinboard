@@ -14,7 +14,7 @@ concurrency:
 jobs:
   lint:
     name: Lint
-    runs-on: [self-hosted, unraid]
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: webapp
@@ -35,7 +35,7 @@ jobs:
 
   i18n-validate:
     name: i18n bundles
-    runs-on: [self-hosted, unraid]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -72,7 +72,7 @@ jobs:
 
   shellcheck:
     name: Shell scripts
-    runs-on: [self-hosted, unraid]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: bash -n on shipped scripts

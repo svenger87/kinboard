@@ -45,14 +45,14 @@ jobs:
       matrix:
         include:
           - platform: linux/amd64
-            runs-on: [self-hosted, unraid]
+            runs-on: ubuntu-latest
           - platform: linux/arm64
-            # arm64 emulation via QEMU on the Unraid runner. The runner
-            # container runs --privileged so setup-qemu-action can
-            # register binfmt handlers (Unraid doesn't have them
-            # installed system-wide). Slower than amd64 but on faster
-            # hardware than GitHub's free fleet.
-            runs-on: [self-hosted, unraid]
+            # arm64 build runs under QEMU on GitHub-hosted ubuntu-latest.
+            # Slower than native (~30–60 min vs ~15 min for amd64) but
+            # avoids the maintenance overhead of the self-hosted Unraid
+            # runner (which needs hourly RUNNER_TOKEN rotation). Fine
+            # for this project's release cadence.
+            runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
