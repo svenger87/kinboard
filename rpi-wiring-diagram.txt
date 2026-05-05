@@ -1,0 +1,125 @@
+================================================================================
+         RASPBERRY PI 5 WIRING DIAGRAM - KINBOARD KIOSK
+================================================================================
+
+RASPBERRY PI 5 GPIO HEADER (40-pin)
+===================================
+Looking at Pi with USB ports facing down, GPIO header at top:
+
+                    3V3  (1) (2)  5V  ←── RED wire to LD2410 VCC
+                  GPIO2  (3) (4)  5V  ←── RED wire to RELAY VCC
+                  GPIO3  (5) (6)  GND ←── BLACK wire to LD2410 GND
+                  GPIO4  (7) (8)  GPIO14 (TXD) ←── ORANGE wire to LD2410 RX
+                    GND  (9) (10) GPIO15 (RXD) ←── YELLOW wire to LD2410 TX
+                 GPIO17 (11) (12) GPIO18
+                 GPIO27 (13) (14) GND ←── BROWN wire to RELAY GND
+                 GPIO22 (15) (16) GPIO23 ←── BLUE wire to RELAY IN
+                    3V3 (17) (18) GPIO24
+                 GPIO10 (19) (20) GND
+                  GPIO9 (21) (22) GPIO25
+                 GPIO11 (23) (24) GPIO8
+                    GND (25) (26) GPIO7
+                  GPIO0 (27) (28) GPIO1
+                  GPIO5 (29) (30) GND
+                  GPIO6 (31) (32) GPIO12
+                 GPIO13 (33) (34) GND
+                 GPIO19 (35) (36) GPIO16
+                 GPIO26 (37) (38) GPIO20
+                    GND (39) (40) GPIO21
+
+
+LD2410 RADAR SENSOR WIRING
+==========================
+
+    LD2410 Module                    Raspberry Pi 5
+    +------------+                   +------------------+
+    |            |                   |                  |
+    |  VCC ──────┼─── RED ──────────►│ Pin 2  (5V)      |
+    |            |                   |                  |
+    |  GND ──────┼─── BLACK ────────►│ Pin 6  (GND)    |
+    |            |                   |                  |
+    |  TX ───────┼─── YELLOW ───────►│ Pin 10 (RXD)    |  ← Pi RECEIVES here
+    |            |                   |                  |
+    |  RX ───────┼─── ORANGE ───────►│ Pin 8  (TXD)    |  ← Pi SENDS here
+    |            |                   |                  |
+    |  OUT ──────┼─── (not used)     |                  |
+    |            |                   |                  |
+    +------------+                   +------------------+
+
+    IMPORTANT: TX/RX are CROSSED!
+    - Sensor TX → Pi RX (Pin 10)
+    - Sensor RX → Pi TX (Pin 8)
+
+
+5V RELAY MODULE WIRING (for display power control)
+==================================================
+
+    Relay Module                     Raspberry Pi 5
+    +------------+                   +------------------+
+    |            |                   |                  |
+    |  VCC ──────┼─── RED ──────────►│ Pin 4  (5V)      |
+    |            |                   |                  |
+    |  GND ──────┼─── BROWN ────────►│ Pin 14 (GND)    |
+    |            |                   |                  |
+    |  IN ───────┼─── BLUE ─────────►│ Pin 16 (GPIO23) |
+    |            |                   |                  |
+    +------------+                   +------------------+
+
+    Relay OUTPUT connections (to monitor power):
+    - COM (Common) → Monitor power input (+)
+    - NO (Normally Open) → Power supply (+)
+    - NC not used
+
+    When GPIO23 = HIGH → Relay closes → Monitor ON
+    When GPIO23 = LOW  → Relay opens  → Monitor OFF
+
+
+COMPLETE WIRING SUMMARY
+=======================
+
+Wire #  Color    From              To
+------  -------  ----------------  ------------------
+  1     RED      LD2410 VCC        Pi Pin 2 (5V)
+  2     BLACK    LD2410 GND        Pi Pin 6 (GND)
+  3     YELLOW   LD2410 TX         Pi Pin 10 (RXD)
+  4     ORANGE   LD2410 RX         Pi Pin 8 (TXD)
+  5     RED      Relay VCC         Pi Pin 4 (5V)
+  6     BROWN    Relay GND         Pi Pin 14 (GND)
+  7     BLUE     Relay IN          Pi Pin 16 (GPIO23)
+
+
+TESTING COMMANDS
+================
+
+# Test LD2410 sensor (after wiring):
+sudo systemctl start presence-detector
+sudo journalctl -u presence-detector -f
+
+# Test MQTT presence messages:
+mosquitto_sub -t "kinboard/presence" -v
+
+# Test relay/display control:
+mosquitto_pub -t "kinboard/display/power" -m "off"
+mosquitto_pub -t "kinboard/display/power" -m "on"
+mosquitto_pub -t "kinboard/display/power" -m "toggle"
+
+# Check display status:
+mosquitto_sub -t "kinboard/display/status" -v
+
+
+SERIAL PORT INFO
+================
+Device: /dev/serial0 → /dev/ttyAMA10
+Baud rate: 256000 (LD2410 default)
+If sensor doesn't respond, try 9600 baud (older firmware)
+
+
+MQTT TOPICS
+===========
+kinboard/presence        - Presence state {"presence": true/false, "state": "on"/"off"}
+kinboard/display/power   - Send: on/off/toggle
+kinboard/display/status  - Current display state (on/off)
+kinboard/system/command  - Send: reboot/refresh/screenshot
+kinboard/system/status   - System status (online/offline/rebooting)
+
+================================================================================

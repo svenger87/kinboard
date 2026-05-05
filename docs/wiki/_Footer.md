@@ -1,0 +1,1 @@
+[Kinboard on GitHub](https://github.com/svenger87/kinboard) · [Sponsor](https://github.com/sponsors/svenger87) · [Buy me a coffee](https://buymeacoffee.com/sven.7687) · [Report a bug](https://github.com/svenger87/kinboard/issues/new/choose) · MIT-licensed

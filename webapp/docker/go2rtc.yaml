@@ -1,0 +1,38 @@
+# go2rtc configuration — RTSP/ONVIF cameras proxied to WebRTC.
+#
+# Credentials and hosts are read from environment variables so this
+# file is safe to commit. Set the values in webapp/docker/.env (see
+# .env.example for the full list). Add or remove streams to match
+# your own cameras; the entries below are concrete examples for
+# Hikvision and Amcrest, which use different URL path schemes.
+#
+# Notes
+#  - Use URL-encoded values for any character with special meaning
+#    in a URL (e.g. "#" → "%23", "@" → "%40"). The substitution is
+#    a literal string replacement.
+#  - Hardware-accelerated transcoding ("vaapi") needs Intel QSV;
+#    drop the `#hardware=vaapi` modifier if your host has no GPU.
+
+streams:
+  # Hikvision (or any camera using /Streaming/Channels/<n>):
+  hikvision:
+    - rtsp://${CAMERA_USER}:${CAMERA_PASS}@${HIKVISION_HOST}:554/Streaming/Channels/101
+  hikvision_wan:
+    - rtsp://${CAMERA_USER}:${CAMERA_PASS}@${HIKVISION_HOST}:554/Streaming/Channels/102
+
+  # Amcrest / Dahua / many ONVIF cameras (cam/realmonitor):
+  amcrest:
+    - ffmpeg:rtsp://${CAMERA_USER}:${CAMERA_PASS}@${AMCREST_HOST}:554/cam/realmonitor?channel=1&subtype=1#video=copy#audio=opus
+  amcrest_hd:
+    - ffmpeg:rtsp://${CAMERA_USER}:${CAMERA_PASS}@${AMCREST_HOST}:554/cam/realmonitor?channel=1&subtype=0#video=h264#hardware=vaapi#audio=opus
+  amcrest_wan:
+    - ffmpeg:rtsp://${CAMERA_USER}:${CAMERA_PASS}@${AMCREST_HOST}:554/cam/realmonitor?channel=1&subtype=1#video=copy#audio=opus
+
+webrtc:
+  candidates:
+    - ${WEBRTC_LAN_IP}:8555         # LAN IP of the host running go2rtc
+    - ${WEBRTC_PUBLIC_HOST}:8555    # Public hostname (Traefik / reverse proxy)
+    - stun:8555                     # STUN for NAT traversal
+
+ffmpeg:
+  bin: ffmpeg

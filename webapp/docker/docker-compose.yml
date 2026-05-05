@@ -1,0 +1,350 @@
+# Kinboard - Full Stack Docker Compose
+# Includes: Supabase (Postgres, Realtime, Kong) + Next.js Webapp
+#
+# This file ships portable defaults — `docker compose up -d` works on any
+# host. For Traefik reverse-proxy integration (TLS, routing), copy
+# `docker-compose.traefik.yml.example` → `docker-compose.traefik.yml` and
+# run `docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d`.
+#
+# Configurable via .env (see .env.example).
+
+version: "3.8"
+
+services:
+  # ===================
+  # PostgreSQL Database
+  # ===================
+  db:
+    image: supabase/postgres:15.1.1.61
+    container_name: ${PROJECT_NAME:-kinboard}-db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - ${DATA_DIR:-./data}/db:/var/lib/postgresql/data
+      # Mount our schema as `zz-init.sql` (NOT `init.sql`) so it runs
+      # AFTER the supabase image's own `migrate.sh` in the postgres
+      # entrypoint's lexical order. If we mounted as `init.sql`, our
+      # script would run BEFORE migrate.sh has created the
+      # `supabase_admin` role and the extensions' default-privileges
+      # grant would fail with `ON_ERROR_STOP=1`, killing the entrypoint
+      # before migrate.sh ever runs. Result: no supabase service roles,
+      # auth/rest/storage/realtime crash-loop forever. The screenshot
+      # demo stack works around this with an override; this is the
+      # equivalent fix in the canonical compose so fresh installs work
+      # out of the box.
+      - ./init.sql:/docker-entrypoint-initdb.d/zz-init.sql
+    networks:
+      - kinboard
+
+  # ===================
+  # Supabase Kong (API Gateway)
+  # ===================
+  kong:
+    image: kong:2.8.1
+    container_name: ${PROJECT_NAME:-kinboard}-kong
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${KONG_HTTP_PORT:-8100}:8000"
+      - "${KONG_HTTPS_PORT:-8543}:8443"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+    volumes:
+      - ./kong.yml:/home/kong/kong.yml:ro
+    networks:
+      - kinboard
+
+  # ===================
+  # Supabase Auth (GoTrue)
+  # ===================
+  auth:
+    image: supabase/gotrue:v2.143.0
+    container_name: ${PROJECT_NAME:-kinboard}-auth
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL}
+
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+
+      GOTRUE_SITE_URL: ${SITE_URL}
+      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
+      GOTRUE_DISABLE_SIGNUP: false
+
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: true
+      GOTRUE_MAILER_AUTOCONFIRM: true
+      GOTRUE_SMTP_HOST: ${SMTP_HOST}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT}
+      GOTRUE_SMTP_USER: ${SMTP_USER}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS}
+      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL}
+      GOTRUE_MAILER_URLPATHS_INVITE: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /auth/v1/verify
+
+      GOTRUE_EXTERNAL_PHONE_ENABLED: false
+      GOTRUE_SMS_AUTOCONFIRM: false
+    networks:
+      - kinboard
+
+  # ===================
+  # Supabase Realtime
+  # ===================
+  realtime:
+    image: supabase/realtime:v2.28.32
+    container_name: ${PROJECT_NAME:-kinboard}-realtime
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sSfL", "--head", "-o", "/dev/null", "-H", "Authorization: Bearer ${ANON_KEY}", "http://localhost:4000/api/tenants/realtime-dev/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    ulimits:
+      nofile:
+        soft: 100000
+        hard: 100000
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: ${JWT_SECRET}
+      FLY_ALLOC_ID: fly123
+      # FLY_APP_NAME is the tenant_id realtime uses to look itself up in
+      # _realtime.tenants. Must match the value seeded by the healthcheck
+      # (which hits /api/tenants/realtime-dev/health and auto-creates that
+      # tenant). Using just "realtime" here causes incoming websocket
+      # connections to fail with "tenant `realtime` not found".
+      FLY_APP_NAME: realtime-dev
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      ENABLE_TAILSCALE: false
+      DNS_NODES: "''"
+    command: >
+      sh -c "/app/bin/migrate && /app/bin/realtime eval 'Realtime.Release.seeds(Realtime.Repo)' && /app/bin/server"
+    networks:
+      kinboard:
+        # Realtime extracts the tenant_id from the first label of the Host
+        # header. Kong forwards with Host = upstream hostname, so the upstream
+        # name must match the seeded tenant external_id (`realtime-dev`).
+        # Aliasing the service answers the same container under both names.
+        aliases:
+          - realtime-dev
+
+  # ===================
+  # Supabase REST (PostgREST)
+  # ===================
+  rest:
+    image: postgrest/postgrest:v12.0.1
+    container_name: ${PROJECT_NAME:-kinboard}-rest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: false
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
+      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
+    command: "postgrest"
+    networks:
+      - kinboard
+
+  # ===================
+  # Supabase Storage
+  # ===================
+  storage:
+    image: supabase/storage-api:v0.46.4
+    container_name: ${PROJECT_NAME:-kinboard}-storage
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/status"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: stub
+      GLOBAL_S3_BUCKET: stub
+      ENABLE_IMAGE_TRANSFORMATION: true
+      IMGPROXY_URL: http://imgproxy:8080
+    volumes:
+      - ${DATA_DIR:-./data}/storage:/var/lib/storage
+    networks:
+      - kinboard
+
+  # ===================
+  # Image Proxy (for storage transformations)
+  # ===================
+  imgproxy:
+    image: darthsim/imgproxy:v3.21
+    container_name: ${PROJECT_NAME:-kinboard}-imgproxy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "imgproxy", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    environment:
+      IMGPROXY_BIND: ":8080"
+      IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
+      IMGPROXY_USE_ETAG: true
+      IMGPROXY_ENABLE_WEBP_DETECTION: true
+    volumes:
+      - ${DATA_DIR:-./data}/storage:/var/lib/storage:ro
+    networks:
+      - kinboard
+
+  # ===================
+  # Next.js Webapp
+  # ===================
+  webapp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        # Bake the browser-facing Supabase URL + anon key into the
+        # client JS bundle. Next.js inlines NEXT_PUBLIC_* at BUILD time;
+        # setting them only as runtime env vars would leave the client
+        # bundle with whatever was in .env.local at build time (or
+        # nothing). These args make the runtime values authoritative.
+        NEXT_PUBLIC_SUPABASE_URL: ${API_EXTERNAL_URL:-http://localhost:8100}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+    container_name: ${PROJECT_NAME:-kinboard}-webapp
+    restart: unless-stopped
+    depends_on:
+      kong:
+        condition: service_started
+    ports:
+      - "${WEBAPP_PORT:-3001}:3000"
+    environment:
+      # Use external URL for client-side (browser) access
+      NEXT_PUBLIC_SUPABASE_URL: ${API_EXTERNAL_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+      # Use internal URL for server-side access
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY}
+      IMMICH_API_URL: ${IMMICH_API_URL}
+      IMMICH_API_KEY: ${IMMICH_API_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      CRON_SECRET: ${CRON_SECRET}
+      # go2rtc for camera WebRTC streaming (internal Docker network)
+      GO2RTC_URL: http://go2rtc:1984
+      # Web Push Notifications (VAPID)
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: ${VAPID_SUBJECT}
+    networks:
+      - kinboard
+
+  # ===================
+  # Cron Scheduler (Ofelia)
+  # ===================
+  cron:
+    image: mcuadros/ofelia:latest
+    container_name: ${PROJECT_NAME:-kinboard}-cron
+    restart: unless-stopped
+    depends_on:
+      - webapp
+    command: daemon --config=/etc/ofelia/config.ini
+    volumes:
+      - ./ofelia.ini:/etc/ofelia/config.ini:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - CRON_SECRET=${CRON_SECRET}
+    networks:
+      - kinboard
+
+  # ===================
+  # go2rtc (RTSP to WebRTC)
+  # ===================
+  go2rtc:
+    image: alexxit/go2rtc:1.9.12
+    container_name: ${PROJECT_NAME:-kinboard}-go2rtc
+    restart: unless-stopped
+    ports:
+      - "${GO2RTC_HTTP_PORT:-1984}:1984"   # HTTP API
+      - "${GO2RTC_WEBRTC_PORT:-8555}:8555/udp"  # WebRTC UDP
+    environment:
+      - TZ=${TZ:-UTC}
+      # Substituted into go2rtc.yaml at container start; see .env.example.
+      - CAMERA_USER=${CAMERA_USER:-admin}
+      - CAMERA_PASS=${CAMERA_PASS:-}
+      - HIKVISION_HOST=${HIKVISION_HOST:-}
+      - AMCREST_HOST=${AMCREST_HOST:-}
+      - WEBRTC_LAN_IP=${WEBRTC_LAN_IP:-}
+      - WEBRTC_PUBLIC_HOST=${WEBRTC_PUBLIC_HOST:-}
+    volumes:
+      - ./go2rtc.yaml:/config/go2rtc.yaml:ro
+    networks:
+      - kinboard
+
+networks:
+  kinboard:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${NETWORK_SUBNET:-10.200.0.0/24}
