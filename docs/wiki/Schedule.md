@@ -100,11 +100,11 @@ Real-time published, so editing on a phone propagates to the kitchen wall in ~1 
 
 - **Multi-week / rotating schedules** (A/B weeks). Workaround: edit the whole week each Sunday for the next week.
 - **Substitute / cancellation tracking.** Edit cells directly when changes happen; no historical record.
-- **Homework tracking per subject.** Use [[Tasks-and-Todos]] tagged with the subject name as a workaround.
+- **Homework tracking per subject.** Use [[Tasks]] tagged with the subject name as a workaround.
 - **Multiple schools per family with different period grids.** One grid for the whole family.
 
 ## Related
 
 - [[Family-Members]] — mark a person as "child" to enable schedule features
 - [[Dashboard]] — schedule widget shows today's lessons
-- [[Tasks-and-Todos]] — homework / project assignments
+- [[Tasks]] — homework / project assignments

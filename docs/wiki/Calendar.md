@@ -99,4 +99,4 @@ Rules support `contains` / `starts_with` / `ends_with` / `regex` matching. Test 
 
 - [[Google-Calendar]] — connect Google + per-event mapping rules
 - [[Birthdays]] — birthdays appear in the calendar; managed separately
-- [[Themes-and-Locales]] — date formatting per locale
+- [[Themes]] — date formatting per locale

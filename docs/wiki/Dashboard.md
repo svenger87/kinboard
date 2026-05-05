@@ -15,7 +15,7 @@ The dashboard is a **monthly-themed clock + widget grid** designed to glance at,
 3. **Clock** — large centered, time + day + date + family-members avatars (with status)
 4. **Widget grid** — the configurable section, see below
 
-The clock follows the [[monthly theme|Themes-and-Locales]] color. Date format follows the active locale.
+The clock follows the [[monthly theme|Themes]] color. Date format follows the active locale.
 
 ## Today strip
 
@@ -42,9 +42,9 @@ The main dashboard area. Widgets are toggle-able per family in **Settings → Wi
 | **Schedule** | Today's school periods for selected child. Tap → `/schedule`. See [[Schedule]]. |
 | **Birthdays** | Closest 3 upcoming birthdays with countdown. Tap → `/birthdays`. See [[Birthdays]]. |
 | **Week overview** | 7-day strip with event/task density per day. |
-| **Meal plan** | Today's planned meals (breakfast / lunch / dinner / snack). See [[Recipes-and-Meals]]. |
+| **Meal plan** | Today's planned meals (breakfast / lunch / dinner / snack). See [[Recipes]]. |
 | **Waste collection** | Next pickups grouped by waste type. Reads any Google Calendar marked as a "waste pickup" calendar. |
-| **Tasks** | Open todos, sorted by priority + due date. See [[Tasks-and-Todos]]. |
+| **Tasks** | Open todos, sorted by priority + due date. See [[Tasks]]. |
 | **Notes** | Latest 3 family notes + "+ new note" pinned to bottom. See [[Notes]]. |
 | **Tesla** | Battery, range, charging status (only if Tesla integration configured — slated for plugin extraction in v1.1). |
 
@@ -83,6 +83,6 @@ The widget *order* is fixed for now (defined in `webapp/src/app/page.tsx`). Drag
 
 ## Related
 
-- [[Themes-and-Locales]] — the monthly color cycle
+- [[Themes]] — the monthly color cycle
 - [[Family-Members]] — per-person colors and avatars
 - [[Notifications]] — what shows up as a push when widgets change

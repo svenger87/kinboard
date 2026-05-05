@@ -55,14 +55,14 @@ A small `docs/wiki/sync.sh` script can be added later to make this a one-liner.
 | [Kiosk-Linux-Guidance](Kiosk-Linux-Guidance.md) | Authored as guidance |
 | [Presence-Sensor](Presence-Sensor.md) | Authored |
 | [Notifications](Notifications.md) | Authored — PWA install + iOS quirks |
-| [Themes-and-Locales](Themes-and-Locales.md) | Authored |
+| [Themes](Themes.md) | Authored |
 | [Troubleshooting](Troubleshooting.md) | Authored — grow as bugs surface |
 | [Plugin-Authoring](Plugin-Authoring.md) | Stub — v1.1 workstream |
 | [Dashboard](Dashboard.md) | Authored — TODO screenshots |
 | [Calendar](Calendar.md) | Authored — two-way Google sync — TODO screenshots |
 | [Shopping](Shopping.md) | Authored — built-in offline + optional Bring — TODO screenshots |
-| [Recipes-and-Meals](Recipes-and-Meals.md) | Authored — Chefkoch + schema.org URL import — TODO screenshots |
-| [Tasks-and-Todos](Tasks-and-Todos.md) | Authored — TODO screenshots |
+| [Recipes](Recipes.md) | Authored — Chefkoch + schema.org URL import — TODO screenshots |
+| [Tasks](Tasks.md) | Authored — TODO screenshots |
 | [Notes](Notes.md) | Authored — TODO screenshots |
 | [Birthdays](Birthdays.md) | Authored — TODO screenshots |
 | [Schedule](Schedule.md) | Authored — TODO screenshots |

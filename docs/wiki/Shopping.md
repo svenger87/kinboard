@@ -90,7 +90,7 @@ Items are grouped by category for supermarket-aisle order. The default categorie
 
 Auto-categorization uses a German keyword list (~2000 entries) — works great in German, partial in English. To override an item's category, tap the item, change category in the dropdown.
 
-[[Localized labels|Themes-and-Locales]] in EN + DE.
+[[Localized labels|Themes]] in EN + DE.
 
 ## Item lifecycle
 
@@ -155,5 +155,5 @@ Tweak in **Settings → Notifications**.
 ## Related
 
 - [[Bring]] — full Bring! sync setup
-- [[Recipes-and-Meals]] — adding recipe ingredients to the list
+- [[Recipes]] — adding recipe ingredients to the list
 - [[Notifications]] — push setup for shopping events
