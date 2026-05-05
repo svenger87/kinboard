@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-05-05 — Orphan-session + meal-plan race + CORS fixes
+
 ### Fixed
 - AuthGuard now blocks protected-page rendering until the orphan-session check (`useValidateStoredFamily`) resolves. Previously, a stored `family_id` cookie pointing at a deleted family (DB wipe, restored backup, etc.) would let the dashboard mount and fire dozens of REST calls with the stale ID before the orphan-redirect landed — producing a wall of `409 Conflict` FK-violation errors in the browser console. The redirect-to-`/join` flow already existed; this fix gates child rendering so the cascade can't start in the first place.
 - Meal-planner hooks no longer cascade into 409 conflicts when multiple components race to create the same week's `meal_plans` row. The previous SELECT-then-INSERT pattern raced across the dashboard widget, the `/meals` page, and adjacent-week prefetches; the first INSERT won, every other parallel hook got `409 Conflict` against the `(family_id, week_start)` unique constraint and surfaced as a wall of console errors. Replaced with `.upsert(..., { onConflict: "family_id,week_start" })` at all three call sites in `webapp/src/hooks/use-meal-planner.ts`.
