@@ -1,6 +1,6 @@
 <div align="center">
 
-# Kinboard
+<img src="assets/logos/kinboard-banner.png" alt="Kinboard" width="600"/>
 
 **A self-hosted family dashboard for the kitchen wall.**
 Calendar · weather · photos · shopping list · smart-home — one screen, every device, real-time sync.
@@ -22,22 +22,6 @@ Calendar · weather · photos · shopping list · smart-home — one screen, eve
 <sub>Built for kiosk-style touchscreens but works on any phone, tablet, or browser. Multi-device, multi-person, no cloud account required.</sub>
 
 </div>
-
----
-
-
-## Logos
-
-Brand assets are now bundled directly in the repository and also wired into the web app (main PWA, shopping PWA, and favicon):
-
-- `assets/logos/kinboard-logo-icon-512.png`
-- `assets/logos/kinboard-logo-icon-192.png`
-- `assets/logos/kinboard-logo-maskable-512.png`
-- `assets/logos/kinboard-logo-maskable-192.png`
-
-<img src="assets/logos/kinboard-logo-icon-192.png" alt="Kinboard logo" width="96"/>
-
-These are used in README/wiki plus app icon metadata (`manifest.json`, `manifest-shopping.json`) and `favicon.png`.
 
 ---
 
