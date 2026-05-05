@@ -5,7 +5,7 @@ This directory holds the Markdown sources for the project's GitHub Wiki. They li
 ## Conventions
 
 - One Markdown file per wiki page. Filenames become URL slugs.
-- GitHub wikis are **flat** — no subdirectories. Use prefix-style names instead (`Integration-Google-Calendar.md`, `Kiosk-Windows-11-Mele-4C.md`).
+- GitHub wikis are **flat** — no subdirectories. Use prefix-style names instead (`Google-Calendar.md`, `Kiosk-Windows-11-Mele-4C.md`).
 - `_Sidebar.md` and `_Footer.md` render on every wiki page.
 - `Home.md` is the landing page.
 - Internal links use the `[[Page-Name]]` shorthand on GitHub wikis. In this repo they render as broken links (deliberate — viewing the wiki on GitHub is the canonical view).
@@ -44,12 +44,12 @@ A small `docs/wiki/sync.sh` script can be added later to make this a one-liner.
 | [Onboarding](Onboarding.md) | Authored |
 | [Security-and-Threat-Model](Security-and-Threat-Model.md) | Authored |
 | [Database-Schema](Database-Schema.md) | Authored |
-| [Integration-Google-Calendar](Integration-Google-Calendar.md) | Authored — TODO screenshots |
-| [Integration-Home-Assistant](Integration-Home-Assistant.md) | Authored — TODO screenshots |
-| [Integration-Immich](Integration-Immich.md) | Authored — TODO screenshots |
-| [Integration-Bring](Integration-Bring.md) | Authored — TODO screenshots |
-| [Integration-OpenWeatherMap](Integration-OpenWeatherMap.md) | Authored |
-| [Integration-Cameras](Integration-Cameras.md) | Authored |
+| [Google-Calendar](Google-Calendar.md) | Authored — TODO screenshots |
+| [Home-Assistant](Home-Assistant.md) | Authored — TODO screenshots |
+| [Immich](Immich.md) | Authored — TODO screenshots |
+| [Bring](Bring.md) | Authored — TODO screenshots |
+| [OpenWeatherMap](OpenWeatherMap.md) | Authored |
+| [Cameras](Cameras.md) | Authored |
 | [Reference-Build](Reference-Build.md) | Authored — BOM, frame, photos, vendor links |
 | [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C.md) | Authored from production capture |
 | [Kiosk-Linux-Guidance](Kiosk-Linux-Guidance.md) | Authored as guidance |

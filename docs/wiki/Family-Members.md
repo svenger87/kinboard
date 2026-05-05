@@ -48,7 +48,7 @@ Each person's color drives:
 - **Schedule cell tints** in the school schedule
 - **Birthday ring dots** if linked from a birthday entry
 - **Avatar ring** in the dashboard's family-members row
-- **The mapping rule preview** in [[Integration-Google-Calendar|Settings → Google Calendar]]
+- **The mapping rule preview** in [[Google-Calendar|Settings → Google Calendar]]
 
 Pick distinct colors so per-person attribution stays glance-able. The palette has 16 swatches; if you have more than 16 people, repetition will happen. Most families have ≤ 6.
 
@@ -95,4 +95,4 @@ Tap the trash icon on the person card → confirm dialog → deleted. Cascade be
 
 - [[Birthdays]] — link a birthday to a person to inherit the color
 - [[Schedule]] — child / student toggle enables school features
-- [[Integration-Google-Calendar]] — assign Google calendars to people
+- [[Google-Calendar]] — assign Google calendars to people

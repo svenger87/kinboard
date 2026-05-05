@@ -9,7 +9,7 @@ When the kiosk is idle, Kinboard switches to a fullscreen screensaver — a slow
 
 Top → bottom:
 
-1. **Background photo** — fades between images from the configured photo source ([[Integration-Immich|Immich]] or Unsplash)
+1. **Background photo** — fades between images from the configured photo source ([[Immich|Immich]] or Unsplash)
 2. **Clock + date** (bottom-left) — large, low-contrast white-on-photo
 3. **Photo credit** (bottom-center) — photographer name + location, small text
 4. **Birthdays today** — if anyone has a birthday today
@@ -23,7 +23,7 @@ Tapping anywhere dismisses the screensaver and returns to the dashboard.
 
 ## Photo sources
 
-Two configurable sources, picked in [[Integration-Immich|Settings → Photos]]:
+Two configurable sources, picked in [[Immich|Settings → Photos]]:
 
 ### Immich
 
@@ -34,7 +34,7 @@ If you have a self-hosted [Immich](https://immich.app/) instance, point Kinboard
 
 The "monthly album" mode pairs nicely with a Smart Album in Immich that filters photos taken in this month across all years — your kitchen wall shows mid-May 2024 photos in mid-May 2026.
 
-See [[Integration-Immich]] for the connection setup.
+See [[Immich]] for the connection setup.
 
 ### Unsplash
 
@@ -49,7 +49,7 @@ If you don't have Immich (or don't want to share family photos with the wall dis
 
 (See `webapp/src/lib/unsplash-defaults.ts` for the full list.)
 
-The terms rotate **hourly** — every hour, the screensaver picks a fresh term and refreshes the photo. Customize per-month terms in [[Integration-Immich|Settings → Photos]].
+The terms rotate **hourly** — every hour, the screensaver picks a fresh term and refreshes the photo. Customize per-month terms in [[Immich|Settings → Photos]].
 
 ## Photo rotation
 
@@ -64,7 +64,7 @@ If you've configured an [[Presence-Sensor|LD2410 presence sensor]] for this devi
 
 Without a presence sensor, the screensaver activates after the configured **inactivity timeout** (default 5 minutes; configurable 1 / 2 / 5 / 10 minutes / off).
 
-Configure in [[Integration-Immich|Settings → Screensaver]].
+Configure in [[Immich|Settings → Screensaver]].
 
 ## Two presence modes
 
@@ -115,6 +115,6 @@ Tapping the screensaver doesn't dismiss it when a news modal is open — only th
 
 ## Related
 
-- [[Integration-Immich]] — Immich photo source setup
+- [[Immich]] — Immich photo source setup
 - [[Presence-Sensor]] — LD2410 hardware + script
 - [[Themes-and-Locales]] — locale-aware date formatting on the screensaver

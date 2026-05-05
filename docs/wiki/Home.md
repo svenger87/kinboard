@@ -18,12 +18,12 @@ Kinboard's integrations are all opt-in and configured per-family in the in-app `
 
 | Service | Purpose | Page |
 |---|---|---|
-| Google Calendar | Calendar sync, per-person mapping | [[Integration-Google-Calendar]] |
-| Home Assistant | Smart-home entities, energy dashboard, rooms | [[Integration-Home-Assistant]] |
-| Immich | Screensaver and gallery photos | [[Integration-Immich]] |
-| Bring! | Shopping list sync | [[Integration-Bring]] |
-| OpenWeatherMap | Weather widget + forecast | [[Integration-OpenWeatherMap]] |
-| Cameras (go2rtc) | Live WebRTC / RTSP / MJPEG streams | [[Integration-Cameras]] |
+| Google Calendar | Calendar sync, per-person mapping | [[Google-Calendar]] |
+| Home Assistant | Smart-home entities, energy dashboard, rooms | [[Home-Assistant]] |
+| Immich | Screensaver and gallery photos | [[Immich]] |
+| Bring! | Shopping list sync | [[Bring]] |
+| OpenWeatherMap | Weather widget + forecast | [[OpenWeatherMap]] |
+| Cameras (go2rtc) | Live WebRTC / RTSP / MJPEG streams | [[Cameras]] |
 
 ## Kiosk setups
 

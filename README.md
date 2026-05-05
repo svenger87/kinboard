@@ -69,9 +69,9 @@ Family logistics are scattered across calendars, chat threads, sticky notes, and
 | **School schedule** — per-child timetable + auto pack list for tomorrow | [Schedule](docs/wiki/Schedule.md) |
 | **Smart home** — Home Assistant entities, room tabs, floating-lights master control | [Smart home](docs/wiki/Smart-Home.md) |
 | **Energy dashboard** — solar / battery / grid live flow + charts | [Smart home → Energy](docs/wiki/Smart-Home.md#energy) |
-| **Cameras** — live WebRTC streams (via go2rtc) | [Cameras](docs/wiki/Integration-Cameras.md) |
+| **Cameras** — live WebRTC streams (via go2rtc) | [Cameras](docs/wiki/Cameras.md) |
 | **Photo screensaver** — Immich monthly album or Unsplash fallback, presence-aware blanking | [Screensaver](docs/wiki/Screensaver.md) |
-| **Weather** — current + hourly + radar (OpenWeatherMap) | [OpenWeatherMap](docs/wiki/Integration-OpenWeatherMap.md) |
+| **Weather** — current + hourly + radar (OpenWeatherMap) | [OpenWeatherMap](docs/wiki/OpenWeatherMap.md) |
 | **Web push notifications** — shopping items, task assignments, daily todo digest. **PWA install** required on iOS. | [Notifications](docs/wiki/Notifications.md) |
 | **Multi-device + multi-person** — devices join a family with a 6-char code, per-person color coding everywhere | [Family members](docs/wiki/Family-Members.md), [Devices](docs/wiki/Devices.md) |
 | **Monthly themes** — colors shift through the year automatically | [Themes & locales](docs/wiki/Themes-and-Locales.md) |
@@ -193,7 +193,7 @@ The wiki is the source of truth for everything beyond this README:
 - **Getting started** — [Quick-start](docs/wiki/Quick-start.md), [Self-hosting](docs/wiki/Self-hosting.md), [Onboarding](docs/wiki/Onboarding.md)
 - **Architecture** — [Architecture overview](docs/wiki/Architecture.md), [Database schema](docs/wiki/Database-Schema.md), [Security model](docs/wiki/Security-and-Threat-Model.md)
 - **Built-in features** — [Dashboard](docs/wiki/Dashboard.md) · [Calendar](docs/wiki/Calendar.md) · [Shopping](docs/wiki/Shopping.md) · [Recipes & meals](docs/wiki/Recipes-and-Meals.md) · [Tasks](docs/wiki/Tasks-and-Todos.md) · [Notes](docs/wiki/Notes.md) · [Birthdays](docs/wiki/Birthdays.md) · [Schedule](docs/wiki/Schedule.md) · [Smart home](docs/wiki/Smart-Home.md) · [Screensaver](docs/wiki/Screensaver.md) · [Family members](docs/wiki/Family-Members.md) · [Devices](docs/wiki/Devices.md) · [Notifications](docs/wiki/Notifications.md) · [Themes & locales](docs/wiki/Themes-and-Locales.md)
-- **Integrations** — [Google Calendar](docs/wiki/Integration-Google-Calendar.md) · [Home Assistant](docs/wiki/Integration-Home-Assistant.md) · [Immich](docs/wiki/Integration-Immich.md) · [Bring!](docs/wiki/Integration-Bring.md) · [OpenWeatherMap](docs/wiki/Integration-OpenWeatherMap.md) · [Cameras](docs/wiki/Integration-Cameras.md)
+- **Integrations** — [Google Calendar](docs/wiki/Google-Calendar.md) · [Home Assistant](docs/wiki/Home-Assistant.md) · [Immich](docs/wiki/Immich.md) · [Bring!](docs/wiki/Bring.md) · [OpenWeatherMap](docs/wiki/OpenWeatherMap.md) · [Cameras](docs/wiki/Cameras.md)
 - **Hardware** — [Reference build (BOM + frame)](docs/wiki/Reference-Build.md) · [Windows kiosk](docs/wiki/Kiosk-Windows-11-Mele-4C.md) · [Linux guidance](docs/wiki/Kiosk-Linux-Guidance.md) · [LD2410 presence sensor](docs/wiki/Presence-Sensor.md)
 - **[Troubleshooting](docs/wiki/Troubleshooting.md)** — known issues + fixes
 
