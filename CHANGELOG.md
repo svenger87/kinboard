@@ -8,6 +8,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 - **Version check on the Settings page.** The footer now shows the live `Kinboard v{X.Y.Z}` from `package.json` (replacing the hardcoded `v1.0.0` translation key) and surfaces a small "update to vY.Z.W available" link when the GitHub releases API reports a newer tag. Backed by a new `/api/version-check` endpoint that polls `api.github.com/repos/svenger87/kinboard/releases/latest`, caches the response in-process for 6 hours, and tolerates the GitHub API being unreachable (falls back to "current only, no badge"). Per-client TanStack Query staleTime is 1h. EN + DE translations added.
+- Reusable `<IntegrationConfigHint>` card component for integration settings pages — surfaces "needs configuration" state with the required env-var name, the `.env` path, and an optional docs link. First adopter is the Weather settings page; pattern carries over to the other integration pages as their TODOs land.
+
+### Fixed
+- **Stale-session orphan-cookie redirect.** Self-hosters who restored a backup, ran `docker compose down -v`, or otherwise wiped the database while a browser still held a `family_id` cookie were stuck on a UI that 404'd / 409'd everywhere with no recovery path (FK violations on the settings table look like 409s in the browser console). `AuthGuard` now validates the stored family against the live database via a new `useValidateStoredFamily()` query; if the row doesn't exist, the session is cleared, a one-shot toast surfaces ("Your previous session was reset on the server. Joining again — your data may need to be re-imported."), and the user lands on `/join`. Transient network errors don't trigger the redirect (the query returns `null` and retries on the 5-min schedule).
+- Weather settings page now shows an `IntegrationConfigHint` card explaining what to do when `OPENWEATHERMAP_API_KEY` is unset (instead of silently rendering the form with no current-weather preview and no idea why). EN + DE strings added.
 
 ## [1.0.2] - 2026-05-05 — Image-overlay path actually works
 

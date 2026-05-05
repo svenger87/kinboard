@@ -2,8 +2,13 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { toast } from "sonner";
 import { useFamilyStore } from "@/stores/family-store";
-import { useUpdateDeviceLastSeen, useRestoreDeviceSession } from "@/hooks/use-supabase-queries";
+import {
+  useUpdateDeviceLastSeen,
+  useRestoreDeviceSession,
+  useValidateStoredFamily,
+} from "@/hooks/use-supabase-queries";
 import { Loader2 } from "lucide-react";
 
 const PUBLIC_PATHS = ["/join"];
@@ -16,13 +21,15 @@ interface AuthGuardProps {
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { family, device } = useFamilyStore();
+  const { family, device, clearSession } = useFamilyStore();
   const [isHydrated, setIsHydrated] = useState(false);
   const [restoreAttempted, setRestoreAttempted] = useState(false);
   const updateLastSeen = useUpdateDeviceLastSeen();
   const restoreSession = useRestoreDeviceSession();
+  const validateFamily = useValidateStoredFamily(family?.id);
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
   const restoreAttemptedRef = useRef(false);
+  const orphanHandledRef = useRef(false);
 
   // Wait for Zustand to hydrate from cookies
   useEffect(() => {
@@ -87,6 +94,26 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
     const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 
+    // Stored family points at a row that no longer exists — typically
+    // because the maintainer wiped the DB or restored an old backup.
+    // Without this guard, every API call FK-violates and the UI gets
+    // stuck mid-render with no signal to the user. Clear the session
+    // and bounce to /join with a one-shot toast.
+    if (
+      family &&
+      validateFamily.data === false &&
+      !orphanHandledRef.current
+    ) {
+      orphanHandledRef.current = true;
+      toast.error(
+        "Your previous session was reset on the server. Joining again — your data may need to be re-imported.",
+        { duration: 8000 },
+      );
+      clearSession();
+      router.replace("/join");
+      return;
+    }
+
     // If not authenticated and not on public path, redirect to join
     if (!family && !isPublicPath) {
       router.replace("/join");
@@ -96,7 +123,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     if (family && pathname === "/join") {
       router.replace("/");
     }
-  }, [family, pathname, router, isHydrated, restoreAttempted]);
+  }, [family, pathname, router, isHydrated, restoreAttempted, validateFamily.data, clearSession]);
 
   // Show loading while hydrating or restoring
   if (!isHydrated || !restoreAttempted) {

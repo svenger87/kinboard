@@ -79,6 +79,42 @@ export function useFamilyByJoinCode(joinCode: string) {
   });
 }
 
+// Verifies the family ID still exists in the database. Used by AuthGuard
+// to detect orphan sessions — when a self-hoster wipes the DB but the
+// browser still has a stored family in cookie, every subsequent API
+// call FK-violates and the UI gets stuck. This query gives a clean
+// "stored ID is dead, clear the session and bounce to /join" signal.
+//
+// Returns:
+//   data === true    → family still exists, session is valid
+//   data === false   → family no longer in DB, session is orphan
+//   data === null    → no familyId provided (skip the check)
+export function useValidateStoredFamily(familyId: string | undefined) {
+  const supabase = createClient();
+  return useQuery({
+    queryKey: ["family", "validate", familyId],
+    queryFn: async (): Promise<boolean | null> => {
+      if (!familyId) return null;
+      const { data, error } = await supabase
+        .from("families")
+        .select("id")
+        .eq("id", familyId)
+        .maybeSingle();
+      if (error) {
+        // Don't false-positive on transient network/RLS errors — those
+        // shouldn't kick the user out. Return null and let the next
+        // refetch try again.
+        console.warn("[useValidateStoredFamily] check failed:", error.message);
+        return null;
+      }
+      return data !== null;
+    },
+    enabled: !!familyId,
+    staleTime: 5 * 60 * 1000, // recheck once every 5 min
+    retry: 1,
+  });
+}
+
 export function useCreateFamily() {
   const supabase = createClient();
   const queryClient = useQueryClient();
