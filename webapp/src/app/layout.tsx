@@ -68,11 +68,27 @@ export default async function RootLayout({
   const messages = await getMessages();
   const t = await getTranslations("common");
 
+  // Read public env at REQUEST time so the published Docker image
+  // works for any self-hoster's URL without a per-deployment rebuild.
+  // Build-time NEXT_PUBLIC_* baking still works (source build path);
+  // this is a runtime fallback the browser-side supabase client reads
+  // first via window.__ENV. See lib/supabase/client.ts.
+  const publicEnv = {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+  };
+
   return (
     <html lang={locale} className={monthTheme} suppressHydrationWarning>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} ${outfit.variable} font-sans antialiased min-h-screen bg-background`}
       >
+        <script
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{
+            __html: `window.__ENV=${JSON.stringify(publicEnv)};`,
+          }}
+        />
         <a href="#main-content" className="skip-link">
           {t("skipToMain")}
         </a>
