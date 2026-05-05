@@ -25,6 +25,22 @@ Calendar · weather · photos · shopping list · smart-home — one screen, eve
 
 ---
 
+
+## Logos
+
+Brand assets are now bundled directly in the repository and also wired into the web app (main PWA, shopping PWA, and favicon):
+
+- `assets/logos/kinboard-logo-icon-512.png`
+- `assets/logos/kinboard-logo-icon-192.png`
+- `assets/logos/kinboard-logo-maskable-512.png`
+- `assets/logos/kinboard-logo-maskable-192.png`
+
+<img src="assets/logos/kinboard-logo-icon-192.png" alt="Kinboard logo" width="96"/>
+
+These are used in README/wiki plus app icon metadata (`manifest.json`, `manifest-shopping.json`) and `favicon.png`.
+
+---
+
 ## Table of contents
 
 - [Why](#why)

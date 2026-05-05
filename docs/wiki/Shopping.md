@@ -22,7 +22,7 @@ The built-in list runs entirely on your Kinboard instance — no external servic
 
 Kinboard ships with a **dedicated PWA just for the shopping list**, separate from the main Kinboard PWA. Installing it gives you:
 
-- A **separate home-screen icon** (green shopping-cart, distinct from the main Kinboard icon)
+- A **separate home-screen icon** (shopping logo, distinct from the main Kinboard icon)
 - A **scoped install** — opens directly to the shopping list every time, no nav drawer, no other surfaces
 - Its own splash screen and green theme color (`#22c55e`)
 - A "Quick add item" home-screen shortcut (long-press the icon on Android) that jumps straight to the add field
@@ -34,7 +34,7 @@ This is the **recommended phone install** for any family member whose only need 
 
 When you open `/shopping` on a phone, a green banner appears after ~2 seconds offering install. Tap it:
 
-- **iOS**: it deep-links to `/einkaufen` (the route with the shopping-only manifest), then walk through Safari Share → Add to Home Screen. The icon that lands on your home screen is the green shopping-cart, scoped to the shopping page only.
+- **iOS**: it deep-links to `/einkaufen` (the route with the shopping-only manifest), then walk through Safari Share → Add to Home Screen. The icon that lands on your home screen is the shopping logo, scoped to the shopping page only.
 - **Android**: same deep-link, then accept the browser's install prompt. Browser auto-detects the shopping manifest at the `/einkaufen` URL and installs the scoped PWA.
 
 > Why is the dedicated manifest served from `/einkaufen`? Historic — that's the original German URL where this feature shipped. Both `/einkaufen` and `/shopping` render the same UI, but only `/einkaufen` exposes the shopping-specific manifest. The install prompt automatically routes you there.
@@ -47,7 +47,7 @@ If you've **already installed the main Kinboard PWA** and want the shopping one 
 |---|---|---|
 | Install from | Anywhere in Kinboard | `/einkaufen` (banner deep-links you there) |
 | Manifest | `/manifest.json` | `/manifest-shopping.json` |
-| Icon | Kinboard logo | Green shopping cart |
+| Icon | Kinboard logo | Shopping logo |
 | Scope | Whole app | Just the shopping page |
 | Push notifications | Yes (all types) | Yes (shopping notifications still work) |
 | Offline shopping | Yes | Yes |
