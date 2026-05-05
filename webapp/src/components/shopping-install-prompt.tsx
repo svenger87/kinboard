@@ -1,0 +1,126 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ShoppingCart, X, Smartphone, ExternalLink } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
+import { GlassCard } from "@/components/ui/card";
+import Link from "next/link";
+
+const DISMISSED_COOKIE_NAME = "shopping-pwa-prompt-dismissed";
+
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+function setCookie(name: string, value: string, days: number = 365): void {
+  if (typeof document === "undefined") return;
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+}
+
+export function ShoppingInstallPrompt() {
+  const t = useTranslations("components.shoppingPrompt");
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    // Check if already running as standalone PWA
+    const isStandalonePWA = window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+    setIsStandalone(isStandalonePWA);
+
+    // Check if iOS
+    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    setIsIOS(iOS);
+
+    // Check if user has dismissed this prompt before (check both cookie and localStorage for migration)
+    const hasDismissedCookie = getCookie(DISMISSED_COOKIE_NAME) === "true";
+    const hasDismissedLocal = localStorage.getItem(DISMISSED_COOKIE_NAME) === "true";
+
+    if (hasDismissedCookie || hasDismissedLocal) {
+      setDismissed(true);
+      // Migrate to cookie if only in localStorage
+      if (hasDismissedLocal && !hasDismissedCookie) {
+        setCookie(DISMISSED_COOKIE_NAME, "true");
+      }
+      return;
+    }
+
+    // Show prompt after a short delay
+    if (!isStandalonePWA) {
+      const timer = setTimeout(() => setShowPrompt(true), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const handleDismiss = () => {
+    setShowPrompt(false);
+    setDismissed(true);
+    // Store in both cookie (cross-PWA) and localStorage (backwards compat)
+    setCookie(DISMISSED_COOKIE_NAME, "true");
+    localStorage.setItem(DISMISSED_COOKIE_NAME, "true");
+  };
+
+  // Don't show if already standalone or dismissed
+  if (isStandalone || dismissed) {
+    return null;
+  }
+
+  return (
+    <AnimatePresence>
+      {showPrompt && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          className="mb-6"
+        >
+          <GlassCard className="p-4 border-green-500/30 bg-green-500/5">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-green-500/20 shrink-0">
+                <Smartphone className="size-5 text-green-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-green-400">{t("title")}</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {isIOS ? t("iosBody") : t("androidBody")}
+                </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Link href="/einkaufen">
+                    <Button variant="outline" size="sm" className="border-green-500/30 hover:bg-green-500/10">
+                      {isIOS ? (
+                        <>
+                          <ExternalLink className="size-4 mr-2" />
+                          {t("iosOpen")}
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingCart className="size-4 mr-2" />
+                          {t("androidOpen")}
+                        </>
+                      )}
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+              <button
+                onClick={handleDismiss}
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-all shrink-0"
+                aria-label={t("dismissAria")}
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+          </GlassCard>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}

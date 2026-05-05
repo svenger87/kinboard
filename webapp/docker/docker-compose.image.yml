@@ -1,0 +1,31 @@
+# Self-hoster overlay: use the published image from GitHub Container
+# Registry instead of building locally. Drop ~5 min off the bring-up
+# and ~2 GB off the source clone.
+#
+# Usage (alongside the normal docker-compose.yml + your traefik overlay):
+#
+#   cd webapp/docker
+#   ./setup.sh                                     # one-time secrets
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.image.yml \
+#     -f docker-compose.traefik.yml \
+#     up -d
+#
+# Pin a specific version with KINBOARD_TAG (defaults to :latest):
+#
+#   KINBOARD_TAG=v1.2.3 docker compose -f docker-compose.yml -f docker-compose.image.yml up -d
+#
+# This pulls a multi-arch (amd64 + arm64) image, so it Just Works on
+# Raspberry Pi-class hardware too.
+
+services:
+  webapp:
+    image: ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest}
+    # Strip out the build block so docker-compose doesn't try to build
+    # over the pulled image.
+    build: !reset null
+    # Pull from GHCR even if a local image with the same tag exists,
+    # so users always get the published version they asked for.
+    pull_policy: always
+

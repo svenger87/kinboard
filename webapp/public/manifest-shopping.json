@@ -1,0 +1,52 @@
+{
+  "name": "Einkaufsliste",
+  "short_name": "Einkauf",
+  "description": "Familien-Einkaufsliste für den Supermarkt",
+  "start_url": "/einkaufen",
+  "scope": "/einkaufen",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#22c55e",
+  "icons": [
+    {
+      "src": "/icons/icon-shopping-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-shopping-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-shopping-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-shopping-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["shopping", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "Artikel hinzufügen",
+      "short_name": "Hinzufügen",
+      "description": "Neuen Artikel zur Einkaufsliste hinzufügen",
+      "url": "/einkaufen?action=add",
+      "icons": [
+        {
+          "src": "/icons/icon-shopping-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}

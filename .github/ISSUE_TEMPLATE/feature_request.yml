@@ -1,0 +1,66 @@
+name: Feature request
+description: Suggest a new feature or enhancement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. The clearer the use case, the easier it is to evaluate and prioritize.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation today and what's missing or awkward.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should the feature do? Sketches, screenshots, or pseudo-flows are welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you've tried, similar features in other apps, or other angles you discarded.
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface
+      multiple: true
+      options:
+        - Dashboard
+        - Calendar
+        - Shopping list
+        - Recipes / meals
+        - Tasks / todos
+        - Notes
+        - Photos / screensaver
+        - Smart home
+        - Energy dashboard
+        - Cameras
+        - Settings
+        - Onboarding
+        - Other
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Core (ships to everyone)
+        - Plugin (opt-in integration)
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?

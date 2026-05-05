@@ -1,0 +1,423 @@
+[
+  {
+    "entity_id": "binary_sensor.model_y_fahrertur_vorne",
+    "state": "off",
+    "attributes": {
+      "friendly_name": "Model Y Fahrertur Vorne",
+      "device_class": "opening"
+    }
+  },
+  {
+    "entity_id": "binary_sensor.model_y_status",
+    "state": "off",
+    "attributes": {
+      "friendly_name": "Model Y Status",
+      "device_class": "opening"
+    }
+  },
+  {
+    "entity_id": "climate.model_y_klima",
+    "state": "heat",
+    "attributes": {
+      "friendly_name": "Model Y Klima",
+      "current_temperature": 21.5,
+      "temperature": 22,
+      "hvac_modes": [
+        "off",
+        "heat",
+        "auto"
+      ],
+      "min_temp": 7,
+      "max_temp": 30
+    }
+  },
+  {
+    "entity_id": "cover.model_y_fenster",
+    "state": "open",
+    "attributes": {
+      "friendly_name": "Model Y Fenster",
+      "current_position": 100
+    }
+  },
+  {
+    "entity_id": "cover.model_y_front_kofferraum",
+    "state": "open",
+    "attributes": {
+      "friendly_name": "Model Y Front Kofferraum",
+      "current_position": 100
+    }
+  },
+  {
+    "entity_id": "cover.model_y_kofferraum",
+    "state": "open",
+    "attributes": {
+      "friendly_name": "Model Y Kofferraum",
+      "current_position": 100
+    }
+  },
+  {
+    "entity_id": "device_tracker.model_y_standort",
+    "state": "home",
+    "attributes": {
+      "friendly_name": "Model Y Standort",
+      "latitude": 52.52,
+      "longitude": 13.405
+    }
+  },
+  {
+    "entity_id": "light.esstisch",
+    "state": "on",
+    "attributes": {
+      "friendly_name": "Esstisch",
+      "supported_color_modes": [
+        "onoff"
+      ],
+      "brightness": 200
+    }
+  },
+  {
+    "entity_id": "light.fensterbank",
+    "state": "on",
+    "attributes": {
+      "friendly_name": "Fensterbank",
+      "supported_color_modes": [
+        "onoff"
+      ],
+      "brightness": 200
+    }
+  },
+  {
+    "entity_id": "light.flur",
+    "state": "on",
+    "attributes": {
+      "friendly_name": "Flur",
+      "supported_color_modes": [
+        "onoff"
+      ],
+      "brightness": 200
+    }
+  },
+  {
+    "entity_id": "light.kommode_flur",
+    "state": "on",
+    "attributes": {
+      "friendly_name": "Kommode Flur",
+      "supported_color_modes": [
+        "onoff"
+      ],
+      "brightness": 200
+    }
+  },
+  {
+    "entity_id": "light.sideboard",
+    "state": "on",
+    "attributes": {
+      "friendly_name": "Sideboard",
+      "supported_color_modes": [
+        "onoff"
+      ],
+      "brightness": 200
+    }
+  },
+  {
+    "entity_id": "light.wohnzimmer",
+    "state": "on",
+    "attributes": {
+      "friendly_name": "Wohnzimmer",
+      "supported_color_modes": [
+        "onoff"
+      ],
+      "brightness": 200
+    }
+  },
+  {
+    "entity_id": "lock.model_y_schloss",
+    "state": "locked",
+    "attributes": {
+      "friendly_name": "Model Y Schloss"
+    }
+  },
+  {
+    "entity_id": "number.model_y_ladelimit",
+    "state": "unknown",
+    "attributes": {
+      "friendly_name": "Model Y Ladelimit"
+    }
+  },
+  {
+    "entity_id": "sensor.grid_export_energy",
+    "state": "3.8",
+    "attributes": {
+      "friendly_name": "Grid Export Energy",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "total_increasing"
+    }
+  },
+  {
+    "entity_id": "sensor.grid_export_power",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Grid Export Power",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement"
+    }
+  },
+  {
+    "entity_id": "sensor.grid_import_energy",
+    "state": "5.2",
+    "attributes": {
+      "friendly_name": "Grid Import Energy",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "total_increasing"
+    }
+  },
+  {
+    "entity_id": "sensor.grid_import_power",
+    "state": "1340",
+    "attributes": {
+      "friendly_name": "Grid Import Power",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement"
+    }
+  },
+  {
+    "entity_id": "sensor.kilometerzahler",
+    "state": "245.4",
+    "attributes": {
+      "friendly_name": "Kilometerzahler",
+      "unit_of_measurement": "km",
+      "device_class": "distance"
+    }
+  },
+  {
+    "entity_id": "sensor.model_y_aussentemperatur",
+    "state": "21.5",
+    "attributes": {
+      "friendly_name": "Model Y Aussentemperatur",
+      "unit_of_measurement": "°C",
+      "device_class": "temperature"
+    }
+  },
+  {
+    "entity_id": "sensor.model_y_batteriereichweite",
+    "state": "245.4",
+    "attributes": {
+      "friendly_name": "Model Y Batteriereichweite",
+      "unit_of_measurement": "km",
+      "device_class": "distance"
+    }
+  },
+  {
+    "entity_id": "sensor.model_y_batteriestand",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Model Y Batteriestand"
+    }
+  },
+  {
+    "entity_id": "sensor.model_y_innentemperatur",
+    "state": "21.5",
+    "attributes": {
+      "friendly_name": "Model Y Innentemperatur",
+      "unit_of_measurement": "°C",
+      "device_class": "temperature"
+    }
+  },
+  {
+    "entity_id": "sensor.model_y_ladeenergie_hinzugefugt",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Model Y Ladeenergie Hinzugefugt"
+    }
+  },
+  {
+    "entity_id": "sensor.model_y_ladegerat_leistung",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Model Y Ladegerat Leistung"
+    }
+  },
+  {
+    "entity_id": "sensor.model_y_ladestatus",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Model Y Ladestatus"
+    }
+  },
+  {
+    "entity_id": "sensor.model_y_zeit_zum_vollstandigen_aufladen",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Model Y Zeit Zum Vollstandigen Aufladen"
+    }
+  },
+  {
+    "entity_id": "sensor.reifendruck_hinten_links",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Reifendruck Hinten Links"
+    }
+  },
+  {
+    "entity_id": "sensor.reifendruck_hinten_rechts",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Reifendruck Hinten Rechts"
+    }
+  },
+  {
+    "entity_id": "sensor.reifendruck_vorne_links",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Reifendruck Vorne Links"
+    }
+  },
+  {
+    "entity_id": "sensor.reifendruck_vorne_rechts",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Reifendruck Vorne Rechts"
+    }
+  },
+  {
+    "entity_id": "sensor.roborock_s7_maxv_batterie",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Roborock S7 Maxv Batterie"
+    }
+  },
+  {
+    "entity_id": "sensor.roborock_s7_maxv_reinigungsfortschritt",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Roborock S7 Maxv Reinigungsfortschritt"
+    }
+  },
+  {
+    "entity_id": "sensor.roborock_s7_maxv_status",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Roborock S7 Maxv Status"
+    }
+  },
+  {
+    "entity_id": "sensor.solarflow_800_pro_aggr_charge",
+    "state": "4.1",
+    "attributes": {
+      "friendly_name": "Solarflow 800 Pro Aggr Charge",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "total_increasing"
+    }
+  },
+  {
+    "entity_id": "sensor.solarflow_800_pro_aggr_discharge",
+    "state": "2.7",
+    "attributes": {
+      "friendly_name": "Solarflow 800 Pro Aggr Discharge",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "total_increasing"
+    }
+  },
+  {
+    "entity_id": "sensor.solarflow_800_pro_aggr_grid_input_power",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Solarflow 800 Pro Aggr Grid Input Power",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement"
+    }
+  },
+  {
+    "entity_id": "sensor.solarflow_800_pro_aggr_solar",
+    "state": "12.4",
+    "attributes": {
+      "friendly_name": "Solarflow 800 Pro Aggr Solar",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "total_increasing"
+    }
+  },
+  {
+    "entity_id": "sensor.solarflow_800_pro_electric_level",
+    "state": "78",
+    "attributes": {
+      "friendly_name": "Solarflow 800 Pro Electric Level",
+      "unit_of_measurement": "%",
+      "device_class": "battery",
+      "state_class": "measurement"
+    }
+  },
+  {
+    "entity_id": "sensor.solarflow_800_pro_grid_input_power",
+    "state": "0",
+    "attributes": {
+      "friendly_name": "Solarflow 800 Pro Grid Input Power",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement"
+    }
+  },
+  {
+    "entity_id": "sensor.solarflow_800_pro_output_pack_power",
+    "state": "820",
+    "attributes": {
+      "friendly_name": "Solarflow 800 Pro Output Pack Power",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement"
+    }
+  },
+  {
+    "entity_id": "sensor.solarflow_800_pro_pack_input_power",
+    "state": "820",
+    "attributes": {
+      "friendly_name": "Solarflow 800 Pro Pack Input Power",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement"
+    }
+  },
+  {
+    "entity_id": "sensor.solarflow_800_pro_solar_input_power",
+    "state": "2418",
+    "attributes": {
+      "friendly_name": "Solarflow 800 Pro Solar Input Power",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement"
+    }
+  },
+  {
+    "entity_id": "vacuum.roborock_s7_maxv",
+    "state": "docked",
+    "attributes": {
+      "friendly_name": "Roborock S7 Maxv",
+      "battery_level": 100
+    }
+  },
+  {
+    "entity_id": "person.parent_a",
+    "state": "home",
+    "attributes": {
+      "friendly_name": "Parent A",
+      "latitude": 52.52,
+      "longitude": 13.405
+    }
+  },
+  {
+    "entity_id": "person.parent_b",
+    "state": "home",
+    "attributes": {
+      "friendly_name": "Parent B",
+      "latitude": 52.52,
+      "longitude": 13.405
+    }
+  }
+]
