@@ -23,7 +23,7 @@ Tapping anywhere dismisses the screensaver and returns to the dashboard.
 
 ## Photo sources
 
-Two configurable sources, picked in [[Immich|Settings → Photos]]:
+Two configurable sources, picked in [[Settings → Photos|Immich]]:
 
 ### Immich
 
@@ -49,7 +49,7 @@ If you don't have Immich (or don't want to share family photos with the wall dis
 
 (See `webapp/src/lib/unsplash-defaults.ts` for the full list.)
 
-The terms rotate **hourly** — every hour, the screensaver picks a fresh term and refreshes the photo. Customize per-month terms in [[Immich|Settings → Photos]].
+The terms rotate **hourly** — every hour, the screensaver picks a fresh term and refreshes the photo. Customize per-month terms in [[Settings → Photos|Immich]].
 
 ## Photo rotation
 
@@ -57,14 +57,14 @@ Every **30 seconds** by default (configurable 10 s – 5 min), the photo cross-f
 
 ## Presence-aware activation
 
-If you've configured an [[Presence-Sensor|LD2410 presence sensor]] for this device, screensaver behavior changes:
+If you've configured an [[LD2410 presence sensor|Presence-Sensor]] for this device, screensaver behavior changes:
 
 - **No presence detected for N seconds** (default 30) → screensaver activates immediately (or display blacks out, depending on mode)
 - **Presence detected** → screensaver dismisses, dashboard returns
 
 Without a presence sensor, the screensaver activates after the configured **inactivity timeout** (default 5 minutes; configurable 1 / 2 / 5 / 10 minutes / off).
 
-Configure in [[Immich|Settings → Screensaver]].
+Configure in [[Settings → Screensaver|Immich]].
 
 ## Two presence modes
 

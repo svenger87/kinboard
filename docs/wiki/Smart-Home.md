@@ -17,7 +17,7 @@ This page covers what those surfaces *do*. For connecting HA, see [[Home-Assista
 
 ### Layout: tabs
 
-The top of the page has a row of room tabs (configured via [[Home-Assistant#room-configuration|Settings → Home Assistant → Rooms]]):
+The top of the page has a row of room tabs (configured via [[Settings → Home Assistant → Rooms|Home-Assistant#room-configuration]]):
 
 ```
 [ Living room ]  [ Kitchen ]  [ Bedroom ]  [ Garden ]  [ Other ]
@@ -60,7 +60,7 @@ Tap individual lights to toggle, or use the master "all off" / "all on" buttons 
 
 ### Dashboards (custom card grids)
 
-Beyond rooms, [[Home-Assistant#dashboards|dashboards]] let you curate a flat grid of cards across rooms. Use cases:
+Beyond rooms, [[dashboards|Home-Assistant#dashboards]] let you curate a flat grid of cards across rooms. Use cases:
 
 - A "morning routine" dashboard with the bedroom light, coffee maker, and weather
 - A "media room" dashboard with TV media player + ambient lights + Roku scenes
@@ -70,7 +70,7 @@ Dashboards are the legacy surface (predates rooms in the codebase). The room vie
 
 ## Energy
 
-`/energy` is the solar / battery / grid power dashboard. Pulls live data from HA sensors mapped in [[Home-Assistant#optional-configure-the-energy-dashboard|Settings → HA → Energy]].
+`/energy` is the solar / battery / grid power dashboard. Pulls live data from HA sensors mapped in [[Settings → HA → Energy|Home-Assistant#optional-configure-the-energy-dashboard]].
 
 ### Live energy flow
 
@@ -103,7 +103,7 @@ Below the flow: configurable line charts, one per timeframe:
 | **Energy** | Today / 7d / 30d / 1y | Cumulative kWh delta per source |
 | **Battery state-of-charge** | Last 24 h / 7 d | Battery % over time |
 
-Each chart's series are configurable in [[Home-Assistant#optional-configure-the-energy-dashboard|Settings → HA → Energy → Chart configuration]] — pick which entities show up, label them, color them.
+Each chart's series are configurable in [[Settings → HA → Energy → Chart configuration|Home-Assistant#optional-configure-the-energy-dashboard]] — pick which entities show up, label them, color them.
 
 ### Daily / weekly / monthly aggregates
 

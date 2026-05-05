@@ -58,7 +58,7 @@ The **PWA install** is what makes Kinboard feel like a native app on phones — 
 3. The app gets its own desktop icon + opens in a chromeless window
 4. Push works either way on desktop
 
-The kiosk install on the [[Kiosk-Windows-11-Mele-4C|Mele 4C]] is also a Chrome PWA install — but the kiosk doesn't typically use push (it shows everything live anyway).
+The kiosk install on the [[Mele 4C|Kiosk-Windows-11-Mele-4C]] is also a Chrome PWA install — but the kiosk doesn't typically use push (it shows everything live anyway).
 
 ### Shopping-only PWA (separate install)
 

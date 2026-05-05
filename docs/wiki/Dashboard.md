@@ -15,7 +15,7 @@ The dashboard is a **monthly-themed clock + widget grid** designed to glance at,
 3. **Clock** — large centered, time + day + date + family-members avatars (with status)
 4. **Widget grid** — the configurable section, see below
 
-The clock follows the [[Themes-and-Locales|monthly theme]] color. Date format follows the active locale.
+The clock follows the [[monthly theme|Themes-and-Locales]] color. Date format follows the active locale.
 
 ## Today strip
 
@@ -62,7 +62,7 @@ Tapping an avatar surfaces upcoming events / pending todos for that person speci
 
 > TODO: screenshot of the family-members avatar row
 
-Configure people in [[Family-Members|Settings → Family members]].
+Configure people in [[Settings → Family members|Family-Members]].
 
 ## Real-time sync
 
@@ -70,7 +70,7 @@ Every value on the dashboard updates within ~100 ms of a database change anywher
 
 ## Behavior on the kiosk
 
-The dashboard is what the [[Kiosk-Windows-11-Mele-4C|kiosk]] shows when it's idle. The screensaver kicks in after the configured timeout (or when the LD2410 detects no presence — see [[Presence-Sensor]]).
+The dashboard is what the [[kiosk|Kiosk-Windows-11-Mele-4C]] shows when it's idle. The screensaver kicks in after the configured timeout (or when the LD2410 detects no presence — see [[Presence-Sensor]]).
 
 ## Customization
 

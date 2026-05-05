@@ -73,7 +73,7 @@ Three ways to fill a cell:
 2. **Tap an empty cell** → quick-add menu lets you choose a recipe or type a free-form name
 3. **Right-click / long-press** an existing cell → quick options (move / clear / mark eaten)
 
-Empty cells show a subtle "Try Pizza" or similar randomized hint based on the meal type to spark ideas — see [[Themes-and-Locales|mealHints translation namespace]] for the list.
+Empty cells show a subtle "Try Pizza" or similar randomized hint based on the meal type to spark ideas — see [[mealHints translation namespace|Themes-and-Locales]] for the list.
 
 ### Sidebar: recipe quick-pick
 
