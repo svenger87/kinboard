@@ -881,7 +881,10 @@
       "savingLabel": "Speichern…",
       "savedLabel": "Gespeichert",
       "previewHeading": "Aktuelle Wetterdaten",
-      "refreshButton": "Aktualisieren"
+      "refreshButton": "Aktualisieren",
+      "notConfiguredTitle": "OpenWeatherMap-API-Schlüssel nicht gesetzt",
+      "notConfiguredDescription": "Das Wetter-Widget benötigt einen kostenlosen OpenWeatherMap-API-Schlüssel, um aktuelle Bedingungen und Vorhersagen abzurufen. Das Widget bleibt deaktiviert (kein Fehler im Dashboard), bis der Schlüssel hinterlegt ist.",
+      "notConfiguredDocsLabel": "Kostenlosen API-Schlüssel anfordern →"
     },
     "notifications": {
       "title": "Benachrichtigungen",

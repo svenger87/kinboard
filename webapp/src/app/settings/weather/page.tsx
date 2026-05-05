@@ -21,6 +21,7 @@ import { useWeatherLocation, useWeather, type WeatherLocation } from "@/hooks";
 import { useUpdateSetting } from "@/hooks";
 import { Weather } from "@/components/widgets/weather";
 import { PageHeader } from "@/components/page-header";
+import { IntegrationConfigHint } from "@/components/integration-config-hint";
 
 interface CityResult {
   name: string;
@@ -34,7 +35,11 @@ interface CityResult {
 export default function WeatherSettingsPage() {
   const t = useTranslations("settings.weather");
   const { data: savedLocation, isLoading: locationLoading } = useWeatherLocation();
-  const { refetch: refetchWeather } = useWeather();
+  const { data: weatherData, refetch: refetchWeather } = useWeather();
+  // Detect "OPENWEATHERMAP_API_KEY missing" — the hook returns null
+  // (not an error) when the API responds with { configured: false }.
+  // Loading-state suppresses the hint until the first fetch resolves.
+  const weatherUnconfigured = weatherData === null;
   const updateSetting = useUpdateSetting();
 
   const [locationType, setLocationType] = useState<"city" | "coordinates">("city");
@@ -190,6 +195,16 @@ export default function WeatherSettingsPage() {
           backHref="/settings"
           className="mb-8"
         />
+
+        {weatherUnconfigured && (
+          <IntegrationConfigHint
+            title={t("notConfiguredTitle")}
+            description={t("notConfiguredDescription")}
+            envKey="OPENWEATHERMAP_API_KEY"
+            docsHref="https://github.com/svenger87/kinboard/wiki/Integration-OpenWeatherMap"
+            docsLabel={t("notConfiguredDocsLabel")}
+          />
+        )}
 
         {/* Location Type */}
         <motion.div

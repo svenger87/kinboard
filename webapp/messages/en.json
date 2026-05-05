@@ -881,7 +881,10 @@
       "savingLabel": "Saving…",
       "savedLabel": "Saved",
       "previewHeading": "Current weather data",
-      "refreshButton": "Refresh"
+      "refreshButton": "Refresh",
+      "notConfiguredTitle": "OpenWeatherMap API key not set",
+      "notConfiguredDescription": "The weather widget needs a free OpenWeatherMap API key to fetch current conditions and forecasts. The widget stays disabled (no error in the dashboard) until you add the key.",
+      "notConfiguredDocsLabel": "Where to get a free API key →"
     },
     "notifications": {
       "title": "Notifications",
