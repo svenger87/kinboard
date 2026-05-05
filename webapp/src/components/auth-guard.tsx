@@ -144,5 +144,23 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
+  // Block child rendering on protected paths until we've confirmed the
+  // stored family still exists, OR while the orphan effect is racing
+  // to clear the session. Without this, the dashboard mounts and fires
+  // dozens of REST calls with a stale family_id before validateFamily
+  // resolves, producing a wall of 409 FK-violation errors that don't
+  // recover even after the redirect lands.
+  if (
+    family &&
+    !isPublicPath &&
+    (!validateFamily.isFetched || validateFamily.data === false)
+  ) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return <>{children}</>;
 }
