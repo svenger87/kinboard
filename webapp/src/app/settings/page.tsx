@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useFamilyStore } from "@/stores/family-store";
 import { useKeyboardShortcuts, useSwipeNavigation, useSetting, useUpdateSetting, useIsOnline } from "@/hooks";
+import { useVersionCheck } from "@/hooks/use-version-check";
 import { useState, useRef } from "react";
 import Link from "next/link";
 import {
@@ -60,6 +61,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const { family, device, clearSession } = useFamilyStore();
   const isOnline = useIsOnline();
+  const { data: version } = useVersionCheck();
   const [copied, setCopied] = useState(false);
   const { data: storedPin } = useSetting<string | null>("settings_pin", null);
   const updatePin = useUpdateSetting<string | null>();
@@ -475,7 +477,24 @@ export default function SettingsPage() {
 
         {/* App info footer */}
         <div className="mt-6 pb-4 text-center text-[11px] text-muted-foreground/40 space-y-0.5">
-          <p>{t("appVersion")}</p>
+          <p>
+            {version?.current
+              ? t("appVersionDynamic", { version: version.current })
+              : t("appVersion")}
+            {version?.updateAvailable && version.releaseUrl && (
+              <>
+                {" · "}
+                <a
+                  href={version.releaseUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-month-primary hover:underline"
+                >
+                  {t("updateAvailable", { version: version.latest ?? "" })}
+                </a>
+              </>
+            )}
+          </p>
           {device && <p>{t("deviceLabel", { name: device.name || device.id.slice(0, 8) })}</p>}
         </div>
       </div>
