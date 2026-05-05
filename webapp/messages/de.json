@@ -1439,7 +1439,10 @@
       "notConnectedDescription": "Verbinde deinen Google Account, um Kalender zu synchronisieren und Termine auf allen Geräten zu sehen.",
       "notConnectedButton": "Mit Google verbinden",
       "infoHeading": "Hinweis",
-      "infoDescription": "Die Verbindung zu Google Kalender erfolgt über OAuth 2.0 und speichert keine Passwörter. Du kannst die Berechtigung jederzeit in deinen Google-Einstellungen widerrufen."
+      "infoDescription": "Die Verbindung zu Google Kalender erfolgt über OAuth 2.0 und speichert keine Passwörter. Du kannst die Berechtigung jederzeit in deinen Google-Einstellungen widerrufen.",
+      "notConfiguredTitle": "Google-OAuth-Zugangsdaten fehlen",
+      "notConfiguredDescription": "Um einen Google Kalender zu verbinden, braucht der selbst gehostete Kinboard-Server OAuth-Client-Zugangsdaten aus einem Google-Cloud-Projekt. Ohne sie kann der Verbinden-Button Google nicht erreichen.",
+      "notConfiguredDocsLabel": "Einrichtungsanleitung"
     },
     "tesla": {
       "title": "Tesla-Konfiguration",

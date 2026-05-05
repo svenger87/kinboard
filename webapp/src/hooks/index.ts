@@ -90,6 +90,7 @@ export {
 
 // Google Calendar Hooks
 export {
+  useGoogleConfigured,
   useGoogleCalendarStatus,
   useGoogleCalendars,
   useGoogleEvents,

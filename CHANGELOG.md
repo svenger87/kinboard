@@ -6,6 +6,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Google Calendar settings page now shows an `<IntegrationConfigHint>` card (same pattern as Weather) when the self-hoster hasn't set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`. Backed by a tiny new `/api/google/configured` probe that returns `{ configured: bool }` based on env-var presence. The Connect button is disabled while unconfigured, replacing the silent 500 from `/api/google/auth` that used to confuse new self-hosters. EN + DE strings added.
+
+### Fixed
+- Weather settings page's "Setup walkthrough" link pointed at the old `Integration-OpenWeatherMap` wiki URL — updated to the renamed `OpenWeatherMap` page.
+
 ## [1.0.4] - 2026-05-05 — Orphan-session + meal-plan race + CORS fixes
 
 ### Fixed

@@ -1439,7 +1439,10 @@
       "notConnectedDescription": "Connect your Google account to sync calendars and see events on all devices.",
       "notConnectedButton": "Connect to Google",
       "infoHeading": "Note",
-      "infoDescription": "The connection to Google Calendar uses OAuth 2.0 and stores no passwords. You can revoke the permission at any time in your Google account settings."
+      "infoDescription": "The connection to Google Calendar uses OAuth 2.0 and stores no passwords. You can revoke the permission at any time in your Google account settings.",
+      "notConfiguredTitle": "Google OAuth credentials not set",
+      "notConfiguredDescription": "To connect a Google Calendar, the self-hosted Kinboard server needs OAuth client credentials from a Google Cloud project. Without them the Connect button can't reach Google.",
+      "notConfiguredDocsLabel": "Setup walkthrough"
     },
     "tesla": {
       "title": "Tesla configuration",

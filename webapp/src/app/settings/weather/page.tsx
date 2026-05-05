@@ -201,7 +201,7 @@ export default function WeatherSettingsPage() {
             title={t("notConfiguredTitle")}
             description={t("notConfiguredDescription")}
             envKey="OPENWEATHERMAP_API_KEY"
-            docsHref="https://github.com/svenger87/kinboard/wiki/Integration-OpenWeatherMap"
+            docsHref="https://github.com/svenger87/kinboard/wiki/OpenWeatherMap"
             docsLabel={t("notConfiguredDocsLabel")}
           />
         )}

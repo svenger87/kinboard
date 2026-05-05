@@ -61,6 +61,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/page-header";
+import { IntegrationConfigHint } from "@/components/integration-config-hint";
 import { useToast } from "@/hooks/use-toast";
 import {
   PersonMappingRule,
@@ -68,6 +69,7 @@ import {
   testRules,
 } from "@/lib/calendar-person-matcher";
 import {
+  useGoogleConfigured,
   useGoogleCalendarStatus,
   useGoogleCalendars,
   useUpdateEnabledCalendars,
@@ -92,6 +94,8 @@ export default function GoogleSettingsPage() {
   const { family } = useFamilyStore();
 
   // Query hooks
+  const { data: googleConfigured } = useGoogleConfigured();
+  const isUnconfigured = googleConfigured === false;
   const { data: googleStatus, isLoading: statusLoading } = useGoogleCalendarStatus();
   const { data: calendars, isLoading: calendarsLoading } = useGoogleCalendars();
   const { data: people } = usePeople();
@@ -334,6 +338,16 @@ export default function GoogleSettingsPage() {
             className="mb-8"
           />
 
+          {isUnconfigured && (
+            <IntegrationConfigHint
+              title={t("notConfiguredTitle")}
+              description={t("notConfiguredDescription")}
+              envKey="GOOGLE_CLIENT_ID"
+              docsHref="https://github.com/svenger87/kinboard/wiki/Google-Calendar"
+              docsLabel={t("notConfiguredDocsLabel")}
+            />
+          )}
+
           {/* Connection Status */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -415,7 +429,11 @@ export default function GoogleSettingsPage() {
                     </AlertDialogContent>
                   </AlertDialog>
                 ) : (
-                  <Button variant="month" onClick={handleConnect}>
+                  <Button
+                    variant="month"
+                    onClick={handleConnect}
+                    disabled={isUnconfigured}
+                  >
                     <ExternalLink className="size-4 mr-2" />
                     {t("connectButton")}
                   </Button>

@@ -52,6 +52,24 @@ interface SyncResult {
   message: string;
 }
 
+// Hook to detect whether the server has GOOGLE_CLIENT_ID +
+// GOOGLE_CLIENT_SECRET set. Separate from useGoogleCalendarStatus
+// (which queries the family's stored OAuth tokens). Used by the
+// Google settings page to surface a setup-needed hint instead of
+// silently disabling the Connect button.
+export function useGoogleConfigured() {
+  return useQuery({
+    queryKey: ["google-configured"],
+    queryFn: async (): Promise<boolean> => {
+      const r = await fetch("/api/google/configured");
+      if (!r.ok) return false;
+      const data = await r.json();
+      return Boolean(data.configured);
+    },
+    staleTime: 60 * 60 * 1000, // env vars don't change while the app runs
+  });
+}
+
 // Hook to get Google Calendar connection status
 export function useGoogleCalendarStatus() {
   const { family } = useFamilyStore();
