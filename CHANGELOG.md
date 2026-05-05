@@ -6,12 +6,19 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-05-05 — Image-overlay path actually works
+
+### Fixed
+- **Pre-built Docker image now works for any self-hoster's URL.** The `1.0.1` published image (`ghcr.io/svenger87/kinboard:1.0.1`) had `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` baked into the browser bundle as empty strings (CI built without these env vars set), causing every fresh self-hoster using the image-overlay path to see `@supabase/ssr: Your project's URL and API key are required to create a Supabase client!` in the browser console + a non-functional `/join` page. Source-build path was unaffected because `docker compose build` passed the user's URL via build-arg. Fix: `app/layout.tsx` now renders a server-side `<script>window.__ENV=…</script>` populated from `process.env` at request time. The browser-side supabase client (`lib/supabase/client.ts`) reads from `window.__ENV` first and falls back to `process.env.*` (the build-time bake). Both paths now work; the image-overlay path picks up `webapp/docker/.env` changes on container restart, no rebuild needed.
+- Quick-start prerequisites now flag the **interactive-terminal requirement** for `setup.sh`. The URL prompt only fires when `stdin` is a TTY; piping over SSH or scripting silently defaults to `localhost:8100`, which leaves anyone not on the same box with a broken install. Doc now points at the `API_EXTERNAL_URL` / `SITE_URL` pre-set workaround for non-interactive runs.
+
 ### Changed
 - Project email addresses moved to the new `@kinboard.app` domain (Cloudflare Email Routing). `security@kinboard.app` (was `security@svenger87.de`) and `conduct@kinboard.app` (was `conduct@svenger87.de`) — referenced from `SECURITY.md`, `CODE_OF_CONDUCT.md`, and `SUPPORT.md`.
 - `docs/wiki/Quick-start.md` section 2 now surfaces the **pre-built image overlay** as the primary recommendation (~30 sec bring-up + ~512 MB RAM, vs ~5–10 min source build + ~4 GB peak). Path B (source build) kept for users who patched the code or want a frozen build. Validated end-to-end on a fresh Hetzner box.
 
-### Fixed
-- Quick-start prerequisites now flag the **interactive-terminal requirement** for `setup.sh`. The URL prompt only fires when `stdin` is a TTY; piping over SSH or scripting silently defaults to `localhost:8100`, which leaves anyone not on the same box with a broken install. Doc now points at the `API_EXTERNAL_URL` / `SITE_URL` pre-set workaround for non-interactive runs.
+### Migration
+- Self-hosters on `1.0.1` who used the **source-build path** (`./start.sh up`): no action needed; `start.sh restart` will pick up the new code on next pull.
+- Self-hosters on `1.0.1` who used the **image-overlay path**: pull `:1.0.2` (or `:latest`) → `docker compose down && docker compose -f docker-compose.yml -f docker-compose.image.yml up -d`. The browser console error goes away.
 
 ## [1.0.1] - 2026-05-05 — Renamed to Kinboard
 
@@ -97,6 +104,7 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/svenger87/kinboard/releases/tag/v1.0.2
 [1.0.1]: https://github.com/svenger87/kinboard/releases/tag/v1.0.1
 [1.0.0]: https://github.com/svenger87/kinboard/releases/tag/v1.0.0
