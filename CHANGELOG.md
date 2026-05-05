@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- Meal-planner hooks no longer cascade into 409 conflicts when multiple components race to create the same week's `meal_plans` row. The previous SELECT-then-INSERT pattern raced across the dashboard widget, the `/meals` page, and adjacent-week prefetches; the first INSERT won, every other parallel hook got `409 Conflict` against the `(family_id, week_start)` unique constraint and surfaced as a wall of console errors. Replaced with `.upsert(..., { onConflict: "family_id,week_start" })` at all three call sites in `webapp/src/hooks/use-meal-planner.ts`.
 - CORS preflight rejected the `X-Retry-Count` header that recent versions of `@supabase/postgrest-js` set on retried requests (status 503/520). The header wasn't in Kong's CORS allow-list, so any request that hit a transient 503 (PostgREST schema cache warm-up, storage briefly unhealthy, etc.) would cascade into a wall of `has been blocked by CORS policy: Request header field x-retry-count is not allowed` errors and the UI stopped working until reload. Added `X-Retry-Count` to all 5 CORS plugin blocks in `webapp/docker/kong.yml`. Self-hosters need to either pull `:1.0.4`+ or hot-patch + `docker restart kinboard-kong` (`kong reload` doesn't fully re-parse declarative config).
 
 

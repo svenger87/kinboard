@@ -97,30 +97,23 @@ export function useMealPlan(weekStart: string) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const supabaseAny = supabase as any;
 
-      // Try to find existing meal plan (use maybeSingle to avoid 406 when not found)
-      let { data: mealPlan, error } = await supabaseAny
+      // Get or create meal plan via upsert. The unique constraint
+      // (family_id, week_start) makes this race-safe — without it, parallel
+      // hooks (dashboard widget + meals page + adjacent-week prefetch) all
+      // SELECT → null → INSERT and cascade into 409 conflicts.
+      const { data: mealPlan, error } = await supabaseAny
         .from("meal_plans")
-        .select("*")
-        .eq("family_id", requireFamilyId(family))
-        .eq("week_start", weekStart)
-        .maybeSingle();
-
-      // Create if doesn't exist
-      if (!mealPlan && !error) {
-        const { data: newPlan, error: createError } = await supabaseAny
-          .from("meal_plans")
-          .insert({
+        .upsert(
+          {
             family_id: requireFamilyId(family),
             week_start: weekStart,
-          })
-          .select()
-          .single();
+          },
+          { onConflict: "family_id,week_start" },
+        )
+        .select()
+        .single();
 
-        if (createError) throw createError;
-        mealPlan = newPlan;
-      } else if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       // Fetch entries with recipes
       const { data: entries, error: entriesError } = await supabaseAny
@@ -163,27 +156,20 @@ export function useAddMealPlanEntry() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const supabaseAny = supabase as any;
 
-      // Get or create meal plan
-      let { data: mealPlan } = await supabaseAny
+      // Race-safe get-or-create — see useMealPlan above.
+      const { data: mealPlan, error: planError } = await supabaseAny
         .from("meal_plans")
-        .select("id")
-        .eq("family_id", requireFamilyId(family))
-        .eq("week_start", weekStart)
-        .maybeSingle();
-
-      if (!mealPlan) {
-        const { data: newPlan, error: createError } = await supabaseAny
-          .from("meal_plans")
-          .insert({
+        .upsert(
+          {
             family_id: requireFamilyId(family),
             week_start: weekStart,
-          })
-          .select()
-          .single();
+          },
+          { onConflict: "family_id,week_start" },
+        )
+        .select("id")
+        .single();
 
-        if (createError) throw createError;
-        mealPlan = newPlan;
-      }
+      if (planError) throw planError;
 
       // Create entry
       const { data, error } = await supabaseAny
@@ -285,27 +271,20 @@ export function useRescheduleMealPlanEntry() {
 
       // Check if moving to a different week
       if (newWeekStart !== currentWeekStart) {
-        // Get or create meal plan for the new week
-        let { data: newMealPlan } = await supabaseAny
+        // Race-safe get-or-create for the destination week — see useMealPlan above.
+        const { data: newMealPlan, error: planError } = await supabaseAny
           .from("meal_plans")
-          .select("id")
-          .eq("family_id", requireFamilyId(family))
-          .eq("week_start", newWeekStart)
-          .maybeSingle();
-
-        if (!newMealPlan) {
-          const { data: created, error: createError } = await supabaseAny
-            .from("meal_plans")
-            .insert({
+          .upsert(
+            {
               family_id: requireFamilyId(family),
               week_start: newWeekStart,
-            })
-            .select()
-            .single();
+            },
+            { onConflict: "family_id,week_start" },
+          )
+          .select("id")
+          .single();
 
-          if (createError) throw createError;
-          newMealPlan = created;
-        }
+        if (planError) throw planError;
 
         // Update the entry with new meal_plan_id
         const updates: Record<string, unknown> = {
