@@ -4,7 +4,8 @@ You'll need:
 
 - **Docker** with Compose v2 (`docker compose ...`)
 - **Node.js 20+** — `setup.sh` calls `npx web-push generate-vapid-keys` to mint the keypair that signs push notifications. If Node.js isn't on PATH, setup completes but push notifications stay disabled (everything else works); install Node.js + re-run `./setup.sh --force` later to enable.
-- ~2 GB free disk for the Supabase + webapp images
+- ~2 GB free disk for the Supabase + webapp images, ~3 GB during a source build
+- An **interactive terminal** for `./setup.sh` (it prompts for the URL your browser will use). Piping `setup.sh` over SSH or into a script makes it skip the prompt and silently default to `localhost:8100`, which won't work for any other device on your network. If you must run it non-interactively, set `API_EXTERNAL_URL` and `SITE_URL` in `webapp/docker/.env` *before* running `./setup.sh`.
 - A free [OpenWeatherMap API key](https://openweathermap.org/api) (optional, for the weather widget)
 
 ## 1. Clone and bootstrap
@@ -43,20 +44,47 @@ Pick what matches your setup:
 
 ## 2. Bring up the stack
 
+You have two paths. Pick one:
+
+### Path A — Pull the pre-built image (recommended, fastest)
+
+Skip the local build entirely. Pulls the multi-arch image (amd64 + arm64) from `ghcr.io/svenger87/kinboard:latest`. Bring-up takes **~30 sec**, runtime needs only **~512 MB RAM**, no compiler needed.
+
+```bash
+cd webapp/docker
+docker compose -f docker-compose.yml -f docker-compose.image.yml up -d
+```
+
+Or, when you also want the Traefik HTTPS overlay:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml up -d
+```
+
+Pin a version with `KINBOARD_TAG=1.0.1` (defaults to `:latest`).
+
+### Path B — Build from source (if you've patched the code or want a frozen build)
+
 ```bash
 cd webapp/docker
 ./start.sh up
 ```
 
-The first run pulls images (~1.5 GB), builds the webapp container, and applies all schema migrations to the fresh database (idempotent — re-running `up` is safe). After that:
+The first build takes **~5–10 min** and peaks at **~4 GB RAM** during type-check + static-page generation. On a 4 GB VM you'll need swap (`fallocate -l 8G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile`) or you'll hit OOM. Subsequent `up` calls reuse the cached image — fast.
+
+### Both paths
+
+`start.sh` runs migrations automatically on every `up`. The other commands work either way:
 
 ```bash
 ./start.sh status   # check container health
 ./start.sh logs     # tail logs from all services
 ./start.sh down     # stop everything
-./start.sh restart  # rebuild webapp + restart
+./start.sh restart  # rebuild webapp + restart  (Path B only — Path A skips the build)
 ./start.sh migrate  # re-apply migrations (rarely needed; `up` already does it)
 ```
+
+> **Image-path users:** runtime overrides for `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are read from `webapp/docker/.env` at container start, so the same image works for any URL — no rebuild needed when you change `SITE_URL` later.
 
 ## 3. Open the app
 
