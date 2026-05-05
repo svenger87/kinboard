@@ -2564,6 +2564,16 @@
     "allSources": "Alle Quellen",
     "readArticle": "Artikel lesen",
     "emptyNoSources": "Keine Quellen ausgewählt. In den Einstellungen einige hinzufügen.",
-    "emptyFiltered": "Keine Schlagzeilen passen zum aktuellen Filter."
+    "emptyFiltered": "Keine Schlagzeilen passen zum aktuellen Filter.",
+    "openOriginal": "Originalseite öffnen",
+    "reader": {
+      "loading": "Artikel wird geladen…",
+      "notReadable": "Artikel konnte nicht extrahiert werden",
+      "notReadableDescription": "Die Lese-Aufbereitung ist für diese URL fehlgeschlagen — die Quelle blockiert eventuell den Zugriff oder das Layout ist zu ungewöhnlich. Öffne die Originalseite, um den Artikel zu lesen.",
+      "openOriginal": "Original öffnen"
+    }
+  },
+  "screensaver": {
+    "newsOpenOriginal": "Original öffnen"
   }
 }

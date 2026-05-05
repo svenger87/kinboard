@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/page-header";
 import { useNews, type NewsItem } from "@/hooks/use-news";
 import { useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
+import { NewsArticleSheet } from "@/components/news-article-sheet";
 
 function dateLocale(localeCode: string) {
   return localeCode === "de" ? de : enUS;
@@ -29,6 +30,7 @@ export default function NewsPage() {
 
   const [query, setQuery] = useState("");
   const [activeSource, setActiveSource] = useState<string | null>(null);
+  const [openArticle, setOpenArticle] = useState<NewsItem | null>(null);
 
   const sources = useMemo(() => {
     if (!news) return [];
@@ -137,16 +139,36 @@ export default function NewsPage() {
         {!isLoading && filtered.length > 0 && (
           <div className="space-y-3">
             {filtered.map((item) => (
-              <NewsCard key={item.link} item={item} locale={locale} />
+              <NewsCard
+                key={item.link}
+                item={item}
+                locale={locale}
+                onOpen={() => setOpenArticle(item)}
+              />
             ))}
           </div>
         )}
       </div>
+
+      <NewsArticleSheet
+        url={openArticle?.link ?? null}
+        open={!!openArticle}
+        onOpenChange={(o) => !o && setOpenArticle(null)}
+        fallbackSourceName={openArticle?.sourceName}
+      />
     </main>
   );
 }
 
-function NewsCard({ item, locale }: { item: NewsItem; locale: string }) {
+function NewsCard({
+  item,
+  locale,
+  onOpen,
+}: {
+  item: NewsItem;
+  locale: string;
+  onOpen: () => void;
+}) {
   const t = useTranslations("news");
   const relativeDate = item.pubDate
     ? formatDistanceToNow(new Date(item.pubDate), {
@@ -160,44 +182,54 @@ function NewsCard({ item, locale }: { item: NewsItem; locale: string }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
     >
-      <GlassCard className="p-4 hover:bg-muted/30 transition-colors">
-        <div className="flex gap-4">
-          {item.image && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={item.image}
-              alt=""
-              className="size-24 shrink-0 rounded-md object-cover bg-muted"
-              loading="lazy"
-            />
-          )}
-          <div className="flex-1 min-w-0 space-y-1">
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <Badge variant="outline" className="text-[10px] py-0 px-1.5">
-                {item.sourceName}
-              </Badge>
-              {relativeDate && <span>· {relativeDate}</span>}
-            </div>
-            <h3 className="font-medium leading-tight line-clamp-2">{item.title}</h3>
-            {item.description && (
-              <p className="text-xs text-muted-foreground line-clamp-2">
-                {item.description}
-              </p>
+      <button
+        onClick={onOpen}
+        className="block w-full text-left"
+        type="button"
+      >
+        <GlassCard className="p-4 hover:bg-muted/30 transition-colors">
+          <div className="flex gap-4">
+            {item.image && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={item.image}
+                alt=""
+                className="size-24 shrink-0 rounded-md object-cover bg-muted"
+                loading="lazy"
+              />
             )}
-            <div className="pt-2">
-              <a
-                href={item.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-month-primary hover:underline"
-              >
-                {t("readArticle")}
-                <ExternalLink className="size-3" />
-              </a>
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+                  {item.sourceName}
+                </Badge>
+                {relativeDate && <span>· {relativeDate}</span>}
+              </div>
+              <h3 className="font-medium leading-tight line-clamp-2">{item.title}</h3>
+              {item.description && (
+                <p className="text-xs text-muted-foreground line-clamp-2">
+                  {item.description}
+                </p>
+              )}
+              <div className="pt-2 flex items-center gap-3">
+                <span className="inline-flex items-center gap-1 text-xs text-month-primary">
+                  {t("readArticle")}
+                </span>
+                <a
+                  href={item.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  aria-label={t("openOriginal")}
+                >
+                  <ExternalLink className="size-3" />
+                </a>
+              </div>
             </div>
           </div>
-        </div>
-      </GlassCard>
+        </GlassCard>
+      </button>
     </motion.article>
   );
 }

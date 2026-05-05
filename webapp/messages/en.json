@@ -2564,6 +2564,16 @@
     "allSources": "All sources",
     "readArticle": "Read article",
     "emptyNoSources": "No sources selected. Open settings to pick a few.",
-    "emptyFiltered": "No headlines match the current filter."
+    "emptyFiltered": "No headlines match the current filter.",
+    "openOriginal": "Open original site",
+    "reader": {
+      "loading": "Loading article…",
+      "notReadable": "Couldn't extract this article",
+      "notReadableDescription": "The reader-mode pipeline failed for this URL — the publisher may be blocking us, or the layout is too unusual to extract reliably. Open the original site to read it.",
+      "openOriginal": "Open original"
+    }
+  },
+  "screensaver": {
+    "newsOpenOriginal": "Open original"
   }
 }

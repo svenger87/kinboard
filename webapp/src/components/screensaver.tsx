@@ -6,7 +6,8 @@ import { useClock } from "@/hooks/use-clock";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useBirthdays, useEvents, usePeople, usePhotoSource, useNews, useEnergyConfig, useTeslaConfig, useHomeAssistantEntityStates, type NewsItem } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
-import { Cake, Calendar, MapPin, Newspaper, X, ExternalLink, Clock, Sun, Battery, Zap, Car } from "lucide-react";
+import { NewsArticleSheet } from "@/components/news-article-sheet";
+import { Cake, Calendar, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Sun, Battery, Zap, Car } from "lucide-react";
 import { format, differenceInDays, setYear, isPast, addYears, isToday, isTomorrow, addDays, startOfDay, endOfDay, parseISO } from "date-fns";
 import { de, enUS, type Locale } from "date-fns/locale";
 
@@ -92,6 +93,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(-1); // -1 means not initialized
   const [previousPhotoIndex, setPreviousPhotoIndex] = useState(-1);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  const [readerOpen, setReaderOpen] = useState(false);
   const [modalLastInteraction, setModalLastInteraction] = useState<number>(0);
 
   // Fetch birthdays and events
@@ -655,15 +657,22 @@ export function Screensaver({ photos }: ScreensaverProps) {
                 )}
 
                 {/* Actions */}
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => setReaderOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+                  >
+                    <BookOpen className="size-4" />
+                    <span className="text-sm font-medium">{t("newsRead")}</span>
+                  </button>
                   <a
                     href={selectedNews.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white/80 rounded-lg transition-colors text-sm"
+                    aria-label={t("newsOpenOriginal")}
                   >
                     <ExternalLink className="size-4" />
-                    <span className="text-sm font-medium">{t("newsRead")}</span>
                   </a>
                   <button
                     onClick={() => setSelectedNews(null)}
@@ -677,6 +686,20 @@ export function Screensaver({ photos }: ScreensaverProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* In-app reader-mode sheet — opens on top of the screensaver
+          when the user clicks "Read article". Sanitized HTML, no
+          external nav. */}
+      <NewsArticleSheet
+        url={selectedNews?.link ?? null}
+        open={readerOpen}
+        onOpenChange={(o) => {
+          setReaderOpen(o);
+          if (o) handleModalInteraction();
+        }}
+        fallbackSourceName={selectedNews?.sourceName}
+        elevated
+      />
 
       {/* Clock overlay - bottom left (compact for mobile & portrait) */}
       <div
