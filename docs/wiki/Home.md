@@ -1,8 +1,6 @@
-# Kinboard
+<img src="images/kinboard-banner.png" alt="Kinboard" width="600"/>
 
 > A self-hosted family dashboard for the kitchen wall. Calendar, weather, photos, shopping list, smart-home — one screen, every device, real-time sync.
-
-![Kinboard logo](../../assets/logos/kinboard-logo-icon-192.png)
 
 ![Kinboard dashboard — kitchen-kiosk portrait view](images/dashboard-portrait.png)
 

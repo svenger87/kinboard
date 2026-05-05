@@ -26,6 +26,16 @@ if [[ -d "$SCRIPT_DIR/images" ]]; then
   cp -r "$SCRIPT_DIR/images/." "$WORK_DIR/images/"
 fi
 
+# Brand assets live at the repo root under assets/logos/ so they can be
+# referenced from README + wiki + the webapp build. The wiki has no way to
+# resolve `../../assets/...` paths, so copy the logos into the wiki's
+# images/ directory and reference them as `images/kinboard-*.png` from
+# wiki pages.
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+if [[ -d "$REPO_ROOT/assets/logos" ]]; then
+  cp -r "$REPO_ROOT/assets/logos/." "$WORK_DIR/images/"
+fi
+
 cd "$WORK_DIR"
 if git diff --quiet && git diff --cached --quiet; then
   echo "→ no changes to publish"
