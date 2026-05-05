@@ -67,6 +67,7 @@ services:
             - Date
             - X-Auth-Token
             - X-Client-Info
+            - X-Retry-Count
             - apikey
             - Prefer
           exposed_headers:
@@ -113,6 +114,7 @@ services:
             - Date
             - X-Auth-Token
             - X-Client-Info
+            - X-Retry-Count
             - apikey
             - Prefer
           exposed_headers:
@@ -160,6 +162,7 @@ services:
             - Date
             - X-Auth-Token
             - X-Client-Info
+            - X-Retry-Count
             - apikey
             - Prefer
           exposed_headers:
@@ -207,6 +210,7 @@ services:
             - Date
             - X-Auth-Token
             - X-Client-Info
+            - X-Retry-Count
             - apikey
             - Prefer
             - Upgrade
@@ -260,6 +264,7 @@ services:
             - Date
             - X-Auth-Token
             - X-Client-Info
+            - X-Retry-Count
             - apikey
             - Prefer
           exposed_headers:
