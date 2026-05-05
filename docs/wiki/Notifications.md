@@ -62,13 +62,13 @@ The kiosk install on the [[Kiosk-Windows-11-Mele-4C|Mele 4C]] is also a Chrome P
 
 ### Shopping-only PWA (separate install)
 
-Kinboard also ships a **dedicated shopping-only PWA** with its own manifest (`/manifest-shopping.json`), green shopping-cart icon, and home-screen entry — completely separate from the main Kinboard PWA. The two coexist on the same device.
+Kinboard also ships a **dedicated shopping-only PWA** with its own manifest (`/manifest-shopping.json`), shopping logo icon, and home-screen entry — completely separate from the main Kinboard PWA. The two coexist on the same device.
 
 **Why it exists:** family members who do the shopping want a fast-launching phone app that opens straight to the list without nav clutter. Power-user pattern: parents who do groceries install only the shopping PWA; the kitchen kiosk + a kid's phone install the full Kinboard PWA.
 
 **What it gives you:**
 
-- A separate home-screen icon (green shopping-cart, distinct from the main Kinboard icon)
+- A separate home-screen icon (shopping logo, distinct from the main Kinboard icon)
 - Scoped install — opens directly to the shopping list every time, no other surfaces visible
 - Its own splash screen + green theme (`#22c55e`)
 - A "Quick add item" home-screen shortcut on Android (long-press the icon)
@@ -78,7 +78,7 @@ Kinboard also ships a **dedicated shopping-only PWA** with its own manifest (`/m
 
 When you open `/shopping` on a phone, a green install banner appears after ~2 seconds. Tap it:
 
-- **iOS**: the banner deep-links to `/einkaufen` (the route that exposes the shopping-specific manifest), then walk through Safari Share → Add to Home Screen. The icon that lands on your home screen is the green shopping-cart, scoped to the shopping page only.
+- **iOS**: the banner deep-links to `/einkaufen` (the route that exposes the shopping-specific manifest), then walk through Safari Share → Add to Home Screen. The icon that lands on your home screen is the shopping logo, scoped to the shopping page only.
 - **Android**: same deep-link, then accept the browser's install prompt. The browser auto-detects the scoped manifest at `/einkaufen` and installs accordingly.
 
 > **Why the dedicated manifest is at `/einkaufen` and not `/shopping`:** historic — that's the original German URL. Both `/einkaufen` and `/shopping` render the same UI, but only the `/einkaufen` route serves the shopping-specific manifest. The install prompt automatically routes you there.
@@ -93,7 +93,7 @@ When you open `/shopping` on a phone, a green install banner appears after ~2 se
 |---|---|---|
 | Install from | Anywhere in Kinboard | `/einkaufen` (banner deep-links you there) |
 | Manifest | `/manifest.json` | `/manifest-shopping.json` |
-| Icon | Kinboard logo | Green shopping cart |
+| Icon | Kinboard logo | Shopping logo |
 | Scope | Whole app | Just the shopping page |
 | Theme color | Per monthly theme | Green (`#22c55e`) |
 | Push notifications | All types | All types (same origin = same permission) |

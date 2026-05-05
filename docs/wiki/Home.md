@@ -2,6 +2,8 @@
 
 > A self-hosted family dashboard for the kitchen wall. Calendar, weather, photos, shopping list, smart-home — one screen, every device, real-time sync.
 
+![Kinboard logo](../../assets/logos/kinboard-logo-icon-192.png)
+
 ![Kinboard dashboard — kitchen-kiosk portrait view](images/dashboard-portrait.png)
 
 Kinboard runs on your hardware, in your house. No cloud account, no telemetry, no subscription. The kitchen-wall display, your phone, the kids' tablets — they all show the same family state, kept in sync by a self-hosted Supabase Realtime backend.
