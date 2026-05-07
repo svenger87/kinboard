@@ -47,19 +47,18 @@ jobs:
           - platform: linux/amd64
             runs-on: ubuntu-latest
           - platform: linux/arm64
-            # arm64 build runs under QEMU on GitHub-hosted ubuntu-latest.
-            # Slower than native (~30–60 min vs ~15 min for amd64) but
-            # avoids the maintenance overhead of the self-hosted Unraid
-            # runner (which needs hourly RUNNER_TOKEN rotation). Fine
-            # for this project's release cadence.
-            runs-on: ubuntu-latest
+            # Native arm64 runner — free for public repos since early 2025.
+            # Replaces the prior QEMU-emulated arm64 build on ubuntu-latest,
+            # which crash-looped on `next build` with SIGILL: V8's WASM
+            # codegen emits instructions QEMU's x86→arm64 translator can't
+            # handle (`qemu: uncaught target signal 4` →
+            # `Next.js build worker exited with code: null and signal: SIGILL`).
+            # Native is also ~3–5× faster (~10 min vs 30–60 min emulated).
+            runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up QEMU (cross-arch)
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: ${{ matrix.platform }}
+      # No QEMU step: each matrix entry builds its own native platform.
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
