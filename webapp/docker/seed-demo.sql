@@ -361,9 +361,64 @@ INSERT INTO public.schedules (family_id, person_id, day_of_week, time_slots) VAL
 -- behavior as connecting to any unreachable HA instance, so no harm.
 -- =========================================================================
 INSERT INTO public.settings (family_id, key, value) VALUES
-    -- Home Assistant connection — points at the mock-ha container
-    ('00000000-0000-0000-0000-000000000001', 'home_assistant',
-     '{"url":"http://mock-ha:8123","access_token":"demo-token-not-real","dashboards":[{"id":"home","name":"Home","type":"custom","position":0,"created_at":"2026-01-01T00:00:00Z","cards":[{"id":"c1","entity_id":"light.wohnzimmer","display_name":"Living room","card_type":"light","size":"medium"},{"id":"c2","entity_id":"light.flur","display_name":"Hallway","card_type":"light","size":"medium"},{"id":"c3","entity_id":"light.esstisch","display_name":"Dining","card_type":"light","size":"medium"},{"id":"c4","entity_id":"climate.model_y_klima","display_name":"Tesla climate","card_type":"climate","size":"medium"}]}]}'::jsonb),
+    -- Home Assistant connection — points at the mock-ha container.
+    -- energy_config + tesla_config wire the dashboards to the mock's
+    -- sensor entities so /energy and /tesla render with believable data.
+    ('00000000-0000-0000-0000-000000000001', 'home_assistant', $${
+        "url": "http://mock-ha:8123",
+        "access_token": "demo-token-not-real",
+        "dashboards": [{
+            "id": "home", "name": "Home", "type": "custom", "position": 0,
+            "created_at": "2026-01-01T00:00:00Z",
+            "cards": [
+                {"id":"c1","entity_id":"light.wohnzimmer","display_name":"Living room","card_type":"light","size":"medium"},
+                {"id":"c2","entity_id":"light.flur","display_name":"Hallway","card_type":"light","size":"medium"},
+                {"id":"c3","entity_id":"light.esstisch","display_name":"Dining","card_type":"light","size":"medium"},
+                {"id":"c4","entity_id":"climate.model_y_klima","display_name":"Tesla climate","card_type":"climate","size":"medium"},
+                {"id":"c5","entity_id":"vacuum.roborock_s7_maxv","display_name":"Robot vacuum","card_type":"vacuum","size":"medium"}
+            ]
+        }],
+        "energy_config": {
+            "solar_power": "sensor.solarflow_800_pro_solar_input_power",
+            "battery_charge_power": "sensor.solarflow_800_pro_pack_input_power",
+            "battery_discharge_power": "sensor.solarflow_800_pro_output_pack_power",
+            "grid_import_power": "sensor.grid_import_power",
+            "grid_export_power": "sensor.grid_export_power",
+            "battery_soc": "sensor.solarflow_800_pro_electric_level",
+            "solar_energy_today": "sensor.solarflow_800_pro_aggr_solar",
+            "battery_energy_in": "sensor.solarflow_800_pro_aggr_charge",
+            "battery_energy_out": "sensor.solarflow_800_pro_aggr_discharge",
+            "grid_import": "sensor.grid_import_energy",
+            "grid_export": "sensor.grid_export_energy",
+            "cost_per_kwh_import": 0.32,
+            "cost_per_kwh_export": 0.08
+        },
+        "tesla_config": {
+            "battery_level": "sensor.model_y_batteriestand",
+            "battery_range": "sensor.model_y_batteriereichweite",
+            "charging_state": "sensor.model_y_ladestatus",
+            "charge_limit": "number.model_y_ladelimit",
+            "time_to_full_charge": "sensor.model_y_zeit_zum_vollstandigen_aufladen",
+            "charger_power": "sensor.model_y_ladegerat_leistung",
+            "charge_energy_added": "sensor.model_y_ladeenergie_hinzugefugt",
+            "inside_temperature": "sensor.model_y_innentemperatur",
+            "outside_temperature": "sensor.model_y_aussentemperatur",
+            "climate_state": "climate.model_y_klima",
+            "locked": "lock.model_y_schloss",
+            "windows": "cover.model_y_fenster",
+            "doors": "binary_sensor.model_y_fahrertur_vorne",
+            "trunk": "cover.model_y_kofferraum",
+            "frunk": "cover.model_y_front_kofferraum",
+            "tire_pressure_fl": "sensor.reifendruck_vorne_links",
+            "tire_pressure_fr": "sensor.reifendruck_vorne_rechts",
+            "tire_pressure_rl": "sensor.reifendruck_hinten_links",
+            "tire_pressure_rr": "sensor.reifendruck_hinten_rechts",
+            "odometer": "sensor.kilometerzahler",
+            "location": "device_tracker.model_y_standort",
+            "state": "binary_sensor.model_y_status",
+            "show_on_dashboard": true
+        }
+    }$$::jsonb),
 
     -- Cameras — the mock-go2rtc serves three demo streams as a static SVG
     -- via /api/stream.mjpeg?src=NAME. Stream URLs go through the webapp's

@@ -139,9 +139,14 @@
   },
   {
     "entity_id": "number.model_y_ladelimit",
-    "state": "unknown",
+    "state": "80",
     "attributes": {
-      "friendly_name": "Model Y Ladelimit"
+      "friendly_name": "Model Y Ladelimit",
+      "unit_of_measurement": "%",
+      "min": 50,
+      "max": 100,
+      "step": 1,
+      "mode": "slider"
     }
   },
   {
@@ -156,7 +161,7 @@
   },
   {
     "entity_id": "sensor.grid_export_power",
-    "state": "0",
+    "state": "200",
     "attributes": {
       "friendly_name": "Grid Export Power",
       "unit_of_measurement": "W",
@@ -176,7 +181,7 @@
   },
   {
     "entity_id": "sensor.grid_import_power",
-    "state": "1340",
+    "state": "0",
     "attributes": {
       "friendly_name": "Grid Import Power",
       "unit_of_measurement": "W",
@@ -186,11 +191,12 @@
   },
   {
     "entity_id": "sensor.kilometerzahler",
-    "state": "245.4",
+    "state": "12847.3",
     "attributes": {
       "friendly_name": "Kilometerzahler",
       "unit_of_measurement": "km",
-      "device_class": "distance"
+      "device_class": "distance",
+      "state_class": "total_increasing"
     }
   },
   {
@@ -213,9 +219,12 @@
   },
   {
     "entity_id": "sensor.model_y_batteriestand",
-    "state": "0",
+    "state": "67",
     "attributes": {
-      "friendly_name": "Model Y Batteriestand"
+      "friendly_name": "Model Y Batteriestand",
+      "unit_of_measurement": "%",
+      "device_class": "battery",
+      "state_class": "measurement"
     }
   },
   {
@@ -229,21 +238,27 @@
   },
   {
     "entity_id": "sensor.model_y_ladeenergie_hinzugefugt",
-    "state": "0",
+    "state": "12.4",
     "attributes": {
-      "friendly_name": "Model Y Ladeenergie Hinzugefugt"
+      "friendly_name": "Model Y Ladeenergie Hinzugefugt",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "total_increasing"
     }
   },
   {
     "entity_id": "sensor.model_y_ladegerat_leistung",
     "state": "0",
     "attributes": {
-      "friendly_name": "Model Y Ladegerat Leistung"
+      "friendly_name": "Model Y Ladegerat Leistung",
+      "unit_of_measurement": "kW",
+      "device_class": "power",
+      "state_class": "measurement"
     }
   },
   {
     "entity_id": "sensor.model_y_ladestatus",
-    "state": "0",
+    "state": "Disconnected",
     "attributes": {
       "friendly_name": "Model Y Ladestatus"
     }
@@ -252,35 +267,49 @@
     "entity_id": "sensor.model_y_zeit_zum_vollstandigen_aufladen",
     "state": "0",
     "attributes": {
-      "friendly_name": "Model Y Zeit Zum Vollstandigen Aufladen"
+      "friendly_name": "Model Y Zeit Zum Vollstandigen Aufladen",
+      "unit_of_measurement": "min",
+      "device_class": "duration"
     }
   },
   {
     "entity_id": "sensor.reifendruck_hinten_links",
-    "state": "0",
+    "state": "2.7",
     "attributes": {
-      "friendly_name": "Reifendruck Hinten Links"
+      "friendly_name": "Reifendruck Hinten Links",
+      "unit_of_measurement": "bar",
+      "device_class": "pressure",
+      "state_class": "measurement"
     }
   },
   {
     "entity_id": "sensor.reifendruck_hinten_rechts",
-    "state": "0",
+    "state": "2.8",
     "attributes": {
-      "friendly_name": "Reifendruck Hinten Rechts"
+      "friendly_name": "Reifendruck Hinten Rechts",
+      "unit_of_measurement": "bar",
+      "device_class": "pressure",
+      "state_class": "measurement"
     }
   },
   {
     "entity_id": "sensor.reifendruck_vorne_links",
-    "state": "0",
+    "state": "2.8",
     "attributes": {
-      "friendly_name": "Reifendruck Vorne Links"
+      "friendly_name": "Reifendruck Vorne Links",
+      "unit_of_measurement": "bar",
+      "device_class": "pressure",
+      "state_class": "measurement"
     }
   },
   {
     "entity_id": "sensor.reifendruck_vorne_rechts",
-    "state": "0",
+    "state": "2.8",
     "attributes": {
-      "friendly_name": "Reifendruck Vorne Rechts"
+      "friendly_name": "Reifendruck Vorne Rechts",
+      "unit_of_measurement": "bar",
+      "device_class": "pressure",
+      "state_class": "measurement"
     }
   },
   {
@@ -366,7 +395,7 @@
   },
   {
     "entity_id": "sensor.solarflow_800_pro_output_pack_power",
-    "state": "820",
+    "state": "0",
     "attributes": {
       "friendly_name": "Solarflow 800 Pro Output Pack Power",
       "unit_of_measurement": "W",
