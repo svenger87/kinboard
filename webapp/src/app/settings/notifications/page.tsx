@@ -27,6 +27,7 @@ export default function NotificationSettingsPage() {
   const { family, device } = useFamilyStore();
   const {
     isSupported,
+    unsupportedReason,
     permission,
     isSubscribed,
     isLoading: pushLoading,
@@ -106,18 +107,37 @@ export default function NotificationSettingsPage() {
           </h2>
           <GlassCard className="p-4">
             {!isSupported ? (
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <AlertCircle className="size-5 text-warning" />
+              <div className="flex items-start gap-3 text-muted-foreground">
+                <AlertCircle className="size-5 text-warning shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium">{t("unsupportedTitle")}</p>
-                  <p className="text-sm">
-                    {t("unsupportedDescription")}
-                    {typeof window !== "undefined" && !window.isSecureContext && (
-                      <span className="block mt-1">
-                        {t("unsupportedHttpsHint")}
-                      </span>
-                    )}
+                  <p className="font-medium">
+                    {unsupportedReason === "no-https"
+                      ? t("unsupportedHttpsTitle")
+                      : unsupportedReason === "ios-not-installed"
+                      ? t("unsupportediOSTitle")
+                      : t("unsupportedTitle")}
                   </p>
+                  <p className="text-sm">
+                    {unsupportedReason === "no-https"
+                      ? t("unsupportedHttpsDescription")
+                      : unsupportedReason === "ios-not-installed"
+                      ? t("unsupportediOSDescription")
+                      : t("unsupportedDescription")}
+                  </p>
+                  {(unsupportedReason === "no-https" || unsupportedReason === "ios-not-installed") && (
+                    <a
+                      href={
+                        unsupportedReason === "no-https"
+                          ? "https://github.com/svenger87/kinboard/wiki/Self-hosting#from-scratch-traefik--lets-encrypt"
+                          : "https://github.com/svenger87/kinboard/wiki/Notifications#ios-safari"
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-month-primary hover:underline mt-2 inline-block"
+                    >
+                      {t("unsupportedDocsLabel")}
+                    </a>
+                  )}
                 </div>
               </div>
             ) : permission === "denied" ? (
