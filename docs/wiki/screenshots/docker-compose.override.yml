@@ -83,7 +83,7 @@ services:
       - ${SCREENSHOT_ROOT}/mocks/go2rtc/nginx.conf:/etc/nginx/nginx.conf:ro
       - ${SCREENSHOT_ROOT}/mocks/go2rtc/streams:/usr/share/nginx/html:ro
     ports:
-      - "1984:80"
+      - "1984:1984"
     networks:
       - kinboard
 

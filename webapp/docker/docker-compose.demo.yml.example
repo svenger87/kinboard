@@ -38,14 +38,17 @@ services:
   go2rtc:
     profiles: ["disabled"]
 
+  # Each Node mock installs its (tiny) deps on startup if missing.
+  # Mounted read-write so node_modules can land — the source dir is
+  # otherwise unmodified by the install.
   mock-ha:
     image: node:20-alpine
     container_name: ${PROJECT_NAME:-kinboard}-mock-ha
     restart: unless-stopped
     working_dir: /app
-    command: ["node", "server.js"]
+    command: ["sh", "-c", "[ -d node_modules ] || npm install --silent --no-audit --no-fund && node server.js"]
     volumes:
-      - ../../docs/wiki/screenshots/mocks/ha:/app:ro
+      - ../../docs/wiki/screenshots/mocks/ha:/app
     networks:
       - kinboard
 
@@ -54,9 +57,9 @@ services:
     container_name: ${PROJECT_NAME:-kinboard}-mock-tesla
     restart: unless-stopped
     working_dir: /app
-    command: ["node", "server.js"]
+    command: ["sh", "-c", "[ -d node_modules ] || npm install --silent --no-audit --no-fund && node server.js"]
     volumes:
-      - ../../docs/wiki/screenshots/mocks/tesla:/app:ro
+      - ../../docs/wiki/screenshots/mocks/tesla:/app
     networks:
       - kinboard
 
@@ -65,9 +68,9 @@ services:
     container_name: ${PROJECT_NAME:-kinboard}-mock-weather
     restart: unless-stopped
     working_dir: /app
-    command: ["node", "server.js"]
+    command: ["sh", "-c", "[ -d node_modules ] || npm install --silent --no-audit --no-fund && node server.js"]
     volumes:
-      - ../../docs/wiki/screenshots/mocks/weather:/app:ro
+      - ../../docs/wiki/screenshots/mocks/weather:/app
     networks:
       - kinboard
 
@@ -78,10 +81,10 @@ services:
     volumes:
       - ../../docs/wiki/screenshots/mocks/go2rtc/nginx.conf:/etc/nginx/nginx.conf:ro
       - ../../docs/wiki/screenshots/mocks/go2rtc/streams:/usr/share/nginx/html:ro
-    # Bind to the same internal port that the real go2rtc would use so
-    # cameras configured with go2rtc:1984 resolve to the mock.
+    # Bind to the same internal port the real go2rtc uses so cameras
+    # configured with `http://go2rtc:1984/...` resolve to the mock.
     expose:
-      - "80"
+      - "1984"
     networks:
       kinboard:
         # Aliased so existing camera configs that point at "go2rtc"
