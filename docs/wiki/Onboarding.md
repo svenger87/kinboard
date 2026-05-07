@@ -55,7 +55,7 @@ Each row shows:
 - "This device" badge for the one you're currently on
 - A device ID (8-character truncated UUID, copyable) — needed when configuring the [Presence-Sensor](Presence-Sensor.md)
 
-> TODO: screenshot of /settings/devices
+<img src="images/settings-devices.png" alt="Settings — devices: joined-device list" width="420"/>
 
 ## Leaving a family
 

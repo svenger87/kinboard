@@ -2,7 +2,7 @@
 
 Configured in **Settings → Devices**. The list of devices that have joined this family — the kitchen kiosk, phones, tablets, dev laptops.
 
-> TODO: screenshot of /settings/devices
+<img src="images/settings-devices.png" alt="Settings — devices: list of joined devices with last-seen and rejoin code" width="420"/>
 
 ## What you see
 

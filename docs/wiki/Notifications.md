@@ -27,7 +27,7 @@ If step 4 doesn't show the prompt, see [Troubleshooting](#troubleshooting) below
 
 > **Two PWAs available.** Kinboard ships *two* installable PWAs that share the same backend: the **main Kinboard PWA** (full app) and a **shopping-only PWA** scoped to the shopping list. Push subscriptions are per-origin, so both PWAs share the same notification permission and can receive any notification type. Pick whichever install fits your phone usage. See [Shopping-only PWA](#shopping-only-pwa-separate-install) below.
 
-> TODO: screenshot of /settings/notifications
+<img src="images/settings-notifications.png" alt="Settings — notifications: subscription toggle, per-event preferences and quiet hours" width="420"/>
 > TODO: screenshot of an iOS Add-to-Home-Screen flow side-by-side with the resulting subscription state
 
 ## What you can subscribe to

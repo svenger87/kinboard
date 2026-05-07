@@ -2,7 +2,7 @@
 
 **Two-way sync** of selected Google calendars into the dashboard view. Events created or edited in Kinboard get pushed back to Google; events created in Google flow into Kinboard at the next sync interval. Per-event mapping rules let you assign events to specific family members based on title patterns.
 
-> TODO: screenshot of /settings/google with a connected account + 3 enabled calendars
+<img src="images/settings-google.png" alt="Settings — Google Calendar: connection status, enabled calendars and last-sync indicator" width="420"/>
 
 ## What it does
 

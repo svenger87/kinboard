@@ -30,7 +30,7 @@ In Home Assistant: your profile (bottom-left avatar) → **Long-Lived Access Tok
 3. **Long-Lived Access Token** — paste the value
 4. Click **Connect**. The app verifies the URL + token, then saves.
 
-> TODO: screenshot of /settings/homeassistant connect dialog
+<img src="images/settings-homeassistant.png" alt="Settings — Home Assistant: connection status, dashboards and entity browser" width="420"/>
 
 ### 3. Configure dashboards
 
@@ -50,7 +50,7 @@ Rooms group entities for the touch-friendly room view at `/home-automation`:
 - Create a room (name + icon + optional color)
 - Tap **Add entities** on each room card and pick the relevant lights / switches / sensors
 
-> TODO: screenshot of /settings/homeassistant/rooms
+<img src="images/settings-homeassistant-rooms.png" alt="Settings — Home Assistant rooms: room tabs with assigned entities" width="420"/>
 
 ### 5. Optional: configure the energy dashboard
 

@@ -27,7 +27,7 @@ The 12 themes:
 
 In **Settings → Theme** you can pick any of the 12 themes manually, overriding the monthly default. Click any other tile to set the override; click **Back to automatic** to clear it. The override is per-family (everyone in your household sees the same theme).
 
-> TODO: screenshot of /settings/theme with the month grid
+<img src="images/settings-theme.png" alt="Settings — theme: monthly theme grid and current selection" width="420"/>
 
 The decorative names ("Frost Blue", "Pumpkin", etc.) are kept in English in both locales — they're branding, not user-facing labels. The actual month names beneath each tile localize via `date-fns`.
 
