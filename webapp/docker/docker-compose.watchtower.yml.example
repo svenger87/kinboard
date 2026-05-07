@@ -46,6 +46,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
+      # Required on Docker Engine 29+: Watchtower's bundled docker
+      # client defaults to API 1.25, but Engine 29 dropped legacy
+      # APIs <1.40 and rejects with "client version 1.25 is too old".
+      # Newer Watchtower images may eventually fix this; setting it
+      # explicitly is harmless on older Engines.
+      DOCKER_API_VERSION: "1.45"
       # Only manage containers that explicitly opt in via the label.
       WATCHTOWER_LABEL_ENABLE: "true"
       # GC the old image after a successful update so disk doesn't bloat.
