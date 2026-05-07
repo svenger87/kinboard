@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-05-07 — Demo overlay + auto-update opt-in + nav polish
+
 ### Fixed
 - Camera streams now always proxy through the webapp's `/api/cameras` endpoint instead of letting the browser fetch the camera URL directly when no auth is configured. Camera URLs are typically on a private LAN (RTSP / MJPEG boxes at `192.168.x.x` or — on the demo overlay — internal Docker hostnames like `go2rtc:1984`); the browser couldn't reach those, producing "Stream konnte nicht geladen werden" / "Stream could not be loaded" with no further hint. As a side benefit, the browser console + DNS no longer leak the LAN address of each camera.
 
