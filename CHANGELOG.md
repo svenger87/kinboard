@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Optional `docker-compose.watchtower.yml.example` overlay for self-hosters who'd rather not type `docker compose pull && ./start.sh up` after every release. Label-enabled so **only kinboard-webapp** gets auto-updated — database/kong/auth/realtime stay on whatever versions docker-compose.yml pins (auto-bumping Postgres is not safe). Pairs with a tag strategy in `webapp/docker/.env`: `KINBOARD_TAG=latest` (every release), `1.0` (minor + patch only — recommended default), or `1.0.6` pinned (no auto-bumps). Polls GHCR every hour by default; tunable via `WATCHTOWER_POLL_INTERVAL`. Documented in the new `Self-hosting > Auto-updating with Watchtower` wiki section, including the trust-boundary trade-off (Watchtower needs `/var/run/docker.sock`).
+
 ## [1.0.6] - 2026-05-07 — Traefik + push-notification papercuts
 
 ### Added

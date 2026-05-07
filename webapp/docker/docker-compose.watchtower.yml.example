@@ -1,0 +1,59 @@
+# Watchtower opt-in overlay.
+#
+# Auto-updates only the kinboard-webapp container by polling GHCR every
+# hour and pulling whenever the tag's digest moves. Other containers
+# (db, kong, auth, realtime, ...) stay pinned to whatever versions
+# docker-compose.yml declares — auto-bumping a database container is
+# not safe in general.
+#
+# Copy to `docker-compose.watchtower.yml` and bring the stack up with
+# the overlay alongside the base + (optional) traefik overlays:
+#
+#   cd webapp/docker
+#   cp docker-compose.watchtower.yml.example docker-compose.watchtower.yml
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.watchtower.yml" \
+#     ./start.sh up
+#
+# Pair this with a rolling KINBOARD_TAG so Watchtower has something to
+# update toward (matching the tag-strategy table in the wiki):
+#
+#   KINBOARD_TAG=latest   — every release, fastest churn (good for demo boxes)
+#   KINBOARD_TAG=1.0      — minor + patch, stops at major bumps (good default)
+#   KINBOARD_TAG=1.0.6    — pinned; Watchtower won't ever bump (frozen install)
+#
+# Watchtower needs read/write access to the host's docker socket so it
+# can recreate containers. That's the standard pattern for this kind of
+# tool but worth knowing — anything that can talk to docker.sock can
+# effectively run as root on the host.
+#
+# Variables read from .env (all optional):
+#   WATCHTOWER_POLL_INTERVAL   seconds between checks (default 3600 = 1h)
+#   TZ                         timezone for cron-style log timestamps
+
+services:
+  webapp:
+    labels:
+      # Watchtower's label-enable mode means only containers carrying
+      # this label get auto-updated. Add the same label to any other
+      # service you want auto-updated (rare — most are upstream images
+      # that you should review release notes for before bumping).
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: ${PROJECT_NAME:-kinboard}-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # Only manage containers that explicitly opt in via the label.
+      WATCHTOWER_LABEL_ENABLE: "true"
+      # GC the old image after a successful update so disk doesn't bloat.
+      WATCHTOWER_CLEANUP: "true"
+      # How often to check the registry. Hourly is a reasonable default;
+      # demo boxes can drop to 600 (10 min), frozen prod can raise to
+      # 86400 (daily).
+      WATCHTOWER_POLL_INTERVAL: ${WATCHTOWER_POLL_INTERVAL:-3600}
+      TZ: ${TZ:-UTC}
+    networks:
+      - kinboard
