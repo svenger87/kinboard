@@ -6,15 +6,19 @@
 #
 #   cd webapp/docker
 #   ./setup.sh                                     # one-time secrets
-#   docker compose \
-#     -f docker-compose.yml \
-#     -f docker-compose.image.yml \
-#     -f docker-compose.traefik.yml \
-#     up -d
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml" \
+#     ./start.sh up
+#
+# IMPORTANT: bring up via `start.sh up`, NOT bare `docker compose up`. start.sh
+# realigns the supabase role passwords against POSTGRES_PASSWORD on every up,
+# which is required because the official supabase Postgres image seeds those
+# roles with empty passwords from /etc/postgresql.schema.sql (doesn't run
+# reliably on every version). Skipping the alignment step makes auth, rest,
+# and storage crash-loop with `password authentication failed`.
 #
 # Pin a specific version with KINBOARD_TAG (defaults to :latest):
 #
-#   KINBOARD_TAG=v1.2.3 docker compose -f docker-compose.yml -f docker-compose.image.yml up -d
+#   KINBOARD_TAG=1.0.4 COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml" ./start.sh up
 #
 # This pulls a multi-arch (amd64 + arm64) image, so it Just Works on
 # Raspberry Pi-class hardware too.
