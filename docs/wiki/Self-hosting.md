@@ -1,6 +1,6 @@
 # Self-hosting
 
-This is the deeper deployment guide. If you just want to bring up the stack, see [[Quick-start]] first.
+This is the deeper deployment guide. If you just want to bring up the stack, see [Quick-start](Quick-start.md) first.
 
 ## What URL should I use? (the most common confusion)
 
@@ -23,9 +23,9 @@ Kinboard's webapp talks to a Supabase API gateway (Kong) that sits in your stack
 
 - **Don't forget the port `:8100`** unless you're using Traefik. The webapp itself runs on `:3001` but the **API** (which the browser fetches from) runs on `:8100`. The setup script wires both correctly once you give it the URL.
 - **Don't put `localhost` if anyone else will use the app.** A phone visiting `localhost` is asking its OWN device, not your server. Use the LAN IP or domain instead.
-- **HTTP vs HTTPS:** plain HTTP is fine for LAN-only use. For internet-facing setups, you need HTTPS — the easiest path is the [[Traefik overlay|Self-hosting#behind-traefik]].
+- **HTTP vs HTTPS:** plain HTTP is fine for LAN-only use. For internet-facing setups, you need HTTPS — the easiest path is the [Traefik overlay](Self-hosting.md#behind-traefik).
 - **Behind Traefik:** if you're using Traefik, your URL is just `https://yourdomain.com` (no port, no `:8100`). Traefik routes `/rest/v1/*` and `/auth/v1/*` to Kong internally.
-- **Browser console shows `CORS policy: No 'Access-Control-Allow-Origin' header`** → the Kong CORS allowlist is missing your webapp's origin. `setup.sh` writes it for you from the URL you enter. If you skipped setup or hand-edited `.env`, see [[Changing the URL later|Self-hosting#changing-the-url-later]] below — re-running `setup.sh` rewrites the CORS lines in `kong.yml`. (For the curious: each CORS plugin block in `webapp/docker/kong.yml` has a line marked `# webapp_origin` that `setup.sh` substitutes from `SITE_URL`. CORS can't use `*` here because credentials are sent — the spec forbids that combo.)
+- **Browser console shows `CORS policy: No 'Access-Control-Allow-Origin' header`** → the Kong CORS allowlist is missing your webapp's origin. `setup.sh` writes it for you from the URL you enter. If you skipped setup or hand-edited `.env`, see [Changing the URL later](Self-hosting.md#changing-the-url-later) below — re-running `setup.sh` rewrites the CORS lines in `kong.yml`. (For the curious: each CORS plugin block in `webapp/docker/kong.yml` has a line marked `# webapp_origin` that `setup.sh` substitutes from `SITE_URL`. CORS can't use `*` here because credentials are sent — the spec forbids that combo.)
 
 ### Changing the URL later
 
@@ -250,6 +250,8 @@ It's idempotent. It appends new templated env keys (`DATA_DIR`, `DOMAIN`, etc.),
 - Keep `WEBAPP_PORT=3001` (or expose any port you like).
 - No HTTPS — fine inside a trusted network. **Don't expose this to the internet without auth in front.**
 
+> **Trade-off without HTTPS: push notifications and PWA install won't work.** Browsers gate the Service Worker API, Push API, and the install prompt on a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts) (HTTPS, or `http://localhost` from the *same* machine). On a phone visiting `http://192.168.x.x:3001`, registering for push silently fails and "Add to Home Screen" produces a regular shortcut without offline support. Everything else (live sync via Supabase Realtime, all integrations, all UI) keeps working — push + PWA install are the only features lost. If you need them on a LAN-only setup, the easiest paths are: (a) issue a self-signed cert and trust it on every device (rough); (b) use a [Cloudflare Tunnel](#reverse-proxied-via-cloudflare-tunnel) which gives you HTTPS without opening ports; or (c) terminate TLS on the NAS itself with Traefik + a private CA you control. See [Notifications → Requirements](Notifications.md#requirements) for the full constraint list.
+
 ### Behind Traefik with Cloudflare DNS-01
 
 - Traefik configured with Cloudflare cert resolver (or whichever you use).
@@ -273,8 +275,8 @@ It's idempotent. It appends new templated env keys (`DATA_DIR`, `DOMAIN`, etc.),
 
 ## Related
 
-- [[Quick-start]] — the bring-up
-- [[Onboarding]] — first family, joining devices
-- [[Notifications]] — VAPID + cron details
-- [[Database-Schema]] — what's in Postgres
-- [[Troubleshooting]] — when it breaks
+- [Quick-start](Quick-start.md) — the bring-up
+- [Onboarding](Onboarding.md) — first family, joining devices
+- [Notifications](Notifications.md) — VAPID + cron details
+- [Database-Schema](Database-Schema.md) — what's in Postgres
+- [Troubleshooting](Troubleshooting.md) — when it breaks

@@ -8,7 +8,7 @@ This directory holds the Markdown sources for the project's GitHub Wiki. They li
 - GitHub wikis are **flat** — no subdirectories. Use prefix-style names instead (`Google-Calendar.md`, `Kiosk-Windows-11-Mele-4C.md`).
 - `_Sidebar.md` and `_Footer.md` render on every wiki page.
 - `Home.md` is the landing page.
-- Internal links use the `[[Page-Name]]` shorthand on GitHub wikis. In this repo they render as broken links (deliberate — viewing the wiki on GitHub is the canonical view).
+- Internal links use the `[Page-Name](Page-Name.md)` shorthand on GitHub wikis. In this repo they render as broken links (deliberate — viewing the wiki on GitHub is the canonical view).
 - Images live in `docs/wiki/images/` and are copied across when publishing.
 
 ## Publishing

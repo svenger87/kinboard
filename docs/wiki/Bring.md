@@ -73,5 +73,5 @@ Settings → Bring! → **Disconnect**. Local shopping list stays; just stops sy
 
 ## Related
 
-- [[Themes]] — shopping category labels live under `shoppingCategories` in `messages/{en,de}.json`
+- [Themes](Themes.md) — shopping category labels live under `shoppingCategories` in `messages/{en,de}.json`
 - See [`webapp/src/lib/shopping-categories.ts`](https://github.com/svenger87/kinboard/blob/main/webapp/src/lib/shopping-categories.ts) for the keyword auto-detection

@@ -53,7 +53,7 @@ Each row shows:
 - Custom device name (editable)
 - Online/offline indicator (last_seen within 5 minutes = online)
 - "This device" badge for the one you're currently on
-- A device ID (8-character truncated UUID, copyable) — needed when configuring the [[Presence-Sensor]]
+- A device ID (8-character truncated UUID, copyable) — needed when configuring the [Presence-Sensor](Presence-Sensor.md)
 
 > TODO: screenshot of /settings/devices
 
@@ -77,6 +77,6 @@ EOF
 
 ## Anti-patterns
 
-- **Don't share the join code over the public internet.** Anyone with the code + the URL can join your family. The model assumes a trusted LAN. See [[Security-and-Threat-Model]].
+- **Don't share the join code over the public internet.** Anyone with the code + the URL can join your family. The model assumes a trusted LAN. See [Security-and-Threat-Model](Security-and-Threat-Model.md).
 - **Don't manually edit the `devices` table** unless you know what you're doing. The webapp uses the row's UUID as the active device key in cookies; renaming the row is fine, deleting it logs the device out.
-- **Don't enable AssignedAccess kiosk mode for the kiosk user account** if you want notifications + Edge to coexist — Kinboard's Edge `--kiosk` flag does the lockdown without the AssignedAccess complications. See [[Kiosk-Windows-11-Mele-4C]].
+- **Don't enable AssignedAccess kiosk mode for the kiosk user account** if you want notifications + Edge to coexist — Kinboard's Edge `--kiosk` flag does the lockdown without the AssignedAccess complications. See [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C.md).

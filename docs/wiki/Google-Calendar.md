@@ -99,5 +99,5 @@ The OAuth tokens stored in `settings.value` are deleted on disconnect.
 
 ## Related
 
-- [[Database-Schema]] — `calendars` and `events` tables
-- [[Notifications]] — event-based reminders (planned, not shipped in v1.0)
+- [Database-Schema](Database-Schema.md) — `calendars` and `events` tables
+- [Notifications](Notifications.md) — event-based reminders (planned, not shipped in v1.0)

@@ -9,7 +9,7 @@ When the kiosk is idle, Kinboard switches to a fullscreen screensaver — a slow
 
 Top → bottom:
 
-1. **Background photo** — fades between images from the configured photo source ([[Immich|Immich]] or Unsplash)
+1. **Background photo** — fades between images from the configured photo source ([Immich](Immich.md) or Unsplash)
 2. **Clock + date** (bottom-left) — large, low-contrast white-on-photo
 3. **Photo credit** (bottom-center) — photographer name + location, small text
 4. **Birthdays today** — if anyone has a birthday today
@@ -23,7 +23,7 @@ Tapping anywhere dismisses the screensaver and returns to the dashboard.
 
 ## Photo sources
 
-Two configurable sources, picked in [[Settings → Photos|Immich]]:
+Two configurable sources, picked in [Settings → Photos](Immich.md):
 
 ### Immich
 
@@ -34,7 +34,7 @@ If you have a self-hosted [Immich](https://immich.app/) instance, point Kinboard
 
 The "monthly album" mode pairs nicely with a Smart Album in Immich that filters photos taken in this month across all years — your kitchen wall shows mid-May 2024 photos in mid-May 2026.
 
-See [[Immich]] for the connection setup.
+See [Immich](Immich.md) for the connection setup.
 
 ### Unsplash
 
@@ -49,7 +49,7 @@ If you don't have Immich (or don't want to share family photos with the wall dis
 
 (See `webapp/src/lib/unsplash-defaults.ts` for the full list.)
 
-The terms rotate **hourly** — every hour, the screensaver picks a fresh term and refreshes the photo. Customize per-month terms in [[Settings → Photos|Immich]].
+The terms rotate **hourly** — every hour, the screensaver picks a fresh term and refreshes the photo. Customize per-month terms in [Settings → Photos](Immich.md).
 
 ## Photo rotation
 
@@ -57,14 +57,14 @@ Every **30 seconds** by default (configurable 10 s – 5 min), the photo cross-f
 
 ## Presence-aware activation
 
-If you've configured an [[LD2410 presence sensor|Presence-Sensor]] for this device, screensaver behavior changes:
+If you've configured an [LD2410 presence sensor](Presence-Sensor.md) for this device, screensaver behavior changes:
 
 - **No presence detected for N seconds** (default 30) → screensaver activates immediately (or display blacks out, depending on mode)
 - **Presence detected** → screensaver dismisses, dashboard returns
 
 Without a presence sensor, the screensaver activates after the configured **inactivity timeout** (default 5 minutes; configurable 1 / 2 / 5 / 10 minutes / off).
 
-Configure in [[Settings → Screensaver|Immich]].
+Configure in [Settings → Screensaver](Immich.md).
 
 ## Two presence modes
 
@@ -115,6 +115,6 @@ Tapping the screensaver doesn't dismiss it when a news modal is open — only th
 
 ## Related
 
-- [[Immich]] — Immich photo source setup
-- [[Presence-Sensor]] — LD2410 hardware + script
-- [[Themes]] — locale-aware date formatting on the screensaver
+- [Immich](Immich.md) — Immich photo source setup
+- [Presence-Sensor](Presence-Sensor.md) — LD2410 hardware + script
+- [Themes](Themes.md) — locale-aware date formatting on the screensaver

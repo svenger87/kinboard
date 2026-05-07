@@ -52,9 +52,9 @@ The today-strip ribbon also shows birthday names if today's the day.
 
 ## Reminders
 
-Currently no push notification for birthdays (planned for v1.1 — same cron infra as the [[todo daily digest|Notifications]]). For now, the daily glance at the dashboard surfaces them.
+Currently no push notification for birthdays (planned for v1.1 — same cron infra as the [todo daily digest](Notifications.md)). For now, the daily glance at the dashboard surfaces them.
 
-You can add a Google Calendar entry the day before any birthday and it'll show up via the regular [[Calendar]] events flow if you want a reminder integrated with the calendar widget.
+You can add a Google Calendar entry the day before any birthday and it'll show up via the regular [Calendar](Calendar.md) events flow if you want a reminder integrated with the calendar widget.
 
 ## Persistence
 
@@ -77,6 +77,6 @@ You can add a Google Calendar entry the day before any birthday and it'll show u
 
 ## Related
 
-- [[Family-Members]] — link birthdays to family members for color matching
-- [[Calendar]] — birthdays also appear as all-day events on the calendar
-- [[Dashboard]] — birthday widget
+- [Family-Members](Family-Members.md) — link birthdays to family members for color matching
+- [Calendar](Calendar.md) — birthdays also appear as all-day events on the calendar
+- [Dashboard](Dashboard.md) — birthday widget

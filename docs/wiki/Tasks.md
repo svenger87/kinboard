@@ -59,7 +59,7 @@ Priority drives sort order within sections. Urgent tasks float to the top of "Ov
 
 ## Reminders
 
-Two notification flows for todos (configurable per device in [[Settings → Notifications|Notifications]]):
+Two notification flows for todos (configurable per device in [Settings → Notifications](Notifications.md)):
 
 1. **New task assigned to you** — push instantly when someone creates/assigns a task to your person row (your device opted in)
 2. **Daily 8:00 AM digest** — summary of pending tasks due today, sent to all subscribed devices
@@ -93,5 +93,5 @@ If you tap done by accident, tap the checkmark again within ~5 seconds to undo.
 
 ## Related
 
-- [[Notifications]] — push setup
-- [[Dashboard]] — tasks widget on the home screen
+- [Notifications](Notifications.md) — push setup
+- [Dashboard](Dashboard.md) — tasks widget on the home screen
