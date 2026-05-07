@@ -98,19 +98,40 @@ For UDP WebRTC (lower latency, the preferred path), the go2rtc container exposes
 
 Set `WEBRTC_LAN_IP` and `WEBRTC_PUBLIC_HOST` in `.env` so go2rtc announces correct ICE candidates to clients on the LAN vs WAN.
 
-## Performance
+## Performance — hardware-accelerated transcode
 
-go2rtc transcodes RTSP → WebRTC on the fly. For most setups it's lightweight (no re-encoding), but if your camera streams H.265 and your browser needs H.264, go2rtc will re-encode in software → CPU-intensive. To force a hardware encoder:
+go2rtc passes RTSP through to WebRTC unchanged when the camera + browser already speak the same codec (typical H.264 IP cam → modern Chromium = zero transcode, low CPU). If your camera streams **HEVC / H.265** (common on 4K cams) and the browser needs H.264, go2rtc re-encodes — and software re-encode of a 4K HEVC stream will saturate a CPU core fast.
 
-- Mount the GPU device into the go2rtc container (the `docker-compose.override.yml` example does this for Intel iGPU on `/dev/dri/renderD128`)
-- Configure go2rtc to use the hardware codec
+To turn on hardware-accelerated transcode (Intel iGPU / AMD VCN / NVIDIA NVENC):
+
+1. **Mark the stream as hardware-transcoded** in `webapp/docker/go2rtc.yaml` by adding the `#hardware=vaapi` modifier:
+   ```yaml
+   amcrest_hd:
+     - ffmpeg:rtsp://${CAMERA_USER}:${CAMERA_PASS}@${AMCREST_HOST}:554/cam/realmonitor?channel=1&subtype=0#video=h264#hardware=vaapi#audio=opus
+   ```
+
+2. **Pass the GPU device into the go2rtc container** via the per-host override file — copy the example:
+   ```bash
+   cp webapp/docker/docker-compose.override.yml.example webapp/docker/docker-compose.override.yml
+   ```
+   The shipped example contains the Intel-iGPU stanza (`/dev/dri/renderD128`). Edit if your host has a different render node, or use `runtime: nvidia` for an NVIDIA box.
+
+3. **Verify inside the container** after `./start.sh up`:
+   ```bash
+   docker exec kinboard-go2rtc ls /dev/dri/        # should show renderD128
+   docker exec kinboard-go2rtc ffmpeg -hwaccels    # should list vaapi / qsv / cuda
+   ```
+
+If the device isn't present, ffmpeg silently falls back to software encode and the stream may stutter or not load at all — easy to miss because the failure mode is performance-shaped, not error-shaped.
 
 ## Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|
 | **Black tile, snapshot works** | WebRTC ICE failure. Check `WEBRTC_LAN_IP` matches your LAN IP, and UDP 8555 isn't blocked by firewall. |
-| **Stream lags by 5-15 seconds** | Probably transcoding bottleneck — check go2rtc CPU. Try the sub-stream (lower resolution) or attach a hardware encoder. |
+| **Stream lags by 5-15 seconds** | Probably transcoding bottleneck — check go2rtc CPU. Try the sub-stream (lower resolution) or attach a hardware encoder (see Performance section above). |
+| **Stream loads in `/api/streams` probe but no video in browser** | WebRTC ICE is failing. Likely cause: the host port mapped to go2rtc's UDP 8555 doesn't match what go2rtc.yaml advertises in `webrtc.candidates`. Both must be `8555` end-to-end on the LAN path, or you need to edit the candidate to match the mapped host port. |
+| **HEVC/H.265 stream returns 200 over HTTP but the page tile stays black** | VAAPI hardware-encoder isn't reachable inside the container. `docker exec kinboard-go2rtc ls /dev/dri` should list `renderD128`; if not, the override file isn't loaded — check `docker-compose.override.yml` exists alongside `docker-compose.yml`. |
 | **Auth dialog pops in browser** | Stream URL credentials weren't recognized; check digest vs basic. The `/api/cameras` proxy should handle both — verify `auth.type` matches your camera. |
 | **Multiple cameras lock up after a few hours** | Some cameras only allow one RTSP session. Use go2rtc named streams (config in `go2rtc.yaml`) so go2rtc dedupes the underlying connection. |
 
