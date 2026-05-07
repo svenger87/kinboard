@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { NAV_ITEMS, NO_NAV_PATHS } from "@/lib/constants";
+import { NO_NAV_PATHS } from "@/lib/constants";
+import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
 import { useNavBadges } from "@/hooks/use-nav-badges";
 
 export function DesktopNav() {
@@ -17,6 +18,7 @@ export function DesktopNav() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const badges = useNavBadges();
+  const navItems = useVisibleNavItems();
 
   const updateScrollIndicators = useCallback(() => {
     const el = scrollRef.current;
@@ -85,7 +87,7 @@ export function DesktopNav() {
         }}
         onTouchMove={(e) => e.stopPropagation()}
       >
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const isActive = pathname === item.href ||
             (item.href !== "/" && pathname.startsWith(item.href));
           const Icon = item.icon;

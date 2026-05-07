@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5a8aaf">
+        <animate attributeName="stop-color" values="#5a8aaf;#6da8d0;#5a8aaf" dur="30s" repeatCount="indefinite"/>
+      </stop>
+      <stop offset="55%" stop-color="#2d5a3d"/>
+      <stop offset="100%" stop-color="#1a3a26"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4a7a3a"/>
+      <stop offset="100%" stop-color="#2a5028"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="450" fill="url(#sky)"/>
+
+  <!-- Distant tree line -->
+  <path d="M0 250 Q60 220 120 240 Q180 215 240 245 Q300 220 360 240 Q420 218 480 248 Q540 222 600 240 Q660 215 720 245 Q780 220 800 240 L800 280 L0 280 Z"
+        fill="#1f3a1c" opacity="0.85"/>
+
+  <!-- Lawn -->
+  <rect x="0" y="280" width="800" height="170" fill="#3a5a2a"/>
+  <rect x="0" y="280" width="800" height="170" fill="#1a2818" opacity="0.3"/>
+
+  <!-- Foreground leaf swaying -->
+  <g opacity="0.85" transform="translate(80 50)">
+    <path d="M0 0 Q40 -20 80 0 Q60 20 0 0" fill="url(#leaf)">
+      <animateTransform attributeName="transform" type="rotate" values="-3 40 0;3 40 0;-3 40 0" dur="6s" repeatCount="indefinite"/>
+    </path>
+  </g>
+  <g opacity="0.7" transform="translate(680 80)">
+    <path d="M0 0 Q35 -25 70 5 Q50 25 0 0" fill="url(#leaf)">
+      <animateTransform attributeName="transform" type="rotate" values="2 35 0;-4 35 0;2 35 0" dur="7s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- Bird arc -->
+  <g>
+    <path d="M -20 100 Q 100 80 220 110" stroke="#a8b3c7" stroke-width="1.5" fill="none" opacity="0">
+      <animate attributeName="opacity" values="0;0.5;0" dur="20s" begin="3s" repeatCount="indefinite"/>
+    </path>
+    <circle cx="0" cy="100" r="2" fill="#1f1810" opacity="0">
+      <animate attributeName="cx" values="-20;820" dur="20s" begin="3s" repeatCount="indefinite"/>
+      <animate attributeName="cy" values="100;80;110;90" dur="20s" begin="3s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;0.6;0.6;0" dur="20s" begin="3s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Scanning line -->
+  <rect x="0" y="0" width="800" height="2" fill="#6db5ff" opacity="0.12">
+    <animate attributeName="y" values="0;448;0" dur="14s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- HUD overlay -->
+  <text x="40" y="50" fill="#e8edf5" font-family="ui-monospace, Menlo, monospace" font-size="14" letter-spacing="2">CAM-02 · GARDEN</text>
+  <text x="40" y="420" fill="#e8edf5" font-family="ui-monospace, Menlo, monospace" font-size="13" letter-spacing="1">KINBOARD DEMO · 1080p</text>
+
+  <circle cx="740" cy="44" r="6" fill="#ef4444">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.4s" repeatCount="indefinite"/>
+  </circle>
+  <text x="755" y="48" fill="#fff" font-family="ui-monospace, Menlo, monospace" font-size="12" font-weight="700">LIVE</text>
+
+  <text x="640" y="420" fill="#e8edf5" font-family="ui-monospace, Menlo, monospace" font-size="13">
+    14:23:<tspan>00</tspan>
+    <animate attributeName="textContent" values="14:23:00;14:23:01;14:23:02;14:23:03;14:23:04;14:23:05;14:23:06;14:23:07" dur="8s" repeatCount="indefinite"/>
+  </text>
+</svg>

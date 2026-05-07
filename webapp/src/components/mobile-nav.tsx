@@ -4,8 +4,9 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { NAV_ITEMS, NO_NAV_PATHS } from "@/lib/constants";
+import { NO_NAV_PATHS } from "@/lib/constants";
 import { useNavBadges } from "@/hooks/use-nav-badges";
+import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
 
 export function MobileNav() {
   const tNav = useTranslations("nav");
@@ -16,6 +17,7 @@ export function MobileNav() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const badges = useNavBadges();
+  const navItems = useVisibleNavItems();
 
   const updateScrollIndicators = useCallback(() => {
     const el = scrollRef.current;
@@ -77,7 +79,7 @@ export function MobileNav() {
         className="flex items-center overflow-x-auto scrollbar-hide px-2 py-2 gap-1 overscroll-x-contain touch-pan-x"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const isActive = pathname === item.href ||
             (item.href !== "/" && pathname.startsWith(item.href));
           const Icon = item.icon;

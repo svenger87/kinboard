@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a1f2e"/>
+      <stop offset="100%" stop-color="#0d1119"/>
+    </linearGradient>
+    <radialGradient id="porch" cx="0.5" cy="0.6" r="0.5">
+      <stop offset="0%" stop-color="#3a3a3a" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#0a0a0a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lamp" cx="0.5" cy="0.2" r="0.3">
+      <stop offset="0%" stop-color="#ffd699" stop-opacity="0.6">
+        <animate attributeName="stop-opacity" values="0.5;0.7;0.5" dur="3s" repeatCount="indefinite"/>
+      </stop>
+      <stop offset="100%" stop-color="#ffd699" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="800" height="450" fill="url(#bg)"/>
+  <ellipse cx="400" cy="350" rx="380" ry="200" fill="url(#porch)"/>
+  <ellipse cx="400" cy="80" rx="200" ry="140" fill="url(#lamp)"/>
+
+  <!-- Door frame silhouette -->
+  <rect x="320" y="120" width="160" height="280" fill="#2a2218" stroke="#4a3a2c" stroke-width="2"/>
+  <rect x="335" y="135" width="60" height="100" fill="#1f1810" stroke="#4a3a2c" stroke-width="1"/>
+  <rect x="405" y="135" width="60" height="100" fill="#1f1810" stroke="#4a3a2c" stroke-width="1"/>
+  <circle cx="465" cy="280" r="3" fill="#c8b06a"/>
+
+  <!-- Welcome mat -->
+  <rect x="310" y="395" width="180" height="20" fill="#3a2518" opacity="0.7"/>
+
+  <!-- Motion blip — appears periodically -->
+  <g>
+    <circle cx="400" cy="380" r="0" fill="none" stroke="#fbbf24" stroke-width="2" opacity="0">
+      <animate attributeName="r" values="0;120" dur="5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;0.5;0" dur="5s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="400" cy="380" r="0" fill="none" stroke="#fbbf24" stroke-width="2" opacity="0">
+      <animate attributeName="r" values="0;120" dur="5s" begin="1.5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;0.4;0" dur="5s" begin="1.5s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Scanning line -->
+  <rect x="0" y="0" width="800" height="2" fill="#6db5ff" opacity="0.12">
+    <animate attributeName="y" values="0;448;0" dur="14s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- HUD overlay -->
+  <text x="40" y="50" fill="#a8b3c7" font-family="ui-monospace, Menlo, monospace" font-size="14" letter-spacing="2">CAM-03 · FRONT DOOR</text>
+  <text x="40" y="420" fill="#a8b3c7" font-family="ui-monospace, Menlo, monospace" font-size="13" letter-spacing="1">KINBOARD DEMO · 1080p · NIGHT</text>
+
+  <circle cx="740" cy="44" r="6" fill="#ef4444">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.4s" repeatCount="indefinite"/>
+  </circle>
+  <text x="755" y="48" fill="#fff" font-family="ui-monospace, Menlo, monospace" font-size="12" font-weight="700">LIVE</text>
+
+  <text x="640" y="420" fill="#a8b3c7" font-family="ui-monospace, Menlo, monospace" font-size="13">
+    22:14:<tspan>00</tspan>
+    <animate attributeName="textContent" values="22:14:00;22:14:01;22:14:02;22:14:03;22:14:04;22:14:05;22:14:06;22:14:07" dur="8s" repeatCount="indefinite"/>
+  </text>
+</svg>

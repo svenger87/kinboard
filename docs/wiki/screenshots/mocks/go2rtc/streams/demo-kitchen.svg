@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3a2f25">
+        <animate attributeName="stop-color" values="#3a2f25;#4a3a2c;#3a2f25" dur="20s" repeatCount="indefinite"/>
+      </stop>
+      <stop offset="100%" stop-color="#1f1810">
+        <animate attributeName="stop-color" values="#1f1810;#2c2218;#1f1810" dur="20s" repeatCount="indefinite"/>
+      </stop>
+    </linearGradient>
+    <radialGradient id="lamp" cx="0.7" cy="0.3" r="0.4">
+      <stop offset="0%" stop-color="#ffd699" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#ffd699" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="tiles" x="0" y="0" width="80" height="80" patternUnits="userSpaceOnUse">
+      <rect width="80" height="80" fill="none"/>
+      <path d="M0 80 L80 80 M0 0 L0 80" stroke="#5a4a3a" stroke-width="0.5" opacity="0.3"/>
+    </pattern>
+  </defs>
+
+  <rect width="800" height="450" fill="url(#bg)"/>
+  <rect width="800" height="450" fill="url(#tiles)"/>
+  <ellipse cx="560" cy="135" rx="220" ry="120" fill="url(#lamp)">
+    <animate attributeName="opacity" values="0.85;1;0.85" dur="8s" repeatCount="indefinite"/>
+  </ellipse>
+
+  <!-- Kitchen "counter" line -->
+  <rect x="0" y="280" width="800" height="6" fill="#6a5340" opacity="0.6"/>
+  <rect x="60" y="290" width="280" height="4" fill="#8a7560" opacity="0.4"/>
+  <rect x="380" y="290" width="180" height="4" fill="#8a7560" opacity="0.3"/>
+
+  <!-- Steam wisp animation over the stove area -->
+  <g opacity="0.4">
+    <path d="M180 270 Q175 250 185 230 Q195 215 180 200" stroke="#ddd" stroke-width="2" fill="none" stroke-linecap="round">
+      <animate attributeName="d" values="M180 270 Q175 250 185 230 Q195 215 180 200;M180 270 Q190 250 175 230 Q185 215 195 200;M180 270 Q175 250 185 230 Q195 215 180 200" dur="6s" repeatCount="indefinite"/>
+    </path>
+    <path d="M210 270 Q220 250 205 230 Q215 215 200 200" stroke="#ddd" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.6">
+      <animate attributeName="d" values="M210 270 Q220 250 205 230 Q215 215 200 200;M210 270 Q200 250 215 230 Q205 215 220 200;M210 270 Q220 250 205 230 Q215 215 200 200" dur="7s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- Scanning line -->
+  <rect x="0" y="0" width="800" height="2" fill="#6db5ff" opacity="0.15">
+    <animate attributeName="y" values="0;448;0" dur="14s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- HUD overlay -->
+  <text x="40" y="50" fill="#a8b3c7" font-family="ui-monospace, Menlo, monospace" font-size="14" letter-spacing="2">CAM-01 · KITCHEN</text>
+  <text x="40" y="420" fill="#a8b3c7" font-family="ui-monospace, Menlo, monospace" font-size="13" letter-spacing="1">KINBOARD DEMO · 1080p</text>
+
+  <!-- Live indicator -->
+  <circle cx="740" cy="44" r="6" fill="#ef4444">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.4s" repeatCount="indefinite"/>
+  </circle>
+  <text x="755" y="48" fill="#fff" font-family="ui-monospace, Menlo, monospace" font-size="12" font-weight="700">LIVE</text>
+
+  <!-- Timestamp ticker (simulated) -->
+  <text x="640" y="420" fill="#a8b3c7" font-family="ui-monospace, Menlo, monospace" font-size="13">
+    14:23:<tspan>00</tspan>
+    <animate attributeName="textContent" values="14:23:00;14:23:01;14:23:02;14:23:03;14:23:04;14:23:05;14:23:06;14:23:07" dur="8s" repeatCount="indefinite"/>
+  </text>
+</svg>

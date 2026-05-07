@@ -6,7 +6,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- Bottom navigation now hides integration items the family hasn't set up yet. `Smart home`, `Energy`, and `Tesla` are gated on Home Assistant being connected; `Cameras` is gated on at least one camera configured. Direct URL access still works (each page renders its own "Connect this integration first" landing) — the filter only governs the bottom-nav surface, so fresh installs aren't cluttered with dead clickthroughs. Stepping stone toward the plugin-system roadmap item: each integration's "is this available?" predicate is now isolated, ready to formalize as a plugin manifest.
+
 ### Added
+- Demo camera streams now show scene-themed animated SVG content (kitchen with steam wisps + warm lamp glow, garden with swaying leaves + a flying bird arc + sky gradient, front-door night view with motion-blip pulses + porch light flicker). Replaces the single static placeholder. Routed by `?src=` query param via nginx `map` directive in the mock-go2rtc config.
 - New `docker-compose.demo.yml.example` overlay runs lightweight mock servers (Home Assistant, Tesla via HA, OpenWeatherMap, go2rtc cameras) alongside the real Kinboard stack so the demo box's smart-home / energy / Tesla / cameras / weather dashboards render with believable data without configuring real integrations or burning API keys. Same mocks the screenshot pipeline already uses (single source of truth at `docs/wiki/screenshots/mocks/`).
 - `seed-demo.sql` now seeds Home Assistant + cameras settings rows pointing at the mock containers (one configured HA dashboard with light/climate cards, three demo camera streams), plus a third kid (Casey) with full school-week schedule, 5 more birthdays, and `period` numbers on every schedule slot so the schedule page renders pill-by-pill correctly.
 - Synthetic news feed for public demo deployments. When `KINBOARD_DEMO_FAMILY_CODE` is set on the server, `/api/news` and `/api/news/article` short-circuit with 10 fictional human-interest articles (food, lifestyle, tech, family) instead of fetching real RSS feeds. Eliminates copyright exposure from re-displaying publisher content to anonymous demo visitors. Self-hosters running their own household never hit this branch — real RSS still works as before.
