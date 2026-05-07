@@ -201,7 +201,7 @@ The wiki is the source of truth for everything beyond this README:
 
 ## Status & roadmap
 
-**v1.0.0 shipped 2026-05-04** — first tagged public release. The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
+**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.0.5](https://github.com/svenger87/kinboard/releases/tag/v1.0.5) (2026-05-07).** The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
 
 **Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](docs/wiki/Security-and-Threat-Model.md) and [`SECURITY.md`](SECURITY.md).
 
@@ -211,7 +211,6 @@ The wiki is the source of truth for everything beyond this README:
 - [x] First tagged release (v1.0.0)
 
 ### Up next (no fixed dates)
-- [ ] In-app version check + changelog modal so self-hosters know when an update is available
 - [ ] End-to-end test suite running the full Docker stack against Playwright
 - [ ] Plugin system + extracted Tesla / Zendure plugins (currently Tesla and the energy dashboard live in core)
 - [ ] Country-aware holiday support (currently DE only)
