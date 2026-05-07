@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- `ChunkLoadError` after Watchtower auto-updates (or any in-place webapp redeploy) no longer leaves users on a broken page. New `<ChunkErrorRecovery>` listens at the window level for failed chunk loads and triggers a one-shot reload (gated by `sessionStorage` to avoid loops). On reload, the service-worker caches are cleared first so the fresh bootstrap doesn't bounce off the same stale chunks. **Plus** the service worker's `CACHE_NAME` now embeds the `package.json` version (substituted at Docker build time via `sed` against the `__KINBOARD_VERSION__` placeholder), so each release's `activate` event evicts the previous release's chunk cache automatically.
+
 ## [1.0.8] - 2026-05-07 — Demo overlay + auto-update opt-in + nav polish
 
 ### Fixed

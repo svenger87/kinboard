@@ -1,5 +1,15 @@
 // Kinboard Service Worker
-const CACHE_NAME = 'family-calendar-v1';
+//
+// CACHE_NAME bumps on every release via build-time string substitution
+// performed in the Dockerfile (sed-replaces __KINBOARD_VERSION__ with
+// the package.json version before `next build`). On activate, the SW
+// deletes any cache whose name doesn't match this exact release —
+// evicting stale `_next/static/chunks/*` from prior builds, which is
+// what causes ChunkLoadError after Watchtower auto-updates.
+//
+// In dev (where the substitution doesn't happen), the literal token
+// stays and acts as a single dev-cache that doesn't auto-evict.
+const CACHE_NAME = 'kinboard-__KINBOARD_VERSION__';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache immediately on install

@@ -5,6 +5,7 @@ import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
 import { Providers } from "./providers";
 import { getMonthTheme } from "@/lib/utils";
+import { ChunkErrorRecovery } from "@/components/chunk-error-recovery";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -92,6 +93,7 @@ export default async function RootLayout({
         <a href="#main-content" className="skip-link">
           {t("skipToMain")}
         </a>
+        <ChunkErrorRecovery />
         <NextIntlClientProvider locale={locale} messages={messages}>
           <Providers>{children}</Providers>
         </NextIntlClientProvider>
