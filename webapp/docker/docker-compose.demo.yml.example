@@ -1,0 +1,90 @@
+# Demo-mode mock services overlay.
+#
+# Runs lightweight mock servers for Home Assistant, Tesla (via HA
+# entities), OpenWeatherMap, and go2rtc cameras so the demo box's
+# dashboards render with believable data without configuring real
+# integrations or burning API keys.
+#
+# Mocks live at docs/wiki/screenshots/mocks/ — same source the screenshot
+# pipeline uses, so they stay maintained.
+#
+# Usage on a public demo deployment (alongside the image + traefik +
+# watchtower overlays):
+#
+#   cd webapp/docker
+#   cp docker-compose.demo.yml.example docker-compose.demo.yml
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml \
+#                  -f docker-compose.traefik.yml -f docker-compose.watchtower.yml \
+#                  -f docker-compose.demo.yml" \
+#     ./start.sh up
+#
+# Pair with `KINBOARD_DEMO_FAMILY_CODE=DEMO01` in `.env` and run
+# `./start.sh seed-demo` to insert the HA/cameras/Tesla settings rows
+# that wire the demo family to the mock URLs.
+#
+# Self-hosters running a real household DON'T enable this overlay —
+# real integrations work as usual.
+
+services:
+  # Hijack the webapp's outbound weather calls to the local mock so the
+  # widget renders without a live OpenWeatherMap API key.
+  webapp:
+    environment:
+      OPENWEATHERMAP_API_KEY: demo-not-real
+      OPENWEATHERMAP_BASE_URL: http://mock-weather:8125
+
+  # Disable the real go2rtc; the mock below answers the same API surface
+  # with a static SVG stream so the cameras grid renders.
+  go2rtc:
+    profiles: ["disabled"]
+
+  mock-ha:
+    image: node:20-alpine
+    container_name: ${PROJECT_NAME:-kinboard}-mock-ha
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.js"]
+    volumes:
+      - ../../docs/wiki/screenshots/mocks/ha:/app:ro
+    networks:
+      - kinboard
+
+  mock-tesla:
+    image: node:20-alpine
+    container_name: ${PROJECT_NAME:-kinboard}-mock-tesla
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.js"]
+    volumes:
+      - ../../docs/wiki/screenshots/mocks/tesla:/app:ro
+    networks:
+      - kinboard
+
+  mock-weather:
+    image: node:20-alpine
+    container_name: ${PROJECT_NAME:-kinboard}-mock-weather
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.js"]
+    volumes:
+      - ../../docs/wiki/screenshots/mocks/weather:/app:ro
+    networks:
+      - kinboard
+
+  mock-go2rtc:
+    image: nginx:alpine
+    container_name: ${PROJECT_NAME:-kinboard}-mock-go2rtc
+    restart: unless-stopped
+    volumes:
+      - ../../docs/wiki/screenshots/mocks/go2rtc/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../../docs/wiki/screenshots/mocks/go2rtc/streams:/usr/share/nginx/html:ro
+    # Bind to the same internal port that the real go2rtc would use so
+    # cameras configured with go2rtc:1984 resolve to the mock.
+    expose:
+      - "80"
+    networks:
+      kinboard:
+        # Aliased so existing camera configs that point at "go2rtc"
+        # still resolve. The real go2rtc service is disabled above.
+        aliases:
+          - go2rtc

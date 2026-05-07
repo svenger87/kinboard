@@ -6,6 +6,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- New `docker-compose.demo.yml.example` overlay runs lightweight mock servers (Home Assistant, Tesla via HA, OpenWeatherMap, go2rtc cameras) alongside the real Kinboard stack so the demo box's smart-home / energy / Tesla / cameras / weather dashboards render with believable data without configuring real integrations or burning API keys. Same mocks the screenshot pipeline already uses (single source of truth at `docs/wiki/screenshots/mocks/`).
+- `seed-demo.sql` now seeds Home Assistant + cameras settings rows pointing at the mock containers (one configured HA dashboard with light/climate cards, three demo camera streams), plus a third kid (Casey) with full school-week schedule, 5 more birthdays, and `period` numbers on every schedule slot so the schedule page renders pill-by-pill correctly.
+- Synthetic news feed for public demo deployments. When `KINBOARD_DEMO_FAMILY_CODE` is set on the server, `/api/news` and `/api/news/article` short-circuit with 10 fictional human-interest articles (food, lifestyle, tech, family) instead of fetching real RSS feeds. Eliminates copyright exposure from re-displaying publisher content to anonymous demo visitors. Self-hosters running their own household never hit this branch — real RSS still works as before.
+
 ## [1.0.7] - 2026-05-07 — Live demo + auto-update opt-in
 
 ### Added

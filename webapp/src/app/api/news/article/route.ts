@@ -3,6 +3,7 @@ import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 import DOMPurify from "isomorphic-dompurify";
 import { NEWS_PROVIDERS } from "@/lib/news-providers";
+import { isDemoMode, findDemoArticle } from "@/lib/demo-news";
 
 // Extracts the main article content from a news URL using Mozilla
 // Readability (the same library that powers Firefox Reader View),
@@ -189,6 +190,34 @@ export async function GET(request: NextRequest) {
       { status: 400 },
     );
   }
+
+  // Demo deployments: serve canned content for our synthetic articles
+  // and refuse to proxy any other URL (we don't want to be a public
+  // article-fetching proxy on the demo box).
+  if (isDemoMode()) {
+    const article = findDemoArticle(url);
+    if (!article) {
+      return NextResponse.json({
+        readable: false,
+        url,
+        error: "Reader mode is disabled in demo mode for non-demo URLs.",
+      });
+    }
+    const html = article.body.map((p) => `<p>${p}</p>`).join("\n");
+    return NextResponse.json({
+      readable: true,
+      url,
+      title: article.title,
+      byline: null,
+      excerpt: article.description,
+      siteName: article.sourceName,
+      publishedAt: article.pubDate,
+      contentHtml: html,
+      textContent: article.body.join("\n\n"),
+      lengthChars: article.body.join("").length,
+    });
+  }
+
   const result = await fetchArticle(url);
   return NextResponse.json(result);
 }
