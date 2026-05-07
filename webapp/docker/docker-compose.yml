@@ -297,6 +297,10 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
       VAPID_SUBJECT: ${VAPID_SUBJECT}
+      # Demo mode: when set, /join shows a banner with this family code so
+      # public-demo visitors can load the seeded household. Self-hosters
+      # leave it unset.
+      KINBOARD_DEMO_FAMILY_CODE: ${KINBOARD_DEMO_FAMILY_CODE:-}
     networks:
       - kinboard
 

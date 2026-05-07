@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
+import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/card";
-import { Users, ArrowRight, Sparkles, RefreshCw } from "lucide-react";
+import { Users, ArrowRight, Sparkles, RefreshCw, PartyPopper } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   useJoinFamily,
@@ -36,6 +37,21 @@ export default function JoinPage() {
   const [familyName, setFamilyName] = useState("");
   const [deviceName, setDeviceName] = useState("");
   const [error, setError] = useState("");
+
+  // Surfaces the demo family's join code on public-demo deployments
+  // (KINBOARD_DEMO_FAMILY_CODE set on the server). Self-hosters running
+  // their own household leave the env var unset and the banner never
+  // renders.
+  const { data: demoCode } = useQuery({
+    queryKey: ["demo-code"],
+    queryFn: async (): Promise<string | null> => {
+      const r = await fetch("/api/demo");
+      if (!r.ok) return null;
+      const data = await r.json();
+      return typeof data.code === "string" && data.code.length > 0 ? data.code : null;
+    },
+    staleTime: 60 * 60 * 1000,
+  });
 
   // Fingerprint recognition state
   const [recognizedDevices, setRecognizedDevices] = useState<RecognizedDevice[]>([]);
@@ -197,6 +213,43 @@ export default function JoinPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Demo banner — only shown on public-demo installs */}
+        {demoCode && recognizedDevices.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <GlassCard className="p-4 border-month-primary/30 bg-month-primary/5">
+              <div className="flex items-start gap-3">
+                <PartyPopper className="size-5 shrink-0 text-month-primary mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{t("demoBannerTitle")}</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    {t("demoBannerDescription")}
+                  </p>
+                  <div className="flex items-center gap-2 mt-3">
+                    <code className="rounded bg-background px-2 py-1 font-mono text-base tracking-[0.2em]">
+                      {demoCode}
+                    </code>
+                    <Button
+                      type="button"
+                      variant="month"
+                      size="sm"
+                      onClick={() => {
+                        setMode("join");
+                        setJoinCode(demoCode);
+                      }}
+                    >
+                      {t("demoBannerUseCode")}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
 
         {/* Quick Rejoin Section (shown when device is recognized) */}
         <AnimatePresence>

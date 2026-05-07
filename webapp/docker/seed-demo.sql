@@ -1,6 +1,7 @@
--- Kinboard — optional demo seed.
+-- Kinboard — demo family seed.
 --
--- Apply explicitly when you want a populated dataset for development:
+-- Apply explicitly when you want a populated dataset for the public
+-- demo box, dev iteration, or screenshots:
 --
 --   docker exec -i kinboard-db \
 --     psql -U postgres -d postgres < webapp/docker/seed-demo.sql
@@ -9,32 +10,316 @@
 --
 --   ./webapp/docker/start.sh seed-demo
 --
--- Idempotent — re-running won't duplicate rows.
+-- Idempotent: the demo family is wiped before re-insert so the script
+-- always produces the same known-good state. Active browser sessions
+-- attached to the demo family see the orphan-cookie redirect (1.0.4+)
+-- and get bounced to /join — by design, fresh state for visitors.
+--
+-- Dates are relative to CURRENT_DATE so events stay current without
+-- re-running the seed every week.
 
--- Demo family. Join code DEMO01 lets a second device join via /join.
-INSERT INTO public.families (id, name, join_code)
-VALUES ('00000000-0000-0000-0000-000000000001', 'Demo Family', 'DEMO01')
-ON CONFLICT DO NOTHING;
+BEGIN;
 
--- Demo family members (gender-neutral placeholder names)
-INSERT INTO public.people (family_id, name, color) VALUES
-    ('00000000-0000-0000-0000-000000000001', 'Alex',  '#3b82f6'),
-    ('00000000-0000-0000-0000-000000000001', 'Sam',   '#ec4899'),
-    ('00000000-0000-0000-0000-000000000001', 'Riley', '#a855f7'),
-    ('00000000-0000-0000-0000-000000000001', 'Jordan','#22c55e')
-ON CONFLICT DO NOTHING;
+-- =========================================================================
+-- Wipe-and-reset
+-- =========================================================================
+-- Cascades through FKs: devices, people, calendars, events, todos,
+-- shopping_items, subjects, schedules, birthdays, notes, recipes,
+-- recipe_ingredients, recipe_tags, meal_plans, meal_plan_entries.
+DELETE FROM public.families WHERE id = '00000000-0000-0000-0000-000000000001';
 
--- Demo school subjects
+-- =========================================================================
+-- Family + join code
+-- =========================================================================
+INSERT INTO public.families (id, name, join_code) VALUES
+    ('00000000-0000-0000-0000-000000000001', 'Demo Family', 'DEMO01');
+
+-- =========================================================================
+-- People (2 parents, 2 kids — gender-neutral names for a public demo)
+-- =========================================================================
+INSERT INTO public.people (id, family_id, name, color) VALUES
+    ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-000000000001', 'Alex',   '#3b82f6'),
+    ('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-000000000001', 'Sam',    '#ec4899'),
+    ('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-000000000001', 'Riley',  '#a855f7'),
+    ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-000000000001', 'Jordan', '#22c55e');
+
+-- =========================================================================
+-- Devices — one fingerprinted "kitchen kiosk" so the family looks active
+-- =========================================================================
+INSERT INTO public.devices (id, family_id, name, fingerprint, hardware_id, is_kiosk, last_seen) VALUES
+    ('00000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-000000000001',
+     'Kitchen Kiosk', 'demo-kiosk-fingerprint', 'demo-kiosk-hwid', true, NOW());
+
+-- =========================================================================
+-- Calendars (one per person + family + holidays)
+-- =========================================================================
+INSERT INTO public.calendars (id, family_id, person_id, name, color, sync_enabled, is_holidays) VALUES
+    ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-000000000001', NULL,
+     'Family',    '#6366f1', true, false),
+    ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a1',
+     'Alex',      '#3b82f6', true, false),
+    ('00000000-0000-0000-0000-0000000000b3', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a2',
+     'Sam',       '#ec4899', true, false),
+    ('00000000-0000-0000-0000-0000000000b4', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a3',
+     'Riley',     '#a855f7', true, false),
+    ('00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a4',
+     'Jordan',    '#22c55e', true, false),
+    ('00000000-0000-0000-0000-0000000000b6', '00000000-0000-0000-0000-000000000001', NULL,
+     'Holidays',  '#dc2626', false, true);
+
+-- =========================================================================
+-- Events (next 2 weeks, distributed across people)
+-- =========================================================================
+INSERT INTO public.events (calendar_id, title, description, location, start_at, end_at, all_day, person_id) VALUES
+    -- Today
+    ('00000000-0000-0000-0000-0000000000b1', 'Family movie night',         'Bring popcorn',       'Living room',
+     (CURRENT_DATE + TIME '19:30')::timestamptz, (CURRENT_DATE + TIME '21:30')::timestamptz, false, NULL),
+
+    -- Tomorrow
+    ('00000000-0000-0000-0000-0000000000b2', 'Dentist appointment',        '6-month checkup',     'Dr. Becker',
+     ((CURRENT_DATE + 1) + TIME '14:00')::timestamptz, ((CURRENT_DATE + 1) + TIME '14:45')::timestamptz, false,
+     '00000000-0000-0000-0000-0000000000a1'),
+    ('00000000-0000-0000-0000-0000000000b4', 'Soccer practice',            'Cleats + water',      'School field',
+     ((CURRENT_DATE + 1) + TIME '17:00')::timestamptz, ((CURRENT_DATE + 1) + TIME '18:30')::timestamptz, false,
+     '00000000-0000-0000-0000-0000000000a3'),
+
+    -- +2 days
+    ('00000000-0000-0000-0000-0000000000b5', 'Piano lesson',               '',                    'Mrs. Lin',
+     ((CURRENT_DATE + 2) + TIME '16:00')::timestamptz, ((CURRENT_DATE + 2) + TIME '16:45')::timestamptz, false,
+     '00000000-0000-0000-0000-0000000000a4'),
+    ('00000000-0000-0000-0000-0000000000b3', 'Yoga class',                 '',                    'Studio Nord',
+     ((CURRENT_DATE + 2) + TIME '19:00')::timestamptz, ((CURRENT_DATE + 2) + TIME '20:15')::timestamptz, false,
+     '00000000-0000-0000-0000-0000000000a2'),
+
+    -- +3 days
+    ('00000000-0000-0000-0000-0000000000b1', 'Grandma over for dinner',    'She''s bringing dessert', 'Home',
+     ((CURRENT_DATE + 3) + TIME '18:00')::timestamptz, ((CURRENT_DATE + 3) + TIME '21:00')::timestamptz, false, NULL),
+
+    -- +4 days
+    ('00000000-0000-0000-0000-0000000000b4', 'Math test',                  'Chapter 7 — fractions', 'School',
+     ((CURRENT_DATE + 4) + TIME '09:00')::timestamptz, ((CURRENT_DATE + 4) + TIME '10:00')::timestamptz, false,
+     '00000000-0000-0000-0000-0000000000a3'),
+
+    -- +5 days (weekend prep)
+    ('00000000-0000-0000-0000-0000000000b1', 'Grocery run',                'Weekly Aldi + Rewe',  '',
+     ((CURRENT_DATE + 5) + TIME '10:00')::timestamptz, ((CURRENT_DATE + 5) + TIME '11:30')::timestamptz, false, NULL),
+
+    -- +6 days
+    ('00000000-0000-0000-0000-0000000000b1', 'Hiking trip',                'Weather permitting',  'Ardennes',
+     (CURRENT_DATE + 6)::timestamptz, (CURRENT_DATE + 6)::timestamptz, true, NULL),
+
+    -- Next week
+    ('00000000-0000-0000-0000-0000000000b2', 'Team offsite',               'Q3 planning',         'Hamburg',
+     ((CURRENT_DATE + 8) + TIME '09:00')::timestamptz, ((CURRENT_DATE + 8) + TIME '17:00')::timestamptz, false,
+     '00000000-0000-0000-0000-0000000000a1'),
+    ('00000000-0000-0000-0000-0000000000b5', 'School trip — museum',      'Lunchbox required',   'Naturkundemuseum',
+     (CURRENT_DATE + 9)::timestamptz, (CURRENT_DATE + 9)::timestamptz, true,
+     '00000000-0000-0000-0000-0000000000a4'),
+    ('00000000-0000-0000-0000-0000000000b3', 'Book club',                  'Hanya Yanagihara',    'Café Lieblich',
+     ((CURRENT_DATE + 10) + TIME '20:00')::timestamptz, ((CURRENT_DATE + 10) + TIME '22:00')::timestamptz, false,
+     '00000000-0000-0000-0000-0000000000a2'),
+    ('00000000-0000-0000-0000-0000000000b1', 'Anniversary',                'Reservation at La Trattoria', 'La Trattoria',
+     ((CURRENT_DATE + 12) + TIME '19:00')::timestamptz, ((CURRENT_DATE + 12) + TIME '22:30')::timestamptz, false, NULL);
+
+-- =========================================================================
+-- Birthdays — relative to today so they always look upcoming
+-- =========================================================================
+INSERT INTO public.birthdays (family_id, name, date, notify_days_before, person_id) VALUES
+    ('00000000-0000-0000-0000-000000000001', 'Riley',
+     (CURRENT_DATE + 18 - (EXTRACT(YEAR FROM CURRENT_DATE)::int - 2014) * INTERVAL '1 year')::date,
+     7, '00000000-0000-0000-0000-0000000000a3'),
+    ('00000000-0000-0000-0000-000000000001', 'Grandma Eve',
+     (CURRENT_DATE + 5 - (EXTRACT(YEAR FROM CURRENT_DATE)::int - 1948) * INTERVAL '1 year')::date,
+     7, NULL),
+    ('00000000-0000-0000-0000-000000000001', 'Uncle Theo',
+     (CURRENT_DATE + 32 - (EXTRACT(YEAR FROM CURRENT_DATE)::int - 1976) * INTERVAL '1 year')::date,
+     14, NULL),
+    ('00000000-0000-0000-0000-000000000001', 'Jordan',
+     (CURRENT_DATE + 87 - (EXTRACT(YEAR FROM CURRENT_DATE)::int - 2017) * INTERVAL '1 year')::date,
+     7, '00000000-0000-0000-0000-0000000000a4');
+
+-- =========================================================================
+-- Shopping list (mix of categories + checked state)
+-- =========================================================================
+INSERT INTO public.shopping_items (family_id, name, checked, category) VALUES
+    ('00000000-0000-0000-0000-000000000001', 'Milk',          false, 'Dairy'),
+    ('00000000-0000-0000-0000-000000000001', 'Yoghurt',       false, 'Dairy'),
+    ('00000000-0000-0000-0000-000000000001', 'Eggs',          false, 'Dairy'),
+    ('00000000-0000-0000-0000-000000000001', 'Bread',         false, 'Bakery'),
+    ('00000000-0000-0000-0000-000000000001', 'Croissants',    false, 'Bakery'),
+    ('00000000-0000-0000-0000-000000000001', 'Apples',        false, 'Produce'),
+    ('00000000-0000-0000-0000-000000000001', 'Carrots',       false, 'Produce'),
+    ('00000000-0000-0000-0000-000000000001', 'Spinach',       false, 'Produce'),
+    ('00000000-0000-0000-0000-000000000001', 'Onions',        true,  'Produce'),
+    ('00000000-0000-0000-0000-000000000001', 'Pasta',         false, 'Pantry'),
+    ('00000000-0000-0000-0000-000000000001', 'Olive oil',     false, 'Pantry'),
+    ('00000000-0000-0000-0000-000000000001', 'Coffee beans',  false, 'Pantry'),
+    ('00000000-0000-0000-0000-000000000001', 'Toilet paper',  false, 'Household'),
+    ('00000000-0000-0000-0000-000000000001', 'Dish soap',     true,  'Household'),
+    ('00000000-0000-0000-0000-000000000001', 'Chicken breast',false, 'Meat'),
+    ('00000000-0000-0000-0000-000000000001', 'Salmon',        false, 'Fish');
+
+-- =========================================================================
+-- Recipes (5 — covers Chefkoch-style imports + family classics)
+-- =========================================================================
+INSERT INTO public.recipes (id, family_id, title, description, source_url, source_domain, image_url,
+                            servings, prep_time_minutes, cook_time_minutes, total_time_minutes,
+                            difficulty, instructions, is_favorite) VALUES
+    ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-000000000001',
+     'Spaghetti Bolognese',
+     'The household standard. Make a double batch and freeze half.',
+     NULL, NULL, NULL,
+     4, 15, 60, 75, 'einfach',
+     '["Heat olive oil in a deep pan; brown the ground beef.","Add onion + garlic + carrot; cook 5 min.","Add tomato passata, stock, bay leaf, pinch of nutmeg.","Simmer uncovered 45 min, stirring occasionally.","Cook spaghetti to al dente; drain, reserve a ladle of pasta water.","Toss pasta with sauce + pasta water; finish with parmesan."]'::jsonb,
+     true),
+    ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-000000000001',
+     'Chicken curry (mild)',
+     'Kid-approved. No spice; full coconut richness.',
+     NULL, NULL, NULL,
+     4, 10, 25, 35, 'einfach',
+     '["Cube chicken; sear in a wok until edges brown.","Push to side; soften onion + ginger + garlic.","Stir in curry paste; cook 30 sec.","Add coconut milk + chicken stock; simmer 15 min.","Stir in spinach until wilted; finish with lime juice.","Serve over basmati rice."]'::jsonb,
+     true),
+    ('00000000-0000-0000-0000-0000000000c3', '00000000-0000-0000-0000-000000000001',
+     'Sheet-pan salmon + veg',
+     'One pan, 25 minutes, healthy.',
+     NULL, NULL, NULL,
+     4, 10, 20, 30, 'einfach',
+     '["Heat oven to 220C.","Toss broccoli + bell pepper + chickpeas with olive oil, salt, paprika.","Spread on a sheet pan; roast 10 min.","Push veg aside; lay salmon fillets, skin down. Brush with miso + maple glaze.","Roast 12 more min until salmon flakes.","Squeeze lemon, scatter sesame seeds."]'::jsonb,
+     false),
+    ('00000000-0000-0000-0000-0000000000c4', '00000000-0000-0000-0000-000000000001',
+     'Pizza dough (overnight)',
+     'Friday-night ritual. Make Thursday, bake Friday.',
+     NULL, NULL, NULL,
+     4, 20, 240, 1440, 'mittel',
+     '["Mix flour, salt, yeast (small pinch) with water until shaggy.","Cover; rest 30 min, then 4 stretch-and-folds at 30-min intervals.","Refrigerate overnight (12-24h).","Divide into 4 balls; rest 1h at room temp before stretching.","Top + bake 7 min in a 280C oven on a hot stone.","Don''t skip the resting hours; structure is built by time."]'::jsonb,
+     true),
+    ('00000000-0000-0000-0000-0000000000c5', '00000000-0000-0000-0000-000000000001',
+     'Apple cinnamon overnight oats',
+     'Kids assemble these themselves Sunday night for the week.',
+     NULL, NULL, NULL,
+     4, 5, 0, 5, 'einfach',
+     '["Combine oats + milk + yoghurt + chia + maple syrup in 4 jars.","Top each with diced apple + cinnamon + walnut.","Lid, fridge, ready in the morning. Keeps 4 days."]'::jsonb,
+     false);
+
+-- Recipe ingredients (just enough to populate the UI; not exhaustive)
+INSERT INTO public.recipe_ingredients (recipe_id, name, quantity, unit, sort_order) VALUES
+    -- Bolognese
+    ('00000000-0000-0000-0000-0000000000c1', 'Ground beef',     500, 'g',   1),
+    ('00000000-0000-0000-0000-0000000000c1', 'Onion',           1,   'pc',  2),
+    ('00000000-0000-0000-0000-0000000000c1', 'Carrot',          2,   'pc',  3),
+    ('00000000-0000-0000-0000-0000000000c1', 'Garlic',          3,   'cloves', 4),
+    ('00000000-0000-0000-0000-0000000000c1', 'Tomato passata',  700, 'g',   5),
+    ('00000000-0000-0000-0000-0000000000c1', 'Spaghetti',       500, 'g',   6),
+    ('00000000-0000-0000-0000-0000000000c1', 'Parmesan',        50,  'g',   7),
+    -- Curry
+    ('00000000-0000-0000-0000-0000000000c2', 'Chicken breast',  600, 'g',   1),
+    ('00000000-0000-0000-0000-0000000000c2', 'Coconut milk',    400, 'ml',  2),
+    ('00000000-0000-0000-0000-0000000000c2', 'Mild curry paste',2,   'tbsp',3),
+    ('00000000-0000-0000-0000-0000000000c2', 'Spinach',         150, 'g',   4),
+    ('00000000-0000-0000-0000-0000000000c2', 'Basmati rice',    300, 'g',   5),
+    -- Salmon
+    ('00000000-0000-0000-0000-0000000000c3', 'Salmon fillet',   600, 'g',   1),
+    ('00000000-0000-0000-0000-0000000000c3', 'Broccoli',        1,   'head',2),
+    ('00000000-0000-0000-0000-0000000000c3', 'Bell pepper',     2,   'pc',  3),
+    ('00000000-0000-0000-0000-0000000000c3', 'Chickpeas',       400, 'g',   4),
+    ('00000000-0000-0000-0000-0000000000c3', 'White miso',      1,   'tbsp',5),
+    -- Pizza
+    ('00000000-0000-0000-0000-0000000000c4', '00 flour',        500, 'g',   1),
+    ('00000000-0000-0000-0000-0000000000c4', 'Water',           325, 'ml',  2),
+    ('00000000-0000-0000-0000-0000000000c4', 'Salt',            10,  'g',   3),
+    ('00000000-0000-0000-0000-0000000000c4', 'Fresh yeast',     2,   'g',   4),
+    -- Oats
+    ('00000000-0000-0000-0000-0000000000c5', 'Rolled oats',     200, 'g',   1),
+    ('00000000-0000-0000-0000-0000000000c5', 'Milk',            500, 'ml',  2),
+    ('00000000-0000-0000-0000-0000000000c5', 'Greek yoghurt',   200, 'g',   3),
+    ('00000000-0000-0000-0000-0000000000c5', 'Chia seeds',      2,   'tbsp',4),
+    ('00000000-0000-0000-0000-0000000000c5', 'Apple',           2,   'pc',  5);
+
+-- =========================================================================
+-- Meal plan — current week
+-- =========================================================================
+INSERT INTO public.meal_plans (id, family_id, week_start, notes) VALUES
+    ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-000000000001',
+     date_trunc('week', CURRENT_DATE)::date, 'Light week — leftovers Friday');
+
+INSERT INTO public.meal_plan_entries (meal_plan_id, date, meal_type, recipe_id, servings) VALUES
+    ('00000000-0000-0000-0000-0000000000e1', date_trunc('week', CURRENT_DATE)::date,                       'dinner', '00000000-0000-0000-0000-0000000000c1', 4),
+    ('00000000-0000-0000-0000-0000000000e1', (date_trunc('week', CURRENT_DATE) + interval '1 day')::date,  'dinner', '00000000-0000-0000-0000-0000000000c2', 4),
+    ('00000000-0000-0000-0000-0000000000e1', (date_trunc('week', CURRENT_DATE) + interval '2 days')::date, 'dinner', '00000000-0000-0000-0000-0000000000c3', 4),
+    ('00000000-0000-0000-0000-0000000000e1', (date_trunc('week', CURRENT_DATE) + interval '3 days')::date, 'dinner', '00000000-0000-0000-0000-0000000000c1', 4),
+    ('00000000-0000-0000-0000-0000000000e1', (date_trunc('week', CURRENT_DATE) + interval '4 days')::date, 'dinner', '00000000-0000-0000-0000-0000000000c4', 4),
+    ('00000000-0000-0000-0000-0000000000e1', (date_trunc('week', CURRENT_DATE) + interval '6 days')::date, 'dinner', '00000000-0000-0000-0000-0000000000c2', 4);
+
+-- =========================================================================
+-- Todos (mix of priorities, assignments, completion states)
+-- =========================================================================
+INSERT INTO public.todos (family_id, person_id, title, completed, due_date, priority, recurrence) VALUES
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a1', 'Pay water bill',                 false, CURRENT_DATE + 2,  'high',   'once'),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a2', 'Sign permission slip — museum',  false, CURRENT_DATE + 4,  'medium', 'once'),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a3', 'Math homework — Chapter 7',      false, CURRENT_DATE + 3,  'medium', 'once'),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a4', 'Practice piano (30 min)',        false, CURRENT_DATE,      'low',    'daily'),
+    ('00000000-0000-0000-0000-000000000001', NULL,                                    'Take out the recycling',         false, CURRENT_DATE + 1,  'medium', 'weekly'),
+    ('00000000-0000-0000-0000-000000000001', NULL,                                    'Water the plants',               false, CURRENT_DATE,      'low',    'weekly'),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a1', 'Book hairdresser',                false, CURRENT_DATE + 7,  'low',    'once'),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a2', 'Renew library books',             true,  CURRENT_DATE - 2,  'low',    'once'),
+    ('00000000-0000-0000-0000-000000000001', NULL,                                    'Clean out the fridge',           true,  CURRENT_DATE - 1,  'medium', 'weekly');
+
+-- =========================================================================
+-- Notes (a couple pinned, a couple normal)
+-- =========================================================================
+INSERT INTO public.notes (family_id, content, pinned) VALUES
+    ('00000000-0000-0000-0000-000000000001',
+     E'# WiFi guests\n**SSID:** KinboardDemo\n**Password:** see fridge magnet',
+     true),
+    ('00000000-0000-0000-0000-000000000001',
+     E'# Babysitter notes\n- Riley''s asthma inhaler in bathroom cabinet (top shelf)\n- Bedtimes: Riley 21:00, Jordan 20:00\n- Emergency: 112',
+     true),
+    ('00000000-0000-0000-0000-000000000001',
+     'Window cleaner comes Wednesday at 10. Leave the side gate unlocked.',
+     false),
+    ('00000000-0000-0000-0000-000000000001',
+     E'Returns to drop off:\n- Amazon parcel (printer cable, wrong type)\n- Library book "The Anthropocene Reviewed"',
+     false);
+
+-- =========================================================================
+-- Subjects + schedule entries (school week for Riley + Jordan)
+-- =========================================================================
 INSERT INTO public.subjects (family_id, name, color, icon) VALUES
-    ('00000000-0000-0000-0000-000000000001', 'Math',      '#ef4444', 'Calculator'),
-    ('00000000-0000-0000-0000-000000000001', 'English',   '#3b82f6', 'BookOpen'),
-    ('00000000-0000-0000-0000-000000000001', 'French',    '#22c55e', 'Languages'),
-    ('00000000-0000-0000-0000-000000000001', 'Physics',   '#8b5cf6', 'Atom'),
-    ('00000000-0000-0000-0000-000000000001', 'Chemistry', '#f97316', 'FlaskConical'),
-    ('00000000-0000-0000-0000-000000000001', 'Biology',   '#10b981', 'Leaf'),
-    ('00000000-0000-0000-0000-000000000001', 'History',   '#6b7280', 'Landmark'),
-    ('00000000-0000-0000-0000-000000000001', 'Geography', '#06b6d4', 'Globe'),
-    ('00000000-0000-0000-0000-000000000001', 'PE',        '#ec4899', 'Dumbbell'),
-    ('00000000-0000-0000-0000-000000000001', 'Art',       '#f59e0b', 'Palette'),
-    ('00000000-0000-0000-0000-000000000001', 'Music',     '#a855f7', 'Music')
-ON CONFLICT DO NOTHING;
+    ('00000000-0000-0000-0000-000000000001', 'Math',    '#ef4444', 'Calculator'),
+    ('00000000-0000-0000-0000-000000000001', 'English', '#3b82f6', 'BookOpen'),
+    ('00000000-0000-0000-0000-000000000001', 'German',  '#a855f7', 'Languages'),
+    ('00000000-0000-0000-0000-000000000001', 'Physics', '#8b5cf6', 'Atom'),
+    ('00000000-0000-0000-0000-000000000001', 'Biology', '#10b981', 'Leaf'),
+    ('00000000-0000-0000-0000-000000000001', 'History', '#6b7280', 'Landmark'),
+    ('00000000-0000-0000-0000-000000000001', 'PE',      '#ec4899', 'Dumbbell'),
+    ('00000000-0000-0000-0000-000000000001', 'Art',     '#f59e0b', 'Palette'),
+    ('00000000-0000-0000-0000-000000000001', 'Music',   '#06b6d4', 'Music');
+
+-- day_of_week: 0=Sun, 1=Mon, ..., 6=Sat
+INSERT INTO public.schedules (family_id, person_id, day_of_week, time_slots) VALUES
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a3', 1,
+     '[{"start":"08:00","end":"08:45","subject":"Math"},{"start":"08:50","end":"09:35","subject":"English"},{"start":"09:55","end":"10:40","subject":"Biology"},{"start":"10:45","end":"11:30","subject":"PE"}]'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a3', 2,
+     '[{"start":"08:00","end":"08:45","subject":"German"},{"start":"08:50","end":"09:35","subject":"Math"},{"start":"09:55","end":"10:40","subject":"History"},{"start":"10:45","end":"11:30","subject":"Art"}]'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a3', 3,
+     '[{"start":"08:00","end":"08:45","subject":"Physics"},{"start":"08:50","end":"09:35","subject":"Math"},{"start":"09:55","end":"10:40","subject":"English"},{"start":"10:45","end":"11:30","subject":"PE"}]'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a3', 4,
+     '[{"start":"08:00","end":"08:45","subject":"Math"},{"start":"08:50","end":"09:35","subject":"German"},{"start":"09:55","end":"10:40","subject":"Biology"},{"start":"10:45","end":"11:30","subject":"Music"}]'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a3', 5,
+     '[{"start":"08:00","end":"08:45","subject":"English"},{"start":"08:50","end":"09:35","subject":"History"},{"start":"09:55","end":"10:40","subject":"Math"}]'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a4', 1,
+     '[{"start":"08:00","end":"08:45","subject":"Math"},{"start":"08:50","end":"09:35","subject":"German"},{"start":"09:55","end":"10:40","subject":"Art"}]'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a4', 2,
+     '[{"start":"08:00","end":"08:45","subject":"PE"},{"start":"08:50","end":"09:35","subject":"Math"},{"start":"09:55","end":"10:40","subject":"German"}]'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a4', 3,
+     '[{"start":"08:00","end":"08:45","subject":"Music"},{"start":"08:50","end":"09:35","subject":"German"},{"start":"09:55","end":"10:40","subject":"Math"}]'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a4', 4,
+     '[{"start":"08:00","end":"08:45","subject":"Math"},{"start":"08:50","end":"09:35","subject":"English"},{"start":"09:55","end":"10:40","subject":"PE"}]'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a4', 5,
+     '[{"start":"08:00","end":"08:45","subject":"German"},{"start":"08:50","end":"09:35","subject":"Math"},{"start":"09:55","end":"10:40","subject":"Art"}]'::jsonb);
+
+COMMIT;
+
+\echo
+\echo 'Demo family seeded. Join code: DEMO01'
+\echo

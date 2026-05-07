@@ -133,6 +133,9 @@
   "join": {
     "title": "Kinboard",
     "tagline": "Connect this device to your family",
+    "demoBannerTitle": "You're on the public Kinboard demo",
+    "demoBannerDescription": "Use the code below to load the populated household, or create your own family from scratch with the tab below. Demo data resets daily.",
+    "demoBannerUseCode": "Use this code",
     "freshInstallTitle": "Welcome — let's set things up",
     "freshInstallDescription": "No families exist yet. Create the first one and you'll get a 6-character code other devices can use to join.",
     "rejoinTitle": "This device has been seen before",

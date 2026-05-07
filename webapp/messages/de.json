@@ -132,6 +132,9 @@
   },
   "join": {
     "title": "Kinboard",
+    "demoBannerTitle": "Das ist die öffentliche Kinboard-Demo",
+    "demoBannerDescription": "Gib unten den Code ein, um die gefüllte Beispiel-Familie zu laden — oder erstelle mit dem Tab unten eine eigene Familie von Grund auf. Demo-Daten werden täglich zurückgesetzt.",
+    "demoBannerUseCode": "Code verwenden",
     "tagline": "Verbinde dein Gerät mit deiner Familie",
     "freshInstallTitle": "Willkommen — lass uns starten",
     "freshInstallDescription": "Es gibt noch keine Familie. Erstelle die erste — du bekommst dann einen 6-stelligen Code, mit dem weitere Geräte beitreten können.",
