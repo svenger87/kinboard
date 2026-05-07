@@ -67,6 +67,7 @@ import {
 import { toast } from "sonner";
 import { DEFAULT_MONTHLY_TERMS } from "@/lib/unsplash-defaults";
 import { PageHeader } from "@/components/page-header";
+import { IntegrationConfigHint } from "@/components/integration-config-hint";
 
 export default function PhotoSettingsPage() {
   const t = useTranslations("settings.photos");
@@ -316,6 +317,15 @@ export default function PhotoSettingsPage() {
           subtitle={t("subtitle")}
           backHref="/settings"
         />
+
+        {!immichConnected && !unsplashConnected && (
+          <IntegrationConfigHint
+            title={t("notConfiguredTitle")}
+            description={t("notConfiguredDescription")}
+            docsHref="https://github.com/svenger87/kinboard/wiki/Immich"
+            docsLabel={t("notConfiguredDocsLabel")}
+          />
+        )}
 
         {/* Source Selector */}
         <motion.div

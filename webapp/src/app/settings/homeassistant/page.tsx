@@ -64,6 +64,7 @@ import {
 } from "@/hooks";
 import { EntityBrowser } from "@/components/home-assistant/entity-browser";
 import { PageHeader } from "@/components/page-header";
+import { IntegrationConfigHint } from "@/components/integration-config-hint";
 import Link from "next/link";
 import type { DashboardCard, HAEntity } from "@/types/home-assistant";
 
@@ -258,6 +259,15 @@ function HomeAssistantSettingsContent() {
           subtitle={t("subtitle")}
           backHref="/settings"
         />
+
+        {!isConnected && (
+          <IntegrationConfigHint
+            title={t("notConfiguredTitle")}
+            description={t("notConfiguredDescription")}
+            docsHref="https://github.com/svenger87/kinboard/wiki/Home-Assistant"
+            docsLabel={t("notConfiguredDocsLabel")}
+          />
+        )}
 
         {/* Connection Status */}
         <motion.div
