@@ -1,0 +1,54 @@
+# Per-host overrides — drop hardware-specific bits the portable base
+# compose can't safely default to (GPU devices, USB radios, host-network
+# tweaks). Copy to docker-compose.override.yml (gitignored), edit, and it
+# automatically merges into every `docker compose ...` invocation in
+# this directory.
+#
+# Usage:
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#   # edit for your hardware
+#   ./start.sh up
+#
+# Why a separate file: docker-compose.yml is shared across every install,
+# so anything tied to YOUR hardware (specific /dev paths, host IPs) lives
+# here so it doesn't leak into the public image-build step or other
+# self-hosters' setups.
+
+services:
+  # ─────────────────────────────────────────────────────────────────
+  # go2rtc — Intel iGPU passthrough for VAAPI hardware-accelerated
+  # transcoding. Required if any of your cameras stream HEVC/H.265 and
+  # your go2rtc.yaml uses the `#hardware=vaapi` modifier on that stream
+  # (without the device, ffmpeg falls back to software → high CPU on the
+  # transcode, and on weak hosts the stream simply won't keep up).
+  #
+  # Path varies by host:
+  #   /dev/dri/renderD128  — first Intel iGPU on most setups
+  #   /dev/dri/renderD129  — second GPU on dual-GPU systems
+  # `ls -l /dev/dri/` on the host to confirm.
+  #
+  # AMD users: same /dev/dri path, ffmpeg auto-selects the right driver.
+  # NVIDIA users: use `runtime: nvidia` + the CUDA hwaccel modifier
+  # instead — different stanza, see go2rtc docs.
+  # ─────────────────────────────────────────────────────────────────
+  go2rtc:
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+
+  # ─────────────────────────────────────────────────────────────────
+  # Example: webapp on host networking instead of bridge (rarely needed,
+  # but useful if you're avoiding the docker0 bridge for mDNS or local
+  # service discovery). Uncomment + remove the kinboard `networks:`
+  # entry on this service if you go this route.
+  # ─────────────────────────────────────────────────────────────────
+  # webapp:
+  #   network_mode: host
+
+  # ─────────────────────────────────────────────────────────────────
+  # Example: pass a USB-attached SDR / Z-Wave / Zigbee dongle into
+  # Home Assistant if you ever bundle HA inside this stack. Not used by
+  # the base Kinboard install — included as a pattern reference.
+  # ─────────────────────────────────────────────────────────────────
+  # homeassistant:
+  #   devices:
+  #     - /dev/serial/by-id/usb-Silicon_Labs_HubZ_Smart_Home_Controller-if00:/dev/zwave
