@@ -6,7 +6,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-05-07 — Live demo + auto-update opt-in
+
 ### Added
+- README hero **"Try the live demo at demo.kinboard.app"** link with the demo family's join code so visitors can see Kinboard before they install. Status & roadmap section also notes the demo box.
+- Comprehensive **`seed-demo.sql`** populating Demo Family with: calendars + events for the next 2 weeks, birthdays in the next 30 days, a stocked shopping list across 6 categories, 5 recipes with ingredients, a current-week meal plan, a mix of todos with priorities/assignments/completion states, pinned + unpinned notes, and school-week schedules for two kids. Idempotent — wipes the demo family before re-insert, so it can run nightly to keep dates current.
+- Optional **demo-mode banner**: when `KINBOARD_DEMO_FAMILY_CODE` is set on the server, the `/join` page surfaces a banner showing the demo family's join code with a one-click "Use this code" button to pre-fill it. Self-hosters running their own household leave the env var unset and the banner never renders. Powers `https://demo.kinboard.app`. EN + DE strings added.
 - Optional `docker-compose.watchtower.yml.example` overlay for self-hosters who'd rather not type `docker compose pull && ./start.sh up` after every release. Label-enabled so **only kinboard-webapp** gets auto-updated — database/kong/auth/realtime stay on whatever versions docker-compose.yml pins (auto-bumping Postgres is not safe). Pairs with a tag strategy in `webapp/docker/.env`: `KINBOARD_TAG=latest` (every release), `1.0` (minor + patch only — recommended default), or `1.0.6` pinned (no auto-bumps). Polls GHCR every hour by default; tunable via `WATCHTOWER_POLL_INTERVAL`. Documented in the new `Self-hosting > Auto-updating with Watchtower` wiki section, including the trust-boundary trade-off (Watchtower needs `/var/run/docker.sock`).
 
 ## [1.0.6] - 2026-05-07 — Traefik + push-notification papercuts
