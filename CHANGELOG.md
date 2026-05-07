@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-05-07 — Self-hoster orientation pass
+
 ### Added
 - Google Calendar settings page now shows an `<IntegrationConfigHint>` card (same pattern as Weather) when the self-hoster hasn't set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`. Backed by a tiny new `/api/google/configured` probe that returns `{ configured: bool }` based on env-var presence. The Connect button is disabled while unconfigured, replacing the silent 500 from `/api/google/auth` that used to confuse new self-hosters. EN + DE strings added.
 - Photos settings page now shows an `<IntegrationConfigHint>` card on fresh installs where neither Immich nor Unsplash is connected, orienting the self-hoster on which provider to pick (self-hosted vs. curated stock) and linking to the Immich wiki walkthrough. EN + DE strings added.
