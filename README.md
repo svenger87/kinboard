@@ -17,6 +17,12 @@ Calendar · weather · photos · shopping list · smart-home — one screen, eve
 
 <br/>
 
+### **[▶ Try the live demo at demo.kinboard.app](https://demo.kinboard.app)**
+
+<sub>Use join code **`DEMO01`** to load a populated household, or create your own family from scratch. Demo data resets daily — bring your own ideas; don't bring your real shopping list.</sub>
+
+<br/>
+
 <img src="docs/wiki/images/dashboard-portrait.png" alt="Kinboard dashboard — kitchen kiosk portrait view" width="420"/>
 
 <sub>Built for kiosk-style touchscreens but works on any phone, tablet, or browser. Multi-device, multi-person, no cloud account required.</sub>
@@ -201,7 +207,7 @@ The wiki is the source of truth for everything beyond this README:
 
 ## Status & roadmap
 
-**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.0.5](https://github.com/svenger87/kinboard/releases/tag/v1.0.5) (2026-05-07).** The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
+**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.0.6](https://github.com/svenger87/kinboard/releases/tag/v1.0.6) (2026-05-07).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Watchtower; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
 
 **Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](docs/wiki/Security-and-Threat-Model.md) and [`SECURITY.md`](SECURITY.md).
 
