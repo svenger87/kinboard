@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- Camera streams now always proxy through the webapp's `/api/cameras` endpoint instead of letting the browser fetch the camera URL directly when no auth is configured. Camera URLs are typically on a private LAN (RTSP / MJPEG boxes at `192.168.x.x` or — on the demo overlay — internal Docker hostnames like `go2rtc:1984`); the browser couldn't reach those, producing "Stream konnte nicht geladen werden" / "Stream could not be loaded" with no further hint. As a side benefit, the browser console + DNS no longer leak the LAN address of each camera.
+
 ### Changed
 - Bottom navigation now hides integration items the family hasn't set up yet. `Smart home`, `Energy`, and `Tesla` are gated on Home Assistant being connected; `Cameras` is gated on at least one camera configured. Direct URL access still works (each page renders its own "Connect this integration first" landing) — the filter only governs the bottom-nav surface, so fresh installs aren't cluttered with dead clickthroughs. Stepping stone toward the plugin-system roadmap item: each integration's "is this available?" predicate is now isolated, ready to formalize as a plugin manifest.
 

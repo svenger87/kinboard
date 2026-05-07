@@ -53,17 +53,24 @@ export function CameraViewer({
     }
   }, []);
 
-  const { stream_type, stream_url, snapshot_url, name, auth, id: cameraId } = camera;
+  const { stream_type, stream_url, snapshot_url, name, id: cameraId } = camera;
 
-  // Get URL - use proxy if auth is configured
+  // Always proxy through the webapp's /api/cameras endpoint when we
+  // have a family context. Two reasons:
+  //   1. Camera URLs are typically on a private LAN (RTSP / MJPEG /
+  //      HTTP boxes at 192.168.x.x or — for the demo overlay — a
+  //      docker-internal hostname like `go2rtc:1984`). Either way,
+  //      the browser can't reach those directly.
+  //   2. Avoids leaking internal IPs / hostnames to the browser
+  //      console + DNS.
+  // Direct-URL fallback stays for the brief window before family
+  // hydrates, so the page doesn't break.
   const getStreamUrl = useCallback((type: "snapshot" | "stream" = "snapshot") => {
-    if (auth && family?.id) {
-      // Use proxy API for authenticated cameras
+    if (family?.id) {
       return `/api/cameras?family_id=${family.id}&camera_id=${cameraId}&type=${type}&t=${Date.now()}`;
     }
-    // Direct URL for cameras without auth
     return type === "snapshot" ? (snapshot_url || stream_url) : stream_url;
-  }, [auth, family?.id, cameraId, snapshot_url, stream_url]);
+  }, [family?.id, cameraId, snapshot_url, stream_url]);
 
   // Cleanup WebRTC connection
   const cleanupWebRTC = useCallback(() => {
