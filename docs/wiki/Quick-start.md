@@ -52,16 +52,18 @@ Skip the local build entirely. Pulls the multi-arch image (amd64 + arm64) from `
 
 ```bash
 cd webapp/docker
-docker compose -f docker-compose.yml -f docker-compose.image.yml up -d
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml" ./start.sh up
 ```
 
 Or, when you also want the Traefik HTTPS overlay:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml up -d
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml" ./start.sh up
 ```
 
-Pin a version with `KINBOARD_TAG=1.0.1` (defaults to `:latest`).
+Pin a version with `KINBOARD_TAG=1.0.4` (defaults to `:latest`).
+
+> **Always go through `start.sh up`, not bare `docker compose up`.** `start.sh` realigns the supabase role passwords against `POSTGRES_PASSWORD` after the containers come up — the official supabase Postgres image seeds these roles with empty passwords from `/etc/postgresql.schema.sql`, which doesn't run reliably on every version. If you skip the alignment step, `kinboard-auth`, `kinboard-rest`, and `kinboard-storage` crash-loop with `password authentication failed for user "authenticator"` (or `supabase_auth_admin` / `supabase_storage_admin`) and you'll get cascading 503s in the browser.
 
 ### Path B — Build from source (if you've patched the code or want a frozen build)
 
