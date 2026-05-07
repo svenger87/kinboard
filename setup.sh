@@ -122,9 +122,15 @@ fi
 api_url="${api_url%/}"
 
 # Update API_EXTERNAL_URL + SITE_URL + ADDITIONAL_REDIRECT_URLS to match.
-# SITE_URL goes to the webapp port (3001); API goes to Kong (8100).
-site_url=$(echo "$api_url" | sed -E 's|:8100$|:3001|; s|/$||')
-[[ "$site_url" == "$api_url" ]] && site_url="http://localhost:3001"
+# Default-port deployments expose Kong on :8100 and the webapp on :3001 as
+# two separate host ports — swap the suffix. Reverse-proxy deployments
+# (Traefik / Caddy / Cloudflare Tunnel) front both behind the same
+# hostname with no port — keep api_url as-is so SITE_URL matches.
+if [[ "$api_url" == *:8100 || "$api_url" == *:8100/* ]]; then
+  site_url=$(echo "$api_url" | sed -E 's|:8100|:3001|; s|/$||')
+else
+  site_url="${api_url%/}"
+fi
 
 # Force-update these even on idempotent re-runs since they affect baked-in
 # build args. Use awk so JWT-style chars are handled.
@@ -312,6 +318,6 @@ Next steps:
        cd webapp/docker
        ./start.sh up
 
-  3. Open http://localhost:\${WEBAPP_PORT:-3001} and create your first family.
+  3. Open ${site_url} and create your first family.
 
 EOF
