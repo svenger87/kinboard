@@ -242,6 +242,55 @@ cd /mnt/user/appdata/kinboard/webapp/docker
 
 It's idempotent. It appends new templated env keys (`DATA_DIR`, `DOMAIN`, etc.), substitutes Supabase JWTs into `kong.yml`, renders `docker-compose.traefik.yml` from the example, and creates a `docker-compose.override.yml` for any host-specific extras.
 
+### Auto-updating with Watchtower
+
+For self-hosters who'd rather not type `docker compose pull && ./start.sh up` every time a release lands, the repo ships an opt-in **`docker-compose.watchtower.yml.example`** overlay. Watchtower polls GHCR for changes to whatever tag you're tracking and rebuilds the webapp container when the digest moves. **Only the kinboard-webapp container** is auto-updated — the database, Kong, auth, etc. stay pinned (auto-bumping a Postgres image is not safe in general).
+
+#### Pick a tag strategy
+
+The level of auto-update you want maps directly to the `KINBOARD_TAG` value in `webapp/docker/.env`:
+
+| `KINBOARD_TAG=` | What Watchtower picks up | When to use |
+|---|---|---|
+| `latest` | Every release, including major bumps | Demo boxes, "always show me the freshest build" |
+| `1.0` | Minor + patch within the 1.0.x line; major bumps **stop** at 1.x.x | **Recommended default** — get bug fixes auto, breaking changes stay manual |
+| `1.0.6` (pinned) | Nothing — Watchtower has no moving target | Frozen production install, validation environments, regression hunts |
+
+#### Bring up the overlay
+
+```bash
+cd webapp/docker
+cp docker-compose.watchtower.yml.example docker-compose.watchtower.yml
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.watchtower.yml" \
+  ./start.sh up
+```
+
+(Pair with the Traefik overlay too if you're using one — just append `-f docker-compose.traefik.yml`.)
+
+The overlay adds a `kinboard-watchtower` container that checks GHCR every hour and a `com.centurylinklabs.watchtower.enable=true` label on the webapp service so only it gets auto-updated.
+
+#### Tuning the cadence
+
+Set `WATCHTOWER_POLL_INTERVAL` (seconds) in `.env` if hourly isn't right:
+
+| Value | Effect |
+|---|---|
+| `600` | Every 10 minutes — demo boxes, fast feedback |
+| `3600` (default) | Hourly |
+| `86400` | Daily — minimal disturbance, batches updates |
+
+#### What you give up
+
+- **Surprise restarts.** Watchtower recreates the webapp container when an update lands, which is ~30 seconds of downtime. Tabs lose their realtime websocket and reconnect. Mostly invisible, but if you've got a kiosk in the kitchen, the screen blanks briefly.
+- **Reading release notes before they apply.** If you want "see what changed" → "decide" → "apply", stay on `KINBOARD_TAG=1.0.x` (pinned) and bump it manually after reading the [release notes](https://github.com/svenger87/kinboard/releases). Watchtower can stay disabled.
+- **The trust boundary.** Watchtower needs read/write access to `/var/run/docker.sock` to recreate containers. Anything with that access can effectively run as root on the host. That's the standard pattern for this class of tool, but worth knowing.
+
+#### Disabling later
+
+Two ways:
+1. Drop the overlay: stop including `-f docker-compose.watchtower.yml` in `COMPOSE_FILES` and re-run `./start.sh up`. Watchtower container stops; pinned containers stay running.
+2. Remove the label from the webapp service in your `docker-compose.override.yml`. Watchtower keeps running but no longer touches the webapp.
+
 ## Common deployment shapes
 
 ### LAN-only on a NAS (no public internet)
