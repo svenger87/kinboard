@@ -6,6 +6,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- New `Self-hosting > From scratch: Traefik + Let's Encrypt` wiki section walks through standing up Traefik on a bare box with HTTP-01 ACME challenges. Covers the standalone compose, the `proxy` external network, UFW port handling, the `DOCKER_API_VERSION=1.45` workaround for Docker Engine 29 + Traefik <3.7, and a verification curl chain. Closes the gap that the previous "Behind Traefik" section assumed a Traefik instance was already running. Surfaced while bringing up `https://demo.kinboard.app`.
+
+### Fixed
+- `setup.sh` SITE_URL derivation broke Traefik / reverse-proxy configs. The fallback `[[ "$site_url" == "$api_url" ]] && site_url="http://localhost:3001"` forced SITE_URL back to localhost whenever API_EXTERNAL_URL didn't end in `:8100` — including the common case where both URLs are the same `https://yourdomain.tld`. The wrong SITE_URL then pinned Kong's CORS allow-list to localhost, blocking every API call from the browser. New logic: swap `:8100`→`:3001` for legacy two-port deployments; reuse `api_url` unchanged for port-less or custom-port deployments (Traefik / Caddy / Cloudflare Tunnel front both behind the same hostname).
+- `setup.sh` "Next steps" message now echoes the configured `SITE_URL` instead of the hardcoded `http://localhost:${WEBAPP_PORT:-3001}`. Self-hosters who set up at a LAN IP or real domain no longer get told to open `localhost` at the end of setup.
+- `docker-compose.traefik.yml.example` `go2rtc` TCP router referenced a `webrtc` Traefik entrypoint that has to be defined separately in static config. Most self-hosters don't define it and got `EntryPoint doesn't exist` log spam every ~10 seconds. Block is now commented out with a note explaining when to enable it.
+
 ## [1.0.5] - 2026-05-07 — Self-hoster orientation pass
 
 ### Added

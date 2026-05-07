@@ -85,6 +85,10 @@ All driven from `webapp/docker/.env`. The shipped `.env.example` has comments ex
 
 ## Behind Traefik
 
+The repo ships a Traefik overlay that wires kong + webapp + (optional) go2rtc into an external Traefik instance. **It assumes Traefik is already running on the host with a cert resolver configured.** If you don't have Traefik yet, follow [From scratch: Traefik + Let's Encrypt](#from-scratch-traefik--lets-encrypt) below first.
+
+### Wiring kinboard into your existing Traefik
+
 Copy the example override:
 
 ```bash
@@ -96,13 +100,96 @@ Set in `.env`:
 
 ```
 DOMAIN=kinboard.example.com
+SITE_URL=https://kinboard.example.com
+API_EXTERNAL_URL=https://kinboard.example.com
+ADDITIONAL_REDIRECT_URLS=https://kinboard.example.com
 TRAEFIK_CERT_RESOLVER=letsencrypt
 TRAEFIK_NETWORK=proxy
 ```
 
-The override registers two HTTP routers (kong on `/rest|/auth|/storage|/realtime`, webapp on everything else) and one TCP router for go2rtc WebRTC fallback on port 8555. Both share the same `Host(${DOMAIN})` rule and same cert resolver. Traefik automatically uses the longer `PathPrefix` rules first.
+The override registers two HTTP routers — Kong on `/rest|/auth|/storage|/realtime` and webapp on everything else — both behind `Host(${DOMAIN})` with the same cert resolver. Traefik prefers the longer `PathPrefix` rules first, so Kong wins for the API paths and the webapp serves the rest.
 
-If you don't want Traefik on a separate origin from the webapp, you can drop the `kong` block from the override — the webapp's `/api/*` routes proxy server-side to `http://kong:8000` over the internal Docker network anyway.
+If you don't want Traefik fronting Kong on the same origin as the webapp, drop the `kong` block from the override — the webapp's `/api/*` routes proxy server-side to `http://kong:8000` over the internal Docker network anyway.
+
+> **Re-run `setup.sh` after editing `.env`** so it re-pins Kong's CORS allow-list to the new `SITE_URL`. Without that, the browser will reject every API response with `blocked by CORS policy: origin ... is not allowed`.
+
+### From scratch: Traefik + Let's Encrypt
+
+If you're starting on a fresh box with no reverse proxy, this is the minimal setup. It runs Traefik in its own compose stack, with HTTP-01 ACME challenges against Let's Encrypt — no Cloudflare API token, no DNS-01 plumbing.
+
+**Prerequisites:**
+- Domain DNS A/AAAA records point at the host (`dig demo.kinboard.app` should resolve to your IP)
+- Ports 80 + 443 reachable from the public internet (HTTP-01 ACME challenges hit `http://yourdomain/.well-known/acme-challenge/...`)
+- Docker Engine 28+ (Engine 29 dropped legacy API <1.40 — see the version note below)
+
+Create `/srv/traefik/docker-compose.yml` (or anywhere you like):
+
+```yaml
+services:
+  traefik:
+    image: traefik:v3.7
+    container_name: traefik
+    restart: unless-stopped
+    environment:
+      # Required on Docker Engine 29+ which dropped legacy API <1.40.
+      # Earlier Traefik builds default to API 1.24 and crash-loop with
+      # "client version 1.24 is too old". traefik:v3.7+ also fixes this.
+      - DOCKER_API_VERSION=1.45
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=proxy
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.email=you@example.com
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --log.level=INFO
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+```
+
+Create the external network kinboard's overlay also references, then bring Traefik up:
+
+```bash
+docker network create proxy
+mkdir -p /srv/traefik/letsencrypt
+cd /srv/traefik
+docker compose up -d
+```
+
+Replace `you@example.com` with a real address — Let's Encrypt sends expiry warnings there if auto-renewal stalls.
+
+Then follow [Wiring kinboard into your existing Traefik](#wiring-kinboard-into-your-existing-traefik) above.
+
+**Firewall (UFW):** open 80/tcp and 443/tcp publicly. Close 3001 and 8100 — Traefik fronts both. If you've followed the [Hardening](#hardening) section's DOCKER-USER chain pattern, mirror the change there too (drop `--ctorigdstport 3001` and `8100`, add `80` and `443`).
+
+**Verify:**
+
+```bash
+curl -sS -o /dev/null -w 'HTTP→HTTPS: %{http_code}\n' http://yourdomain/
+# expect: HTTP→HTTPS: 301
+curl -sS -o /dev/null -w 'HTTPS root: %{http_code}\n' https://yourdomain/
+# expect: HTTPS root: 200
+echo | openssl s_client -connect yourdomain:443 -servername yourdomain 2>/dev/null \
+  | openssl x509 -noout -issuer -dates
+# expect: issuer=...Let's Encrypt..., 90-day validity
+```
+
+If the cert hasn't issued after ~30 seconds, check `docker logs traefik` for ACME errors. Most failures are DNS not pointing at the host, port 80 not reachable from the internet, or rate-limit hits if you've been re-issuing during testing (Let's Encrypt caps at 50 certs per registered domain per week).
 
 ## Backups
 

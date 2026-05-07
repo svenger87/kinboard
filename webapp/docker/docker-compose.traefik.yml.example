@@ -40,18 +40,23 @@ services:
       - "traefik.http.routers.${PROJECT_NAME:-kinboard}-webapp.priority=1"
       - "traefik.http.services.${PROJECT_NAME:-kinboard}-webapp.loadbalancer.server.url=http://${PROJECT_NAME:-kinboard}-webapp:3000"
 
-  go2rtc:
-    networks:
-      - kinboard
-      - traefik
-    labels:
-      - "traefik.enable=true"
-      # TCP router for WebRTC TCP fallback. Configure a `webrtc` entrypoint
-      # in your Traefik static config first.
-      - "traefik.tcp.routers.go2rtc-webrtc.rule=HostSNI(`*`)"
-      - "traefik.tcp.routers.go2rtc-webrtc.entrypoints=webrtc"
-      - "traefik.tcp.routers.go2rtc-webrtc.service=go2rtc-webrtc"
-      - "traefik.tcp.services.go2rtc-webrtc.loadbalancer.server.port=8555"
+  # Optional: route go2rtc's WebRTC TCP fallback through Traefik. Only enable
+  # if your Traefik static config defines a `webrtc` TCP entrypoint and you
+  # actually need WebRTC TCP fallback (most setups work over UDP and can
+  # leave the host-published 8555/udp port open via UFW directly). Without
+  # the matching entrypoint, Traefik logs `EntryPoint doesn't exist` errors
+  # every ~10 seconds.
+  #
+  # go2rtc:
+  #   networks:
+  #     - kinboard
+  #     - traefik
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.tcp.routers.go2rtc-webrtc.rule=HostSNI(`*`)"
+  #     - "traefik.tcp.routers.go2rtc-webrtc.entrypoints=webrtc"
+  #     - "traefik.tcp.routers.go2rtc-webrtc.service=go2rtc-webrtc"
+  #     - "traefik.tcp.services.go2rtc-webrtc.loadbalancer.server.port=8555"
 
 networks:
   traefik:
