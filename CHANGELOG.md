@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-05-07 — Traefik + push-notification papercuts
+
 ### Added
 - New `Self-hosting > From scratch: Traefik + Let's Encrypt` wiki section walks through standing up Traefik on a bare box with HTTP-01 ACME challenges. Covers the standalone compose, the `proxy` external network, UFW port handling, the `DOCKER_API_VERSION=1.45` workaround for Docker Engine 29 + Traefik <3.7, and a verification curl chain. Closes the gap that the previous "Behind Traefik" section assumed a Traefik instance was already running. Surfaced while bringing up `https://demo.kinboard.app`.
 - New "Requirements (read this first)" section near the top of the Notifications wiki page lists the four hard preconditions for web push — HTTPS / secure context, supported browser, iOS PWA install, server-side VAPID keys — so self-hosters know up front why a plain-HTTP LAN deployment can't push.
