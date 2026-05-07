@@ -25,7 +25,7 @@ Birthdays without a linked person stay separate from the family-member list. Use
 
 The headline UI element: a circular SVG showing 12 month sectors, today as a tick mark, and one colored dot per upcoming birthday positioned by date. Birthdays in the next 30 days are larger + show the person's name.
 
-> TODO: screenshot of the year ring at full size
+<img src="images/birthdays-year-ring.png" alt="Birthdays year-ring view: monthly arc with upcoming birthdays" width="420"/>
 
 The center shows the total count of tracked birthdays.
 

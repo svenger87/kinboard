@@ -2,7 +2,7 @@
 
 Configured in **Settings → Family members**. The list of people in your family, used for color-coded events, person assignments on todos, and per-child school schedules.
 
-> TODO: screenshot of /settings/people
+<img src="images/settings-people.png" alt="Settings — family members: per-person colors, names and roles" width="420"/>
 
 ## Adding a person
 

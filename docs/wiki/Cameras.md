@@ -30,7 +30,7 @@ Open Settings → Cameras → **+ Camera**. For each camera:
 - **Snapshot URL** (optional) — HTTP image URL for thumbnail
 - **Authentication** (optional) — Digest (Hikvision, Amcrest) or Basic, with username/password
 
-> TODO: screenshot of the add-camera dialog
+<img src="images/settings-cameras.png" alt="Settings — cameras: camera list with stream type, position and edit controls" width="420"/>
 
 ### Stream URL formats
 

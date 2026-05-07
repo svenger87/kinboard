@@ -31,7 +31,7 @@ In Immich: your profile (top-right) → **Account Settings** → **API Keys** �
 5. **API Key** — paste
 6. **Connect**
 
-> TODO: screenshot of /settings/photos with Immich selected
+<img src="images/settings-photos.png" alt="Settings — photos: Immich connection details, album picker and current month" width="420"/>
 
 ### 3. Pick an album
 

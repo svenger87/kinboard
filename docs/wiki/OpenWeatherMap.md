@@ -39,7 +39,7 @@ cd webapp/docker
 2. Choose **City name** mode → start typing → pick a result from the autocomplete
 3. **OR** Choose **GPS coordinates** mode → manually type lat/lon, or click **Use current location** to grab them from the browser
 
-> TODO: screenshot of /settings/weather
+<img src="images/settings-weather.png" alt="Settings — weather: location and OpenWeatherMap connection" width="420"/>
 
 The location is stored in `settings.weather_location`. The widget on the dashboard immediately picks it up.
 
