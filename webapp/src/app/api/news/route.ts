@@ -5,6 +5,7 @@ import {
   getProvider,
   type NewsProvider,
 } from "@/lib/news-providers";
+import { isDemoMode, getDemoNewsItems } from "@/lib/demo-news";
 
 interface NewsItem {
   title: string;
@@ -127,6 +128,23 @@ async function fetchProvider(provider: NewsProvider): Promise<NewsItem[]> {
 }
 
 export async function GET(request: NextRequest) {
+  // On public-demo deployments (KINBOARD_DEMO_FAMILY_CODE set on the
+  // server), short-circuit with synthetic articles instead of fetching
+  // real RSS. Avoids re-displaying copyrighted publisher content to
+  // anonymous demo visitors. Self-hosters running their own household
+  // never hit this branch.
+  if (isDemoMode()) {
+    const items = getDemoNewsItems();
+    const providerSet = new Map<string, { id: string; name: string; lang: string }>();
+    for (const item of items) {
+      providerSet.set(item.source, { id: item.source, name: item.sourceName, lang: "en" });
+    }
+    return NextResponse.json({
+      news: items,
+      providers: [...providerSet.values()],
+    });
+  }
+
   const sourcesParam = request.nextUrl.searchParams.get("sources");
   const requested = sourcesParam
     ? sourcesParam.split(",").map((s) => s.trim()).filter(Boolean)

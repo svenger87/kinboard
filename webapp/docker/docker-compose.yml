@@ -286,6 +286,11 @@ services:
       SUPABASE_URL: http://kong:8000
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY}
+      # Optional override for the OpenWeatherMap API base URL — lets the
+      # demo overlay redirect weather calls to a local mock so the
+      # widget renders without burning a real API key. Defaults to the
+      # real api.openweathermap.org when unset.
+      OPENWEATHERMAP_BASE_URL: ${OPENWEATHERMAP_BASE_URL:-}
       IMMICH_API_URL: ${IMMICH_API_URL}
       IMMICH_API_KEY: ${IMMICH_API_KEY}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
