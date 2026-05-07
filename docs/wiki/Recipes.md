@@ -73,7 +73,7 @@ Three ways to fill a cell:
 2. **Tap an empty cell** → quick-add menu lets you choose a recipe or type a free-form name
 3. **Right-click / long-press** an existing cell → quick options (move / clear / mark eaten)
 
-Empty cells show a subtle "Try Pizza" or similar randomized hint based on the meal type to spark ideas — see [[mealHints translation namespace|Themes]] for the list.
+Empty cells show a subtle "Try Pizza" or similar randomized hint based on the meal type to spark ideas — see [mealHints translation namespace](Themes.md) for the list.
 
 ### Sidebar: recipe quick-pick
 
@@ -125,5 +125,5 @@ Free-form entries don't contribute to the shopping list (no ingredients to extra
 
 ## Related
 
-- [[Shopping]] — the list that meal-plan-generated ingredients land in
-- [[Dashboard]] — meal-plan widget shows today's planned meals
+- [Shopping](Shopping.md) — the list that meal-plan-generated ingredients land in
+- [Dashboard](Dashboard.md) — meal-plan widget shows today's planned meals

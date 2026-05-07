@@ -4,7 +4,7 @@ The `/schedule` page — kids' weekly school timetable, with per-day pack-list r
 
 ![School schedule — Mon-Fri grid with per-period subjects](images/schedule-week-grid.png)
 
-Configured via [[Settings → Family members|Family-Members]] (mark people as "child / student") and [[Settings → School schedule|Database-Schema]] (period definitions, pack lists). The `/schedule` view is the **consumer** surface — kids check it before leaving for school.
+Configured via [Settings → Family members](Family-Members.md) (mark people as "child / student") and [Settings → School schedule](Database-Schema.md) (period definitions, pack lists). The `/schedule` view is the **consumer** surface — kids check it before leaving for school.
 
 ## Layout
 
@@ -26,7 +26,7 @@ The dashboard's **schedule widget** also picks one child (the one who's most-act
 
 Below the schedule grid, a **pack list** shows what to bring for tomorrow's classes. Pulled from:
 
-- **Per-subject pack items** — "Bring sportswear for PE" — configured in [[Settings → School schedule → Pack list|Database-Schema]]
+- **Per-subject pack items** — "Bring sportswear for PE" — configured in [Settings → School schedule → Pack list](Database-Schema.md)
 - **Tomorrow's actual classes** — only items relevant to subjects in tomorrow's grid show up
 
 Example: tomorrow has PE → pack list shows "Sportswear, Sneakers, Water bottle". Reset every morning.
@@ -100,11 +100,11 @@ Real-time published, so editing on a phone propagates to the kitchen wall in ~1 
 
 - **Multi-week / rotating schedules** (A/B weeks). Workaround: edit the whole week each Sunday for the next week.
 - **Substitute / cancellation tracking.** Edit cells directly when changes happen; no historical record.
-- **Homework tracking per subject.** Use [[Tasks]] tagged with the subject name as a workaround.
+- **Homework tracking per subject.** Use [Tasks](Tasks.md) tagged with the subject name as a workaround.
 - **Multiple schools per family with different period grids.** One grid for the whole family.
 
 ## Related
 
-- [[Family-Members]] — mark a person as "child" to enable schedule features
-- [[Dashboard]] — schedule widget shows today's lessons
-- [[Tasks]] — homework / project assignments
+- [Family-Members](Family-Members.md) — mark a person as "child" to enable schedule features
+- [Dashboard](Dashboard.md) — schedule widget shows today's lessons
+- [Tasks](Tasks.md) — homework / project assignments

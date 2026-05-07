@@ -2,7 +2,7 @@
 
 This page documents the **maintainer's actual fielded build**: the components, vendor links, photos, and basic spec sheet for each piece. Kinboard runs on any HDMI display + any small PC, but if you want a known-good combination this is one.
 
-If you only want the software setup on the same hardware, jump to [[Kiosk-Windows-11-Mele-4C]]. This page is the hardware side.
+If you only want the software setup on the same hardware, jump to [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C.md). This page is the hardware side.
 
 ![Kitchen wall installation](images/kitchen-wall-mounted.jpg)
 *The kiosk in its current home: portrait orientation, oak frame, single power cable to a Schuko outlet below. The room thermostat to the left isn't part of the build. The small black protrusion above the frame is the LD2410 presence sensor in a printed enclosure.*
@@ -132,7 +132,7 @@ The panel and the Mele PC each need their own 12 V DC supply. Both PSUs share a 
 
 - **Video** — HDMI (or DisplayPort via active adapter) to the panel
 - **Touch** — USB-A to the panel's USB-B touch interface
-- **Sensor** — USB-A → USB-UART → LD2410 leads (only if you've added the presence sensor; see [[Presence-Sensor]])
+- **Sensor** — USB-A → USB-UART → LD2410 leads (only if you've added the presence sensor; see [Presence-Sensor](Presence-Sensor.md))
 
 ## Touchscreen calibration
 
@@ -157,6 +157,6 @@ When the presence sensor blanks the display, draw drops to roughly the Mele's id
 
 ## Related
 
-- [[Kiosk-Windows-11-Mele-4C]] — the software setup that runs on this hardware
-- [[Presence-Sensor]] — LD2410 wiring + script
-- [[Architecture]] — what's running where
+- [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C.md) — the software setup that runs on this hardware
+- [Presence-Sensor](Presence-Sensor.md) — LD2410 wiring + script
+- [Architecture](Architecture.md) — what's running where

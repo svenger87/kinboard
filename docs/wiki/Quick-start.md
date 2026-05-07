@@ -100,10 +100,10 @@ You'll land on `/join` with a "Welcome — let's set things up" card because the
 
 Open the menu → **Settings** and walk through the integrations you care about. Each is documented separately:
 
-- [[OpenWeatherMap]] (5 minutes, just paste the key)
-- [[Google-Calendar]] (10 minutes, OAuth setup)
-- [[Home-Assistant]] (15 minutes, generate a token)
-- [[Immich]] / [[Bring]] / [[Cameras]] as needed
+- [OpenWeatherMap](OpenWeatherMap.md) (5 minutes, just paste the key)
+- [Google-Calendar](Google-Calendar.md) (10 minutes, OAuth setup)
+- [Home-Assistant](Home-Assistant.md) (15 minutes, generate a token)
+- [Immich](Immich.md) / [Bring](Bring.md) / [Cameras](Cameras.md) as needed
 
 ## What runs on your machine
 
@@ -126,10 +126,10 @@ Bind paths default to `./data/` (relative to `webapp/docker/`). Override with `D
 
 When you're ready to mount a touchscreen, see:
 
-- **[[Kiosk-Windows-11-Mele-4C]]** for a Windows-11 setup (the maintainer's actual config)
-- **[[Kiosk-Linux-Guidance]]** for Linux guidance
+- **[Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C.md)** for a Windows-11 setup (the maintainer's actual config)
+- **[Kiosk-Linux-Guidance](Kiosk-Linux-Guidance.md)** for Linux guidance
 
 ## Next
 
-- **[[Onboarding]]** — joining additional devices, multi-family scenarios, leaving a family
-- **[[Self-hosting]]** — production deployment with Traefik, backups, updates
+- **[Onboarding](Onboarding.md)** — joining additional devices, multi-family scenarios, leaving a family
+- **[Self-hosting](Self-hosting.md)** — production deployment with Traefik, backups, updates

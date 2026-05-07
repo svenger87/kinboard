@@ -74,7 +74,7 @@ Register a Scheduled Task:
 - General → Run as user, **Run only when user is logged on**, **Run with highest privileges**
 - Settings → Restart on failure (1 min, 3 attempts)
 
-This is what the [[Kiosk-Windows-11-Mele-4C]] reference deployment uses.
+This is what the [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C.md) reference deployment uses.
 
 ## Software (Linux)
 
@@ -167,6 +167,6 @@ The script writes to `C:\presence-sensor.log` (Windows) or wherever you configur
 
 ## Related
 
-- [[Kiosk-Windows-11-Mele-4C]] — full reference deployment
-- [[Database-Schema]] — `devices.has_presence_sensor` flag, presence state on the realtime feed
+- [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C.md) — full reference deployment
+- [Database-Schema](Database-Schema.md) — `devices.has_presence_sensor` flag, presence state on the realtime feed
 - [`presence-sensor.py`](https://github.com/svenger87/kinboard/blob/main/presence-sensor.py) — the script itself

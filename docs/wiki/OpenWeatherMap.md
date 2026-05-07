@@ -59,5 +59,5 @@ You can also hide the widget per-family via Settings → Widgets → toggle off 
 
 ## Related
 
-- [[Themes]] — weather strings live under `weather.*` in `messages/{en,de}.json`
+- [Themes](Themes.md) — weather strings live under `weather.*` in `messages/{en,de}.json`
 - [Pricing](https://openweathermap.org/price) — the free tier is plenty for a single family
