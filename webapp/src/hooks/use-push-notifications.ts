@@ -1,8 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useFamilyStore } from "@/stores/family-store";
 
+// Why push isn't usable in the current browsing context. Lets the UI
+// surface the right hint instead of an inert toggle.
+//   no-https           — !window.isSecureContext (plain http on non-localhost)
+//   ios-not-installed  — iOS Safari outside of an Add-to-Home-Screen PWA
+//                        (Apple drops push subscriptions silently)
+//   no-api             — older browser missing serviceWorker/PushManager/Notification
+//   none               — push works in this context (subject to permission)
+export type PushUnsupportedReason = "no-https" | "ios-not-installed" | "no-api";
+
 export interface PushNotificationState {
   isSupported: boolean;
+  unsupportedReason: PushUnsupportedReason | null;
   permission: NotificationPermission | "not-supported";
   isSubscribed: boolean;
   isLoading: boolean;
@@ -16,14 +26,30 @@ export interface UsePushNotificationsReturn extends PushNotificationState {
 }
 
 /**
- * Check if push notifications are supported in this browser/context
+ * Check if push notifications are usable in this browser/context.
+ * Returns null when supported, otherwise a specific reason.
  */
-function checkPushSupport(): boolean {
-  if (typeof window === "undefined") return false;
-  if (!("serviceWorker" in navigator)) return false;
-  if (!("PushManager" in window)) return false;
-  if (!("Notification" in window)) return false;
-  return true;
+function checkPushSupport(): PushUnsupportedReason | null {
+  if (typeof window === "undefined") return "no-api";
+  // Service Worker + Push API only work in a secure context (HTTPS or
+  // http://localhost on the same machine). Without this, registering
+  // the SW silently fails. Catch it before the user sees a dead toggle.
+  if (!window.isSecureContext) return "no-https";
+  if (!("serviceWorker" in navigator)) return "no-api";
+  if (!("PushManager" in window)) return "no-api";
+  if (!("Notification" in window)) return "no-api";
+  // iOS: even with the APIs present (16.4+), Apple only delivers push to
+  // home-screen-installed PWAs. Subscribing from regular Safari succeeds
+  // locally then gets dropped server-side. Detect non-standalone iOS so
+  // we can route the user to "Add to Home Screen" instead.
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !("MSStream" in window);
+  if (isIOS) {
+    const standaloneNav = (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+    const standaloneMM = window.matchMedia?.("(display-mode: standalone)").matches ?? false;
+    if (!standaloneNav && !standaloneMM) return "ios-not-installed";
+  }
+  return null;
 }
 
 /**
@@ -67,6 +93,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const { family, device } = useFamilyStore();
   const [state, setState] = useState<PushNotificationState>({
     isSupported: false,
+    unsupportedReason: null,
     permission: "not-supported",
     isSubscribed: false,
     isLoading: true,
@@ -82,11 +109,12 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   // Check initial state on mount
   useEffect(() => {
     async function checkState() {
-      const isSupported = checkPushSupport();
+      const unsupportedReason = checkPushSupport();
 
-      if (!isSupported) {
+      if (unsupportedReason) {
         setState({
           isSupported: false,
+          unsupportedReason,
           permission: "not-supported",
           isSubscribed: false,
           isLoading: false,
@@ -109,6 +137,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
       setState({
         isSupported: true,
+        unsupportedReason: null,
         permission,
         isSubscribed: hasBrowserSubscription,
         isLoading: false,
@@ -122,7 +151,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   // Send family ID to service worker so pushsubscriptionchange can re-subscribe
   useEffect(() => {
     if (!family?.id) return;
-    if (!checkPushSupport()) return;
+    if (checkPushSupport() !== null) return;
 
     navigator.serviceWorker.ready.then((registration) => {
       registration.active?.postMessage({
