@@ -41,6 +41,8 @@
       "androidBody": "Open the shopping app and install it for faster supermarket access",
       "iosOpen": "Open shopping app",
       "androidOpen": "Open shopping app",
+      "iosStandaloneHintTitle": "Want a separate Shopping app?",
+      "iosStandaloneHintBody": "iOS only lets you \"Add to Home Screen\" from Safari, not from inside this Kinboard app. Open Safari, visit this page, and the install card will appear.",
       "dismissAria": "Dismiss"
     },
     "pin": {

@@ -41,6 +41,8 @@
       "androidBody": "Öffne die Einkaufs-App und installiere sie für schnelleren Zugriff im Supermarkt",
       "iosOpen": "Zur Einkaufs-App",
       "androidOpen": "Einkaufs-App öffnen",
+      "iosStandaloneHintTitle": "Eigene Einkaufs-App gewünscht?",
+      "iosStandaloneHintBody": "Auf iOS funktioniert „Zum Home-Bildschirm“ nur in Safari, nicht in dieser installierten Kinboard-App. Öffne Safari, rufe diese Seite auf — dann erscheint dort das Installieren-Banner.",
       "dismissAria": "Schließen"
     },
     "pin": {
