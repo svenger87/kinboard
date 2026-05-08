@@ -2628,7 +2628,8 @@
       "cityPlaceholder": "Hamburg",
       "apiKeyTitle": "OpenWeatherMap API-Key fehlt",
       "apiKeyBody": "Trage OPENWEATHERMAP_API_KEY=<dein-key> in webapp/docker/.env ein und starte mit ./docker/start.sh restart neu. Gratis-Key über openweathermap.org/api.",
-      "saved": "Standort gespeichert"
+      "saved": "Standort gespeichert",
+      "saveError": "Standort konnte nicht gespeichert werden. Bitte erneut versuchen."
     },
     "done": {
       "title": "Fertig — willkommen bei Kinboard",
