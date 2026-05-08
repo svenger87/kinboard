@@ -134,7 +134,9 @@ export async function POST(request: NextRequest) {
       title,
       body: notificationBody,
       tag: "shopping-update",
-      url: "/shopping",
+      // /einkaufen so iOS opens the installed Shopping PWA via
+      // scope-match (URL rewrites server-side to /shopping content).
+      url: "/einkaufen",
       icon: "/icons/icon-shopping-192.png",
     });
 
