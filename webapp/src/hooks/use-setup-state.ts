@@ -22,6 +22,7 @@ export function useSetupState() {
       return r.json();
     },
     staleTime: 60 * 1000,
+    retry: false,
   });
 }
 
