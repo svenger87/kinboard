@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-05-08 — Setup wizard + Leave family fix
+
 ### Added
 - First-run setup wizard at `/setup/{people,homeassistant,weather,done}`. Fresh self-host installs that come through `/join` → "Create family" now route into a guided onboarding (add 1+ family members, optional Home Assistant URL+token with live test, optional city for the weather widget) instead of dropping the user on an empty dashboard. Each step is individually skippable. After completion, a new `families.setup_completed` flag (idempotent migration `migration_setup_completed.sql`, existing rows backfilled to TRUE so existing self-hosters never see the wizard) suppresses the dashboard's "Finish setting up Kinboard" banner. Banner is also dismissible per-device via localStorage. The OpenWeatherMap API key step is documentation-only because it's an env var (`OPENWEATHERMAP_API_KEY` in `webapp/docker/.env`) the browser can't write — wizard surfaces it as a hint when `/api/weather` returns `{ configured: false }`. `NO_NAV_PATHS` now uses prefix-aware matching via `isNoNavPath()` to suppress the bottom nav across all wizard sub-routes (also fixes a latent `/joiner` matching `/join` bug). See `webapp/src/app/setup/`.
 
