@@ -46,6 +46,7 @@ export interface Database {
           created_at: string;
           hardware_id: string | null;
           fingerprint: string | null;
+          fingerprint_history: string[];
         };
         Insert: {
           id?: string;

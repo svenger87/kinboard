@@ -492,8 +492,15 @@ export function useFindDeviceByFingerprint() {
     mutationFn: async (fingerprint: string) => {
       if (!fingerprint) return null;
 
-      // Query devices matching this fingerprint, joined with family info
-       
+      // Match against both the current fingerprint column AND the
+      // fingerprint_history array. The latter accumulates every
+      // fingerprint a device has presented successfully — so a
+      // browser/OS update that changes today's hash doesn't break
+      // recognition once the new hash has been recorded once.
+      // PostgREST's array-contains operator is `cs` (contains set);
+      // `or=(fingerprint.eq.X,fingerprint_history.cs.{X})` matches
+      // either condition.
+
       const { data: devices } = await (supabase as any)
         .from("devices")
         .select(`
@@ -501,12 +508,33 @@ export function useFindDeviceByFingerprint() {
           name,
           hardware_id,
           fingerprint,
+          fingerprint_history,
           last_seen,
           families!inner(id, name, join_code)
         `)
-        .eq("fingerprint", fingerprint)
+        .or(`fingerprint.eq.${fingerprint},fingerprint_history.cs.{${fingerprint}}`)
         .order("last_seen", { ascending: false })
         .limit(5);
+
+      // For each match, append the current fingerprint to the device's
+      // history if it's not already there. This is fire-and-forget —
+      // the user's recognition doesn't block on the write.
+      if (devices && devices.length > 0) {
+
+        for (const d of devices as any[]) {
+          const history: string[] = Array.isArray(d.fingerprint_history)
+            ? d.fingerprint_history
+            : [];
+          if (!history.includes(fingerprint)) {
+
+            (supabase as any)
+              .from("devices")
+              .update({ fingerprint_history: [...history, fingerprint] })
+              .eq("id", d.id)
+              .then(() => undefined, () => undefined);
+          }
+        }
+      }
 
       if (!devices || devices.length === 0) {
         return null;
