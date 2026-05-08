@@ -15,6 +15,7 @@ import { MealPlanWidget } from "@/components/widgets/meal-plan-widget";
 import { WeekOverviewWidget } from "@/components/widgets/week-overview-widget";
 import { TodayStrip } from "@/components/widgets/today-strip";
 import { FloatingLightsFab } from "@/components/floating-lights-fab";
+import { SetupBanner } from "@/components/setup-banner";
 import { useKeyboardShortcuts, useSwipeNavigation, useThemeSettings, useSetting } from "@/hooks";
 import { DEFAULT_WIDGET_VISIBILITY } from "@/types/widgets";
 import type { WidgetVisibility } from "@/types/widgets";
@@ -43,6 +44,7 @@ export default function DashboardPage() {
         className="relative z-10 flex flex-col p-4 md:p-6 lg:p-8 safe-area-inset"
         style={{ minHeight: "calc(100vh - var(--nav-spacing))" }}
       >
+        <SetupBanner />
         {/* Background gradient - z-0 to stay behind content */}
         <div className="fixed inset-0 z-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
         {/* Radial glow behind clock area - static radial gradient (no blur, no animation) for ARM GPU compat */}
