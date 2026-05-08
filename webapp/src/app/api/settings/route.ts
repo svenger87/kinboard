@@ -26,10 +26,16 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     if (error.code === "PGRST116") {
-      return NextResponse.json(
-        { error: "Setting not found" },
-        { status: 404 }
-      );
+      // No row exists — return 200 with null value so callers don't
+      // surface browser-level "Failed to load resource: 404" console
+      // errors on every dashboard load while integrations are
+      // unconfigured. The hooks (use-google-calendar, use-cameras,
+      // use-home-assistant, etc.) already converted 404 → null
+      // internally; reading data.value === null in this branch is
+      // semantically identical for them. Caught by the E2E smoke
+      // suite on /calendar where google_calendar isn't seeded on
+      // the demo overlay.
+      return NextResponse.json({ value: null }, { status: 200 });
     }
     return NextResponse.json(
       { error: error.message },
