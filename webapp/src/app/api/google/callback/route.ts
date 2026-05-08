@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Upsert the google_calendar setting - use type assertion to bypass strict typing
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { error: upsertError } = await (supabase as any)
       .from("settings")
       .upsert(

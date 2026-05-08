@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const sb = supabase as any;
 
   const [familyR, peopleR, settingsR] = await Promise.all([

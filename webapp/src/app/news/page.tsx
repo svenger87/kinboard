@@ -190,7 +190,7 @@ function NewsCard({
         <GlassCard className="p-4 hover:bg-muted/30 transition-colors">
           <div className="flex gap-4">
             {item.image && (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img
                 src={item.image}
                 alt=""

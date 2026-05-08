@@ -297,7 +297,7 @@ export default function PeopleSettingsPage() {
           >
             {uploadedFile ? (
               <div className="flex flex-col items-center gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                { }
                 <img
                   src={uploadedFile}
                   alt="Uploaded avatar"
@@ -350,14 +350,14 @@ export default function PeopleSettingsPage() {
           {newAvatar ? (
             <span className="text-2xl">{newAvatar}</span>
           ) : uploadedFile ? (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img
               src={uploadedFile}
               alt="Avatar preview"
               className="size-full object-cover"
             />
           ) : avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img
               src={avatarUrl}
               alt="Avatar preview"
@@ -545,7 +545,7 @@ export default function PeopleSettingsPage() {
                     {person.avatar_url && isEmojiAvatar(person.avatar_url) ? (
                       <span className="text-2xl">{person.avatar_url}</span>
                     ) : person.avatar_url && (isUploadedAvatar(person.avatar_url) || person.avatar_url.startsWith("http")) ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                       
                       <img
                         src={person.avatar_url}
                         alt={person.name}

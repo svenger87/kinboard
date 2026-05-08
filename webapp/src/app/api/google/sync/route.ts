@@ -24,7 +24,7 @@ interface CalendarInfo {
 async function getOAuth2Client(familyId: string) {
   const supabase = createAdminClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: settings } = await (supabase as any)
     .from("settings")
     .select("value")
@@ -57,7 +57,7 @@ async function getOAuth2Client(familyId: string) {
     try {
       const { credentials: newTokens } = await oauth2Client.refreshAccessToken();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (supabase as any)
         .from("settings")
         .update({
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
     // Get calendars from database to find person associations
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { data: dbCalendars } = await (supabase as any)
       .from("calendars")
       .select("id, google_calendar_id, person_id")
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
 
         if (!localCalendar) {
           // Create local calendar with proper color
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const { data: newCal, error: createError } = await (supabase as any)
             .from("calendars")
             .insert({
@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
           // Update existing calendar's name and color from Google
           const colorToUse = calInfo.backgroundColor || "#3b82f6";
           console.log(`Updating calendar ${localCalendar.id} with color ${colorToUse}`);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const { error: updateError } = await (supabase as any)
             .from("calendars")
             .update({
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
 
           // Handle cancelled/deleted events
           if (event.status === "cancelled") {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const { data: existingToDelete } = await (supabase as any)
               .from("events")
               .select("id")
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
               .single();
 
             if (existingToDelete) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+               
               await (supabase as any).from("events").delete().eq("id", existingToDelete.id);
               deleted++;
             }
@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
           }
 
           // Check if event exists
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const { data: existing } = await (supabase as any)
             .from("events")
             .select("id, updated_at")
@@ -299,7 +299,7 @@ export async function POST(request: NextRequest) {
 
           if (existing) {
             // Update existing event
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             await (supabase as any)
               .from("events")
               .update(eventData)
@@ -307,7 +307,7 @@ export async function POST(request: NextRequest) {
             updated++;
           } else {
             // Create new event
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             await (supabase as any).from("events").insert(eventData);
             created++;
           }
@@ -318,7 +318,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update last sync time
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (supabase as any)
       .from("settings")
       .update({

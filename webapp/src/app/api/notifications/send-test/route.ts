@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     // If push failed, handle deactivation
     if (result.shouldDeactivate) {
       console.log("[SendTest] Deactivating stale subscription for device:", deviceId);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const sub = subscription as any;
       await (supabase as any)
         .from("push_subscriptions")

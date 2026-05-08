@@ -29,7 +29,7 @@ export default function WeatherMap({ center, zoom, layerUrl, layerName }: Weathe
 
   useEffect(() => {
     // Fix for default marker icon - must be done client-side
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const L = require("leaflet");
 
     delete L.Icon.Default.prototype._getIconUrl;
