@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- `/api/cities` now degrades gracefully on **any** non-200 from OpenWeatherMap (invalid/expired key, rate-limited, OWM outage), not just on a missing key. v1.0.9 added the missing-key path; this extends it to all error paths so the dashboard's reverse-geocode call never produces "Failed to load resource: 500" console errors regardless of OWM's mood. Also adds an `OPENWEATHERMAP_GEO_URL` env override so the demo overlay (which routes weather to mock containers) can intercept geo lookups without disturbing real-OWM-using stacks. Caught by the new E2E smoke workflow on its first real CI run.
+
 ### Added
 - `setup.sh` now walks fresh self-hosters through optional integration keys interactively after the secrets-generation step. Three default prompts: maintainer email (auto-syncs `VAPID_SUBJECT` to `mailto:<email>` when the email is fresh and the subject is still the example default), `OPENWEATHERMAP_API_KEY`, and Google Calendar OAuth (`GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` with a hint pointing at `console.cloud.google.com/apis/credentials` + a wiki walkthrough). Each prompt is skip-with-Enter; idempotent re-runs only prompt for keys that are still empty. New flags: `--non-interactive` (CI / Docker entrypoint use; never prompts), `--advanced` (also prompts for Immich, Bring!, camera credentials, and SMTP server config — keys that have per-family in-app UIs but can be defaulted at the stack level). The post-setup "Next steps" output now lists exactly which keys are still empty so users know what to come back and fill in via `./setup.sh` or by editing `webapp/docker/.env` directly.
 
