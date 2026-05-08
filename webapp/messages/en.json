@@ -2618,5 +2618,31 @@
       "resume": "Continue setup",
       "dismiss": "Don't show this again"
     }
+  },
+  "einkaufen": {
+    "title": "Shopping list",
+    "subtitleProgress": "{unchecked} of {total} left to buy",
+    "allDoneSuffix": "— All done!",
+    "backHomeAria": "Back to home",
+    "errorTitle": "Failed to load shopping list",
+    "errorMessage": "Please check your connection and try again.",
+    "emptyTitle": "Shopping list is empty",
+    "emptyDescription": "Add new items above",
+    "doneSection": "Done",
+    "deleteAllDoneAria": "Delete all done items",
+    "checkAria": "Check {name}",
+    "markDoneAria": "Mark {name} as done",
+    "removeAria": "Remove {name}",
+    "uncheckAria": "Add {name} back to the list",
+    "markUndoneAria": "Mark {name} as not done",
+    "inputPlaceholder": "Add item…",
+    "quickAdd": "Add “{name}”",
+    "quickAddDescription": "Quick add",
+    "categoryFallback": "Other",
+    "toastAddFailed": "Failed to add item",
+    "toastToggleFailed": "Update failed",
+    "toastDeleteFailed": "Failed to delete item",
+    "toastClearedAll": "{count, plural, one {# item removed} other {# items removed}}",
+    "toastClearPartial": "Some items could not be removed"
   }
 }

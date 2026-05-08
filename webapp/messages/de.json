@@ -2618,5 +2618,31 @@
       "resume": "Weiter einrichten",
       "dismiss": "Nicht mehr anzeigen"
     }
+  },
+  "einkaufen": {
+    "title": "Einkaufsliste",
+    "subtitleProgress": "{unchecked} von {total} noch zu besorgen",
+    "allDoneSuffix": "— Alles erledigt!",
+    "backHomeAria": "Zurück zur Startseite",
+    "errorTitle": "Einkaufsliste konnte nicht geladen werden",
+    "errorMessage": "Bitte überprüfe deine Verbindung und versuche es erneut.",
+    "emptyTitle": "Einkaufsliste ist leer",
+    "emptyDescription": "Füge oben neue Artikel hinzu",
+    "doneSection": "Erledigt",
+    "deleteAllDoneAria": "Alle erledigten Artikel löschen",
+    "checkAria": "{name} abhaken",
+    "markDoneAria": "{name} als erledigt markieren",
+    "removeAria": "{name} entfernen",
+    "uncheckAria": "{name} wieder auf die Liste setzen",
+    "markUndoneAria": "{name} als nicht erledigt markieren",
+    "inputPlaceholder": "Artikel hinzufügen…",
+    "quickAdd": "„{name}“ hinzufügen",
+    "quickAddDescription": "Schnell hinzufügen",
+    "categoryFallback": "Sonstiges",
+    "toastAddFailed": "Artikel konnte nicht hinzugefügt werden",
+    "toastToggleFailed": "Änderung fehlgeschlagen",
+    "toastDeleteFailed": "Artikel konnte nicht gelöscht werden",
+    "toastClearedAll": "{count, plural, one {# Artikel entfernt} other {# Artikel entfernt}}",
+    "toastClearPartial": "Einige Artikel konnten nicht entfernt werden"
   }
 }
