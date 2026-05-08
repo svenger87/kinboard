@@ -352,7 +352,7 @@ EOF
   echo "  Google Calendar OAuth credentials"
   echo "  Get a CLIENT_ID + CLIENT_SECRET from a Google Cloud project:"
   echo "    https://console.cloud.google.com/apis/credentials → Create OAuth client ID"
-  echo "  Walkthrough: https://github.com/svenger87/kinboard/wiki/Google-Calendar-Setup"
+  echo "  Walkthrough: https://github.com/svenger87/kinboard/wiki/Google-Calendar"
   echo "  Skip both fields to disable Google Calendar entirely."
   prompt_for_key GOOGLE_CLIENT_ID "Google OAuth client ID"
   prompt_for_key GOOGLE_CLIENT_SECRET "Google OAuth client secret"
