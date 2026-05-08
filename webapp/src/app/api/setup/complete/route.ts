@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 
-// NOTE: `as never` cast on setup_completed is working around stale
-// database.types.ts — the column was added by migration_setup_completed.sql
-// but types haven't been regenerated yet. Drop the cast after the next
-// `npm run db:generate` against a live stack.
-
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const familyId = body?.family_id;
@@ -14,9 +9,10 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from("families")
-    .update({ setup_completed: true } as never)
+    .update({ setup_completed: true })
     .eq("id", familyId);
 
   if (error) {

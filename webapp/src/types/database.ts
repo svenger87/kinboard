@@ -14,6 +14,7 @@ export interface Database {
           id: string;
           name: string;
           join_code: string;
+          setup_completed: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -21,6 +22,7 @@ export interface Database {
           id?: string;
           name: string;
           join_code: string;
+          setup_completed?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -28,6 +30,7 @@ export interface Database {
           id?: string;
           name?: string;
           join_code?: string;
+          setup_completed?: boolean;
           created_at?: string;
           updated_at?: string;
         };
