@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { WizardProgress } from "@/components/setup/wizard-progress";
 import { WizardStepFooter } from "@/components/setup/wizard-step-footer";
+import { toast } from "sonner";
 import { useCreatePerson } from "@/hooks";
 
 interface Draft {
@@ -45,7 +46,7 @@ export default function SetupPeoplePage() {
 
   const handleSave = async () => {
     const valid = drafts.filter((d) => d.name.trim().length > 0);
-    if (valid.length === 0) return;
+    if (valid.length === 0) return; // nothing to save; the WizardStepFooter's Skip handles the no-data path
     setSaving(true);
     try {
       await Promise.all(
@@ -56,6 +57,12 @@ export default function SetupPeoplePage() {
           }),
         ),
       );
+    } catch (err) {
+      console.error("setup/people: save failed:", err);
+      toast.error(t("saveError"));
+      // Re-throw so WizardStepFooter knows not to navigate forward;
+      // user stays on this step to retry.
+      throw err;
     } finally {
       setSaving(false);
     }

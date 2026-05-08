@@ -2605,7 +2605,8 @@
       "namePlaceholder": "Name",
       "addAnother": "Weitere Person",
       "remove": "Entfernen",
-      "saved": "Gespeichert"
+      "saved": "Gespeichert",
+      "saveError": "Familienmitglieder konnten nicht gespeichert werden. Bitte erneut versuchen."
     },
     "homeassistant": {
       "title": "Home Assistant verbinden",

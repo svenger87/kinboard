@@ -2605,7 +2605,8 @@
       "namePlaceholder": "Name",
       "addAnother": "Add another",
       "remove": "Remove",
-      "saved": "Saved"
+      "saved": "Saved",
+      "saveError": "Couldn't save family members. Try again."
     },
     "homeassistant": {
       "title": "Connect Home Assistant",
