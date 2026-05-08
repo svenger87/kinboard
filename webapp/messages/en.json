@@ -2592,5 +2592,52 @@
   },
   "screensaver": {
     "newsOpenOriginal": "Open original"
+  },
+  "setup": {
+    "exit": "Exit setup",
+    "skipStep": "Skip for now",
+    "continue": "Continue",
+    "back": "Back",
+    "stepLabel": "Step {current} of {total}",
+    "people": {
+      "title": "Who's in your family?",
+      "description": "Add the people whose calendars, shopping, and meals this dashboard tracks. You can change colors, add avatars, or invite more later in Settings → People.",
+      "namePlaceholder": "Name",
+      "addAnother": "Add another",
+      "remove": "Remove",
+      "saved": "Saved"
+    },
+    "homeassistant": {
+      "title": "Connect Home Assistant",
+      "description": "Optional. If you have a Home Assistant instance, paste its URL and a long-lived access token. Without this, the smart-home and energy pages stay empty (you can connect later from Settings).",
+      "urlLabel": "Home Assistant URL",
+      "urlPlaceholder": "https://homeassistant.local:8123",
+      "tokenLabel": "Long-lived access token",
+      "tokenPlaceholder": "eyJhbGc...",
+      "tokenHelp": "Profile → Security → Long-lived access tokens.",
+      "test": "Test connection",
+      "testing": "Testing…",
+      "ok": "Connected — {entityCount} entities discovered",
+      "fail": "Couldn't reach that URL with that token. Double-check both."
+    },
+    "weather": {
+      "title": "Set your location",
+      "description": "Pick a city so the dashboard's weather widget knows where to look. Forecast and the location-resolver use the OpenWeatherMap free tier.",
+      "cityLabel": "City",
+      "cityPlaceholder": "Hamburg",
+      "apiKeyTitle": "OpenWeatherMap API key needed",
+      "apiKeyBody": "Add OPENWEATHERMAP_API_KEY=<your-key> to webapp/docker/.env, then run ./docker/start.sh restart. Free key from openweathermap.org/api.",
+      "saved": "Location saved"
+    },
+    "done": {
+      "title": "All set — welcome to Kinboard",
+      "description": "We've stored your family, your people, and your integrations. The dashboard is ready. You can revisit Settings any time.",
+      "cta": "Go to dashboard"
+    },
+    "banner": {
+      "message": "Finish setting up Kinboard",
+      "resume": "Continue setup",
+      "dismiss": "Don't show this again"
+    }
   }
 }

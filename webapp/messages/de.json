@@ -2592,5 +2592,52 @@
   },
   "screensaver": {
     "newsOpenOriginal": "Original öffnen"
+  },
+  "setup": {
+    "exit": "Setup verlassen",
+    "skipStep": "Vorerst überspringen",
+    "continue": "Weiter",
+    "back": "Zurück",
+    "stepLabel": "Schritt {current} von {total}",
+    "people": {
+      "title": "Wer gehört zur Familie?",
+      "description": "Füge die Personen hinzu, deren Kalender, Einkäufe und Mahlzeiten dieses Dashboard zeigt. Farben, Avatare und weitere Personen kannst du später unter Einstellungen → Personen anpassen.",
+      "namePlaceholder": "Name",
+      "addAnother": "Weitere Person",
+      "remove": "Entfernen",
+      "saved": "Gespeichert"
+    },
+    "homeassistant": {
+      "title": "Home Assistant verbinden",
+      "description": "Optional. Falls du Home Assistant betreibst, trage URL und ein langlebiges Access-Token ein. Ohne diese Verbindung bleiben Smart-Home- und Energie-Seiten leer (du kannst das jederzeit unter Einstellungen nachholen).",
+      "urlLabel": "Home Assistant URL",
+      "urlPlaceholder": "https://homeassistant.local:8123",
+      "tokenLabel": "Langlebiges Access-Token",
+      "tokenPlaceholder": "eyJhbGc...",
+      "tokenHelp": "Profil → Sicherheit → Langlebige Zugangstoken.",
+      "test": "Verbindung testen",
+      "testing": "Teste…",
+      "ok": "Verbunden — {entityCount} Entitäten gefunden",
+      "fail": "Diese URL mit diesem Token nicht erreichbar. Bitte beides prüfen."
+    },
+    "weather": {
+      "title": "Standort festlegen",
+      "description": "Wähle eine Stadt, damit das Wetter-Widget weiß, wohin es schauen soll. Vorhersage und Standortauflösung nutzen den OpenWeatherMap-Gratistarif.",
+      "cityLabel": "Stadt",
+      "cityPlaceholder": "Hamburg",
+      "apiKeyTitle": "OpenWeatherMap API-Key fehlt",
+      "apiKeyBody": "Trage OPENWEATHERMAP_API_KEY=<dein-key> in webapp/docker/.env ein und starte mit ./docker/start.sh restart neu. Gratis-Key über openweathermap.org/api.",
+      "saved": "Standort gespeichert"
+    },
+    "done": {
+      "title": "Fertig — willkommen bei Kinboard",
+      "description": "Familie, Personen und Integrationen sind gespeichert. Das Dashboard ist startklar. Einstellungen kannst du jederzeit anpassen.",
+      "cta": "Zum Dashboard"
+    },
+    "banner": {
+      "message": "Kinboard-Einrichtung abschließen",
+      "resume": "Weiter einrichten",
+      "dismiss": "Nicht mehr anzeigen"
+    }
   }
 }
