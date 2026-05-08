@@ -1,0 +1,155 @@
+name: E2E smoke
+
+# Boots the full Kinboard docker stack with the demo overlay (mock HA /
+# Tesla / weather / cameras), seeds the demo family, and runs the
+# Playwright smoke suite against http://localhost:3001.
+#
+# Phase B of the testing plan — the suite itself shipped in v1.0.9
+# (webapp/e2e/smoke.spec.ts) and has been run manually against demo +
+# prod since. This workflow makes it a per-PR / per-main-push gate.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs on the same ref — booting the stack is slow,
+# no point doubling up.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Boot stack + smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 25  # cold cache: ~10-15 min; warm: ~5-7 min
+    defaults:
+      run:
+        working-directory: webapp
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Install webapp deps
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('webapp/package-lock.json') }}
+
+      - name: Install Playwright Chromium
+        # --with-deps installs the system libs (libnss3, libgbm, etc.) the
+        # browser needs at runtime; only Chromium since the smoke suite
+        # only targets desktop project (Chromium-based).
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate stack secrets non-interactively
+        working-directory: ${{ github.workspace }}
+        run: bash setup.sh --non-interactive --force
+
+      - name: Wire demo overlay + KINBOARD_DEMO_FAMILY_CODE
+        working-directory: ${{ github.workspace }}/webapp/docker
+        run: |
+          cp docker-compose.demo.yml.example docker-compose.demo.yml
+          # setup.sh leaves KINBOARD_DEMO_FAMILY_CODE blank; the demo
+          # overlay needs it set so the demo-only API surfaces light up.
+          awk '
+            /^KINBOARD_DEMO_FAMILY_CODE=/ { print "KINBOARD_DEMO_FAMILY_CODE=DEMO01"; next }
+            { print }
+          ' .env > .env.tmp && mv .env.tmp .env
+
+      - name: Boot stack with demo overlay
+        working-directory: ${{ github.workspace }}/webapp/docker
+        env:
+          COMPOSE_FILES: "-f docker-compose.yml -f docker-compose.demo.yml"
+        run: bash start.sh up
+
+      - name: Wait for stack health
+        # Polls the webapp's /api/setup/status — it requires kong + webapp
+        # + postgrest + db to all be working, so it's a single-call check
+        # for "the whole stack is ready". 90 attempts * 5s = 7.5 min budget.
+        run: |
+          for i in $(seq 1 90); do
+            if curl -sfo /dev/null --max-time 3 http://localhost:3001/api/setup/status; then
+              echo "✓ stack ready (attempt $i)"
+              exit 0
+            fi
+            echo "  waiting for stack... ($i/90)"
+            sleep 5
+          done
+          echo "✗ stack did not become ready in 7.5 min"
+          exit 1
+
+      - name: Re-run migrations (belt-and-suspenders for first-boot race)
+        # During local-dev verification we hit a race where migration.sql
+        # (the original, no-suffix file) didn't apply on the very first
+        # boot, leaving devices.hardware_id missing. Symptom: PostgREST
+        # 400 on every /api/devices?hardware_id=eq.* call. Re-running
+        # migrate is idempotent and catches up.
+        working-directory: ${{ github.workspace }}/webapp/docker
+        run: bash start.sh migrate
+
+      - name: Seed demo family
+        # Writes the DEMO01 family + HA/cameras/Tesla settings rows that
+        # wire the demo family to the mock containers' URLs.
+        working-directory: ${{ github.workspace }}/webapp/docker
+        run: bash start.sh seed-demo
+
+      - name: Run smoke suite
+        env:
+          FAMILY_CODE: DEMO01
+          PLAYWRIGHT_BASE_URL: http://localhost:3001
+          PLAYWRIGHT_DEVICE_NAME: "CI Smoke (GH Actions)"
+        run: npx playwright test e2e/smoke.spec.ts --project=desktop
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_attempt }}
+          path: webapp/playwright-report/
+          retention-days: 7
+
+      - name: Upload Playwright traces + screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-${{ github.run_attempt }}
+          path: webapp/e2e/results/
+          retention-days: 7
+
+      - name: Capture container logs on failure
+        if: failure()
+        working-directory: ${{ github.workspace }}/webapp/docker
+        run: |
+          mkdir -p /tmp/stack-logs
+          for c in $(docker ps -a --filter "name=kinboard-" --format "{{.Names}}"); do
+            docker logs "$c" > /tmp/stack-logs/"$c".log 2>&1 || true
+          done
+          docker compose -f docker-compose.yml -f docker-compose.demo.yml ps > /tmp/stack-logs/ps.txt
+
+      - name: Upload container logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stack-logs-${{ github.run_attempt }}
+          path: /tmp/stack-logs/
+          retention-days: 7
+
+      - name: Tear down stack
+        if: always()
+        working-directory: ${{ github.workspace }}/webapp/docker
+        env:
+          COMPOSE_FILES: "-f docker-compose.yml -f docker-compose.demo.yml"
+        run: docker compose $COMPOSE_FILES down -v || true
