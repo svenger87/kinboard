@@ -17,7 +17,19 @@ import {
 } from "lucide-react";
 
 /** Paths where the bottom navigation should not be rendered */
-export const NO_NAV_PATHS = ["/join", "/einkaufen"] as const;
+export const NO_NAV_PATHS = ["/join", "/einkaufen", "/setup"] as const;
+
+/**
+ * True when the given pathname matches any NO_NAV_PATHS entry exactly,
+ * or is a child route of one (e.g. "/setup/people" matches "/setup").
+ * The trailing-slash check prevents accidental matches on paths that
+ * share a prefix but aren't children (e.g. "/joiner" wouldn't match "/join").
+ */
+export function isNoNavPath(pathname: string): boolean {
+  return NO_NAV_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+}
 
 /**
  * Unified navigation items shared by mobile and desktop navs.

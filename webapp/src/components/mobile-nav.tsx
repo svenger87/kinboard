@@ -4,7 +4,7 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { NO_NAV_PATHS } from "@/lib/constants";
+import { isNoNavPath } from "@/lib/constants";
 import { useNavBadges } from "@/hooks/use-nav-badges";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
 
@@ -46,7 +46,7 @@ export function MobileNav() {
     return () => el.removeEventListener("scroll", updateScrollIndicators);
   }, [updateScrollIndicators]);
 
-  if (NO_NAV_PATHS.includes(pathname as (typeof NO_NAV_PATHS)[number])) {
+  if (isNoNavPath(pathname)) {
     return null;
   }
 
