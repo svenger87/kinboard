@@ -119,9 +119,20 @@ export function AuthGuard({ children }: AuthGuardProps) {
       router.replace("/join");
     }
 
-    // If authenticated and on join page, redirect to dashboard
+    // If authenticated and on join page, redirect — into the wizard if
+    // onboarding hasn't completed, otherwise straight to the dashboard.
+    // Routing to `/setup` (root) lets the wizard's own redirector pick
+    // the first incomplete step.
+    //
+    // The `setup_completed === false` check (rather than `!family.setup_completed`)
+    // means pre-1.0.10 stored families that lack the field default to
+    // the dashboard, preserving the legacy behavior for upgraders.
     if (family && pathname === "/join") {
-      router.replace("/");
+      const target =
+        (family as { setup_completed?: boolean }).setup_completed === false
+          ? "/setup"
+          : "/";
+      router.replace(target);
     }
   }, [family, pathname, router, isHydrated, restoreAttempted, validateFamily.data, clearSession]);
 
