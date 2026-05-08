@@ -23,6 +23,17 @@ export async function GET(request: NextRequest) {
   if (familyR.error) {
     return NextResponse.json({ error: familyR.error.message }, { status: 500 });
   }
+  if (peopleR.error) {
+    console.error("setup/state: people query failed:", peopleR.error);
+    return NextResponse.json({ error: peopleR.error.message }, { status: 500 });
+  }
+  if (settingsR.error) {
+    // Settings reads are optional — HA and weather are skippable wizard
+    // steps. Log the failure and treat both integrations as unconfigured
+    // rather than 500ing the whole state read; the wizard will surface
+    // the steps as incomplete and the user can retry by navigating in.
+    console.error("setup/state: settings query failed:", settingsR.error);
+  }
 
   const ha = settingsR.data?.find((s) => s.key === "home_assistant")?.value as { url?: string; access_token?: string } | undefined;
   const wx = settingsR.data?.find((s) => s.key === "weather_location")?.value as { city?: string; lat?: number; lon?: number } | undefined;
