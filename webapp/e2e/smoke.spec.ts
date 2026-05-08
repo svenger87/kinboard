@@ -152,9 +152,12 @@ test.describe("Authenticated smoke", () => {
       const before = consoleErrors.length;
       const response = await authedPage.goto(route);
       expect(response?.status(), `GET ${route}`).toBeLessThan(400);
-      await authedPage.waitForLoadState("networkidle");
-      // Settle for hydration + any deferred fetches
-      await authedPage.waitForTimeout(750);
+      // `networkidle` is unreliable here — Supabase Realtime keeps a
+      // WebSocket open per subscription, so on pages like /meals that
+      // sync state across devices, the network never goes idle. Use a
+      // fixed settle for hydration + initial fetches instead. `goto()`
+      // already waited for the `load` event before returning.
+      await authedPage.waitForTimeout(1500);
 
       const newErrors = consoleErrors.slice(before);
       const summary = describeConsoleErrors(newErrors);
