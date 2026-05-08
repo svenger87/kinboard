@@ -20,14 +20,15 @@ import {
  * Paths where the bottom navigation should not be rendered.
  *
  * `/einkaufen` is the Shopping PWA's `start_url` + `scope` (see
- * `public/manifest-shopping.json`). It's preserved as a URL alias —
- * the route is a Next rewrite to `/shopping` content (single canonical
- * page lives at `/shopping`), but the URL stays `/einkaufen` so iOS's
- * scope-match for the installed Shopping PWA continues to work and
- * triggers the "Open in App" banner.
+ * `public/manifest-shopping.json`) AND the kiosk-optimized offline-first
+ * shopping surface — leaner UI built on `useOfflineShopping`, intended
+ * to be what users see when launching the installed Shopping PWA.
+ * `/shopping` is the full-featured desktop shopping page (Bring!
+ * integration, dialogs, popovers). They are deliberately distinct
+ * surfaces — do not collapse them.
  *
- * Both `/einkaufen` and `/shopping` should suppress the nav: they're
- * the same kiosk-style shopping experience just under two URL aliases.
+ * Both suppress the nav because both are kiosk-style focused-task
+ * pages.
  */
 export const NO_NAV_PATHS = ["/join", "/einkaufen", "/shopping", "/setup"] as const;
 

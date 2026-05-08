@@ -36,11 +36,11 @@ const nextConfig = {
   // (No `/einkaufen` → `/shopping` rewrite. /einkaufen is a real Next
   // route at src/app/einkaufen/{layout,page}.tsx — its layout sets
   // the Shopping PWA's per-route metadata (manifest-shopping.json,
-  // shopping icons, "Einkauf" appleWebApp.title) which a rewrite
-  // would have short-circuited because Next App Router layouts apply
-  // based on the file-system route at request time, not the source
-  // URL. The page itself re-exports /shopping/page.tsx so there's
-  // still a single canonical implementation.)
+  // shopping icons, "Einkauf" appleWebApp.title), and the page itself
+  // is the kiosk-optimized offline-first surface (useOfflineShopping,
+  // OfflineBanner, leaner UI than /shopping). The two are deliberately
+  // distinct: /shopping is the desktop/full-feature page, /einkaufen
+  // is the standalone-PWA kiosk page. Do not collapse them into one.)
 };
 
 export default withNextIntl(nextConfig);
