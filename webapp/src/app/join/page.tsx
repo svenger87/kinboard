@@ -149,7 +149,7 @@ export default function JoinPage() {
         familyName,
         deviceName: deviceName || t("deviceNameDefault"),
       });
-      router.push("/");
+      router.push("/setup/people");
     } catch {
       setError(t("createError"));
     }
