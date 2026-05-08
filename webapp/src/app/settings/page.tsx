@@ -41,7 +41,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useFamilyStore } from "@/stores/family-store";
-import { useKeyboardShortcuts, useSwipeNavigation, useSetting, useUpdateSetting, useIsOnline } from "@/hooks";
+import { useKeyboardShortcuts, useSwipeNavigation, useSetting, useUpdateSetting, useIsOnline, useDeleteDevice } from "@/hooks";
 import { useVersionCheck } from "@/hooks/use-version-check";
 import { useState, useRef } from "react";
 import Link from "next/link";
@@ -61,6 +61,7 @@ export default function SettingsPage() {
   const tCommon = useTranslations("common");
   const { toast } = useToast();
   const { family, device, clearSession } = useFamilyStore();
+  const deleteDevice = useDeleteDevice();
   const isOnline = useIsOnline();
   const { data: version } = useVersionCheck();
   const [copied, setCopied] = useState(false);
@@ -460,7 +461,21 @@ export default function SettingsPage() {
                 <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
                 <AlertDialogAction
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={() => {
+                  onClick={async () => {
+                    // Delete the device row server-side BEFORE clearing the
+                    // local cookie — otherwise the next visit to /join
+                    // re-recognizes this device by fingerprint and shows a
+                    // "Welcome back" rejoin card, making "leave" feel
+                    // broken. The mutation throws if it fails; we swallow
+                    // the error so the local cookie still clears (better
+                    // to be logged out client-side than stuck).
+                    if (device?.id) {
+                      try {
+                        await deleteDevice.mutateAsync(device.id);
+                      } catch (err) {
+                        console.error("leave-family: device delete failed:", err);
+                      }
+                    }
                     clearSession();
                     window.location.href = "/join";
                   }}
