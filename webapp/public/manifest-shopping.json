@@ -2,8 +2,8 @@
   "name": "Einkaufsliste",
   "short_name": "Einkauf",
   "description": "Familien-Einkaufsliste für den Supermarkt",
-  "start_url": "/einkaufen",
-  "scope": "/einkaufen",
+  "start_url": "/shopping",
+  "scope": "/shopping",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0a0a",
@@ -40,7 +40,7 @@
       "name": "Artikel hinzufügen",
       "short_name": "Hinzufügen",
       "description": "Neuen Artikel zur Einkaufsliste hinzufügen",
-      "url": "/einkaufen?action=add",
+      "url": "/shopping?action=add",
       "icons": [
         {
           "src": "/icons/icon-shopping-96.png",
