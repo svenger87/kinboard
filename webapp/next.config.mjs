@@ -33,35 +33,14 @@ const nextConfig = {
       { source: '/notizen/:path*', destination: '/notes/:path*', permanent: true },
     ];
   },
-  async rewrites() {
-    return [
-      // /einkaufen is the Shopping PWA's start_url + scope (see
-      // public/manifest-shopping.json). Internally serves /shopping's
-      // content — the historic /einkaufen route was dropped (a 793-line
-      // duplicate of /shopping that had silently diverged) so this
-      // rewrite is the single bridge. Three reasons we keep the URL
-      // alias instead of pointing the manifest at /shopping:
-      //
-      //   1. Existing iOS-installed Shopping PWAs cached scope=/einkaufen
-      //      at install time. iOS doesn't re-fetch the manifest until
-      //      reinstall, so changing the manifest breaks every device's
-      //      "Open in App" banner until the user manually reinstalls.
-      //
-      //   2. iOS Safari triggers its "Open in [App]" banner when the
-      //      navigated URL matches an installed PWA's cached scope.
-      //      With a rewrite (not redirect), the URL stays /einkaufen
-      //      so the scope-match fires on the navigated URL, not on the
-      //      post-redirect URL — iOS bounces the user into the
-      //      standalone PWA instead of staying in Safari.
-      //
-      //   3. The push-notification URLs in /api/cron/process-notifications
-      //      and /api/notifications/{debug-trigger,send-batch} also
-      //      stay at /einkaufen so a tapped notification opens the
-      //      installed standalone PWA, not Safari.
-      { source: '/einkaufen', destination: '/shopping' },
-      { source: '/einkaufen/:path*', destination: '/shopping/:path*' },
-    ];
-  },
+  // (No `/einkaufen` → `/shopping` rewrite. /einkaufen is a real Next
+  // route at src/app/einkaufen/{layout,page}.tsx — its layout sets
+  // the Shopping PWA's per-route metadata (manifest-shopping.json,
+  // shopping icons, "Einkauf" appleWebApp.title) which a rewrite
+  // would have short-circuited because Next App Router layouts apply
+  // based on the file-system route at request time, not the source
+  // URL. The page itself re-exports /shopping/page.tsx so there's
+  // still a single canonical implementation.)
 };
 
 export default withNextIntl(nextConfig);
