@@ -29,7 +29,13 @@ export function WizardStepFooter({
   const router = useRouter();
 
   const goNext = async () => {
-    if (onNextClick) await onNextClick();
+    try {
+      if (onNextClick) await onNextClick();
+    } catch {
+      // The step's onNextClick threw — assume it surfaced its own error
+      // (toast, inline message, etc.) and stay on the current page.
+      return;
+    }
     router.push(nextHref);
   };
 
