@@ -10,8 +10,13 @@
 #   ./start.sh migrate   # apply migration*.sql files
 #   ./start.sh seed-demo # load optional demo family + subjects
 #
-# To use the Traefik override:
-#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml" ./start.sh up
+# Compose file selection: defaults to `docker-compose.yml`. If you
+# also have `docker-compose.image.yml` in this directory, it's
+# auto-included so `up` pulls the published image instead of trying
+# to build from a source tree that may not be on disk (image-pull
+# self-host deployments). Override the full set in .env or your
+# shell, e.g.:
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml"
 
 set -euo pipefail
 
@@ -25,7 +30,28 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.yml}"
+# Source .env so user-set vars (especially COMPOSE_FILES) take
+# effect for this script's own logic. docker compose reads .env on
+# its own for compose-file substitution, but doesn't propagate
+# COMPOSE_FILES back into the calling shell.
+set -a
+# shellcheck disable=SC1091
+. ./.env
+set +a
+
+# Pick a sensible compose-file default. Source-build self-hosters get
+# the base file; image-pull self-hosters automatically also get the
+# image overlay if they have docker-compose.image.yml present (which
+# they do if they followed the published-image path in the wiki).
+# Reverse-proxy users (Traefik) and demo overlays still need to be
+# specified explicitly via COMPOSE_FILES — they're not always-on.
+if [[ -z "${COMPOSE_FILES:-}" ]]; then
+  if [[ -f docker-compose.image.yml ]]; then
+    COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml"
+  else
+    COMPOSE_FILES="-f docker-compose.yml"
+  fi
+fi
 if command -v docker-compose >/dev/null 2>&1; then
   COMPOSE="docker-compose"
 else
