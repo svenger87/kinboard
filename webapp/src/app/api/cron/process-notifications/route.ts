@@ -228,7 +228,7 @@ function buildNotificationPayload(
       const body = items.length <= 3
         ? items.join(", ")
         : `${items.slice(0, 3).join(", ")} +${items.length - 3} weitere`;
-      return { title, body, tag: "shopping-update", url: "/einkaufen" };
+      return { title, body, tag: "shopping-update", url: "/shopping" };
     }
 
     case "todo_assigned": {

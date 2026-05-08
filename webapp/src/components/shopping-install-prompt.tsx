@@ -144,7 +144,7 @@ export function ShoppingInstallPrompt() {
                   {isIOS ? t("iosBody") : t("androidBody")}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-3">
-                  <Link href="/einkaufen">
+                  <Link href="/shopping">
                     <Button variant="outline" size="sm" className="border-green-500/30 hover:bg-green-500/10">
                       {isIOS ? (
                         <>

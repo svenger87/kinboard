@@ -72,7 +72,7 @@ function StorageMigration({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-// Global screensaver - activates on idle on any page (except join/einkaufen)
+// Global screensaver - activates on idle on any page (except join/shopping)
 function ScreensaverProvider({ children }: { children: ReactNode }) {
   const { screensaverTimeout, presenceTimeout } = useScreensaverSettings();
   const { device } = useFamilyStore();

@@ -32,7 +32,6 @@ const ROUTES = [
   "/recipes",
   "/recipes/new",
   "/recipes/search",
-  "/einkaufen",
   "/shopping",
   "/birthdays",
   "/weather",

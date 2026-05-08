@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 /** Paths where the bottom navigation should not be rendered */
-export const NO_NAV_PATHS = ["/join", "/einkaufen", "/setup"] as const;
+export const NO_NAV_PATHS = ["/join", "/shopping", "/setup"] as const;
 
 /**
  * True when the given pathname matches any NO_NAV_PATHS entry exactly,
