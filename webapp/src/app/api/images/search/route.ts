@@ -108,12 +108,14 @@ async function searchImagesViaBing(query: string, limit: number = 12): Promise<I
       if (results.length >= limit) break;
 
       try {
-        // Decode HTML entities and parse JSON
+        // Decode HTML entities and parse JSON. `&amp;` MUST decode
+        // last — otherwise `&amp;lt;` would become `&lt;` then `<`,
+        // double-decoding past the source intent.
         const jsonStr = match[1]
           .replace(/&quot;/g, '"')
-          .replace(/&amp;/g, '&')
           .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>');
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&');
 
         const data = JSON.parse(jsonStr);
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import DOMPurify from "isomorphic-dompurify";
 import {
   NEWS_PROVIDERS,
   DEFAULT_NEWS_SOURCES,
@@ -29,20 +30,31 @@ const MAX_ITEMS_PER_SOURCE = 15;
 const MAX_ITEMS_TOTAL = 40;
 
 function decodeHtmlEntities(text: string): string {
+  // Decode `&amp;` LAST. Decoding it first would convert `&amp;lt;`
+  // (literal "&lt;" — which the original feed wanted shown as text)
+  // into `&lt;` and then into `<`, double-decoding past the original
+  // intent. Doing it last preserves single-pass-decode semantics.
   return text
-    .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'");
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
 }
 
 function stripHtml(text: string): string {
-  return text
-    .replace(/<[^>]*>/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  // DOMPurify with empty allow-lists strips ALL tags + attributes
+  // robustly — including pathological inputs like `<scr<x>ipt>` that
+  // a single-pass regex (`<[^>]*>`) leaves dangerous after one
+  // replacement. Used for RSS title/description text on the news
+  // widget; output is rendered as React text (not innerHTML), but
+  // defense-in-depth.
+  const stripped = DOMPurify.sanitize(text, {
+    ALLOWED_TAGS: [],
+    ALLOWED_ATTR: [],
+  });
+  return stripped.replace(/\s+/g, " ").trim();
 }
 
 function parseRss(xml: string, provider: NewsProvider): NewsItem[] {
