@@ -2618,7 +2618,7 @@
       "tokenHelp": "Profile → Security → Long-lived access tokens.",
       "test": "Test connection",
       "testing": "Testing…",
-      "ok": "Connected — {entityCount} entities discovered",
+      "ok": "Connected to {locationName}",
       "fail": "Couldn't reach that URL with that token. Double-check both."
     },
     "weather": {
