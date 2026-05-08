@@ -207,21 +207,24 @@ The wiki is the source of truth for everything beyond this README:
 
 ## Status & roadmap
 
-**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.0.6](https://github.com/svenger87/kinboard/releases/tag/v1.0.6) (2026-05-07).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Watchtower; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
+**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.0.10](https://github.com/svenger87/kinboard/releases/tag/v1.0.10) (2026-05-08).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Watchtower; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
 
 **Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](docs/wiki/Security-and-Threat-Model.md) and [`SECURITY.md`](SECURITY.md).
 
-### Done in v1.0.0
-- [x] Pre-built multi-arch (amd64 + arm64) Docker images on `ghcr.io` so self-hosters skip the build step
-- [x] CI on PRs (ESLint + i18n bundle parity + shellcheck)
-- [x] First tagged release (v1.0.0)
+### Recently shipped
+- [x] Pre-built multi-arch (amd64 + arm64) Docker images on `ghcr.io` — self-hosters skip the build step
+- [x] CI on every PR — ESLint + i18n bundle parity + shellcheck — plus a full E2E smoke run that boots the docker stack with mock integrations and verifies the dashboard against Playwright
+- [x] Public live demo at [demo.kinboard.app](https://demo.kinboard.app) with mock Home Assistant / Tesla / weather / cameras so visitors see the full UI without configuring real integrations
+- [x] Watchtower auto-update overlay + post-update cache recovery so a release rollover doesn't strand users on a broken page (no manual intervention required)
+- [x] First-run setup wizard at `/setup/{people,homeassistant,weather,done}` — guides fresh self-hosters through onboarding instead of dropping them on an empty dashboard; dismissible "Finish setting up" banner on the dashboard until completed
+- [x] Interactive `setup.sh` — prompts for the optional API keys most self-hosters need (OpenWeatherMap, Google Calendar OAuth, maintainer email) at first-run time, with `--non-interactive` and `--advanced` flags for automation and power users
+- [x] Steady patch cadence — first tagged release was v1.0.0; see the [`CHANGELOG`](CHANGELOG.md) for everything that's shipped since
 
 ### Up next (no fixed dates)
-- [ ] End-to-end test suite running the full Docker stack against Playwright
-- [ ] Plugin system + extracted Tesla / Zendure plugins (currently Tesla and the energy dashboard live in core)
+- [ ] iCalendar (.ics) feed support — read-only calendar feed via shared `.ics` URL. Covers iCloud Family Sharing calendars, Google's "secret iCal address", and most CalDAV providers in one feature. Sidesteps the Google Cloud project setup for users who only need to view their calendars (the OAuth flow stays for users who want to create events)
+- [ ] Plugin architecture for net-new third-party feature surfaces — let contributors add new pages (robot vacuums, EV charging schedule, garden watering) without forking the core. The existing predicate-based nav-gating that hides empty integration pages is the foundation
 - [ ] Country-aware holiday support (currently DE only)
 - [ ] Calendar event reminders via web push
-- [ ] iCalendar (.ics) feed support beyond Google Calendar
 - [ ] Additional locales beyond EN + DE (community PRs welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md#translations))
 
 ---
