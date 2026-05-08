@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-05-08 — Meal-plan upsert + chunk-reload recovery + E2E smoke
+
 ### Added
 - New `webapp/docker/docker-compose.override.yml.example` documents the per-host override pattern, including the Intel-iGPU device passthrough (`/dev/dri/renderD128`) needed for VAAPI hardware-accelerated HEVC→H.264 transcoding on the go2rtc service. Copy to `docker-compose.override.yml` (gitignored) and edit for your hardware. Wiki [Cameras](https://github.com/svenger87/kinboard/wiki/Cameras#performance--hardware-accelerated-transcode) page updated with the full enable-procedure + verification commands + new troubleshooting rows for HEVC tiles staying black and ICE failures from a port mismatch.
 - E2E smoke suite at `webapp/e2e/smoke.spec.ts` — behavior assertions (route 200s, PWA manifest + icons resolve, no console errors on key authenticated pages) distinct from the existing `visual-audit.spec.ts` screenshot capture. Run via `npm run test:e2e:smoke`. Anonymous tests run without setup; authenticated tests require `FAMILY_CODE` pointing at a join code on the target stack. `PLAYWRIGHT_AUTOSTART_DEV=1` makes Playwright spawn `next dev` itself for fresh-checkout runs. CI integration tracked separately. See `webapp/e2e/README.md`.
