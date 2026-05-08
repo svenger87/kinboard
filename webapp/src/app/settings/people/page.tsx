@@ -357,7 +357,14 @@ export default function PeopleSettingsPage() {
               className="size-full object-cover"
             />
           ) : avatarUrl ? (
-             
+
+            // JSX attribute interpolation: React calls setAttribute under
+            // the hood, which doesn't reinterpret the string as HTML.
+            // `<img src=javascript:...>` doesn't execute JS in modern
+            // browsers (img elements only fetch URLs as image data). Even
+            // if avatarUrl came from an attacker-controlled source, the
+            // worst case is a broken image — no XSS surface here.
+            // (CodeQL #22 dismissed: false positive — JSX attr escaping.)
             <img
               src={avatarUrl}
               alt="Avatar preview"
