@@ -2612,7 +2612,7 @@
       "description": "Optional. Falls du Home Assistant betreibst, trage URL und ein langlebiges Access-Token ein. Ohne diese Verbindung bleiben Smart-Home- und Energie-Seiten leer (du kannst das jederzeit unter Einstellungen nachholen).",
       "urlLabel": "Home Assistant URL",
       "urlPlaceholder": "https://homeassistant.local:8123",
-      "tokenLabel": "Langlebiges Access-Token",
+      "tokenLabel": "Langlebiges Zugangstoken",
       "tokenPlaceholder": "eyJhbGc...",
       "tokenHelp": "Profil → Sicherheit → Langlebige Zugangstoken.",
       "test": "Verbindung testen",
