@@ -14,6 +14,12 @@ on:
   pull_request:
     branches: [main]
 
+# Minimal permissions for the GITHUB_TOKEN — the smoke run boots the
+# stack locally on the runner and reads test artifacts; nothing writes
+# back to the repo or comments on PRs.
+permissions:
+  contents: read
+
 # Cancel in-progress runs on the same ref — booting the stack is slow,
 # no point doubling up.
 concurrency:
