@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# Minimal permissions for the GITHUB_TOKEN — none of these jobs write
+# back to the repo, push images, or comment on PRs. Read-only on the
+# checkout is all that's needed.
+permissions:
+  contents: read
+
 # Cancel in-progress runs on the same ref to save CI time.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
