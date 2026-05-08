@@ -150,6 +150,7 @@
     "joinCodeLabel": "Family code",
     "joinCodePlaceholder": "e.g. ABC123",
     "joinCodeHint": "Ask a family member for the 6-character code",
+    "recoveryHint": "Lost your device's recognition after clearing browser data or a major OS update? The 6-character family code is shown in /settings on any other still-connected family device. Enter it above to rejoin — your data is safe and tied to the family, not to this individual device.",
     "deviceNameLabel": "Device name",
     "deviceNamePlaceholder": "e.g. Living room display",
     "deviceNameDefault": "My device",

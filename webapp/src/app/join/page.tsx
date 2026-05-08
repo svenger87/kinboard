@@ -425,6 +425,29 @@ export default function JoinPage() {
           )}
         </GlassCard>
 
+        {/* Recovery hint — shows after the fingerprint check has run
+            and found no recognized device, but only on the Join tab
+            (not Create tab / fresh install). Helps users who wiped
+            site data + got a different fingerprint due to a browser
+            update find their family code on another device. */}
+        {!isFreshInstall &&
+          !isCheckingFingerprint &&
+          recognizedDevices.length === 0 &&
+          mode === "join" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="mt-6"
+            >
+              <GlassCard className="p-4 bg-muted/20">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {t("recoveryHint")}
+                </p>
+              </GlassCard>
+            </motion.div>
+          )}
+
       </motion.div>
     </main>
   );
