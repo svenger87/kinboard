@@ -26,30 +26,31 @@ export type ValidateExternalUrlResult =
   | { ok: true; url: URL }
   | { ok: false; reason: string };
 
-const PRIVATE_IPV4_RANGES: Array<[bigint, bigint]> = [
-  // 10.0.0.0/8
-  [ipv4ToBigint("10.0.0.0"), ipv4ToBigint("10.255.255.255")],
-  // 172.16.0.0/12
-  [ipv4ToBigint("172.16.0.0"), ipv4ToBigint("172.31.255.255")],
-  // 192.168.0.0/16
-  [ipv4ToBigint("192.168.0.0"), ipv4ToBigint("192.168.255.255")],
-  // 127.0.0.0/8 (loopback)
-  [ipv4ToBigint("127.0.0.0"), ipv4ToBigint("127.255.255.255")],
-  // 169.254.0.0/16 (link-local — AWS/Azure/GCP metadata services live here)
-  [ipv4ToBigint("169.254.0.0"), ipv4ToBigint("169.254.255.255")],
-  // 0.0.0.0/8 (this network)
-  [ipv4ToBigint("0.0.0.0"), ipv4ToBigint("0.255.255.255")],
-];
-
-function ipv4ToBigint(ip: string): bigint {
-  const parts = ip.split(".").map((p) => BigInt(parseInt(p, 10)));
-  return (parts[0] << 24n) | (parts[1] << 16n) | (parts[2] << 8n) | parts[3];
-}
-
 const IPV4_RE = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 const IPV6_LOOPBACK_RE = /^(::1|0:0:0:0:0:0:0:1)$/i;
 const IPV6_LINK_LOCAL_RE = /^fe80:/i;
 const IPV6_UNIQUE_LOCAL_RE = /^f[cd][0-9a-f]{2}:/i; // fc00::/7
+
+function isPrivateIpv4(parts: number[]): boolean {
+  // Octet-by-octet checks against the standard private/loopback/
+  // link-local ranges. Keeps the comparisons in plain JS Number
+  // arithmetic (32-bit IPs fit comfortably in 53-bit safe integers
+  // without needing BigInt).
+  const [a, b] = parts;
+  // 10.0.0.0/8 — RFC 1918 private
+  if (a === 10) return true;
+  // 172.16.0.0/12 — RFC 1918 private
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  // 192.168.0.0/16 — RFC 1918 private
+  if (a === 192 && b === 168) return true;
+  // 127.0.0.0/8 — loopback
+  if (a === 127) return true;
+  // 169.254.0.0/16 — link-local (cloud metadata services live here)
+  if (a === 169 && b === 254) return true;
+  // 0.0.0.0/8 — "this network"
+  if (a === 0) return true;
+  return false;
+}
 
 function isPrivateOrLoopbackHostname(hostname: string): boolean {
   // Strip surrounding brackets from IPv6 literals.
@@ -59,8 +60,9 @@ function isPrivateOrLoopbackHostname(hostname: string): boolean {
 
   const m = host.match(IPV4_RE);
   if (m) {
-    const ip = ipv4ToBigint(`${m[1]}.${m[2]}.${m[3]}.${m[4]}`);
-    return PRIVATE_IPV4_RANGES.some(([lo, hi]) => ip >= lo && ip <= hi);
+    const parts = [m[1], m[2], m[3], m[4]].map((p) => parseInt(p, 10));
+    if (parts.some((p) => isNaN(p) || p < 0 || p > 255)) return false;
+    return isPrivateIpv4(parts);
   }
 
   if (IPV6_LOOPBACK_RE.test(host)) return true;
