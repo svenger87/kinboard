@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       title,
       body: notificationBody,
       tag: "shopping-update",
-      url: "/einkaufen",
+      url: "/shopping",
       icon: "/icons/icon-shopping-192.png",
     });
 

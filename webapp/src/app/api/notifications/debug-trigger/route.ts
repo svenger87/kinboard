@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
             title: notif.title,
             body: notif.body || "",
             tag: `debug-${notif.notification_type}`,
-            url: notif.notification_type.startsWith("todo") ? "/todos" : "/einkaufen",
+            url: notif.notification_type.startsWith("todo") ? "/todos" : "/shopping",
           });
           totalSent += result.sent;
         }
