@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `setup.sh` now walks fresh self-hosters through optional integration keys interactively after the secrets-generation step. Three default prompts: maintainer email (auto-syncs `VAPID_SUBJECT` to `mailto:<email>` when the email is fresh and the subject is still the example default), `OPENWEATHERMAP_API_KEY`, and Google Calendar OAuth (`GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` with a hint pointing at `console.cloud.google.com/apis/credentials` + a wiki walkthrough). Each prompt is skip-with-Enter; idempotent re-runs only prompt for keys that are still empty. New flags: `--non-interactive` (CI / Docker entrypoint use; never prompts), `--advanced` (also prompts for Immich, Bring!, camera credentials, and SMTP server config — keys that have per-family in-app UIs but can be defaulted at the stack level). The post-setup "Next steps" output now lists exactly which keys are still empty so users know what to come back and fill in via `./setup.sh` or by editing `webapp/docker/.env` directly.
+
 ## [1.0.10] - 2026-05-08 — Setup wizard + Leave family fix
 
 ### Added

@@ -2,10 +2,17 @@
 # Kinboard — first-run bootstrap.
 #
 # Generates random secrets, populates webapp/docker/.env from .env.example,
-# generates VAPID push notification keys, and prints next steps.
+# generates VAPID push notification keys, and walks you through optional
+# integration keys (OpenWeatherMap, Google Calendar, etc.).
 #
-# Idempotent: re-running won't overwrite existing values. Pass --force to
-# regenerate everything from scratch.
+# Idempotent: re-running won't overwrite existing values. Already-set keys
+# show "already set, skipping" and are left alone.
+#
+# Flags:
+#   --force, -f         regenerate everything from scratch (re-prompts for keys)
+#   --non-interactive   never prompt; useful for CI / Docker entrypoint use
+#   --advanced          also prompt for Immich, Bring, camera, SMTP server
+#   --help, -h          show this help
 
 set -euo pipefail
 
@@ -16,11 +23,15 @@ WEBAPP_ENV_EXAMPLE="$REPO_ROOT/webapp/.env.example"
 WEBAPP_ENV="$REPO_ROOT/webapp/.env.local"
 
 force=0
+non_interactive=0
+advanced=0
 for arg in "$@"; do
   case "$arg" in
     --force|-f) force=1 ;;
+    --non-interactive) non_interactive=1 ;;
+    --advanced) advanced=1 ;;
     --help|-h)
-      sed -n '3,11p' "$0"
+      sed -n '3,15p' "$0"
       exit 0
       ;;
   esac
@@ -254,6 +265,132 @@ else
 fi
 
 # ----------------------------------------------------------------------
+# 3b. Interactive prompts for optional integration keys
+# ----------------------------------------------------------------------
+# Walks the user through API keys that need to live in .env (server-side
+# only — keys that have a per-family in-app UI like Home Assistant URL
+# are handled in /settings/* instead and aren't prompted for here).
+#
+# Idempotent: each prompt skips if the key is already set in .env. Pass
+# --force to re-prompt. Pass --non-interactive to skip the entire block
+# (useful for CI / Docker entrypoint). Pass --advanced to also prompt
+# for Immich, Bring, camera credentials, and SMTP server config.
+
+prompt_for_key() {
+  # $1 = .env key name
+  # $2 = human-readable label / question
+  # $3 = optional URL or hint shown above the input prompt
+  local key="$1"
+  local label="$2"
+  local hint="${3:-}"
+
+  local current
+  current=$(grep -E "^${key}=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
+  # Strip surrounding double quotes so `KEY=""` (empty quoted) is treated
+  # as empty rather than a 2-char value.
+  current="${current%\"}"; current="${current#\"}"
+
+  if [[ -n "$current" ]] && [[ $force -eq 0 ]]; then
+    echo "  $key already set, skipping"
+    return
+  fi
+
+  echo
+  echo "  $label"
+  if [[ -n "$hint" ]]; then
+    echo "  $hint"
+  fi
+  local value
+  read -r -p "  $key (Enter to skip): " value
+  if [[ -n "$value" ]]; then
+    awk -v k="$key" -v v="$value" '
+      $0 ~ "^"k"=" { print k"="v; next }
+      { print }
+    ' "$DOCKER_ENV" > "$DOCKER_ENV.tmp" && mv "$DOCKER_ENV.tmp" "$DOCKER_ENV"
+    echo "  ✓ $key set"
+  else
+    echo "  → $key skipped"
+  fi
+}
+
+if [[ -t 0 ]] && [[ $non_interactive -eq 0 ]]; then
+  cat <<EOF
+
+==============================================================
+  Optional integration keys
+==============================================================
+
+  Press Enter to skip any field. You can add or change keys in
+  webapp/docker/.env later and re-run ./setup.sh to fill in
+  what's still empty.
+
+EOF
+
+  prompt_for_key SMTP_ADMIN_EMAIL \
+    "Maintainer email — used for VAPID push compliance + supabase admin notifications"
+
+  # Sync VAPID_SUBJECT from SMTP_ADMIN_EMAIL when the email was just set
+  # AND VAPID_SUBJECT is still the .env.example default. Avoids stomping
+  # a custom mailto: the user might have set themselves.
+  smtp_admin=$(grep -E "^SMTP_ADMIN_EMAIL=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
+  vapid_subject=$(grep -E "^VAPID_SUBJECT=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
+  if [[ -n "$smtp_admin" ]] \
+     && [[ "$smtp_admin" != "admin@example.com" ]] \
+     && { [[ "$vapid_subject" == "mailto:admin@example.com" ]] || [[ -z "$vapid_subject" ]]; }; then
+    awk -v v="mailto:$smtp_admin" '
+      /^VAPID_SUBJECT=/ { print "VAPID_SUBJECT="v; next }
+      { print }
+    ' "$DOCKER_ENV" > "$DOCKER_ENV.tmp" && mv "$DOCKER_ENV.tmp" "$DOCKER_ENV"
+    echo "  ✓ VAPID_SUBJECT mirrored to mailto:$smtp_admin"
+  fi
+
+  prompt_for_key OPENWEATHERMAP_API_KEY \
+    "OpenWeatherMap API key — for the weather widget" \
+    "Free tier: https://openweathermap.org/api  (sign up, copy from dashboard)"
+
+  echo
+  echo "  Google Calendar OAuth credentials"
+  echo "  Get a CLIENT_ID + CLIENT_SECRET from a Google Cloud project:"
+  echo "    https://console.cloud.google.com/apis/credentials → Create OAuth client ID"
+  echo "  Walkthrough: https://github.com/svenger87/kinboard/wiki/Google-Calendar-Setup"
+  echo "  Skip both fields to disable Google Calendar entirely."
+  prompt_for_key GOOGLE_CLIENT_ID "Google OAuth client ID"
+  prompt_for_key GOOGLE_CLIENT_SECRET "Google OAuth client secret"
+
+  if [[ $advanced -eq 1 ]]; then
+    cat <<EOF
+
+  ── advanced ──
+  These have per-family in-app UIs at /settings/<integration> — only
+  prefill them in .env if you want a stack-wide default that doesn't
+  depend on per-family setup.
+
+EOF
+    prompt_for_key IMMICH_API_URL \
+      "Immich API URL — fallback default for the photo screensaver"
+    prompt_for_key IMMICH_API_KEY "Immich API key"
+    prompt_for_key BRING_EMAIL "Bring! email — fallback default for shopping sync (legacy)"
+    prompt_for_key BRING_PASSWORD "Bring! password"
+    prompt_for_key CAMERA_USER \
+      "Default RTSP camera username — used by go2rtc.yaml's camera entries"
+    prompt_for_key CAMERA_PASS \
+      "Default RTSP camera password" \
+      "URL-encode special chars: '#' → '%23', '@' → '%40'"
+    prompt_for_key HIKVISION_HOST "Hikvision camera host (LAN IP)"
+    prompt_for_key AMCREST_HOST "Amcrest/Dahua camera host (LAN IP)"
+    prompt_for_key SMTP_HOST \
+      "SMTP server host" \
+      "Only needed if you actually use supabase auth's email features — the device-cookie auth model doesn't"
+    prompt_for_key SMTP_PORT "SMTP server port (e.g. 587 for STARTTLS, 465 for TLS)"
+    prompt_for_key SMTP_USER "SMTP username"
+    prompt_for_key SMTP_PASS "SMTP password / app token"
+  fi
+
+elif [[ $non_interactive -eq 1 ]]; then
+  echo "→ skipping interactive prompts (--non-interactive)"
+fi
+
+# ----------------------------------------------------------------------
 # 4. Bootstrap the webapp dev .env (for `npm run dev`)
 # ----------------------------------------------------------------------
 if [[ ! -f "$WEBAPP_ENV" ]]; then
@@ -301,23 +438,45 @@ fi
 # ----------------------------------------------------------------------
 # 6. Next steps
 # ----------------------------------------------------------------------
+# Summarize which optional keys are still empty so the user knows what
+# they can come back and fill in.
+unset_keys=()
+for key in OPENWEATHERMAP_API_KEY GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
+  value=$(grep -E "^${key}=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
+  value="${value%\"}"; value="${value#\"}"
+  [[ -z "$value" ]] && unset_keys+=("$key")
+done
+
 cat <<EOF
 
 Setup complete. All required secrets are generated and the kong gateway
 is wired up.
 
 Next steps:
-  1. Optional integrations — paste keys into webapp/docker/.env if you
-     want them, otherwise leave blank to disable:
-       OPENWEATHERMAP_API_KEY  (weather widget)
-       GOOGLE_CLIENT_ID/SECRET (Google Calendar sync)
-       IMMICH_API_URL/KEY      (photo screensaver)
-       camera credentials      (cameras page)
+EOF
 
-  2. Bring the stack up:
+if [[ ${#unset_keys[@]} -gt 0 ]]; then
+  cat <<EOF
+  1. (Optional) Fill in the keys you skipped — edit webapp/docker/.env
+     directly, or re-run ./setup.sh to be prompted again:
+EOF
+  for key in "${unset_keys[@]}"; do
+    case "$key" in
+      OPENWEATHERMAP_API_KEY) echo "       $key  (weather widget)" ;;
+      GOOGLE_CLIENT_ID)       echo "       $key       (Google Calendar sync)" ;;
+      GOOGLE_CLIENT_SECRET)   echo "       $key   (Google Calendar sync)" ;;
+    esac
+  done
+  echo
+  echo "  2. Bring the stack up:"
+else
+  echo "  1. Bring the stack up:"
+fi
+
+cat <<EOF
        cd webapp/docker
        ./start.sh up
 
-  3. Open ${site_url} and create your first family.
+  $([ ${#unset_keys[@]} -gt 0 ] && echo "3" || echo "2"). Open ${site_url} and create your first family.
 
 EOF
