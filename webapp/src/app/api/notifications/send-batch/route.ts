@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
 
     // Deactivate failed subscriptions
     if (result.deactivated.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (supabase as any)
         .from("push_subscriptions")
         .update({ is_active: false })

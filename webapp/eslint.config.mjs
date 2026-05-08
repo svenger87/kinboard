@@ -16,7 +16,7 @@ const REACT_19_TODO_RULES = {
   "react-hooks/immutability": "off",
 };
 
-export default [
+const config = [
   ...next,
   {
     rules: {
@@ -24,7 +24,19 @@ export default [
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-empty-object-type": "off",
       "prefer-const": "off",
+      // Kinboard intentionally uses <img> for many surfaces:
+      //  - user-uploaded recipe images, family-member avatars, Immich
+      //    screensaver photos — unknown dimensions at write time
+      //  - camera-frame URLs that change per-frame
+      //  - SVG/animated overlays where next/image's optimizer adds no value
+      // Migrating each to <Image> + fill + positioned parent would be a
+      // net code-clarity loss for no measurable perf gain on these
+      // dynamic surfaces. Leaving on for static branding assets is also
+      // not worth the partial-coverage tax.
+      "@next/next/no-img-element": "off",
       ...REACT_19_TODO_RULES,
     },
   },
 ];
+
+export default config;

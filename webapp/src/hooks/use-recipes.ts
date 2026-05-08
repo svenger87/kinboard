@@ -71,7 +71,7 @@ export function useRecipes(options?: { favorites?: boolean }) {
       ? recipeQueryKeys.favorites(family?.id ?? "")
       : recipeQueryKeys.all(family?.id ?? ""),
     queryFn: async (): Promise<RecipeWithIngredients[]> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       let query = (supabase as any)
         .from("recipes")
         .select(
@@ -105,7 +105,7 @@ export function useRecipe(recipeId: string | null) {
     queryFn: async (): Promise<RecipeWithIngredients | null> => {
       if (!recipeId) return null;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("recipes")
         .select(
@@ -135,7 +135,7 @@ export function useRecipeSearch(query: string) {
     queryFn: async (): Promise<Recipe[]> => {
       if (!query || query.length < 2) return [];
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("recipes")
         .select("*")
@@ -159,7 +159,7 @@ export function useRecipeTags() {
   return useQuery({
     queryKey: recipeQueryKeys.tags(family?.id ?? ""),
     queryFn: async (): Promise<RecipeTag[]> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("recipe_tags")
         .select("*")
@@ -184,7 +184,7 @@ export function useCreateRecipe() {
       const { ingredients, tags, ...recipeData } = input;
 
       // Create the recipe
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: recipe, error: recipeError } = await (supabase as any)
         .from("recipes")
         .insert({
@@ -206,7 +206,7 @@ export function useCreateRecipe() {
           sort_order: index,
         }));
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { error: ingredientsError } = await (supabase as any)
           .from("recipe_ingredients")
           .insert(ingredientsWithRecipeId);
@@ -218,7 +218,7 @@ export function useCreateRecipe() {
       if (tags && tags.length > 0) {
         for (const tagName of tags) {
           // Try to find or create the tag
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const { data: existingTag } = await (supabase as any)
             .from("recipe_tags")
             .select("id")
@@ -227,7 +227,7 @@ export function useCreateRecipe() {
             .single();
 
           if (!existingTag) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const { error: tagError } = await (supabase as any).from("recipe_tags").insert({
               family_id: requireFamilyId(family),
               name: tagName,
@@ -266,7 +266,7 @@ export function useUpdateRecipe() {
       updateData.updated_at = new Date().toISOString();
 
       // Update the recipe
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: recipe, error: recipeError } = await (supabase as any)
         .from("recipes")
         .update(updateData)
@@ -280,7 +280,7 @@ export function useUpdateRecipe() {
       // Update ingredients if provided
       if (ingredients !== undefined) {
         // Delete existing ingredients
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { error: deleteError } = await (supabase as any)
           .from("recipe_ingredients")
           .delete()
@@ -295,7 +295,7 @@ export function useUpdateRecipe() {
             sort_order: index,
           }));
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const { error: insertError } = await (supabase as any)
             .from("recipe_ingredients")
             .insert(ingredientsWithRecipeId);
@@ -330,7 +330,7 @@ export function useToggleRecipeFavorite() {
       id: string;
       is_favorite: boolean;
     }): Promise<Recipe> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("recipes")
         .update({ is_favorite, updated_at: new Date().toISOString() })
@@ -361,7 +361,7 @@ export function useDeleteRecipe() {
 
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any)
         .from("recipes")
         .delete()
@@ -395,7 +395,7 @@ export function useAddRecipeToShoppingList() {
       ingredientIds?: string[]; // Optional: only add specific ingredients
     }): Promise<void> => {
       // Fetch the recipe with ingredients
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: recipe, error: recipeError } = await (supabase as any)
         .from("recipes")
         .select(
@@ -469,7 +469,7 @@ export function useAddRecipeToShoppingList() {
       });
 
       // Insert all shopping items
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error: insertError } = await (supabase as any)
         .from("shopping_items")
         .insert(shoppingItems);
@@ -508,7 +508,7 @@ export function useImportRecipe() {
       const parsed = await response.json();
 
       // 2. Save the recipe to the database
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: recipe, error: recipeError } = await (supabase as any)
         .from("recipes")
         .insert({
@@ -550,7 +550,7 @@ export function useImportRecipe() {
           sort_order: ing.sort_order,
         }));
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { error: ingredientsError } = await (supabase as any)
           .from("recipe_ingredients")
           .insert(ingredientsWithRecipeId);
@@ -582,7 +582,7 @@ export function useCreateRecipeTag() {
       name: string;
       color?: string;
     }): Promise<RecipeTag> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("recipe_tags")
         .insert({
@@ -612,7 +612,7 @@ export function useDeleteRecipeTag() {
 
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any)
         .from("recipe_tags")
         .delete()

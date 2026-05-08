@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
     if (family_id) {
       try {
         const supabase = await createAdminClient();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { data: localItems, error } = await (supabase as any)
           .from("item_catalog")
           .select("*")

@@ -17,7 +17,7 @@ async function getOAuth2Client(familyId: string) {
   const supabase = createAdminClient();
 
   // Get stored credentials - use type assertion to bypass Supabase's strict typing
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: settingsRow } = await (supabase as any)
     .from("settings")
     .select("value")
@@ -51,7 +51,7 @@ async function getOAuth2Client(familyId: string) {
       const { credentials: newTokens } = await oauth2Client.refreshAccessToken();
 
       // Update stored credentials
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (supabase as any)
         .from("settings")
         .update({
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
 
   // Get current settings - use type assertion to bypass Supabase's strict typing
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: settings } = await (supabase as any)
     .from("settings")
     .select("value")
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Update enabled calendars
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { error } = await (supabase as any)
     .from("settings")
     .update({

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   // Get Home Assistant settings from Supabase
   const supabase = createAdminClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: settings } = await (supabase as any)
     .from("settings")
     .select("value")

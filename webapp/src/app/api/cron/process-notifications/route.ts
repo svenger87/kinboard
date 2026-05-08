@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
 
     // Deactivate expired subscriptions
     if (result.deactivated.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (supabase as any)
         .from("push_subscriptions")
         .update({ is_active: false })
@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
 
   // Mark all processed notifications
   if (processedIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (supabase as any)
       .from("scheduled_notifications")
       .update({ processed: true })

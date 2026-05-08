@@ -125,7 +125,7 @@ export function useCreateFamily() {
       // Generate join code
       const joinCode = generateJoinCode();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("families")
         .insert({ name, join_code: joinCode })
@@ -154,7 +154,7 @@ export function useRegisterDevice() {
       familyId: string;
       name: string;
     }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("devices")
         .insert({
@@ -186,7 +186,7 @@ export function useRestoreDeviceSession() {
       const fingerprint = getDeviceFingerprint();
 
       // Find device by hardware_id
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: device } = await (supabase as any)
         .from("devices")
         .select("*, families(*)")
@@ -200,7 +200,7 @@ export function useRestoreDeviceSession() {
       const family = device.families as Family;
 
       // Update last_seen and fingerprint (keep fingerprint fresh)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (supabase as any)
         .from("devices")
         .update({
@@ -210,7 +210,7 @@ export function useRestoreDeviceSession() {
         .eq("id", device.id);
 
       // Fetch family members
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: people } = await (supabase as any)
         .from("people")
         .select("*")
@@ -256,7 +256,7 @@ export function useJoinFamily() {
       const fingerprint = getDeviceFingerprint();
 
       // Find family by join code
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: familyData, error: familyError } = await (supabase as any)
         .from("families")
         .select("*")
@@ -267,7 +267,7 @@ export function useJoinFamily() {
       const family = familyData as Family;
 
       // Check if this device already exists in this family (by hardware_id)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: existingDevice } = await (supabase as any)
         .from("devices")
         .select("*")
@@ -281,7 +281,7 @@ export function useJoinFamily() {
         // Device already registered, just restore session
         device = existingDevice as Device;
         // Update last_seen and fingerprint
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         await (supabase as any)
           .from("devices")
           .update({
@@ -292,7 +292,7 @@ export function useJoinFamily() {
         device = { ...device, fingerprint };
       } else {
         // Register new device with hardware_id and fingerprint
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { data: newDevice, error: deviceError } = await (supabase as any)
           .from("devices")
           .insert({
@@ -313,7 +313,7 @@ export function useJoinFamily() {
       await persistDeviceId(hardwareId);
 
       // Fetch family members
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: people } = await (supabase as any)
         .from("people")
         .select("*")
@@ -350,7 +350,7 @@ export function useCreateFamilyWithDevice() {
       const joinCode = generateJoinCode();
 
       // Create family
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: family, error: familyError } = await (supabase as any)
         .from("families")
         .insert({ name: familyName, join_code: joinCode })
@@ -360,7 +360,7 @@ export function useCreateFamilyWithDevice() {
       if (familyError) throw familyError;
 
       // Register device with hardware_id and fingerprint
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: device, error: deviceError } = await (supabase as any)
         .from("devices")
         .insert({
@@ -421,7 +421,7 @@ export function useUpdateDevice() {
       id,
       ...updates
     }: Partial<Device> & { id: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("devices")
         .update(updates)
@@ -449,7 +449,7 @@ export function useDeleteDevice() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any).from("devices").delete().eq("id", id);
       if (error) throw error;
     },
@@ -467,7 +467,7 @@ export function useUpdateDeviceLastSeen() {
     mutationFn: async () => {
       if (!device?.id) return null;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any)
         .from("devices")
         .update({ last_seen: new Date().toISOString() })
@@ -493,7 +493,7 @@ export function useFindDeviceByFingerprint() {
       if (!fingerprint) return null;
 
       // Query devices matching this fingerprint, joined with family info
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: devices } = await (supabase as any)
         .from("devices")
         .select(`
@@ -513,7 +513,7 @@ export function useFindDeviceByFingerprint() {
       }
 
       // Return array of matching devices with their families
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       return devices.map((d: any) => ({
         device: {
           id: d.id,
@@ -540,7 +540,7 @@ export function useQuickRejoin() {
       const fingerprint = getDeviceFingerprint();
 
       // Fetch device with family
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: device } = await (supabase as any)
         .from("devices")
         .select("*, families(*)")
@@ -554,7 +554,7 @@ export function useQuickRejoin() {
       const family = device.families as Family;
 
       // Update device with new hardware_id and fingerprint (storage was cleared)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (supabase as any)
         .from("devices")
         .update({
@@ -568,7 +568,7 @@ export function useQuickRejoin() {
       await persistDeviceId(hardwareId);
 
       // Fetch family members
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: people } = await (supabase as any)
         .from("people")
         .select("*")
@@ -624,7 +624,7 @@ export function useCreatePerson() {
 
   return useMutation({
     mutationFn: async (person: { name: string; color: string; avatar_url?: string; is_child?: boolean }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("people")
         .insert({ ...person, family_id: requireFamilyId(family) })
@@ -650,7 +650,7 @@ export function useUpdatePerson() {
       id,
       ...updates
     }: Partial<Person> & { id: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("people")
         .update(updates)
@@ -674,7 +674,7 @@ export function useDeletePerson() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any).from("people").delete().eq("id", id);
       if (error) throw error;
     },
@@ -719,7 +719,7 @@ export function useCreateCalendar() {
       color: string;
       google_calendar_id?: string;
     }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("calendars")
         .insert({
@@ -755,7 +755,7 @@ export function useUpdateCalendar() {
       is_holidays?: boolean;
       is_waste_collection?: boolean;
     }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("calendars")
         .update(updates)
@@ -824,7 +824,7 @@ export function useCreateEvent() {
       all_day?: boolean;
       person_id?: string | null;
     }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("events")
         .insert(event)
@@ -879,7 +879,7 @@ export function useUpdateEvent() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Event> & { id: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("events")
         .update(updates)
@@ -946,7 +946,7 @@ export function useDeleteEvent() {
       }
 
       // Delete locally
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any).from("events").delete().eq("id", id);
       if (error) throw error;
     },
@@ -993,7 +993,7 @@ export function useCreateTodo() {
       priority?: number | string;
       recurrence?: string;
     }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("todos")
         .insert({ ...todo, family_id: requireFamilyId(family), source_device_id: device?.id })
@@ -1016,7 +1016,7 @@ export function useUpdateTodo() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Todo> & { id: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("todos")
         .update(updates)
@@ -1040,7 +1040,7 @@ export function useDeleteTodo() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any).from("todos").delete().eq("id", id);
       if (error) throw error;
     },
@@ -1091,7 +1091,7 @@ export function useCreateShoppingItem() {
       recipe_id?: string | null;
       added_by?: string | null;
     }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("shopping_items")
         .insert({ ...item, family_id: requireFamilyId(family), source_device_id: device?.id })
@@ -1119,7 +1119,7 @@ export function useUpdateShoppingItem() {
       id,
       ...updates
     }: Partial<ShoppingItem> & { id: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("shopping_items")
         .update(updates)
@@ -1145,7 +1145,7 @@ export function useDeleteShoppingItem() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any)
         .from("shopping_items")
         .delete()
@@ -1195,7 +1195,7 @@ export function useCreateSubject() {
       color: string;
       icon?: string;
     }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("subjects")
         .insert({ ...subject, family_id: requireFamilyId(family) })
@@ -1223,7 +1223,7 @@ export function useUpdateSubject() {
       id,
       ...updates
     }: Partial<Subject> & { id: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("subjects")
         .update(updates)
@@ -1249,7 +1249,7 @@ export function useDeleteSubject() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any).from("subjects").delete().eq("id", id);
       if (error) throw error;
     },
@@ -1304,7 +1304,7 @@ export function useUpsertSchedule() {
       time_slots: unknown[];
     }) => {
       // Check if schedule exists for this person and day
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: existingData } = await (supabase as any)
         .from("schedules")
         .select("id")
@@ -1316,7 +1316,7 @@ export function useUpsertSchedule() {
 
       if (existing) {
         // Update
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { data, error } = await (supabase as any)
           .from("schedules")
           .update({ time_slots: schedule.time_slots })
@@ -1328,7 +1328,7 @@ export function useUpsertSchedule() {
         return data as Schedule;
       } else {
         // Insert
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { data, error } = await (supabase as any)
           .from("schedules")
           .insert({ ...schedule, family_id: requireFamilyId(family) })
@@ -1383,7 +1383,7 @@ export function useCreateBirthday() {
       person_id?: string | null;
       notify_days_before?: number;
     }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("birthdays")
         .insert({ ...birthday, family_id: requireFamilyId(family) })
@@ -1411,7 +1411,7 @@ export function useUpdateBirthday() {
       id,
       ...updates
     }: Partial<Birthday> & { id: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("birthdays")
         .update(updates)
@@ -1437,7 +1437,7 @@ export function useDeleteBirthday() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any).from("birthdays").delete().eq("id", id);
       if (error) throw error;
     },
@@ -1480,7 +1480,7 @@ export function useCreateNote() {
 
   return useMutation({
     mutationFn: async (content: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("notes")
         .insert({ content, family_id: requireFamilyId(family) })
@@ -1506,7 +1506,7 @@ export function useUpdateNote() {
       const updates: Record<string, unknown> = {};
       if (content !== undefined) updates.content = content;
       if (pinned !== undefined) updates.pinned = pinned;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("notes")
         .update(updates)
@@ -1530,7 +1530,7 @@ export function useDeleteNote() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any).from("notes").delete().eq("id", id);
       if (error) throw error;
     },
@@ -1551,7 +1551,7 @@ export function useSetting<T>(key: string, defaultValue: T) {
   return useQuery({
     queryKey: queryKeys.settings(family?.id ?? "", key),
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("settings")
         .select("value")
@@ -1581,7 +1581,7 @@ export function useUpdateSetting<T>() {
 
   return useMutation({
     mutationFn: async ({ key, value }: { key: string; value: T }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("settings")
         .upsert(

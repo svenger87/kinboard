@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     // Deactivate all OTHER subscriptions for this device (old/stale endpoints)
     // A device should only have one active push subscription at a time
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const deactivateQuery = (supabase as any)
       .from("push_subscriptions")
       .update({ is_active: false })
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       // Update existing subscription
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error: updateError } = await (supabase as any)
         .from("push_subscriptions")
         .update({
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       is_active: true,
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { data: newSubData, error: insertError } = await (supabase as any)
       .from("push_subscriptions")
       .insert(insertData)
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       shopping_reminders: true,
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (supabase as any)
       .from("notification_preferences")
       .upsert(prefsData, { onConflict: "family_id,device_id" });

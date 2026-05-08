@@ -40,7 +40,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
   const supabase = createAdminClient();
 
   // Get settings for this family
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: settingsRow } = await (supabase as any)
     .from("settings")
     .select("value")
@@ -81,7 +81,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
     try {
       const { credentials: newTokens } = await oauth2Client.refreshAccessToken();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (supabase as any)
         .from("settings")
         .update({
@@ -106,7 +106,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
     // Get calendars from database
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { data: dbCalendars } = await (supabase as any)
       .from("calendars")
       .select("id, google_calendar_id, person_id")
@@ -151,7 +151,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
         let localCalendar = calendarPersonMap.get(googleCalendarId);
 
         if (!localCalendar) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const { data: newCal, error: createError } = await (supabase as any)
             .from("calendars")
             .insert({
@@ -171,7 +171,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
           localCalendar = { id: newCal.id, person_id: undefined };
           calendarPersonMap.set(googleCalendarId, localCalendar);
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           await (supabase as any)
             .from("calendars")
             .update({
@@ -187,7 +187,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
 
           // Handle cancelled/deleted events
           if (event.status === "cancelled") {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const { data: existingToDelete } = await (supabase as any)
               .from("events")
               .select("id")
@@ -195,7 +195,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
               .single();
 
             if (existingToDelete) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+               
               await (supabase as any).from("events").delete().eq("id", existingToDelete.id);
               deleted++;
             }
@@ -247,7 +247,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
             personId = matchPersonForEvent(event.summary, mappingRules) || undefined;
           }
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const { data: existing } = await (supabase as any)
             .from("events")
             .select("id, updated_at")
@@ -268,14 +268,14 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
           };
 
           if (existing) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             await (supabase as any)
               .from("events")
               .update(eventData)
               .eq("id", existing.id);
             updated++;
           } else {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             await (supabase as any).from("events").insert(eventData);
             created++;
           }
@@ -286,7 +286,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
     }
 
     // Update timestamps
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (supabase as any)
       .from("settings")
       .update({
@@ -314,7 +314,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
     console.error(`[google-sync-cron] Sync error for family ${familyId}:`, err);
 
     // Store error in settings
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (supabase as any)
       .from("settings")
       .update({
@@ -351,7 +351,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
 
   // Get all families with auto_sync enabled
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: settingsRows, error } = await (supabase as any)
     .from("settings")
     .select("family_id, value")

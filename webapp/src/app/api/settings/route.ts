@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data, error } = await (supabase as any)
     .from("settings")
     .select("*")
@@ -54,7 +54,7 @@ export async function PUT(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data, error } = await (supabase as any)
     .from("settings")
     .upsert(
@@ -95,7 +95,7 @@ export async function DELETE(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { error } = await (supabase as any)
     .from("settings")
     .delete()

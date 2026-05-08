@@ -91,7 +91,7 @@ export function useUpdateNotificationPreferences() {
         updated_at: new Date().toISOString(),
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("notification_preferences")
         .upsert(upsertData, { onConflict: "family_id,device_id" })

@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
       const prefs = prefsMap.get(sub.device_id);
       if (!prefs) return true;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       if ((prefs as any).todo_reminders === false) return false;
 
       if (prefs.quiet_hours_enabled) {
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
     totalSent += result.sent;
 
     if (result.deactivated.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (supabase as any)
         .from("push_subscriptions")
         .update({ is_active: false })

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "familyId query param required" }, { status: 400 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const supabase = createAdminClient() as any;
 
   // Get pending notifications
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "familyId required" }, { status: 400 });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const supabase = createAdminClient() as any;
 
     switch (action) {
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Mark as processed
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         await (supabase as any)
           .from("scheduled_notifications")
           .update({ processed: true })

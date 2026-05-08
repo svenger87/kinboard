@@ -115,7 +115,7 @@ export function useOfflineQueue(options: UseOfflineQueueOptions = {}) {
       try {
         switch (operation.type) {
           case "create": {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const { data, error } = await (supabase as any)
               .from(operation.table)
               .insert({
@@ -133,7 +133,7 @@ export function useOfflineQueue(options: UseOfflineQueueOptions = {}) {
             if (!operation.data.serverId) {
               return { success: false, error: "No server ID for update" };
             }
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const { error } = await (supabase as any)
               .from(operation.table)
               .update(operation.data.payload)
@@ -147,7 +147,7 @@ export function useOfflineQueue(options: UseOfflineQueueOptions = {}) {
             if (!operation.data.serverId) {
               return { success: false, error: "No server ID for delete" };
             }
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const { error } = await (supabase as any)
               .from(operation.table)
               .delete()
