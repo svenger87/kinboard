@@ -6,6 +6,10 @@
 # ===================
 FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat && npm install -g npm@11
+# Suppress npm's "new major version available" notice on every command
+# (the upgrade above doesn't help — Alpine's bundled npm 10 still
+# prints the notice from any subprocess that invokes it).
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 WORKDIR /app
 
 # Copy package files
@@ -23,6 +27,7 @@ RUN \
 # Stage 2: Builder
 # ===================
 FROM node:20-alpine AS builder
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 WORKDIR /app
 
 # Copy deps from previous stage

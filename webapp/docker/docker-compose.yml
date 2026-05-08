@@ -7,8 +7,9 @@
 # run `docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d`.
 #
 # Configurable via .env (see .env.example).
-
-version: "3.8"
+#
+# (Compose v2 ignores the top-level `version:` field and prints a
+# deprecation warning on every up; omitted intentionally.)
 
 services:
   # ===================
