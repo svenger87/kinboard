@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { NO_NAV_PATHS } from "@/lib/constants";
+import { isNoNavPath } from "@/lib/constants";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
 import { useNavBadges } from "@/hooks/use-nav-badges";
 
@@ -46,7 +46,7 @@ export function DesktopNav() {
     return () => el.removeEventListener("scroll", updateScrollIndicators);
   }, [updateScrollIndicators]);
 
-  if (NO_NAV_PATHS.includes(pathname as (typeof NO_NAV_PATHS)[number])) {
+  if (isNoNavPath(pathname)) {
     return null;
   }
 

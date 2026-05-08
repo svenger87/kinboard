@@ -19,7 +19,7 @@ import { DesktopNav } from "@/components/desktop-nav";
 import { PageShell } from "@/components/page-shell";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
-import { NO_NAV_PATHS } from "@/lib/constants";
+import { isNoNavPath } from "@/lib/constants";
 
 // Helper functions for cookie migration
 function getCookie(name: string): string | null {
@@ -93,7 +93,7 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   const [skipScreensaver, setSkipScreensaver] = useState(false);
   useEffect(() => {
     const path = window.location.pathname;
-    setSkipScreensaver(NO_NAV_PATHS.some((p) => path.startsWith(p)));
+    setSkipScreensaver(isNoNavPath(path));
   }, []);
 
   // Hide nav bars during screensaver to save GPU (backdrop-blur is expensive on ARM)
