@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingCart, X, Smartphone, ExternalLink, Compass } from "lucide-react";
+import { ShoppingCart, X, Smartphone, Compass } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/card";
-import Link from "next/link";
+import { useInstallPrompt } from "@/hooks/use-pwa";
 
 const DISMISSED_COOKIE_NAME = "shopping-pwa-prompt-dismissed";
 // Separate dismiss state for the "open in Safari" hint shown when the
@@ -35,6 +35,13 @@ export function ShoppingInstallPrompt() {
   const [isStandalone, setIsStandalone] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [hintDismissed, setHintDismissed] = useState(false);
+
+  // Android-only: feed the captured `beforeinstallprompt` event into
+  // the in-prompt button so a single tap actually triggers iOS-style
+  // install. iOS doesn't fire this event (Safari has no programmatic
+  // install API — Add-to-Home-Screen lives in the Share menu) so the
+  // hook returns isInstallable=false on iOS and we hide the button.
+  const { isInstallable, promptInstall } = useInstallPrompt();
 
   useEffect(() => {
     // Check if already running as standalone PWA
@@ -143,23 +150,26 @@ export function ShoppingInstallPrompt() {
                 <p className="text-sm text-muted-foreground mt-1">
                   {isIOS ? t("iosBody") : t("androidBody")}
                 </p>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  <Link href="/shopping">
-                    <Button variant="outline" size="sm" className="border-green-500/30 hover:bg-green-500/10">
-                      {isIOS ? (
-                        <>
-                          <ExternalLink className="size-4 mr-2" />
-                          {t("iosOpen")}
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingCart className="size-4 mr-2" />
-                          {t("androidOpen")}
-                        </>
-                      )}
+                {/* Android-only install button: tapping triggers the
+                    deferred beforeinstallprompt event, which surfaces
+                    Chrome's "Install app" dialog inline. iOS has no
+                    equivalent API — the iosBody copy already tells
+                    users to use the Share menu, so no button there. */}
+                {!isIOS && isInstallable && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-green-500/30 hover:bg-green-500/10"
+                      onClick={() => {
+                        void promptInstall();
+                      }}
+                    >
+                      <ShoppingCart className="size-4 mr-2" />
+                      {t("androidOpen")}
                     </Button>
-                  </Link>
-                </div>
+                  </div>
+                )}
               </div>
               <button
                 onClick={handleDismiss}
