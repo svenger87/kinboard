@@ -17,12 +17,12 @@ export default function SetupLayout({ children }: { children: React.ReactNode })
         </Link>
         <div className="flex items-center gap-2">
           <LocaleSwitcher />
-          <Link href="/">
-            <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/">
               <LogOut className="size-4 mr-2" />
               {t("exit")}
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </header>
       <div className="flex-1 flex items-start justify-center px-6 py-8">
