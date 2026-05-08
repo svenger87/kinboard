@@ -2,13 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingCart, X, Smartphone, ExternalLink } from "lucide-react";
+import { ShoppingCart, X, Smartphone, ExternalLink, Compass } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/card";
 import Link from "next/link";
 
 const DISMISSED_COOKIE_NAME = "shopping-pwa-prompt-dismissed";
+// Separate dismiss state for the "open in Safari" hint shown when the
+// user is already inside the Kinboard PWA on iOS — they may dismiss
+// the install prompt itself but want to be reminded later about
+// installing the Shopping app from Safari, or vice versa.
+const STANDALONE_HINT_DISMISSED_COOKIE = "shopping-pwa-standalone-hint-dismissed";
 
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -29,6 +34,7 @@ export function ShoppingInstallPrompt() {
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [hintDismissed, setHintDismissed] = useState(false);
 
   useEffect(() => {
     // Check if already running as standalone PWA
@@ -43,6 +49,8 @@ export function ShoppingInstallPrompt() {
     // Check if user has dismissed this prompt before (check both cookie and localStorage for migration)
     const hasDismissedCookie = getCookie(DISMISSED_COOKIE_NAME) === "true";
     const hasDismissedLocal = localStorage.getItem(DISMISSED_COOKIE_NAME) === "true";
+    const hasDismissedHint = getCookie(STANDALONE_HINT_DISMISSED_COOKIE) === "true";
+    setHintDismissed(hasDismissedHint);
 
     if (hasDismissedCookie || hasDismissedLocal) {
       setDismissed(true);
@@ -68,7 +76,50 @@ export function ShoppingInstallPrompt() {
     localStorage.setItem(DISMISSED_COOKIE_NAME, "true");
   };
 
-  // Don't show if already standalone or dismissed
+  const handleHintDismiss = () => {
+    setHintDismissed(true);
+    setCookie(STANDALONE_HINT_DISMISSED_COOKIE, "true");
+  };
+
+  // Special case: inside the Kinboard PWA on iOS. The install prompt
+  // can't fire here because iOS only allows "Add to Home Screen" from
+  // Safari, not from another installed PWA. Show a small explainer
+  // pointing the user at Safari (separately dismissible) instead of
+  // silently hiding — otherwise users searching for the prompt inside
+  // the PWA hit a wall with no signal as to where to find it.
+  if (isStandalone && isIOS && !hintDismissed) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-6"
+      >
+        <GlassCard className="p-4 border-blue-500/30 bg-blue-500/5">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-blue-500/20 shrink-0">
+              <Compass className="size-5 text-blue-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-medium text-blue-400">{t("iosStandaloneHintTitle")}</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {t("iosStandaloneHintBody")}
+              </p>
+            </div>
+            <button
+              onClick={handleHintDismiss}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-all shrink-0"
+              aria-label={t("dismissAria")}
+            >
+              <X className="size-5" />
+            </button>
+          </div>
+        </GlassCard>
+      </motion.div>
+    );
+  }
+
+  // Other paths: standalone (Android or already-installed Shopping
+  // PWA) or user dismissed the install prompt — show nothing.
   if (isStandalone || dismissed) {
     return null;
   }
