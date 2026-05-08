@@ -10,7 +10,10 @@
     "db:generate": "supabase gen types typescript --local > src/lib/database.types.ts",
     "visual-audit": "npx playwright test e2e/visual-audit.spec.ts",
     "visual-audit:desktop": "npx playwright test e2e/visual-audit.spec.ts --project=desktop",
-    "visual-audit:mobile": "npx playwright test e2e/visual-audit.spec.ts --project=mobile"
+    "visual-audit:mobile": "npx playwright test e2e/visual-audit.spec.ts --project=mobile",
+    "test:e2e": "npx playwright test",
+    "test:e2e:smoke": "npx playwright test e2e/smoke.spec.ts",
+    "test:e2e:smoke:desktop": "npx playwright test e2e/smoke.spec.ts --project=desktop"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

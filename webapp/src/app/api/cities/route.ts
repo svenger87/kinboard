@@ -20,10 +20,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!OPENWEATHERMAP_API_KEY) {
-    return NextResponse.json(
-      { error: "Weather API not configured" },
-      { status: 500 }
-    );
+    return NextResponse.json({ configured: false }, { status: 200 });
   }
 
   try {

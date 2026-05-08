@@ -178,7 +178,7 @@ export function useWeatherMapConfig() {
           throw new Error("Failed to get coordinates for city");
         }
         const cities = await geoResponse.json();
-        if (!cities.length) {
+        if (!Array.isArray(cities) || !cities.length) {
           throw new Error("City not found");
         }
         lat = cities[0].lat;
