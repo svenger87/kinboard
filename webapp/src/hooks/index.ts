@@ -355,6 +355,10 @@ export {
 // Offline Cache (generic, any module can use)
 export { useOfflineCachedQuery } from "./use-offline-cache";
 
+// Setup Wizard Hooks
+export { useSetupState, useMarkSetupCompleted } from "./use-setup-state";
+export type { SetupState } from "./use-setup-state";
+
 // Room Management Hooks
 export {
   useRoomsConfig,
