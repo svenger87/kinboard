@@ -107,7 +107,7 @@ export default function WeatherSettingsPage() {
         const response = await fetch(`/api/cities?q=${encodeURIComponent(searchQuery)}`);
         if (response.ok) {
           const data = await response.json();
-          setSuggestions(data);
+          setSuggestions(Array.isArray(data) ? data : []);
         }
       } catch (error) {
         console.error("City search error:", error);
