@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
   if (familyId) {
     try {
       const supabase = await createAdminClient();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: localItem } = await (supabase as any)
         .from("item_catalog")
         .select("*")

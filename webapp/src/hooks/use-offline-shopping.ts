@@ -52,7 +52,7 @@ export function useOfflineShoppingItems() {
   } = useOfflineCachedQuery<ShoppingItem[]>(
     queryKeys.shoppingItems(familyId),
     async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("shopping_items")
         .select("*")

@@ -85,7 +85,7 @@ export default async function RootLayout({
         className={`${inter.variable} ${jetbrainsMono.variable} ${outfit.variable} font-sans antialiased min-h-screen bg-background`}
       >
         <script
-          // eslint-disable-next-line react/no-danger
+           
           dangerouslySetInnerHTML={{
             __html: `window.__ENV=${JSON.stringify(publicEnv)};`,
           }}

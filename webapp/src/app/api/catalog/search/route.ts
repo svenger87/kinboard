@@ -197,7 +197,7 @@ export async function GET(request: NextRequest) {
       const supabase = await createAdminClient();
 
       // Search family-specific and global items
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: localItems, error } = await (supabase as any)
         .from("item_catalog")
         .select("*")
@@ -302,7 +302,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createAdminClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const supabaseAny = supabase as any;
 
     // Check if item already exists

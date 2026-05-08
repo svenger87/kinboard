@@ -16,7 +16,7 @@ interface GoogleCalendarSettings {
 async function getOAuth2Client(familyId: string) {
   const supabase = createAdminClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: settings } = await (supabase as any)
     .from("settings")
     .select("value")
@@ -49,7 +49,7 @@ async function getOAuth2Client(familyId: string) {
     try {
       const { credentials: newTokens } = await oauth2Client.refreshAccessToken();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (supabase as any)
         .from("settings")
         .update({
@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
 
   // Get calendar's google_calendar_id
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: calendarData } = await (supabase as any)
     .from("calendars")
     .select("google_calendar_id")
@@ -246,7 +246,7 @@ export async function POST(request: NextRequest) {
 
     // Update local event with google_event_id if event_id provided
     if (event_id && createdEvent.id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (supabase as any)
         .from("events")
         .update({ google_event_id: createdEvent.id })
@@ -289,7 +289,7 @@ export async function PATCH(request: NextRequest) {
   const supabase = createAdminClient();
 
   // Get event with its calendar's google_calendar_id
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: eventData } = await (supabase as any)
     .from("events")
     .select("google_event_id, calendar:calendars(google_calendar_id)")
@@ -382,7 +382,7 @@ export async function DELETE(request: NextRequest) {
   const supabase = createAdminClient();
 
   // Get event with its calendar's google_calendar_id
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: eventData } = await (supabase as any)
     .from("events")
     .select("google_event_id, calendar:calendars(google_calendar_id)")

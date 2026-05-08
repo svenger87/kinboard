@@ -94,7 +94,7 @@ export function useMealPlan(weekStart: string) {
       mealPlan: MealPlan;
       entries: MealPlanEntryWithRecipe[];
     }> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const supabaseAny = supabase as any;
 
       // Get or create meal plan via upsert. The unique constraint
@@ -153,7 +153,7 @@ export function useAddMealPlanEntry() {
       weekStart: string;
       entry: CreateMealPlanEntryInput;
     }): Promise<MealPlanEntry> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const supabaseAny = supabase as any;
 
       // Race-safe get-or-create — see useMealPlan above.
@@ -208,7 +208,7 @@ export function useUpdateMealPlanEntry() {
     }): Promise<MealPlanEntry> => {
       const { id, ...updates } = update;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase as any)
         .from("meal_plan_entries")
         .update(updates)
@@ -263,7 +263,7 @@ export function useRescheduleMealPlanEntry() {
       newMealType?: MealType;
       currentWeekStart: string;
     }): Promise<MealPlanEntry> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const supabaseAny = supabase as any;
 
       // Get the new week start for the target date
@@ -352,7 +352,7 @@ export function useDeleteMealPlanEntry() {
       entryId: string;
       weekStart: string;
     }): Promise<void> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase as any)
         .from("meal_plan_entries")
         .delete()
@@ -382,7 +382,7 @@ export function useGenerateShoppingFromMealPlan() {
       weekStart: string;
       selectedEntryIds?: string[];
     }): Promise<number> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const supabaseAny = supabase as any;
 
       // Get meal plan
