@@ -116,7 +116,9 @@ export async function POST(request: NextRequest) {
             title: notif.title,
             body: notif.body || "",
             tag: `debug-${notif.notification_type}`,
-            url: notif.notification_type.startsWith("todo") ? "/todos" : "/shopping",
+            // /einkaufen for shopping so iOS opens the installed
+            // Shopping PWA via scope-match (see next.config.mjs).
+            url: notif.notification_type.startsWith("todo") ? "/todos" : "/einkaufen",
           });
           totalSent += result.sent;
         }

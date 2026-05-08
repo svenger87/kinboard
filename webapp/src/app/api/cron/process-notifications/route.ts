@@ -228,7 +228,11 @@ function buildNotificationPayload(
       const body = items.length <= 3
         ? items.join(", ")
         : `${items.slice(0, 3).join(", ")} +${items.length - 3} weitere`;
-      return { title, body, tag: "shopping-update", url: "/shopping" };
+      // /einkaufen (not /shopping) so iOS scope-matches an installed
+      // Shopping PWA on tap. The URL is rewritten to /shopping content
+      // server-side; the URL itself stays /einkaufen for the PWA-launch
+      // detection. See next.config.mjs's rewrites block.
+      return { title, body, tag: "shopping-update", url: "/einkaufen" };
     }
 
     case "todo_assigned": {
