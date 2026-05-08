@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { validateExternalUrl } from "@/lib/validate-external-url";
 
 // Schema.org Recipe type
 interface SchemaOrgRecipe {
@@ -327,24 +328,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate URL
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(url);
-    } catch {
+    // SSRF guard — reject non-http(s) schemes (file://, javascript:,
+    // data:) and literal private/loopback IPs in the host. Returns
+    // 400 with a stable error code; downstream tooling can surface a
+    // user-facing message keyed off `reason`. (CodeQL #21 closure.)
+    const validated = validateExternalUrl(url);
+    if (!validated.ok) {
       return NextResponse.json(
-        { error: "Invalid URL format" },
+        { error: "Invalid URL format", reason: validated.reason },
         { status: 400 }
       );
     }
+    const parsedUrl = validated.url;
 
-    // Fetch the page
-    const response = await fetch(url, {
+    // Fetch the page (12s timeout — recipes are typically small HTML).
+    const response = await fetch(parsedUrl.toString(), {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; FamilyCalendar/1.0)",
         Accept: "text/html,application/xhtml+xml",
         "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
       },
+      signal: AbortSignal.timeout(12_000),
     });
 
     if (!response.ok) {

@@ -89,6 +89,11 @@ async function fetchArticle(url: string): Promise<ArticleResult> {
   }
 
   try {
+    // SSRF protections in place above: protocol check (line ~85),
+    // hostname allowlist (isHostAllowed), 12s AbortSignal timeout.
+    // The allowlist is stricter than the generic blocklist used by
+    // other routes — only registered news-publisher domains pass.
+    // (CodeQL #19 dismissed: existing protections sufficient.)
     const response = await fetch(url, {
       headers: {
         "User-Agent":

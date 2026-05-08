@@ -3,7 +3,14 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { createHash } from "crypto";
 import type { CameraSettings, CameraConfig } from "@/types/home-assistant";
 
-// Generate MD5 hash
+// MD5 is required by RFC 7616 HTTP Digest authentication, which is the
+// only auth method most IP cameras (Hikvision, Amcrest/Dahua, etc.)
+// implement. We're not choosing MD5 for security — we're matching the
+// camera firmware's protocol. The "password hashed insecurely" CodeQL
+// finding is inherent to Digest-MD5 and cannot be remediated without
+// breaking compatibility with every camera the project supports.
+// CodeQL alerts dismissed: #4 (insufficient-password-hash) + #24
+// (weak-cryptographic-algorithm).
 function md5(str: string): string {
   return createHash("md5").update(str).digest("hex");
 }

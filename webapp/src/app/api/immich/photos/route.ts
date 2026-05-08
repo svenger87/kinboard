@@ -78,6 +78,9 @@ export async function GET(request: NextRequest) {
         );
 
         if (!albumResponse.ok) {
+          // Template literal — `${id}` is interpolated as a string value,
+          // not used as a printf-style format specifier. No format-string
+          // injection attack surface. (CodeQL #8 dismissed: false positive.)
           console.error(`Immich album fetch error for ${id}:`, albumResponse.status);
           return [];
         }
