@@ -112,7 +112,10 @@ const nameCache = new Map();
 
 function stableSeededFaker(id) {
   // Hash the UUID, take first 8 hex digits, parse as int seed.
-  const h = crypto.createHash("md5").update(id).digest("hex");
+  // SHA-256 (not MD5) — same deterministic behavior, but avoids the
+  // weak-cryptographic-algorithm CodeQL warning even though this is
+  // a pure seed derivation with no security boundary.
+  const h = crypto.createHash("sha256").update(id).digest("hex");
   return parseInt(h.slice(0, 8), 16);
 }
 
