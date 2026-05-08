@@ -150,6 +150,7 @@
     "joinCodeLabel": "Familien-Code",
     "joinCodePlaceholder": "z.B. ABC123",
     "joinCodeHint": "Frage ein Familienmitglied nach dem 6-stelligen Code",
+    "recoveryHint": "Wird dieses Gerät nach dem Löschen der Browser-Daten oder einem größeren OS-Update nicht mehr erkannt? Den 6-stelligen Familiencode findest du unter /settings auf jedem anderen noch verbundenen Familiengerät. Gib ihn oben ein, um wieder beizutreten — deine Daten sind sicher und an die Familie gebunden, nicht an dieses einzelne Gerät.",
     "deviceNameLabel": "Gerätename",
     "deviceNamePlaceholder": "z.B. Wohnzimmer Display",
     "deviceNameDefault": "Mein Gerät",

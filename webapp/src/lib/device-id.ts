@@ -115,19 +115,33 @@ export async function persistDeviceId(deviceId: string): Promise<void> {
   }
 }
 
-// Generate a device fingerprint for matching (fallback identification)
+// Generate a device fingerprint for matching (fallback identification).
+// Used by /join's "Welcome back" recognition flow when the device-id
+// cookie is gone but the same browser is being used.
+//
+// Inputs deliberately exclude `navigator.userAgent` and
+// `navigator.deviceMemory` — both drift across browser updates and
+// would invalidate every existing match the moment Safari/Chrome
+// pushes a new minor. Today's set (language + screen geometry +
+// timezone + hardwareConcurrency) is stable across browser updates
+// on the same physical device.
+//
+// The trade-off is higher collision rate: two iPhones with the same
+// language/region in the same family produce the same hash. The
+// server-side fingerprint_history array partially mitigates by
+// accumulating per-device hashes, but a brand-new device whose first
+// fingerprint collides with an existing device's history will still
+// be misrecognized as that other device. Acceptable for family-scale
+// (1–10 devices) — and the user can always rejoin via the family code.
 export function getDeviceFingerprint(): string {
   if (typeof window === "undefined") return "";
 
   const components = [
-    navigator.userAgent,
     navigator.language,
     screen.width + "x" + screen.height,
     screen.colorDepth,
     new Date().getTimezoneOffset(),
     navigator.hardwareConcurrency || 0,
-    // @ts-expect-error - deviceMemory is not in all browsers
-    navigator.deviceMemory || 0,
   ];
 
   // Simple hash
