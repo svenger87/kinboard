@@ -94,7 +94,7 @@ import {
   useSwipeNavigation,
 } from "@/hooks";
 import { matchPersonForEvent } from "@/lib/calendar-person-matcher";
-import { getGermanHolidays } from "@/lib/german-holidays";
+import { getHolidays, type CountryCode } from "@/lib/holidays";
 
 // Types
 interface CalendarEvent {
@@ -214,6 +214,8 @@ export default function CalendarPage() {
   const { data: people, isLoading: loadingPeople, error: peopleError, refetch: refetchPeople } = usePeople();
   const { data: calendars, isLoading: loadingCalendars, error: calendarsError, refetch: refetchCalendars } = useCalendars();
   const { data: defaultCalendarId } = useSetting<string | null>("default_calendar_id", null);
+  const { data: holidayCountry } = useSetting<CountryCode>("holiday_country", "de");
+  const country: CountryCode = holidayCountry ?? "de";
   const { data: googleStatus } = useGoogleCalendarStatus();
   const updateSetting = useUpdateSetting<string>();
   const createEvent = useCreateEvent();
@@ -798,7 +800,7 @@ export default function CalendarPage() {
                     </div>
                   </div>
                   {(() => {
-                    const holidays = getGermanHolidays(displayDate.getFullYear());
+                    const holidays = getHolidays(country, displayDate.getFullYear());
                     const holiday = holidays.find((h) => isSameDay(h.date, displayDate));
                     if (holiday) {
                       return (
@@ -915,7 +917,7 @@ export default function CalendarPage() {
                       >
                         {/* Holiday indicator for selected date */}
                         {(() => {
-                          const holidays = getGermanHolidays(displayDate.getFullYear());
+                          const holidays = getHolidays(country, displayDate.getFullYear());
                           const holiday = holidays.find((h) => isSameDay(h.date, displayDate));
                           if (holiday) {
                             return (
