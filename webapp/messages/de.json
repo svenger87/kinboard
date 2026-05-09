@@ -2421,6 +2421,31 @@
       "unavailable": "Nicht verfügbar"
     }
   },
+  "vehicles": {
+    "title": "Fahrzeuge",
+    "loading": "Fahrzeuge werden geladen…",
+    "emptyState": "Noch keine Fahrzeuge konfiguriert.",
+    "addFirstVehicle": "Fahrzeug hinzufügen",
+    "manage": "Verwalten",
+    "unknownVendor": "Unbekannter Fahrzeugtyp: {vendor}",
+    "drivers": {
+      "generic-ev": {
+        "haNotConnected": "Home Assistant ist nicht verbunden. Bitte zuerst in den Einstellungen konfigurieren.",
+        "notConfigured": "Keine Entitäten konfiguriert. Fahrzeug in den Einstellungen bearbeiten.",
+        "charging": "Laden",
+        "section": {
+          "entities": "Entitäts-IDs"
+        },
+        "field": {
+          "batteryLevel": "Ladestand",
+          "chargingState": "Ladezustand",
+          "range": "Reichweite",
+          "location": "Standort",
+          "state": "Status"
+        }
+      }
+    }
+  },
   "familyMembers": {
     "emptyState": "Noch keine Familienmitglieder",
     "detailsAria": "{name} — Details anzeigen",

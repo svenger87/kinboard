@@ -2421,6 +2421,31 @@
       "unavailable": "Unavailable"
     }
   },
+  "vehicles": {
+    "title": "Vehicles",
+    "loading": "Loading vehicles…",
+    "emptyState": "No vehicles configured yet.",
+    "addFirstVehicle": "Add vehicle",
+    "manage": "Manage",
+    "unknownVendor": "Unknown vehicle type: {vendor}",
+    "drivers": {
+      "generic-ev": {
+        "haNotConnected": "Home Assistant is not connected. Configure it in settings first.",
+        "notConfigured": "No entities configured. Edit this vehicle in settings to add entity IDs.",
+        "charging": "Charging",
+        "section": {
+          "entities": "Entity IDs"
+        },
+        "field": {
+          "batteryLevel": "Battery level",
+          "chargingState": "Charging state",
+          "range": "Range",
+          "location": "Location",
+          "state": "State"
+        }
+      }
+    }
+  },
   "familyMembers": {
     "emptyState": "No family members yet",
     "detailsAria": "{name} — show details",
