@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 
 // GET /api/stonks/search?q=apple
 export async function GET(request: NextRequest) {
-  const q = request.nextUrl.searchParams.get("q");
-  if (!q) return NextResponse.json({ results: [] });
+  const q = (request.nextUrl.searchParams.get("q") ?? "").trim().slice(0, 100);
+  if (!q) return NextResponse.json({ error: "q required" }, { status: 400 });
 
   try {
     const results = await searchSymbols(q);
