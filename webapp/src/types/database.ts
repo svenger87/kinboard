@@ -913,6 +913,42 @@ export interface Database {
         };
         Relationships: [];
       };
+      tickers: {
+        Row: {
+          id: string;
+          family_id: string;
+          position: number;
+          symbol: string;
+          asset_type: "stock" | "etf" | "crypto" | "index" | "forex";
+          nickname: string | null;
+          color: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          position?: number;
+          symbol: string;
+          asset_type: "stock" | "etf" | "crypto" | "index" | "forex";
+          nickname?: string | null;
+          color?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          position?: number;
+          symbol?: string;
+          asset_type?: "stock" | "etf" | "crypto" | "index" | "forex";
+          nickname?: string | null;
+          color?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {};
     Functions: {};
@@ -956,6 +992,11 @@ export type NotificationLog = Database["public"]["Tables"]["notification_logs"][
 export type Vehicle = Database["public"]["Tables"]["vehicles"]["Row"];
 export type VehicleInsert = Database["public"]["Tables"]["vehicles"]["Insert"];
 export type VehicleUpdate = Database["public"]["Tables"]["vehicles"]["Update"];
+
+// Stonks / ticker types
+export type Ticker = Database["public"]["Tables"]["tickers"]["Row"];
+export type TickerInsert = Database["public"]["Tables"]["tickers"]["Insert"];
+export type TickerUpdate = Database["public"]["Tables"]["tickers"]["Update"];
 
 // Recipe instruction type
 export interface RecipeInstruction {
