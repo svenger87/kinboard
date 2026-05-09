@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **iCalendar (.ics) feed support** — read-only calendar feeds via shared `.ics` URLs. Covers iCloud Family Sharing calendars, Google's "secret iCal address", and most CalDAV providers in one feature. New `/settings/ics` page lets users paste a URL (or `webcal://` link — auto-rewritten to `https://`), test it with a one-click event-count check, and assign per-feed name/color/person mapping. New cron `/api/cron/sync-ics` runs every 30 min, refreshes events, respects ETag for conditional GETs (no re-parse on 304), and scopes to a −30/+60 day window so feeds with multi-year histories don't bloat the events table. Recurring events are expanded server-side via node-ical's `expandRecurringEvent`, capped at 200 instances per calendar. Deletions are handled: events present in a previous fetch but absent from the current one are removed. New idempotent migration `migration_calendars_ics.sql` adds `ics_url`, `ics_etag`, `last_synced_at` columns to the `calendars` table. **Skips the Google Cloud OAuth setup entirely** for users who only need read-only calendar access.
+
 ### Changed
 - **Cameras surface migrated onto the SurfacePlugin contract** (third registered plugin after Vehicles + Energy). `/cameras/page.tsx` shrinks to a ~30-line shell; the grid render moves to `plugins/cameras/drivers/go2rtc.tsx` as `Go2rtcCard`. The 514-line settings form similarly moves to `Go2rtcConfigForm` in the same driver file. `/cameras` nav visibility is now governed by the plugin's `isNavVisible` predicate (at least one camera configured) instead of the hardcoded `CAMERA_DEPENDENT_HREFS` set in `useVisibleNavItems`. The settings landing page Cameras entry is now gated by `useIsPluginEnabled("cameras")` — disabling the plugin at `/settings/plugins` hides it. No DB migration — the existing `cameras` settings key is unchanged.
 

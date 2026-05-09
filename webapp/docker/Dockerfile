@@ -116,6 +116,11 @@ RUN echo '#!/bin/sh' > /usr/local/bin/schedule-event-reminders && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/schedule-event-reminders' >> /usr/local/bin/schedule-event-reminders && \
     chmod +x /usr/local/bin/schedule-event-reminders
 
+# Add ICS feed sync cron script
+RUN echo '#!/bin/sh' > /usr/local/bin/sync-ics && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-ics' >> /usr/local/bin/sync-ics && \
+    chmod +x /usr/local/bin/sync-ics
+
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
