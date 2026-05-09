@@ -1786,6 +1786,22 @@
       "lang_en": "English",
       "noneSelectedHint": "No sources selected — the news widget and /news page will stay empty until you pick at least one.",
       "changesAutosave": "Changes save automatically"
+    },
+    "itemCalendarLabel": "Calendar",
+    "itemCalendarDescription": "Connect Google Calendar or subscribe to iCalendar (.ics) feeds — including iCloud Family Sharing.",
+    "calendar": {
+      "title": "Calendar",
+      "intro": "Kinboard reads calendar events from two sources. Use one or both — events from all configured sources show up together on the calendar and the today strip.",
+      "googleHeading": "Google Calendar",
+      "googleDescription": "Two-way sync via OAuth. Best when you actively edit events in Kinboard.",
+      "icsHeading": "iCalendar (.ics) feeds",
+      "icsDescription": "Read-only public URLs — covers iCloud Family Sharing, Google secret-iCal, most CalDAV providers.",
+      "statusConnected": "Connected",
+      "statusNotConnected": "Not connected",
+      "statusNoFeeds": "No feeds yet",
+      "statusFeedCount": "{count, plural, one {1 feed} other {# feeds}}",
+      "whyTwoSourcesTitle": "Why two sources?",
+      "whyTwoSourcesBody": "Google Calendar requires a Google Cloud project + OAuth credentials. ICS feeds need only a public URL — much simpler if all you want is to view your iCloud or work calendar without write access."
     }
   },
   "calendar": {
