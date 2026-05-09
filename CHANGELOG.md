@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `/settings/plugins` page lists bundled plugins from the registry with a per-family enable/disable toggle. Storage in `family.settings.enabled_plugins` (JSONB `Record<string,boolean>`); default-on when a plugin id is missing from the blob (so new plugins ship enabled and existing families auto-pick them up). Disabled plugins disappear from the bottom nav, the dashboard widget grid, and the settings integrations list. Data is preserved (no rows deleted) — toggling back on restores the plugin exactly. The Vehicles plugin is the only registry-driven plugin shipping today; Energy and Cameras will join when they migrate to the plugin contract.
 - `/settings/vehicles` settings flow: list page, new-vehicle vendor picker, per-vehicle edit page with shared nickname/color fields + driver-supplied `ConfigForm`. `/settings/tesla` now redirects (308) to `/settings/vehicles`; the old 769-line tesla settings page is replaced by a one-line redirect stub.
 
 ### Changed

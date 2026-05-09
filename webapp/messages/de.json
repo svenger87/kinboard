@@ -1661,6 +1661,20 @@
     "updateAvailable": "Update auf {version} verfügbar",
     "itemNewsLabel": "Nachrichtenquellen",
     "itemNewsDescription": "Welche RSS-Feeds das News-Widget und die /news-Seite befüllen",
+    "itemPluginsLabel": "Plugins",
+    "itemPluginsDescription": "Integrierte Plugins für diese Familie aktivieren oder deaktivieren.",
+    "plugins": {
+      "title": "Plugins",
+      "intro": "Integrierte Plugins für diese Familie aktivieren oder deaktivieren. Deaktivierte Plugins verschwinden aus der Navigation, dem Dashboard und der Integrationsliste — die Daten bleiben erhalten (keine Zeilen werden gelöscht; durch erneutes Aktivieren wird das Plugin genau wiederhergestellt).",
+      "noPlugins": "In diesem Build sind keine Plugins enthalten.",
+      "footnote": "Plugins sind Bestandteil des Kinboard-Builds. Informationen zur Installation von Drittanbieter-Plugins findest du auf der Wiki-Seite zur Plugin-Architektur.",
+      "label": {
+        "vehicles": "Fahrzeuge"
+      },
+      "description": {
+        "vehicles": "Fahrzeuge im Haushalt über Home-Assistant-Entitäten verfolgen. Tesla- und Generic-EV-Treiber sind im Kern enthalten."
+      }
+    },
     "news": {
       "title": "Nachrichtenquellen",
       "subtitle": "Welche RSS-Feeds das News-Widget und die /news-Seite befüllen",

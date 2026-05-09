@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useVehicles } from "@/hooks/use-vehicles";
+import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { getDriver } from "@/plugins/vehicles/drivers/registry";
 
 const ROTATE_INTERVAL_MS = 8000;
 
 export function VehiclesWidget() {
+  const enabled = useIsPluginEnabled("vehicles");
   const { data: vehicles = [] } = useVehicles();
   const [activeIdx, setActiveIdx] = useState(0);
 
@@ -20,6 +22,7 @@ export function VehiclesWidget() {
     return () => clearInterval(id);
   }, [vehicles.length]);
 
+  if (!enabled) return null;
   if (vehicles.length === 0) return null;
 
   // Clamp activeIdx if vehicles list shrank
