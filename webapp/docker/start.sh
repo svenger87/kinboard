@@ -103,9 +103,32 @@ SQL
 # Apply every webapp/docker/migration*.sql to the running DB.
 # Each migration file uses `IF NOT EXISTS` / `IF EXISTS` guards so re-running
 # is a no-op. We call this from `up` so a fresh install gets the full schema
-# (init.sql only ships the original tables; six migrations add columns the
+# (init.sql only ships the original tables; later migrations add columns the
 # webapp depends on, e.g. devices.hardware_id / devices.fingerprint, and
-# tables like recipes / meals / notification_preferences).
+# tables like recipes / meals / notification_preferences / vehicles).
+#
+# ORDERING CONVENTION — migrations apply in alphabetical order (bash glob).
+# That has two real implications when adding a new migration file:
+#
+#   1. If migration B depends on a table/column created in migration A
+#      (e.g. `migration_vehicles_image.sql` ALTERs the `vehicles` table
+#      that `migration_vehicles.sql` creates), B's filename must sort
+#      AFTER A's. Use a `_<topic>` suffix matching the parent — Postgres'
+#      ASCII has `.` (46) < `_` (95), so `migration_vehicles.sql` sorts
+#      before `migration_vehicles_image.sql`. Subject suffixes that don't
+#      share the parent prefix (e.g. `migration_unique_constraints.sql`)
+#      can interleave, so check the resulting order with `ls migration*.sql`
+#      before committing.
+#
+#   2. The unsuffixed `migration.sql` is the historical catch-all from
+#      pre-1.0 — it sorts FIRST and folds in everything pre-dating the
+#      `migration_<topic>.sql` convention. New migrations should always
+#      use the `_<topic>` suffix; do not touch `migration.sql`.
+#
+# This same loop is duplicated in webapp-entrypoint.sh — when migrations
+# are baked into the webapp Docker image, the entrypoint applies them on
+# container start so Watchtower-driven updates pick up new schema without
+# the operator running `start.sh migrate` manually. Keep the two in sync.
 run_migrations() {
   set +e
   local found=0 migration
