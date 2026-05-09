@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
 import {
@@ -973,18 +973,36 @@ export function TeslaConfigForm({
     vehicle.config as TeslaConfig
   );
 
-  // Keep local state in sync if the vehicle row is refreshed externally
+  // Tracks whether the user has touched the form. Once dirty, server refetches
+  // don't clobber in-progress edits.
+  const dirtyRef = useRef(false);
+
+  // Sync edit state from server only until the user starts editing.
   useEffect(() => {
+    if (dirtyRef.current) return;
     setEditingConfig(vehicle.config as TeslaConfig);
   }, [vehicle.config]);
 
+  // Reset dirty flag when switching to a different vehicle.
+  useEffect(() => {
+    dirtyRef.current = false;
+  }, [vehicle.id]);
+
   const isConnected = !!settings?.url && !!settings?.access_token;
+
+  const updateEditingConfig = useCallback(
+    (updater: TeslaConfig | ((prev: TeslaConfig) => TeslaConfig)) => {
+      dirtyRef.current = true;
+      setEditingConfig(updater as TeslaConfig);
+    },
+    []
+  );
 
   const updateField = (
     field: keyof TeslaConfig,
     value: string | number | boolean | undefined
   ) => {
-    setEditingConfig((prev) => {
+    updateEditingConfig((prev) => {
       const next = { ...prev, [field]: value === "" ? undefined : value };
       onConfigChange(next);
       return next;
@@ -1532,7 +1550,8 @@ export function TeslaConfigForm({
       <div className="flex justify-end">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Check className="size-4" />
-          {t("autoSaveHint", { defaultMessage: "Changes saved automatically" })}
+          {/* No translation key yet — vehicles.* namespace added in a later task */}
+          Saved automatically.
         </div>
       </div>
     </div>
