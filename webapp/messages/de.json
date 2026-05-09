@@ -260,7 +260,8 @@
     "vehicles": "Fahrzeuge",
     "cameras": "Kameras",
     "settings": "Einstellungen",
-    "news": "Nachrichten"
+    "news": "Nachrichten",
+    "stonks": "Stonks"
   },
   "cameras": {
     "title": "Kameras",
@@ -866,7 +867,11 @@
       "vehiclesLabel": "Fahrzeuge",
       "vehiclesDescription": "Akkustand, Reichweite und Ladestatus für alle Fahrzeuge im Haushalt",
       "vehiclesPreview1": "🔋 78% — 285 km",
-      "vehiclesPreview2": "Wechselt zwischen allen Fahrzeugen"
+      "vehiclesPreview2": "Wechselt zwischen allen Fahrzeugen",
+      "stonksLabel": "Aktien",
+      "stonksDescription": "Rotierendes Watchlist-Widget — Kurs und Tagesveränderung",
+      "stonksPreview1": "AAPL +1,23 %",
+      "stonksPreview2": "Wechselt zwischen allen beobachteten Symbolen"
     },
     "theme": {
       "title": "Design",
@@ -2863,5 +2868,33 @@
     "toastDeleteFailed": "Artikel konnte nicht gelöscht werden",
     "toastClearedAll": "{count, plural, one {# Artikel entfernt} other {# Artikel entfernt}}",
     "toastClearPartial": "Einige Artikel konnten nicht entfernt werden"
+  },
+  "stonks": {
+    "title": "Stonks",
+    "loading": "Lade Aktien…",
+    "emptyState": "Deine Watchlist ist leer. Füge ein Symbol hinzu, um zu starten.",
+    "addFirst": "Erste Aktie hinzufügen",
+    "manage": "Verwalten",
+    "driverMissing": "Kein Datentreiber für dieses Symbol registriert.",
+    "marketState": {
+      "pre": "Vorbörslich",
+      "regular": "Geöffnet",
+      "post": "Nachbörslich",
+      "closed": "Geschlossen"
+    },
+    "timeframe": {
+      "1d": "1T",
+      "1w": "1W",
+      "1m": "1M",
+      "3m": "3M",
+      "1y": "1J",
+      "max": "Max"
+    },
+    "drivers": {
+      "yahoo-finance": {
+        "quoteUnavailable": "Kurs nicht verfügbar",
+        "chartUnavailable": "Chartdaten nicht verfügbar"
+      }
+    }
   }
 }
