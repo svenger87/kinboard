@@ -243,11 +243,17 @@ services:
   # public-bucket reads with CORS only; everything else falls through to
   # the keyed `storage-v1` service below.
   - name: storage-v1-public
-    _comment: "Storage public reads: /storage/v1/object/public/* -> storage:5000/*"
-    url: http://storage:5000/
+    _comment: "Storage public reads: /storage/v1/object/public/* -> storage:5000/object/public/*"
+    # The upstream URL keeps the `/object/public/` prefix so that with
+    # strip_path: true (which strips `/storage/v1/object/public/`), the
+    # final upstream path is `/object/public/<bucket>/<key>` — exactly
+    # what the storage container expects. The catchall storage-v1 route
+    # below uses the same pattern (`url: http://storage:5000/` with
+    # strip_path on `/storage/v1/`) so storage gets `/object/...`.
+    url: http://storage:5000/object/public/
     routes:
       - name: storage-v1-public-route
-        strip_path: false
+        strip_path: true
         paths:
           - /storage/v1/object/public/
     plugins:
