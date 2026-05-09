@@ -42,6 +42,12 @@
 - [[Notifications]]
 - [[Themes]]
 
+**Plugins (per-family on/off)**
+- [[Plugin directory|Plugin-Directory]]
+- [[Vehicles]]
+- [[Stonks]]
+
 **Contributing**
 - [[Plugin-Authoring]]
+- [[Plugin architecture|Plugin-Architecture]]
 - [[Screenshots TODO|Screenshots-needed]]

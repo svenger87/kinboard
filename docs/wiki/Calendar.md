@@ -88,12 +88,26 @@ Hidden under [Settings → Google Calendar](Google-Calendar.md). Useful when:
 
 Rules support `contains` / `starts_with` / `ends_with` / `regex` matching. Test in-place with the **Test** button before saving.
 
+## iCalendar (.ics) feeds
+
+Read-only `.ics` feeds shipped in v1.0.19 and live alongside Google Calendar. The two providers can coexist — a typical setup is "Google for the family's main shared calendar (read/write) plus iCloud Family Sharing as an .ics feed for the partner's iPhone calendar (read-only)".
+
+Add a feed at `/settings/ics`:
+
+1. Paste the feed URL. `webcal://` links from iCloud and Google's "secret iCal address" are auto-rewritten to `https://`.
+2. Click **Test** — Kinboard fetches the feed and reports the event count + the first event's title so you can sanity-check before saving.
+3. Set a name, color, and (optionally) the family member it represents.
+4. Click **Sync now** any time to refresh; otherwise the feed re-syncs every 30 minutes via cron. ETag conditional GETs mean a 304 from the upstream is a no-op (no re-parse).
+
+Recurring events are expanded server-side and capped at 200 instances per calendar. The sync window is −30 days to +60 days from "now" so multi-year feeds don't bloat the events table. Events present in a previous fetch but absent from the current one are removed.
+
+ICS sources Kinboard handles cleanly today: iCloud Family Sharing, Google's "secret iCal address", Outlook/Office 365 calendar publishing, most CalDAV providers (via their published `.ics` URL), school district calendars, sports league schedules.
+
 ## What's not supported
 
 - **Attendees / invites.** Google events show their attendees in the day panel as read-only text; you can't RSVP or invite people from Kinboard.
-- **iCalendar (.ics) feeds** — only Google Calendar today. ICS support is on the wishlist.
-- **Reminders / notifications for upcoming events.** Web push is wired up for shopping + tasks; calendar-event notifications planned for v1.1.
 - **Editing read-only subscribed Google calendars** — if Google itself marks the calendar as read-only (someone else's calendar shared with you, public holiday calendars, etc.), Kinboard can't write to it either.
+- **Writing to ICS feeds.** ICS support is read-only by design — feeds are typically published-only URLs without CalDAV write semantics. Use Google Calendar for editable family events.
 
 ## Related
 
