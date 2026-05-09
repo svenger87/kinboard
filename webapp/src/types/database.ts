@@ -114,6 +114,9 @@ export interface Database {
           is_holidays: boolean;
           is_waste_collection: boolean;
           created_at: string;
+          ics_url: string | null;
+          ics_etag: string | null;
+          last_synced_at: string | null;
         };
         Insert: {
           id?: string;
@@ -125,6 +128,9 @@ export interface Database {
           is_holidays?: boolean;
           is_waste_collection?: boolean;
           created_at?: string;
+          ics_url?: string | null;
+          ics_etag?: string | null;
+          last_synced_at?: string | null;
         };
         Update: {
           id?: string;
@@ -136,6 +142,9 @@ export interface Database {
           is_holidays?: boolean;
           is_waste_collection?: boolean;
           created_at?: string;
+          ics_url?: string | null;
+          ics_etag?: string | null;
+          last_synced_at?: string | null;
         };
         Relationships: [];
       };

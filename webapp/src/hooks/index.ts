@@ -58,6 +58,8 @@ export {
   useCalendars,
   useCreateCalendar,
   useUpdateCalendar,
+  useCreateIcsCalendar,
+  useDeleteCalendar,
   useEvents,
   useCreateEvent,
   useUpdateEvent,

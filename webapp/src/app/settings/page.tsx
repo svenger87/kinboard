@@ -27,6 +27,7 @@ import {
   Languages,
   Newspaper,
   Puzzle,
+  Rss,
 } from "lucide-react";
 import { PinGuard } from "@/components/pin-guard";
 import { GlassCard } from "@/components/ui/card";
@@ -163,6 +164,12 @@ export default function SettingsPage() {
           label: t("itemGoogleLabel"),
           description: t("itemGoogleDescription"),
           href: "/settings/google",
+        },
+        {
+          icon: Rss,
+          label: t("itemIcsLabel"),
+          description: t("itemIcsDescription"),
+          href: "/settings/ics",
         },
         {
           icon: ShoppingCart,

@@ -782,8 +782,9 @@ export function useUpdateCalendar() {
       name?: string;
       is_holidays?: boolean;
       is_waste_collection?: boolean;
+      ics_url?: string | null;
     }) => {
-       
+
       const { data, error } = await (supabase as any)
         .from("calendars")
         .update(updates)
@@ -793,6 +794,67 @@ export function useUpdateCalendar() {
 
       if (error) throw error;
       return data as Calendar;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendars", requireFamilyId(family)] });
+    },
+  });
+}
+
+export function useCreateIcsCalendar() {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async (calendar: {
+      name: string;
+      color: string;
+      ics_url: string;
+      person_id?: string | null;
+      is_holidays?: boolean;
+      is_waste_collection?: boolean;
+    }) => {
+
+      const { data, error } = await (supabase as any)
+        .from("calendars")
+        .insert({
+          ...calendar,
+          family_id: requireFamilyId(family),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Calendar;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendars", requireFamilyId(family)] });
+    },
+  });
+}
+
+export function useDeleteCalendar() {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async (calendarId: string) => {
+      // Delete associated events first
+
+      await (supabase as any)
+        .from("events")
+        .delete()
+        .eq("calendar_id", calendarId);
+
+
+      const { error } = await (supabase as any)
+        .from("calendars")
+        .delete()
+        .eq("id", calendarId);
+
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["calendars", requireFamilyId(family)] });
