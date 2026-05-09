@@ -119,7 +119,24 @@ async function fetchArticle(url: string): Promise<ArticleResult> {
       return { readable: false, url, reason: "extraction-failed" };
     }
 
-    const sanitized = DOMPurify.sanitize(article.content, {
+    // Dedupe responsive-image variants. Some publishers (Spiegel,
+    // notably) include the same image at multiple sizes inside a single
+    // <figure> for art-direction reasons — Mozilla Readability keeps
+    // both, which means the article body renders the same image twice.
+    // Walk the parsed Readability output before sanitization and, for
+    // each <figure>/<picture> with more than one <img>, keep only the
+    // first. This is a structural fix (semantically a <figure> always
+    // represents ONE image) and doesn't depend on URL-pattern guessing.
+    const dedupeDom = new JSDOM(article.content);
+    for (const wrapper of dedupeDom.window.document.querySelectorAll("figure, picture")) {
+      const imgs = wrapper.querySelectorAll("img");
+      if (imgs.length > 1) {
+        for (let i = 1; i < imgs.length; i++) imgs[i].remove();
+      }
+    }
+    const dedupedContent = dedupeDom.window.document.body.innerHTML;
+
+    const sanitized = DOMPurify.sanitize(dedupedContent, {
       ALLOWED_TAGS: [
         "p",
         "br",
