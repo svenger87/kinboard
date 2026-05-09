@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import type { Vehicle } from "@/types/database";
 
-export interface VehicleDriver<TConfig = Record<string, unknown>> {
+export interface VehicleDriver<TConfig = unknown> {
   /** Matches `vehicle.vendor` in the DB row. */
   id: Vehicle["vendor"];
 
