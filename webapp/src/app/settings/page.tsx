@@ -161,15 +161,9 @@ export default function SettingsPage() {
       items: [
         {
           icon: Calendar,
-          label: t("itemGoogleLabel"),
-          description: t("itemGoogleDescription"),
-          href: "/settings/google",
-        },
-        {
-          icon: Rss,
-          label: t("itemIcsLabel"),
-          description: t("itemIcsDescription"),
-          href: "/settings/ics",
+          label: t("itemCalendarLabel"),
+          description: t("itemCalendarDescription"),
+          href: "/settings/calendar",
         },
         {
           icon: ShoppingCart,

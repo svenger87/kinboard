@@ -1786,6 +1786,22 @@
       "lang_en": "Englisch",
       "noneSelectedHint": "Keine Quellen ausgewählt — das News-Widget und /news bleiben leer, bis mindestens eine Quelle aktiviert ist.",
       "changesAutosave": "Änderungen werden automatisch gespeichert"
+    },
+    "itemCalendarLabel": "Kalender",
+    "itemCalendarDescription": "Google Kalender verbinden oder iCalendar-Feeds (.ics) abonnieren — auch iCloud-Familienfreigabe.",
+    "calendar": {
+      "title": "Kalender",
+      "intro": "Kinboard liest Kalendertermine aus zwei Quellen. Nutze eine oder beide — Termine aus allen Quellen erscheinen gemeinsam im Kalender und in der heutigen Übersicht.",
+      "googleHeading": "Google Kalender",
+      "googleDescription": "Bidirektionale Synchronisation über OAuth. Ideal, wenn du Termine aktiv in Kinboard bearbeiten möchtest.",
+      "icsHeading": "iCalendar-Feeds (.ics)",
+      "icsDescription": "Nur lesbare öffentliche URLs — funktioniert mit iCloud-Familienfreigabe, Google-Geheimadresse, CalDAV.",
+      "statusConnected": "Verbunden",
+      "statusNotConnected": "Nicht verbunden",
+      "statusNoFeeds": "Noch keine Feeds",
+      "statusFeedCount": "{count, plural, one {1 Feed} other {# Feeds}}",
+      "whyTwoSourcesTitle": "Warum zwei Quellen?",
+      "whyTwoSourcesBody": "Google Kalender benötigt ein Google-Cloud-Projekt mit OAuth. ICS-Feeds brauchen nur eine öffentliche URL — viel einfacher, wenn du nur dein iCloud- oder Arbeitskalender ansehen willst, ohne Schreibrechte."
     }
   },
   "calendar": {
