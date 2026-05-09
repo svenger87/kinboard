@@ -26,9 +26,17 @@ export interface EntitySelectorProps {
   searchPlaceholder: string;
   noneLabel: string;
   selectPlaceholder: string;
-  /** Called when the filtered list exceeds 100 entries; receives the overflow
-   *  count so the caller can produce e.g. "+ 42 more". */
+  /** Label shown when the dropdown is truncated to ~100 visible entries.
+   *  Receives the *overflow* count (`filteredEntities.length - 100`),
+   *  not the total. Caller should localize: e.g. `(n) => t("moreCount", { count: n })`.
+   *  This is a function prop because the overflow count is computed
+   *  inside the component and would otherwise be unknown to the caller. */
   moreCountLabel: (count: number) => string;
+  /** Optional substring matched against `entity_id` to float matching entries
+   *  to the top of the list before alphabetical sort. Vendor-specific callers
+   *  (e.g. Tesla settings) can pass `"tesla"`; generic callers omit it for
+   *  plain alphabetical ordering. */
+  priorityPattern?: string;
 }
 
 export function EntitySelector({
@@ -44,6 +52,7 @@ export function EntitySelector({
   noneLabel,
   selectPlaceholder,
   moreCountLabel,
+  priorityPattern,
 }: EntitySelectorProps) {
   const [search, setSearch] = useState("");
 
@@ -109,10 +118,13 @@ export function EntitySelector({
           {filteredEntities
             .filter((entity) => entity.entity_id)
             .sort((a, b) => {
-              // Prioritize Tesla entities
-              const aT = a.entity_id.toLowerCase().includes("tesla") ? 0 : 1;
-              const bT = b.entity_id.toLowerCase().includes("tesla") ? 0 : 1;
-              return aT - bT || a.name.localeCompare(b.name);
+              if (priorityPattern) {
+                const pat = priorityPattern.toLowerCase();
+                const aP = a.entity_id.toLowerCase().includes(pat) ? 0 : 1;
+                const bP = b.entity_id.toLowerCase().includes(pat) ? 0 : 1;
+                if (aP !== bP) return aP - bP;
+              }
+              return a.name.localeCompare(b.name);
             })
             .slice(0, 100)
             .map((entity) => (
