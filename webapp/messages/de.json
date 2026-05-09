@@ -775,6 +775,8 @@
     "itemEnergyDescription": "Solar-, Batterie- und Netz-Energie-Dashboard auf Basis von Home Assistant.",
     "itemCamerasLabel": "Kameras",
     "itemCamerasDescription": "Überwachungskameras verwalten",
+    "itemStonksLabel": "Aktien & Watchlist",
+    "itemStonksDescription": "Investitions-Watchlist verwalten",
     "itemWidgetsLabel": "Widgets",
     "itemWidgetsDescription": "Dashboard-Widgets ein-/ausblenden",
     "itemThemeLabel": "Design",
@@ -1783,6 +1785,21 @@
         "energy": "Solar-, Batterie- und Netzfluss-Dashboard auf Basis von Home-Assistant-Entitäten.",
         "cameras": "Live-WebRTC-Streams deiner Überwachungskameras über go2rtc."
       }
+    },
+    "stonks": {
+      "title": "Aktien & Watchlist",
+      "subtitle": "Investitions-Watchlist verwalten",
+      "intro": "Suche nach Aktien, ETFs, Kryptowährungen oder Indizes und füge sie zur familiären Watchlist hinzu. Jedes Symbol wird auf dem Dashboard angezeigt.",
+      "addHeading": "Symbol hinzufügen",
+      "searchPlaceholder": "Ticker oder Unternehmensname suchen…",
+      "watchlistHeading": "Watchlist",
+      "emptyWatchlist": "Noch keine Symbole — suche oben, um das erste hinzuzufügen.",
+      "nicknameLabel": "Anzeigename",
+      "colorLabel": "Farbe",
+      "confirmDeleteTitle": "Von der Watchlist entfernen?",
+      "confirmDeleteDescription": "{symbol} von der Watchlist entfernen. Verlaufsdaten werden nicht gelöscht.",
+      "cancelButton": "Abbrechen",
+      "deleteButton": "Entfernen"
     },
     "news": {
       "title": "Nachrichtenquellen",

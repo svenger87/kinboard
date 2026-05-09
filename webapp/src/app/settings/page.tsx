@@ -28,6 +28,7 @@ import {
   Newspaper,
   Puzzle,
   Rss,
+  LineChart,
 } from "lucide-react";
 import { PinGuard } from "@/components/pin-guard";
 import { GlassCard } from "@/components/ui/card";
@@ -73,6 +74,7 @@ export default function SettingsPage() {
   const vehiclesPluginEnabled = useIsPluginEnabled("vehicles");
   const energyPluginEnabled = useIsPluginEnabled("energy");
   const camerasPluginEnabled = useIsPluginEnabled("cameras");
+  const stonksPluginEnabled = useIsPluginEnabled("stonks");
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", ""]);
   const pinInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -200,6 +202,12 @@ export default function SettingsPage() {
           label: t("itemCamerasLabel"),
           description: t("itemCamerasDescription"),
           href: "/settings/cameras",
+        }] : []),
+        ...(stonksPluginEnabled ? [{
+          icon: LineChart,
+          label: t("itemStonksLabel"),
+          description: t("itemStonksDescription"),
+          href: "/settings/stonks",
         }] : []),
       ],
     },
