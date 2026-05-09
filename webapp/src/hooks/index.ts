@@ -378,3 +378,12 @@ export {
   useEntityRoom,
   useUnassignedEntities,
 } from "./use-rooms";
+
+// Vehicle Hooks
+export {
+  useVehicles,
+  useVehicle,
+  useSaveVehicle,
+  useDeleteVehicle,
+  useVehiclesCount,
+} from "./use-vehicles";
