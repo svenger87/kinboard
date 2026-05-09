@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { fetchIcsCalendar } from "@/lib/ics-fetcher";
-import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
+import { syncIcsCalendar, IcsSyncResult } from "@/lib/ics-sync";
+import type { PersonMappingRule } from "@/lib/calendar-person-matcher";
 
 // Force Node.js runtime + dynamic — node-ical (transitive: http, https,
 // fs) is Node-only and Next's static page-data collector fails to bundle
@@ -11,142 +11,10 @@ export const dynamic = "force-dynamic";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
-interface IcsSyncResult {
-  calendarId: string;
-  success: boolean;
-  synced?: number;
-  created?: number;
-  updated?: number;
-  deleted?: number;
-  notModified?: boolean;
-  error?: string;
-}
-
-async function syncIcsCalendar(
-  calendarId: string,
-  icsUrl: string,
-  previousEtag: string | null,
-  calendarPersonId: string | null,
-  mappingRules: PersonMappingRule[],
-): Promise<IcsSyncResult> {
-  const supabase = createAdminClient();
-
-  let fetchResult;
-  try {
-    fetchResult = await fetchIcsCalendar(icsUrl, previousEtag);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown fetch error";
-    console.error(`[sync-ics] Fetch failed for calendar ${calendarId}: ${msg}`);
-    return { calendarId, success: false, error: msg };
-  }
-
-  const now = new Date().toISOString();
-
-  if (fetchResult.notModified) {
-    // Server returned 304 — no parse needed, just bump last_synced_at
-
-    await (supabase as any)
-      .from("calendars")
-      .update({ last_synced_at: now })
-      .eq("id", calendarId);
-
-    console.log(`[sync-ics] Calendar ${calendarId}: 304 Not Modified`);
-    return { calendarId, success: true, notModified: true, synced: 0, created: 0, updated: 0, deleted: 0 };
-  }
-
-  const { events } = fetchResult;
-  const freshUids = new Set(events.map((e) => `ics:${e.uid}`));
-
-  let created = 0;
-  let updated = 0;
-  let deleted = 0;
-
-  // Upsert each event
-  for (const ev of events) {
-    const googleEventId = `ics:${ev.uid}`;
-
-    let personId: string | null = calendarPersonId;
-    if (!personId && mappingRules.length > 0) {
-      personId = matchPersonForEvent(ev.title, mappingRules) ?? null;
-    }
-
-    const eventData = {
-      calendar_id: calendarId,
-      google_event_id: googleEventId,
-      title: ev.title,
-      description: ev.description,
-      location: ev.location,
-      start_at: ev.start_at,
-      end_at: ev.end_at,
-      all_day: ev.all_day,
-      person_id: personId,
-      updated_at: now,
-    };
-
-
-    const { data: existing } = await (supabase as any)
-      .from("events")
-      .select("id")
-      .eq("calendar_id", calendarId)
-      .eq("google_event_id", googleEventId)
-      .single();
-
-    if (existing) {
-
-      await (supabase as any)
-        .from("events")
-        .update(eventData)
-        .eq("id", existing.id);
-      updated++;
-    } else {
-
-      await (supabase as any).from("events").insert(eventData);
-      created++;
-    }
-  }
-
-  // Delete events that were in the table but are not in the fresh fetch
-  // (handles ICS-side deletions)
-
-  const { data: existingIcsEvents } = await (supabase as any)
-    .from("events")
-    .select("id, google_event_id")
-    .eq("calendar_id", calendarId)
-    .like("google_event_id", "ics:%");
-
-  for (const row of existingIcsEvents ?? []) {
-    if (!freshUids.has(row.google_event_id)) {
-
-      await (supabase as any).from("events").delete().eq("id", row.id);
-      deleted++;
-    }
-  }
-
-  // Persist updated ETag + last_synced_at
-
-  await (supabase as any)
-    .from("calendars")
-    .update({
-      ics_etag: fetchResult.etag,
-      last_synced_at: now,
-    })
-    .eq("id", calendarId);
-
-  console.log(
-    `[sync-ics] Calendar ${calendarId}: synced=${events.length}, created=${created}, updated=${updated}, deleted=${deleted}`
-  );
-
-  return {
-    calendarId,
-    success: true,
-    synced: events.length,
-    created,
-    updated,
-    deleted,
-  };
-}
-
-// POST: sync all ICS-backed calendars across all families
+// POST: sync all ICS-backed calendars across all families. Auth via
+// CRON_SECRET. The user-triggered single-family equivalent lives at
+// /api/calendar/sync-ics (different auth, same per-calendar work via
+// the shared `syncIcsCalendar` helper in lib/ics-sync.ts).
 export async function POST(request: NextRequest) {
   if (!CRON_SECRET) {
     console.error("[sync-ics] CRON_SECRET not configured");
@@ -159,11 +27,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  console.log("[sync-ics] Starting ICS sync");
+  console.log("[sync-ics] Starting cross-family ICS sync");
 
   const supabase = createAdminClient();
 
-  // Fetch all ICS-backed calendars
 
   const { data: icsCalendars, error } = await (supabase as any)
     .from("calendars")
@@ -188,7 +55,8 @@ export async function POST(request: NextRequest) {
 
   console.log(`[sync-ics] Found ${icsCalendars.length} ICS calendar(s)`);
 
-  // Gather mapping rules per family (reuse google-calendar pattern from settings key)
+  // Mapping rules per family (same convention as the user-triggered path
+  // — pulled from the google_calendar settings key).
   const familyIds = [...new Set(icsCalendars.map((c: { family_id: string }) => c.family_id))] as string[];
   const mappingRulesByFamily = new Map<string, PersonMappingRule[]>();
 
@@ -205,25 +73,29 @@ export async function POST(request: NextRequest) {
     mappingRulesByFamily.set(familyId, rules);
   }
 
-  // Process each calendar independently
   const results = await Promise.allSettled(
-    icsCalendars.map((cal: { id: string; family_id: string; ics_url: string; ics_etag: string | null; person_id: string | null }) =>
-      syncIcsCalendar(
-        cal.id,
-        cal.ics_url,
-        cal.ics_etag,
-        cal.person_id,
-        mappingRulesByFamily.get(cal.family_id) ?? [],
-      )
-    )
+    icsCalendars.map(
+      (cal: {
+        id: string;
+        family_id: string;
+        ics_url: string;
+        ics_etag: string | null;
+        person_id: string | null;
+      }) =>
+        syncIcsCalendar(
+          cal.id,
+          cal.ics_url,
+          cal.ics_etag,
+          cal.person_id,
+          mappingRulesByFamily.get(cal.family_id) ?? [],
+        ),
+    ),
   );
 
   const succeeded = results.filter(
-    (r) => r.status === "fulfilled" && r.value.success
+    (r): r is PromiseFulfilledResult<IcsSyncResult> => r.status === "fulfilled" && r.value.success,
   ).length;
-  const failed = results.filter(
-    (r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.success)
-  ).length;
+  const failed = results.length - succeeded;
 
   results.forEach((result, index) => {
     const calId = icsCalendars[index].id;

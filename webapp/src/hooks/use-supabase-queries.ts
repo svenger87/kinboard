@@ -862,6 +862,52 @@ export function useDeleteCalendar() {
   });
 }
 
+// User-triggered manual sync for ICS calendars. Hits the same
+// /api/calendar/sync-ics endpoint the "Sync now" button on
+// /settings/ics calls. Mirrors the shape of useGoogleCalendarSync —
+// returns sync stats (processed/succeeded/failed) and invalidates
+// calendar + event queries on success so the UI refreshes.
+export function useIcsSync() {
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!family?.id) throw new Error("No family");
+      const response = await fetch("/api/calendar/sync-ics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ family_id: family.id }),
+      });
+      if (!response.ok) {
+        const err = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(err.error ?? `Sync failed: ${response.status}`);
+      }
+      return response.json() as Promise<{
+        ok: true;
+        processed: number;
+        succeeded: number;
+        failed: number;
+        results: Array<{
+          calendarId: string;
+          success: boolean;
+          synced?: number;
+          created?: number;
+          updated?: number;
+          deleted?: number;
+          notModified?: boolean;
+          error?: string;
+        }>;
+        timestamp: string;
+      }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendars", requireFamilyId(family)] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+  });
+}
+
 // EVENTS HOOKS
 // ===================
 

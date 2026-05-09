@@ -60,6 +60,7 @@ export {
   useUpdateCalendar,
   useCreateIcsCalendar,
   useDeleteCalendar,
+  useIcsSync,
   useEvents,
   useCreateEvent,
   useUpdateEvent,
