@@ -12,6 +12,7 @@ import {
   Zap,
   Car,
   Video,
+  LineChart,
   Newspaper,
   Settings,
 } from "lucide-react";
@@ -62,6 +63,7 @@ export const NAV_ITEMS = [
   { href: "/home-automation", icon: Plug, labelKey: "homeAutomation" },
   { href: "/energy", icon: Zap, labelKey: "energy" },
   { href: "/vehicles", icon: Car, labelKey: "vehicles" },
+  { href: "/stonks", icon: LineChart, labelKey: "stonks" },
   { href: "/cameras", icon: Video, labelKey: "cameras" },
   { href: "/news", icon: Newspaper, labelKey: "news" },
   { href: "/settings", icon: Settings, labelKey: "settings" },
