@@ -17,9 +17,9 @@ Calendar · weather · photos · shopping list · smart-home — one screen, eve
 
 <br/>
 
-### **[▶ Try the live demo at demo.kinboard.app](https://demo.kinboard.app)**
+### **[Visit kinboard.app](https://kinboard.app)** &nbsp;·&nbsp; **[▶ Try the live demo](https://demo.kinboard.app)**
 
-<sub>Use join code **`DEMO01`** to load a populated household, or create your own family from scratch. Demo data resets daily — bring your own ideas; don't bring your real shopping list.</sub>
+<sub>The landing page at **[kinboard.app](https://kinboard.app)** has the pitch, screenshots, and install path. The demo at **[demo.kinboard.app](https://demo.kinboard.app)** runs the latest tagged release with mock integrations — use join code **`DEMO01`** to load a populated household, or create your own family from scratch. Demo data resets daily.</sub>
 
 <br/>
 
