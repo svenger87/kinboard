@@ -1,6 +1,7 @@
 import { Car } from "lucide-react";
 import type { SurfacePlugin } from "../types";
 import { useVehiclesCount } from "@/hooks/use-vehicles";
+import { VehiclesWidget } from "@/components/widgets/vehicles-widget";
 
 export const vehiclesPlugin: SurfacePlugin = {
   id: "vehicles",
@@ -15,8 +16,7 @@ export const vehiclesPlugin: SurfacePlugin = {
     titleKey: "title",
     descriptionKey: "description",
   },
-  // dashboardWidget added in Task 10 — kept undefined until then so the
-  // dashboard doesn't import a not-yet-existing component.
+  dashboardWidget: VehiclesWidget,
   isNavVisible: (ctx) => {
     if (ctx.ownDataLoading) return "loading";
     return (ctx.ownDataCount ?? 0) > 0;

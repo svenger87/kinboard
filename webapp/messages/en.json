@@ -216,6 +216,7 @@
     "homeAutomation": "Automation",
     "energy": "Energy",
     "tesla": "Tesla",
+    "vehicles": "Vehicles",
     "cameras": "Cameras",
     "settings": "Settings",
     "news": "News"
@@ -813,7 +814,11 @@
       "teslaLabel": "Tesla",
       "teslaDescription": "Battery, range and charging status",
       "teslaPreview1": "🔋 78% — 285 km",
-      "teslaPreview2": "Not connected"
+      "teslaPreview2": "Not connected",
+      "vehiclesLabel": "Vehicles",
+      "vehiclesDescription": "Battery, range and charging status for all household vehicles",
+      "vehiclesPreview1": "🔋 78% — 285 km",
+      "vehiclesPreview2": "Rotates through all vehicles"
     },
     "theme": {
       "title": "Design",
@@ -1463,6 +1468,7 @@
     },
     "vehicles": {
       "title": "Vehicles",
+      "description": "Track battery, range, and charging status for all household vehicles via Home Assistant.",
       "subtitle": "Manage vehicles tracked via Home Assistant",
       "addVehicle": "Add vehicle",
       "nickname": "Nickname",

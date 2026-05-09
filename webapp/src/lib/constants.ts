@@ -60,7 +60,7 @@ export const NAV_ITEMS = [
   { href: "/notes", icon: StickyNote, labelKey: "notes" },
   { href: "/home-automation", icon: Plug, labelKey: "homeAutomation" },
   { href: "/energy", icon: Zap, labelKey: "energy" },
-  { href: "/tesla", icon: Car, labelKey: "tesla" },
+  { href: "/vehicles", icon: Car, labelKey: "vehicles" },
   { href: "/cameras", icon: Video, labelKey: "cameras" },
   { href: "/news", icon: Newspaper, labelKey: "news" },
   { href: "/settings", icon: Settings, labelKey: "settings" },
