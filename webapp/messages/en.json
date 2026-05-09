@@ -1783,12 +1783,14 @@
       "label": {
         "vehicles": "Vehicles",
         "energy": "Energy",
-        "cameras": "Cameras"
+        "cameras": "Cameras",
+        "stonks": "Stonks"
       },
       "description": {
         "vehicles": "Track cars in your household via Home Assistant entities. Tesla and Generic-EV drivers ship in core.",
         "energy": "Solar, battery, and grid energy dashboard powered by Home Assistant entities.",
-        "cameras": "Live WebRTC streams from your security cameras via go2rtc."
+        "cameras": "Live WebRTC streams from your security cameras via go2rtc.",
+        "stonks": "Track stocks, ETFs, crypto, indices, and forex on a watchlist with candle charts. Powered by Yahoo Finance."
       }
     },
     "stonks": {
