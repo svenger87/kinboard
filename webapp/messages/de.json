@@ -1755,7 +1755,12 @@
       "toastAdded": "Kalender hinzugefügt",
       "toastUpdated": "Kalender aktualisiert",
       "toastDeleted": "Kalender gelöscht",
-      "toastError": "Kalender konnte nicht gespeichert werden"
+      "toastError": "Kalender konnte nicht gespeichert werden",
+      "syncNow": "Jetzt synchronisieren",
+      "syncing": "Synchronisiere…",
+      "syncSuccessTitle": "Sync abgeschlossen",
+      "syncSuccessBody": "{succeeded} Feed(s) synchronisiert{failed, plural, =0 {} other {, # fehlgeschlagen}}.",
+      "syncErrorTitle": "Sync fehlgeschlagen"
     },
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "Update auf {version} verfügbar",
