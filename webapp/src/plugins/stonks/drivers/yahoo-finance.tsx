@@ -184,7 +184,7 @@ function YahooFinanceConfigForm({
           id={`${ticker.id}-color`}
           type="color"
           defaultValue={ticker.color ?? "#22c55e"}
-          onChange={(e) => onChange({ color: e.target.value })}
+          onBlur={(e) => onChange({ color: e.target.value })}
           className="w-16 h-8 p-1"
         />
       </div>

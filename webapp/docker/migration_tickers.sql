@@ -41,4 +41,29 @@ BEGIN
   END IF;
 END $$;
 
+-- Idempotent unique index to prevent duplicate (family_id, symbol)
+-- watchlist entries. Created separately from the table block above
+-- so existing deploys (where the table already exists) get the index
+-- on next container boot.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE schemaname = 'public'
+      AND indexname = 'tickers_family_symbol_idx'
+  ) THEN
+    -- Best-effort: collapse any existing duplicates first so the
+    -- unique index can be created on legacy data. Keeps the lowest
+    -- `position` row for each (family_id, symbol) pair.
+    DELETE FROM public.tickers a
+    USING public.tickers b
+    WHERE a.family_id = b.family_id
+      AND a.symbol = b.symbol
+      AND a.position > b.position;
+
+    CREATE UNIQUE INDEX tickers_family_symbol_idx
+      ON public.tickers (family_id, symbol);
+  END IF;
+END $$;
+
 NOTIFY pgrst, 'reload schema';
