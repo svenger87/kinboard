@@ -179,9 +179,9 @@ export default function SettingsPage() {
         },
         {
           icon: Car,
-          label: t("itemTeslaLabel"),
-          description: t("itemTeslaDescription"),
-          href: "/settings/tesla",
+          label: t("itemVehiclesLabel"),
+          description: t("itemVehiclesDescription"),
+          href: "/settings/vehicles",
         },
         {
           icon: Video,
