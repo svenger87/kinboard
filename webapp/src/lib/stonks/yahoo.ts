@@ -23,6 +23,7 @@ function cacheGet<T>(map: Map<string, { value: T; expiresAt: number }>, key: str
 }
 
 function cacheSet<T>(map: Map<string, { value: T; expiresAt: number }>, key: string, value: T, ttl: number): void {
+  if (map.size > 500) map.clear();
   map.set(key, { value, expiresAt: Date.now() + ttl });
 }
 
@@ -50,6 +51,11 @@ export async function fetchQuotes(symbols: string[]): Promise<Quote[]> {
   // Passing an array always returns QuoteResponseArray (Quote[]).
   const list = await yf.quote(missing);
 
+  // NOTE: Yahoo silently omits unknown/delisted symbols from the response,
+  // so `out.length < symbols.length` is the caller's signal that some
+  // symbols failed to resolve. We intentionally don't throw — partial
+  // success (e.g., AAPL succeeds, BOGUS fails) is more useful than
+  // all-or-nothing.
   for (const q of list) {
     if (!q?.symbol) continue;
 
@@ -137,12 +143,20 @@ export async function fetchChart(symbol: string, timeframe: Timeframe): Promise<
   if (hit) return hit;
 
   const { period1, interval } = timeframeToParams(timeframe);
-  const result = await yf.chart(symbol, { period1, interval });
+  const result = await yf.chart(symbol, { period1, interval }).catch((err: unknown) => {
+    // Unknown / delisted / typo'd symbol — return null so the route
+    // can render a "no data" state instead of 500ing. Don't cache the
+    // null: a symbol may become valid later and we don't want to
+    // memoize a transient Yahoo outage.
+    console.warn(`[stonks/yahoo] chart fetch failed for ${symbol}:`, (err as Error)?.message ?? err);
+    return null;
+  });
+  if (!result) return [];
 
   const candles: Candle[] = (result.quotes ?? [])
-    .filter((q) => q.date && q.open != null && q.close != null)
+    .filter((q) => q.date != null && q.open != null && q.close != null)
     .map((q) => ({
-      time: Math.floor(q.date.getTime() / 1000),
+      time: Math.floor(q.date!.getTime() / 1000),
       open: Number(q.open),
       high: Number(q.high ?? q.open),
       low: Number(q.low ?? q.open),
