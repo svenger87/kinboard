@@ -6,6 +6,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.15] - 2026-05-09 — Clock detail popover is touch-accessible
+
+### Fixed
+- The clock widget's hover-only tooltip showed the full weekday, calendar week, day-of-year, days-remaining, and year-progress bar — but kiosks and phones can't trigger hover, so this rich detail was unreachable on the very devices Kinboard targets first. Both tooltips on the clock (the big one wrapping the digital time, the small one wrapping the week-number badge) now use a shadcn Popover instead. Tap to open, click outside to dismiss — works identically across desktop, touch kiosk, and mobile. The trigger element is a real `<button>` with explicit focus ring + `aria-label` so keyboard and screen-reader users get the same affordance the previous tooltip relied on implicitly.
+
 ## [1.0.14] - 2026-05-09 — News reader image-dedup
 
 ### Fixed
