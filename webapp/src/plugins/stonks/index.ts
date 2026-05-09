@@ -1,6 +1,7 @@
 import { LineChart } from "lucide-react";
 import type { SurfacePlugin } from "../types";
 import { useTickersCount } from "@/hooks/use-tickers";
+import { StonksWidget } from "@/components/widgets/stonks-widget";
 
 export const stonksPlugin: SurfacePlugin = {
   id: "stonks",
@@ -15,6 +16,7 @@ export const stonksPlugin: SurfacePlugin = {
     titleKey: "title",
     descriptionKey: "description",
   },
+  dashboardWidget: StonksWidget,
   isNavVisible: (ctx) => {
     if (ctx.ownDataLoading) return "loading";
     return (ctx.ownDataCount ?? 0) > 0;
