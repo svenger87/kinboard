@@ -275,6 +275,8 @@ services:
     container_name: ${PROJECT_NAME:-kinboard}-webapp
     restart: unless-stopped
     depends_on:
+      db:
+        condition: service_healthy
       kong:
         condition: service_started
     ports:
@@ -307,6 +309,15 @@ services:
       # public-demo visitors can load the seeded household. Self-hosters
       # leave it unset.
       KINBOARD_DEMO_FAMILY_CODE: ${KINBOARD_DEMO_FAMILY_CODE:-}
+      # Postgres credentials for the entrypoint's migration runner. The
+      # entrypoint applies webapp/docker/migration*.sql on container start
+      # so Watchtower-driven updates pick up new schema without needing
+      # the operator to run `start.sh migrate` from the host.
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     networks:
       - kinboard
 
