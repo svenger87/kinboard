@@ -7,7 +7,7 @@ import { UpcomingEvents } from "@/components/widgets/upcoming-events";
 import { FamilyMembers } from "@/components/widgets/family-members";
 import { ScheduleWidget } from "@/components/widgets/schedule-widget";
 import { BirthdayWidget } from "@/components/widgets/birthday-widget";
-import { TeslaWidget } from "@/components/widgets/tesla-widget";
+import { VehiclesWidget } from "@/components/widgets/vehicles-widget";
 import { NotesWidget } from "@/components/widgets/notes-widget";
 import { TasksWidget } from "@/components/widgets/tasks-widget";
 import { WasteCollectionWidget } from "@/components/widgets/waste-collection-widget";
@@ -18,7 +18,7 @@ import { FloatingLightsFab } from "@/components/floating-lights-fab";
 import { SetupBanner } from "@/components/setup-banner";
 import { ShoppingInstallPrompt } from "@/components/shopping-install-prompt";
 import { useKeyboardShortcuts, useSwipeNavigation, useThemeSettings, useSetting } from "@/hooks";
-import { DEFAULT_WIDGET_VISIBILITY } from "@/types/widgets";
+import { DEFAULT_WIDGET_VISIBILITY, migrateLegacyWidgetVisibility } from "@/types/widgets";
 import type { WidgetVisibility } from "@/types/widgets";
 
 export default function DashboardPage() {
@@ -31,7 +31,7 @@ export default function DashboardPage() {
     "widget_visibility",
     DEFAULT_WIDGET_VISIBILITY
   );
-  const w = widgets ?? DEFAULT_WIDGET_VISIBILITY;
+  const w = widgets ? migrateLegacyWidgetVisibility(widgets) : DEFAULT_WIDGET_VISIBILITY;
 
   // Enable keyboard shortcuts for navigation
   useKeyboardShortcuts();
@@ -77,7 +77,7 @@ export default function DashboardPage() {
           {w.wasteCollection && <WasteCollectionWidget maxItems={3} />}
           {w.tasks && <TasksWidget maxItems={4} />}
           {w.notes && <NotesWidget maxItems={3} />}
-          {w.tesla && <TeslaWidget />}
+          {w.vehicles && <VehiclesWidget />}
         </section>
       </div>
 
