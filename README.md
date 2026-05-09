@@ -201,6 +201,7 @@ The wiki is the source of truth for everything beyond this README:
 - **Built-in features** — [Dashboard](docs/wiki/Dashboard.md) · [Calendar](docs/wiki/Calendar.md) · [Shopping](docs/wiki/Shopping.md) · [Recipes & meals](docs/wiki/Recipes.md) · [Tasks](docs/wiki/Tasks.md) · [Notes](docs/wiki/Notes.md) · [Birthdays](docs/wiki/Birthdays.md) · [Schedule](docs/wiki/Schedule.md) · [Smart home](docs/wiki/Smart-Home.md) · [Screensaver](docs/wiki/Screensaver.md) · [Family members](docs/wiki/Family-Members.md) · [Devices](docs/wiki/Devices.md) · [Notifications](docs/wiki/Notifications.md) · [Themes & locales](docs/wiki/Themes.md)
 - **Integrations** — [Google Calendar](docs/wiki/Google-Calendar.md) · [Home Assistant](docs/wiki/Home-Assistant.md) · [Immich](docs/wiki/Immich.md) · [Bring!](docs/wiki/Bring.md) · [OpenWeatherMap](docs/wiki/OpenWeatherMap.md) · [Cameras](docs/wiki/Cameras.md)
 - **Hardware** — [Reference build (BOM + frame)](docs/wiki/Reference-Build.md) · [Windows kiosk](docs/wiki/Kiosk-Windows-11-Mele-4C.md) · [Linux guidance](docs/wiki/Kiosk-Linux-Guidance.md) · [LD2410 presence sensor](docs/wiki/Presence-Sensor.md)
+- **Extending Kinboard** — [Vehicles](docs/wiki/Vehicles.md) · [Plugin architecture](docs/wiki/Plugin-Architecture.md) · [Plugin directory](docs/wiki/Plugin-Directory.md)
 - **[Troubleshooting](docs/wiki/Troubleshooting.md)** — known issues + fixes
 
 ---
