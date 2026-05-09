@@ -34,6 +34,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       devices: {
         Row: {
@@ -70,6 +71,7 @@ export interface Database {
           hardware_id?: string | null;
           fingerprint?: string | null;
         };
+        Relationships: [];
       };
       people: {
         Row: {
@@ -99,6 +101,7 @@ export interface Database {
           is_child?: boolean;
           created_at?: string;
         };
+        Relationships: [];
       };
       calendars: {
         Row: {
@@ -134,6 +137,7 @@ export interface Database {
           is_waste_collection?: boolean;
           created_at?: string;
         };
+        Relationships: [];
       };
       events: {
         Row: {
@@ -178,6 +182,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       todos: {
         Row: {
@@ -219,6 +224,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       shopping_items: {
         Row: {
@@ -269,6 +275,7 @@ export interface Database {
           added_by?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       subjects: {
         Row: {
@@ -298,6 +305,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       schedules: {
         Row: {
@@ -324,6 +332,7 @@ export interface Database {
           time_slots?: Json;
           created_at?: string;
         };
+        Relationships: [];
       };
       birthdays: {
         Row: {
@@ -353,6 +362,7 @@ export interface Database {
           notify_days_before?: number;
           created_at?: string;
         };
+        Relationships: [];
       };
       notes: {
         Row: {
@@ -376,6 +386,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       oauth_credentials: {
         Row: {
@@ -402,6 +413,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       settings: {
         Row: {
@@ -428,6 +440,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       recipes: {
         Row: {
@@ -484,6 +497,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       recipe_ingredients: {
         Row: {
@@ -522,6 +536,7 @@ export interface Database {
           sort_order?: number;
           created_at?: string;
         };
+        Relationships: [];
       };
       recipe_tags: {
         Row: {
@@ -545,6 +560,7 @@ export interface Database {
           color?: string;
           created_at?: string;
         };
+        Relationships: [];
       };
       meal_plans: {
         Row: {
@@ -571,6 +587,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       meal_plan_entries: {
         Row: {
@@ -609,6 +626,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       item_catalog: {
         Row: {
@@ -659,6 +677,7 @@ export interface Database {
           popularity?: number;
           created_at?: string;
         };
+        Relationships: [];
       };
       push_subscriptions: {
         Row: {
@@ -697,6 +716,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       notification_preferences: {
         Row: {
@@ -756,6 +776,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       scheduled_notifications: {
         Row: {
@@ -797,6 +818,7 @@ export interface Database {
           processed?: boolean;
           created_at?: string;
         };
+        Relationships: [];
       };
       notification_logs: {
         Row: {
@@ -841,6 +863,7 @@ export interface Database {
           clicked_at?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       vehicles: {
         Row: {
@@ -876,6 +899,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
     };
     Views: {};

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import type { VehicleInsert } from "@/types/database";
+import type { VehicleUpdate } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ export async function GET(
   const { id } = await params;
   const supabase = createAdminClient();
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("vehicles")
     .select("*")
     .eq("id", id)
@@ -27,16 +27,16 @@ export async function GET(
   return NextResponse.json({ vehicle: data });
 }
 
-// PATCH /api/vehicles/[id]  body: Partial<VehicleInsert>
+// PATCH /api/vehicles/[id]  body: Partial<VehicleUpdate>
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const body = (await request.json()) as Partial<VehicleInsert>;
+  const body = (await request.json()) as Partial<VehicleUpdate>;
 
   // Strip fields the caller can't change (id, family_id, created_at).
-  const update: Partial<VehicleInsert> = {};
+  const update: VehicleUpdate = {};
   if (body.vendor !== undefined) update.vendor = body.vendor;
   if (body.nickname !== undefined) update.nickname = body.nickname;
   if (body.color !== undefined) update.color = body.color;
@@ -45,7 +45,7 @@ export async function PATCH(
 
   const supabase = createAdminClient();
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("vehicles")
     .update(update)
     .eq("id", id)
@@ -66,7 +66,7 @@ export async function DELETE(
   const { id } = await params;
   const supabase = createAdminClient();
 
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("vehicles")
     .delete()
     .eq("id", id);
