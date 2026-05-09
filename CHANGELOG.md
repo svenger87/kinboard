@@ -6,8 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.18] - 2026-05-09 — Energy migrates to SurfacePlugin contract
+
 ### Changed
-- Energy surface migrated onto the SurfacePlugin contract (second registered plugin after Vehicles). `/energy/page.tsx` shrinks to a ~40-line shell; the 812-line implementation moves to `plugins/energy/drivers/generic-ha-energy.tsx` as `EnergyCard`. The 877-line settings form similarly moves to `EnergyConfigForm` in the same driver file. `/settings/energy` is now the canonical settings URL; `/settings/homeassistant/energy` issues a 308 redirect to it. `/energy` nav visibility is now governed by the plugin's `isNavVisible` predicate (HA-connected + at least one core sensor configured) instead of the hardcoded `HA_DEPENDENT_HREFS` set. Settings landing page gains a top-level "Energy" entry alongside Vehicles. No DB migration — `home_assistant_settings.energy_config` storage is unchanged.
+- **Energy surface migrated onto the SurfacePlugin contract** (second registered plugin after Vehicles). `/energy/page.tsx` shrinks to a ~40-line shell; the 812-line implementation moves to `plugins/energy/drivers/generic-ha-energy.tsx` as `EnergyCard`. The 877-line settings form similarly moves to `EnergyConfigForm` in the same driver file. `/settings/energy` is now the canonical settings URL; `/settings/homeassistant/energy` issues a 308 redirect to it. `/energy` nav visibility is now governed by the plugin's `isNavVisible` predicate (HA-connected + at least one core sensor configured) instead of the hardcoded `HA_DEPENDENT_HREFS` set. Settings landing page gains a top-level "Energy" entry alongside Vehicles. Per-family enable/disable now works at `/settings/plugins`. No DB migration — `home_assistant_settings.energy_config` storage is unchanged. The plugin contract is now validated on a second concrete surface; Cameras is next.
 
 ## [1.0.17] - 2026-05-09 — Calendar push reminders + /shopping nav fix
 
