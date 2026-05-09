@@ -92,8 +92,9 @@ RUN set -e; \
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Install curl for cron job health checks
-RUN apk add --no-cache curl
+# curl: cron job health checks (existing). postgresql-client: provides
+# `psql` + `pg_isready` for the entrypoint's migration-runner logic.
+RUN apk add --no-cache curl postgresql-client
 
 # Add sync script for cron jobs
 RUN echo '#!/bin/sh' > /usr/local/bin/google-sync && \
@@ -129,6 +130,16 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Bake migrations + entrypoint script into the image. The entrypoint
+# applies migrations against the db before exec'ing the Next.js
+# server — see webapp/docker/webapp-entrypoint.sh. This is the path
+# Watchtower-driven self-hoster updates rely on (the alternative,
+# webapp/docker/start.sh's run_migrations(), is host-driven and only
+# fires when the operator manually invokes the script).
+COPY --chown=nextjs:nodejs docker/migration*.sql ./migrations/
+COPY --chown=nextjs:nodejs docker/webapp-entrypoint.sh ./webapp-entrypoint.sh
+USER root
+RUN chmod +x ./webapp-entrypoint.sh
 USER nextjs
 
 EXPOSE 3000
@@ -136,4 +147,4 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-CMD ["node", "server.js"]
+ENTRYPOINT ["./webapp-entrypoint.sh"]
