@@ -6,6 +6,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.14] - 2026-05-09 — News reader image-dedup
+
+### Fixed
+- News article reader sheet rendered the same hero image twice for some publishers (Spiegel notably) because their HTML embeds the same image at multiple sizes inside a single `<figure>` for art-direction reasons. Mozilla Readability preserved all of them. The article extractor now walks the Readability output and keeps only the first `<img>` per `<figure>` / `<picture>` wrapper — a `<figure>` is semantically one figure regardless of how many `<img>` tags are inside, so this is a structural fix that works across publishers without URL-pattern guessing.
+
 ## [1.0.13] - 2026-05-09 — Vehicles dashboard widget polish
 
 ### Changed
