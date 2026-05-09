@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Calendar event reminders via web push. Family devices subscribed to push now receive a notification N minutes before each event starts (configurable per family on `/settings/notifications`, default 30 min). All-day events are skipped — they don't have a "30 min before" semantically. New cron `/api/cron/schedule-event-reminders` runs every 5 min and schedules notifications for events in the upcoming window via the existing `scheduled_notifications` queue; the existing `process-notifications` cron then fires them. Idempotent: multiple cron ticks scanning the same event window don't double-schedule.
+
 ## [1.0.16] - 2026-05-09 — Country-aware holidays + dashboard spacing
 
 ### Added

@@ -209,6 +209,8 @@ function getPreferenceColumn(type: string): string | null {
     case "todo_created":
     case "todo_assigned":
       return "todo_collaborative";
+    case "calendar_reminder":
+      return "calendar_reminders";
     default:
       return null;
   }
@@ -255,6 +257,37 @@ function buildNotificationPayload(
         ? items.join(", ")
         : `${items.slice(0, 3).join(", ")} +${items.length - 3} weitere`;
       return { title, body, tag: "todo-update", url: "/todos" };
+    }
+
+    case "calendar_reminder": {
+      // Calendar reminders fire one-per-event by design; the batch is
+      // typically 1 row, occasionally several if multiple events start
+      // at the same time. Render a list when batched.
+      if (notifications.length === 1) {
+        const n = notifications[0];
+        const eventTime = n.data?.start_at as string | undefined;
+        const timeStr = eventTime
+          ? new Date(eventTime).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })
+          : null;
+        return {
+          title: n.title || "Termin",
+          body: timeStr ? `Beginnt um ${timeStr}` : "Beginnt bald",
+          // Tag uses event ID so a re-fired notification for the same event
+          // replaces the previous toast rather than stacking.
+          tag: `calendar-${n.related_entity_id ?? n.id}`,
+          url: "/calendar",
+        };
+      }
+      // Multiple events starting around the same time
+      const titles = notifications.map((n) => n.title || "Termin");
+      return {
+        title: `${notifications.length} Termine`,
+        body: titles.length <= 3
+          ? titles.join(", ")
+          : `${titles.slice(0, 3).join(", ")} +${titles.length - 3} weitere`,
+        tag: "calendar-reminders",
+        url: "/calendar",
+      };
     }
 
     default: {
