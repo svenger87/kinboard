@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchIcsCalendar } from "@/lib/ics-fetcher";
 
+// Force Node.js runtime + dynamic — node-ical's transitive deps (http,
+// https, fs) are Node-only and Next's static page-data collector fails
+// to bundle them for prerender. Without these, `next build` errors with
+// "Failed to collect page data for /api/calendar/test-ics".
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(request: NextRequest) {
   let body: unknown;
   try {
