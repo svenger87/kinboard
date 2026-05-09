@@ -18,6 +18,9 @@ export interface VehicleDriver<TConfig = unknown> {
   /** Renders the vehicle's main card on `/vehicles`. */
   Card: ComponentType<{ vehicle: Vehicle }>;
 
+  /** Compact render for the dashboard widget (image + battery % + charging indicator). */
+  WidgetCard: ComponentType<{ vehicle: Vehicle }>;
+
   /** Form rendered on `/settings/vehicles/[id]` underneath the
    *  shared nickname/color inputs. Calls `onConfigChange` on every
    *  change so the parent settings page can debounce + save. */
