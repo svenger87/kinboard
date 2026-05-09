@@ -35,6 +35,8 @@ const nextConfig = {
       { source: '/tesla', destination: '/vehicles', permanent: true },
       // Legacy Tesla settings route superseded by /settings/vehicles.
       { source: '/settings/tesla', destination: '/settings/vehicles', permanent: true },
+      // Legacy HA-nested energy settings superseded by top-level /settings/energy.
+      { source: '/settings/homeassistant/energy', destination: '/settings/energy', permanent: true },
     ];
   },
   // (No `/einkaufen` → `/shopping` rewrite. /einkaufen is a real Next

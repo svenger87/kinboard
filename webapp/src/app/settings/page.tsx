@@ -19,6 +19,7 @@ import {
   Video,
   Home,
   Car,
+  Zap,
   Bell,
   Lock,
   Trash2,
@@ -69,6 +70,7 @@ export default function SettingsPage() {
   const { data: storedPin } = useSetting<string | null>("settings_pin", null);
   const updatePin = useUpdateSetting<string | null>();
   const vehiclesPluginEnabled = useIsPluginEnabled("vehicles");
+  const energyPluginEnabled = useIsPluginEnabled("energy");
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", ""]);
   const pinInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -184,6 +186,12 @@ export default function SettingsPage() {
           label: t("itemVehiclesLabel"),
           description: t("itemVehiclesDescription"),
           href: "/settings/vehicles",
+        }] : []),
+        ...(energyPluginEnabled ? [{
+          icon: Zap,
+          label: t("itemEnergyLabel"),
+          description: t("itemEnergyDescription"),
+          href: "/settings/energy",
         }] : []),
         {
           icon: Video,
