@@ -57,13 +57,25 @@ export interface SurfacePlugin {
   };
 
   /** Optional dashboard widget. Wired up in Task 10. */
-  dashboardWidget?: ComponentType<Record<string, never>>;
+  dashboardWidget?: ComponentType<object>;
 
   /** Predicate evaluated by `useVisibleNavItems`. */
   isNavVisible: (ctx: NavGatingContext) => NavGatingResult;
 
-  /** Hook the registry calls to populate `ownDataCount`/`ownDataLoading`.
-   *  Plugins without their own data return `{ count: undefined, loading: false }`. */
+  /** Hook the registry calls (from `useVisibleNavItems`) to populate
+   *  `ownDataCount` / `ownDataLoading` for this plugin's nav-gating
+   *  predicate. Plugins without their own data return
+   *  `{ count: undefined, loading: false }`.
+   *
+   *  INVARIANT — Rules of Hooks: implementations MUST be unconditional
+   *  hooks. The registry's `PLUGINS` array is module-level and
+   *  fixed-length, so iterating it inside `useVisibleNavItems` is safe.
+   *  Do NOT introduce conditional plugin registration (e.g. feature
+   *  flags that evaluate at runtime to add/remove entries from PLUGINS)
+   *  — that would change the hook call count between renders and break
+   *  the rules. Static-build feature flags that branch at module-eval
+   *  time (e.g. process.env at build) are fine.
+   */
   useOwnDataCount: () => { count: number | undefined; loading: boolean };
 
   /** i18n namespace at the top of `messages/{en,de}.json`. */
