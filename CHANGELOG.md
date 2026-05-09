@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **Cameras surface migrated onto the SurfacePlugin contract** (third registered plugin after Vehicles + Energy). `/cameras/page.tsx` shrinks to a ~30-line shell; the grid render moves to `plugins/cameras/drivers/go2rtc.tsx` as `Go2rtcCard`. The 514-line settings form similarly moves to `Go2rtcConfigForm` in the same driver file. `/cameras` nav visibility is now governed by the plugin's `isNavVisible` predicate (at least one camera configured) instead of the hardcoded `CAMERA_DEPENDENT_HREFS` set in `useVisibleNavItems`. The settings landing page Cameras entry is now gated by `useIsPluginEnabled("cameras")` — disabling the plugin at `/settings/plugins` hides it. No DB migration — the existing `cameras` settings key is unchanged.
+
 ## [1.0.18] - 2026-05-09 — Energy migrates to SurfacePlugin contract
 
 ### Changed

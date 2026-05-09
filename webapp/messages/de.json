@@ -270,7 +270,8 @@
     "errorMessage": "Überprüfe die Verbindung und versuche es erneut.",
     "emptyTitle": "Keine Kameras eingerichtet",
     "emptyDescription": "Füge Kameras in den Einstellungen hinzu",
-    "emptyAction": "Kameras einrichten"
+    "emptyAction": "Kameras einrichten",
+    "description": "Live-WebRTC-Streams von deinen Sicherheitskameras über go2rtc."
   },
   "notes": {
     "title": "Notizen",

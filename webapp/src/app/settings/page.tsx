@@ -71,6 +71,7 @@ export default function SettingsPage() {
   const updatePin = useUpdateSetting<string | null>();
   const vehiclesPluginEnabled = useIsPluginEnabled("vehicles");
   const energyPluginEnabled = useIsPluginEnabled("energy");
+  const camerasPluginEnabled = useIsPluginEnabled("cameras");
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", ""]);
   const pinInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -193,12 +194,12 @@ export default function SettingsPage() {
           description: t("itemEnergyDescription"),
           href: "/settings/energy",
         }] : []),
-        {
+        ...(camerasPluginEnabled ? [{
           icon: Video,
           label: t("itemCamerasLabel"),
           description: t("itemCamerasDescription"),
           href: "/settings/cameras",
-        },
+        }] : []),
       ],
     },
     {

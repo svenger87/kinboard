@@ -1,6 +1,5 @@
 import { NAV_ITEMS } from "@/lib/constants";
 import { useHomeAssistantStatus } from "./use-home-assistant";
-import { useCameraSettings } from "./use-cameras";
 import { useIsPluginEnabled } from "./use-enabled-plugins";
 import { PLUGINS } from "@/plugins/registry";
 import type { NavGatingContext } from "@/plugins/types";
@@ -11,11 +10,8 @@ import type { NavGatingContext } from "@/plugins/types";
 // got there from a deep link, but useless clutter in the bottom nav.
 // /tesla removed — superseded by /vehicles (plugin-driven nav entry).
 // /energy removed — superseded by energyPlugin (plugin-driven nav entry).
+// /cameras removed — superseded by camerasPlugin (plugin-driven nav entry).
 const HA_DEPENDENT_HREFS = new Set(["/home-automation"]);
-
-// Nav items that require at least one configured entity in their
-// own DB-backed settings row.
-const CAMERA_DEPENDENT_HREFS = new Set(["/cameras"]);
 
 /**
  * Returns NAV_ITEMS filtered to only what's actually usable for the
@@ -37,7 +33,6 @@ const CAMERA_DEPENDENT_HREFS = new Set(["/cameras"]);
  */
 export function useVisibleNavItems(): typeof NAV_ITEMS {
   const { data: haSettings, isPending: haPending } = useHomeAssistantStatus();
-  const { data: cameraSettings, isPending: camerasPending } = useCameraSettings();
 
   // Call every plugin's useOwnDataCount in stable registry order.
   // PLUGINS is module-level + readonly (see plugins/registry.ts), so
@@ -58,16 +53,11 @@ export function useVisibleNavItems(): typeof NAV_ITEMS {
   }));
 
   const haConnected = Boolean(haSettings?.url && haSettings?.access_token);
-  const hasAnyCamera = Boolean(cameraSettings?.cameras?.length);
 
   return NAV_ITEMS.filter((item) => {
     if (HA_DEPENDENT_HREFS.has(item.href)) {
       if (haPending) return false;
       return haConnected;
-    }
-    if (CAMERA_DEPENDENT_HREFS.has(item.href)) {
-      if (camerasPending) return false;
-      return hasAnyCamera;
     }
 
     // Plugin-contributed nav items: first check if the plugin is enabled

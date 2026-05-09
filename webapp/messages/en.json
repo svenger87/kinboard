@@ -270,7 +270,8 @@
     "errorMessage": "Check your connection and try again.",
     "emptyTitle": "No cameras set up",
     "emptyDescription": "Add cameras in settings",
-    "emptyAction": "Set up cameras"
+    "emptyAction": "Set up cameras",
+    "description": "Live WebRTC streams from your security cameras via go2rtc."
   },
   "notes": {
     "title": "Notes",
