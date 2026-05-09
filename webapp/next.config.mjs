@@ -5,6 +5,35 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  // node-ical (used by /api/calendar/test-ics + /api/cron/sync-ics) has
+  // transitive deps that evaluate BigInt-using code during Next's static
+  // page-data collection step, causing `TypeError: s.BigInt is not a
+  // function` at build time. Marking node-ical + its temporal-polyfill
+  // transitive dep as server-external tells Next NOT to bundle them —
+  // the API routes do plain Node require() at runtime where BigInt
+  // is globally available and the polyfill resolves normally.
+  serverExternalPackages: ['node-ical', 'temporal-polyfill'],
+  // Force-include node-ical's whole dependency tree in the standalone
+  // bundle so the runtime require() finds it — without this, Next's
+  // file-tracing skips packages it didn't trace through bundle imports.
+  outputFileTracingIncludes: {
+    '/api/calendar/test-ics': [
+      './node_modules/node-ical/**/*',
+      './node_modules/temporal-polyfill/**/*',
+      './node_modules/ical.js/**/*',
+      './node_modules/rrule/**/*',
+      './node_modules/luxon/**/*',
+      './node_modules/moment-timezone/**/*',
+    ],
+    '/api/cron/sync-ics': [
+      './node_modules/node-ical/**/*',
+      './node_modules/temporal-polyfill/**/*',
+      './node_modules/ical.js/**/*',
+      './node_modules/rrule/**/*',
+      './node_modules/luxon/**/*',
+      './node_modules/moment-timezone/**/*',
+    ],
+  },
   images: {
     remotePatterns: [
       {
