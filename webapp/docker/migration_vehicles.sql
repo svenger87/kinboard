@@ -21,6 +21,8 @@ BEGIN
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
       family_id UUID NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
       position INTEGER NOT NULL DEFAULT 0,
+      -- Future vendors require an ALTER TABLE … DROP CONSTRAINT … ADD CONSTRAINT
+      -- migration; Postgres has no `ADD CONSTRAINT IF NOT EXISTS` for CHECKs.
       vendor TEXT NOT NULL CHECK (vendor IN ('tesla', 'generic-ev')),
       nickname TEXT NOT NULL,
       color TEXT,
@@ -36,7 +38,7 @@ BEGIN
     -- Every other table in init.sql uses this same function name.
     CREATE TRIGGER vehicles_set_updated_at
       BEFORE UPDATE ON public.vehicles
-      FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at();
   END IF;
 END $$;
 
@@ -61,10 +63,9 @@ BEGIN
     WHERE s.key = 'home_assistant'
       AND s.value ? 'tesla_config'
       AND s.value -> 'tesla_config' <> '{}'::jsonb
-      AND s.value -> 'tesla_config' IS NOT NULL
       AND NOT EXISTS (
         SELECT 1 FROM public.vehicles v
-        WHERE v.family_id = s.family_id
+        WHERE v.family_id = s.family_id AND v.vendor = 'tesla'
       )
   LOOP
     INSERT INTO public.vehicles (family_id, position, vendor, nickname, config)
