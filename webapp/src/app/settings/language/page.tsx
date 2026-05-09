@@ -5,9 +5,19 @@ import { Languages } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { GlassCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useSetting, useUpdateSetting } from "@/hooks";
+import { COUNTRIES, DEFAULT_COUNTRY, type CountryCode } from "@/lib/holidays";
 
 const LOCALES = [
   { code: "en", label: "English", native: "English" },
@@ -19,6 +29,11 @@ export default function LanguageSettingsPage() {
   const current = useLocale();
   const router = useRouter();
   const [pending, setPending] = useState<string | null>(null);
+
+  const { data: savedCountry } = useSetting<CountryCode>("holiday_country", DEFAULT_COUNTRY);
+  const country: CountryCode = savedCountry ?? DEFAULT_COUNTRY;
+  const updateSetting = useUpdateSetting<CountryCode>();
+  const [countrySaving, setCountrySaving] = useState(false);
 
   async function pick(code: string) {
     if (code === current || pending) return;
@@ -38,6 +53,18 @@ export default function LanguageSettingsPage() {
     }
   }
 
+  async function pickCountry(code: CountryCode) {
+    if (code === country || countrySaving) return;
+    setCountrySaving(true);
+    try {
+      await updateSetting.mutateAsync({ key: "holiday_country", value: code });
+    } catch {
+      toast.error(t("countryError"));
+    } finally {
+      setCountrySaving(false);
+    }
+  }
+
   return (
     <main id="main-content" className="min-h-screen p-4 md:p-8 relative safe-area-inset">
       <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
@@ -54,6 +81,7 @@ export default function LanguageSettingsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
+          className="flex flex-col gap-4"
         >
           <GlassCard className="p-6">
             <div className="space-y-3">
@@ -78,6 +106,35 @@ export default function LanguageSettingsPage() {
               })}
             </div>
           </GlassCard>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <GlassCard className="p-6">
+              <div className="mb-4">
+                <p className="font-medium text-sm">{t("countryLabel")}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t("countryDescription")}</p>
+              </div>
+              <Select
+                value={country}
+                onValueChange={(v) => pickCountry(v as CountryCode)}
+                disabled={countrySaving}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {t(`country_${code}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </GlassCard>
+          </motion.div>
         </motion.div>
       </div>
     </main>
