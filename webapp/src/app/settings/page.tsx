@@ -25,6 +25,7 @@ import {
   LayoutGrid,
   Languages,
   Newspaper,
+  Puzzle,
 } from "lucide-react";
 import { PinGuard } from "@/components/pin-guard";
 import { GlassCard } from "@/components/ui/card";
@@ -41,7 +42,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useFamilyStore } from "@/stores/family-store";
-import { useKeyboardShortcuts, useSwipeNavigation, useSetting, useUpdateSetting, useIsOnline, useDeleteDevice } from "@/hooks";
+import { useKeyboardShortcuts, useSwipeNavigation, useSetting, useUpdateSetting, useIsOnline, useDeleteDevice, useIsPluginEnabled } from "@/hooks";
 import { useVersionCheck } from "@/hooks/use-version-check";
 import { useState, useRef } from "react";
 import Link from "next/link";
@@ -67,6 +68,7 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false);
   const { data: storedPin } = useSetting<string | null>("settings_pin", null);
   const updatePin = useUpdateSetting<string | null>();
+  const vehiclesPluginEnabled = useIsPluginEnabled("vehicles");
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", ""]);
   const pinInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -177,12 +179,12 @@ export default function SettingsPage() {
           description: t("itemHomeAssistantDescription"),
           href: "/settings/homeassistant",
         },
-        {
+        ...(vehiclesPluginEnabled ? [{
           icon: Car,
           label: t("itemVehiclesLabel"),
           description: t("itemVehiclesDescription"),
           href: "/settings/vehicles",
-        },
+        }] : []),
         {
           icon: Video,
           label: t("itemCamerasLabel"),
@@ -235,6 +237,12 @@ export default function SettingsPage() {
           label: t("itemNewsLabel"),
           description: t("itemNewsDescription"),
           href: "/settings/news",
+        },
+        {
+          icon: Puzzle,
+          label: t("itemPluginsLabel"),
+          description: t("itemPluginsDescription"),
+          href: "/settings/plugins",
         },
       ],
     },

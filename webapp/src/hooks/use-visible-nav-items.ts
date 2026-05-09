@@ -1,6 +1,7 @@
 import { NAV_ITEMS } from "@/lib/constants";
 import { useHomeAssistantStatus } from "./use-home-assistant";
 import { useCameraSettings } from "./use-cameras";
+import { useIsPluginEnabled } from "./use-enabled-plugins";
 import { PLUGINS } from "@/plugins/registry";
 import type { NavGatingContext } from "@/plugins/types";
 
@@ -46,6 +47,15 @@ export function useVisibleNavItems(): typeof NAV_ITEMS {
     ...p.useOwnDataCount(),
   }));
 
+  // Call useIsPluginEnabled for each plugin in the same stable registry
+  // order. PLUGINS is module-level + readonly, so hook call count is
+  // invariant across renders — safe per Rules of Hooks.
+  const pluginEnabledFlags = PLUGINS.map((p) => ({
+    id: p.id,
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    enabled: useIsPluginEnabled(p.id),
+  }));
+
   const haConnected = Boolean(haSettings?.url && haSettings?.access_token);
   const hasAnyCamera = Boolean(cameraSettings?.cameras?.length);
 
@@ -59,9 +69,12 @@ export function useVisibleNavItems(): typeof NAV_ITEMS {
       return hasAnyCamera;
     }
 
-    // Plugin-contributed nav items: defer to the plugin's predicate.
+    // Plugin-contributed nav items: first check if the plugin is enabled
+    // for this family, then defer to the plugin's own visibility predicate.
     const pluginEntry = pluginCounts.find((c) => c.href === item.href);
     if (pluginEntry) {
+      const enabledFlag = pluginEnabledFlags.find((e) => e.id === pluginEntry.id)?.enabled ?? true;
+      if (!enabledFlag) return false;
       const plugin = PLUGINS.find((p) => p.id === pluginEntry.id)!;
       const ctx: NavGatingContext = {
         haConnected,

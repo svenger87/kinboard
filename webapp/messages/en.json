@@ -1661,6 +1661,20 @@
     "updateAvailable": "update to {version} available",
     "itemNewsLabel": "News sources",
     "itemNewsDescription": "Pick which RSS feeds populate the news widget and the /news page",
+    "itemPluginsLabel": "Plugins",
+    "itemPluginsDescription": "Enable or disable bundled plugins for this family.",
+    "plugins": {
+      "title": "Plugins",
+      "intro": "Enable or disable bundled plugins for this family. Disabled plugins disappear from the navigation, the dashboard, and the integrations list — but their data is preserved (no rows are deleted; toggling a plugin back on restores it exactly).",
+      "noPlugins": "No plugins are bundled in this build.",
+      "footnote": "Plugins are part of the Kinboard build. To install a third-party plugin, see the Plugin Architecture wiki page.",
+      "label": {
+        "vehicles": "Vehicles"
+      },
+      "description": {
+        "vehicles": "Track cars in your household via Home Assistant entities. Tesla and Generic-EV drivers ship in core."
+      }
+    },
     "news": {
       "title": "News sources",
       "subtitle": "Pick which RSS feeds populate the news widget and the /news page",
