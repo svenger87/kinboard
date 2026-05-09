@@ -42,6 +42,7 @@ export async function PATCH(
   if (body.color !== undefined) update.color = body.color;
   if (body.config !== undefined) update.config = body.config;
   if (body.position !== undefined) update.position = body.position;
+  if (body.image_url !== undefined) update.image_url = body.image_url;
 
   const supabase = createAdminClient();
 
