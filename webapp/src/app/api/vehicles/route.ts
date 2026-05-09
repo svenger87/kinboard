@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("vehicles")
     .select("*")
     .eq("family_id", familyId)
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
   // New rows go to the end of the position list. Read max(position) for
   // the family; default to -1 so first insert lands at 0.
-  const { data: maxRow } = await (supabase as any)
+  const { data: maxRow } = await supabase
     .from("vehicles")
     .select("position")
     .eq("family_id", body.family_id)
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
   const nextPosition = (maxRow?.position ?? -1) + 1;
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("vehicles")
     .insert({
       family_id: body.family_id,
