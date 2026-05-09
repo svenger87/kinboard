@@ -5,8 +5,8 @@ import { motion } from "framer-motion";
 import { Calendar, CheckSquare, Clock, ArrowRight, Cake, Trash2, Star } from "lucide-react";
 import { format, startOfDay, endOfDay, isAfter, parseISO, setYear, differenceInDays, addYears } from "date-fns";
 import { useTranslations } from "next-intl";
-import { useEvents, useTodos, useBirthdays } from "@/hooks";
-import { getUpcomingHolidays } from "@/lib/german-holidays";
+import { useEvents, useTodos, useBirthdays, useSetting } from "@/hooks";
+import { getUpcomingHolidays, type CountryCode } from "@/lib/holidays";
 
 function getDaysUntilBirthday(dateStr: string): number {
   const date = parseISO(dateStr + "T12:00:00");
@@ -35,6 +35,8 @@ export function TodayStrip() {
   const { data: events } = useEvents(startISO, endISO);
   const { data: todos } = useTodos();
   const { data: birthdays } = useBirthdays();
+  const { data: holidayCountry } = useSetting<CountryCode>("holiday_country", "de");
+  const country: CountryCode = holidayCountry ?? "de";
 
   // Filter to only today's non-waste events that haven't ended
   const todayEvents = useMemo(() =>
@@ -73,7 +75,7 @@ export function TodayStrip() {
   );
 
   // Upcoming holidays (within 14 days)
-  const upcomingHolidays = useMemo(() => getUpcomingHolidays(14), []);
+  const upcomingHolidays = useMemo(() => getUpcomingHolidays(country, 14), [country]);
   const nextHoliday = upcomingHolidays[0];
   const holidayIsToday = nextHoliday && differenceInDays(nextHoliday.date, startOfDay(new Date())) === 0;
   const holidayDaysAway = nextHoliday ? differenceInDays(nextHoliday.date, startOfDay(new Date())) : 0;
