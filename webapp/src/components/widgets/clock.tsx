@@ -6,11 +6,10 @@ import { format, getWeek, getDayOfYear, differenceInDays, startOfYear, endOfYear
 import { de, enUS } from "date-fns/locale";
 import { useTranslations, useLocale } from "next-intl";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
@@ -83,8 +82,7 @@ export function Clock({
   const yearProgress = Math.round((dayOfYear / daysInYear) * 100);
 
   return (
-    <TooltipProvider>
-      <motion.div
+    <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
@@ -93,45 +91,62 @@ export function Clock({
         aria-atomic="true"
         className={`flex flex-col items-center justify-center ${className}`}
       >
-        {/* Time Display */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <time
-              dateTime={date.toISOString()}
-              className="flex items-baseline cursor-help clock-glow"
-              aria-label={`${hours}:${minutes}${showSeconds ? `:${seconds}` : ""}`}
+        {/* Time Display — wrapped in a Popover so the date/week/year-
+            progress detail is reachable on touch devices via tap. The
+            previous Tooltip implementation only opened on hover, which
+            kiosks and phones can't trigger. Popover preserves the same
+            content and adds a click-outside-to-dismiss flow that's
+            familiar on every platform. */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="bg-transparent border-0 p-0 m-0 cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 focus-visible:ring-offset-4 focus-visible:ring-offset-background rounded-lg"
+              aria-label={t("tooltipDateAria", {
+                date: format(date, "PPPP", { locale: dateLocale }),
+              })}
             >
-              <span
-                className={`font-display font-extralight ${sizeClasses[size]} clock-display tracking-tighter`}
+              <time
+                dateTime={date.toISOString()}
+                className="flex items-baseline clock-glow"
               >
-                {hours}
-              </span>
-              <span
-                className={`font-display font-extralight ${sizeClasses[size]} text-muted-foreground/40 mx-1 clock-colon`}
-              >
-                :
-              </span>
-              <span
-                className={`font-display font-extralight ${sizeClasses[size]} clock-display tracking-tighter`}
-              >
-                {minutes}
-              </span>
-              {showSeconds && (
-                <>
-                  <span className="font-display font-extralight text-muted-foreground/40 mx-1 clock-colon">
-                    :
-                  </span>
-                  <span
-                    className={`font-display font-light ${secondsSizeClasses[size]} clock-display text-muted-foreground/60`}
-                  >
-                    {seconds}
-                  </span>
-                </>
-              )}
-            </time>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="p-0">
-            <div className="p-3 flex flex-col gap-2">
+                <span
+                  className={`font-display font-extralight ${sizeClasses[size]} clock-display tracking-tighter`}
+                >
+                  {hours}
+                </span>
+                <span
+                  className={`font-display font-extralight ${sizeClasses[size]} text-muted-foreground/40 mx-1 clock-colon`}
+                >
+                  :
+                </span>
+                <span
+                  className={`font-display font-extralight ${sizeClasses[size]} clock-display tracking-tighter`}
+                >
+                  {minutes}
+                </span>
+                {showSeconds && (
+                  <>
+                    <span className="font-display font-extralight text-muted-foreground/40 mx-1 clock-colon">
+                      :
+                    </span>
+                    <span
+                      className={`font-display font-light ${secondsSizeClasses[size]} clock-display text-muted-foreground/60`}
+                    >
+                      {seconds}
+                    </span>
+                  </>
+                )}
+              </time>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            side="bottom"
+            align="center"
+            sideOffset={12}
+            className="w-72 p-3"
+          >
+            <div className="flex flex-col gap-2">
               <p className="font-medium">{format(date, "PPPP", { locale: dateLocale })}</p>
               <Separator />
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
@@ -157,8 +172,8 @@ export function Clock({
                 </div>
               </div>
             </div>
-          </TooltipContent>
-        </Tooltip>
+          </PopoverContent>
+        </Popover>
 
         {/* Date Display */}
         {showDate && (
@@ -171,19 +186,30 @@ export function Clock({
             <p className="text-2xl font-normal text-foreground/70 tracking-wide">
               {formattedDate}
             </p>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge
-                  variant="outline"
-                  className="text-xs cursor-help hover:bg-white/5"
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="bg-transparent border-0 p-0 m-0 touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-md"
+                  aria-label={t("tooltipWeekFull", { number: weekNumber })}
                 >
-                  {t("weekShort", { number: weekNumber })}
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>
+                  <Badge
+                    variant="outline"
+                    className="text-xs cursor-pointer hover:bg-white/5"
+                  >
+                    {t("weekShort", { number: weekNumber })}
+                  </Badge>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                side="bottom"
+                align="center"
+                sideOffset={8}
+                className="w-auto p-3 text-sm"
+              >
                 <p>{t("tooltipWeekFull", { number: weekNumber })}</p>
-              </TooltipContent>
-            </Tooltip>
+              </PopoverContent>
+            </Popover>
           </motion.div>
         )}
 
@@ -198,7 +224,6 @@ export function Clock({
             {t(getGreetingKey(date.getHours()))}
           </motion.p>
         )}
-      </motion.div>
-    </TooltipProvider>
+    </motion.div>
   );
 }
