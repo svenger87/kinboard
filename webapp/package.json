@@ -71,6 +71,7 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "web-push": "^3.6.7",
+    "yahoo-finance2": "^3.14.0",
     "zod": "^4.3.5",
     "zustand": "^5.0.2"
   },
