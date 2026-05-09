@@ -1731,10 +1731,14 @@
       "noPlugins": "No plugins are bundled in this build.",
       "footnote": "Plugins are part of the Kinboard build. To install a third-party plugin, see the Plugin Architecture wiki page.",
       "label": {
-        "vehicles": "Vehicles"
+        "vehicles": "Vehicles",
+        "energy": "Energy",
+        "cameras": "Cameras"
       },
       "description": {
-        "vehicles": "Track cars in your household via Home Assistant entities. Tesla and Generic-EV drivers ship in core."
+        "vehicles": "Track cars in your household via Home Assistant entities. Tesla and Generic-EV drivers ship in core.",
+        "energy": "Solar, battery, and grid energy dashboard powered by Home Assistant entities.",
+        "cameras": "Live WebRTC streams from your security cameras via go2rtc."
       }
     },
     "news": {
