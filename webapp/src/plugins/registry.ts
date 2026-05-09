@@ -1,6 +1,7 @@
 import type { SurfacePlugin } from "./types";
 import { vehiclesPlugin } from "./vehicles";
 import { energyPlugin } from "./energy";
+import { camerasPlugin } from "./cameras";
 
 /**
  * The single registration point for surface plugins. Order here is the
@@ -8,13 +9,11 @@ import { energyPlugin } from "./energy";
  *
  * Adding a new plugin = (1) build it under `webapp/src/plugins/<id>/`,
  * (2) import its manifest here. No other file touches required.
- *
- * v0.1 caveat: most nav items in `lib/constants.ts NAV_ITEMS` are not
- * plugin-driven yet. Cameras is next after Energy.
  */
 export const PLUGINS: readonly SurfacePlugin[] = [
   vehiclesPlugin,
   energyPlugin,
+  camerasPlugin,
 ];
 
 /** Look up by id; returns undefined if not registered. */
