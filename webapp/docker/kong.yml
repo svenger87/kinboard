@@ -230,6 +230,48 @@ services:
           key_names:
             - apikey
 
+  ## Storage — public bucket reads (no auth, mirrors Supabase hosted)
+  #
+  # `/storage/v1/object/public/*` is intentionally world-readable in Supabase
+  # — public buckets are public. Without splitting this route off, Kong's
+  # key-auth plugin on the catchall storage route would 401 every browser
+  # request to a public-bucket image, breaking the Tesla / vehicle / recipe
+  # image rendering whenever the URL is loaded by anything other than the
+  # Supabase JS client (which carries the apikey header).
+  #
+  # The more-specific path is matched first by Kong, so this route handles
+  # public-bucket reads with CORS only; everything else falls through to
+  # the keyed `storage-v1` service below.
+  - name: storage-v1-public
+    _comment: "Storage public reads: /storage/v1/object/public/* -> storage:5000/*"
+    url: http://storage:5000/
+    routes:
+      - name: storage-v1-public-route
+        strip_path: false
+        paths:
+          - /storage/v1/object/public/
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - http://localhost:3000
+            - http://localhost:3001
+            - REPLACE_WITH_WEBAPP_ORIGIN  # webapp_origin
+          methods:
+            - GET
+            - HEAD
+            - OPTIONS
+          headers:
+            - Accept
+            - Cache-Control
+            - Content-Type
+            - Range
+          exposed_headers:
+            - Content-Range
+            - Content-Length
+          credentials: false
+          max_age: 3600
+
   ## Storage
   - name: storage-v1
     _comment: "Storage: /storage/v1/* -> storage:5000/*"
