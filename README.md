@@ -208,7 +208,7 @@ The wiki is the source of truth for everything beyond this README:
 
 ## Status & roadmap
 
-**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.0.15](https://github.com/svenger87/kinboard/releases/tag/v1.0.15) (2026-05-09).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Watchtower; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
+**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.0.16](https://github.com/svenger87/kinboard/releases/tag/v1.0.16) (2026-05-09).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Watchtower; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
 
 **Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](docs/wiki/Security-and-Threat-Model.md) and [`SECURITY.md`](SECURITY.md).
 
