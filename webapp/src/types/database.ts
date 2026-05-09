@@ -842,6 +842,41 @@ export interface Database {
           created_at?: string;
         };
       };
+      vehicles: {
+        Row: {
+          id: string;
+          family_id: string;
+          position: number;
+          vendor: "tesla" | "generic-ev";
+          nickname: string;
+          color: string | null;
+          config: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          position?: number;
+          vendor: "tesla" | "generic-ev";
+          nickname: string;
+          color?: string | null;
+          config?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          position?: number;
+          vendor?: "tesla" | "generic-ev";
+          nickname?: string;
+          color?: string | null;
+          config?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {};
     Functions: {};
@@ -880,6 +915,10 @@ export type PushSubscription = Database["public"]["Tables"]["push_subscriptions"
 export type NotificationPreferences = Database["public"]["Tables"]["notification_preferences"]["Row"];
 export type ScheduledNotification = Database["public"]["Tables"]["scheduled_notifications"]["Row"];
 export type NotificationLog = Database["public"]["Tables"]["notification_logs"]["Row"];
+
+// Vehicle types
+export type Vehicle = Database["public"]["Tables"]["vehicles"]["Row"];
+export type VehicleInsert = Database["public"]["Tables"]["vehicles"]["Insert"];
 
 // Recipe instruction type
 export interface RecipeInstruction {
