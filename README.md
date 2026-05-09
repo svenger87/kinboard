@@ -208,11 +208,16 @@ The wiki is the source of truth for everything beyond this README:
 
 ## Status & roadmap
 
-**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.0.18](https://github.com/svenger87/kinboard/releases/tag/v1.0.18) (2026-05-09).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Watchtower; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
+**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.0.19](https://github.com/svenger87/kinboard/releases/tag/v1.0.19) (2026-05-09).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Watchtower; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
 
 **Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](docs/wiki/Security-and-Threat-Model.md) and [`SECURITY.md`](SECURITY.md).
 
 ### Recently shipped
+- [x] **Stonks plugin** (v1.0.19) — track stocks, ETFs, crypto, indices, and forex pairs in a watchlist with proper TradingView candle charts (1d / 1w / 1m / 3m / 1y / max timeframes). Yahoo Finance is the v1 data driver — no API key required, covers every asset class through one source. Per-ticker detail page, rotating dashboard widget, server-side TTL cache (30s spot quotes, 5min charts) so kiosk auto-refresh doesn't rate-limit. Fourth registered SurfacePlugin alongside Vehicles + Energy + Cameras
+- [x] **iCalendar (.ics) feed support** (v1.0.19) — read-only calendar feeds via shared `.ics` URLs. Covers iCloud Family Sharing, Google's "secret iCal address", and most CalDAV providers in one feature. Skips the Google Cloud OAuth setup entirely for read-only use. Manual "Sync now" button + 30-min cron with ETag conditional GETs and recurring-event expansion
+- [x] **Energy + Cameras migrated onto the plugin contract** (v1.0.18 + v1.0.19) — both surfaces now ship as drivers under the same `SurfacePlugin` model that Vehicles introduced. Per-family enable/disable at `/settings/plugins`. The contract is now validated on four concrete surfaces (Vehicles, Energy, Cameras, Stonks)
+- [x] **Calendar event reminders via web push** (v1.0.17) — family devices subscribed to push receive a notification N minutes before each event starts (configurable on `/settings/notifications`, default 30 min). All-day events are skipped. Idempotent scheduling — multiple cron ticks scanning the same window don't double-send
+- [x] **Country-aware public holidays** (v1.0.16) — DE / US / UK / NL / FR. Per-family country picker on `/settings/language`; existing families default to DE so behaviour is unchanged
 - [x] Pre-built multi-arch (amd64 + arm64) Docker images on `ghcr.io` — self-hosters skip the build step
 - [x] CI on every PR — ESLint + i18n bundle parity + shellcheck — plus a full E2E smoke run that boots the docker stack with mock integrations and verifies the dashboard against Playwright
 - [x] Public live demo at [demo.kinboard.app](https://demo.kinboard.app) with mock Home Assistant / Tesla / weather / cameras so visitors see the full UI without configuring real integrations
@@ -220,15 +225,14 @@ The wiki is the source of truth for everything beyond this README:
 - [x] First-run setup wizard at `/setup/{people,homeassistant,weather,done}` — guides fresh self-hosters through onboarding instead of dropping them on an empty dashboard; dismissible "Finish setting up" banner on the dashboard until completed
 - [x] Interactive `setup.sh` — prompts for the optional API keys most self-hosters need (OpenWeatherMap, Google Calendar OAuth, maintainer email) at first-run time, with `--non-interactive` and `--advanced` flags for automation and power users
 - [x] Device recognition that survives browser/OS updates — fingerprint-history table so a Safari/Chrome bump doesn't strand the device on `/join` (v1.0.11)
-- [x] **Vehicles surface + build-time plugin contract** (v1.0.12) — replaces the legacy single-Tesla page with a multi-car, multi-vendor `/vehicles` page. Tesla driver (native UI via Home Assistant Fleet) + Generic-EV driver (any car HA can talk to: VW We Connect, BMW Connected Drive, Polestar, Hyundai BlueLink, OBD2 dongles). First plugin under a new `SurfacePlugin` contract — Energy and Cameras migrate to the same model later. Per-vehicle image upload, dashboard widget rotation, and per-family enable/disable at `/settings/plugins`. See [Plugin architecture](docs/wiki/Plugin-Architecture.md), [Vehicles](docs/wiki/Vehicles.md), and the [Plugin directory](docs/wiki/Plugin-Directory.md)
+- [x] **Vehicles surface + build-time plugin contract** (v1.0.12) — multi-car, multi-vendor `/vehicles` page. Tesla driver (native UI via Home Assistant Fleet) + Generic-EV driver (any car HA can talk to: VW We Connect, BMW Connected Drive, Polestar, Hyundai BlueLink, OBD2 dongles). First plugin under the `SurfacePlugin` contract. See [Plugin architecture](docs/wiki/Plugin-Architecture.md), [Vehicles](docs/wiki/Vehicles.md), and the [Plugin directory](docs/wiki/Plugin-Directory.md)
 - [x] **Watchtower-safe migrations** (v1.0.12) — schema migrations are now baked into the webapp Docker image and applied automatically on container start. Watchtower-driven self-hoster updates pick up new schema without anyone running `start.sh migrate` from the host
-- [x] Steady patch cadence — first tagged release was v1.0.0; see the [`CHANGELOG`](CHANGELOG.md) for everything that's shipped since
 
 ### Up next (no fixed dates)
-- [ ] **Migrate Energy + Cameras onto the plugin contract** — both surfaces are first-party today; v1.0.12 introduced the contract and Vehicles is the proof-of-concept. Energy will surface a Zendure SolarFlow driver alongside a generic-HA-energy driver; Cameras keeps its existing go2rtc backend but moves under the same registration model
-- [ ] iCalendar (.ics) feed support — read-only calendar feed via shared `.ics` URL. Covers iCloud Family Sharing calendars, Google's "secret iCal address", and most CalDAV providers in one feature. Sidesteps the Google Cloud project setup for users who only need to view their calendars (the OAuth flow stays for users who want to create events)
-- [ ] Country-aware holiday support (currently DE only)
-- [ ] Calendar event reminders via web push
+- [ ] Additional Stonks data drivers — paid sources like Polygon or Tiingo for users wanting higher-resolution intraday + cleaner symbol coverage than Yahoo's unofficial endpoints. The driver contract already leaves room; only API-key plumbing and a settings UI need to land
+- [ ] News feed per ticker on the Stonks detail page — Yahoo already returns it via `quoteSummary`, just needs UI
+- [ ] Per-ticker price alerts via the existing notification queue
+- [ ] Drag-reorder for the Stonks watchlist (currently creation-order)
 - [ ] Additional locales beyond EN + DE (community PRs welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md#translations))
 
 ---
