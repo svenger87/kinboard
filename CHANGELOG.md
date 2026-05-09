@@ -6,6 +6,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `/settings/vehicles` settings flow: list page, new-vehicle vendor picker, per-vehicle edit page with shared nickname/color fields + driver-supplied `ConfigForm`. `/settings/tesla` now redirects (308) to `/settings/vehicles`; the old 769-line tesla settings page is replaced by a one-line redirect stub.
+
+### Changed
+- Settings landing page Integrations section: Tesla item replaced by a Vehicles item pointing at `/settings/vehicles`.
+
 ## [1.0.11] - 2026-05-08 — Device recognition resilience + interactive setup + Shopping PWA fixes
 
 ### Added
