@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { NAV_ITEMS } from "@/lib/constants";
 import { useHomeAssistantStatus } from "./use-home-assistant";
 import { useCameraSettings } from "./use-cameras";
@@ -47,35 +46,33 @@ export function useVisibleNavItems(): typeof NAV_ITEMS {
     ...p.useOwnDataCount(),
   }));
 
-  return useMemo(() => {
-    const haConnected = Boolean(haSettings?.url && haSettings?.access_token);
-    const hasAnyCamera = Boolean(cameraSettings?.cameras?.length);
+  const haConnected = Boolean(haSettings?.url && haSettings?.access_token);
+  const hasAnyCamera = Boolean(cameraSettings?.cameras?.length);
 
-    return NAV_ITEMS.filter((item) => {
-      if (HA_DEPENDENT_HREFS.has(item.href)) {
-        if (haPending) return false;
-        return haConnected;
-      }
-      if (CAMERA_DEPENDENT_HREFS.has(item.href)) {
-        if (camerasPending) return false;
-        return hasAnyCamera;
-      }
+  return NAV_ITEMS.filter((item) => {
+    if (HA_DEPENDENT_HREFS.has(item.href)) {
+      if (haPending) return false;
+      return haConnected;
+    }
+    if (CAMERA_DEPENDENT_HREFS.has(item.href)) {
+      if (camerasPending) return false;
+      return hasAnyCamera;
+    }
 
-      // Plugin-contributed nav items: defer to the plugin's predicate.
-      const pluginEntry = pluginCounts.find((c) => c.href === item.href);
-      if (pluginEntry) {
-        const plugin = PLUGINS.find((p) => p.id === pluginEntry.id)!;
-        const ctx: NavGatingContext = {
-          haConnected,
-          haLoading: haPending,
-          ownDataCount: pluginEntry.count,
-          ownDataLoading: pluginEntry.loading,
-        };
-        const result = plugin.isNavVisible(ctx);
-        return result === true;
-      }
+    // Plugin-contributed nav items: defer to the plugin's predicate.
+    const pluginEntry = pluginCounts.find((c) => c.href === item.href);
+    if (pluginEntry) {
+      const plugin = PLUGINS.find((p) => p.id === pluginEntry.id)!;
+      const ctx: NavGatingContext = {
+        haConnected,
+        haLoading: haPending,
+        ownDataCount: pluginEntry.count,
+        ownDataLoading: pluginEntry.loading,
+      };
+      const result = plugin.isNavVisible(ctx);
+      return result === true;
+    }
 
-      return true;
-    }) as unknown as typeof NAV_ITEMS;
-  }, [haSettings, haPending, cameraSettings, camerasPending, pluginCounts]);
+    return true;
+  }) as unknown as typeof NAV_ITEMS;
 }
