@@ -31,7 +31,7 @@ export function VehiclesWidget() {
   const driver = getDriver(v.vendor);
   if (!driver) return null;
 
-  const Card = driver.Card;
+  const WidgetCard = driver.WidgetCard;
 
   return (
     <Link href="/vehicles" className="block">
@@ -43,7 +43,7 @@ export function VehiclesWidget() {
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.3 }}
         >
-          <Card vehicle={v} />
+          <WidgetCard vehicle={v} />
         </motion.div>
       </AnimatePresence>
     </Link>
