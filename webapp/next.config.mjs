@@ -12,7 +12,7 @@ const nextConfig = {
   // transitive dep as server-external tells Next NOT to bundle them —
   // the API routes do plain Node require() at runtime where BigInt
   // is globally available and the polyfill resolves normally.
-  serverExternalPackages: ['node-ical', 'temporal-polyfill'],
+  serverExternalPackages: ['node-ical', 'temporal-polyfill', 'yahoo-finance2'],
   // Force-include node-ical's whole dependency tree in the standalone
   // bundle so the runtime require() finds it — without this, Next's
   // file-tracing skips packages it didn't trace through bundle imports.
@@ -33,6 +33,9 @@ const nextConfig = {
       './node_modules/luxon/**/*',
       './node_modules/moment-timezone/**/*',
     ],
+    '/api/stonks/quote': ['./node_modules/yahoo-finance2/**/*'],
+    '/api/stonks/chart': ['./node_modules/yahoo-finance2/**/*'],
+    '/api/stonks/search': ['./node_modules/yahoo-finance2/**/*'],
   },
   images: {
     remotePatterns: [
