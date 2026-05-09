@@ -953,6 +953,117 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
 }
 
 // ---------------------------------------------------------------------------
+// TeslaWidgetCard — compact dashboard render: hero only (image + battery + charging/range)
+// ---------------------------------------------------------------------------
+export function TeslaWidgetCard({ vehicle }: { vehicle: Vehicle }) {
+  const t = useTranslations("tesla");
+  const config = vehicle.config as TeslaConfig;
+  const { data: settings } = useHomeAssistantStatus();
+  const haConnected = Boolean(settings?.url && settings?.access_token);
+
+  const entityIds = useMemo(() => {
+    if (!config) return [];
+    return [
+      config.battery_level,
+      config.battery_range,
+      config.charging_rate,
+      config.charger_power,
+      config.charging_state,
+    ].filter((id): id is string => !!id);
+  }, [config]);
+
+  const { data: entities = [] } = useHomeAssistantEntityStates(
+    entityIds,
+    haConnected && entityIds.length > 0,
+  );
+
+  const entityMap = useMemo(
+    () => new Map(entities.map((e) => [e.entity_id, e])),
+    [entities],
+  );
+
+  const getVal = (id: string | undefined): number => {
+    if (!id) return 0;
+    const entity = entityMap.get(id);
+    if (!entity) return 0;
+    const value = parseFloat(entity.state);
+    return isNaN(value) ? 0 : value;
+  };
+
+  const getState = (id: string | undefined): string => {
+    if (!id) return "unknown";
+    return entityMap.get(id)?.state ?? "unknown";
+  };
+
+  const batteryLevel = getVal(config?.battery_level);
+  const batteryRange = getVal(config?.battery_range);
+  const chargingRate = getVal(config?.charging_rate || config?.charger_power);
+  const chargingState = getState(config?.charging_state);
+  const isCharging = chargingState === "charging" || chargingRate > 0;
+
+  const batteryColor =
+    batteryLevel > 60
+      ? "text-success"
+      : batteryLevel > 20
+        ? "text-warning"
+        : "text-destructive";
+
+  if (!haConnected) {
+    return (
+      <GlassCard className="p-4">
+        <p className="text-sm text-muted-foreground">{t("notConnectedTitle")}</p>
+      </GlassCard>
+    );
+  }
+  if (entityIds.length === 0) {
+    return (
+      <GlassCard className="p-4">
+        <p className="text-sm text-muted-foreground">{t("notConfiguredTitle")}</p>
+      </GlassCard>
+    );
+  }
+
+  return (
+    <GlassCard className="p-4">
+      <div className="flex justify-center mb-3">
+        <Image
+          src={vehicle.image_url ?? "/images/tesla-model-y.png"}
+          alt={vehicle.image_url ? vehicle.nickname : "Tesla Model Y"}
+          width={300}
+          height={128}
+          className="drop-shadow-lg"
+          unoptimized={Boolean(vehicle.image_url)}
+        />
+      </div>
+      <div className="flex items-end justify-between">
+        <div>
+          <p className={`text-3xl font-bold ${batteryColor}`}>
+            {Math.round(batteryLevel)}
+            <span className="text-base text-muted-foreground">%</span>
+          </p>
+          <p className="text-xs text-muted-foreground">{vehicle.nickname}</p>
+        </div>
+        <div className="text-right">
+          {isCharging ? (
+            <div className="flex items-center gap-1 text-energy-grid">
+              <Zap className="size-4" />
+              <span className="text-sm font-semibold">
+                {chargingRate.toFixed(1)} kW
+              </span>
+            </div>
+          ) : (
+            <p className="text-2xl font-semibold">
+              {Math.round(batteryRange)}
+              <span className="text-xs text-muted-foreground ml-1">km</span>
+            </p>
+          )}
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // TeslaConfigForm
 // ---------------------------------------------------------------------------
 export function TeslaConfigForm({
@@ -1568,6 +1679,7 @@ export const teslaDriver: VehicleDriver<TeslaConfig> = {
   icon: Car,
   defaultConfig: {},
   Card: TeslaCard,
+  WidgetCard: TeslaWidgetCard,
   ConfigForm: TeslaConfigForm,
   isConfigured: (c) => Boolean(c.battery_level && c.state),
 };

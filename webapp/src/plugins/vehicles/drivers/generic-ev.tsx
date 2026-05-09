@@ -131,6 +131,85 @@ function GenericEvCard({ vehicle }: { vehicle: Vehicle }) {
   );
 }
 
+function GenericEvWidgetCard({ vehicle }: { vehicle: Vehicle }) {
+  const t = useTranslations("vehicles.drivers.generic-ev");
+  const config = vehicle.config as GenericEvConfig;
+  const { data: ha } = useHomeAssistantStatus();
+  const haConnected = Boolean(ha?.url && ha?.access_token);
+
+  const entityIds = useMemo(
+    () =>
+      [config.battery_level, config.charging_state].filter(
+        (v): v is string => Boolean(v),
+      ),
+    [config],
+  );
+  const { data: entityList = [] } = useHomeAssistantEntityStates(entityIds);
+
+  const states = useMemo(
+    () =>
+      Object.fromEntries(entityList.map((e) => [e.entity_id, e])) as Record<
+        string,
+        (typeof entityList)[number]
+      >,
+    [entityList],
+  );
+
+  if (!haConnected) {
+    return (
+      <GlassCard className="p-4">
+        <p className="text-sm text-muted-foreground">{t("haNotConnected")}</p>
+      </GlassCard>
+    );
+  }
+  if (entityIds.length === 0) {
+    return (
+      <GlassCard className="p-4">
+        <p className="text-sm text-muted-foreground">{t("notConfigured")}</p>
+      </GlassCard>
+    );
+  }
+
+  const battery = config.battery_level
+    ? states[config.battery_level]?.state
+    : null;
+  const charging = config.charging_state
+    ? states[config.charging_state]?.state
+    : null;
+
+  return (
+    <GlassCard className="p-4">
+      {vehicle.image_url ? (
+          <img
+          src={vehicle.image_url}
+          alt={vehicle.nickname}
+          className="w-full max-h-24 object-contain mb-2"
+        />
+      ) : (
+        <div className="flex justify-center mb-2">
+          <Car className="size-12 text-muted-foreground" />
+        </div>
+      )}
+      <div className="flex items-end justify-between">
+        <div>
+          {battery && (
+            <p className="text-3xl font-bold text-foreground">
+              {battery}
+              <span className="text-base text-muted-foreground">%</span>
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">{vehicle.nickname}</p>
+        </div>
+        {charging && (
+          <div className="text-xs text-muted-foreground">
+            {t("charging")}: {charging}
+          </div>
+        )}
+      </div>
+    </GlassCard>
+  );
+}
+
 function GenericEvConfigForm({
   vehicle,
   onConfigChange,
@@ -206,6 +285,7 @@ export const genericEvDriver: VehicleDriver<GenericEvConfig> = {
   icon: Car,
   defaultConfig: {},
   Card: GenericEvCard,
+  WidgetCard: GenericEvWidgetCard,
   ConfigForm: GenericEvConfigForm,
   isConfigured: (c) => Boolean(c.battery_level),
 };

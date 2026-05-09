@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- Vehicles dashboard widget now renders a compact `WidgetCard` (car image + battery percentage + charging rate or range) instead of the full `/vehicles` card, so the widget fits comfortably in the 1/4-grid dashboard layout.
+
 ## [1.0.12] - 2026-05-09 — Vehicles plugin + plugin contract v0.1 + Watchtower-safe migrations
 
 ### Added
