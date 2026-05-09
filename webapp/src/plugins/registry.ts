@@ -2,6 +2,7 @@ import type { SurfacePlugin } from "./types";
 import { vehiclesPlugin } from "./vehicles";
 import { energyPlugin } from "./energy";
 import { camerasPlugin } from "./cameras";
+import { stonksPlugin } from "./stonks";
 
 /**
  * The single registration point for surface plugins. Order here is the
@@ -14,6 +15,7 @@ export const PLUGINS: readonly SurfacePlugin[] = [
   vehiclesPlugin,
   energyPlugin,
   camerasPlugin,
+  stonksPlugin,
 ];
 
 /** Look up by id; returns undefined if not registered. */
