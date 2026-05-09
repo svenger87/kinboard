@@ -775,6 +775,8 @@
     "itemEnergyDescription": "Solar, battery, and grid energy dashboard powered by Home Assistant.",
     "itemCamerasLabel": "Cameras",
     "itemCamerasDescription": "Manage security cameras",
+    "itemStonksLabel": "Stocks & Watchlist",
+    "itemStonksDescription": "Manage your investment watchlist",
     "itemWidgetsLabel": "Widgets",
     "itemWidgetsDescription": "Show / hide dashboard widgets",
     "itemThemeLabel": "Design",
@@ -1783,6 +1785,21 @@
         "energy": "Solar, battery, and grid energy dashboard powered by Home Assistant entities.",
         "cameras": "Live WebRTC streams from your security cameras via go2rtc."
       }
+    },
+    "stonks": {
+      "title": "Stocks & Watchlist",
+      "subtitle": "Manage your investment watchlist",
+      "intro": "Search for stocks, ETFs, crypto, or indices and add them to your family watchlist. Each symbol is tracked on the dashboard.",
+      "addHeading": "Add symbol",
+      "searchPlaceholder": "Search ticker or company name…",
+      "watchlistHeading": "Watchlist",
+      "emptyWatchlist": "No symbols yet — search above to add your first.",
+      "nicknameLabel": "Display name",
+      "colorLabel": "Color",
+      "confirmDeleteTitle": "Remove from watchlist?",
+      "confirmDeleteDescription": "Remove {symbol} from the watchlist. Historical data is not deleted.",
+      "cancelButton": "Cancel",
+      "deleteButton": "Remove"
     },
     "news": {
       "title": "News sources",
