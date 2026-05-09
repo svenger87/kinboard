@@ -18,8 +18,7 @@ export const vehiclesPlugin: SurfacePlugin = {
   // dashboardWidget added in Task 10 — kept undefined until then so the
   // dashboard doesn't import a not-yet-existing component.
   isNavVisible: (ctx) => {
-    if (ctx.haLoading || ctx.ownDataLoading) return "loading";
-    if (!ctx.haConnected) return false;
+    if (ctx.ownDataLoading) return "loading";
     return (ctx.ownDataCount ?? 0) > 0;
   },
   useOwnDataCount: useVehiclesCount,

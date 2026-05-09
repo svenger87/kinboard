@@ -1,4 +1,4 @@
-import React, { type ComponentType, type ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { SurfacePlugin } from "./types";
 
 /** Helper for the home page — render any registered dashboard widget.
@@ -6,10 +6,11 @@ import type { SurfacePlugin } from "./types";
  *  widget elements. */
 export function renderDashboardWidgets(plugins: readonly SurfacePlugin[]): ReactNode[] {
   return plugins
-    .filter((p): p is SurfacePlugin & { dashboardWidget: ComponentType<Record<string, never>> } =>
+    .filter((p): p is SurfacePlugin & { dashboardWidget: ComponentType<object> } =>
       Boolean(p.dashboardWidget),
     )
-    .map((p) =>
-      React.createElement(p.dashboardWidget, { key: p.id } as Record<string, never> & { key: string }),
-    );
+    .map((p) => {
+      const Widget = p.dashboardWidget;
+      return <Widget key={p.id} />;
+    });
 }
