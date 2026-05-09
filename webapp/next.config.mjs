@@ -33,6 +33,8 @@ const nextConfig = {
       { source: '/notizen/:path*', destination: '/notes/:path*', permanent: true },
       // Legacy Tesla route superseded by /vehicles (multi-vendor, multi-car).
       { source: '/tesla', destination: '/vehicles', permanent: true },
+      // Legacy Tesla settings route superseded by /settings/vehicles.
+      { source: '/settings/tesla', destination: '/settings/vehicles', permanent: true },
     ];
   },
   // (No `/einkaufen` → `/shopping` rewrite. /einkaufen is a real Next
