@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bell, ShoppingCart, Moon, Send, Loader2, AlertCircle, CheckCircle2, ListTodo } from "lucide-react";
+import { Bell, ShoppingCart, Moon, Send, Loader2, AlertCircle, CheckCircle2, ListTodo, CalendarClock } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { GlassCard } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,13 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "@/components/page-header";
 import { useState } from "react";
 import {
@@ -315,6 +322,65 @@ export default function NotificationSettingsPage() {
                   disabled={!isSubscribed || updatePreferences.isPending}
                 />
               </div>
+            </div>
+          </GlassCard>
+        </motion.div>
+
+        {/* Calendar Reminders */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.28 }}
+          className="mb-6"
+        >
+          <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+            {t("calendarHeading")}
+          </h2>
+          <GlassCard className={`p-4 ${!isSubscribed ? "opacity-50" : ""}`}>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CalendarClock className="size-5 text-month-primary" />
+                  <div>
+                    <Label className="font-medium">{t("calendarLabel")}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t("calendarDescription")}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={prefs.calendar_reminders}
+                  onCheckedChange={(checked) =>
+                    handlePreferenceChange("calendar_reminders", checked)
+                  }
+                  disabled={!isSubscribed || updatePreferences.isPending}
+                />
+              </div>
+
+              {prefs.calendar_reminders && (
+                <div className="pt-2 border-t border-border/50 flex items-center gap-3">
+                  <Label className="text-xs text-muted-foreground shrink-0">
+                    {t("calendarMinutesLabel")}
+                  </Label>
+                  <Select
+                    value={String(prefs.default_event_reminder_minutes ?? 30)}
+                    onValueChange={(val) =>
+                      handlePreferenceChange("default_event_reminder_minutes", Number(val))
+                    }
+                    disabled={!isSubscribed || updatePreferences.isPending}
+                  >
+                    <SelectTrigger className="w-36">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 min</SelectItem>
+                      <SelectItem value="15">15 min</SelectItem>
+                      <SelectItem value="30">30 min</SelectItem>
+                      <SelectItem value="60">60 min</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </GlassCard>
         </motion.div>
