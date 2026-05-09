@@ -874,6 +874,7 @@ export interface Database {
           nickname: string;
           color: string | null;
           config: Json;
+          image_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -885,6 +886,7 @@ export interface Database {
           nickname: string;
           color?: string | null;
           config?: Json;
+          image_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -896,6 +898,7 @@ export interface Database {
           nickname?: string;
           color?: string | null;
           config?: Json;
+          image_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };

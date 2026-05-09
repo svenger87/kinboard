@@ -90,6 +90,13 @@ function GenericEvCard({ vehicle }: { vehicle: Vehicle }) {
 
   return (
     <GlassCard className="p-6 space-y-4">
+      {vehicle.image_url ? (
+        <img
+          src={vehicle.image_url}
+          alt={vehicle.nickname}
+          className="w-full max-h-32 object-contain rounded-md mb-2"
+        />
+      ) : null}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">{vehicle.nickname}</h2>
         {state ? (

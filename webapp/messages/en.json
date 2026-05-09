@@ -1494,7 +1494,13 @@
       "driverDescription": {
         "tesla": "Native Tesla via Home Assistant Fleet integration.",
         "generic-ev": "Any car HA can talk to — VW, BMW, Polestar, OBD2 dongles, etc. Map 5 entity IDs."
-      }
+      },
+      "image": "Image",
+      "imageHint": "Optional. PNG, JPG, or WebP up to 5 MB. Falls back to a generic Tesla render or a vehicle icon if not set.",
+      "uploadImage": "Upload image",
+      "uploading": "Uploading…",
+      "removeImage": "Remove image",
+      "imageUploadError": "Could not upload image. Try a smaller file."
     },
     "tesla": {
       "_note": "Strings used by the Tesla driver in webapp/src/plugins/vehicles/drivers/tesla.tsx. The /settings/tesla route is now a redirect (see app/settings/tesla/page.tsx); these keys live on for the driver's TeslaConfigForm + inline EntitySelector. Do NOT delete this namespace.",
