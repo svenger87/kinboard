@@ -18,11 +18,18 @@ import type { StonksDriver } from "./types";
 const TIMEFRAMES: Timeframe[] = ["1d", "1w", "1m", "3m", "1y", "max"];
 
 function formatPrice(n: number, currency: string | null): string {
-  return new Intl.NumberFormat(undefined, {
-    style: currency ? "currency" : "decimal",
-    currency: currency ?? undefined,
-    maximumFractionDigits: 2,
-  }).format(n);
+  const normalized = currency?.toUpperCase() ?? null;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: normalized ? "currency" : "decimal",
+      currency: normalized ?? undefined,
+      maximumFractionDigits: 2,
+    }).format(n);
+  } catch {
+    // Yahoo sometimes returns non-ISO codes (e.g. "GBp" for LSE pence).
+    // Fall back to decimal + the raw code so the user still sees a price.
+    return `${n.toFixed(2)} ${currency ?? ""}`.trim();
+  }
 }
 
 function formatPercent(n: number): string {
@@ -163,19 +170,21 @@ function YahooFinanceConfigForm({
   return (
     <div className="space-y-3">
       <div className="space-y-1">
-        <Label>{t("nicknameLabel")}</Label>
+        <Label htmlFor={`${ticker.id}-nickname`}>{t("nicknameLabel")}</Label>
         <Input
+          id={`${ticker.id}-nickname`}
           defaultValue={ticker.nickname ?? ""}
           placeholder={ticker.symbol}
           onBlur={(e) => onChange({ nickname: e.target.value.trim() || null })}
         />
       </div>
       <div className="space-y-1">
-        <Label>{t("colorLabel")}</Label>
+        <Label htmlFor={`${ticker.id}-color`}>{t("colorLabel")}</Label>
         <Input
+          id={`${ticker.id}-color`}
           type="color"
           defaultValue={ticker.color ?? "#22c55e"}
-          onBlur={(e) => onChange({ color: e.target.value })}
+          onChange={(e) => onChange({ color: e.target.value })}
           className="w-16 h-8 p-1"
         />
       </div>
