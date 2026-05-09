@@ -6,8 +6,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.17] - 2026-05-09 — Calendar push reminders + /shopping nav fix
+
 ### Added
 - Calendar event reminders via web push. Family devices subscribed to push now receive a notification N minutes before each event starts (configurable per family on `/settings/notifications`, default 30 min). All-day events are skipped — they don't have a "30 min before" semantically. New cron `/api/cron/schedule-event-reminders` runs every 5 min and schedules notifications for events in the upcoming window via the existing `scheduled_notifications` queue; the existing `process-notifications` cron then fires them. Idempotent: multiple cron ticks scanning the same event window don't double-schedule.
+
+### Fixed
+- `/shopping` — the page reachable via the bottom nav's "Shopping" button — incorrectly hid the bottom nav itself (it was in `NO_NAV_PATHS` alongside `/einkaufen`). Tapping Shopping landed on a navless page, trapping users without a way back to the dashboard. `/einkaufen` (the standalone Shopping PWA's `start_url` and kiosk-optimized variant) keeps its no-nav behavior — that's intentional for the dedicated Shopping app's launch URL — but `/shopping` now keeps the nav. The two pages are deliberately distinct surfaces (see v1.0.11 changelog); this restores `/shopping`'s in-Kinboard usability.
 
 ## [1.0.16] - 2026-05-09 — Country-aware holidays + dashboard spacing
 
