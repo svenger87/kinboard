@@ -14,6 +14,7 @@ import {
   StickyNote,
   CheckSquare,
   Car,
+  TrendingUp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GlassCard } from "@/components/ui/card";
@@ -43,6 +44,7 @@ const WIDGET_CONFIGS: WidgetConfig[] = [
   { key: "tasks", labelKey: "tasksLabel", descriptionKey: "tasksDescription", previewKeys: ["tasksPreview1", "tasksPreview2", "tasksPreview3"], icon: CheckSquare },
   { key: "notes", labelKey: "notesLabel", descriptionKey: "notesDescription", previewKeys: ["notesPreview1", "notesPreview2", "notesPreview3"], icon: StickyNote },
   { key: "vehicles", labelKey: "vehiclesLabel", descriptionKey: "vehiclesDescription", previewKeys: ["vehiclesPreview1", "vehiclesPreview2"], icon: Car },
+  { key: "stonks", labelKey: "stonksLabel", descriptionKey: "stonksDescription", previewKeys: ["stonksPreview1", "stonksPreview2"], icon: TrendingUp },
 ];
 
 export default function WidgetSettingsPage() {
