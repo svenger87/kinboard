@@ -387,3 +387,11 @@ export {
   useDeleteVehicle,
   useVehiclesCount,
 } from "./use-vehicles";
+
+// Plugin Enable/Disable Hooks
+export {
+  useEnabledPlugins,
+  useUpdateEnabledPlugins,
+  useIsPluginEnabled,
+} from "./use-enabled-plugins";
+export type { EnabledPluginsMap } from "./use-enabled-plugins";
