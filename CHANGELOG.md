@@ -6,8 +6,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.13] - 2026-05-09 — Vehicles dashboard widget polish
+
 ### Changed
-- Vehicles dashboard widget now renders a compact `WidgetCard` (car image + battery percentage + charging rate or range) instead of the full `/vehicles` card, so the widget fits comfortably in the 1/4-grid dashboard layout.
+- Vehicles dashboard widget now renders a compact `WidgetCard` (car image + battery percentage + charging rate or range) instead of the full `/vehicles` Card, so the widget fits the 1/4-grid dashboard layout without dominating it. New `WidgetCard` slot on the `VehicleDriver` contract — both Tesla and Generic-EV drivers ship one. The full Card on `/vehicles` is unchanged; tabs through multiple vehicles, the rotating dashboard widget, and the link to the full page still all work as before.
+
+### Fixed
+- Dropped the redundant settings-gear icon from the Tesla `/vehicles` Card's top action row. The `/vehicles` PageHeader already has a "Manage" button pointing at `/settings/vehicles` — the in-card gear was duplicate noise. Empty-state CTAs ("Connect Home Assistant", "Configure this Tesla") still link to the right settings page since they're the only entry point for unconfigured vehicles.
 
 ## [1.0.12] - 2026-05-09 — Vehicles plugin + plugin contract v0.1 + Watchtower-safe migrations
 
