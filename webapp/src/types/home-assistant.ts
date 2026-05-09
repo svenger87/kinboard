@@ -284,49 +284,12 @@ export interface EnergyConfig {
   }>;
 }
 
-// Tesla vehicle configuration for Tesla dashboard
-export interface TeslaConfig {
-  // Battery & Charging
-  battery_level?: string;           // sensor.xxx_battery_level (%)
-  battery_range?: string;           // sensor.xxx_battery_range (km)
-  charging_rate?: string;           // sensor.xxx_charging_rate (kW)
-  charging_state?: string;          // sensor/binary_sensor for charging state
-  charge_limit?: string;            // sensor.xxx_charge_limit (%)
-  time_to_full_charge?: string;     // sensor.xxx_time_charge_complete
-  charger_power?: string;           // sensor.xxx_charger_power (kW)
-  charge_energy_added?: string;     // sensor.xxx_charge_energy_added (kWh)
-
-  // Climate
-  inside_temperature?: string;      // sensor.xxx_inside_temperature
-  outside_temperature?: string;     // sensor.xxx_outside_temperature
-  climate_state?: string;           // climate.xxx or sensor for HVAC state
-
-  // Vehicle Status
-  locked?: string;                  // lock.xxx or binary_sensor
-  windows?: string;                 // binary_sensor.xxx_windows
-  doors?: string;                   // binary_sensor.xxx_doors
-  trunk?: string;                   // binary_sensor.xxx_trunk
-  frunk?: string;                   // binary_sensor.xxx_frunk
-
-  // Tire Pressure
-  tire_pressure_fl?: string;        // sensor.xxx_tire_pressure_front_left
-  tire_pressure_fr?: string;        // sensor.xxx_tire_pressure_front_right
-  tire_pressure_rl?: string;        // sensor.xxx_tire_pressure_rear_left
-  tire_pressure_rr?: string;        // sensor.xxx_tire_pressure_rear_right
-
-  // Vehicle Info
-  odometer?: string;                // sensor.xxx_odometer (km)
-  location?: string;                // device_tracker.xxx
-  state?: string;                   // sensor.xxx_state (online/asleep/driving)
-
-  // Display settings
-  show_on_screensaver?: boolean;
-  show_on_dashboard?: boolean;
-
-  // Cost (for charging cost calculation)
-  cost_per_kwh?: number;
-  currency?: string;
-}
+// Tesla configuration is now owned by the Tesla driver. Re-exported
+// here for back-compat with any imports of @/types/home-assistant
+// that still reference the type. Once all callers import directly
+// from the driver, this re-export can be deleted.
+import type { TeslaConfig as _TeslaConfig } from "@/plugins/vehicles/drivers/tesla";
+export type TeslaConfig = _TeslaConfig;
 
 // Settings stored in Supabase
 export interface HomeAssistantSettings {
