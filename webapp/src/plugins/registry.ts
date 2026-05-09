@@ -15,7 +15,7 @@ import { vehiclesPlugin } from "./vehicles";
  */
 export const PLUGINS: readonly SurfacePlugin[] = [
   vehiclesPlugin,
-] as const;
+];
 
 /** Look up by id; returns undefined if not registered. */
 export function getPlugin(id: string): SurfacePlugin | undefined {
