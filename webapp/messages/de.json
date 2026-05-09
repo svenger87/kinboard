@@ -2373,7 +2373,8 @@
     "tooltipRemaining": "Verbleibend:",
     "tooltipDaysSuffix": "{count, plural, one {# Tag} other {# Tage}}",
     "tooltipYearLabel": "Jahr {year}",
-    "tooltipWeekFull": "Kalenderwoche {number}"
+    "tooltipWeekFull": "Kalenderwoche {number}",
+    "tooltipDateAria": "Details für {date} anzeigen"
   },
   "todayStrip": {
     "ariaLabel": "Tagesübersicht",
