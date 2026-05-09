@@ -23,14 +23,15 @@ import {
  * `public/manifest-shopping.json`) AND the kiosk-optimized offline-first
  * shopping surface — leaner UI built on `useOfflineShopping`, intended
  * to be what users see when launching the installed Shopping PWA.
- * `/shopping` is the full-featured desktop shopping page (Bring!
- * integration, dialogs, popovers). They are deliberately distinct
- * surfaces — do not collapse them.
+ * That standalone-PWA experience deliberately hides the nav (kiosk
+ * mode — there's nowhere else to go inside the dedicated Shopping app).
  *
- * Both suppress the nav because both are kiosk-style focused-task
- * pages.
+ * `/shopping` is the full-featured desktop shopping page reached via
+ * the bottom-nav "Shopping" button. It MUST keep the nav — hiding it
+ * on the page that's the nav's own target traps users without a way
+ * out (no back button on a kiosk).
  */
-export const NO_NAV_PATHS = ["/join", "/einkaufen", "/shopping", "/setup"] as const;
+export const NO_NAV_PATHS = ["/join", "/einkaufen", "/setup"] as const;
 
 /**
  * True when the given pathname matches any NO_NAV_PATHS entry exactly,
