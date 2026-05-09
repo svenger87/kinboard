@@ -768,6 +768,8 @@
     "itemHomeAssistantDescription": "Home automation and devices",
     "itemVehiclesLabel": "Vehicles",
     "itemVehiclesDescription": "Manage cars and other vehicles tracked via Home Assistant.",
+    "itemEnergyLabel": "Energy",
+    "itemEnergyDescription": "Solar, battery, and grid energy dashboard powered by Home Assistant.",
     "itemCamerasLabel": "Cameras",
     "itemCamerasDescription": "Manage security cameras",
     "itemWidgetsLabel": "Widgets",
@@ -2354,6 +2356,7 @@
   },
   "energy": {
     "title": "Energy",
+    "description": "Solar, battery, and grid energy dashboard powered by Home Assistant.",
     "subtitleDashboard": "Energy dashboard",
     "subtitleLoading": "Loading energy data…",
     "settingsAria": "Energy settings",
