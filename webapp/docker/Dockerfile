@@ -111,6 +111,11 @@ RUN echo '#!/bin/sh' > /usr/local/bin/process-notifications && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/process-notifications' >> /usr/local/bin/process-notifications && \
     chmod +x /usr/local/bin/process-notifications
 
+# Add event-reminder scheduler cron script
+RUN echo '#!/bin/sh' > /usr/local/bin/schedule-event-reminders && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/schedule-event-reminders' >> /usr/local/bin/schedule-event-reminders && \
+    chmod +x /usr/local/bin/schedule-event-reminders
+
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
