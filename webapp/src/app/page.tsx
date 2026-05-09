@@ -60,8 +60,11 @@ export default function DashboardPage() {
             <FamilyMembers />
           </div>
 
-          {/* Today at a glance - compact summary */}
-          <div className="mt-6">
+          {/* Today at a glance - compact summary. mb-12 mirrors the
+              mt-12 above FamilyMembers so TodayStrip has breathing
+              room from the widget grid below (otherwise it sits flush
+              against the cards on portrait/short viewports). */}
+          <div className="mt-6 mb-12">
             <TodayStrip />
           </div>
         </section>
