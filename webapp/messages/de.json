@@ -1494,7 +1494,13 @@
       "driverDescription": {
         "tesla": "Nativer Tesla-Zugang über die Home Assistant Fleet-Integration.",
         "generic-ev": "Jedes Auto, mit dem HA kommunizieren kann – VW, BMW, Polestar, OBD2-Dongles usw. 5 Entitäts-IDs zuweisen."
-      }
+      },
+      "image": "Bild",
+      "imageHint": "Optional. PNG, JPG oder WebP bis 5 MB. Ohne Bild wird ein generisches Tesla-Rendering oder ein Fahrzeugsymbol angezeigt.",
+      "uploadImage": "Bild hochladen",
+      "uploading": "Wird hochgeladen…",
+      "removeImage": "Bild entfernen",
+      "imageUploadError": "Bild konnte nicht hochgeladen werden. Versuche eine kleinere Datei."
     },
     "tesla": {
       "_note": "Strings used by the Tesla driver in webapp/src/plugins/vehicles/drivers/tesla.tsx. The /settings/tesla route is now a redirect (see app/settings/tesla/page.tsx); these keys live on for the driver's TeslaConfigForm + inline EntitySelector. Do NOT delete this namespace.",

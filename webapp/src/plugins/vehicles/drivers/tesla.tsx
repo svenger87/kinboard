@@ -557,12 +557,13 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
           <div className="p-6">
             <div className="flex justify-center mb-6">
               <Image
-                src="/images/tesla-model-y.png"
-                alt="Tesla Model Y"
+                src={vehicle.image_url ?? "/images/tesla-model-y.png"}
+                alt={vehicle.image_url ? vehicle.nickname : "Tesla Model Y"}
                 width={400}
                 height={170}
                 className="drop-shadow-lg"
                 priority
+                unoptimized={Boolean(vehicle.image_url)}
               />
             </div>
 

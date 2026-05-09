@@ -322,6 +322,9 @@ export {
 // Image Upload Hook
 export { useImageUpload } from "./use-image-upload";
 
+// Vehicle Image Upload Hook
+export { useVehicleImageUpload } from "./use-vehicle-image-upload";
+
 // Location Search Hook
 export {
   useLocationSearch,
