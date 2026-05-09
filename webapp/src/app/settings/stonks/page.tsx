@@ -85,6 +85,7 @@ export default function StonksSettingsPage() {
                       createTicker
                         .mutateAsync({ symbol: r.symbol, asset_type: r.assetType })
                         .then(() => setQuery(""))
+                        .catch(console.error)
                     }
                     className="w-full flex items-center justify-between gap-3 p-3 rounded-md border border-border hover:bg-muted/30 disabled:opacity-50 disabled:cursor-not-allowed text-left"
                   >
@@ -163,7 +164,7 @@ export default function StonksSettingsPage() {
                             <AlertDialogCancel>{t("cancelButton")}</AlertDialogCancel>
                             <AlertDialogAction
                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              onClick={() => deleteTicker.mutateAsync(tk.id)}
+                              onClick={() => deleteTicker.mutateAsync(tk.id).catch(console.error)}
                             >
                               {t("deleteButton")}
                             </AlertDialogAction>

@@ -70,6 +70,9 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
+    if ((error as { code?: string }).code === "23505") {
+      return NextResponse.json({ error: "already_exists" }, { status: 409 });
+    }
     console.error("[tickers] insert error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
