@@ -11,6 +11,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 - Settings landing page Integrations section: Tesla item replaced by a Vehicles item pointing at `/settings/vehicles`.
+- **`/tesla` becomes `/vehicles`** — supports multiple cars per household and multiple vendors. Existing single-Tesla setups auto-migrate via `migration_vehicles.sql` (reads `home_assistant_settings.tesla_config` into a new `vehicles` table row with `vendor='tesla'`); no action needed by existing self-hosters. The `/tesla` and `/settings/tesla` URLs 308-redirect to the new pages so bookmarks keep working. New Generic-EV driver (config = 5 Home Assistant entity IDs: battery, charging state, range, location, state) supports any car HA can talk to — VW We Connect, BMW Connected Drive, Polestar, Hyundai BlueLink, OBD2 dongles, etc. — without per-vendor maintenance. This is also the first surface implemented under a new build-time plugin contract (`webapp/src/plugins/`); future work migrates Energy and Cameras onto the same model. Dashboard widget rotates through configured vehicles every 8s. `widget_visibility.tesla` saved values auto-migrate to `widget_visibility.vehicles` at read time so users keep seeing the widget after upgrade. See [`docs/wiki/Plugin-Architecture.md`](docs/wiki/Plugin-Architecture.md) for how to ship a third-party plugin and [`docs/wiki/Vehicles.md`](docs/wiki/Vehicles.md) for user-facing docs.
 
 ## [1.0.11] - 2026-05-08 — Device recognition resilience + interactive setup + Shopping PWA fixes
 

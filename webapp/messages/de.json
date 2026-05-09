@@ -216,6 +216,7 @@
     "homeAutomation": "Automation",
     "energy": "Energie",
     "tesla": "Tesla",
+    "vehicles": "Fahrzeuge",
     "cameras": "Kameras",
     "settings": "Einstellungen",
     "news": "Nachrichten"
@@ -813,7 +814,11 @@
       "teslaLabel": "Tesla",
       "teslaDescription": "Akkustand, Reichweite und Ladestatus",
       "teslaPreview1": "🔋 78% — 285 km",
-      "teslaPreview2": "Nicht verbunden"
+      "teslaPreview2": "Nicht verbunden",
+      "vehiclesLabel": "Fahrzeuge",
+      "vehiclesDescription": "Akkustand, Reichweite und Ladestatus für alle Fahrzeuge im Haushalt",
+      "vehiclesPreview1": "🔋 78% — 285 km",
+      "vehiclesPreview2": "Wechselt zwischen allen Fahrzeugen"
     },
     "theme": {
       "title": "Design",
@@ -1463,6 +1468,7 @@
     },
     "vehicles": {
       "title": "Fahrzeuge",
+      "description": "Akkustand, Reichweite und Ladestatus aller Fahrzeuge im Haushalt über Home Assistant verfolgen.",
       "subtitle": "Über Home Assistant verfolgte Fahrzeuge verwalten",
       "addVehicle": "Fahrzeug hinzufügen",
       "nickname": "Name",

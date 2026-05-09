@@ -42,7 +42,7 @@ const WIDGET_CONFIGS: WidgetConfig[] = [
   { key: "wasteCollection", labelKey: "wasteLabel", descriptionKey: "wasteDescription", previewKeys: ["wastePreview1", "wastePreview2", "wastePreview3"], icon: Trash2 },
   { key: "tasks", labelKey: "tasksLabel", descriptionKey: "tasksDescription", previewKeys: ["tasksPreview1", "tasksPreview2", "tasksPreview3"], icon: CheckSquare },
   { key: "notes", labelKey: "notesLabel", descriptionKey: "notesDescription", previewKeys: ["notesPreview1", "notesPreview2", "notesPreview3"], icon: StickyNote },
-  { key: "tesla", labelKey: "teslaLabel", descriptionKey: "teslaDescription", previewKeys: ["teslaPreview1", "teslaPreview2"], icon: Car },
+  { key: "vehicles", labelKey: "vehiclesLabel", descriptionKey: "vehiclesDescription", previewKeys: ["vehiclesPreview1", "vehiclesPreview2"], icon: Car },
 ];
 
 export default function WidgetSettingsPage() {
