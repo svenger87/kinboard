@@ -18,13 +18,19 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient();
 
+  let updated = 0;
   for (const item of items) {
     if (!item.id || typeof item.position !== "number") continue;
-    await supabase
+    const { error } = await supabase
       .from("tickers")
       .update({ position: item.position })
       .eq("id", item.id);
+    if (error) {
+      console.error("[tickers] reorder error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    updated++;
   }
 
-  return NextResponse.json({ ok: true, updated: items.length });
+  return NextResponse.json({ ok: true, updated });
 }
