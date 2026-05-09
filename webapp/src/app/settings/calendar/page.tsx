@@ -33,7 +33,11 @@ export default function CalendarSettingsPage() {
     [allCalendars],
   );
 
-  const googleConnected = Boolean(googleStatus?.connected);
+  // GoogleCalendarSettings has no boolean `connected` field — presence
+  // of `access_token` (set after OAuth callback completes) is the
+  // canonical "is this family connected" signal. `connected_at` is
+  // useful as a "since when" hint but `access_token` is the gate.
+  const googleConnected = Boolean(googleStatus?.access_token);
   const googleEmail = googleStatus?.email ?? null;
 
   return (
