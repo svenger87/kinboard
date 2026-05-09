@@ -6,8 +6,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.16] - 2026-05-09 — Country-aware holidays + dashboard spacing
+
 ### Added
-- Country-aware public holiday support — DE (Germany), US, UK, NL, FR. A new country picker on `/settings/language` lets each family choose which country's public holidays appear on the calendar and the today-strip. Existing families default to `de` (Germany) automatically, so current behavior is unchanged. The holiday engine now lives in `src/lib/holidays/` with per-country files sharing common Easter/weekday utilities; `src/lib/german-holidays.ts` is kept as a deprecated compatibility shim.
+- Country-aware public holiday support — DE (Germany), US, UK, NL, FR. A new country picker on `/settings/language` lets each family choose which country's public holidays appear on the calendar and the today-strip. Existing families default to `de` (Germany) automatically, so current behavior is unchanged. The holiday engine now lives in `src/lib/holidays/` with per-country files sharing common Easter/weekday utilities; `src/lib/german-holidays.ts` is kept as a deprecated compatibility shim so consumers don't break during migration.
+
+### Fixed
+- TodayStrip on the dashboard sat flush against the widget grid below on portrait/short viewports. Added bottom margin matching the existing `mt-12` rhythm above FamilyMembers so the section has breathing room.
 
 ## [1.0.15] - 2026-05-09 — Clock detail popover is touch-accessible
 
