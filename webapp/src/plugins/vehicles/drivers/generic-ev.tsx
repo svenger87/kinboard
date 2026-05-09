@@ -69,6 +69,13 @@ function GenericEvCard({ vehicle }: { vehicle: Vehicle }) {
     ? states[config.battery_level]?.state
     : null;
   const range = config.range ? states[config.range]?.state : null;
+  const rangeUnit = config.range
+    ? (
+        states[config.range]?.attributes as
+          | { unit_of_measurement?: string }
+          | undefined
+      )?.unit_of_measurement ?? null
+    : null;
   const charging = config.charging_state
     ? states[config.charging_state]?.state
     : null;
@@ -97,7 +104,9 @@ function GenericEvCard({ vehicle }: { vehicle: Vehicle }) {
           </div>
         )}
         {range && (
-          <div className="text-2xl text-muted-foreground">{range} km</div>
+          <div className="text-2xl text-muted-foreground">
+            {range}{rangeUnit ? ` ${rangeUnit}` : ""}
+          </div>
         )}
         {charging && (
           <div className="text-sm">
