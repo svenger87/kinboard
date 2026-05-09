@@ -9,8 +9,9 @@ import type { NavGatingContext } from "@/plugins/types";
 // they make sense to show. Clicking any of these without HA returns
 // an "Connect Home Assistant first" landing page — fine if the user
 // got there from a deep link, but useless clutter in the bottom nav.
-// /tesla removed — superseded by /vehicles which is now a plugin-driven nav entry.
-const HA_DEPENDENT_HREFS = new Set(["/home-automation", "/energy"]);
+// /tesla removed — superseded by /vehicles (plugin-driven nav entry).
+// /energy removed — superseded by energyPlugin (plugin-driven nav entry).
+const HA_DEPENDENT_HREFS = new Set(["/home-automation"]);
 
 // Nav items that require at least one configured entity in their
 // own DB-backed settings row.

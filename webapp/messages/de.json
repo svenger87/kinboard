@@ -768,6 +768,8 @@
     "itemHomeAssistantDescription": "Hausautomation und Geräte",
     "itemVehiclesLabel": "Fahrzeuge",
     "itemVehiclesDescription": "Autos und andere Fahrzeuge über Home Assistant verwalten.",
+    "itemEnergyLabel": "Energie",
+    "itemEnergyDescription": "Solar-, Batterie- und Netz-Energie-Dashboard auf Basis von Home Assistant.",
     "itemCamerasLabel": "Kameras",
     "itemCamerasDescription": "Überwachungskameras verwalten",
     "itemWidgetsLabel": "Widgets",
@@ -2354,6 +2356,7 @@
   },
   "energy": {
     "title": "Energie",
+    "description": "Solar-, Batterie- und Netz-Energie-Dashboard auf Basis von Home Assistant.",
     "subtitleDashboard": "Energie-Dashboard",
     "subtitleLoading": "Energiedaten werden geladen…",
     "settingsAria": "Energie-Einstellungen",
