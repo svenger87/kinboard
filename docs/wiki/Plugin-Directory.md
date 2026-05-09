@@ -12,11 +12,14 @@ For end-users wondering whether a specific feature is available: search this pag
 
 These plugins are part of the official Kinboard build. No installation needed; toggle on or off per family at `/settings/plugins`.
 
-| Plugin | What it does | Drivers / vendors |
-|---|---|---|
-| **Vehicles** | Track multiple cars per household via Home Assistant entities. Per-vehicle dashboard, charging history, range and battery, climate, locks. | Tesla (native, via HA Fleet integration); Generic-EV (any car HA exposes — VW We Connect, BMW Connected Drive, Polestar, Hyundai BlueLink, OBD2 dongles, etc.) |
+| Plugin | What it does | Drivers / vendors | Since |
+|---|---|---|---|
+| **Vehicles** | Track multiple cars per household via Home Assistant entities. Per-vehicle dashboard, charging history, range and battery, climate, locks. | Tesla (native, via HA Fleet integration); Generic-EV (any car HA exposes — VW We Connect, BMW Connected Drive, Polestar, Hyundai BlueLink, OBD2 dongles, etc.) | v1.0.12 |
+| **Energy** | Solar, battery, and grid energy dashboard. Reads any Home Assistant energy entities — production, consumption, battery state-of-charge, grid import/export — and renders them as the `/energy` page. | Generic HA energy (any entities you wire up) | v1.0.18 |
+| **Cameras** | Live WebRTC streams from your security cameras on the `/cameras` page. Multi-camera grid layout, optional snapshot fallback. | go2rtc (handles RTSP, MJPEG, HomeKit, ONVIF, USB, etc. as upstream) | v1.0.18 |
+| **Stonks** | Watchlist of stocks, ETFs, crypto, indices, and forex pairs with a per-ticker detail page (TradingView candle charts, 1d→max timeframes) and a rotating dashboard widget. Server-side TTL cache (30s quotes, 5min charts) keeps requests off the rate-limit. | Yahoo Finance (no API key required, covers every asset class) | v1.0.19 |
 
-More core surfaces (Energy, Cameras) will migrate onto the plugin contract over time. They are first-party features today but not yet plugin-shaped — see the roadmap in the main README for sequencing.
+All four bundled plugins ship in core. They can be enabled or disabled per family at `/settings/plugins` — disabled plugins disappear from the navigation, the dashboard widget grid, and the integrations list, but their data is preserved (no rows are deleted; toggling back on restores the plugin exactly).
 
 ---
 
