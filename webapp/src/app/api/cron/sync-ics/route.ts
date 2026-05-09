@@ -3,6 +3,12 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { fetchIcsCalendar } from "@/lib/ics-fetcher";
 import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
 
+// Force Node.js runtime + dynamic — node-ical (transitive: http, https,
+// fs) is Node-only and Next's static page-data collector fails to bundle
+// it for prerender without these directives.
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const CRON_SECRET = process.env.CRON_SECRET;
 
 interface IcsSyncResult {
