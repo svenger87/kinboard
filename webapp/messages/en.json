@@ -1755,7 +1755,12 @@
       "toastAdded": "Calendar added",
       "toastUpdated": "Calendar updated",
       "toastDeleted": "Calendar deleted",
-      "toastError": "Failed to save calendar"
+      "toastError": "Failed to save calendar",
+      "syncNow": "Sync now",
+      "syncing": "Syncing…",
+      "syncSuccessTitle": "Sync complete",
+      "syncSuccessBody": "{succeeded} feed(s) synced{failed, plural, =0 {} other {, # failed}}.",
+      "syncErrorTitle": "Sync failed"
     },
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "update to {version} available",

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { Rss, Plus, Pencil, Trash2, Copy, Check, Loader2, Info } from "lucide-react";
+import { Rss, Plus, Pencil, Trash2, Copy, Check, Loader2, Info, RefreshCw } from "lucide-react";
 import { GlassCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,7 @@ import {
   useCreateIcsCalendar,
   useUpdateCalendar,
   useDeleteCalendar,
+  useIcsSync,
   usePeople,
 } from "@/hooks";
 import type { Calendar } from "@/types/database";
@@ -93,6 +94,26 @@ export default function IcsSettingsPage() {
   const createIcs = useCreateIcsCalendar();
   const updateCalendar = useUpdateCalendar();
   const deleteCalendar = useDeleteCalendar();
+  const icsSync = useIcsSync();
+
+  async function handleSyncNow() {
+    try {
+      const result = await icsSync.mutateAsync();
+      toast({
+        title: t("syncSuccessTitle"),
+        description: t("syncSuccessBody", {
+          succeeded: result.succeeded,
+          failed: result.failed,
+        }),
+      });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: t("syncErrorTitle"),
+        description: err instanceof Error ? err.message : "",
+      });
+    }
+  }
 
   const icsCalendars = allCalendars.filter(
     (c) => c.ics_url != null
@@ -227,10 +248,26 @@ export default function IcsSettingsPage() {
           subtitle={t("subtitle")}
           backHref="/settings"
           actions={
-            <Button onClick={openAddDialog} size="sm">
-              <Plus className="size-4 mr-2" />
-              {t("addButton")}
-            </Button>
+            <div className="flex items-center gap-2">
+              {icsCalendars.length > 0 && (
+                <Button
+                  onClick={handleSyncNow}
+                  size="sm"
+                  variant="outline"
+                  disabled={icsSync.isPending}
+                  aria-label={t("syncNow")}
+                >
+                  <RefreshCw
+                    className={`size-4 mr-2 ${icsSync.isPending ? "animate-spin" : ""}`}
+                  />
+                  {icsSync.isPending ? t("syncing") : t("syncNow")}
+                </Button>
+              )}
+              <Button onClick={openAddDialog} size="sm">
+                <Plus className="size-4 mr-2" />
+                {t("addButton")}
+              </Button>
+            </div>
           }
         />
 
