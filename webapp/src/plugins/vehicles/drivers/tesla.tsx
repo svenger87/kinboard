@@ -544,11 +544,6 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
         >
           <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
         </Button>
-        <Link href={`/settings/vehicles/${vehicle.id}`}>
-          <Button variant="ghost" size="icon" aria-label={t("settingsAria")}>
-            <Settings className="size-5" />
-          </Button>
-        </Link>
       </div>
 
       {/* Hero Card: Car Image + Battery */}
