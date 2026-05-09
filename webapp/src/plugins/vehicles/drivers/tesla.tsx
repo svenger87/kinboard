@@ -504,7 +504,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
           <p className="text-muted-foreground mb-6">
             {t("notConfiguredDescription")}
           </p>
-          <Link href="/settings/tesla">
+          <Link href={`/settings/vehicles/${vehicle.id}`}>
             <Button>
               <Settings className="size-4 mr-2" />
               {t("notConfiguredAction")}
@@ -544,7 +544,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
         >
           <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
         </Button>
-        <Link href="/settings/tesla">
+        <Link href={`/settings/vehicles/${vehicle.id}`}>
           <Button variant="ghost" size="icon" aria-label={t("settingsAria")}>
             <Settings className="size-5" />
           </Button>
