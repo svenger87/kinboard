@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       .select("device_id, quiet_hours_enabled, quiet_hours_start, quiet_hours_end" + (prefColumn ? `, ${prefColumn}` : ""))
       .eq("family_id", familyId);
 
-    const preferences = (prefsData || []) as (Pick<NotificationPreferences,
+    const preferences = (prefsData || []) as unknown as (Pick<NotificationPreferences,
       "device_id" | "quiet_hours_enabled" | "quiet_hours_start" | "quiet_hours_end"
     > & Record<string, unknown>)[];
 
