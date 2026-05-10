@@ -125,6 +125,8 @@ cd webapp/docker
 ./start.sh restart    # rebuilds the webapp image + recreates webapp + cron
 ```
 
+**Hands-off auto-update** — copy `docker-compose.diun.yml.example` to `docker-compose.diun.yml` and add `-f docker-compose.diun.yml` to your compose stack. Diun watches GHCR for new `kinboard-webapp` digests; when one lands, a webhook fires `kinboard-self-update.sh` which runs the full upgrade path (`git pull` → `setup.sh --non-interactive` → `compose pull` → `up -d` → `kong restart` if `kong.yml` changed). This is the replacement for the previous Watchtower overlay (deprecated; Watchtower was archived in 2024 and only handles the image step, missing the surrounding config substitutions). See [Self-hosting → Auto-updates](docs/wiki/Self-hosting.md#auto-updates) for the full setup.
+
 For production self-hosting (Traefik + custom domain + backups + updates), see [Self-hosting](docs/wiki/Self-hosting.md).
 
 ---
@@ -208,7 +210,7 @@ The wiki is the source of truth for everything beyond this README:
 
 ## Status & roadmap
 
-**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.0.19](https://github.com/svenger87/kinboard/releases/tag/v1.0.19) (2026-05-09).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Watchtower; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
+**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.0.19](https://github.com/svenger87/kinboard/releases/tag/v1.0.19) (2026-05-09).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Diun + the self-update webhook; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
 
 **Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](docs/wiki/Security-and-Threat-Model.md) and [`SECURITY.md`](SECURITY.md).
 
@@ -221,12 +223,12 @@ The wiki is the source of truth for everything beyond this README:
 - [x] Pre-built multi-arch (amd64 + arm64) Docker images on `ghcr.io` — self-hosters skip the build step
 - [x] CI on every PR — ESLint + i18n bundle parity + shellcheck — plus a full E2E smoke run that boots the docker stack with mock integrations and verifies the dashboard against Playwright
 - [x] Public live demo at [demo.kinboard.app](https://demo.kinboard.app) with mock Home Assistant / Tesla / weather / cameras so visitors see the full UI without configuring real integrations
-- [x] Watchtower auto-update overlay + post-update cache recovery so a release rollover doesn't strand users on a broken page (no manual intervention required)
+- [x] **End-to-end auto-update** (v1.0.20) — Diun + webhook overlay runs the full upgrade path (`git pull` → `setup.sh` → `docker compose pull` → `up -d` → conditional Kong reload) every time a new image lands on GHCR. Replaces the deprecated Watchtower overlay (archived upstream, missing the config-substitution step). See [Self-hosting → Auto-updates](docs/wiki/Self-hosting.md#auto-updates)
 - [x] First-run setup wizard at `/setup/{people,homeassistant,weather,done}` — guides fresh self-hosters through onboarding instead of dropping them on an empty dashboard; dismissible "Finish setting up" banner on the dashboard until completed
 - [x] Interactive `setup.sh` — prompts for the optional API keys most self-hosters need (OpenWeatherMap, Google Calendar OAuth, maintainer email) at first-run time, with `--non-interactive` and `--advanced` flags for automation and power users
 - [x] Device recognition that survives browser/OS updates — fingerprint-history table so a Safari/Chrome bump doesn't strand the device on `/join` (v1.0.11)
 - [x] **Vehicles surface + build-time plugin contract** (v1.0.12) — multi-car, multi-vendor `/vehicles` page. Tesla driver (native UI via Home Assistant Fleet) + Generic-EV driver (any car HA can talk to: VW We Connect, BMW Connected Drive, Polestar, Hyundai BlueLink, OBD2 dongles). First plugin under the `SurfacePlugin` contract. See [Plugin architecture](docs/wiki/Plugin-Architecture.md), [Vehicles](docs/wiki/Vehicles.md), and the [Plugin directory](docs/wiki/Plugin-Directory.md)
-- [x] **Watchtower-safe migrations** (v1.0.12) — schema migrations are now baked into the webapp Docker image and applied automatically on container start. Watchtower-driven self-hoster updates pick up new schema without anyone running `start.sh migrate` from the host
+- [x] **Image-baked migrations** (v1.0.12) — schema migrations are baked into the webapp Docker image and applied automatically on container start. Self-hoster updates (via the Diun overlay or any other path) pick up new schema without anyone running `start.sh migrate` from the host
 
 ### Up next (no fixed dates)
 - [ ] Additional Stonks data drivers — paid sources like Polygon or Tiingo for users wanting higher-resolution intraday + cleaner symbol coverage than Yahoo's unofficial endpoints. The driver contract already leaves room; only API-key plumbing and a settings UI need to land

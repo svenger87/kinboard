@@ -242,54 +242,71 @@ cd /mnt/user/appdata/kinboard/webapp/docker
 
 It's idempotent. It appends new templated env keys (`DATA_DIR`, `DOMAIN`, etc.), substitutes Supabase JWTs into `kong.yml`, renders `docker-compose.traefik.yml` from the example, and creates a `docker-compose.override.yml` for any host-specific extras.
 
-### Auto-updating with Watchtower
+### Auto-updates
 
-For self-hosters who'd rather not type `docker compose pull && ./start.sh up` every time a release lands, the repo ships an opt-in **`docker-compose.watchtower.yml.example`** overlay. Watchtower polls GHCR for changes to whatever tag you're tracking and rebuilds the webapp container when the digest moves. **Only the kinboard-webapp container** is auto-updated — the database, Kong, auth, etc. stay pinned (auto-bumping a Postgres image is not safe in general).
+The recommended path is the **Diun + webhook overlay** (`docker-compose.diun.yml.example`). It runs the FULL upgrade sequence end-to-end whenever a new GHCR image lands:
 
-#### Pick a tag strategy
+1. `git pull origin main` — picks up new `docker-compose.yml`, `kong.yml`, migrations, `init.sql`, `seed-demo.sql`
+2. `./setup.sh --non-interactive` — re-substitutes Kong placeholders if a new release shipped new keys/routes
+3. `docker compose pull` — pulls the new GHCR image(s)
+4. `docker compose up -d` — recreates only services whose image changed; the webapp's entrypoint re-applies all `migration_*.sql` on boot (idempotent)
+5. `docker restart kinboard-kong` — only when `kong.yml`'s mtime moved during the run
 
-The level of auto-update you want maps directly to the `KINBOARD_TAG` value in `webapp/docker/.env`:
-
-| `KINBOARD_TAG=` | What Watchtower picks up | When to use |
-|---|---|---|
-| `latest` | Every release, including major bumps | Demo boxes, "always show me the freshest build" |
-| `1.0` | Minor + patch within the 1.0.x line; major bumps **stop** at 1.x.x | **Recommended default** — get bug fixes auto, breaking changes stay manual |
-| `1.0.6` (pinned) | Nothing — Watchtower has no moving target | Frozen production install, validation environments, regression hunts |
+Two containers do this: **Diun** (image notifier — detects new GHCR digests, fires webhook) and a tiny **webhook** container (validates the HMAC token, executes `kinboard-self-update.sh`). Neither is exposed externally; both sit on the internal `kinboard` docker network.
 
 #### Bring up the overlay
 
 ```bash
 cd webapp/docker
-cp docker-compose.watchtower.yml.example docker-compose.watchtower.yml
-COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.watchtower.yml" \
+cp docker-compose.diun.yml.example docker-compose.diun.yml
+# setup.sh generates DIUN_WEBHOOK_SECRET into .env on first run; if the
+# stack is already initialised, top up via:
+echo "DIUN_WEBHOOK_SECRET=$(openssl rand -hex 32)" >> .env
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml" \
   ./start.sh up
 ```
 
-(Pair with the Traefik overlay too if you're using one — just append `-f docker-compose.traefik.yml`.)
-
-The overlay adds a `kinboard-watchtower` container that checks GHCR every hour and a `com.centurylinklabs.watchtower.enable=true` label on the webapp service so only it gets auto-updated.
+The overlay also adds a `diun.enable=true` label to the kinboard-webapp service so Diun knows to watch its image. Only that container is watched by default — auto-bumping the Postgres image is not safe; if you want Diun to watch additional services, add the same label to them in `docker-compose.override.yml`.
 
 #### Tuning the cadence
 
-Set `WATCHTOWER_POLL_INTERVAL` (seconds) in `.env` if hourly isn't right:
+Edit `webapp/docker/diun/diun.yml` — `watch.schedule` is a cron expression (default: every 30 min). The GHCR build itself takes ~4 min after a tag push, so polling more aggressively than every 5 min wastes Diun's API budget on GHCR.
 
-| Value | Effect |
-|---|---|
-| `600` | Every 10 minutes — demo boxes, fast feedback |
-| `3600` (default) | Hourly |
-| `86400` | Daily — minimal disturbance, batches updates |
+#### Tail the update log
+
+Each run of `kinboard-self-update.sh` appends timestamped lines to `/var/lib/kinboard-update/kinboard-update.log` on the host:
+
+```bash
+tail -f /var/lib/kinboard-update/kinboard-update.log
+```
+
+#### Manually trigger an update (without waiting for Diun)
+
+```bash
+docker exec kinboard-webhook /scripts/kinboard-self-update.sh
+```
+
+Same script, same code path. Useful right after pushing a hotfix when you don't want to wait for the next 30-min Diun tick.
 
 #### What you give up
 
-- **Surprise restarts.** Watchtower recreates the webapp container when an update lands, which is ~30 seconds of downtime. Tabs lose their realtime websocket and reconnect. Mostly invisible, but if you've got a kiosk in the kitchen, the screen blanks briefly.
-- **Reading release notes before they apply.** If you want "see what changed" → "decide" → "apply", stay on `KINBOARD_TAG=1.0.x` (pinned) and bump it manually after reading the [release notes](https://github.com/svenger87/kinboard/releases). Watchtower can stay disabled.
-- **The trust boundary.** Watchtower needs read/write access to `/var/run/docker.sock` to recreate containers. Anything with that access can effectively run as root on the host. That's the standard pattern for this class of tool, but worth knowing.
+- **Surprise restarts.** When an update lands, the webapp container is recreated — ~30 seconds of downtime. Tabs lose their realtime websocket and reconnect.
+- **Reading release notes before they apply.** If you want "see what changed → decide → apply" semantics, don't enable the overlay; track the [release notes](https://github.com/svenger87/kinboard/releases) and run `kinboard-self-update.sh` manually after each release you actually want.
+- **The trust boundary.** The webhook container has rw access to `/var/run/docker.sock` and the project directory. Anything with that access can effectively run as root on the host. Same blast radius as Watchtower or any other update agent — Diun-the-detector itself only needs read-only socket access.
 
-#### Disabling later
+#### Watchtower migration (deprecated path)
 
-Two ways:
-1. Drop the overlay: stop including `-f docker-compose.watchtower.yml` in `COMPOSE_FILES` and re-run `./start.sh up`. Watchtower container stops; pinned containers stay running.
-2. Remove the label from the webapp service in your `docker-compose.override.yml`. Watchtower keeps running but no longer touches the webapp.
+The previous `docker-compose.watchtower.yml.example` overlay still works for backwards compatibility but is **deprecated**: containrrr/watchtower was archived upstream in 2024, and even before that it only updated images — it did NOT git-pull new compose/kong.yml or re-run `setup.sh`, so any release that shipped config alongside the image silently left Watchtower-driven installs in a broken state. To migrate:
+
+```bash
+cd webapp/docker
+cp docker-compose.watchtower.yml docker-compose.watchtower.yml.disabled  # keep as a backup
+cp docker-compose.diun.yml.example docker-compose.diun.yml
+# Update your COMPOSE_FILES to swap watchtower → diun
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.diun.yml" \
+  ./start.sh up
+docker rm -f kinboard-watchtower
+```
 
 ## Common deployment shapes
 
