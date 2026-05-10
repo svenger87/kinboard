@@ -2968,25 +2968,34 @@
         "label": "Drache",
         "tier1": "Ei",
         "tier2": "Schlüpfling",
-        "tier3": "Junger Drache",
-        "tier4": "Drache",
-        "tier5": "Mächtiger T-Rex"
+        "tier3": "Eidechse",
+        "tier4": "Krokodil",
+        "tier5": "Junger Drache",
+        "tier6": "Drache",
+        "tier7": "Riesensaurier",
+        "tier8": "Mächtiger T-Rex"
       },
       "cat": {
         "label": "Katze",
         "tier1": "Kätzchen",
-        "tier2": "Katze",
-        "tier3": "Leopard",
-        "tier4": "Tiger",
-        "tier5": "Löwe"
+        "tier2": "Neugierige Katze",
+        "tier3": "Katze",
+        "tier4": "Schwarzkatze",
+        "tier5": "Leopard",
+        "tier6": "Tiger",
+        "tier7": "Königstiger",
+        "tier8": "Löwe"
       },
       "astronaut": {
         "label": "Astronaut",
         "tier1": "Erdling",
-        "tier2": "Raketenpilot",
-        "tier3": "Besucher",
-        "tier4": "Orbiter",
-        "tier5": "Kosmischer Reisender"
+        "tier2": "Fallschirmspringer",
+        "tier3": "Raketenpilot",
+        "tier4": "Besucher",
+        "tier5": "Orbiter",
+        "tier6": "Mondläufer",
+        "tier7": "Saturn-Erforscher",
+        "tier8": "Kosmischer Reisender"
       }
     },
     "nextStageHint": "Nächste Stufe: {stage} bei {amount}",
