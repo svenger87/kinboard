@@ -26,6 +26,44 @@ export function MobileNav() {
     setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
   }, []);
 
+  // Tap-vs-swipe discriminator. With 14+ nav items the bottom bar scrolls
+  // horizontally; a finger-drag intended to scroll otherwise fires a `click`
+  // on the Link under the start position (touch-pan-x lets the browser
+  // scroll, but doesn't suppress the eventual click). We track movement
+  // ourselves and cancel the click in the capture phase if the user moved
+  // beyond MOVE_THRESHOLD_PX.
+  const MOVE_THRESHOLD_PX = 8;
+  const touchStartRef = useRef<{ x: number; y: number; scrollLeft: number } | null>(null);
+  const didDragRef = useRef(false);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    didDragRef.current = false;
+    touchStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: scrollRef.current?.scrollLeft ?? 0,
+    };
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const start = touchStartRef.current;
+    if (!start || didDragRef.current) return;
+    const dx = Math.abs(e.clientX - start.x);
+    const dy = Math.abs(e.clientY - start.y);
+    const ds = Math.abs((scrollRef.current?.scrollLeft ?? 0) - start.scrollLeft);
+    if (dx > MOVE_THRESHOLD_PX || dy > MOVE_THRESHOLD_PX || ds > MOVE_THRESHOLD_PX) {
+      didDragRef.current = true;
+    }
+  }, []);
+
+  const handleClickCapture = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (didDragRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    touchStartRef.current = null;
+  }, []);
+
   // Auto-scroll active item into view on mount / route change
   useEffect(() => {
     const el = activeRef.current;
@@ -78,6 +116,9 @@ export function MobileNav() {
         ref={scrollRef}
         className="flex items-center overflow-x-auto scrollbar-hide px-2 py-2 gap-1 overscroll-x-contain touch-pan-x"
         style={{ WebkitOverflowScrolling: 'touch' }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onClickCapture={handleClickCapture}
       >
         {navItems.map((item) => {
           const isActive = pathname === item.href ||
