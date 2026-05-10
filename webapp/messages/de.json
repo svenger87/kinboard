@@ -783,6 +783,8 @@
     "itemPocketMoneyDescription": "Kinderkonten, Taschengelder und Zinsen verwalten",
     "itemWidgetsLabel": "Widgets",
     "itemWidgetsDescription": "Dashboard-Widgets ein-/ausblenden",
+    "itemNavigationLabel": "Navigation",
+    "itemNavigationDescription": "Reihenfolge der unteren Leiste anpassen",
     "itemThemeLabel": "Design",
     "itemThemeDescription": "Farben und Uhr-Anzeige",
     "itemScreensaverLabel": "Bildschirmschoner",
@@ -879,6 +881,12 @@
       "pocketMoneyDescription": "Kontostand und Sparziel-Fortschritt für jedes Kinderkonto",
       "pocketMoneyPreview1": "🐉 12,50 € — Drache Stufe 2",
       "pocketMoneyPreview2": "Tabs wechseln zwischen Kindern"
+    },
+    "navigation": {
+      "title": "Navigation",
+      "intro": "Untere Navigation per Drag & Drop sortieren. Die Reihenfolge gilt nur auf diesem Gerät — Küchen-Kiosk, Telefon und Tablets der Kinder behalten jeweils ihre eigene Anordnung.",
+      "reset": "Standard wiederherstellen",
+      "perDeviceHint": "Auf diesem Gerät gespeichert. Neue Bereiche (z. B. ein frisch aktiviertes Plugin) erscheinen am Ende, bis du sie verschiebst."
     },
     "theme": {
       "title": "Design",

@@ -30,6 +30,7 @@ import {
   Rss,
   LineChart,
   PiggyBank,
+  ListOrdered,
 } from "lucide-react";
 import { PinGuard } from "@/components/pin-guard";
 import { GlassCard } from "@/components/ui/card";
@@ -227,6 +228,12 @@ export default function SettingsPage() {
           label: t("itemWidgetsLabel"),
           description: t("itemWidgetsDescription"),
           href: "/settings/widgets",
+        },
+        {
+          icon: ListOrdered,
+          label: t("itemNavigationLabel"),
+          description: t("itemNavigationDescription"),
+          href: "/settings/navigation",
         },
         {
           icon: Palette,
