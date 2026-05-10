@@ -81,6 +81,7 @@ export interface Database {
           color: string;
           avatar_url: string | null;
           is_child: boolean;
+          is_kid: boolean;
           created_at: string;
         };
         Insert: {
@@ -90,6 +91,7 @@ export interface Database {
           color: string;
           avatar_url?: string | null;
           is_child?: boolean;
+          is_kid?: boolean;
           created_at?: string;
         };
         Update: {
@@ -99,6 +101,7 @@ export interface Database {
           color?: string;
           avatar_url?: string | null;
           is_child?: boolean;
+          is_kid?: boolean;
           created_at?: string;
         };
         Relationships: [];
@@ -949,6 +952,189 @@ export interface Database {
         };
         Relationships: [];
       };
+      pocket_money_accounts: {
+        Row: {
+          id: string;
+          family_id: string;
+          person_id: string;
+          currency: string;
+          balance_cents: number;
+          apr_bps: number;
+          weekly_allowance_cents: number;
+          allowance_day_of_week: number;
+          max_balance_eligible_cents: number;
+          pending_interest_cents: number;
+          interest_committed_day_of_week: number;
+          last_accrued_date: string | null;
+          last_allowance_at: string | null;
+          interest_committed_at: string | null;
+          avatar_species: "dragon" | "cat" | "astronaut";
+          lifetime_saved_cents: number;
+          last_seen_tier: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          person_id: string;
+          currency?: string;
+          balance_cents?: number;
+          apr_bps?: number;
+          weekly_allowance_cents?: number;
+          allowance_day_of_week?: number;
+          max_balance_eligible_cents?: number;
+          pending_interest_cents?: number;
+          interest_committed_day_of_week?: number;
+          last_accrued_date?: string | null;
+          last_allowance_at?: string | null;
+          interest_committed_at?: string | null;
+          avatar_species?: "dragon" | "cat" | "astronaut";
+          lifetime_saved_cents?: number;
+          last_seen_tier?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          person_id?: string;
+          currency?: string;
+          balance_cents?: number;
+          apr_bps?: number;
+          weekly_allowance_cents?: number;
+          allowance_day_of_week?: number;
+          max_balance_eligible_cents?: number;
+          pending_interest_cents?: number;
+          interest_committed_day_of_week?: number;
+          last_accrued_date?: string | null;
+          last_allowance_at?: string | null;
+          interest_committed_at?: string | null;
+          avatar_species?: "dragon" | "cat" | "astronaut";
+          lifetime_saved_cents?: number;
+          last_seen_tier?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      pocket_money_transactions: {
+        Row: {
+          id: string;
+          account_id: string;
+          amount_cents: number;
+          type: "allowance" | "manual_deposit" | "interest" | "withdrawal" | "adjustment";
+          note: string | null;
+          related_goal_id: string | null;
+          created_by_person_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          amount_cents: number;
+          type: "allowance" | "manual_deposit" | "interest" | "withdrawal" | "adjustment";
+          note?: string | null;
+          related_goal_id?: string | null;
+          created_by_person_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          amount_cents?: number;
+          type?: "allowance" | "manual_deposit" | "interest" | "withdrawal" | "adjustment";
+          note?: string | null;
+          related_goal_id?: string | null;
+          created_by_person_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      pocket_money_goals: {
+        Row: {
+          id: string;
+          account_id: string;
+          name: string;
+          target_amount_cents: number;
+          image_url: string | null;
+          image_source: "catalog" | "upload" | "url";
+          position: number;
+          is_primary: boolean;
+          status: "active" | "ready_to_buy" | "bought" | "abandoned";
+          target_reached_at: string | null;
+          parent_confirmed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          name: string;
+          target_amount_cents: number;
+          image_url?: string | null;
+          image_source?: "catalog" | "upload" | "url";
+          position?: number;
+          is_primary?: boolean;
+          status?: "active" | "ready_to_buy" | "bought" | "abandoned";
+          target_reached_at?: string | null;
+          parent_confirmed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          name?: string;
+          target_amount_cents?: number;
+          image_url?: string | null;
+          image_source?: "catalog" | "upload" | "url";
+          position?: number;
+          is_primary?: boolean;
+          status?: "active" | "ready_to_buy" | "bought" | "abandoned";
+          target_reached_at?: string | null;
+          parent_confirmed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      pocket_money_withdrawal_requests: {
+        Row: {
+          id: string;
+          account_id: string;
+          amount_cents: number;
+          reason: string;
+          status: "pending" | "approved" | "denied";
+          parent_decided_at: string | null;
+          parent_decided_by_person_id: string | null;
+          related_goal_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          amount_cents: number;
+          reason?: string;
+          status?: "pending" | "approved" | "denied";
+          parent_decided_at?: string | null;
+          parent_decided_by_person_id?: string | null;
+          related_goal_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          amount_cents?: number;
+          reason?: string;
+          status?: "pending" | "approved" | "denied";
+          parent_decided_at?: string | null;
+          parent_decided_by_person_id?: string | null;
+          related_goal_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {};
     Functions: {};
@@ -997,6 +1183,18 @@ export type VehicleUpdate = Database["public"]["Tables"]["vehicles"]["Update"];
 export type Ticker = Database["public"]["Tables"]["tickers"]["Row"];
 export type TickerInsert = Database["public"]["Tables"]["tickers"]["Insert"];
 export type TickerUpdate = Database["public"]["Tables"]["tickers"]["Update"];
+
+// Pocket Money (Piggy) types
+export type PocketMoneyAccount = Database["public"]["Tables"]["pocket_money_accounts"]["Row"];
+export type PocketMoneyAccountInsert = Database["public"]["Tables"]["pocket_money_accounts"]["Insert"];
+export type PocketMoneyAccountUpdate = Database["public"]["Tables"]["pocket_money_accounts"]["Update"];
+export type PocketMoneyTransaction = Database["public"]["Tables"]["pocket_money_transactions"]["Row"];
+export type PocketMoneyTransactionInsert = Database["public"]["Tables"]["pocket_money_transactions"]["Insert"];
+export type PocketMoneyGoal = Database["public"]["Tables"]["pocket_money_goals"]["Row"];
+export type PocketMoneyGoalInsert = Database["public"]["Tables"]["pocket_money_goals"]["Insert"];
+export type PocketMoneyGoalUpdate = Database["public"]["Tables"]["pocket_money_goals"]["Update"];
+export type PocketMoneyWithdrawalRequest = Database["public"]["Tables"]["pocket_money_withdrawal_requests"]["Row"];
+export type PocketMoneyWithdrawalRequestInsert = Database["public"]["Tables"]["pocket_money_withdrawal_requests"]["Insert"];
 
 // Recipe instruction type
 export interface RecipeInstruction {
