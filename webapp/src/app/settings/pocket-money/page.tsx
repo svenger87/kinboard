@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { PiggyBank, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/card";
@@ -32,7 +32,29 @@ import {
 import type { AvatarSpecies } from "@/lib/pocket-money/types";
 import { formatCents } from "@/lib/pocket-money/format";
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Locale-aware short weekday names indexed 0=Sun..6=Sat. Built once
+// per locale via Intl.DateTimeFormat off a known Sunday so we don't
+// need 7 hand-rolled translation keys per locale.
+function useLocalizedDayNames(): readonly string[] {
+  const locale = useLocale();
+  return useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(locale, { weekday: "short" });
+    // 2024-01-07 is a Sunday in UTC; offset by 0..6 to walk the week.
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(Date.UTC(2024, 0, 7 + i));
+      return fmt.format(d);
+    });
+  }, [locale]);
+}
+
+// Common cadences exposed in the UI. Custom values still go through
+// the underlying allowance_interval_days column; this list is the
+// "reasonable defaults" UI surface.
+const ALLOWANCE_INTERVAL_OPTIONS: ReadonlyArray<{ days: number; labelKey: string }> = [
+  { days: 7, labelKey: "intervalWeekly" },
+  { days: 14, labelKey: "intervalBiweekly" },
+  { days: 28, labelKey: "intervalEveryFourWeeks" },
+];
 
 export default function PocketMoneySettingsPage() {
   const t = useTranslations("settings.pocketMoney");
@@ -50,6 +72,8 @@ export default function PocketMoneySettingsPage() {
 
   const accountedPersonIds = new Set(accounts.map((a) => a.person_id));
   const kidsWithoutAccount = kids.filter((k) => !accountedPersonIds.has(k.id));
+
+  const days = useLocalizedDayNames();
 
   return (
     <main
@@ -148,6 +172,29 @@ export default function PocketMoneySettingsPage() {
                   />
                 </div>
                 <div className="space-y-1">
+                  <Label>{t("allowanceIntervalLabel")}</Label>
+                  <select
+                    className="w-full h-10 rounded-md border border-input bg-background px-3"
+                    defaultValue={acct.allowance_interval_days ?? 7}
+                    onChange={(e) =>
+                      update
+                        .mutateAsync({
+                          id: acct.id,
+                          update: {
+                            allowance_interval_days: Number(e.target.value),
+                          },
+                        })
+                        .catch(console.error)
+                    }
+                  >
+                    {ALLOWANCE_INTERVAL_OPTIONS.map((opt) => (
+                      <option key={opt.days} value={opt.days}>
+                        {t(opt.labelKey)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
                   <Label>{t("allowanceDayLabel")}</Label>
                   <select
                     className="w-full h-10 rounded-md border border-input bg-background px-3"
@@ -163,8 +210,8 @@ export default function PocketMoneySettingsPage() {
                         .catch(console.error)
                     }
                   >
-                    {DAYS.map((d, i) => (
-                      <option key={d} value={i}>
+                    {days.map((d, i) => (
+                      <option key={i} value={i}>
                         {d}
                       </option>
                     ))}
@@ -188,8 +235,8 @@ export default function PocketMoneySettingsPage() {
                         .catch(console.error)
                     }
                   >
-                    {DAYS.map((d, i) => (
-                      <option key={d} value={i}>
+                    {days.map((d, i) => (
+                      <option key={i} value={i}>
                         {d}
                       </option>
                     ))}

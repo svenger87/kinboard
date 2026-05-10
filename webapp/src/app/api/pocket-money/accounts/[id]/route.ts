@@ -38,6 +38,7 @@ export async function PATCH(
   if (body.apr_bps !== undefined) update.apr_bps = body.apr_bps;
   if (body.weekly_allowance_cents !== undefined) update.weekly_allowance_cents = body.weekly_allowance_cents;
   if (body.allowance_day_of_week !== undefined) update.allowance_day_of_week = body.allowance_day_of_week;
+  if (body.allowance_interval_days !== undefined) update.allowance_interval_days = body.allowance_interval_days;
   if (body.max_balance_eligible_cents !== undefined) update.max_balance_eligible_cents = body.max_balance_eligible_cents;
   if (body.interest_committed_day_of_week !== undefined) update.interest_committed_day_of_week = body.interest_committed_day_of_week;
   if (body.avatar_species !== undefined) update.avatar_species = body.avatar_species;
