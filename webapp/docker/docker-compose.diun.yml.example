@@ -1,0 +1,101 @@
+# Auto-update overlay — Diun image-update notifier + webhook executor
+# of kinboard-self-update.sh. Replaces the deprecated Watchtower overlay
+# (containrrr/watchtower was archived in 2024 and only updates images,
+# not the surrounding compose / kong.yml / setup.sh substitutions that
+# real Kinboard releases need).
+#
+# What this stack does, end-to-end:
+#
+#   ghcr.io ──new digest──▶ Diun ──webhook + HMAC token──▶ webhook ──exec──▶ kinboard-self-update.sh
+#                                                                                       │
+#                                                                                       ├── git pull (compose / kong.yml / migrations)
+#                                                                                       ├── setup.sh --non-interactive (re-substitute kong.yml)
+#                                                                                       ├── docker compose pull
+#                                                                                       ├── docker compose up -d (entrypoint re-applies migrations)
+#                                                                                       └── docker restart kinboard-kong (only if kong.yml changed)
+#
+# Usage (alongside the normal stack):
+#
+#   cd webapp/docker
+#   cp docker-compose.diun.yml.example docker-compose.diun.yml
+#   # Optionally edit diun/diun.yml to change the cron schedule.
+#   # `setup.sh` generates DIUN_WEBHOOK_SECRET into .env on first run.
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml \
+#                  -f docker-compose.traefik.yml -f docker-compose.diun.yml" \
+#     ./start.sh up
+#
+# Required: a git checkout of the kinboard repo at $PROJECT_DIR (the
+# self-updater needs to git pull). For the project-dir layout to make
+# sense, your project root should be one directory above webapp/docker.
+#
+# Tail the update log:
+#   tail -f /var/lib/kinboard-update/kinboard-update.log
+#
+# Trigger a manual update (bypassing Diun):
+#   docker exec kinboard-webhook /scripts/kinboard-self-update.sh
+
+services:
+  # The kinboard-webapp service in the base compose gains a label so
+  # Diun knows to watch its image. (`diun.enable=true` on a service
+  # that's also using `image: ghcr.io/...` is the only thing Diun needs
+  # to start watching.)
+  webapp:
+    labels:
+      - diun.enable=true
+
+  # Diun watches GHCR for new digests on labelled services and POSTs to
+  # the webhook container when one lands.
+  diun:
+    image: crazymax/diun:latest
+    container_name: ${PROJECT_NAME:-kinboard}-diun
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+      LOG_LEVEL: info
+      DIUN_WEBHOOK_SECRET: ${DIUN_WEBHOOK_SECRET}
+    volumes:
+      - ./diun/diun.yml:/diun.yml:ro
+      - ./data/diun:/data
+      # Read-only docker socket — Diun only needs to inspect labels
+      # + image digests; it does not exec or restart anything.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - kinboard
+    depends_on:
+      - webhook
+
+  # Receives Diun's webhook, validates the HMAC token in the
+  # X-Diun-Token header against DIUN_WEBHOOK_SECRET, and executes
+  # /scripts/kinboard-self-update.sh inside this container. The script
+  # talks to the host's docker daemon via the bind-mounted socket.
+  #
+  # Not exposed externally — only Diun (on the same network) reaches it.
+  webhook:
+    image: almir/webhook:latest
+    container_name: ${PROJECT_NAME:-kinboard}-webhook
+    restart: unless-stopped
+    command:
+      - -hooks=/etc/webhook/hooks.json
+      - -verbose
+      - -nopanic
+      - -port=9000
+      - -hotreload
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+      DIUN_WEBHOOK_SECRET: ${DIUN_WEBHOOK_SECRET}
+      PROJECT_DIR: /project
+      COMPOSE_FILES: ${COMPOSE_FILES:-"-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.diun.yml"}
+      LOG_FILE: /var/log/kinboard-update.log
+    volumes:
+      - ./diun/hooks.json:/etc/webhook/hooks.json:ro
+      - ./kinboard-self-update.sh:/scripts/kinboard-self-update.sh:ro
+      # Bind-mount the project root so git pull + setup.sh + docker
+      # compose can operate on real files. Adjust if your repo lives
+      # elsewhere — the path inside the container must be /project.
+      - ../..:/project:rw
+      # Talks to the host docker daemon for pull / up / restart.
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      # Persist the update log on the host so you can tail it.
+      - /var/lib/kinboard-update:/var/log
+    networks:
+      - kinboard

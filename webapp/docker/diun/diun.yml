@@ -1,0 +1,42 @@
+# Diun config — Docker Image Update Notifier
+#
+# Watches GHCR for new ghcr.io/svenger87/kinboard images. When a new
+# digest lands, fires a webhook to the kinboard-webhook container,
+# which executes kinboard-self-update.sh.
+#
+# Diun does NOT update containers itself — it only detects + notifies.
+# That separation keeps the "what to do on update" logic in our shell
+# script (where we control git pull / setup.sh / kong restart timing)
+# rather than in a third-party tool whose semantics we don't own.
+#
+# https://crazymax.dev/diun/
+
+db:
+  path: /data/diun.db
+
+watch:
+  workers: 5
+  # Check every 30 minutes. Adjust if you want faster propagation
+  # (the GHCR build itself takes ~4 min after a kinboard/main push).
+  schedule: "*/30 * * * *"
+  # Random delay 0-30s within each tick so multiple Diun instances
+  # don't hammer GHCR at exactly :00 / :30 every hour.
+  jitter: 30s
+
+notif:
+  webhook:
+    endpoint: http://kinboard-webhook:9000/hooks/kinboard-update
+    method: POST
+    timeout: 30s
+    headers:
+      Content-Type: application/json
+      X-Diun-Token: "{{ env "DIUN_WEBHOOK_SECRET" }}"
+
+providers:
+  # Watch only containers explicitly opted-in via diun.enable=true label.
+  # The kinboard-webapp service (in docker-compose.diun.yml.example) is
+  # the only one labelled by default. Self-hosters who want Diun to also
+  # watch other containers (e.g. a third-party plugin's image) can add
+  # the same label.
+  docker:
+    watchByDefault: false
