@@ -15,6 +15,7 @@ import {
   CheckSquare,
   Car,
   TrendingUp,
+  PiggyBank,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GlassCard } from "@/components/ui/card";
@@ -45,6 +46,7 @@ const WIDGET_CONFIGS: WidgetConfig[] = [
   { key: "notes", labelKey: "notesLabel", descriptionKey: "notesDescription", previewKeys: ["notesPreview1", "notesPreview2", "notesPreview3"], icon: StickyNote },
   { key: "vehicles", labelKey: "vehiclesLabel", descriptionKey: "vehiclesDescription", previewKeys: ["vehiclesPreview1", "vehiclesPreview2"], icon: Car },
   { key: "stonks", labelKey: "stonksLabel", descriptionKey: "stonksDescription", previewKeys: ["stonksPreview1", "stonksPreview2"], icon: TrendingUp },
+  { key: "pocketMoney", labelKey: "pocketMoneyLabel", descriptionKey: "pocketMoneyDescription", previewKeys: ["pocketMoneyPreview1", "pocketMoneyPreview2"], icon: PiggyBank },
 ];
 
 export default function WidgetSettingsPage() {

@@ -261,7 +261,8 @@
     "cameras": "Cameras",
     "settings": "Settings",
     "news": "News",
-    "stonks": "Stonks"
+    "stonks": "Stonks",
+    "pocketMoney": "Pocket Money"
   },
   "cameras": {
     "title": "Cameras",
@@ -873,7 +874,11 @@
       "stonksLabel": "Stocks",
       "stonksDescription": "Rotating watchlist widget — price and daily change",
       "stonksPreview1": "AAPL +1.23%",
-      "stonksPreview2": "Rotates through all watched symbols"
+      "stonksPreview2": "Rotates through all watched symbols",
+      "pocketMoneyLabel": "Pocket Money",
+      "pocketMoneyDescription": "Balance and savings goal progress for each kid's account",
+      "pocketMoneyPreview1": "🐉 €12.50 — Dragon Stage 2",
+      "pocketMoneyPreview2": "Tabs switch between kids"
     },
     "theme": {
       "title": "Design",
