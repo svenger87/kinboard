@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { Progress } from "@/components/ui/progress";
 import { formatCents } from "@/lib/pocket-money/format";
 import type { PocketMoneyGoal } from "@/types/database";
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function GoalCard({ goal, currentBalanceCents, currency, variant = "secondary", onReadyToBuy }: Props) {
+  const t = useTranslations("pocketMoney");
   const pct = Math.min(100, Math.floor((currentBalanceCents * 100) / goal.target_amount_cents));
   const reached = currentBalanceCents >= goal.target_amount_cents;
 
@@ -35,7 +37,7 @@ export function GoalCard({ goal, currentBalanceCents, currency, variant = "secon
             {goal.name}
           </p>
           <p className="text-xs text-muted-foreground">
-            {formatCents(Math.min(currentBalanceCents, goal.target_amount_cents), currency)} of{" "}
+            {formatCents(Math.min(currentBalanceCents, goal.target_amount_cents), currency)} {t("ofTotal")}{" "}
             {formatCents(goal.target_amount_cents, currency)} &bull; {pct}%
           </p>
         </div>
@@ -47,7 +49,7 @@ export function GoalCard({ goal, currentBalanceCents, currency, variant = "secon
           onClick={onReadyToBuy}
           className="w-full py-2 rounded-lg bg-month-primary text-month-primary-foreground font-semibold"
         >
-          🎉 You can buy this!
+          {t("readyToBuy")}
         </button>
       )}
     </div>
