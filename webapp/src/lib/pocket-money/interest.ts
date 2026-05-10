@@ -50,3 +50,66 @@ export function nextTierThreshold(lifetimeSavedCents: number): number | null {
   }
   return null;
 }
+
+/**
+ * Day-by-day projection of balance under current APR + allowance,
+ * mirroring the cron path: accrue daily, commit pending → balance
+ * weekly, drop a fresh allowance on each interval boundary. Used by
+ * the settings page to telegraph "if you keep things as-is, here's
+ * what the balance looks like in N days."
+ *
+ * Pure function, no dependencies on cron / DB. Returns balance at each
+ * requested day-offset (sorted, deduped) so the caller renders the
+ * milestones it cares about.
+ */
+export function projectBalance(args: {
+  balanceCents: number;
+  pendingInterestCents: number;
+  maxBalanceEligibleCents: number;
+  aprBps: number;
+  weeklyAllowanceCents: number;
+  allowanceIntervalDays: number;
+  horizonDays: number;
+  milestoneDays: ReadonlyArray<number>;
+}): ReadonlyArray<{ day: number; balanceCents: number }> {
+  const {
+    balanceCents,
+    pendingInterestCents,
+    maxBalanceEligibleCents,
+    aprBps,
+    weeklyAllowanceCents,
+    allowanceIntervalDays,
+    horizonDays,
+    milestoneDays,
+  } = args;
+
+  let balance = balanceCents;
+  let pending = pendingInterestCents;
+
+  const wantedDays = new Set(milestoneDays.filter((d) => d > 0 && d <= horizonDays));
+  const snapshots: { day: number; balanceCents: number }[] = [];
+
+  // Allowance interval guard: 0/negative would loop forever; clamp to ≥1.
+  const interval = Math.max(1, allowanceIntervalDays);
+
+  for (let day = 1; day <= horizonDays; day++) {
+    pending += accrueDailyInterest({
+      balanceCents: balance,
+      maxBalanceEligibleCents,
+      aprBps,
+    });
+    // Weekly commit (mirrors the cron's once-per-week commit cadence).
+    if (day % 7 === 0) {
+      balance += pending;
+      pending = 0;
+    }
+    if (day % interval === 0 && weeklyAllowanceCents > 0) {
+      balance += weeklyAllowanceCents;
+    }
+    if (wantedDays.has(day)) {
+      snapshots.push({ day, balanceCents: balance + pending });
+    }
+  }
+
+  return snapshots;
+}
