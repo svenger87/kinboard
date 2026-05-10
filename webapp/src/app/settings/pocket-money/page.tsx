@@ -296,25 +296,16 @@ export default function PocketMoneySettingsPage() {
         })}
 
         {kidsWithoutAccount.map((kid) => (
-          <GlassCard key={kid.id} className="p-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm">
-                {t("createAccountForKid", { name: kid.name })}
-              </p>
-              <Button
-                onClick={() =>
-                  create
-                    .mutateAsync({
-                      person_id: kid.id,
-                      avatar_species: "dragon" as AvatarSpecies,
-                    })
-                    .catch(console.error)
-                }
-              >
-                <Plus className="size-4 mr-1" /> {t("create")}
-              </Button>
-            </div>
-          </GlassCard>
+          <CreateAccountCard
+            key={kid.id}
+            kid={kid}
+            onCreate={(species) =>
+              create
+                .mutateAsync({ person_id: kid.id, avatar_species: species })
+                .catch(console.error)
+            }
+            isPending={create.isPending}
+          />
         ))}
 
         {kids.length === 0 && (
@@ -400,6 +391,73 @@ function AccountInbox({
           </div>
         </div>
       ))}
+    </GlassCard>
+  );
+}
+
+interface CreateAccountKid { id: string; name: string }
+
+const SPECIES_OPTIONS: ReadonlyArray<AvatarSpecies> = ["dragon", "cat", "astronaut"];
+
+function CreateAccountCard({
+  kid,
+  onCreate,
+  isPending,
+}: {
+  kid: CreateAccountKid;
+  onCreate: (species: AvatarSpecies) => void;
+  isPending: boolean;
+}) {
+  const t = useTranslations("settings.pocketMoney");
+  const tPM = useTranslations("pocketMoney");
+  const [picked, setPicked] = useState<AvatarSpecies | null>(null);
+
+  // Plain function — not a hook — so it's safe to call inside .map() below.
+  const speciesLabel = (s: AvatarSpecies): string =>
+    tPM(`species.${s}.label` as never);
+
+  return (
+    <GlassCard className="p-4 space-y-3">
+      <p className="text-sm font-medium">
+        {t("createAccountForKid", { name: kid.name })}
+      </p>
+      <p className="text-xs text-muted-foreground">{t("speciesPickerHint")}</p>
+
+      <div className="grid grid-cols-3 gap-2">
+        {SPECIES_OPTIONS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setPicked(s)}
+            className={`flex flex-col items-center gap-1 rounded-lg border-2 p-3 transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 ${
+              picked === s
+                ? "border-month-primary bg-month-primary/5 ring-2 ring-month-primary/30"
+                : "border-border hover:bg-white/[0.04]"
+            }`}
+            aria-pressed={picked === s}
+          >
+            {/* Stage 1 SVG as the species preview. */}
+            <img
+              src={`/pocket-money/avatars/${s}-1.svg`}
+              alt=""
+              width={56}
+              height={56}
+            />
+            <span className="text-xs font-medium">{speciesLabel(s)}</span>
+          </button>
+        ))}
+      </div>
+
+      <Button
+        className="w-full"
+        disabled={!picked || isPending}
+        onClick={() => picked && onCreate(picked)}
+      >
+        <Plus className="size-4 mr-1" />
+        {picked
+          ? t("createWithSpecies", { species: speciesLabel(picked) })
+          : t("create")}
+      </Button>
     </GlassCard>
   );
 }
