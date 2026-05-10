@@ -21,7 +21,8 @@ import {
   useUpdatePocketMoneyAccount,
   usePeople,
 } from "@/hooks";
-import { tierFromLifetimeSaved } from "@/lib/pocket-money/interest";
+import { tierFromLifetimeSaved, nextTierThreshold } from "@/lib/pocket-money/interest";
+import { formatCents } from "@/lib/pocket-money/format";
 
 type CelebrationKind = "evolution" | "goal-reached" | "interest-pay";
 
@@ -125,9 +126,32 @@ export default function PocketMoneyPage() {
           lifetimeSavedCents={active.lifetime_saved_cents}
           size={220}
         />
-        {activePerson?.name && (
-          <p className="text-lg font-semibold text-muted-foreground">{activePerson.name}</p>
-        )}
+        <div className="flex flex-col items-center gap-0.5">
+          {activePerson?.name && (
+            <p className="text-lg font-semibold text-muted-foreground">{activePerson.name}</p>
+          )}
+          {/* Stage caption + next-stage hint — explains what the avatar means
+              and what saving more will do. Without this the avatar evolution
+              isn't legible to a kid (or parent) on first glance. */}
+          <p className="text-xl font-bold">
+            {t(`species.${active.avatar_species}.tier${tierFromLifetimeSaved(active.lifetime_saved_cents)}` as never)}
+          </p>
+          {(() => {
+            const nextCents = nextTierThreshold(active.lifetime_saved_cents);
+            if (nextCents === null) {
+              return <p className="text-xs text-muted-foreground">{t("maxStageHint")}</p>;
+            }
+            const nextTier = tierFromLifetimeSaved(nextCents);
+            return (
+              <p className="text-xs text-muted-foreground">
+                {t("nextStageHint", {
+                  stage: t(`species.${active.avatar_species}.tier${nextTier}` as never),
+                  amount: formatCents(nextCents, active.currency),
+                })}
+              </p>
+            );
+          })()}
+        </div>
         <BalanceDisplay
           cents={active.balance_cents}
           currency={active.currency}

@@ -2970,24 +2970,26 @@
         "tier2": "Hatchling",
         "tier3": "Drake",
         "tier4": "Dragon",
-        "tier5": "Elder Dragon"
+        "tier5": "Mighty T-Rex"
       },
       "cat": {
         "label": "Cat",
         "tier1": "Kitten",
         "tier2": "Cat",
-        "tier3": "Cool Cat",
-        "tier4": "Wise Cat",
-        "tier5": "Legend Cat"
+        "tier3": "Leopard",
+        "tier4": "Tiger",
+        "tier5": "Lion"
       },
       "astronaut": {
         "label": "Astronaut",
-        "tier1": "Cadet",
-        "tier2": "Pilot",
-        "tier3": "Astronaut",
-        "tier4": "Commander",
-        "tier5": "Space Legend"
+        "tier1": "Earthling",
+        "tier2": "Rocketeer",
+        "tier3": "Visitor",
+        "tier4": "Orbiter",
+        "tier5": "Cosmic Voyager"
       }
-    }
+    },
+    "nextStageHint": "Next: {stage} at {amount}",
+    "maxStageHint": "🌟 Top stage reached!"
   }
 }
