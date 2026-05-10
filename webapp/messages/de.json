@@ -1791,13 +1791,15 @@
         "vehicles": "Fahrzeuge",
         "energy": "Energie",
         "cameras": "Kameras",
-        "stonks": "Stonks"
+        "stonks": "Stonks",
+        "pocket-money": "Taschengeld"
       },
       "description": {
         "vehicles": "Fahrzeuge im Haushalt über Home-Assistant-Entitäten verfolgen. Tesla- und Generic-EV-Treiber sind im Kern enthalten.",
         "energy": "Solar-, Batterie- und Netzfluss-Dashboard auf Basis von Home-Assistant-Entitäten.",
         "cameras": "Live-WebRTC-Streams deiner Überwachungskameras über go2rtc.",
-        "stonks": "Aktien, ETFs, Krypto, Indizes und Forex in einer Watchlist mit Candlestick-Charts verfolgen. Daten von Yahoo Finance."
+        "stonks": "Aktien, ETFs, Krypto, Indizes und Forex in einer Watchlist mit Candlestick-Charts verfolgen. Daten von Yahoo Finance.",
+        "pocket-money": "Virtuelle Taschengeld-Konten für Kinder mit konfigurierbarem Taschengeld, täglicher Zinsgutschrift, Sparzielen und einem Avatar, der mit dem Ersparten wächst."
       }
     },
     "stonks": {
@@ -2940,6 +2942,43 @@
     "addGoal": "Ziel hinzufügen",
     "spend": "Ausgeben",
     "spendPromptAmount": "Betrag (z. B. 3,50):",
-    "spendPromptReason": "Was hast du gekauft?"
+    "spendPromptReason": "Was hast du gekauft?",
+    "addGoalTitle": "Sparziel hinzufügen",
+    "goalNameLabel": "Name des Ziels",
+    "goalNamePlaceholder": "z. B. LEGO-Set, Fahrrad",
+    "goalTargetLabel": "Zielbetrag (€)",
+    "imageTabCatalog": "Katalog durchsuchen",
+    "imageTabUrl": "URL einfügen",
+    "imageTabUpload": "Hochladen",
+    "imageSearchPlaceholder": "Bild suchen…",
+    "imageUploading": "Wird hochgeladen…",
+    "cancel": "Abbrechen",
+    "createGoal": "Ziel erstellen",
+    "species": {
+      "dragon": {
+        "label": "Drache",
+        "tier1": "Ei",
+        "tier2": "Schlüpfling",
+        "tier3": "Junger Drache",
+        "tier4": "Drache",
+        "tier5": "Uralter Drache"
+      },
+      "cat": {
+        "label": "Katze",
+        "tier1": "Kätzchen",
+        "tier2": "Katze",
+        "tier3": "Coole Katze",
+        "tier4": "Weise Katze",
+        "tier5": "Legendäre Katze"
+      },
+      "astronaut": {
+        "label": "Astronaut",
+        "tier1": "Kadett",
+        "tier2": "Pilot",
+        "tier3": "Astronaut",
+        "tier4": "Kommandant",
+        "tier5": "Weltraumlegende"
+      }
+    }
   }
 }

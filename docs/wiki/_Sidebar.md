@@ -46,6 +46,7 @@
 - [[Plugin directory|Plugin-Directory]]
 - [[Vehicles]]
 - [[Stonks]]
+- [[Pocket Money|Pocket-Money]]
 
 **Contributing**
 - [[Plugin-Authoring]]

@@ -1791,13 +1791,15 @@
         "vehicles": "Vehicles",
         "energy": "Energy",
         "cameras": "Cameras",
-        "stonks": "Stonks"
+        "stonks": "Stonks",
+        "pocket-money": "Pocket Money"
       },
       "description": {
         "vehicles": "Track cars in your household via Home Assistant entities. Tesla and Generic-EV drivers ship in core.",
         "energy": "Solar, battery, and grid energy dashboard powered by Home Assistant entities.",
         "cameras": "Live WebRTC streams from your security cameras via go2rtc.",
-        "stonks": "Track stocks, ETFs, crypto, indices, and forex on a watchlist with candle charts. Powered by Yahoo Finance."
+        "stonks": "Track stocks, ETFs, crypto, indices, and forex on a watchlist with candle charts. Powered by Yahoo Finance.",
+        "pocket-money": "Per-kid virtual pocket-money accounts with configurable allowance, daily interest accrual, saving goals, and an avatar that evolves as the kid saves."
       }
     },
     "stonks": {
@@ -2940,6 +2942,43 @@
     "addGoal": "Add Goal",
     "spend": "Spend",
     "spendPromptAmount": "Amount to spend (e.g. 3.50):",
-    "spendPromptReason": "What did you buy?"
+    "spendPromptReason": "What did you buy?",
+    "addGoalTitle": "Add a saving goal",
+    "goalNameLabel": "Goal name",
+    "goalNamePlaceholder": "e.g. LEGO set, bike",
+    "goalTargetLabel": "Target amount (€)",
+    "imageTabCatalog": "Search catalog",
+    "imageTabUrl": "Paste URL",
+    "imageTabUpload": "Upload",
+    "imageSearchPlaceholder": "Search for an image…",
+    "imageUploading": "Uploading…",
+    "cancel": "Cancel",
+    "createGoal": "Create goal",
+    "species": {
+      "dragon": {
+        "label": "Dragon",
+        "tier1": "Egg",
+        "tier2": "Hatchling",
+        "tier3": "Drake",
+        "tier4": "Dragon",
+        "tier5": "Elder Dragon"
+      },
+      "cat": {
+        "label": "Cat",
+        "tier1": "Kitten",
+        "tier2": "Cat",
+        "tier3": "Cool Cat",
+        "tier4": "Wise Cat",
+        "tier5": "Legend Cat"
+      },
+      "astronaut": {
+        "label": "Astronaut",
+        "tier1": "Cadet",
+        "tier2": "Pilot",
+        "tier3": "Astronaut",
+        "tier4": "Commander",
+        "tier5": "Space Legend"
+      }
+    }
   }
 }
