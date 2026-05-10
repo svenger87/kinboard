@@ -42,9 +42,12 @@ export async function POST(request: NextRequest) {
         type: "allowance",
         note: "Weekly allowance",
       });
-    if (txnErr) continue;
+    if (txnErr) {
+      console.error("[cron/process-allowance] txn error:", txnErr);
+      continue;
+    }
 
-    await (supabase as any)
+    const { error: updErr } = await (supabase as any)
       .from("pocket_money_accounts")
       .update({
         balance_cents: acct.balance_cents + acct.weekly_allowance_cents,
@@ -52,6 +55,12 @@ export async function POST(request: NextRequest) {
         last_allowance_at: new Date().toISOString(),
       })
       .eq("id", acct.id);
+    if (updErr) {
+      // Without `last_allowance_at` written, the next hourly tick
+      // re-fires for this account. Log loudly so the operator notices.
+      console.error("[cron/process-allowance] update error (POSSIBLE DOUBLE-PAY ON RETRY):", updErr);
+      continue;
+    }
     deposited++;
   }
 
