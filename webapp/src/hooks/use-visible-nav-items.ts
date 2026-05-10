@@ -1,6 +1,8 @@
 import { NAV_ITEMS } from "@/lib/constants";
+import { applyNavOrder } from "@/lib/nav-order";
 import { useHomeAssistantStatus } from "./use-home-assistant";
 import { useIsPluginEnabled } from "./use-enabled-plugins";
+import { useNavOrder } from "./use-nav-order";
 import { PLUGINS } from "@/plugins/registry";
 import type { NavGatingContext } from "@/plugins/types";
 
@@ -33,6 +35,7 @@ const HA_DEPENDENT_HREFS = new Set(["/home-automation"]);
  */
 export function useVisibleNavItems(): typeof NAV_ITEMS {
   const { data: haSettings, isPending: haPending } = useHomeAssistantStatus();
+  const navOrder = useNavOrder();
 
   // Call every plugin's useOwnDataCount in stable registry order.
   // PLUGINS is module-level + readonly (see plugins/registry.ts), so
@@ -54,7 +57,7 @@ export function useVisibleNavItems(): typeof NAV_ITEMS {
 
   const haConnected = Boolean(haSettings?.url && haSettings?.access_token);
 
-  return NAV_ITEMS.filter((item) => {
+  const filtered = NAV_ITEMS.filter((item) => {
     if (HA_DEPENDENT_HREFS.has(item.href)) {
       if (haPending) return false;
       return haConnected;
@@ -78,5 +81,7 @@ export function useVisibleNavItems(): typeof NAV_ITEMS {
     }
 
     return true;
-  }) as unknown as typeof NAV_ITEMS;
+  });
+
+  return applyNavOrder(filtered, navOrder) as unknown as typeof NAV_ITEMS;
 }
