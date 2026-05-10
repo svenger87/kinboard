@@ -6,6 +6,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- Stonks watchlist: `/stonks` tabs and the dashboard widget now show the asset's full name (e.g. "Apple Inc.") on freshly-added tickers instead of the bare symbol. The `/settings/stonks` add flow now defaults the per-ticker `nickname` to the Yahoo search result's `name` at insert time. Existing rows with `nickname: null` keep their bare-symbol label until edited via the per-row config form. Users can still override the nickname to anything they prefer.
+
+### Added
+- `seed-demo.sql` now seeds a Tesla Model Y vehicle row and a 6-symbol Stonks watchlist (AAPL, MSFT, VOO, BTC-USD, ETH-USD, ^GDAXI) for the public demo, so visitors see /vehicles and /stonks populated without configuring real integrations.
+
 ## [1.0.19] - 2026-05-09 — Stonks plugin + iCalendar (.ics) feeds + unified calendar settings
 
 ### Added
