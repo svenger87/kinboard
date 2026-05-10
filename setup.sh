@@ -163,6 +163,16 @@ fill_secret() {
   local value="$2"
   local file="$3"
   local current
+
+  # Append the line with an empty value if the file doesn't have it at
+  # all yet (e.g. existing self-hosters whose .env predates a new key
+  # introduced in a later release). Without this, awk's pattern-match
+  # rewrite below silently no-ops on missing keys and the new secret
+  # never lands.
+  if ! grep -qE "^${key}=" "$file"; then
+    printf '%s=\n' "$key" >> "$file"
+  fi
+
   # Strip trailing \r in case the .env was edited on Windows (CRLF)
   current=$(grep -E "^${key}=" "$file" | head -n1 | cut -d= -f2- | tr -d '\r')
   if [[ -z "$current" ]] || [[ $force -eq 1 ]]; then
@@ -196,6 +206,9 @@ fill_secret JWT_SECRET "$JWT_SECRET" "$DOCKER_ENV"
 fill_secret SECRET_KEY_BASE "$SECRET_KEY_BASE" "$DOCKER_ENV"
 fill_secret CRON_SECRET "$CRON_SECRET" "$DOCKER_ENV"
 fill_secret DIUN_WEBHOOK_SECRET "$DIUN_WEBHOOK_SECRET" "$DOCKER_ENV"
+# Auto-detect the project's host path from setup.sh's own location.
+# Used by the Diun overlay's webhook bind-mount; see .env.example.
+fill_secret KINBOARD_PROJECT_DIR "$REPO_ROOT" "$DOCKER_ENV"
 
 # ----------------------------------------------------------------------
 # 2b. Generate Supabase ANON_KEY + SERVICE_ROLE_KEY locally

@@ -1,0 +1,16 @@
+- id: kinboard-update
+  execute-command: /scripts/kinboard-self-update.sh
+  command-working-directory: /tmp
+  response-message: kinboard-self-update fired
+  include-command-output-in-response: false
+  include-command-output-in-response-on-error: true
+  # YAML lets us single-quote the whole value so the embedded double
+  # quotes around the env-var name don't need escaping (which would
+  # break Go-template parsing when the webhook runs with `-template`).
+  trigger-rule:
+    match:
+      type: value
+      value: '{{ getenv "DIUN_WEBHOOK_SECRET" }}'
+      parameter:
+        source: header
+        name: X-Diun-Token
