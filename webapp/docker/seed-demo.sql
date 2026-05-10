@@ -430,6 +430,55 @@ INSERT INTO public.settings (family_id, key, value) VALUES
         {"id":"cam3","name":"Front door","stream_type":"mjpeg","stream_url":"http://go2rtc:1984/api/stream.mjpeg?src=demo_front_door","enabled":true,"position":2,"created_at":"2026-01-01T00:00:00Z"}
      ]}'::jsonb);
 
+-- =========================================================================
+-- Vehicles (Vehicles plugin, v1.0.12+)
+-- =========================================================================
+-- One Tesla wired to the mock-tesla / mock-ha entities. The legacy
+-- tesla_config blob in `settings` above is the back-compat fallback;
+-- this row is what the v1.0.12+ /vehicles page actually reads.
+INSERT INTO public.vehicles (family_id, vendor, position, nickname, color, config) VALUES
+    ('00000000-0000-0000-0000-000000000001', 'tesla', 0, 'Model Y', '#cc0000',
+     '{
+        "battery_level": "sensor.batterieladestand",
+        "battery_range": "sensor.reichweite",
+        "charging_rate": "sensor.ladegeschwindigkeit",
+        "charging_state": "sensor.ladestatus",
+        "charge_limit": "sensor.ladelimit",
+        "time_charge_complete": "sensor.zeit_bis_voll_geladen",
+        "charger_power": "sensor.ladegerat_leistung",
+        "charge_energy_added": "sensor.energie_geladen",
+        "inside_temp": "sensor.innentemperatur",
+        "outside_temp": "sensor.aussentemperatur",
+        "climate_state": "climate.model_y_klimaanlage",
+        "locked": "lock.model_y_turen",
+        "windows": "cover.model_y_fenster",
+        "doors": "binary_sensor.model_y_fahrertur_vorne",
+        "trunk": "cover.model_y_kofferraum",
+        "frunk": "cover.model_y_front_kofferraum",
+        "tire_pressure_fl": "sensor.reifendruck_vorne_links",
+        "tire_pressure_fr": "sensor.reifendruck_vorne_rechts",
+        "tire_pressure_rl": "sensor.reifendruck_hinten_links",
+        "tire_pressure_rr": "sensor.reifendruck_hinten_rechts",
+        "odometer": "sensor.kilometerzahler",
+        "location": "device_tracker.model_y_standort",
+        "state": "binary_sensor.model_y_status"
+     }'::jsonb);
+
+-- =========================================================================
+-- Tickers (Stonks plugin, v1.0.19+)
+-- =========================================================================
+-- A small mixed watchlist: 2 stocks, 1 ETF, 2 crypto, 1 index.
+-- Quotes hit Yahoo Finance from the demo box's egress; if the demo
+-- box can't reach Yahoo, the per-ticker WidgetCard falls back to a
+-- "quote unavailable" state — page still renders.
+INSERT INTO public.tickers (family_id, position, symbol, asset_type, nickname, color) VALUES
+    ('00000000-0000-0000-0000-000000000001', 0, 'AAPL',    'stock',  'Apple',     '#000000'),
+    ('00000000-0000-0000-0000-000000000001', 1, 'MSFT',    'stock',  'Microsoft', '#0078d4'),
+    ('00000000-0000-0000-0000-000000000001', 2, 'VOO',     'etf',    'S&P 500',   '#1f77b4'),
+    ('00000000-0000-0000-0000-000000000001', 3, 'BTC-USD', 'crypto', 'Bitcoin',   '#f7931a'),
+    ('00000000-0000-0000-0000-000000000001', 4, 'ETH-USD', 'crypto', 'Ethereum',  '#627eea'),
+    ('00000000-0000-0000-0000-000000000001', 5, '^GDAXI',  'index',  'DAX',       '#0a5d2c');
+
 COMMIT;
 
 \echo

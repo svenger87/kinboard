@@ -83,7 +83,15 @@ export default function StonksSettingsPage() {
                     disabled={alreadyAdded || createTicker.isPending}
                     onClick={() =>
                       createTicker
-                        .mutateAsync({ symbol: r.symbol, asset_type: r.assetType })
+                        .mutateAsync({
+                          symbol: r.symbol,
+                          asset_type: r.assetType,
+                          // Default the nickname to the search result's name so
+                          // the /stonks tabs and dashboard widget show "Apple Inc."
+                          // instead of bare "AAPL". Users can rename later in
+                          // the per-row config form.
+                          nickname: r.name,
+                        })
                         .then(() => setQuery(""))
                         .catch(console.error)
                     }
