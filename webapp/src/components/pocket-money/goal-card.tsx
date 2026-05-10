@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { Progress } from "@/components/ui/progress";
+import { formatCents } from "@/lib/pocket-money/format";
 import type { PocketMoneyGoal } from "@/types/database";
 
 interface Props {
@@ -10,18 +11,6 @@ interface Props {
   currency: string;
   variant?: "primary" | "secondary";
   onReadyToBuy?: () => void;
-}
-
-function formatCents(cents: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 2,
-    }).format(cents / 100);
-  } catch {
-    return `${(cents / 100).toFixed(2)} ${currency}`;
-  }
 }
 
 export function GoalCard({ goal, currentBalanceCents, currency, variant = "secondary", onReadyToBuy }: Props) {
