@@ -1838,6 +1838,7 @@
       "withdrawPrompt": "Amount to withdraw (e.g. 5.00):",
       "createAccountForKid": "Create a pocket money account for {name}",
       "speciesPickerHint": "Pick the avatar species — one-time choice.",
+      "speciesPreviewTitle": "{species} evolution stages",
       "create": "Create",
       "createWithSpecies": "Create as {species}",
       "noKidsHint": "No children found. Mark a family member as a child on the People settings page first.",
@@ -2998,6 +2999,28 @@
         "tier6": "Moon-walker",
         "tier7": "Saturn Explorer",
         "tier8": "Cosmic Voyager"
+      },
+      "plant": {
+        "label": "Plant",
+        "tier1": "Seedling",
+        "tier2": "Sprout",
+        "tier3": "Sapling",
+        "tier4": "Young Tree",
+        "tier5": "Evergreen",
+        "tier6": "Palm",
+        "tier7": "Sunflower",
+        "tier8": "Royal Rose"
+      },
+      "wizard": {
+        "label": "Wizard",
+        "tier1": "Wand",
+        "tier2": "Crystal Ball",
+        "tier3": "Spellbook",
+        "tier4": "Lucky Star",
+        "tier5": "Mage",
+        "tier6": "Elf",
+        "tier7": "Unicorn",
+        "tier8": "Genie"
       }
     },
     "nextStageHint": "Next: {stage} at {amount}",
