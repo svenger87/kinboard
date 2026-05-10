@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { PocketMoneyAccountInsert } from "@/types/database";
+import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 
 export const dynamic = "force-dynamic";
+
+// Source of truth for valid species ids — driven by the catalog so
+// adding a species in avatars.json automatically updates the validator.
+const VALID_SPECIES: ReadonlySet<string> = new Set(
+  avatarCatalog.species.map((s) => s.id),
+);
 
 // GET /api/pocket-money/accounts?family_id=X
 export async function GET(request: NextRequest) {
@@ -62,6 +69,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const species = body.avatar_species ?? "dragon";
+  if (!VALID_SPECIES.has(species)) {
+    return NextResponse.json(
+      { error: `unknown avatar_species: ${species}` },
+      { status: 400 },
+    );
+  }
+
   const { data, error } = await (supabase as any)
     .from("pocket_money_accounts")
     .insert({
@@ -72,7 +87,7 @@ export async function POST(request: NextRequest) {
       weekly_allowance_cents: body.weekly_allowance_cents ?? 0,
       allowance_day_of_week: body.allowance_day_of_week ?? 0,
       max_balance_eligible_cents: body.max_balance_eligible_cents ?? 50_000,
-      avatar_species: body.avatar_species ?? "dragon",
+      avatar_species: species,
     })
     .select()
     .single();

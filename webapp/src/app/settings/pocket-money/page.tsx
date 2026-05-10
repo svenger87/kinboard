@@ -30,6 +30,7 @@ import {
   usePeople,
 } from "@/hooks";
 import type { AvatarSpecies } from "@/lib/pocket-money/types";
+import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { formatCents } from "@/lib/pocket-money/format";
 
 // Locale-aware short weekday names indexed 0=Sun..6=Sat. Built once
@@ -397,7 +398,11 @@ function AccountInbox({
 
 interface CreateAccountKid { id: string; name: string }
 
-const SPECIES_OPTIONS: ReadonlyArray<AvatarSpecies> = ["dragon", "cat", "astronaut"];
+// Derived from the avatar catalog at build time. Adding a species to
+// avatars.json auto-populates the picker — no code change required.
+const SPECIES_OPTIONS: ReadonlyArray<AvatarSpecies> = avatarCatalog.species.map(
+  (s) => s.id,
+);
 
 function CreateAccountCard({
   kid,
