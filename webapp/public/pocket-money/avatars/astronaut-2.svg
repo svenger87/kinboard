@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="astronaut stage 2">
+  <circle cx="100" cy="100" r="46" fill="#60a5fa" stroke="#0f172a" stroke-width="3"/>
+  <text x="100" y="115" font-size="36" font-family="system-ui, sans-serif" font-weight="700"
+        text-anchor="middle" fill="#0f172a">a2</text>
+</svg>

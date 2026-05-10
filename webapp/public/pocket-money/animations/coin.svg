@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="coin">
+  <circle cx="50" cy="50" r="40" fill="#fbbf24" stroke="#92400e" stroke-width="3"/>
+  <text x="50" y="62" font-size="40" font-family="system-ui, sans-serif" font-weight="700"
+        text-anchor="middle" fill="#92400e">€</text>
+</svg>

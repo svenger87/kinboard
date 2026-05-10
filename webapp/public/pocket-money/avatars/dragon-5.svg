@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="dragon stage 5">
+  <circle cx="100" cy="100" r="70" fill="#34d399" stroke="#0f172a" stroke-width="6"/>
+  <text x="100" y="115" font-size="36" font-family="system-ui, sans-serif" font-weight="700"
+        text-anchor="middle" fill="#0f172a">d5</text>
+</svg>
