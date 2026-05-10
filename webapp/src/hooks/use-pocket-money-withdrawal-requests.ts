@@ -70,6 +70,9 @@ export function useDecideWithdrawalRequest() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [KEY] });
+      // Cross-invalidate the accounts query — an approved withdrawal
+      // changes balance_cents. Keep this string in sync with the KEY
+      // constant in use-pocket-money-accounts.ts.
       qc.invalidateQueries({ queryKey: ["pocket-money-accounts"] });
     },
   });

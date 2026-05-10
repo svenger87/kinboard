@@ -49,7 +49,15 @@ export function useCreatePocketMoneyGoal() {
 export function useUpdatePocketMoneyGoal() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, update }: { id: string; update: PocketMoneyGoalUpdate }) => {
+    mutationFn: async ({
+      id,
+      accountId,
+      update,
+    }: {
+      id: string;
+      accountId: string;
+      update: PocketMoneyGoalUpdate;
+    }) => {
       const r = await fetch(`/api/pocket-money/goals/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -58,8 +66,8 @@ export function useUpdatePocketMoneyGoal() {
       if (!r.ok) throw new Error(`goal update: ${r.status}`);
       return ((await r.json()) as { goal: PocketMoneyGoal }).goal;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [KEY] });
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: [KEY, vars.accountId] });
     },
   });
 }
