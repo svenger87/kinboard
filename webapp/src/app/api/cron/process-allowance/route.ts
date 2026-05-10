@@ -8,8 +8,11 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const SIX_DAYS_MS = 6 * ONE_DAY_MS;
 
 export async function POST(request: NextRequest) {
-  const auth = request.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
+  }
+  if (request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

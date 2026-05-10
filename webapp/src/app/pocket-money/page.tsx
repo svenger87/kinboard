@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { PiggyBank, Plus, ShoppingBag } from "lucide-react";
@@ -55,6 +55,10 @@ export default function PocketMoneyPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active?.id, active?.lifetime_saved_cents]);
+
+  // Stable callback so re-renders don't reset CelebrationOverlay's
+  // dismissal timer mid-animation.
+  const handleCelebrationDone = useCallback(() => setCelebration(null), []);
 
   // Sum today's interest transactions for the "+ N today" tag.
   const todayInterestCents = (() => {
@@ -193,7 +197,7 @@ export default function PocketMoneyPage() {
 
       <GoalAddDialog accountId={active.id} open={goalDialogOpen} onOpenChange={setGoalDialogOpen} />
 
-      <CelebrationOverlay kind={celebration} onDone={() => setCelebration(null)} />
+      <CelebrationOverlay kind={celebration} onDone={handleCelebrationDone} />
     </div>
   );
 }
