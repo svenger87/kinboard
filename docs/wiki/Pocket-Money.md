@@ -36,6 +36,18 @@ Each promotion plays a once-per-event radial-burst animation. Withdrawals don't 
 
 Add via `/pocket-money` → "Add goal". Three image-lookup modes: catalog search (reuses the shopping-item catalog), URL paste, or local upload. One goal is `is_primary` and drives the kid view's progress bar; the queue auto-promotes on completion. When a goal hits 100%, the kid sees a "🎉 You can buy this!" button → creates a withdrawal request → parent confirms in the inbox at `/settings/pocket-money`. Confirmation deducts the balance and marks the goal `bought`.
 
+## Adding a new avatar species
+
+The plugin ships with three species (dragon, cat, astronaut) but the catalog is open-ended. Adding a fourth (e.g. "wizard", "robot", "plant") is a three-file change — **no DB migration, no code change, no settings UI edit**:
+
+1. **Drop 8 SVG files into `webapp/public/pocket-money/avatars/`** named `<id>-1.svg` through `<id>-8.svg`. Each represents the avatar at one tier (stage 1 = starting, stage 8 = max). Any SVG works; sourcing from a CC-permissive emoji pack like Noto Emoji is the easy path.
+2. **Add an entry to `webapp/src/plugins/pocket-money/catalog/avatars.json`** under the `species` array — copy the existing dragon entry and change the `id` + `src` paths.
+3. **Add 9 i18n keys** to `webapp/messages/en.json` and `de.json`: `pocketMoney.species.<id>.{label, tier1, tier2, …, tier8}`. Keep EN+DE in lockstep (the CI parity check enforces it).
+
+The new species automatically shows up in the create-account picker at `/settings/pocket-money`, in the kid-view stage caption, in the stages sheet, and is accepted by the API. Existing accounts on other species are untouched.
+
+The set of stages and lifetime-saved thresholds is shared across all species and lives at `webapp/src/lib/pocket-money/types.ts` (`TIER_THRESHOLDS_CENTS`). Species must currently have exactly that many stages.
+
 ## What's not supported (yet)
 
 - Cosmetics shop, badges, streak counter — deliberately not in scope (see [`docs/superpowers/specs/2026-05-10-pocket-money-plugin-design.md`](../superpowers/specs/2026-05-10-pocket-money-plugin-design.md))

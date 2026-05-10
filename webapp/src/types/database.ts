@@ -966,7 +966,7 @@ export interface Database {
           last_accrued_date: string | null;
           last_allowance_at: string | null;
           interest_committed_at: string | null;
-          avatar_species: "dragon" | "cat" | "astronaut";
+          avatar_species: string;
           lifetime_saved_cents: number;
           last_seen_tier: number;
           created_at: string;
@@ -988,7 +988,7 @@ export interface Database {
           last_accrued_date?: string | null;
           last_allowance_at?: string | null;
           interest_committed_at?: string | null;
-          avatar_species?: "dragon" | "cat" | "astronaut";
+          avatar_species?: string;
           lifetime_saved_cents?: number;
           last_seen_tier?: number;
           created_at?: string;
@@ -1010,7 +1010,7 @@ export interface Database {
           last_accrued_date?: string | null;
           last_allowance_at?: string | null;
           interest_committed_at?: string | null;
-          avatar_species?: "dragon" | "cat" | "astronaut";
+          avatar_species?: string;
           lifetime_saved_cents?: number;
           last_seen_tier?: number;
           created_at?: string;
