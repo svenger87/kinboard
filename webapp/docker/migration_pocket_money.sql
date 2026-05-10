@@ -140,6 +140,23 @@ BEGIN
   END IF;
 END $$;
 
+-- Configurable allowance cadence — 7 (weekly), 14 (biweekly), 28 (every
+-- 4 weeks), or any integer. The cron's "already paid this period" guard
+-- uses (interval - 1) days as its threshold. Idempotent.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'pocket_money_accounts'
+      AND column_name = 'allowance_interval_days'
+  ) THEN
+    ALTER TABLE public.pocket_money_accounts
+      ADD COLUMN allowance_interval_days INTEGER NOT NULL DEFAULT 7
+      CHECK (allowance_interval_days >= 1 AND allowance_interval_days <= 365);
+  END IF;
+END $$;
+
 -- Public bucket for kid-uploaded goal images. Idempotent.
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
