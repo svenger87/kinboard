@@ -2970,24 +2970,26 @@
         "tier2": "Schlüpfling",
         "tier3": "Junger Drache",
         "tier4": "Drache",
-        "tier5": "Uralter Drache"
+        "tier5": "Mächtiger T-Rex"
       },
       "cat": {
         "label": "Katze",
         "tier1": "Kätzchen",
         "tier2": "Katze",
-        "tier3": "Coole Katze",
-        "tier4": "Weise Katze",
-        "tier5": "Legendäre Katze"
+        "tier3": "Leopard",
+        "tier4": "Tiger",
+        "tier5": "Löwe"
       },
       "astronaut": {
         "label": "Astronaut",
-        "tier1": "Kadett",
-        "tier2": "Pilot",
-        "tier3": "Astronaut",
-        "tier4": "Kommandant",
-        "tier5": "Weltraumlegende"
+        "tier1": "Erdling",
+        "tier2": "Raketenpilot",
+        "tier3": "Besucher",
+        "tier4": "Orbiter",
+        "tier5": "Kosmischer Reisender"
       }
-    }
+    },
+    "nextStageHint": "Nächste Stufe: {stage} bei {amount}",
+    "maxStageHint": "🌟 Höchste Stufe erreicht!"
   }
 }

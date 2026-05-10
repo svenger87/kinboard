@@ -36,3 +36,17 @@ export function tierFromLifetimeSaved(lifetimeSavedCents: number): AvatarTier {
   }
   return tier;
 }
+
+/**
+ * Returns the next-tier threshold in cents, or null when the avatar is
+ * already at the top tier. Used to show "next stage at €X" hints in
+ * the kid view so a kid (and parent) can see what to save toward.
+ */
+export function nextTierThreshold(lifetimeSavedCents: number): number | null {
+  for (let i = 0; i < TIER_THRESHOLDS_CENTS.length; i++) {
+    if (lifetimeSavedCents < TIER_THRESHOLDS_CENTS[i]) {
+      return TIER_THRESHOLDS_CENTS[i];
+    }
+  }
+  return null;
+}
