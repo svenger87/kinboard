@@ -140,4 +140,30 @@ BEGIN
   END IF;
 END $$;
 
+-- Public bucket for kid-uploaded goal images. Idempotent.
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'goal-images',
+  'goal-images',
+  true,
+  5242880,
+  ARRAY['image/jpeg', 'image/png', 'image/webp']
+) ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Public read goal images" ON storage.objects;
+CREATE POLICY "Public read goal images" ON storage.objects
+  FOR SELECT USING (bucket_id = 'goal-images');
+
+DROP POLICY IF EXISTS "Upload goal images" ON storage.objects;
+CREATE POLICY "Upload goal images" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'goal-images');
+
+DROP POLICY IF EXISTS "Update goal images" ON storage.objects;
+CREATE POLICY "Update goal images" ON storage.objects
+  FOR UPDATE USING (bucket_id = 'goal-images');
+
+DROP POLICY IF EXISTS "Delete goal images" ON storage.objects;
+CREATE POLICY "Delete goal images" ON storage.objects
+  FOR DELETE USING (bucket_id = 'goal-images');
+
 NOTIFY pgrst, 'reload schema';
