@@ -43,15 +43,20 @@ export async function PATCH(
   if (body.avatar_species !== undefined) update.avatar_species = body.avatar_species;
   if (body.last_seen_tier !== undefined) update.last_seen_tier = body.last_seen_tier;
 
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: "no updatable fields provided" }, { status: 400 });
+  }
+
   const supabase = createAdminClient();
   const { data, error } = await (supabase as any)
     .from("pocket_money_accounts")
     .update(update)
     .eq("id", id)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: "not found" }, { status: 404 });
   return NextResponse.json({ account: data });
 }
 
