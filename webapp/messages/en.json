@@ -2968,25 +2968,34 @@
         "label": "Dragon",
         "tier1": "Egg",
         "tier2": "Hatchling",
-        "tier3": "Drake",
-        "tier4": "Dragon",
-        "tier5": "Mighty T-Rex"
+        "tier3": "Lizard",
+        "tier4": "Crocodile",
+        "tier5": "Drake",
+        "tier6": "Dragon",
+        "tier7": "Behemoth",
+        "tier8": "Mighty T-Rex"
       },
       "cat": {
         "label": "Cat",
         "tier1": "Kitten",
-        "tier2": "Cat",
-        "tier3": "Leopard",
-        "tier4": "Tiger",
-        "tier5": "Lion"
+        "tier2": "Curious Cat",
+        "tier3": "Cat",
+        "tier4": "Night Stalker",
+        "tier5": "Leopard",
+        "tier6": "Tiger",
+        "tier7": "Royal Tiger",
+        "tier8": "Lion"
       },
       "astronaut": {
         "label": "Astronaut",
         "tier1": "Earthling",
-        "tier2": "Rocketeer",
-        "tier3": "Visitor",
-        "tier4": "Orbiter",
-        "tier5": "Cosmic Voyager"
+        "tier2": "Skydiver",
+        "tier3": "Rocketeer",
+        "tier4": "Visitor",
+        "tier5": "Orbiter",
+        "tier6": "Moon-walker",
+        "tier7": "Saturn Explorer",
+        "tier8": "Cosmic Voyager"
       }
     },
     "nextStageHint": "Next: {stage} at {amount}",

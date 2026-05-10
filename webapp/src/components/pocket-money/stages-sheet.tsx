@@ -36,13 +36,13 @@ export function StagesSheet({
   const t = useTranslations("pocketMoney");
   const currentTier = tierFromLifetimeSaved(lifetimeSavedCents);
 
-  const stages: ReadonlyArray<{ tier: AvatarTier; threshold: number }> = [
-    { tier: 1, threshold: TIER_THRESHOLDS_CENTS[0] },
-    { tier: 2, threshold: TIER_THRESHOLDS_CENTS[1] },
-    { tier: 3, threshold: TIER_THRESHOLDS_CENTS[2] },
-    { tier: 4, threshold: TIER_THRESHOLDS_CENTS[3] },
-    { tier: 5, threshold: TIER_THRESHOLDS_CENTS[4] },
-  ];
+  // Build the stage list from TIER_THRESHOLDS_CENTS so adding/removing
+  // tiers in lib/pocket-money/types.ts is the single source of truth.
+  const stages: ReadonlyArray<{ tier: AvatarTier; threshold: number }> =
+    TIER_THRESHOLDS_CENTS.map((threshold, i) => ({
+      tier: (i + 1) as AvatarTier,
+      threshold,
+    }));
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
