@@ -959,6 +959,7 @@ export interface Database {
           apr_bps: number;
           weekly_allowance_cents: number;
           allowance_day_of_week: number;
+          allowance_interval_days: number;
           max_balance_eligible_cents: number;
           pending_interest_cents: number;
           interest_committed_day_of_week: number;
@@ -980,6 +981,7 @@ export interface Database {
           apr_bps?: number;
           weekly_allowance_cents?: number;
           allowance_day_of_week?: number;
+          allowance_interval_days?: number;
           max_balance_eligible_cents?: number;
           pending_interest_cents?: number;
           interest_committed_day_of_week?: number;
@@ -1001,6 +1003,7 @@ export interface Database {
           apr_bps?: number;
           weekly_allowance_cents?: number;
           allowance_day_of_week?: number;
+          allowance_interval_days?: number;
           max_balance_eligible_cents?: number;
           pending_interest_cents?: number;
           interest_committed_day_of_week?: number;

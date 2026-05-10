@@ -5,7 +5,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-const SIX_DAYS_MS = 6 * ONE_DAY_MS;
 
 export async function POST(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -22,7 +21,7 @@ export async function POST(request: NextRequest) {
 
   const { data: accounts, error } = await (supabase as any)
     .from("pocket_money_accounts")
-    .select("id, weekly_allowance_cents, balance_cents, lifetime_saved_cents, last_allowance_at")
+    .select("id, weekly_allowance_cents, allowance_interval_days, balance_cents, lifetime_saved_cents, last_allowance_at")
     .eq("allowance_day_of_week", dow)
     .gt("weekly_allowance_cents", 0);
 
@@ -33,8 +32,17 @@ export async function POST(request: NextRequest) {
 
   let deposited = 0;
   for (const acct of accounts ?? []) {
-    if (acct.last_allowance_at && now - new Date(acct.last_allowance_at).getTime() < SIX_DAYS_MS) {
-      continue; // already paid this week
+    // The interval is the cadence the parent set (7=weekly, 14=biweekly,
+    // etc.). Pay only if at least (interval - 1) days have passed since
+    // the last allowance — the −1 day buffer handles a same-day re-fire
+    // from an off-by-an-hour cron tick.
+    const intervalDays = acct.allowance_interval_days ?? 7;
+    const minIntervalMs = (intervalDays - 1) * ONE_DAY_MS;
+    if (
+      acct.last_allowance_at &&
+      now - new Date(acct.last_allowance_at).getTime() < minIntervalMs
+    ) {
+      continue; // already paid this period
     }
 
     const { error: txnErr } = await (supabase as any)
@@ -43,7 +51,7 @@ export async function POST(request: NextRequest) {
         account_id: acct.id,
         amount_cents: acct.weekly_allowance_cents,
         type: "allowance",
-        note: "Weekly allowance",
+        note: intervalDays === 7 ? "Weekly allowance" : `Allowance (every ${intervalDays} days)`,
       });
     if (txnErr) {
       console.error("[cron/process-allowance] txn error:", txnErr);
