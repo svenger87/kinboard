@@ -1,22 +1,12 @@
 "use client";
 
+import { formatCents } from "@/lib/pocket-money/format";
+
 interface Props {
   cents: number;
   currency: string;
   todayInterestCents?: number;
   className?: string;
-}
-
-function formatCents(cents: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 2,
-    }).format(cents / 100);
-  } catch {
-    return `${(cents / 100).toFixed(2)} ${currency}`;
-  }
 }
 
 export function BalanceDisplay({ cents, currency, todayInterestCents = 0, className = "" }: Props) {
