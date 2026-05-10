@@ -15,6 +15,7 @@ import {
   LineChart,
   Newspaper,
   Settings,
+  PiggyBank,
 } from "lucide-react";
 
 /**
@@ -64,6 +65,7 @@ export const NAV_ITEMS = [
   { href: "/energy", icon: Zap, labelKey: "energy" },
   { href: "/vehicles", icon: Car, labelKey: "vehicles" },
   { href: "/stonks", icon: LineChart, labelKey: "stonks" },
+  { href: "/pocket-money", icon: PiggyBank, labelKey: "pocketMoney" },
   { href: "/cameras", icon: Video, labelKey: "cameras" },
   { href: "/news", icon: Newspaper, labelKey: "news" },
   { href: "/settings", icon: Settings, labelKey: "settings" },

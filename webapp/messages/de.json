@@ -261,7 +261,8 @@
     "cameras": "Kameras",
     "settings": "Einstellungen",
     "news": "Nachrichten",
-    "stonks": "Stonks"
+    "stonks": "Stonks",
+    "pocketMoney": "Taschengeld"
   },
   "cameras": {
     "title": "Kameras",
@@ -873,7 +874,11 @@
       "stonksLabel": "Aktien",
       "stonksDescription": "Rotierendes Watchlist-Widget — Kurs und Tagesveränderung",
       "stonksPreview1": "AAPL +1,23 %",
-      "stonksPreview2": "Wechselt zwischen allen beobachteten Symbolen"
+      "stonksPreview2": "Wechselt zwischen allen beobachteten Symbolen",
+      "pocketMoneyLabel": "Taschengeld",
+      "pocketMoneyDescription": "Kontostand und Sparziel-Fortschritt für jedes Kinderkonto",
+      "pocketMoneyPreview1": "🐉 12,50 € — Drache Stufe 2",
+      "pocketMoneyPreview2": "Tabs wechseln zwischen Kindern"
     },
     "theme": {
       "title": "Design",

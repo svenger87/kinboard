@@ -10,6 +10,7 @@ export interface WidgetVisibility {
   tasks: boolean;
   vehicles: boolean;
   stonks: boolean;
+  pocketMoney: boolean;
 }
 
 // Defaults are curated for kiosk glanceability — 6 widgets fill a 4-col landscape grid
@@ -31,6 +32,7 @@ export const DEFAULT_WIDGET_VISIBILITY: WidgetVisibility = {
   notes: false,
   vehicles: false,
   stonks: false,
+  pocketMoney: false,
 };
 
 // Read-side migration: legacy widget_visibility blobs persisted before
