@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="trophy">
+  <path d="M30 25 L70 25 L65 60 Q50 75 35 60 Z" fill="#fbbf24" stroke="#92400e" stroke-width="3"/>
+  <rect x="40" y="73" width="20" height="8" fill="#92400e"/>
+  <rect x="35" y="80" width="30" height="6" fill="#92400e"/>
+</svg>

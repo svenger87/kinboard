@@ -1,0 +1,37 @@
+{
+  "species": [
+    {
+      "id": "dragon",
+      "labelKey": "species.dragon.label",
+      "stages": [
+        { "tier": 1, "nameKey": "species.dragon.tier1", "src": "/pocket-money/avatars/dragon-1.svg" },
+        { "tier": 2, "nameKey": "species.dragon.tier2", "src": "/pocket-money/avatars/dragon-2.svg" },
+        { "tier": 3, "nameKey": "species.dragon.tier3", "src": "/pocket-money/avatars/dragon-3.svg" },
+        { "tier": 4, "nameKey": "species.dragon.tier4", "src": "/pocket-money/avatars/dragon-4.svg" },
+        { "tier": 5, "nameKey": "species.dragon.tier5", "src": "/pocket-money/avatars/dragon-5.svg" }
+      ]
+    },
+    {
+      "id": "cat",
+      "labelKey": "species.cat.label",
+      "stages": [
+        { "tier": 1, "nameKey": "species.cat.tier1", "src": "/pocket-money/avatars/cat-1.svg" },
+        { "tier": 2, "nameKey": "species.cat.tier2", "src": "/pocket-money/avatars/cat-2.svg" },
+        { "tier": 3, "nameKey": "species.cat.tier3", "src": "/pocket-money/avatars/cat-3.svg" },
+        { "tier": 4, "nameKey": "species.cat.tier4", "src": "/pocket-money/avatars/cat-4.svg" },
+        { "tier": 5, "nameKey": "species.cat.tier5", "src": "/pocket-money/avatars/cat-5.svg" }
+      ]
+    },
+    {
+      "id": "astronaut",
+      "labelKey": "species.astronaut.label",
+      "stages": [
+        { "tier": 1, "nameKey": "species.astronaut.tier1", "src": "/pocket-money/avatars/astronaut-1.svg" },
+        { "tier": 2, "nameKey": "species.astronaut.tier2", "src": "/pocket-money/avatars/astronaut-2.svg" },
+        { "tier": 3, "nameKey": "species.astronaut.tier3", "src": "/pocket-money/avatars/astronaut-3.svg" },
+        { "tier": 4, "nameKey": "species.astronaut.tier4", "src": "/pocket-money/avatars/astronaut-4.svg" },
+        { "tier": 5, "nameKey": "species.astronaut.tier5", "src": "/pocket-money/avatars/astronaut-5.svg" }
+      ]
+    }
+  ]
+}
