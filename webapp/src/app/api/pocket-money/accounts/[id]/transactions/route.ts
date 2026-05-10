@@ -9,10 +9,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const limit = Math.min(
-    parseInt(request.nextUrl.searchParams.get("limit") ?? "50", 10),
-    200,
-  );
+  const rawLimit = parseInt(request.nextUrl.searchParams.get("limit") ?? "50", 10);
+  const limit = Math.min(Number.isFinite(rawLimit) ? rawLimit : 50, 200);
 
   const supabase = createAdminClient();
   const { data, error } = await (supabase as any)
@@ -82,6 +80,11 @@ export async function POST(
   if (!account)
     return NextResponse.json({ error: "account not found" }, { status: 404 });
 
+  // Read-then-write race: two concurrent POSTs against the same account
+  // can each pass the insufficient_funds guard and leave balance_cents
+  // wrong. Acceptable for the kinboard concurrency model (one kiosk +
+  // a daily allowance cron); harden via a Postgres `UPDATE ... RETURNING`
+  // RPC if multiple parents start posting simultaneously.
   const newBalance = account.balance_cents + body.amount_cents;
   if (newBalance < 0) {
     return NextResponse.json({ error: "insufficient_funds" }, { status: 400 });
@@ -106,7 +109,10 @@ export async function POST(
   }
 
   const accountUpdate: Record<string, number> = { balance_cents: newBalance };
-  if (body.amount_cents > 0) {
+  // lifetime_saved_cents drives the avatar tier — bump it only on
+  // genuine earnings (allowance / manual_deposit / interest), not on
+  // adjustment corrections, which are balance fixups by definition.
+  if (body.amount_cents > 0 && body.type !== "adjustment") {
     accountUpdate.lifetime_saved_cents =
       account.lifetime_saved_cents + body.amount_cents;
   }
