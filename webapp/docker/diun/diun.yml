@@ -30,7 +30,9 @@ notif:
     timeout: 30s
     headers:
       Content-Type: application/json
-      X-Diun-Token: "{{ env "DIUN_WEBHOOK_SECRET" }}"
+      # Single-quote the value: Go-template tokens contain `"` chars
+      # that conflict with YAML double-quoted strings.
+      X-Diun-Token: '{{ env "DIUN_WEBHOOK_SECRET" }}'
 
 providers:
   # Watch only containers explicitly opted-in via diun.enable=true label.

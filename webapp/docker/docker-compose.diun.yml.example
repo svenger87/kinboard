@@ -71,28 +71,56 @@ services:
   #
   # Not exposed externally — only Diun (on the same network) reaches it.
   webhook:
-    image: almir/webhook:latest
+    # Built locally from Dockerfile.webhook — upstream almir/webhook
+    # ships only the webhook binary (no git, no docker CLI), and
+    # kinboard-self-update.sh needs both. The custom image weighs ~70 MB
+    # and is a one-time build during `docker compose up`.
+    build:
+      context: .
+      dockerfile: Dockerfile.webhook
+    image: kinboard-webhook:local
     container_name: ${PROJECT_NAME:-kinboard}-webhook
     restart: unless-stopped
     command:
-      - -hooks=/etc/webhook/hooks.json
+      - -hooks=/etc/webhook/hooks.yaml
       - -verbose
       - -nopanic
       - -port=9000
       - -hotreload
+      # Process hooks.json as a Go template so {{ getenv "..." }} in the
+      # trigger-rule resolves to the runtime env var. Without this, the
+      # webhook compares the literal string `{{ getenv "DIUN_WEBHOOK_SECRET" }}`
+      # against the X-Diun-Token header and rejects every fire.
+      - -template
     environment:
       TZ: ${TZ:-Etc/UTC}
       DIUN_WEBHOOK_SECRET: ${DIUN_WEBHOOK_SECRET}
-      PROJECT_DIR: /project
-      COMPOSE_FILES: ${COMPOSE_FILES:-"-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.diun.yml"}
+      # Mount + use the same path inside as outside. Required because
+      # the webhook runs `docker compose` against the host's daemon —
+      # if the project lived at /project inside but /opt/kinboard on
+      # the host, the daemon would try to bind-mount /project/...
+      # paths that only exist inside the webhook container. Setting
+      # KINBOARD_PROJECT_DIR in .env (host absolute path) keeps both
+      # views consistent.
+      PROJECT_DIR: ${KINBOARD_PROJECT_DIR}
+      # Don't quote the default — YAML's `${VAR:-"..."}` syntax bakes
+      # the literal `"` characters into the env value, which then break
+      # word-splitting inside the shell script (`docker compose $X` would
+      # see `compose "-f` as a single token). Set COMPOSE_FILES in .env
+      # to whatever overlay set you bring up.
+      COMPOSE_FILES: ${COMPOSE_FILES:--f docker-compose.yml -f docker-compose.image.yml -f docker-compose.diun.yml}
       LOG_FILE: /var/log/kinboard-update.log
+    working_dir: ${KINBOARD_PROJECT_DIR}
     volumes:
-      - ./diun/hooks.json:/etc/webhook/hooks.json:ro
+      - ./diun/hooks.yaml:/etc/webhook/hooks.yaml:ro
+      # Static path the webhook hooks.json targets. Same file as the
+      # one inside the project mount below, just at a stable hook-side
+      # location so hooks.json doesn't need templating.
       - ./kinboard-self-update.sh:/scripts/kinboard-self-update.sh:ro
-      # Bind-mount the project root so git pull + setup.sh + docker
-      # compose can operate on real files. Adjust if your repo lives
-      # elsewhere — the path inside the container must be /project.
-      - ../..:/project:rw
+      # Bind-mount the project root at THE SAME PATH inside as outside.
+      # Set KINBOARD_PROJECT_DIR=/absolute/host/path in .env (e.g.
+      # /opt/kinboard, /root/kinboard, /mnt/user/appdata/kinboard).
+      - ${KINBOARD_PROJECT_DIR}:${KINBOARD_PROJECT_DIR}:rw
       # Talks to the host docker daemon for pull / up / restart.
       - /var/run/docker.sock:/var/run/docker.sock:rw
       # Persist the update log on the host so you can tail it.
