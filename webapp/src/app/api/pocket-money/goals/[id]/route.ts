@@ -31,11 +31,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       .eq("id", id)
       .maybeSingle();
     if (goal) {
+      // Exclude the row we're about to flip to true, so there's never a
+      // moment where the partial UNIQUE index sees zero primary goals
+      // (which would also briefly de-orient the kid view's progress bar).
       await (supabase as any)
         .from("pocket_money_goals")
         .update({ is_primary: false })
         .eq("account_id", goal.account_id)
-        .eq("status", "active");
+        .eq("status", "active")
+        .neq("id", id);
     }
   }
 
