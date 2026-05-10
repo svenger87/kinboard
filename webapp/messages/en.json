@@ -2990,6 +2990,13 @@
       }
     },
     "nextStageHint": "Next: {stage} at {amount}",
-    "maxStageHint": "🌟 Top stage reached!"
+    "maxStageHint": "🌟 Top stage reached!",
+    "stagesSheetOpenHint": "Tap to see all stages",
+    "stagesSheetOpenAria": "Show all evolution stages",
+    "stagesSheetTitle": "Evolution stages",
+    "stagesSheetDescription": "Save more to grow into each next stage.",
+    "stagesStartingThreshold": "Starting stage",
+    "stagesThreshold": "Unlocks at {amount} saved",
+    "stagesCurrentBadge": "You are here"
   }
 }
