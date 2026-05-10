@@ -37,62 +37,88 @@ export async function PATCH(
     return NextResponse.json({ error: "already_decided" }, { status: 409 });
   }
 
-  // Update the request status first.
+  const decidedAt = new Date().toISOString();
+
+  // Denied path: just flip the status. Cheap and side-effect-free.
+  if (body.status === "denied") {
+    const { error: updErr } = await (supabase as any)
+      .from("pocket_money_withdrawal_requests")
+      .update({
+        status: "denied",
+        parent_decided_at: decidedAt,
+        parent_decided_by_person_id: body.parent_decided_by_person_id ?? null,
+      })
+      .eq("id", id);
+    if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Approved path: insert the transaction, update the balance, mark
+  // the goal bought (if any), THEN flip the status to approved last.
+  // Order matters: keep the request `pending` until everything else
+  // succeeds so that any failure leaves it retryable instead of stuck
+  // in a ghost-approved state with no balance change.
+  //
+  // Known limitation: the read of req.account.balance_cents above and
+  // the write below aren't atomic — concurrent approvals on the same
+  // account can race. Acceptable for household-scale use; mitigate
+  // with a row-level lock or a Postgres RPC if it ever bites.
+  const newBalance = req.account.balance_cents - req.amount_cents;
+  if (newBalance < 0) {
+    // Kid spent the money on something else after asking — auto-deny.
+    await (supabase as any)
+      .from("pocket_money_withdrawal_requests")
+      .update({
+        status: "denied",
+        parent_decided_at: decidedAt,
+        parent_decided_by_person_id: body.parent_decided_by_person_id ?? null,
+      })
+      .eq("id", id);
+    return NextResponse.json(
+      { error: "insufficient_funds_at_decide_time" },
+      { status: 409 },
+    );
+  }
+
+  const { error: txnErr } = await (supabase as any)
+    .from("pocket_money_transactions")
+    .insert({
+      account_id: req.account.id,
+      amount_cents: -req.amount_cents,
+      type: "withdrawal",
+      note: req.reason || null,
+      related_goal_id: req.related_goal_id,
+      created_by_person_id: body.parent_decided_by_person_id ?? null,
+    });
+
+  if (txnErr) return NextResponse.json({ error: txnErr.message }, { status: 500 });
+
+  // Update account balance (lifetime_saved is not affected by withdrawals).
+  const { error: balErr } = await (supabase as any)
+    .from("pocket_money_accounts")
+    .update({ balance_cents: newBalance })
+    .eq("id", req.account.id);
+  if (balErr) return NextResponse.json({ error: balErr.message }, { status: 500 });
+
+  // If this was tied to a goal that hit 100%, mark it bought.
+  if (req.related_goal_id) {
+    await (supabase as any)
+      .from("pocket_money_goals")
+      .update({ status: "bought", parent_confirmed_at: decidedAt })
+      .eq("id", req.related_goal_id);
+  }
+
+  // Finally — flip the request status to approved now that all
+  // dependent state is consistent.
   const { error: updReqErr } = await (supabase as any)
     .from("pocket_money_withdrawal_requests")
     .update({
-      status: body.status,
-      parent_decided_at: new Date().toISOString(),
+      status: "approved",
+      parent_decided_at: decidedAt,
       parent_decided_by_person_id: body.parent_decided_by_person_id ?? null,
     })
     .eq("id", id);
-
   if (updReqErr) return NextResponse.json({ error: updReqErr.message }, { status: 500 });
-
-  // On approval: post a withdrawal transaction (negative amount). Don't
-  // touch the balance directly here — the transactions endpoint is the
-  // only place balances change so the rules stay co-located.
-  if (body.status === "approved") {
-    const newBalance = req.account.balance_cents - req.amount_cents;
-    if (newBalance < 0) {
-      // Auto-deny: kid spent the money on something else after asking.
-      await (supabase as any)
-        .from("pocket_money_withdrawal_requests")
-        .update({ status: "denied" })
-        .eq("id", id);
-      return NextResponse.json(
-        { error: "insufficient_funds_at_decide_time" },
-        { status: 409 },
-      );
-    }
-
-    const { error: txnErr } = await (supabase as any)
-      .from("pocket_money_transactions")
-      .insert({
-        account_id: req.account.id,
-        amount_cents: -req.amount_cents,
-        type: "withdrawal",
-        note: req.reason || null,
-        related_goal_id: req.related_goal_id,
-        created_by_person_id: body.parent_decided_by_person_id ?? null,
-      });
-
-    if (txnErr) return NextResponse.json({ error: txnErr.message }, { status: 500 });
-
-    // Update account balance (lifetime_saved is not affected by withdrawals).
-    await (supabase as any)
-      .from("pocket_money_accounts")
-      .update({ balance_cents: newBalance })
-      .eq("id", req.account.id);
-
-    // If this was tied to a goal, mark it bought.
-    if (req.related_goal_id) {
-      await (supabase as any)
-        .from("pocket_money_goals")
-        .update({ status: "bought", parent_confirmed_at: new Date().toISOString() })
-        .eq("id", req.related_goal_id);
-    }
-  }
 
   return NextResponse.json({ ok: true });
 }
