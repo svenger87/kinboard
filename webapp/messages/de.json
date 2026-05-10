@@ -1838,6 +1838,7 @@
       "withdrawPrompt": "Auszahlungsbetrag (z. B. 5,00):",
       "createAccountForKid": "Taschengeld-Konto für {name} anlegen",
       "speciesPickerHint": "Wähle den Avatar — einmalige Wahl.",
+      "speciesPreviewTitle": "Entwicklung: {species}",
       "create": "Anlegen",
       "createWithSpecies": "Als {species} anlegen",
       "noKidsHint": "Keine Kinder gefunden. Bitte zuerst ein Familienmitglied auf der Personen-Einstellungsseite als Kind markieren.",
@@ -2998,6 +2999,28 @@
         "tier6": "Mondläufer",
         "tier7": "Saturn-Erforscher",
         "tier8": "Kosmischer Reisender"
+      },
+      "plant": {
+        "label": "Pflanze",
+        "tier1": "Setzling",
+        "tier2": "Sprössling",
+        "tier3": "Jungpflanze",
+        "tier4": "Junger Baum",
+        "tier5": "Tannenbaum",
+        "tier6": "Palme",
+        "tier7": "Sonnenblume",
+        "tier8": "Königsrose"
+      },
+      "wizard": {
+        "label": "Magier",
+        "tier1": "Zauberstab",
+        "tier2": "Kristallkugel",
+        "tier3": "Zauberbuch",
+        "tier4": "Glücksstern",
+        "tier5": "Magier",
+        "tier6": "Elf",
+        "tier7": "Einhorn",
+        "tier8": "Flaschengeist"
       }
     },
     "nextStageHint": "Nächste Stufe: {stage} bei {amount}",
