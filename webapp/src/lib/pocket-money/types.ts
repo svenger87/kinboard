@@ -1,4 +1,12 @@
-export type AvatarSpecies = "dragon" | "cat" | "astronaut";
+/**
+ * Avatar species id — anything that exists in the catalog
+ * (`webapp/src/plugins/pocket-money/catalog/avatars.json`).
+ *
+ * Kept as `string` so adding a species is a one-step config change
+ * (drop SVGs + add catalog entry + i18n keys). API routes validate
+ * against the catalog at runtime; the DB no longer enforces a CHECK.
+ */
+export type AvatarSpecies = string;
 
 /** Stage 1 (start) → Stage 8 (max). Computed from lifetime_saved_cents. */
 export type AvatarTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;

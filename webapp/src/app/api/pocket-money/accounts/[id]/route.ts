@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { PocketMoneyAccountUpdate } from "@/types/database";
+import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 
 export const dynamic = "force-dynamic";
+
+const VALID_SPECIES: ReadonlySet<string> = new Set(
+  avatarCatalog.species.map((s) => s.id),
+);
 
 // GET /api/pocket-money/accounts/[id]
 export async function GET(
@@ -41,7 +46,15 @@ export async function PATCH(
   if (body.allowance_interval_days !== undefined) update.allowance_interval_days = body.allowance_interval_days;
   if (body.max_balance_eligible_cents !== undefined) update.max_balance_eligible_cents = body.max_balance_eligible_cents;
   if (body.interest_committed_day_of_week !== undefined) update.interest_committed_day_of_week = body.interest_committed_day_of_week;
-  if (body.avatar_species !== undefined) update.avatar_species = body.avatar_species;
+  if (body.avatar_species !== undefined) {
+    if (!VALID_SPECIES.has(body.avatar_species)) {
+      return NextResponse.json(
+        { error: `unknown avatar_species: ${body.avatar_species}` },
+        { status: 400 },
+      );
+    }
+    update.avatar_species = body.avatar_species;
+  }
   if (body.last_seen_tier !== undefined) update.last_seen_tier = body.last_seen_tier;
 
   if (Object.keys(update).length === 0) {
