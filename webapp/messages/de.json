@@ -2990,6 +2990,13 @@
       }
     },
     "nextStageHint": "Nächste Stufe: {stage} bei {amount}",
-    "maxStageHint": "🌟 Höchste Stufe erreicht!"
+    "maxStageHint": "🌟 Höchste Stufe erreicht!",
+    "stagesSheetOpenHint": "Tippe für alle Stufen",
+    "stagesSheetOpenAria": "Alle Entwicklungsstufen anzeigen",
+    "stagesSheetTitle": "Entwicklungsstufen",
+    "stagesSheetDescription": "Spare mehr, um die nächste Stufe zu erreichen.",
+    "stagesStartingThreshold": "Startstufe",
+    "stagesThreshold": "Freigeschaltet bei {amount} gespart",
+    "stagesCurrentBadge": "Hier bist du"
   }
 }

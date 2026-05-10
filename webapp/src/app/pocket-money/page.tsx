@@ -13,6 +13,7 @@ import { BalanceDisplay } from "@/components/pocket-money/balance-display";
 import { GoalCard } from "@/components/pocket-money/goal-card";
 import { GoalAddDialog } from "@/components/pocket-money/goal-add-dialog";
 import { CelebrationOverlay } from "@/components/pocket-money/celebration-overlay";
+import { StagesSheet } from "@/components/pocket-money/stages-sheet";
 import {
   usePocketMoneyAccounts,
   usePocketMoneyGoals,
@@ -32,6 +33,7 @@ export default function PocketMoneyPage() {
   const { data: people = [] } = usePeople();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
+  const [stagesSheetOpen, setStagesSheetOpen] = useState(false);
   const [celebration, setCelebration] = useState<CelebrationKind | null>(null);
 
   useEffect(() => {
@@ -132,25 +134,35 @@ export default function PocketMoneyPage() {
           )}
           {/* Stage caption + next-stage hint — explains what the avatar means
               and what saving more will do. Without this the avatar evolution
-              isn't legible to a kid (or parent) on first glance. */}
-          <p className="text-xl font-bold">
-            {t(`species.${active.avatar_species}.tier${tierFromLifetimeSaved(active.lifetime_saved_cents)}` as never)}
-          </p>
-          {(() => {
-            const nextCents = nextTierThreshold(active.lifetime_saved_cents);
-            if (nextCents === null) {
-              return <p className="text-xs text-muted-foreground">{t("maxStageHint")}</p>;
-            }
-            const nextTier = tierFromLifetimeSaved(nextCents);
-            return (
-              <p className="text-xs text-muted-foreground">
-                {t("nextStageHint", {
-                  stage: t(`species.${active.avatar_species}.tier${nextTier}` as never),
-                  amount: formatCents(nextCents, active.currency),
-                })}
-              </p>
-            );
-          })()}
+              isn't legible to a kid (or parent) on first glance. The whole
+              caption is tappable; opens the stages sheet so the kid can see
+              the full evolution journey + thresholds. */}
+          <button
+            type="button"
+            onClick={() => setStagesSheetOpen(true)}
+            className="flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 hover:bg-white/[0.04] active:scale-[0.98] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50"
+            aria-label={t("stagesSheetOpenAria")}
+          >
+            <p className="text-xl font-bold">
+              {t(`species.${active.avatar_species}.tier${tierFromLifetimeSaved(active.lifetime_saved_cents)}` as never)}
+            </p>
+            {(() => {
+              const nextCents = nextTierThreshold(active.lifetime_saved_cents);
+              if (nextCents === null) {
+                return <p className="text-xs text-muted-foreground">{t("maxStageHint")}</p>;
+              }
+              const nextTier = tierFromLifetimeSaved(nextCents);
+              return (
+                <p className="text-xs text-muted-foreground">
+                  {t("nextStageHint", {
+                    stage: t(`species.${active.avatar_species}.tier${nextTier}` as never),
+                    amount: formatCents(nextCents, active.currency),
+                  })}
+                </p>
+              );
+            })()}
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">{t("stagesSheetOpenHint")}</p>
+          </button>
         </div>
         <BalanceDisplay
           cents={active.balance_cents}
@@ -222,6 +234,14 @@ export default function PocketMoneyPage() {
       <GoalAddDialog accountId={active.id} open={goalDialogOpen} onOpenChange={setGoalDialogOpen} />
 
       <CelebrationOverlay kind={celebration} onDone={handleCelebrationDone} />
+
+      <StagesSheet
+        open={stagesSheetOpen}
+        onOpenChange={setStagesSheetOpen}
+        species={active.avatar_species}
+        lifetimeSavedCents={active.lifetime_saved_cents}
+        currency={active.currency}
+      />
     </div>
   );
 }
