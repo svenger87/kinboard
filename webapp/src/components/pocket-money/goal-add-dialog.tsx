@@ -107,25 +107,41 @@ export function GoalAddDialog({ accountId, open, onOpenChange }: Props) {
               />
               {searchResults.length > 0 && (
                 <div className="grid grid-cols-3 gap-2 max-h-48 overflow-auto">
-                  {searchResults.map((r) => (
-                    <button
-                      key={r.image_url}
-                      type="button"
-                      onClick={() => setImageUrl(r.image_url)}
-                      className={`p-1 rounded border ${
-                        imageUrl === r.image_url
-                          ? "border-month-primary ring-2 ring-month-primary/40"
-                          : "border-border"
-                      }`}
-                    >
-                      <img
-                        src={r.image_url}
-                        alt={r.name}
-                        className="w-full h-20 object-cover rounded"
-                      />
-                      <p className="text-[10px] mt-1 truncate">{r.name}</p>
-                    </button>
-                  ))}
+                  {searchResults.map((r) => {
+                    const isWeb = r.source === "web";
+                    return (
+                      <button
+                        key={r.image_url}
+                        type="button"
+                        onClick={() => {
+                          setImageUrl(r.image_url);
+                          // Curated rows track their provenance via
+                          // image_source = "catalog"; web-fallback rows
+                          // are picked-from-web URLs and belong under
+                          // the "url" enum bucket per the DB schema.
+                          setImageSource(isWeb ? "url" : "catalog");
+                          if (!name) setName(r.name);
+                        }}
+                        className={`relative p-1 rounded border ${
+                          imageUrl === r.image_url
+                            ? "border-month-primary ring-2 ring-month-primary/40"
+                            : "border-border"
+                        }`}
+                      >
+                        <img
+                          src={r.image_url}
+                          alt={r.name}
+                          className="w-full h-20 object-cover rounded"
+                        />
+                        <p className="text-[10px] mt-1 truncate">{r.name}</p>
+                        {isWeb && (
+                          <span className="absolute top-1 right-1 rounded bg-black/60 text-white text-[9px] px-1 leading-tight">
+                            {t("imageSourceWebBadge")}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>
