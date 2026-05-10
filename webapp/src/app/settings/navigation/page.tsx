@@ -45,7 +45,12 @@ export default function NavigationSettingsPage() {
     setOrder(visibleItems.map((i) => i.href));
   };
 
-  const itemsByHref = new Map(visibleItems.map((i) => [i.href, i]));
+  // Map key explicitly widened to `string` — visibleItems is `typeof
+  // NAV_ITEMS` whose element type carries href as a literal-union, and
+  // `.get(href)` with `href: string` would otherwise fail to type-check.
+  const itemsByHref = new Map<string, (typeof visibleItems)[number]>(
+    visibleItems.map((i) => [i.href, i]),
+  );
 
   return (
     <main
