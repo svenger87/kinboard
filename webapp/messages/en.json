@@ -2898,5 +2898,16 @@
         "chartUnavailable": "Chart data unavailable"
       }
     }
+  },
+  "pocketMoney": {
+    "title": "Pocket Money",
+    "loading": "Loading…",
+    "noAccountsYet": "No pocket money accounts set up yet.",
+    "goToSettings": "Go to Settings",
+    "manage": "Manage",
+    "addGoal": "Add Goal",
+    "spend": "Spend",
+    "spendPromptAmount": "Amount to spend (e.g. 3.50):",
+    "spendPromptReason": "What did you buy?"
   }
 }

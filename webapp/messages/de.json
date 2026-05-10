@@ -2898,5 +2898,16 @@
         "chartUnavailable": "Chartdaten nicht verfügbar"
       }
     }
+  },
+  "pocketMoney": {
+    "title": "Taschengeld",
+    "loading": "Lädt…",
+    "noAccountsYet": "Noch keine Taschengeld-Konten eingerichtet.",
+    "goToSettings": "Zu den Einstellungen",
+    "manage": "Verwalten",
+    "addGoal": "Ziel hinzufügen",
+    "spend": "Ausgeben",
+    "spendPromptAmount": "Betrag (z. B. 3,50):",
+    "spendPromptReason": "Was hast du gekauft?"
   }
 }
