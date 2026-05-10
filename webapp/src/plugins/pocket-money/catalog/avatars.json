@@ -41,6 +41,34 @@
         { "tier": 7, "nameKey": "species.astronaut.tier7", "src": "/pocket-money/avatars/astronaut-7.svg" },
         { "tier": 8, "nameKey": "species.astronaut.tier8", "src": "/pocket-money/avatars/astronaut-8.svg" }
       ]
+    },
+    {
+      "id": "plant",
+      "labelKey": "species.plant.label",
+      "stages": [
+        { "tier": 1, "nameKey": "species.plant.tier1", "src": "/pocket-money/avatars/plant-1.svg" },
+        { "tier": 2, "nameKey": "species.plant.tier2", "src": "/pocket-money/avatars/plant-2.svg" },
+        { "tier": 3, "nameKey": "species.plant.tier3", "src": "/pocket-money/avatars/plant-3.svg" },
+        { "tier": 4, "nameKey": "species.plant.tier4", "src": "/pocket-money/avatars/plant-4.svg" },
+        { "tier": 5, "nameKey": "species.plant.tier5", "src": "/pocket-money/avatars/plant-5.svg" },
+        { "tier": 6, "nameKey": "species.plant.tier6", "src": "/pocket-money/avatars/plant-6.svg" },
+        { "tier": 7, "nameKey": "species.plant.tier7", "src": "/pocket-money/avatars/plant-7.svg" },
+        { "tier": 8, "nameKey": "species.plant.tier8", "src": "/pocket-money/avatars/plant-8.svg" }
+      ]
+    },
+    {
+      "id": "wizard",
+      "labelKey": "species.wizard.label",
+      "stages": [
+        { "tier": 1, "nameKey": "species.wizard.tier1", "src": "/pocket-money/avatars/wizard-1.svg" },
+        { "tier": 2, "nameKey": "species.wizard.tier2", "src": "/pocket-money/avatars/wizard-2.svg" },
+        { "tier": 3, "nameKey": "species.wizard.tier3", "src": "/pocket-money/avatars/wizard-3.svg" },
+        { "tier": 4, "nameKey": "species.wizard.tier4", "src": "/pocket-money/avatars/wizard-4.svg" },
+        { "tier": 5, "nameKey": "species.wizard.tier5", "src": "/pocket-money/avatars/wizard-5.svg" },
+        { "tier": 6, "nameKey": "species.wizard.tier6", "src": "/pocket-money/avatars/wizard-6.svg" },
+        { "tier": 7, "nameKey": "species.wizard.tier7", "src": "/pocket-money/avatars/wizard-7.svg" },
+        { "tier": 8, "nameKey": "species.wizard.tier8", "src": "/pocket-money/avatars/wizard-8.svg" }
+      ]
     }
   ]
 }

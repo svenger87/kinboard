@@ -398,11 +398,16 @@ function AccountInbox({
 
 interface CreateAccountKid { id: string; name: string }
 
-// Derived from the avatar catalog at build time. Adding a species to
-// avatars.json auto-populates the picker — no code change required.
-const SPECIES_OPTIONS: ReadonlyArray<AvatarSpecies> = avatarCatalog.species.map(
-  (s) => s.id,
-);
+// Each species card shows the species name + the full evolution strip
+// (every stage SVG) so parents and kids see the journey before they
+// pick. Adding a species to avatars.json auto-populates this picker.
+const SPECIES_PREVIEWS: ReadonlyArray<{
+  id: AvatarSpecies;
+  stageSrcs: ReadonlyArray<string>;
+}> = avatarCatalog.species.map((s) => ({
+  id: s.id,
+  stageSrcs: s.stages.map((st) => st.src),
+}));
 
 function CreateAccountCard({
   kid,
@@ -420,6 +425,12 @@ function CreateAccountCard({
   // Plain function — not a hook — so it's safe to call inside .map() below.
   const speciesLabel = (s: AvatarSpecies): string =>
     tPM(`species.${s}.label` as never);
+  const stageLabel = (s: AvatarSpecies, tier: number): string =>
+    tPM(`species.${s}.tier${tier}` as never);
+
+  const pickedPreview = picked
+    ? SPECIES_PREVIEWS.find((p) => p.id === picked)
+    : null;
 
   return (
     <GlassCard className="p-4 space-y-3">
@@ -428,30 +439,63 @@ function CreateAccountCard({
       </p>
       <p className="text-xs text-muted-foreground">{t("speciesPickerHint")}</p>
 
-      <div className="grid grid-cols-3 gap-2">
-        {SPECIES_OPTIONS.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setPicked(s)}
-            className={`flex flex-col items-center gap-1 rounded-lg border-2 p-3 transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 ${
-              picked === s
-                ? "border-month-primary bg-month-primary/5 ring-2 ring-month-primary/30"
-                : "border-border hover:bg-white/[0.04]"
-            }`}
-            aria-pressed={picked === s}
-          >
-            {/* Stage 1 SVG as the species preview. */}
-            <img
-              src={`/pocket-money/avatars/${s}-1.svg`}
-              alt=""
-              width={56}
-              height={56}
-            />
-            <span className="text-xs font-medium">{speciesLabel(s)}</span>
-          </button>
-        ))}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {SPECIES_PREVIEWS.map((preview) => {
+          const isPicked = picked === preview.id;
+          return (
+            <button
+              key={preview.id}
+              type="button"
+              onClick={() => setPicked(preview.id)}
+              className={`flex flex-col items-start gap-2 rounded-lg border-2 p-3 transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 ${
+                isPicked
+                  ? "border-month-primary bg-month-primary/5 ring-2 ring-month-primary/30"
+                  : "border-border hover:bg-white/[0.04]"
+              }`}
+              aria-pressed={isPicked}
+            >
+              <span className="text-sm font-semibold">
+                {speciesLabel(preview.id)}
+              </span>
+              <div className="flex w-full items-center justify-between gap-1">
+                {preview.stageSrcs.map((src, i) => (
+                  <img
+                    key={src}
+                    src={src}
+                    alt=""
+                    width={28}
+                    height={28}
+                    className={i === 0 ? "" : "opacity-80"}
+                  />
+                ))}
+              </div>
+            </button>
+          );
+        })}
       </div>
+
+      {pickedPreview && (
+        <div className="rounded-lg border border-border bg-white/[0.02] p-3 space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            {t("speciesPreviewTitle", {
+              species: speciesLabel(pickedPreview.id),
+            })}
+          </p>
+          <div className="flex items-start gap-2 overflow-x-auto">
+            {pickedPreview.stageSrcs.map((src, i) => (
+              <div
+                key={src}
+                className="flex flex-col items-center gap-1 min-w-[64px]"
+              >
+                <img src={src} alt="" width={40} height={40} />
+                <span className="text-[10px] text-muted-foreground text-center leading-tight">
+                  {stageLabel(pickedPreview.id, i + 1)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Button
         className="w-full"

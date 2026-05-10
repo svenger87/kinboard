@@ -1,6 +1,6 @@
 # Avatar art credits
 
-The 24 avatar SVGs (3 species × 8 stages) in this directory are sourced from
+The 40 avatar SVGs (5 species × 8 stages) in this directory are sourced from
 [Noto Emoji](https://github.com/googlefonts/noto-emoji), licensed under the
 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
@@ -30,6 +30,22 @@ The 24 avatar SVGs (3 species × 8 stages) in this directory are sourced from
 | `astronaut-6.svg` | 🌙 crescent moon                  | U+1F319 |
 | `astronaut-7.svg` | 🪐 ringed planet                  | U+1FA90 |
 | `astronaut-8.svg` | 🌌 milky way                       | U+1F30C |
+| `plant-1.svg`     | 🌱 seedling                       | U+1F331 |
+| `plant-2.svg`     | 🌿 herb                           | U+1F33F |
+| `plant-3.svg`     | 🪴 potted plant                   | U+1FAB4 |
+| `plant-4.svg`     | 🌳 deciduous tree                 | U+1F333 |
+| `plant-5.svg`     | 🌲 evergreen tree                 | U+1F332 |
+| `plant-6.svg`     | 🌴 palm tree                      | U+1F334 |
+| `plant-7.svg`     | 🌻 sunflower                      | U+1F33B |
+| `plant-8.svg`     | 🌹 rose                           | U+1F339 |
+| `wizard-1.svg`    | 🪄 magic wand                     | U+1FA84 |
+| `wizard-2.svg`    | 🔮 crystal ball                   | U+1F52E |
+| `wizard-3.svg`    | 📜 scroll                         | U+1F4DC |
+| `wizard-4.svg`    | 🌟 glowing star                   | U+1F31F |
+| `wizard-5.svg`    | 🧙 mage                           | U+1F9D9 |
+| `wizard-6.svg`    | 🧝 elf                            | U+1F9DD |
+| `wizard-7.svg`    | 🦄 unicorn                        | U+1F984 |
+| `wizard-8.svg`    | 🧞 genie                          | U+1F9DE |
 
 Replace any single file with your own SVG (keep the same filename) to
 re-skin the avatar without touching code. The catalog at
