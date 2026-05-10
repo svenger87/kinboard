@@ -121,6 +121,19 @@ RUN echo '#!/bin/sh' > /usr/local/bin/sync-ics && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-ics' >> /usr/local/bin/sync-ics && \
     chmod +x /usr/local/bin/sync-ics
 
+# Add pocket-money cron scripts
+RUN echo '#!/bin/sh' > /usr/local/bin/pocket-money-accrue-interest && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/accrue-interest' >> /usr/local/bin/pocket-money-accrue-interest && \
+    chmod +x /usr/local/bin/pocket-money-accrue-interest
+
+RUN echo '#!/bin/sh' > /usr/local/bin/pocket-money-commit-interest && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/commit-interest' >> /usr/local/bin/pocket-money-commit-interest && \
+    chmod +x /usr/local/bin/pocket-money-commit-interest
+
+RUN echo '#!/bin/sh' > /usr/local/bin/pocket-money-process-allowance && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/process-allowance' >> /usr/local/bin/pocket-money-process-allowance && \
+    chmod +x /usr/local/bin/pocket-money-process-allowance
+
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 

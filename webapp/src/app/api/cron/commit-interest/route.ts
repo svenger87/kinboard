@@ -1,0 +1,62 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function POST(request: NextRequest) {
+  const auth = request.headers.get("authorization");
+  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const supabase = createAdminClient();
+  const dow = new Date().getUTCDay(); // 0=Sun..6=Sat
+
+  const { data: accounts, error } = await (supabase as any)
+    .from("pocket_money_accounts")
+    .select("id, pending_interest_cents, balance_cents, lifetime_saved_cents")
+    .eq("interest_committed_day_of_week", dow)
+    .gt("pending_interest_cents", 0);
+
+  if (error) {
+    console.error("[cron/commit-interest] read error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  let committed = 0;
+  for (const acct of accounts ?? []) {
+    const amount = acct.pending_interest_cents;
+    if (amount <= 0) continue;
+
+    const { error: txnErr } = await (supabase as any)
+      .from("pocket_money_transactions")
+      .insert({
+        account_id: acct.id,
+        amount_cents: amount,
+        type: "interest",
+        note: "Weekly interest",
+      });
+    if (txnErr) {
+      console.error("[cron/commit-interest] txn error:", txnErr);
+      continue;
+    }
+
+    const { error: updErr } = await (supabase as any)
+      .from("pocket_money_accounts")
+      .update({
+        balance_cents: acct.balance_cents + amount,
+        lifetime_saved_cents: acct.lifetime_saved_cents + amount,
+        pending_interest_cents: 0,
+        interest_committed_at: new Date().toISOString(),
+      })
+      .eq("id", acct.id);
+    if (updErr) {
+      console.error("[cron/commit-interest] update error:", updErr);
+      continue;
+    }
+    committed++;
+  }
+
+  return NextResponse.json({ ok: true, committed });
+}
