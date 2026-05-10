@@ -246,27 +246,48 @@ It's idempotent. It appends new templated env keys (`DATA_DIR`, `DOMAIN`, etc.),
 
 The recommended path is the **Diun + webhook overlay** (`docker-compose.diun.yml.example`). It runs the FULL upgrade sequence end-to-end whenever a new GHCR image lands:
 
-1. `git pull origin main` — picks up new `docker-compose.yml`, `kong.yml`, migrations, `init.sql`, `seed-demo.sql`
+1. `git pull --ff-only origin main` — picks up new `docker-compose.yml`, `kong.yml`, migrations, `init.sql`, `seed-demo.sql`
 2. `./setup.sh --non-interactive` — re-substitutes Kong placeholders if a new release shipped new keys/routes
-3. `docker compose pull` — pulls the new GHCR image(s)
-4. `docker compose up -d` — recreates only services whose image changed; the webapp's entrypoint re-applies all `migration_*.sql` on boot (idempotent)
+3. `docker compose pull --ignore-buildable` — pulls the new GHCR image(s); skips the locally-built webhook image
+4. `docker compose up -d` (with webhook + diun excluded — see below) — recreates only services whose image changed; the webapp's entrypoint re-applies all `migration_*.sql` on boot (idempotent)
 5. `docker restart kinboard-kong` — only when `kong.yml`'s mtime moved during the run
 
-Two containers do this: **Diun** (image notifier — detects new GHCR digests, fires webhook) and a tiny **webhook** container (validates the HMAC token, executes `kinboard-self-update.sh`). Neither is exposed externally; both sit on the internal `kinboard` docker network.
+Two containers do this:
+- **Diun** (`crazymax/diun`) — image notifier. Polls GHCR every 30 min, detects new digests on services labeled `diun.enable=true`, fires a webhook. Read-only docker socket.
+- **Webhook** — locally-built image (`Dockerfile.webhook`, ~70 MB Alpine + git + docker CLI + openssl + the webhook binary from adnanh/webhook). Validates the HMAC token in the `X-Diun-Token` header against `DIUN_WEBHOOK_SECRET`, then executes `kinboard-self-update.sh`. RW docker socket + RW project bind-mount.
+
+Neither container is exposed externally; both sit on the internal `kinboard` docker network.
+
+#### Required `.env` keys
+
+`setup.sh` writes all four on first run (and appends any that are missing on re-run):
+
+| Key | What it is |
+|---|---|
+| `DIUN_WEBHOOK_SECRET` | HMAC shared between Diun and webhook. Auto-generated. |
+| `KINBOARD_PROJECT_DIR` | Absolute host path to the kinboard repo. The webhook bind-mounts this AT THE SAME PATH inside the container so docker-compose's relative paths resolve identically inside and outside. Auto-detected from `setup.sh`'s own location. |
+| `COMPOSE_PROJECT_NAME` | Should be `kinboard`. Without this, compose derives the project name from the cwd (`docker` if you `cd webapp/docker` first), which renames the network and breaks subnet reuse if you migrated from an older flat layout. |
+| `COMPOSE_FILES` | Space-separated `-f …` overlay flags. **Do NOT wrap in literal `"…"`** — the value gets expanded inside the shell script and embedded quotes break word-splitting. |
 
 #### Bring up the overlay
 
 ```bash
 cd webapp/docker
 cp docker-compose.diun.yml.example docker-compose.diun.yml
-# setup.sh generates DIUN_WEBHOOK_SECRET into .env on first run; if the
-# stack is already initialised, top up via:
-echo "DIUN_WEBHOOK_SECRET=$(openssl rand -hex 32)" >> .env
-COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml" \
-  ./start.sh up
+# Make sure these are set in .env (setup.sh auto-creates them on first run):
+#   DIUN_WEBHOOK_SECRET=<random hex>
+#   KINBOARD_PROJECT_DIR=/absolute/host/path/to/kinboard
+#   COMPOSE_PROJECT_NAME=kinboard
+#   COMPOSE_FILES=-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml
+# Then, from the project root:
+./setup.sh --non-interactive
+cd webapp/docker
+docker compose -f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml up -d --build
 ```
 
-The overlay also adds a `diun.enable=true` label to the kinboard-webapp service so Diun knows to watch its image. Only that container is watched by default — auto-bumping the Postgres image is not safe; if you want Diun to watch additional services, add the same label to them in `docker-compose.override.yml`.
+The overlay adds a `diun.enable=true` label to the kinboard-webapp service so Diun knows to watch its image. Only that container is watched by default — auto-bumping the Postgres image is not safe; if you want Diun to watch additional services, add the same label to them in `docker-compose.override.yml`.
+
+The webhook image gets built locally on first `up --build` from `webapp/docker/Dockerfile.webhook`. The upstream `almir/webhook` image ships only the webhook binary (no git, no docker CLI), so we layer those on top of an Alpine base.
 
 #### Tuning the cadence
 
@@ -288,11 +309,47 @@ docker exec kinboard-webhook /scripts/kinboard-self-update.sh
 
 Same script, same code path. Useful right after pushing a hotfix when you don't want to wait for the next 30-min Diun tick.
 
+#### Updating the auto-updater itself
+
+The script intentionally **excludes** the `webhook` and `diun` services from `docker compose up -d` — it's currently executing inside the webhook container, and recreating that container mid-run would SIGKILL the script before it finishes (half-done state, kong restart skipped, etc.). To pick up new versions of `Dockerfile.webhook`, `kinboard-self-update.sh`, `diun.yml`, or `hooks.yaml`, run from the host:
+
+```bash
+cd webapp/docker
+docker compose -f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml \
+  up -d --build webhook diun
+```
+
 #### What you give up
 
 - **Surprise restarts.** When an update lands, the webapp container is recreated — ~30 seconds of downtime. Tabs lose their realtime websocket and reconnect.
 - **Reading release notes before they apply.** If you want "see what changed → decide → apply" semantics, don't enable the overlay; track the [release notes](https://github.com/svenger87/kinboard/releases) and run `kinboard-self-update.sh` manually after each release you actually want.
 - **The trust boundary.** The webhook container has rw access to `/var/run/docker.sock` and the project directory. Anything with that access can effectively run as root on the host. Same blast radius as Watchtower or any other update agent — Diun-the-detector itself only needs read-only socket access.
+
+#### Migrating from a flat appdata layout
+
+If your existing install lives at e.g. `/mnt/user/appdata/kinboard/docker-compose.yml` (compose files at the top level, not under `webapp/docker/`), the self-update flow won't work as-is — the webhook script expects the standard repo layout. To migrate without losing data:
+
+```bash
+cd /mnt/user/appdata/kinboard
+docker compose down            # graceful stop, bind-mounts unaffected
+mkdir -p /tmp/kinboard-preserve
+cp .env docker-compose.override.yml /tmp/kinboard-preserve/   # secrets + customizations
+find . -maxdepth 1 -type f -delete                             # wipe top-level configs
+git init -q && git remote add origin https://github.com/svenger87/kinboard.git
+git fetch --depth=1 origin main && git checkout -t origin/main
+cp /tmp/kinboard-preserve/.env webapp/docker/.env
+cp /tmp/kinboard-preserve/docker-compose.override.yml webapp/docker/docker-compose.override.yml
+# DATA_DIR + COMPOSE_PROJECT_NAME both critical here:
+sed -i 's|^DATA_DIR=.*|DATA_DIR=/mnt/user/appdata/kinboard|' webapp/docker/.env
+grep -q ^COMPOSE_PROJECT_NAME webapp/docker/.env || echo "COMPOSE_PROJECT_NAME=kinboard" >> webapp/docker/.env
+./setup.sh --non-interactive   # regenerates kong.yml substitutions, fills new keys
+cp webapp/docker/docker-compose.diun.yml.example webapp/docker/docker-compose.diun.yml
+cd webapp/docker
+docker compose -f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml \
+              -f docker-compose.override.yml -f docker-compose.diun.yml up -d --build
+```
+
+The data dirs (`db/`, `backups/`, `storage/`) stay at `/mnt/user/appdata/kinboard/` because `DATA_DIR` is set absolutely. Only the config files moved.
 
 #### Watchtower migration (deprecated path)
 
