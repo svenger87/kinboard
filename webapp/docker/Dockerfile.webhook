@@ -1,0 +1,39 @@
+# Webhook executor image — `webhook` binary from adnanh/webhook plus
+# git + docker CLI so kinboard-self-update.sh can run end-to-end inside
+# the container.
+#
+# Published-image alternative (almir/webhook) ships with only the
+# webhook binary on a busybox base, so it can't actually `git pull` or
+# `docker compose` — exactly the things the update script needs to do.
+#
+# Built locally on `compose up` against the Diun overlay; small enough
+# (~70 MB) that the bring-up overhead is negligible.
+
+FROM alpine:3.20
+
+# TARGETARCH is set automatically by buildkit (amd64 or arm64).
+ARG TARGETARCH
+
+RUN apk add --no-cache \
+      git \
+      docker-cli \
+      docker-cli-compose \
+      ca-certificates \
+      bash \
+      curl \
+      openssh-client \
+      openssl \
+      tzdata
+
+# Pin webhook to a known release so a future upstream change can't
+# silently shift behaviour.
+ARG WEBHOOK_VERSION=2.8.2
+RUN curl -fsSL "https://github.com/adnanh/webhook/releases/download/${WEBHOOK_VERSION}/webhook-linux-${TARGETARCH}.tar.gz" \
+    | tar -xz -C /tmp \
+ && mv "/tmp/webhook-linux-${TARGETARCH}/webhook" /usr/local/bin/webhook \
+ && chmod +x /usr/local/bin/webhook \
+ && rm -rf /tmp/webhook-linux-${TARGETARCH}
+
+EXPOSE 9000
+
+ENTRYPOINT ["/usr/local/bin/webhook"]

@@ -36,9 +36,21 @@ LOG_FILE="${LOG_FILE:-/var/log/kinboard-update.log}"
 PROJECT_DIR="${PROJECT_DIR:-/project}"
 COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.yml}"
 
+# Ensure the log file is writable. If the host-side bind-mount target
+# wasn't pre-created (typical), Docker auto-creates it as root:755 —
+# which may or may not be writable by the webhook container's user.
+# Probe and fall back to stderr-only logging on permission failure so
+# `set -e` doesn't abort the script on its first log line.
+mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
+if ! touch "$LOG_FILE" 2>/dev/null; then
+  LOG_FILE=/dev/null
+fi
+
 log() {
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "[$ts] $*" | tee -a "$LOG_FILE"
+  msg="[$ts] $*"
+  echo "$msg"
+  printf '%s\n' "$msg" >> "$LOG_FILE" 2>/dev/null || true
 }
 
 cd "$PROJECT_DIR"
@@ -74,13 +86,26 @@ fi
 
 # 3. + 4. compose pull + up -d
 cd webapp/docker
-log "docker compose $COMPOSE_FILES pull"
+log "docker compose $COMPOSE_FILES pull --ignore-buildable"
+# `--ignore-buildable` skips services that have a `build:` directive
+# (the webhook service is locally-built from Dockerfile.webhook, has no
+# pullable registry counterpart).
 # shellcheck disable=SC2086
-docker compose $COMPOSE_FILES pull >>"$LOG_FILE" 2>&1
+docker compose $COMPOSE_FILES pull --ignore-buildable >>"$LOG_FILE" 2>&1
 
-log "docker compose $COMPOSE_FILES up -d --no-build"
+# Exclude webhook + diun from the recreate. The script is currently
+# executing INSIDE the webhook container — if compose recreates it, the
+# script gets SIGKILL'd mid-flight and can't finish (half-done state,
+# kong restart skipped, etc.). Self-updating those two services is
+# done out-of-band via `docker compose build webhook && docker compose
+# up -d webhook diun` from the host when their definitions change.
 # shellcheck disable=SC2086
-docker compose $COMPOSE_FILES up -d --no-build >>"$LOG_FILE" 2>&1
+SERVICES=$(docker compose $COMPOSE_FILES config --services 2>/dev/null \
+            | grep -vE '^(webhook|diun)$' \
+            | tr '\n' ' ')
+log "docker compose $COMPOSE_FILES up -d --no-build $SERVICES"
+# shellcheck disable=SC2086
+docker compose $COMPOSE_FILES up -d --no-build $SERVICES >>"$LOG_FILE" 2>&1
 
 # 5. Kong restart — only if kong.yml changed during this run.
 KONG_AFTER="$(stat -c %Y kong.yml 2>/dev/null || echo 0)"
