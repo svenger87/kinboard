@@ -30,9 +30,9 @@ export async function POST(
   const { id: accountId } = await params;
   const body = (await request.json()) as Partial<PocketMoneyWithdrawalRequestInsert>;
 
-  if (!body.amount_cents || body.amount_cents <= 0) {
+  if (!Number.isInteger(body.amount_cents) || (body.amount_cents as number) <= 0) {
     return NextResponse.json(
-      { error: "positive amount_cents required" },
+      { error: "positive integer amount_cents required" },
       { status: 400 },
     );
   }
