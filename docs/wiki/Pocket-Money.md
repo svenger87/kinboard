@@ -18,6 +18,26 @@ Nothing. The plugin is purely local — no external bank API. Parents control ev
 - Daily cron at 00:30 UTC computes `min(balance, max_eligible) × (apr_bps ÷ 10000) ÷ 365` per account, accumulates into `pending_interest_cents`. Floor-rounded so the system never overpays.
 - Hourly cron checks each account; on its configured `interest_committed_day_of_week`, the pending amount commits as a single `interest` transaction → balance bumps → coin-shower animation triggers on next kid-view load.
 
+The forecast panel on `/settings/pocket-money` shows projected balance at 1 / 3 / 6 / 12 months at the current APR + allowance, simulated day-by-day with the same math. Use it to dial APR up or down before the kid notices.
+
+## Interest when the kid withdraws
+
+Withdrawals reduce the principal that interest is calculated on, but they don't claw back interest the kid has already earned. Concretely:
+
+- **Principal moves immediately.** The withdrawal subtracts from `balance_cents` on commit. The next day's accrual reads the lower balance — the kid earns less from day +1.
+- **Pending interest is untouched.** Interest accrued earlier in the week sits in `pending_interest_cents` and still commits on the configured commit day. A kid can withdraw mid-week without losing the partial week's accrual on the pre-withdrawal balance.
+- **Avatar tier is preserved.** `lifetime_saved_cents` is monotonic — only positive non-adjustment transactions bump it. Withdrawals never touch it, so spending money doesn't visibly demote the avatar.
+- **The eligibility cap clamps the principal, not the balance.** If balance is above `max_balance_eligible_cents`, withdrawals down to the cap don't change the interest rate — the kid was already only earning on the eligible portion.
+
+Worked example: €100 balance, 10% APR, €500 cap, weekly commit on Sunday.
+
+- Days 1-3 each accrue ⌊100 × 1000 / (10000 × 365)⌋ = 2¢ → 6¢ pending.
+- Day 4: kid withdraws €30. Balance drops to €70. Pending stays at 6¢.
+- Days 4-7 each accrue ⌊70 × 1000 / 3650000⌋ = 1¢ → 4¢ more pending.
+- Sunday commit: balance += 10¢. Avatar tier unchanged.
+
+One known edge case: a kid timing a withdrawal right before commit-day still gets a full week's interest on the pre-withdrawal balance. With realistic APRs and weekly commits this is at most a few cents per week — not worth gaming, not worth fixing.
+
 ## Avatar evolution
 
 Tier promotes when `lifetime_saved_cents` (cumulative deposits + interest, NOT affected by withdrawals) crosses these thresholds:
@@ -25,10 +45,13 @@ Tier promotes when `lifetime_saved_cents` (cumulative deposits + interest, NOT a
 | Stage | Lifetime saved |
 |---|---|
 | 1 | €0 (start) |
-| 2 | €5 |
-| 3 | €25 |
-| 4 | €100 |
-| 5 | €500 |
+| 2 | €2 |
+| 3 | €5 |
+| 4 | €15 |
+| 5 | €40 |
+| 6 | €100 |
+| 7 | €300 |
+| 8 | €1000 |
 
 Each promotion plays a once-per-event radial-burst animation. Withdrawals don't downlevel — the kid keeps their progress.
 
@@ -38,7 +61,7 @@ Add via `/pocket-money` → "Add goal". Three image-lookup modes: catalog search
 
 ## Adding a new avatar species
 
-The plugin ships with three species (dragon, cat, astronaut) but the catalog is open-ended. Adding a fourth (e.g. "wizard", "robot", "plant") is a three-file change — **no DB migration, no code change, no settings UI edit**:
+The plugin ships with five species (dragon, cat, astronaut, plant, wizard) but the catalog is open-ended. Adding a sixth (e.g. "robot", "knight", "pirate") is a three-file change — **no DB migration, no code change, no settings UI edit**:
 
 1. **Drop 8 SVG files into `webapp/public/pocket-money/avatars/`** named `<id>-1.svg` through `<id>-8.svg`. Each represents the avatar at one tier (stage 1 = starting, stage 8 = max). Any SVG works; sourcing from a CC-permissive emoji pack like Noto Emoji is the easy path.
 2. **Add an entry to `webapp/src/plugins/pocket-money/catalog/avatars.json`** under the `species` array — copy the existing dragon entry and change the `id` + `src` paths.
