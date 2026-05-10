@@ -186,12 +186,16 @@ POSTGRES_PASSWORD=$(openssl rand -hex 32)
 JWT_SECRET=$(openssl rand -hex 32)
 SECRET_KEY_BASE=$(openssl rand -hex 48)
 CRON_SECRET=$(openssl rand -hex 32)
+# Used only when the docker-compose.diun.yml auto-update overlay is
+# enabled. Harmless to generate eagerly — costs nothing if unused.
+DIUN_WEBHOOK_SECRET=$(openssl rand -hex 32)
 
 echo "→ filling random secrets in $DOCKER_ENV"
 fill_secret POSTGRES_PASSWORD "$POSTGRES_PASSWORD" "$DOCKER_ENV"
 fill_secret JWT_SECRET "$JWT_SECRET" "$DOCKER_ENV"
 fill_secret SECRET_KEY_BASE "$SECRET_KEY_BASE" "$DOCKER_ENV"
 fill_secret CRON_SECRET "$CRON_SECRET" "$DOCKER_ENV"
+fill_secret DIUN_WEBHOOK_SECRET "$DIUN_WEBHOOK_SECRET" "$DOCKER_ENV"
 
 # ----------------------------------------------------------------------
 # 2b. Generate Supabase ANON_KEY + SERVICE_ROLE_KEY locally
