@@ -29,6 +29,7 @@ import {
   Puzzle,
   Rss,
   LineChart,
+  PiggyBank,
 } from "lucide-react";
 import { PinGuard } from "@/components/pin-guard";
 import { GlassCard } from "@/components/ui/card";
@@ -75,6 +76,7 @@ export default function SettingsPage() {
   const energyPluginEnabled = useIsPluginEnabled("energy");
   const camerasPluginEnabled = useIsPluginEnabled("cameras");
   const stonksPluginEnabled = useIsPluginEnabled("stonks");
+  const pocketMoneyPluginEnabled = useIsPluginEnabled("pocket-money");
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", ""]);
   const pinInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -208,6 +210,12 @@ export default function SettingsPage() {
           label: t("itemStonksLabel"),
           description: t("itemStonksDescription"),
           href: "/settings/stonks",
+        }] : []),
+        ...(pocketMoneyPluginEnabled ? [{
+          icon: PiggyBank,
+          label: t("itemPocketMoneyLabel"),
+          description: t("itemPocketMoneyDescription"),
+          href: "/settings/pocket-money",
         }] : []),
       ],
     },
