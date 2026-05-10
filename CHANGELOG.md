@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- Mobile bottom-nav: horizontal swipe to reach off-screen items no longer fires a stray click on the Link under the finger's start position. The container now tracks pointer movement and cancels the click in the capture phase if the user moved more than 8 px before lifting — `touch-action: pan-x` told the browser to scroll, but couldn't suppress the eventual click. Affects every device with the bottom nav (kiosk + phones), most visible to users running the full ~14-item nav (every plugin enabled + all built-in surfaces).
 - Stonks watchlist: `/stonks` tabs and the dashboard widget now show the asset's full name (e.g. "Apple Inc.") on freshly-added tickers instead of the bare symbol. The `/settings/stonks` add flow now defaults the per-ticker `nickname` to the Yahoo search result's `name` at insert time. Existing rows with `nickname: null` keep their bare-symbol label until edited via the per-row config form. Users can still override the nickname to anything they prefer.
 
 ### Added
