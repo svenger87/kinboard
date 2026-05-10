@@ -32,6 +32,7 @@ import {
 import type { AvatarSpecies } from "@/lib/pocket-money/types";
 import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { formatCents } from "@/lib/pocket-money/format";
+import { BalanceForecast } from "@/components/pocket-money/balance-forecast";
 
 // Locale-aware short weekday names indexed 0=Sun..6=Sat. Built once
 // per locale via Intl.DateTimeFormat off a known Sunday so we don't
@@ -292,6 +293,16 @@ export default function PocketMoneySettingsPage() {
                   {t("withdraw")}
                 </Button>
               </div>
+
+              <BalanceForecast
+                balanceCents={acct.balance_cents}
+                pendingInterestCents={acct.pending_interest_cents}
+                maxBalanceEligibleCents={acct.max_balance_eligible_cents}
+                aprBps={acct.apr_bps}
+                weeklyAllowanceCents={acct.weekly_allowance_cents}
+                allowanceIntervalDays={acct.allowance_interval_days ?? 7}
+                currency={acct.currency}
+              />
             </GlassCard>
           );
         })}
