@@ -45,26 +45,7 @@ BEGIN
       FOR EACH ROW EXECUTE FUNCTION update_updated_at();
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_name = 'pocket_money_transactions'
-  ) THEN
-    CREATE TABLE public.pocket_money_transactions (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      account_id UUID NOT NULL REFERENCES public.pocket_money_accounts(id) ON DELETE CASCADE,
-      amount_cents INTEGER NOT NULL,
-      type TEXT NOT NULL
-        CHECK (type IN ('allowance','manual_deposit','interest','withdrawal','adjustment')),
-      note TEXT,
-      related_goal_id UUID,
-      created_by_person_id UUID REFERENCES public.people(id) ON DELETE SET NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    CREATE INDEX pocket_money_transactions_account_created_idx
-      ON public.pocket_money_transactions (account_id, created_at DESC);
-  END IF;
-
+  -- goals before transactions: transactions has an FK on related_goal_id.
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.tables
     WHERE table_schema = 'public' AND table_name = 'pocket_money_goals'
@@ -101,6 +82,26 @@ BEGIN
 
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'pocket_money_transactions'
+  ) THEN
+    CREATE TABLE public.pocket_money_transactions (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      account_id UUID NOT NULL REFERENCES public.pocket_money_accounts(id) ON DELETE CASCADE,
+      amount_cents INTEGER NOT NULL,
+      type TEXT NOT NULL
+        CHECK (type IN ('allowance','manual_deposit','interest','withdrawal','adjustment')),
+      note TEXT,
+      related_goal_id UUID REFERENCES public.pocket_money_goals(id) ON DELETE SET NULL,
+      created_by_person_id UUID REFERENCES public.people(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX pocket_money_transactions_account_created_idx
+      ON public.pocket_money_transactions (account_id, created_at DESC);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
     WHERE table_schema = 'public' AND table_name = 'pocket_money_withdrawal_requests'
   ) THEN
     CREATE TABLE public.pocket_money_withdrawal_requests (
@@ -118,6 +119,24 @@ BEGIN
 
     CREATE INDEX pocket_money_withdrawal_requests_account_status_idx
       ON public.pocket_money_withdrawal_requests (account_id, status);
+  END IF;
+END $$;
+
+-- Backfill the FK on transactions.related_goal_id for stacks that ran
+-- an earlier version of this migration before the goals/transactions
+-- create-order was fixed and the FK was added. Idempotent: skips if
+-- the constraint already exists.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'pocket_money_transactions_related_goal_id_fkey'
+  ) THEN
+    ALTER TABLE public.pocket_money_transactions
+      ADD CONSTRAINT pocket_money_transactions_related_goal_id_fkey
+      FOREIGN KEY (related_goal_id)
+      REFERENCES public.pocket_money_goals(id)
+      ON DELETE SET NULL;
   END IF;
 END $$;
 
