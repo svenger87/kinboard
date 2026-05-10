@@ -81,7 +81,6 @@ export interface Database {
           color: string;
           avatar_url: string | null;
           is_child: boolean;
-          is_kid: boolean;
           created_at: string;
         };
         Insert: {
@@ -91,7 +90,6 @@ export interface Database {
           color: string;
           avatar_url?: string | null;
           is_child?: boolean;
-          is_kid?: boolean;
           created_at?: string;
         };
         Update: {
@@ -101,7 +99,6 @@ export interface Database {
           color?: string;
           avatar_url?: string | null;
           is_child?: boolean;
-          is_kid?: boolean;
           created_at?: string;
         };
         Relationships: [];
