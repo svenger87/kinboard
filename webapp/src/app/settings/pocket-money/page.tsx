@@ -114,10 +114,12 @@ export default function PocketMoneySettingsPage() {
                     {kidPerson?.name ?? acct.person_id.slice(0, 8)}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    {formatCents(acct.balance_cents, acct.currency)} · APR{" "}
-                    {(acct.apr_bps / 100).toFixed(1)}% ·{" "}
-                    {formatCents(acct.weekly_allowance_cents, acct.currency)}
-                    /week
+                    {formatCents(acct.balance_cents, acct.currency)} ·{" "}
+                    {t("aprSummaryLabel", { pct: (acct.apr_bps / 100).toFixed(1) })} ·{" "}
+                    {t("allowancePerInterval", {
+                      amount: formatCents(acct.weekly_allowance_cents, acct.currency),
+                      days: acct.allowance_interval_days ?? 7,
+                    })}
                   </p>
                 </div>
                 <Button
@@ -135,7 +137,12 @@ export default function PocketMoneySettingsPage() {
                     {t("aprLabel")} ({(acct.apr_bps / 100).toFixed(1)}%)
                   </Label>
                   <Slider
-                    value={[acct.apr_bps]}
+                    // Uncontrolled with `key` so the slider has internal
+                    // drag state — fully-controlled `value={[...]}` against
+                    // server state freezes the thumb mid-drag because
+                    // there's no local state to update before commit.
+                    key={`apr-${acct.id}-${acct.apr_bps}`}
+                    defaultValue={[acct.apr_bps]}
                     min={0}
                     max={5000}
                     step={100}
