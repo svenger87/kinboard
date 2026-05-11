@@ -65,6 +65,7 @@ git fetch origin main >>"$LOG_FILE" 2>&1
 LOCAL_SHA="$(git rev-parse HEAD)"
 REMOTE_SHA="$(git rev-parse origin/main)"
 KONG_BEFORE="$(stat -c %Y webapp/docker/kong.yml 2>/dev/null || echo 0)"
+DIUN_BEFORE="$(stat -c %Y webapp/docker/diun/diun.yml 2>/dev/null || echo 0)"
 
 if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
   log "pulling $LOCAL_SHA → $REMOTE_SHA"
@@ -114,6 +115,20 @@ if [ "$KONG_AFTER" != "$KONG_BEFORE" ]; then
   docker restart kinboard-kong >>"$LOG_FILE" 2>&1 || log "WARN: kong restart failed (kong may not be running)"
 else
   log "kong.yml unchanged; skipping kong restart"
+fi
+
+# 6. Diun restart — only if diun/diun.yml changed during this run.
+# Diun reads its config once at startup; a substituted secret or any
+# other live edit won't take effect until the container restarts. We
+# skip Diun in the compose-up above (self-kill protection — Diun is
+# the one that fired this whole update), so the restart has to be a
+# separate explicit step here.
+DIUN_AFTER="$(stat -c %Y diun/diun.yml 2>/dev/null || echo 0)"
+if [ "$DIUN_AFTER" != "$DIUN_BEFORE" ]; then
+  log "diun.yml changed (mtime $DIUN_BEFORE → $DIUN_AFTER); restarting kinboard-diun"
+  docker restart kinboard-diun >>"$LOG_FILE" 2>&1 || log "WARN: diun restart failed (diun may not be running)"
+else
+  log "diun.yml unchanged; skipping diun restart"
 fi
 
 log "=== self-update done ==="
