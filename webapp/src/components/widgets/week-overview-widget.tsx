@@ -139,7 +139,7 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
   const maxItems = Math.max(...weekDays.map((d) => d.totalItems), 1);
 
   return (
-    <Card className={`accent-border-top ${className}`}>
+    <Card className={`accent-border-top h-full ${className}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-xl font-medium">

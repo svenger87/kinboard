@@ -34,7 +34,7 @@ export function StonksWidget() {
   const WidgetCard = driver.WidgetCard;
 
   return (
-    <Link href="/stonks" className="block">
+    <Link href="/stonks" className="block h-full">
       <AnimatePresence mode="wait">
         <motion.div
           key={tk.id}
