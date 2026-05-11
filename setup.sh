@@ -453,6 +453,32 @@ if [[ -f "$KONG_YML" ]]; then
 fi
 
 # ----------------------------------------------------------------------
+# 5b. Substitute DIUN_WEBHOOK_SECRET into diun.yml — same pattern as
+# kong.yml above. Diun doesn't evaluate Go-template env-var refs in
+# header values, so the secret has to be substituted in at setup time.
+# Re-running with a changed secret re-writes the live diun.yml; the
+# diun container needs a `docker restart kinboard-diun` afterward to
+# pick up the new config.
+# ----------------------------------------------------------------------
+DIUN_YML="$REPO_ROOT/webapp/docker/diun/diun.yml"
+if [[ -f "$DIUN_YML" ]]; then
+  diun_secret=$(grep -E "^DIUN_WEBHOOK_SECRET=" "$DOCKER_ENV" | head -n1 | cut -d= -f2-)
+  if [[ -n "$diun_secret" ]]; then
+    if grep -q "REPLACE_WITH_DIUN_WEBHOOK_SECRET\|X-Diun-Token: '{{ env " "$DIUN_YML"; then
+      echo "→ substituting DIUN_WEBHOOK_SECRET into diun.yml"
+      awk -v s="$diun_secret" '
+        {
+          gsub(/REPLACE_WITH_DIUN_WEBHOOK_SECRET/, s);
+          # Recover stacks that still have the old broken Go-template syntax.
+          gsub(/X-Diun-Token: '\''\{\{ env "DIUN_WEBHOOK_SECRET" \}\}'\''/, "X-Diun-Token: " s);
+          print
+        }
+      ' "$DIUN_YML" > "$DIUN_YML.tmp" && mv "$DIUN_YML.tmp" "$DIUN_YML"
+    fi
+  fi
+fi
+
+# ----------------------------------------------------------------------
 # 6. Next steps
 # ----------------------------------------------------------------------
 # Summarize which optional keys are still empty so the user knows what

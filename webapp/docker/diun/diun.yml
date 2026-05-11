@@ -30,9 +30,13 @@ notif:
     timeout: 30s
     headers:
       Content-Type: application/json
-      # Single-quote the value: Go-template tokens contain `"` chars
-      # that conflict with YAML double-quoted strings.
-      X-Diun-Token: '{{ env "DIUN_WEBHOOK_SECRET" }}'
+      # Substituted by setup.sh from DIUN_WEBHOOK_SECRET in .env at
+      # first run / re-run. Diun does NOT evaluate Go templates
+      # ({{ env "..." }}) in header values — it ships them literally —
+      # which silently breaks the webhook's trigger-rule comparison.
+      # The kong.yml family already uses this exact substitute-at-setup
+      # pattern (REPLACE_WITH_ANON_KEY etc.), so this follows precedent.
+      X-Diun-Token: REPLACE_WITH_DIUN_WEBHOOK_SECRET
 
 providers:
   # Watch only containers explicitly opted-in via diun.enable=true label.
