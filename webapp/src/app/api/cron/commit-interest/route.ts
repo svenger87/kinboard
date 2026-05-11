@@ -14,12 +14,17 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const dow = new Date().getUTCDay(); // 0=Sun..6=Sat
 
+  // Commit interest *daily* — cron fires hourly, but the per-account
+  // 23h dedup guard below restricts to one commit per ~24h window.
+  // The legacy `interest_committed_day_of_week` column stays on the
+  // table for backwards-compat but is no longer consulted; weekly
+  // commits felt like "interest is broken" to parents because accrued
+  // cents sat invisible in pending_interest_cents for up to 6 days
+  // before showing up in the balance the kid sees.
   const { data: accounts, error } = await (supabase as any)
     .from("pocket_money_accounts")
     .select("id, pending_interest_cents, balance_cents, lifetime_saved_cents")
-    .eq("interest_committed_day_of_week", dow)
     .gt("pending_interest_cents", 0);
 
   if (error) {
@@ -28,8 +33,8 @@ export async function POST(request: NextRequest) {
   }
 
   // 23h window — slightly less than a day so an off-by-an-hour re-fire
-  // on the same UTC day doesn't slip past, but a true weekly re-run
-  // (next Sunday) is allowed.
+  // on the same UTC day doesn't double-commit, but the *next* day's
+  // run is allowed through.
   const recentSinceIso = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
 
   let committed = 0;
@@ -60,7 +65,7 @@ export async function POST(request: NextRequest) {
         account_id: acct.id,
         amount_cents: amount,
         type: "interest",
-        note: "Weekly interest",
+        note: "Daily interest",
       });
     if (txnErr) {
       console.error("[cron/commit-interest] txn error:", txnErr);

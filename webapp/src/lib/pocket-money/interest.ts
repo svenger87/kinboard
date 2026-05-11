@@ -54,7 +54,7 @@ export function nextTierThreshold(lifetimeSavedCents: number): number | null {
 /**
  * Day-by-day projection of balance under current APR + allowance,
  * mirroring the cron path: accrue daily, commit pending → balance
- * weekly, drop a fresh allowance on each interval boundary. Used by
+ * daily, drop a fresh allowance on each interval boundary. Used by
  * the settings page to telegraph "if you keep things as-is, here's
  * what the balance looks like in N days."
  *
@@ -98,11 +98,9 @@ export function projectBalance(args: {
       maxBalanceEligibleCents,
       aprBps,
     });
-    // Weekly commit (mirrors the cron's once-per-week commit cadence).
-    if (day % 7 === 0) {
-      balance += pending;
-      pending = 0;
-    }
+    // Daily commit (mirrors the cron's once-per-day commit cadence).
+    balance += pending;
+    pending = 0;
     if (day % interval === 0 && weeklyAllowanceCents > 0) {
       balance += weeklyAllowanceCents;
     }

@@ -34,7 +34,7 @@ export function VehiclesWidget() {
   const WidgetCard = driver.WidgetCard;
 
   return (
-    <Link href="/vehicles" className="block">
+    <Link href="/vehicles" className="block h-full">
       <AnimatePresence mode="wait">
         <motion.div
           key={v.id}

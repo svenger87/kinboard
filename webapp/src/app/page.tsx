@@ -71,8 +71,13 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Bottom Section - Widgets Grid - 2x2 for portrait kiosk, 4 cols for landscape */}
-        <section className="relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 gap-4 md:gap-6 max-w-7xl mx-auto w-full" aria-label={t("ariaWidgets")}>
+        {/* Bottom Section - Widgets Grid - 2x2 for portrait kiosk, 4 cols
+            for landscape. `[&>*]:h-full` makes every direct child fill
+            its grid cell so widgets in the same row visually match the
+            tallest one — no more uneven gaps. Each widget root is
+            responsible for stretching its inner card via `h-full
+            flex flex-col`. */}
+        <section className="relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 gap-4 md:gap-6 max-w-7xl mx-auto w-full [&>*]:h-full" aria-label={t("ariaWidgets")}>
           {w.weather && <Weather />}
           {w.upcomingEvents && <UpcomingEvents maxEvents={3} />}
           {w.schedule && <ScheduleWidget />}
