@@ -174,7 +174,7 @@ export function ScheduleWidget({
   // No child configured
   if (!personId) {
     return (
-      <Card className={`accent-border-top ${className}`}>
+      <Card className={`accent-border-top h-full ${className}`}>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-xl font-medium">
             <span className="p-1.5 rounded-lg bg-month-primary/10">
@@ -233,7 +233,7 @@ export function ScheduleWidget({
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5, delay: 0.4 }}
     >
-      <Card className={`accent-border-top ${className}`}>
+      <Card className={`accent-border-top h-full ${className}`}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-xl font-medium">

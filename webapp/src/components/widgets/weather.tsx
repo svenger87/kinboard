@@ -151,7 +151,7 @@ export function Weather({ className = "" }: WeatherProps) {
           tabIndex={0}
           aria-label={t("detailsAria")}
         >
-          <Card className={`overflow-hidden hover:shadow-lg transition-shadow cursor-pointer accent-border-top bg-gradient-to-br ${weatherGradient} ${className}`}>
+          <Card className={`overflow-hidden hover:shadow-lg transition-shadow cursor-pointer accent-border-top h-full bg-gradient-to-br ${weatherGradient} ${className}`}>
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-start justify-between gap-3">
                 {/* Left: Icon and Temperature */}

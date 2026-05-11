@@ -26,8 +26,8 @@ export function PocketMoneyWidget() {
   const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
 
   return (
-    <Link href="/pocket-money" className="block">
-      <GlassCard className="p-4 space-y-3">
+    <Link href="/pocket-money" className="block h-full">
+      <GlassCard className="p-4 space-y-3 h-full">
         {accounts.length > 1 && (
           <Tabs value={active.id} onValueChange={(v) => setActiveId(v)}>
             <TabsList>

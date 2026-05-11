@@ -226,31 +226,10 @@ export default function PocketMoneySettingsPage() {
                     ))}
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <Label>{t("interestDayLabel")}</Label>
-                  <select
-                    className="w-full h-10 rounded-md border border-input bg-background px-3"
-                    defaultValue={acct.interest_committed_day_of_week}
-                    onChange={(e) =>
-                      update
-                        .mutateAsync({
-                          id: acct.id,
-                          update: {
-                            interest_committed_day_of_week: Number(
-                              e.target.value
-                            ),
-                          },
-                        })
-                        .catch(console.error)
-                    }
-                  >
-                    {days.map((d, i) => (
-                      <option key={i} value={i}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* Interest commits daily now (was weekly on the
+                    configured day-of-week). The column is preserved on
+                    existing rows for backwards-compat but is no longer
+                    surfaced — the picker would be a no-op control. */}
               </div>
 
               <div className="flex gap-2 pt-3 border-t border-border">
