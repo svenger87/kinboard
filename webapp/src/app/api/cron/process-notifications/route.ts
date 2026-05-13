@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendPushToMultiple, isVapidConfigured, DatabaseSubscription } from "@/lib/push-sender";
+import { formatEventTime } from "@/lib/notifications/format";
 import type { PushSubscription, NotificationPreferences } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -266,9 +267,7 @@ function buildNotificationPayload(
       if (notifications.length === 1) {
         const n = notifications[0];
         const eventTime = n.data?.start_at as string | undefined;
-        const timeStr = eventTime
-          ? new Date(eventTime).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })
-          : null;
+        const timeStr = eventTime ? formatEventTime(eventTime) : null;
         return {
           title: n.title || "Termin",
           body: timeStr ? `Beginnt um ${timeStr}` : "Beginnt bald",

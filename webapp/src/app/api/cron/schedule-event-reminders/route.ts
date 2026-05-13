@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { formatEventTime } from "@/lib/notifications/format";
 
 export const dynamic = "force-dynamic";
 
@@ -144,11 +145,7 @@ export async function POST(request: NextRequest) {
         new Date(event.start_at).getTime() - reminderMinutes * 60 * 1000
       );
 
-      const startDate = new Date(event.start_at);
-      const timeStr = startDate.toLocaleTimeString("de-DE", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+      const timeStr = formatEventTime(event.start_at);
 
       const { error: insertError } = await supabase
         .from("scheduled_notifications")
