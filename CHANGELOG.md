@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- Push notifications for calendar events showed times offset by the container's UTC clock — e.g. an event at 08:00 CEST rendered as "Beginnt um 06:00" because the webapp container's `TZ` defaulted to `UTC` and the `toLocaleTimeString` calls in `cron/schedule-event-reminders` and `cron/process-notifications` had no explicit `timeZone` option. Two-pronged fix: a shared `lib/notifications/format.ts:formatEventTime` helper now passes `timeZone: process.env.TZ ?? "Europe/Berlin"` explicitly to the formatter (defense-in-depth), and the webapp container in `docker-compose.yml` now receives `TZ=${TZ:-Europe/Berlin}` so all server-side date logic uses the right zone. `.env.example` default changed from `TZ=UTC` to `TZ=Europe/Berlin`; self-hosters outside Europe/Berlin set `TZ` in `.env` to their household's IANA zone (e.g. `America/New_York`).
+
 ## [1.1.0] - 2026-05-11 — Pocket Money plugin + end-to-end auto-update overlay
 
 ### Added
