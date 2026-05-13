@@ -288,6 +288,13 @@ services:
       # Use internal URL for server-side access
       SUPABASE_URL: http://kong:8000
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      # Container timezone — used by server-side date/time formatting
+      # (push notification bodies, cron timestamps, etc.). Without this,
+      # the webapp container runs in UTC and push notifications for
+      # local-time events show up off by the UTC offset (e.g. 08:00 CEST
+      # → "06:00"). Self-hosters outside Europe/Berlin should set TZ
+      # in .env to their household's IANA zone.
+      TZ: ${TZ:-Europe/Berlin}
       OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY}
       # Optional override for the OpenWeatherMap API base URL — lets the
       # demo overlay redirect weather calls to a local mock so the
