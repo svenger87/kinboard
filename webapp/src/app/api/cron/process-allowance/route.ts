@@ -33,16 +33,30 @@ export async function POST(request: NextRequest) {
   let deposited = 0;
   for (const acct of accounts ?? []) {
     // The interval is the cadence the parent set (7=weekly, 14=biweekly,
-    // etc.). Pay only if at least (interval - 1) days have passed since
-    // the last allowance — the −1 day buffer handles a same-day re-fire
-    // from an off-by-an-hour cron tick.
+    // etc.). The dedup window is (interval - 1) days — caps the cadence
+    // at one pay per period, with a −1 day buffer for off-by-an-hour
+    // cron re-fires.
+    //
+    // Schedule-change re-anchor: when the parent changes
+    // allowance_day_of_week, the last pay's UTC day-of-week no longer
+    // matches today's (today's is the configured day; the last pay was
+    // on the previous schedule). In that case, ignore the interval
+    // window — pay now and re-anchor `last_allowance_at` to the new
+    // schedule. Without this, a kid loses up to (interval - 1) days of
+    // allowance whenever the parent retunes the day.
     const intervalDays = acct.allowance_interval_days ?? 7;
     const minIntervalMs = (intervalDays - 1) * ONE_DAY_MS;
-    if (
-      acct.last_allowance_at &&
-      now - new Date(acct.last_allowance_at).getTime() < minIntervalMs
-    ) {
-      continue; // already paid this period
+    if (acct.last_allowance_at) {
+      const lastAt = new Date(acct.last_allowance_at);
+      const lastDow = lastAt.getUTCDay();
+      const elapsedMs = now - lastAt.getTime();
+      const sameDow = lastDow === dow;
+      // Only enforce the interval window when the schedule hasn't
+      // shifted. A different DOW from the last pay means the parent
+      // retuned the cadence — honor the new day immediately.
+      if (sameDow && elapsedMs < minIntervalMs) {
+        continue; // already paid this period at the same DOW
+      }
     }
 
     const { error: txnErr } = await (supabase as any)
