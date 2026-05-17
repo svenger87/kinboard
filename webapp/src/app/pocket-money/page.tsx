@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { PiggyBank, Plus, ShoppingBag } from "lucide-react";
+import { Clock, PiggyBank, Plus, ShoppingBag } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GlassCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,10 @@ import {
   usePocketMoneyAccountTransactions,
   useCreateWithdrawalRequest,
   useUpdatePocketMoneyAccount,
+  useWithdrawalRequests,
   usePeople,
 } from "@/hooks";
+import { AmountDialog } from "@/components/pocket-money/amount-dialog";
 import { tierFromLifetimeSaved, nextTierThreshold } from "@/lib/pocket-money/interest";
 import { formatCents } from "@/lib/pocket-money/format";
 
@@ -34,6 +36,7 @@ export default function PocketMoneyPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
   const [stagesSheetOpen, setStagesSheetOpen] = useState(false);
+  const [spendDialogOpen, setSpendDialogOpen] = useState(false);
   const [celebration, setCelebration] = useState<CelebrationKind | null>(null);
 
   useEffect(() => {
@@ -45,6 +48,12 @@ export default function PocketMoneyPage() {
   const { data: transactions = [] } = usePocketMoneyAccountTransactions(active?.id);
   const createWithdrawalRequest = useCreateWithdrawalRequest();
   const updateAccount = useUpdatePocketMoneyAccount();
+  // Pending spend requests for the active account — drives the
+  // "waiting for parent approval" hint above the goal/balance area.
+  const { data: pendingRequests = [] } = useWithdrawalRequests(
+    active?.id,
+    "pending",
+  );
 
   // Fire the avatar-evolution celebration once per tier promotion.
   useEffect(() => {
@@ -171,6 +180,24 @@ export default function PocketMoneyPage() {
         />
       </div>
 
+      {pendingRequests.length > 0 && (
+        <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 flex items-center gap-2 text-sm">
+          <Clock className="size-4 text-amber-400 shrink-0" />
+          <p className="text-amber-100/90">
+            {pendingRequests.length === 1
+              ? t("pendingRequestHintOne", {
+                  amount: formatCents(
+                    pendingRequests[0].amount_cents,
+                    active.currency,
+                  ),
+                })
+              : t("pendingRequestHintMany", {
+                  count: pendingRequests.length,
+                })}
+          </p>
+        </div>
+      )}
+
       {primaryGoal && (
         <GoalCard
           goal={primaryGoal}
@@ -212,19 +239,7 @@ export default function PocketMoneyPage() {
         </Button>
         <Button
           variant="outline"
-          onClick={() => {
-            const amountStr = prompt(t("spendPromptAmount"));
-            if (!amountStr) return;
-            const cents = Math.round(Number(amountStr) * 100);
-            if (!cents || cents <= 0) return;
-            const reason = prompt(t("spendPromptReason")) ?? "";
-            createWithdrawalRequest
-              .mutateAsync({
-                accountId: active.id,
-                input: { amount_cents: cents, reason },
-              })
-              .catch(console.error);
-          }}
+          onClick={() => setSpendDialogOpen(true)}
         >
           <ShoppingBag className="size-4 mr-2" />
           {t("spend")}
@@ -232,6 +247,25 @@ export default function PocketMoneyPage() {
       </div>
 
       <GoalAddDialog accountId={active.id} open={goalDialogOpen} onOpenChange={setGoalDialogOpen} />
+
+      <AmountDialog
+        open={spendDialogOpen}
+        onOpenChange={setSpendDialogOpen}
+        title={t("spend")}
+        description={t("spendDialogDescription")}
+        amountLabel={t("spendAmountLabel")}
+        withReason
+        reasonLabel={t("spendReasonLabel")}
+        confirmLabel={t("requestSpend")}
+        currency={active.currency}
+        onConfirm={async (cents, reason) => {
+          await createWithdrawalRequest.mutateAsync({
+            accountId: active.id,
+            input: { amount_cents: cents, reason: reason ?? "" },
+          });
+        }}
+        isSubmitting={createWithdrawalRequest.isPending}
+      />
 
       <CelebrationOverlay kind={celebration} onDone={handleCelebrationDone} />
 
