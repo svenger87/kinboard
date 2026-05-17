@@ -33,6 +33,7 @@ import type { AvatarSpecies } from "@/lib/pocket-money/types";
 import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { formatCents } from "@/lib/pocket-money/format";
 import { BalanceForecast } from "@/components/pocket-money/balance-forecast";
+import { AmountDialog } from "@/components/pocket-money/amount-dialog";
 
 // Locale-aware short weekday names indexed 0=Sun..6=Sat. Built once
 // per locale via Intl.DateTimeFormat off a known Sunday so we don't
@@ -69,6 +70,10 @@ export default function PocketMoneySettingsPage() {
   const txn = useCreatePocketMoneyTransaction();
 
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [depositTarget, setDepositTarget] = useState<string | null>(null);
+  const [withdrawTarget, setWithdrawTarget] = useState<string | null>(null);
+  const activeAcct = (target: string | null) =>
+    target ? accounts.find((a) => a.id === target) : undefined;
 
   const liabilityTotal = accounts.reduce((sum, a) => sum + a.balance_cents, 0);
 
@@ -236,38 +241,14 @@ export default function PocketMoneySettingsPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => {
-                    const amountStr = prompt(t("depositPrompt"));
-                    if (!amountStr) return;
-                    const cents = Math.round(Number(amountStr) * 100);
-                    if (!cents || cents <= 0) return;
-                    txn
-                      .mutateAsync({
-                        accountId: acct.id,
-                        amount_cents: cents,
-                        type: "manual_deposit",
-                      })
-                      .catch(console.error);
-                  }}
+                  onClick={() => setDepositTarget(acct.id)}
                 >
                   {t("deposit")}
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => {
-                    const amountStr = prompt(t("withdrawPrompt"));
-                    if (!amountStr) return;
-                    const cents = Math.round(Number(amountStr) * 100);
-                    if (!cents || cents <= 0) return;
-                    txn
-                      .mutateAsync({
-                        accountId: acct.id,
-                        amount_cents: -cents,
-                        type: "withdrawal",
-                      })
-                      .catch(console.error);
-                  }}
+                  onClick={() => setWithdrawTarget(acct.id)}
                 >
                   {t("withdraw")}
                 </Button>
@@ -304,6 +285,42 @@ export default function PocketMoneySettingsPage() {
             {t("noKidsHint")}
           </GlassCard>
         )}
+
+        <AmountDialog
+          open={Boolean(depositTarget)}
+          onOpenChange={(o) => !o && setDepositTarget(null)}
+          title={t("deposit")}
+          description={t("depositDialogDescription")}
+          confirmLabel={t("deposit")}
+          currency={activeAcct(depositTarget)?.currency ?? "EUR"}
+          onConfirm={async (cents) => {
+            if (!depositTarget) return;
+            await txn.mutateAsync({
+              accountId: depositTarget,
+              amount_cents: cents,
+              type: "manual_deposit",
+            });
+          }}
+          isSubmitting={txn.isPending}
+        />
+
+        <AmountDialog
+          open={Boolean(withdrawTarget)}
+          onOpenChange={(o) => !o && setWithdrawTarget(null)}
+          title={t("withdraw")}
+          description={t("withdrawDialogDescription")}
+          confirmLabel={t("withdraw")}
+          currency={activeAcct(withdrawTarget)?.currency ?? "EUR"}
+          onConfirm={async (cents) => {
+            if (!withdrawTarget) return;
+            await txn.mutateAsync({
+              accountId: withdrawTarget,
+              amount_cents: -cents,
+              type: "withdrawal",
+            });
+          }}
+          isSubmitting={txn.isPending}
+        />
 
         <AlertDialog
           open={Boolean(pendingDelete)}
