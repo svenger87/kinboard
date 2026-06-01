@@ -18,6 +18,16 @@ interface GoogleCalendarSettings {
   auto_sync?: boolean;
   last_auto_sync?: string;
   auto_sync_error?: string | null;
+  needs_reauth?: boolean;
+}
+
+// An OAuth refresh that fails with `invalid_grant` means the refresh token is
+// dead (consent revoked, password changed, token expired after long disuse).
+// That's unrecoverable without the user reconnecting — distinct from a
+// transient network blip, which we must NOT flag as needs-reauth.
+function isInvalidGrant(e: unknown): boolean {
+  const err = e as { response?: { data?: { error?: string } }; message?: string };
+  return err?.response?.data?.error === "invalid_grant" || (err?.message?.includes("invalid_grant") ?? false);
 }
 
 interface CalendarInfo {
@@ -98,6 +108,22 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
       oauth2Client.setCredentials(newTokens);
     } catch (refreshError) {
       console.error(`[google-sync-cron] Token refresh failed for family ${familyId}:`, refreshError);
+      const invalidGrant = isInvalidGrant(refreshError);
+
+      await (supabase as any)
+        .from("settings")
+        .update({
+          value: {
+            ...settings,
+            last_auto_sync: new Date().toISOString(),
+            auto_sync_error: "Token refresh failed",
+            // Only flag reconnect on a definitively-dead token, not a blip.
+            needs_reauth: invalidGrant ? true : (settings.needs_reauth ?? false),
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("family_id", familyId)
+        .eq("key", "google_calendar");
       return { familyId, success: false, error: "Token refresh failed" };
     }
   }
@@ -295,6 +321,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
           last_sync: new Date().toISOString(),
           last_auto_sync: new Date().toISOString(),
           auto_sync_error: null,
+          needs_reauth: false,
         },
         updated_at: new Date().toISOString(),
       })
