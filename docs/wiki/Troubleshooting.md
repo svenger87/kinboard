@@ -50,6 +50,25 @@ If you're hitting Kinboard directly (no Traefik), check that `WEBAPP_PORT` in `.
 
 `kong.yml` still has the placeholder JWTs (`REPLACE_WITH_ANON_KEY` / `REPLACE_WITH_SERVICE_ROLE_KEY`). After pasting your Supabase keys into `.env`, re-run `setup.sh` — it substitutes them into kong.yml automatically.
 
+### Logs show `password authentication failed for user "authenticator"` (auth/rest/storage/realtime crash-loop)
+
+The Supabase service roles (`authenticator`, `supabase_auth_admin`, `supabase_storage_admin`) ship with empty passwords and need aligning to `POSTGRES_PASSWORD`. **Fixed in current images** by a one-shot `db-init` service that runs before those containers start, so a plain `docker compose up -d` now works. If you're on an older `docker-compose.yml`, either `git pull` to get the `db-init` service, or run the stack via `./start.sh up` (which previously did this alignment from the host).
+
+### `crypto.randomUUID is not a function` — setup wizard (or other pages) crash on a LAN HTTP address
+
+`crypto.randomUUID` only exists in a **secure context** (HTTPS, or `http://localhost`). On a plain-HTTP LAN address (e.g. `http://192.168.1.50:3001`) it's undefined, which used to crash the setup wizard's People step. **Fixed in current images** (a `safeRandomUUID()` fallback). To resolve: update to the latest image, or — the better long-term fix for push notifications and PWA install too — serve Kinboard over HTTPS (Traefik + Let's Encrypt; see [Self-hosting](Self-hosting)).
+
+### Can't open Kinboard from phones / tablets — only works on the machine running it
+
+`setup.sh` was run without telling it the address other devices will use, so it defaulted to `http://localhost:8100`, which only resolves on the server itself. Re-run setup with your LAN IP or domain:
+
+```bash
+./setup.sh --url http://192.168.1.50:8100        # LAN
+./setup.sh --url https://kinboard.example.com    # reverse proxy
+```
+
+Then `cd webapp/docker && ./start.sh restart` so the new URL is baked into the client bundle. (Running `setup.sh` non-interactively without `--url` now errors instead of silently defaulting to localhost.)
+
 ### "Database is empty / can't load" on dashboard
 
 Either:
@@ -66,7 +85,7 @@ Either:
 
 ### Storage container is "unhealthy"
 
-Cosmetic. Supabase Storage's healthcheck is over-aggressive upstream and frequently false-positives. As long as recipe-image uploads work, you can ignore it. Issue tracked at https://github.com/supabase/storage/issues.
+**Fixed in current images.** The `storage` healthcheck probed `http://localhost:5000`, which resolves to IPv6 `[::1]` in that image while the server binds IPv4 (`0.0.0.0:5000`) — so the probe got connection-refused and the container reported unhealthy forever despite serving fine. The healthcheck now uses `127.0.0.1`. If you still see it, `git pull` + `docker compose pull` (or `./start.sh up`) to get the updated `docker-compose.yml`. Storage was always functional regardless — the report was a false negative.
 
 ## Integrations
 
@@ -79,9 +98,13 @@ The redirect URI in Google Cloud Console doesn't match what Kinboard sends. Add:
 
 …to **Authorized redirect URIs** in your OAuth client.
 
+### Google Calendar — events stopped syncing / a "Reconnect" banner appeared
+
+Google rejected the stored authorization (`invalid_grant` — the consent was revoked, the password changed, or the refresh token expired after long disuse). Sync can't recover on its own. Go to **Settings → Google Calendar** and click **Reconnect** to re-authorize; the banner clears automatically on the next successful sync.
+
 ### Home Assistant — "Connection failed" but the URL works in a browser
 
-- Token has expired (long-lived tokens last 10 years, but if the user was deleted in HA, the token's gone too)
+- Token has expired or was revoked (long-lived tokens last 10 years, but if the user was deleted in HA, the token's gone too). **Settings → Home Assistant** now shows a **Reconnect** banner in this case — paste a fresh long-lived token to recover.
 - Kinboard runs HTTPS but HA URL is HTTP (mixed content blocked). Either upgrade HA to HTTPS or run Kinboard on HTTP.
 - `cors_allowed_origins` in HA config restricts the origin list. Add your Kinboard origin.
 
