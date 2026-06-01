@@ -699,6 +699,7 @@
   "shopping": {
     "title": "Shopping list",
     "bringSync": "Bring! Sync",
+    "connectBring": "Connect Bring!",
     "subtitleProgress": "{unchecked} of {total} left to buy",
     "hideChecked": "Hide done",
     "showAll": "Show all",
@@ -1471,6 +1472,9 @@
     "google": {
       "title": "Google Calendar",
       "subtitle": "Sync your Google calendars",
+      "reauthTitle": "Reconnect Google Calendar",
+      "reauthBody": "Google rejected the saved authorization (it was revoked or expired), so calendar sync has stopped. Reconnect to resume.",
+      "reauthButton": "Reconnect",
       "connectedToastTitle": "Connected!",
       "connectedToastDescription": "Google Calendar was connected successfully.",
       "errorToastTitle": "Error",
@@ -2885,6 +2889,16 @@
     "continue": "Continue",
     "back": "Back",
     "stepLabel": "Step {current} of {total}",
+    "checklist": {
+      "title": "Finish setting up Kinboard",
+      "progress": "{done} of {total} done",
+      "item_people": "Add your family members",
+      "item_calendar": "Connect a calendar",
+      "item_weather": "Set your weather location",
+      "item_homeassistant": "Connect Home Assistant (optional)",
+      "resume": "Resume setup",
+      "finish": "Finish"
+    },
     "people": {
       "title": "Who's in your family?",
       "description": "Add the people whose calendars, shopping, and meals this dashboard tracks. You can change colors, add avatars, or invite more later in Settings → People.",
@@ -2893,6 +2907,26 @@
       "remove": "Remove",
       "saved": "Saved",
       "saveError": "Couldn't save family members. Try again."
+    },
+    "calendar": {
+      "title": "Add a calendar",
+      "description": "The family calendar is the heart of Kinboard. Connect Google for two-way sync, or paste an iCal (.ics) link for read-only feeds like school terms or holidays. You can skip this and add calendars anytime from Settings.",
+      "googleTitle": "Google Calendar",
+      "googleBody": "Two-way sync — events you add in Kinboard push back to Google. Needs a one-time OAuth connect in Settings.",
+      "googleButton": "Connect",
+      "icsTitle": "Or add an iCal (.ics) feed",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. School holidays",
+      "defaultName": "Calendar",
+      "urlLabel": "iCal URL",
+      "urlPlaceholder": "https://…/basic.ics",
+      "urlHint": "Works with iCloud Family Sharing, Google's secret iCal address, and most CalDAV providers.",
+      "testButton": "Test feed",
+      "testingLabel": "Testing…",
+      "testSuccess": "{count} events found",
+      "testNoEvents": "Reachable, but no upcoming events",
+      "testFailed": "Failed: {error}",
+      "saveError": "Couldn't save the calendar. Check the URL and try again."
     },
     "homeassistant": {
       "title": "Connect Home Assistant",
@@ -2921,11 +2955,6 @@
       "title": "All set — welcome to Kinboard",
       "description": "We've stored your family, your people, and your integrations. The dashboard is ready. You can revisit Settings any time.",
       "cta": "Go to dashboard"
-    },
-    "banner": {
-      "message": "Finish setting up Kinboard",
-      "resume": "Continue setup",
-      "dismiss": "Don't show this again"
     }
   },
   "einkaufen": {
