@@ -88,6 +88,17 @@ jobs:
             bash -n "$f"
           done
 
+  migrations:
+    name: Migration order
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check migration apply order
+        run: node webapp/docker/check-migration-order.mjs
+
   changelog:
     name: Changelog entry
     runs-on: ubuntu-latest

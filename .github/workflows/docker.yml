@@ -37,8 +37,43 @@ env:
   IMAGE_NAME: ${{ github.repository_owner }}/kinboard
 
 jobs:
+  # Decide whether this push actually needs an image build. Docs-/changelog-
+  # only pushes to main don't change the image, so skip the ~10-20 min
+  # multi-arch build for them. Tags and workflow_dispatch ALWAYS build — we
+  # gate via an explicit job output rather than `paths-ignore`, because a
+  # paths filter on a combined branches+tags trigger can wrongly skip tag
+  # pushes (the release build).
+  changes:
+    name: Decide build
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: decide
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"; echo "tag / manual → build"; exit 0
+          fi
+          base="${{ github.event.before }}"
+          if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"; echo "no base sha → build"; exit 0
+          fi
+          changed=$(git diff --name-only "$base" "${{ github.sha }}")
+          echo "Changed files:"; echo "$changed"
+          # Build unless EVERY changed file is docs/markdown.
+          if echo "$changed" | grep -qvE '^(docs/|.*\.md$|LICENSE$)'; then
+            echo "build=true" >> "$GITHUB_OUTPUT"; echo "code changed → build"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"; echo "docs-only → skip image build"
+          fi
+
   build:
     name: Build + push (${{ matrix.platform }})
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ${{ matrix.runs-on }}
     strategy:
       fail-fast: false
@@ -121,7 +156,8 @@ jobs:
   merge:
     name: Merge multi-arch manifest
     runs-on: ubuntu-latest
-    needs: build
+    needs: [changes, build]
+    if: needs.changes.outputs.build == 'true'
     steps:
       - uses: actions/checkout@v4
 
