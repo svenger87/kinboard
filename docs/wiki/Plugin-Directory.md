@@ -2,7 +2,7 @@
 
 Community-maintained list of third-party Kinboard plugins. Plugins extend Kinboard with new pages, settings flows, and dashboard widgets without modifying the core. The plugin model is build-time — installing a third-party plugin means cloning its files into your fork and rebuilding the Docker image.
 
-For the technical contract and step-by-step "how to build a plugin" guide, see [Plugin Architecture](Plugin-Architecture.md).
+For the technical contract and step-by-step "how to build a plugin" guide, see [Plugin Architecture](Plugin-Architecture).
 
 For end-users wondering whether a specific feature is available: search this page first, then check [open issues](https://github.com/svenger87/kinboard/issues) and [discussions](https://github.com/svenger87/kinboard/discussions).
 
@@ -30,7 +30,7 @@ Nothing here yet. Kinboard's plugin contract was introduced in v1.0.12 alongside
 
 ### Want to ship a plugin?
 
-1. Read [Plugin Architecture](Plugin-Architecture.md) to understand the `SurfacePlugin` interface, the predicate-based nav-gating, and the build-time registration model.
+1. Read [Plugin Architecture](Plugin-Architecture) to understand the `SurfacePlugin` interface, the predicate-based nav-gating, and the build-time registration model.
 2. Build your plugin in your own fork or a separate repo. Drop the `webapp/src/plugins/<your-plugin-id>/` directory into the layout described in the architecture doc.
 3. Open a PR to **this file** (`docs/wiki/Plugin-Directory.md`) adding your plugin to the table below. Include:
    - Plugin name

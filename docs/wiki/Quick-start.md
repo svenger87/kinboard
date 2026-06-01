@@ -32,7 +32,7 @@ Pick what matches your setup:
 | Cloud server (Hetzner, DigitalOcean, etc.) | `http://<your-server-public-IP>:8100` |
 | You've set up a domain + Traefik for HTTPS | `https://kinboard.your-domain.com` |
 
-> **Don't forget the `:8100`** unless you're using Traefik. See the [URL gotchas section](Self-hosting.md#what-url-should-i-use-the-most-common-confusion) for more.
+> **Don't forget the `:8100`** unless you're using Traefik. See the [URL gotchas section](Self-hosting#what-url-should-i-use-the-most-common-confusion) for more.
 
 `setup.sh` auto-detects a sensible default (your public or LAN IP) so non-technical users can usually just press Enter. It's idempotent — re-running won't overwrite anything you've set manually. It:
 
@@ -100,10 +100,10 @@ You'll land on `/join` with a "Welcome — let's set things up" card because the
 
 Open the menu → **Settings** and walk through the integrations you care about. Each is documented separately:
 
-- [OpenWeatherMap](OpenWeatherMap.md) (5 minutes, just paste the key)
-- [Google-Calendar](Google-Calendar.md) (10 minutes, OAuth setup)
-- [Home-Assistant](Home-Assistant.md) (15 minutes, generate a token)
-- [Immich](Immich.md) / [Bring](Bring.md) / [Cameras](Cameras.md) as needed
+- [OpenWeatherMap](OpenWeatherMap) (5 minutes, just paste the key)
+- [Google-Calendar](Google-Calendar) (10 minutes, OAuth setup)
+- [Home-Assistant](Home-Assistant) (15 minutes, generate a token)
+- [Immich](Immich) / [Bring](Bring) / [Cameras](Cameras) as needed
 
 ## What runs on your machine
 
@@ -126,10 +126,10 @@ Bind paths default to `./data/` (relative to `webapp/docker/`). Override with `D
 
 When you're ready to mount a touchscreen, see:
 
-- **[Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C.md)** for a Windows-11 setup (the maintainer's actual config)
-- **[Kiosk-Linux-Guidance](Kiosk-Linux-Guidance.md)** for Linux guidance
+- **[Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C)** for a Windows-11 setup (the maintainer's actual config)
+- **[Kiosk-Linux-Guidance](Kiosk-Linux-Guidance)** for Linux guidance
 
 ## Next
 
-- **[Onboarding](Onboarding.md)** — joining additional devices, multi-family scenarios, leaving a family
-- **[Self-hosting](Self-hosting.md)** — production deployment with Traefik, backups, updates
+- **[Onboarding](Onboarding)** — joining additional devices, multi-family scenarios, leaving a family
+- **[Self-hosting](Self-hosting)** — production deployment with Traefik, backups, updates

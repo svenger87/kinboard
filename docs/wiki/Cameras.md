@@ -137,6 +137,6 @@ If the device isn't present, ffmpeg silently falls back to software encode and t
 
 ## Related
 
-- [Self-hosting](Self-hosting.md) — Traefik override + WebRTC port handling
+- [Self-hosting](Self-hosting) — Traefik override + WebRTC port handling
 - See [`webapp/docker/go2rtc.yaml`](https://github.com/svenger87/kinboard/blob/main/webapp/docker/go2rtc.yaml) for the streaming bridge config
 - See [`webapp/src/components/camera-viewer.tsx`](https://github.com/svenger87/kinboard/blob/main/webapp/src/components/camera-viewer.tsx) for the player implementation

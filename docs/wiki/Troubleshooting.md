@@ -62,7 +62,7 @@ Either:
 
 1. Check that both devices are connected to the same family — Settings → top of page → join code matches
 2. Open the browser dev tools → Network → WS tab. You should see an open WebSocket to `/realtime/v1/websocket`. If it's closed/erroring, the issue is reaching the realtime container — check `kinboard-realtime` health
-3. If the WS is open but no messages arrive when you edit on the other device, the table may not be in the realtime publication. See [Database-Schema](Database-Schema.md) → Realtime publication.
+3. If the WS is open but no messages arrive when you edit on the other device, the table may not be in the realtime publication. See [Database-Schema](Database-Schema) → Realtime publication.
 
 ### Storage container is "unhealthy"
 

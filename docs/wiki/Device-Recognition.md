@@ -88,7 +88,7 @@ When the recognition flow runs and finds zero matches, `/join` shows a recovery 
 - The fingerprint hash is deterministic but coarse — at family-scale (~3-10 devices) collisions are unlikely. Two identical iPhones in the same household with the same language/timezone settings would collide; in that case both rows would be returned by the lookup and the user picks the right one from the rejoin card.
 - The fingerprint is not a tracking identifier — it's only ever compared against rows already linked to the family (server query is `SELECT … FROM devices WHERE family_id = ? AND fingerprint = ?` shape). It can't be used to identify a device across families.
 - The fingerprint_history array is per-device — wiping one device's data doesn't affect any other device.
-- All recognition queries go through the `devices` table which is family-scoped at the schema level. The device-cookie + family-scope auth model documented in [Security & threat model](Security-and-Threat-Model.md) is the primary trust boundary.
+- All recognition queries go through the `devices` table which is family-scoped at the schema level. The device-cookie + family-scope auth model documented in [Security & threat model](Security-and-Threat-Model) is the primary trust boundary.
 
 ## Why not a stronger fingerprint?
 
@@ -98,8 +98,8 @@ Kinboard wants the *opposite* trade-off: enough entropy to disambiguate the 3-10
 
 ## See also
 
-- [Self-hosting](Self-hosting.md) — the device-cookie + family-code auth model in context
-- [Security and Threat Model](Security-and-Threat-Model.md) — what we trust, what we don't
+- [Self-hosting](Self-hosting) — the device-cookie + family-code auth model in context
+- [Security and Threat Model](Security-and-Threat-Model) — what we trust, what we don't
 - `webapp/src/lib/device-id.ts` — fingerprint computation
 - `webapp/src/hooks/use-supabase-queries.ts` — `useFindDeviceByFingerprint`
 - `webapp/docker/migration_fingerprint_history.sql` — schema for the history array
