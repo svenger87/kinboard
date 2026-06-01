@@ -10,7 +10,7 @@ The `/calendar` page — month and week views of your family's calendar, synced 
 
 The calendar surface unifies events from:
 
-1. **Google Calendar (two-way sync)** — any calendar you've enabled in [Settings → Google Calendar](Google-Calendar.md). Events created or edited in Kinboard are pushed back to Google; edits made on the Google side flow down at the next sync interval. Subject to Google's per-calendar permissions: a read-only subscribed calendar (holidays, sports schedules, etc.) stays read-only in Kinboard too.
+1. **Google Calendar (two-way sync)** — any calendar you've enabled in [Settings → Google Calendar](Google-Calendar). Events created or edited in Kinboard are pushed back to Google; edits made on the Google side flow down at the next sync interval. Subject to Google's per-calendar permissions: a read-only subscribed calendar (holidays, sports schedules, etc.) stays read-only in Kinboard too.
 2. **Local events** — added directly in the Kinboard UI without selecting a Google calendar. Lives in `public.events` with no Google link and never round-trips to Google.
 3. **Holidays** — Google calendars marked with the "holidays" badge get rendered with the 🎉 indicator and slightly different styling.
 4. **Waste-pickup calendars** — Google calendars marked with the "waste pickup" badge are *hidden* from the calendar view and show up only on the waste widget. Avoids cluttering month view with weekly bin reminders.
@@ -34,7 +34,7 @@ Tap a day → day-detail panel slides in showing all events + birthdays + holida
 
 Each event is color-coded by the person it's assigned to. Assignment happens in three ways:
 
-1. **Whole calendar → one person** — set in [Settings → Google Calendar](Google-Calendar.md) per calendar
+1. **Whole calendar → one person** — set in [Settings → Google Calendar](Google-Calendar) per calendar
 2. **Per-event mapping rule** — `contains "Emma"` / `starts_with "Mama:"` → assign to Emma. Configured in the same settings page.
 3. **Manual override** — edit a local event and pick the person directly
 
@@ -81,7 +81,7 @@ The holidays widget reads German federal holidays (`webapp/src/lib/german-holida
 
 ## Calendar mapping rule editor
 
-Hidden under [Settings → Google Calendar](Google-Calendar.md). Useful when:
+Hidden under [Settings → Google Calendar](Google-Calendar). Useful when:
 
 - One shared family calendar, want each person's events colored differently → use rules to auto-assign by title pattern
 - Subscribed to a calendar that mixes events for multiple people (school, sports club) → rules split it
@@ -111,6 +111,6 @@ ICS sources Kinboard handles cleanly today: iCloud Family Sharing, Google's "sec
 
 ## Related
 
-- [Google-Calendar](Google-Calendar.md) — connect Google + per-event mapping rules
-- [Birthdays](Birthdays.md) — birthdays appear in the calendar; managed separately
-- [Themes](Themes.md) — date formatting per locale
+- [Google-Calendar](Google-Calendar) — connect Google + per-event mapping rules
+- [Birthdays](Birthdays) — birthdays appear in the calendar; managed separately
+- [Themes](Themes) — date formatting per locale

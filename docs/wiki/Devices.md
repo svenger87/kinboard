@@ -26,11 +26,11 @@ When enabled, the device:
 
 Toggle on for the wall-mounted display. Leave off for personal devices.
 
-The toggle is purely UI-side; doesn't add real security. To prevent kids from disabling kiosk mode, set a [Settings PIN](Security-and-Threat-Model.md#the-settings-pin).
+The toggle is purely UI-side; doesn't add real security. To prevent kids from disabling kiosk mode, set a [Settings PIN](Security-and-Threat-Model#the-settings-pin).
 
 ## Presence sensor toggle
 
-Toggle on when an [LD2410 presence sensor](Presence-Sensor.md) is wired into this device. Reveals:
+Toggle on when an [LD2410 presence sensor](Presence-Sensor) is wired into this device. Reveals:
 
 - The **device ID** below the row (truncated to 8 chars; copy button gives the full UUID)
 - A live **presence indicator** showing current detected state + distance
@@ -81,6 +81,6 @@ Real-time published. Online state updates on every device's view of /settings/de
 
 ## Related
 
-- [Security-and-Threat-Model](Security-and-Threat-Model.md) — the auth model and PIN gate
-- [Onboarding](Onboarding.md) — joining and leaving families
-- [Presence-Sensor](Presence-Sensor.md) — using the device ID in the LD2410 script
+- [Security-and-Threat-Model](Security-and-Threat-Model) — the auth model and PIN gate
+- [Onboarding](Onboarding) — joining and leaving families
+- [Presence-Sensor](Presence-Sensor) — using the device ID in the LD2410 script

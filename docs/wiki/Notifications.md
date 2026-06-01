@@ -6,7 +6,7 @@ Kinboard supports **web push notifications** — every device that opts in gets 
 
 Web push has hard browser-level requirements. If any of these aren't met, the Settings → Notifications toggle won't work and you'll usually get *no* error in the UI — just silence.
 
-- **HTTPS or `http://localhost`.** The Service Worker API and Push API only work in a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts). On a plain-HTTP LAN deployment (`http://192.168.x.x:3001`), browsers refuse to register the service worker that delivers push messages, and the PWA install prompt also won't fire. The exception `http://localhost` is a developer convenience — only the *same machine* qualifies, not phones on the LAN. To enable push on a self-host, terminate TLS in front of the webapp; the easiest path is documented in [Self-hosting → From scratch: Traefik + Let's Encrypt](Self-hosting.md#from-scratch-traefik--lets-encrypt). [Cloudflare Tunnel](Self-hosting.md#reverse-proxied-via-cloudflare-tunnel) is a no-port-forwarding alternative.
+- **HTTPS or `http://localhost`.** The Service Worker API and Push API only work in a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts). On a plain-HTTP LAN deployment (`http://192.168.x.x:3001`), browsers refuse to register the service worker that delivers push messages, and the PWA install prompt also won't fire. The exception `http://localhost` is a developer convenience — only the *same machine* qualifies, not phones on the LAN. To enable push on a self-host, terminate TLS in front of the webapp; the easiest path is documented in [Self-hosting → From scratch: Traefik + Let's Encrypt](Self-hosting#from-scratch-traefik--lets-encrypt). [Cloudflare Tunnel](Self-hosting#reverse-proxied-via-cloudflare-tunnel) is a no-port-forwarding alternative.
 - **A modern browser.** Push API + Service Workers: Chrome 50+, Edge 17+, Firefox 44+, Safari 16.4+ (iOS 16.4+, macOS 13+ Ventura). Older Safari simply has no Push API surface — the toggle will be greyed out.
 - **iOS additionally requires the PWA to be installed via Add-to-Home-Screen.** Apple delivers web push *only* to home-screen-installed PWAs, not to plain Safari tabs. Subscribing from regular Safari appears to succeed but the subscription is silently dropped — you'll never receive a push. The install flow is in the [iOS section below](#ios-safari).
 - **VAPID keys must be set on the server.** Generated automatically by `setup.sh` (which runs `npx web-push generate-vapid-keys`) and written to `webapp/docker/.env` as `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`. If Node.js wasn't on PATH when you ran `setup.sh`, the keys are empty and push stays disabled — install Node.js, then run `./setup.sh --force` to regenerate.
@@ -69,7 +69,7 @@ The **PWA install** is what makes Kinboard feel like a native app on phones — 
 3. The app gets its own desktop icon + opens in a chromeless window
 4. Push works either way on desktop
 
-The kiosk install on the [Mele 4C](Kiosk-Windows-11-Mele-4C.md) is also a Chrome PWA install — but the kiosk doesn't typically use push (it shows everything live anyway).
+The kiosk install on the [Mele 4C](Kiosk-Windows-11-Mele-4C) is also a Chrome PWA install — but the kiosk doesn't typically use push (it shows everything live anyway).
 
 ### Shopping-only PWA (separate install)
 
@@ -111,7 +111,7 @@ When you open `/shopping` on a phone, a green install banner appears after ~2 se
 | Offline shopping | Yes | Yes |
 | Best for | Daily-driver phone, kitchen kiosk, kids | "I just want the shopping list on my phone" |
 
-For the dedicated shopping-PWA section in the shopping docs, see [Shopping](Shopping.md#standalone-shopping-list-pwa).
+For the dedicated shopping-PWA section in the shopping docs, see [Shopping](Shopping#standalone-shopping-list-pwa).
 
 ## How push works (the boring bits)
 
@@ -187,6 +187,6 @@ For per-family disable: each user toggles their own subscription off. There's no
 
 ## Related
 
-- [Database-Schema](Database-Schema.md) — `push_subscriptions` and `notification_preferences` tables
-- [Quick-start](Quick-start.md) — `setup.sh` is what generates VAPID keys for you
+- [Database-Schema](Database-Schema) — `push_subscriptions` and `notification_preferences` tables
+- [Quick-start](Quick-start) — `setup.sh` is what generates VAPID keys for you
 - See [`webapp/src/lib/push-sender.ts`](https://github.com/svenger87/kinboard/blob/main/webapp/src/lib/push-sender.ts) for the server-side push code

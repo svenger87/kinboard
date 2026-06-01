@@ -143,5 +143,5 @@ For really custom needs that won't ever upstream, fork the repo and add your cod
 
 ## Related
 
-- [Architecture](Architecture.md) — where plugins fit in the layout
-- [Database-Schema](Database-Schema.md) — the `families.enabled_plugins` column lands in v1.1
+- [Architecture](Architecture) — where plugins fit in the layout
+- [Database-Schema](Database-Schema) — the `families.enabled_plugins` column lands in v1.1

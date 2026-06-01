@@ -139,5 +139,5 @@ For inline-styled chunks, use `t.rich()` with named tags:
 
 ## Related
 
-- [Architecture](Architecture.md) — where the i18n bundles live
+- [Architecture](Architecture) — where the i18n bundles live
 - See [`webapp/messages/en.json`](https://github.com/svenger87/kinboard/blob/main/webapp/messages/en.json) for the source of truth
