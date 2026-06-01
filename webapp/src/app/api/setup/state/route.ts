@@ -12,9 +12,10 @@ export async function GET(request: NextRequest) {
    
   const sb = supabase as any;
 
-  const [familyR, peopleR, settingsR] = await Promise.all([
+  const [familyR, peopleR, calendarsR, settingsR] = await Promise.all([
     sb.from("families").select("setup_completed").eq("id", familyId).maybeSingle(),
     sb.from("people").select("id", { count: "exact", head: true }).eq("family_id", familyId),
+    sb.from("calendars").select("id", { count: "exact", head: true }).eq("family_id", familyId),
     sb.from("settings").select("key, value").eq("family_id", familyId).in("key", ["home_assistant", "weather_location"]),
   ]);
 
@@ -24,6 +25,11 @@ export async function GET(request: NextRequest) {
   if (peopleR.error) {
     console.error("setup/state: people query failed:", peopleR.error);
     return NextResponse.json({ error: peopleR.error.message }, { status: 500 });
+  }
+  if (calendarsR.error) {
+    // Calendar is a skippable step — treat a failed read as "no calendar"
+    // rather than 500ing the whole state read.
+    console.error("setup/state: calendars query failed:", calendarsR.error);
   }
   if (settingsR.error) {
     // Settings reads are optional — HA and weather are skippable wizard
@@ -41,6 +47,7 @@ export async function GET(request: NextRequest) {
     setup_completed: !!familyR.data?.setup_completed,
     has_family: !!familyR.data,
     has_people: (peopleR.count ?? 0) > 0,
+    has_calendar: (calendarsR.count ?? 0) > 0,
     has_home_assistant: !!(ha?.url && ha?.access_token),
     has_weather_location: !!(wx?.city || (wx?.lat && wx?.lon)),
   });

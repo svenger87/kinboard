@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["people", "homeassistant", "weather", "done"] as const;
+const STEPS = ["people", "calendar", "homeassistant", "weather", "done"] as const;
 export type WizardStep = (typeof STEPS)[number];
 
 export function WizardProgress({ current }: { current: WizardStep }) {
