@@ -118,7 +118,7 @@ export default function SetupHomeAssistantPage() {
       </GlassCard>
 
       <WizardStepFooter
-        backHref="/setup/people"
+        backHref="/setup/calendar"
         nextHref="/setup/weather"
         onNextClick={handleNext}
         disabled={save.isPending}

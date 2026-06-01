@@ -699,6 +699,7 @@
   "shopping": {
     "title": "Einkaufsliste",
     "bringSync": "Bring! Sync",
+    "connectBring": "Bring! verbinden",
     "subtitleProgress": "{unchecked} von {total} noch zu besorgen",
     "hideChecked": "Erledigte ausblenden",
     "showAll": "Alle anzeigen",
@@ -1471,6 +1472,9 @@
     "google": {
       "title": "Google Kalender",
       "subtitle": "Synchronisiere deine Google Kalender",
+      "reauthTitle": "Google Kalender neu verbinden",
+      "reauthBody": "Google hat die gespeicherte Autorisierung abgelehnt (widerrufen oder abgelaufen), daher wurde die Kalender-Synchronisierung gestoppt. Verbinde neu, um fortzufahren.",
+      "reauthButton": "Neu verbinden",
       "connectedToastTitle": "Verbunden!",
       "connectedToastDescription": "Google Kalender wurde erfolgreich verbunden.",
       "errorToastTitle": "Fehler",
@@ -2885,6 +2889,16 @@
     "continue": "Weiter",
     "back": "Zurück",
     "stepLabel": "Schritt {current} von {total}",
+    "checklist": {
+      "title": "Kinboard-Einrichtung abschließen",
+      "progress": "{done} von {total} erledigt",
+      "item_people": "Familienmitglieder hinzufügen",
+      "item_calendar": "Kalender verbinden",
+      "item_weather": "Wetter-Standort festlegen",
+      "item_homeassistant": "Home Assistant verbinden (optional)",
+      "resume": "Einrichtung fortsetzen",
+      "finish": "Abschließen"
+    },
     "people": {
       "title": "Wer gehört zur Familie?",
       "description": "Füge die Personen hinzu, deren Kalender, Einkäufe und Mahlzeiten dieses Dashboard zeigt. Farben, Avatare und weitere Personen kannst du später unter Einstellungen → Personen anpassen.",
@@ -2893,6 +2907,26 @@
       "remove": "Entfernen",
       "saved": "Gespeichert",
       "saveError": "Familienmitglieder konnten nicht gespeichert werden. Bitte erneut versuchen."
+    },
+    "calendar": {
+      "title": "Kalender hinzufügen",
+      "description": "Der Familienkalender ist das Herz von Kinboard. Verbinde Google für die Zwei-Wege-Synchronisierung oder hinterlege eine iCal-(.ics)-URL für schreibgeschützte Feeds wie Schulferien oder Feiertage. Du kannst dies überspringen und Kalender jederzeit in den Einstellungen hinzufügen.",
+      "googleTitle": "Google Kalender",
+      "googleBody": "Zwei-Wege-Sync — in Kinboard erstellte Termine werden zu Google zurückgeschrieben. Erfordert eine einmalige OAuth-Verbindung in den Einstellungen.",
+      "googleButton": "Verbinden",
+      "icsTitle": "Oder einen iCal-(.ics)-Feed hinzufügen",
+      "nameLabel": "Name",
+      "namePlaceholder": "z.B. Schulferien",
+      "defaultName": "Kalender",
+      "urlLabel": "iCal-URL",
+      "urlPlaceholder": "https://…/basic.ics",
+      "urlHint": "Funktioniert mit iCloud-Familienfreigabe, Googles geheimer iCal-Adresse und den meisten CalDAV-Anbietern.",
+      "testButton": "Feed testen",
+      "testingLabel": "Wird getestet…",
+      "testSuccess": "{count} Termine gefunden",
+      "testNoEvents": "Erreichbar, aber keine anstehenden Termine",
+      "testFailed": "Fehlgeschlagen: {error}",
+      "saveError": "Kalender konnte nicht gespeichert werden. Prüfe die URL und versuche es erneut."
     },
     "homeassistant": {
       "title": "Home Assistant verbinden",
@@ -2921,11 +2955,6 @@
       "title": "Fertig — willkommen bei Kinboard",
       "description": "Familie, Personen und Integrationen sind gespeichert. Das Dashboard ist startklar. Einstellungen kannst du jederzeit anpassen.",
       "cta": "Zum Dashboard"
-    },
-    "banner": {
-      "message": "Kinboard-Einrichtung abschließen",
-      "resume": "Weiter einrichten",
-      "dismiss": "Nicht mehr anzeigen"
     }
   },
   "einkaufen": {

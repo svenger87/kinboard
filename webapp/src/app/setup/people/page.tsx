@@ -112,7 +112,7 @@ export default function SetupPeoplePage() {
       </GlassCard>
 
       <WizardStepFooter
-        nextHref="/setup/homeassistant"
+        nextHref="/setup/calendar"
         onNextClick={handleSave}
         disabled={saving}
       />

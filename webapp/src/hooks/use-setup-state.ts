@@ -7,6 +7,7 @@ export interface SetupState {
   setup_completed: boolean;
   has_family: boolean;
   has_people: boolean;
+  has_calendar: boolean;
   has_home_assistant: boolean;
   has_weather_location: boolean;
 }

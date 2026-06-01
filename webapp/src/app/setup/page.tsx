@@ -15,6 +15,7 @@ export default function SetupRootPage() {
     // the user comes back here via the dashboard banner; we always
     // route forward, never back.
     if (!state.has_people) router.replace("/setup/people");
+    else if (!state.has_calendar) router.replace("/setup/calendar");
     else if (!state.has_home_assistant) router.replace("/setup/homeassistant");
     else if (!state.has_weather_location) router.replace("/setup/weather");
     else router.replace("/setup/done");
