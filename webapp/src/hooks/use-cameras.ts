@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
 import type { CameraConfig, CameraSettings } from "@/types/home-assistant";
+import { safeRandomUUID } from "@/lib/uuid";
 
 // Hook to get camera settings
 export function useCameraSettings() {
@@ -82,7 +83,7 @@ export function useAddCamera() {
 
       const newCamera: CameraConfig = {
         ...camera,
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         position: cameras.length,
         created_at: new Date().toISOString(),
       };

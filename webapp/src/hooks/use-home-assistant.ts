@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
+import { safeRandomUUID } from "@/lib/uuid";
 import type {
   HomeAssistantSettings,
   HAEntity,
@@ -312,7 +313,7 @@ export function useCreateDashboard() {
 
       const newDashboard: Dashboard = {
         ...dashboard,
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         cards: [],
         position: settings.dashboards.length,
         created_at: new Date().toISOString(),
@@ -428,7 +429,7 @@ export function useAddCardToDashboard() {
 
       const newCard: DashboardCard = {
         ...card,
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         position: dashboard.cards.length,
       };
 

@@ -10,6 +10,7 @@ import { WizardProgress } from "@/components/setup/wizard-progress";
 import { WizardStepFooter } from "@/components/setup/wizard-step-footer";
 import { toast } from "sonner";
 import { useCreatePerson } from "@/hooks";
+import { safeRandomUUID } from "@/lib/uuid";
 
 interface Draft {
   id: string;
@@ -24,7 +25,7 @@ const DEFAULT_COLORS = [
 
 function makeDraft(seed: number): Draft {
   return {
-    id: crypto.randomUUID(),
+    id: safeRandomUUID(),
     name: "",
     color: DEFAULT_COLORS[seed % DEFAULT_COLORS.length],
   };
