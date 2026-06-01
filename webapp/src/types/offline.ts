@@ -1,6 +1,7 @@
 // Offline Queue Types for Shopping List Sync
 
 import { ShoppingItem } from "./database";
+import { safeRandomUUID } from "@/lib/uuid";
 
 // Operation types supported by offline queue
 export type OfflineOperationType = "create" | "update" | "delete";
@@ -85,10 +86,10 @@ export const METADATA_KEYS = {
 
 // Generate a unique ID for operations
 export function generateOperationId(): string {
-  return crypto.randomUUID();
+  return safeRandomUUID();
 }
 
 // Generate a local ID for optimistic creates
 export function generateLocalId(): string {
-  return `local_${crypto.randomUUID()}`;
+  return `local_${safeRandomUUID()}`;
 }
