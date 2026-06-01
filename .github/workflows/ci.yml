@@ -87,3 +87,30 @@ jobs:
             echo "checking $f"
             bash -n "$f"
           done
+
+  changelog:
+    name: Changelog entry
+    runs-on: ubuntu-latest
+    # PR-only: needs a base..head diff. Skipped when the PR carries the
+    # `skip-changelog` label (CI/lockfile/refactor changes with no
+    # user-visible behavior — see CONTRIBUTING.md).
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'skip-changelog')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require a CHANGELOG entry for user-facing changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          echo "Changed files:"; echo "$changed"
+          if echo "$changed" | grep -qE '^webapp/src/'; then
+            if ! echo "$changed" | grep -qx 'CHANGELOG.md'; then
+              echo "::error::This PR changes webapp/src/** but does not update CHANGELOG.md."
+              echo "Add an entry under [Unreleased], or apply the 'skip-changelog' label if this change isn't user-visible."
+              exit 1
+            fi
+          fi
+          echo "Changelog check passed."
