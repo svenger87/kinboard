@@ -412,6 +412,23 @@ export default function CalendarPage() {
                 </DialogTrigger>
               }
             />
+            {/* No calendars yet — guide the user to add one instead of
+                leaving the grid empty with no explanation. */}
+            {!loadingCalendars && !calendarsError && calendars && calendars.length === 0 && (
+              <GlassCard className="p-4 mb-4 border-month-primary/30 bg-month-primary/5">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{t("noCalendarsBannerTitle")}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {t("noCalendarsBannerDescription")}
+                    </p>
+                  </div>
+                  <Button variant="month" size="sm" asChild className="shrink-0">
+                    <Link href="/settings/calendar">{t("noCalendarsBannerAction")}</Link>
+                  </Button>
+                </div>
+              </GlassCard>
+            )}
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle>{t("addDialogTitle")}</DialogTitle>

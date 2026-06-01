@@ -2,16 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { PiggyBank } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GlassCard } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { AvatarDisplay } from "@/components/pocket-money/avatar-display";
 import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople } from "@/hooks";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
+import { PluginDiscoverCard } from "./plugin-discover-card";
 import { formatCents } from "@/lib/pocket-money/format";
 import type { PocketMoneyAccount } from "@/types/database";
 
 export function PocketMoneyWidget() {
+  const t = useTranslations("dashboard.pluginDiscover");
   const enabled = useIsPluginEnabled("pocket-money");
   const { data: accounts = [] } = usePocketMoneyAccounts();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -20,8 +24,30 @@ export function PocketMoneyWidget() {
     if (!activeId && accounts.length > 0) setActiveId(accounts[0].id);
   }, [accounts, activeId]);
 
-  if (!enabled) return null;
-  if (accounts.length === 0) return null;
+  if (!enabled) {
+    return (
+      <PluginDiscoverCard
+        pluginId="pocket-money"
+        icon={PiggyBank}
+        title={t("pocketMoneyName")}
+        description={t("pocketMoneyDisabled")}
+        ctaLabel={t("enableCta")}
+        ctaHref="/settings/plugins"
+      />
+    );
+  }
+  if (accounts.length === 0) {
+    return (
+      <PluginDiscoverCard
+        pluginId="pocket-money"
+        icon={PiggyBank}
+        title={t("pocketMoneyName")}
+        description={t("pocketMoneyEmpty")}
+        ctaLabel={t("addCta")}
+        ctaHref="/settings/pocket-money"
+      />
+    );
+  }
 
   const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
 
