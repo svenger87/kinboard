@@ -52,6 +52,62 @@ services:
       - kinboard
 
   # ===================
+  # DB role-password alignment (one-shot)
+  # ===================
+  # The supabase/postgres image seeds authenticator, supabase_auth_admin and
+  # supabase_storage_admin with EMPTY passwords; only supabase_admin gets the
+  # real one from migrate.sh. Without aligning them to POSTGRES_PASSWORD,
+  # rest/auth/storage/realtime crash-loop forever with "password
+  # authentication failed for user authenticator".
+  #
+  # This used to be fixed by start.sh AFTER `up`, from the host — which meant
+  # a bare `docker compose up` (no start.sh) silently broke with cascading
+  # 503s and no hint why. Running it as a gated one-shot makes plain
+  # `docker compose up` work on its own. The dependent services below wait
+  # for this to complete (service_completed_successfully). Idempotent.
+  db-init:
+    image: supabase/postgres:15.1.1.61
+    container_name: ${PROJECT_NAME:-kinboard}-db-init
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    # Connect as supabase_admin — the actual bootstrap superuser in the
+    # supabase/postgres image (the `postgres` role is NOT a superuser and
+    # can't modify the reserved `authenticator` role). migrate.sh sets
+    # supabase_admin's password to POSTGRES_PASSWORD, and it already accepts
+    # TCP+password connections (realtime uses it). Wait until the supabase
+    # migrations have actually created the `authenticator` role before
+    # ALTERing it — on a first boot the db can report healthy mid-init —
+    # then align the three empty-password roles and ensure the _realtime
+    # schema realtime's migrator needs.
+    entrypoint:
+      - bash
+      - -c
+      - |
+        set -e
+        for i in $$(seq 1 60); do
+          if psql -h db -p 5432 -U supabase_admin -d postgres -tAc \
+               "SELECT 1 FROM pg_roles WHERE rolname='authenticator'" 2>/dev/null \
+               | grep -q 1; then
+            break
+          fi
+          echo "db-init: waiting for supabase roles to exist ($$i)…"
+          sleep 2
+        done
+        psql -h db -p 5432 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+        ALTER USER authenticator          WITH PASSWORD '${POSTGRES_PASSWORD}';
+        ALTER USER supabase_auth_admin     WITH PASSWORD '${POSTGRES_PASSWORD}';
+        ALTER USER supabase_storage_admin  WITH PASSWORD '${POSTGRES_PASSWORD}';
+        CREATE SCHEMA IF NOT EXISTS _realtime;
+        SQL
+        echo "db-init: role passwords aligned."
+    networks:
+      - kinboard
+
+  # ===================
   # Supabase Kong (API Gateway)
   # ===================
   kong:
@@ -86,6 +142,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
       interval: 5s
@@ -136,6 +194,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-sSfL", "--head", "-o", "/dev/null", "-H", "Authorization: Bearer ${ANON_KEY}", "http://localhost:4000/api/tenants/realtime-dev/health"]
       interval: 5s
@@ -187,6 +247,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres
       PGRST_DB_SCHEMAS: public,storage,graphql_public
@@ -209,10 +271,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       rest:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/status"]
+      # Use 127.0.0.1, not localhost: the storage server binds IPv4
+      # (0.0.0.0:5000), but `localhost` resolves to IPv6 [::1] first in this
+      # image, so a localhost healthcheck gets connection-refused and the
+      # container reports unhealthy forever despite serving fine.
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5000/status"]
       interval: 5s
       timeout: 5s
       retries: 3

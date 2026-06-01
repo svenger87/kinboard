@@ -68,37 +68,12 @@ source ./.env
 set +a
 PROJECT_NAME="${PROJECT_NAME:-kinboard}"
 
-# After the stack is up, ALTER the supabase service-role passwords to
-# match POSTGRES_PASSWORD. The supabase/postgres image's migrate.sh
-# only sets supabase_admin's password; authenticator,
-# supabase_auth_admin, and supabase_storage_admin are created by the
-# supabase migrations with empty passwords and only get their real
-# values from /etc/postgresql.schema.sql which doesn't run reliably
-# in some image versions. Without this step rest/auth/storage/realtime
-# crash-loop with "password authentication failed for user
-# authenticator". Idempotent.
-align_role_passwords() {
-  echo "→ aligning supabase role passwords with POSTGRES_PASSWORD"
-  # Wait for db to be ready (up to 60s)
-  for i in $(seq 1 60); do
-    if docker exec "${PROJECT_NAME}-db" pg_isready -U postgres >/dev/null 2>&1; then
-      break
-    fi
-    sleep 1
-  done
-  docker exec -i "${PROJECT_NAME}-db" psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 >/dev/null 2>&1 <<SQL || true
-ALTER USER authenticator           WITH PASSWORD '${POSTGRES_PASSWORD}';
-ALTER USER supabase_auth_admin     WITH PASSWORD '${POSTGRES_PASSWORD}';
-ALTER USER supabase_storage_admin  WITH PASSWORD '${POSTGRES_PASSWORD}';
--- supabase/realtime needs a _realtime schema (with leading underscore)
--- for its own migration tracking; some image versions don't auto-create.
-CREATE SCHEMA IF NOT EXISTS _realtime;
-SQL
-  # Restart any deps that were already crash-looping with the old (empty)
-  # creds so they pick up the now-valid passwords.
-  docker restart "${PROJECT_NAME}-rest" "${PROJECT_NAME}-auth" \
-    "${PROJECT_NAME}-storage" "${PROJECT_NAME}-realtime" >/dev/null 2>&1 || true
-}
+# NOTE: supabase service-role password alignment (authenticator,
+# supabase_auth_admin, supabase_storage_admin) + the `_realtime` schema now
+# happen INSIDE the stack via the one-shot `db-init` service in
+# docker-compose.yml, gated so auth/rest/storage/realtime wait for it. That
+# makes a bare `docker compose up` work without this script. We no longer
+# align passwords from the host here.
 
 # Apply every webapp/docker/migration*.sql to the running DB.
 # Each migration file uses `IF NOT EXISTS` / `IF EXISTS` guards so re-running
@@ -149,8 +124,10 @@ run_migrations() {
 
 case "$cmd" in
   up)
+    # The one-shot db-init service (docker-compose.yml) aligns role
+    # passwords before auth/rest/storage/realtime start, so we just bring
+    # the stack up and apply migrations.
     $COMPOSE $COMPOSE_FILES up -d
-    align_role_passwords
     run_migrations
     $COMPOSE $COMPOSE_FILES ps
     ;;
