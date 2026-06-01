@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-01 — Onboarding completeness + setup/self-host hardening
+
 ### Added
 - Plugin widgets that have nothing to show no longer render as a blank cell. When the Vehicles, Stonks, or Pocket Money widget is enabled in `/settings/widgets` but the plugin itself is disabled — or enabled with no data yet — the dashboard now shows a short "discover" card explaining what the widget does and linking straight to `/settings/plugins` (to enable it) or the feature page (to add the first vehicle / ticker / account). Dismissible per-device so kiosks stay clean. Previously the widget silently returned nothing, so a user who'd turned it on just saw an empty gap.
 - `/settings/notifications` now surfaces a "push server not configured" hint when the server has no VAPID keys (e.g. Node.js wasn't installed when `setup.sh` ran). Independent of browser support, so it explains the real reason push is dead on a fresh install and links to the setup guide.
