@@ -149,6 +149,6 @@ Drivers live under `webapp/src/plugins/vehicles/drivers/` and are registered in 
 
 ---
 
-## Migration path for existing surfaces
+## Registered plugins
 
-Energy and Cameras are not plugins yet — they predate the plugin system and are wired directly into `NAV_ITEMS` with bespoke gating in `use-visible-nav-items.ts`. The plan is to migrate them onto the plugin contract as more plugins ship and the abstraction stabilizes. For now, treat them as legacy surfaces that follow the same nav-gating intent but not the registry pattern.
+As of the current build, `registry.ts` registers five surface plugins: **Vehicles**, **Energy**, **Cameras**, **Stonks**, and **Pocket Money**. Energy and Cameras predated the plugin system and were migrated onto the contract once it stabilized — the abstraction is now validated across five concrete surfaces. New surfaces should follow the registry pattern from the start ([Plugin-Authoring](Plugin-Authoring)).
