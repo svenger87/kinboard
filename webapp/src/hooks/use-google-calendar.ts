@@ -13,6 +13,7 @@ interface GoogleCalendarSettings {
   auto_sync?: boolean;
   last_auto_sync?: string;
   auto_sync_error?: string | null;
+  needs_reauth?: boolean;
 }
 
 interface PersonMappingRule {

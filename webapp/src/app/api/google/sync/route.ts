@@ -14,6 +14,15 @@ interface GoogleCalendarSettings {
   enabled_calendars?: string[];
   mapping_rules?: PersonMappingRule[];
   last_sync?: string;
+  auto_sync_error?: string | null;
+  needs_reauth?: boolean;
+}
+
+// invalid_grant = dead refresh token (revoked / expired consent) → the user
+// must reconnect. Distinct from a transient refresh blip.
+function isInvalidGrant(e: unknown): boolean {
+  const err = e as { response?: { data?: { error?: string } }; message?: string };
+  return err?.response?.data?.error === "invalid_grant" || (err?.message?.includes("invalid_grant") ?? false);
 }
 
 interface CalendarInfo {
@@ -65,6 +74,7 @@ async function getOAuth2Client(familyId: string) {
             ...credentials,
             access_token: newTokens.access_token,
             expiry_date: newTokens.expiry_date,
+            needs_reauth: false,
           },
           updated_at: new Date().toISOString(),
         })
@@ -74,6 +84,16 @@ async function getOAuth2Client(familyId: string) {
       oauth2Client.setCredentials(newTokens);
     } catch (refreshError) {
       console.error("Token refresh failed:", refreshError);
+      if (isInvalidGrant(refreshError)) {
+        await (supabase as any)
+          .from("settings")
+          .update({
+            value: { ...credentials, needs_reauth: true },
+            updated_at: new Date().toISOString(),
+          })
+          .eq("family_id", familyId)
+          .eq("key", "google_calendar");
+      }
       return null;
     }
   }
@@ -325,6 +345,7 @@ export async function POST(request: NextRequest) {
         value: {
           ...settings,
           last_sync: new Date().toISOString(),
+          needs_reauth: false,
         },
         updated_at: new Date().toISOString(),
       })
