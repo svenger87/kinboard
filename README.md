@@ -65,24 +65,24 @@ Family logistics are scattered across calendars, chat threads, sticky notes, and
 
 | Feature | Wiki page |
 |---|---|
-| **Dashboard** — clock, today strip, configurable widget grid | [Dashboard](docs/wiki/Dashboard.md) |
-| **Calendar** — two-way Google Calendar sync, per-person colors, holidays, waste-pickup widgets | [Calendar](docs/wiki/Calendar.md) |
-| **Shopping list** — built-in real-time list with **offline support** + dedicated standalone PWA, optional Bring! sync | [Shopping](docs/wiki/Shopping.md) |
-| **Recipes & meal planning** — Chefkoch.de search + schema.org URL import, weekly meal board, recipe-driven shopping | [Recipes & meals](docs/wiki/Recipes.md) |
-| **Tasks & todos** — per-person assignment, priorities, daily reminder push | [Tasks & todos](docs/wiki/Tasks.md) |
-| **Notes** — quick shared sticky notes for the household | [Notes](docs/wiki/Notes.md) |
-| **Birthdays** — year-ring viz, countdowns, gift-idea tracking | [Birthdays](docs/wiki/Birthdays.md) |
-| **School schedule** — per-child timetable + auto pack list for tomorrow | [Schedule](docs/wiki/Schedule.md) |
-| **Smart home** — Home Assistant entities, room tabs, floating-lights master control | [Smart home](docs/wiki/Smart-Home.md) |
-| **Energy dashboard** — solar / battery / grid live flow + charts | [Smart home → Energy](docs/wiki/Smart-Home.md#energy) |
-| **Cameras** — live WebRTC streams (via go2rtc) | [Cameras](docs/wiki/Cameras.md) |
-| **Pocket money** — per-kid virtual accounts with parent-configurable APR, allowance cron, saving goals + parent-approval queue, evolving avatar (5 species × 8 stages) | [Pocket Money](docs/wiki/Pocket-Money.md) |
-| **Photo screensaver** — Immich monthly album or Unsplash fallback, presence-aware blanking | [Screensaver](docs/wiki/Screensaver.md) |
-| **Weather** — current + hourly + radar (OpenWeatherMap) | [OpenWeatherMap](docs/wiki/OpenWeatherMap.md) |
-| **Web push notifications** — shopping items, task assignments, daily todo digest. **PWA install** required on iOS. | [Notifications](docs/wiki/Notifications.md) |
-| **Multi-device + multi-person** — devices join a family with a 6-char code, per-person color coding everywhere | [Family members](docs/wiki/Family-Members.md), [Devices](docs/wiki/Devices.md) |
-| **Monthly themes** — colors shift through the year automatically | [Themes & locales](docs/wiki/Themes.md) |
-| **i18n** — English + German, full UI parity | [Themes & locales](docs/wiki/Themes.md) |
+| **Dashboard** — clock, today strip, configurable widget grid | [Dashboard](https://github.com/svenger87/kinboard/wiki/Dashboard) |
+| **Calendar** — two-way Google Calendar sync, per-person colors, holidays, waste-pickup widgets | [Calendar](https://github.com/svenger87/kinboard/wiki/Calendar) |
+| **Shopping list** — built-in real-time list with **offline support** + dedicated standalone PWA, optional Bring! sync | [Shopping](https://github.com/svenger87/kinboard/wiki/Shopping) |
+| **Recipes & meal planning** — Chefkoch.de search + schema.org URL import, weekly meal board, recipe-driven shopping | [Recipes & meals](https://github.com/svenger87/kinboard/wiki/Recipes) |
+| **Tasks & todos** — per-person assignment, priorities, daily reminder push | [Tasks & todos](https://github.com/svenger87/kinboard/wiki/Tasks) |
+| **Notes** — quick shared sticky notes for the household | [Notes](https://github.com/svenger87/kinboard/wiki/Notes) |
+| **Birthdays** — year-ring viz, countdowns, gift-idea tracking | [Birthdays](https://github.com/svenger87/kinboard/wiki/Birthdays) |
+| **School schedule** — per-child timetable + auto pack list for tomorrow | [Schedule](https://github.com/svenger87/kinboard/wiki/Schedule) |
+| **Smart home** — Home Assistant entities, room tabs, floating-lights master control | [Smart home](https://github.com/svenger87/kinboard/wiki/Smart-Home) |
+| **Energy dashboard** — solar / battery / grid live flow + charts | [Smart home → Energy](https://github.com/svenger87/kinboard/wiki/Smart-Home#energy) |
+| **Cameras** — live WebRTC streams (via go2rtc) | [Cameras](https://github.com/svenger87/kinboard/wiki/Cameras) |
+| **Pocket money** — per-kid virtual accounts with parent-configurable APR, allowance cron, saving goals + parent-approval queue, evolving avatar (5 species × 8 stages) | [Pocket Money](https://github.com/svenger87/kinboard/wiki/Pocket-Money) |
+| **Photo screensaver** — Immich monthly album or Unsplash fallback, presence-aware blanking | [Screensaver](https://github.com/svenger87/kinboard/wiki/Screensaver) |
+| **Weather** — current + hourly + radar (OpenWeatherMap) | [OpenWeatherMap](https://github.com/svenger87/kinboard/wiki/OpenWeatherMap) |
+| **Web push notifications** — shopping items, task assignments, daily todo digest. **PWA install** required on iOS. | [Notifications](https://github.com/svenger87/kinboard/wiki/Notifications) |
+| **Multi-device + multi-person** — devices join a family with a 6-char code, per-person color coding everywhere | [Family members](https://github.com/svenger87/kinboard/wiki/Family-Members), [Devices](https://github.com/svenger87/kinboard/wiki/Devices) |
+| **Monthly themes** — colors shift through the year automatically | [Themes & locales](https://github.com/svenger87/kinboard/wiki/Themes) |
+| **i18n** — English + German, full UI parity | [Themes & locales](https://github.com/svenger87/kinboard/wiki/Themes) |
 
 The full wiki has a page for every feature plus integration setup, kiosk hardware reference build, security model, and database schema.
 
@@ -126,9 +126,9 @@ cd webapp/docker
 ./start.sh restart    # rebuilds the webapp image + recreates webapp + cron
 ```
 
-**Hands-off auto-update** — `cp docker-compose.diun.yml.example docker-compose.diun.yml`, run `./setup.sh --non-interactive` to fill in the required `.env` keys (`DIUN_WEBHOOK_SECRET`, `KINBOARD_PROJECT_DIR`, `COMPOSE_PROJECT_NAME`, `COMPOSE_FILES`), then bring the stack up with `-f docker-compose.diun.yml --build` added. Diun watches GHCR for new `kinboard-webapp` digests; when one lands, a webhook fires `kinboard-self-update.sh` which runs the full upgrade path (`git pull` → `setup.sh --non-interactive` → `compose pull` → `up -d` → `kong restart` if `kong.yml` changed). Replaces the deprecated Watchtower overlay (Watchtower was archived in 2024 and only handles the image step, missing the surrounding config substitutions). See [Self-hosting → Auto-updates](docs/wiki/Self-hosting.md#auto-updates) for the full setup including the flat-layout migration.
+**Hands-off auto-update** — `cp docker-compose.diun.yml.example docker-compose.diun.yml`, run `./setup.sh --non-interactive` to fill in the required `.env` keys (`DIUN_WEBHOOK_SECRET`, `KINBOARD_PROJECT_DIR`, `COMPOSE_PROJECT_NAME`, `COMPOSE_FILES`), then bring the stack up with `-f docker-compose.diun.yml --build` added. Diun watches GHCR for new `kinboard-webapp` digests; when one lands, a webhook fires `kinboard-self-update.sh` which runs the full upgrade path (`git pull` → `setup.sh --non-interactive` → `compose pull` → `up -d` → `kong restart` if `kong.yml` changed). Replaces the deprecated Watchtower overlay (Watchtower was archived in 2024 and only handles the image step, missing the surrounding config substitutions). See [Self-hosting → Auto-updates](https://github.com/svenger87/kinboard/wiki/Self-hosting#auto-updates) for the full setup including the flat-layout migration.
 
-For production self-hosting (Traefik + custom domain + backups + updates), see [Self-hosting](docs/wiki/Self-hosting.md).
+For production self-hosting (Traefik + custom domain + backups + updates), see [Self-hosting](https://github.com/svenger87/kinboard/wiki/Self-hosting).
 
 ---
 
@@ -189,9 +189,9 @@ Niche integrations (Tesla Fleet, Zendure SolarFlow batteries, etc.) ship as opt-
 
 ## Reference hardware build
 
-Kinboard is hardware-agnostic — any HDMI display + any small PC works. For people who want a known-good combination, [Reference build](docs/wiki/Reference-Build.md) documents one ~€700 setup with a 27" capacitive touchscreen + a Mele Quieter 4C mini-PC + a custom oak frame, with a complete BOM, wiring, and what didn't work.
+Kinboard is hardware-agnostic — any HDMI display + any small PC works. For people who want a known-good combination, [Reference build](https://github.com/svenger87/kinboard/wiki/Reference-Build) documents one ~€700 setup with a 27" capacitive touchscreen + a Mele Quieter 4C mini-PC + a custom oak frame, with a complete BOM, wiring, and what didn't work.
 
-For software side of the kiosk install: [Windows 11 (Mele 4C)](docs/wiki/Kiosk-Windows-11-Mele-4C.md) walks through Edge `--kiosk` mode + the on-screen keyboard, and [Linux guidance](docs/wiki/Kiosk-Linux-Guidance.md) covers Cage / GNOME / X11 alternatives.
+For software side of the kiosk install: [Windows 11 (Mele 4C)](https://github.com/svenger87/kinboard/wiki/Kiosk-Windows-11-Mele-4C) walks through Edge `--kiosk` mode + the on-screen keyboard, and [Linux guidance](https://github.com/svenger87/kinboard/wiki/Kiosk-Linux-Guidance) covers Cage / GNOME / X11 alternatives.
 
 ---
 
@@ -199,13 +199,13 @@ For software side of the kiosk install: [Windows 11 (Mele 4C)](docs/wiki/Kiosk-W
 
 The wiki is the source of truth for everything beyond this README:
 
-- **Getting started** — [Quick-start](docs/wiki/Quick-start.md), [Self-hosting](docs/wiki/Self-hosting.md), [Onboarding](docs/wiki/Onboarding.md)
-- **Architecture** — [Architecture overview](docs/wiki/Architecture.md), [Database schema](docs/wiki/Database-Schema.md), [Security model](docs/wiki/Security-and-Threat-Model.md)
-- **Built-in features** — [Dashboard](docs/wiki/Dashboard.md) · [Calendar](docs/wiki/Calendar.md) · [Shopping](docs/wiki/Shopping.md) · [Recipes & meals](docs/wiki/Recipes.md) · [Tasks](docs/wiki/Tasks.md) · [Notes](docs/wiki/Notes.md) · [Birthdays](docs/wiki/Birthdays.md) · [Schedule](docs/wiki/Schedule.md) · [Smart home](docs/wiki/Smart-Home.md) · [Screensaver](docs/wiki/Screensaver.md) · [Family members](docs/wiki/Family-Members.md) · [Devices](docs/wiki/Devices.md) · [Notifications](docs/wiki/Notifications.md) · [Themes & locales](docs/wiki/Themes.md)
-- **Integrations** — [Google Calendar](docs/wiki/Google-Calendar.md) · [Home Assistant](docs/wiki/Home-Assistant.md) · [Immich](docs/wiki/Immich.md) · [Bring!](docs/wiki/Bring.md) · [OpenWeatherMap](docs/wiki/OpenWeatherMap.md) · [Cameras](docs/wiki/Cameras.md)
-- **Hardware** — [Reference build (BOM + frame)](docs/wiki/Reference-Build.md) · [Windows kiosk](docs/wiki/Kiosk-Windows-11-Mele-4C.md) · [Linux guidance](docs/wiki/Kiosk-Linux-Guidance.md) · [LD2410 presence sensor](docs/wiki/Presence-Sensor.md)
-- **Extending Kinboard** — [Vehicles](docs/wiki/Vehicles.md) · [Stonks](docs/wiki/Stonks.md) · [Pocket Money](docs/wiki/Pocket-Money.md) · [Plugin architecture](docs/wiki/Plugin-Architecture.md) · [Plugin directory](docs/wiki/Plugin-Directory.md)
-- **[Troubleshooting](docs/wiki/Troubleshooting.md)** — known issues + fixes
+- **Getting started** — [Quick-start](https://github.com/svenger87/kinboard/wiki/Quick-start), [Self-hosting](https://github.com/svenger87/kinboard/wiki/Self-hosting), [Onboarding](https://github.com/svenger87/kinboard/wiki/Onboarding)
+- **Architecture** — [Architecture overview](https://github.com/svenger87/kinboard/wiki/Architecture), [Database schema](https://github.com/svenger87/kinboard/wiki/Database-Schema), [Security model](https://github.com/svenger87/kinboard/wiki/Security-and-Threat-Model)
+- **Built-in features** — [Dashboard](https://github.com/svenger87/kinboard/wiki/Dashboard) · [Calendar](https://github.com/svenger87/kinboard/wiki/Calendar) · [Shopping](https://github.com/svenger87/kinboard/wiki/Shopping) · [Recipes & meals](https://github.com/svenger87/kinboard/wiki/Recipes) · [Tasks](https://github.com/svenger87/kinboard/wiki/Tasks) · [Notes](https://github.com/svenger87/kinboard/wiki/Notes) · [Birthdays](https://github.com/svenger87/kinboard/wiki/Birthdays) · [Schedule](https://github.com/svenger87/kinboard/wiki/Schedule) · [Smart home](https://github.com/svenger87/kinboard/wiki/Smart-Home) · [Screensaver](https://github.com/svenger87/kinboard/wiki/Screensaver) · [Family members](https://github.com/svenger87/kinboard/wiki/Family-Members) · [Devices](https://github.com/svenger87/kinboard/wiki/Devices) · [Notifications](https://github.com/svenger87/kinboard/wiki/Notifications) · [Themes & locales](https://github.com/svenger87/kinboard/wiki/Themes)
+- **Integrations** — [Google Calendar](https://github.com/svenger87/kinboard/wiki/Google-Calendar) · [Home Assistant](https://github.com/svenger87/kinboard/wiki/Home-Assistant) · [Immich](https://github.com/svenger87/kinboard/wiki/Immich) · [Bring!](https://github.com/svenger87/kinboard/wiki/Bring) · [OpenWeatherMap](https://github.com/svenger87/kinboard/wiki/OpenWeatherMap) · [Cameras](https://github.com/svenger87/kinboard/wiki/Cameras)
+- **Hardware** — [Reference build (BOM + frame)](https://github.com/svenger87/kinboard/wiki/Reference-Build) · [Windows kiosk](https://github.com/svenger87/kinboard/wiki/Kiosk-Windows-11-Mele-4C) · [Linux guidance](https://github.com/svenger87/kinboard/wiki/Kiosk-Linux-Guidance) · [LD2410 presence sensor](https://github.com/svenger87/kinboard/wiki/Presence-Sensor)
+- **Extending Kinboard** — [Vehicles](https://github.com/svenger87/kinboard/wiki/Vehicles) · [Stonks](https://github.com/svenger87/kinboard/wiki/Stonks) · [Pocket Money](https://github.com/svenger87/kinboard/wiki/Pocket-Money) · [Plugin architecture](https://github.com/svenger87/kinboard/wiki/Plugin-Architecture) · [Plugin directory](https://github.com/svenger87/kinboard/wiki/Plugin-Directory)
+- **[Troubleshooting](https://github.com/svenger87/kinboard/wiki/Troubleshooting)** — known issues + fixes
 
 ---
 
@@ -213,11 +213,11 @@ The wiki is the source of truth for everything beyond this README:
 
 **v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.1.0](https://github.com/svenger87/kinboard/releases/tag/v1.1.0) (2026-05-11).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Diun + the self-update webhook; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
 
-**Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](docs/wiki/Security-and-Threat-Model.md) and [`SECURITY.md`](SECURITY.md).
+**Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](https://github.com/svenger87/kinboard/wiki/Security-and-Threat-Model) and [`SECURITY.md`](SECURITY.md).
 
 ### Recently shipped
-- [x] **Pocket Money plugin (Piggy)** (v1.1.0) — per-kid virtual pocket-money accounts with parent-configurable APR (daily accrual + daily commit), scheduled allowance (weekly / biweekly / every 4 weeks), multi-goal saving queue with image lookup + URL paste + upload, kid-proposed withdrawals routed through a parent-approval inbox, and an evolving kid-facing avatar (5 species × 8 stages, driven off `lifetime_saved_cents`). Forecast panel on `/settings/pocket-money` projects balance at 1 / 3 / 6 / 12 months at the current APR + allowance. Fifth registered SurfacePlugin alongside Vehicles + Energy + Cameras + Stonks. See [Pocket Money](docs/wiki/Pocket-Money.md)
-- [x] **End-to-end auto-update** (v1.1.0) — Diun + webhook overlay runs the full upgrade path (`git pull` → `setup.sh` → `docker compose pull` → `up -d` → conditional Kong + Diun reload) every time a new image lands on GHCR. Replaces the deprecated Watchtower overlay (archived upstream, missing the config-substitution step). See [Self-hosting → Auto-updates](docs/wiki/Self-hosting.md#auto-updates)
+- [x] **Pocket Money plugin (Piggy)** (v1.1.0) — per-kid virtual pocket-money accounts with parent-configurable APR (daily accrual + daily commit), scheduled allowance (weekly / biweekly / every 4 weeks), multi-goal saving queue with image lookup + URL paste + upload, kid-proposed withdrawals routed through a parent-approval inbox, and an evolving kid-facing avatar (5 species × 8 stages, driven off `lifetime_saved_cents`). Forecast panel on `/settings/pocket-money` projects balance at 1 / 3 / 6 / 12 months at the current APR + allowance. Fifth registered SurfacePlugin alongside Vehicles + Energy + Cameras + Stonks. See [Pocket Money](https://github.com/svenger87/kinboard/wiki/Pocket-Money)
+- [x] **End-to-end auto-update** (v1.1.0) — Diun + webhook overlay runs the full upgrade path (`git pull` → `setup.sh` → `docker compose pull` → `up -d` → conditional Kong + Diun reload) every time a new image lands on GHCR. Replaces the deprecated Watchtower overlay (archived upstream, missing the config-substitution step). See [Self-hosting → Auto-updates](https://github.com/svenger87/kinboard/wiki/Self-hosting#auto-updates)
 - [x] **Drag-reorder for the bottom navigation** (v1.1.0) — per-device localStorage at `/settings/navigation`; kitchen kiosk, parent's phone, and kids' tablets each keep their own layout
 - [x] **Stonks plugin** (v1.0.19) — track stocks, ETFs, crypto, indices, and forex pairs in a watchlist with proper TradingView candle charts (1d / 1w / 1m / 3m / 1y / max timeframes). Yahoo Finance is the v1 data driver — no API key required, covers every asset class through one source. Per-ticker detail page, rotating dashboard widget, server-side TTL cache (30s spot quotes, 5min charts) so kiosk auto-refresh doesn't rate-limit. Fourth registered SurfacePlugin alongside Vehicles + Energy + Cameras
 - [x] **iCalendar (.ics) feed support** (v1.0.19) — read-only calendar feeds via shared `.ics` URLs. Covers iCloud Family Sharing, Google's "secret iCal address", and most CalDAV providers in one feature. Skips the Google Cloud OAuth setup entirely for read-only use. Manual "Sync now" button + 30-min cron with ETag conditional GETs and recurring-event expansion
@@ -230,7 +230,7 @@ The wiki is the source of truth for everything beyond this README:
 - [x] First-run setup wizard at `/setup/{people,homeassistant,weather,done}` — guides fresh self-hosters through onboarding instead of dropping them on an empty dashboard; dismissible "Finish setting up" banner on the dashboard until completed
 - [x] Interactive `setup.sh` — prompts for the optional API keys most self-hosters need (OpenWeatherMap, Google Calendar OAuth, maintainer email) at first-run time, with `--non-interactive` and `--advanced` flags for automation and power users
 - [x] Device recognition that survives browser/OS updates — fingerprint-history table so a Safari/Chrome bump doesn't strand the device on `/join` (v1.0.11)
-- [x] **Vehicles surface + build-time plugin contract** (v1.0.12) — multi-car, multi-vendor `/vehicles` page. Tesla driver (native UI via Home Assistant Fleet) + Generic-EV driver (any car HA can talk to: VW We Connect, BMW Connected Drive, Polestar, Hyundai BlueLink, OBD2 dongles). First plugin under the `SurfacePlugin` contract. See [Plugin architecture](docs/wiki/Plugin-Architecture.md), [Vehicles](docs/wiki/Vehicles.md), and the [Plugin directory](docs/wiki/Plugin-Directory.md)
+- [x] **Vehicles surface + build-time plugin contract** (v1.0.12) — multi-car, multi-vendor `/vehicles` page. Tesla driver (native UI via Home Assistant Fleet) + Generic-EV driver (any car HA can talk to: VW We Connect, BMW Connected Drive, Polestar, Hyundai BlueLink, OBD2 dongles). First plugin under the `SurfacePlugin` contract. See [Plugin architecture](https://github.com/svenger87/kinboard/wiki/Plugin-Architecture), [Vehicles](https://github.com/svenger87/kinboard/wiki/Vehicles), and the [Plugin directory](https://github.com/svenger87/kinboard/wiki/Plugin-Directory)
 - [x] **Image-baked migrations** (v1.0.12) — schema migrations are baked into the webapp Docker image and applied automatically on container start. Self-hoster updates (via the Diun overlay or any other path) pick up new schema without anyone running `start.sh migrate` from the host
 
 ### Up next (no fixed dates)
@@ -292,7 +292,7 @@ Kinboard stands on the shoulders of an incredible amount of open-source work:
 - **[Faker](https://fakerjs.dev/)** — anonymized demo data for the screenshot toolchain
 - **[Playwright](https://playwright.dev/)** — automated screenshot capture
 
-For the specific kiosk hardware combination (display + mini-PC + frame), see [Reference build](docs/wiki/Reference-Build.md).
+For the specific kiosk hardware combination (display + mini-PC + frame), see [Reference build](https://github.com/svenger87/kinboard/wiki/Reference-Build).
 
 ---
 
