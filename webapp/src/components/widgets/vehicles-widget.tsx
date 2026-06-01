@@ -3,13 +3,17 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { Car } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { getDriver } from "@/plugins/vehicles/drivers/registry";
+import { PluginDiscoverCard } from "./plugin-discover-card";
 
 const ROTATE_INTERVAL_MS = 8000;
 
 export function VehiclesWidget() {
+  const t = useTranslations("dashboard.pluginDiscover");
   const enabled = useIsPluginEnabled("vehicles");
   const { data: vehicles = [] } = useVehicles();
   const [activeIdx, setActiveIdx] = useState(0);
@@ -22,8 +26,30 @@ export function VehiclesWidget() {
     return () => clearInterval(id);
   }, [vehicles.length]);
 
-  if (!enabled) return null;
-  if (vehicles.length === 0) return null;
+  if (!enabled) {
+    return (
+      <PluginDiscoverCard
+        pluginId="vehicles"
+        icon={Car}
+        title={t("vehiclesName")}
+        description={t("vehiclesDisabled")}
+        ctaLabel={t("enableCta")}
+        ctaHref="/settings/plugins"
+      />
+    );
+  }
+  if (vehicles.length === 0) {
+    return (
+      <PluginDiscoverCard
+        pluginId="vehicles"
+        icon={Car}
+        title={t("vehiclesName")}
+        description={t("vehiclesEmpty")}
+        ctaLabel={t("addCta")}
+        ctaHref="/vehicles"
+      />
+    );
+  }
 
   // Clamp activeIdx if vehicles list shrank
   const safeIdx = activeIdx >= vehicles.length ? 0 : activeIdx;

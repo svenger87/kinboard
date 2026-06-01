@@ -17,9 +17,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/page-header";
+import { IntegrationConfigHint } from "@/components/integration-config-hint";
 import { useState } from "react";
 import {
   usePushNotifications,
+  usePushServerConfigured,
   sendTestNotification,
 } from "@/hooks/use-push-notifications";
 import {
@@ -42,6 +44,8 @@ export default function NotificationSettingsPage() {
     subscribe,
     unsubscribe,
   } = usePushNotifications();
+
+  const serverConfigured = usePushServerConfigured();
 
   const { data: preferences, isLoading: prefsLoading } = useNotificationPreferences();
   const updatePreferences = useUpdateNotificationPreferences();
@@ -101,6 +105,18 @@ export default function NotificationSettingsPage() {
           backHref="/settings"
           className="mb-8"
         />
+
+        {/* Server-side push config: VAPID keys missing in .env. Independent
+            of browser support — surfaces the real reason push won't work on
+            a fresh install where Node.js wasn't available at setup time. */}
+        {serverConfigured === false && (
+          <IntegrationConfigHint
+            title={t("vapidMissingTitle")}
+            description={t("vapidMissingDescription")}
+            docsHref="https://github.com/svenger87/kinboard/wiki/Notifications"
+            docsLabel={t("vapidDocsLabel")}
+          />
+        )}
 
         {/* Push Subscription Status */}
         <motion.div

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import {
@@ -19,6 +20,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -98,6 +100,31 @@ function WeatherSkeleton() {
   );
 }
 
+// OPENWEATHERMAP_API_KEY unset: the route returns { configured: false } and
+// useWeather resolves to null (not an error). Surface an actionable CTA that
+// deep-links to the weather settings instead of a dead "No data" string.
+function WeatherNotConfigured() {
+  const t = useTranslations("weather");
+  return (
+    <Card className="h-full">
+      <CardContent className="p-6">
+        <div className="flex flex-col items-center justify-center text-center py-4">
+          <div className="p-3 rounded-xl bg-month-primary/10 mb-3">
+            <CloudOff className="size-10 text-month-primary" strokeWidth={1.5} />
+          </div>
+          <p className="text-sm font-medium">{t("notConfiguredTitle")}</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+            {t("notConfiguredDescription")}
+          </p>
+          <Button variant="month" size="sm" asChild className="mt-3">
+            <Link href="/settings/weather">{t("notConfiguredAction")}</Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function WeatherError({ error }: { error: string }) {
   const t = useTranslations("weather");
   return (
@@ -125,6 +152,12 @@ export function Weather({ className = "" }: WeatherProps) {
 
   if (isLoading) {
     return <WeatherSkeleton />;
+  }
+
+  // null data without an error means the server reported configured:false
+  // (no API key). Distinguish that from a real fetch error.
+  if (!weatherData && !error) {
+    return <WeatherNotConfigured />;
   }
 
   if (error || !weatherData) {

@@ -468,6 +468,33 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 }
 
 /**
+ * Whether the push SERVER is configured (VAPID keys present in .env).
+ * Distinct from browser support: even on a perfect HTTPS browser, push is
+ * dead if the server has no VAPID keys. /api/notifications/vapid-key returns
+ * 503 in that case. Returns null while loading, true/false once known.
+ */
+export function usePushServerConfigured(): boolean | null {
+  const [configured, setConfigured] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/notifications/vapid-key")
+      .then((res) => {
+        if (!cancelled) setConfigured(res.ok);
+      })
+      .catch(() => {
+        // Network error — leave unknown rather than claiming misconfigured.
+        if (!cancelled) setConfigured(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return configured;
+}
+
+/**
  * Send a test notification via the server (actually tests push infrastructure)
  */
 export async function sendTestNotification(
