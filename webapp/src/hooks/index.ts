@@ -179,6 +179,7 @@ export {
   // Connection & Config
   useHomeAssistantStatus,
   useHomeAssistantConfig,
+  useHomeAssistantConnectionCheck,
   useTestHomeAssistantConnection,
   useSaveHomeAssistantSettings,
   useDisconnectHomeAssistant,

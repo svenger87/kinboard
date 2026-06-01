@@ -55,6 +55,7 @@ import {
 import {
   useHomeAssistantStatus,
   useHomeAssistantConfig,
+  useHomeAssistantConnectionCheck,
   useTestHomeAssistantConnection,
   useSaveHomeAssistantSettings,
   useDisconnectHomeAssistant,
@@ -112,6 +113,19 @@ function HomeAssistantSettingsContent() {
 
   // Get config to verify connection is working
   const { data: config } = useHomeAssistantConfig(isConnected);
+
+  // Live probe: a saved token that HA rejects (401) means the user must
+  // reconnect — distinct from HA being unreachable. Drives the reconnect
+  // banner + reveals the connect form so they can paste a fresh token.
+  const { data: connectionState } = useHomeAssistantConnectionCheck(isConnected);
+  const needsReauth = isConnected && connectionState === "unauthorized";
+
+  // Prefill the URL when reconnecting so the user only re-pastes the token.
+  useEffect(() => {
+    if (needsReauth && settings?.url && !url) {
+      setUrl(settings.url);
+    }
+  }, [needsReauth, settings?.url, url]);
 
   // Show loading state
   if (loadingSettings || loadingDashboards) {
@@ -269,6 +283,23 @@ function HomeAssistantSettingsContent() {
           />
         )}
 
+        {/* Token rejected by HA (401) — prompt a reconnect. The connect form
+            below is revealed (see !needsReauth gate) so a fresh token can be
+            pasted without disconnecting first. */}
+        {needsReauth && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+            <GlassCard className="p-4 border-destructive/30 bg-destructive/5">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="size-5 shrink-0 text-destructive mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{t("reauthTitle")}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t("reauthBody")}</p>
+                </div>
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+
         {/* Connection Status */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -280,12 +311,12 @@ function HomeAssistantSettingsContent() {
                 <div className="flex items-center gap-3">
                   <div
                     className={`p-2 rounded-lg ${
-                      isConnected ? "bg-success/10" : "bg-muted"
+                      isConnected && !needsReauth ? "bg-success/10" : "bg-muted"
                     }`}
                   >
                     <Server
                       className={`size-5 ${
-                        isConnected ? "text-success" : "text-muted-foreground"
+                        isConnected && !needsReauth ? "text-success" : "text-muted-foreground"
                       }`}
                     />
                   </div>
@@ -296,8 +327,8 @@ function HomeAssistantSettingsContent() {
                     </p>
                   </div>
                 </div>
-                <Badge variant={isConnected ? "default" : "secondary"}>
-                  {isConnected ? (
+                <Badge variant={isConnected && !needsReauth ? "default" : "secondary"}>
+                  {isConnected && !needsReauth ? (
                     <>
                       <Check className="size-3 mr-1" /> {t("statusConnectedBadge")}
                     </>
@@ -320,7 +351,7 @@ function HomeAssistantSettingsContent() {
                 </div>
               )}
 
-              {isConnected ? (
+              {isConnected && !needsReauth ? (
                 <div className="flex items-center gap-2">
                   <Link href="/home-automation">
                     <Button variant="outline" size="sm">
