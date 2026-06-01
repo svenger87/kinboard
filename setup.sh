@@ -9,6 +9,10 @@
 # show "already set, skipping" and are left alone.
 #
 # Flags:
+#   --url <URL>         the address you'll open Kinboard at, e.g.
+#                       https://kinboard.example.com or http://192.168.1.50:8100.
+#                       Also settable via the KINBOARD_URL env var. Required for
+#                       non-interactive runs that aren't local-only.
 #   --force, -f         regenerate everything from scratch (re-prompts for keys)
 #   --non-interactive   never prompt; useful for CI / Docker entrypoint use
 #   --advanced          also prompt for Immich, Bring, camera, SMTP server
@@ -25,17 +29,23 @@ WEBAPP_ENV="$REPO_ROOT/webapp/.env.local"
 force=0
 non_interactive=0
 advanced=0
-for arg in "$@"; do
-  case "$arg" in
+cli_url="${KINBOARD_URL:-}"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --force|-f) force=1 ;;
     --non-interactive) non_interactive=1 ;;
     --advanced) advanced=1 ;;
+    --url=*) cli_url="${1#*=}" ;;
+    --url) cli_url="${2:-}"; shift || true ;;
     --help|-h)
-      sed -n '3,15p' "$0"
+      sed -n '3,19p' "$0"
       exit 0
       ;;
   esac
+  shift || true
 done
+# Strip a trailing slash so SITE_URL derivation is consistent.
+cli_url="${cli_url%/}"
 
 require() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -76,7 +86,39 @@ fi
 existing_api_url=$(grep -E "^API_EXTERNAL_URL=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
 default_api_url="${existing_api_url:-http://localhost:8100}"
 
-if [[ -t 0 ]] && [[ "$default_api_url" == "http://localhost:8100" ]]; then
+if [[ -n "$cli_url" ]]; then
+  # Explicit URL via --url / KINBOARD_URL — authoritative in any mode
+  # (interactive, piped, or CI). Skips the prompt entirely.
+  api_url="$cli_url"
+  echo "→ using URL from --url/KINBOARD_URL: $api_url"
+elif [[ "$default_api_url" != "http://localhost:8100" ]]; then
+  # A non-localhost URL is already pinned in .env (re-run / pre-seeded /
+  # auto-update path) — reuse it without re-prompting.
+  api_url="$default_api_url"
+elif [[ ! -t 0 ]]; then
+  # stdin is not an interactive terminal AND no URL was supplied. Previously
+  # this SILENTLY defaulted to http://localhost:8100, which breaks every
+  # non-local device with no error. Fail loudly — unless the caller opted
+  # into local-only via --non-interactive.
+  if [[ $non_interactive -eq 1 ]]; then
+    api_url="$default_api_url"
+    echo "⚠ --non-interactive with no --url/KINBOARD_URL: defaulting to" >&2
+    echo "  http://localhost:8100 — only reachable from a browser on THIS" >&2
+    echo "  machine. Pass --url https://your-host[:port] (or set KINBOARD_URL)" >&2
+    echo "  to reach Kinboard from phones, tablets, or the kitchen kiosk." >&2
+  else
+    echo "error: can't determine the address Kinboard will be opened at." >&2
+    echo "       stdin isn't an interactive terminal, so the URL prompt was" >&2
+    echo "       skipped — and defaulting to localhost would silently break" >&2
+    echo "       access from every other device. Re-run one of these ways:" >&2
+    echo "         • interactively:        ./setup.sh" >&2
+    echo "         • with an explicit URL: ./setup.sh --url https://your-host[:port]" >&2
+    echo "         • via the environment:  KINBOARD_URL=https://your-host ./setup.sh" >&2
+    echo "       For local-only testing, pass --non-interactive to accept" >&2
+    echo "       http://localhost:8100." >&2
+    exit 1
+  fi
+elif [[ -t 0 ]] && [[ "$default_api_url" == "http://localhost:8100" ]]; then
   # Auto-detect plausible defaults for the suggestion line.
   detected_public_ip=$(curl -s --max-time 3 https://api.ipify.org 2>/dev/null || true)
   detected_lan_ip=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
@@ -523,3 +565,18 @@ cat <<EOF
   $([ ${#unset_keys[@]} -gt 0 ] && echo "3" || echo "2"). Open ${site_url} and create your first family.
 
 EOF
+
+# Push-notification status — call it out at the very end so a missing
+# VAPID key (e.g. Node.js wasn't installed at setup time) doesn't get lost
+# in the scrollback. Without these, calendar reminders + other push alerts
+# stay silently disabled.
+vapid_pub_now=$(grep -E "^VAPID_PUBLIC_KEY=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
+if [[ -z "$vapid_pub_now" ]]; then
+  cat <<'EOF'
+⚠ Push notifications are OFF — no VAPID keys are set (Node.js wasn't found
+  when secrets were generated). Calendar reminders and other push alerts
+  stay disabled until you add them. To enable:
+       install Node.js + npx, then re-run:  ./setup.sh --force
+
+EOF
+fi
