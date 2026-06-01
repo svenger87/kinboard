@@ -1202,6 +1202,8 @@
     "homeassistant": {
       "title": "Home Assistant",
       "subtitle": "Home automation and device control",
+      "reauthTitle": "Reconnect Home Assistant",
+      "reauthBody": "Home Assistant rejected the saved access token (it was revoked or expired), so the smart-home and energy pages have stopped updating. Paste a fresh long-lived access token below to reconnect.",
       "subtitleLoading": "Loading…",
       "loadingHint": "Loading settings…",
       "notConfiguredTitle": "Connect your Home Assistant instance",

@@ -1202,6 +1202,8 @@
     "homeassistant": {
       "title": "Home Assistant",
       "subtitle": "Hausautomation und Gerätesteuerung",
+      "reauthTitle": "Home Assistant neu verbinden",
+      "reauthBody": "Home Assistant hat das gespeicherte Zugriffstoken abgelehnt (widerrufen oder abgelaufen), daher werden die Smart-Home- und Energie-Seiten nicht mehr aktualisiert. Füge unten ein neues Long-Lived-Access-Token ein, um neu zu verbinden.",
       "subtitleLoading": "Laden...",
       "loadingHint": "Einstellungen werden geladen...",
       "notConfiguredTitle": "Home-Assistant-Instanz verbinden",

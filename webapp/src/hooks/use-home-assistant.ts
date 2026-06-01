@@ -89,6 +89,30 @@ export function useHomeAssistantConfig(isConnected?: boolean) {
   });
 }
 
+export type HAConnectionState = "ok" | "unauthorized" | "unreachable";
+
+// Live connection probe for the settings page: tells a REJECTED token
+// (HA returns 401 → the user must reconnect) apart from HA simply being
+// unreachable (network / HA down). useHomeAssistantConfig collapses both to
+// null, so it can't drive a reconnect prompt. Gate `enabled` on isConnected
+// so this only runs when a token is actually saved.
+export function useHomeAssistantConnectionCheck(enabled: boolean) {
+  const { family } = useFamilyStore();
+
+  return useQuery<HAConnectionState>({
+    queryKey: ["home-assistant-connection-check", family?.id],
+    queryFn: async (): Promise<HAConnectionState> => {
+      const response = await fetch(`/api/homeassistant?family_id=${family!.id}`);
+      if (response.ok) return "ok";
+      if (response.status === 401) return "unauthorized";
+      return "unreachable";
+    },
+    enabled: enabled && !!family?.id,
+    retry: false,
+    staleTime: 60000,
+  });
+}
+
 // Hook to test Home Assistant connection before saving
 export function useTestHomeAssistantConnection() {
   return useMutation({
