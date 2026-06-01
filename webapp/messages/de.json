@@ -979,6 +979,9 @@
       "unsupportediOSTitle": "Erst als PWA installieren",
       "unsupportediOSDescription": "Apple liefert Web-Push nur an iOS-PWAs aus, die auf dem Home-Bildschirm installiert sind. Öffne Kinboard in Safari, tippe auf Teilen → Zum Home-Bildschirm hinzufügen, öffne dann das neue Symbol und komme zurück auf diese Seite.",
       "unsupportedDocsLabel": "Einrichtungsanleitung →",
+      "vapidMissingTitle": "Push-Server nicht konfiguriert",
+      "vapidMissingDescription": "Auf dem Server sind keine VAPID-Schlüssel gesetzt, daher kann sich kein Gerät für Push anmelden — Kalender-Erinnerungen und andere Hinweise bleiben stumm. Erzeuge sie, indem du ./setup.sh --force erneut ausführst (Node.js muss installiert sein), oder trage VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY in webapp/docker/.env ein und starte den Webapp-Container neu.",
+      "vapidDocsLabel": "Push-Einrichtung →",
       "blockedTitle": "Benachrichtigungen blockiert",
       "blockedDescription": "Bitte erlaube Benachrichtigungen in den Browser-Einstellungen.",
       "pushLabel": "Push-Benachrichtigungen",
@@ -1916,6 +1919,9 @@
     "fieldCalendarPlaceholder": "Kalender auswählen…",
     "defaultBadge": "Standard",
     "noCalendarsHint": "Keine Kalender vorhanden. Verbinde Google Kalender in den Einstellungen.",
+    "noCalendarsBannerTitle": "Noch keine Kalender",
+    "noCalendarsBannerDescription": "Füge einen Kalender hinzu, um zu planen — verbinde Google Kalender oder hinterlege eine iCal-(.ics)-Feed-URL.",
+    "noCalendarsBannerAction": "Kalender hinzufügen",
     "setAsDefault": "Als Standard festlegen",
     "creating": "Erstellen…",
     "createButton": "Termin erstellen",
@@ -1959,6 +1965,9 @@
     "loadingAria": "Wetter wird geladen",
     "errorTitle": "Wetter nicht verfügbar",
     "errorFallback": "Keine Daten",
+    "notConfiguredTitle": "Wetter nicht eingerichtet",
+    "notConfiguredDescription": "Hinterlege einen OpenWeatherMap-API-Schlüssel, um das lokale Wetter anzuzeigen. Kostenlos und in einer Minute erledigt.",
+    "notConfiguredAction": "Wetter einrichten",
     "detailsAria": "Wetterdetails anzeigen",
     "humidityTooltip": "Luftfeuchtigkeit",
     "windSpeedTooltip": "Windgeschwindigkeit",
@@ -2500,7 +2509,21 @@
   },
   "dashboard": {
     "ariaClock": "Uhr und Familienmitglieder",
-    "ariaWidgets": "Dashboard Widgets"
+    "ariaWidgets": "Dashboard Widgets",
+    "pluginDiscover": {
+      "dismiss": "Auf diesem Gerät ausblenden",
+      "enableCta": "In den Einstellungen aktivieren",
+      "addCta": "Loslegen",
+      "vehiclesName": "Fahrzeuge",
+      "vehiclesDisabled": "Reichweite, Ladestand und Standort deiner Autos im Blick. Aktiviere das Plugin, um es zu nutzen.",
+      "vehiclesEmpty": "Füge dein erstes Fahrzeug hinzu, um Reichweite, Ladestand und Standort zu sehen.",
+      "stonksName": "Stonks",
+      "stonksDisabled": "Aktien, ETFs und Krypto auf einen Blick. Aktiviere das Plugin, um es zu nutzen.",
+      "stonksEmpty": "Füge dein erstes Wertpapier hinzu, um es auf dem Dashboard zu verfolgen.",
+      "pocketMoneyName": "Taschengeld",
+      "pocketMoneyDisabled": "Virtuelle Taschengeldkonten für die Kinder. Aktiviere das Plugin, um es zu nutzen.",
+      "pocketMoneyEmpty": "Lege ein Konto an, um das Taschengeld zu verfolgen."
+    }
   },
   "energy": {
     "title": "Energie",

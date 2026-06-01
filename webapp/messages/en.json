@@ -979,6 +979,9 @@
       "unsupportediOSTitle": "Install as PWA first",
       "unsupportediOSDescription": "Apple only delivers web push to iOS PWAs that have been added to the home screen. Open Kinboard in Safari, tap Share → Add to Home Screen, then open from the new icon and come back to this page.",
       "unsupportedDocsLabel": "Setup walkthrough →",
+      "vapidMissingTitle": "Push server not configured",
+      "vapidMissingDescription": "No VAPID keys are set on the server, so no device can subscribe to push — calendar reminders and other alerts stay silent. Generate them by re-running ./setup.sh --force (needs Node.js installed), or add VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY to webapp/docker/.env, then restart the webapp container.",
+      "vapidDocsLabel": "Push setup guide →",
       "blockedTitle": "Notifications blocked",
       "blockedDescription": "Please allow notifications in your browser settings.",
       "pushLabel": "Push notifications",
@@ -1916,6 +1919,9 @@
     "fieldCalendarPlaceholder": "Select calendar…",
     "defaultBadge": "Default",
     "noCalendarsHint": "No calendars available. Connect Google Calendar in settings.",
+    "noCalendarsBannerTitle": "No calendars yet",
+    "noCalendarsBannerDescription": "Add a calendar to start scheduling — connect Google Calendar or paste an iCal (.ics) feed URL.",
+    "noCalendarsBannerAction": "Add a calendar",
     "setAsDefault": "Set as default",
     "creating": "Creating…",
     "createButton": "Create event",
@@ -1959,6 +1965,9 @@
     "loadingAria": "Loading weather",
     "errorTitle": "Weather not available",
     "errorFallback": "No data",
+    "notConfiguredTitle": "Weather not set up",
+    "notConfiguredDescription": "Add an OpenWeatherMap API key to show local weather. It's free and takes a minute.",
+    "notConfiguredAction": "Set up weather",
     "detailsAria": "Show weather details",
     "humidityTooltip": "Humidity",
     "windSpeedTooltip": "Wind speed",
@@ -2500,7 +2509,21 @@
   },
   "dashboard": {
     "ariaClock": "Clock and family members",
-    "ariaWidgets": "Dashboard widgets"
+    "ariaWidgets": "Dashboard widgets",
+    "pluginDiscover": {
+      "dismiss": "Hide on this device",
+      "enableCta": "Enable in settings",
+      "addCta": "Get started",
+      "vehiclesName": "Vehicles",
+      "vehiclesDisabled": "Track your cars' range, charge and location. Enable the plugin to use it.",
+      "vehiclesEmpty": "Add your first vehicle to see range, charge and location here.",
+      "stonksName": "Stonks",
+      "stonksDisabled": "Watch stocks, ETFs and crypto at a glance. Enable the plugin to use it.",
+      "stonksEmpty": "Add your first ticker to track it on the dashboard.",
+      "pocketMoneyName": "Pocket Money",
+      "pocketMoneyDisabled": "Virtual pocket-money accounts for the kids. Enable the plugin to use it.",
+      "pocketMoneyEmpty": "Set up an account to start tracking pocket money."
+    }
   },
   "energy": {
     "title": "Energy",
