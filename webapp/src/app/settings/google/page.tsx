@@ -348,6 +348,38 @@ export default function GoogleSettingsPage() {
             />
           )}
 
+          {/* Reconnect needed — the stored refresh token was rejected
+              (invalid_grant) during a sync, so sync is silently dead until
+              the user re-authorizes. */}
+          {isConnected && googleStatus?.needs_reauth && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6"
+            >
+              <GlassCard className="p-4 border-destructive/30 bg-destructive/5">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="size-5 shrink-0 text-destructive mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{t("reauthTitle")}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t("reauthBody")}
+                    </p>
+                  </div>
+                  <Button
+                    variant="month"
+                    size="sm"
+                    onClick={handleConnect}
+                    className="shrink-0"
+                  >
+                    <RefreshCw className="size-4 mr-2" />
+                    {t("reauthButton")}
+                  </Button>
+                </div>
+              </GlassCard>
+            </motion.div>
+          )}
+
           {/* Connection Status */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}

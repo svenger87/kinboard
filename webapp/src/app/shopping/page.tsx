@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
@@ -19,6 +20,7 @@ import {
   Tag,
   MoreVertical,
   Pencil,
+  Link2,
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -648,6 +650,14 @@ export default function ShoppingPage() {
                   >
                     <Trash2 className="size-4 mr-2" />
                     {t("deleteChecked")}
+                  </Button>
+                )}
+                {!isBringConnected && (
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/settings/bring">
+                      <Link2 className="size-4 mr-2" />
+                      {t("connectBring")}
+                    </Link>
                   </Button>
                 )}
               </>
