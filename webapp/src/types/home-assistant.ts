@@ -1,5 +1,7 @@
 // Home Assistant Types
 
+import { safeRandomUUID } from "@/lib/uuid";
+
 // Entity state from HA REST API
 export interface HAEntityState {
   entity_id: string;
@@ -236,7 +238,7 @@ export const DEFAULT_ROOMS_CONFIG: RoomsConfig = {
 
 // Helper to generate a unique room ID
 export function generateRoomId(): string {
-  return `room_${crypto.randomUUID().slice(0, 8)}`;
+  return `room_${safeRandomUUID().slice(0, 8)}`;
 }
 
 // Energy configuration for energy dashboard
