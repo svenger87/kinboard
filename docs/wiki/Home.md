@@ -8,9 +8,9 @@ Kinboard runs on your hardware, in your house. No cloud account, no telemetry, n
 
 ## Start here
 
-1. **[Quick-start](Quick-start.md)** — bring up the stack with one Docker command
-2. **[Onboarding](Onboarding.md)** — create your first family, add devices
-3. **[Self-hosting](Self-hosting.md)** — deeper deployment guide (Traefik, override files, backups)
+1. **[Quick-start](Quick-start)** — bring up the stack with one Docker command
+2. **[Onboarding](Onboarding)** — create your first family, add devices
+3. **[Self-hosting](Self-hosting)** — deeper deployment guide (Traefik, override files, backups)
 
 ## Pick the integrations you actually use
 
@@ -18,32 +18,32 @@ Kinboard's integrations are all opt-in and configured per-family in the in-app `
 
 | Service | Purpose | Page |
 |---|---|---|
-| Google Calendar | Calendar sync, per-person mapping | [Google-Calendar](Google-Calendar.md) |
-| Home Assistant | Smart-home entities, energy dashboard, rooms | [Home-Assistant](Home-Assistant.md) |
-| Immich | Screensaver and gallery photos | [Immich](Immich.md) |
-| Bring! | Shopping list sync | [Bring](Bring.md) |
-| OpenWeatherMap | Weather widget + forecast | [OpenWeatherMap](OpenWeatherMap.md) |
-| Cameras (go2rtc) | Live WebRTC / RTSP / MJPEG streams | [Cameras](Cameras.md) |
+| Google Calendar | Calendar sync, per-person mapping | [Google-Calendar](Google-Calendar) |
+| Home Assistant | Smart-home entities, energy dashboard, rooms | [Home-Assistant](Home-Assistant) |
+| Immich | Screensaver and gallery photos | [Immich](Immich) |
+| Bring! | Shopping list sync | [Bring](Bring) |
+| OpenWeatherMap | Weather widget + forecast | [OpenWeatherMap](OpenWeatherMap) |
+| Cameras (go2rtc) | Live WebRTC / RTSP / MJPEG streams | [Cameras](Cameras) |
 
 ## Kiosk setups
 
 The reference deployment is a wall-mounted touchscreen running in browser kiosk mode:
 
-- **[Reference-Build](Reference-Build.md)** — full hardware BOM (touchscreen, mini PC, oak frame), vendor links, photos, assembly notes
-- **[Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C.md)** — software setup on top of the reference hardware, captured down to the registry keys and scheduled-task definitions
-- **[Kiosk-Linux-Guidance](Kiosk-Linux-Guidance.md)** — guidance for self-hosters who want to run on Linux
-- **[Presence-Sensor](Presence-Sensor.md)** — optional LD2410 radar presence sensor for screen-on/off automation
+- **[Reference-Build](Reference-Build)** — full hardware BOM (touchscreen, mini PC, oak frame), vendor links, photos, assembly notes
+- **[Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C)** — software setup on top of the reference hardware, captured down to the registry keys and scheduled-task definitions
+- **[Kiosk-Linux-Guidance](Kiosk-Linux-Guidance)** — guidance for self-hosters who want to run on Linux
+- **[Presence-Sensor](Presence-Sensor)** — optional LD2410 radar presence sensor for screen-on/off automation
 
 ## Ops
 
-- **[Security-and-Threat-Model](Security-and-Threat-Model.md)** — what Kinboard expects of your network and what it doesn't
-- **[Database-Schema](Database-Schema.md)** — tables, RLS policies, migration story
-- **[Notifications](Notifications.md)** — web push setup, server-side cron, quiet hours
-- **[Themes](Themes.md)** — monthly themes, English + German
-- **[Troubleshooting](Troubleshooting.md)** — common breakages and fixes
+- **[Security-and-Threat-Model](Security-and-Threat-Model)** — what Kinboard expects of your network and what it doesn't
+- **[Database-Schema](Database-Schema)** — tables, RLS policies, migration story
+- **[Notifications](Notifications)** — web push setup, server-side cron, quiet hours
+- **[Themes](Themes)** — monthly themes, English + German
+- **[Troubleshooting](Troubleshooting)** — common breakages and fixes
 
 ## Status
 
-Kinboard is single-maintainer, MIT-licensed, and supported on best-effort. Bug reports and PRs welcome — see [`CONTRIBUTING.md`](https://github.com/svenger87/kinboard/blob/main/CONTRIBUTING.md). Security issues to **security@svenger87.de** (see [Security-and-Threat-Model](Security-and-Threat-Model.md)).
+Kinboard is single-maintainer, MIT-licensed, and supported on best-effort. Bug reports and PRs welcome — see [`CONTRIBUTING.md`](https://github.com/svenger87/kinboard/blob/main/CONTRIBUTING.md). Security issues to **security@svenger87.de** (see [Security-and-Threat-Model](Security-and-Threat-Model)).
 
 If Kinboard is useful to your family and you'd like to help keep it healthy: [GitHub Sponsors](https://github.com/sponsors/svenger87) (recurring) or [Buy Me a Coffee](https://buymeacoffee.com/sven.7687) (one-time tip).

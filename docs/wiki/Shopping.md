@@ -55,7 +55,7 @@ If you've **already installed the main Kinboard PWA** and want the shopping one 
 
 Both can be installed on the same device.
 
-For the general PWA install how-to (iOS quirks, Android variations), see [Notifications → Installing as a PWA](Notifications.md#installing-as-a-pwa).
+For the general PWA install how-to (iOS quirks, Android variations), see [Notifications → Installing as a PWA](Notifications#installing-as-a-pwa).
 
 ## Adding items
 
@@ -90,7 +90,7 @@ Items are grouped by category for supermarket-aisle order. The default categorie
 
 Auto-categorization uses a German keyword list (~2000 entries) — works great in German, partial in English. To override an item's category, tap the item, change category in the dropdown.
 
-[Localized labels](Themes.md) in EN + DE.
+[Localized labels](Themes) in EN + DE.
 
 ## Item lifecycle
 
@@ -107,7 +107,7 @@ Auto-categorization uses a German keyword list (~2000 entries) — works great i
 
 You don't need Bring at all — the built-in shopping list is fully featured on its own. Connect Bring only if your family already uses Bring as their phone shopping app and you want a single list that works in both places.
 
-If you've connected [Bring!](Bring.md), items sync two-way every 2 minutes:
+If you've connected [Bring!](Bring), items sync two-way every 2 minutes:
 
 - Add in Kinboard → appears in Bring! on family members' phones
 - Add in Bring! on a phone → appears in Kinboard
@@ -131,7 +131,7 @@ Kinboard remembers items per family in `public.item_catalog`. When you add "Müs
 
 ## Notifications
 
-Shopping list pushes (per [Notifications](Notifications.md)):
+Shopping list pushes (per [Notifications](Notifications)):
 
 - **New item added** → notify other devices (configurable per device)
 - **Reminder for open list** → notify if the list is non-empty for >24 h (configurable)
@@ -154,6 +154,6 @@ Tweak in **Settings → Notifications**.
 
 ## Related
 
-- [Bring](Bring.md) — full Bring! sync setup
-- [Recipes](Recipes.md) — adding recipe ingredients to the list
-- [Notifications](Notifications.md) — push setup for shopping events
+- [Bring](Bring) — full Bring! sync setup
+- [Recipes](Recipes) — adding recipe ingredients to the list
+- [Notifications](Notifications) — push setup for shopping events

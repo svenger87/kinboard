@@ -16,7 +16,7 @@ The reason for choosing Windows over Linux on a wall-mounted touchscreen comes d
 | Sensor | HLK-LD2410 mounted on top of the frame (optional) |
 | Connectivity | Mele has Wi-Fi 5 + 2.5 GbE; reference build runs on Wi-Fi at 192.168.1.x |
 
-For the **full build** — BOM, vendor links, frame construction, cabling, photos — see [Reference-Build](Reference-Build.md). This page covers the **software** that runs on top.
+For the **full build** — BOM, vendor links, frame construction, cabling, photos — see [Reference-Build](Reference-Build). This page covers the **software** that runs on top.
 
 The unit captured for this wiki has these specifics:
 
@@ -149,7 +149,7 @@ Edit the URL constant:
 API_URL = os.environ.get("KINBOARD_URL", "http://localhost:3001").rstrip("/") + "/api/presence"
 ```
 
-Or set `KINBOARD_URL` in the user environment so the same script works across redeployments. See [Presence-Sensor](Presence-Sensor.md) for full setup details.
+Or set `KINBOARD_URL` in the user environment so the same script works across redeployments. See [Presence-Sensor](Presence-Sensor) for full setup details.
 
 ### 6. Drop the display sleep / wake helpers
 
@@ -313,7 +313,7 @@ Then drop your public key into `C:\Users\Calendar\.ssh\authorized_keys` and you 
 
 ## Related
 
-- [Reference-Build](Reference-Build.md) — full BOM, frame construction, photos, cabling
-- [Presence-Sensor](Presence-Sensor.md) — full LD2410 setup
-- [Kiosk-Linux-Guidance](Kiosk-Linux-Guidance.md) — if you want to run on Linux instead
-- [Self-hosting](Self-hosting.md) — the Kinboard host the kiosk points at
+- [Reference-Build](Reference-Build) — full BOM, frame construction, photos, cabling
+- [Presence-Sensor](Presence-Sensor) — full LD2410 setup
+- [Kiosk-Linux-Guidance](Kiosk-Linux-Guidance) — if you want to run on Linux instead
+- [Self-hosting](Self-hosting) — the Kinboard host the kiosk points at

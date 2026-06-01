@@ -1,6 +1,6 @@
 # Kiosk on Linux (guidance)
 
-The maintainer's reference deployment runs Windows 11 (see [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C.md)) — primarily for the auto-popping on-screen keyboard. The Linux story is **untested as a shipped product**, but plenty of self-hosters prefer Linux. This page documents the moving pieces so you can roll your own.
+The maintainer's reference deployment runs Windows 11 (see [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C)) — primarily for the auto-popping on-screen keyboard. The Linux story is **untested as a shipped product**, but plenty of self-hosters prefer Linux. This page documents the moving pieces so you can roll your own.
 
 > ⚠ This page is **guidance**, not a step-by-step recipe. Earlier versions of this repo shipped six bash launch variants; they're gone now because nobody dogfoods them. If you build a working Linux kiosk on top of this guidance and want to upstream the docs back, PRs welcome.
 
@@ -151,7 +151,7 @@ ATTRS{name}=="ILITEK Multi-Touch", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 1 0 -1 0 
 - **GNOME (Mutter)**: D-Bus method `org.gnome.Mutter.DisplayConfig.Power` (custom; or `xset dpms force off` under XWayland)
 - **X11**: `xset dpms force off` / `xset dpms force on`
 
-The presence sensor script can call any of these. See [Presence-Sensor](Presence-Sensor.md) for the configurable backend hooks.
+The presence sensor script can call any of these. See [Presence-Sensor](Presence-Sensor) for the configurable backend hooks.
 
 ## Why we don't ship working scripts
 
@@ -161,6 +161,6 @@ If you're a Linux self-hoster who'd like to upstream working scripts: open a dis
 
 ## Related
 
-- [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C.md) — the working reference deployment
-- [Presence-Sensor](Presence-Sensor.md) — sensor wiring and DPMS hooks
-- [Quick-start](Quick-start.md) — bring up the host that the kiosk points at
+- [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C) — the working reference deployment
+- [Presence-Sensor](Presence-Sensor) — sensor wiring and DPMS hooks
+- [Quick-start](Quick-start) — bring up the host that the kiosk points at

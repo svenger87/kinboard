@@ -15,7 +15,7 @@ The dashboard is a **monthly-themed clock + widget grid** designed to glance at,
 3. **Clock** — large centered, time + day + date + family-members avatars (with status)
 4. **Widget grid** — the configurable section, see below
 
-The clock follows the [monthly theme](Themes.md) color. Date format follows the active locale.
+The clock follows the [monthly theme](Themes) color. Date format follows the active locale.
 
 ## Today strip
 
@@ -37,15 +37,15 @@ The main dashboard area. Widgets are toggle-able per family in **Settings → Wi
 
 | Widget | What |
 |---|---|
-| **Weather** | Current temperature, wind, 6-day forecast. Tap → full weather modal. See [OpenWeatherMap](OpenWeatherMap.md). |
+| **Weather** | Current temperature, wind, 6-day forecast. Tap → full weather modal. See [OpenWeatherMap](OpenWeatherMap). |
 | **Upcoming events** | Next 3-5 calendar events (today + future). Tap → `/calendar`. |
-| **Schedule** | Today's school periods for selected child. Tap → `/schedule`. See [Schedule](Schedule.md). |
-| **Birthdays** | Closest 3 upcoming birthdays with countdown. Tap → `/birthdays`. See [Birthdays](Birthdays.md). |
+| **Schedule** | Today's school periods for selected child. Tap → `/schedule`. See [Schedule](Schedule). |
+| **Birthdays** | Closest 3 upcoming birthdays with countdown. Tap → `/birthdays`. See [Birthdays](Birthdays). |
 | **Week overview** | 7-day strip with event/task density per day. |
-| **Meal plan** | Today's planned meals (breakfast / lunch / dinner / snack). See [Recipes](Recipes.md). |
+| **Meal plan** | Today's planned meals (breakfast / lunch / dinner / snack). See [Recipes](Recipes). |
 | **Waste collection** | Next pickups grouped by waste type. Reads any Google Calendar marked as a "waste pickup" calendar. |
-| **Tasks** | Open todos, sorted by priority + due date. See [Tasks](Tasks.md). |
-| **Notes** | Latest 3 family notes + "+ new note" pinned to bottom. See [Notes](Notes.md). |
+| **Tasks** | Open todos, sorted by priority + due date. See [Tasks](Tasks). |
+| **Notes** | Latest 3 family notes + "+ new note" pinned to bottom. See [Notes](Notes). |
 | **Tesla** | Battery, range, charging status (only if Tesla integration configured — slated for plugin extraction in v1.1). |
 
 Each widget independently toggleable in **Settings → Widgets**. The toggle has a live mini-preview so you can see what each looks like before enabling.
@@ -62,15 +62,15 @@ Tapping an avatar surfaces upcoming events / pending todos for that person speci
 
 > TODO: screenshot of the family-members avatar row
 
-Configure people in [Settings → Family members](Family-Members.md).
+Configure people in [Settings → Family members](Family-Members).
 
 ## Real-time sync
 
-Every value on the dashboard updates within ~100 ms of a database change anywhere — events synced from Google, todos checked off on a phone, shopping items ticked at the supermarket. See [Architecture](Architecture.md#real-time-invalidation).
+Every value on the dashboard updates within ~100 ms of a database change anywhere — events synced from Google, todos checked off on a phone, shopping items ticked at the supermarket. See [Architecture](Architecture#real-time-invalidation).
 
 ## Behavior on the kiosk
 
-The dashboard is what the [kiosk](Kiosk-Windows-11-Mele-4C.md) shows when it's idle. The screensaver kicks in after the configured timeout (or when the LD2410 detects no presence — see [Presence-Sensor](Presence-Sensor.md)).
+The dashboard is what the [kiosk](Kiosk-Windows-11-Mele-4C) shows when it's idle. The screensaver kicks in after the configured timeout (or when the LD2410 detects no presence — see [Presence-Sensor](Presence-Sensor)).
 
 ## Customization
 
@@ -83,6 +83,6 @@ The widget *order* is fixed for now (defined in `webapp/src/app/page.tsx`). Drag
 
 ## Related
 
-- [Themes](Themes.md) — the monthly color cycle
-- [Family-Members](Family-Members.md) — per-person colors and avatars
-- [Notifications](Notifications.md) — what shows up as a push when widgets change
+- [Themes](Themes) — the monthly color cycle
+- [Family-Members](Family-Members) — per-person colors and avatars
+- [Notifications](Notifications) — what shows up as a push when widgets change

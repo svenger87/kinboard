@@ -8,7 +8,7 @@ This directory holds the Markdown sources for the project's GitHub Wiki. They li
 - GitHub wikis are **flat** — no subdirectories. Use prefix-style names instead (`Google-Calendar.md`, `Kiosk-Windows-11-Mele-4C.md`).
 - `_Sidebar.md` and `_Footer.md` render on every wiki page.
 - `Home.md` is the landing page.
-- Internal links use the `[Page-Name](Page-Name.md)` shorthand on GitHub wikis. In this repo they render as broken links (deliberate — viewing the wiki on GitHub is the canonical view).
+- Internal links must be **extensionless**: `[Quick start](Quick-start)`, NOT `(Quick-start.md)`. On a GitHub wiki the `.md` suffix makes GitHub serve the raw file (`raw.githubusercontent.com/wiki/...`) instead of the rendered page, so `.md` links are broken navigation. (In-repo these extensionless links don't resolve — the rendered wiki is the canonical view.)
 - Images live in `docs/wiki/images/` and are copied across when publishing.
 
 ## Publishing
@@ -37,37 +37,37 @@ A small `docs/wiki/sync.sh` script can be added later to make this a one-liner.
 
 | Page | Status |
 |---|---|
-| [Home](Home.md) | Authored |
-| [Quick-start](Quick-start.md) | Authored |
-| [Architecture](Architecture.md) | Authored |
-| [Self-hosting](Self-hosting.md) | Authored |
-| [Onboarding](Onboarding.md) | Authored |
-| [Security-and-Threat-Model](Security-and-Threat-Model.md) | Authored |
-| [Database-Schema](Database-Schema.md) | Authored |
-| [Google-Calendar](Google-Calendar.md) | Authored — TODO screenshots |
-| [Home-Assistant](Home-Assistant.md) | Authored — TODO screenshots |
-| [Immich](Immich.md) | Authored — TODO screenshots |
-| [Bring](Bring.md) | Authored — TODO screenshots |
-| [OpenWeatherMap](OpenWeatherMap.md) | Authored |
-| [Cameras](Cameras.md) | Authored |
-| [Reference-Build](Reference-Build.md) | Authored — BOM, frame, photos, vendor links |
-| [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C.md) | Authored from production capture |
-| [Kiosk-Linux-Guidance](Kiosk-Linux-Guidance.md) | Authored as guidance |
-| [Presence-Sensor](Presence-Sensor.md) | Authored |
-| [Notifications](Notifications.md) | Authored — PWA install + iOS quirks |
-| [Themes](Themes.md) | Authored |
-| [Troubleshooting](Troubleshooting.md) | Authored — grow as bugs surface |
-| [Plugin-Authoring](Plugin-Authoring.md) | Stub — v1.1 workstream |
-| [Dashboard](Dashboard.md) | Authored — TODO screenshots |
-| [Calendar](Calendar.md) | Authored — two-way Google sync — TODO screenshots |
-| [Shopping](Shopping.md) | Authored — built-in offline + optional Bring — TODO screenshots |
-| [Recipes](Recipes.md) | Authored — Chefkoch + schema.org URL import — TODO screenshots |
-| [Tasks](Tasks.md) | Authored — TODO screenshots |
-| [Notes](Notes.md) | Authored — TODO screenshots |
-| [Birthdays](Birthdays.md) | Authored — TODO screenshots |
-| [Schedule](Schedule.md) | Authored — TODO screenshots |
-| [Smart-Home](Smart-Home.md) | Authored — TODO screenshots |
-| [Screensaver](Screensaver.md) | Authored — TODO screenshots |
-| [Family-Members](Family-Members.md) | Authored — TODO screenshots |
-| [Devices](Devices.md) | Authored — TODO screenshots |
-| [Screenshots-needed](Screenshots-needed.md) | Master list of every TODO screenshot |
+| [Home](Home) | Authored |
+| [Quick-start](Quick-start) | Authored |
+| [Architecture](Architecture) | Authored |
+| [Self-hosting](Self-hosting) | Authored |
+| [Onboarding](Onboarding) | Authored |
+| [Security-and-Threat-Model](Security-and-Threat-Model) | Authored |
+| [Database-Schema](Database-Schema) | Authored |
+| [Google-Calendar](Google-Calendar) | Authored — TODO screenshots |
+| [Home-Assistant](Home-Assistant) | Authored — TODO screenshots |
+| [Immich](Immich) | Authored — TODO screenshots |
+| [Bring](Bring) | Authored — TODO screenshots |
+| [OpenWeatherMap](OpenWeatherMap) | Authored |
+| [Cameras](Cameras) | Authored |
+| [Reference-Build](Reference-Build) | Authored — BOM, frame, photos, vendor links |
+| [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C) | Authored from production capture |
+| [Kiosk-Linux-Guidance](Kiosk-Linux-Guidance) | Authored as guidance |
+| [Presence-Sensor](Presence-Sensor) | Authored |
+| [Notifications](Notifications) | Authored — PWA install + iOS quirks |
+| [Themes](Themes) | Authored |
+| [Troubleshooting](Troubleshooting) | Authored — grow as bugs surface |
+| [Plugin-Authoring](Plugin-Authoring) | Stub — v1.1 workstream |
+| [Dashboard](Dashboard) | Authored — TODO screenshots |
+| [Calendar](Calendar) | Authored — two-way Google sync — TODO screenshots |
+| [Shopping](Shopping) | Authored — built-in offline + optional Bring — TODO screenshots |
+| [Recipes](Recipes) | Authored — Chefkoch + schema.org URL import — TODO screenshots |
+| [Tasks](Tasks) | Authored — TODO screenshots |
+| [Notes](Notes) | Authored — TODO screenshots |
+| [Birthdays](Birthdays) | Authored — TODO screenshots |
+| [Schedule](Schedule) | Authored — TODO screenshots |
+| [Smart-Home](Smart-Home) | Authored — TODO screenshots |
+| [Screensaver](Screensaver) | Authored — TODO screenshots |
+| [Family-Members](Family-Members) | Authored — TODO screenshots |
+| [Devices](Devices) | Authored — TODO screenshots |
+| [Screenshots-needed](Screenshots-needed) | Master list of every TODO screenshot |
