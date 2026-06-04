@@ -6,6 +6,9 @@
     "save": "Speichern",
     "delete": "Löschen",
     "edit": "Bearbeiten",
+    "copy": "Kopieren",
+    "moreOptions": "Weitere Optionen",
+    "addItem": "Artikel hinzufügen",
     "searchClear": "Suche leeren",
     "newEntriesAria": "{count, plural, one {# neuer Eintrag} other {# neue Einträge}}",
     "seeOnDashboardOrNewsPage": "auf dem Dashboard-Widget oder unter /news"
@@ -602,8 +605,8 @@
     "deleteDescription": "Das Rezept wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
     "deleteFailed": "Rezept konnte nicht gelöscht werden",
     "timeMinutes": "{count} Min",
-    "timeHours": "{hours}h",
-    "timeHoursMinutes": "{hours}h {minutes}m",
+    "timeHours": "{hours} Std.",
+    "timeHoursMinutes": "{hours} Std. {minutes} Min",
     "difficulty": {
       "einfach": "Einfach",
       "mittel": "Mittel",
@@ -815,7 +818,7 @@
     "leaveFamilyDescription": "Dieses Gerät wird von der Familie „{name}“ getrennt. Du kannst dich jederzeit mit dem Familien-Code wieder verbinden.",
     "leaveFamilyConfirm": "Verlassen",
     "backToDashboard": "← Zurück zum Dashboard",
-    "appVersion": "Kinboard v1.0.0",
+    "appVersion": "Kinboard",
     "deviceLabel": "Gerät: {name}",
     "widgets": {
       "title": "Widgets",
@@ -2623,7 +2626,7 @@
     "emptyTitle": "Noch nichts geplant",
     "emptyDescription": "Mahlzeiten für heute planen",
     "timeMinutes": "{count} Min",
-    "timeHoursMinutes": "{hours}h {minutes}m",
+    "timeHoursMinutes": "{hours} Std. {minutes} Min",
     "timeHoursOnly": "{hours}h"
   },
   "tesla": {

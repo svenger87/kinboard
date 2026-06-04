@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { useState, useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, MotionConfig } from "framer-motion";
 import { useRealtimeSync, useIdleTimeout } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { usePresence } from "@/hooks/use-presence";
@@ -139,6 +139,7 @@ export function Providers({ children }: { children: ReactNode }) {
         enableSystem
         disableTransitionOnChange
       >
+        <MotionConfig reducedMotion="user">
         <Toaster position="bottom-right" richColors />
         <StorageMigration>
           <AuthGuard>
@@ -162,6 +163,7 @@ export function Providers({ children }: { children: ReactNode }) {
             </ThemeSettingsProvider>
           </AuthGuard>
         </StorageMigration>
+        </MotionConfig>
       </ThemeProvider>
     </QueryClientProvider>
   );

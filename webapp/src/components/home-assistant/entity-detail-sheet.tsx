@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import dynamic from "next/dynamic";
 import {
   Dialog,
   DialogContent,
@@ -25,8 +26,13 @@ import {
 import { useTranslations, useLocale } from "next-intl";
 import { getIntlLocale } from "@/i18n/intl-locale";
 import { useEntityHistory, useToggleEntity, useLightControl, useCallService } from "@/hooks";
-import { MiniChart } from "./mini-chart";
 import type { HAEntity, DashboardCard } from "@/types/home-assistant";
+
+// Lazy-load the chart (recharts) so it isn't in the initial bundle — it only
+// renders inside the entity detail sheet, on demand.
+const MiniChart = dynamic(() => import("./mini-chart").then((m) => m.MiniChart), {
+  ssr: false,
+});
 
 type AttributeKey =
   | "brightness" | "color_temp" | "supported_color_modes" | "current_power_w"

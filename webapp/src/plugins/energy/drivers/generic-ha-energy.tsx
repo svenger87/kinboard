@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
 import { getIntlLocale } from "@/i18n/intl-locale";
@@ -49,12 +50,24 @@ import {
   useHomeAssistantEntities,
 } from "@/hooks";
 import { EnergyFlow } from "@/components/home-assistant/energy-flow";
-import { PowerChart } from "@/components/home-assistant/power-chart";
-import { EnergyChart } from "@/components/home-assistant/energy-chart";
-import { BatteryChart } from "@/components/home-assistant/battery-chart";
 import { StatisticsCard, StatisticsGrid } from "@/components/home-assistant/statistics-card";
 import type { EnergyConfig, HAEntity } from "@/types/home-assistant";
 import type { EnergyDriver } from "./types";
+
+// Charts pull in recharts; load them lazily so the library isn't in the
+// initial bundle for a kiosk that may never open the energy dashboard.
+const PowerChart = dynamic(
+  () => import("@/components/home-assistant/power-chart").then((m) => m.PowerChart),
+  { ssr: false }
+);
+const EnergyChart = dynamic(
+  () => import("@/components/home-assistant/energy-chart").then((m) => m.EnergyChart),
+  { ssr: false }
+);
+const BatteryChart = dynamic(
+  () => import("@/components/home-assistant/battery-chart").then((m) => m.BatteryChart),
+  { ssr: false }
+);
 
 // ============================================================================
 // EnergyCard — the /energy dashboard (extracted from app/energy/page.tsx)

@@ -134,6 +134,7 @@ function Go2rtcCard() {
 
 function Go2rtcConfigForm() {
   const t = useTranslations("settings.cameras");
+  const tCommon = useTranslations("common");
   const { data: settings, isLoading } = useCameraSettings();
   const addCamera = useAddCamera();
   const updateCamera = useUpdateCamera();
@@ -336,6 +337,7 @@ function Go2rtcConfigForm() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              aria-label={tCommon("delete")}
                               className="size-8 text-destructive hover:text-destructive"
                             >
                               <Trash2 className="size-4" />

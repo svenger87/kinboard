@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { TrendingUp, TrendingDown, Minus, LineChart } from "lucide-react";
 import type { Ticker } from "@/types/database";
@@ -12,8 +13,14 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CandleChart } from "@/components/stonks/candle-chart";
 import type { StonksDriver } from "./types";
+
+// lightweight-charts is sizable; load the candle chart on demand so it's not
+// in the initial bundle for users who never open a ticker.
+const CandleChart = dynamic(
+  () => import("@/components/stonks/candle-chart").then((m) => m.CandleChart),
+  { ssr: false }
+);
 
 const TIMEFRAMES: Timeframe[] = ["1d", "1w", "1m", "3m", "1y", "max"];
 
