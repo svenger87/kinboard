@@ -12,12 +12,9 @@ Calendar · weather · photos · shopping list · smart-home — one screen, eve
 [![Stars](https://img.shields.io/github/stars/svenger87/kinboard?style=flat-square&logo=github&cacheSeconds=300)](https://github.com/svenger87/kinboard/stargazers)
 [![Issues](https://img.shields.io/github/issues/svenger87/kinboard?style=flat-square&cacheSeconds=300)](https://github.com/svenger87/kinboard/issues)
 
-[![Sponsor](https://img.shields.io/badge/Sponsor-svenger87-ea4aaa?logo=githubsponsors&logoColor=white&style=flat-square)](https://github.com/sponsors/svenger87)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-sven.7687-FFDD00?logo=buymeacoffee&logoColor=000&style=flat-square)](https://buymeacoffee.com/sven.7687)
-
 <br/>
 
-### **[Visit kinboard.app](https://kinboard.app)** &nbsp;·&nbsp; **[▶ Try the live demo](https://demo.kinboard.app)**
+### **[▶ Try the live demo](https://demo.kinboard.app)** &nbsp;·&nbsp; **[Visit kinboard.app](https://kinboard.app)**
 
 <sub>The landing page at **[kinboard.app](https://kinboard.app)** has the pitch, screenshots, and install path. The demo at **[demo.kinboard.app](https://demo.kinboard.app)** runs the latest tagged release with mock integrations — use join code **`DEMO01`** to load a populated household, or create your own family from scratch. Demo data resets daily.</sub>
 
@@ -59,6 +56,8 @@ Family logistics are scattered across calendars, chat threads, sticky notes, and
 - **Touch-friendly.** Designed for wall-mounted tablets first; mobile and desktop are first-class too.
 - **Modular.** Pick the integrations you actually use; the rest stay invisible.
 
+**How it compares:** Kinboard is *interactive and shared*, not a read-only wall display. Unlike **DAKboard**, there's no subscription and no cloud account — your data stays on your hardware. Unlike **MagicMirror²**, there are no per-module config files to hand-edit; you configure everything in the UI, and edits sync to every device in real time. And unlike a generic **Home Assistant dashboard**, it's built family-first — calendar, shopping, meals, chores, school schedule, and pocket money are first-class features, not entity cards you assemble yourself.
+
 ---
 
 ## Features
@@ -90,9 +89,7 @@ The full wiki has a page for every feature plus integration setup, kiosk hardwar
 
 ## Quick start
 
-You need **Docker** (with Compose v2), **Node.js 20+** (for the VAPID key generator that powers push notifications — `setup.sh` uses `npx`; if Node.js is missing, setup completes but push notifications stay disabled), ~2 GB free disk, and ~10 minutes. The bundled `docker-compose.yml` brings up the Next.js app, a self-hosted Supabase stack, and supporting services.
-
-> **RAM**: the local Next.js build peaks around **4 GB**, plus another ~3-4 GB during type-check and static-page generation. On a 4 GB VM you'll need **≥ 8 GB total swap** to avoid OOM kills during build (`fallocate -l 8G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile`). Or — recommended — skip the build entirely by using the pre-built image at [`docker-compose.image.yml`](webapp/docker/docker-compose.image.yml). That drops bring-up to ~30 sec and needs only ~512 MB at runtime.
+**Prerequisites:** **Docker** (with Compose v2), ~2 GB free disk, ~10 minutes. That's it. `./start.sh up` **pulls the pre-built multi-arch image** (amd64 + arm64) from `ghcr.io` by default — no local build, ~30 seconds to first paint, ~512 MB RAM at runtime. It brings up the Next.js app, a self-hosted Supabase stack, and supporting services.
 
 If you don't have Docker yet:
 
@@ -107,14 +104,14 @@ git clone https://github.com/svenger87/kinboard.git
 cd kinboard
 ./setup.sh                # generate random secrets + Supabase JWT keys
 cd webapp/docker
-./start.sh up             # docker compose up -d
+./start.sh up             # pulls the pre-built image + starts the stack
 ```
 
-Open `http://<server-ip>:3001` (or `http://localhost:3001` if local), follow the setup wizard to create your first family, and start adding integrations from `/settings`.
+Open `http://<server-ip>:3001` (or `http://localhost:3001` if local), follow the setup wizard to create your first family, and start adding integrations from `/settings`. Want to look before you install? **[Try the live demo →](https://demo.kinboard.app)** (join code `DEMO01`).
 
-> **Push notifications** require Node.js for VAPID key generation. If `node` isn't on PATH when `setup.sh` runs, push stays disabled (everything else works); install Node.js + re-run `./setup.sh --force` later to enable.
+> **Push notifications** need **Node.js 20+** for a one-time VAPID key generation. If `node` isn't on PATH when `setup.sh` runs, push stays disabled (everything else works); install Node.js + re-run `./setup.sh --force` later to enable.
 
-> **Skip the local build** by using the pre-built multi-arch image (amd64 + arm64) at `ghcr.io/svenger87/kinboard:latest`. Drops bring-up to ~30 sec and ~512 MB RAM at runtime instead of 4 GB+ during build. See [`webapp/docker/docker-compose.image.yml`](webapp/docker/docker-compose.image.yml) for the overlay.
+> **Building from source** instead? Remove the [`docker-compose.image.yml`](webapp/docker/docker-compose.image.yml) overlay and the local Next.js build peaks around **4 GB** RAM, plus ~3–4 GB during type-check + static-page generation — on a 4 GB VM add **≥ 8 GB swap** to avoid OOM kills (`fallocate -l 8G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile`). Pulling the pre-built image (the default above) skips all of that.
 
 ### Updating
 
@@ -170,13 +167,13 @@ A light-mode variant of every screenshot is available with `-light` suffix (e.g.
 | Bring! | Shopping list sync (built-in list works without it) | Optional |
 | go2rtc | WebRTC camera streams | Optional |
 
-Niche integrations (Tesla Fleet, Zendure SolarFlow batteries, etc.) ship as opt-in plugins. A plugin authoring guide is in the works.
+Niche integrations (Tesla Fleet, Zendure SolarFlow batteries, etc.) ship as opt-in plugins. See the [plugin authoring guide](https://github.com/svenger87/kinboard/wiki/Plugin-Authoring) to build your own.
 
 ---
 
 ## Tech stack
 
-- **[Next.js](https://nextjs.org/) 14** (App Router) + **[React](https://react.dev/) 18**
+- **[Next.js](https://nextjs.org/) 16** (App Router) + **[React](https://react.dev/) 19**
 - **[shadcn/ui](https://ui.shadcn.com/)** + **[Tailwind CSS](https://tailwindcss.com/)** for UI
 - **[TanStack Query](https://tanstack.com/query)** (server state) + **[Zustand](https://zustand-demo.pmnd.rs/)** (client state)
 - **[Supabase](https://supabase.com/)** (Postgres + Realtime) — self-hosted
@@ -211,7 +208,7 @@ The wiki is the source of truth for everything beyond this README:
 
 ## Status & roadmap
 
-**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.1.0](https://github.com/svenger87/kinboard/releases/tag/v1.1.0) (2026-05-11).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Diun + the self-update webhook; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
+**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.2.0](https://github.com/svenger87/kinboard/releases/tag/v1.2.0) (2026-06-01).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Diun + the self-update webhook; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
 
 **Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](https://github.com/svenger87/kinboard/wiki/Security-and-Threat-Model) and [`SECURITY.md`](SECURITY.md).
 
@@ -254,7 +251,7 @@ Quick orientation:
 - **Plugins** — the plugin system isn't carved in stone yet; open a discussion to help shape it
 - **Security** — see [`SECURITY.md`](SECURITY.md) — please don't file public issues for credential / data-access vulnerabilities
 
-CI runs ESLint + i18n bundle parity + shellcheck on every PR. The codebase deliberately doesn't run `next build` in CI to keep the dev-server experience predictable; production builds happen in the Docker image workflow.
+CI runs ESLint + i18n bundle parity + shell-syntax checks (`bash -n`) + migration-order lint on every PR, plus the Docker-stack E2E smoke run. The codebase deliberately doesn't run `next build` in CI to keep the dev-server experience predictable; production builds happen in the Docker image workflow.
 
 ---
 
