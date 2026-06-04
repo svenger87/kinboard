@@ -12,6 +12,7 @@ import {
   Signal,
 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
+import { getIntlLocale } from "@/i18n/intl-locale";
 import type { HAEntity, RoomEntity } from "@/types/home-assistant";
 
 interface SensorDisplayItemProps {
@@ -97,7 +98,7 @@ function formatSensorValue(state: string, unit: string | undefined, intlLocale: 
 export function SensorDisplayItem({ roomEntity, entity }: SensorDisplayItemProps) {
   const tState = useTranslations("homeAutomation.entityState");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+  const intlLocale = getIntlLocale(locale);
   const isUnavailable = entity.state === "unavailable" || entity.state === "unknown";
   const label = roomEntity.display_name || entity.name;
   const deviceClass = entity.attributes.device_class as string | undefined;

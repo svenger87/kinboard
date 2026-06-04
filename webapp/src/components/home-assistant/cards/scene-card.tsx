@@ -2,6 +2,7 @@
 
 import { Sparkles, Play, Loader2, Clock } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
+import { getIntlLocale } from "@/i18n/intl-locale";
 import { Button } from "@/components/ui/button";
 import { useActivateScene } from "@/hooks";
 import type { HAEntity, DashboardCard } from "@/types/home-assistant";
@@ -14,7 +15,7 @@ interface SceneCardProps {
 export function SceneCard({ card, entity }: SceneCardProps) {
   const t = useTranslations("homeAutomation.cards.scene");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+  const intlLocale = getIntlLocale(locale);
   const { activate, isPending } = useActivateScene();
 
   const label = card.display_name || entity.name;

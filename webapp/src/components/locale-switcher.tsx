@@ -4,12 +4,7 @@ import { useState } from "react";
 import { useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-
-const LOCALES = [
-  { code: "en", label: "EN" },
-  { code: "de", label: "DE" },
-  { code: "fr", label: "FR" },
-] as const;
+import { LOCALES } from "@/i18n/locales";
 
 export function LocaleSwitcher({ className }: { className?: string }) {
   const current = useLocale();

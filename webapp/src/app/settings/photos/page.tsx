@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
+import { getIntlLocale } from "@/i18n/intl-locale";
 import { format } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import {
@@ -222,7 +223,7 @@ export default function PhotoSettingsPage() {
 
   // Find current month album for display
   const currentMonth = new Date();
-  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+  const intlLocale = getIntlLocale(locale);
   const monthPatterns = [
     `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`,
     currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" }),

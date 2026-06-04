@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
+import { getIntlLocale } from "@/i18n/intl-locale";
 import {
   CheckSquare,
   Circle,
@@ -76,7 +77,7 @@ export function TasksWidget({
 }: TasksWidgetProps) {
   const t = useTranslations("tasksWidget");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+  const intlLocale = getIntlLocale(locale);
   const { data: todos, isLoading, isError } = useTodos();
   const { data: people } = usePeople();
   const updateTodo = useUpdateTodo();

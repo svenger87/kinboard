@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { format, getWeek, getDayOfYear, differenceInDays, startOfYear, endOfYear } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
+import { getIntlLocale } from "@/i18n/intl-locale";
 import {
   Popover,
   PopoverContent,
@@ -63,7 +64,7 @@ export function Clock({
   const t = useTranslations("clock");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
-  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+  const intlLocale = getIntlLocale(locale);
 
   // Only update every second if showing seconds, otherwise every minute
   const updateInterval = showSeconds ? 1000 : 60000;
