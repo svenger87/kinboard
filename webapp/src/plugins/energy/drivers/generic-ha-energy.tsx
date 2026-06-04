@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
+import { getIntlLocale } from "@/i18n/intl-locale";
 import {
   Zap,
   Sun,
@@ -65,7 +66,7 @@ type ChartType = "power" | "energy";
 function EnergyCard() {
   const t = useTranslations("energy");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+  const intlLocale = getIntlLocale(locale);
   const { data: settings, isLoading: loadingSettings, refetch } = useHomeAssistantStatus();
   const energyConfig = useEnergyConfig();
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("today");

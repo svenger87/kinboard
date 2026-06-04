@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
+import { getIntlLocale } from "@/i18n/intl-locale";
 import { useClock } from "@/hooks/use-clock";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useBirthdays, useEvents, usePeople, usePhotoSource, useNews, useEnergyConfig, useTeslaConfig, useHomeAssistantEntityStates, type NewsItem } from "@/hooks";
@@ -79,7 +80,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
   const t = useTranslations("components.screensaver");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
-  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+  const intlLocale = getIntlLocale(locale);
   const eventLabels = useMemo(
     () => ({ today: t("eventToday"), tomorrow: t("eventTomorrow") }),
     [t]

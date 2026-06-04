@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
+import { getIntlLocale } from "@/i18n/intl-locale";
 import { PageHeader } from "@/components/page-header";
 import {
   ChefHat,
@@ -426,7 +427,7 @@ export default function MealPlannerPage() {
   const t = useTranslations("meals");
   const tCommon = useTranslations("common");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+  const intlLocale = getIntlLocale(locale);
   const mealTypeLabel = (type: MealType) => t(`mealType.${type}` as "mealType.breakfast");
 
   // State - default to list on mobile, grid on desktop

@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - **French (FR) interface translation** — Kinboard now ships English, German, and French. French is selectable from the onboarding language switcher and `/settings/language`, and is auto-detected from the browser's `Accept-Language`. Date/time and number formatting (weekday and month names, locale-aware `Intl` formatting) now follow French too. Translation contributed by @Yorkou (#9). Adding further locales is now a smaller change — date-fns locale selection is centralized in `lib/date-fns-locale.ts`.
 
+### Changed
+- Adding a new language is now far less work, and **partial translations are supported**. Untranslated strings in any non-core locale fall back to English instead of showing a broken key, so a community translation can ship at any coverage level and fill in over time. A new locale is now a single entry in `src/i18n/locales.ts` (which drives locale negotiation, both language switchers, and date/number formatting) plus a `messages/<code>.json` file. The language picker now lists languages by their native name (English / Deutsch / Français).
+
 ## [1.2.0] - 2026-06-01 — Onboarding completeness + setup/self-host hardening
 
 ### Added

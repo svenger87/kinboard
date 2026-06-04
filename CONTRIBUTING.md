@@ -77,11 +77,20 @@ Niche integrations (Tesla, Zendure SolarFlow, etc.) are designed to live as opt-
 
 ## Translations
 
-EN and DE ship in the box. To add another locale:
+EN and DE ship in the box. Adding another locale is two steps:
 
-1. Copy `webapp/messages/en.json` to `webapp/messages/<locale>.json`.
-2. Update `webapp/src/i18n/` to register the new locale.
-3. Submit a PR — partial coverage is fine; we'll mark fallbacks where needed.
+1. Add one entry to the `LOCALES` array in `webapp/src/i18n/locales.ts`
+   (`{ code, label, native, bcp47 }`) and a matching `case` to
+   `getDateFnsLocale()` in `webapp/src/lib/date-fns-locale.ts`. That one entry
+   drives locale negotiation, both language switchers, and date/number
+   formatting — you don't touch anything else.
+2. Add `webapp/messages/<code>.json` with your translations.
+
+**Partial coverage is fine.** Any key you haven't translated falls back to
+English automatically — so you can open a PR at 30% and fill in over time. The
+easiest start is to copy `en.json` and translate top-down; untranslated keys can
+stay in English (or be omitted). Only `en` and `de` are held to full parity in
+CI; additional locales just report their coverage.
 
 ## Reviewer expectations
 

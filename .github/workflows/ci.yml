@@ -55,9 +55,16 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('webapp/messages/de.json','utf8'))"
           node -e "JSON.parse(require('fs').readFileSync('webapp/messages/fr.json','utf8'))"
 
-      - name: Compare key parity (en ↔ de, fr)
+      # en is the source of truth. STRICT locales (the maintained core) must be
+      # in full parity. Other locales may ship partial coverage — untranslated
+      # keys fall back to English at runtime (see src/i18n/request.ts) — so a
+      # missing key is reported as coverage, not a failure. A key present in a
+      # locale but absent from en is always an error (typo/stale; it can't fall
+      # back).
+      - name: Compare key parity (en ↔ locales)
         run: |
           node -e '
+            const STRICT = ["de"];
             const en = require("./webapp/messages/en.json");
             const flatten = (obj, prefix = "") => Object.entries(obj).flatMap(([k, v]) =>
               v && typeof v === "object" && !Array.isArray(v)
@@ -68,13 +75,19 @@ jobs:
             let failed = false;
             for (const loc of ["de", "fr"]) {
               const locKeys = new Set(flatten(require("./webapp/messages/" + loc + ".json")));
-              const missingInLoc = [...enKeys].filter(k => !locKeys.has(k));
-              const extraInLoc = [...locKeys].filter(k => !enKeys.has(k));
-              if (missingInLoc.length || extraInLoc.length) {
+              const missing = [...enKeys].filter(k => !locKeys.has(k));
+              const extra = [...locKeys].filter(k => !enKeys.has(k));
+              if (extra.length) {
                 failed = true;
-                if (missingInLoc.length) console.log("Missing in " + loc + ".json:\n" + missingInLoc.map(k => "  " + k).join("\n"));
-                if (extraInLoc.length) console.log("Extra in " + loc + ".json (not in en):\n" + extraInLoc.map(k => "  " + k).join("\n"));
-              } else {
+                console.log("Extra keys in " + loc + ".json (not in en — typo/stale, cannot fall back):\n" + extra.map(k => "  " + k).join("\n"));
+              }
+              if (missing.length && STRICT.includes(loc)) {
+                failed = true;
+                console.log("Missing in " + loc + ".json (strict locale, must be complete):\n" + missing.map(k => "  " + k).join("\n"));
+              } else if (missing.length) {
+                const pct = (((enKeys.size - missing.length) / enKeys.size) * 100).toFixed(1);
+                console.log(loc + ".json: " + pct + "% translated (" + missing.length + " keys fall back to English) — OK, community locale");
+              } else if (!extra.length) {
                 console.log("en/" + loc + " parity OK (" + enKeys.size + " keys)");
               }
             }

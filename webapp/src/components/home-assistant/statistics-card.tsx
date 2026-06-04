@@ -2,6 +2,7 @@
 
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
+import { getIntlLocale } from "@/i18n/intl-locale";
 import { cn } from "@/lib/utils";
 
 interface StatisticsCardProps {
@@ -42,7 +43,7 @@ export function StatisticsCard({
 }: StatisticsCardProps) {
   const t = useTranslations("homeAutomation.charts");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+  const intlLocale = getIntlLocale(locale);
   const styles = COLOR_STYLES[color];
 
   // Format the value
