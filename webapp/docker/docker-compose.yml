@@ -25,7 +25,11 @@ services:
       timeout: 5s
       retries: 10
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      # Bind Postgres to loopback by default — the webapp reaches the DB over
+      # the internal `kinboard` network (hostname `db`), so the host port is
+      # only for local tools/backups. Set POSTGRES_BIND=0.0.0.0 in .env if you
+      # genuinely need to reach Postgres from another machine (and firewall it).
+      - "${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     environment:
       POSTGRES_HOST: /var/run/postgresql
       PGPORT: 5432
@@ -159,7 +163,10 @@ services:
 
       GOTRUE_SITE_URL: ${SITE_URL}
       GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
-      GOTRUE_DISABLE_SIGNUP: false
+      # Kinboard's auth is device-cookie + family join code; the app never calls
+      # GoTrue signup. Disable the open /auth/v1/signup endpoint so it can't be
+      # used to mint accounts if the gateway is ever reachable off-LAN.
+      GOTRUE_DISABLE_SIGNUP: true
 
       GOTRUE_JWT_ADMIN_ROLES: service_role
       GOTRUE_JWT_AUD: authenticated
