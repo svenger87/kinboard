@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
 import { format } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import {
   Camera,
   Check,
@@ -72,7 +72,7 @@ import { IntegrationConfigHint } from "@/components/integration-config-hint";
 export default function PhotoSettingsPage() {
   const t = useTranslations("settings.photos");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
 
   // Localized month names (1-indexed)
   const monthName = (idx: number): string => {
@@ -222,7 +222,7 @@ export default function PhotoSettingsPage() {
 
   // Find current month album for display
   const currentMonth = new Date();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
   const monthPatterns = [
     `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`,
     currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" }),

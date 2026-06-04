@@ -65,7 +65,7 @@ type ChartType = "power" | "energy";
 function EnergyCard() {
   const t = useTranslations("energy");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
   const { data: settings, isLoading: loadingSettings, refetch } = useHomeAssistantStatus();
   const energyConfig = useEnergyConfig();
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("today");

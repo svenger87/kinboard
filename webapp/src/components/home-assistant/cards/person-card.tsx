@@ -12,7 +12,7 @@ interface PersonCardProps {
 export function PersonCard({ card, entity }: PersonCardProps) {
   const t = useTranslations("homeAutomation.cards.person");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
   const label = card.display_name || entity.name;
   const isUnavailable = entity.state === "unavailable";
   const isUnknown = entity.state === "unknown" || entity.state === "not_home";

@@ -57,7 +57,7 @@ import { ErrorState } from "@/components/error-state";
 import { BirthdayYearRing } from "@/components/birthday-year-ring";
 import { PageHeader } from "@/components/page-header";
 import { format, differenceInDays, differenceInYears, setYear, isPast, addYears, parseISO, startOfDay } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 
 // Parse date string safely without timezone issues
@@ -163,7 +163,7 @@ export default function BirthdaysPage() {
   const t = useTranslations("birthdays");
   const tCommon = useTranslations("common");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
   const months = useMemo(
     () => Array.from({ length: 12 }, (_, i) =>
       format(new Date(2000, i, 1), "MMMM", { locale: dateLocale })

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Calendar, Clock, MapPin, ChevronRight } from "lucide-react";
 import { format, isToday, isTomorrow, addDays, startOfDay, endOfDay, isWithinInterval, differenceInMinutes } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -61,7 +61,7 @@ export function UpcomingEvents({
 }: UpcomingEventsProps) {
   const t = useTranslations("upcomingEvents");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
 
   // Get events for today and the next 14 days - memoized to prevent infinite refetches
   const { startDate, endDate } = useMemo(() => {

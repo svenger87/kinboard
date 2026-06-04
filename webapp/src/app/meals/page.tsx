@@ -426,7 +426,7 @@ export default function MealPlannerPage() {
   const t = useTranslations("meals");
   const tCommon = useTranslations("common");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
   const mealTypeLabel = (type: MealType) => t(`mealType.${type}` as "mealType.breakfast");
 
   // State - default to list on mobile, grid on desktop

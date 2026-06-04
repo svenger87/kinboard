@@ -17,7 +17,7 @@ import {
   endOfDay,
   isWithinInterval,
 } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { GlassCard } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -59,7 +59,7 @@ export function WeekView({
 }: WeekViewProps) {
   const t = useTranslations("calendar");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
 
   // Get days of the week
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });

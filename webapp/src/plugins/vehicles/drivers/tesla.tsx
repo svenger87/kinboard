@@ -236,7 +236,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
   const tBinary = useTranslations("tesla.binaryState");
   const tLocation = useTranslations("tesla.location");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
   const { data: settings, isLoading: loadingSettings, refetch } =
     useHomeAssistantStatus();
   const teslaConfig = vehicle.config as TeslaConfig;

@@ -35,7 +35,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { useNotes, useCreateNote, useDeleteNote } from "@/hooks";
 import { formatDistanceToNow } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 
 interface NotesWidgetProps {
   maxItems?: number;
@@ -68,7 +68,7 @@ export function NotesWidget({
   const t = useTranslations("notesWidget");
   const tCommon = useTranslations("common");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
   const { data: notes, isLoading, isError } = useNotes();
   const createNote = useCreateNote();
   const deleteNote = useDeleteNote();

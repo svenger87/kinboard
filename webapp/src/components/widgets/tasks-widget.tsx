@@ -76,7 +76,7 @@ export function TasksWidget({
 }: TasksWidgetProps) {
   const t = useTranslations("tasksWidget");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
   const { data: todos, isLoading, isError } = useTodos();
   const { data: people } = usePeople();
   const updateTodo = useUpdateTodo();

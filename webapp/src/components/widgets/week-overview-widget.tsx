@@ -17,7 +17,7 @@ import {
   addYears,
   parseISO,
 } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { useEvents, useTodos, useBirthdays } from "@/hooks";
 
@@ -66,7 +66,7 @@ interface WeekOverviewWidgetProps {
 export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
   const t = useTranslations("weekOverviewWidget");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
 
   const today = startOfDay(new Date());
   const weekEnd = addDays(today, 7);

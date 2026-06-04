@@ -18,7 +18,7 @@ import {
   differenceInDays,
   getISOWeek,
 } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { GlassCard } from "@/components/ui/card";
 import {
@@ -69,7 +69,7 @@ export function MonthView({
 }: MonthViewProps) {
   const t = useTranslations("calendar");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
