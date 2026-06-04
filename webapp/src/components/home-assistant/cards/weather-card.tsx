@@ -63,7 +63,7 @@ export function WeatherCard({ card, entity }: WeatherCardProps) {
   const tState = useTranslations("homeAutomation.entityState");
   const tCondition = useTranslations("homeAutomation.weatherCondition");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
   const label = card.display_name || entity.name;
   const isUnavailable = entity.state === "unavailable";
   const condition = entity.state;

@@ -1,7 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { getRequestConfig } from "next-intl/server";
 
-export const SUPPORTED_LOCALES = ["en", "de"] as const;
+export const SUPPORTED_LOCALES = ["en", "de", "fr"] as const;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
 
 export const DEFAULT_LOCALE: Locale = "en";
@@ -16,6 +16,7 @@ function negotiateFromAcceptLanguage(header: string | null): Locale {
   for (const part of header.toLowerCase().split(",")) {
     const tag = part.split(";")[0].trim();
     if (tag.startsWith("de")) return "de";
+    if (tag.startsWith("fr")) return "fr";
     if (tag.startsWith("en")) return "en";
   }
   return DEFAULT_LOCALE;

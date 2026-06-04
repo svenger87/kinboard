@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
 import { format, getDayOfYear, startOfDay } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 
 interface BirthdayDot {
   id: string;
@@ -34,7 +34,7 @@ function angleToXY(angleDeg: number, radius: number, center: number) {
 export function BirthdayYearRing({ birthdays, size = 280 }: BirthdayYearRingProps) {
   const t = useTranslations("components.birthdayYearRing");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
   const center = size / 2;
   const ringRadius = size / 2 - 32;
   const labelRadius = size / 2 - 10;

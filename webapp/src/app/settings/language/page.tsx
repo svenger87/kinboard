@@ -22,6 +22,7 @@ import { COUNTRIES, DEFAULT_COUNTRY, type CountryCode } from "@/lib/holidays";
 const LOCALES = [
   { code: "en", label: "English", native: "English" },
   { code: "de", label: "German", native: "Deutsch" },
+  { code: "fr", label: "French", native: "Français" },
 ] as const;
 
 export default function LanguageSettingsPage() {

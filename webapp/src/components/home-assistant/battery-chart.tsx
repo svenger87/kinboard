@@ -29,7 +29,7 @@ export function BatteryChart({
 }: BatteryChartProps) {
   const t = useTranslations("homeAutomation.charts");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
 
   // Process data
   const chartData = useMemo(() => {

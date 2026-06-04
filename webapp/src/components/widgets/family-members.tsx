@@ -22,7 +22,7 @@ import {
 import { usePeople, useTodos, useEvents } from "@/hooks";
 import type { Person, Todo, Event } from "@/types/database";
 import { format, startOfDay, addDays, endOfDay, isAfter } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 
 interface FamilyMembersProps {
   className?: string;
@@ -243,7 +243,7 @@ interface PersonDetailsDialogProps {
 function PersonDetailsDialog({ person, todos, events, onClose }: PersonDetailsDialogProps) {
   const t = useTranslations("familyMembers");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
   if (!person) return null;
 
   return (

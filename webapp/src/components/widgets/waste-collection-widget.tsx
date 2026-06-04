@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Trash2, Recycle, Newspaper, Leaf, Package, ChevronRight } from "lucide-react";
 import { format, isToday, isTomorrow, addDays, startOfDay, endOfDay, differenceInCalendarDays } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -109,7 +109,7 @@ export function WasteCollectionWidget({
 }: WasteCollectionWidgetProps) {
   const t = useTranslations("wasteCollectionWidget");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
   const wasteLabels: Record<WasteTypeId, string> = {
     rest: t("types.rest"),
     bio: t("types.bio"),

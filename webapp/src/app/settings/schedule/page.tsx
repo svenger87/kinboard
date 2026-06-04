@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
 import { format } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import {
   GraduationCap,
   Plus,
@@ -356,7 +356,7 @@ const DEFAULT_PERIODS: PeriodConfig[] = [
 export default function ScheduleSettingsPage() {
   const t = useTranslations("settings.schedule");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
 
   // Localized day names — Monday through Friday (1..5 in date-fns where Mon = day index)
   const dayName = (dayIndex: number): string => {

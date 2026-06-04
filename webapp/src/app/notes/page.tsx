@@ -46,7 +46,7 @@ import {
   useSwipeNavigation,
 } from "@/hooks";
 import { formatDistanceToNow, format } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import type { Note } from "@/types/database";
 
@@ -74,7 +74,7 @@ export default function NotesPage() {
   const t = useTranslations("notes");
   const tCommon = useTranslations("common");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
 
   const { data: notes, isLoading, error, refetch } = useNotes();
   const createNote = useCreateNote();

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslations, useLocale } from "next-intl";
 import { ExternalLink, Loader2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import {
   Sheet,
   SheetContent,
@@ -28,7 +28,7 @@ interface ArticleResult {
 }
 
 function dateLocale(localeCode: string) {
-  return localeCode === "de" ? de : enUS;
+  return getDateFnsLocale(localeCode);
 }
 
 interface NewsArticleSheetProps {

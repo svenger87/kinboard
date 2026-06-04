@@ -42,7 +42,7 @@ export function StatisticsCard({
 }: StatisticsCardProps) {
   const t = useTranslations("homeAutomation.charts");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
   const styles = COLOR_STYLES[color];
 
   // Format the value

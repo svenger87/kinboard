@@ -9,7 +9,8 @@ import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
 import { Cake, Calendar, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Sun, Battery, Zap, Car } from "lucide-react";
 import { format, differenceInDays, setYear, isPast, addYears, isToday, isTomorrow, addDays, startOfDay, endOfDay, parseISO } from "date-fns";
-import { de, enUS, type Locale } from "date-fns/locale";
+import { type Locale } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 
 // Parse date string safely without timezone shift
 // "1990-01-28" should be January 28th local, not UTC midnight
@@ -77,8 +78,8 @@ const DEFAULT_PHOTOS: string[] = [];
 export function Screensaver({ photos }: ScreensaverProps) {
   const t = useTranslations("components.screensaver");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const dateLocale = getDateFnsLocale(locale);
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
   const eventLabels = useMemo(
     () => ({ today: t("eventToday"), tomorrow: t("eventTomorrow") }),
     [t]

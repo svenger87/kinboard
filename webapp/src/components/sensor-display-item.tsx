@@ -97,7 +97,7 @@ function formatSensorValue(state: string, unit: string | undefined, intlLocale: 
 export function SensorDisplayItem({ roomEntity, entity }: SensorDisplayItemProps) {
   const tState = useTranslations("homeAutomation.entityState");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
   const isUnavailable = entity.state === "unavailable" || entity.state === "unknown";
   const label = roomEntity.display_name || entity.name;
   const deviceClass = entity.attributes.device_class as string | undefined;
