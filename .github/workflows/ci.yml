@@ -53,27 +53,32 @@ jobs:
         run: |
           node -e "JSON.parse(require('fs').readFileSync('webapp/messages/en.json','utf8'))"
           node -e "JSON.parse(require('fs').readFileSync('webapp/messages/de.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('webapp/messages/fr.json','utf8'))"
 
-      - name: Compare key parity (en ↔ de)
+      - name: Compare key parity (en ↔ de, fr)
         run: |
           node -e '
             const en = require("./webapp/messages/en.json");
-            const de = require("./webapp/messages/de.json");
             const flatten = (obj, prefix = "") => Object.entries(obj).flatMap(([k, v]) =>
               v && typeof v === "object" && !Array.isArray(v)
                 ? flatten(v, prefix + k + ".")
                 : [prefix + k]
             );
             const enKeys = new Set(flatten(en));
-            const deKeys = new Set(flatten(de));
-            const missingInDe = [...enKeys].filter(k => !deKeys.has(k));
-            const missingInEn = [...deKeys].filter(k => !enKeys.has(k));
-            if (missingInDe.length || missingInEn.length) {
-              if (missingInDe.length) console.log("Missing in de.json:\n" + missingInDe.map(k => "  " + k).join("\n"));
-              if (missingInEn.length) console.log("Missing in en.json:\n" + missingInEn.map(k => "  " + k).join("\n"));
-              process.exit(1);
+            let failed = false;
+            for (const loc of ["de", "fr"]) {
+              const locKeys = new Set(flatten(require("./webapp/messages/" + loc + ".json")));
+              const missingInLoc = [...enKeys].filter(k => !locKeys.has(k));
+              const extraInLoc = [...locKeys].filter(k => !enKeys.has(k));
+              if (missingInLoc.length || extraInLoc.length) {
+                failed = true;
+                if (missingInLoc.length) console.log("Missing in " + loc + ".json:\n" + missingInLoc.map(k => "  " + k).join("\n"));
+                if (extraInLoc.length) console.log("Extra in " + loc + ".json (not in en):\n" + extraInLoc.map(k => "  " + k).join("\n"));
+              } else {
+                console.log("en/" + loc + " parity OK (" + enKeys.size + " keys)");
+              }
             }
-            console.log("en/de parity OK (" + enKeys.size + " keys)");
+            if (failed) process.exit(1);
           '
 
   shellcheck:
