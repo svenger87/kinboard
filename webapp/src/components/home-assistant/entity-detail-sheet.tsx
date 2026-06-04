@@ -23,6 +23,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
+import { getIntlLocale } from "@/i18n/intl-locale";
 import { useEntityHistory, useToggleEntity, useLightControl, useCallService } from "@/hooks";
 import { MiniChart } from "./mini-chart";
 import type { HAEntity, DashboardCard } from "@/types/home-assistant";
@@ -133,7 +134,7 @@ export function EntityDetailSheet({
   const tAttr = useTranslations("homeAutomation.entityDetail.attributes");
   const tDC = useTranslations("homeAutomation.entityDetail.deviceClasses");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+  const intlLocale = getIntlLocale(locale);
 
   // Format attribute value (locale-aware)
   const formatAttributeValue = (value: unknown): string => {

@@ -12,6 +12,7 @@ import {
   Droplets,
 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
+import { getIntlLocale } from "@/i18n/intl-locale";
 import type { HAEntity, DashboardCard } from "@/types/home-assistant";
 
 type WeatherConditionKey =
@@ -63,7 +64,7 @@ export function WeatherCard({ card, entity }: WeatherCardProps) {
   const tState = useTranslations("homeAutomation.entityState");
   const tCondition = useTranslations("homeAutomation.weatherCondition");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+  const intlLocale = getIntlLocale(locale);
   const label = card.display_name || entity.name;
   const isUnavailable = entity.state === "unavailable";
   const condition = entity.state;

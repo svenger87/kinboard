@@ -18,12 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useSetting, useUpdateSetting } from "@/hooks";
 import { COUNTRIES, DEFAULT_COUNTRY, type CountryCode } from "@/lib/holidays";
-
-const LOCALES = [
-  { code: "en", label: "English", native: "English" },
-  { code: "de", label: "German", native: "Deutsch" },
-  { code: "fr", label: "French", native: "Français" },
-] as const;
+import { LOCALES } from "@/i18n/locales";
 
 export default function LanguageSettingsPage() {
   const t = useTranslations("settings.language");
@@ -86,7 +81,7 @@ export default function LanguageSettingsPage() {
         >
           <GlassCard className="p-6">
             <div className="space-y-3">
-              {LOCALES.map(({ code, label, native }) => {
+              {LOCALES.map(({ code, native }) => {
                 const isCurrent = code === current;
                 return (
                   <Button
@@ -96,10 +91,7 @@ export default function LanguageSettingsPage() {
                     disabled={pending !== null || isCurrent}
                     className="w-full justify-between h-auto py-4 px-5"
                   >
-                    <span className="flex flex-col items-start gap-0.5">
-                      <span className="font-medium">{native}</span>
-                      <span className="text-xs opacity-70">{t(`name_${code}`)}</span>
-                    </span>
+                    <span className="font-medium">{native}</span>
                     {isCurrent && <span className="text-xs">{t("current")}</span>}
                     {pending === code && <span className="text-xs">…</span>}
                   </Button>

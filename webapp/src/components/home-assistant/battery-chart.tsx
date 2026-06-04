@@ -11,6 +11,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { useTranslations, useLocale } from "next-intl";
+import { getIntlLocale } from "@/i18n/intl-locale";
 import { cn } from "@/lib/utils";
 import type { EntityHistory } from "@/types/home-assistant";
 
@@ -29,7 +30,7 @@ export function BatteryChart({
 }: BatteryChartProps) {
   const t = useTranslations("homeAutomation.charts");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+  const intlLocale = getIntlLocale(locale);
 
   // Process data
   const chartData = useMemo(() => {
