@@ -36,19 +36,26 @@ function formatTime(timestamp: number, timezoneOffset: number): string {
   return `${hours}:${minutes}`;
 }
 
-function mapCondition(weatherMain: string): string {
-  const mapping: Record<string, string> = {
-    Clear: "Klar",
-    Clouds: "Bewölkt",
-    Rain: "Regen",
-    Drizzle: "Nieselregen",
-    Thunderstorm: "Gewitter",
-    Snow: "Schnee",
-    Mist: "Nebel",
-    Fog: "Nebel",
-    Haze: "Dunst",
-  };
-  return mapping[weatherMain] || weatherMain;
+const CONDITION_LABELS: Record<string, { en: string; de: string }> = {
+  Clear: { en: "Clear", de: "Klar" },
+  Clouds: { en: "Cloudy", de: "Bewölkt" },
+  Rain: { en: "Rain", de: "Regen" },
+  Drizzle: { en: "Drizzle", de: "Nieselregen" },
+  Thunderstorm: { en: "Thunderstorm", de: "Gewitter" },
+  Snow: { en: "Snow", de: "Schnee" },
+  Mist: { en: "Mist", de: "Nebel" },
+  Fog: { en: "Fog", de: "Nebel" },
+  Haze: { en: "Haze", de: "Dunst" },
+};
+
+function mapCondition(weatherMain: string, locale: "en" | "de"): string {
+  return CONDITION_LABELS[weatherMain]?.[locale] ?? weatherMain;
+}
+
+// The UI locale is stored in the NEXT_LOCALE cookie by next-intl. Default to
+// "de" (the historical hardcoded behavior) when it's absent or unrecognized.
+function localeFrom(request: NextRequest): "en" | "de" {
+  return request.cookies.get("NEXT_LOCALE")?.value === "en" ? "en" : "de";
 }
 
 export async function GET(request: NextRequest) {
@@ -61,13 +68,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ configured: false }, { status: 200 });
   }
 
+  const locale = localeFrom(request);
+
   try {
     let url: string;
 
     if (lat && lon) {
-      url = `${BASE_URL}/weather?lat=${lat}&lon=${lon}&units=metric&lang=de&appid=${OPENWEATHERMAP_API_KEY}`;
+      url = `${BASE_URL}/weather?lat=${lat}&lon=${lon}&units=metric&lang=${locale}&appid=${OPENWEATHERMAP_API_KEY}`;
     } else if (city) {
-      url = `${BASE_URL}/weather?q=${encodeURIComponent(city)}&units=metric&lang=de&appid=${OPENWEATHERMAP_API_KEY}`;
+      url = `${BASE_URL}/weather?q=${encodeURIComponent(city)}&units=metric&lang=${locale}&appid=${OPENWEATHERMAP_API_KEY}`;
     } else {
       return NextResponse.json(
         { error: "Either lat/lon or city parameter required" },
@@ -95,7 +104,7 @@ export async function GET(request: NextRequest) {
     const weather = {
       temp: Math.round(data.main.temp),
       feelsLike: Math.round(data.main.feels_like),
-      condition: mapCondition(data.weather[0].main),
+      condition: mapCondition(data.weather[0].main, locale),
       conditionIcon: data.weather[0].icon,
       humidity: data.main.humidity,
       windSpeed: Math.round(data.wind.speed * 3.6), // m/s to km/h

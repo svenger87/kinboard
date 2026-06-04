@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
@@ -26,6 +26,29 @@ type TableName =
   | "push_subscriptions"
   | "notification_preferences";
 
+// Module-level constant so the default array keeps a stable identity across
+// renders — otherwise the realtime effect (which lists `tables` in its deps)
+// tears down and rebuilds the channel on every render, dropping events.
+const DEFAULT_TABLES: TableName[] = [
+  "people",
+  "events",
+  "todos",
+  "shopping_items",
+  "subjects",
+  "schedules",
+  "birthdays",
+  "notes",
+  "settings",
+  "recipes",
+  "recipe_ingredients",
+  "recipe_tags",
+  "meal_plans",
+  "meal_plan_entries",
+  "item_catalog",
+  "push_subscriptions",
+  "notification_preferences",
+];
+
 interface UseRealtimeOptions {
   tables?: TableName[];
   enabled?: boolean;
@@ -39,30 +62,12 @@ interface UseRealtimeOptions {
  * @param options.enabled - Whether to enable subscriptions (defaults to true)
  */
 export function useRealtime(options: UseRealtimeOptions = {}) {
-  const {
-    tables = [
-      "people",
-      "events",
-      "todos",
-      "shopping_items",
-      "subjects",
-      "schedules",
-      "birthdays",
-      "notes",
-      "settings",
-      "recipes",
-      "recipe_ingredients",
-      "recipe_tags",
-      "meal_plans",
-      "meal_plan_entries",
-      "item_catalog",
-      "push_subscriptions",
-      "notification_preferences",
-    ],
-    enabled = true,
-  } = options;
+  const { tables = DEFAULT_TABLES, enabled = true } = options;
 
-  const supabase = createClient();
+  // Memoize the client for the lifetime of the hook. createClient() returns a
+  // fresh instance each call; an unstable `supabase` in the effect deps would
+  // otherwise re-subscribe on every render.
+  const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
 

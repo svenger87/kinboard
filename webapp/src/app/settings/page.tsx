@@ -329,6 +329,7 @@ export default function SettingsPage() {
                   variant="outline"
                   size="icon"
                   onClick={copyJoinCode}
+                  aria-label={tCommon("copy")}
                   className="shrink-0"
                 >
                   {copied ? (
@@ -405,7 +406,7 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-center gap-2">
                 {storedPin && (
-                  <Button variant="ghost" size="icon" onClick={handleRemovePin} className="text-destructive hover:text-destructive">
+                  <Button variant="ghost" size="icon" onClick={handleRemovePin} aria-label={tCommon("delete")} className="text-destructive hover:text-destructive">
                     <Trash2 className="size-4" />
                   </Button>
                 )}

@@ -98,6 +98,7 @@ export default function ShoppingPage() {
 
   const t = useTranslations("shopping");
   const tCategories = useTranslations("shoppingCategories");
+  const tCommon = useTranslations("common");
 
   // Fetch items with offline support
   const {
@@ -1103,6 +1104,7 @@ export default function ShoppingPage() {
                                           <Button
                                             variant="ghost"
                                             size="icon"
+                                            aria-label={tCommon("moreOptions")}
                                             className="size-8 shrink-0"
                                           >
                                             <MoreVertical className="size-4" />

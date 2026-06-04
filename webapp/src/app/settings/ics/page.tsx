@@ -87,6 +87,7 @@ const emptyForm = (): FeedFormState => ({
 
 export default function IcsSettingsPage() {
   const t = useTranslations("settings.ics");
+  const tCommon = useTranslations("common");
   const { toast } = useToast();
 
   const { data: allCalendars = [], isLoading } = useCalendars();
@@ -361,6 +362,7 @@ export default function IcsSettingsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label={tCommon("delete")}
                           className="size-8 text-destructive hover:text-destructive"
                         >
                           <Trash2 className="size-4" />

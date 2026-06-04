@@ -39,23 +39,33 @@ interface OpenWeatherForecastResponse {
   };
 }
 
-function mapCondition(weatherMain: string): string {
-  const mapping: Record<string, string> = {
-    Clear: "Klar",
-    Clouds: "Bewölkt",
-    Rain: "Regen",
-    Drizzle: "Nieselregen",
-    Thunderstorm: "Gewitter",
-    Snow: "Schnee",
-    Mist: "Nebel",
-    Fog: "Nebel",
-    Haze: "Dunst",
-  };
-  return mapping[weatherMain] || weatherMain;
+const CONDITION_LABELS: Record<string, { en: string; de: string }> = {
+  Clear: { en: "Clear", de: "Klar" },
+  Clouds: { en: "Cloudy", de: "Bewölkt" },
+  Rain: { en: "Rain", de: "Regen" },
+  Drizzle: { en: "Drizzle", de: "Nieselregen" },
+  Thunderstorm: { en: "Thunderstorm", de: "Gewitter" },
+  Snow: { en: "Snow", de: "Schnee" },
+  Mist: { en: "Mist", de: "Nebel" },
+  Fog: { en: "Fog", de: "Nebel" },
+  Haze: { en: "Haze", de: "Dunst" },
+};
+
+function mapCondition(weatherMain: string, locale: "en" | "de"): string {
+  return CONDITION_LABELS[weatherMain]?.[locale] ?? weatherMain;
 }
 
-function getDayName(date: Date, locale: string = "de-DE"): string {
-  return date.toLocaleDateString(locale, { weekday: "short" });
+// The UI locale lives in the NEXT_LOCALE cookie (next-intl). Default to "de"
+// (the historical hardcoded behavior) when absent/unrecognized. en→en-GB keeps
+// the app's 24-hour clock convention for weekday/time formatting.
+function localeFrom(request: NextRequest): "en" | "de" {
+  return request.cookies.get("NEXT_LOCALE")?.value === "en" ? "en" : "de";
+}
+
+const BCP47: Record<"en" | "de", string> = { en: "en-GB", de: "de-DE" };
+
+function getDayName(date: Date, bcp47: string): string {
+  return date.toLocaleDateString(bcp47, { weekday: "short" });
 }
 
 export async function GET(request: NextRequest) {
@@ -68,13 +78,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ configured: false }, { status: 200 });
   }
 
+  const locale = localeFrom(request);
+  const bcp47 = BCP47[locale];
+
   try {
     let url: string;
 
     if (lat && lon) {
-      url = `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&units=metric&lang=de&appid=${OPENWEATHERMAP_API_KEY}`;
+      url = `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&units=metric&lang=${locale}&appid=${OPENWEATHERMAP_API_KEY}`;
     } else if (city) {
-      url = `${BASE_URL}/forecast?q=${encodeURIComponent(city)}&units=metric&lang=de&appid=${OPENWEATHERMAP_API_KEY}`;
+      url = `${BASE_URL}/forecast?q=${encodeURIComponent(city)}&units=metric&lang=${locale}&appid=${OPENWEATHERMAP_API_KEY}`;
     } else {
       return NextResponse.json(
         { error: "Either lat/lon or city parameter required" },
@@ -133,10 +146,10 @@ export async function GET(request: NextRequest) {
 
       return {
         date: dateKey,
-        dayName: getDayName(date),
+        dayName: getDayName(date, bcp47),
         tempMax: maxTemp,
         tempMin: minTemp,
-        condition: mapCondition(middayItem.weather[0].main),
+        condition: mapCondition(middayItem.weather[0].main, locale),
         conditionIcon: middayItem.weather[0].icon,
         humidity: Math.round(items.reduce((sum, i) => sum + i.main.humidity, 0) / items.length),
         windSpeed: Math.round((items.reduce((sum, i) => sum + i.wind.speed, 0) / items.length) * 3.6),
@@ -150,9 +163,9 @@ export async function GET(request: NextRequest) {
     const hourlyForecast = data.list.slice(0, 8).map(item => {
       const date = new Date(item.dt * 1000);
       return {
-        time: date.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }),
+        time: date.toLocaleTimeString(bcp47, { hour: "2-digit", minute: "2-digit" }),
         temp: Math.round(item.main.temp),
-        condition: mapCondition(item.weather[0].main),
+        condition: mapCondition(item.weather[0].main, locale),
         conditionIcon: item.weather[0].icon,
         precipProbability: Math.round(item.pop * 100),
         windSpeed: Math.round(item.wind.speed * 3.6),
