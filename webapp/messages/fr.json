@@ -1743,6 +1743,7 @@
       "current": "actuelle",
       "name_en": "Anglais",
       "name_de": "Allemand",
+      "name_fr": "Français",
       "countryLabel": "Pays",
       "countryDescription": "Les jours fériés affichés sur le calendrier sont basés sur ce pays.",
       "countryError": "Échec de l'enregistrement de la préférence de pays",
