@@ -133,7 +133,7 @@ export function EntityDetailSheet({
   const tAttr = useTranslations("homeAutomation.entityDetail.attributes");
   const tDC = useTranslations("homeAutomation.entityDetail.deviceClasses");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
 
   // Format attribute value (locale-aware)
   const formatAttributeValue = (value: unknown): string => {

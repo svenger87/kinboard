@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Palette, Moon, Sun, Clock, Loader2 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { format } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { GlassCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -48,7 +48,7 @@ const DEFAULT_SETTINGS: ThemeSettings = {
 export default function ThemeSettingsPage() {
   const t = useTranslations("settings.theme");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
   const currentMonth = new Date().getMonth();
   const { theme, setTheme } = useTheme();
 

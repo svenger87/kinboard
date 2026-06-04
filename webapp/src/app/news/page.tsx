@@ -5,7 +5,7 @@ import { Newspaper, RefreshCw, Settings as SettingsIcon, ExternalLink } from "lu
 import { useTranslations, useLocale } from "next-intl";
 import { useState, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import { useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
 
 function dateLocale(localeCode: string) {
-  return localeCode === "de" ? de : enUS;
+  return getDateFnsLocale(localeCode);
 }
 
 export default function NewsPage() {

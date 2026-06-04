@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/card";
@@ -134,7 +134,7 @@ export default function TodosPage() {
   const t = useTranslations("todos");
   const tCommon = useTranslations("common");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
   const RECURRENCE_LABELS: Record<RecurrenceType, string> = {
     once: t("recurrence.once"),
     daily: t("recurrence.daily"),

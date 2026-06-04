@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const LOCALES = [
   { code: "en", label: "EN" },
   { code: "de", label: "DE" },
+  { code: "fr", label: "FR" },
 ] as const;
 
 export function LocaleSwitcher({ className }: { className?: string }) {

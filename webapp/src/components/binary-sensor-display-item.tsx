@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import type { HAEntity, RoomEntity } from "@/types/home-assistant";
 import { formatDistanceToNow } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 
 interface BinarySensorDisplayItemProps {
@@ -217,7 +217,7 @@ export function BinarySensorDisplayItem({
   const tState = useTranslations("homeAutomation.entityState");
   const tBinary = useTranslations("homeAutomation.binarySensorState");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
   const isUnavailable =
     entity.state === "unavailable" || entity.state === "unknown";
   const label = roomEntity.display_name || entity.name;

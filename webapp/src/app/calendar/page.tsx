@@ -37,7 +37,7 @@ import {
   isAfter,
   parseISO,
 } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { GlassCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -163,7 +163,7 @@ export default function CalendarPage() {
   const tCommon = useTranslations("common");
   const tHolidays = useTranslations("holidays");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
 
   const searchParams = useSearchParams();
   const [currentDate, setCurrentDate] = useState(() => {

@@ -14,7 +14,7 @@ interface SceneCardProps {
 export function SceneCard({ card, entity }: SceneCardProps) {
   const t = useTranslations("homeAutomation.cards.scene");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
   const { activate, isPending } = useActivateScene();
 
   const label = card.display_name || entity.name;

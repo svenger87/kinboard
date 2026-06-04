@@ -24,7 +24,7 @@ export function MiniChart({
   height = 40,
 }: MiniChartProps) {
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
 
   // Transform history data for chart
   const chartData = useMemo(() => {

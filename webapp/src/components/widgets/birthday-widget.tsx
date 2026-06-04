@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { format, differenceInDays, setYear, isPast, addYears, parseISO, startOfDay } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { useMemo } from "react";
 import { useBirthdays, usePeople } from "@/hooks";
@@ -90,7 +90,7 @@ export function BirthdayWidget({
 }: BirthdayWidgetProps) {
   const t = useTranslations("birthdayWidget");
   const locale = useLocale();
-  const dateLocale = locale === "de" ? de : enUS;
+  const dateLocale = getDateFnsLocale(locale);
   const { data: birthdays, isLoading: loadingBirthdays, isError } = useBirthdays();
   const { data: people } = usePeople();
 

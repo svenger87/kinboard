@@ -50,7 +50,7 @@ export function EnergyChart({
 }: EnergyChartProps) {
   const t = useTranslations("homeAutomation.charts");
   const locale = useLocale();
-  const intlLocale = locale === "de" ? "de-DE" : "en-US";
+  const intlLocale = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
 
   // Process and aggregate data based on period - normalize cumulative energy sensors to show change from start
   const chartData = useMemo(() => {
