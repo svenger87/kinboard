@@ -39,6 +39,30 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webapp
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The ESLint config disables no-explicit-any / no-unused-vars, so type
+      # regressions otherwise only surface in the Docker `next build`. This
+      # catches them on every PR without the cost of a full production build.
+      - name: Run tsc --noEmit
+        run: npx tsc --noEmit
+
   i18n-validate:
     name: i18n bundles
     runs-on: ubuntu-latest
@@ -92,6 +116,31 @@ jobs:
               }
             }
             if (failed) process.exit(1);
+          '
+
+      - name: Check for empty translation values
+        run: |
+          node -e '
+            const check = (file) => {
+              const obj = require(file);
+              const empties = [];
+              const walk = (o, prefix = "") => Object.entries(o).forEach(([k, v]) => {
+                if (v && typeof v === "object" && !Array.isArray(v)) walk(v, prefix + k + ".");
+                else if (typeof v === "string" && v.trim() === "") empties.push(prefix + k);
+              });
+              walk(obj);
+              return empties;
+            };
+            const bad = [
+              ...check("./webapp/messages/en.json").map(k => "en: " + k),
+              ...check("./webapp/messages/de.json").map(k => "de: " + k),
+              ...check("./webapp/messages/fr.json").map(k => "fr: " + k),
+            ];
+            if (bad.length) {
+              console.log("Empty translation values:\n" + bad.map(k => "  " + k).join("\n"));
+              process.exit(1);
+            }
+            console.log("No empty translation values.");
           '
 
   shellcheck:
