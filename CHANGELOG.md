@@ -9,8 +9,23 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - **French (FR) interface translation** — Kinboard now ships English, German, and French. French is selectable from the onboarding language switcher and `/settings/language`, and is auto-detected from the browser's `Accept-Language`. Date/time and number formatting (weekday and month names, locale-aware `Intl` formatting) now follow French too. Translation contributed by @Yorkou (#9). Adding further locales is now a smaller change — date-fns locale selection is centralized in `lib/date-fns-locale.ts`.
 
+### Security
+- Postgres no longer publishes its host port on all interfaces by default — it now binds to loopback (`127.0.0.1`). The webapp reaches the DB over the internal Docker network, so the host port was only ever needed for local tooling/backups; exposing it on `0.0.0.0` needlessly put the database on the LAN (and the internet, on a cloud box). Override with `POSTGRES_BIND=0.0.0.0` in `.env` if you genuinely connect from another machine. Migration: none — existing installs pick this up on the next `start.sh up`.
+- GoTrue's open self-signup endpoint (`/auth/v1/signup`) is now disabled (`GOTRUE_DISABLE_SIGNUP: true`). Kinboard authenticates with device cookies + a family join code and never calls signup, so nothing in the app changes; this just closes an endpoint that could mint accounts if the gateway were ever reachable off-LAN.
+- `SECURITY.md` now spells out the practical consequence of the RLS-disabled model — the public anon key grants cross-family DB access to anyone who can reach the Supabase gateway — so self-hosters understand why LAN-only (or reverse-proxy-fronted) deployment is mandatory, not advisory.
+
 ### Changed
 - Adding a new language is now far less work, and **partial translations are supported**. Untranslated strings in any non-core locale fall back to English instead of showing a broken key, so a community translation can ship at any coverage level and fill in over time. A new locale is now a single entry in `src/i18n/locales.ts` (which drives locale negotiation, both language switchers, and date/number formatting) plus a `messages/<code>.json` file. The language picker now lists languages by their native name (English / Deutsch / Français).
+- The two charting libraries (recharts, lightweight-charts) are now **lazy-loaded** instead of bundled into the initial download. The energy/battery/power charts and the Stonks candle chart only fetch their library when you actually open the energy dashboard, a ticker, or an entity detail — so a kiosk that never opens those pages loads less JavaScript up front. No behavior change beyond a brief chart mount.
+- The whole UI now respects the operating system's **"reduce motion"** accessibility setting. When it's on, Framer Motion transitions (screensaver fades, widget animations, celebration overlays) are stilled — previously only CSS animations were, so JS-driven motion kept playing. Helps motion-sensitive users and trims GPU load on low-powered kiosks.
+
+### Fixed
+- Recipe and meal-plan cook times now use consistent units. A recipe under an hour showed "35 Min" while one over an hour showed "1h 15m" — mixing "Min"/"m" (and English "h") in the German UI. Times are now uniform: `35 Min` / `1 Std. 15 Min` in German and `35 min` / `1 h 15 min` in English.
+- Eight icon-only buttons (copy join code, add shopping item, delete iCal feed / vehicle / camera, remove settings PIN, edit vehicle, shopping item menu) had no accessible name — screen readers and voice control announced them as unlabeled. They now carry localized `aria-label`s.
+- Weather is now localized. The weather widget and forecast previously always returned **German** condition labels ("Bewölkt", "Regen") and German weekday/time formatting regardless of the interface language — English users saw German weather. The API now reads the UI locale (the `NEXT_LOCALE` cookie), requests localized data from OpenWeatherMap, and formats condition names, weekday abbreviations, and times for EN or DE accordingly.
+- Realtime sync is now more reliable: the Supabase channel could tear down and immediately rebuild on every React render (an unstable client + table list in the subscription effect), occasionally dropping a change that arrived during the rebuild. The channel is now created once and reused for the component's lifetime.
+- The settings footer no longer falls back to a hardcoded "v1.0.0" when the live version is briefly unavailable — it shows just "Kinboard" until the real version loads.
+- Savings-goal images in Pocket Money now carry the goal name as alt text instead of being hidden from screen readers.
 
 ## [1.2.0] - 2026-06-01 — Onboarding completeness + setup/self-host hardening
 

@@ -8,7 +8,10 @@
     "edit": "Modifier",
     "searchClear": "Effacer la recherche",
     "newEntriesAria": "{count, plural, one {# nouvelle entrée} other {# nouvelles entrées}}",
-    "seeOnDashboardOrNewsPage": "voir sur le widget du tableau de bord ou sur /news"
+    "seeOnDashboardOrNewsPage": "voir sur le widget du tableau de bord ou sur /news",
+    "copy": "Copier",
+    "moreOptions": "Plus d'options",
+    "addItem": "Ajouter un article"
   },
   "components": {
     "back": "Retour",

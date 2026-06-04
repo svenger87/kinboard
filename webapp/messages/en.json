@@ -6,6 +6,9 @@
     "save": "Save",
     "delete": "Delete",
     "edit": "Edit",
+    "copy": "Copy",
+    "moreOptions": "More options",
+    "addItem": "Add item",
     "searchClear": "Clear search",
     "newEntriesAria": "{count, plural, one {# new entry} other {# new entries}}",
     "seeOnDashboardOrNewsPage": "see on the dashboard widget or on /news"
@@ -602,8 +605,8 @@
     "deleteDescription": "The recipe will be permanently deleted. This action cannot be undone.",
     "deleteFailed": "Failed to delete recipe",
     "timeMinutes": "{count} min",
-    "timeHours": "{hours}h",
-    "timeHoursMinutes": "{hours}h {minutes}m",
+    "timeHours": "{hours} h",
+    "timeHoursMinutes": "{hours} h {minutes} min",
     "difficulty": {
       "einfach": "Easy",
       "mittel": "Medium",
@@ -815,7 +818,7 @@
     "leaveFamilyDescription": "This device will be disconnected from the family “{name}”. You can reconnect anytime with the family code.",
     "leaveFamilyConfirm": "Leave",
     "backToDashboard": "← Back to dashboard",
-    "appVersion": "Kinboard v1.0.0",
+    "appVersion": "Kinboard",
     "deviceLabel": "Device: {name}",
     "widgets": {
       "title": "Widgets",
@@ -2623,7 +2626,7 @@
     "emptyTitle": "Nothing planned yet",
     "emptyDescription": "Plan today's meals",
     "timeMinutes": "{count} min",
-    "timeHoursMinutes": "{hours}h {minutes}m",
+    "timeHoursMinutes": "{hours} h {minutes} min",
     "timeHoursOnly": "{hours}h"
   },
   "tesla": {

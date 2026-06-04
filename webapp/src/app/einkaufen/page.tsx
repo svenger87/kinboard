@@ -36,6 +36,7 @@ import { CATEGORIES, detectCategory } from "@/lib/shopping-categories";
 export default function EinkaufenPage() {
   const t = useTranslations("einkaufen");
   const tCategories = useTranslations("shoppingCategories");
+  const tCommon = useTranslations("common");
 
   // Fetch items with offline support
   const {
@@ -715,6 +716,7 @@ export default function EinkaufenPage() {
             size="icon"
             onClick={handleAddItem}
             disabled={!inputValue.trim() || createItem.isPending}
+            aria-label={tCommon("addItem")}
             className="absolute right-2 top-1/2 -translate-y-1/2 size-10"
           >
             {createItem.isPending ? (

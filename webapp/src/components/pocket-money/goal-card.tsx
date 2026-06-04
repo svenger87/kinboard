@@ -25,7 +25,7 @@ export function GoalCard({ goal, currentBalanceCents, currency, variant = "secon
         {goal.image_url && (
           <Image
             src={goal.image_url}
-            alt=""
+            alt={goal.name}
             width={variant === "primary" ? 80 : 48}
             height={variant === "primary" ? 80 : 48}
             className="rounded object-cover shrink-0"
