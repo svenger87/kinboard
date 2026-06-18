@@ -69,6 +69,19 @@ const BatteryChart = dynamic(
   { ssr: false }
 );
 
+// Chart series colors. Routed through the energy theme CSS vars (defined in
+// globals.css, light + dark) so chart lines match the rest of the energy card
+// and stay legible in dark mode. Grid-import/export and battery-discharge have
+// no dedicated var, so they use distinct, dark-mode-legible fixed colors.
+const CHART_COLORS = {
+  solar: "hsl(var(--energy-solar))",
+  consumption: "hsl(var(--energy-consumption))",
+  battery: "hsl(var(--energy-battery))",
+  gridImport: "hsl(var(--energy-grid))",
+  gridExport: "#10b981",
+  batteryOut: "#a78bfa",
+} as const;
+
 // ============================================================================
 // EnergyCard — the /energy dashboard (extracted from app/energy/page.tsx)
 // ============================================================================
@@ -557,17 +570,17 @@ function EnergyCard() {
                       ...(energyConfig?.solar_power ? [{
                         entityId: energyConfig.solar_power,
                         label: t("chartLineSolar"),
-                        color: "#f97316",
+                        color: CHART_COLORS.solar,
                       }] : []),
                       ...(energyConfig?.home_consumption ? [{
                         entityId: energyConfig.home_consumption,
                         label: t("chartLineConsumption"),
-                        color: "#3b82f6",
+                        color: CHART_COLORS.consumption,
                       }] : []),
                       ...(energyConfig?.home_consumption && energyConfig?.solar_power ? [{
                         entityId: "calculated_grid_import",
                         label: t("chartLineGridImport"),
-                        color: "#ef4444",
+                        color: CHART_COLORS.gridImport,
                         calculated: {
                           type: "grid_import" as const,
                           homeConsumption: energyConfig.home_consumption,
@@ -578,12 +591,12 @@ function EnergyCard() {
                       ...(energyConfig?.grid_export_power ? [{
                         entityId: energyConfig.grid_export_power,
                         label: t("chartLineGridExport"),
-                        color: "#22c55e",
+                        color: CHART_COLORS.gridExport,
                       }] : []),
                       ...(energyConfig?.battery_power ? [{
                         entityId: energyConfig.battery_power,
                         label: t("chartLineBattery"),
-                        color: "#06b6d4",
+                        color: CHART_COLORS.battery,
                       }] : []),
                     ]}
                     period={selectedPeriod}
@@ -611,27 +624,27 @@ function EnergyCard() {
                       ...(energyConfig?.solar_energy_today ? [{
                         entityId: energyConfig.solar_energy_today,
                         label: t("chartLineSolarYield"),
-                        color: "#f97316",
+                        color: CHART_COLORS.solar,
                       }] : []),
                       ...(energyConfig?.grid_import ? [{
                         entityId: energyConfig.grid_import,
                         label: t("chartLineGridImport"),
-                        color: "#ef4444",
+                        color: CHART_COLORS.gridImport,
                       }] : []),
                       ...(energyConfig?.grid_export ? [{
                         entityId: energyConfig.grid_export,
                         label: t("chartLineGridExport"),
-                        color: "#22c55e",
+                        color: CHART_COLORS.gridExport,
                       }] : []),
                       ...(energyConfig?.battery_energy_in ? [{
                         entityId: energyConfig.battery_energy_in,
                         label: t("chartLineBatteryCharged"),
-                        color: "#06b6d4",
+                        color: CHART_COLORS.battery,
                       }] : []),
                       ...(energyConfig?.battery_energy_out ? [{
                         entityId: energyConfig.battery_energy_out,
                         label: t("chartLineBatteryDischarged"),
-                        color: "#8b5cf6",
+                        color: CHART_COLORS.batteryOut,
                       }] : []),
                     ]}
                     period={selectedPeriod}

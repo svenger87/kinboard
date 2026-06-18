@@ -200,16 +200,16 @@ export function PowerChart({
     const date = new Date(timestamp);
 
     if (period === "year" || period === "month") {
+      // Day-of-month only — avoids label overlap on narrow kiosks
       return date.toLocaleDateString(intlLocale, {
         day: "2-digit",
         month: "2-digit",
       });
     }
     if (period === "week") {
+      // Day-only (e.g. "Mo"/"Mon") — weekday+time collides on narrow kiosks
       return date.toLocaleDateString(intlLocale, {
         weekday: "short",
-        hour: "2-digit",
-        minute: "2-digit",
       });
     }
     return date.toLocaleTimeString(intlLocale, {
@@ -277,16 +277,8 @@ export function PowerChart({
     );
   };
 
-  // Calculate tick count based on data
-  const getTickInterval = () => {
-    const len = chartData.length;
-    if (len <= 8) return 0;
-    if (period === "today") return Math.ceil(len / 8);
-    if (period === "week") return Math.ceil(len / 7);
-    return Math.ceil(len / 10);
-  };
-
-  if (chartData.length === 0) {
+  // A single point renders axes with no visible line — treat <2 points as empty
+  if (chartData.length < 2) {
     return (
       <div className={cn(
         "flex items-center justify-center text-muted-foreground text-sm",
@@ -298,7 +290,7 @@ export function PowerChart({
   }
 
   return (
-    <div className={className}>
+    <div className={cn("min-w-0", className)}>
       {/* Legend */}
       <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 px-1">
         {lines.map((line) => (
@@ -347,8 +339,8 @@ export function PowerChart({
             tick={{ fontSize: 12, fill: "currentColor", opacity: 0.7 }}
             axisLine={{ stroke: "currentColor", opacity: 0.1 }}
             tickLine={false}
-            interval={getTickInterval()}
-            minTickGap={50}
+            interval="preserveStartEnd"
+            minTickGap={period === "today" ? 50 : 24}
           />
 
           <YAxis
