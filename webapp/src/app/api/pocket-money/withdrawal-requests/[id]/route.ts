@@ -122,3 +122,34 @@ export async function PATCH(
 
   return NextResponse.json({ ok: true });
 }
+
+// Cancel a still-pending request (kid changed their mind, or to clear a
+// duplicate). Only pending requests can be cancelled — once a parent has
+// decided, the outcome stands.
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const supabase = createAdminClient();
+
+  const { data: req, error: readErr } = await (supabase as any)
+    .from("pocket_money_withdrawal_requests")
+    .select("id, status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (readErr) return NextResponse.json({ error: readErr.message }, { status: 500 });
+  if (!req) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (req.status !== "pending") {
+    return NextResponse.json({ error: "already_decided" }, { status: 409 });
+  }
+
+  const { error: delErr } = await (supabase as any)
+    .from("pocket_money_withdrawal_requests")
+    .delete()
+    .eq("id", id);
+  if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}

@@ -3112,6 +3112,22 @@
     "stagesSheetDescription": "Épargnez plus pour atteindre chaque stade suivant.",
     "stagesStartingThreshold": "Stade de départ",
     "stagesThreshold": "Débloqué à {amount} d'économies",
-    "stagesCurrentBadge": "Vous êtes ici"
+    "stagesCurrentBadge": "Vous êtes ici",
+    "editGoalTitle": "Modifier l’objectif",
+    "saveGoal": "Enregistrer",
+    "editGoalAria": "Modifier l’objectif",
+    "removeGoalAria": "Supprimer l’objectif",
+    "dismissGoalAria": "Masquer",
+    "boughtBadge": "Acheté",
+    "requestPending": "En attente d’approbation",
+    "boughtSectionTitle": "Acheté",
+    "cancelRequest": "Annuler",
+    "removeGoalConfirmTitle": "Supprimer cet objectif ?",
+    "dismissGoalConfirmTitle": "Masquer cet objectif ?",
+    "removeGoalConfirmBody": "« {name} » sera retiré de la liste. Cette action est irréversible.",
+    "dismiss": "Masquer",
+    "remove": "Supprimer",
+    "goalsSectionTitle": "Objectifs d’épargne",
+    "noGoalsYet": "Aucun objectif pour le moment."
   }
 }
