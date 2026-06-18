@@ -38,6 +38,35 @@ export async function POST(
   }
 
   const supabase = createAdminClient();
+
+  // Spam guard: a kid could otherwise tap "ready to buy" / "spend" repeatedly
+  // and flood the parent's approval inbox. Reject a second pending request for
+  // the same goal, and cap the total number of pending requests per account.
+  const { data: pending } = await (supabase as any)
+    .from("pocket_money_withdrawal_requests")
+    .select("id, related_goal_id")
+    .eq("account_id", accountId)
+    .eq("status", "pending");
+  const pendingList = (pending ?? []) as { id: string; related_goal_id: string | null }[];
+
+  if (
+    body.related_goal_id &&
+    pendingList.some((p) => p.related_goal_id === body.related_goal_id)
+  ) {
+    return NextResponse.json(
+      { error: "A request for this goal is already awaiting approval." },
+      { status: 409 },
+    );
+  }
+
+  const MAX_PENDING = 5;
+  if (pendingList.length >= MAX_PENDING) {
+    return NextResponse.json(
+      { error: "Too many requests are already awaiting approval." },
+      { status: 409 },
+    );
+  }
+
   const { data, error } = await (supabase as any)
     .from("pocket_money_withdrawal_requests")
     .insert({

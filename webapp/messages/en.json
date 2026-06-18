@@ -3112,6 +3112,22 @@
     "stagesSheetDescription": "Save more to grow into each next stage.",
     "stagesStartingThreshold": "Starting stage",
     "stagesThreshold": "Unlocks at {amount} saved",
-    "stagesCurrentBadge": "You are here"
+    "stagesCurrentBadge": "You are here",
+    "editGoalTitle": "Edit goal",
+    "saveGoal": "Save",
+    "editGoalAria": "Edit goal",
+    "removeGoalAria": "Remove goal",
+    "dismissGoalAria": "Dismiss",
+    "boughtBadge": "Bought",
+    "requestPending": "Waiting for approval",
+    "boughtSectionTitle": "Bought",
+    "cancelRequest": "Cancel",
+    "removeGoalConfirmTitle": "Remove this goal?",
+    "dismissGoalConfirmTitle": "Dismiss this goal?",
+    "removeGoalConfirmBody": "“{name}” will be removed from the list. This can’t be undone.",
+    "dismiss": "Dismiss",
+    "remove": "Remove",
+    "goalsSectionTitle": "Savings goals",
+    "noGoalsYet": "No goals yet."
   }
 }

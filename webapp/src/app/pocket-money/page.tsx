@@ -19,10 +19,24 @@ import {
   usePocketMoneyGoals,
   usePocketMoneyAccountTransactions,
   useCreateWithdrawalRequest,
+  useCancelWithdrawalRequest,
+  useUpdatePocketMoneyGoal,
   useUpdatePocketMoneyAccount,
   useWithdrawalRequests,
   usePeople,
 } from "@/hooks";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import type { PocketMoneyGoal } from "@/types/database";
 import { AmountDialog } from "@/components/pocket-money/amount-dialog";
 import { tierFromLifetimeSaved, nextTierThreshold } from "@/lib/pocket-money/interest";
 import { formatCents } from "@/lib/pocket-money/format";
@@ -47,7 +61,11 @@ export default function PocketMoneyPage() {
   const { data: goals = [] } = usePocketMoneyGoals(active?.id);
   const { data: transactions = [] } = usePocketMoneyAccountTransactions(active?.id);
   const createWithdrawalRequest = useCreateWithdrawalRequest();
+  const cancelWithdrawal = useCancelWithdrawalRequest();
+  const updateGoal = useUpdatePocketMoneyGoal();
   const updateAccount = useUpdatePocketMoneyAccount();
+  const [editingGoal, setEditingGoal] = useState<PocketMoneyGoal | null>(null);
+  const [goalToRemove, setGoalToRemove] = useState<PocketMoneyGoal | null>(null);
   // Pending spend requests for the active account — drives the
   // "waiting for parent approval" hint above the goal/balance area.
   const { data: pendingRequests = [] } = useWithdrawalRequests(
@@ -83,6 +101,31 @@ export default function PocketMoneyPage() {
 
   const primaryGoal = goals.find((g) => g.is_primary && g.status === "active");
   const secondaryGoals = goals.filter((g) => !g.is_primary && g.status === "active");
+  const boughtGoals = goals.filter((g) => g.status === "bought");
+  // Goals that already have a withdrawal request awaiting approval — used to
+  // disable "ready to buy" so a kid can't queue the same purchase twice.
+  const pendingGoalIds = new Set(
+    pendingRequests
+      .map((r) => r.related_goal_id)
+      .filter((x): x is string => !!x),
+  );
+
+  const openEditGoal = (g: PocketMoneyGoal) => {
+    setEditingGoal(g);
+    setGoalDialogOpen(true);
+  };
+
+  const confirmRemoveGoal = () => {
+    if (!goalToRemove || !active) return;
+    updateGoal
+      .mutateAsync({
+        id: goalToRemove.id,
+        accountId: active.id,
+        update: { status: "abandoned" },
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : String(e)));
+    setGoalToRemove(null);
+  };
 
   if (isPending) return <div className="p-8 text-muted-foreground">{t("loading")}</div>;
 
@@ -181,20 +224,32 @@ export default function PocketMoneyPage() {
       </div>
 
       {pendingRequests.length > 0 && (
-        <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 flex items-center gap-2 text-sm">
-          <Clock className="size-4 text-amber-400 shrink-0" />
-          <p className="text-amber-100/90">
-            {pendingRequests.length === 1
-              ? t("pendingRequestHintOne", {
-                  amount: formatCents(
-                    pendingRequests[0].amount_cents,
-                    active.currency,
-                  ),
-                })
-              : t("pendingRequestHintMany", {
-                  count: pendingRequests.length,
+        <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 space-y-1.5 text-sm">
+          {pendingRequests.map((r) => (
+            <div key={r.id} className="flex items-center gap-2">
+              <Clock className="size-4 text-amber-400 shrink-0" />
+              <p className="text-amber-100/90 flex-1 min-w-0 truncate">
+                {t("pendingRequestHintOne", {
+                  amount: formatCents(r.amount_cents, active.currency),
                 })}
-          </p>
+                {r.reason ? ` — ${r.reason}` : ""}
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  cancelWithdrawal
+                    .mutateAsync({ id: r.id, accountId: active.id })
+                    .catch((e) =>
+                      toast.error(e instanceof Error ? e.message : String(e)),
+                    )
+                }
+                disabled={cancelWithdrawal.isPending}
+                className="shrink-0 text-xs text-amber-200/80 underline hover:text-amber-100 disabled:opacity-50"
+              >
+                {t("cancelRequest")}
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -204,7 +259,11 @@ export default function PocketMoneyPage() {
           currentBalanceCents={active.balance_cents}
           currency={active.currency}
           variant="primary"
+          readyToBuyPending={pendingGoalIds.has(primaryGoal.id)}
+          onEdit={() => openEditGoal(primaryGoal)}
+          onRemove={() => setGoalToRemove(primaryGoal)}
           onReadyToBuy={() => {
+            if (pendingGoalIds.has(primaryGoal.id)) return;
             createWithdrawalRequest
               .mutateAsync({
                 accountId: active.id,
@@ -214,7 +273,7 @@ export default function PocketMoneyPage() {
                   related_goal_id: primaryGoal.id,
                 },
               })
-              .catch(console.error);
+              .catch((e) => toast.error(e instanceof Error ? e.message : String(e)));
           }}
         />
       )}
@@ -227,13 +286,37 @@ export default function PocketMoneyPage() {
               goal={g}
               currentBalanceCents={active.balance_cents}
               currency={active.currency}
+              onEdit={() => openEditGoal(g)}
+              onRemove={() => setGoalToRemove(g)}
             />
           ))}
         </div>
       )}
 
+      {boughtGoals.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-muted-foreground">{t("boughtSectionTitle")}</p>
+          <div className="overflow-x-auto flex gap-3 -mx-6 px-6 pb-2">
+            {boughtGoals.map((g) => (
+              <GoalCard
+                key={g.id}
+                goal={g}
+                currentBalanceCents={active.balance_cents}
+                currency={active.currency}
+                onRemove={() => setGoalToRemove(g)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-3">
-        <Button onClick={() => setGoalDialogOpen(true)}>
+        <Button
+          onClick={() => {
+            setEditingGoal(null);
+            setGoalDialogOpen(true);
+          }}
+        >
           <Plus className="size-4 mr-2" />
           {t("addGoal")}
         </Button>
@@ -246,7 +329,41 @@ export default function PocketMoneyPage() {
         </Button>
       </div>
 
-      <GoalAddDialog accountId={active.id} open={goalDialogOpen} onOpenChange={setGoalDialogOpen} />
+      <GoalAddDialog
+        accountId={active.id}
+        open={goalDialogOpen}
+        goal={editingGoal}
+        onOpenChange={(o) => {
+          setGoalDialogOpen(o);
+          if (!o) setEditingGoal(null);
+        }}
+      />
+
+      <AlertDialog
+        open={!!goalToRemove}
+        onOpenChange={(o) => {
+          if (!o) setGoalToRemove(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {goalToRemove?.status === "bought"
+                ? t("dismissGoalConfirmTitle")
+                : t("removeGoalConfirmTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("removeGoalConfirmBody", { name: goalToRemove?.name ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemoveGoal}>
+              {goalToRemove?.status === "bought" ? t("dismiss") : t("remove")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AmountDialog
         open={spendDialogOpen}

@@ -3112,6 +3112,22 @@
     "stagesSheetDescription": "Spare mehr, um die nächste Stufe zu erreichen.",
     "stagesStartingThreshold": "Startstufe",
     "stagesThreshold": "Freigeschaltet bei {amount} gespart",
-    "stagesCurrentBadge": "Hier bist du"
+    "stagesCurrentBadge": "Hier bist du",
+    "editGoalTitle": "Ziel bearbeiten",
+    "saveGoal": "Speichern",
+    "editGoalAria": "Ziel bearbeiten",
+    "removeGoalAria": "Ziel entfernen",
+    "dismissGoalAria": "Ausblenden",
+    "boughtBadge": "Gekauft",
+    "requestPending": "Warte auf Freigabe",
+    "boughtSectionTitle": "Gekauft",
+    "cancelRequest": "Abbrechen",
+    "removeGoalConfirmTitle": "Dieses Ziel entfernen?",
+    "dismissGoalConfirmTitle": "Dieses Ziel ausblenden?",
+    "removeGoalConfirmBody": "„{name}“ wird aus der Liste entfernt. Das kann nicht rückgängig gemacht werden.",
+    "dismiss": "Ausblenden",
+    "remove": "Entfernen",
+    "goalsSectionTitle": "Sparziele",
+    "noGoalsYet": "Noch keine Ziele."
   }
 }

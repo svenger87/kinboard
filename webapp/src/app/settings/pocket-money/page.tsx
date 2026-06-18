@@ -34,6 +34,7 @@ import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { formatCents } from "@/lib/pocket-money/format";
 import { BalanceForecast } from "@/components/pocket-money/balance-forecast";
 import { AmountDialog } from "@/components/pocket-money/amount-dialog";
+import { GoalsManager } from "@/components/pocket-money/goals-manager";
 
 // Locale-aware short weekday names indexed 0=Sun..6=Sat. Built once
 // per locale via Intl.DateTimeFormat off a known Sunday so we don't
@@ -263,6 +264,8 @@ export default function PocketMoneySettingsPage() {
                 allowanceIntervalDays={acct.allowance_interval_days ?? 7}
                 currency={acct.currency}
               />
+
+              <GoalsManager accountId={acct.id} currency={acct.currency} />
             </GlassCard>
           );
         })}
