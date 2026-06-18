@@ -37,11 +37,34 @@ export function useCreateWithdrawalRequest() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      if (!r.ok) throw new Error(`create request: ${r.status}`);
+      if (!r.ok) {
+        const err = (await r.json().catch(() => ({}))) as { error?: string };
+        throw new Error(err.error ?? `create request: ${r.status}`);
+      }
       return ((await r.json()) as { request: PocketMoneyWithdrawalRequest }).request;
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: [KEY, vars.accountId] });
+    },
+  });
+}
+
+export function useCancelWithdrawalRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    // accountId is accepted only to keep call sites self-documenting; the
+    // DELETE is by request id and we invalidate the whole requests key.
+    mutationFn: async ({ id }: { id: string; accountId?: string }) => {
+      const r = await fetch(`/api/pocket-money/withdrawal-requests/${id}`, {
+        method: "DELETE",
+      });
+      if (!r.ok) {
+        const err = (await r.json().catch(() => ({}))) as { error?: string };
+        throw new Error(err.error ?? `cancel request: ${r.status}`);
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [KEY] });
     },
   });
 }
