@@ -442,20 +442,15 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
       significantChangesOnly: false,
     });
 
-  const socEntityIds = useMemo(() => {
+  // battery_level is already part of chartEntityIds, so derive the SoC history
+  // for the BatteryChart from the main fetch instead of a second request.
+  const socHistory = useMemo(() => {
     if (!teslaConfig?.battery_level) return [];
-    return [teslaConfig.battery_level];
-  }, [teslaConfig]);
-
-  const { data: socHistory = [] } = useMultiEntityHistory(
-    socEntityIds,
-    historyStartTime,
-    historyEndTime,
-    {
-      enabled: isConnected && isConfigured && socEntityIds.length > 0,
-      significantChangesOnly: false,
-    }
-  );
+    const match = chartHistory.find(
+      (h) => h.entity_id === teslaConfig.battery_level
+    );
+    return match ? [match] : [];
+  }, [chartHistory, teslaConfig]);
 
   const periodLabel =
     selectedPeriod === "today"

@@ -93,7 +93,8 @@ export function BatteryChart({
     );
   };
 
-  if (chartData.length === 0) {
+  // A single point renders axes with no visible line — treat <2 points as empty
+  if (chartData.length < 2) {
     return (
       <div className={cn("flex items-center justify-center text-muted-foreground text-sm", className)} style={{ height }}>
         {t("noData")}
@@ -106,7 +107,7 @@ export function BatteryChart({
   const color = currentSoc > 50 ? "#22c55e" : currentSoc > 20 ? "#eab308" : "#ef4444";
 
   return (
-    <div className={className}>
+    <div className={cn("min-w-0", className)}>
       <ResponsiveContainer width="100%" height={height}>
         <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
           <defs>
