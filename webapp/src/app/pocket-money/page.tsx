@@ -224,11 +224,11 @@ export default function PocketMoneyPage() {
       </div>
 
       {pendingRequests.length > 0 && (
-        <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 space-y-1.5 text-sm">
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 space-y-1.5 text-sm">
           {pendingRequests.map((r) => (
             <div key={r.id} className="flex items-center gap-2">
-              <Clock className="size-4 text-amber-400 shrink-0" />
-              <p className="text-amber-100/90 flex-1 min-w-0 truncate">
+              <Clock className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <p className="text-amber-800 dark:text-amber-100/90 flex-1 min-w-0 truncate">
                 {t("pendingRequestHintOne", {
                   amount: formatCents(r.amount_cents, active.currency),
                 })}
@@ -244,7 +244,7 @@ export default function PocketMoneyPage() {
                     )
                 }
                 disabled={cancelWithdrawal.isPending}
-                className="shrink-0 text-xs text-amber-200/80 underline hover:text-amber-100 disabled:opacity-50"
+                className="shrink-0 text-xs underline text-amber-700 hover:text-amber-900 dark:text-amber-200/80 dark:hover:text-amber-100 disabled:opacity-50"
               >
                 {t("cancelRequest")}
               </button>
