@@ -22,6 +22,11 @@
 # `./start.sh seed-demo` to insert the HA/cameras/Tesla settings rows
 # that wire the demo family to the mock URLs.
 #
+# This overlay also swaps the cron config to ofelia.demo.ini, adding an hourly
+# "demo-config-reset" job that re-applies seed-demo.sql to wipe visitor changes
+# (settings PIN, integration edits, item add/delete). Tune the cadence via the
+# job's `schedule` in ofelia.demo.ini.
+#
 # Self-hosters running a real household DON'T enable this overlay —
 # real integrations work as usual.
 
@@ -37,6 +42,20 @@ services:
   # with a static SVG stream so the cameras grid renders.
   go2rtc:
     profiles: ["disabled"]
+
+  # Demo reset source — the hourly "demo-config-reset" Ofelia job (in
+  # ofelia.demo.ini) runs `psql -f /demo-reset/seed-demo.sql` in this container.
+  db:
+    volumes:
+      - ./seed-demo.sql:/demo-reset/seed-demo.sql:ro
+
+  # Demo cron = base jobs + the hourly config-reset. Points the daemon at
+  # ofelia.demo.ini (mounted ONLY here, at its own path) so a real self-hoster's
+  # cron — which uses the base ofelia.ini — never gets the reset job.
+  cron:
+    command: daemon --config=/etc/ofelia/config.demo.ini
+    volumes:
+      - ./ofelia.demo.ini:/etc/ofelia/config.demo.ini:ro
 
   # Each Node mock installs its (tiny) deps on startup if missing.
   # Mounted read-write so node_modules can land — the source dir is
