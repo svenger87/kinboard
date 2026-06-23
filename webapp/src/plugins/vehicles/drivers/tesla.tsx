@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
-import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
 import { getIntlLocale } from "@/i18n/intl-locale";
@@ -48,21 +47,12 @@ import {
   useMultiEntityHistory,
   useHomeAssistantEntities,
 } from "@/hooks";
+import { PowerChart } from "@/components/home-assistant/power-chart";
+import { BatteryChart } from "@/components/home-assistant/battery-chart";
 import { StatisticsCard, StatisticsGrid } from "@/components/home-assistant/statistics-card";
 import type { Vehicle } from "@/types/database";
 import type { HAEntity } from "@/types/home-assistant";
 import type { VehicleDriver } from "./types";
-
-// Charts pull in recharts; load them lazily so the library isn't in the
-// initial bundle for users who don't open a vehicle with charts.
-const PowerChart = dynamic(
-  () => import("@/components/home-assistant/power-chart").then((m) => m.PowerChart),
-  { ssr: false }
-);
-const BatteryChart = dynamic(
-  () => import("@/components/home-assistant/battery-chart").then((m) => m.BatteryChart),
-  { ssr: false }
-);
 
 // ---------------------------------------------------------------------------
 // TeslaConfig — canonical definition lives here; re-exported from
@@ -442,15 +432,20 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
       significantChangesOnly: false,
     });
 
-  // battery_level is already part of chartEntityIds, so derive the SoC history
-  // for the BatteryChart from the main fetch instead of a second request.
-  const socHistory = useMemo(() => {
+  const socEntityIds = useMemo(() => {
     if (!teslaConfig?.battery_level) return [];
-    const match = chartHistory.find(
-      (h) => h.entity_id === teslaConfig.battery_level
-    );
-    return match ? [match] : [];
-  }, [chartHistory, teslaConfig]);
+    return [teslaConfig.battery_level];
+  }, [teslaConfig]);
+
+  const { data: socHistory = [] } = useMultiEntityHistory(
+    socEntityIds,
+    historyStartTime,
+    historyEndTime,
+    {
+      enabled: isConnected && isConfigured && socEntityIds.length > 0,
+      significantChangesOnly: false,
+    }
+  );
 
   const periodLabel =
     selectedPeriod === "today"

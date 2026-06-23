@@ -1,0 +1,38 @@
+# Kinboard "Salbei / Leinen" Redesign — Program Roadmap
+
+Full-app visual overhaul. This is the master scope; each numbered plan is written + executed in sequence, pixel-faithful against its `.dc.html`. The Foundation is a hard dependency for everything; the Shell + composite-component library is a dependency for every route.
+
+Status legend: ☐ not started · ◐ plan written · ● shipped
+
+## Plans
+
+| # | Plan | Scope | Mockup | Status |
+|---|---|---|---|---|
+| 1 | **Foundation** | Tokens (`globals.css` merge), fonts (Hanken/Bricolage/Space Mono), Tailwind person palette + elevation, 6 shadcn primitives (Button, Card, Tabs/ToggleGroup, Switch, Checkbox, Badge) | Foundation | ● done on `redesign/foundation` |
+| 2 | **Shell + Composite library** | Kiosk statusline (no bottom-nav), Mobile bottom-tab-bar (Start·Kalender·Einkauf·Mehr + Mehr sheet), desktop nav restyle, route-transition motion (320 ms fade+y), full composite library (PersonAvatar, PersonChip, ChecklistItem, EventPill, TodayStripPill, WidgetCard, IntegrationStatusRow, EmptyState, FAB, Skeleton shimmer). **Also: back-ported the public repo's French + locale-registry i18n stack** (was missing from local main). | (cross-cutting) | ● done on `redesign/shell` |
+| 3 | **Dashboard** | Flat-linen page; clock kiosk-hero; PersonAvatar family row + status line; per-event TodayStripPill row; all widgets → WidgetCard (Weather, UpcomingEvents, Tasks, MealPlan, Waste, Birthday, secondary); NEW Shopping widget; glass removed; evening = dark mode. | Dashboard | ● done on `redesign/dashboard` |
+| 4 | **Calendar** | Flat month/week grid + sidebar agenda (glass removed), today = primary ring + glow + circle, EventPill chips/agenda cards, **NEW person-filter chips**, **waste events now shown** with trash icon, primary "+" + mobile FAB | Kalender | ● done on `redesign/calendar` |
+| 5 | **Shopping + Meal Plan** | Flat /shopping (ChecklistItem rows, dot category headers, person badge) + /einkaufen kiosk flattened; **voice (Web-Speech) add** + mobile FAB + flat offline pill; flat weekly meal board (slots, today highlight, "Auf Liste" CTA), DnD preserved; meals locale fixes | Einkauf & Essensplan | ● done on `redesign/shopping-meals` |
+| 6 | **Energy** | Icon-badge SVG flow diagram with animated marching-dash flux paths (theme-following, not dark-forced), energy-token-themed Recharts (area + dashed consumption), flat cards, desktop stat column + mobile compact chevron flow + battery bar; reduced-motion aware | Energie | ● done on `redesign/energy` |
+| 7 | **Settings** | Flat 3-group hub grid with **live integration status dots**; new **IntegrationStatusBanner** (connected/reauth/disconnected) on HA + google/bring/photos with sticky resync; flat/token sweep across all ~27 settings pages (incl. nested); i18n cleanups | Settings | ● done on `redesign/settings` |
+| 8 | **Onboarding / Join** | Welcome landing (2 kiosk CTAs), 6-cell `CodeInput`, curated `PERSON_COLORS` + `PersonColorPicker` swatches + PersonAvatar in the setup wizard person step, flat setup shell/steps, i18n'd locale switcher. Deferred (no-fake-feature): numeric keypad (codes are alphanumeric) + kiosk code/expiry timer (no schema support) | Onboarding | ● done on `redesign/onboarding` |
+| 9 | **Recipes** | Flat library (filter chips + tag chips + 3-col cards w/ flat heart + mobile FAB); photo-header detail (meta pills, ChecklistItem ingredients w/ mono qty, primary numbered steps); NEW "Zum Essensplan" CTA (real meal-plan wiring); URL-import detection preview (parse-only hook → preview → save) | Rezepte | ● done on `redesign/recipes` |
+| 10 | **Notes + Birthdays** | Sticky-note masonry (CSS columns, deterministic warm-pastel tint + rotation from note id); birthday year-ring restyled w/ person avatars + next-birthday center + primary highlight; person-color gradient hero; flat lists w/ mono countdowns; shared `lib/birthday.ts`. Deferred (need DB migration): note author dot, gift-ideas list | Notizen & Geburtstage | ● done on `redesign/notes-birthdays` |
+| 11 | **Schedule (Stundenplan)** | Flat weekly grid; pill child tabs w/ PersonAvatar; subject color blocks (from DB subjects); today header `text-primary`; dashed free periods; mobile "Für morgen einpacken" primary-gradient card w/ interactive (session-local) pack checklist + tomorrow lesson list (mono time + colored border) | Stundenplan | ● done on `redesign/schedule` |
+| 12 | **Smart Home + Cameras** | Flat entity cards (light+dimmer w/ static glow, thermostat, cover, media, sensor, etc.) across all ~14 types + dispatcher + editors; pill dashboard tabs; scenes section (real HA scenes, deduped from grid); primary FAB; camera live tiles (name overlay + LIVE pill + static scanline + offline tile); shared `lib/ha-color.ts`. Theme-following. | Smart Home & Kameras | ● done on `redesign/smarthome-cameras` |
+| 13 | **Weather + Screensaver** | Weather modal token pass (primary, info-tint hero, inset-segment radar tabs; existing hero/hourly/radar/5-day kept); screensaver gains a weather chip + person-avatar events + Bricolage-light clock + localized section labels (was hardcoded German). `/weather` page stays removed — modal is the surface. | Wetter & Screensaver | ● done on `redesign/weather-screensaver` |
+| 14 | **Cleanup + release** | Migrate any remaining `GlassCard` app surfaces to flat linen, i18n EN↔DE parity for new strings, full regression, update E2E smoke, cut release | (cross-cutting) | ☐ |
+
+## Gotchas carried forward (from Foundation review)
+- **App-wide `variant="month"` Button cleanup (for plan #14):** the Button `month` variant is `bg-month-primary text-white` — ~30 occurrences across ~18 files still use it (carries literal `text-white`, the low-contrast risk below). Fix once at the source: change the `month` variant to `text-primary-foreground` (or migrate call sites to `default`, which is now the accent). App-wide change → its own reviewed commit, deferred to the cleanup plan.
+- **On any month-colored surface use `text-primary-foreground`, never literal `text-white`.** The `.theme-*` classes intentionally don't override `--primary-foreground`; `text-primary-foreground` pairs correctly with the month hue in both modes (dark-on-light in dark mode = AA-passing), whereas hardcoded `text-white` fails AA on the light dark-mode accents. **Action:** the `month` Button variant (`button.tsx:21`) still hardcodes `text-white` (pre-existing, kept verbatim per Foundation plan Task 4) — fold the swap to `text-primary-foreground` into whichever route plan first touches a `variant="month"` call site, or do one mechanical sweep in #14. Affects ~23 `variant="month"` consumers.
+
+## Cross-cutting threads (tracked per-plan, finalized in #14)
+- **GlassCard migration**: 64 call sites use glass on app surfaces; the redesign restricts glass to photos. Each route plan converts its own surfaces; #14 sweeps the remainder.
+- **i18n**: any new copy lands in `messages/{en,de}.json` with key parity (CI gate). German is the design language in the mockups; EN must mirror.
+- **Motion budget**: 120/220/320 ms tiers, `prefers-reduced-motion` respected, sparse animation on kiosk (ARM GPU) — color/opacity over large movement.
+- **Three viewports per route**: Kiosk portrait, Mobile, Desktop — each route plan delivers all three.
+- **Changelog**: every plan with user-visible change adds an `[Unreleased]` entry.
+
+## Sequencing rationale
+1 → 2 are foundational and unlock everything. 3 (Dashboard) validates the full design language end-to-end. 4–13 are largely independent and could parallelize across worktrees, but are sequenced by user-facing priority. 14 closes out.

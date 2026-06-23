@@ -2,33 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { HomeAssistantSettings, HistoryPoint, EntityHistory } from "@/types/home-assistant";
 
-// Time-bucket a numeric series down to at most `maxPoints` points, averaging the
-// values in each bucket. Keeps the visual shape of instantaneous sensors (power,
-// battery %) while bounding payload + client render cost. Series are already in
-// chronological order from HA, so bucket keys are emitted chronologically.
-function downsample(history: HistoryPoint[], maxPoints: number): HistoryPoint[] {
-  if (history.length <= maxPoints) return history;
-  const first = new Date(history[0].timestamp).getTime();
-  const last = new Date(history[history.length - 1].timestamp).getTime();
-  const bucketMs = Math.max(1, (last - first) / maxPoints);
-  const buckets = new Map<number, { sum: number; count: number; t: number }>();
-  for (const p of history) {
-    const ts = new Date(p.timestamp).getTime();
-    const key = Math.floor((ts - first) / bucketMs);
-    const cur = buckets.get(key);
-    if (cur) {
-      cur.sum += p.state;
-      cur.count += 1;
-    } else {
-      buckets.set(key, { sum: p.state, count: 1, t: ts });
-    }
-  }
-  return Array.from(buckets.values()).map((b) => ({
-    timestamp: new Date(b.t).toISOString(),
-    state: b.sum / b.count,
-  }));
-}
-
 // GET: Fetch historical state data for entities
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -36,12 +9,7 @@ export async function GET(request: NextRequest) {
   const entityIds = searchParams.get("entity_ids"); // Comma-separated entity IDs
   const startTime = searchParams.get("start_time"); // ISO datetime
   const endTime = searchParams.get("end_time"); // ISO datetime (default: now)
-
-  // Cap on points returned per entity after server-side downsampling. Raw HA
-  // history over a week/month can be hundreds of thousands of points per
-  // sensor, which freezes the client while recharts re-buckets it. We reduce it
-  // here so the payload and client work stay bounded regardless of range.
-  const MAX_POINTS_PER_ENTITY = 800;
+  const minimalResponse = searchParams.get("minimal_response") === "true";
 
   if (!familyId) {
     return NextResponse.json(
@@ -102,20 +70,18 @@ export async function GET(request: NextRequest) {
       historyUrl += `&end_time=${encodeURIComponent(endTime)}`;
     }
 
-    // Always minimize the payload: minimal_response drops repeated full state
-    // objects, no_attributes drops attribute blobs. Both are parser-compatible
-    // (we only read state + last_changed below).
-    historyUrl += "&minimal_response&no_attributes";
+    if (minimalResponse) {
+      historyUrl += "&minimal_response";
+    }
 
-    // For ranges longer than ~a day, also let HA collapse insignificant
-    // fluctuations server-side before it even sends them — this is the single
-    // biggest reduction for noisy sensors (power updating every few seconds).
-    const rangeMs =
-      new Date(endTime || Date.now()).getTime() - new Date(startTime).getTime();
-    const isLongRange = rangeMs > 26 * 60 * 60 * 1000;
-    if (isLongRange || searchParams.get("significant_changes_only") === "true") {
+    // Add significant_changes_only to reduce data for longer periods
+    const significantChangesOnly = searchParams.get("significant_changes_only") === "true";
+    if (significantChangesOnly) {
       historyUrl += "&significant_changes_only";
     }
+
+    // Add no_attributes to reduce response size
+    historyUrl += "&no_attributes";
 
     // Fetch history from Home Assistant API
     const response = await fetch(historyUrl, {
@@ -163,7 +129,7 @@ export async function GET(request: NextRequest) {
 
       return {
         entity_id: entityId,
-        history: downsample(history, MAX_POINTS_PER_ENTITY),
+        history,
       };
     }).filter((h) => h.entity_id !== "");
 

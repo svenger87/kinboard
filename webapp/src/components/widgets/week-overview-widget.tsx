@@ -142,9 +142,9 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
     <Card className={`accent-border-top h-full ${className}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-xl font-medium">
-            <span className="p-1.5 rounded-lg bg-month-primary/10">
-              <CalendarDays className="size-5 text-month-primary" strokeWidth={1.5} />
+          <CardTitle className="flex items-center gap-2 font-display text-lg font-semibold">
+            <span className="icon-badge">
+              <CalendarDays className="size-5 text-primary" strokeWidth={1.75} />
             </span>
             {t("title")}
           </CardTitle>
@@ -160,7 +160,7 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
             <Link
               key={day.date.toISOString()}
               href={`/calendar?date=${format(day.date, "yyyy-MM-dd")}`}
-              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 rounded-lg"
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-lg"
               aria-label={t("dayAria", { date: format(day.date, "EEEE, d. MMMM", { locale: dateLocale }), count: day.totalItems })}
             >
             <motion.div
@@ -169,16 +169,16 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
               transition={{ delay: i * 0.03 }}
               className={`flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-lg transition-colors cursor-pointer ${
                 day.isToday
-                  ? "bg-month-primary/15 ring-1 ring-month-primary/30"
+                  ? "bg-primary/15 ring-1 ring-primary/30"
                   : day.totalItems > 0
-                  ? "hover:bg-white/5"
-                  : "hover:bg-white/[0.03]"
+                  ? "hover:bg-accent/50"
+                  : "hover:bg-accent/50"
               }`}
             >
               {/* Day name */}
               <span
                 className={`text-[10px] font-medium uppercase tracking-wider ${
-                  day.isToday ? "text-month-primary" : "text-muted-foreground"
+                  day.isToday ? "text-primary" : "text-muted-foreground"
                 }`}
               >
                 {day.dayName}
@@ -188,7 +188,7 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
               <div
                 className={`relative size-8 flex items-center justify-center rounded-full text-sm font-semibold ${
                   day.isToday
-                    ? "bg-month-primary text-month-primary-foreground"
+                    ? "bg-primary text-primary-foreground"
                     : day.hasBirthday
                     ? "bg-pink-500/20 text-pink-400"
                     : "text-foreground"
@@ -208,7 +208,7 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
                   <>
                     {day.eventCount > 0 && (
                       <div
-                        className="rounded-full bg-month-primary"
+                        className="rounded-full bg-primary"
                         style={{
                           width: `${Math.max(4, Math.min(8, (day.eventCount / maxItems) * 8))}px`,
                           height: "4px",
@@ -240,7 +240,7 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
         {/* Legend */}
         <div className="flex items-center justify-center gap-4 mt-3 text-[10px] text-muted-foreground">
           <span className="flex items-center gap-1">
-            <div className="size-1.5 rounded-full bg-month-primary" />
+            <div className="size-1.5 rounded-full bg-primary" />
             {t("legendEvents")}
           </span>
           <span className="flex items-center gap-1">

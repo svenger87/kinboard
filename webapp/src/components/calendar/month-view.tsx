@@ -20,7 +20,9 @@ import {
 } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
-import { GlassCard } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Trash2 } from "lucide-react";
+import { EventPill } from "@/components/event-pill";
 import {
   Tooltip,
   TooltipContent,
@@ -38,6 +40,7 @@ interface CalendarEvent {
   description?: string;
   person_id?: string;
   is_holiday?: boolean;
+  is_waste_collection?: boolean;
 }
 
 interface MonthViewProps {
@@ -110,7 +113,8 @@ export function MonthView({
   }, [events]);
 
   return (
-    <GlassCard className="p-2 sm:p-4">
+    <Card>
+      <CardContent className="p-2 sm:p-4">
       {/* Weekday Headers */}
       <div className="grid grid-cols-[1.5rem_repeat(7,1fr)] sm:grid-cols-[2rem_repeat(7,1fr)]">
         <div className="text-center text-[9px] sm:text-[10px] font-medium py-2 text-muted-foreground/40">
@@ -168,26 +172,25 @@ export function MonthView({
                     className={`
                       relative min-h-[3.5rem] sm:min-h-[5rem] p-0.5 sm:p-1 text-left transition-all overflow-hidden
                       ${dayIndex > 0 ? "border-l border-border/20" : ""}
-                      ${isCurrentMonth ? "" : "opacity-25"}
-                      ${isSelected && !isDayToday ? "ring-2 ring-inset ring-month-primary/50 bg-month-primary/5" : ""}
-                      ${isSelected && isDayToday ? "ring-2 ring-inset ring-month-primary bg-month-primary/10" : ""}
-                      ${!isSelected ? "hover:bg-white/[0.04]" : ""}
-                      ${isDayToday && !isSelected ? "bg-month-primary/[0.08]" : ""}
-                      ${dayIndex >= 5 && !isDayToday && !isSelected ? "bg-white/[0.02]" : ""}
+                      ${isCurrentMonth ? "" : "opacity-40 [&_span]:border-dashed"}
+                      ${isDayToday ? "ring-2 ring-inset ring-primary bg-primary/[0.06]" : ""}
+                      ${isSelected && !isDayToday ? "ring-2 ring-inset ring-primary/50 bg-primary/5" : ""}
+                      ${!isSelected && !isDayToday ? "hover:bg-accent/50" : ""}
+                      ${dayIndex >= 5 && !isDayToday && !isSelected ? "bg-muted/30" : ""}
                     `}
                   >
                     {/* Day Number */}
                     <div className="flex items-center gap-0.5 mb-0.5">
                       <span
                         className={`
-                          inline-flex items-center justify-center size-5 sm:size-6 rounded-full text-[10px] sm:text-xs font-medium shrink-0
-                          ${isDayToday ? "bg-month-primary text-white" : ""}
+                          inline-flex items-center justify-center size-5 sm:size-6 rounded-full text-[10px] sm:text-xs font-medium tabular-nums shrink-0
+                          ${isDayToday ? "bg-primary text-primary-foreground font-bold" : ""}
                         `}
                       >
                         {format(day, "d")}
                       </span>
                       {holidayEvent && (
-                        <span className="hidden sm:inline text-[8px] text-destructive/60 truncate leading-none">
+                        <span className="hidden sm:inline text-[8px] text-muted-foreground truncate leading-none">
                           {holidayEvent.title}
                         </span>
                       )}
@@ -216,13 +219,13 @@ export function MonthView({
                                       onSelectEvent(event);
                                     }
                                   }}
-                                  className="text-xs leading-tight px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-80 transition-opacity text-foreground/80"
-                                  style={{
-                                    backgroundColor: `${event.color}20`,
-                                    borderLeft: `2px solid ${event.color}`,
-                                  }}
+                                  className="cursor-pointer transition-opacity hover:opacity-80"
                                 >
-                                  {event.title}
+                                  <EventPill
+                                    title={event.title}
+                                    color={event.color}
+                                    icon={event.is_waste_collection ? Trash2 : undefined}
+                                  />
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent>
@@ -271,6 +274,7 @@ export function MonthView({
           );
         })}
       </div>
-    </GlassCard>
+      </CardContent>
+    </Card>
   );
 }

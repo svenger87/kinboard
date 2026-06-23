@@ -205,8 +205,8 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
         <DialogContent className="max-w-5xl max-h-[90vh] p-0 overflow-hidden">
           <DialogHeader className="p-6 pb-0">
             <DialogTitle className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-month-primary/10">
-                <Cloud className="size-6 text-month-primary" strokeWidth={1.5} />
+              <div className="p-2 rounded-xl bg-primary/10">
+                <Cloud className="size-6 text-primary" strokeWidth={1.5} />
               </div>
               {t("title")}
             </DialogTitle>
@@ -229,8 +229,8 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
         <DialogHeader className="p-6 pb-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-month-primary/10">
-                <WeatherIcon className="size-6 text-month-primary" strokeWidth={1.5} />
+              <div className="p-2 rounded-xl bg-primary/10">
+                <WeatherIcon className="size-6 text-primary" strokeWidth={1.5} />
               </div>
               <div>
                 <span className="text-xl font-display">{t("title")}</span>
@@ -244,11 +244,11 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
 
         <div className="p-6 pt-4 flex flex-col gap-6 overflow-y-auto max-h-[calc(90vh-80px)]">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="bg-muted/30 rounded-xl p-4">
+            <div className="bg-gradient-to-br from-info/10 to-info/5 border border-info/10 rounded-xl p-4">
               <h3 className="text-sm font-medium text-muted-foreground mb-3">{t("sectionCurrent")}</h3>
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-month-primary/10">
-                  <WeatherIcon className="size-12 text-month-primary" strokeWidth={1.5} />
+                <div className="p-3 rounded-xl bg-primary/10">
+                  <WeatherIcon className="size-12 text-primary" strokeWidth={1.5} />
                 </div>
                 <div>
                   <div className="flex items-baseline gap-2">
@@ -292,7 +292,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-muted-foreground">{t("sectionMap")}</h3>
                 <Tabs value={selectedLayer} onValueChange={(v) => setSelectedLayer(v as MapLayer)}>
-                  <TabsList className="h-8">
+                  <TabsList>
                     <TabsTrigger value="precipitation" className="text-xs px-2">
                       <Umbrella className="size-3 mr-1" />
                       {t("layerPrecipitation")}
@@ -350,7 +350,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                         className="flex flex-col items-center gap-1.5 min-w-[60px] p-2 rounded-lg bg-background/50"
                       >
                         <span className="text-xs text-muted-foreground">{hour.time}</span>
-                        <HourIcon className="size-5 text-month-primary" strokeWidth={1.5} />
+                        <HourIcon className="size-5 text-primary" strokeWidth={1.5} />
                         <span className="font-medium text-sm">{hour.temp}°</span>
                         {hour.precipProbability > 0 && (
                           <span className="text-xs text-weather-rain flex items-center gap-0.5">
@@ -394,12 +394,12 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                     return (
                       <div
                         key={day.date}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${isToday ? "bg-month-primary/10" : "bg-background/50"}`}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${isToday ? "bg-primary/10" : "bg-background/50"}`}
                       >
                         <div className="w-12 sm:w-16 text-sm font-medium shrink-0">
                           {isToday ? t("todayLabel") : day.dayName}
                         </div>
-                        <DayIcon className="size-5 text-month-primary shrink-0" strokeWidth={1.5} />
+                        <DayIcon className="size-5 text-primary shrink-0" strokeWidth={1.5} />
                         {day.precipProbability > 0 ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -571,8 +571,8 @@ function HourlySparkline({ temps }: { temps: number[] }) {
         <svg width={svgW} height={svgH} className="overflow-visible">
           <defs>
             <linearGradient id="hourly-temp-grad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="hsl(var(--month-primary))" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="hsl(var(--month-primary))" stopOpacity="0" />
+              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
             </linearGradient>
           </defs>
           <polygon
@@ -582,7 +582,7 @@ function HourlySparkline({ temps }: { temps: number[] }) {
           <polyline
             points={points.join(" ")}
             fill="none"
-            stroke="hsl(var(--month-primary))"
+            stroke="hsl(var(--primary))"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -595,7 +595,7 @@ function HourlySparkline({ temps }: { temps: number[] }) {
                 cx={x}
                 cy={y}
                 r="3"
-                fill="hsl(var(--month-primary))"
+                fill="hsl(var(--primary))"
                 opacity="0.7"
               />
             );

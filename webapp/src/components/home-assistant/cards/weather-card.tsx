@@ -92,7 +92,7 @@ export function WeatherCard({ card, entity }: WeatherCardProps) {
 
   return (
     <div
-      className={`rounded-xl border p-4 transition-all bg-card hover:border-month-primary/30 ${
+      className={`rounded-2xl border bg-card elev-sm p-4 transition-all hover:border-primary/30 ${
         isUnavailable ? "opacity-50" : ""
       }`}
     >

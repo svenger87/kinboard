@@ -1,4 +1,5 @@
 export { useClock } from "./use-clock";
+export { useToday } from "./use-today";
 export { useIdleTimeout } from "./use-idle-timeout";
 export {
   useWeather,
@@ -83,12 +84,17 @@ export {
   useCreateBirthday,
   useUpdateBirthday,
   useDeleteBirthday,
+  useGiftIdeas,
+  useCreateGiftIdea,
+  useToggleGiftIdea,
+  useDeleteGiftIdea,
   useNotes,
   useCreateNote,
   useUpdateNote,
   useDeleteNote,
   useSetting,
   useUpdateSetting,
+  useRegenerateJoinCode,
 } from "./use-supabase-queries";
 
 // Google Calendar Hooks
@@ -270,12 +276,14 @@ export {
   useDeleteRecipe,
   useAddRecipeToShoppingList,
   useImportRecipe,
+  useParseRecipeUrl,
   useCreateRecipeTag,
   useDeleteRecipeTag,
   useExternalRecipeSearch,
   type CreateRecipeInput,
   type UpdateRecipeInput,
   type ExternalRecipeResult,
+  type ParsedRecipe,
 } from "./use-recipes";
 
 // Meal Planner Hooks
@@ -435,6 +443,5 @@ export {
 export {
   useWithdrawalRequests,
   useCreateWithdrawalRequest,
-  useCancelWithdrawalRequest,
   useDecideWithdrawalRequest,
 } from "./use-pocket-money-withdrawal-requests";

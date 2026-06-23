@@ -6,7 +6,7 @@ import { Palette, Moon, Sun, Clock, Loader2 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { format } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -33,14 +33,26 @@ const MONTHLY_THEMES = [
   { color: "#166534", name: "Pine", class: "theme-december" },
 ];
 
+type Palette = "salbei" | "sand" | "warmgrey";
+
+// Neutral palettes — same accent/month themes, different warm-neutral tones.
+// Swatch HSL values mirror globals.css (light-mode background/card/border).
+const PALETTES: { id: Palette; bg: string; card: string; border: string }[] = [
+  { id: "sand", bg: "38 37% 88%", card: "43 54% 97%", border: "37 31% 85%" },
+  { id: "salbei", bg: "72 25% 92%", card: "75 50% 98%", border: "77 19% 85%" },
+  { id: "warmgrey", bg: "37 18% 91%", card: "40 33% 98%", border: "37 18% 86%" },
+];
+
 interface ThemeSettings {
   themeOverride: number | null;
+  palette: Palette;
   use24Hour: boolean;
   showSeconds: boolean;
 }
 
 const DEFAULT_SETTINGS: ThemeSettings = {
   themeOverride: null,
+  palette: "sand",
   use24Hour: true,
   showSeconds: false,
 };
@@ -63,6 +75,7 @@ export default function ThemeSettingsPage() {
   const updateSetting = useUpdateSetting<ThemeSettings>();
 
   const themeOverride = settings?.themeOverride ?? null;
+  const palette: Palette = settings?.palette ?? "sand";
   const use24Hour = settings?.use24Hour ?? true;
   const showSeconds = settings?.showSeconds ?? false;
 
@@ -79,10 +92,26 @@ export default function ThemeSettingsPage() {
     html.classList.add(MONTHLY_THEMES[activeTheme].class);
   }, [activeTheme, isLoading]);
 
+  // Apply neutral-palette class to document (instant feedback while on this page)
+  useEffect(() => {
+    if (isLoading) return;
+    const html = document.documentElement;
+    html.classList.remove("palette-salbei", "palette-warmgrey");
+    if (palette !== "sand") html.classList.add(`palette-${palette}`);
+  }, [palette, isLoading]);
+
   const currentSettings: ThemeSettings = {
     themeOverride: settings?.themeOverride ?? null,
+    palette: settings?.palette ?? "sand",
     use24Hour: settings?.use24Hour ?? true,
     showSeconds: settings?.showSeconds ?? false,
+  };
+
+  const handlePaletteChange = (id: Palette) => {
+    updateSetting.mutate({
+      key: "theme",
+      value: { ...currentSettings, palette: id },
+    });
   };
 
   const handleThemeOverride = (index: number) => {
@@ -149,7 +178,7 @@ export default function ThemeSettingsPage() {
               <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
                 {t("monthlyThemeHeading")}
               </h2>
-              <GlassCard className="p-4">
+              <Card className="p-4">
                 <p className="text-sm text-muted-foreground mb-4">
                   {t("monthlyThemeIntro")}
                 </p>
@@ -189,7 +218,46 @@ export default function ThemeSettingsPage() {
                     {t("resetToAuto")}
                   </Button>
                 )}
-              </GlassCard>
+              </Card>
+            </motion.div>
+
+            {/* Neutral Palette Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="mb-6"
+            >
+              <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+                {t("paletteHeading")}
+              </h2>
+              <Card className="p-4">
+                <p className="text-sm text-muted-foreground mb-4">{t("paletteIntro")}</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {PALETTES.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => handlePaletteChange(p.id)}
+                      disabled={updateSetting.isPending}
+                      aria-pressed={palette === p.id}
+                      className={`relative rounded-xl border p-3 text-left transition-all ${
+                        palette === p.id
+                          ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                          : "hover:scale-[1.02]"
+                      } ${updateSetting.isPending ? "opacity-50" : ""}`}
+                      style={{ backgroundColor: `hsl(${p.bg})`, borderColor: `hsl(${p.border})` }}
+                    >
+                      <div
+                        className="mb-2 h-10 rounded-lg border"
+                        style={{ backgroundColor: `hsl(${p.card})`, borderColor: `hsl(${p.border})` }}
+                      />
+                      <span className="text-xs font-medium" style={{ color: "hsl(30 14% 14%)" }}>
+                        {t(`palette_${p.id}`)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </Card>
             </motion.div>
 
             {/* Appearance Section */}
@@ -202,14 +270,14 @@ export default function ThemeSettingsPage() {
               <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
                 {t("appearanceHeading")}
               </h2>
-              <GlassCard className="divide-y divide-border/50">
+              <Card className="divide-y divide-border/50">
                 {/* Dark Mode */}
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
                     {isDarkMode ? (
-                      <Moon className="size-5 text-month-primary" />
+                      <Moon className="size-5 text-primary" />
                     ) : (
-                      <Sun className="size-5 text-month-primary" />
+                      <Sun className="size-5 text-primary" />
                     )}
                     <div>
                       <Label className="font-medium">{t("darkModeLabel")}</Label>
@@ -224,7 +292,7 @@ export default function ThemeSettingsPage() {
                 {/* 24h Format */}
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
-                    <Clock className="size-5 text-month-primary" />
+                    <Clock className="size-5 text-primary" />
                     <div>
                       <Label className="font-medium">{t("use24HourLabel")}</Label>
                       <p className="text-xs text-muted-foreground">
@@ -242,7 +310,7 @@ export default function ThemeSettingsPage() {
                 {/* Show Seconds */}
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
-                    <Clock className="size-5 text-month-primary" />
+                    <Clock className="size-5 text-primary" />
                     <div>
                       <Label className="font-medium">{t("showSecondsLabel")}</Label>
                       <p className="text-xs text-muted-foreground">
@@ -256,7 +324,7 @@ export default function ThemeSettingsPage() {
                     disabled={updateSetting.isPending}
                   />
                 </div>
-              </GlassCard>
+              </Card>
             </motion.div>
 
             {/* Preview */}
@@ -269,7 +337,7 @@ export default function ThemeSettingsPage() {
               <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
                 {t("previewHeading")}
               </h2>
-              <GlassCard className="p-8 text-center">
+              <Card className="p-8 text-center">
                 <div
                   className="inline-block p-4 rounded-xl mb-4"
                   style={{ backgroundColor: `${MONTHLY_THEMES[activeTheme].color}20` }}
@@ -285,7 +353,7 @@ export default function ThemeSettingsPage() {
                 <p className="text-sm text-muted-foreground">
                   {monthLabel(activeTheme, true)} - {MONTHLY_THEMES[activeTheme].name}
                 </p>
-              </GlassCard>
+              </Card>
             </motion.div>
           </>
         )}

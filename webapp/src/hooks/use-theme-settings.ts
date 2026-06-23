@@ -18,8 +18,19 @@ const MONTHLY_THEMES = [
   "theme-december",
 ];
 
+export type Palette = "salbei" | "sand" | "warmgrey";
+
+// Sand is the base (no class); the others are override classes in globals.css.
+const PALETTE_CLASSES: Record<Palette, string | null> = {
+  sand: null,
+  salbei: "palette-salbei",
+  warmgrey: "palette-warmgrey",
+};
+const ALL_PALETTE_CLASSES = ["palette-salbei", "palette-warmgrey"];
+
 export interface ThemeSettings {
   themeOverride: number | null;
+  palette: Palette;
   use24Hour: boolean;
   showSeconds: boolean;
   screensaverTimeout: number;
@@ -27,6 +38,7 @@ export interface ThemeSettings {
 
 export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
   themeOverride: null,
+  palette: "sand",
   use24Hour: true,
   showSeconds: false,
   screensaverTimeout: 120,
@@ -43,6 +55,7 @@ export function useThemeSettings() {
   const currentMonth = new Date().getMonth();
   const themeOverride = settings?.themeOverride ?? null;
   const activeThemeIndex = themeOverride !== null ? themeOverride : currentMonth;
+  const palette: Palette = settings?.palette ?? "sand";
 
   // Apply theme class to document
   useEffect(() => {
@@ -55,9 +68,20 @@ export function useThemeSettings() {
     html.classList.add(MONTHLY_THEMES[activeThemeIndex]);
   }, [activeThemeIndex, isLoading]);
 
+  // Apply neutral-palette class to document
+  useEffect(() => {
+    if (typeof document === "undefined" || isLoading) return;
+
+    const html = document.documentElement;
+    ALL_PALETTE_CLASSES.forEach((c) => html.classList.remove(c));
+    const cls = PALETTE_CLASSES[palette];
+    if (cls) html.classList.add(cls);
+  }, [palette, isLoading]);
+
   return {
     isLoading,
     themeOverride: settings?.themeOverride ?? null,
+    palette,
     use24Hour: settings?.use24Hour ?? true,
     showSeconds: settings?.showSeconds ?? false,
     screensaverTimeout: settings?.screensaverTimeout ?? 120,

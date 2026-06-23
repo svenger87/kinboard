@@ -49,7 +49,7 @@ A failed smoke test on `/meals` with a 400-shaped error in the console almost ce
 
 ## CI
 
-The smoke suite runs in CI on every push to `main` and every PR via [`.github/workflows/e2e.yml`](../../.github/workflows/e2e.yml): the workflow runs `setup.sh --non-interactive`, brings up the full Docker stack with the demo overlay (mock Home Assistant / Tesla / weather / cameras), seeds the `DEMO01` family, runs `npm run test:e2e:smoke` against it, and tears the stack down. The maintainer can still run it locally before a release cut.
+Phase B (not yet wired): a workflow that boots the full Docker stack, waits for kong + postgrest to be healthy, runs `npm run test:e2e:smoke`, and tears down. Tracked as a separate task. Until then, smoke runs on the maintainer's machine before each release cut.
 
 ## Producing wiki screenshots
 

@@ -10,7 +10,7 @@ import type { Json } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 
 export default function NewVehiclePage() {
@@ -47,7 +47,7 @@ export default function NewVehiclePage() {
           backHref="/settings/vehicles"
         />
 
-        <GlassCard>
+        <Card>
           <div className="p-6 flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label>{t("nickname")}</Label>
@@ -93,7 +93,7 @@ export default function NewVehiclePage() {
               {busy ? t("creating") : t("create")}
             </Button>
           </div>
-        </GlassCard>
+        </Card>
       </div>
     </main>
   );

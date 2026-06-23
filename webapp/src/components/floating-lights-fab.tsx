@@ -95,7 +95,7 @@ const RoomTab = React.memo(function RoomTab({
       onClick={onClick}
       className={`shrink-0 flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${
         isActive
-          ? "bg-month-primary text-primary-foreground"
+          ? "bg-primary text-primary-foreground"
           : "bg-muted/50 hover:bg-muted text-muted-foreground"
       }`}
     >
@@ -448,7 +448,7 @@ export function FloatingLightsFab() {
       {/* Floating Action Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed right-4 z-50 p-4 rounded-full bg-month-primary text-primary-foreground shadow-lg shadow-[0_0_20px_hsl(var(--month-primary)/0.3)] hover:shadow-xl transition-all hover:scale-105 active:scale-95 fab-above-nav"
+        className="fixed right-4 z-50 p-4 rounded-full bg-primary text-primary-foreground shadow-lg shadow-[0_0_20px_hsl(var(--primary)/0.3)] hover:shadow-xl transition-all hover:scale-105 active:scale-95 fab-above-nav"
         aria-label={t("fabAria")}
         aria-expanded={isOpen}
         aria-controls="lights-control-panel"
@@ -456,7 +456,7 @@ export function FloatingLightsFab() {
         <div className="relative">
           <Lightbulb className="size-6" />
           {totalLightsOn > 0 && (
-            <span className="absolute -top-1 -right-1 size-3 bg-yellow-400 rounded-full border-2 border-month-primary" />
+            <span className="absolute -top-1 -right-1 size-3 bg-yellow-400 rounded-full border-2 border-primary" />
           )}
         </div>
       </button>

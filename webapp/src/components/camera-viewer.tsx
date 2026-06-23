@@ -28,6 +28,30 @@ interface CameraViewerProps {
   className?: string;
 }
 
+// Static CSS scanline overlay — no animation (ARM-GPU + reduced-motion safe).
+function ScanlineOverlay() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0"
+      style={{
+        backgroundImage:
+          "repeating-linear-gradient(to bottom, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 4px)",
+      }}
+    />
+  );
+}
+
+// "LIVE" pill — red dot + label, shown only when a stream is actively rendering.
+function LivePill({ label }: { label: string }) {
+  return (
+    <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/55 text-white text-[10px] font-medium uppercase tracking-wider">
+      <span className="size-1.5 rounded-full bg-red-500" />
+      {label}
+    </div>
+  );
+}
+
 export function CameraViewer({
   camera,
   showControls = true,
@@ -210,12 +234,11 @@ export function CameraViewer({
 
     if (error) {
       return (
-        <div className={`${containerClass} bg-muted flex flex-col items-center justify-center gap-2`}>
-          <VideoOff className="size-8 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground text-center px-4">
-            {error}
-          </span>
-          <Button variant="outline" size="sm" onClick={() => {
+        <div className={`${containerClass} bg-black/90 flex flex-col items-center justify-center gap-2`}>
+          <VideoOff className="size-8 text-white/40" />
+          <span className="text-sm font-medium text-white/80">{name}</span>
+          <span className="text-xs text-white/50 text-center px-4">{error}</span>
+          <Button variant="outline" size="sm" className="mt-1" onClick={() => {
             if (stream_type === "webrtc") {
               initWebRTC();
             } else {
@@ -252,6 +275,7 @@ export function CameraViewer({
                 <Video className="size-8 text-white/30" />
               </div>
             )}
+            {!isFullscreen && <ScanlineOverlay />}
           </div>
         );
 
@@ -271,6 +295,7 @@ export function CameraViewer({
               onLoad={handleImageLoaded}
               onError={() => handleError(t("errorStreamLoad"))}
             />
+            {!isFullscreen && <ScanlineOverlay />}
           </div>
         );
 
@@ -295,7 +320,7 @@ export function CameraViewer({
   return (
     <>
       <div
-        className={`rounded-xl border bg-card overflow-hidden transition-all hover:border-month-primary/30 cursor-pointer group ${className}`}
+        className={`rounded-2xl border bg-card overflow-hidden transition-all hover:border-primary/30 cursor-pointer group ${className}`}
         onClick={() => setFullscreenOpen(true)}
       >
         {/* Camera Preview */}
@@ -325,9 +350,20 @@ export function CameraViewer({
                   <Video className="size-8 text-white/30" />
                 </div>
               )}
+              {!fullscreenOpen && <ScanlineOverlay />}
             </div>
           ) : (
             renderStream(false)
+          )}
+
+          {/* LIVE pill — only when a stream is actively rendering */}
+          {!error && !isLoading && <LivePill label={t("live")} />}
+
+          {/* Name overlay over the video */}
+          {!error && (
+            <div className="absolute bottom-0 inset-x-0 p-2 pt-6 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
+              <span className="text-sm font-medium text-white truncate block">{name}</span>
+            </div>
           )}
 
           {/* Fullscreen hint */}
@@ -338,20 +374,6 @@ export function CameraViewer({
           )}
         </div>
 
-        {/* Label */}
-        {showControls && (
-          <div className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Video className="size-4 text-muted-foreground" />
-                <span className="text-sm font-medium truncate">{name}</span>
-              </div>
-              <span className="text-xs text-muted-foreground uppercase">
-                {stream_type}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Fullscreen Dialog */}
@@ -478,6 +500,7 @@ function AutoRefreshSnapshot({
           onError();
         }}
       />
+      {!isFullscreen && <ScanlineOverlay />}
       <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/70 text-white text-xs flex items-center gap-1">
         <RefreshCw className="size-3" />
         {t("autoRefresh")}

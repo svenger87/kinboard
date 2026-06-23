@@ -101,16 +101,17 @@ export function CameraCard({ card, entity }: CameraCardProps) {
   return (
     <>
       <div
-        className={`rounded-xl border bg-card overflow-hidden transition-all hover:border-month-primary/30 cursor-pointer ${
+        className={`rounded-2xl border bg-card overflow-hidden transition-all hover:border-primary/30 cursor-pointer ${
           isUnavailable ? "opacity-50" : ""
         }`}
         onClick={handleOpenFullscreen}
       >
         {/* Camera Preview */}
-        <div className="relative aspect-video bg-muted">
+        <div className="relative aspect-video bg-black/90">
           {isUnavailable ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <VideoOff className="size-8 text-muted-foreground" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+              <VideoOff className="size-8 text-white/40" />
+              <span className="text-xs text-white/60">{label}</span>
             </div>
           ) : (
             <>

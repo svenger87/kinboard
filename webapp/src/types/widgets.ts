@@ -8,6 +8,7 @@ export interface WidgetVisibility {
   wasteCollection: boolean;
   notes: boolean;
   tasks: boolean;
+  shopping: boolean;
   vehicles: boolean;
   stonks: boolean;
   pocketMoney: boolean;
@@ -30,6 +31,7 @@ export const DEFAULT_WIDGET_VISIBILITY: WidgetVisibility = {
   birthday: false,
   wasteCollection: false,
   notes: false,
+  shopping: false,
   vehicles: false,
   stonks: false,
   pocketMoney: false,

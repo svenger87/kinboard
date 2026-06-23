@@ -5,9 +5,7 @@ import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import {
   ShoppingCart,
-  Check,
   RefreshCw,
-  Unlink,
   AlertCircle,
   Clock,
   Eye,
@@ -16,9 +14,9 @@ import {
   Lock,
   Loader2,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { IntegrationStatusBanner } from "@/components/integration-status-banner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -32,22 +30,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   TooltipProvider,
@@ -136,12 +122,12 @@ export default function BringSettingsPage() {
             backHref="/settings"
             className="mb-8"
           />
-          <GlassCard className="p-6">
+          <Card className="p-6">
             <Skeleton className="h-5 w-32 mb-4" />
             <Skeleton className="h-10 w-full mb-3" />
             <Skeleton className="h-10 w-full mb-4" />
             <Skeleton className="h-10 w-32" />
-          </GlassCard>
+          </Card>
         </div>
       </main>
     );
@@ -159,146 +145,91 @@ export default function BringSettingsPage() {
             className="mb-8"
           />
 
-          {/* Connection Status */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
+          <IntegrationStatusBanner
+            connected={isConnected}
+            icon={<ShoppingCart className="size-6" strokeWidth={1.75} />}
+            serviceName={t("accountTitle")}
+            connectedLabel={t("connectedBadge")}
+            connectedSubtitle={settings?.credentials?.email ?? undefined}
+            onConnect={() => setLoginDialogOpen(true)}
+            onDisconnect={isConnected ? handleDisconnect : undefined}
+            connectLabel={t("loginButton")}
+            disconnectLabel={t("disconnectButton")}
+            disconnectedTitle={t("notConnectedTitle")}
+            disconnectedBody={t("notConnectedDescription")}
             className="mb-6"
-          >
-            <GlassCard className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  {/* Bring Icon */}
-                  <div className="size-12 rounded-xl bg-[#455A64] flex items-center justify-center">
-                    <ShoppingCart className="size-6 text-white" />
-                  </div>
+          />
 
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{t("accountTitle")}</p>
-                      {isConnected ? (
-                        <Badge className="bg-success/10 text-success border-success/20">
-                          <Check className="size-3 mr-1" />
-                          {t("connectedBadge")}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-muted-foreground">
-                          {t("disconnectedBadge")}
-                        </Badge>
-                      )}
-                    </div>
-                    {isConnected && settings?.credentials && (
-                      <p className="text-sm text-muted-foreground">
-                        {settings.credentials.email}
-                      </p>
-                    )}
+          {/* Login dialog — opened by banner connect CTA */}
+          <Dialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t("loginDialogTitle")}</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-4 pt-4">
+                {loginError && (
+                  <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                    {loginError}
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <Label>{t("emailLabel")}</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      placeholder={t("emailPlaceholder")}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10"
+                    />
                   </div>
                 </div>
-
-                {isConnected ? (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="text-destructive">
-                        <Unlink className="size-4 mr-2" />
-                        {t("disconnectButton")}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>{t("disconnectDialogTitle")}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          {t("disconnectDialogDescription")}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>{t("disconnectCancel")}</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          onClick={handleDisconnect}
-                        >
-                          {logoutMutation.isPending ? t("disconnecting") : t("disconnectButton")}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                ) : (
-                  <Dialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="month">{t("loginButton")}</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>{t("loginDialogTitle")}</DialogTitle>
-                      </DialogHeader>
-                      <div className="flex flex-col gap-4 pt-4">
-                        {loginError && (
-                          <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-                            {loginError}
-                          </div>
-                        )}
-                        <div className="flex flex-col gap-2">
-                          <Label>{t("emailLabel")}</Label>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                            <Input
-                              type="email"
-                              placeholder={t("emailPlaceholder")}
-                              value={email}
-                              onChange={(e) => setEmail(e.target.value)}
-                              className="pl-10"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <Label>{t("passwordLabel")}</Label>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                            <Input
-                              type={showPassword ? "text" : "password"}
-                              placeholder="••••••••"
-                              value={password}
-                              onChange={(e) => setPassword(e.target.value)}
-                              className="pl-10 pr-10"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            >
-                              {showPassword ? (
-                                <EyeOff className="size-4" />
-                              ) : (
-                                <Eye className="size-4" />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                        <Button
-                          variant="month"
-                          className="w-full"
-                          onClick={handleLogin}
-                          disabled={!email || !password || loginMutation.isPending}
-                        >
-                          {loginMutation.isPending ? (
-                            <>
-                              <Loader2 className="size-4 mr-2 animate-spin" />
-                              {t("loginSubmitting")}
-                            </>
-                          ) : (
-                            t("loginSubmit")
-                          )}
-                        </Button>
-                        <p className="text-xs text-muted-foreground text-center">
-                          {t("loginSecurityHint")}
-                        </p>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
+                <div className="flex flex-col gap-2">
+                  <Label>{t("passwordLabel")}</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="size-4" />
+                      ) : (
+                        <Eye className="size-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <Button
+                  variant="month"
+                  className="w-full"
+                  onClick={handleLogin}
+                  disabled={!email || !password || loginMutation.isPending}
+                >
+                  {loginMutation.isPending ? (
+                    <>
+                      <Loader2 className="size-4 mr-2 animate-spin" />
+                      {t("loginSubmitting")}
+                    </>
+                  ) : (
+                    t("loginSubmit")
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  {t("loginSecurityHint")}
+                </p>
               </div>
-            </GlassCard>
-          </motion.div>
+            </DialogContent>
+          </Dialog>
 
           {isConnected && (
             <>
@@ -312,7 +243,7 @@ export default function BringSettingsPage() {
                 <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
                   {t("activeListHeading")}
                 </h2>
-                <GlassCard className="p-4">
+                <Card className="p-4">
                   <div className="flex items-center gap-4">
                     <Select
                       value={selectedListId || ""}
@@ -336,7 +267,7 @@ export default function BringSettingsPage() {
                       {t("itemCount", { count: itemsData.items?.length || 0 })}
                     </p>
                   )}
-                </GlassCard>
+                </Card>
               </motion.div>
 
               {/* Sync Status */}
@@ -346,7 +277,7 @@ export default function BringSettingsPage() {
                 transition={{ delay: 0.3 }}
                 className="mb-6"
               >
-                <GlassCard className="p-4">
+                <Card className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Clock className="size-5 text-muted-foreground" />
@@ -369,7 +300,7 @@ export default function BringSettingsPage() {
                       {isRefetching ? t("syncing") : t("syncNow")}
                     </Button>
                   </div>
-                </GlassCard>
+                </Card>
               </motion.div>
 
               {/* Sync Settings */}
@@ -381,7 +312,7 @@ export default function BringSettingsPage() {
                 <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
                   {t("settingsHeading")}
                 </h2>
-                <GlassCard className="divide-y divide-border/50">
+                <Card className="divide-y divide-border/50">
                   <div className="flex items-center justify-between p-4">
                     <div>
                       <Label className="font-medium">{t("autoSyncLabel")}</Label>
@@ -418,33 +349,9 @@ export default function BringSettingsPage() {
                       onCheckedChange={(checked) => handleSettingChange("syncCategories", checked)}
                     />
                   </div>
-                </GlassCard>
+                </Card>
               </motion.div>
             </>
-          )}
-
-          {/* Not Connected State */}
-          {!isConnected && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <GlassCard className="p-8 text-center">
-                <div className="size-16 rounded-2xl bg-[#455A64]/10 flex items-center justify-center mx-auto mb-4">
-                  <ShoppingCart className="size-8 text-[#455A64]" />
-                </div>
-                <h3 className="text-lg font-medium mb-2">
-                  {t("notConnectedTitle")}
-                </h3>
-                <p className="text-muted-foreground text-sm mb-6 max-w-sm mx-auto">
-                  {t("notConnectedDescription")}
-                </p>
-                <Button variant="month" onClick={() => setLoginDialogOpen(true)}>
-                  {t("loginButton")}
-                </Button>
-              </GlassCard>
-            </motion.div>
           )}
 
           {/* Info */}

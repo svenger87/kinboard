@@ -58,7 +58,7 @@ export function AlarmCard({ card, entity }: AlarmCardProps) {
     if (isTriggered) return "bg-red-500/10 border-red-500/30";
     if (isArmed) return "bg-green-500/10 border-green-500/30";
     if (isDisarmed) return "bg-yellow-500/10 border-yellow-500/30";
-    return "bg-card hover:border-month-primary/30";
+    return "bg-card hover:border-primary/30";
   };
 
   const getIcon = () => {
@@ -89,7 +89,7 @@ export function AlarmCard({ card, entity }: AlarmCardProps) {
 
   return (
     <div
-      className={`rounded-xl border p-4 transition-all ${getBgColor()} ${
+      className={`rounded-2xl border elev-sm p-4 transition-all ${getBgColor()} ${
         isUnavailable ? "opacity-50" : ""
       }`}
     >

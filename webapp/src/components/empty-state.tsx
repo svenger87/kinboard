@@ -1,4 +1,4 @@
-import { type LucideIcon } from "lucide-react";
+import { Plus, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -24,24 +24,22 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center py-16 text-muted-foreground",
+        "flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card/40 px-6 py-12 text-center",
         className
       )}
     >
-      <div className="relative mb-4">
-        <div className="absolute inset-0 blur-2xl bg-month-primary/10 rounded-full scale-150" />
-        <Icon className="size-12 relative text-month-primary/40" />
-      </div>
-      <p className="font-medium">{title}</p>
+      <span className="icon-badge" style={{ background: "hsl(var(--primary) / 0.10)" }}>
+        <Icon className="size-6" strokeWidth={1.75} aria-hidden="true" />
+      </span>
+      <p className="font-display text-lg font-semibold">{title}</p>
       {description && (
-        <p className="text-sm mt-1 text-center max-w-sm">{description}</p>
+        <p className="max-w-[30ch] text-sm text-muted-foreground">{description}</p>
       )}
       {action && (
-        <Button
-          variant={action.variant || "link"}
-          onClick={action.onClick}
-          className="mt-2"
-        >
+        <Button variant={action.variant || "link"} onClick={action.onClick} className="mt-1">
+          {action.variant === "default" && (
+            <Plus className="size-4" strokeWidth={1.75} aria-hidden="true" />
+          )}
           {action.label}
         </Button>
       )}

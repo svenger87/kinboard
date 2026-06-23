@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { isNoNavPath } from "@/lib/constants";
+import { RouteTransition } from "@/components/route-transition";
 
 export function PageShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -10,7 +11,7 @@ export function PageShell({ children }: { children: ReactNode }) {
 
   return (
     <div style={hasNav ? { paddingBottom: "var(--nav-spacing)" } : undefined}>
-      {children}
+      <RouteTransition>{children}</RouteTransition>
     </div>
   );
 }

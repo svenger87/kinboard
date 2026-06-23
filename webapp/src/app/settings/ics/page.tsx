@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { Rss, Plus, Pencil, Trash2, Copy, Check, Loader2, Info, RefreshCw } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -273,20 +273,20 @@ export default function IcsSettingsPage() {
         />
 
         {isLoading ? (
-          <GlassCard className="p-4 space-y-3">
+          <Card className="p-4 space-y-3">
             {[1, 2].map((i) => (
               <Skeleton key={i} className="h-16 w-full rounded-lg" />
             ))}
-          </GlassCard>
+          </Card>
         ) : icsCalendars.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <GlassCard className="p-10 text-center">
+            <Card className="p-10 text-center">
               <div className="flex flex-col items-center gap-3">
-                <div className="p-3 rounded-xl bg-month-primary/10">
-                  <Rss className="size-8 text-month-primary" strokeWidth={1.5} />
+                <div className="p-3 rounded-xl bg-primary/10">
+                  <Rss className="size-8 text-primary" strokeWidth={1.5} />
                 </div>
                 <p className="font-medium">{t("emptyTitle")}</p>
                 <p className="text-sm text-muted-foreground max-w-xs">
@@ -297,10 +297,10 @@ export default function IcsSettingsPage() {
                   {t("addButton")}
                 </Button>
               </div>
-            </GlassCard>
+            </Card>
           </motion.div>
         ) : (
-          <GlassCard className="divide-y divide-border/50">
+          <Card className="divide-y divide-border/50">
             <AnimatePresence initial={false}>
               {icsCalendars.map((cal) => (
                 <motion.div
@@ -319,12 +319,12 @@ export default function IcsSettingsPage() {
                       <p className="font-medium truncate">{cal.name}</p>
                       {cal.is_holidays && (
                         <Badge variant="secondary" className="text-xs shrink-0">
-                          Holidays
+                          {t("holidaysBadge")}
                         </Badge>
                       )}
                       {cal.is_waste_collection && (
                         <Badge variant="secondary" className="text-xs shrink-0">
-                          Waste
+                          {t("wasteBadge")}
                         </Badge>
                       )}
                     </div>
@@ -362,7 +362,6 @@ export default function IcsSettingsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          aria-label={tCommon("delete")}
                           className="size-8 text-destructive hover:text-destructive"
                         >
                           <Trash2 className="size-4" />
@@ -376,7 +375,7 @@ export default function IcsSettingsPage() {
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
                           <AlertDialogAction
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             onClick={() => handleDelete(cal.id)}
@@ -390,7 +389,7 @@ export default function IcsSettingsPage() {
                 </motion.div>
               ))}
             </AnimatePresence>
-          </GlassCard>
+          </Card>
         )}
       </div>
 
@@ -430,8 +429,8 @@ export default function IcsSettingsPage() {
               <p className="text-xs text-muted-foreground">{t("urlHint")}</p>
 
               {/* iCloud tip */}
-              <div className="flex items-start gap-2 rounded-lg bg-month-primary/5 border border-month-primary/10 p-3 text-xs text-muted-foreground">
-                <Info className="size-3.5 mt-0.5 text-month-primary shrink-0" />
+              <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/10 p-3 text-xs text-muted-foreground">
+                <Info className="size-3.5 mt-0.5 text-primary shrink-0" />
                 <span>{t("icloudTip")}</span>
               </div>
 
@@ -547,7 +546,7 @@ export default function IcsSettingsPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
+              {tCommon("cancel")}
             </Button>
             <Button
               onClick={handleSave}

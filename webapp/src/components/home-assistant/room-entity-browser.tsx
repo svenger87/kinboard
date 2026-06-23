@@ -86,7 +86,7 @@ function EntityRow({
       disabled={isAssigned}
       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left ${
         isSelected
-          ? "bg-month-primary/20 border border-month-primary/50"
+          ? "bg-primary/20 border border-primary/50"
           : isAssigned
           ? "bg-muted/50 opacity-50 cursor-not-allowed"
           : "hover:bg-accent"
@@ -96,7 +96,7 @@ function EntityRow({
       <div
         className={`size-5 rounded border-2 flex items-center justify-center shrink-0 ${
           isSelected
-            ? "border-month-primary bg-month-primary text-primary-foreground"
+            ? "border-primary bg-primary text-primary-foreground"
             : "border-muted-foreground/30"
         }`}
       >
@@ -345,7 +345,7 @@ export function RoomEntityBrowser({
               {tCommon("cancel")}
             </Button>
             <Button
-              variant="month"
+              variant="default"
               className="flex-1"
               onClick={handleConfirm}
               disabled={selectedEntityIds.size === 0}

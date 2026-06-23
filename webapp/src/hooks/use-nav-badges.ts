@@ -2,22 +2,16 @@
 
 import { useMemo } from "react";
 import { useTodos, useBirthdays } from "@/hooks/use-supabase-queries";
-import { parseISO, startOfDay, setYear, differenceInDays, addYears } from "date-fns";
-
-function getDaysUntilBirthday(dateStr: string): number {
-  const date = parseISO(dateStr + "T12:00:00");
-  const today = startOfDay(new Date());
-  const thisYear = startOfDay(setYear(date, today.getFullYear()));
-  const diff = differenceInDays(thisYear, today);
-  if (diff < 0) return differenceInDays(addYears(thisYear, 1), today);
-  return diff;
-}
+import { useToday } from "@/hooks/use-today";
+import { parseBirthdayDate, getDaysUntilBirthday } from "@/lib/birthday";
 
 export type NavBadges = Record<string, number>;
 
 export function useNavBadges(): NavBadges {
   const { data: todos } = useTodos();
   const { data: birthdays } = useBirthdays();
+  // Re-render at midnight so the "birthdays today" badge clears without a reload.
+  const today = useToday();
 
   return useMemo(() => {
     const badges: NavBadges = {};
@@ -30,12 +24,12 @@ export function useNavBadges(): NavBadges {
 
     // Birthdays today
     const birthdaysToday = (birthdays || []).filter(
-      (b) => b.date && getDaysUntilBirthday(b.date) === 0
+      (b) => b.date && getDaysUntilBirthday(parseBirthdayDate(b.date), new Date(today)) === 0
     ).length;
     if (birthdaysToday > 0) {
       badges["/birthdays"] = birthdaysToday;
     }
 
     return badges;
-  }, [todos, birthdays]);
+  }, [todos, birthdays, today]);
 }

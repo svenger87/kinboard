@@ -125,17 +125,13 @@ export async function POST(request: NextRequest) {
     }));
 
     for (const event of events) {
-      // Idempotency: skip if a reminder for this event already exists — whether
-      // or not it's been sent. The reminder window (reminderMinutes ± buffer) is
-      // wider than the cron interval, so an event is matched on several
-      // consecutive ticks; previously this only checked `processed = false`, so
-      // once the first reminder was sent and flipped to processed, the next tick
-      // re-inserted and re-sent it — which is why reminders fired twice.
+      // Idempotency: check for an existing unprocessed scheduled_notifications row
       const { data: existing } = await supabase
         .from("scheduled_notifications")
         .select("id")
         .eq("notification_type", "calendar_reminder")
         .eq("related_entity_id", event.id)
+        .eq("processed", false)
         .limit(1)
         .maybeSingle();
 

@@ -12,6 +12,7 @@ import { StonksWidget } from "@/components/widgets/stonks-widget";
 import { PocketMoneyWidget } from "@/components/widgets/pocket-money-widget";
 import { NotesWidget } from "@/components/widgets/notes-widget";
 import { TasksWidget } from "@/components/widgets/tasks-widget";
+import { ShoppingWidget } from "@/components/widgets/shopping-widget";
 import { WasteCollectionWidget } from "@/components/widgets/waste-collection-widget";
 import { MealPlanWidget } from "@/components/widgets/meal-plan-widget";
 import { WeekOverviewWidget } from "@/components/widgets/week-overview-widget";
@@ -42,31 +43,25 @@ export default function DashboardPage() {
   useSwipeNavigation();
 
   return (
-    <main id="main-content" className="min-h-screen relative overflow-hidden hide-status-bar">
+    <main id="main-content" className="relative min-h-screen overflow-hidden hide-status-bar">
+      <div className="page-gradient pointer-events-none fixed inset-0 z-0" />
       <div
         className="relative z-10 flex flex-col p-4 md:p-6 lg:p-8 safe-area-inset"
         style={{ minHeight: "calc(100vh - var(--nav-spacing))" }}
       >
         <GettingStartedChecklist />
         <ShoppingInstallPrompt />
-        {/* Background gradient - z-0 to stay behind content */}
-        <div className="fixed inset-0 z-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
-        {/* Radial glow behind clock area - static radial gradient (no blur, no animation) for ARM GPU compat */}
-        <div className="fixed top-[15%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] z-0 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(var(--month-primary) / 0.04) 0%, transparent 70%)' }} />
         {/* Top Section - Clock */}
         <section className="relative z-[1] flex-1 flex flex-col items-center justify-center" aria-label={t("ariaClock")}>
           <Clock size="xl" showDate showSeconds={showSeconds} showGreeting />
 
           {/* Family Members below clock */}
-          <div className="mt-12">
+          <div className="mt-10">
             <FamilyMembers />
           </div>
 
-          {/* Today at a glance - compact summary. mb-12 mirrors the
-              mt-12 above FamilyMembers so TodayStrip has breathing
-              room from the widget grid below (otherwise it sits flush
-              against the cards on portrait/short viewports). */}
-          <div className="mt-6 mb-12">
+          {/* Today at a glance — horizontal pill row */}
+          <div className="mt-6 mb-10 w-full">
             <TodayStrip />
           </div>
         </section>
@@ -86,6 +81,7 @@ export default function DashboardPage() {
           {w.mealPlan && <MealPlanWidget />}
           {w.wasteCollection && <WasteCollectionWidget maxItems={3} />}
           {w.tasks && <TasksWidget maxItems={4} />}
+          {w.shopping && <ShoppingWidget maxItems={4} />}
           {w.notes && <NotesWidget maxItems={3} />}
           {w.vehicles && <VehiclesWidget />}
           {w.stonks && <StonksWidget />}

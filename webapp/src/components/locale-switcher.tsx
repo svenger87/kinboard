@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LOCALES } from "@/i18n/locales";
@@ -9,6 +9,7 @@ import { LOCALES } from "@/i18n/locales";
 export function LocaleSwitcher({ className }: { className?: string }) {
   const current = useLocale();
   const router = useRouter();
+  const t = useTranslations("localeSwitcher");
   const [pending, setPending] = useState<string | null>(null);
 
   async function pick(code: string) {
@@ -36,7 +37,7 @@ export function LocaleSwitcher({ className }: { className?: string }) {
         className,
       )}
       role="group"
-      aria-label="Language"
+      aria-label={t("label")}
     >
       {LOCALES.map(({ code, label }) => (
         <button

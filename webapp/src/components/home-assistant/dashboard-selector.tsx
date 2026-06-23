@@ -94,10 +94,10 @@ export function DashboardSelector({
             <button
               onClick={() => onSelect(dashboard.id)}
               className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
+                "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap min-h-[44px]",
                 activeDashboardId === dashboard.id
-                  ? "bg-month-primary/10 text-month-primary"
-                  : "hover:bg-accent text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
               )}
             >
               {getDashboardIcon(dashboard)}

@@ -36,7 +36,6 @@ import { CATEGORIES, detectCategory } from "@/lib/shopping-categories";
 export default function EinkaufenPage() {
   const t = useTranslations("einkaufen");
   const tCategories = useTranslations("shoppingCategories");
-  const tCommon = useTranslations("common");
 
   // Fetch items with offline support
   const {
@@ -307,7 +306,7 @@ export default function EinkaufenPage() {
     return (
       <main id="main-content" className="min-h-screen bg-background text-foreground safe-area-inset">
         {/* Header skeleton */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-b border-border/50 safe-area-top">
+        <header className="fixed top-0 left-0 right-0 z-50 bg-card border-b border-border safe-area-top">
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
               <Skeleton className="size-9 rounded-xl" />
@@ -349,7 +348,7 @@ export default function EinkaufenPage() {
         </div>
 
         {/* Input skeleton */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-t border-border/50 p-4 safe-area-bottom">
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border p-4 safe-area-bottom">
           <Skeleton className="h-14 w-full rounded-md" />
         </div>
       </main>
@@ -373,11 +372,11 @@ export default function EinkaufenPage() {
   return (
     <main id="main-content" className="min-h-screen bg-background text-foreground safe-area-inset">
       {/* Header - Fixed */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-b border-border/50 safe-area-top">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-card border-b border-border safe-area-top">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-month-primary/20">
-              <ShoppingCart className="size-5 text-month-primary" />
+            <div className="p-2 rounded-xl bg-primary/10">
+              <ShoppingCart className="size-5 text-primary" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -406,7 +405,7 @@ export default function EinkaufenPage() {
         {/* Progress bar */}
         <div className="h-1 bg-secondary relative">
           <motion.div
-            className={`h-full ${progress === 100 ? "bg-success shadow-[0_0_8px_hsl(var(--success)/0.6)]" : "bg-month-primary"}`}
+            className={`h-full ${progress === 100 ? "bg-success shadow-[0_0_8px_hsl(var(--success)/0.6)]" : "bg-primary"}`}
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.5, ease: "easeOut" }}
@@ -425,7 +424,7 @@ export default function EinkaufenPage() {
       >
         <div className={`p-3 rounded-full bg-card border border-border shadow-lg ${isRefreshing ? 'animate-spin' : ''}`}>
           <RefreshCw
-            className="size-5 text-month-primary"
+            className="size-5 text-primary"
             style={{
               transform: `rotate(${(pullDistance / PULL_THRESHOLD) * 180}deg)`,
               transition: isRefreshing ? 'none' : 'transform 0.1s ease-out'
@@ -526,7 +525,7 @@ export default function EinkaufenPage() {
                                 <button
                                   onClick={() => handleToggleItem(item.id)}
                                   aria-label={t("checkAria", { name: item.name })}
-                                  className="shrink-0 size-12 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center active:bg-month-primary/20 active:border-month-primary transition-colors"
+                                  className="shrink-0 size-12 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center active:bg-primary/15 active:border-primary transition-colors"
                                 >
                                   <div className="size-6 rounded-full border-2 border-current" />
                                 </button>
@@ -610,13 +609,13 @@ export default function EinkaufenPage() {
                       onClick={() => toggleCategoryCollapse("__checked__")}
                       className="flex-1 flex items-center gap-3 p-4 active:bg-accent/50"
                     >
-                      <div className="p-2 rounded-xl bg-month-primary/20">
-                        <Check className="size-5 text-month-primary" />
+                      <div className="p-2 rounded-xl bg-primary/10">
+                        <Check className="size-5 text-primary" />
                       </div>
                       <span className="font-medium flex-1 text-left">
                         {t("doneSection")}
                       </span>
-                      <Badge variant="outline" className="mr-2 bg-month-primary/10">
+                      <Badge variant="neutral" className="mr-2 bg-primary/10">
                         {checkedCount}
                       </Badge>
                       {collapsedCategories.has("__checked__") ? (
@@ -658,7 +657,7 @@ export default function EinkaufenPage() {
                               <button
                                 onClick={() => handleToggleItem(item.id)}
                                 aria-label={t("uncheckAria", { name: item.name })}
-                                className="shrink-0 size-12 rounded-full bg-month-primary flex items-center justify-center"
+                                className="shrink-0 size-12 rounded-full bg-primary flex items-center justify-center"
                               >
                                 <Check className="size-6 text-primary-foreground" />
                               </button>
@@ -690,7 +689,7 @@ export default function EinkaufenPage() {
       </div>
 
       {/* Fixed bottom input */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-t border-border/50 p-4 safe-area-bottom">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border p-4 safe-area-bottom">
         <div className="relative">
           <Input
             ref={inputRef}
@@ -712,11 +711,9 @@ export default function EinkaufenPage() {
             className="h-14 text-lg bg-card border-border pr-14"
           />
           <Button
-            variant="month"
             size="icon"
             onClick={handleAddItem}
             disabled={!inputValue.trim() || createItem.isPending}
-            aria-label={tCommon("addItem")}
             className="absolute right-2 top-1/2 -translate-y-1/2 size-10"
           >
             {createItem.isPending ? (
@@ -752,8 +749,8 @@ export default function EinkaufenPage() {
                       }}
                     >
                       {isQuickAdd ? (
-                        <div className="size-10 rounded-xl flex items-center justify-center shrink-0 bg-month-primary/20">
-                          <Plus className="size-5 text-month-primary" />
+                        <div className="size-10 rounded-xl flex items-center justify-center shrink-0 bg-primary/10">
+                          <Plus className="size-5 text-primary" />
                         </div>
                       ) : result.thumbnail_url ? (
                         <div className="relative size-10 rounded-xl overflow-hidden shrink-0 bg-muted/30">
@@ -775,7 +772,7 @@ export default function EinkaufenPage() {
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className={`font-medium truncate ${isQuickAdd ? "text-month-primary" : ""}`}>
+                        <p className={`font-medium truncate ${isQuickAdd ? "text-primary" : ""}`}>
                           {isQuickAdd ? t("quickAdd", { name: result.name }) : result.name}
                         </p>
                         <p className="text-xs text-muted-foreground">

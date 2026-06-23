@@ -14,7 +14,7 @@ import {
   GripVertical,
   Save,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -204,14 +204,14 @@ export default function EditRecipePage() {
     return (
       <TooltipProvider>
         <main id="main-content" className="min-h-screen relative overflow-hidden">
-          <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+          <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
             <div className="flex items-center gap-4 mb-6">
               <Skeleton className="size-10" />
               <Skeleton className="h-8 w-48" />
             </div>
             <div className="flex flex-col gap-6">
-              <GlassCard className="p-6">
+              <Card className="p-6">
                 <Skeleton className="h-6 w-32 mb-4" />
                 <div className="flex flex-col gap-4">
                   <Skeleton className="h-10 w-full" />
@@ -223,7 +223,7 @@ export default function EditRecipePage() {
                     <Skeleton className="h-10" />
                   </div>
                 </div>
-              </GlassCard>
+              </Card>
             </div>
           </div>
         </main>
@@ -236,9 +236,9 @@ export default function EditRecipePage() {
     return (
       <TooltipProvider>
         <main id="main-content" className="min-h-screen relative overflow-hidden">
-          <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+          <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
-            <GlassCard className="p-8 text-center">
+            <Card className="p-8 text-center">
               <ChefHat className="size-12 mx-auto mb-3 text-destructive opacity-50" />
               <p className="text-destructive font-medium">{t("detail.notFoundTitle")}</p>
               <p className="text-sm text-muted-foreground mt-1 mb-4">
@@ -250,7 +250,7 @@ export default function EditRecipePage() {
                   {t("detail.backToRecipes")}
                 </Button>
               </Link>
-            </GlassCard>
+            </Card>
           </div>
         </main>
       </TooltipProvider>
@@ -261,7 +261,7 @@ export default function EditRecipePage() {
     <TooltipProvider>
       <main id="main-content" className="min-h-screen relative overflow-hidden">
         {/* Background */}
-        <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+        <div className="page-gradient" />
 
         <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
@@ -278,7 +278,7 @@ export default function EditRecipePage() {
             className="flex flex-col gap-6"
           >
             {/* Basic Info */}
-            <GlassCard className="p-6">
+            <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4">{t("form.sectionBasic")}</h2>
 
               <div className="flex flex-col gap-4">
@@ -365,10 +365,10 @@ export default function EditRecipePage() {
                   </div>
                 </div>
               </div>
-            </GlassCard>
+            </Card>
 
             {/* Ingredients */}
-            <GlassCard className="p-6">
+            <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4">{t("form.sectionIngredients")}</h2>
 
               <div className="flex flex-col gap-2">
@@ -428,17 +428,17 @@ export default function EditRecipePage() {
                 <Plus className="size-4 mr-2" />
                 {t("form.addIngredient")}
               </Button>
-            </GlassCard>
+            </Card>
 
             {/* Instructions */}
-            <GlassCard className="p-6">
+            <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4">{t("form.sectionInstructions")}</h2>
 
               <div className="flex flex-col gap-3">
                 {instructions.map((step, index) => (
                   <div key={index} className="flex items-start gap-2">
-                    <div className="size-8 rounded-full bg-month-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                      <span className="text-sm font-semibold text-month-primary">
+                    <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                      <span className="text-sm font-semibold text-primary">
                         {index + 1}
                       </span>
                     </div>
@@ -470,7 +470,7 @@ export default function EditRecipePage() {
                 <Plus className="size-4 mr-2" />
                 {t("form.addStep")}
               </Button>
-            </GlassCard>
+            </Card>
 
             {/* Actions */}
             <div className="flex gap-2">

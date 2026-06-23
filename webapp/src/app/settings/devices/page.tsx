@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { Monitor, Smartphone, Tablet, Pencil, Trash2, Check, Wifi, WifiOff, Loader2, AlertCircle, RefreshCw, TvMinimal, Radar, Copy, HelpCircle } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -161,7 +161,7 @@ export default function DevicesSettingsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <GlassCard className="divide-y divide-border/50">
+          <Card className="divide-y divide-border/50">
             {error ? (
               <div className="p-8 text-center">
                 <AlertCircle className="size-12 mx-auto mb-3 text-destructive opacity-50" />
@@ -397,7 +397,7 @@ export default function DevicesSettingsPage() {
                 <p>{t("emptyTitle")}</p>
               </div>
             )}
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Info */}
@@ -420,7 +420,7 @@ export default function DevicesSettingsPage() {
             <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <Radar className="size-5 text-month-primary" />
+                  <Radar className="size-5 text-primary" />
                   {t("presenceHelpTitle")}
                 </DialogTitle>
                 <DialogDescription>

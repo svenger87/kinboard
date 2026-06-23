@@ -6,8 +6,9 @@ import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/card";
-import { Users, ArrowRight, Sparkles, RefreshCw, PartyPopper } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { CodeInput } from "@/components/code-input";
+import { Users, ArrowRight, Sparkles, RefreshCw, PartyPopper, Plus, KeyRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   useJoinFamily,
@@ -33,6 +34,9 @@ interface RecognizedDevice {
 export default function JoinPage() {
   const t = useTranslations("join");
   const [mode, setMode] = useState<"join" | "create">("join");
+  // Welcome gate: until the user picks a CTA (or is recognized / fresh-install
+  // forced into create), show the welcome hero instead of a form.
+  const [modeChosen, setModeChosen] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [familyName, setFamilyName] = useState("");
   const [deviceName, setDeviceName] = useState("");
@@ -101,6 +105,7 @@ export default function JoinPage() {
         if (data.hasFamilies === false) {
           setIsFreshInstall(true);
           setMode("create");
+          setModeChosen(true);
         }
       })
       .catch(() => {
@@ -157,12 +162,8 @@ export default function JoinPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center p-8 relative overflow-hidden">
-      {/* Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-month-primary/10 via-background to-background pointer-events-none" />
-
-      {/* Decorative elements */}
-      <div className="absolute top-20 left-20 size-64 bg-month-primary/5 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-20 w-96 h-96 bg-month-accent/5 rounded-full blur-3xl" />
+      {/* Background — flat page gradient, theme-following, no glass */}
+      <div className="page-gradient" />
 
       <LocaleSwitcher className="absolute top-4 right-4 z-20 safe-area-inset" />
 
@@ -172,23 +173,54 @@ export default function JoinPage() {
         transition={{ duration: 0.6 }}
         className="w-full max-w-md relative z-10"
       >
-        {/* Logo/Title */}
-        <div className="text-center mb-8">
-          <motion.div
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: "spring" }}
-            className="inline-flex items-center justify-center size-20 rounded-2xl bg-month-primary/10 border border-month-primary/20 mb-4"
-          >
-            <Users className="size-10 text-month-primary" strokeWidth={1.5} />
-          </motion.div>
-          <h1 className="text-3xl font-display font-light tracking-tight">
-            {t("title")}
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            {t("tagline")}
-          </p>
-        </div>
+        {/* Header / Welcome hero */}
+        {!modeChosen && recognizedDevices.length === 0 && !isFreshInstall && !isCheckingFingerprint ? (
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center size-20 icon-badge rounded-3xl mb-6">
+              <Users className="size-10" strokeWidth={1.75} />
+            </div>
+            <p className="text-kiosk-label text-primary mb-3">{t("welcomeEyebrow")}</p>
+            <h1 className="text-4xl font-display font-medium tracking-tight mb-3">
+              {t("welcomeTitle")}
+            </h1>
+            <p className="text-muted-foreground text-base leading-relaxed max-w-sm mx-auto mb-8">
+              {t("welcomeBody")}
+            </p>
+            <div className="flex flex-col gap-3">
+              <Button
+                size="kiosk"
+                className="w-full"
+                onClick={() => {
+                  setMode("create");
+                  setModeChosen(true);
+                }}
+              >
+                <Plus className="size-5" strokeWidth={1.75} />
+                {t("welcomeCreateCta")}
+              </Button>
+              <Button
+                size="kiosk"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setMode("join");
+                  setModeChosen(true);
+                }}
+              >
+                <KeyRound className="size-5" strokeWidth={1.75} />
+                {t("welcomeJoinCta")}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center size-16 icon-badge rounded-2xl mb-4">
+              <Users className="size-8" strokeWidth={1.75} />
+            </div>
+            <h1 className="text-2xl font-display font-medium tracking-tight">{t("title")}</h1>
+            <p className="text-muted-foreground mt-2">{t("tagline")}</p>
+          </div>
+        )}
 
         {/* Fresh-install welcome (only when DB is empty) */}
         <AnimatePresence>
@@ -199,9 +231,9 @@ export default function JoinPage() {
               exit={{ opacity: 0, height: 0 }}
               className="mb-6"
             >
-              <GlassCard className="p-4 border-month-primary/30 bg-month-primary/5">
+              <Card className="p-4 border-primary/30 bg-primary/5">
                 <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="size-4 text-month-primary" />
+                  <Sparkles className="size-4 text-primary" />
                   <span className="text-sm font-medium">
                     {t("freshInstallTitle")}
                   </span>
@@ -209,7 +241,7 @@ export default function JoinPage() {
                 <p className="text-xs text-muted-foreground">
                   {t("freshInstallDescription")}
                 </p>
-              </GlassCard>
+              </Card>
             </motion.div>
           )}
         </AnimatePresence>
@@ -221,9 +253,9 @@ export default function JoinPage() {
             animate={{ opacity: 1, y: 0 }}
             className="mb-6"
           >
-            <GlassCard className="p-4 border-month-primary/30 bg-month-primary/5">
+            <Card className="p-4 border-primary/30 bg-primary/5">
               <div className="flex items-start gap-3">
-                <PartyPopper className="size-5 shrink-0 text-month-primary mt-0.5" />
+                <PartyPopper className="size-5 shrink-0 text-primary mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-medium">{t("demoBannerTitle")}</p>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
@@ -235,11 +267,11 @@ export default function JoinPage() {
                     </code>
                     <Button
                       type="button"
-                      variant="month"
                       size="sm"
                       onClick={() => {
                         setMode("join");
                         setJoinCode(demoCode);
+                        setModeChosen(true);
                       }}
                     >
                       {t("demoBannerUseCode")}
@@ -247,7 +279,7 @@ export default function JoinPage() {
                   </div>
                 </div>
               </div>
-            </GlassCard>
+            </Card>
           </motion.div>
         )}
 
@@ -260,9 +292,9 @@ export default function JoinPage() {
               exit={{ opacity: 0, height: 0 }}
               className="mb-6"
             >
-              <GlassCard className="p-4 border-month-primary/30 bg-month-primary/5">
+              <Card className="p-4 border-primary/30 bg-primary/5">
                 <div className="flex items-center gap-2 mb-3">
-                  <RefreshCw className="size-4 text-month-primary" />
+                  <RefreshCw className="size-4 text-primary" />
                   <span className="text-sm font-medium">
                     {t("rejoinTitle")}
                   </span>
@@ -280,7 +312,6 @@ export default function JoinPage() {
                       </p>
                     </div>
                     <Button
-                      variant="month"
                       size="sm"
                       onClick={() => handleQuickRejoin(item.device.id)}
                       disabled={loading}
@@ -296,13 +327,13 @@ export default function JoinPage() {
                 >
                   {t("rejoinNotMe")}
                 </button>
-              </GlassCard>
+              </Card>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Mode Tabs — hidden on fresh install (Create is the only valid path) */}
-        {!isFreshInstall && (
+        {!isFreshInstall && modeChosen && recognizedDevices.length === 0 && (
           <div className="flex gap-2 mb-6 p-1 bg-secondary/50 rounded-xl">
             <button
               onClick={() => setMode("join")}
@@ -327,22 +358,16 @@ export default function JoinPage() {
           </div>
         )}
 
-        {/* Form Card */}
-        <GlassCard className="p-6">
+        {/* Form Card — only after a mode is chosen (or fresh install forces create) */}
+        {(modeChosen || isFreshInstall) && recognizedDevices.length === 0 && (
+        <Card>
+          <CardContent className="p-6">
           {mode === "join" ? (
             <form onSubmit={handleJoin} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <label htmlFor="join-code" className="text-sm font-medium">{t("joinCodeLabel")}</label>
-                <Input
-                  id="join-code"
-                  placeholder={t("joinCodePlaceholder")}
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  className="text-center text-2xl font-mono tracking-[0.5em] uppercase h-14"
-                  maxLength={6}
-                  required
-                />
-                <p className="text-xs text-muted-foreground text-center">
+                <CodeInput value={joinCode} onChange={setJoinCode} length={6} />
+                <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5 mt-1">
                   {t("joinCodeHint")}
                 </p>
               </div>
@@ -363,8 +388,7 @@ export default function JoinPage() {
 
               <Button
                 type="submit"
-                variant="month"
-                size="lg"
+                size="kiosk"
                 className="w-full"
                 disabled={loading || joinCode.length < 6}
               >
@@ -407,8 +431,7 @@ export default function JoinPage() {
 
               <Button
                 type="submit"
-                variant="month"
-                size="lg"
+                size="kiosk"
                 className="w-full"
                 disabled={loading || !familyName}
               >
@@ -423,7 +446,9 @@ export default function JoinPage() {
               </Button>
             </form>
           )}
-        </GlassCard>
+          </CardContent>
+        </Card>
+        )}
 
         {/* Recovery hint — shows after the fingerprint check has run
             and found no recognized device, but only on the Join tab
@@ -431,6 +456,7 @@ export default function JoinPage() {
             site data + got a different fingerprint due to a browser
             update find their family code on another device. */}
         {!isFreshInstall &&
+          modeChosen &&
           !isCheckingFingerprint &&
           recognizedDevices.length === 0 &&
           mode === "join" && (
@@ -440,11 +466,11 @@ export default function JoinPage() {
               transition={{ delay: 0.4 }}
               className="mt-6"
             >
-              <GlassCard className="p-4 bg-muted/20">
+              <Card className="p-4 bg-muted/20">
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   {t("recoveryHint")}
                 </p>
-              </GlassCard>
+              </Card>
             </motion.div>
           )}
 

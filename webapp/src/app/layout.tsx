@@ -1,29 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Outfit } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
 import { Providers } from "./providers";
 import { getMonthTheme } from "@/lib/utils";
 import { ChunkErrorRecovery } from "@/components/chunk-error-recovery";
-
-const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-});
-
-// Outfit for distinctive clock display - geometric, modern, clean
-const outfit = Outfit({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-});
+import { display, sans, mono } from "./fonts";
 
 export const metadata: Metadata = {
   title: "Kinboard",
@@ -82,7 +64,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} className={monthTheme} suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} ${outfit.variable} font-sans antialiased min-h-screen bg-background`}
+        className={`${display.variable} ${sans.variable} ${mono.variable} font-sans antialiased min-h-screen bg-background`}
       >
         <script
            

@@ -19,7 +19,8 @@ import {
 } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
-import { GlassCard } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { personStrongTint, personText } from "@/lib/person-color";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
@@ -122,7 +123,8 @@ export function WeekView({
   })();
 
   return (
-    <GlassCard className="p-4 overflow-hidden">
+    <Card className="overflow-hidden">
+      <CardContent className="p-4">
       {/* Week Header */}
       <div className="grid grid-cols-[2.5rem_repeat(7,1fr)] sm:grid-cols-[4rem_repeat(7,1fr)] border-b border-border/30 pb-2 mb-2">
         <div /> {/* Time column spacer */}
@@ -135,16 +137,16 @@ export function WeekView({
               key={day.toISOString()}
               onClick={() => onSelectDate(day)}
               className={`text-center py-2 rounded-lg transition-all ${
-                isSelected ? "bg-month-primary/10" : "hover:bg-white/5"
+                isSelected ? "bg-primary/10" : "hover:bg-accent/50"
               }`}
             >
-              <div className="text-xs text-muted-foreground">
+              <div className={`text-xs ${isDayToday ? "text-primary font-medium" : "text-muted-foreground"}`}>
                 {format(day, "EEE", { locale: dateLocale })}
               </div>
               <div
-                className={`text-lg font-medium ${
+                className={`text-lg font-medium tabular-nums ${
                   isDayToday
-                    ? "size-8 mx-auto flex items-center justify-center rounded-full bg-month-primary text-white"
+                    ? "size-8 mx-auto flex items-center justify-center rounded-full bg-primary text-primary-foreground"
                     : ""
                 }`}
               >
@@ -184,14 +186,15 @@ export function WeekView({
                               onSelectEvent(event);
                             }
                           }}
-                          className={`text-xs px-1.5 py-1 sm:py-0.5 truncate cursor-pointer hover:opacity-90 text-white font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 outline-none ${
+                          className={`text-xs px-1.5 py-1 sm:py-0.5 truncate cursor-pointer hover:opacity-90 font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 outline-none ${
                             isStart && isEnd ? "rounded" :
                             isStart ? "rounded-l -mr-1" :
                             isEnd ? "rounded-r -ml-1" :
                             "-mx-1"
                           }`}
                           style={{
-                            backgroundColor: event.color,
+                            backgroundColor: personStrongTint(event.color),
+                            color: personText(event.color),
                           }}
                         >
                           {isStart ? event.title : "\u00A0"}
@@ -297,21 +300,22 @@ export function WeekView({
                           style={{
                             top,
                             height,
-                            backgroundColor: `${event.color}90`,
+                            backgroundColor: personStrongTint(event.color),
                             borderLeft: `3px solid ${event.color}`,
+                            color: personText(event.color),
                           }}
                         >
-                          <p className="text-xs font-medium text-white truncate">
+                          <p className="text-xs font-semibold truncate">
                             {event.title}
                           </p>
                           {height > 40 && (
-                            <p className="text-[10px] text-white/80">
+                            <p className="text-[10px] font-mono tabular-nums opacity-80">
                               {format(event.start, "HH:mm")} -{" "}
                               {format(event.end, "HH:mm")}
                             </p>
                           )}
                           {height > 60 && event.location && (
-                            <p className="text-[10px] text-white/70 truncate">
+                            <p className="text-[10px] opacity-70 truncate">
                               {event.location}
                             </p>
                           )}
@@ -335,6 +339,7 @@ export function WeekView({
           })}
         </div>
       </ScrollArea>
-    </GlassCard>
+      </CardContent>
+    </Card>
   );
 }

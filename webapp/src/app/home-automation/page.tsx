@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -125,8 +125,8 @@ export default function HausautomationPage() {
             animate={{ opacity: 1, y: 0 }}
             className="flex items-center gap-3 min-w-0"
           >
-            <div className="p-2.5 rounded-xl bg-month-primary/10 shrink-0">
-              <Home className="size-6 text-month-primary" strokeWidth={1.5} />
+            <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
+              <Home className="size-6 text-primary" strokeWidth={1.5} />
             </div>
             <div className="min-w-0">
               <h1 className="text-2xl font-display font-light truncate">{t("title")}</h1>
@@ -140,7 +140,7 @@ export default function HausautomationPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
-              <GlassCard key={i} className="p-4">
+              <Card key={i} className="p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <Skeleton className="size-10 rounded-xl" />
                   <div className="flex-1">
@@ -149,7 +149,7 @@ export default function HausautomationPage() {
                   </div>
                 </div>
                 <Skeleton className="h-8 w-full rounded-lg" />
-              </GlassCard>
+              </Card>
             ))}
           </div>
         </div>
@@ -168,8 +168,8 @@ export default function HausautomationPage() {
             animate={{ opacity: 1, y: 0 }}
             className="flex items-center gap-3 min-w-0 mb-8"
           >
-            <div className="p-2.5 rounded-xl bg-month-primary/10 shrink-0">
-              <Home className="size-6 text-month-primary" strokeWidth={1.5} />
+            <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
+              <Home className="size-6 text-primary" strokeWidth={1.5} />
             </div>
             <div className="min-w-0">
               <h1 className="text-2xl font-display font-light truncate">{t("title")}</h1>
@@ -177,8 +177,8 @@ export default function HausautomationPage() {
             </div>
           </motion.div>
 
-          <GlassCard>
-            <div className="p-8 text-center">
+          <Card>
+            <CardContent className="p-8 text-center">
               <Home className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
               <h2 className="text-lg font-medium mb-2">{t("notConnectedTitle")}</h2>
               <p className="text-muted-foreground mb-6">
@@ -190,8 +190,8 @@ export default function HausautomationPage() {
                   {t("notConnectedAction")}
                 </Button>
               </Link>
-            </div>
-          </GlassCard>
+            </CardContent>
+          </Card>
         </div>
       </main>
     );
@@ -209,8 +209,8 @@ export default function HausautomationPage() {
             className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="p-2.5 rounded-xl bg-month-primary/10 shrink-0">
-                <Home className="size-6 text-month-primary" strokeWidth={1.5} />
+              <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
+                <Home className="size-6 text-primary" strokeWidth={1.5} />
               </div>
               <div className="min-w-0">
                 <h1 className="text-2xl font-display font-light truncate">{t("title")}</h1>
@@ -224,8 +224,8 @@ export default function HausautomationPage() {
             </Link>
           </motion.div>
 
-          <GlassCard>
-            <div className="p-8 text-center">
+          <Card>
+            <CardContent className="p-8 text-center">
               <LayoutGrid className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
               <h2 className="text-lg font-medium mb-2">{t("noDashboardsTitle")}</h2>
               <p className="text-muted-foreground mb-6">
@@ -242,8 +242,8 @@ export default function HausautomationPage() {
                 )}
                 {t("noDashboardsAction")}
               </Button>
-            </div>
-          </GlassCard>
+            </CardContent>
+          </Card>
         </div>
       </main>
     );
@@ -298,8 +298,8 @@ export default function HausautomationPage() {
 
         {/* Empty Dashboard State */}
         {dashboardCards.length === 0 && activeDashboard?.type !== "energy" && (
-          <GlassCard>
-            <div className="p-8 text-center">
+          <Card>
+            <CardContent className="p-8 text-center">
               <LayoutGrid className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
               <h2 className="text-lg font-medium mb-2">{t("emptyDashboardTitle")}</h2>
               <p className="text-muted-foreground mb-6">
@@ -311,14 +311,14 @@ export default function HausautomationPage() {
                   {t("emptyDashboardAction")}
                 </Button>
               </Link>
-            </div>
-          </GlassCard>
+            </CardContent>
+          </Card>
         )}
 
         {/* Energy Dashboard - Redirect to dedicated page */}
         {activeDashboard?.type === "energy" && (
-          <GlassCard>
-            <div className="p-8 text-center">
+          <Card>
+            <CardContent className="p-8 text-center">
               <Home className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
               <h2 className="text-lg font-medium mb-2">{t("energyRedirectTitle")}</h2>
               <p className="text-muted-foreground mb-6">
@@ -338,8 +338,8 @@ export default function HausautomationPage() {
                   </Button>
                 </Link>
               </div>
-            </div>
-          </GlassCard>
+            </CardContent>
+          </Card>
         )}
 
         {/* Device Status Summary */}
@@ -363,24 +363,24 @@ export default function HausautomationPage() {
 
               return (
                 <>
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 text-sm text-muted-foreground">
-                    <Activity className="size-3.5 text-month-primary" />
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted text-sm text-muted-foreground">
+                    <Activity className="size-3.5 text-primary" />
                     {t("statusDevices", { count: entities.length })}
                   </div>
                   {activeEntities.length > 0 && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-sm text-emerald-400">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/[0.14] text-sm text-success">
                       <Power className="size-3.5" />
                       {t("statusActive", { count: activeEntities.length })}
                     </div>
                   )}
                   {offEntities.length > 0 && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted text-sm text-muted-foreground">
                       <PowerOff className="size-3.5" />
                       {t("statusOff", { count: offEntities.length })}
                     </div>
                   )}
                   {otherEntities.length > 0 && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 text-sm text-blue-400">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 text-sm text-blue-500">
                       <CircleDot className="size-3.5" />
                       {t("statusOther", { count: otherEntities.length })}
                     </div>
@@ -390,6 +390,34 @@ export default function HausautomationPage() {
             })()}
           </motion.div>
         )}
+
+        {/* Scenes — the user's actual HA scene/script entities, surfaced as a prominent flat row */}
+        {(() => {
+          const sceneCards = dashboardCards
+            .filter((c) => c.card_type === "scene" || c.card_type === "script")
+            .sort((a, b) => a.position - b.position);
+          if (sceneCards.length === 0 || activeDashboard?.type === "energy") return null;
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08 }}
+              className="flex flex-col gap-2"
+            >
+              <h2 className="text-sm font-medium text-muted-foreground">{t("scenesHeading")}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {sceneCards.map((card) => (
+                  <EntityCard
+                    key={card.id}
+                    card={card}
+                    entity={entityMap.get(card.entity_id)}
+                    isLoading={loadingEntities}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          );
+        })()}
 
         {/* Cards Grid (for custom dashboards with cards) */}
         {dashboardCards.length > 0 && activeDashboard?.type !== "energy" && (
@@ -401,6 +429,7 @@ export default function HausautomationPage() {
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
             >
               {dashboardCards
+                .filter((card) => card.card_type !== "scene" && card.card_type !== "script")
                 .sort((a, b) => a.position - b.position)
                 .map((card, index) => (
                   <motion.div

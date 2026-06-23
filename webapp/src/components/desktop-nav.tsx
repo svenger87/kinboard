@@ -52,7 +52,7 @@ export function DesktopNav() {
 
   return (
     <nav
-      className="hidden md:block fixed bottom-0 left-0 right-0 z-50 bg-background/95 border-t border-white/[0.12] shadow-[0_-4px_20px_hsl(var(--background)/0.8)] py-3"
+      className="hidden md:block fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border py-3"
       aria-label={tNav("main")}
     >
       {/* Scroll fade indicators */}
@@ -61,7 +61,7 @@ export function DesktopNav() {
         aria-hidden="true"
         style={{
           opacity: canScrollLeft ? 1 : 0,
-          background: "linear-gradient(to right, hsl(var(--background)), transparent)",
+          background: "linear-gradient(to right, hsl(var(--card)), transparent)",
         }}
       />
       <div
@@ -69,7 +69,7 @@ export function DesktopNav() {
         aria-hidden="true"
         style={{
           opacity: canScrollRight ? 1 : 0,
-          background: "linear-gradient(to left, hsl(var(--background)), transparent)",
+          background: "linear-gradient(to left, hsl(var(--card)), transparent)",
         }}
       />
 
@@ -98,17 +98,17 @@ export function DesktopNav() {
               ref={isActive ? activeRef : undefined}
               href={item.href}
               aria-current={isActive ? "page" : undefined}
-              className={`group relative px-4 py-2 rounded-full transition-all duration-200 flex items-center gap-2 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background ${
+              className={`group relative px-4 py-2 rounded-full transition-colors duration-200 flex items-center gap-2 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
                 isActive
-                  ? "bg-month-primary/20 text-foreground shadow-[0_0_16px_hsl(var(--month-primary)/0.2)]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
+                  ? "bg-primary/[0.12] text-primary"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
               }`}
             >
               <span className="relative">
-                <Icon className={`size-4 ${isActive ? "text-month-primary" : ""}`} />
+                <Icon className="size-4" strokeWidth={1.75} />
                 {badges[item.href] && !isActive && (
                   <span
-                    className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-month-primary text-[10px] font-bold text-month-primary-foreground px-1 shadow-[0_0_6px_hsl(var(--month-primary)/0.4)]"
+                    className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground px-1"
                     aria-label={tCommon("newEntriesAria", { count: badges[item.href] })}
                   >
                     {badges[item.href]}
@@ -117,7 +117,7 @@ export function DesktopNav() {
               </span>
               <span className="text-sm font-medium whitespace-nowrap">{tNav(item.labelKey)}</span>
               {isActive && (
-                <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-month-primary rounded-full" />
+                <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-primary rounded-full" />
               )}
             </Link>
           );

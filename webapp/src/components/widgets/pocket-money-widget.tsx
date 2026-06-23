@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { PiggyBank } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { AvatarDisplay } from "@/components/pocket-money/avatar-display";
 import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople } from "@/hooks";
@@ -53,7 +53,7 @@ export function PocketMoneyWidget() {
 
   return (
     <Link href="/pocket-money" className="block h-full">
-      <GlassCard className="p-4 space-y-3 h-full">
+      <Card className="p-4 space-y-3 h-full accent-border-top">
         {accounts.length > 1 && (
           <Tabs value={active.id} onValueChange={(v) => setActiveId(v)}>
             <TabsList>
@@ -75,7 +75,7 @@ export function PocketMoneyWidget() {
           </Tabs>
         )}
         <PocketMoneyWidgetTab account={active} />
-      </GlassCard>
+      </Card>
     </Link>
   );
 }

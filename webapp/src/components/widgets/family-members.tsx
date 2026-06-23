@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { User, Calendar, CheckSquare, GraduationCap, X } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
+import { PersonAvatar } from "@/components/person-avatar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +53,7 @@ function MemberSkeleton() {
     <div className="flex flex-col items-center gap-2">
       <Skeleton className="size-16 rounded-full" />
       <Skeleton className="h-4 w-12" />
+      <Skeleton className="h-3 w-16" />
     </div>
   );
 }
@@ -124,8 +126,8 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
   };
 
   const item = {
-    hidden: { opacity: 0, scale: 0.8 },
-    show: { opacity: 1, scale: 1 },
+    hidden: { opacity: 0, scale: 0.92 },
+    show: { opacity: 1, scale: 1, transition: { duration: 0.22 } },
   };
 
   return (
@@ -144,8 +146,7 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
               <TooltipTrigger asChild>
                 <motion.div
                   variants={item}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => setSelectedPerson(member)}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedPerson(member); } }}
                   role="button"
@@ -153,62 +154,25 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
                   aria-label={t("detailsAria", { name: member.name })}
                   className="flex flex-col items-center gap-2 cursor-pointer group"
                 >
-                  <div className="relative">
-                    <Avatar
-                      className="size-16 transition-all duration-300 group-hover:scale-105"
-                      style={{
-                        border: `2px solid ${member.color}`,
-                        backgroundColor: `${member.color}20`,
-                        boxShadow: `0 0 20px ${member.color}30, 0 0 40px ${member.color}15`,
-                      }}
-                    >
-                      {member.avatar_url && isImageAvatar(member.avatar_url) ? (
-                        <AvatarImage
-                          src={member.avatar_url}
-                          alt={member.name}
-                        />
-                      ) : null}
-                      <AvatarFallback
-                        className="text-lg font-medium"
-                        style={{
-                          backgroundColor: `${member.color}20`,
-                          color: member.color,
-                        }}
-                      >
-                        {member.avatar_url &&
-                        isEmojiAvatar(member.avatar_url) ? (
-                          <span className="text-3xl">{member.avatar_url}</span>
-                        ) : (
-                          getInitials(member.name)
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    {(status.events > 0 || status.todos > 0) && (
-                      <div className="absolute -bottom-1 -right-1 flex gap-0.5">
-                        {status.events > 0 && (
-                          <Badge
-                            className="size-6 p-0 flex items-center justify-center text-xs font-semibold tabular-nums shadow-sm"
-                            style={{ backgroundColor: member.color }}
-                            title={t("eventsTooltip", { count: status.events })}
-                          >
-                            {status.events}
-                          </Badge>
-                        )}
-                        {status.todos > 0 && (
-                          <Badge
-                            className="size-6 p-0 flex items-center justify-center text-xs font-semibold tabular-nums shadow-sm"
-                            variant="secondary"
-                            title={t("todosTooltip", { count: status.todos })}
-                          >
-                            {status.todos}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <span className="text-sm font-medium text-foreground/80 group-hover:text-foreground transition-colors">
+                  <PersonAvatar
+                    name={member.name}
+                    color={member.color}
+                    avatarUrl={member.avatar_url}
+                    size={64}
+                    className="transition-transform [transition-duration:120ms] group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                  />
+                  <span className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                     {member.name}
+                  </span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {status.events === 0 && status.todos === 0
+                      ? t("statusNothing")
+                      : [
+                          status.events > 0 ? t("statusEvents", { count: status.events }) : null,
+                          status.todos > 0 ? t("statusTasks", { count: status.todos }) : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                   </span>
                 </motion.div>
               </TooltipTrigger>

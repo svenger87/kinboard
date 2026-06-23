@@ -18,7 +18,7 @@ import {
   Power,
   PowerOff,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -134,7 +134,6 @@ function Go2rtcCard() {
 
 function Go2rtcConfigForm() {
   const t = useTranslations("settings.cameras");
-  const tCommon = useTranslations("common");
   const { data: settings, isLoading } = useCameraSettings();
   const addCamera = useAddCamera();
   const updateCamera = useUpdateCamera();
@@ -250,14 +249,14 @@ function Go2rtcConfigForm() {
 
   if (isLoading) {
     return (
-      <GlassCard>
-        <div className="p-6">
+      <Card>
+        <CardContent className="p-6">
           <div className="flex items-center gap-3">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
             <span className="text-muted-foreground">{t("loadingHint")}</span>
           </div>
-        </div>
-      </GlassCard>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -268,8 +267,8 @@ function Go2rtcConfigForm() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <GlassCard>
-          <div className="p-6">
+        <Card>
+          <CardContent className="p-6">
             {cameras.length === 0 ? (
               <div className="text-center py-8">
                 <Video className="size-12 mx-auto text-muted-foreground/50 mb-4" />
@@ -337,7 +336,6 @@ function Go2rtcConfigForm() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              aria-label={tCommon("delete")}
                               className="size-8 text-destructive hover:text-destructive"
                             >
                               <Trash2 className="size-4" />
@@ -366,8 +364,8 @@ function Go2rtcConfigForm() {
                   ))}
               </div>
             )}
-          </div>
-        </GlassCard>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Add Camera button (only shown when list is non-empty) */}
@@ -386,8 +384,8 @@ function Go2rtcConfigForm() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <GlassCard>
-          <div className="p-6">
+        <Card>
+          <CardContent className="p-6">
             <h3 className="font-medium mb-3">{t("streamTypesHeading")}</h3>
             <div className="flex flex-col gap-3 text-sm">
               <div>
@@ -409,8 +407,8 @@ function Go2rtcConfigForm() {
                 </p>
               </div>
             </div>
-          </div>
-        </GlassCard>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Add/Edit Dialog */}

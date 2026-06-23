@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
@@ -24,30 +24,8 @@ type TableName =
   | "meal_plan_entries"
   | "item_catalog"
   | "push_subscriptions"
-  | "notification_preferences";
-
-// Module-level constant so the default array keeps a stable identity across
-// renders — otherwise the realtime effect (which lists `tables` in its deps)
-// tears down and rebuilds the channel on every render, dropping events.
-const DEFAULT_TABLES: TableName[] = [
-  "people",
-  "events",
-  "todos",
-  "shopping_items",
-  "subjects",
-  "schedules",
-  "birthdays",
-  "notes",
-  "settings",
-  "recipes",
-  "recipe_ingredients",
-  "recipe_tags",
-  "meal_plans",
-  "meal_plan_entries",
-  "item_catalog",
-  "push_subscriptions",
-  "notification_preferences",
-];
+  | "notification_preferences"
+  | "birthday_gift_ideas";
 
 interface UseRealtimeOptions {
   tables?: TableName[];
@@ -62,12 +40,31 @@ interface UseRealtimeOptions {
  * @param options.enabled - Whether to enable subscriptions (defaults to true)
  */
 export function useRealtime(options: UseRealtimeOptions = {}) {
-  const { tables = DEFAULT_TABLES, enabled = true } = options;
+  const {
+    tables = [
+      "people",
+      "events",
+      "todos",
+      "shopping_items",
+      "subjects",
+      "schedules",
+      "birthdays",
+      "notes",
+      "settings",
+      "recipes",
+      "recipe_ingredients",
+      "recipe_tags",
+      "meal_plans",
+      "meal_plan_entries",
+      "item_catalog",
+      "push_subscriptions",
+      "notification_preferences",
+      "birthday_gift_ideas",
+    ],
+    enabled = true,
+  } = options;
 
-  // Memoize the client for the lifetime of the hook. createClient() returns a
-  // fresh instance each call; an unstable `supabase` in the effect deps would
-  // otherwise re-subscribe on every render.
-  const [supabase] = useState(() => createClient());
+  const supabase = createClient();
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
 
@@ -167,6 +164,16 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
             queryKey: ["notification-preferences", family.id],
           });
           break;
+        case "birthday_gift_ideas": {
+          const birthdayId = (payload.new as Record<string, unknown>)?.birthday_id as string | undefined
+            ?? (payload.old as Record<string, unknown>)?.birthday_id as string | undefined;
+          if (birthdayId) {
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.giftIdeas(birthdayId),
+            });
+          }
+          break;
+        }
       }
     },
     [queryClient, family]

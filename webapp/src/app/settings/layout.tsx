@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export default function SettingsLayout({
   children,
@@ -12,11 +13,12 @@ export default function SettingsLayout({
 }) {
   const pathname = usePathname();
   const isSubPage = pathname !== "/settings";
+  const t = useTranslations("settings");
 
   return (
     <div className="min-h-screen relative">
       {/* Background */}
-      <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none z-[-1]" />
+      <div className="page-gradient fixed inset-0 pointer-events-none z-[-1]" />
 
       {/* Back button for sub-pages */}
       {isSubPage && (
@@ -28,10 +30,10 @@ export default function SettingsLayout({
         >
           <Link
             href="/settings"
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group bg-background/80 backdrop-blur-sm rounded-full px-3 py-2"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group bg-card border border-border rounded-full px-3 py-2 elev-sm"
           >
-            <ChevronLeft className="size-5 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-sm font-medium hidden sm:inline">Einstellungen</span>
+            <ChevronLeft className="size-5 group-hover:-translate-x-1 transition-transform" strokeWidth={1.75} />
+            <span className="text-sm font-medium hidden sm:inline">{t("layoutBackLabel")}</span>
           </Link>
         </motion.div>
       )}

@@ -13,12 +13,13 @@ import {
   Trash2,
   StickyNote,
   CheckSquare,
+  ShoppingCart,
   Car,
   TrendingUp,
   PiggyBank,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/page-header";
 import { useSetting, useUpdateSetting } from "@/hooks";
@@ -43,6 +44,7 @@ const WIDGET_CONFIGS: WidgetConfig[] = [
   { key: "mealPlan", labelKey: "mealPlanLabel", descriptionKey: "mealPlanDescription", previewKeys: ["mealPlanPreview1", "mealPlanPreview2"], icon: UtensilsCrossed },
   { key: "wasteCollection", labelKey: "wasteLabel", descriptionKey: "wasteDescription", previewKeys: ["wastePreview1", "wastePreview2", "wastePreview3"], icon: Trash2 },
   { key: "tasks", labelKey: "tasksLabel", descriptionKey: "tasksDescription", previewKeys: ["tasksPreview1", "tasksPreview2", "tasksPreview3"], icon: CheckSquare },
+  { key: "shopping", labelKey: "shoppingLabel", descriptionKey: "shoppingDescription", previewKeys: ["shoppingPreview1", "shoppingPreview2", "shoppingPreview3"], icon: ShoppingCart },
   { key: "notes", labelKey: "notesLabel", descriptionKey: "notesDescription", previewKeys: ["notesPreview1", "notesPreview2", "notesPreview3"], icon: StickyNote },
   { key: "vehicles", labelKey: "vehiclesLabel", descriptionKey: "vehiclesDescription", previewKeys: ["vehiclesPreview1", "vehiclesPreview2"], icon: Car },
   { key: "stonks", labelKey: "stonksLabel", descriptionKey: "stonksDescription", previewKeys: ["stonksPreview1", "stonksPreview2"], icon: TrendingUp },
@@ -77,8 +79,8 @@ export default function WidgetSettingsPage() {
       <div className="relative z-10 max-w-2xl mx-auto">
         <PageHeader
           iconSlot={
-            <div className="p-2.5 rounded-xl bg-month-primary/10 shadow-[0_0_20px_hsl(var(--month-primary)/0.15)] shrink-0">
-              <LayoutGrid className="size-6 text-month-primary" strokeWidth={1.5} />
+            <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
+              <LayoutGrid className="size-6 text-primary" strokeWidth={1.5} />
             </div>
           }
           title={t("title")}
@@ -105,7 +107,7 @@ export default function WidgetSettingsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.04 }}
               >
-                <GlassCard
+                <Card
                   className={`p-4 transition-all duration-200 ${
                     enabled ? "" : "opacity-50"
                   }`}
@@ -113,10 +115,10 @@ export default function WidgetSettingsPage() {
                   <div className="flex items-start gap-4">
                     {/* Icon */}
                     <div className={`p-2 rounded-lg shrink-0 ${
-                      enabled ? "bg-month-primary/10" : "bg-muted/20"
+                      enabled ? "bg-primary/10" : "bg-muted/20"
                     }`}>
                       <Icon
-                        className={`size-5 ${enabled ? "text-month-primary" : "text-muted-foreground"}`}
+                        className={`size-5 ${enabled ? "text-primary" : "text-muted-foreground"}`}
                         strokeWidth={1.5}
                       />
                     </div>
@@ -137,7 +139,7 @@ export default function WidgetSettingsPage() {
                       </p>
 
                       {/* Preview */}
-                      <div className={`rounded-lg border border-border/40 bg-background/30 px-3 py-2 transition-opacity ${
+                      <div className={`rounded-lg border border-border/40 bg-muted/40 px-3 py-2 transition-opacity ${
                         enabled ? "opacity-100" : "opacity-40"
                       }`}>
                         {widget.previewKeys.map((previewKey, i) => (
@@ -148,7 +150,7 @@ export default function WidgetSettingsPage() {
                       </div>
                     </div>
                   </div>
-                </GlassCard>
+                </Card>
               </motion.div>
             );
           })}

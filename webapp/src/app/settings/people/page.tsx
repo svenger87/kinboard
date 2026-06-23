@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { Users, Plus, Pencil, Trash2, User, ImagePlus, Link, Upload, Loader2, GraduationCap, RefreshCw } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +37,7 @@ import type { Person } from "@/types/database";
 import { usePeople, useCreatePerson, useUpdatePerson, useDeletePerson } from "@/hooks";
 import { ImageCropper } from "@/components/image-cropper";
 import { PageHeader } from "@/components/page-header";
+import { personRoleLabel } from "@/lib/person-role";
 
 // Preset colors for family members
 const PRESET_COLORS = [
@@ -86,6 +87,7 @@ export default function PeopleSettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   const [isChild, setIsChild] = useState(false);
+  const [birthDate, setBirthDate] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Image cropper state
@@ -101,6 +103,7 @@ export default function PeopleSettingsPage() {
     setAvatarUrl("");
     setUploadedFile(null);
     setIsChild(false);
+    setBirthDate("");
     setCropperImage(null);
     setIsCropperOpen(false);
     if (fileInputRef.current) {
@@ -158,6 +161,7 @@ export default function PeopleSettingsPage() {
         color: newColor,
         avatar_url: avatarValue || undefined,
         is_child: isChild,
+        birth_date: birthDate || null,
       });
       resetForm();
       setIsAddDialogOpen(false);
@@ -179,6 +183,7 @@ export default function PeopleSettingsPage() {
         color: newColor,
         avatar_url: avatarValue,
         is_child: isChild,
+        birth_date: birthDate || null,
       });
       setEditingPerson(null);
       resetForm();
@@ -200,6 +205,7 @@ export default function PeopleSettingsPage() {
     setNewName(person.name);
     setNewColor(person.color);
     setIsChild(person.is_child || false);
+    setBirthDate(person.birth_date ?? "");
 
     // Determine avatar type: emoji, uploaded (data URL), or external URL
     if (person.avatar_url && isEmojiAvatar(person.avatar_url)) {
@@ -253,7 +259,7 @@ export default function PeopleSettingsPage() {
                 }}
                 className={`size-10 text-2xl rounded-lg flex items-center justify-center transition-all hover:bg-muted ${
                   newAvatar === emoji
-                    ? "ring-2 ring-month-primary bg-month-primary/10"
+                    ? "ring-2 ring-primary bg-primary/10"
                     : "bg-muted/50"
                 }`}
               >
@@ -269,7 +275,7 @@ export default function PeopleSettingsPage() {
               }}
               className={`size-10 text-sm rounded-lg flex items-center justify-center transition-all hover:bg-muted ${
                 !newAvatar && !avatarUrl && !uploadedFile
-                  ? "ring-2 ring-month-primary bg-month-primary/10"
+                  ? "ring-2 ring-primary bg-primary/10"
                   : "bg-muted/50"
               }`}
             >
@@ -291,8 +297,8 @@ export default function PeopleSettingsPage() {
             role="button"
             tabIndex={0}
             aria-label={t("uploadAria")}
-            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors hover:border-month-primary hover:bg-month-primary/5 ${
-              uploadedFile ? "border-month-primary bg-month-primary/10" : "border-muted-foreground/30"
+            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors hover:border-primary hover:bg-primary/5 ${
+              uploadedFile ? "border-primary bg-primary/10" : "border-muted-foreground/30"
             }`}
           >
             {uploadedFile ? (
@@ -394,7 +400,7 @@ export default function PeopleSettingsPage() {
             backHref="/settings"
             className="mb-8"
           />
-          <GlassCard className="divide-y divide-border/50">
+          <Card className="divide-y divide-border/50">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex items-center gap-4 p-4">
                 <Skeleton className="size-12 rounded-full" />
@@ -404,7 +410,7 @@ export default function PeopleSettingsPage() {
                 </div>
               </div>
             ))}
-          </GlassCard>
+          </Card>
         </div>
       </main>
     );
@@ -415,7 +421,7 @@ export default function PeopleSettingsPage() {
     return (
       <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="relative z-10 max-w-2xl mx-auto">
-          <GlassCard className="p-8 text-center">
+          <Card className="p-8 text-center">
             <Users className="size-12 mx-auto mb-3 text-destructive opacity-50" />
             <p className="text-destructive font-medium">{t("loadErrorTitle")}</p>
             <p className="text-sm text-muted-foreground mt-1">
@@ -429,7 +435,7 @@ export default function PeopleSettingsPage() {
               <RefreshCw className="size-4 mr-2" />
               {t("retryButton")}
             </Button>
-          </GlassCard>
+          </Card>
         </div>
       </main>
     );
@@ -489,6 +495,15 @@ export default function PeopleSettingsPage() {
                   />
                 </div>
                 <div className="flex flex-col gap-2">
+                  <Label htmlFor="birth-date">{t("birthDateLabel")}</Label>
+                  <Input
+                    id="birth-date"
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
                   <Label>{t("colorLabel")}</Label>
                   <div className="flex flex-wrap gap-2">
                     {PRESET_COLORS.map((color) => (
@@ -530,7 +545,7 @@ export default function PeopleSettingsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <GlassCard className="divide-y divide-border/50">
+          <Card className="divide-y divide-border/50">
             <AnimatePresence>
               {people.map((person, index) => (
                 <motion.div
@@ -577,6 +592,13 @@ export default function PeopleSettingsPage() {
                         </Badge>
                       )}
                     </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {personRoleLabel(person.is_child, person.birth_date, {
+                        parent: t("roleParent"),
+                        child: t("roleChild"),
+                        years: (n) => t("ageYears", { count: n }),
+                      })}
+                    </p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <div
                         className="size-3 rounded-full"
@@ -632,6 +654,15 @@ export default function PeopleSettingsPage() {
                               id="edit-is-child"
                               checked={isChild}
                               onCheckedChange={setIsChild}
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Label htmlFor="edit-birth-date">{t("birthDateLabel")}</Label>
+                            <Input
+                              id="edit-birth-date"
+                              type="date"
+                              value={birthDate}
+                              onChange={(e) => setBirthDate(e.target.value)}
                             />
                           </div>
                           <div className="flex flex-col gap-2">
@@ -708,7 +739,7 @@ export default function PeopleSettingsPage() {
                 <p className="text-sm">{t("emptyDescription")}</p>
               </div>
             )}
-          </GlassCard>
+          </Card>
         </motion.div>
       </div>
 
