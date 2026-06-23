@@ -1,28 +1,22 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useKioskMode } from "@/hooks";
 import { isNoNavPath } from "@/lib/constants";
 import { MobileNav } from "@/components/mobile-nav";
 import { DesktopNav } from "@/components/desktop-nav";
-import { KioskStatusBar } from "@/components/kiosk-status-bar";
 
 /**
- * Picks the global chrome: in kiosk mode show the top status line and NO
- * bottom navigation (navigation happens via widgets + swipe). Otherwise show
- * the mobile + desktop navs exactly as before. Routes in NO_NAV_PATHS get
- * neither.
+ * Global chrome: the mobile bottom tab bar + desktop nav on every route
+ * except NO_NAV_PATHS. Kiosk devices get the same navigation — the earlier
+ * status-line-only kiosk treatment (no bottom nav) was dropped because the
+ * kiosk needs the nav too. Kiosk optimizations (cursor-hide, wake-lock) still
+ * apply via KioskProvider; they're independent of the nav chrome.
  */
 export function ShellChrome() {
-  const { isKioskMode } = useKioskMode();
   const pathname = usePathname();
 
   if (isNoNavPath(pathname)) {
     return null;
-  }
-
-  if (isKioskMode) {
-    return <KioskStatusBar />;
   }
 
   return (
