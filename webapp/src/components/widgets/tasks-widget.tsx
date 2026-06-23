@@ -2,25 +2,23 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { useTranslations, useLocale } from "next-intl";
-import { getIntlLocale } from "@/i18n/intl-locale";
+import { useTranslations } from "next-intl";
 import {
   CheckSquare,
-  Circle,
   CheckCircle2,
   ChevronRight,
   AlertCircle,
-  Repeat,
-  Loader2,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useTodos, useUpdateTodo, usePeople } from "@/hooks";
 import { toast } from "sonner";
 import type { Todo } from "@/types/database";
-import { useState } from "react";
+import { WidgetCard } from "@/components/widget-card";
+import { ChecklistItem } from "@/components/checklist-item";
+import { PersonAvatar } from "@/components/person-avatar";
 
 interface TasksWidgetProps {
   maxItems?: number;
@@ -31,32 +29,17 @@ function TasksWidgetSkeleton() {
   const t = useTranslations("tasksWidget");
   return (
     <Card aria-label={t("loadingAria")} aria-busy="true">
-      <CardHeader className="pb-3">
+      <CardContent className="flex flex-col gap-2 p-[18px]">
         <div className="flex items-center gap-2">
           <Skeleton className="size-5 rounded" />
           <Skeleton className="h-5 w-24" />
         </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
         <Skeleton className="h-10 w-full rounded-lg" />
         <Skeleton className="h-10 w-full rounded-lg" />
         <Skeleton className="h-10 w-3/4 rounded-lg" />
       </CardContent>
     </Card>
   );
-}
-
-function getPriorityColor(priority: string): string {
-  switch (priority) {
-    case "high":
-    case "3":
-      return "text-red-400";
-    case "medium":
-    case "2":
-      return "text-amber-400";
-    default:
-      return "text-muted-foreground";
-  }
 }
 
 function isOverdue(todo: Todo): boolean {
@@ -76,12 +59,9 @@ export function TasksWidget({
   className = "",
 }: TasksWidgetProps) {
   const t = useTranslations("tasksWidget");
-  const locale = useLocale();
-  const intlLocale = getIntlLocale(locale);
   const { data: todos, isLoading, isError } = useTodos();
   const { data: people } = usePeople();
   const updateTodo = useUpdateTodo();
-  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Sort: overdue first, then due today, then by priority, then by date
   const openTodos = useMemo(() => {
@@ -113,7 +93,6 @@ export function TasksWidget({
   const totalOpen = openTodos.length;
 
   const handleToggle = async (todo: Todo) => {
-    setTogglingId(todo.id);
     try {
       if (todo.recurrence && todo.recurrence !== "once") {
         await updateTodo.mutateAsync({
@@ -130,8 +109,6 @@ export function TasksWidget({
       }
     } catch {
       toast.error(t("toastUpdateFailed"));
-    } finally {
-      setTogglingId(null);
     }
   };
 
@@ -147,15 +124,8 @@ export function TasksWidget({
   if (isError) {
     return (
       <Card className={`accent-border-top h-full ${className}`}>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-xl font-medium">
-            <span className="p-1.5 rounded-lg bg-month-primary/10">
-              <CheckSquare className="size-5 text-month-primary" strokeWidth={1.5} />
-            </span>
-            {t("title")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="p-[18px]">
+          <p className="font-display text-lg font-semibold leading-tight mb-4">{t("title")}</p>
           <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
             <AlertCircle className="size-8 mb-2 text-destructive/40" />
             <p className="text-sm">{t("errorMessage")}</p>
@@ -173,127 +143,74 @@ export function TasksWidget({
     },
   };
 
-  const item = {
-    hidden: { opacity: 0, y: 8 },
-    show: { opacity: 1, y: 0 },
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.55 }}
     >
-      <Card className={`accent-border-top h-full ${className}`}>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-xl font-medium">
-              <span className="p-1.5 rounded-lg bg-month-primary/10">
-                <CheckSquare className="size-5 text-month-primary" strokeWidth={1.5} />
-              </span>
-              {t("title")}
-            </CardTitle>
-            {totalOpen > 0 && (
-              <Badge
-                variant="secondary"
-                className="text-xs tabular-nums"
-              >
-                {t("openCount", { count: totalOpen })}
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="flex flex-col gap-1.5"
-          >
-            {displayTodos.map((todo) => {
-              const person = getPersonName(todo.person_id);
-              const overdue = isOverdue(todo);
-              const dueToday = isDueToday(todo);
-              const isRecurring = todo.recurrence && todo.recurrence !== "once";
-              const priorityColor = getPriorityColor(todo.priority);
-
-              return (
-                <motion.div
-                  key={todo.id}
-                  variants={item}
-                  className="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 -mx-1 transition-colors hover:bg-accent/50"
-                >
-                  <button
-                    onClick={() => handleToggle(todo)}
-                    disabled={updateTodo.isPending}
-                    className={`shrink-0 transition-colors ${priorityColor} hover:text-month-primary`}
-                    aria-label={t("toggleAria", { title: todo.title })}
-                  >
-                    {updateTodo.isPending ? (
-                      <Loader2 className="size-4.5 animate-spin" />
-                    ) : (
-                      <Circle className="size-4.5" />
-                    )}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm leading-tight truncate">{todo.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {overdue && (
-                        <span className="flex items-center gap-0.5 text-[10px] text-red-400">
-                          <AlertCircle className="size-2.5" />
-                          {t("overdue")}
-                        </span>
-                      )}
-                      {dueToday && !overdue && (
-                        <span className="text-[10px] text-amber-400">{t("today")}</span>
-                      )}
-                      {todo.due_date && !overdue && !dueToday && (
-                        <span className="text-[10px] text-muted-foreground/60">
-                          {new Date(todo.due_date).toLocaleDateString(intlLocale, {
-                            day: "numeric",
-                            month: "short",
-                          })}
-                        </span>
-                      )}
-                      {isRecurring && (
-                        <Repeat className="size-2.5 text-muted-foreground/50" />
-                      )}
-                      {person && (
-                        <span
-                          className="text-[10px] px-1 rounded"
-                          style={{
-                            color: person.color,
-                            backgroundColor: `${person.color}15`,
-                          }}
-                        >
-                          {person.name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-
-            {displayTodos.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
-                <CheckCircle2 className="size-8 mb-2 text-emerald-500/30" />
-                <p className="text-sm">{t("emptyState")}</p>
-              </div>
-            )}
-          </motion.div>
-
-          {totalOpen > maxItems && (
-            <Link
-              href="/todos"
-              className="flex items-center justify-center gap-1 mt-3 pt-3 border-t border-border/30 text-sm text-month-primary/60 hover:text-month-primary transition-colors w-full"
-            >
-              <span>{t("moreCount", { count: totalOpen - maxItems })}</span>
-              <ChevronRight className="size-3" />
-            </Link>
+      <WidgetCard
+        icon={CheckSquare}
+        title={t("title")}
+        headerRight={
+          totalOpen > 0 ? (
+            <Badge variant="neutral" className="tabular-nums">
+              {t("openCount", { count: totalOpen })}
+            </Badge>
+          ) : undefined
+        }
+        className={`h-full ${className}`}
+      >
+        <motion.div variants={container} initial="hidden" animate="show" className="flex flex-col gap-2">
+          {displayTodos.map((todo) => {
+            const person = getPersonName(todo.person_id);
+            const overdue = isOverdue(todo);
+            const dueToday = isDueToday(todo);
+            return (
+              <ChecklistItem
+                key={todo.id}
+                checked={false}
+                onCheckedChange={() => handleToggle(todo)}
+                color={person?.color}
+                label={
+                  <span className="flex flex-col">
+                    <span className="truncate leading-tight">{todo.title}</span>
+                    <span className="mt-0.5 flex items-center gap-2 text-[11px]">
+                      {overdue && <span className="text-destructive">{t("overdue")}</span>}
+                      {dueToday && !overdue && <span className="text-warning">{t("today")}</span>}
+                    </span>
+                  </span>
+                }
+                meta={
+                  person ? (
+                    <PersonAvatar
+                      name={person.name}
+                      color={person.color}
+                      avatarUrl={person.avatar_url}
+                      size={24}
+                    />
+                  ) : undefined
+                }
+              />
+            );
+          })}
+          {displayTodos.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+              <CheckCircle2 className="mb-2 size-8 text-success/40" strokeWidth={1.75} />
+              <p className="text-sm">{t("emptyState")}</p>
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </motion.div>
+        {totalOpen > maxItems && (
+          <Link
+            href="/todos"
+            className="mt-3 flex w-full items-center justify-center gap-1 border-t border-border/40 pt-3 text-sm text-primary/70 transition-colors hover:text-primary"
+          >
+            <span>{t("moreCount", { count: totalOpen - maxItems })}</span>
+            <ChevronRight className="size-3" />
+          </Link>
+        )}
+      </WidgetCard>
     </motion.div>
   );
 }

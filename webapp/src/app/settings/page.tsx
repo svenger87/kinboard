@@ -1,7 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { format } from "date-fns";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import {
   Settings,
   Users,
@@ -27,14 +29,15 @@ import {
   Languages,
   Newspaper,
   Puzzle,
-  Rss,
   LineChart,
   PiggyBank,
   ListOrdered,
+  RefreshCw,
 } from "lucide-react";
 import { PinGuard } from "@/components/pin-guard";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { IntegrationStatusRow } from "@/components/integration-status-row";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,9 +50,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useFamilyStore } from "@/stores/family-store";
-import { useKeyboardShortcuts, useSwipeNavigation, useSetting, useUpdateSetting, useIsOnline, useDeleteDevice, useIsPluginEnabled } from "@/hooks";
+import { useKeyboardShortcuts, useSwipeNavigation, useSetting, useUpdateSetting, useIsOnline, useDeleteDevice, useIsPluginEnabled, useHomeAssistantStatus, useHomeAssistantConnectionCheck, useGoogleCalendarStatus, useBringSettings, useImmichStatus, useUnsplashStatus, useRegenerateJoinCode } from "@/hooks";
 import { useVersionCheck } from "@/hooks/use-version-check";
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import Link from "next/link";
 import {
   Dialog,
@@ -59,6 +62,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { toast as sonnerToast } from "sonner";
 
 export default function SettingsPage() {
   useKeyboardShortcuts();
@@ -70,6 +74,18 @@ export default function SettingsPage() {
   const deleteDevice = useDeleteDevice();
   const isOnline = useIsOnline();
   const { data: version } = useVersionCheck();
+  const { data: haStatus } = useHomeAssistantStatus();
+  const haConnected = !!haStatus?.url && !!haStatus?.access_token;
+  const { data: haConn } = useHomeAssistantConnectionCheck(haConnected);
+  const haNeedsReauth = haConnected && haConn === "unauthorized";
+  const { data: googleStatus } = useGoogleCalendarStatus();
+  const googleConnected = !!googleStatus?.access_token;
+  const googleNeedsReauth = googleConnected && !!googleStatus?.needs_reauth;
+  const { data: bringSettings } = useBringSettings();
+  const bringConnected = !!bringSettings?.credentials;
+  const { data: immichStatus } = useImmichStatus();
+  const { data: unsplashStatus } = useUnsplashStatus();
+  const photosConnected = (!!immichStatus?.url && !!immichStatus?.api_key) || !!unsplashStatus?.access_key;
   const [copied, setCopied] = useState(false);
   const { data: storedPin } = useSetting<string | null>("settings_pin", null);
   const updatePin = useUpdateSetting<string | null>();
@@ -81,6 +97,37 @@ export default function SettingsPage() {
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", ""]);
   const pinInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const locale = useLocale();
+  const dateLocale = getDateFnsLocale(locale);
+  const regenerateJoinCode = useRegenerateJoinCode();
+  const [regenDialogOpen, setRegenDialogOpen] = useState(false);
+  const [regenConfirmOpen, setRegenConfirmOpen] = useState(false);
+  const [selectedTtl, setSelectedTtl] = useState<number | null>(null);
+
+  const statusDot = (color: string) => (
+    <span className={`block size-2 rounded-full ${color}`} aria-hidden="true" />
+  );
+  const integrationStatus = (
+    connected: boolean,
+    needsReauth: boolean
+  ): { node: React.ReactNode; right: React.ReactNode } => {
+    if (needsReauth) {
+      return {
+        node: <span className="text-destructive font-medium">{t("statusError")}</span>,
+        right: statusDot("bg-destructive"),
+      };
+    }
+    if (connected) {
+      return {
+        node: <span className="text-success font-medium">{t("statusConnected")}</span>,
+        right: statusDot("bg-success"),
+      };
+    }
+    return {
+      node: <span className="text-muted-foreground">{t("statusNotConnected")}</span>,
+      right: statusDot("bg-muted-foreground/40"),
+    };
+  };
 
   const copyJoinCode = () => {
     if (family?.join_code) {
@@ -162,65 +209,6 @@ export default function SettingsPage() {
       ],
     },
     {
-      title: t("sectionIntegrations"),
-      items: [
-        {
-          icon: Calendar,
-          label: t("itemCalendarLabel"),
-          description: t("itemCalendarDescription"),
-          href: "/settings/calendar",
-        },
-        {
-          icon: ShoppingCart,
-          label: t("itemBringLabel"),
-          description: t("itemBringDescription"),
-          href: "/settings/bring",
-        },
-        {
-          icon: Camera,
-          label: t("itemPhotosLabel"),
-          description: t("itemPhotosDescription"),
-          href: "/settings/photos",
-        },
-        {
-          icon: Home,
-          label: t("itemHomeAssistantLabel"),
-          description: t("itemHomeAssistantDescription"),
-          href: "/settings/homeassistant",
-        },
-        ...(vehiclesPluginEnabled ? [{
-          icon: Car,
-          label: t("itemVehiclesLabel"),
-          description: t("itemVehiclesDescription"),
-          href: "/settings/vehicles",
-        }] : []),
-        ...(energyPluginEnabled ? [{
-          icon: Zap,
-          label: t("itemEnergyLabel"),
-          description: t("itemEnergyDescription"),
-          href: "/settings/energy",
-        }] : []),
-        ...(camerasPluginEnabled ? [{
-          icon: Video,
-          label: t("itemCamerasLabel"),
-          description: t("itemCamerasDescription"),
-          href: "/settings/cameras",
-        }] : []),
-        ...(stonksPluginEnabled ? [{
-          icon: LineChart,
-          label: t("itemStonksLabel"),
-          description: t("itemStonksDescription"),
-          href: "/settings/stonks",
-        }] : []),
-        ...(pocketMoneyPluginEnabled ? [{
-          icon: PiggyBank,
-          label: t("itemPocketMoneyLabel"),
-          description: t("itemPocketMoneyDescription"),
-          href: "/settings/pocket-money",
-        }] : []),
-      ],
-    },
-    {
       title: t("sectionDisplay"),
       items: [
         {
@@ -279,14 +267,77 @@ export default function SettingsPage() {
         },
       ],
     },
+    {
+      title: t("sectionIntegrations"),
+      items: [
+        {
+          icon: Calendar,
+          label: t("itemCalendarLabel"),
+          description: t("itemCalendarDescription"),
+          href: "/settings/calendar",
+        },
+        {
+          icon: ShoppingCart,
+          label: t("itemBringLabel"),
+          description: t("itemBringDescription"),
+          href: "/settings/bring",
+        },
+        {
+          icon: Camera,
+          label: t("itemPhotosLabel"),
+          description: t("itemPhotosDescription"),
+          href: "/settings/photos",
+        },
+        {
+          icon: Home,
+          label: t("itemHomeAssistantLabel"),
+          description: t("itemHomeAssistantDescription"),
+          href: "/settings/homeassistant",
+        },
+        ...(vehiclesPluginEnabled ? [{
+          icon: Car,
+          label: t("itemVehiclesLabel"),
+          description: t("itemVehiclesDescription"),
+          href: "/settings/vehicles",
+        }] : []),
+        ...(energyPluginEnabled ? [{
+          icon: Zap,
+          label: t("itemEnergyLabel"),
+          description: t("itemEnergyDescription"),
+          href: "/settings/energy",
+        }] : []),
+        ...(camerasPluginEnabled ? [{
+          icon: Video,
+          label: t("itemCamerasLabel"),
+          description: t("itemCamerasDescription"),
+          href: "/settings/cameras",
+        }] : []),
+        ...(stonksPluginEnabled ? [{
+          icon: LineChart,
+          label: t("itemStonksLabel"),
+          description: t("itemStonksDescription"),
+          href: "/settings/stonks",
+        }] : []),
+        ...(pocketMoneyPluginEnabled ? [{
+          icon: PiggyBank,
+          label: t("itemPocketMoneyLabel"),
+          description: t("itemPocketMoneyDescription"),
+          href: "/settings/pocket-money",
+        }] : []),
+      ],
+    },
   ];
+
+  const integrationStatusByHref: Record<string, { connected: boolean; needsReauth: boolean }> = {
+    "/settings/calendar": { connected: googleConnected, needsReauth: googleNeedsReauth },
+    "/settings/bring": { connected: bringConnected, needsReauth: false },
+    "/settings/photos": { connected: photosConnected, needsReauth: false },
+    "/settings/homeassistant": { connected: haConnected, needsReauth: haNeedsReauth },
+  };
 
   return (
     <PinGuard cancelHref="/">
-    <main id="main-content" className="min-h-screen p-4 md:p-8 relative safe-area-inset">
-      {/* Background */}
-      <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
-
+    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto">
         {/* Header */}
         <motion.div
@@ -294,13 +345,14 @@ export default function SettingsPage() {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center gap-3 mb-8"
         >
-          <div className="p-2.5 rounded-xl bg-month-primary/10 shadow-[0_0_20px_hsl(var(--month-primary)/0.15)]">
-            <Settings className="size-6 text-month-primary" strokeWidth={1.5} />
+          <div className="p-2.5 rounded-xl bg-primary/10">
+            <Settings className="size-6 text-primary" strokeWidth={1.75} />
           </div>
           <div>
             <h1 className="text-2xl font-display font-light">{t("title")}</h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground truncate">
               {family?.name || t("subtitleNoFamily")}
+              {device?.name ? ` · ${device.name}` : ""}
             </p>
           </div>
         </motion.div>
@@ -312,34 +364,50 @@ export default function SettingsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <GlassCard className="p-6 mb-6">
-              <div className="flex items-center justify-between">
-                <div>
+            <Card className="p-6 mb-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-sm text-muted-foreground mb-1">
                     {t("joinCodeLabel")}
                   </p>
                   <p className="text-3xl font-mono tracking-[0.3em] font-medium">
                     {family.join_code}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-2">
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {family.join_code_expires_at
+                      ? t("joinCodeExpiresAt", {
+                          date: format(new Date(family.join_code_expires_at), "Pp", { locale: dateLocale }),
+                        })
+                      : t("joinCodeNoExpiry")}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
                     {t("joinCodeHint")}
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={copyJoinCode}
-                  aria-label={tCommon("copy")}
-                  className="shrink-0"
-                >
-                  {copied ? (
-                    <Check className="size-4 text-success" />
-                  ) : (
-                    <Copy className="size-4" />
-                  )}
-                </Button>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={copyJoinCode}
+                  >
+                    {copied ? (
+                      <Check className="size-4 text-success" />
+                    ) : (
+                      <Copy className="size-4" />
+                    )}
+                  </Button>
+                  {/* Regenerate trigger — opens the TTL picker */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    title={t("regenerateCode")}
+                    onClick={() => setRegenDialogOpen(true)}
+                  >
+                    <RefreshCw className="size-4" />
+                  </Button>
+                </div>
               </div>
-            </GlassCard>
+            </Card>
           </motion.div>
         )}
 
@@ -352,32 +420,44 @@ export default function SettingsPage() {
             transition={{ delay: 0.2 + sectionIndex * 0.1 }}
             className="mb-6"
           >
-            <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+            <h2 className="mb-3 px-1 font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground">
               {section.title}
             </h2>
-            <GlassCard className="divide-y divide-border/50">
-              {section.items.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className="flex items-center gap-4 p-4 hover:bg-white/[0.04] hover:shadow-[0_0_12px_hsl(var(--month-primary)/0.05)] transition-all duration-200 first:rounded-t-2xl last:rounded-b-2xl"
-                >
-                  <div className="p-2 rounded-lg bg-month-primary/10">
-                    <item.icon
-                      className="size-5 text-month-primary"
-                      strokeWidth={1.5}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium">{item.label}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {item.description}
-                    </p>
-                  </div>
-                  <ChevronRight className="size-5 text-muted-foreground" />
-                </Link>
-              ))}
-            </GlassCard>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {section.items.map((item) => {
+                const status = integrationStatusByHref[item.href];
+                if (status) {
+                  const s = integrationStatus(status.connected, status.needsReauth);
+                  return (
+                    <Link key={item.label} href={item.href} className="rounded-xl">
+                      <IntegrationStatusRow
+                        icon={item.icon}
+                        name={item.label}
+                        status={s.node}
+                        right={s.right}
+                        className="hover:bg-accent/50 transition-colors"
+                      />
+                    </Link>
+                  );
+                }
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="flex min-h-[56px] items-center gap-3 rounded-xl border border-border bg-card px-4 elev-sm transition-colors hover:bg-accent/50"
+                  >
+                    <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-primary/10 text-primary">
+                      <item.icon className="size-5" strokeWidth={1.75} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{item.label}</p>
+                      <p className="truncate text-xs text-muted-foreground">{item.description}</p>
+                    </div>
+                    <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+                  </Link>
+                );
+              })}
+            </div>
           </motion.div>
         ))}
 
@@ -388,14 +468,14 @@ export default function SettingsPage() {
           transition={{ delay: 0.45 }}
           className="mb-6"
         >
-          <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+          <h2 className="mb-3 px-1 font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground">
             {t("sectionSecurity")}
           </h2>
-          <GlassCard className="p-4">
+          <Card className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-month-primary/10">
-                  <Lock className="size-5 text-month-primary" strokeWidth={1.5} />
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Lock className="size-5 text-primary" strokeWidth={1.75} />
                 </div>
                 <div>
                   <p className="font-medium">{t("pinLabel")}</p>
@@ -406,7 +486,7 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-center gap-2">
                 {storedPin && (
-                  <Button variant="ghost" size="icon" onClick={handleRemovePin} aria-label={tCommon("delete")} className="text-destructive hover:text-destructive">
+                  <Button variant="ghost" size="icon" onClick={handleRemovePin} className="text-destructive hover:text-destructive">
                     <Trash2 className="size-4" />
                   </Button>
                 )}
@@ -441,7 +521,7 @@ export default function SettingsPage() {
                             value={digit}
                             onChange={(e) => handlePinDigitChange(i, e.target.value)}
                             onKeyDown={(e) => handlePinKeyDown(i, e)}
-                            className="w-14 h-16 text-center text-2xl font-mono rounded-xl border-2 bg-background/50 outline-none transition-all duration-200 border-border focus:border-month-primary/60"
+                            className="w-14 h-16 text-center text-2xl font-mono rounded-xl border-2 bg-background/50 outline-none transition-all duration-200 border-border focus:border-primary/60"
                             autoComplete="off"
                           />
                         ))}
@@ -451,7 +531,7 @@ export default function SettingsPage() {
                 </Dialog>
               </div>
             </div>
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Network Status */}
@@ -460,7 +540,7 @@ export default function SettingsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <GlassCard className="p-4">
+          <Card className="p-4">
             <div className="flex items-center gap-3">
               <Wifi className={`size-5 ${isOnline ? "text-success" : "text-destructive"}`} />
               <div className="flex-1">
@@ -473,7 +553,7 @@ export default function SettingsPage() {
               </div>
               <div className={`size-2 rounded-full ${isOnline ? "bg-success animate-pulse" : "bg-destructive"}`} />
             </div>
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Logout */}
@@ -552,7 +632,7 @@ export default function SettingsPage() {
                   href={version.releaseUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-month-primary hover:underline"
+                  className="text-primary hover:underline"
                 >
                   {t("updateAvailable", { version: version.latest ?? "" })}
                 </a>
@@ -563,6 +643,70 @@ export default function SettingsPage() {
         </div>
       </div>
     </main>
+
+    {/* TTL picker — sibling root, no nesting with AlertDialog */}
+    <Dialog open={regenDialogOpen} onOpenChange={setRegenDialogOpen}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t("regenerateCode")}</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-3 py-2">
+          {(
+            [
+              { label: t("ttlNever"), value: null },
+              { label: t("ttl1h"), value: 1 },
+              { label: t("ttl24h"), value: 24 },
+              { label: t("ttl7d"), value: 168 },
+            ] as { label: string; value: number | null }[]
+          ).map(({ label, value }) => (
+            <Button
+              key={String(value)}
+              variant={selectedTtl === value ? "default" : "outline"}
+              className="w-full justify-start"
+              onClick={() => {
+                setSelectedTtl(value);
+                setRegenDialogOpen(false);
+                setRegenConfirmOpen(true);
+              }}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Confirm dialog — sibling root, no nesting with Dialog */}
+    <AlertDialog open={regenConfirmOpen} onOpenChange={setRegenConfirmOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("regenerateCode")}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("regenerateConfirm")}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setRegenConfirmOpen(false)}>
+            {tCommon("cancel")}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              setRegenConfirmOpen(false);
+              regenerateJoinCode.mutate(
+                { ttlHours: selectedTtl },
+                {
+                  onSuccess: () => {
+                    sonnerToast.success(t("regenerateSuccess"));
+                  },
+                }
+              );
+            }}
+          >
+            {t("regenerateCode")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </PinGuard>
   );
 }

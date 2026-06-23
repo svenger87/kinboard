@@ -6,13 +6,12 @@ import { Car, Plus, Pencil, Trash2 } from "lucide-react";
 import { useVehicles, useDeleteVehicle } from "@/hooks/use-vehicles";
 import { getDriver } from "@/plugins/vehicles/drivers/registry";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 
 export default function VehiclesSettingsPage() {
   const t = useTranslations("settings.vehicles");
-  const tCommon = useTranslations("common");
   const { data: vehicles = [] } = useVehicles();
   const { mutateAsync: deleteVehicle } = useDeleteVehicle();
 
@@ -34,7 +33,7 @@ export default function VehiclesSettingsPage() {
           }
         />
 
-        <GlassCard>
+        <Card>
           <div className="p-6">
             {vehicles.length === 0 ? (
               <div className="text-center py-8">
@@ -76,7 +75,7 @@ export default function VehiclesSettingsPage() {
                         </p>
                       </div>
                       <div className="flex gap-1 shrink-0">
-                        <Button asChild variant="ghost" size="icon" aria-label={tCommon("edit")} className="size-8">
+                        <Button asChild variant="ghost" size="icon" className="size-8">
                           <Link href={`/settings/vehicles/${v.id}`}>
                             <Pencil className="size-4" />
                           </Link>
@@ -84,7 +83,6 @@ export default function VehiclesSettingsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          aria-label={tCommon("delete")}
                           className="size-8 text-destructive hover:text-destructive"
                           onClick={async () => {
                             if (confirm(t("confirmDelete", { name: v.nickname }))) {
@@ -101,7 +99,7 @@ export default function VehiclesSettingsPage() {
               </div>
             )}
           </div>
-        </GlassCard>
+        </Card>
       </div>
     </main>
   );

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { GlassCard } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -70,7 +70,7 @@ export default function SetupCalendarPage() {
   return (
     <>
       <WizardProgress current="calendar" />
-      <GlassCard className="p-6 md:p-8">
+      <Card><CardContent className="p-6 md:p-8">
         <h1 className="text-2xl font-display tracking-tight mb-2">{t("title")}</h1>
         <p className="text-muted-foreground text-sm mb-6">{t("description")}</p>
 
@@ -148,7 +148,7 @@ export default function SetupCalendarPage() {
             )}
           </div>
         </div>
-      </GlassCard>
+      </CardContent></Card>
 
       <WizardStepFooter
         backHref="/setup/people"

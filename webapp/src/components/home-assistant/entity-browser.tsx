@@ -373,16 +373,16 @@ function EntityRow({ entity, isSelected, isAdding, onToggle, onAdd }: EntityRowP
   return (
     <div
       className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
-        isSelected ? "bg-month-primary/10 border-month-primary" : "hover:bg-accent"
+        isSelected ? "bg-primary/10 border-primary" : "hover:bg-accent"
       }`}
       onClick={onToggle}
     >
       <div
         className={`size-5 rounded border flex items-center justify-center ${
-          isSelected ? "bg-month-primary border-month-primary" : "border-input"
+          isSelected ? "bg-primary border-primary" : "border-input"
         }`}
       >
-        {isSelected && <Check className="size-3 text-white" />}
+        {isSelected && <Check className="size-3 text-primary-foreground" />}
       </div>
 
       <div className="p-1.5 rounded bg-muted">

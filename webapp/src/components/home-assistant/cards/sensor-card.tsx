@@ -80,7 +80,7 @@ function getSensorColor(deviceClass?: string): string {
     case "battery":
       return "text-green-500";
     default:
-      return "text-month-primary";
+      return "text-primary";
   }
 }
 
@@ -120,11 +120,11 @@ export function SensorCard({ card, entity }: SensorCardProps) {
   return (
     <>
       <div
-        className="rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm p-4 hover:border-month-primary/30 hover:bg-white/[0.05] transition-all cursor-pointer"
+        className="rounded-2xl border border-border bg-card elev-sm p-4 hover:border-primary/30 transition-all cursor-pointer"
         onClick={() => setDetailOpen(true)}
       >
         <div className="flex items-start justify-between mb-2">
-          <div className={`p-2.5 rounded-xl bg-white/[0.06] ${colorClass}`}>
+          <div className={`p-2.5 rounded-xl bg-muted ${colorClass}`}>
             {icon}
           </div>
           <div className="flex items-center gap-1">

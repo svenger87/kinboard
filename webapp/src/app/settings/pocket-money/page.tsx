@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { PiggyBank, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -34,7 +34,6 @@ import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { formatCents } from "@/lib/pocket-money/format";
 import { BalanceForecast } from "@/components/pocket-money/balance-forecast";
 import { AmountDialog } from "@/components/pocket-money/amount-dialog";
-import { GoalsManager } from "@/components/pocket-money/goals-manager";
 
 // Locale-aware short weekday names indexed 0=Sun..6=Sat. Built once
 // per locale via Intl.DateTimeFormat off a known Sunday so we don't
@@ -94,14 +93,14 @@ export default function PocketMoneySettingsPage() {
         <p className="text-sm text-muted-foreground">{t("intro")}</p>
 
         {accounts.length > 0 && (
-          <GlassCard className="p-4">
+          <Card className="p-4">
             <p className="text-sm text-muted-foreground">
               {t("liabilityTotal")}:{" "}
               <strong>
                 {formatCents(liabilityTotal, accounts[0].currency)}
               </strong>
             </p>
-          </GlassCard>
+          </Card>
         )}
 
         {accounts.map((acct) => (
@@ -115,7 +114,7 @@ export default function PocketMoneySettingsPage() {
         {accounts.map((acct) => {
           const kidPerson = people.find((p) => p.id === acct.person_id);
           return (
-            <GlassCard key={acct.id} className="p-4 space-y-3">
+            <Card key={acct.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold">
@@ -264,9 +263,7 @@ export default function PocketMoneySettingsPage() {
                 allowanceIntervalDays={acct.allowance_interval_days ?? 7}
                 currency={acct.currency}
               />
-
-              <GoalsManager accountId={acct.id} currency={acct.currency} />
-            </GlassCard>
+            </Card>
           );
         })}
 
@@ -284,9 +281,9 @@ export default function PocketMoneySettingsPage() {
         ))}
 
         {kids.length === 0 && (
-          <GlassCard className="p-6 text-center text-sm text-muted-foreground">
+          <Card className="p-6 text-center text-sm text-muted-foreground">
             {t("noKidsHint")}
-          </GlassCard>
+          </Card>
         )}
 
         <AmountDialog
@@ -369,7 +366,7 @@ function AccountInbox({
   if (requests.length === 0) return null;
 
   return (
-    <GlassCard className="p-4 space-y-2">
+    <Card className="p-4 space-y-2">
       <h3 className="font-semibold">{t("inboxTitle")}</h3>
       {requests.map((r) => (
         <div key={r.id} className="flex items-center justify-between gap-2">
@@ -402,7 +399,7 @@ function AccountInbox({
           </div>
         </div>
       ))}
-    </GlassCard>
+    </Card>
   );
 }
 
@@ -443,7 +440,7 @@ function CreateAccountCard({
     : null;
 
   return (
-    <GlassCard className="p-4 space-y-3">
+    <Card className="p-4 space-y-3">
       <p className="text-sm font-medium">
         {t("createAccountForKid", { name: kid.name })}
       </p>
@@ -457,10 +454,10 @@ function CreateAccountCard({
               key={preview.id}
               type="button"
               onClick={() => setPicked(preview.id)}
-              className={`flex flex-col items-start gap-2 rounded-lg border-2 p-3 transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 ${
+              className={`flex flex-col items-start gap-2 rounded-lg border-2 p-3 transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
                 isPicked
-                  ? "border-month-primary bg-month-primary/5 ring-2 ring-month-primary/30"
-                  : "border-border hover:bg-white/[0.04]"
+                  ? "border-primary bg-primary/5 ring-2 ring-primary/30"
+                  : "border-border hover:bg-accent/50"
               }`}
               aria-pressed={isPicked}
             >
@@ -485,7 +482,7 @@ function CreateAccountCard({
       </div>
 
       {pickedPreview && (
-        <div className="rounded-lg border border-border bg-white/[0.02] p-3 space-y-2">
+        <div className="rounded-lg border border-border bg-accent/30 p-3 space-y-2">
           <p className="text-xs font-medium text-muted-foreground">
             {t("speciesPreviewTitle", {
               species: speciesLabel(pickedPreview.id),
@@ -517,6 +514,6 @@ function CreateAccountCard({
           ? t("createWithSpecies", { species: speciesLabel(picked) })
           : t("create")}
       </Button>
-    </GlassCard>
+    </Card>
   );
 }

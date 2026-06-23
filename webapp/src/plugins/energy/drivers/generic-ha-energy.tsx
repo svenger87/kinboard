@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
 import { getIntlLocale } from "@/i18n/intl-locale";
@@ -26,7 +25,7 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -50,37 +49,12 @@ import {
   useHomeAssistantEntities,
 } from "@/hooks";
 import { EnergyFlow } from "@/components/home-assistant/energy-flow";
+import { PowerChart } from "@/components/home-assistant/power-chart";
+import { EnergyChart } from "@/components/home-assistant/energy-chart";
+import { BatteryChart } from "@/components/home-assistant/battery-chart";
 import { StatisticsCard, StatisticsGrid } from "@/components/home-assistant/statistics-card";
 import type { EnergyConfig, HAEntity } from "@/types/home-assistant";
 import type { EnergyDriver } from "./types";
-
-// Charts pull in recharts; load them lazily so the library isn't in the
-// initial bundle for a kiosk that may never open the energy dashboard.
-const PowerChart = dynamic(
-  () => import("@/components/home-assistant/power-chart").then((m) => m.PowerChart),
-  { ssr: false }
-);
-const EnergyChart = dynamic(
-  () => import("@/components/home-assistant/energy-chart").then((m) => m.EnergyChart),
-  { ssr: false }
-);
-const BatteryChart = dynamic(
-  () => import("@/components/home-assistant/battery-chart").then((m) => m.BatteryChart),
-  { ssr: false }
-);
-
-// Chart series colors. Routed through the energy theme CSS vars (defined in
-// globals.css, light + dark) so chart lines match the rest of the energy card
-// and stay legible in dark mode. Grid-import/export and battery-discharge have
-// no dedicated var, so they use distinct, dark-mode-legible fixed colors.
-const CHART_COLORS = {
-  solar: "hsl(var(--energy-solar))",
-  consumption: "hsl(var(--energy-consumption))",
-  battery: "hsl(var(--energy-battery))",
-  gridImport: "hsl(var(--energy-grid))",
-  gridExport: "#10b981",
-  batteryOut: "#a78bfa",
-} as const;
 
 // ============================================================================
 // EnergyCard — the /energy dashboard (extracted from app/energy/page.tsx)
@@ -294,18 +268,18 @@ function EnergyCard() {
             </div>
           ))}
         </div>
-        <GlassCard>
-          <div className="p-6 flex flex-col items-center gap-4">
+        <Card>
+          <CardContent className="p-6 flex flex-col items-center gap-4">
             <Skeleton className="h-5 w-32" />
             <Skeleton className="h-40 w-full max-w-md rounded-xl" />
-          </div>
-        </GlassCard>
-        <GlassCard>
-          <div className="p-6">
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
             <Skeleton className="h-5 w-40 mb-4" />
             <Skeleton className="h-48 w-full rounded-xl" />
-          </div>
-        </GlassCard>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -313,8 +287,8 @@ function EnergyCard() {
   // Not connected state
   if (!isConnected) {
     return (
-      <GlassCard>
-        <div className="p-8 text-center">
+      <Card>
+        <CardContent className="p-8 text-center">
           <Zap className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
           <h2 className="text-lg font-medium mb-2">{t("notConnectedTitle")}</h2>
           <p className="text-muted-foreground mb-6">
@@ -326,16 +300,16 @@ function EnergyCard() {
               {t("notConnectedAction")}
             </Button>
           </Link>
-        </div>
-      </GlassCard>
+        </CardContent>
+      </Card>
     );
   }
 
   // Not configured state
   if (!isConfigured) {
     return (
-      <GlassCard>
-        <div className="p-8 text-center">
+      <Card>
+        <CardContent className="p-8 text-center">
           <Sun className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
           <h2 className="text-lg font-medium mb-2">{t("notConfiguredTitle")}</h2>
           <p className="text-muted-foreground mb-6">
@@ -347,8 +321,8 @@ function EnergyCard() {
               {t("notConfiguredAction")}
             </Button>
           </Link>
-        </div>
-      </GlassCard>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -435,25 +409,63 @@ function EnergyCard() {
         })()}
       </motion.div>
 
-      {/* Energy Flow Visualization */}
+      {/* Energy Flow Visualization + stat column */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <GlassCard>
-          <div className="p-6">
+        <Card>
+          <CardContent className="p-6">
             <h2 className="text-lg font-medium mb-4">{t("energyFlowHeading")}</h2>
-            <EnergyFlow
-              solarPower={solarPower}
-              batteryPower={batteryPower}
-              batterySoc={batterySoc}
-              gridPower={gridPower}
-              homePower={homePower}
-              gridToBatteryPower={gridToBatteryPower}
-            />
-          </div>
-        </GlassCard>
+            <div className="flex flex-col gap-6 md:flex-row md:items-center">
+              {/* Diagram column */}
+              <div className="flex-1 min-w-0">
+                {/* Animated marching-dash SVG flow on ALL widths — the SVG
+                    scales down on mobile (was a static chevron row before). */}
+                <EnergyFlow
+                  solarPower={solarPower}
+                  batteryPower={batteryPower}
+                  batterySoc={batterySoc}
+                  gridPower={gridPower}
+                  homePower={homePower}
+                  gridToBatteryPower={gridToBatteryPower}
+                />
+              </div>
+
+              {/* Stat column — vertical on desktop, hidden on mobile (2×2 quick-stats bar covers it) */}
+              <div className="hidden md:flex md:flex-col gap-3 md:w-48 shrink-0">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-energy-solar/10 border border-energy-solar/20">
+                  <Sun className="size-5 text-energy-solar shrink-0" strokeWidth={1.75} />
+                  <div>
+                    <p className="text-kiosk-primary text-energy-solar">
+                      {solarTotal.toFixed(1)}<span className="text-sm font-normal ml-1">kWh</span>
+                    </p>
+                    <p className="text-kiosk-label mt-1.5">{t("statSolarYield")}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-success/10 border border-success/20">
+                  <TrendingUp className="size-5 text-success shrink-0" strokeWidth={1.75} />
+                  <div>
+                    <p className="text-kiosk-primary text-success">
+                      {Math.max(0, Math.min(100, autarky)).toFixed(0)}<span className="text-sm font-normal">%</span>
+                    </p>
+                    <p className="text-kiosk-label mt-1.5">{t("statAutarky")}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-energy-grid/10 border border-energy-grid/20">
+                  <Zap className="size-5 text-energy-grid shrink-0" strokeWidth={1.75} />
+                  <div>
+                    <p className="text-kiosk-primary text-energy-grid">
+                      {gridExport.toFixed(1)}<span className="text-sm font-normal ml-1">kWh</span>
+                    </p>
+                    <p className="text-kiosk-label mt-1.5">{t("statGridExport")}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Statistics Cards */}
@@ -527,8 +539,8 @@ function EnergyCard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <GlassCard>
-          <div className="p-6">
+        <Card>
+          <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-3">
                 <h2 className="text-lg font-medium">
@@ -570,17 +582,18 @@ function EnergyCard() {
                       ...(energyConfig?.solar_power ? [{
                         entityId: energyConfig.solar_power,
                         label: t("chartLineSolar"),
-                        color: CHART_COLORS.solar,
+                        color: "hsl(var(--energy-solar))",
                       }] : []),
                       ...(energyConfig?.home_consumption ? [{
                         entityId: energyConfig.home_consumption,
                         label: t("chartLineConsumption"),
-                        color: CHART_COLORS.consumption,
+                        color: "hsl(var(--energy-consumption))",
+                        dashed: true,
                       }] : []),
                       ...(energyConfig?.home_consumption && energyConfig?.solar_power ? [{
                         entityId: "calculated_grid_import",
                         label: t("chartLineGridImport"),
-                        color: CHART_COLORS.gridImport,
+                        color: "hsl(var(--energy-grid))",
                         calculated: {
                           type: "grid_import" as const,
                           homeConsumption: energyConfig.home_consumption,
@@ -591,12 +604,12 @@ function EnergyCard() {
                       ...(energyConfig?.grid_export_power ? [{
                         entityId: energyConfig.grid_export_power,
                         label: t("chartLineGridExport"),
-                        color: CHART_COLORS.gridExport,
+                        color: "hsl(var(--energy-grid))",
                       }] : []),
                       ...(energyConfig?.battery_power ? [{
                         entityId: energyConfig.battery_power,
                         label: t("chartLineBattery"),
-                        color: CHART_COLORS.battery,
+                        color: "hsl(var(--energy-battery))",
                       }] : []),
                     ]}
                     period={selectedPeriod}
@@ -624,27 +637,27 @@ function EnergyCard() {
                       ...(energyConfig?.solar_energy_today ? [{
                         entityId: energyConfig.solar_energy_today,
                         label: t("chartLineSolarYield"),
-                        color: CHART_COLORS.solar,
+                        color: "hsl(var(--energy-solar))",
                       }] : []),
                       ...(energyConfig?.grid_import ? [{
                         entityId: energyConfig.grid_import,
                         label: t("chartLineGridImport"),
-                        color: CHART_COLORS.gridImport,
+                        color: "hsl(var(--energy-grid))",
                       }] : []),
                       ...(energyConfig?.grid_export ? [{
                         entityId: energyConfig.grid_export,
                         label: t("chartLineGridExport"),
-                        color: CHART_COLORS.gridExport,
+                        color: "hsl(var(--energy-grid))",
                       }] : []),
                       ...(energyConfig?.battery_energy_in ? [{
                         entityId: energyConfig.battery_energy_in,
                         label: t("chartLineBatteryCharged"),
-                        color: CHART_COLORS.battery,
+                        color: "hsl(var(--energy-battery))",
                       }] : []),
                       ...(energyConfig?.battery_energy_out ? [{
                         entityId: energyConfig.battery_energy_out,
                         label: t("chartLineBatteryDischarged"),
-                        color: CHART_COLORS.batteryOut,
+                        color: "hsl(var(--energy-battery))",
                       }] : []),
                     ]}
                     period={selectedPeriod}
@@ -674,8 +687,8 @@ function EnergyCard() {
                 />
               </div>
             )}
-          </div>
-        </GlassCard>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Battery Insights */}
@@ -1086,20 +1099,20 @@ function EnergyConfigForm() {
 
   if (loadingSettings) {
     return (
-      <GlassCard>
+      <Card>
         <div className="p-6">
           <div className="flex items-center gap-3">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
             <span className="text-muted-foreground">{t("loadingHint")}</span>
           </div>
         </div>
-      </GlassCard>
+      </Card>
     );
   }
 
   if (!isConnected) {
     return (
-      <GlassCard>
+      <Card>
         <div className="p-8 text-center">
           <Zap className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
           <h2 className="text-lg font-medium mb-2">{t("notConnectedTitle")}</h2>
@@ -1113,7 +1126,7 @@ function EnergyConfigForm() {
             </Button>
           </Link>
         </div>
-      </GlassCard>
+      </Card>
     );
   }
 
@@ -1145,7 +1158,7 @@ function EnergyConfigForm() {
     <div className="flex flex-col gap-6">
       {/* Solar Configuration */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-lg bg-orange-500/10">
@@ -1170,12 +1183,12 @@ function EnergyConfigForm() {
               />
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Battery Configuration */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-lg bg-success/10">
@@ -1251,12 +1264,12 @@ function EnergyConfigForm() {
               </div>
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Grid Configuration */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-lg bg-destructive/10">
@@ -1304,12 +1317,12 @@ function EnergyConfigForm() {
               />
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Home Consumption Configuration */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-lg bg-info/10">
@@ -1330,12 +1343,12 @@ function EnergyConfigForm() {
               />
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Cost Configuration */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <h2 className="font-medium mb-4">{t("costsHeading")}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1373,12 +1386,12 @@ function EnergyConfigForm() {
               </div>
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Screensaver Display */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1398,12 +1411,12 @@ function EnergyConfigForm() {
               />
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Chart Configuration */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-lg bg-cyan-500/10">
@@ -1433,7 +1446,7 @@ function EnergyConfigForm() {
               />
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Save Button */}

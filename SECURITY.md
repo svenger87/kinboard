@@ -25,8 +25,6 @@ Kinboard is designed for **a single trusted home network**. The default security
 
 If you put Kinboard on the open internet, you're responsible for adding a reverse proxy with authentication in front of it (Authelia, Authentik, Traefik forward-auth, Cloudflare Access, etc.). The 6-character family join code is intended as a low-friction LAN onboarding mechanism, not as an internet-facing auth boundary.
 
-**Why LAN-only matters concretely:** Postgres row-level security is disabled (see *What's in scope* below), and the Supabase **anon key is embedded in the public JavaScript bundle** — it has to be, so the browser can talk to the database. With RLS off, that key grants read/write access to *every* family's rows, not just yours. So anyone who can reach the Supabase gateway (Kong, port `8100`) and open the page source effectively has full database access, including the stored integration tokens listed below. This is acceptable on a trusted LAN and is the entire reason the gateway must not be exposed to the internet without an auth layer in front. Bind the stack to your LAN interface (or behind the reverse proxy) and keep Postgres on loopback — the shipped defaults do this.
-
 ## What's in scope
 
 - The Next.js webapp (`webapp/src/`) and its API routes (`webapp/src/app/api/`)

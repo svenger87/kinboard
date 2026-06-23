@@ -18,12 +18,14 @@ interface MiniChartProps {
 
 export function MiniChart({
   history,
-  color = "#3B82F6",
+  color = "hsl(var(--energy-grid))",
   unit = "",
   showTooltip = true,
   className,
   height = 40,
 }: MiniChartProps) {
+  // Gradient ids must be DOM-id-safe; token strings contain "(" / ")" / spaces, so slugify.
+  const gradientId = `miniGradient-${color.replace(/[^a-zA-Z0-9]/g, "")}`;
   const locale = useLocale();
   const intlLocale = getIntlLocale(locale);
 
@@ -80,7 +82,7 @@ export function MiniChart({
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
           <defs>
-            <linearGradient id={`miniGradient-${color.replace("#", "")}`} x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor={color} stopOpacity={0.3} />
               <stop offset="95%" stopColor={color} stopOpacity={0} />
             </linearGradient>
@@ -90,7 +92,7 @@ export function MiniChart({
             type="monotone"
             dataKey="value"
             stroke={color}
-            fill={`url(#miniGradient-${color.replace("#", "")})`}
+            fill={`url(#${gradientId})`}
             strokeWidth={1.5}
             dot={false}
           />

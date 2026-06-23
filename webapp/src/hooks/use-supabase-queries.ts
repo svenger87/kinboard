@@ -16,6 +16,7 @@ import type {
   Subject,
   Schedule,
   Birthday,
+  BirthdayGiftIdea,
   Note,
 } from "@/types/database";
 
@@ -51,6 +52,7 @@ export const queryKeys = {
   schedulesByPerson: (familyId: string, personId: string) =>
     ["schedules", familyId, personId] as const,
   birthdays: (familyId: string) => ["birthdays", familyId] as const,
+  giftIdeas: (birthdayId: string) => ["giftIdeas", birthdayId] as const,
   notes: (familyId: string) => ["notes", familyId] as const,
   settings: (familyId: string, key: string) =>
     ["settings", familyId, key] as const,
@@ -73,7 +75,19 @@ export function useFamilyByJoinCode(joinCode: string) {
         .single();
 
       if (error) throw error;
-      return data as Family;
+
+      const family = data as Family;
+
+      // Expiry is opt-in: null = never expires (current behaviour).
+      // Reject the code if an explicit expiry timestamp is set and has passed.
+      if (
+        family.join_code_expires_at != null &&
+        new Date(family.join_code_expires_at).getTime() < Date.now()
+      ) {
+        return null;
+      }
+
+      return family;
     },
     enabled: !!joinCode,
   });
@@ -256,7 +270,7 @@ export function useJoinFamily() {
       const fingerprint = getDeviceFingerprint();
 
       // Find family by join code
-       
+
       const { data: familyData, error: familyError } = await (supabase as any)
         .from("families")
         .select("*")
@@ -264,7 +278,17 @@ export function useJoinFamily() {
         .single();
 
       if (familyError) throw new Error("Familie nicht gefunden");
-      const family = familyData as Family;
+
+      // Expiry is opt-in: null = never expires (current behaviour).
+      // Reject the code if an explicit expiry timestamp is set and has passed.
+      const familyRaw = familyData as Family;
+      if (
+        familyRaw.join_code_expires_at != null &&
+        new Date(familyRaw.join_code_expires_at).getTime() < Date.now()
+      ) {
+        throw new Error("Familie nicht gefunden");
+      }
+      const family = familyRaw;
 
       // Check if this device already exists in this family (by hardware_id)
        
@@ -651,7 +675,7 @@ export function useCreatePerson() {
   const { family } = useFamilyStore();
 
   return useMutation({
-    mutationFn: async (person: { name: string; color: string; avatar_url?: string; is_child?: boolean }) => {
+    mutationFn: async (person: { name: string; color: string; avatar_url?: string; is_child?: boolean; birth_date?: string | null }) => {
        
       const { data, error } = await (supabase as any)
         .from("people")
@@ -1518,6 +1542,7 @@ export function useCreateBirthday() {
       date: string;
       person_id?: string | null;
       notify_days_before?: number;
+      image_url?: string | null;
     }) => {
        
       const { data, error } = await (supabase as any)
@@ -1586,6 +1611,103 @@ export function useDeleteBirthday() {
 }
 
 // ===================
+// GIFT IDEAS HOOKS
+// ===================
+
+export function useGiftIdeas(birthdayId: string | null) {
+  const supabase = createClient();
+  const { family } = useFamilyStore();
+
+  return useQuery({
+    queryKey: queryKeys.giftIdeas(birthdayId ?? ""),
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("birthday_gift_ideas")
+        .select("*")
+        .eq("birthday_id", birthdayId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        // Table may not exist in dev — return empty instead of crashing.
+        console.warn("[useGiftIdeas] query failed:", error.message);
+        return [] as BirthdayGiftIdea[];
+      }
+      return data as BirthdayGiftIdea[];
+    },
+    enabled: !!family?.id && !!birthdayId,
+  });
+}
+
+export function useCreateGiftIdea() {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async ({ birthday_id, text }: { birthday_id: string; text: string }) => {
+      const { data, error } = await (supabase as any)
+        .from("birthday_gift_ideas")
+        .insert({ birthday_id, text, family_id: requireFamilyId(family) })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as BirthdayGiftIdea;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.giftIdeas(variables.birthday_id),
+      });
+    },
+  });
+}
+
+export function useToggleGiftIdea() {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, bought, birthday_id }: { id: string; bought: boolean; birthday_id: string }) => {
+      const { data, error } = await (supabase as any)
+        .from("birthday_gift_ideas")
+        .update({ bought })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as BirthdayGiftIdea;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.giftIdeas(variables.birthday_id),
+      });
+    },
+  });
+}
+
+export function useDeleteGiftIdea() {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, birthday_id }: { id: string; birthday_id: string }) => {
+      const { error } = await (supabase as any)
+        .from("birthday_gift_ideas")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.giftIdeas(variables.birthday_id),
+      });
+    },
+  });
+}
+
+// ===================
 // NOTES HOOKS
 // ===================
 
@@ -1615,11 +1737,11 @@ export function useCreateNote() {
   const { family } = useFamilyStore();
 
   return useMutation({
-    mutationFn: async (content: string) => {
-       
+    mutationFn: async (input: { content: string; person_id?: string | null }) => {
+
       const { data, error } = await (supabase as any)
         .from("notes")
-        .insert({ content, family_id: requireFamilyId(family) })
+        .insert({ content: input.content, person_id: input.person_id ?? null, family_id: requireFamilyId(family) })
         .select()
         .single();
 
@@ -1638,10 +1760,11 @@ export function useUpdateNote() {
   const { family } = useFamilyStore();
 
   return useMutation({
-    mutationFn: async ({ id, content, pinned }: { id: string; content?: string; pinned?: boolean }) => {
+    mutationFn: async ({ id, content, pinned, person_id }: { id: string; content?: string; pinned?: boolean; person_id?: string | null }) => {
       const updates: Record<string, unknown> = {};
       if (content !== undefined) updates.content = content;
       if (pinned !== undefined) updates.pinned = pinned;
+      if (person_id !== undefined) updates.person_id = person_id;
        
       const { data, error } = await (supabase as any)
         .from("notes")
@@ -1734,6 +1857,58 @@ export function useUpdateSetting<T>() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.settings(requireFamilyId(family), key),
       });
+    },
+  });
+}
+
+// ===================
+// JOIN CODE REGENERATION
+// ===================
+
+export function useRegenerateJoinCode() {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+  const { family, setFamily } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async ({ ttlHours }: { ttlHours?: number | null }) => {
+      const familyId = requireFamilyId(family);
+
+      // Generate a fresh unique code (retry on unique-violation)
+      let newCode = generateJoinCode();
+      let attempts = 0;
+      while (attempts < 10) {
+        const expiresAt =
+          ttlHours != null && ttlHours > 0
+            ? new Date(Date.now() + ttlHours * 3600e3).toISOString()
+            : null;
+
+        const { data, error } = await (supabase as any)
+          .from("families")
+          .update({ join_code: newCode, join_code_expires_at: expiresAt })
+          .eq("id", familyId)
+          .select()
+          .single();
+
+        if (!error) {
+          return data as Family;
+        }
+
+        // Postgres unique-violation code: 23505
+        if ((error as { code?: string }).code === "23505") {
+          newCode = generateJoinCode();
+          attempts++;
+          continue;
+        }
+
+        throw error;
+      }
+
+      throw new Error("Could not generate a unique join code after 10 attempts.");
+    },
+    onSuccess: (updatedFamily) => {
+      setFamily(updatedFamily);
+      queryClient.invalidateQueries({ queryKey: ["family"] });
     },
   });
 }

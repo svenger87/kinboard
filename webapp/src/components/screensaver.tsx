@@ -5,10 +5,11 @@ import { useTranslations, useLocale } from "next-intl";
 import { getIntlLocale } from "@/i18n/intl-locale";
 import { useClock } from "@/hooks/use-clock";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useBirthdays, useEvents, usePeople, usePhotoSource, useNews, useEnergyConfig, useTeslaConfig, useHomeAssistantEntityStates, type NewsItem } from "@/hooks";
+import { useBirthdays, useEvents, usePeople, usePhotoSource, useNews, useEnergyConfig, useTeslaConfig, useHomeAssistantEntityStates, useWeather, type NewsItem } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
-import { Cake, Calendar, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Sun, Battery, Zap, Car } from "lucide-react";
+import { PersonAvatar } from "@/components/person-avatar";
+import { Cake, Calendar, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Battery, Zap, Car } from "lucide-react";
 import { format, differenceInDays, setYear, isPast, addYears, isToday, isTomorrow, addDays, startOfDay, endOfDay, parseISO } from "date-fns";
 import { type Locale } from "date-fns/locale";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
@@ -76,6 +77,15 @@ function formatEventTime(
 // No default photos — screensaver shows clock-only mode when Immich is not connected
 const DEFAULT_PHOTOS: string[] = [];
 
+function screensaverWeatherIcon(condition: string) {
+  const c = condition.toLowerCase();
+  if (c.includes("thunder") || c.includes("gewitter")) return CloudLightning;
+  if (c.includes("snow") || c.includes("schnee")) return CloudSnow;
+  if (c.includes("rain") || c.includes("regen") || c.includes("drizzle") || c.includes("niesel")) return CloudRain;
+  if (c.includes("clear") || c.includes("klar") || c.includes("sun") || c.includes("sonn")) return Sun;
+  return Cloud;
+}
+
 export function Screensaver({ photos }: ScreensaverProps) {
   const t = useTranslations("components.screensaver");
   const locale = useLocale();
@@ -117,6 +127,10 @@ export function Screensaver({ photos }: ScreensaverProps) {
 
   // Fetch photos from configured source (Immich or Unsplash)
   const { photos: sourcePhotos } = usePhotoSource();
+
+  // Weather chip (renders nothing when unconfigured)
+  const { data: weather } = useWeather();
+  const WeatherIcon = weather ? screensaverWeatherIcon(weather.condition) : null;
 
 
   // Fetch energy config and entity states for screensaver solar widget
@@ -406,6 +420,9 @@ export function Screensaver({ photos }: ScreensaverProps) {
           allDay: event.all_day,
           location: event.location,
           color: person?.color || event.calendar?.color || "#3b82f6",
+          personName: person?.name ?? null,
+          personColor: person?.color ?? null,
+          personAvatar: person?.avatar_url ?? null,
         };
       })
       .slice(0, 4);
@@ -449,7 +466,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
         >
           <div className="flex items-center gap-2 text-white/60 mb-3">
             <Newspaper className="size-4" />
-            <span className="text-xs landscape:lg:text-sm font-medium uppercase tracking-wider">Nachrichten</span>
+            <span className="text-xs landscape:lg:text-sm font-medium uppercase tracking-wider">{t("newsLabel")}</span>
           </div>
           <div className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto scrollbar-hide">
             {news.slice(0, 6).map((item) => (
@@ -494,10 +511,25 @@ export function Screensaver({ photos }: ScreensaverProps) {
         </div>
       )}
 
+      {/* Weather chip - top right (renders nothing when weather unconfigured) */}
+      {weather && WeatherIcon && (
+        <div
+          className="absolute top-4 right-4 landscape:lg:top-12 landscape:lg:right-12 safe-area-inset screensaver-slide-down"
+          style={{ animationDelay: "0.85s" }}
+        >
+          <div className="flex items-center gap-3 bg-black/40 rounded-xl px-4 py-2.5">
+            <WeatherIcon className="size-7 text-white" strokeWidth={1.75} />
+            <span className="font-display font-light text-3xl text-white tabular-nums leading-none">
+              {Math.round(weather.temp)}°
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Energy + Tesla widget - top right (if either enabled) */}
       {(showEnergyWidget || showTeslaWidget) && (
         <div
-          className="absolute top-4 right-4 landscape:lg:top-12 landscape:lg:right-12 pt-12 landscape:lg:pt-0 safe-area-inset screensaver-slide-down"
+          className="absolute top-20 right-4 landscape:lg:top-28 landscape:lg:right-12 pt-12 landscape:lg:pt-0 safe-area-inset screensaver-slide-down"
           style={{ animationDelay: "0.9s" }}
         >
           <div className="bg-black/50 rounded-xl p-4 flex flex-col gap-3 gpu-blur">
@@ -709,13 +741,13 @@ export function Screensaver({ photos }: ScreensaverProps) {
         style={{ animationDelay: "0.5s" }}
       >
         <div className="flex items-baseline">
-          <span className="font-display font-extralight text-7xl landscape:lg:text-[8rem] text-white clock-display tracking-tighter leading-none">
+          <span className="font-display font-light text-7xl landscape:lg:text-[8rem] text-white clock-display tracking-tighter leading-none">
             {hours}
           </span>
-          <span className="font-display font-extralight text-7xl landscape:lg:text-[8rem] text-white/30 mx-1 landscape:lg:mx-2">
+          <span className="font-display font-light text-7xl landscape:lg:text-[8rem] text-white/30 mx-1 landscape:lg:mx-2">
             :
           </span>
-          <span className="font-display font-extralight text-7xl landscape:lg:text-[8rem] text-white clock-display tracking-tighter leading-none">
+          <span className="font-display font-light text-7xl landscape:lg:text-[8rem] text-white clock-display tracking-tighter leading-none">
             {minutes}
           </span>
         </div>
@@ -734,7 +766,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
           <div className="flex flex-col gap-2 landscape:lg:gap-3">
             <div className="flex items-center gap-2 text-white/60">
               <Calendar className="size-4" />
-              <span className="text-xs landscape:lg:text-sm font-medium uppercase tracking-wider">Termine</span>
+              <span className="text-xs landscape:lg:text-sm font-medium uppercase tracking-wider">{t("eventsLabel")}</span>
             </div>
             <div className="flex flex-col gap-1.5 landscape:lg:gap-2">
               {upcomingEvents.map((event) => (
@@ -742,10 +774,20 @@ export function Screensaver({ photos }: ScreensaverProps) {
                   key={event.id}
                   className="flex items-center gap-2 landscape:lg:gap-3 bg-black/40 rounded-lg px-3 py-1.5 landscape:lg:px-4 landscape:lg:py-2 gpu-blur"
                 >
-                  <div
-                    className="w-1 h-8 rounded-full shrink-0"
-                    style={{ backgroundColor: event.color }}
-                  />
+                  {event.personName ? (
+                    <PersonAvatar
+                      name={event.personName}
+                      color={event.personColor ?? event.color}
+                      avatarUrl={event.personAvatar}
+                      size={32}
+                      className="shrink-0"
+                    />
+                  ) : (
+                    <div
+                      className="w-1 h-8 rounded-full shrink-0"
+                      style={{ backgroundColor: event.color }}
+                    />
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-medium truncate text-sm">
                       {event.title}
@@ -771,7 +813,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
           <div className="flex flex-col gap-2 landscape:lg:gap-3">
             <div className="flex items-center gap-2 text-white/60">
               <Cake className="size-4" />
-              <span className="text-xs landscape:lg:text-sm font-medium uppercase tracking-wider">Geburtstage</span>
+              <span className="text-xs landscape:lg:text-sm font-medium uppercase tracking-wider">{t("birthdaysLabel")}</span>
             </div>
             <div className="flex flex-col gap-1.5 landscape:lg:gap-2">
               {upcomingBirthdays.map((birthday) => (

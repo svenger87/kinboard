@@ -13,8 +13,10 @@ import {
   Pin,
   Edit3,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FAB } from "@/components/fab";
+import { noteStyle } from "@/lib/note-style";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -44,24 +46,32 @@ import {
   useDeleteNote,
   useKeyboardShortcuts,
   useSwipeNavigation,
+  usePeople,
 } from "@/hooks";
-import { formatDistanceToNow, format } from "date-fns";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { format } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import type { Note } from "@/types/database";
 
-// DB has pinned column but generated types may not include it
-type NoteWithPinned = Note & { pinned?: boolean };
+// DB has pinned column and person_id but generated types may not include them yet
+type NoteWithPinned = Note & { pinned?: boolean; person_id?: string | null };
 
 function NotesSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="columns-1 sm:columns-2 lg:columns-3 gap-4">
       {[1, 2, 3, 4, 5, 6].map((i) => (
-        <GlassCard key={i} className="p-5">
+        <Card key={i} className="break-inside-avoid mb-4 p-5">
           <Skeleton className="h-4 w-full mb-2" />
           <Skeleton className="h-4 w-3/4 mb-4" />
           <Skeleton className="h-3 w-1/3" />
-        </GlassCard>
+        </Card>
       ))}
     </div>
   );
@@ -80,12 +90,15 @@ export default function NotesPage() {
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
+  const { data: people } = usePeople();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [newContent, setNewContent] = useState("");
+  const [newAuthor, setNewAuthor] = useState<string>("none");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [editAuthor, setEditAuthor] = useState<string>("none");
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
   const newNoteRef = useRef<HTMLTextAreaElement>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
@@ -107,8 +120,12 @@ export default function NotesPage() {
   const handleAdd = async () => {
     if (!newContent.trim()) return;
     try {
-      await createNote.mutateAsync(newContent.trim());
+      await createNote.mutateAsync({
+        content: newContent.trim(),
+        person_id: newAuthor === "none" ? null : newAuthor,
+      });
       setNewContent("");
+      setNewAuthor("none");
       setIsAdding(false);
       toast.success(t("toastCreated"));
     } catch {
@@ -116,17 +133,23 @@ export default function NotesPage() {
     }
   };
 
-  const handleStartEdit = (note: Note) => {
+  const handleStartEdit = (note: NoteWithPinned) => {
     setEditingId(note.id);
     setEditContent(note.content);
+    setEditAuthor(note.person_id ?? "none");
   };
 
   const handleSaveEdit = async () => {
     if (!editingId || !editContent.trim()) return;
     try {
-      await updateNote.mutateAsync({ id: editingId, content: editContent.trim() });
+      await updateNote.mutateAsync({
+        id: editingId,
+        content: editContent.trim(),
+        person_id: editAuthor === "none" ? null : editAuthor,
+      });
       setEditingId(null);
       setEditContent("");
+      setEditAuthor("none");
       toast.success(t("toastUpdated"));
     } catch {
       toast.error(t("toastUpdateFailed"));
@@ -175,7 +198,7 @@ export default function NotesPage() {
   return (
     <TooltipProvider>
       <main id="main-content" className="min-h-screen relative overflow-hidden">
-        <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+        <div className="page-gradient" />
 
         <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
@@ -187,13 +210,13 @@ export default function NotesPage() {
               <>
                 {t("subtitleCount", { count: (notes || []).length })}
                 {pinnedCount > 0 && (
-                  <span className="text-month-primary"> · {t("subtitlePinned", { count: pinnedCount })}</span>
+                  <span className="text-primary"> · {t("subtitlePinned", { count: pinnedCount })}</span>
                 )}
               </>
             }
             actions={
               <Button
-                variant="month"
+                variant="default"
                 size="sm"
                 className="gap-2"
                 onClick={() => setIsAdding(true)}
@@ -249,7 +272,7 @@ export default function NotesPage() {
                 exit={{ opacity: 0, y: -10, height: 0 }}
                 className="mb-6 overflow-hidden"
               >
-                <GlassCard className="p-4 ring-2 ring-month-primary/30">
+                <Card className="p-4 ring-2 ring-primary/30">
                   <textarea
                     ref={newNoteRef}
                     value={newContent}
@@ -262,6 +285,7 @@ export default function NotesPage() {
                       if (e.key === "Escape") {
                         setIsAdding(false);
                         setNewContent("");
+                        setNewAuthor("none");
                       }
                     }}
                     placeholder={t("writePlaceholder")}
@@ -270,9 +294,32 @@ export default function NotesPage() {
                     aria-label={t("newNoteAria")}
                   />
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/30">
-                    <span className="text-[11px] text-muted-foreground">
-                      {t("saveHint")}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-muted-foreground hidden sm:block">
+                        {t("saveHint")}
+                      </span>
+                      {people && people.length > 0 && (
+                        <Select value={newAuthor} onValueChange={setNewAuthor}>
+                          <SelectTrigger className="h-7 text-xs w-36 gap-1">
+                            <SelectValue placeholder={t("authorLabel")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">{t("authorNone")}</SelectItem>
+                            {people.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                <span className="flex items-center gap-1.5">
+                                  <span
+                                    className="inline-block rounded-full shrink-0"
+                                    style={{ width: 10, height: 10, backgroundColor: p.color }}
+                                  />
+                                  {p.name}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="ghost"
@@ -280,12 +327,13 @@ export default function NotesPage() {
                         onClick={() => {
                           setIsAdding(false);
                           setNewContent("");
+                          setNewAuthor("none");
                         }}
                       >
                         {tCommon("cancel")}
                       </Button>
                       <Button
-                        variant="month"
+                        variant="default"
                         size="sm"
                         onClick={handleAdd}
                         disabled={!newContent.trim() || createNote.isPending}
@@ -299,23 +347,23 @@ export default function NotesPage() {
                       </Button>
                     </div>
                   </div>
-                </GlassCard>
+                </Card>
               </motion.div>
             )}
           </AnimatePresence>
 
           {/* Content */}
           {error ? (
-            <GlassCard className="p-8">
+            <Card className="p-8">
               <ErrorState
                 onRetry={refetch}
                 message={t("errorMessage")}
               />
-            </GlassCard>
+            </Card>
           ) : isLoading ? (
             <NotesSkeleton />
           ) : sortedNotes.length === 0 ? (
-            <GlassCard className="p-8">
+            <Card className="p-8">
               {searchQuery ? (
                 <EmptyState
                   icon={Search}
@@ -337,36 +385,35 @@ export default function NotesPage() {
                   }}
                 />
               )}
-            </GlassCard>
+            </Card>
           ) : (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+              className="columns-1 sm:columns-2 lg:columns-3 gap-4"
             >
               <AnimatePresence mode="popLayout">
-                {sortedNotes.map((note, index) => {
+                {sortedNotes.map((note) => {
                   const isEditing = editingId === note.id;
+                  const style = noteStyle(note.id);
 
                   return (
-                    <motion.div
+                    <div
                       key={note.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ delay: index * 0.03 }}
+                      className="break-inside-avoid mb-4"
+                      style={{ transform: isEditing ? undefined : `rotate(${style.rotateDeg}deg)` }}
                     >
-                      <GlassCard
-                        className={`group relative p-5 transition-all hover:bg-white/[0.06] ${
-                          note.pinned ? "ring-1 ring-month-primary/20" : ""
-                        } ${isEditing ? "ring-2 ring-month-primary/40" : ""}`}
+                      <Card
+                        className={`group relative border-transparent p-5 elev-md transition-shadow ${
+                          note.pinned ? "ring-1 ring-primary/30" : ""
+                        } ${isEditing ? "ring-2 ring-primary/40" : ""}`}
+                        style={{ backgroundColor: isEditing ? undefined : style.tintVar }}
                       >
                         {/* Pin indicator */}
                         {note.pinned && !isEditing && (
                           <div className="absolute top-3 right-3">
-                            <Pin className="size-3.5 text-month-primary/60 fill-month-primary/60" />
+                            <Pin className="size-3.5 text-primary/70 fill-primary/70" />
                           </div>
                         )}
 
@@ -385,26 +432,50 @@ export default function NotesPage() {
                                 if (e.key === "Escape") {
                                   setEditingId(null);
                                   setEditContent("");
+                                  setEditAuthor("none");
                                 }
                               }}
                               className="w-full bg-transparent border-none outline-none text-sm resize-none min-h-[6rem]"
                               rows={4}
                               aria-label={t("editAria")}
                             />
-                            <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-border/30">
+                            <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-border/30">
+                              {people && people.length > 0 && (
+                                <Select value={editAuthor} onValueChange={setEditAuthor}>
+                                  <SelectTrigger className="h-7 text-xs w-36 gap-1">
+                                    <SelectValue placeholder={t("authorLabel")} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">{t("authorNone")}</SelectItem>
+                                    {people.map((p) => (
+                                      <SelectItem key={p.id} value={p.id}>
+                                        <span className="flex items-center gap-1.5">
+                                          <span
+                                            className="inline-block rounded-full shrink-0"
+                                            style={{ width: 10, height: 10, backgroundColor: p.color }}
+                                          />
+                                          {p.name}
+                                        </span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                              <div className="flex items-center gap-2 ml-auto">
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
                                   setEditingId(null);
                                   setEditContent("");
+                                  setEditAuthor("none");
                                 }}
                               >
                                 <X className="size-3.5 mr-1" />
                                 {tCommon("cancel")}
                               </Button>
                               <Button
-                                variant="month"
+                                variant="default"
                                 size="sm"
                                 onClick={handleSaveEdit}
                                 disabled={!editContent.trim() || updateNote.isPending}
@@ -416,6 +487,7 @@ export default function NotesPage() {
                                 )}
                                 {tCommon("save")}
                               </Button>
+                              </div>
                             </div>
                           </div>
                         ) : (
@@ -425,19 +497,32 @@ export default function NotesPage() {
                               {note.content}
                             </p>
                             <div className="flex items-center justify-between">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="text-xs text-muted-foreground">
-                                    {formatDistanceToNow(new Date(note.created_at), {
-                                      addSuffix: true,
-                                      locale: dateLocale,
-                                    })}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{format(new Date(note.created_at), "PPPp", { locale: dateLocale })}</p>
-                                </TooltipContent>
-                              </Tooltip>
+                              <div className="flex items-center gap-2 min-w-0">
+                                {(() => {
+                                  const author = note.person_id
+                                    ? people?.find((p) => p.id === note.person_id)
+                                    : undefined;
+                                  return author ? (
+                                    <span className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+                                      <span
+                                        className="inline-block rounded-full shrink-0"
+                                        style={{ width: 10, height: 10, backgroundColor: author.color }}
+                                      />
+                                      <span className="truncate">{author.name}</span>
+                                    </span>
+                                  ) : null;
+                                })()}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                                      {format(new Date(note.created_at), "d. MMM yyyy", { locale: dateLocale })}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{format(new Date(note.created_at), "PPPp", { locale: dateLocale })}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
 
                               {/* Actions */}
                               <div className="flex items-center gap-0.5 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
@@ -446,7 +531,7 @@ export default function NotesPage() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className={`size-9 ${note.pinned ? "text-month-primary" : ""}`}
+                                      className={`size-9 ${note.pinned ? "text-primary" : ""}`}
                                       onClick={() => handleTogglePin(note)}
                                       aria-label={note.pinned ? t("unpinAria") : t("pinAria")}
                                     >
@@ -487,14 +572,22 @@ export default function NotesPage() {
                             </div>
                           </>
                         )}
-                      </GlassCard>
-                    </motion.div>
+                      </Card>
+                    </div>
                   );
                 })}
               </AnimatePresence>
             </motion.div>
           )}
         </div>
+
+        {/* Mobile add FAB */}
+        <FAB
+          icon={Plus}
+          onClick={() => setIsAdding(true)}
+          ariaLabel={t("fabAria")}
+          className="sm:hidden"
+        />
 
         {/* Delete confirmation */}
         <AlertDialog open={!!deleteNoteId} onOpenChange={(open) => { if (!open) setDeleteNoteId(null); }}>

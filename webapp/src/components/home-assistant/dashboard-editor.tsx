@@ -106,7 +106,7 @@ export function DashboardEditor({
                   className={cn(
                     "flex items-center gap-3 p-3 rounded-lg border transition-colors",
                     createType === "custom"
-                      ? "border-month-primary bg-month-primary/10"
+                      ? "border-primary bg-primary/10"
                       : "border-input hover:bg-accent"
                   )}
                 >
@@ -122,7 +122,7 @@ export function DashboardEditor({
                   className={cn(
                     "flex items-center gap-3 p-3 rounded-lg border transition-colors",
                     createType === "energy"
-                      ? "border-month-primary bg-month-primary/10"
+                      ? "border-primary bg-primary/10"
                       : "border-input hover:bg-accent"
                   )}
                 >
@@ -163,7 +163,7 @@ export function DashboardEditor({
                       className={cn(
                         "p-2 rounded-lg border transition-colors",
                         selectedIcon === iconOption.id
-                          ? "border-month-primary bg-month-primary/10 text-month-primary"
+                          ? "border-primary bg-primary/10 text-primary"
                           : "border-input hover:bg-accent text-muted-foreground"
                       )}
                       title={t(iconOption.labelKey)}
@@ -183,7 +183,7 @@ export function DashboardEditor({
                       className={cn(
                         "size-9 flex items-center justify-center rounded-lg border transition-colors text-lg",
                         selectedIcon === emoji
-                          ? "border-month-primary bg-month-primary/10"
+                          ? "border-primary bg-primary/10"
                           : "border-input hover:bg-accent"
                       )}
                     >

@@ -31,10 +31,10 @@ export function SwitchCard({ card, entity }: SwitchCardProps) {
   return (
     <>
       <div
-        className={`rounded-xl border border-white/[0.08] backdrop-blur-sm p-4 transition-all cursor-pointer ${
+        className={`rounded-2xl border bg-card elev-sm p-4 transition-all cursor-pointer ${
           isOn
             ? "bg-green-500/10 border-green-500/30"
-            : "bg-white/[0.03] hover:border-month-primary/30 hover:bg-white/[0.05]"
+            : "border-border hover:border-primary/30"
         } ${isUnavailable ? "opacity-50" : ""}`}
         onClick={() => setDetailOpen(true)}
       >
@@ -42,7 +42,7 @@ export function SwitchCard({ card, entity }: SwitchCardProps) {
           <div className="flex items-center gap-3">
             <div
               className={`p-2.5 rounded-xl transition-colors ${
-                isOn ? "bg-green-500/20 text-green-500" : "bg-white/[0.06] text-muted-foreground"
+                isOn ? "bg-green-500/20 text-green-500" : "bg-muted text-muted-foreground"
               }`}
             >
               {isPending ? (

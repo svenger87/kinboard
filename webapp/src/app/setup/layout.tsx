@@ -10,8 +10,9 @@ export default function SetupLayout({ children }: { children: React.ReactNode })
   const t = useTranslations("setup");
 
   return (
-    <main className="min-h-screen flex flex-col bg-gradient-to-br from-month-primary/10 via-background to-background safe-area-inset">
-      <header className="flex items-center justify-between px-6 py-4">
+    <main className="min-h-screen flex flex-col safe-area-inset relative">
+      <div className="page-gradient" />
+      <header className="relative z-10 flex items-center justify-between px-6 py-4">
         <Link href="/" className="text-sm font-display tracking-tight">
           Kinboard
         </Link>
@@ -25,7 +26,7 @@ export default function SetupLayout({ children }: { children: React.ReactNode })
           </Button>
         </div>
       </header>
-      <div className="flex-1 flex items-start justify-center px-6 py-8">
+      <div className="relative z-10 flex-1 flex items-start justify-center px-6 py-8">
         <div className="w-full max-w-2xl">{children}</div>
       </div>
     </main>

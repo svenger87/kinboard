@@ -14,8 +14,10 @@ import {
   Edit,
   Loader2,
 } from "lucide-react";
-import { GlassCard, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PersonAvatar } from "@/components/person-avatar";
+import { personTint, personStrongTint } from "@/lib/person-color";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,19 +57,19 @@ import {
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { BirthdayYearRing } from "@/components/birthday-year-ring";
+import { BirthdayPhotoField } from "@/components/birthday-photo-field";
+import { GiftIdeasList } from "@/components/gift-ideas-list";
 import { PageHeader } from "@/components/page-header";
-import { format, differenceInDays, differenceInYears, setYear, isPast, addYears, parseISO, startOfDay } from "date-fns";
+import { format } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
-
-// Parse date string safely without timezone issues
-// "1990-01-28" should be January 28th, not January 27th due to UTC conversion
-function parseBirthdayDate(dateStr: string): Date {
-  // parseISO returns UTC, but we want local date
-  // Add T12:00:00 to avoid timezone edge cases
-  const date = parseISO(dateStr + "T12:00:00");
-  return date;
-}
+import {
+  parseBirthdayDate,
+  getNextBirthday,
+  getDaysUntilBirthday,
+  getAge,
+  getUpcomingAge,
+} from "@/lib/birthday";
 import {
   useBirthdays,
   useCreateBirthday,
@@ -78,32 +80,6 @@ import {
   useSwipeNavigation,
 } from "@/hooks";
 import type { Birthday } from "@/types/database";
-
-function getNextBirthday(date: Date): Date {
-  const today = startOfDay(new Date());
-  const thisYearBirthday = startOfDay(setYear(date, today.getFullYear()));
-
-  // If birthday already passed this year (not today), advance to next year
-  if (differenceInDays(today, thisYearBirthday) > 0) {
-    return addYears(thisYearBirthday, 1);
-  }
-  return thisYearBirthday;
-}
-
-function getDaysUntilBirthday(date: Date): number {
-  const nextBirthday = getNextBirthday(date);
-  // Use startOfDay to compare dates without time component
-  return differenceInDays(startOfDay(nextBirthday), startOfDay(new Date()));
-}
-
-function getAge(date: Date): number {
-  return differenceInYears(startOfDay(new Date()), startOfDay(date));
-}
-
-function getUpcomingAge(date: Date): number {
-  const nextBirthday = getNextBirthday(date);
-  return differenceInYears(nextBirthday, startOfDay(date));
-}
 
 function BirthdaysSkeleton() {
   return (
@@ -137,7 +113,7 @@ function CountdownRing({ days, size = 64, strokeWidth = 3, color, ariaLabel }: {
         fill="none"
         stroke="currentColor"
         strokeWidth={strokeWidth}
-        className="text-white/10"
+        className="text-border"
       />
       <circle
         cx={size / 2}
@@ -193,6 +169,7 @@ export default function BirthdaysPage() {
   const [formYear, setFormYear] = useState("");
   const [formPersonId, setFormPersonId] = useState<string>("none");
   const [formNotifyDays, setFormNotifyDays] = useState("7");
+  const [formImage, setFormImage] = useState<string | null>(null);
 
   const isLoading = loadingBirthdays || loadingPeople;
   const error = birthdaysError || peopleError;
@@ -219,6 +196,7 @@ export default function BirthdaysPage() {
     setFormYear("");
     setFormPersonId("none");
     setFormNotifyDays("7");
+    setFormImage(null);
   };
 
   const openEditDialog = (birthday: Birthday) => {
@@ -230,6 +208,7 @@ export default function BirthdaysPage() {
     setFormYear(date.getFullYear().toString());
     setFormPersonId(birthday.person_id || "none");
     setFormNotifyDays(birthday.notify_days_before.toString());
+    setFormImage(birthday.image_url ?? null);
   };
 
   const getMaxDaysInMonth = (month: number, year: number): number => {
@@ -261,6 +240,7 @@ export default function BirthdaysPage() {
           date: dateStr,
           person_id: personId,
           notify_days_before: parseInt(formNotifyDays),
+          image_url: formImage,
         });
         setEditingBirthday(null);
       } else {
@@ -269,6 +249,7 @@ export default function BirthdaysPage() {
           date: dateStr,
           person_id: personId,
           notify_days_before: parseInt(formNotifyDays),
+          image_url: formImage,
         });
         setIsAddOpen(false);
       }
@@ -330,7 +311,7 @@ export default function BirthdaysPage() {
   const nextPerson = nextBirthday ? getPerson(nextBirthday.person_id) : null;
 
   const getCountdownColor = (days: number) => {
-    if (days === 0) return "hsl(var(--month-primary))";
+    if (days === 0) return "hsl(var(--primary))";
     if (days <= 3) return "#f59e0b"; // amber — act now
     if (days <= 7) return "#3b82f6"; // blue — this week
     if (days <= 30) return "#64748b"; // slate — this month
@@ -353,7 +334,7 @@ export default function BirthdaysPage() {
                 <>
                   {t("subtitleSaved", { count: birthdays?.length || 0 })}
                   {upcomingBirthdays.length > 0 && (
-                    <span className="text-month-primary"> · {t("subtitleUpcoming", { count: upcomingBirthdays.length })}</span>
+                    <span className="text-primary"> · {t("subtitleUpcoming", { count: upcomingBirthdays.length })}</span>
                   )}
                 </>
               }
@@ -440,6 +421,12 @@ export default function BirthdaysPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <BirthdayPhotoField
+                    value={formImage}
+                    onChange={setFormImage}
+                    label={t("fieldPhotoOptional")}
+                    removeLabel={t("removePhoto")}
+                  />
                   <div className="flex flex-col gap-2">
                     <Label>{t("fieldReminderWithUnit")}</Label>
                     <Select value={formNotifyDays} onValueChange={setFormNotifyDays}>
@@ -481,7 +468,7 @@ export default function BirthdaysPage() {
           ) : isLoading ? (
             <BirthdaysSkeleton />
           ) : sortedBirthdays.length === 0 ? (
-            <GlassCard>
+            <Card>
               <CardContent className="p-0">
                 <EmptyState
                   icon={Cake}
@@ -493,7 +480,7 @@ export default function BirthdaysPage() {
                   }}
                 />
               </CardContent>
-            </GlassCard>
+            </Card>
           ) : (
             <>
               {/* Year-at-a-glance strip */}
@@ -503,7 +490,7 @@ export default function BirthdaysPage() {
                 transition={{ delay: 0.05 }}
                 className="mb-6"
               >
-                <GlassCard className="overflow-hidden">
+                <Card className="overflow-hidden">
                   <CardContent className="p-4 sm:p-5">
                     <div className="flex items-center gap-3 mb-3">
                       <Calendar className="size-4 text-muted-foreground" />
@@ -511,7 +498,7 @@ export default function BirthdaysPage() {
                         {t("yearOverview")}
                       </span>
                     </div>
-                    <div className="flex gap-1 sm:gap-1.5">
+                    <div className="flex gap-1 sm:gap-1.5 overflow-x-auto scrollbar-hide">
                       {Array.from({ length: 12 }, (_, month) => {
                         const now = new Date();
                         const currentMonth = now.getMonth();
@@ -525,21 +512,21 @@ export default function BirthdaysPage() {
                         return (
                           <Tooltip key={month}>
                             <TooltipTrigger asChild>
-                              <div className="flex-1 flex flex-col items-center gap-1.5">
+                              <div className="flex-1 min-w-[34px] flex flex-col items-center gap-1.5">
                                 <span className={`text-[10px] sm:text-xs font-medium ${
-                                  isCurrentMonth ? "text-month-primary" : "text-muted-foreground/60"
+                                  isCurrentMonth ? "text-primary" : "text-muted-foreground/60"
                                 }`}>
                                   {monthsShort[month]}
                                 </span>
                                 <div className={`w-full h-1.5 rounded-full transition-colors ${
                                   isCurrentMonth
-                                    ? "bg-month-primary/30"
+                                    ? "bg-primary/30"
                                     : "bg-muted/40"
                                 }`}>
                                   {hasBirthdays && (
                                     <div
                                       className={`h-full rounded-full ${
-                                        isCurrentMonth ? "bg-month-primary" : "bg-month-primary/60"
+                                        isCurrentMonth ? "bg-primary" : "bg-primary/60"
                                       }`}
                                       style={{ width: "100%" }}
                                     />
@@ -554,7 +541,7 @@ export default function BirthdaysPage() {
                                         key={b.id}
                                         className="size-1.5 sm:size-2 rounded-full"
                                         style={{
-                                          backgroundColor: person?.color || "hsl(var(--month-primary))",
+                                          backgroundColor: person?.color || "hsl(var(--primary))",
                                           opacity: isCurrentMonth ? 1 : 0.7,
                                         }}
                                       />
@@ -581,7 +568,7 @@ export default function BirthdaysPage() {
                       })}
                     </div>
                   </CardContent>
-                </GlassCard>
+                </Card>
               </motion.div>
 
               {/* Hero Card — Next Birthday */}
@@ -592,51 +579,65 @@ export default function BirthdaysPage() {
                   transition={{ delay: 0.1 }}
                   className="mb-6"
                 >
-                  <GlassCard className={`overflow-hidden ${nextDaysUntil === 0 ? "ring-2 ring-month-primary/50" : ""}`}>
+                  <Card className={`overflow-hidden ${nextDaysUntil === 0 ? "ring-2 ring-primary/50" : ""}`}>
                     <CardContent className="p-0">
                       <div className="relative p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6">
-                        {/* Decorative gradient */}
+                        {/* Person-colored gradient wash */}
                         <div
-                          className="absolute inset-0 opacity-10"
+                          className="absolute inset-0 pointer-events-none"
                           style={{
-                            background: `radial-gradient(circle at 20% 50%, ${getCountdownColor(nextDaysUntil)}, transparent 70%)`,
+                            background: `linear-gradient(135deg, ${personStrongTint(
+                              nextPerson?.color || "hsl(var(--primary))",
+                            )}, ${personTint(nextPerson?.color || "hsl(var(--primary))")} 70%, transparent)`,
                           }}
                         />
-                        {/* Countdown Ring */}
+                        {/* Avatar / countdown */}
                         <div className="relative shrink-0">
-                          <CountdownRing
-                            days={nextDaysUntil}
-                            size={100}
-                            strokeWidth={4}
-                            color={getCountdownColor(nextDaysUntil)}
-                            ariaLabel={t("daysSuffix", { count: nextDaysUntil })}
-                          />
-                          <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            {nextDaysUntil === 0 ? (
-                              <PartyPopper className="size-8 text-month-primary" />
-                            ) : (
-                              <>
-                                <span className="text-kiosk-hero tabular-nums" style={{ color: getCountdownColor(nextDaysUntil) }}>
-                                  {nextDaysUntil}
-                                </span>
-                                <span className="text-kiosk-label">
-                                  {t("daysUnit", { count: nextDaysUntil })}
-                                </span>
-                              </>
-                            )}
-                          </div>
+                          {nextBirthday?.image_url ? (
+                            <PersonAvatar
+                              name={nextBirthday.name}
+                              color={nextPerson?.color || "hsl(var(--primary))"}
+                              avatarUrl={nextBirthday.image_url}
+                              size={96}
+                              ring
+                            />
+                          ) : (
+                            <>
+                              <CountdownRing
+                                days={nextDaysUntil}
+                                size={96}
+                                strokeWidth={4}
+                                color={getCountdownColor(nextDaysUntil)}
+                                ariaLabel={t("daysSuffix", { count: nextDaysUntil })}
+                              />
+                              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                {nextDaysUntil === 0 ? (
+                                  <PartyPopper className="size-8 text-primary" strokeWidth={1.75} />
+                                ) : (
+                                  <>
+                                    <span className="font-display font-light text-3xl leading-none tabular-nums" style={{ color: getCountdownColor(nextDaysUntil) }}>
+                                      {nextDaysUntil}
+                                    </span>
+                                    <span className="text-kiosk-label">
+                                      {t("daysUnit", { count: nextDaysUntil })}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </>
+                          )}
                         </div>
                         {/* Info */}
                         <div className="relative text-center sm:text-left flex-1">
-                          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
+                          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1 font-mono">
                             {nextDaysUntil === 0 ? t("todayHero") : t("nextHero")}
                           </p>
                           <h2 className="text-2xl sm:text-3xl font-display font-light mb-1">
                             {nextBirthday.name}
                           </h2>
                           <div className="flex items-center justify-center sm:justify-start gap-3 text-muted-foreground">
-                            <span className="flex items-center gap-1.5">
-                              <Calendar className="size-3.5" />
+                            <span className="flex items-center gap-1.5 font-mono tabular-nums">
+                              <Calendar className="size-3.5" strokeWidth={1.75} />
                               {format(nextBirthdayDate, "d. MMMM", { locale: dateLocale })}
                             </span>
                             {nextBirthdayDate.getFullYear() < new Date().getFullYear() && (
@@ -654,18 +655,43 @@ export default function BirthdaysPage() {
                               </Badge>
                             )}
                           </div>
+                          <p className="mt-2 font-mono text-sm tabular-nums text-foreground">
+                            {nextDaysUntil === 0 ? t("todayHero") : t("daysSuffix", { count: nextDaysUntil })}
+                          </p>
                         </div>
-                        {/* Gift icon */}
+                        {/* Gift icon (decorative) */}
                         <div className="hidden sm:block relative">
                           {nextDaysUntil === 0 ? (
-                            <PartyPopper className="size-12 text-month-primary/30" />
+                            <PartyPopper className="size-12 text-primary/30" strokeWidth={1.75} />
                           ) : (
-                            <Gift className="size-12 text-white/10" />
+                            <Gift className="size-12 text-muted-foreground/20" strokeWidth={1.75} />
                           )}
                         </div>
                       </div>
                     </CardContent>
-                  </GlassCard>
+                  </Card>
+                </motion.div>
+              )}
+
+              {/* Gift Ideas for the next birthday */}
+              {nextBirthday?.id && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.12 }}
+                  className="mb-6"
+                >
+                  <Card>
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Gift className="size-4 text-muted-foreground" />
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          {t("giftIdeasHeading")}
+                        </span>
+                      </div>
+                      <GiftIdeasList birthdayId={nextBirthday.id} />
+                    </CardContent>
+                  </Card>
                 </motion.div>
               )}
 
@@ -677,26 +703,39 @@ export default function BirthdaysPage() {
                   transition={{ delay: 0.15 }}
                   className="mb-6"
                 >
-                  <GlassCard>
+                  <Card>
                     <CardContent className="py-6 px-4">
                       <h3 className="text-kiosk-label mb-4 text-center">
                         {t("yearOverview")}
                       </h3>
-                      <BirthdayYearRing
-                        birthdays={sortedBirthdays.map((b) => {
-                          const date = parseBirthdayDate(b.date);
-                          const person = getPerson(b.person_id);
-                          return {
-                            id: b.id,
-                            name: b.name,
-                            date,
-                            daysUntil: getDaysUntilBirthday(date),
-                            color: person?.color || "hsl(var(--month-primary))",
-                          };
-                        })}
-                      />
+                      <div className="flex justify-center">
+                        <div className="w-[300px] sm:w-[360px] lg:w-[420px]">
+                          <BirthdayYearRing
+                            size={420}
+                            nextName={nextBirthday?.name}
+                            nextAge={
+                              nextBirthdayDate && nextBirthdayDate.getFullYear() < new Date().getFullYear()
+                                ? nextUpcomingAge
+                                : undefined
+                            }
+                            nextDaysUntil={nextDaysUntil}
+                            birthdays={sortedBirthdays.map((b) => {
+                              const date = parseBirthdayDate(b.date);
+                              const person = getPerson(b.person_id);
+                              return {
+                                id: b.id,
+                                name: b.name,
+                                date,
+                                daysUntil: getDaysUntilBirthday(date),
+                                color: person?.color || "hsl(var(--primary))",
+                                avatarUrl: b.image_url ?? undefined,
+                              };
+                            })}
+                          />
+                        </div>
+                      </div>
                     </CardContent>
-                  </GlassCard>
+                  </Card>
                 </motion.div>
               )}
 
@@ -727,7 +766,7 @@ export default function BirthdaysPage() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.2 + index * 0.05 }}
                         >
-                          <GlassCard className={`group hover:bg-white/[0.06] transition-all ${isToday ? "ring-1 ring-month-primary/40" : ""}`}>
+                          <Card className={`group hover:bg-accent/40 transition-colors ${isToday ? "ring-1 ring-primary/40" : ""}`}>
                             <CardContent className="p-4">
                               <div className="flex items-center gap-3">
                                 {/* Mini countdown ring */}
@@ -749,7 +788,7 @@ export default function BirthdaysPage() {
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium truncate">{birthday.name}</p>
                                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <span>{format(date, "d. MMM", { locale: dateLocale })}</span>
+                                    <span className="font-mono tabular-nums">{format(date, "d. MMM", { locale: dateLocale })}</span>
                                     {date.getFullYear() < new Date().getFullYear() && (
                                       <span>{t("ageTurns", { age: upcomingAge })}</span>
                                     )}
@@ -793,7 +832,7 @@ export default function BirthdaysPage() {
                                 </div>
                               </div>
                             </CardContent>
-                          </GlassCard>
+                          </Card>
                         </motion.div>
                       );
                     })}
@@ -821,10 +860,10 @@ export default function BirthdaysPage() {
                     >
                       {/* Month header */}
                       <div className="flex items-center gap-3 mb-2 px-1">
-                        <div className="flex items-center justify-center size-7 rounded-lg bg-month-primary/15">
-                          <Cake className="size-3.5 text-month-primary" />
+                        <div className="flex items-center justify-center size-7 rounded-lg bg-primary/15">
+                          <Cake className="size-3.5 text-primary" strokeWidth={1.75} />
                         </div>
-                        <span className="text-sm font-semibold text-month-primary">
+                        <span className="text-sm font-semibold text-primary">
                           {months[month]}
                         </span>
                         <span className="text-xs text-muted-foreground">
@@ -832,7 +871,7 @@ export default function BirthdaysPage() {
                         </span>
                         <div className="flex-1 h-px bg-border/50" />
                       </div>
-                      <GlassCard>
+                      <Card>
                         <CardContent className="p-0">
                           <AnimatePresence mode="popLayout">
                             <div className="divide-y divide-border">
@@ -851,7 +890,7 @@ export default function BirthdaysPage() {
                                     animate={{ opacity: 1, x: 0 }}
                                     exit={{ opacity: 0, x: -20, scale: 0.95 }}
                                     transition={{ delay: index * 0.03 }}
-                                    className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 hover:bg-white/[0.04] transition-all group"
+                                    className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 hover:bg-accent/40 transition-colors group"
                                   >
                                     {/* Countdown ring */}
                                     <div className="relative shrink-0">
@@ -885,8 +924,8 @@ export default function BirthdaysPage() {
                                       </div>
                                       <div className="flex items-center gap-2 sm:gap-3 text-sm text-muted-foreground flex-wrap">
                                         <span className="flex items-center gap-1">
-                                          <Calendar className="size-3 shrink-0" />
-                                          <span className="whitespace-nowrap">
+                                          <Gift className="size-3 shrink-0" strokeWidth={1.75} />
+                                          <span className="whitespace-nowrap font-mono tabular-nums">
                                             {format(date, "d. MMM", { locale: dateLocale })}
                                           </span>
                                           {date.getFullYear() < new Date().getFullYear() && (
@@ -912,7 +951,7 @@ export default function BirthdaysPage() {
 
                                     {/* Days label */}
                                     <div className="text-right shrink-0">
-                                      <p className="text-sm text-muted-foreground tabular-nums">
+                                      <p className="text-sm text-muted-foreground tabular-nums font-mono">
                                         {t("daysSuffix", { count: daysUntil })}
                                       </p>
                                     </div>
@@ -964,7 +1003,7 @@ export default function BirthdaysPage() {
                             </div>
                           </AnimatePresence>
                         </CardContent>
-                      </GlassCard>
+                      </Card>
                     </motion.div>
                   ))}
                 </motion.div>
@@ -1046,6 +1085,12 @@ export default function BirthdaysPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <BirthdayPhotoField
+                    value={formImage}
+                    onChange={setFormImage}
+                    label={t("fieldPhotoOptional")}
+                    removeLabel={t("removePhoto")}
+                  />
                   <div className="flex flex-col gap-2">
                     <Label>{t("fieldReminder")}</Label>
                     <Select value={formNotifyDays} onValueChange={setFormNotifyDays}>
@@ -1060,6 +1105,12 @@ export default function BirthdaysPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {editingBirthday.id && (
+                    <div className="flex flex-col gap-2">
+                      <Label>{t("giftIdeasHeading")}</Label>
+                      <GiftIdeasList birthdayId={editingBirthday.id} />
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => { setEditingBirthday(null); resetForm(); }}>

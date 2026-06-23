@@ -11,8 +11,11 @@ import {
   Loader2,
   Trash2,
   GripVertical,
+  CheckCircle2,
+  Download,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,9 +35,11 @@ import { RecipeImagePicker } from "@/components/recipe-image-picker";
 import {
   useCreateRecipe,
   useImportRecipe,
+  useParseRecipeUrl,
   useKeyboardShortcuts,
   useSwipeNavigation,
   type CreateRecipeInput,
+  type ParsedRecipe,
 } from "@/hooks";
 import type { RecipeInstruction } from "@/types/database";
 
@@ -55,6 +60,7 @@ export default function NewRecipePage() {
   // State for import mode
   const [importUrl, setImportUrl] = useState("");
   const [mode, setMode] = useState<"choose" | "import" | "manual">("choose");
+  const [parsed, setParsed] = useState<ParsedRecipe | null>(null);
 
   // State for manual recipe creation
   const [title, setTitle] = useState("");
@@ -72,16 +78,27 @@ export default function NewRecipePage() {
   // Mutations
   const importRecipe = useImportRecipe();
   const createRecipe = useCreateRecipe();
+  const parseRecipe = useParseRecipeUrl();
 
-  // Handle import
-  const handleImport = async () => {
+  // Handle parse (detect step — no DB write)
+  const handleParse = async () => {
     if (!importUrl.trim()) return;
-
     try {
-      const recipe = await importRecipe.mutateAsync(importUrl);
-      router.push(`/recipes/${recipe.id}`);
+      const result = await parseRecipe.mutateAsync(importUrl.trim());
+      setParsed(result);
     } catch {
       toast.error(t("importFailed"));
+    }
+  };
+
+  // Handle save after detection (re-imports + inserts)
+  const handleSaveParsed = async () => {
+    if (!parsed) return;
+    try {
+      const recipe = await importRecipe.mutateAsync(importUrl.trim());
+      router.push(`/recipes/${recipe.id}`);
+    } catch {
+      toast.error(t("new.saveFailed"));
     }
   };
 
@@ -176,7 +193,7 @@ export default function NewRecipePage() {
     <TooltipProvider>
       <main id="main-content" className="min-h-screen relative overflow-hidden">
         {/* Background */}
-        <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+        <div className="page-gradient" />
 
         <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
@@ -194,27 +211,27 @@ export default function NewRecipePage() {
               animate={{ opacity: 1, y: 0 }}
               className="grid md:grid-cols-2 gap-4"
             >
-              <GlassCard
-                className="p-6 cursor-pointer hover:ring-2 hover:ring-month-primary/50 transition-all"
+              <Card
+                className="p-6 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
                 onClick={() => setMode("import")}
               >
-                <LinkIcon className="size-8 text-month-primary mb-4" />
+                <LinkIcon className="size-8 text-primary mb-4" />
                 <h2 className="text-lg font-semibold mb-2">{t("new.cardImportTitle")}</h2>
                 <p className="text-sm text-muted-foreground">
                   {t("new.cardImportDescription")}
                 </p>
-              </GlassCard>
+              </Card>
 
-              <GlassCard
-                className="p-6 cursor-pointer hover:ring-2 hover:ring-month-primary/50 transition-all"
+              <Card
+                className="p-6 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
                 onClick={() => setMode("manual")}
               >
-                <ChefHat className="size-8 text-month-primary mb-4" />
+                <ChefHat className="size-8 text-primary mb-4" />
                 <h2 className="text-lg font-semibold mb-2">{t("new.cardManualTitle")}</h2>
                 <p className="text-sm text-muted-foreground">
                   {t("new.cardManualDescription")}
                 </p>
-              </GlassCard>
+              </Card>
             </motion.div>
           )}
 
@@ -224,9 +241,9 @@ export default function NewRecipePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <GlassCard className="p-6">
+              <Card className="p-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <LinkIcon className="size-5 text-month-primary" />
+                  <LinkIcon className="size-5 text-primary" />
                   <h2 className="text-lg font-semibold">{t("new.importHeading")}</h2>
                 </div>
 
@@ -238,25 +255,89 @@ export default function NewRecipePage() {
                   <Input
                     placeholder={t("new.importPlaceholder")}
                     value={importUrl}
-                    onChange={(e) => setImportUrl(e.target.value)}
-                    className="flex-1"
+                    onChange={(e) => {
+                      setImportUrl(e.target.value);
+                      if (parsed) setParsed(null);
+                    }}
+                    className="flex-1 focus-visible:border-primary"
                   />
                   <Button
-                    onClick={handleImport}
-                    disabled={!importUrl.trim() || importRecipe.isPending}
+                    onClick={handleParse}
+                    disabled={!importUrl.trim() || parseRecipe.isPending}
                   >
-                    {importRecipe.isPending ? (
+                    {parseRecipe.isPending ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
-                      t("importButton")
+                      t("new.detectButton")
                     )}
                   </Button>
                 </div>
 
-                {importRecipe.isError && (
+                {parseRecipe.isError && (
                   <p className="text-sm text-destructive mt-2">
                     {t("new.importErrorMessage")}
                   </p>
+                )}
+
+                {parsed && (
+                  <div className="mt-6 flex flex-col gap-4">
+                    <Card className="overflow-hidden">
+                      <div className="flex gap-4 p-4">
+                        <div className="size-20 shrink-0 overflow-hidden rounded-xl bg-muted">
+                          {parsed.image_url ? (
+                            <img src={parsed.image_url} alt={parsed.title} className="size-full object-cover" />
+                          ) : (
+                            <div className="flex size-full items-center justify-center">
+                              <ChefHat className="size-8 text-muted-foreground/30" strokeWidth={1.75} />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <Badge variant="success" className="mb-1.5">
+                            <CheckCircle2 className="size-3.5" strokeWidth={1.75} />
+                            {t("new.detectedBadge")}
+                          </Badge>
+                          <h3 className="truncate font-semibold">{parsed.title}</h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {t("new.detectedMeta", {
+                              ingredients: parsed.ingredients.length,
+                              steps: parsed.instructions.length,
+                              minutes: parsed.total_time_minutes ?? 0,
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+
+                    {parsed.ingredients.length > 0 && (
+                      <div>
+                        <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                          {t("new.detectedIngredientsHeading")}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {parsed.ingredients.map((ing) => (
+                            <Badge key={ing.sort_order} variant="neutral">
+                              {ing.quantity != null ? `${ing.quantity}${ing.unit ? ` ${ing.unit}` : ""} ` : ""}{ing.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <Button onClick={handleSaveParsed} disabled={importRecipe.isPending} className="w-full">
+                      {importRecipe.isPending ? (
+                        <>
+                          <Loader2 className="size-4 mr-2 animate-spin" />
+                          {t("importingLabel")}
+                        </>
+                      ) : (
+                        <>
+                          <Download className="size-4 mr-2" />
+                          {t("new.saveButton")}
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 )}
 
                 <div className="flex gap-2 mt-4">
@@ -267,7 +348,7 @@ export default function NewRecipePage() {
                     {t("new.switchToManual")}
                   </Button>
                 </div>
-              </GlassCard>
+              </Card>
             </motion.div>
           )}
 
@@ -279,7 +360,7 @@ export default function NewRecipePage() {
               className="flex flex-col gap-6"
             >
               {/* Basic Info */}
-              <GlassCard className="p-6">
+              <Card className="p-6">
                 <h2 className="text-lg font-semibold mb-4">{t("form.sectionBasic")}</h2>
 
                 <div className="flex flex-col gap-4">
@@ -366,10 +447,10 @@ export default function NewRecipePage() {
                     </div>
                   </div>
                 </div>
-              </GlassCard>
+              </Card>
 
               {/* Ingredients */}
-              <GlassCard className="p-6">
+              <Card className="p-6">
                 <h2 className="text-lg font-semibold mb-4">{t("form.sectionIngredients")}</h2>
 
                 <div className="flex flex-col gap-2">
@@ -421,17 +502,17 @@ export default function NewRecipePage() {
                   <Plus className="size-4 mr-2" />
                   {t("form.addIngredient")}
                 </Button>
-              </GlassCard>
+              </Card>
 
               {/* Instructions */}
-              <GlassCard className="p-6">
+              <Card className="p-6">
                 <h2 className="text-lg font-semibold mb-4">{t("form.sectionInstructions")}</h2>
 
                 <div className="flex flex-col gap-3">
                   {instructions.map((step, index) => (
                     <div key={index} className="flex items-start gap-2">
-                      <div className="size-8 rounded-full bg-month-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                        <span className="text-sm font-semibold text-month-primary">
+                      <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                        <span className="text-sm font-semibold text-primary">
                           {index + 1}
                         </span>
                       </div>
@@ -463,7 +544,7 @@ export default function NewRecipePage() {
                   <Plus className="size-4 mr-2" />
                   {t("form.addStep")}
                 </Button>
-              </GlassCard>
+              </Card>
 
               {/* Actions */}
               <div className="flex gap-2">

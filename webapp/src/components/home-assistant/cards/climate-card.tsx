@@ -55,12 +55,12 @@ export function ClimateCard({ card, entity }: ClimateCardProps) {
 
   return (
     <div
-      className={`rounded-xl border p-4 transition-all ${
+      className={`rounded-2xl border bg-card elev-sm p-4 transition-all ${
         isHeating
           ? "bg-orange-500/10 border-orange-500/30"
           : isCooling
           ? "bg-blue-500/10 border-blue-500/30"
-          : "bg-card hover:border-month-primary/30"
+          : "bg-card hover:border-primary/30"
       } ${isUnavailable ? "opacity-50" : ""}`}
     >
       {/* Header */}

@@ -52,7 +52,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GlassCard } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -156,21 +156,21 @@ function MealSlot({
       ref={setNodeRef}
       className={`min-h-[90px] min-w-0 p-2 rounded-lg border transition-colors ${
         isOver
-          ? "bg-month-primary/20 border-month-primary border-solid"
+          ? "bg-primary/15 border-primary border-solid"
           : slotEntries.length === 0
-          ? "border-dashed border-border/30 hover:border-month-primary/40 hover:bg-white/[0.02]"
-          : "border-solid border-border/50 bg-white/[0.02]"
+          ? "border-dashed border-border/40 hover:border-primary/40 hover:bg-accent/40"
+          : "border-solid border-border bg-muted/30"
       }`}
     >
       {slotEntries.length === 0 ? (
         <button
           onClick={onAddClick}
           aria-label={hint ? t("addHintAria", { hint }) : t("emptyAction")}
-          className="size-full min-h-[60px] flex flex-col items-center justify-center gap-1.5 text-muted-foreground/40 hover:text-muted-foreground/70 hover:bg-month-primary/5 active:bg-month-primary/10 transition-all duration-200 group rounded-md"
+          className="size-full min-h-[60px] flex flex-col items-center justify-center gap-1.5 text-muted-foreground/50 hover:text-muted-foreground hover:bg-primary/5 active:bg-primary/10 transition-all duration-200 group rounded-md"
         >
           <div className="flex items-center gap-1.5">
             <MealIcon className="size-3.5" />
-            <Plus className="size-3.5 text-month-primary/50 group-hover:text-month-primary/70" />
+            <Plus className="size-3.5 text-primary/60 group-hover:text-primary" />
           </div>
           {hint && <span className="text-[11px]">{hint}?</span>}
         </button>
@@ -266,7 +266,8 @@ function MealEntryCard({
       style={style}
       className={`group relative min-w-0 ${isDragging ? "opacity-50" : ""}`}
     >
-      <GlassCard className="p-2 cursor-pointer hover:ring-1 hover:ring-month-primary/50 transition-all">
+      <Card className="cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all">
+          <CardContent className="p-2">
         <div className="flex items-start gap-2">
           <div
             {...attributes}
@@ -370,7 +371,8 @@ function MealEntryCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </GlassCard>
+          </CardContent>
+        </Card>
     </div>
   );
 }
@@ -778,7 +780,7 @@ export default function MealPlannerPage() {
         currentWeekStart: weekStart,
       });
     } catch {
-      toast.error("Mahlzeit konnte nicht verschoben werden");
+      toast.error(t("moveFailed"));
     }
   };
 
@@ -794,7 +796,7 @@ export default function MealPlannerPage() {
     <TooltipProvider>
       <main id="main-content" className="min-h-screen relative overflow-hidden">
         {/* Background */}
-        <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+        <div className="page-gradient" />
 
         <div className="relative z-10 p-4 md:p-8 max-w-7xl mx-auto safe-area-inset">
           <PageHeader
@@ -824,7 +826,6 @@ export default function MealPlannerPage() {
                   </Button>
                 </div>
                 <Button
-                  variant="outline"
                   onClick={() => setShowShoppingDialog(true)}
                   disabled={entriesWithRecipes.length === 0}
                 >
@@ -848,7 +849,7 @@ export default function MealPlannerPage() {
             transition={{ delay: 0.1 }}
             className="mb-6"
           >
-            <GlassCard className="p-4">
+            <Card><CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <Button variant="ghost" size="icon" onClick={goToPrevWeek} aria-label={t("prevWeekAria")}>
                   <ChevronLeft className="size-5" />
@@ -870,7 +871,7 @@ export default function MealPlannerPage() {
                   <ChevronRight className="size-5" />
                 </Button>
               </div>
-            </GlassCard>
+            </CardContent></Card>
           </motion.div>
 
           {/* Main Content */}
@@ -880,16 +881,16 @@ export default function MealPlannerPage() {
             transition={{ delay: 0.2 }}
           >
             {isMealPlanError ? (
-              <GlassCard className="p-4">
+              <Card><CardContent className="p-4">
                 <ErrorState
                   title={t("loadErrorTitle")}
                   message={t("loadErrorMessage")}
                   onRetry={() => refetchMealPlan()}
                 />
-              </GlassCard>
+              </CardContent></Card>
             ) : isMealPlanLoading ? (
               viewMode === "grid" ? (
-                <GlassCard className="p-4">
+                <Card><CardContent className="p-4">
                   <div className="grid grid-cols-[80px_repeat(7,1fr)] gap-2 min-w-[800px]">
                     <div />
                     {[1, 2, 3, 4, 5, 6, 7].map((i) => (
@@ -904,27 +905,27 @@ export default function MealPlannerPage() {
                       ))}
                     </div>
                   ))}
-                </GlassCard>
+                </CardContent></Card>
               ) : (
                 <div className="flex flex-col gap-4">
                   {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                    <GlassCard key={i} className="p-4">
+                    <Card key={i}><CardContent className="p-4">
                       <Skeleton className="h-5 w-48 mb-3" />
                       <div className="flex flex-col gap-2">
                         <Skeleton className="h-14 rounded-lg" />
                         <Skeleton className="h-14 rounded-lg" />
                       </div>
                       <Skeleton className="h-8 w-full mt-3 rounded-lg" />
-                    </GlassCard>
+                    </CardContent></Card>
                   ))}
                 </div>
               )
             ) : mealPlanData && mealPlanData.entries.length === 0 && viewMode === "list" ? (
               <div className="space-y-4">
-                <GlassCard className="p-8">
+                <Card><CardContent className="p-8">
                   <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <div className="p-3 rounded-xl bg-month-primary/10 mb-4">
-                      <ChefHat className="size-10 text-month-primary" strokeWidth={1.5} />
+                    <div className="p-3 rounded-xl bg-primary/10 mb-4">
+                      <ChefHat className="size-10 text-primary" strokeWidth={1.75} />
                     </div>
                     <h3 className="text-lg font-semibold mb-1">{t("emptyTitle")}</h3>
                     <p className="text-sm text-muted-foreground max-w-sm mb-6">
@@ -946,7 +947,7 @@ export default function MealPlannerPage() {
                       </Link>
                     </div>
                   </div>
-                </GlassCard>
+                </CardContent></Card>
 
                 {/* Quick recipe suggestions */}
                 {recipes.length > 0 && (
@@ -963,12 +964,12 @@ export default function MealPlannerPage() {
                         .sort(() => Math.random() - 0.5)
                         .slice(0, 3)
                         .map((recipe) => (
-                          <GlassCard
+                          <Card
                             key={recipe.id}
-                            className="group cursor-pointer hover:bg-white/[0.06] transition-all"
+                            className="group cursor-pointer hover:bg-accent/40 transition-all"
                             onClick={() => handleAddClick(today, "dinner")}
                           >
-                            <div className="p-4 flex items-center gap-3">
+                            <CardContent className="p-4 flex items-center gap-3">
                               {recipe.image_url ? (
                                 <div className="size-12 rounded-lg overflow-hidden shrink-0 bg-muted/30">
                                   <img
@@ -978,8 +979,8 @@ export default function MealPlannerPage() {
                                   />
                                 </div>
                               ) : (
-                                <div className="size-12 rounded-lg bg-month-primary/10 flex items-center justify-center shrink-0">
-                                  <UtensilsCrossed className="size-5 text-month-primary" />
+                                <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                  <UtensilsCrossed className="size-5 text-primary" />
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">
@@ -1000,8 +1001,8 @@ export default function MealPlannerPage() {
                                 </div>
                               </div>
                               <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                            </div>
-                          </GlassCard>
+                            </CardContent>
+                          </Card>
                         ))}
                     </div>
                   </motion.div>
@@ -1015,7 +1016,7 @@ export default function MealPlannerPage() {
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
               >
-                <GlassCard className="p-4 overflow-x-auto">
+                <Card><CardContent className="p-4 overflow-x-auto">
                   {/* Grid Header */}
                   <div className="grid grid-cols-[80px_repeat(7,1fr)] gap-2 min-w-[800px]">
                     <div />
@@ -1027,11 +1028,11 @@ export default function MealPlannerPage() {
                           key={date}
                           className={`text-center p-2 rounded-lg ${
                             isToday
-                              ? "bg-month-primary/10 text-month-primary font-semibold"
+                              ? "bg-primary/10 text-primary font-semibold"
                               : ""
                           }`}
                         >
-                          <div className="text-sm">{formatDate(date)}</div>
+                          <div className="text-sm">{formatDate(date, intlLocale)}</div>
                         </div>
                       );
                     })}
@@ -1046,8 +1047,8 @@ export default function MealPlannerPage() {
                         key={mealType}
                         className="grid grid-cols-[80px_repeat(7,1fr)] gap-2 mt-2 min-w-[800px]"
                       >
-                        <div className="flex flex-col items-center justify-center p-2 gap-1.5 rounded-lg bg-white/[0.02]">
-                          <RowIcon className="size-4 text-month-primary/40" />
+                        <div className="flex flex-col items-center justify-center p-2 gap-1.5 rounded-lg bg-muted/30">
+                          <RowIcon className="size-4 text-muted-foreground/60" />
                           <span className="text-xs font-medium text-muted-foreground/80">
                             {mealTypeLabel(mealType)}
                           </span>
@@ -1066,7 +1067,7 @@ export default function MealPlannerPage() {
                       );
                     })
                   }
-                </GlassCard>
+                </CardContent></Card>
 
                 {/* Drag Overlay */}
                 <DragOverlay>
@@ -1096,12 +1097,12 @@ export default function MealPlannerPage() {
                       .sort(() => Math.random() - 0.5)
                       .slice(0, 3)
                       .map((recipe) => (
-                        <GlassCard
+                        <Card
                           key={recipe.id}
-                          className="group cursor-pointer hover:bg-white/[0.06] transition-all"
+                          className="group cursor-pointer hover:bg-accent/40 transition-all"
                           onClick={() => handleAddClick(today, "dinner")}
                         >
-                          <div className="p-4 flex items-center gap-3">
+                          <CardContent className="p-4 flex items-center gap-3">
                             {recipe.image_url ? (
                               <div className="size-12 rounded-lg overflow-hidden shrink-0 bg-muted/30">
                                 <img
@@ -1111,8 +1112,8 @@ export default function MealPlannerPage() {
                                 />
                               </div>
                             ) : (
-                              <div className="size-12 rounded-lg bg-month-primary/10 flex items-center justify-center shrink-0">
-                                <UtensilsCrossed className="size-5 text-month-primary" />
+                              <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                <UtensilsCrossed className="size-5 text-primary" />
                               </div>
                             )}
                             <div className="flex-1 min-w-0">
@@ -1133,8 +1134,8 @@ export default function MealPlannerPage() {
                               </div>
                             </div>
                             <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                          </div>
-                        </GlassCard>
+                          </CardContent>
+                        </Card>
                       ))}
                   </div>
                 </motion.div>
@@ -1152,14 +1153,15 @@ export default function MealPlannerPage() {
                   const hasMeals = dayEntries.length > 0;
 
                   return (
-                    <GlassCard
+                    <Card
                       key={date}
-                      className={`p-3 ${isToday ? "ring-2 ring-month-primary/50" : ""}`}
+                      className={isToday ? "ring-2 ring-primary/50" : undefined}
                     >
+                      <CardContent className="p-3">
                       <div className="flex items-center justify-between mb-2">
                         <h3
                           className={`font-semibold text-sm ${
-                            isToday ? "text-month-primary" : ""
+                            isToday ? "text-primary" : ""
                           }`}
                         >
                           {d.toLocaleDateString(intlLocale, {
@@ -1220,7 +1222,8 @@ export default function MealPlannerPage() {
                           {t("listEmpty")}
                         </p>
                       )}
-                    </GlassCard>
+                      </CardContent>
+                    </Card>
                   );
                 })}
               </div>
@@ -1236,7 +1239,7 @@ export default function MealPlannerPage() {
               <DialogDescription>
                 {selectedSlot && (
                   <>
-                    {formatDate(selectedSlot.date)} -{" "}
+                    {formatDate(selectedSlot.date, intlLocale)} -{" "}
                     {mealTypeLabel(selectedSlot.mealType)}
                   </>
                 )}
@@ -1431,7 +1434,7 @@ export default function MealPlannerPage() {
                         <div className="flex-1">
                           <p className="font-medium">{entry.recipe?.title}</p>
                           <p className="text-xs text-muted-foreground">
-                            {formatDate(entry.date)} -{" "}
+                            {formatDate(entry.date, intlLocale)} -{" "}
                             {mealTypeLabel(entry.meal_type)}
                             {entry.servings && ` ${t("servingsSuffix", { count: entry.servings })}`}
                           </p>
@@ -1512,7 +1515,7 @@ export default function MealPlannerPage() {
                         <div
                           className={`size-5 shrink-0 rounded-md border flex items-center justify-center transition-colors ${
                             selectedIngredients.has(ingredient.id)
-                              ? "bg-month-primary border-month-primary text-white"
+                              ? "bg-primary border-primary text-primary-foreground"
                               : "border-input"
                           }`}
                         >
@@ -1576,12 +1579,12 @@ export default function MealPlannerPage() {
           <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <ChefHat className="size-5 text-month-primary" />
+                <ChefHat className="size-5 text-primary" />
                 {detailEntry?.recipe?.title || t("detailDialogFallback")}
               </DialogTitle>
               {detailEntry && (
                 <DialogDescription>
-                  {formatDate(detailEntry.date)} - {mealTypeLabel(detailEntry.meal_type)}
+                  {formatDate(detailEntry.date, intlLocale)} - {mealTypeLabel(detailEntry.meal_type)}
                   {detailEntry.servings && ` ${t("detailServings", { count: detailEntry.servings })}`}
                 </DialogDescription>
               )}
@@ -1647,7 +1650,7 @@ export default function MealPlannerPage() {
                             key={ing.id}
                             className="flex items-center gap-2 text-sm p-2 rounded-lg bg-muted/30"
                           >
-                            <span className="font-medium text-month-primary">
+                            <span className="font-medium text-primary">
                               {ing.quantity}
                               {ing.unit && ` ${ing.unit}`}
                             </span>
@@ -1716,7 +1719,7 @@ export default function MealPlannerPage() {
           <DialogContent className="sm:max-w-[400px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Edit className="size-5 text-month-primary" />
+                <Edit className="size-5 text-primary" />
                 {t("editNoteTitle")}
               </DialogTitle>
             </DialogHeader>

@@ -59,7 +59,7 @@ export function PageHeader({
         </div>
       </div>
       {actions && (
-        <div className="flex items-center gap-2 self-end sm:self-auto">{actions}</div>
+        <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">{actions}</div>
       )}
     </motion.div>
   );

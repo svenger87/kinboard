@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Search,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -216,7 +216,7 @@ export default function WeatherSettingsPage() {
           <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
             {t("locationTypeHeading")}
           </h2>
-          <GlassCard className="p-4">
+          <Card className="p-4">
             <RadioGroup
               value={locationType}
               onValueChange={(value) => setLocationType(value as "city" | "coordinates")}
@@ -237,7 +237,7 @@ export default function WeatherSettingsPage() {
                 </Label>
               </div>
             </RadioGroup>
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Location Input */}
@@ -250,7 +250,7 @@ export default function WeatherSettingsPage() {
           <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
             {locationType === "city" ? t("locationCityHeading") : t("locationCoordinatesHeading")}
           </h2>
-          <GlassCard className="p-4">
+          <Card className="p-4">
             {locationType === "city" ? (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="city-input">{t("cityInputLabel")}</Label>
@@ -344,7 +344,7 @@ export default function WeatherSettingsPage() {
                 </p>
               </div>
             )}
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Save Button */}

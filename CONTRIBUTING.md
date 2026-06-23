@@ -28,8 +28,7 @@ cd webapp/docker
 
 # In a second terminal, run the Next.js dev server
 cd webapp
-npm ci          # use ci, not install — install mutates the Linux-generated
-                # lockfile on other platforms and breaks `npm ci` on CI
+npm install
 npm run dev
 ```
 

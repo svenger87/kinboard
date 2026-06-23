@@ -4,7 +4,15 @@ import { useMemo } from "react";
 import { Sun, Battery, Home, Zap, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { ENERGY_COLORS } from "@/types/home-assistant";
+
+// Theme-following energy colors as CSS-var strings (light + dark variants live in globals.css).
+// solar=amber, battery=green, grid=blue, consumption/home=orange.
+const FLOW_COLOR = {
+  solar: "hsl(var(--energy-solar))",
+  battery: "hsl(var(--energy-battery))",
+  grid: "hsl(var(--energy-grid))",
+  home: "hsl(var(--energy-consumption))",
+} as const;
 
 interface EnergyFlowProps {
   solarPower?: number;
@@ -77,10 +85,6 @@ function formatPower(power: number): string {
   return `${Math.round(power)} W`;
 }
 
-function getAnimationDuration(power: number): number {
-  const clamped = Math.min(Math.max(power, 0), 3000);
-  return 12 - (clamped / 3000) * 8; // 12s at 0W → 4s at 3000W
-}
 
 // ── Component ────────────────────────────────────────────────────────
 export function EnergyFlow({
@@ -102,32 +106,32 @@ export function EnergyFlow({
     flows["solar-battery"] = {
       active: solarPower > minPower && batteryPower > minPower,
       power: Math.min(solarPower, Math.max(batteryPower, 0)),
-      color: ENERGY_COLORS.solar,
+      color: FLOW_COLOR.solar,
     };
 
     const solarToHome = solarPower - Math.max(batteryPower, 0);
     flows["solar-home"] = {
       active: solarPower > minPower && solarToHome > minPower,
       power: Math.max(solarToHome, 0),
-      color: ENERGY_COLORS.solar,
+      color: FLOW_COLOR.solar,
     };
 
     flows["solar-grid"] = {
       active: solarPower > minPower && gridPower < -minPower,
       power: Math.abs(Math.min(gridPower, 0)),
-      color: ENERGY_COLORS.gridExport,
+      color: FLOW_COLOR.grid,
     };
 
     flows["battery-home"] = {
       active: batteryPower < -minPower,
       power: Math.abs(Math.min(batteryPower, 0)),
-      color: ENERGY_COLORS.batteryDischarge,
+      color: FLOW_COLOR.battery,
     };
 
     flows["grid-home"] = {
       active: gridPower > minPower,
       power: Math.max(gridPower, 0),
-      color: ENERGY_COLORS.gridImport,
+      color: FLOW_COLOR.grid,
     };
 
     let g2b = 0;
@@ -140,7 +144,7 @@ export function EnergyFlow({
     flows["grid-battery"] = {
       active: g2b > minPower,
       power: g2b,
-      color: ENERGY_COLORS.gridImport,
+      color: FLOW_COLOR.grid,
     };
 
     return flows;
@@ -155,157 +159,84 @@ export function EnergyFlow({
     return p;
   }, []);
 
-  // Node highlight colors based on power state
+  // Node highlight colors based on power state (token strings, theme-following).
   const nodeColors = useMemo(
     () => ({
-      solar: solarPower > 0 ? ENERGY_COLORS.solar : null,
-      battery:
-        batteryPower > 0
-          ? ENERGY_COLORS.batteryCharge
-          : batteryPower < 0
-            ? ENERGY_COLORS.batteryDischarge
-            : null,
-      grid:
-        gridPower > 0
-          ? ENERGY_COLORS.gridImport
-          : gridPower < 0
-            ? ENERGY_COLORS.gridExport
-            : null,
-      home: homePower > 0 ? ENERGY_COLORS.home : null,
+      solar: solarPower > 0 ? FLOW_COLOR.solar : null,
+      battery: batteryPower !== 0 ? FLOW_COLOR.battery : null,
+      grid: gridPower !== 0 ? FLOW_COLOR.grid : null,
+      home: homePower > 0 ? FLOW_COLOR.home : null,
     }),
     [solarPower, batteryPower, gridPower, homePower],
   );
 
   return (
     <div className={cn("w-full max-w-md mx-auto", className)}>
-      {/* Animation keyframes for flow dots */}
-      <style jsx>{`
-        @keyframes flowDot {
-          0% {
-            offset-distance: 0%;
-          }
-          100% {
-            offset-distance: 100%;
-          }
-        }
-        .flow-dot {
-          offset-rotate: 0deg;
-          animation-name: flowDot;
-          animation-timing-function: linear;
-          animation-iteration-count: infinite;
-        }
-      `}</style>
-
       <svg
         viewBox="0 0 200 228"
         className="w-full"
         role="img"
         aria-label={t("energyFlowAria")}
       >
-        {/* ── Dim background paths ─────────────────────────────── */}
+        {/* ── Dim background paths (always visible, inactive look) ── */}
         {FLOW_PATHS.map(({ id }) => (
           <path
             key={`bg-${id}`}
             d={paths[id]}
             fill="none"
             stroke="currentColor"
-            strokeWidth={0.5}
+            strokeWidth={1.5}
             strokeOpacity={0.08}
+            className="text-muted-foreground"
           />
         ))}
 
-        {/* ── Active flows: glow layer ─────────────────────────── */}
+        {/* ── Active flows: marching dashed lines (replaces traveling dots) ── */}
         {FLOW_PATHS.map(({ id }) => {
           const f = activeFlows[id];
           if (!f?.active) return null;
-          const sw = Math.min(2.5, 0.8 + f.power / 1500);
+          const sw = Math.min(2.5, 1 + f.power / 1500);
           return (
             <path
-              key={`glow-${id}`}
-              d={paths[id]}
-              fill="none"
-              stroke={f.color}
-              strokeWidth={sw + 4}
-              strokeLinecap="round"
-              strokeOpacity={0.15}
-            />
-          );
-        })}
-
-        {/* ── Active flows: main lines ─────────────────────────── */}
-        {FLOW_PATHS.map(({ id }) => {
-          const f = activeFlows[id];
-          if (!f?.active) return null;
-          const sw = Math.min(2.5, 0.8 + f.power / 1500);
-          return (
-            <path
-              key={`line-${id}`}
+              key={`flow-${id}`}
               d={paths[id]}
               fill="none"
               stroke={f.color}
               strokeWidth={sw}
-              strokeLinecap="round"
-              strokeOpacity={0.7}
+              strokeDasharray="4 3"
+              className="flow-dash"
             />
           );
         })}
 
-        {/* ── Animated flow dots ───────────────────────────────── */}
-        {FLOW_PATHS.map(({ id }) => {
-          const f = activeFlows[id];
-          if (!f?.active) return null;
-          const sw = Math.min(2.5, 0.8 + f.power / 1500);
-          const dur = getAnimationDuration(f.power);
-          return [0, 1, 2].map((i) => (
-            <circle
-              key={`dot-${id}-${i}`}
-              r={1.2 + sw * 0.3}
-              fill={f.color}
-              className="flow-dot"
-              style={{
-                offsetPath: `path('${paths[id]}')`,
-                animationDuration: `${dur}s`,
-                animationDelay: `${(i / 3) * dur}s`,
-              }}
-            />
-          ));
-        })}
-
-        {/* ── Node circles with icons and labels ───────────────── */}
+        {/* ── Nodes: rounded icon-badge style ── */}
         {(Object.keys(NODES) as Array<keyof typeof NODES>).map((key) => {
           const { x, y } = NODES[key];
           const color = nodeColors[key];
           const { icon: Icon, labelKey } = NODE_META[key];
           const label = t(labelKey);
+          const active = color !== null;
+          const badge = color ?? "hsl(var(--muted-foreground))";
 
           return (
             <g key={key}>
-              {/* Outer glow ring (active only) */}
-              {color && (
-                <circle
-                  cx={x}
-                  cy={y}
-                  r={R + 3}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={2}
-                  strokeOpacity={0.2}
-                />
-              )}
-
-              {/* Main circle */}
-              <circle
-                cx={x}
-                cy={y}
-                r={R}
-                fill={color ? `${color}20` : "hsl(var(--muted))"}
-                stroke={color || "hsl(var(--muted-foreground))"}
-                strokeWidth={color ? 2 : 1}
-                strokeOpacity={color ? 0.6 : 0.3}
+              {/* Rounded badge background — accent tint when active, muted when idle */}
+              <rect
+                x={x - R}
+                y={y - R}
+                width={R * 2}
+                height={R * 2}
+                rx={12}
+                ry={12}
+                fill={badge}
+                fillOpacity={active ? 0.14 : 0.06}
+                stroke={badge}
+                strokeWidth={active ? 1.5 : 1}
+                strokeOpacity={active ? 0.5 : 0.25}
               />
 
-              {/* Icon (embedded HTML via foreignObject) */}
-              <foreignObject x={x - 10} y={y - 10} width={20} height={20}>
+              {/* Icon (embedded HTML via foreignObject; stroke 1.75 from lucide default) */}
+              <foreignObject x={x - 11} y={y - 11} width={22} height={22}>
                 <div
                   style={{
                     display: "flex",
@@ -316,16 +247,13 @@ export function EnergyFlow({
                   }}
                 >
                   <Icon
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      color: color || "hsl(var(--muted-foreground))",
-                    }}
+                    strokeWidth={1.75}
+                    style={{ width: "100%", height: "100%", color: badge }}
                   />
                 </div>
               </foreignObject>
 
-              {/* Label */}
+              {/* Label (neutral, legible in both themes) */}
               <text
                 x={x}
                 y={y + R + 13}
@@ -337,14 +265,15 @@ export function EnergyFlow({
                 {label}
               </text>
 
-              {/* Power value */}
+              {/* Power value — display font, tabular figures */}
               <text
                 x={x}
                 y={y + R + 24}
                 textAnchor="middle"
                 fontSize={8}
                 fontWeight={700}
-                fill={color || "hsl(var(--muted-foreground))"}
+                className="font-display tabular-nums"
+                fill={badge}
               >
                 {key === "solar" && formatPower(solarPower)}
                 {key === "battery" &&
@@ -361,6 +290,7 @@ export function EnergyFlow({
                   y={y + R + 34}
                   textAnchor="middle"
                   fontSize={6}
+                  className="tabular-nums"
                   fill="hsl(var(--muted-foreground))"
                 >
                   {Math.round(batterySoc)}%
@@ -368,7 +298,7 @@ export function EnergyFlow({
               )}
 
               {/* Grid status label */}
-              {key === "grid" && (gridPower > 0 || gridPower < 0) && (
+              {key === "grid" && gridPower !== 0 && (
                 <text
                   x={x}
                   y={y + R + 34}

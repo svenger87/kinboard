@@ -62,10 +62,10 @@ export function GenericCard({ card, entity }: GenericCardProps) {
   return (
     <>
       <div
-        className={`rounded-xl border border-white/[0.08] backdrop-blur-sm p-4 transition-all cursor-pointer ${
+        className={`rounded-2xl border bg-card elev-sm p-4 transition-all cursor-pointer ${
           supportsToggle && isOn
-            ? "bg-month-primary/10 border-month-primary/30"
-            : "bg-white/[0.03] hover:border-month-primary/30 hover:bg-white/[0.05]"
+            ? "bg-primary/10 border-primary/30"
+            : "border-border hover:border-primary/30"
         } ${isUnavailable ? "opacity-50" : ""}`}
         onClick={() => setDetailOpen(true)}
       >
@@ -73,8 +73,8 @@ export function GenericCard({ card, entity }: GenericCardProps) {
           <div
             className={`p-2.5 rounded-xl ${
               supportsToggle && isOn
-                ? "bg-month-primary/20 text-month-primary"
-                : "bg-white/[0.06] text-muted-foreground"
+                ? "bg-primary/20 text-primary"
+                : "bg-muted text-muted-foreground"
             }`}
           >
             <CircleDot className="size-5" />

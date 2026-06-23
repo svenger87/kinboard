@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Newspaper, ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useEffect, useMemo } from "react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,9 +48,7 @@ export default function NewsSettingsPage() {
   const noneSelected = selected.size === 0;
 
   return (
-    <main id="main-content" className="min-h-screen p-4 md:p-8 relative safe-area-inset">
-      <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
-
+    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto">
         <PageHeader
           icon={Newspaper}
@@ -66,9 +64,9 @@ export default function NewsSettingsPage() {
           className="space-y-6"
         >
           {noneSelected && providers && (
-            <GlassCard className="p-4 border-amber-500/30 bg-amber-500/5">
+            <Card className="p-4 border-amber-500/30 bg-amber-500/5">
               <p className="text-sm">{t("noneSelectedHint")}</p>
-            </GlassCard>
+            </Card>
           )}
 
           {(["de", "en"] as const).map((lang) => (
@@ -76,7 +74,7 @@ export default function NewsSettingsPage() {
               <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
                 {t(`lang_${lang}`)}
               </h2>
-              <GlassCard className="p-2 divide-y divide-border/50">
+              <Card className="p-2 divide-y divide-border/50">
                 {providersLoading && (
                   <div className="p-3 space-y-3">
                     <Skeleton className="h-10" />
@@ -119,7 +117,7 @@ export default function NewsSettingsPage() {
                       </div>
                     );
                   })}
-              </GlassCard>
+              </Card>
             </div>
           ))}
 
