@@ -53,7 +53,7 @@ export function LockCard({ card, entity }: LockCardProps) {
     if (isLocked) return "bg-green-500/10 border-green-500/30";
     if (isUnlocked) return "bg-yellow-500/10 border-yellow-500/30";
     if (isJammed) return "bg-red-500/10 border-red-500/30";
-    return "bg-card hover:border-month-primary/30";
+    return "bg-card hover:border-primary/30";
   };
 
   const handleLock = async () => {
@@ -68,7 +68,7 @@ export function LockCard({ card, entity }: LockCardProps) {
 
   return (
     <div
-      className={`rounded-xl border p-4 transition-all ${getBgColor()} ${
+      className={`rounded-2xl border elev-sm p-4 transition-all ${getBgColor()} ${
         isUnavailable ? "opacity-50" : ""
       }`}
     >

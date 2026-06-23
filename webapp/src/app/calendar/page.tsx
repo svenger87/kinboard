@@ -39,7 +39,7 @@ import {
 } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
-import { GlassCard } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -78,6 +78,9 @@ import { MonthView, WeekView } from "@/components/calendar";
 import { ErrorState } from "@/components/error-state";
 import { LocationAutocomplete } from "@/components/location-autocomplete";
 import { PageHeader } from "@/components/page-header";
+import { EventPill } from "@/components/event-pill";
+import { PersonChip } from "@/components/person-chip";
+import { FAB } from "@/components/fab";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -180,6 +183,21 @@ export default function CalendarPage() {
   const [editForm, setEditForm] = useState({ title: "", location: "", startDate: new Date(), endDate: new Date(), startTime: "", endTime: "", allDay: false, person_id: null as string | null });
   const [view, setView] = useState<"month" | "week">("month");
 
+  // Person filter — default: all selected (null = "all", lazily initialized once people load)
+  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string> | null>(null);
+
+  const togglePerson = (id: string) => {
+    setSelectedPersonIds((prev) => {
+      const all = new Set((people || []).map((p) => p.id));
+      const base = prev ?? all;
+      const next = new Set(base);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      if (next.size === 0) return null;
+      return next;
+    });
+  };
+
   // Add Event Dialog State
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newEvent, setNewEvent] = useState({
@@ -280,8 +298,15 @@ export default function CalendarPage() {
         is_holiday: event.calendar?.is_holidays ?? false,
         is_waste_collection: event.calendar?.is_waste_collection ?? false,
       };
-    }).filter((e) => !e.is_waste_collection);
+    });
   }, [eventsData, people]);
+
+  // Apply the person filter. null = no filter yet (show all). Person-less
+  // events (no person_id) are always visible.
+  const visibleEvents = useMemo(() => {
+    if (!selectedPersonIds) return events;
+    return events.filter((e) => !e.person_id || selectedPersonIds.has(e.person_id));
+  }, [events, selectedPersonIds]);
 
   const handleAddEvent = async () => {
     if (!newEvent.title.trim() || !newEvent.calendar_id) return;
@@ -346,7 +371,7 @@ export default function CalendarPage() {
 
   // Get events for a specific day (including multi-day events)
   const getEventsForDay = (day: Date) => {
-    return events.filter((event) => eventOccursOnDay(event, day));
+    return visibleEvents.filter((event) => eventOccursOnDay(event, day));
   };
 
   // Get events for selected date (default to today when nothing selected)
@@ -393,7 +418,7 @@ export default function CalendarPage() {
     <TooltipProvider>
       <main id="main-content" className="min-h-screen relative overflow-hidden">
         {/* Background */}
-        <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+        <div className="page-gradient" />
 
         <div className="relative z-10 p-4 md:p-8 max-w-7xl mx-auto safe-area-inset">
           <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
@@ -405,7 +430,7 @@ export default function CalendarPage() {
               className="mb-3"
               actions={
                 <DialogTrigger asChild>
-                  <Button variant="month" size="sm" className="gap-1 sm:gap-2" onClick={openAddDialog}>
+                  <Button size="sm" className="hidden sm:inline-flex gap-1 sm:gap-2" onClick={openAddDialog}>
                     <Plus className="size-4" />
                     <span className="hidden sm:inline">{t("newEventButton")}</span>
                   </Button>
@@ -415,19 +440,19 @@ export default function CalendarPage() {
             {/* No calendars yet — guide the user to add one instead of
                 leaving the grid empty with no explanation. */}
             {!loadingCalendars && !calendarsError && calendars && calendars.length === 0 && (
-              <GlassCard className="p-4 mb-4 border-month-primary/30 bg-month-primary/5">
-                <div className="flex items-center gap-3">
+              <Card className="mb-4 border-primary/30">
+                <CardContent className="flex items-center gap-3 p-4">
                   <div className="flex-1">
                     <p className="text-sm font-medium">{t("noCalendarsBannerTitle")}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {t("noCalendarsBannerDescription")}
                     </p>
                   </div>
-                  <Button variant="month" size="sm" asChild className="shrink-0">
+                  <Button size="sm" asChild className="shrink-0">
                     <Link href="/settings/calendar">{t("noCalendarsBannerAction")}</Link>
                   </Button>
-                </div>
-              </GlassCard>
+                </CardContent>
+              </Card>
             )}
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
@@ -678,7 +703,6 @@ export default function CalendarPage() {
 
                     {/* Submit */}
                     <Button
-                      variant="month"
                       className="w-full"
                       onClick={handleAddEvent}
                       disabled={!newEvent.title.trim() || !newEvent.calendar_id || createEvent.isPending}
@@ -696,14 +720,27 @@ export default function CalendarPage() {
                 </DialogContent>
           </Dialog>
 
-          {/* View tabs + navigation — kept below PageHeader */}
-          <div className="flex items-center justify-between gap-2 mb-6 sm:mb-8">
+          {/* View tabs + person filter + navigation — kept below PageHeader */}
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-3 mb-6 sm:mb-8">
             <Tabs value={view} onValueChange={(v) => setView(v as "month" | "week")}>
-              <TabsList className="h-8" aria-label={t("viewSwitcherAria")}>
+              <TabsList aria-label={t("viewSwitcherAria")}>
                 <TabsTrigger value="month" className="text-xs sm:text-sm px-2 sm:px-3">{t("viewMonth")}</TabsTrigger>
                 <TabsTrigger value="week" className="text-xs sm:text-sm px-2 sm:px-3">{t("viewWeek")}</TabsTrigger>
               </TabsList>
             </Tabs>
+            {people && people.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("personFilterAria")}>
+                {people.map((person) => (
+                  <PersonChip
+                    key={person.id}
+                    name={person.name}
+                    color={person.color}
+                    selected={!selectedPersonIds || selectedPersonIds.has(person.id)}
+                    onClick={() => togglePerson(person.id)}
+                  />
+                ))}
+              </div>
+            )}
             <div className="flex items-center gap-1">
               <Button variant="outline" size="icon" className="size-8" onClick={goToPrevious} aria-label={t("previousAria")}>
                 <ChevronLeft className="size-4" />
@@ -730,22 +767,22 @@ export default function CalendarPage() {
                 transition={{ delay: 0.08 }}
                 className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4"
               >
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-white/5 px-2.5 py-1 rounded-lg">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-lg">
                   <CalendarIcon className="size-3" />
-                  <span className="font-medium text-foreground">{regularEvents.length}</span> {t("statsEvents")}
+                  <span className="font-medium text-foreground tabular-nums">{regularEvents.length}</span> {t("statsEvents")}
                 </div>
                 {holidays.length > 0 && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-rose-500/10 px-2.5 py-1 rounded-lg">
-                    <span className="text-rose-400 font-medium">{holidays.length}</span> {t("statsHolidays")}
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-lg">
+                    <span className="font-medium text-foreground tabular-nums">{holidays.length}</span> {t("statsHolidays")}
                   </div>
                 )}
                 {allDayEvents.length > 0 && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-blue-500/10 px-2.5 py-1 rounded-lg">
-                    <span className="text-blue-400 font-medium">{allDayEvents.length}</span> {t("statsAllDay")}
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-lg">
+                    <span className="font-medium text-foreground tabular-nums">{allDayEvents.length}</span> {t("statsAllDay")}
                   </div>
                 )}
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-white/5 px-2.5 py-1 rounded-lg">
-                  <span className="font-medium text-foreground">{uniqueDaysWithEvents}</span> {t("statsActiveDays")}
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-lg">
+                  <span className="font-medium text-foreground tabular-nums">{uniqueDaysWithEvents}</span> {t("statsActiveDays")}
                 </div>
               </motion.div>
             );
@@ -760,23 +797,23 @@ export default function CalendarPage() {
               className="xl:col-span-3"
             >
               {error ? (
-                <GlassCard className="p-4">
+                <Card className="p-4">
                   <ErrorState
                     icon={CalendarIcon}
                     title={t("errorTitle")}
                     message={t("errorMessage")}
                     onRetry={handleRetry}
                   />
-                </GlassCard>
+                </Card>
               ) : isLoading ? (
-                <GlassCard className="p-4">
+                <Card className="p-4">
                   <CalendarSkeleton view={view} />
-                </GlassCard>
+                </Card>
               ) : view === "month" ? (
                 <MonthView
                   currentDate={currentDate}
                   selectedDate={selectedDate}
-                  events={events}
+                  events={visibleEvents}
                   onSelectDate={setSelectedDate}
                   onSelectEvent={setSelectedEvent}
                 />
@@ -784,7 +821,7 @@ export default function CalendarPage() {
                 <WeekView
                   currentDate={currentDate}
                   selectedDate={selectedDate}
-                  events={events}
+                  events={visibleEvents}
                   onSelectDate={setSelectedDate}
                   onSelectEvent={setSelectedEvent}
                 />
@@ -799,7 +836,7 @@ export default function CalendarPage() {
               transition={{ delay: 0.2 }}
               className="xl:col-span-1"
             >
-              <GlassCard className="p-4 h-full">
+              <Card className="p-4 h-full">
                 <div className="mb-4">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-medium">
@@ -880,8 +917,8 @@ export default function CalendarPage() {
                                 return (
                                   <div className="absolute left-0 right-0 z-10" style={{ top: `${top}%` }}>
                                     <div className="flex items-center">
-                                      <div className="size-2 rounded-full bg-month-primary -ml-1 shrink-0" />
-                                      <div className="h-px bg-month-primary flex-1" />
+                                      <div className="size-2 rounded-full bg-primary -ml-1 shrink-0" />
+                                      <div className="h-px bg-primary flex-1" />
                                     </div>
                                   </div>
                                 );
@@ -902,7 +939,7 @@ export default function CalendarPage() {
                                 <button
                                   key={event.id}
                                   onClick={() => setSelectedEvent(event)}
-                                  className={`absolute left-1 right-0 rounded-md px-2 py-0.5 overflow-hidden text-left transition-all hover:brightness-125 focus-visible:ring-2 focus-visible:ring-ring ${isOngoing ? "ring-1 ring-month-primary/60" : ""}`}
+                                  className={`absolute left-1 right-0 rounded-md px-2 py-0.5 overflow-hidden text-left transition-all hover:brightness-125 focus-visible:ring-2 focus-visible:ring-ring ${isOngoing ? "ring-1 ring-primary/60" : ""}`}
                                   style={{
                                     top: `${top}%`,
                                     height: `${height}%`,
@@ -948,7 +985,7 @@ export default function CalendarPage() {
                           return null;
                         })()}
                         <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
-                          <CalendarIcon className="size-8 mb-2 text-month-primary/20" />
+                          <CalendarIcon className="size-8 mb-2 text-primary/20" />
                           <p className="text-sm">{t("noEventsToday")}</p>
                         </div>
                         {/* Coming up preview - show next events from future days */}
@@ -976,7 +1013,7 @@ export default function CalendarPage() {
                                       role="button"
                                       tabIndex={0}
                                       aria-label={`${event.title}, ${format(date, "EEE, d. MMM", { locale: dateLocale })}`}
-                                      className="p-2.5 rounded-lg cursor-pointer hover:bg-white/5 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                                      className="p-2.5 rounded-lg cursor-pointer hover:bg-accent/50 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                                       style={{
                                         backgroundColor: `${event.color}10`,
                                         borderLeft: `2px solid ${event.color}`,
@@ -1032,7 +1069,7 @@ export default function CalendarPage() {
                                       setSelectedEvent(event);
                                     }
                                   }}
-                                  className="p-3 rounded-xl cursor-pointer hover:bg-white/5 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                                  className="p-3 rounded-xl cursor-pointer hover:bg-accent/50 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                                   style={{
                                     backgroundColor: `${event.color}15`,
                                     borderLeft: `3px solid ${event.color}`,
@@ -1085,48 +1122,44 @@ export default function CalendarPage() {
                                       setSelectedEvent(event);
                                     }
                                   }}
-                                  className={`p-3 rounded-xl cursor-pointer hover:bg-white/5 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
-                                    isOngoing ? "ring-1 ring-month-primary/40" : ""
+                                  className={`cursor-pointer transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded-xl ${
+                                    isOngoing ? "ring-1 ring-primary/40" : ""
                                   } ${isPast ? "opacity-50" : ""}`}
-                                  style={{
-                                    backgroundColor: `${event.color}15`,
-                                    borderLeft: `3px solid ${event.color}`,
-                                  }}
                                 >
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-medium flex-1 truncate">{event.title}</p>
+                                  <EventPill
+                                    variant="agenda"
+                                    title={event.title}
+                                    color={event.color}
+                                    time={format(event.start, "HH:mm")}
+                                    icon={event.is_waste_collection ? Trash2 : undefined}
+                                  />
+                                  <div className="flex flex-wrap items-center gap-2 px-4 pt-1.5">
                                     {isOngoing && (
-                                      <span className="flex items-center gap-1 text-xs text-month-primary shrink-0">
+                                      <span className="flex items-center gap-1 text-xs text-primary shrink-0">
                                         <span className="relative flex size-2">
-                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-month-primary opacity-75" />
-                                          <span className="relative inline-flex rounded-full size-2 bg-month-primary" />
+                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                                          <span className="relative inline-flex rounded-full size-2 bg-primary" />
                                         </span>
                                         {t("nowBadge")}
                                       </span>
                                     )}
                                     {isUpcomingSoon && minutesUntil > 0 && (
-                                      <span className="text-xs text-amber-400 shrink-0">
+                                      <span className="text-xs text-primary shrink-0">
                                         {t("inMinutes", { minutes: minutesUntil })}
                                       </span>
                                     )}
+                                    {event.location && (
+                                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                        <MapPin className="size-3" />
+                                        {event.location}
+                                      </span>
+                                    )}
+                                    {person && (
+                                      <Badge variant="outline" className="text-xs" style={{ borderColor: person.color, color: person.color }}>
+                                        {person.name}
+                                      </Badge>
+                                    )}
                                   </div>
-                                  <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                                    <span className="flex items-center gap-1">
-                                      <Clock className="size-3" />
-                                      {format(event.start, "HH:mm")} – {format(event.end, "HH:mm")}
-                                    </span>
-                                  </div>
-                                  {event.location && (
-                                    <p className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                                      <MapPin className="size-3" />
-                                      {event.location}
-                                    </p>
-                                  )}
-                                  {person && (
-                                    <Badge variant="outline" className="mt-2 text-xs" style={{ borderColor: person.color, color: person.color }}>
-                                      {person.name}
-                                    </Badge>
-                                  )}
                                 </motion.div>
                               );
                             })}
@@ -1136,7 +1169,7 @@ export default function CalendarPage() {
                     )}
                   </AnimatePresence>
                 </ScrollArea>
-              </GlassCard>
+              </Card>
             </motion.div>
           </div>
 
@@ -1341,7 +1374,6 @@ export default function CalendarPage() {
                     {tCommon("cancel")}
                   </Button>
                   <Button
-                    variant="month"
                     className="flex-1"
                     disabled={!editForm.title.trim() || updateEvent.isPending}
                     onClick={async () => {
@@ -1519,6 +1551,14 @@ export default function CalendarPage() {
               )}
             </DialogContent>
           </Dialog>
+
+          {/* Mobile add FAB — desktop uses the header button */}
+          <FAB
+            icon={Plus}
+            onClick={openAddDialog}
+            ariaLabel={t("newEventButton")}
+            className="sm:hidden"
+          />
 
         </div>
       </main>

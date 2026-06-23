@@ -79,7 +79,7 @@ export function StatisticsCard({
   return (
     <div
       className={cn(
-        "rounded-xl border p-4 transition-all bg-card hover:border-month-primary/30",
+        "rounded-xl border p-4 transition-all bg-card hover:border-energy-solar/30",
         className
       )}
     >

@@ -117,22 +117,24 @@ export function OfflineIndicator({ className = "" }: { className?: string }) {
   return (
     <div className={`flex items-center gap-1.5 ${className}`}>
       {!isOnline && (
-        <div className="flex items-center gap-1 text-warning">
-          <WifiOff className="size-4" />
-          <span className="text-xs">{t("indicatorOffline")}</span>
-        </div>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-warning/14 px-3 py-1 text-xs font-semibold text-warning">
+          <WifiOff className="size-3.5" strokeWidth={1.75} />
+          {pendingCount > 0
+            ? t("offlinePill", { count: pendingCount })
+            : t("indicatorOffline")}
+        </span>
       )}
       {isOnline && pendingCount > 0 && (
-        <div className="flex items-center gap-1 text-info">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-info/14 px-3 py-1 text-xs font-semibold text-info">
           <Loader2 className="size-3 animate-spin" />
-          <span className="text-xs">{pendingCount}</span>
-        </div>
+          {pendingCount}
+        </span>
       )}
       {failedCount > 0 && (
-        <div className="flex items-center gap-1 text-destructive">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/14 px-3 py-1 text-xs font-semibold text-destructive">
           <AlertCircle className="size-3" />
-          <span className="text-xs">{failedCount}</span>
-        </div>
+          {failedCount}
+        </span>
       )}
     </div>
   );

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
 import { format, getDayOfYear, startOfDay } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
@@ -12,11 +11,18 @@ interface BirthdayDot {
   date: Date;
   daysUntil: number;
   color: string;
+  avatarUrl?: string | null;
 }
 
 interface BirthdayYearRingProps {
   birthdays: BirthdayDot[];
   size?: number;
+  /** Next-birthday person name for the center label. */
+  nextName?: string;
+  /** Age the next person turns (omit if year unknown). */
+  nextAge?: number;
+  /** Whole days until the next birthday. */
+  nextDaysUntil?: number;
 }
 
 function dayToAngle(dayOfYear: number, daysInYear: number) {
@@ -31,14 +37,25 @@ function angleToXY(angleDeg: number, radius: number, center: number) {
   };
 }
 
-export function BirthdayYearRing({ birthdays, size = 280 }: BirthdayYearRingProps) {
+export function BirthdayYearRing({
+  birthdays,
+  size = 360,
+  nextName,
+  nextAge,
+  nextDaysUntil,
+}: BirthdayYearRingProps) {
   const t = useTranslations("components.birthdayYearRing");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
   const center = size / 2;
-  const ringRadius = size / 2 - 32;
-  const labelRadius = size / 2 - 10;
-  const dotRadius = 6;
+  const ringRadius = size / 2 - 40;
+  const labelRadius = size / 2 - 14;
+  const avatarRadius = 13;
+  // The next birthday = the smallest daysUntil among the supplied dots.
+  const nextId = useMemo(() => {
+    if (birthdays.length === 0) return null;
+    return birthdays.reduce((min, b) => (b.daysUntil < min.daysUntil ? b : min), birthdays[0]).id;
+  }, [birthdays]);
 
   const monthLabels = useMemo(
     () => Array.from({ length: 12 }, (_, i) => format(new Date(2000, i, 1), "MMM", { locale: dateLocale })),
@@ -77,7 +94,7 @@ export function BirthdayYearRing({ birthdays, size = 280 }: BirthdayYearRingProp
 
   return (
     <div className="flex items-center justify-center">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible">
+      <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-auto overflow-visible">
         {/* Background ring */}
         <circle
           cx={center}
@@ -86,7 +103,7 @@ export function BirthdayYearRing({ birthdays, size = 280 }: BirthdayYearRingProp
           fill="none"
           stroke="currentColor"
           strokeWidth={2}
-          className="text-white/[0.06]"
+          className="text-border"
         />
 
         {/* Month tick marks and labels */}
@@ -99,7 +116,7 @@ export function BirthdayYearRing({ birthdays, size = 280 }: BirthdayYearRingProp
               y2={tick.tickEnd.y}
               stroke="currentColor"
               strokeWidth={1}
-              className={i === currentMonth ? "text-month-primary/60" : "text-white/20"}
+              className={i === currentMonth ? "text-primary/60" : "text-foreground/15"}
             />
             <text
               x={tick.labelPos.x}
@@ -107,7 +124,7 @@ export function BirthdayYearRing({ birthdays, size = 280 }: BirthdayYearRingProp
               textAnchor="middle"
               dominantBaseline="central"
               className={`text-[9px] font-medium ${
-                i === currentMonth ? "fill-month-primary" : "fill-muted-foreground/60"
+                i === currentMonth ? "fill-primary" : "fill-muted-foreground/60"
               }`}
             >
               {tick.label}
@@ -121,71 +138,124 @@ export function BirthdayYearRing({ birthdays, size = 280 }: BirthdayYearRingProp
           y1={angleToXY(todayAngle, ringRadius - 12, center).y}
           x2={angleToXY(todayAngle, ringRadius + 12, center).x}
           y2={angleToXY(todayAngle, ringRadius + 12, center).y}
-          stroke="hsl(var(--month-primary))"
+          stroke="hsl(var(--primary))"
           strokeWidth={2}
           strokeLinecap="round"
           opacity={0.8}
         />
 
-        {/* Birthday dots */}
-        {dots.map((dot, i) => (
-          <motion.g
-            key={dot.id}
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.3 + i * 0.05, type: "spring", stiffness: 200 }}
-          >
-            {/* Glow for nearby birthdays */}
-            {dot.daysUntil <= 30 && (
+        {/* Birthday avatar marks */}
+        {dots.map((dot) => {
+          const isNext = dot.id === nextId;
+          const hasImage =
+            !!dot.avatarUrl &&
+            (dot.avatarUrl.startsWith("http") || dot.avatarUrl.startsWith("data:"));
+          const clipId = `bday-clip-${dot.id}`;
+          return (
+            <g key={dot.id} className="cursor-pointer">
+              {/* Next-birthday highlight ring */}
+              {isNext && (
+                <circle
+                  cx={dot.pos.x}
+                  cy={dot.pos.y}
+                  r={avatarRadius + 4}
+                  fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2.5}
+                  opacity={0.9}
+                />
+              )}
+              {/* Background contrast circle */}
               <circle
                 cx={dot.pos.x}
                 cy={dot.pos.y}
-                r={dotRadius + 4}
-                fill={dot.color}
-                opacity={0.15}
+                r={avatarRadius + 1.5}
+                fill="hsl(var(--background))"
               />
-            )}
-            {/* Dot */}
-            <circle
-              cx={dot.pos.x}
-              cy={dot.pos.y}
-              r={dot.daysUntil <= 7 ? dotRadius + 1 : dotRadius}
-              fill={dot.color}
-              stroke="hsl(var(--background))"
-              strokeWidth={1.5}
-              className="cursor-pointer"
-            />
-            {/* Name label for close birthdays */}
-            {dot.daysUntil <= 30 && (
+              {hasImage ? (
+                <>
+                  <clipPath id={clipId}>
+                    <circle cx={dot.pos.x} cy={dot.pos.y} r={avatarRadius} />
+                  </clipPath>
+                  <image
+                    href={dot.avatarUrl as string}
+                    x={dot.pos.x - avatarRadius}
+                    y={dot.pos.y - avatarRadius}
+                    width={avatarRadius * 2}
+                    height={avatarRadius * 2}
+                    clipPath={`url(#${clipId})`}
+                    preserveAspectRatio="xMidYMid slice"
+                  />
+                </>
+              ) : (
+                <>
+                  <circle cx={dot.pos.x} cy={dot.pos.y} r={avatarRadius} fill={dot.color} />
+                  <text
+                    x={dot.pos.x}
+                    y={dot.pos.y}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    className="text-[11px] font-bold pointer-events-none"
+                    fill="#ffffff"
+                  >
+                    {(dot.name.trim()[0] ?? "?").toUpperCase()}
+                  </text>
+                </>
+              )}
+            </g>
+          );
+        })}
+
+        {/* Center text — next birthday, or fallback to count */}
+        {nextName ? (
+          <>
+            <text
+              x={center}
+              y={center - 14}
+              textAnchor="middle"
+              className="fill-foreground text-lg font-display font-medium"
+            >
+              {nextName}
+            </text>
+            {typeof nextAge === "number" && (
               <text
-                x={dot.pos.x}
-                y={dot.pos.y - dotRadius - 6}
+                x={center}
+                y={center + 6}
                 textAnchor="middle"
-                className="fill-foreground/80 text-[8px] font-medium pointer-events-none"
+                className="fill-primary text-[11px] font-medium"
               >
-                {dot.name.split(" ")[0]}
+                {t("centerTurns", { age: nextAge })}
               </text>
             )}
-          </motion.g>
-        ))}
-
-        {/* Center text */}
-        <text
-          x={center}
-          y={center - 8}
-          textAnchor="middle"
-          className="fill-foreground text-lg font-bold"
-        >
-          {birthdays.length}
-        </text>
-        <text
-          x={center}
-          y={center + 10}
-          textAnchor="middle"
-          className="fill-muted-foreground text-[10px]"
-        >
-          {t("centerLabel")}
-        </text>
+            <text
+              x={center}
+              y={center + 24}
+              textAnchor="middle"
+              className="fill-muted-foreground text-[10px] tabular-nums"
+            >
+              {t("centerInDays", { count: nextDaysUntil ?? 0 })}
+            </text>
+          </>
+        ) : (
+          <>
+            <text
+              x={center}
+              y={center - 8}
+              textAnchor="middle"
+              className="fill-foreground text-lg font-bold"
+            >
+              {birthdays.length}
+            </text>
+            <text
+              x={center}
+              y={center + 10}
+              textAnchor="middle"
+              className="fill-muted-foreground text-[10px]"
+            >
+              {t("centerLabel")}
+            </text>
+          </>
+        )}
       </svg>
     </div>
   );

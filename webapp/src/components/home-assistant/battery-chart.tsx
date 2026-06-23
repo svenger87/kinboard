@@ -86,15 +86,14 @@ export function BatteryChart({
       : date.toLocaleDateString(intlLocale, { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
     return (
-      <div className="bg-popover/95 backdrop-blur border rounded-lg px-3 py-2 shadow-xl">
+      <div className="bg-popover border rounded-lg px-3 py-2 elev-md">
         <p className="text-xs text-muted-foreground">{timeStr}</p>
         <p className="text-sm font-medium">{Math.round(payload[0].value)}%</p>
       </div>
     );
   };
 
-  // A single point renders axes with no visible line — treat <2 points as empty
-  if (chartData.length < 2) {
+  if (chartData.length === 0) {
     return (
       <div className={cn("flex items-center justify-center text-muted-foreground text-sm", className)} style={{ height }}>
         {t("noData")}
@@ -102,12 +101,17 @@ export function BatteryChart({
     );
   }
 
-  // Determine color based on current SoC
+  // Determine color based on current SoC — functional thresholds, theme tokens.
   const currentSoc = chartData[chartData.length - 1]?.soc || 0;
-  const color = currentSoc > 50 ? "#22c55e" : currentSoc > 20 ? "#eab308" : "#ef4444";
+  const color =
+    currentSoc > 50
+      ? "hsl(var(--energy-battery))"
+      : currentSoc > 20
+        ? "hsl(var(--warning))"
+        : "hsl(var(--destructive))";
 
   return (
-    <div className={cn("min-w-0", className)}>
+    <div className={className}>
       <ResponsiveContainer width="100%" height={height}>
         <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
           <defs>
@@ -138,8 +142,8 @@ export function BatteryChart({
 
           <Tooltip content={<CustomTooltip />} />
 
-          <ReferenceLine y={20} stroke="#ef4444" strokeDasharray="3 3" strokeOpacity={0.5} />
-          <ReferenceLine y={80} stroke="#22c55e" strokeDasharray="3 3" strokeOpacity={0.5} />
+          <ReferenceLine y={20} stroke="hsl(var(--destructive))" strokeDasharray="3 3" strokeOpacity={0.5} />
+          <ReferenceLine y={80} stroke="hsl(var(--energy-battery))" strokeDasharray="3 3" strokeOpacity={0.5} />
 
           <Area
             type="monotone"

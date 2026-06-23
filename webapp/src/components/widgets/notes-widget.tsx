@@ -89,7 +89,7 @@ export function NotesWidget({
   const handleAdd = async () => {
     if (!newContent.trim()) return;
     try {
-      await createNote.mutateAsync(newContent.trim());
+      await createNote.mutateAsync({ content: newContent.trim() });
       setNewContent("");
       setIsAdding(false);
       toast.success(t("toastCreated"));
@@ -118,9 +118,9 @@ export function NotesWidget({
     return (
       <Card className={`accent-border-top h-full ${className}`}>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-xl font-medium">
-            <span className="p-1.5 rounded-lg bg-month-primary/10">
-              <StickyNote className="size-5 text-month-primary" strokeWidth={1.5} />
+          <CardTitle className="flex items-center gap-2 font-display text-lg font-semibold">
+            <span className="icon-badge">
+              <StickyNote className="size-5 text-primary" strokeWidth={1.75} />
             </span>
             {t("title")}
           </CardTitle>
@@ -161,9 +161,9 @@ export function NotesWidget({
         <Card className={`accent-border-top h-full ${className}`}>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-xl font-medium">
-                <span className="p-1.5 rounded-lg bg-month-primary/10">
-                  <StickyNote className="size-5 text-month-primary" strokeWidth={1.5} />
+              <CardTitle className="flex items-center gap-2 font-display text-lg font-semibold">
+                <span className="icon-badge">
+                  <StickyNote className="size-5 text-primary" strokeWidth={1.75} />
                 </span>
                 {t("title")}
               </CardTitle>
@@ -211,7 +211,7 @@ export function NotesWidget({
                   exit={{ opacity: 0, height: 0 }}
                   className="mb-3 overflow-hidden"
                 >
-                  <div className="rounded-xl border border-month-primary/30 bg-month-primary/5 p-2">
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-2">
                     <textarea
                       ref={inputRef}
                       value={newContent}
@@ -247,7 +247,7 @@ export function NotesWidget({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-6 text-month-primary hover:text-month-primary"
+                        className="size-6 text-primary hover:text-primary"
                         onClick={handleAdd}
                         disabled={!newContent.trim() || createNote.isPending}
                         aria-label={t("saveAria")}
@@ -277,7 +277,7 @@ export function NotesWidget({
                   <motion.div
                     key={note.id}
                     variants={item}
-                    className="group flex items-start gap-2 rounded-lg px-2.5 py-2 -mx-1 transition-colors hover:bg-accent/50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 focus-visible:ring-offset-1"
+                    className="group flex items-start gap-2 rounded-lg px-2.5 py-2 -mx-1 transition-colors hover:bg-accent/50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1"
                     onClick={() => setExpandedNoteId(isExpanded ? null : note.id)}
                     role="button"
                     tabIndex={0}
@@ -285,7 +285,7 @@ export function NotesWidget({
                     aria-expanded={isExpanded}
                     aria-label={t("noteContentAria", { snippet: note.content.slice(0, 50) })}
                   >
-                    <div className={`w-1 rounded-full bg-month-primary/30 shrink-0 mt-0.5 transition-all ${isExpanded ? "h-full min-h-[1.5rem]" : "h-6"}`} />
+                    <div className={`w-1 rounded-full bg-primary/30 shrink-0 mt-0.5 transition-all ${isExpanded ? "h-full min-h-[1.5rem]" : "h-6"}`} />
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm leading-relaxed whitespace-pre-line ${isExpanded ? "" : "line-clamp-2"}`}>
                         {note.content}
@@ -315,7 +315,7 @@ export function NotesWidget({
                   onClick={() => setIsAdding(true)}
                   className="flex flex-col items-center justify-center py-6 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                 >
-                  <StickyNote className="size-8 mb-2 text-month-primary/20" />
+                  <StickyNote className="size-8 mb-2 text-primary/20" />
                   <p className="text-sm">{t("emptyAction")}</p>
                 </button>
               )}
@@ -324,7 +324,7 @@ export function NotesWidget({
             {allNotes.length > maxItems && (
               <button
                 onClick={() => setShowAll(!showAll)}
-                className="flex items-center justify-center gap-1 mt-3 pt-3 border-t border-border/30 text-sm text-month-primary/60 hover:text-month-primary transition-colors w-full cursor-pointer"
+                className="flex items-center justify-center gap-1 mt-3 pt-3 border-t border-border/30 text-sm text-primary/60 hover:text-primary transition-colors w-full cursor-pointer"
               >
                 <span>{showAll ? t("showLess") : t("moreCount", { count: allNotes.length - maxItems })}</span>
                 <ChevronRight className={`size-3 transition-transform ${showAll ? "rotate-90" : ""}`} />

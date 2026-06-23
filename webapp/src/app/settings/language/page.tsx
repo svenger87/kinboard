@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -62,9 +62,7 @@ export default function LanguageSettingsPage() {
   }
 
   return (
-    <main id="main-content" className="min-h-screen p-4 md:p-8 relative safe-area-inset">
-      <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
-
+    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto">
         <PageHeader
           title={t("title")}
@@ -79,7 +77,7 @@ export default function LanguageSettingsPage() {
           transition={{ delay: 0.1 }}
           className="flex flex-col gap-4"
         >
-          <GlassCard className="p-6">
+          <Card className="p-6">
             <div className="space-y-3">
               {LOCALES.map(({ code, native }) => {
                 const isCurrent = code === current;
@@ -98,14 +96,14 @@ export default function LanguageSettingsPage() {
                 );
               })}
             </div>
-          </GlassCard>
+          </Card>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <GlassCard className="p-6">
+            <Card className="p-6">
               <div className="mb-4">
                 <p className="font-medium text-sm">{t("countryLabel")}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{t("countryDescription")}</p>
@@ -126,7 +124,7 @@ export default function LanguageSettingsPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </GlassCard>
+            </Card>
           </motion.div>
         </motion.div>
       </div>

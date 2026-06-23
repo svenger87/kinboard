@@ -176,16 +176,16 @@ export function ScheduleWidget({
     return (
       <Card className={`accent-border-top h-full ${className}`}>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-xl font-medium">
-            <span className="p-1.5 rounded-lg bg-month-primary/10">
-              <GraduationCap className="size-5 text-month-primary" strokeWidth={1.5} />
+          <CardTitle className="flex items-center gap-2 font-display text-lg font-semibold">
+            <span className="icon-badge">
+              <GraduationCap className="size-5 text-primary" strokeWidth={1.75} />
             </span>
             {t("title")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-4">
-            <GraduationCap className="size-8 mx-auto mb-2 text-month-primary/20" />
+            <GraduationCap className="size-8 mx-auto mb-2 text-primary/20" />
             <p className="text-muted-foreground text-sm">{t("noChildTitle")}</p>
             <p className="text-muted-foreground text-xs mt-1">{t("noChildDescription")}</p>
           </div>
@@ -235,21 +235,21 @@ export function ScheduleWidget({
     >
       <Card className={`accent-border-top h-full ${className}`}>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-xl font-medium">
-              <span className="p-1.5 rounded-lg bg-month-primary/10">
-                <GraduationCap className="size-5 text-month-primary" strokeWidth={1.5} />
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="flex min-w-0 items-center gap-2 font-display text-lg font-semibold">
+              <span className="icon-badge shrink-0">
+                <GraduationCap className="size-5 text-primary" strokeWidth={1.75} />
               </span>
-              {t("title")}
+              <span className="truncate">{t("title")}</span>
             </CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               {children.length > 1 ? (
                 <div className="flex gap-1">
                   {children.map((child) => (
                     <button
                       key={child.id}
                       onClick={() => setSelectedChildId(child.id)}
-                      className={`text-xs px-2 py-0.5 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background ${
+                      className={`text-xs px-2 py-0.5 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background ${
                         child.id === personId
                           ? "font-medium"
                           : "opacity-50 hover:opacity-80"
@@ -278,7 +278,7 @@ export function ScheduleWidget({
                 <TooltipTrigger asChild>
                   <Link
                     href="/schedule"
-                    className="p-1 rounded-lg hover:bg-white/5 transition-colors"
+                    className="p-1 rounded-lg hover:bg-accent/50 transition-colors"
                     aria-label={t("viewAllAria")}
                   >
                     <ChevronRight className="size-4 text-muted-foreground" />
@@ -295,19 +295,19 @@ export function ScheduleWidget({
           {isWeekend ? (
             /* Weekend */
             <div className="text-center py-4">
-              <PartyPopper className="size-8 mx-auto mb-2 text-month-primary/60" strokeWidth={1.5} />
+              <PartyPopper className="size-8 mx-auto mb-2 text-primary/60" strokeWidth={1.75} />
               <p className="text-muted-foreground">{t("weekend")}</p>
             </div>
           ) : noScheduleToday ? (
             /* No schedule configured */
             <div className="text-center py-4">
-              <GraduationCap className="size-8 mx-auto mb-2 text-month-primary/20" />
+              <GraduationCap className="size-8 mx-auto mb-2 text-primary/20" />
               <p className="text-muted-foreground text-sm">{t("noScheduleToday")}</p>
             </div>
           ) : schoolOver ? (
             /* School day over */
             <div className="text-center py-4">
-              <PartyPopper className="size-8 mx-auto mb-2 text-month-primary/60" strokeWidth={1.5} />
+              <PartyPopper className="size-8 mx-auto mb-2 text-primary/60" strokeWidth={1.75} />
               <p className="text-muted-foreground">{t("schoolOver")}</p>
             </div>
           ) : currentSlot ? (
@@ -423,7 +423,7 @@ export function ScheduleWidget({
           ) : (
             /* No schedule today */
             <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
-              <BookOpen className="size-8 mb-2 text-month-primary/20" />
+              <BookOpen className="size-8 mb-2 text-primary/20" />
               <p className="text-sm">{t("noLessonsToday")}</p>
             </div>
           )}

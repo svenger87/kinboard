@@ -22,6 +22,7 @@ interface ChartLine {
   label: string;
   color: string;
   showArea?: boolean;
+  dashed?: boolean; // render as a dashed stroke with no fill (e.g. consumption over generation)
   // For calculated values: specify formula components
   calculated?: {
     type: "grid_import"; // Netzbezug = home_consumption - solar + battery
@@ -200,16 +201,16 @@ export function PowerChart({
     const date = new Date(timestamp);
 
     if (period === "year" || period === "month") {
-      // Day-of-month only — avoids label overlap on narrow kiosks
       return date.toLocaleDateString(intlLocale, {
         day: "2-digit",
         month: "2-digit",
       });
     }
     if (period === "week") {
-      // Day-only (e.g. "Mo"/"Mon") — weekday+time collides on narrow kiosks
       return date.toLocaleDateString(intlLocale, {
         weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit",
       });
     }
     return date.toLocaleTimeString(intlLocale, {
@@ -249,7 +250,7 @@ export function PowerChart({
       lines.find(l => l.entityId === entityId);
 
     return (
-      <div className="bg-popover/95 backdrop-blur border rounded-lg p-3 shadow-xl">
+      <div className="bg-popover border rounded-lg p-3 elev-md">
         <p className="text-xs font-medium text-muted-foreground mb-2">
           {formatTooltipTime(label)}
         </p>
@@ -277,8 +278,16 @@ export function PowerChart({
     );
   };
 
-  // A single point renders axes with no visible line — treat <2 points as empty
-  if (chartData.length < 2) {
+  // Calculate tick count based on data
+  const getTickInterval = () => {
+    const len = chartData.length;
+    if (len <= 8) return 0;
+    if (period === "today") return Math.ceil(len / 8);
+    if (period === "week") return Math.ceil(len / 7);
+    return Math.ceil(len / 10);
+  };
+
+  if (chartData.length === 0) {
     return (
       <div className={cn(
         "flex items-center justify-center text-muted-foreground text-sm",
@@ -290,7 +299,7 @@ export function PowerChart({
   }
 
   return (
-    <div className={cn("min-w-0", className)}>
+    <div className={className}>
       {/* Legend */}
       <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 px-1">
         {lines.map((line) => (
@@ -339,8 +348,8 @@ export function PowerChart({
             tick={{ fontSize: 12, fill: "currentColor", opacity: 0.7 }}
             axisLine={{ stroke: "currentColor", opacity: 0.1 }}
             tickLine={false}
-            interval="preserveStartEnd"
-            minTickGap={period === "today" ? 50 : 24}
+            interval={getTickInterval()}
+            minTickGap={50}
           />
 
           <YAxis
@@ -365,7 +374,8 @@ export function PowerChart({
               type={curveType}
               dataKey={line.entityId}
               stroke={line.color}
-              fill={line.showArea !== false ? `url(#gradient-${line.entityId.replace(/\./g, "-")})` : "transparent"}
+              strokeDasharray={line.dashed ? "5 4" : undefined}
+              fill={line.dashed || line.showArea === false ? "transparent" : `url(#gradient-${line.entityId.replace(/\./g, "-")})`}
               strokeWidth={2}
               dot={false}
               connectNulls

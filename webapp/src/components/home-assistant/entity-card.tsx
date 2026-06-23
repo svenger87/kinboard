@@ -31,7 +31,7 @@ export function EntityCard({ card, entity, isLoading }: EntityCardProps) {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm p-4">
+      <div className="rounded-2xl border border-border bg-card elev-sm p-4">
         <div className="flex items-start justify-between mb-3">
           <Skeleton className="size-10 rounded-xl" />
           <Skeleton className="h-3 w-12 rounded" />
@@ -44,7 +44,7 @@ export function EntityCard({ card, entity, isLoading }: EntityCardProps) {
 
   if (!entity) {
     return (
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm p-4 opacity-60">
+      <div className="rounded-2xl border border-border bg-card elev-sm p-4 opacity-60">
         <div className="flex items-start justify-between mb-2">
           <div className="p-2.5 rounded-xl bg-destructive/10">
             <AlertCircle className="size-5 text-destructive/60" />

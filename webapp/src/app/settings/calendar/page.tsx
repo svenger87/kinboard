@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { Calendar, Rss, ChevronRight, Check, AlertCircle } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +41,8 @@ export default function CalendarSettingsPage() {
   const googleEmail = googleStatus?.email ?? null;
 
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-6">
+    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <div className="relative z-10 max-w-2xl mx-auto space-y-6">
       <PageHeader title={t("title")} icon={Calendar} backHref="/settings" />
 
       <p className="text-sm text-muted-foreground">{t("intro")}</p>
@@ -54,11 +55,11 @@ export default function CalendarSettingsPage() {
       >
         <Link
           href="/settings/google"
-          className="block group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 focus-visible:ring-offset-4 focus-visible:ring-offset-background rounded-lg"
+          className="block group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-4 focus-visible:ring-offset-background rounded-lg"
         >
-          <GlassCard className="p-5 flex items-center gap-4 group-hover:bg-muted/30 transition-colors">
-            <div className="p-3 rounded-xl bg-month-primary/10 shrink-0">
-              <Calendar className="size-6 text-month-primary" />
+          <Card className="p-5 flex items-center gap-4 group-hover:bg-muted/30 transition-colors">
+            <div className="p-3 rounded-xl bg-primary/10 shrink-0">
+              <Calendar className="size-6 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
@@ -83,7 +84,7 @@ export default function CalendarSettingsPage() {
               </p>
             </div>
             <ChevronRight className="size-5 text-muted-foreground shrink-0" />
-          </GlassCard>
+          </Card>
         </Link>
       </motion.div>
 
@@ -95,11 +96,11 @@ export default function CalendarSettingsPage() {
       >
         <Link
           href="/settings/ics"
-          className="block group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 focus-visible:ring-offset-4 focus-visible:ring-offset-background rounded-lg"
+          className="block group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-4 focus-visible:ring-offset-background rounded-lg"
         >
-          <GlassCard className="p-5 flex items-center gap-4 group-hover:bg-muted/30 transition-colors">
-            <div className="p-3 rounded-xl bg-month-primary/10 shrink-0">
-              <Rss className="size-6 text-month-primary" />
+          <Card className="p-5 flex items-center gap-4 group-hover:bg-muted/30 transition-colors">
+            <div className="p-3 rounded-xl bg-primary/10 shrink-0">
+              <Rss className="size-6 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
@@ -119,12 +120,12 @@ export default function CalendarSettingsPage() {
               <p className="text-sm text-muted-foreground">{t("icsDescription")}</p>
             </div>
             <ChevronRight className="size-5 text-muted-foreground shrink-0" />
-          </GlassCard>
+          </Card>
         </Link>
       </motion.div>
 
       {/* Why two sources? */}
-      <GlassCard className="p-4 bg-muted/20 border-muted-foreground/20">
+      <Card className="p-4 bg-muted/20 border-muted-foreground/20">
         <div className="flex items-start gap-3">
           <AlertCircle className="size-5 text-muted-foreground shrink-0 mt-0.5" />
           <div className="text-xs text-muted-foreground space-y-1">
@@ -132,7 +133,8 @@ export default function CalendarSettingsPage() {
             <p>{t("whyTwoSourcesBody")}</p>
           </div>
         </div>
-      </GlassCard>
+      </Card>
     </div>
+    </main>
   );
 }

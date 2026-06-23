@@ -107,12 +107,13 @@ import {
   Backpack,
   type LucideIcon,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { PersonAvatar } from "@/components/person-avatar";
+import { ChecklistItem } from "@/components/checklist-item";
 import { ErrorState } from "@/components/error-state";
 import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
@@ -177,15 +178,6 @@ function getIconByName(iconName: string | null): LucideIcon {
   return ICON_MAP[iconName] || GraduationCap;
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
-
 export default function SchedulePage() {
   useKeyboardShortcuts();
   useSwipeNavigation();
@@ -221,12 +213,29 @@ export default function SchedulePage() {
   const children = useMemo(() => people?.filter((p) => p.is_child) || [], [people]);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
+  // Pack checklist is intentionally session-local (ephemeral): you tick items as
+  // you pack for tomorrow; it resets on reload. No DB persistence by design.
+  const [packedKeys, setPackedKeys] = useState<Set<string>>(new Set());
+  const togglePacked = useCallback((key: string) => {
+    setPackedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
   // Auto-select first child
   useEffect(() => {
     if (children.length > 0 && !selectedChildId) {
       setSelectedChildId(children[0].id);
     }
   }, [children, selectedChildId]);
+
+  // Reset the ephemeral pack-check state when switching child.
+  useEffect(() => {
+    setPackedKeys(new Set());
+  }, [selectedChildId]);
 
   const selectedChild = children.find((c) => c.id === selectedChildId);
   const { data: schedules, isLoading: loadingSchedules, error: schedulesError } = useSchedules(selectedChildId || undefined);
@@ -339,7 +348,7 @@ export default function SchedulePage() {
   if (loadingPeople || loadingSchedules) {
     return (
       <main id="main-content" className="min-h-screen relative overflow-hidden">
-        <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+        <div className="page-gradient" />
         <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
             icon={GraduationCap}
@@ -358,7 +367,7 @@ export default function SchedulePage() {
   if (schedulesError) {
     return (
       <main id="main-content" className="min-h-screen relative overflow-hidden">
-        <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+        <div className="page-gradient" />
         <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
             icon={GraduationCap}
@@ -379,7 +388,7 @@ export default function SchedulePage() {
   if (children.length === 0) {
     return (
       <main id="main-content" className="min-h-screen relative overflow-hidden">
-        <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+        <div className="page-gradient" />
         <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
             icon={GraduationCap}
@@ -389,16 +398,18 @@ export default function SchedulePage() {
             className="mb-8"
           />
 
-          <GlassCard className="p-8 text-center">
-            <GraduationCap className="size-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h2 className="text-xl font-semibold mb-2">{t("noChildrenTitle")}</h2>
-            <p className="text-muted-foreground mb-4">
-              {t("noChildrenDescription")}
-            </p>
-            <Button variant="month" asChild>
-              <Link href="/settings/people">{t("noChildrenAction")}</Link>
-            </Button>
-          </GlassCard>
+          <Card>
+            <CardContent className="p-8 pt-8 text-center">
+              <GraduationCap className="size-16 mx-auto mb-4 text-muted-foreground opacity-50" strokeWidth={1.75} />
+              <h2 className="text-xl font-semibold mb-2">{t("noChildrenTitle")}</h2>
+              <p className="text-muted-foreground mb-4">
+                {t("noChildrenDescription")}
+              </p>
+              <Button variant="default" asChild>
+                <Link href="/settings/people">{t("noChildrenAction")}</Link>
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </main>
     );
@@ -406,7 +417,7 @@ export default function SchedulePage() {
 
   return (
     <main id="main-content" className="min-h-screen relative overflow-hidden">
-      <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+      <div className="page-gradient" />
 
       <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
         <PageHeader
@@ -418,39 +429,41 @@ export default function SchedulePage() {
           actions={
             <>
               {children.length > 1 && (
-                <Tabs value={selectedChildId || ""} onValueChange={setSelectedChildId}>
-                  <TabsList>
-                    {children.map((child) => (
-                      <TabsTrigger key={child.id} value={child.id} className="gap-2">
-                        <Avatar className="size-5" style={{ border: `2px solid ${child.color}` }}>
-                          <AvatarFallback
-                            className="text-[10px]"
-                            style={{ backgroundColor: `${child.color}20`, color: child.color }}
-                          >
-                            {child.avatar_url && !child.avatar_url.startsWith("http") ? (
-                              child.avatar_url
-                            ) : (
-                              getInitials(child.name)
-                            )}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="hidden sm:inline">{child.name}</span>
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
+                <ToggleGroup
+                  type="single"
+                  variant="pill"
+                  value={selectedChildId || ""}
+                  onValueChange={(value) => { if (value) setSelectedChildId(value); }}
+                  className="flex-wrap justify-end gap-1.5"
+                  aria-label={t("childSelectorAria")}
+                >
+                  {children.map((child) => (
+                    <ToggleGroupItem
+                      key={child.id}
+                      value={child.id}
+                      className="h-11 gap-2 rounded-full px-3"
+                    >
+                      <PersonAvatar
+                        name={child.name}
+                        color={child.color}
+                        avatarUrl={child.avatar_url}
+                        size={24}
+                      />
+                      <span className="hidden sm:inline">{child.name}</span>
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
               )}
               {children.length === 1 && selectedChild && (
-                <Badge
-                  variant="outline"
-                  className="text-sm px-3 py-1"
-                  style={{ borderColor: selectedChild.color, color: selectedChild.color }}
-                >
-                  {selectedChild.avatar_url && !selectedChild.avatar_url.startsWith("http") && (
-                    <span className="mr-1">{selectedChild.avatar_url}</span>
-                  )}
-                  {selectedChild.name}
-                </Badge>
+                <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5">
+                  <PersonAvatar
+                    name={selectedChild.name}
+                    color={selectedChild.color}
+                    avatarUrl={selectedChild.avatar_url}
+                    size={24}
+                  />
+                  <span className="text-sm font-medium">{selectedChild.name}</span>
+                </div>
               )}
             </>
           }
@@ -493,7 +506,7 @@ export default function SchedulePage() {
               transition={{ delay: 0.08 }}
               className="mb-4"
             >
-              <GlassCard className="overflow-hidden">
+              <Card className="overflow-hidden">
                 <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                   {/* Current/Next lesson info */}
                   <div className="flex-1 min-w-0">
@@ -573,7 +586,7 @@ export default function SchedulePage() {
                       aria-label={t("progressAria", { completed: completedPeriods, total: todaySlots.length })}
                     >
                       <motion.div
-                        className="h-full rounded-full bg-month-primary"
+                        className="h-full rounded-full bg-primary"
                         initial={{ width: 0 }}
                         animate={{ width: `${progress}%` }}
                         transition={{ duration: 0.8, ease: "easeOut" }}
@@ -581,7 +594,7 @@ export default function SchedulePage() {
                     </div>
                   </div>
                 </div>
-              </GlassCard>
+              </Card>
             </motion.div>
           );
         })()}
@@ -593,15 +606,15 @@ export default function SchedulePage() {
           transition={{ delay: 0.1 }}
         >
           {maxPeriods === 0 ? (
-            <GlassCard className="overflow-hidden">
+            <Card className="overflow-hidden">
               <div className="p-8 text-center">
-                <GraduationCap className="size-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                <GraduationCap className="size-12 mx-auto mb-3 text-muted-foreground opacity-50" strokeWidth={1.75} />
                 <p className="text-muted-foreground">{t("noScheduleMessage")}</p>
                 <Button variant="outline" className="mt-4" asChild>
                   <Link href="/settings/schedule">{t("noScheduleAction")}</Link>
                 </Button>
               </div>
-            </GlassCard>
+            </Card>
           ) : (
             <>
               {/* Mobile: Day-by-day vertical view */}
@@ -615,13 +628,13 @@ export default function SchedulePage() {
                   if (daySlots.length === 0) return null;
 
                   return (
-                    <GlassCard
+                    <Card
                       key={day}
-                      className={`overflow-hidden ${isToday ? "ring-2 ring-month-primary/50" : ""}`}
+                      className={`overflow-hidden ${isToday ? "ring-2 ring-primary/50" : ""}`}
                     >
-                      <div className={`px-4 py-2.5 border-b border-border/50 ${isToday ? "bg-month-primary/10" : ""}`}>
+                      <div className={`px-4 py-2.5 border-b border-border/50 ${isToday ? "bg-primary/10" : ""}`}>
                         <div className="flex items-center justify-between">
-                          <span className={`font-medium text-sm ${isToday ? "text-month-primary" : "text-muted-foreground"}`}>
+                          <span className={`font-medium text-sm ${isToday ? "text-primary" : "text-muted-foreground"}`}>
                             {day}
                           </span>
                           {isToday && (
@@ -643,12 +656,12 @@ export default function SchedulePage() {
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: period * 0.04 }}
                               className={`flex items-center gap-3 px-4 py-3 ${
-                                isCurrentPeriod ? "bg-month-primary/10" : ""
+                                isCurrentPeriod ? "bg-primary/10" : ""
                               }`}
                             >
                               <div className="text-xs text-muted-foreground w-10 shrink-0 text-center">
-                                <div className="font-medium">{period}.</div>
-                                <div className="text-[10px]">{slot.start}</div>
+                                <div className="font-medium tabular-nums">{period}.</div>
+                                <div className="text-[10px] font-mono">{slot.start}</div>
                               </div>
                               <div
                                 className="flex-1 flex items-center gap-2 p-2.5 rounded-lg"
@@ -657,7 +670,7 @@ export default function SchedulePage() {
                                   borderLeft: `3px solid ${color}`,
                                 }}
                               >
-                                <SubjectIcon className="size-4 shrink-0" style={{ color }} />
+                                <SubjectIcon className="size-4 shrink-0" strokeWidth={1.75} style={{ color }} />
                                 <span className="font-medium text-sm" style={{ color }}>
                                   {slot.subject}
                                 </span>
@@ -674,13 +687,13 @@ export default function SchedulePage() {
                           );
                         })}
                       </div>
-                    </GlassCard>
+                    </Card>
                   );
                 })}
               </div>
 
               {/* Desktop: Full week grid table */}
-              <GlassCard className="overflow-hidden hidden md:block">
+              <Card className="overflow-hidden hidden md:block">
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
                     <thead>
@@ -693,7 +706,7 @@ export default function SchedulePage() {
                             key={day}
                             className={`p-3 text-center text-sm font-medium border-b border-border/50 ${
                               index === currentDayIndex
-                                ? "text-month-primary bg-month-primary/5"
+                                ? "text-primary bg-primary/5"
                                 : "text-muted-foreground"
                             }`}
                           >
@@ -717,8 +730,8 @@ export default function SchedulePage() {
                         return (
                           <tr key={period} className="border-b border-border/30 last:border-0">
                             <td className="p-3 text-xs text-muted-foreground align-top">
-                              <div className="font-medium">{period}.</div>
-                              <div className="text-[10px]">{periodTime}</div>
+                              <div className="font-medium tabular-nums">{period}.</div>
+                              <div className="text-[10px] font-mono">{periodTime}</div>
                             </td>
                             {Array.from({ length: 5 }, (_, dayIndex) => {
                               const slot = grid[dayIndex]?.[period];
@@ -729,7 +742,7 @@ export default function SchedulePage() {
                                 <td
                                   key={dayIndex}
                                   className={`p-2 align-top ${
-                                    isToday ? "bg-month-primary/5" : ""
+                                    isToday ? "bg-primary/5" : ""
                                   }`}
                                 >
                                   {slot ? (
@@ -738,7 +751,7 @@ export default function SchedulePage() {
                                       animate={{ opacity: 1, scale: 1 }}
                                       transition={{ delay: dayIndex * 0.05 + period * 0.02 }}
                                       className={`p-3 rounded-lg transition-all ${
-                                        isCurrentPeriod ? "ring-2 ring-month-primary ring-offset-2 ring-offset-background" : ""
+                                        isCurrentPeriod ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
                                       }`}
                                       style={{
                                         backgroundColor: `${getSubjectColor(slot.subject)}15`,
@@ -751,6 +764,7 @@ export default function SchedulePage() {
                                           return (
                                             <SubjectIcon
                                               className="size-3.5 shrink-0"
+                                              strokeWidth={1.75}
                                               style={{ color: getSubjectColor(slot.subject) }}
                                             />
                                           );
@@ -777,9 +791,10 @@ export default function SchedulePage() {
                                       )}
                                     </motion.div>
                                   ) : (
-                                    <div className="p-3 text-center text-muted-foreground/30 text-xs">
-                                      —
-                                    </div>
+                                    <div
+                                      className="h-full min-h-[3.25rem] rounded-lg border border-dashed border-border/60"
+                                      aria-label={t("freePeriodAria")}
+                                    />
                                   )}
                                 </td>
                               );
@@ -790,12 +805,12 @@ export default function SchedulePage() {
                     </tbody>
                   </table>
                 </div>
-              </GlassCard>
+              </Card>
             </>
           )}
         </motion.div>
 
-        {/* Pack Reminders for Tomorrow */}
+        {/* Pack for tomorrow — interactive, session-local checklist (ephemeral by design) */}
         {maxPeriods > 0 && packReminders.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -803,46 +818,40 @@ export default function SchedulePage() {
             transition={{ delay: 0.2 }}
             className="mt-6"
           >
-            <GlassCard className="overflow-hidden">
-              <div className="px-4 py-3 border-b border-border/50 flex items-center gap-2">
-                <Backpack className="size-4 text-month-primary" />
-                <h2 className="text-xl font-medium">
-                  {isReminderWeekend ? t("packListMonday") : t("packListTomorrow", { day: reminderDayLabel })}
-                </h2>
+            <Card className="overflow-hidden">
+              <div className="bg-gradient-to-br from-primary to-primary/80 px-4 py-4 text-primary-foreground">
+                <div className="flex items-center gap-2">
+                  <Backpack className="size-5" strokeWidth={1.75} />
+                  <h2 className="text-lg font-semibold">
+                    {isReminderWeekend ? t("packForMonday") : t("packForTomorrow")}
+                  </h2>
+                </div>
+                <p className="mt-1 font-mono text-xs uppercase tracking-wider text-primary-foreground/80">
+                  {(isReminderWeekend ? t("packListMonday") : t("packListTomorrow", { day: reminderDayLabel }))}
+                </p>
               </div>
-              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {packReminders.map((reminder) => {
-                  const ReminderIcon = reminder.icon;
-                  return (
-                    <div
-                      key={reminder.subject}
-                      className="flex items-start gap-3 p-3 rounded-lg"
-                      style={{ backgroundColor: `${reminder.color}10` }}
-                    >
-                      <div
-                        className="p-2 rounded-lg shrink-0"
-                        style={{ backgroundColor: `${reminder.color}20` }}
-                      >
-                        <ReminderIcon className="size-4" style={{ color: reminder.color }} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium mb-1" style={{ color: reminder.color }}>
-                          {reminder.subject}
-                        </p>
-                        <ul className="space-y-0.5">
-                          {reminder.items.map((item) => (
-                            <li key={item} className="text-xs text-muted-foreground flex items-center gap-1.5">
-                              <span className="size-1 rounded-full shrink-0" style={{ backgroundColor: reminder.color }} />
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </GlassCard>
+              <CardContent className="space-y-2 p-4 pt-4">
+                {packReminders.flatMap((reminder) =>
+                  reminder.items.map((item) => {
+                    const key = `${reminder.subject}:${item}`;
+                    return (
+                      <ChecklistItem
+                        key={key}
+                        checked={packedKeys.has(key)}
+                        onCheckedChange={() => togglePacked(key)}
+                        color={reminder.color}
+                        label={item}
+                        meta={
+                          <span className="text-xs font-medium" style={{ color: reminder.color }}>
+                            {reminder.subject}
+                          </span>
+                        }
+                      />
+                    );
+                  })
+                )}
+              </CardContent>
+            </Card>
           </motion.div>
         )}
 
@@ -865,10 +874,10 @@ export default function SchedulePage() {
               transition={{ delay: 0.25 }}
               className="mt-6"
             >
-              <GlassCard className="overflow-hidden">
+              <Card className="overflow-hidden">
                 <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Calendar className="size-4 text-month-primary" />
+                    <Calendar className="size-4 text-primary" strokeWidth={1.75} />
                     <h2 className="text-xl font-medium">
                       {isWeekend ? t("tomorrowMonday") : t("tomorrowDay", { day: dayLabel })}
                     </h2>
@@ -877,33 +886,29 @@ export default function SchedulePage() {
                     {t("tomorrowPeriodCount", { count: tomorrowSlots.length })}
                   </Badge>
                 </div>
-                <div className="p-4">
-                  <div className="flex gap-2 flex-wrap">
-                    {tomorrowSlots.map((slot, i) => {
-                      const color = getSubjectColor(slot.subject);
-                      const SubjectIcon = getSubjectIcon(slot.subject);
-                      return (
-                        <motion.div
-                          key={`${slot.period}-${slot.subject}`}
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: 0.3 + i * 0.04 }}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"
-                          style={{
-                            backgroundColor: `${color}15`,
-                            borderLeft: `2px solid ${color}`,
-                            color,
-                          }}
-                        >
-                          <SubjectIcon className="size-3" />
-                          <span>{slot.subject}</span>
-                          <span className="text-muted-foreground font-normal ml-0.5">{slot.start}</span>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </GlassCard>
+                <CardContent className="space-y-2 p-4 pt-4">
+                  {tomorrowSlots.map((slot, i) => {
+                    const color = getSubjectColor(slot.subject);
+                    const SubjectIcon = getSubjectIcon(slot.subject);
+                    return (
+                      <motion.div
+                        key={`${slot.period}-${slot.subject}`}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + i * 0.04 }}
+                        className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 elev-sm"
+                        style={{ borderLeft: `3px solid ${color}` }}
+                      >
+                        <span className="font-mono text-xs font-bold tabular-nums" style={{ color }}>
+                          {slot.start}
+                        </span>
+                        <SubjectIcon className="size-4 shrink-0" strokeWidth={1.75} style={{ color }} />
+                        <span className="flex-1 text-sm font-semibold">{slot.subject}</span>
+                      </motion.div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
             </motion.div>
           );
         })()}
@@ -916,10 +921,10 @@ export default function SchedulePage() {
             transition={{ delay: 0.3 }}
             className="mt-6"
           >
-            <GlassCard className="overflow-hidden">
+            <Card className="overflow-hidden">
               <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <BarChart3 className="size-4 text-month-primary" />
+                  <BarChart3 className="size-4 text-primary" strokeWidth={1.75} />
                   <h2 className="text-xl font-medium">{t("weeklyTitle")}</h2>
                 </div>
                 <span className="text-xs text-muted-foreground">{t("weeklyTotal", { count: totalPeriods })}</span>
@@ -963,7 +968,7 @@ export default function SchedulePage() {
                   );
                 })}
               </div>
-            </GlassCard>
+            </Card>
           </motion.div>
         )}
 

@@ -485,6 +485,29 @@ export function useAddRecipeToShoppingList() {
   });
 }
 
+// Parse-only result from POST /api/recipes/import (no DB write).
+export interface ParsedRecipe {
+  title: string;
+  description: string | null;
+  source_url: string;
+  source_domain: string;
+  image_url: string | null;
+  servings: number;
+  prep_time_minutes: number | null;
+  cook_time_minutes: number | null;
+  total_time_minutes: number | null;
+  difficulty: "einfach" | "mittel" | "schwer" | null;
+  instructions: RecipeInstruction[];
+  ingredients: {
+    name: string;
+    quantity: number | null;
+    unit: string | null;
+    notes: string | null;
+    category: string | null;
+    sort_order: number;
+  }[];
+}
+
 // Import recipe from URL and save to database
 export function useImportRecipe() {
   const supabase = createClient();
@@ -564,6 +587,28 @@ export function useImportRecipe() {
       queryClient.invalidateQueries({
         queryKey: recipeQueryKeys.all(requireFamilyId(family)),
       });
+    },
+  });
+}
+
+// Parse a recipe URL WITHOUT saving — powers the import detection preview.
+export function useParseRecipeUrl() {
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async (url: string): Promise<ParsedRecipe> => {
+      const response = await fetch("/api/recipes/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, family_id: requireFamilyId(family) }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to parse recipe");
+      }
+
+      return (await response.json()) as ParsedRecipe;
     },
   });
 }

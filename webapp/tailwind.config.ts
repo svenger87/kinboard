@@ -83,12 +83,29 @@ const config: Config = {
   				battery: 'hsl(var(--energy-battery))',
   				grid: 'hsl(var(--energy-grid))',
   				consumption: 'hsl(var(--energy-consumption))'
+  			},
+  			person: {
+  				coral: '#E2664E',
+  				amber: '#D98A2B',
+  				citron: '#8E9B36',
+  				forest: '#3FA56B',
+  				teal: '#2E9BA6',
+  				sky: '#4A8FD6',
+  				indigo: '#6E72C9',
+  				lilac: '#A968C4',
+  				berry: '#D667A0',
+  				clay: '#B07B53'
   			}
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
+  		},
+  		boxShadow: {
+  			'elev-sm': '0 1px 2px rgba(40,50,30,.05), 0 1px 3px rgba(40,50,30,.07)',
+  			'elev-md': '0 2px 8px rgba(40,50,30,.06), 0 10px 28px rgba(40,50,30,.06)',
+  			'elev-lg': '0 6px 16px rgba(40,50,30,.09), 0 20px 50px rgba(40,50,30,.09)'
   		},
   		fontFamily: {
   			sans: [

@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.families (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     join_code TEXT UNIQUE NOT NULL,
+    join_code_expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -46,6 +47,7 @@ CREATE TABLE IF NOT EXISTS public.people (
     color TEXT NOT NULL DEFAULT '#3b82f6',
     avatar_url TEXT,
     is_child BOOLEAN DEFAULT false,
+    birth_date DATE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -137,6 +139,17 @@ CREATE TABLE IF NOT EXISTS public.birthdays (
     date DATE NOT NULL,
     notify_days_before INTEGER DEFAULT 7,
     person_id UUID REFERENCES public.people(id) ON DELETE SET NULL,
+    image_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Birthday gift ideas
+CREATE TABLE IF NOT EXISTS public.birthday_gift_ideas (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    family_id UUID NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
+    birthday_id UUID NOT NULL REFERENCES public.birthdays(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    bought BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -146,6 +159,7 @@ CREATE TABLE IF NOT EXISTS public.notes (
     family_id UUID NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     pinned BOOLEAN DEFAULT false,
+    person_id UUID REFERENCES public.people(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -191,6 +205,7 @@ CREATE INDEX IF NOT EXISTS idx_schedules_family ON public.schedules(family_id);
 CREATE INDEX IF NOT EXISTS idx_schedules_person ON public.schedules(person_id);
 CREATE INDEX IF NOT EXISTS idx_birthdays_family ON public.birthdays(family_id);
 CREATE INDEX IF NOT EXISTS idx_birthdays_date ON public.birthdays(date);
+CREATE INDEX IF NOT EXISTS idx_gift_ideas_birthday ON public.birthday_gift_ideas(birthday_id);
 CREATE INDEX IF NOT EXISTS idx_notes_family ON public.notes(family_id);
 CREATE INDEX IF NOT EXISTS idx_settings_family ON public.settings(family_id);
 
@@ -810,6 +825,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.shopping_items;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.subjects;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.schedules;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.birthdays;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.birthday_gift_ideas;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.notes;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.settings;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.recipes;

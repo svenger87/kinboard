@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { GripVertical, ListOrdered, RotateCcw } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
@@ -66,7 +66,7 @@ export default function NavigationSettingsPage() {
 
         <p className="text-sm text-muted-foreground">{t("intro")}</p>
 
-        <GlassCard className="p-2">
+        <Card className="p-2">
           <Reorder.Group
             axis="y"
             values={order as string[]}
@@ -86,7 +86,7 @@ export default function NavigationSettingsPage() {
               );
             })}
           </Reorder.Group>
-        </GlassCard>
+        </Card>
 
         <Button
           variant="outline"
@@ -122,7 +122,7 @@ function NavItemRow({
       value={href}
       dragListener={false}
       dragControls={controls}
-      className="flex items-center gap-3 rounded-md bg-white/[0.02] hover:bg-white/[0.05] px-3 py-2 select-none"
+      className="flex items-center gap-3 rounded-md bg-white/[0.02] hover:bg-accent/50 px-3 py-2 select-none"
     >
       <button
         type="button"

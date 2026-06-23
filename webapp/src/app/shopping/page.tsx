@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import {
   ShoppingCart,
   Plus,
@@ -21,8 +21,9 @@ import {
   MoreVertical,
   Pencil,
   Link2,
+  Mic,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +55,7 @@ import {
 } from "@/components/ui/dialog";
 import type { ShoppingItem } from "@/types/database";
 import type { CatalogSearchResult } from "@/hooks/use-item-catalog";
+import type { OfflineShoppingItem } from "@/hooks/use-offline-shopping";
 import {
   useBringSettings,
   useBringAddItem,
@@ -64,14 +66,39 @@ import {
   useSaveToCatalog,
   parseShoppingInput,
   useOfflineShopping,
+  usePeople,
 } from "@/hooks";
 import { ShoppingInstallPrompt } from "@/components/shopping-install-prompt";
 import { PageHeader } from "@/components/page-header";
-import { OfflineBanner } from "@/components/offline-banner";
+import { OfflineBanner, OfflineIndicator } from "@/components/offline-banner";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/empty-state";
 import { CATEGORIES, detectCategory } from "@/lib/shopping-categories";
+import { ChecklistItem } from "@/components/checklist-item";
+import { PersonAvatar } from "@/components/person-avatar";
 
+
+// Minimal Web Speech API surface — feature-detected, no external types.
+interface MinimalSpeechRecognition {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start: () => void;
+  stop: () => void;
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+}
+type SpeechRecognitionCtor = new () => MinimalSpeechRecognition;
+
+function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as {
+    SpeechRecognition?: SpeechRecognitionCtor;
+    webkitSpeechRecognition?: SpeechRecognitionCtor;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
 
 // Common units for shopping items
 const UNITS = [
@@ -98,7 +125,6 @@ export default function ShoppingPage() {
 
   const t = useTranslations("shopping");
   const tCategories = useTranslations("shoppingCategories");
-  const tCommon = useTranslations("common");
 
   // Fetch items with offline support
   const {
@@ -115,6 +141,43 @@ export default function ShoppingPage() {
     syncNow,
   } = useOfflineShopping();
   const saveToCatalog = useSaveToCatalog();
+  const { data: people = [] } = usePeople();
+  const personById = (id: string | null | undefined) =>
+    id ? people.find((p) => p.id === id) ?? null : null;
+
+  const locale = useLocale();
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const recognitionRef = useRef<MinimalSpeechRecognition | null>(null);
+
+  useEffect(() => {
+    setSpeechSupported(getSpeechRecognitionCtor() !== null);
+  }, []);
+
+  const handleVoiceInput = () => {
+    const Ctor = getSpeechRecognitionCtor();
+    if (!Ctor) return;
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const recognition = new Ctor();
+    recognition.lang = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript ?? "";
+      if (transcript) {
+        handleInputChange(transcript);
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    recognitionRef.current = recognition;
+    setIsListening(true);
+    recognition.start();
+  };
 
   // Bring! integration
   const { data: bringSettings } = useBringSettings();
@@ -522,7 +585,7 @@ export default function ShoppingPage() {
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(item);
     return acc;
-  }, {} as Record<string, ShoppingItem[]>);
+  }, {} as Record<string, OfflineShoppingItem[]>);
 
   // Sort categories: ones with unchecked items first
   const sortedCategories = Object.entries(groupedItems).sort(([, itemsA], [, itemsB]) => {
@@ -548,7 +611,7 @@ export default function ShoppingPage() {
     return (
       <TooltipProvider>
         <main id="main-content" className="min-h-screen relative overflow-hidden">
-          <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+          <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
             <PageHeader
               icon={ShoppingCart}
@@ -557,22 +620,26 @@ export default function ShoppingPage() {
               className="mb-8"
               subtitle={<Skeleton className="h-4 w-32" />}
             />
-            <GlassCard className="p-4 mb-6">
-              <div className="flex gap-3">
-                <Skeleton className="h-10 flex-1" />
-                <Skeleton className="h-10 w-24" />
-                <Skeleton className="size-10" />
-              </div>
-            </GlassCard>
+            <Card className="mb-6">
+              <CardContent className="p-4">
+                <div className="flex gap-3">
+                  <Skeleton className="h-10 flex-1" />
+                  <Skeleton className="h-10 w-24" />
+                  <Skeleton className="size-10" />
+                </div>
+              </CardContent>
+            </Card>
             <div className="flex flex-col gap-4">
               {[1, 2, 3].map((i) => (
-                <GlassCard key={i} className="p-4">
-                  <Skeleton className="h-5 w-32 mb-3" />
-                  <div className="flex flex-col gap-2">
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-full" />
-                  </div>
-                </GlassCard>
+                <Card key={i}>
+                  <CardContent className="p-4">
+                    <Skeleton className="h-5 w-32 mb-3" />
+                    <div className="flex flex-col gap-2">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>
@@ -586,7 +653,7 @@ export default function ShoppingPage() {
     return (
       <TooltipProvider>
         <main id="main-content" className="min-h-screen relative overflow-hidden">
-          <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+          <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
             <PageHeader
               icon={ShoppingCart}
@@ -594,16 +661,18 @@ export default function ShoppingPage() {
               backHref="/"
               className="mb-8"
             />
-            <GlassCard className="p-8 text-center">
-              <ShoppingCart className="size-12 mx-auto mb-3 text-destructive opacity-50" />
-              <p className="text-destructive font-medium">{t("errorTitle")}</p>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                {t("errorMessage")}
-              </p>
-              <Button variant="outline" onClick={() => refetch()}>
-                {t("errorRetry")}
-              </Button>
-            </GlassCard>
+            <Card>
+              <CardContent className="p-8 text-center">
+                <ShoppingCart className="size-12 mx-auto mb-3 text-destructive opacity-50" />
+                <p className="text-destructive font-medium">{t("errorTitle")}</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">
+                  {t("errorMessage")}
+                </p>
+                <Button variant="outline" onClick={() => refetch()}>
+                  {t("errorRetry")}
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         </main>
       </TooltipProvider>
@@ -614,7 +683,7 @@ export default function ShoppingPage() {
     <TooltipProvider>
       <main id="main-content" className="min-h-screen relative overflow-hidden">
         {/* Background */}
-        <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+        <div className="page-gradient" />
 
         <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
@@ -635,6 +704,7 @@ export default function ShoppingPage() {
             className="mb-8"
             actions={
               <>
+                <OfflineIndicator className="mr-1" />
                 <Button
                   variant={showChecked ? "outline" : "secondary"}
                   size="sm"
@@ -682,7 +752,7 @@ export default function ShoppingPage() {
             transition={{ delay: 0.1 }}
             className="mb-6"
           >
-            <GlassCard className="p-4">
+            <Card><CardContent className="p-4">
               {/* Main input row */}
               <div className="flex flex-col gap-3">
                 <div className="flex gap-2">
@@ -751,7 +821,7 @@ export default function ShoppingPage() {
                                 key={result.id || `${result.source}-${index}`}
                                 type="button"
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent text-left transition-colors border-b border-border/50 last:border-0 ${
-                                  isQuickAdd ? "bg-month-primary/5" : ""
+                                  isQuickAdd ? "bg-primary/5" : ""
                                 }`}
                                 onMouseDown={(e) => {
                                   e.preventDefault();
@@ -760,8 +830,8 @@ export default function ShoppingPage() {
                               >
                                 {/* Product image or category icon */}
                                 {isQuickAdd ? (
-                                  <div className="size-8 rounded flex items-center justify-center shrink-0 bg-month-primary/20">
-                                    <Plus className="size-4 text-month-primary" />
+                                  <div className="size-8 rounded flex items-center justify-center shrink-0 bg-primary/10">
+                                    <Plus className="size-4 text-primary" />
                                   </div>
                                 ) : result.thumbnail_url ? (
                                   <div className="relative size-8 rounded overflow-hidden shrink-0 bg-muted/20">
@@ -786,7 +856,7 @@ export default function ShoppingPage() {
                                   </div>
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <p className={`font-medium truncate ${isQuickAdd ? "text-month-primary" : ""}`}>
+                                  <p className={`font-medium truncate ${isQuickAdd ? "text-primary" : ""}`}>
                                     {isQuickAdd ? t("quickAdd", { name: result.name }) : result.name}
                                   </p>
                                   <p className="text-xs text-muted-foreground">
@@ -803,8 +873,19 @@ export default function ShoppingPage() {
                     </AnimatePresence>
                   </div>
 
+                  {speechSupported && (
+                    <Button
+                      type="button"
+                      variant={isListening ? "default" : "outline"}
+                      size="icon"
+                      onClick={handleVoiceInput}
+                      aria-label={isListening ? t("voiceStop") : t("voiceStart")}
+                      title={isListening ? t("voiceStop") : t("voiceStart")}
+                    >
+                      <Mic className={`size-4 ${isListening ? "animate-pulse" : ""}`} strokeWidth={1.75} />
+                    </Button>
+                  )}
                   <Button
-                    variant="month"
                     onClick={handleAddItem}
                     disabled={!inputValue.trim() || createItem.isPending}
                   >
@@ -872,7 +953,7 @@ export default function ShoppingPage() {
                   />
                 </div>
               </div>
-            </GlassCard>
+            </CardContent></Card>
           </motion.div>
 
           <Separator className="mb-6" />
@@ -933,7 +1014,6 @@ export default function ShoppingPage() {
                     {sortedCategories.map(([categoryKey, categoryItems]) => {
                       const category = CATEGORIES[categoryKey];
                       if (!category) return null;
-                      const Icon = category.icon;
                       const allChecked = categoryItems.every((i) => i.checked);
 
                       return (
@@ -944,24 +1024,23 @@ export default function ShoppingPage() {
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
                         >
-                          <GlassCard
-                            className={`p-4 transition-opacity ${
-                              allChecked ? "opacity-50" : ""
+                          <Card
+                            className={`transition-opacity ${
+                              allChecked ? "opacity-55" : ""
                             }`}
                           >
-                            {/* Category Header */}
+                            <CardContent className="p-4">
+                            {/* Category Header — functional-color dot + mono label */}
                             <div className="flex items-center gap-2 mb-3">
-                              <div
-                                className="p-1.5 rounded-lg"
-                                style={{ backgroundColor: `${category.color}20` }}
-                              >
-                                <Icon
-                                  className="size-4"
-                                  style={{ color: category.color }}
-                                />
-                              </div>
-                              <h3 className="font-medium">{tCategories(category.labelKey)}</h3>
-                              <Badge variant="outline" className="ml-auto">
+                              <span
+                                className="size-2 shrink-0 rounded-full"
+                                style={{ backgroundColor: category.color }}
+                                aria-hidden="true"
+                              />
+                              <h3 className="font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                                {tCategories(category.labelKey)}
+                              </h3>
+                              <Badge variant="neutral" className="ml-auto">
                                 {categoryItems.filter((i) => !i.checked).length}/
                                 {categoryItems.length}
                               </Badge>
@@ -980,91 +1059,84 @@ export default function ShoppingPage() {
                                       animate={{ opacity: 1, x: 0 }}
                                       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
                                       transition={{ duration: 0.2 }}
-                                      className={`group flex items-center gap-3 p-2 rounded-lg transition-all hover:bg-white/5 ${
-                                        item.checked ? "opacity-50" : ""
-                                      }`}
+                                      className="group flex items-stretch gap-2"
                                     >
-                                      {/* Check button */}
-                                      <button
-                                        onClick={() => handleToggleItem(item.id)}
-                                        className={`shrink-0 size-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                                          item.checked
-                                            ? "bg-success border-success"
-                                            : "border-muted-foreground/30 hover:border-success"
-                                        }`}
-                                      >
-                                        {item.checked && (
-                                          <Check className="size-4 text-white" />
-                                        )}
-                                      </button>
-
-                                      {/* Item image - clickable to search for images */}
-                                      <button
-                                        onClick={() => handleOpenImageDialog(item)}
-                                        className="relative size-10 rounded-lg shrink-0 overflow-hidden group/img bg-muted/20"
-                                        title={t("imageSearchTooltip")}
-                                      >
-                                        {item.image_url ? (
-                                          <>
-                                            <img
-                                              src={item.image_url}
-                                              alt={item.name}
-                                              className="absolute inset-0 size-full object-cover object-center"
-                                              onError={(e) => {
-                                                (e.target as HTMLImageElement).style.display = 'none';
-                                              }}
-                                            />
-                                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                              <Search className="size-4 text-white" />
-                                            </div>
-                                          </>
-                                        ) : (
-                                          <div className="size-full bg-muted/30 flex items-center justify-center hover:bg-muted/50 transition-colors">
-                                            <Search className="size-5 text-muted-foreground/50 group-hover/img:text-muted-foreground transition-colors" />
-                                          </div>
-                                        )}
-                                      </button>
-
-                                      {/* Item info */}
                                       <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
-                                          <span
-                                            className={`font-medium truncate ${
-                                              item.checked
-                                                ? "line-through text-muted-foreground"
-                                                : ""
-                                            }`}
-                                          >
-                                            {item.name}
-                                          </span>
-                                          {item.recipe_id && (
-                                            <Tooltip>
-                                              <TooltipTrigger>
-                                                <Badge variant="outline" className="text-xs shrink-0">
-                                                  <ChefHat className="size-3 mr-1" />
-                                                  {t("recipeBadge")}
-                                                </Badge>
-                                              </TooltipTrigger>
-                                              <TooltipContent>
-                                                {t("recipeTooltip")}
-                                              </TooltipContent>
-                                            </Tooltip>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                          {formatQuantity(item) && (
-                                            <span>{formatQuantity(item)}</span>
-                                          )}
-                                          {item.notes && (
-                                            <>
-                                              {formatQuantity(item) && <span>•</span>}
-                                              <span className="truncate">{item.notes}</span>
-                                            </>
-                                          )}
-                                        </div>
+                                        <ChecklistItem
+                                          checked={item.checked}
+                                          onCheckedChange={() => handleToggleItem(item.id)}
+                                          color={category.color}
+                                          className={
+                                            item._syncStatus !== "synced"
+                                              ? "border-primary ring-2 ring-primary/20"
+                                              : undefined
+                                          }
+                                          label={
+                                            <span className="flex items-center gap-2">
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  handleOpenImageDialog(item);
+                                                }}
+                                                className="relative size-8 rounded-md shrink-0 overflow-hidden bg-muted/20"
+                                                title={t("imageSearchTooltip")}
+                                              >
+                                                {item.image_url ? (
+                                                  <img
+                                                    src={item.image_url}
+                                                    alt={item.name}
+                                                    className="absolute inset-0 size-full object-cover object-center"
+                                                    onError={(e) => {
+                                                      (e.target as HTMLImageElement).style.display = "none";
+                                                    }}
+                                                  />
+                                                ) : (
+                                                  <span className="flex size-full items-center justify-center text-muted-foreground/50">
+                                                    <Search className="size-4" strokeWidth={1.75} />
+                                                  </span>
+                                                )}
+                                              </button>
+                                              <span className="min-w-0 flex-1 truncate font-medium">
+                                                {item.name}
+                                              </span>
+                                              {item.recipe_id && (
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <Badge variant="neutral" className="shrink-0 text-xs">
+                                                      <ChefHat className="size-3 mr-1" strokeWidth={1.75} />
+                                                      {t("recipeBadge")}
+                                                    </Badge>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>{t("recipeTooltip")}</TooltipContent>
+                                                </Tooltip>
+                                              )}
+                                            </span>
+                                          }
+                                          meta={
+                                            <span className="flex items-center gap-2">
+                                              {formatQuantity(item) && (
+                                                <span className="font-mono tabular-nums text-xs">
+                                                  {formatQuantity(item)}
+                                                </span>
+                                              )}
+                                              {(() => {
+                                                const person = personById(item.added_by);
+                                                return person ? (
+                                                  <PersonAvatar
+                                                    name={person.name}
+                                                    color={person.color}
+                                                    avatarUrl={person.avatar_url}
+                                                    size={24}
+                                                  />
+                                                ) : null;
+                                              })()}
+                                            </span>
+                                          }
+                                        />
                                       </div>
 
-                                      {/* Quantity controls - visible on mobile, hover on desktop */}
+                                      {/* Quantity stepper — visible on mobile, hover on desktop */}
                                       <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                         <Button
                                           variant="ghost"
@@ -1075,7 +1147,10 @@ export default function ShoppingPage() {
                                         >
                                           <Minus className="size-4" />
                                         </Button>
-                                        <span className="w-6 text-center text-sm tabular-nums" aria-label={t("quantityAria", { count: item.quantity || 1 })}>
+                                        <span
+                                          className="w-6 text-center text-sm tabular-nums"
+                                          aria-label={t("quantityAria", { count: item.quantity || 1 })}
+                                        >
                                           {item.quantity || 1}
                                         </span>
                                         <Button
@@ -1101,18 +1176,12 @@ export default function ShoppingPage() {
                                         }}
                                       >
                                         <PopoverTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            aria-label={tCommon("moreOptions")}
-                                            className="size-8 shrink-0"
-                                          >
+                                          <Button variant="ghost" size="icon" className="size-9 shrink-0 self-center">
                                             <MoreVertical className="size-4" />
                                           </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-72 p-3" align="end">
                                           <div className="flex flex-col gap-3">
-                                            {/* Category selector */}
                                             <div>
                                               <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 mb-1.5">
                                                 <Tag className="size-3.5" />
@@ -1137,8 +1206,6 @@ export default function ShoppingPage() {
                                                 </SelectContent>
                                               </Select>
                                             </div>
-
-                                            {/* Notes input */}
                                             <div>
                                               <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 mb-1.5">
                                                 <Pencil className="size-3.5" />
@@ -1151,12 +1218,9 @@ export default function ShoppingPage() {
                                                 className="h-9"
                                               />
                                             </div>
-
-                                            {/* Action buttons */}
                                             <Separator />
                                             <div className="flex items-center gap-2 pt-2">
                                               <Button
-                                                variant="month"
                                                 size="sm"
                                                 className="flex-1"
                                                 onClick={() => handleSaveItemEdits(item.id)}
@@ -1183,7 +1247,8 @@ export default function ShoppingPage() {
                                   ))}
                               </AnimatePresence>
                             </div>
-                          </GlassCard>
+                            </CardContent>
+                          </Card>
                         </motion.div>
                       );
                     })}
@@ -1216,6 +1281,7 @@ export default function ShoppingPage() {
             </motion.div>
           )}
         </div>
+
       </main>
 
       {/* Image Search Dialog */}
@@ -1275,7 +1341,7 @@ export default function ShoppingPage() {
                   <button
                     key={index}
                     onClick={() => handleSelectImage(result.thumbnail || result.url)}
-                    className="relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-month-primary transition-colors focus:outline-none focus:border-month-primary bg-muted/20"
+                    className="relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-primary transition-colors focus:outline-none focus:border-primary bg-muted/20"
                   >
                     <img
                       src={result.thumbnail || result.url}

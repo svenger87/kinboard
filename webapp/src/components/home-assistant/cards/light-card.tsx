@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Lightbulb, Loader2, ChevronRight, Sun, Snowflake, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Slider } from "@/components/ui/slider";
+import { getColorTempColor } from "@/lib/ha-color";
 import { useLightControl } from "@/hooks";
 import type { HAEntity, DashboardCard } from "@/types/home-assistant";
 import { EntityDetailSheet } from "../entity-detail-sheet";
@@ -11,33 +12,6 @@ import { EntityDetailSheet } from "../entity-detail-sheet";
 interface LightCardProps {
   card: DashboardCard;
   entity: HAEntity;
-}
-
-// Calculate color based on color temperature in Kelvin
-// Returns a CSS color string from warm orange to cool blue-white
-function getColorTempColor(kelvin: number, minK: number, maxK: number): string {
-  // Normalize to 0-1 range
-  const normalized = Math.max(0, Math.min(1, (kelvin - minK) / (maxK - minK)));
-
-  // Warm (2700K): #FF9F43 (orange)
-  // Neutral (4000K): #FFEAA7 (warm white)
-  // Cool (6500K): #74B9FF (cool blue-white)
-
-  if (normalized < 0.5) {
-    // Warm to neutral (0-0.5)
-    const t = normalized * 2;
-    const r = Math.round(255);
-    const g = Math.round(159 + (234 - 159) * t);
-    const b = Math.round(67 + (167 - 67) * t);
-    return `rgb(${r}, ${g}, ${b})`;
-  } else {
-    // Neutral to cool (0.5-1)
-    const t = (normalized - 0.5) * 2;
-    const r = Math.round(255 - (255 - 116) * t);
-    const g = Math.round(234 - (234 - 185) * t);
-    const b = Math.round(167 + (255 - 167) * t);
-    return `rgb(${r}, ${g}, ${b})`;
-  }
 }
 
 export function LightCard({ card, entity }: LightCardProps) {
@@ -124,10 +98,10 @@ export function LightCard({ card, entity }: LightCardProps) {
         role="button"
         tabIndex={0}
         aria-label={t("ariaLabel", { label, state: isOn ? t("stateOnAria") : t("stateOffAria") })}
-        className={`rounded-xl border border-white/[0.08] backdrop-blur-sm p-4 transition-all cursor-pointer ${
+        className={`rounded-2xl border bg-card elev-sm p-4 transition-all cursor-pointer ${
           isOn
             ? "border-yellow-500/30"
-            : "bg-white/[0.03] hover:border-month-primary/30 hover:bg-white/[0.05]"
+            : "border-border hover:border-primary/30"
         } ${isUnavailable ? "opacity-50" : ""}`}
         style={isOn && iconColor ? { backgroundColor: `${iconColor}15` } : undefined}
         onClick={() => setDetailOpen(true)}
@@ -144,9 +118,13 @@ export function LightCard({ card, entity }: LightCardProps) {
               onClick={handleToggle}
               disabled={isPending || isUnavailable}
               className={`p-2 rounded-lg transition-colors ${
-                isOn ? "bg-yellow-500/20" : "bg-muted text-muted-foreground"
+                isOn ? "bg-yellow-500/20 icon-badge" : "bg-muted text-muted-foreground"
               } hover:bg-yellow-500/30 disabled:opacity-50`}
-              style={isOn && iconColor ? { color: iconColor } : undefined}
+              style={
+                isOn && iconColor
+                  ? { color: iconColor, boxShadow: `0 0 16px ${iconColor}66` }
+                  : undefined
+              }
             >
               {isPending ? (
                 <Loader2 className="size-5 animate-spin" />

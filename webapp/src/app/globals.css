@@ -7,61 +7,79 @@
     --mobile-nav-height: 5rem;
     --desktop-nav-height: 4rem;
     --nav-spacing: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
+
+    /* Default neutral palette = Sand / Papier. Salbei is opt-in (.palette-salbei). */
+    --background: 38 37% 88%;
+    --foreground: 33 15% 12%;
+    --card: 43 54% 97%;
+    --card-foreground: 33 15% 12%;
+    --popover: 43 54% 97%;
+    --popover-foreground: 33 15% 12%;
+
+    /* primary = current month accent (June default). Overridden by .theme-* */
+    --primary: 192 75% 33%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 38 46% 91%;
+    --secondary-foreground: 33 15% 12%;
+    --muted: 38 46% 91%;
+    --muted-foreground: 35 9% 39%;
+    --accent: 38 46% 91%;
+    --accent-foreground: 33 15% 12%;
+    --destructive: 8 57% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 37 31% 85%;
+    --input: 37 31% 85%;
+    --ring: 192 75% 33%;
     --radius: 0.75rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
 
-    /* Semantic status colors */
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 9%;
-    --info: 217 91% 60%;
-    --info-foreground: 0 0% 100%;
+    /* status */
+    --success: 150 43% 42%; --success-foreground: 0 0% 100%;
+    --warning: 33 70% 51%; --warning-foreground: 36 40% 12%;
+    --info: 210 63% 56%;       --info-foreground: 0 0% 100%;
 
-    /* Priority colors */
-    --priority-low: 215 14% 55%;
-    --priority-medium: 38 92% 50%;
-    --priority-high: 0 84% 60%;
+    /* priority */
+    --priority-low: 35 9% 39%;
+    --priority-medium: 33 70% 51%;
+    --priority-high: 8 57% 52%;
 
-    /* Weather semantic colors */
-    --weather-rain: 217 91% 60%;
-    --weather-sun: 45 93% 47%;
-    --weather-sunrise: 38 92% 50%;
-    --weather-sunset: 24 95% 53%;
+    /* Sand shadow tint (default; overridden per neutral palette) */
+    --shadow-rgb: 60 45 30;
 
-    /* Energy semantic colors */
-    --energy-solar: 45 93% 47%;
-    --energy-battery: 142 71% 45%;
-    --energy-grid: 217 91% 60%;
-    --energy-consumption: 24 95% 53%;
+    /* weather */
+    --weather-rain: 210 63% 56%;
+    --weather-sun: 33 70% 51%;
+    --weather-sunrise: 36 72% 42%;
+    --weather-sunset: 24 66% 45%;
 
-    /* Month theme - will be overridden by theme class */
-    --month-primary: 240 5.9% 10%;
-    --month-secondary: 240 4.8% 95.9%;
-    --month-accent: 240 5.9% 10%;
+    /* energy */
+    --energy-solar: 33 70% 51%;
+    --energy-battery: 150 43% 42%;
+    --energy-grid: 210 63% 56%;
+    --energy-consumption: 24 66% 45%;
+
+    /* month accent (mirror of --primary; kept for existing bg-month-* usage) */
+    --month-primary: 192 75% 33%;
+    --month-secondary: 77 24% 89%;
+    --month-accent: 192 75% 33%;
+
+    /* curated person palette (hex — used inline as person.color default) */
+    --person-coral: #E2664E;
+    --person-amber: #D98A2B;
+    --person-citron: #8E9B36;
+    --person-forest: #3FA56B;
+    --person-teal: #2E9BA6;
+    --person-sky: #4A8FD6;
+    --person-indigo: #6E72C9;
+    --person-lilac: #A968C4;
+    --person-berry: #D667A0;
+    --person-clay: #B07B53;
+
+    --chart-1: 192 75% 33%;
+    --chart-2: 150 43% 42%;
+    --chart-3: 33 70% 51%;
+    --chart-4: 210 63% 56%;
+    --chart-5: 272 42% 52%;
   }
 
   @media (min-width: 768px) {
@@ -71,200 +89,138 @@
   }
 
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 18%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --background: 26 16% 9%;
+    --foreground: 38 42% 91%;
+    --card: 33 15% 12%;
+    --card-foreground: 38 42% 91%;
+    --popover: 33 15% 12%;
+    --popover-foreground: 38 42% 91%;
 
-    /* Semantic status colors - dark mode */
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 9%;
-    --info: 217 91% 60%;
-    --info-foreground: 0 0% 100%;
+    --primary: 190 62% 56%;
+    --primary-foreground: 160 30% 10%;
 
-    /* Priority colors - dark mode */
-    --priority-low: 215 14% 55%;
-    --priority-medium: 38 92% 50%;
-    --priority-high: 0 84% 60%;
+    --secondary: 36 13% 15%;
+    --secondary-foreground: 38 42% 91%;
+    --muted: 36 13% 15%;
+    --muted-foreground: 38 12% 61%;
+    --accent: 36 13% 15%;
+    --accent-foreground: 38 42% 91%;
+    --destructive: 10 72% 60%;
+    --destructive-foreground: 160 30% 10%;
+    --border: 36 11% 18%;
+    --input: 36 11% 18%;
+    --ring: 190 62% 56%;
 
-    /* Weather semantic colors - dark mode */
-    --weather-rain: 217 91% 60%;
-    --weather-sun: 45 93% 47%;
-    --weather-sunrise: 38 92% 50%;
-    --weather-sunset: 24 95% 53%;
+    --success: 155 41% 51%; --success-foreground: 160 30% 10%;
+    --warning: 37 72% 56%; --warning-foreground: 36 40% 10%;
+    --info: 210 68% 62%;       --info-foreground: 160 30% 10%;
 
-    /* Energy semantic colors - dark mode */
-    --energy-solar: 45 93% 47%;
-    --energy-battery: 142 71% 45%;
-    --energy-grid: 217 91% 60%;
-    --energy-consumption: 24 95% 53%;
-  }
+    --priority-low: 38 12% 61%;
+    --priority-medium: 37 72% 56%;
+    --priority-high: 10 72% 60%;
 
-  /* Monthly Theme Overrides - Primary colors for accents */
-  /* January - Frost Blue */
-  .theme-january {
-    --month-primary: 217 91% 60%;
-    --month-secondary: 217 91% 95%;
-    --month-accent: 199 89% 48%;
-  }
-  .dark.theme-january {
-    --month-primary: 217 91% 60%;
-    --month-secondary: 217 50% 20%;
-    --month-accent: 199 89% 48%;
+    --weather-rain: 210 68% 62%;
+    --weather-sun: 37 72% 56%;
+    --weather-sunrise: 38 85% 58%;
+    --weather-sunset: 26 78% 58%;
+
+    --energy-solar: 37 72% 56%;
+    --energy-battery: 155 41% 51%;
+    --energy-grid: 210 68% 62%;
+    --energy-consumption: 26 78% 58%;
+
+    --month-primary: 190 62% 56%;
+    --month-secondary: 77 22% 13%;
+    --month-accent: 190 62% 56%;
+
+    --chart-1: 190 62% 56%;
+    --chart-2: 155 41% 51%;
+    --chart-3: 37 72% 56%;
+    --chart-4: 210 68% 62%;
+    --chart-5: 272 55% 68%;
   }
 
-  /* February - Rose Valentine */
-  .theme-february {
-    --month-primary: 330 81% 60%;
-    --month-secondary: 330 81% 95%;
-    --month-accent: 340 82% 52%;
+  /* ===== Monthly Themes — rotate ONE hue across primary/month/ring ===== */
+  /* January — Frost-Blau */
+  .theme-january{ --primary:210 70% 45%; --month-primary:210 70% 45%; --month-accent:210 70% 45%; --ring:210 70% 45%; }
+  .dark.theme-january{ --primary:205 75% 62%; --month-primary:205 75% 62%; --month-accent:205 75% 62%; --ring:205 75% 62%; }
+  /* February — Rosé */
+  .theme-february{ --primary:338 55% 48%; --month-primary:338 55% 48%; --month-accent:338 55% 48%; --ring:338 55% 48%; }
+  .dark.theme-february{ --primary:338 65% 65%; --month-primary:338 65% 65%; --month-accent:338 65% 65%; --ring:338 65% 65%; }
+  /* March — Frühlingsgrün */
+  .theme-march{ --primary:145 50% 36%; --month-primary:145 50% 36%; --month-accent:145 50% 36%; --ring:145 50% 36%; }
+  .dark.theme-march{ --primary:150 50% 55%; --month-primary:150 50% 55%; --month-accent:150 50% 55%; --ring:150 50% 55%; }
+  /* April — Kirschblüte */
+  .theme-april{ --primary:348 58% 52%; --month-primary:348 58% 52%; --month-accent:348 58% 52%; --ring:348 58% 52%; }
+  .dark.theme-april{ --primary:348 70% 70%; --month-primary:348 70% 70%; --month-accent:348 70% 70%; --ring:348 70% 70%; }
+  /* May — Flieder */
+  .theme-may{ --primary:272 42% 52%; --month-primary:272 42% 52%; --month-accent:272 42% 52%; --ring:272 42% 52%; }
+  .dark.theme-may{ --primary:272 55% 68%; --month-primary:272 55% 68%; --month-accent:272 55% 68%; --ring:272 55% 68%; }
+  /* June — Ozean */
+  .theme-june{ --primary:192 75% 33%; --month-primary:192 75% 33%; --month-accent:192 75% 33%; --ring:192 75% 33%; }
+  .dark.theme-june{ --primary:190 62% 56%; --month-primary:190 62% 56%; --month-accent:190 62% 56%; --ring:190 62% 56%; }
+  /* July — Sonnenblume */
+  .theme-july{ --primary:45 78% 36%; --month-primary:45 78% 36%; --month-accent:45 78% 36%; --ring:45 78% 36%; }
+  .dark.theme-july{ --primary:45 82% 60%; --month-primary:45 82% 60%; --month-accent:45 82% 60%; --ring:45 82% 60%; }
+  /* August — Koralle */
+  .theme-august{ --primary:18 68% 47%; --month-primary:18 68% 47%; --month-accent:18 68% 47%; --ring:18 68% 47%; }
+  .dark.theme-august{ --primary:20 80% 64%; --month-primary:20 80% 64%; --month-accent:20 80% 64%; --ring:20 80% 64%; }
+  /* September — Bernstein */
+  .theme-september{ --primary:36 72% 42%; --month-primary:36 72% 42%; --month-accent:36 72% 42%; --ring:36 72% 42%; }
+  .dark.theme-september{ --primary:38 85% 58%; --month-primary:38 85% 58%; --month-accent:38 85% 58%; --ring:38 85% 58%; }
+  /* October — Kürbis */
+  .theme-october{ --primary:24 66% 45%; --month-primary:24 66% 45%; --month-accent:24 66% 45%; --ring:24 66% 45%; }
+  .dark.theme-october{ --primary:26 78% 58%; --month-primary:26 78% 58%; --month-accent:26 78% 58%; --ring:26 78% 58%; }
+  /* November — Burgund */
+  .theme-november{ --primary:355 54% 45%; --month-primary:355 54% 45%; --month-accent:355 54% 45%; --ring:355 54% 45%; }
+  .dark.theme-november{ --primary:355 64% 64%; --month-primary:355 64% 64%; --month-accent:355 64% 64%; --ring:355 64% 64%; }
+  /* December — Tanne */
+  .theme-december{ --primary:158 46% 32%; --month-primary:158 46% 32%; --month-accent:158 46% 32%; --ring:158 46% 32%; }
+  .dark.theme-december{ --primary:158 48% 52%; --month-primary:158 48% 52%; --month-accent:158 48% 52%; --ring:158 48% 52%; }
+
+  /* ── Neutral palettes ──────────────────────────────────────────────
+     Override ONLY the neutral tokens; the accent (--primary), month
+     themes and person palette stay shared. Default (no class) = Sand.
+     Applied to <html> as `palette-salbei` / `palette-warmgrey` by
+     useThemeSettings, composes with `.dark` and `.theme-*`. */
+  .palette-salbei {
+    --background:72 25% 92%; --foreground:90 17% 14%;
+    --card:75 50% 98%; --card-foreground:90 17% 14%;
+    --popover:75 50% 98%; --popover-foreground:90 17% 14%;
+    --secondary:77 24% 89%; --secondary-foreground:90 17% 14%;
+    --muted:77 24% 89%; --muted-foreground:82 10% 36%;
+    --accent:77 24% 89%; --accent-foreground:90 17% 14%;
+    --border:77 19% 85%; --input:77 19% 85%; --priority-low:82 10% 36%;
+    --shadow-rgb:40 50 30;
   }
-  .dark.theme-february {
-    --month-primary: 330 81% 60%;
-    --month-secondary: 330 50% 20%;
-    --month-accent: 340 82% 52%;
+  .dark.palette-salbei {
+    --background:87 23% 8%; --foreground:77 33% 92%;
+    --card:84 18% 11%; --card-foreground:77 33% 92%;
+    --popover:84 18% 11%; --popover-foreground:77 33% 92%;
+    --secondary:77 22% 13%; --secondary-foreground:77 33% 92%;
+    --muted:77 22% 13%; --muted-foreground:75 11% 58%;
+    --accent:77 22% 13%; --accent-foreground:77 33% 92%;
+    --border:79 17% 18%; --input:79 17% 18%; --priority-low:75 11% 58%;
   }
 
-  /* March - Spring Green */
-  .theme-march {
-    --month-primary: 142 71% 45%;
-    --month-secondary: 142 71% 95%;
-    --month-accent: 151 55% 42%;
+  .palette-warmgrey {
+    --background:37 18% 91%; --foreground:30 12% 13%;
+    --card:40 33% 98%; --card-foreground:30 12% 13%;
+    --popover:40 33% 98%; --popover-foreground:30 12% 13%;
+    --secondary:36 16% 88%; --secondary-foreground:30 12% 13%;
+    --muted:36 16% 88%; --muted-foreground:32 7% 37%;
+    --accent:36 16% 88%; --accent-foreground:30 12% 13%;
+    --border:37 18% 86%; --input:37 18% 86%; --priority-low:32 7% 37%;
+    --shadow-rgb:50 45 40;
   }
-  .dark.theme-march {
-    --month-primary: 142 71% 45%;
-    --month-secondary: 142 40% 15%;
-    --month-accent: 151 55% 42%;
-  }
-
-  /* April - Cherry Blossom */
-  .theme-april {
-    --month-primary: 330 67% 70%;
-    --month-secondary: 330 67% 95%;
-    --month-accent: 340 82% 76%;
-  }
-  .dark.theme-april {
-    --month-primary: 330 67% 70%;
-    --month-secondary: 330 40% 20%;
-    --month-accent: 340 82% 76%;
-  }
-
-  /* May - Lilac */
-  .theme-may {
-    --month-primary: 270 60% 62%;
-    --month-secondary: 270 60% 95%;
-    --month-accent: 280 65% 55%;
-  }
-  .dark.theme-may {
-    --month-primary: 270 60% 62%;
-    --month-secondary: 270 40% 18%;
-    --month-accent: 280 65% 55%;
-  }
-
-  /* June - Ocean Blue */
-  .theme-june {
-    --month-primary: 199 89% 48%;
-    --month-secondary: 199 89% 95%;
-    --month-accent: 188 78% 41%;
-  }
-  .dark.theme-june {
-    --month-primary: 199 89% 48%;
-    --month-secondary: 199 50% 18%;
-    --month-accent: 188 78% 41%;
-  }
-
-  /* July - Sunflower */
-  .theme-july {
-    --month-primary: 45 93% 47%;
-    --month-secondary: 45 93% 95%;
-    --month-accent: 36 100% 50%;
-  }
-  .dark.theme-july {
-    --month-primary: 45 93% 47%;
-    --month-secondary: 45 50% 15%;
-    --month-accent: 36 100% 50%;
-  }
-
-  /* August - Coral */
-  .theme-august {
-    --month-primary: 24 95% 53%;
-    --month-secondary: 24 95% 95%;
-    --month-accent: 6 78% 57%;
-  }
-  .dark.theme-august {
-    --month-primary: 24 95% 53%;
-    --month-secondary: 24 50% 15%;
-    --month-accent: 6 78% 57%;
-  }
-
-  /* September - Amber */
-  .theme-september {
-    --month-primary: 38 92% 50%;
-    --month-secondary: 38 92% 95%;
-    --month-accent: 25 95% 53%;
-  }
-  .dark.theme-september {
-    --month-primary: 38 92% 50%;
-    --month-secondary: 38 50% 15%;
-    --month-accent: 25 95% 53%;
-  }
-
-  /* October - Pumpkin */
-  .theme-october {
-    --month-primary: 24 95% 53%;
-    --month-secondary: 24 95% 95%;
-    --month-accent: 17 88% 40%;
-  }
-  .dark.theme-october {
-    --month-primary: 24 95% 53%;
-    --month-secondary: 24 50% 15%;
-    --month-accent: 17 88% 40%;
-  }
-
-  /* November - Burgundy */
-  .theme-november {
-    --month-primary: 0 73% 41%;
-    --month-secondary: 0 50% 95%;
-    --month-accent: 350 60% 35%;
-  }
-  .dark.theme-november {
-    --month-primary: 0 73% 41%;
-    --month-secondary: 0 40% 15%;
-    --month-accent: 350 60% 35%;
-  }
-
-  /* December - Pine */
-  .theme-december {
-    --month-primary: 150 44% 35%;
-    --month-secondary: 150 44% 95%;
-    --month-accent: 0 73% 41%;
-  }
-  .dark.theme-december {
-    --month-primary: 150 44% 35%;
-    --month-secondary: 150 30% 15%;
-    --month-accent: 0 73% 41%;
+  .dark.palette-warmgrey {
+    --background:45 21% 7%; --foreground:37 30% 92%;
+    --card:38 14% 11%; --card-foreground:37 30% 92%;
+    --popover:38 14% 11%; --popover-foreground:37 30% 92%;
+    --secondary:36 14% 15%; --secondary-foreground:37 30% 92%;
+    --muted:36 14% 15%; --muted-foreground:36 10% 60%;
+    --accent:36 14% 15%; --accent-foreground:37 30% 92%;
+    --border:36 11% 18%; --input:36 11% 18%; --priority-low:36 10% 60%;
   }
 }
 
@@ -327,18 +283,10 @@
 
   /* Kiosk-distance typography scale — for 1-3m viewing on wall-mounted display.
      Bridges the gap between the clock hero (160px inline) and widget body text. */
-  .text-kiosk-hero {
-    @apply text-5xl md:text-7xl font-display font-light leading-none tracking-tight;
-  }
-  .text-kiosk-primary {
-    @apply text-2xl md:text-3xl font-semibold tabular-nums leading-none;
-  }
-  .text-kiosk-secondary {
-    @apply text-xl font-medium leading-tight;
-  }
-  .text-kiosk-label {
-    @apply text-[11px] uppercase tracking-wider font-medium text-muted-foreground;
-  }
+  .text-kiosk-hero      { @apply font-display font-light leading-none tracking-tight; font-size: clamp(96px, 14vw, 160px); font-variant-numeric: tabular-nums; }
+  .text-kiosk-primary   { @apply text-3xl font-semibold tabular-nums leading-none; }
+  .text-kiosk-secondary { @apply text-xl font-medium leading-tight; }
+  .text-kiosk-label     { @apply text-[11px] uppercase tracking-wider font-medium text-muted-foreground; font-family: var(--font-mono), monospace; }
 
   /* Glass morphism effect - enhanced for wall-mounted display */
   /* Glass morphism - no backdrop-blur for ARM GPU compatibility */
@@ -437,25 +385,20 @@
     }
   }
 
-  /* Accent border top for widget cards */
-  .accent-border-top {
-    border-top: 2px solid hsl(var(--month-primary) / 0.2);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  }
-  .accent-border-top:hover {
-    border-top-color: hsl(var(--month-primary) / 0.4);
-    box-shadow: 0 0 24px hsl(var(--month-primary) / 0.12), inset 0 1px 0 hsl(var(--month-primary) / 0.06);
-  }
+  /* Soft warm elevation (no glass for ARM-GPU kiosk surfaces) */
+  /* Shadow tint follows the active neutral palette (--shadow-rgb); defaults to Salbei. */
+  .elev-sm { box-shadow: 0 1px 2px rgb(var(--shadow-rgb, 40 50 30) / .05), 0 1px 3px rgb(var(--shadow-rgb, 40 50 30) / .07); }
+  .elev-md { box-shadow: 0 2px 8px rgb(var(--shadow-rgb, 40 50 30) / .06), 0 10px 28px rgb(var(--shadow-rgb, 40 50 30) / .06); }
+  .elev-lg { box-shadow: 0 6px 16px rgb(var(--shadow-rgb, 40 50 30) / .09), 0 20px 50px rgb(var(--shadow-rgb, 40 50 30) / .09); }
+
+  .accent-border-top { border-top: 2px solid hsl(var(--primary) / 0.3); transition: border-color .22s ease, box-shadow .22s ease; }
+  .accent-border-top:hover { border-top-color: hsl(var(--primary) / 0.5); box-shadow: 0 0 24px hsl(var(--primary) / 0.1); }
+
+  .icon-badge { @apply p-2.5 rounded-xl; background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); }
 
   /* Theme glow on cards */
   .theme-glow {
     box-shadow: 0 0 24px hsl(var(--month-primary) / 0.08);
-  }
-
-  /* Icon badge - tinted background for header icons */
-  .icon-badge {
-    @apply p-2.5 rounded-xl;
-    background: hsl(var(--month-primary) / 0.1);
   }
 
   /* Icon badge with glow */
@@ -502,6 +445,36 @@
 
 .screensaver-photo-out {
   animation: screensaver-photo-fade-out 2s ease-in-out forwards;
+}
+
+/* Energy-flow marching dashes — animates a dashed stroke so flux paths read as moving.
+   stroke-dasharray is set per-path inline; this just shifts the offset in a loop.
+   The dash pattern length below MUST match the dasharray sum used in energy-flow.tsx (4+3=7). */
+@keyframes marchDash {
+  to { stroke-dashoffset: -14; }
+}
+@keyframes marchDashReverse {
+  to { stroke-dashoffset: 14; }
+}
+.flow-dash {
+  animation: marchDash 1s linear infinite;
+}
+
+/* Overflow-only marquee for long titles (see components/marquee-text.tsx).
+   Holds at each end, then alternates — readable, no jarring reset. The shift
+   distance + duration are set inline per instance; only overflowing text animates. */
+@keyframes marquee-scroll {
+  0%, 15% { transform: translateX(0); }
+  85%, 100% { transform: translateX(var(--marquee-shift, 0)); }
+}
+.marquee-scroll {
+  animation: marquee-scroll 8s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-scroll { animation: none; }
+}
+.flow-dash-reverse {
+  animation: marchDashReverse 1s linear infinite;
 }
 
 /* GPU hints removed - caused constant CPU overhead on ARM devices (RPI/Odroid) */
@@ -565,6 +538,25 @@ html[data-screensaver] nav {
   50% { background-position: 200% center; }
 }
 
+/* Skeleton loading shimmer — sweeps a card-light band across a muted base */
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--card)) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer { animation: none; background: hsl(var(--muted)); }
+}
+
 .birthday-shimmer {
   background-image: linear-gradient(
     110deg,
@@ -592,6 +584,12 @@ html[data-screensaver] nav {
     animation: none !important;
     opacity: 1 !important;
   }
+
+  .flow-dash,
+  .flow-dash-reverse {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
 }
 
 /* PIN input shake animation */
@@ -608,7 +606,5 @@ html[data-screensaver] nav {
 }
 
 /* Smooth selection highlight */
-::selection {
-  background: hsl(var(--month-primary) / 0.3);
-}
+::selection { background: hsl(var(--primary) / 0.22); }
 

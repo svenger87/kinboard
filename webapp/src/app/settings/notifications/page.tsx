@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Bell, ShoppingCart, Moon, Send, Loader2, AlertCircle, CheckCircle2, ListTodo, CalendarClock } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -128,7 +128,7 @@ export default function NotificationSettingsPage() {
           <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
             {t("pushStatusHeading")}
           </h2>
-          <GlassCard className="p-4">
+          <Card className="p-4">
             {!isSupported ? (
               <div className="flex items-start gap-3 text-muted-foreground">
                 <AlertCircle className="size-5 text-warning shrink-0 mt-0.5" />
@@ -156,7 +156,7 @@ export default function NotificationSettingsPage() {
                       }
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-month-primary hover:underline mt-2 inline-block"
+                      className="text-xs text-primary hover:underline mt-2 inline-block"
                     >
                       {t("unsupportedDocsLabel")}
                     </a>
@@ -233,7 +233,7 @@ export default function NotificationSettingsPage() {
                 )}
               </div>
             )}
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Shopping Notifications */}
@@ -246,11 +246,11 @@ export default function NotificationSettingsPage() {
           <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
             {t("shoppingHeading")}
           </h2>
-          <GlassCard className={`p-4 ${!isSubscribed ? "opacity-50" : ""}`}>
+          <Card className={`p-4 ${!isSubscribed ? "opacity-50" : ""}`}>
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <ShoppingCart className="size-5 text-month-primary" />
+                  <ShoppingCart className="size-5 text-primary" />
                   <div>
                     <Label className="font-medium">{t("shoppingNewItemsLabel")}</Label>
                     <p className="text-xs text-muted-foreground">
@@ -269,7 +269,7 @@ export default function NotificationSettingsPage() {
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Bell className="size-5 text-month-primary" />
+                  <Bell className="size-5 text-primary" />
                   <div>
                     <Label className="font-medium">{t("shoppingRemindersLabel")}</Label>
                     <p className="text-xs text-muted-foreground">
@@ -286,7 +286,7 @@ export default function NotificationSettingsPage() {
                 />
               </div>
             </div>
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Todo Notifications */}
@@ -299,11 +299,11 @@ export default function NotificationSettingsPage() {
           <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
             {t("todoHeading")}
           </h2>
-          <GlassCard className={`p-4 ${!isSubscribed ? "opacity-50" : ""}`}>
+          <Card className={`p-4 ${!isSubscribed ? "opacity-50" : ""}`}>
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <ListTodo className="size-5 text-month-primary" />
+                  <ListTodo className="size-5 text-primary" />
                   <div>
                     <Label className="font-medium">{t("todoNewLabel")}</Label>
                     <p className="text-xs text-muted-foreground">
@@ -322,7 +322,7 @@ export default function NotificationSettingsPage() {
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Bell className="size-5 text-month-primary" />
+                  <Bell className="size-5 text-primary" />
                   <div>
                     <Label className="font-medium">{t("todoReminderLabel")}</Label>
                     <p className="text-xs text-muted-foreground">
@@ -339,7 +339,7 @@ export default function NotificationSettingsPage() {
                 />
               </div>
             </div>
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Calendar Reminders */}
@@ -352,11 +352,11 @@ export default function NotificationSettingsPage() {
           <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
             {t("calendarHeading")}
           </h2>
-          <GlassCard className={`p-4 ${!isSubscribed ? "opacity-50" : ""}`}>
+          <Card className={`p-4 ${!isSubscribed ? "opacity-50" : ""}`}>
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <CalendarClock className="size-5 text-month-primary" />
+                  <CalendarClock className="size-5 text-primary" />
                   <div>
                     <Label className="font-medium">{t("calendarLabel")}</Label>
                     <p className="text-xs text-muted-foreground">
@@ -398,7 +398,7 @@ export default function NotificationSettingsPage() {
                 </div>
               )}
             </div>
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Quiet Hours */}
@@ -411,11 +411,11 @@ export default function NotificationSettingsPage() {
           <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
             {t("quietHoursHeading")}
           </h2>
-          <GlassCard className={`p-4 ${!isSubscribed ? "opacity-50" : ""}`}>
+          <Card className={`p-4 ${!isSubscribed ? "opacity-50" : ""}`}>
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Moon className="size-5 text-month-primary" />
+                  <Moon className="size-5 text-primary" />
                   <div>
                     <Label className="font-medium">{t("quietHoursLabel")}</Label>
                     <p className="text-xs text-muted-foreground">
@@ -461,7 +461,7 @@ export default function NotificationSettingsPage() {
                 </div>
               )}
             </div>
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Info Section */}
@@ -470,27 +470,27 @@ export default function NotificationSettingsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <GlassCard className="p-4">
+          <Card className="p-4">
             <h3 className="font-medium mb-2">{t("infoHeading")}</h3>
             <ul className="text-sm text-muted-foreground flex flex-col gap-1.5">
               <li className="flex items-start gap-2">
-                <span className="text-month-primary">•</span>
+                <span className="text-primary">•</span>
                 {t("info1")}
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-month-primary">•</span>
+                <span className="text-primary">•</span>
                 {t("info2")}
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-month-primary">•</span>
+                <span className="text-primary">•</span>
                 {t("info3")}
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-month-primary">•</span>
+                <span className="text-primary">•</span>
                 {t("info4")}
               </li>
             </ul>
-          </GlassCard>
+          </Card>
         </motion.div>
       </div>
     </main>

@@ -6,9 +6,6 @@
     "save": "Speichern",
     "delete": "Löschen",
     "edit": "Bearbeiten",
-    "copy": "Kopieren",
-    "moreOptions": "Weitere Optionen",
-    "addItem": "Artikel hinzufügen",
     "searchClear": "Suche leeren",
     "newEntriesAria": "{count, plural, one {# neuer Eintrag} other {# neue Einträge}}",
     "seeOnDashboardOrNewsPage": "auf dem Dashboard-Widget oder unter /news"
@@ -36,7 +33,8 @@
       "syncNow": "Jetzt synchronisieren",
       "failed": "{count, plural, one {# Änderung konnte nicht synchronisiert werden} other {# Änderungen konnten nicht synchronisiert werden}}",
       "retry": "Erneut versuchen",
-      "indicatorOffline": "Offline"
+      "indicatorOffline": "Offline",
+      "offlinePill": "Offline · {count} in Warteschlange"
     },
     "shoppingPrompt": {
       "title": "Supermarkt-App installieren",
@@ -104,7 +102,9 @@
       "refresh": "Aktualisieren",
       "autoRefresh": "Auto-Refresh",
       "emptyTitle": "Keine Kameras konfiguriert",
-      "emptyDescription": "Füge Kameras in den Einstellungen hinzu."
+      "emptyDescription": "Füge Kameras in den Einstellungen hinzu.",
+      "live": "Live",
+      "offline": "Offline"
     },
     "screensaver": {
       "newsCloseAria": "Nachricht schließen",
@@ -117,6 +117,9 @@
       "newsHours": "vor {hours} Std.",
       "eventToday": "Heute",
       "eventTomorrow": "Morgen",
+      "newsLabel": "Nachrichten",
+      "eventsLabel": "Termine",
+      "birthdaysLabel": "Geburtstage",
       "birthdayTurns": "{name} wird {age}",
       "birthdayToday": "Heute!",
       "birthdayDays": "{count, plural, one {# Tag} other {# Tage}}"
@@ -132,11 +135,21 @@
       "installButton": "App installieren"
     },
     "birthdayYearRing": {
-      "centerLabel": "Geburtstage"
+      "centerLabel": "Geburtstage",
+      "centerTurns": "wird {age}",
+      "centerInDays": "{count, plural, one {in # Tag} other {in # Tagen}}"
     }
+  },
+  "localeSwitcher": {
+    "label": "Sprache"
   },
   "join": {
     "title": "Kinboard",
+    "welcomeEyebrow": "Familien-Dashboard",
+    "welcomeTitle": "Willkommen bei Kinboard",
+    "welcomeBody": "Ein gemeinsames Dashboard für deinen Haushalt. Erstelle einen neuen Familienbereich oder trete einem bestehenden mit einem Code bei.",
+    "welcomeCreateCta": "Familienbereich erstellen",
+    "welcomeJoinCta": "Mit Code beitreten",
     "demoBannerTitle": "Das ist die öffentliche Kinboard-Demo",
     "demoBannerDescription": "Gib unten den Code ein, um die gefüllte Beispiel-Familie zu laden — oder erstelle mit dem Tab unten eine eigene Familie von Grund auf. Demo-Daten werden täglich zurückgesetzt.",
     "demoBannerUseCode": "Code verwenden",
@@ -263,9 +276,11 @@
     "vehicles": "Fahrzeuge",
     "cameras": "Kameras",
     "settings": "Einstellungen",
+    "notifications": "Benachrichtigungen",
     "news": "Nachrichten",
     "stonks": "Stonks",
-    "pocketMoney": "Taschengeld"
+    "pocketMoney": "Taschengeld",
+    "more": "Mehr"
   },
   "cameras": {
     "title": "Kameras",
@@ -310,7 +325,10 @@
     "toastDeleteFailed": "Notiz konnte nicht gelöscht werden",
     "toastPinned": "Notiz angepinnt",
     "toastUnpinned": "Notiz losgelöst",
-    "toastPinFailed": "Fehler beim Ändern des Pin-Status"
+    "toastPinFailed": "Fehler beim Ändern des Pin-Status",
+    "fabAria": "Neue Notiz",
+    "authorLabel": "Autor",
+    "authorNone": "Niemand"
   },
   "schedule": {
     "title": "Stundenplan",
@@ -334,6 +352,10 @@
     "nextPeriod": "Nächste Stunde: <bold>{subject}</bold> um {time}",
     "progressAria": "Schulfortschritt: {completed} von {total} Stunden",
     "roomLabel": "Raum {room}",
+    "childSelectorAria": "Kind auswählen",
+    "freePeriodAria": "Freistunde",
+    "packForTomorrow": "Für morgen einpacken",
+    "packForMonday": "Für Montag einpacken",
     "packListMonday": "Packliste für Montag",
     "packListTomorrow": "Packliste für morgen ({day})",
     "tomorrowMonday": "Nächster Schultag: Montag",
@@ -372,6 +394,8 @@
     "fieldPersonOptional": "Familienmitglied (optional)",
     "fieldReminder": "Erinnerung",
     "fieldReminderWithUnit": "Erinnerung (Tage vorher)",
+    "fieldPhotoOptional": "Foto (optional)",
+    "removePhoto": "Entfernen",
     "monthPlaceholder": "Monat",
     "namePlaceholder": "z.B. Oma Helga",
     "personUnassigned": "Keiner zugeordnet",
@@ -401,7 +425,12 @@
     "deleteDescription": "Möchtest du den Geburtstag von {name} wirklich löschen?",
     "emptyTitle": "Noch keine Geburtstage eingetragen",
     "emptyDescription": "Trage Geburtstage ein, um rechtzeitig erinnert zu werden",
-    "emptyAction": "Ersten Geburtstag hinzufügen"
+    "emptyAction": "Ersten Geburtstag hinzufügen",
+    "giftIdeasHeading": "Geschenkideen",
+    "giftIdeaPlaceholder": "Idee hinzufügen…",
+    "addGiftIdea": "Idee hinzufügen",
+    "giftIdeasEmpty": "Noch keine Ideen",
+    "removeGiftIdeaAria": "Idee entfernen"
   },
   "todos": {
     "title": "Aufgaben",
@@ -605,8 +634,8 @@
     "deleteDescription": "Das Rezept wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
     "deleteFailed": "Rezept konnte nicht gelöscht werden",
     "timeMinutes": "{count} Min",
-    "timeHours": "{hours} Std.",
-    "timeHoursMinutes": "{hours} Std. {minutes} Min",
+    "timeHours": "{hours}h",
+    "timeHoursMinutes": "{hours}h {minutes}m",
     "difficulty": {
       "einfach": "Einfach",
       "mittel": "Mittel",
@@ -628,6 +657,9 @@
       "sourceFallback": "Original",
       "ingredientsHeading": "Zutaten",
       "shoppingButton": "Einkaufen",
+      "toListButton": "Auf Liste",
+      "servingsDecreaseAria": "Portionen verringern",
+      "servingsIncreaseAria": "Portionen erhöhen",
       "instructionsHeading": "Zubereitung",
       "stepImageAlt": "Schritt {step}",
       "deleteRecipeDescription": "„{title}“ wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
@@ -639,7 +671,16 @@
       "addingLabel": "Hinzufügen…",
       "addSelected": "{count, plural, one {# Zutat hinzufügen} other {# Zutaten hinzufügen}}",
       "addAll": "Alle hinzufügen",
-      "addFailed": "Zutaten konnten nicht zur Einkaufsliste hinzugefügt werden"
+      "addFailed": "Zutaten konnten nicht zur Einkaufsliste hinzugefügt werden",
+      "toMealPlanButton": "Zum Essensplan",
+      "mealPlanDialogTitle": "Zum Essensplan hinzufügen",
+      "mealPlanDialogDescription": "Wähle ein Datum und eine Mahlzeit für dieses Rezept.",
+      "mealPlanDateLabel": "Datum",
+      "mealPlanTypeLabel": "Mahlzeit",
+      "mealPlanAdding": "Hinzufügen…",
+      "mealPlanConfirm": "Zum Plan hinzufügen",
+      "mealPlanAdded": "Zum Essensplan hinzugefügt",
+      "mealPlanAddFailed": "Konnte nicht zum Essensplan hinzugefügt werden"
     },
     "search": {
       "title": "Rezepte suchen",
@@ -689,6 +730,10 @@
       "importIntro": "Füge die URL eines Rezepts ein. Das Rezept wird automatisch analysiert und importiert.",
       "importPlaceholder": "https://www.chefkoch.de/recipes/...",
       "importErrorMessage": "Fehler beim Importieren. Bitte prüfe die URL.",
+      "detectButton": "Erkennen",
+      "detectedBadge": "Erkannt",
+      "detectedMeta": "{ingredients} Zutaten · {steps} Schritte · {minutes} Min.",
+      "detectedIngredientsHeading": "Erkannte Zutaten",
       "backButton": "Zurück",
       "switchToManual": "Manuell erstellen",
       "saveButton": "Rezept speichern",
@@ -703,6 +748,8 @@
     "title": "Einkaufsliste",
     "bringSync": "Bring! Sync",
     "connectBring": "Bring! verbinden",
+    "voiceStart": "Per Sprache hinzufügen",
+    "voiceStop": "Aufnahme stoppen",
     "subtitleProgress": "{unchecked} von {total} noch zu besorgen",
     "hideChecked": "Erledigte ausblenden",
     "showAll": "Alle anzeigen",
@@ -751,10 +798,20 @@
     "toastUpdateFailed": "Artikel konnte nicht aktualisiert werden"
   },
   "settings": {
+    "layoutBackLabel": "Einstellungen",
     "title": "Einstellungen",
     "subtitleNoFamily": "Keine Familie verbunden",
     "joinCodeLabel": "Familien-Code",
     "joinCodeHint": "Teile diesen Code mit anderen Geräten",
+    "joinCodeNoExpiry": "Kein Ablauf",
+    "joinCodeExpiresAt": "Läuft ab am {date}",
+    "regenerateCode": "Code neu generieren",
+    "regenerateConfirm": "Den Code zu ändern macht den alten ungültig – alle verbundenen Geräte müssen erneut beitreten. Fortfahren?",
+    "ttlNever": "Nie",
+    "ttl1h": "1 Stunde",
+    "ttl24h": "24 Stunden",
+    "ttl7d": "7 Tage",
+    "regenerateSuccess": "Beitrittscode erneuert",
     "sectionFamily": "Familie",
     "sectionIntegrations": "Integrationen",
     "sectionDisplay": "Anzeige",
@@ -818,8 +875,12 @@
     "leaveFamilyDescription": "Dieses Gerät wird von der Familie „{name}“ getrennt. Du kannst dich jederzeit mit dem Familien-Code wieder verbinden.",
     "leaveFamilyConfirm": "Verlassen",
     "backToDashboard": "← Zurück zum Dashboard",
-    "appVersion": "Kinboard",
+    "appVersion": "Kinboard v1.0.0",
     "deviceLabel": "Gerät: {name}",
+    "statusConnected": "Verbunden",
+    "statusNotConnected": "Nicht verbunden",
+    "statusError": "Fehler",
+    "statusReauth": "Erneut verbinden",
     "widgets": {
       "title": "Widgets",
       "subtitleCount": "{count} von {total} Widgets aktiv",
@@ -869,6 +930,11 @@
       "notesPreview1": "Schlüssel beim Nachbarn",
       "notesPreview2": "Paket kommt Freitag",
       "notesPreview3": "+ Neue Notiz",
+      "shoppingLabel": "Einkauf",
+      "shoppingDescription": "Offene Artikel auf der Einkaufsliste",
+      "shoppingPreview1": "○ Milch — 2 L",
+      "shoppingPreview2": "○ Brot",
+      "shoppingPreview3": "○ Äpfel — 1 kg",
       "teslaLabel": "Tesla",
       "teslaDescription": "Akkustand, Reichweite und Ladestatus",
       "teslaPreview1": "🔋 78% — 285 km",
@@ -898,6 +964,11 @@
       "monthlyThemeHeading": "Monatsthema",
       "monthlyThemeIntro": "Das Farbschema wechselt automatisch jeden Monat. Du kannst es auch manuell überschreiben.",
       "resetToAuto": "Zurück zu automatisch",
+      "paletteHeading": "Grundton",
+      "paletteIntro": "Wähle die Wärme von Hintergrund und Flächen. Akzentfarbe und Monatsthemen bleiben gleich.",
+      "palette_salbei": "Salbei",
+      "palette_sand": "Sand",
+      "palette_warmgrey": "Warmgrau",
       "appearanceHeading": "Darstellung",
       "darkModeLabel": "Dunkler Modus",
       "darkModeDescription": "Optimiert für Wanddisplays",
@@ -1200,7 +1271,11 @@
       "toastUpdateFailed": "Person konnte nicht aktualisiert werden",
       "toastDeleteFailed": "Person konnte nicht gelöscht werden",
       "alertImageType": "Bitte wähle eine Bilddatei aus.",
-      "alertImageSize": "Das Bild darf maximal 10MB groß sein."
+      "alertImageSize": "Das Bild darf maximal 10MB groß sein.",
+      "roleParent": "Elternteil",
+      "roleChild": "Kind",
+      "ageYears": "{count, plural, one {# Jahr} other {# Jahre}}",
+      "birthDateLabel": "Geburtsdatum"
     },
     "homeassistant": {
       "title": "Home Assistant",
@@ -1258,7 +1333,10 @@
       "info3": "Unterstützt: Sensoren, Schalter, Lichter, Klimaanlagen, Rollläden und mehr",
       "info4": "Energie-Dashboard mit Solar- und Batterieanzeige",
       "info5": "Räume: Gruppiere Lichter, Schalter und Sensoren",
-      "info6": "Echtzeit-Updates alle 15 Sekunden"
+      "info6": "Echtzeit-Updates alle 15 Sekunden",
+      "connectedLabel": "Verbunden",
+      "resyncButton": "Neu synchronisieren",
+      "savedToast": "Mit Home Assistant neu synchronisiert"
     },
     "homeassistantRooms": {
       "backAria": "Zurück",
@@ -1792,7 +1870,9 @@
       "syncing": "Synchronisiere…",
       "syncSuccessTitle": "Sync abgeschlossen",
       "syncSuccessBody": "{succeeded} Feed(s) synchronisiert{failed, plural, =0 {} other {, # fehlgeschlagen}}.",
-      "syncErrorTitle": "Sync fehlgeschlagen"
+      "syncErrorTitle": "Sync fehlgeschlagen",
+      "holidaysBadge": "Feiertage",
+      "wasteBadge": "Müll"
     },
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "Update auf {version} verfügbar",
@@ -1936,6 +2016,7 @@
     "viewMonth": "Monat",
     "viewWeek": "Woche",
     "viewSwitcherAria": "Kalenderansicht",
+    "personFilterAria": "Nach Person filtern",
     "todayButton": "Heute",
     "previousAria": "Zurück",
     "nextAria": "Weiter",
@@ -2054,6 +2135,7 @@
     "statusActive": "{count} aktiv",
     "statusOff": "{count} aus",
     "statusOther": "{count} sonstige",
+    "scenesHeading": "Szenen",
     "autoRefreshNote": "Automatische Aktualisierung alle 15 Sekunden",
     "toastCreateFailed": "Dashboard konnte nicht erstellt werden",
     "toastUpdateFailed": "Dashboard konnte nicht aktualisiert werden",
@@ -2547,6 +2629,8 @@
     "notConfiguredDescription": "Ordne deine Home-Assistant-Energiesensoren (Solar, Batterie, Netz) zu, um Erzeugung und Verbrauch zu erfassen.",
     "notConfiguredAction": "Energiesensoren konfigurieren",
     "quickSolar": "Solar",
+    "quickGrid": "Netz",
+    "nodeHomeLabel": "Haus",
     "quickConsumption": "Verbrauch",
     "quickAutarky": "Autarkie",
     "quickAutarkyAria": "Autarkie {percent} Prozent",
@@ -2626,7 +2710,7 @@
     "emptyTitle": "Noch nichts geplant",
     "emptyDescription": "Mahlzeiten für heute planen",
     "timeMinutes": "{count} Min",
-    "timeHoursMinutes": "{hours} Std. {minutes} Min",
+    "timeHoursMinutes": "{hours}h {minutes}m",
     "timeHoursOnly": "{hours}h"
   },
   "tesla": {
@@ -2750,7 +2834,10 @@
     "upcomingEventsHeading": "Anstehende Termine",
     "todosEmpty": "Alles erledigt!",
     "eventsEmpty": "Keine Termine diese Woche",
-    "moreCount": "+{count} weitere"
+    "moreCount": "+{count} weitere",
+    "statusEvents": "{count, plural, one {# Termin} other {# Termine}}",
+    "statusTasks": "{count, plural, one {# Aufgabe} other {# Aufgaben}}",
+    "statusNothing": "Alles erledigt"
   },
   "tasksWidget": {
     "loadingAria": "Aufgaben werden geladen",
@@ -2764,6 +2851,16 @@
     "overdue": "Überfällig",
     "today": "Heute",
     "emptyState": "Alles erledigt!",
+    "moreCount": "+{count} weitere"
+  },
+  "shoppingWidget": {
+    "loadingAria": "Einkaufsliste wird geladen",
+    "title": "Einkauf",
+    "openCount": "{count} offen",
+    "errorMessage": "Laden fehlgeschlagen",
+    "viewAllAria": "Einkaufsliste ansehen",
+    "emptyState": "Einkaufsliste ist leer",
+    "toastUpdateFailed": "Aktualisierung fehlgeschlagen",
     "moreCount": "+{count} weitere"
   },
   "notesWidget": {
@@ -2909,7 +3006,12 @@
       "addAnother": "Weitere Person",
       "remove": "Entfernen",
       "saved": "Gespeichert",
-      "saveError": "Familienmitglieder konnten nicht gespeichert werden. Bitte erneut versuchen."
+      "saveError": "Familienmitglieder konnten nicht gespeichert werden. Bitte erneut versuchen.",
+      "isChildLabel": "Kind",
+      "birthDateLabel": "Geburtsdatum",
+      "roleParent": "Elternteil",
+      "roleChild": "Kind",
+      "ageYears": "{count, plural, one {# Jahr} other {# Jahre}}"
     },
     "calendar": {
       "title": "Kalender hinzufügen",
@@ -3112,22 +3214,6 @@
     "stagesSheetDescription": "Spare mehr, um die nächste Stufe zu erreichen.",
     "stagesStartingThreshold": "Startstufe",
     "stagesThreshold": "Freigeschaltet bei {amount} gespart",
-    "stagesCurrentBadge": "Hier bist du",
-    "editGoalTitle": "Ziel bearbeiten",
-    "saveGoal": "Speichern",
-    "editGoalAria": "Ziel bearbeiten",
-    "removeGoalAria": "Ziel entfernen",
-    "dismissGoalAria": "Ausblenden",
-    "boughtBadge": "Gekauft",
-    "requestPending": "Warte auf Freigabe",
-    "boughtSectionTitle": "Gekauft",
-    "cancelRequest": "Abbrechen",
-    "removeGoalConfirmTitle": "Dieses Ziel entfernen?",
-    "dismissGoalConfirmTitle": "Dieses Ziel ausblenden?",
-    "removeGoalConfirmBody": "„{name}“ wird aus der Liste entfernt. Das kann nicht rückgängig gemacht werden.",
-    "dismiss": "Ausblenden",
-    "remove": "Entfernen",
-    "goalsSectionTitle": "Sparziele",
-    "noGoalsYet": "Noch keine Ziele."
+    "stagesCurrentBadge": "Hier bist du"
   }
 }

@@ -21,13 +21,15 @@ import {
   Loader2,
   Printer,
   Share2,
+  Flame,
+  CalendarPlus,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
+import { ChecklistItem } from "@/components/checklist-item";
 import { PageHeader } from "@/components/page-header";
 import {
   AlertDialog,
@@ -54,10 +56,14 @@ import {
   useToggleRecipeFavorite,
   useDeleteRecipe,
   useAddRecipeToShoppingList,
+  useAddMealPlanEntry,
+  getWeekStart,
   useKeyboardShortcuts,
   useSwipeNavigation,
 } from "@/hooks";
-import type { RecipeInstruction, RecipeIngredient } from "@/types/database";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import type { RecipeInstruction, RecipeIngredient, MealType } from "@/types/database";
 
 // Difficulty colors
 const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -72,6 +78,7 @@ export default function RecipeDetailPage() {
 
   const t = useTranslations("recipes");
   const tCommon = useTranslations("common");
+  const tMeals = useTranslations("meals");
   const params = useParams();
   const router = useRouter();
   const recipeId = params.id as string;
@@ -81,6 +88,15 @@ export default function RecipeDetailPage() {
   const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set());
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showShoppingDialog, setShowShoppingDialog] = useState(false);
+  const [showMealPlanDialog, setShowMealPlanDialog] = useState(false);
+  const [mealPlanDate, setMealPlanDate] = useState<string>(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  });
+  const [mealPlanType, setMealPlanType] = useState<MealType>("dinner");
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
   // Data fetching
@@ -88,7 +104,7 @@ export default function RecipeDetailPage() {
   const toggleFavorite = useToggleRecipeFavorite();
   const deleteRecipe = useDeleteRecipe();
   const addToShoppingList = useAddRecipeToShoppingList();
-
+  const addMealPlanEntry = useAddMealPlanEntry();
 
   // Initialize servings from recipe
   const effectiveServings = servings ?? recipe?.servings ?? 4;
@@ -127,6 +143,25 @@ export default function RecipeDetailPage() {
       router.push("/recipes");
     } catch {
       toast.error(t("deleteFailed"));
+    }
+  };
+
+  // Handle add to meal plan
+  const handleAddToMealPlan = async () => {
+    try {
+      await addMealPlanEntry.mutateAsync({
+        weekStart: getWeekStart(new Date(`${mealPlanDate}T12:00:00`)),
+        entry: {
+          date: mealPlanDate,
+          meal_type: mealPlanType,
+          recipe_id: recipe!.id,
+          servings: effectiveServings,
+        },
+      });
+      setShowMealPlanDialog(false);
+      toast.success(t("detail.mealPlanAdded"));
+    } catch {
+      toast.error(t("detail.mealPlanAddFailed"));
     }
   };
 
@@ -181,7 +216,7 @@ export default function RecipeDetailPage() {
     return (
       <TooltipProvider>
         <main id="main-content" className="min-h-screen relative overflow-hidden">
-          <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+          <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
             <div className="flex items-center gap-3 mb-8">
               <Skeleton className="size-10 rounded-lg" />
@@ -189,22 +224,22 @@ export default function RecipeDetailPage() {
             </div>
             <Skeleton className="h-64 w-full rounded-xl mb-6" />
             <div className="grid md:grid-cols-2 gap-6">
-              <GlassCard className="p-4">
+              <Card className="p-4">
                 <Skeleton className="h-6 w-24 mb-4" />
                 <div className="flex flex-col gap-2">
                   {[1, 2, 3, 4, 5].map((i) => (
                     <Skeleton key={i} className="h-8 w-full" />
                   ))}
                 </div>
-              </GlassCard>
-              <GlassCard className="p-4">
+              </Card>
+              <Card className="p-4">
                 <Skeleton className="h-6 w-32 mb-4" />
                 <div className="flex flex-col gap-3">
                   {[1, 2, 3].map((i) => (
                     <Skeleton key={i} className="h-16 w-full" />
                   ))}
                 </div>
-              </GlassCard>
+              </Card>
             </div>
           </div>
         </main>
@@ -217,9 +252,9 @@ export default function RecipeDetailPage() {
     return (
       <TooltipProvider>
         <main id="main-content" className="min-h-screen relative overflow-hidden">
-          <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+          <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
-            <GlassCard className="p-8 text-center">
+            <Card className="p-8 text-center">
               <ChefHat className="size-12 mx-auto mb-3 text-destructive opacity-50" />
               <p className="text-destructive font-medium">{t("detail.notFoundTitle")}</p>
               <p className="text-sm text-muted-foreground mt-1 mb-4">
@@ -231,7 +266,7 @@ export default function RecipeDetailPage() {
                   {t("detail.backToRecipes")}
                 </Button>
               </Link>
-            </GlassCard>
+            </Card>
           </div>
         </main>
       </TooltipProvider>
@@ -249,7 +284,7 @@ export default function RecipeDetailPage() {
     <TooltipProvider>
       <main id="main-content" className="min-h-screen relative overflow-hidden">
         {/* Background */}
-        <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+        <div className="page-gradient" />
 
         <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
@@ -259,23 +294,6 @@ export default function RecipeDetailPage() {
             className="mb-6"
             actions={
               <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={recipe.is_favorite ? t("detail.favoriteRemove") : t("detail.favoriteAdd")}
-                  onClick={() =>
-                    toggleFavorite.mutate({
-                      id: recipe.id,
-                      is_favorite: !recipe.is_favorite,
-                    })
-                  }
-                >
-                  <Heart
-                    className={`size-5 ${
-                      recipe.is_favorite ? "fill-destructive text-destructive" : ""
-                    }`}
-                  />
-                </Button>
                 <Button variant="ghost" size="icon" onClick={() => window.print()} aria-label={t("detail.printAria")}>
                   <Printer className="size-5" />
                 </Button>
@@ -297,36 +315,66 @@ export default function RecipeDetailPage() {
             }
           />
 
-          {/* Hero Image */}
-          {recipe.image_url && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="mb-6"
-            >
-              <div className="relative rounded-xl overflow-hidden h-64 md:h-80">
+          {/* Photo header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mb-6"
+          >
+            <div className="relative h-64 md:h-80 overflow-hidden rounded-2xl bg-muted">
+              {recipe.image_url ? (
                 <img
                   src={recipe.image_url}
                   alt={recipe.title}
                   className="size-full object-cover"
                 />
-                {recipe.source_url && (
-                  <a
-                    href={recipe.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute bottom-4 right-4"
-                  >
-                    <Badge variant="secondary" className="backdrop-blur-sm">
-                      <ExternalLink className="size-3 mr-1" />
-                      {recipe.source_domain || t("detail.sourceFallback")}
-                    </Badge>
-                  </a>
-                )}
-              </div>
-            </motion.div>
-          )}
+              ) : (
+                <div className="flex size-full items-center justify-center">
+                  <ChefHat className="size-20 text-muted-foreground/20" strokeWidth={1.75} />
+                </div>
+              )}
+              {/* Scrim for control legibility over the photo */}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-transparent" />
+
+              <Link href="/recipes" aria-label={t("detail.backToRecipes")}>
+                <span className="absolute left-4 top-4 flex size-11 items-center justify-center rounded-xl bg-card/90 text-foreground transition-colors hover:bg-card">
+                  <ArrowLeft className="size-5" strokeWidth={1.75} />
+                </span>
+              </Link>
+
+              <button
+                type="button"
+                aria-label={recipe.is_favorite ? t("detail.favoriteRemove") : t("detail.favoriteAdd")}
+                onClick={() =>
+                  toggleFavorite.mutate({
+                    id: recipe.id,
+                    is_favorite: !recipe.is_favorite,
+                  })
+                }
+                className="absolute right-4 top-4 flex size-11 items-center justify-center rounded-xl bg-card/90 text-foreground transition-colors hover:bg-card"
+              >
+                <Heart
+                  className={`size-5 ${recipe.is_favorite ? "fill-destructive text-destructive" : ""}`}
+                  strokeWidth={1.75}
+                />
+              </button>
+
+              {recipe.source_url && (
+                <a
+                  href={recipe.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute bottom-4 right-4"
+                >
+                  <Badge variant="secondary" className="border-0 bg-black/55 text-white/90">
+                    <ExternalLink className="size-3 mr-1" />
+                    {recipe.source_domain || t("detail.sourceFallback")}
+                  </Badge>
+                </a>
+              )}
+            </div>
+          </motion.div>
 
           {/* Meta Info */}
           <motion.div
@@ -335,77 +383,64 @@ export default function RecipeDetailPage() {
             transition={{ delay: 0.15 }}
             className="mb-6"
           >
-            <GlassCard className="p-4">
-              <div className="flex flex-wrap items-center gap-4">
+            <Card className="p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                {recipe.total_time_minutes && (
+                  <Badge variant="neutral" className="gap-1.5 px-3 py-1.5 text-sm">
+                    <Clock className="size-4 text-primary" strokeWidth={1.75} />
+                    {formatTime(recipe.total_time_minutes)}
+                  </Badge>
+                )}
                 {recipe.prep_time_minutes && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="size-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">{t("detail.metaPrep")}</p>
-                      <p className="font-medium">{formatTime(recipe.prep_time_minutes)}</p>
-                    </div>
-                  </div>
+                  <Badge variant="neutral" className="gap-1.5 px-3 py-1.5 text-sm">
+                    <Clock className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                    {t("detail.metaPrep")} {formatTime(recipe.prep_time_minutes)}
+                  </Badge>
                 )}
                 {recipe.cook_time_minutes && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="size-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">{t("detail.metaCook")}</p>
-                      <p className="font-medium">{formatTime(recipe.cook_time_minutes)}</p>
-                    </div>
-                  </div>
-                )}
-                {recipe.total_time_minutes && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="size-4 text-month-primary" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">{t("detail.metaTotal")}</p>
-                      <p className="font-medium">{formatTime(recipe.total_time_minutes)}</p>
-                    </div>
-                  </div>
+                  <Badge variant="neutral" className="gap-1.5 px-3 py-1.5 text-sm">
+                    <Clock className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                    {t("detail.metaCook")} {formatTime(recipe.cook_time_minutes)}
+                  </Badge>
                 )}
 
-                <Separator orientation="vertical" className="h-10" />
-
-                {/* Servings Adjuster */}
-                <div className="flex items-center gap-2">
-                  <Users className="size-4 text-muted-foreground" />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="size-8"
-                      onClick={() => setServings(Math.max(1, effectiveServings - 1))}
-                    >
-                      <Minus className="size-3" />
-                    </Button>
-                    <span className="w-8 text-center font-medium">{effectiveServings}</span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="size-8"
-                      onClick={() => setServings(effectiveServings + 1)}
-                    >
-                      <Plus className="size-3" />
-                    </Button>
-                    <span className="text-sm text-muted-foreground">{t("detail.servingsLabel")}</span>
-                  </div>
+                {/* Servings adjuster pill */}
+                <div className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1">
+                  <Users className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-8"
+                    aria-label={t("detail.servingsDecreaseAria")}
+                    onClick={() => setServings(Math.max(1, effectiveServings - 1))}
+                  >
+                    <Minus className="size-3" />
+                  </Button>
+                  <span className="w-6 text-center font-medium">{effectiveServings}</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-8"
+                    aria-label={t("detail.servingsIncreaseAria")}
+                    onClick={() => setServings(effectiveServings + 1)}
+                  >
+                    <Plus className="size-3" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground">{t("detail.servingsLabel")}</span>
                 </div>
 
                 {recipe.difficulty && (
-                  <>
-                    <Separator orientation="vertical" className="h-10" />
-                    <Badge className={`${difficulty.bg} ${difficulty.text} border-0`}>
-                      {difficultyLabels[recipe.difficulty] || recipe.difficulty}
-                    </Badge>
-                  </>
+                  <Badge className={`${difficulty.bg} ${difficulty.text} gap-1.5 border-0 px-3 py-1.5 text-sm`}>
+                    <Flame className="size-4" strokeWidth={1.75} />
+                    {difficultyLabels[recipe.difficulty] || recipe.difficulty}
+                  </Badge>
                 )}
               </div>
 
               {recipe.description && (
-                <p className="text-muted-foreground mt-4">{recipe.description}</p>
+                <p className="mt-4 text-muted-foreground">{recipe.description}</p>
               )}
-            </GlassCard>
+            </Card>
           </motion.div>
 
           {/* Main Content Grid */}
@@ -416,48 +451,41 @@ export default function RecipeDetailPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <GlassCard className="p-4">
-                <div className="flex items-center justify-between mb-4">
+              <Card className="p-4">
+                <div className="mb-4 flex items-center justify-between">
                   <h2 className="font-semibold">{t("detail.ingredientsHeading")}</h2>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowShoppingDialog(true)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => setShowShoppingDialog(true)}>
                     <ShoppingCart className="size-4 mr-2" />
-                    {t("detail.shoppingButton")}
+                    {t("detail.toListButton")}
                   </Button>
                 </div>
 
                 <div className="flex flex-col gap-2">
                   {recipe.ingredients?.map((ingredient) => (
-                    <label
+                    <ChecklistItem
                       key={ingredient.id}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                    >
-                      <Checkbox
-                        checked={selectedIngredients.has(ingredient.id)}
-                        onCheckedChange={() => toggleIngredient(ingredient.id)}
-                      />
-                      <span className="flex-1">
-                        {ingredient.quantity && (
-                          <span className="font-medium">
+                      checked={selectedIngredients.has(ingredient.id)}
+                      onCheckedChange={() => toggleIngredient(ingredient.id)}
+                      label={
+                        <>
+                          {ingredient.name}
+                          {ingredient.notes && (
+                            <span className="text-muted-foreground"> ({ingredient.notes})</span>
+                          )}
+                        </>
+                      }
+                      meta={
+                        ingredient.quantity ? (
+                          <span className="font-mono">
                             {formatQuantity(ingredient.quantity)}
-                            {ingredient.unit && ` ${ingredient.unit}`}{" "}
+                            {ingredient.unit ? ` ${ingredient.unit}` : ""}
                           </span>
-                        )}
-                        {ingredient.name}
-                        {ingredient.notes && (
-                          <span className="text-muted-foreground">
-                            {" "}
-                            ({ingredient.notes})
-                          </span>
-                        )}
-                      </span>
-                    </label>
+                        ) : undefined
+                      }
+                    />
                   ))}
                 </div>
-              </GlassCard>
+              </Card>
             </motion.div>
 
             {/* Instructions */}
@@ -466,7 +494,7 @@ export default function RecipeDetailPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.25 }}
             >
-              <GlassCard className="p-4">
+              <Card className="p-4">
                 <h2 className="font-semibold mb-4">{t("detail.instructionsHeading")}</h2>
 
                 <div className="flex flex-col gap-4">
@@ -484,7 +512,7 @@ export default function RecipeDetailPage() {
                         className={`shrink-0 size-8 rounded-full flex items-center justify-center font-medium ${
                           completedSteps.has(instruction.step)
                             ? "bg-success text-white"
-                            : "bg-month-primary/10 text-month-primary"
+                            : "bg-primary/10 text-primary"
                         }`}
                       >
                         {completedSteps.has(instruction.step) ? (
@@ -514,9 +542,34 @@ export default function RecipeDetailPage() {
                     </div>
                   ))}
                 </div>
-              </GlassCard>
+              </Card>
             </motion.div>
           </div>
+
+          {/* Footer actions */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-6 flex flex-col gap-3 sm:flex-row"
+          >
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowMealPlanDialog(true)}
+            >
+              <CalendarPlus className="size-4 mr-2" />
+              {t("detail.toMealPlanButton")}
+            </Button>
+            <Button
+              variant="default"
+              className="flex-1"
+              onClick={() => setShowShoppingDialog(true)}
+            >
+              <ShoppingCart className="size-4 mr-2" />
+              {t("detail.toListButton")}
+            </Button>
+          </motion.div>
         </div>
 
         {/* Delete Dialog */}
@@ -543,6 +596,62 @@ export default function RecipeDetailPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Meal Plan Dialog */}
+        <Dialog open={showMealPlanDialog} onOpenChange={setShowMealPlanDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t("detail.mealPlanDialogTitle")}</DialogTitle>
+              <DialogDescription>{t("detail.mealPlanDialogDescription")}</DialogDescription>
+            </DialogHeader>
+
+            <div className="flex flex-col gap-4 py-4">
+              <div className="flex flex-col gap-2">
+                <label htmlFor="mealPlanDate" className="text-sm font-medium">
+                  {t("detail.mealPlanDateLabel")}
+                </label>
+                <Input
+                  id="mealPlanDate"
+                  type="date"
+                  value={mealPlanDate}
+                  onChange={(e) => setMealPlanDate(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label htmlFor="mealPlanType" className="text-sm font-medium">
+                  {t("detail.mealPlanTypeLabel")}
+                </label>
+                <Select value={mealPlanType} onValueChange={(v) => setMealPlanType(v as MealType)}>
+                  <SelectTrigger id="mealPlanType">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="breakfast">{tMeals("mealType.breakfast")}</SelectItem>
+                    <SelectItem value="lunch">{tMeals("mealType.lunch")}</SelectItem>
+                    <SelectItem value="dinner">{tMeals("mealType.dinner")}</SelectItem>
+                    <SelectItem value="snack">{tMeals("mealType.snack")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowMealPlanDialog(false)}>
+                {tCommon("cancel")}
+              </Button>
+              <Button onClick={handleAddToMealPlan} disabled={addMealPlanEntry.isPending}>
+                {addMealPlanEntry.isPending ? (
+                  <>
+                    <Loader2 className="size-4 mr-2 animate-spin" />
+                    {t("detail.mealPlanAdding")}
+                  </>
+                ) : (
+                  t("detail.mealPlanConfirm")
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Shopping List Dialog */}
         <Dialog open={showShoppingDialog} onOpenChange={setShowShoppingDialog}>

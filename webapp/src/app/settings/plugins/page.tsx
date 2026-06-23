@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Puzzle } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { PLUGINS } from "@/plugins/registry";
@@ -27,52 +27,54 @@ export default function PluginsSettingsPage() {
   }
 
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-6">
-      <PageHeader
-        title={t("title")}
-        icon={Puzzle}
-        backHref="/settings"
-      />
+    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <div className="relative z-10 max-w-2xl mx-auto space-y-6">
+        <PageHeader
+          title={t("title")}
+          icon={Puzzle}
+          backHref="/settings"
+        />
 
-      <GlassCard className="p-6">
-        <p className="text-sm text-muted-foreground mb-4">{t("intro")}</p>
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground mb-4">{t("intro")}</p>
 
-        {PLUGINS.length === 0 ? (
-          <p className="text-muted-foreground">{t("noPlugins")}</p>
-        ) : (
-          <div className="space-y-4">
-            {PLUGINS.map((p) => {
-              const Icon = p.navItem.icon;
-              const checked = isEnabled(p.id);
-              return (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between gap-4 py-2 border-b border-border last:border-0"
-                >
-                  <div className="flex items-start gap-3 min-w-0">
-                    <Icon className="size-5 mt-0.5 text-muted-foreground" />
-                    <div className="min-w-0">
-                      <Label className="font-medium" htmlFor={`plugin-${p.id}`}>
-                        {t(`label.${p.id}` as never)}
-                      </Label>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        {t(`description.${p.id}` as never)}
-                      </p>
+          {PLUGINS.length === 0 ? (
+            <p className="text-muted-foreground">{t("noPlugins")}</p>
+          ) : (
+            <div className="space-y-4">
+              {PLUGINS.map((p) => {
+                const Icon = p.navItem.icon;
+                const checked = isEnabled(p.id);
+                return (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between gap-4 py-2 border-b border-border last:border-0"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <Icon className="size-5 mt-0.5 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <Label className="font-medium" htmlFor={`plugin-${p.id}`}>
+                          {t(`label.${p.id}` as never)}
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          {t(`description.${p.id}` as never)}
+                        </p>
+                      </div>
                     </div>
+                    <Switch
+                      id={`plugin-${p.id}`}
+                      checked={checked}
+                      onCheckedChange={(v) => toggle(p.id, v)}
+                    />
                   </div>
-                  <Switch
-                    id={`plugin-${p.id}`}
-                    checked={checked}
-                    onCheckedChange={(v) => toggle(p.id, v)}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </GlassCard>
+                );
+              })}
+            </div>
+          )}
+        </Card>
 
-      <p className="text-xs text-muted-foreground">{t("footnote")}</p>
-    </div>
+        <p className="text-xs text-muted-foreground">{t("footnote")}</p>
+      </div>
+    </main>
   );
 }

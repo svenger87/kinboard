@@ -177,7 +177,7 @@ function RoomEditorDialog({
                     onClick={() => setIcon(iconValue)}
                     className={`p-3 rounded-lg border-2 transition-all ${
                       isSelected
-                        ? "border-month-primary bg-month-primary/20"
+                        ? "border-primary bg-primary/20"
                         : "border-transparent bg-muted hover:bg-accent"
                     }`}
                     title={t(ICON_LABEL_KEYS[iconValue])}
@@ -223,7 +223,7 @@ function RoomEditorDialog({
           <Button variant="outline" onClick={onClose}>
             {t("editorCancel")}
           </Button>
-          <Button variant="month" onClick={handleSave} disabled={!name.trim()}>
+          <Button variant="default" onClick={handleSave} disabled={!name.trim()}>
             {room ? t("editorSave") : t("editorCreate")}
           </Button>
         </div>
@@ -503,7 +503,7 @@ export default function RoomsSettingsPage() {
   return (
     <main id="main-content" className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border/50">
+      <header className="sticky top-0 z-50 bg-background border-b border-border/50">
         <div className="flex items-center gap-4 p-4">
           <Link href="/settings/homeassistant">
             <Button variant="ghost" size="icon" aria-label={t("backAria")}>
@@ -516,7 +516,7 @@ export default function RoomsSettingsPage() {
               {t("headerSubtitle")}
             </p>
           </div>
-          <Button variant="month" onClick={handleCreateRoom}>
+          <Button variant="default" onClick={handleCreateRoom}>
             <Plus className="size-4 mr-2" />
             {t("addRoomButton")}
           </Button>
@@ -551,7 +551,7 @@ export default function RoomsSettingsPage() {
             <p className="text-muted-foreground mb-4">
               {t("emptyTitle")}
             </p>
-            <Button variant="month" onClick={handleCreateRoom}>
+            <Button variant="default" onClick={handleCreateRoom}>
               <Plus className="size-4 mr-2" />
               {t("emptyButton")}
             </Button>

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { LineChart, Plus, Trash2, Search, Check, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,7 +51,7 @@ export default function StonksSettingsPage() {
         <p className="text-sm text-muted-foreground">{t("intro")}</p>
 
         {/* Add symbol */}
-        <GlassCard className="p-5 space-y-4">
+        <Card className="p-5 space-y-4">
           <div>
             <h3 className="font-medium mb-2">{t("addHeading")}</h3>
             <div className="relative">
@@ -119,7 +119,7 @@ export default function StonksSettingsPage() {
               })}
             </div>
           )}
-        </GlassCard>
+        </Card>
 
         {/* Watchlist */}
         <div className="space-y-2">
@@ -127,9 +127,9 @@ export default function StonksSettingsPage() {
           {isPending ? (
             <Skeleton className="h-20 w-full" />
           ) : tickers.length === 0 ? (
-            <GlassCard className="p-6 text-center text-sm text-muted-foreground">
+            <Card className="p-6 text-center text-sm text-muted-foreground">
               {t("emptyWatchlist")}
-            </GlassCard>
+            </Card>
           ) : (
             <AnimatePresence>
               {tickers.map((tk) => (
@@ -139,7 +139,7 @@ export default function StonksSettingsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                 >
-                  <GlassCard className="p-4">
+                  <Card className="p-4">
                     <div className="flex items-center gap-3">
                       <GripVertical className="size-4 text-muted-foreground/40 shrink-0" />
                       <div className="flex-1 min-w-0">
@@ -190,7 +190,7 @@ export default function StonksSettingsPage() {
                         />
                       </div>
                     )}
-                  </GlassCard>
+                  </Card>
                 </motion.div>
               ))}
             </AnimatePresence>

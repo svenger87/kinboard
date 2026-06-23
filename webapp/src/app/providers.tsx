@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { useState, useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
-import { AnimatePresence, MotionConfig } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { useRealtimeSync, useIdleTimeout } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { usePresence } from "@/hooks/use-presence";
@@ -14,8 +14,7 @@ import { AuthGuard } from "@/components/auth-guard";
 import { PWAProvider } from "@/components/pwa-provider";
 import { KioskProvider } from "@/components/kiosk-provider";
 import { ThemeSettingsProvider } from "@/components/theme-settings-provider";
-import { MobileNav } from "@/components/mobile-nav";
-import { DesktopNav } from "@/components/desktop-nav";
+import { ShellChrome } from "@/components/shell-chrome";
 import { PageShell } from "@/components/page-shell";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
@@ -139,7 +138,6 @@ export function Providers({ children }: { children: ReactNode }) {
         enableSystem
         disableTransitionOnChange
       >
-        <MotionConfig reducedMotion="user">
         <Toaster position="bottom-right" richColors />
         <StorageMigration>
           <AuthGuard>
@@ -152,8 +150,7 @@ export function Providers({ children }: { children: ReactNode }) {
                         <PageShell>
                           {children}
                         </PageShell>
-                        <MobileNav />
-                        <DesktopNav />
+                        <ShellChrome />
                         <KeyboardShortcutsDialog />
                       </ScreensaverProvider>
                     </ErrorBoundary>
@@ -163,7 +160,6 @@ export function Providers({ children }: { children: ReactNode }) {
             </ThemeSettingsProvider>
           </AuthGuard>
         </StorageMigration>
-        </MotionConfig>
       </ThemeProvider>
     </QueryClientProvider>
   );

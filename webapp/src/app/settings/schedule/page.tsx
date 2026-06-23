@@ -117,7 +117,7 @@ import {
   Pencil,
   type LucideIcon,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -680,12 +680,12 @@ export default function ScheduleSettingsPage() {
             backHref="/settings"
             className="mb-8"
           />
-          <GlassCard className="p-4 mb-6">
+          <Card className="p-4 mb-6">
             <Skeleton className="h-10 w-full" />
-          </GlassCard>
-          <GlassCard className="p-4">
+          </Card>
+          <Card className="p-4">
             <Skeleton className="h-96 w-full" />
-          </GlassCard>
+          </Card>
         </div>
       </main>
     );
@@ -703,7 +703,7 @@ export default function ScheduleSettingsPage() {
             backHref="/settings"
             className="mb-8"
           />
-          <GlassCard className="p-8 text-center">
+          <Card className="p-8 text-center">
             <AlertCircle className="size-12 mx-auto mb-3 text-destructive opacity-50" />
             <p className="text-destructive font-medium">{t("loadErrorTitle")}</p>
             <p className="text-sm text-muted-foreground mt-1">
@@ -717,7 +717,7 @@ export default function ScheduleSettingsPage() {
               <RefreshCw className="size-4 mr-2" />
               {t("retryButton")}
             </Button>
-          </GlassCard>
+          </Card>
         </div>
       </main>
     );
@@ -736,7 +736,7 @@ export default function ScheduleSettingsPage() {
             className="mb-8"
           />
 
-          <GlassCard className="p-8 text-center">
+          <Card className="p-8 text-center">
             <GraduationCap className="size-16 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h2 className="text-lg font-semibold mb-2">{t("noChildrenTitle")}</h2>
             <p className="text-muted-foreground mb-4">
@@ -745,7 +745,7 @@ export default function ScheduleSettingsPage() {
             <Button variant="month" asChild>
               <a href="/settings/people">{t("noChildrenButton")}</a>
             </Button>
-          </GlassCard>
+          </Card>
         </div>
       </main>
     );
@@ -794,7 +794,7 @@ export default function ScheduleSettingsPage() {
           transition={{ delay: 0.05 }}
           className="mb-6"
         >
-          <GlassCard className="p-4">
+          <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold">{t("subjectsHeading")}</h2>
               <Button variant="outline" size="sm" onClick={openAddSubjectDialog}>
@@ -841,7 +841,7 @@ export default function ScheduleSettingsPage() {
                 })}
               </div>
             )}
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Pack list */}
@@ -851,7 +851,7 @@ export default function ScheduleSettingsPage() {
           transition={{ delay: 0.075 }}
           className="mb-6"
         >
-          <GlassCard className="p-4">
+          <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Backpack className="size-4 text-muted-foreground" />
@@ -901,7 +901,7 @@ export default function ScheduleSettingsPage() {
                 ))}
               </div>
             )}
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Timetable Grid */}
@@ -910,7 +910,7 @@ export default function ScheduleSettingsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <GlassCard className="p-4 overflow-x-auto">
+          <Card className="p-4 overflow-x-auto">
             {schedulesLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -1030,7 +1030,7 @@ export default function ScheduleSettingsPage() {
                               </Popover>
                             ) : (
                               <button
-                                className="w-full h-16 rounded-lg border border-dashed border-border/50 hover:border-month-primary/50 hover:bg-month-primary/5 transition-colors flex items-center justify-center"
+                                className="w-full h-16 rounded-lg border border-dashed border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-colors flex items-center justify-center"
                                 onClick={() => openSlotDialog(dayIndex + 1, period.num)}
                               >
                                 <Plus className="size-4 text-muted-foreground" />
@@ -1044,7 +1044,7 @@ export default function ScheduleSettingsPage() {
                 </tbody>
               </table>
             )}
-          </GlassCard>
+          </Card>
         </motion.div>
       </div>
 

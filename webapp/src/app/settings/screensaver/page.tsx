@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Monitor, Clock, Radar, Power, ImageIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -115,10 +115,10 @@ export default function ScreensaverSettingsPage() {
           <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
             {t("timeoutHeading")}
           </h2>
-          <GlassCard className="p-4">
+          <Card className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Clock className="size-5 text-month-primary" />
+                <Clock className="size-5 text-primary" />
                 <div>
                   <Label className="font-medium">{t("timeoutLabel")}</Label>
                   <p className="text-xs text-muted-foreground">
@@ -145,7 +145,7 @@ export default function ScreensaverSettingsPage() {
                 </SelectContent>
               </Select>
             </div>
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Photo Rotation Interval */}
@@ -158,10 +158,10 @@ export default function ScreensaverSettingsPage() {
           <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
             {t("rotationHeading")}
           </h2>
-          <GlassCard className="p-4">
+          <Card className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <ImageIcon className="size-5 text-month-primary" />
+                <ImageIcon className="size-5 text-primary" />
                 <div>
                   <Label className="font-medium">{t("rotationLabel")}</Label>
                   <p className="text-xs text-muted-foreground">
@@ -186,7 +186,7 @@ export default function ScreensaverSettingsPage() {
                 </SelectContent>
               </Select>
             </div>
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Presence Sensor Section */}
@@ -206,7 +206,7 @@ export default function ScreensaverSettingsPage() {
             )}
           </div>
 
-          <GlassCard className={`p-4 ${!hasPresenceSensor ? "opacity-50" : ""}`}>
+          <Card className={`p-4 ${!hasPresenceSensor ? "opacity-50" : ""}`}>
             {hasPresenceSensor ? (
               <div className="flex flex-col gap-4">
                 {/* Status indicator */}
@@ -237,7 +237,7 @@ export default function ScreensaverSettingsPage() {
                 {/* Control Mode */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Radar className="size-5 text-month-primary" />
+                    <Radar className="size-5 text-primary" />
                     <div>
                       <Label className="font-medium">{t("presenceModeLabel")}</Label>
                       <p className="text-xs text-muted-foreground">
@@ -273,7 +273,7 @@ export default function ScreensaverSettingsPage() {
                 {/* Presence Timeout */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Clock className="size-5 text-month-primary" />
+                    <Clock className="size-5 text-primary" />
                     <div>
                       <Label className="font-medium">{t("presenceTimeoutLabel")}</Label>
                       <p className="text-xs text-muted-foreground">
@@ -307,12 +307,12 @@ export default function ScreensaverSettingsPage() {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {t.rich("presenceUnavailableHint", {
-                    link: (chunks) => <span className="text-month-primary">{chunks}</span>,
+                    link: (chunks) => <span className="text-primary">{chunks}</span>,
                   })}
                 </p>
               </div>
             )}
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Info Section */}
@@ -322,27 +322,27 @@ export default function ScreensaverSettingsPage() {
           transition={{ delay: 0.3 }}
           className="mt-6"
         >
-          <GlassCard className="p-4">
+          <Card className="p-4">
             <h3 className="font-medium mb-2">{t("infoHeading")}</h3>
             <ul className="text-sm text-muted-foreground flex flex-col gap-1.5">
               <li className="flex items-start gap-2">
-                <span className="text-month-primary">•</span>
+                <span className="text-primary">•</span>
                 {t("info1")}
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-month-primary">•</span>
+                <span className="text-primary">•</span>
                 {t("info2")}
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-month-primary">•</span>
+                <span className="text-primary">•</span>
                 {t("info3")}
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-month-primary">•</span>
+                <span className="text-primary">•</span>
                 {t("info4")}
               </li>
             </ul>
-          </GlassCard>
+          </Card>
         </motion.div>
       </div>
     </main>

@@ -14,6 +14,7 @@ export interface Database {
           id: string;
           name: string;
           join_code: string;
+          join_code_expires_at: string | null;
           setup_completed: boolean;
           created_at: string;
           updated_at: string;
@@ -22,6 +23,7 @@ export interface Database {
           id?: string;
           name: string;
           join_code: string;
+          join_code_expires_at?: string | null;
           setup_completed?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -30,6 +32,7 @@ export interface Database {
           id?: string;
           name?: string;
           join_code?: string;
+          join_code_expires_at?: string | null;
           setup_completed?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -81,6 +84,7 @@ export interface Database {
           color: string;
           avatar_url: string | null;
           is_child: boolean;
+          birth_date: string | null;
           created_at: string;
         };
         Insert: {
@@ -90,6 +94,7 @@ export interface Database {
           color: string;
           avatar_url?: string | null;
           is_child?: boolean;
+          birth_date?: string | null;
           created_at?: string;
         };
         Update: {
@@ -99,6 +104,7 @@ export interface Database {
           color?: string;
           avatar_url?: string | null;
           is_child?: boolean;
+          birth_date?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -351,6 +357,7 @@ export interface Database {
           date: string;
           person_id: string | null;
           notify_days_before: number;
+          image_url: string | null;
           created_at: string;
         };
         Insert: {
@@ -360,6 +367,7 @@ export interface Database {
           date: string;
           person_id?: string | null;
           notify_days_before?: number;
+          image_url?: string | null;
           created_at?: string;
         };
         Update: {
@@ -369,6 +377,34 @@ export interface Database {
           date?: string;
           person_id?: string | null;
           notify_days_before?: number;
+          image_url?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      birthday_gift_ideas: {
+        Row: {
+          id: string;
+          family_id: string;
+          birthday_id: string;
+          text: string;
+          bought: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          birthday_id: string;
+          text: string;
+          bought?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          birthday_id?: string;
+          text?: string;
+          bought?: boolean;
           created_at?: string;
         };
         Relationships: [];
@@ -378,6 +414,7 @@ export interface Database {
           id: string;
           family_id: string;
           content: string;
+          person_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -385,6 +422,7 @@ export interface Database {
           id?: string;
           family_id: string;
           content: string;
+          person_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -392,6 +430,7 @@ export interface Database {
           id?: string;
           family_id?: string;
           content?: string;
+          person_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1153,6 +1192,7 @@ export type ShoppingItem = Database["public"]["Tables"]["shopping_items"]["Row"]
 export type Subject = Database["public"]["Tables"]["subjects"]["Row"];
 export type Schedule = Database["public"]["Tables"]["schedules"]["Row"];
 export type Birthday = Database["public"]["Tables"]["birthdays"]["Row"];
+export type BirthdayGiftIdea = Database["public"]["Tables"]["birthday_gift_ideas"]["Row"];
 export type Note = Database["public"]["Tables"]["notes"]["Row"];
 
 // Recipe types

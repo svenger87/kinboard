@@ -14,7 +14,7 @@ import {
   Import,
   Check,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -105,7 +105,7 @@ export default function RecipeSearchPage() {
     <TooltipProvider>
       <main id="main-content" className="min-h-screen relative overflow-hidden">
         {/* Background */}
-        <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+        <div className="page-gradient" />
 
         <div className="relative z-10 p-4 md:p-8 max-w-7xl mx-auto safe-area-inset">
           <PageHeader
@@ -123,7 +123,7 @@ export default function RecipeSearchPage() {
             transition={{ delay: 0.1 }}
             className="mb-6"
           >
-            <GlassCard className="p-4">
+            <Card className="p-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
                 <Input
@@ -139,7 +139,7 @@ export default function RecipeSearchPage() {
                   </div>
                 )}
               </div>
-            </GlassCard>
+            </Card>
           </motion.div>
 
           {/* Search Results */}
@@ -166,13 +166,13 @@ export default function RecipeSearchPage() {
                   // Loading skeleton
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                      <GlassCard key={i} className="overflow-hidden">
+                      <Card key={i} className="overflow-hidden">
                         <Skeleton className="h-48 w-full" />
                         <div className="p-4">
                           <Skeleton className="h-6 w-3/4 mb-2" />
                           <Skeleton className="h-4 w-1/2" />
                         </div>
-                      </GlassCard>
+                      </Card>
                     ))}
                   </div>
                 ) : searchResults.length === 0 && debouncedQuery.length >= 2 ? (
@@ -202,8 +202,8 @@ export default function RecipeSearchPage() {
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.95 }}
                         >
-                          <GlassCard
-                            className={`overflow-hidden cursor-pointer hover:ring-2 hover:ring-month-primary/50 transition-all ${
+                          <Card
+                            className={`overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all ${
                               isImported ? "ring-2 ring-success/50" : ""
                             }`}
                             onClick={() => {
@@ -240,7 +240,7 @@ export default function RecipeSearchPage() {
 
                               {/* Source badge */}
                               <div className="absolute bottom-2 left-2">
-                                <Badge variant="secondary" className="text-xs backdrop-blur-sm">
+                                <Badge variant="secondary" className="border-0 bg-black/55 text-xs text-white/90">
                                   <ExternalLink className="size-3 mr-1" />
                                   {recipe.sourceDomain}
                                 </Badge>
@@ -249,7 +249,7 @@ export default function RecipeSearchPage() {
 
                             {/* Content */}
                             <div className="p-4">
-                              <h3 className="font-semibold line-clamp-2 group-hover:text-month-primary transition-colors">
+                              <h3 className="font-semibold line-clamp-2 group-hover:text-primary transition-colors">
                                 {recipe.title}
                               </h3>
 
@@ -280,7 +280,7 @@ export default function RecipeSearchPage() {
                                 </Badge>
                               </div>
                             </div>
-                          </GlassCard>
+                          </Card>
                         </motion.div>
                       );
                     })}

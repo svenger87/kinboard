@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Dialog,
@@ -14,22 +14,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useFamilyStore } from "@/stores/family-store";
-import { useGoalImageSearch, useCreatePocketMoneyGoal, useUpdatePocketMoneyGoal } from "@/hooks";
-import type { PocketMoneyGoal } from "@/types/database";
+import { useGoalImageSearch, useCreatePocketMoneyGoal } from "@/hooks";
 
 interface Props {
   accountId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // When provided, the dialog edits this goal instead of creating a new one.
-  goal?: PocketMoneyGoal | null;
 }
 
-export function GoalAddDialog({ accountId, open, onOpenChange, goal }: Props) {
+export function GoalAddDialog({ accountId, open, onOpenChange }: Props) {
   const t = useTranslations("pocketMoney");
   const createGoal = useCreatePocketMoneyGoal();
-  const updateGoal = useUpdatePocketMoneyGoal();
-  const isEditing = !!goal;
   const [name, setName] = useState("");
   const [targetCents, setTargetCents] = useState<number>(1000); // €10 default
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -38,67 +33,36 @@ export function GoalAddDialog({ accountId, open, onOpenChange, goal }: Props) {
 
   const { data: searchResults = [] } = useGoalImageSearch(searchQuery);
 
-  // Sync form state when the dialog opens: prefill from the goal when editing,
-  // otherwise start blank.
-  useEffect(() => {
-    if (!open) return;
-    if (goal) {
-      setName(goal.name);
-      setTargetCents(goal.target_amount_cents);
-      setImageUrl(goal.image_url);
-      setImageSource(
-        goal.image_source === "upload" || goal.image_source === "url"
-          ? goal.image_source
-          : "catalog"
-      );
-      setSearchQuery("");
-    } else {
-      setName("");
-      setTargetCents(1000);
-      setImageUrl(null);
-      setSearchQuery("");
-      setImageSource("catalog");
-    }
-  }, [open, goal]);
-
-  const busy = createGoal.isPending || updateGoal.isPending;
+  const reset = () => {
+    setName("");
+    setTargetCents(1000);
+    setImageUrl(null);
+    setSearchQuery("");
+    setImageSource("catalog");
+  };
 
   const handleSubmit = async () => {
     if (!name || targetCents <= 0) return;
-    try {
-      if (goal) {
-        await updateGoal.mutateAsync({
-          id: goal.id,
-          accountId,
-          update: {
-            name,
-            target_amount_cents: targetCents,
-            image_url: imageUrl,
-            image_source: imageSource,
-          },
-        });
-      } else {
-        await createGoal.mutateAsync({
-          accountId,
-          input: {
-            name,
-            target_amount_cents: targetCents,
-            image_url: imageUrl,
-            image_source: imageSource,
-          },
-        });
-      }
-      onOpenChange(false);
-    } catch (e) {
-      console.error(e);
-    }
+    await createGoal
+      .mutateAsync({
+        accountId,
+        input: {
+          name,
+          target_amount_cents: targetCents,
+          image_url: imageUrl,
+          image_source: imageSource,
+        },
+      })
+      .catch(console.error);
+    reset();
+    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEditing ? t("editGoalTitle") : t("addGoalTitle")}</DialogTitle>
+          <DialogTitle>{t("addGoalTitle")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -202,9 +166,9 @@ export function GoalAddDialog({ accountId, open, onOpenChange, goal }: Props) {
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!name || targetCents <= 0 || busy}
+            disabled={!name || targetCents <= 0 || createGoal.isPending}
           >
-            {isEditing ? t("saveGoal") : t("createGoal")}
+            {t("createGoal")}
           </Button>
         </DialogFooter>
       </DialogContent>

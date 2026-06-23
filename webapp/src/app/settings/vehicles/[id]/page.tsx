@@ -13,7 +13,7 @@ import type { Json } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { useFamilyStore } from "@/stores/family-store";
 
@@ -120,7 +120,7 @@ export default function EditVehiclePage({
           }
         />
 
-        <GlassCard className="p-6 space-y-4">
+        <Card className="p-6 space-y-4">
           <div className="space-y-2">
             <Label>{t("image")}</Label>
             <p className="text-sm text-muted-foreground">{t("imageHint")}</p>
@@ -151,9 +151,9 @@ export default function EditVehiclePage({
               )}
             </div>
           </div>
-        </GlassCard>
+        </Card>
 
-        <GlassCard>
+        <Card>
           <div className="p-6 flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label>{t("nickname")}</Label>
@@ -169,9 +169,9 @@ export default function EditVehiclePage({
               />
             </div>
           </div>
-        </GlassCard>
+        </Card>
 
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <ConfigForm
               vehicle={{ ...vehicle, config: config as typeof vehicle.config }}
@@ -180,7 +180,7 @@ export default function EditVehiclePage({
               }
             />
           </div>
-        </GlassCard>
+        </Card>
 
         <div className="flex items-center justify-between">
           <Button asChild variant="ghost" size="sm">

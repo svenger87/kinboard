@@ -2,49 +2,26 @@
 
 import { motion } from "framer-motion";
 import { Cake, Gift, PartyPopper, ChevronRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { WidgetCard } from "@/components/widget-card";
+import { PersonAvatar } from "@/components/person-avatar";
 import Link from "next/link";
-import { format, differenceInDays, setYear, isPast, addYears, parseISO, startOfDay } from "date-fns";
+import { format } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { useMemo } from "react";
-import { useBirthdays, usePeople } from "@/hooks";
-
-// Parse date string safely without timezone issues
-// "1990-01-28" should be January 28th, not January 27th due to UTC conversion
-function parseBirthdayDate(dateStr: string): Date {
-  const date = parseISO(dateStr + "T12:00:00");
-  return date;
-}
+import { useBirthdays, usePeople, useToday } from "@/hooks";
+import {
+  parseBirthdayDate,
+  getNextBirthday,
+  getDaysUntilBirthday,
+} from "@/lib/birthday";
 
 interface BirthdayWidgetProps {
   maxItems?: number;
   className?: string;
-}
-
-function getNextBirthday(date: Date): Date {
-  const today = startOfDay(new Date());
-  const thisYearBirthday = startOfDay(setYear(date, today.getFullYear()));
-
-  // If birthday already passed this year (not today), advance to next year
-  if (differenceInDays(today, thisYearBirthday) > 0) {
-    return addYears(thisYearBirthday, 1);
-  }
-  return thisYearBirthday;
-}
-
-function getDaysUntilBirthday(date: Date): number {
-  const nextBirthday = getNextBirthday(date);
-  // Use startOfDay to compare dates without time component
-  return differenceInDays(startOfDay(nextBirthday), startOfDay(new Date()));
 }
 
 function calculateUpcomingAge(birthDate: Date): number {
@@ -56,13 +33,11 @@ function BirthdayWidgetSkeleton() {
   const t = useTranslations("birthdayWidget");
   return (
     <Card aria-label={t("loadingAria")} aria-busy="true">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
+      <CardContent className="flex flex-col gap-4 p-[18px]">
+        <div className="flex items-center gap-3">
           <Skeleton className="size-5 rounded" />
           <Skeleton className="h-5 w-24" />
         </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <Skeleton className="size-8 rounded-lg" />
           <div className="flex-1 flex flex-col gap-1">
@@ -93,6 +68,8 @@ export function BirthdayWidget({
   const dateLocale = getDateFnsLocale(locale);
   const { data: birthdays, isLoading: loadingBirthdays, isError } = useBirthdays();
   const { data: people } = usePeople();
+  // Re-render at midnight so daysUntil / "today" recompute without a reload.
+  const today = useToday();
 
   // Transform birthdays to display format with cached daysUntil
   const displayBirthdays = useMemo(() => (birthdays || []).map((birthday) => {
@@ -102,10 +79,11 @@ export function BirthdayWidget({
       id: birthday.id,
       name: birthday.name,
       date,
-      daysUntil: getDaysUntilBirthday(date),
+      daysUntil: getDaysUntilBirthday(date, new Date(today)),
       personColor: person?.color,
+      imageUrl: birthday.image_url,
     };
-  }), [birthdays, people]);
+  }), [birthdays, people, today]);
 
   // Sort by days until birthday and take top items
   const upcomingBirthdays = useMemo(() =>
@@ -120,16 +98,14 @@ export function BirthdayWidget({
 
   if (isError) {
     return (
-      <Card className={`accent-border-top h-full ${className}`}>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-xl font-medium">
-            <span className="p-1.5 rounded-lg bg-month-primary/10">
-              <Cake className="size-5 text-month-primary" strokeWidth={1.5} />
+      <Card className={`h-full ${className}`}>
+        <CardContent className="flex flex-col gap-4 p-[18px]">
+          <div className="flex items-center gap-3">
+            <span className="p-1.5 rounded-lg bg-primary/10">
+              <Cake className="size-5 text-primary" strokeWidth={1.5} />
             </span>
-            {t("title")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+            <h3 className="font-display text-lg font-semibold leading-tight">{t("title")}</h3>
+          </div>
           <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
             <Cake className="size-8 mb-2 text-destructive/40" />
             <p className="text-sm">{t("errorMessage")}</p>
@@ -152,128 +128,80 @@ export function BirthdayWidget({
     show: { opacity: 1, x: 0 },
   };
 
+  const headerRight = (
+    <Link
+      href="/birthdays"
+      className="p-1 rounded-lg hover:bg-accent/50 transition-colors"
+      aria-label={t("viewAllAria")}
+    >
+      <ChevronRight className="size-4 text-muted-foreground" />
+    </Link>
+  );
+
   return (
-    <TooltipProvider>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.5 }}
-      >
-        <Card className={`accent-border-top h-full ${className}`}>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-xl font-medium">
-                <span className="p-1.5 rounded-lg bg-month-primary/10">
-                  <Cake className="size-5 text-month-primary" strokeWidth={1.5} />
-                </span>
-                {t("title")}
-              </CardTitle>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/birthdays"
-                    className="p-1 rounded-lg hover:bg-accent/50 transition-colors"
-                    aria-label={t("viewAllAria")}
-                  >
-                    <ChevronRight className="size-4 text-muted-foreground" />
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t("viewAllTooltip")}</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <motion.div
-              variants={container}
-              initial="hidden"
-              animate="show"
-              className="flex flex-col gap-3"
-            >
-              {upcomingBirthdays.map((birthday) => {
-                const daysUntil = birthday.daysUntil;
-                const isToday = daysUntil === 0;
-                const isSoon = daysUntil <= 7 && daysUntil > 0;
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.5 }}
+      className={className}
+    >
+      <WidgetCard icon={Cake} title={t("title")} headerRight={headerRight}>
+        <motion.div
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="flex flex-col gap-3"
+        >
+          {upcomingBirthdays.map((birthday) => {
+            const daysUntil = birthday.daysUntil;
+            const isToday = daysUntil === 0;
+            const isSoon = daysUntil <= 7 && daysUntil > 0;
 
-                return (
-                  <motion.div
-                    key={birthday.id}
-                    variants={item}
-                    className={`flex items-center gap-3 rounded-xl px-2 py-1.5 -mx-2 transition-colors ${
-                      isToday
-                        ? "bg-month-primary/[0.08] birthday-shimmer"
-                        : ""
-                    }`}
-                  >
-                    {/* Icon */}
-                    <div
-                      className={`p-2 rounded-lg ${
-                        isToday
-                          ? "bg-month-primary text-white"
-                          : isSoon
-                          ? "bg-warning/10 text-warning"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {isToday ? (
-                        <PartyPopper className="size-4" />
-                      ) : isSoon ? (
-                        <Gift className="size-4" />
-                      ) : (
-                        <Cake className="size-4" />
-                      )}
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">
-                        {t("turnsAge", { name: birthday.name, age: calculateUpcomingAge(birthday.date) })}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(birthday.date, "d. MMM", { locale: dateLocale })}
-                      </p>
-                    </div>
-
-                    {/* Countdown */}
-                    {isToday ? (
-                      <Badge className="bg-month-primary text-xs animate-pulse motion-reduce:animate-none shadow-[0_0_12px_hsl(var(--month-primary)/0.4)]">
-                        {t("todayBadge")}
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant={isSoon ? "default" : "outline"}
-                        className={`text-xs ${isSoon ? "bg-warning/20 text-warning border-warning/30 hover:bg-warning/20" : ""}`}
-                        style={!isSoon && birthday.personColor ? { borderColor: birthday.personColor, color: birthday.personColor } : {}}
-                      >
-                        {t("daysSuffix", { count: daysUntil })}
-                      </Badge>
-                    )}
-                  </motion.div>
-                );
-              })}
-
-              {displayBirthdays.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
-                  <Cake className="size-8 mb-2 text-month-primary/20" />
-                  <p className="text-sm">{t("emptyState")}</p>
-                </div>
-              )}
-            </motion.div>
-
-            {displayBirthdays.length > maxItems && (
-              <Link
-                href="/birthdays"
-                className="flex items-center justify-center gap-1 mt-3 pt-3 border-t border-border/30 text-sm text-month-primary/60 hover:text-month-primary transition-colors"
+            return (
+              <motion.div
+                key={birthday.id}
+                variants={item}
+                className={`flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 elev-sm${isToday ? " border-l-4 border-l-primary" : ""}`}
               >
-                <span>{t("moreCount", { count: displayBirthdays.length - maxItems })}</span>
-                <ChevronRight className="size-3" />
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
-    </TooltipProvider>
+                {birthday.imageUrl ? (
+                  <PersonAvatar name={birthday.name} color={birthday.personColor ?? "hsl(var(--primary))"} avatarUrl={birthday.imageUrl} size={40} />
+                ) : (
+                  <span className={`rounded-lg p-2 ${isToday ? "bg-primary text-primary-foreground" : isSoon ? "bg-warning/10 text-warning" : "bg-muted text-muted-foreground"}`}>
+                    {isToday ? <PartyPopper className="size-4" strokeWidth={1.75} /> : isSoon ? <Gift className="size-4" strokeWidth={1.75} /> : <Cake className="size-4" strokeWidth={1.75} />}
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{t("turnsAge", { name: birthday.name, age: calculateUpcomingAge(birthday.date) })}</p>
+                  <p className="text-xs text-muted-foreground tabular-nums">{format(birthday.date, "d. MMM", { locale: dateLocale })}</p>
+                </div>
+                {isToday ? (
+                  <Badge variant="default" className="tabular-nums">{t("todayBadge")}</Badge>
+                ) : (
+                  <Badge variant={isSoon ? "warning" : "neutral"} className="tabular-nums">{t("daysSuffix", { count: daysUntil })}</Badge>
+                )}
+              </motion.div>
+            );
+          })}
+
+          {displayBirthdays.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
+              <Cake className="size-8 mb-2 opacity-20" />
+              <p className="text-sm">{t("emptyState")}</p>
+            </div>
+          )}
+        </motion.div>
+
+        {displayBirthdays.length > maxItems && (
+          <Link
+            href="/birthdays"
+            className="flex items-center justify-center gap-1 mt-3 pt-3 border-t border-border/30 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span>{t("moreCount", { count: displayBirthdays.length - maxItems })}</span>
+            <ChevronRight className="size-3" />
+          </Link>
+        )}
+      </WidgetCard>
+    </motion.div>
   );
 }
 

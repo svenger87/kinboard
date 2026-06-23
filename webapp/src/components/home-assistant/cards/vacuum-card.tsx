@@ -113,17 +113,17 @@ export function VacuumCard({ card, entity }: VacuumCardProps) {
 
   return (
     <div
-      className={`rounded-xl border border-white/[0.08] p-4 transition-all backdrop-blur-sm ${
+      className={`rounded-2xl border bg-card elev-sm p-4 transition-all ${
         isCleaning
           ? "bg-green-500/10 border-green-500/30"
-          : "bg-white/[0.03] hover:border-month-primary/30 hover:bg-white/[0.05]"
+          : "border-border hover:border-primary/30"
       } ${isUnavailable ? "opacity-50" : ""}`}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div
           className={`p-2.5 rounded-xl ${
-            isCleaning ? "bg-green-500/20 text-green-500" : "bg-white/[0.06] text-muted-foreground"
+            isCleaning ? "bg-green-500/20 text-green-500" : "bg-muted text-muted-foreground"
           }`}
         >
           <VacuumIcon className="size-5" />

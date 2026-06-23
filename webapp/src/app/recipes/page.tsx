@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   ChefHat,
@@ -12,15 +13,13 @@ import {
   Clock,
   Users,
   ExternalLink,
-  Filter,
   Grid3X3,
   List,
   Import,
-  Star,
   Trash2,
   Loader2,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FAB } from "@/components/fab";
 import {
   Dialog,
   DialogContent,
@@ -62,10 +62,11 @@ import {
   useToggleRecipeFavorite,
   useDeleteRecipe,
   useImportRecipe,
+  useRecipeTags,
   useKeyboardShortcuts,
   useSwipeNavigation,
 } from "@/hooks";
-import type { Recipe, RecipeWithIngredients } from "@/types/database";
+import type { Recipe, RecipeWithIngredients, RecipeTag } from "@/types/database";
 
 // Type for recipe card that accepts either Recipe or RecipeWithIngredients
 type RecipeCardData = Recipe & { ingredients?: RecipeWithIngredients["ingredients"] };
@@ -88,6 +89,7 @@ export default function RecipesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<"all" | "favorites">("all");
+  const [activeTagId, setActiveTagId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"recent" | "name" | "time">("recent");
   const [importUrl, setImportUrl] = useState("");
   const [showImportDialog, setShowImportDialog] = useState(false);
@@ -101,9 +103,17 @@ export default function RecipesPage() {
   const toggleFavorite = useToggleRecipeFavorite();
   const deleteRecipe = useDeleteRecipe();
   const importRecipe = useImportRecipe();
+  const { data: tags = [] } = useRecipeTags();
+
+  const router = useRouter();
 
   // Filter and sort recipes
-  const displayedRecipes = searchQuery.length >= 2 ? searchResults : recipes;
+  const baseRecipes = searchQuery.length >= 2 ? searchResults : recipes;
+  const displayedRecipes = activeTagId
+    ? baseRecipes.filter((r) =>
+        ((r as RecipeWithIngredients).tags ?? []).some((tag) => tag.id === activeTagId)
+      )
+    : baseRecipes;
 
   const sortedRecipes = [...displayedRecipes].sort((a, b) => {
     switch (sortBy) {
@@ -155,7 +165,7 @@ export default function RecipesPage() {
     return (
       <TooltipProvider>
         <main id="main-content" className="min-h-screen relative overflow-hidden">
-          <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+          <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-7xl mx-auto safe-area-inset">
             <PageHeader
               icon={ChefHat}
@@ -166,7 +176,7 @@ export default function RecipesPage() {
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <GlassCard key={i} className="overflow-hidden">
+                <Card key={i} className="overflow-hidden">
                   <Skeleton className="h-48 w-full" />
                   <div className="p-4">
                     <Skeleton className="h-6 w-3/4 mb-2" />
@@ -176,7 +186,7 @@ export default function RecipesPage() {
                       <Skeleton className="h-5 w-12 rounded-full" />
                     </div>
                   </div>
-                </GlassCard>
+                </Card>
               ))}
             </div>
           </div>
@@ -190,15 +200,15 @@ export default function RecipesPage() {
     return (
       <TooltipProvider>
         <main id="main-content" className="min-h-screen relative overflow-hidden">
-          <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+          <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-7xl mx-auto safe-area-inset">
-            <GlassCard className="p-8">
+            <Card className="p-8">
               <ErrorState
                 icon={ChefHat}
                 message={t("errorMessage")}
                 onRetry={() => refetch()}
               />
-            </GlassCard>
+            </Card>
           </div>
         </main>
       </TooltipProvider>
@@ -209,7 +219,7 @@ export default function RecipesPage() {
     <TooltipProvider>
       <main id="main-content" className="min-h-screen relative overflow-hidden">
         {/* Background */}
-        <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
+        <div className="page-gradient" />
 
         <div className="relative z-10 p-4 md:p-8 max-w-7xl mx-auto safe-area-inset">
           <PageHeader
@@ -279,7 +289,7 @@ export default function RecipesPage() {
 
               {/* Create New */}
               <Link href="/recipes/new">
-                <Button variant="month" size="sm">
+                <Button size="sm">
                   <Plus className="size-4 mr-2" />
                   {t("newButton")}
                 </Button>
@@ -295,7 +305,7 @@ export default function RecipesPage() {
             transition={{ delay: 0.1 }}
             className="mb-6 sticky top-0 z-20"
           >
-            <GlassCard className="p-4">
+            <Card className="p-4">
               <div className="flex flex-col sm:flex-row gap-3">
                 {/* Search */}
                 <div className="relative flex-1">
@@ -304,21 +314,41 @@ export default function RecipesPage() {
                     placeholder={t("searchPlaceholder")}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 focus-visible:border-primary"
                   />
                 </div>
 
                 {/* Filters */}
-                <div className="flex gap-2">
-                  <Select value={filter} onValueChange={(v) => setFilter(v as "all" | "favorites")}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t("filterAll")}</SelectItem>
-                      <SelectItem value="favorites">{t("filterFavorites")}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <RecipeFilterChip
+                      label={t("filterAll")}
+                      active={filter === "all" && !activeTagId}
+                      onClick={() => {
+                        setFilter("all");
+                        setActiveTagId(null);
+                      }}
+                    />
+                    <RecipeFilterChip
+                      label={t("filterFavorites")}
+                      active={filter === "favorites"}
+                      onClick={() => {
+                        setActiveTagId(null);
+                        setFilter(filter === "favorites" ? "all" : "favorites");
+                      }}
+                    />
+                    {tags.map((tag) => (
+                      <RecipeFilterChip
+                        key={tag.id}
+                        label={tag.name}
+                        active={activeTagId === tag.id}
+                        onClick={() => {
+                          setFilter("all");
+                          setActiveTagId(activeTagId === tag.id ? null : tag.id);
+                        }}
+                      />
+                    ))}
+                  </div>
 
                   <Select value={sortBy} onValueChange={(v) => setSortBy(v as "recent" | "name" | "time")}>
                     <SelectTrigger className="w-32">
@@ -356,7 +386,7 @@ export default function RecipesPage() {
                   </div>
                 </div>
               </div>
-            </GlassCard>
+            </Card>
           </motion.div>
 
           {/* Active filters & results summary */}
@@ -455,7 +485,7 @@ export default function RecipesPage() {
                             {t("importButton")}
                           </Button>
                           <Link href="/recipes/new">
-                            <Button variant="month">
+                            <Button>
                               <Plus className="size-4 mr-2" />
                               {t("newButton")}
                             </Button>
@@ -466,7 +496,7 @@ export default function RecipesPage() {
                   </motion.div>
                 ) : viewMode === "grid" ? (
                   // Grid View
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {sortedRecipes.map((recipe) => (
                       <RecipeCard
                         key={recipe.id}
@@ -530,6 +560,15 @@ export default function RecipesPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Mobile FAB */}
+        <div className="sm:hidden">
+          <FAB
+            icon={Plus}
+            onClick={() => router.push("/recipes/new")}
+            ariaLabel={t("newButton")}
+          />
+        </div>
       </main>
     </TooltipProvider>
   );
@@ -558,7 +597,7 @@ function RecipeCard({
   return (
     <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       <Link href={`/recipes/${recipe.id}`}>
-        <GlassCard className="overflow-hidden group cursor-pointer hover:ring-2 hover:ring-month-primary/50 transition-all">
+        <Card className="overflow-hidden group cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
           {/* Image with gradient overlay */}
           <div className="relative h-52 bg-muted">
             {recipe.image_url ? (
@@ -583,17 +622,18 @@ function RecipeCard({
                 e.stopPropagation();
                 onToggleFavorite();
               }}
-              className="absolute top-3 right-3 p-2 rounded-full bg-black/40 backdrop-blur-sm text-white hover:bg-black/60 transition-colors"
+              className="absolute top-3 right-3 flex size-11 items-center justify-center rounded-full border border-border bg-card/90 text-foreground transition-colors hover:bg-card"
             >
               <Heart
-                className={`size-4 ${recipe.is_favorite ? "fill-red-400 text-red-400" : ""}`}
+                className={`size-4 ${recipe.is_favorite ? "fill-destructive text-destructive" : ""}`}
+                strokeWidth={1.75}
               />
             </button>
 
             {/* Source badge */}
             {recipe.source_domain && (
               <div className="absolute top-3 left-3">
-                <Badge variant="secondary" className="text-[10px] bg-black/40 backdrop-blur-sm border-0 text-white/80">
+                <Badge variant="secondary" className="text-[10px] border-0 bg-black/55 text-white/90">
                   <ExternalLink className="size-2.5 mr-1" />
                   {recipe.source_domain}
                 </Badge>
@@ -635,7 +675,7 @@ function RecipeCard({
               </p>
             </div>
           )}
-        </GlassCard>
+        </Card>
       </Link>
     </motion.div>
   );
@@ -664,7 +704,7 @@ function RecipeListItem({
   return (
     <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       <Link href={`/recipes/${recipe.id}`}>
-        <GlassCard className="p-4 group cursor-pointer hover:ring-2 hover:ring-month-primary/50 transition-all">
+        <Card className="p-4 group cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
           <div className="flex gap-4">
             {/* Image */}
             <div className="shrink-0 size-24 rounded-lg bg-muted overflow-hidden">
@@ -684,7 +724,7 @@ function RecipeListItem({
             {/* Content */}
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold truncate group-hover:text-month-primary transition-colors">
+                <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
                   {recipe.title}
                 </h3>
                 <div className="flex items-center gap-1 shrink-0">
@@ -751,8 +791,34 @@ function RecipeListItem({
               </p>
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </Link>
     </motion.div>
+  );
+}
+
+// Library filter chip (All / Favorites / tag). Mirrors the PersonChip toggle pattern.
+function RecipeFilterChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex min-h-[36px] items-center rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors [transition-duration:120ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+        active
+          ? "bg-primary/12 text-primary"
+          : "bg-muted text-muted-foreground hover:bg-muted/80"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

@@ -10,7 +10,6 @@ import {
   Camera,
   Check,
   RefreshCw,
-  Unlink,
   AlertCircle,
   Server,
   Key,
@@ -21,7 +20,8 @@ import {
   EyeOff,
   RotateCcw,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { IntegrationStatusBanner } from "@/components/integration-status-banner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -35,22 +35,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   useImmichStatus,
@@ -153,14 +141,14 @@ export default function PhotoSettingsPage() {
             subtitle={t("subtitleLoading")}
             backHref="/settings"
           />
-          <GlassCard>
+          <Card>
             <div className="p-6">
               <div className="flex items-center gap-3">
                 <Loader2 className="size-5 animate-spin text-muted-foreground" />
                 <span className="text-muted-foreground">{t("loadingHint")}</span>
               </div>
             </div>
-          </GlassCard>
+          </Card>
         </div>
       </main>
     );
@@ -333,7 +321,7 @@ export default function PhotoSettingsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <GlassCard>
+          <Card>
             <div className="p-6">
               <h2 className="font-medium mb-4">{t("sourceHeading")}</h2>
               <RadioGroup
@@ -359,233 +347,177 @@ export default function PhotoSettingsPage() {
                 </div>
               </RadioGroup>
             </div>
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* ═══════════════ IMMICH SECTION ═══════════════ */}
         {photoSource === "immich" && (
           <>
             {/* Immich Connection Status */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <GlassCard>
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`p-2 rounded-lg ${
-                          immichConnected ? "bg-success/10" : "bg-muted"
-                        }`}
+            <IntegrationStatusBanner
+              connected={immichConnected}
+              icon={<Server className="size-6" strokeWidth={1.75} />}
+              serviceName={t("immichConnectionTitle")}
+              connectedLabel={t("immichConnectedBadge")}
+              connectedSubtitle={immichConnected ? immichSettings?.url : undefined}
+              onConnect={immichConnected ? undefined : () => setImmichDialogOpen(true)}
+              onDisconnect={immichConnected ? handleImmichDisconnect : undefined}
+              connectLabel={t("immichConnectButton")}
+              disconnectLabel={t("immichDisconnectButton")}
+              disconnectedTitle={t("immichConnectionTitle")}
+              disconnectedBody={t("immichNotConnected")}
+            />
+
+            {/* Immich connect dialog */}
+            <Dialog open={immichDialogOpen} onOpenChange={setImmichDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("immichDialogTitle")}</DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col gap-4 mt-4">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="immich-url">
+                      <Server className="size-4 inline mr-2" />
+                      {t("immichUrlLabel")}
+                    </Label>
+                    <Input
+                      id="immich-url"
+                      type="url"
+                      placeholder={t("immichUrlPlaceholder")}
+                      value={immichUrl}
+                      onChange={(e) => setImmichUrl(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("immichUrlHint")}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="immich-api-key">
+                      <Key className="size-4 inline mr-2" />
+                      {t("immichApiKeyLabel")}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="immich-api-key"
+                        type={showImmichKey ? "text" : "password"}
+                        placeholder={t("immichApiKeyPlaceholder")}
+                        value={immichApiKey}
+                        onChange={(e) => setImmichApiKey(e.target.value)}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowImmichKey(!showImmichKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       >
-                        <Server
-                          className={`size-5 ${
-                            immichConnected ? "text-success" : "text-muted-foreground"
-                          }`}
-                        />
-                      </div>
-                      <div>
-                        <h2 className="font-medium">{t("immichConnectionTitle")}</h2>
-                        <p className="text-sm text-muted-foreground">
-                          {immichConnected ? immichSettings?.url : t("immichNotConnected")}
-                        </p>
-                      </div>
+                        {showImmichKey ? (
+                          <EyeOff className="size-4" />
+                        ) : (
+                          <Eye className="size-4" />
+                        )}
+                      </button>
                     </div>
-                    <Badge variant={immichConnected ? "default" : "secondary"}>
-                      {immichConnected ? (
-                        <>
-                          <Check className="size-3 mr-1" /> {t("immichConnectedBadge")}
-                        </>
-                      ) : (
-                        t("immichNotConnectedBadge")
-                      )}
-                    </Badge>
+                    <p className="text-xs text-muted-foreground">
+                      {t("immichApiKeyHint")}
+                    </p>
                   </div>
 
-                  {immichConnected ? (
-                    <div className="flex flex-col gap-4">
-                      {/* Album Selection */}
-                      <div className="flex flex-col gap-2">
-                        <Label>{t("albumLabel")}</Label>
-                        <Select
-                          value={selectedAlbum || "auto"}
-                          onValueChange={handleAlbumChange}
-                          disabled={loadingAlbums}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={t("albumPlaceholder")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="auto">
-                              <div className="flex items-center gap-2">
-                                <FolderOpen className="size-4" />
-                                <span>{t("albumAuto")}</span>
-                              </div>
-                            </SelectItem>
-                            {albums?.map((album) => (
-                              <SelectItem key={album.id} value={album.id}>
-                                <div className="flex items-center justify-between gap-4">
-                                  <span>{album.name}</span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {t("albumPhotosCount", { count: album.assetCount })}
-                                  </Badge>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {!selectedAlbum && currentMonthAlbum && (
-                          <p className="text-xs text-muted-foreground">
-                            {t("currentMonthAlbumHint", {
-                              name: currentMonthAlbum.name,
-                              count: currentMonthAlbum.assetCount,
-                            })}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 pt-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => refetchAlbums()}
-                          disabled={loadingAlbums}
-                        >
-                          <RefreshCw
-                            className={`size-4 mr-2 ${loadingAlbums ? "animate-spin" : ""}`}
-                          />
-                          {t("albumsRefreshButton")}
-                        </Button>
-
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="sm">
-                              <Unlink className="size-4 mr-2" />
-                              {t("immichDisconnectButton")}
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                {t("immichDisconnectDialogTitle")}
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {t("immichDisconnectDialogDescription")}
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>{t("immichDisconnectCancel")}</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={handleImmichDisconnect}
-                                className="bg-destructive text-destructive-foreground"
-                              >
-                                {t("immichDisconnectButton")}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
+                  {immichError && (
+                    <div className="flex items-center gap-2 text-destructive text-sm">
+                      <AlertCircle className="size-4" />
+                      {immichError}
                     </div>
-                  ) : (
-                    <Dialog open={immichDialogOpen} onOpenChange={setImmichDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button>
-                          <Server className="size-4 mr-2" />
-                          {t("immichConnectButton")}
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>{t("immichDialogTitle")}</DialogTitle>
-                        </DialogHeader>
-                        <div className="flex flex-col gap-4 mt-4">
-                          <div className="flex flex-col gap-2">
-                            <Label htmlFor="immich-url">
-                              <Server className="size-4 inline mr-2" />
-                              {t("immichUrlLabel")}
-                            </Label>
-                            <Input
-                              id="immich-url"
-                              type="url"
-                              placeholder={t("immichUrlPlaceholder")}
-                              value={immichUrl}
-                              onChange={(e) => setImmichUrl(e.target.value)}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              {t("immichUrlHint")}
-                            </p>
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <Label htmlFor="immich-api-key">
-                              <Key className="size-4 inline mr-2" />
-                              {t("immichApiKeyLabel")}
-                            </Label>
-                            <div className="relative">
-                              <Input
-                                id="immich-api-key"
-                                type={showImmichKey ? "text" : "password"}
-                                placeholder={t("immichApiKeyPlaceholder")}
-                                value={immichApiKey}
-                                onChange={(e) => setImmichApiKey(e.target.value)}
-                                className="pr-10"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setShowImmichKey(!showImmichKey)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                              >
-                                {showImmichKey ? (
-                                  <EyeOff className="size-4" />
-                                ) : (
-                                  <Eye className="size-4" />
-                                )}
-                              </button>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {t("immichApiKeyHint")}
-                            </p>
-                          </div>
-
-                          {immichError && (
-                            <div className="flex items-center gap-2 text-destructive text-sm">
-                              <AlertCircle className="size-4" />
-                              {immichError}
-                            </div>
-                          )}
-
-                          {immichTestSuccess && (
-                            <div className="flex items-center gap-2 text-success text-sm">
-                              <Check className="size-4" />
-                              {t("immichConnectionSuccess")}
-                            </div>
-                          )}
-
-                          <Button
-                            onClick={handleImmichConnect}
-                            disabled={!immichUrl || !immichApiKey || testImmichConnection.isPending || saveImmichSettings.isPending}
-                            className="w-full"
-                          >
-                            {testImmichConnection.isPending || saveImmichSettings.isPending ? (
-                              <>
-                                <Loader2 className="size-4 mr-2 animate-spin" />
-                                {t("immichConnecting")}
-                              </>
-                            ) : (
-                              <>
-                                <Check className="size-4 mr-2" />
-                                {t("immichConnectSubmit")}
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
                   )}
+
+                  {immichTestSuccess && (
+                    <div className="flex items-center gap-2 text-success text-sm">
+                      <Check className="size-4" />
+                      {t("immichConnectionSuccess")}
+                    </div>
+                  )}
+
+                  <Button
+                    onClick={handleImmichConnect}
+                    disabled={!immichUrl || !immichApiKey || testImmichConnection.isPending || saveImmichSettings.isPending}
+                    className="w-full"
+                  >
+                    {testImmichConnection.isPending || saveImmichSettings.isPending ? (
+                      <>
+                        <Loader2 className="size-4 mr-2 animate-spin" />
+                        {t("immichConnecting")}
+                      </>
+                    ) : (
+                      <>
+                        <Check className="size-4 mr-2" />
+                        {t("immichConnectSubmit")}
+                      </>
+                    )}
+                  </Button>
                 </div>
-              </GlassCard>
-            </motion.div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Immich album details (connected only) */}
+            {immichConnected && (
+              <Card className="p-6">
+                <div className="flex flex-col gap-4">
+                  {/* Album Selection */}
+                  <div className="flex flex-col gap-2">
+                    <Label>{t("albumLabel")}</Label>
+                    <Select
+                      value={selectedAlbum || "auto"}
+                      onValueChange={handleAlbumChange}
+                      disabled={loadingAlbums}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("albumPlaceholder")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">
+                          <div className="flex items-center gap-2">
+                            <FolderOpen className="size-4" />
+                            <span>{t("albumAuto")}</span>
+                          </div>
+                        </SelectItem>
+                        {albums?.map((album) => (
+                          <SelectItem key={album.id} value={album.id}>
+                            <div className="flex items-center justify-between gap-4">
+                              <span>{album.name}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {t("albumPhotosCount", { count: album.assetCount })}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!selectedAlbum && currentMonthAlbum && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("currentMonthAlbumHint", {
+                          name: currentMonthAlbum.name,
+                          count: currentMonthAlbum.assetCount,
+                        })}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => refetchAlbums()}
+                      disabled={loadingAlbums}
+                    >
+                      <RefreshCw
+                        className={`size-4 mr-2 ${loadingAlbums ? "animate-spin" : ""}`}
+                      />
+                      {t("albumsRefreshButton")}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {/* Album Preview */}
             {immichConnected && albums && albums.length > 0 && (
@@ -594,10 +526,10 @@ export default function PhotoSettingsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <GlassCard>
+                <Card>
                   <div className="p-6">
                     <div className="flex items-center gap-3 mb-4">
-                      <ImageIcon className="size-5 text-month-primary" />
+                      <ImageIcon className="size-5 text-primary" />
                       <h2 className="font-medium">{t("albumsHeading")}</h2>
                       <Badge variant="outline">{t("albumsCountBadge", { count: albums.length })}</Badge>
                     </div>
@@ -607,8 +539,8 @@ export default function PhotoSettingsPage() {
                           key={album.id}
                           className={`p-3 rounded-lg border transition-colors cursor-pointer ${
                             selectedAlbum === album.id || (!selectedAlbum && currentMonthAlbum?.id === album.id)
-                              ? "border-month-primary bg-month-primary/5"
-                              : "border-border hover:border-month-primary/50"
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/50"
                           }`}
                           onClick={() => handleAlbumChange(album.id)}
                         >
@@ -625,7 +557,7 @@ export default function PhotoSettingsPage() {
                       </p>
                     )}
                   </div>
-                </GlassCard>
+                </Card>
               </motion.div>
             )}
           </>
@@ -635,155 +567,92 @@ export default function PhotoSettingsPage() {
         {photoSource === "unsplash" && (
           <>
             {/* Unsplash Connection Status */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <GlassCard>
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`p-2 rounded-lg ${
-                          unsplashConnected ? "bg-success/10" : "bg-muted"
-                        }`}
+            <IntegrationStatusBanner
+              connected={unsplashConnected}
+              icon={<ImageIcon className="size-6" strokeWidth={1.75} />}
+              serviceName={t("unsplashConnectionTitle")}
+              connectedLabel={t("unsplashConnectedBadge")}
+              connectedSubtitle={unsplashConnected ? t("unsplashApiKeyConfigured") : undefined}
+              onConnect={unsplashConnected ? undefined : () => setUnsplashDialogOpen(true)}
+              onDisconnect={unsplashConnected ? handleUnsplashDisconnect : undefined}
+              connectLabel={t("unsplashConnectButton")}
+              disconnectLabel={t("unsplashDisconnectButton")}
+              disconnectedTitle={t("unsplashConnectionTitle")}
+              disconnectedBody={t("unsplashNotConnected")}
+            />
+
+            {/* Unsplash connect dialog */}
+            <Dialog open={unsplashDialogOpen} onOpenChange={setUnsplashDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("unsplashDialogTitle")}</DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col gap-4 mt-4">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="unsplash-key">
+                      <Key className="size-4 inline mr-2" />
+                      {t("unsplashAccessKeyLabel")}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="unsplash-key"
+                        type={showUnsplashKey ? "text" : "password"}
+                        placeholder={t("unsplashAccessKeyPlaceholder")}
+                        value={unsplashKey}
+                        onChange={(e) => setUnsplashKey(e.target.value)}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowUnsplashKey(!showUnsplashKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       >
-                        <ImageIcon
-                          className={`size-5 ${
-                            unsplashConnected ? "text-success" : "text-muted-foreground"
-                          }`}
-                        />
-                      </div>
-                      <div>
-                        <h2 className="font-medium">{t("unsplashConnectionTitle")}</h2>
-                        <p className="text-sm text-muted-foreground">
-                          {unsplashConnected ? t("unsplashApiKeyConfigured") : t("unsplashNotConnected")}
-                        </p>
-                      </div>
+                        {showUnsplashKey ? (
+                          <EyeOff className="size-4" />
+                        ) : (
+                          <Eye className="size-4" />
+                        )}
+                      </button>
                     </div>
-                    <Badge variant={unsplashConnected ? "default" : "secondary"}>
-                      {unsplashConnected ? (
-                        <>
-                          <Check className="size-3 mr-1" /> {t("unsplashConnectedBadge")}
-                        </>
-                      ) : (
-                        t("unsplashNotConnectedBadge")
-                      )}
-                    </Badge>
+                    <p className="text-xs text-muted-foreground">
+                      {t("unsplashAccessKeyHint")}
+                    </p>
                   </div>
 
-                  {unsplashConnected ? (
-                    <div className="flex items-center gap-2">
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm">
-                            <Unlink className="size-4 mr-2" />
-                            {t("unsplashDisconnectButton")}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              {t("unsplashDisconnectDialogTitle")}
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              {t("unsplashDisconnectDialogDescription")}
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>{t("unsplashDisconnectCancel")}</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={handleUnsplashDisconnect}
-                              className="bg-destructive text-destructive-foreground"
-                            >
-                              {t("unsplashDisconnectButton")}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                  {unsplashError && (
+                    <div className="flex items-center gap-2 text-destructive text-sm">
+                      <AlertCircle className="size-4" />
+                      {unsplashError}
                     </div>
-                  ) : (
-                    <Dialog open={unsplashDialogOpen} onOpenChange={setUnsplashDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button>
-                          <Key className="size-4 mr-2" />
-                          {t("unsplashConnectButton")}
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>{t("unsplashDialogTitle")}</DialogTitle>
-                        </DialogHeader>
-                        <div className="flex flex-col gap-4 mt-4">
-                          <div className="flex flex-col gap-2">
-                            <Label htmlFor="unsplash-key">
-                              <Key className="size-4 inline mr-2" />
-                              {t("unsplashAccessKeyLabel")}
-                            </Label>
-                            <div className="relative">
-                              <Input
-                                id="unsplash-key"
-                                type={showUnsplashKey ? "text" : "password"}
-                                placeholder={t("unsplashAccessKeyPlaceholder")}
-                                value={unsplashKey}
-                                onChange={(e) => setUnsplashKey(e.target.value)}
-                                className="pr-10"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setShowUnsplashKey(!showUnsplashKey)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                              >
-                                {showUnsplashKey ? (
-                                  <EyeOff className="size-4" />
-                                ) : (
-                                  <Eye className="size-4" />
-                                )}
-                              </button>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {t("unsplashAccessKeyHint")}
-                            </p>
-                          </div>
-
-                          {unsplashError && (
-                            <div className="flex items-center gap-2 text-destructive text-sm">
-                              <AlertCircle className="size-4" />
-                              {unsplashError}
-                            </div>
-                          )}
-
-                          {unsplashTestSuccess && (
-                            <div className="flex items-center gap-2 text-success text-sm">
-                              <Check className="size-4" />
-                              {t("unsplashConnectionSuccess")}
-                            </div>
-                          )}
-
-                          <Button
-                            onClick={handleUnsplashConnect}
-                            disabled={!unsplashKey || testUnsplashConnection.isPending || saveUnsplashSettings.isPending}
-                            className="w-full"
-                          >
-                            {testUnsplashConnection.isPending || saveUnsplashSettings.isPending ? (
-                              <>
-                                <Loader2 className="size-4 mr-2 animate-spin" />
-                                {t("unsplashConnecting")}
-                              </>
-                            ) : (
-                              <>
-                                <Check className="size-4 mr-2" />
-                                {t("unsplashConnectSubmit")}
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
                   )}
+
+                  {unsplashTestSuccess && (
+                    <div className="flex items-center gap-2 text-success text-sm">
+                      <Check className="size-4" />
+                      {t("unsplashConnectionSuccess")}
+                    </div>
+                  )}
+
+                  <Button
+                    onClick={handleUnsplashConnect}
+                    disabled={!unsplashKey || testUnsplashConnection.isPending || saveUnsplashSettings.isPending}
+                    className="w-full"
+                  >
+                    {testUnsplashConnection.isPending || saveUnsplashSettings.isPending ? (
+                      <>
+                        <Loader2 className="size-4 mr-2 animate-spin" />
+                        {t("unsplashConnecting")}
+                      </>
+                    ) : (
+                      <>
+                        <Check className="size-4 mr-2" />
+                        {t("unsplashConnectSubmit")}
+                      </>
+                    )}
+                  </Button>
                 </div>
-              </GlassCard>
-            </motion.div>
+              </DialogContent>
+            </Dialog>
 
             {/* Monthly Search Terms */}
             {unsplashConnected && (
@@ -792,11 +661,11 @@ export default function PhotoSettingsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <GlassCard>
+                <Card>
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
-                        <ImageIcon className="size-5 text-month-primary" />
+                        <ImageIcon className="size-5 text-primary" />
                         <h2 className="font-medium">{t("termsHeading")}</h2>
                       </div>
                       <div className="flex items-center gap-2">
@@ -824,7 +693,7 @@ export default function PhotoSettingsPage() {
                               {terms.map((term, termIndex) => (
                                 <span
                                   key={termIndex}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-month-primary/10 text-xs text-foreground"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-xs text-foreground"
                                 >
                                   {term}
                                   <button
@@ -887,7 +756,7 @@ export default function PhotoSettingsPage() {
                       </div>
                     )}
                   </div>
-                </GlassCard>
+                </Card>
               </motion.div>
             )}
           </>
@@ -899,7 +768,7 @@ export default function PhotoSettingsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <GlassCard>
+          <Card>
             <div className="p-6">
               <h3 className="font-medium mb-2">{t("infoHeading")}</h3>
               <ul className="text-sm text-muted-foreground flex flex-col gap-1">
@@ -920,7 +789,7 @@ export default function PhotoSettingsPage() {
                 )}
               </ul>
             </div>
-          </GlassCard>
+          </Card>
         </motion.div>
       </div>
     </main>

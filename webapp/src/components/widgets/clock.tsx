@@ -44,7 +44,7 @@ const sizeClasses = {
   sm: "text-4xl",
   md: "text-6xl",
   lg: "text-8xl",
-  xl: "text-7xl sm:text-8xl md:text-[10rem]",
+  xl: "text-kiosk-hero",
 };
 
 const secondsSizeClasses = {
@@ -86,7 +86,7 @@ export function Clock({
     <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
+        transition={{ duration: 0.32, ease: "easeOut" }}
         role="timer"
         aria-live="polite"
         aria-atomic="true"
@@ -112,17 +112,17 @@ export function Clock({
                 className="flex items-baseline clock-glow"
               >
                 <span
-                  className={`font-display font-extralight ${sizeClasses[size]} clock-display tracking-tighter`}
+                  className={`${size === "xl" ? "" : "font-display font-extralight"} ${sizeClasses[size]} clock-display tabular-nums tracking-tight`}
                 >
                   {hours}
                 </span>
                 <span
-                  className={`font-display font-extralight ${sizeClasses[size]} text-muted-foreground/40 mx-1 clock-colon`}
+                  className={`${size === "xl" ? "" : "font-display font-extralight"} ${sizeClasses[size]} text-muted-foreground/40 mx-1 clock-colon`}
                 >
                   :
                 </span>
                 <span
-                  className={`font-display font-extralight ${sizeClasses[size]} clock-display tracking-tighter`}
+                  className={`${size === "xl" ? "" : "font-display font-extralight"} ${sizeClasses[size]} clock-display tabular-nums tracking-tight`}
                 >
                   {minutes}
                 </span>
@@ -181,10 +181,10 @@ export function Clock({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
+            transition={{ delay: 0.2, duration: 0.22 }}
             className="flex items-center gap-3 mt-4"
           >
-            <p className="text-2xl font-normal text-foreground/70 tracking-wide">
+            <p className="text-kiosk-label text-base text-primary tabular-nums">
               {formattedDate}
             </p>
             <Popover>
@@ -219,7 +219,7 @@ export function Clock({
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.5, duration: 0.6 }}
+            transition={{ delay: 0.32, duration: 0.22 }}
             className="text-base text-muted-foreground/70 mt-2 font-light tracking-wide"
           >
             {t(getGreetingKey(date.getHours()))}

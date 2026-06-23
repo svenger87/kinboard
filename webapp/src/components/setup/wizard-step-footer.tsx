@@ -63,7 +63,7 @@ export function WizardStepFooter({
             {t("skipStep")}
           </Button>
         )}
-        <Button variant="month" onClick={goNext} disabled={disabled}>
+        <Button onClick={goNext} disabled={disabled}>
           {nextLabel ?? t("continue")}
           <ArrowRight className="size-4 ml-2" />
         </Button>

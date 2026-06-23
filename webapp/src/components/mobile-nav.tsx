@@ -1,164 +1,145 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { Home, CalendarDays, ShoppingCart, MoreHorizontal } from "lucide-react";
 import { isNoNavPath } from "@/lib/constants";
 import { useNavBadges } from "@/hooks/use-nav-badges";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+
+const FIXED_HREFS = new Set(["/", "/calendar", "/shopping"]);
 
 export function MobileNav() {
   const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
   const pathname = usePathname();
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const activeRef = useRef<HTMLAnchorElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
+  const router = useRouter();
   const badges = useNavBadges();
   const navItems = useVisibleNavItems();
+  const [moreOpen, setMoreOpen] = useState(false);
 
-  const updateScrollIndicators = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 4);
-    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
-  }, []);
+  // Remaining routes for the "Mehr" sheet: everything visible that isn't a
+  // fixed tab, in the per-device order useVisibleNavItems already applied.
+  const moreItems = useMemo(
+    () => navItems.filter((item) => !FIXED_HREFS.has(item.href)),
+    [navItems]
+  );
 
-  // Tap-vs-swipe discriminator. With 14+ nav items the bottom bar scrolls
-  // horizontally; a finger-drag intended to scroll otherwise fires a `click`
-  // on the Link under the start position (touch-pan-x lets the browser
-  // scroll, but doesn't suppress the eventual click). We track movement
-  // ourselves and cancel the click in the capture phase if the user moved
-  // beyond MOVE_THRESHOLD_PX.
-  const MOVE_THRESHOLD_PX = 8;
-  const touchStartRef = useRef<{ x: number; y: number; scrollLeft: number } | null>(null);
-  const didDragRef = useRef(false);
-
-  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    didDragRef.current = false;
-    touchStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      scrollLeft: scrollRef.current?.scrollLeft ?? 0,
-    };
-  }, []);
-
-  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const start = touchStartRef.current;
-    if (!start || didDragRef.current) return;
-    const dx = Math.abs(e.clientX - start.x);
-    const dy = Math.abs(e.clientY - start.y);
-    const ds = Math.abs((scrollRef.current?.scrollLeft ?? 0) - start.scrollLeft);
-    if (dx > MOVE_THRESHOLD_PX || dy > MOVE_THRESHOLD_PX || ds > MOVE_THRESHOLD_PX) {
-      didDragRef.current = true;
-    }
-  }, []);
-
-  const handleClickCapture = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (didDragRef.current) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    touchStartRef.current = null;
-  }, []);
-
-  // Auto-scroll active item into view on mount / route change
-  useEffect(() => {
-    const el = activeRef.current;
-    if (el) {
-      el.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
-    }
-    // Update indicators after scroll settles
-    const timer = setTimeout(updateScrollIndicators, 350);
-    return () => clearTimeout(timer);
-  }, [pathname, updateScrollIndicators]);
-
-  // Track scroll position for gradient indicators
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    updateScrollIndicators();
-    el.addEventListener("scroll", updateScrollIndicators, { passive: true });
-    return () => el.removeEventListener("scroll", updateScrollIndicators);
-  }, [updateScrollIndicators]);
+  const startActive = pathname === "/";
+  const calendarActive = pathname === "/calendar" || pathname.startsWith("/calendar/");
+  const shoppingActive = pathname === "/shopping" || pathname.startsWith("/shopping/");
+  const moreActive = !startActive && !calendarActive && !shoppingActive;
 
   if (isNoNavPath(pathname)) {
     return null;
   }
 
+  const tabClass = (active: boolean) =>
+    `relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 transition-colors ${
+      active ? "text-primary" : "text-muted-foreground"
+    }`;
+
+  const fixedTabs = [
+    { href: "/", icon: Home, labelKey: "home", active: startActive },
+    { href: "/calendar", icon: CalendarDays, labelKey: "calendar", active: calendarActive },
+    { href: "/shopping", icon: ShoppingCart, labelKey: "shopping", active: shoppingActive },
+  ];
+
   return (
-    <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 border-t border-white/[0.12] shadow-[0_-4px_20px_hsl(var(--background)/0.8)]"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-      aria-label={tNav("mobile")}
-    >
-      {/* Scroll fade indicators */}
-      <div
-        className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 z-10 transition-opacity duration-200"
-        aria-hidden="true"
-        style={{
-          opacity: canScrollLeft ? 1 : 0,
-          background: "linear-gradient(to right, hsl(var(--background)), transparent)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 z-10 transition-opacity duration-200"
-        aria-hidden="true"
-        style={{
-          opacity: canScrollRight ? 1 : 0,
-          background: "linear-gradient(to left, hsl(var(--background)), transparent)",
-        }}
-      />
-
-      <div
-        ref={scrollRef}
-        className="flex items-center overflow-x-auto scrollbar-hide px-2 py-2 gap-1 overscroll-x-contain touch-pan-x"
-        style={{ WebkitOverflowScrolling: 'touch' }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onClickCapture={handleClickCapture}
+    <>
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-stretch border-t border-border bg-card"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        aria-label={tNav("mobile")}
       >
-        {navItems.map((item) => {
-          const isActive = pathname === item.href ||
-            (item.href !== "/" && pathname.startsWith(item.href));
-          const Icon = item.icon;
-
+        {fixedTabs.map((tab) => {
+          const Icon = tab.icon;
+          const badge = badges[tab.href];
           return (
             <Link
-              key={item.href}
-              ref={isActive ? activeRef : undefined}
-              href={item.href}
-              aria-current={isActive ? "page" : undefined}
-              aria-label={tNav(item.labelKey)}
-              className={`relative flex flex-col items-center justify-center p-2 rounded-lg transition-all min-w-[4rem] min-h-[3rem] flex-shrink-0 active:scale-[0.95] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background ${
-                isActive
-                  ? "text-month-primary bg-month-primary/10 shadow-[0_0_12px_hsl(var(--month-primary)/0.15)]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
-              }`}
+              key={tab.href}
+              href={tab.href}
+              aria-current={tab.active ? "page" : undefined}
+              aria-label={tNav(tab.labelKey)}
+              className={tabClass(tab.active)}
             >
-              {isActive && (
-                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-month-primary" />
-              )}
               <span className="relative">
-                <Icon className={`size-5 transition-transform ${isActive ? "scale-110" : ""}`} />
-                {badges[item.href] && !isActive && (
+                <Icon size={23} strokeWidth={1.75} />
+                {badge && !tab.active && (
                   <span
-                    className="absolute -top-1.5 -right-2 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-month-primary text-[10px] font-bold text-month-primary-foreground px-1 shadow-[0_0_6px_hsl(var(--month-primary)/0.4)]"
-                    aria-label={tCommon("newEntriesAria", { count: badges[item.href] })}
+                    className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
+                    aria-label={tCommon("newEntriesAria", { count: badge })}
                   >
-                    {badges[item.href]}
+                    {badge}
                   </span>
                 )}
               </span>
-              <span className={`text-[11px] mt-1 ${isActive ? "font-semibold" : "font-medium"}`}>
-                {tNav(item.labelKey)}
+              <span className={`text-[10px] ${tab.active ? "font-semibold" : "font-medium"}`}>
+                {tNav(tab.labelKey)}
               </span>
             </Link>
           );
         })}
-      </div>
-    </nav>
+
+        <button
+          type="button"
+          onClick={() => setMoreOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={moreOpen}
+          aria-label={tNav("more")}
+          className={tabClass(moreActive)}
+        >
+          <MoreHorizontal size={23} strokeWidth={1.75} />
+          <span className={`text-[10px] ${moreActive ? "font-semibold" : "font-medium"}`}>
+            {tNav("more")}
+          </span>
+        </button>
+      </nav>
+
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-card backdrop-blur-none border-border">
+          <SheetHeader>
+            <SheetTitle>{tNav("more")}</SheetTitle>
+          </SheetHeader>
+          <ul className="mt-4 grid grid-cols-2 gap-2 pb-2">
+            {moreItems.map((item) => {
+              const Icon = item.icon;
+              const badge = badges[item.href];
+              const active =
+                pathname === item.href ||
+                (item.href !== "/" && pathname.startsWith(item.href + "/"));
+              return (
+                <li key={item.href}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      router.push(item.href);
+                    }}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex min-h-[56px] w-full items-center gap-3 rounded-xl border border-border bg-card px-4 text-left transition-colors hover:bg-accent ${
+                      active ? "text-primary" : "text-foreground"
+                    }`}
+                  >
+                    <Icon size={22} strokeWidth={1.75} className="shrink-0" />
+                    <span className="flex-1 truncate text-sm font-medium">
+                      {tNav(item.labelKey)}
+                    </span>
+                    {badge && (
+                      <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground tabular-nums">
+                        {badge}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
