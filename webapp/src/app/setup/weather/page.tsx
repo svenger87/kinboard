@@ -3,27 +3,48 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { WizardProgress } from "@/components/setup/wizard-progress";
 import { WizardStepFooter } from "@/components/setup/wizard-step-footer";
 import { useUpdateSetting, useWeather } from "@/hooks";
+import { IntegrationConfigHint } from "@/components/integration-config-hint";
+import {
+  CityLocationPicker,
+  type WeatherLocationValue,
+} from "@/components/settings/city-location-picker";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 export default function SetupWeatherPage() {
   const t = useTranslations("setup.weather");
-  const [city, setCity] = useState("");
-  const update = useUpdateSetting<{ type: "city"; city: string }>();
+  const [locationValue, setLocationValue] = useState<WeatherLocationValue>({
+    type: "city",
+    city: "",
+  });
+  const update = useUpdateSetting<WeatherLocationValue>();
   const { data: weather } = useWeather();
   const apiKeyMissing = weather === null;
 
   const handleNext = async () => {
-    if (!city.trim()) return;
+    if (locationValue.type === "city" && !locationValue.city?.trim()) return;
+    if (
+      locationValue.type === "coordinates" &&
+      (locationValue.lat === undefined ||
+        locationValue.lon === undefined ||
+        Number.isNaN(locationValue.lat) ||
+        Number.isNaN(locationValue.lon))
+    ) {
+      return;
+    }
+
+    const value: WeatherLocationValue =
+      locationValue.type === "city"
+        ? { type: "city", city: locationValue.city!.trim() }
+        : locationValue;
+
     try {
       await update.mutateAsync({
-        key: "weather_location",
-        value: { type: "city", city: city.trim() },
+        key: SETTINGS_KEYS.weatherLocation,
+        value,
       });
     } catch (err) {
       console.error("setup/weather: save failed:", err);
@@ -40,28 +61,14 @@ export default function SetupWeatherPage() {
         <p className="text-muted-foreground text-sm mb-6">{t("description")}</p>
 
         {apiKeyMissing && (
-          <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="size-5 shrink-0 text-amber-600 mt-0.5" />
-              <div className="flex-1 text-sm">
-                <p className="font-medium mb-1">{t("apiKeyTitle")}</p>
-                <p className="text-muted-foreground whitespace-pre-line">
-                  {t("apiKeyBody")}
-                </p>
-              </div>
-            </div>
-          </div>
+          <IntegrationConfigHint
+            title={t("apiKeyTitle")}
+            description={t("apiKeyBody")}
+            envKey="OPENWEATHERMAP_API_KEY"
+          />
         )}
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="setup-city">{t("cityLabel")}</Label>
-          <Input
-            id="setup-city"
-            placeholder={t("cityPlaceholder")}
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-          />
-        </div>
+        <CityLocationPicker value={locationValue} onChange={setLocationValue} />
       </CardContent></Card>
 
       <WizardStepFooter

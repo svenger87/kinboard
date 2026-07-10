@@ -10,6 +10,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A quiet "Live updates paused — reconnecting…" pill appears above the navigation when the realtime connection drops, so a wall kiosk can no longer show stale data with no signal. It disappears automatically once the connection is back.
 
 ### Changed
+- The setup wizard's weather step now has the same city search with suggestions, coordinates mode, and use-my-location button as the weather settings page (was a bare text field).
 - Credential fields (Home Assistant token, Immich/Unsplash keys, Bring password) share one show/hide input component; the setup wizard's Home Assistant step now trims trailing slashes and uses the same success styling as settings.
 - All destructive deletes now use the same styled confirmation dialog: calendar events, vehicles, Home Assistant rooms (previously native browser popups, which look foreign and can be suppressed in kiosk fullscreen), and meal-plan entries (previously deleted with no confirmation at all).
 - Empty pages (vehicles, stocks, pocket money, news, schedule, smart home) now use the same dashed empty-state card as the rest of the app instead of ad-hoc layouts, each with a clear next-step button.
