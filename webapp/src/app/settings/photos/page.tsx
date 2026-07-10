@@ -16,8 +16,6 @@ import {
   Loader2,
   Image as ImageIcon,
   FolderOpen,
-  Eye,
-  EyeOff,
   RotateCcw,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -26,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { SecretField } from "@/components/settings/secret-field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
@@ -86,7 +85,6 @@ export default function PhotoSettingsPage() {
   // ── Immich local state ──
   const [immichUrl, setImmichUrl] = useState("");
   const [immichApiKey, setImmichApiKey] = useState("");
-  const [showImmichKey, setShowImmichKey] = useState(false);
   const [immichDialogOpen, setImmichDialogOpen] = useState(false);
   const [immichError, setImmichError] = useState("");
   const [immichTestSuccess, setImmichTestSuccess] = useState(false);
@@ -101,7 +99,6 @@ export default function PhotoSettingsPage() {
 
   // ── Unsplash local state ──
   const [unsplashKey, setUnsplashKey] = useState("");
-  const [showUnsplashKey, setShowUnsplashKey] = useState(false);
   const [unsplashDialogOpen, setUnsplashDialogOpen] = useState(false);
   const [unsplashError, setUnsplashError] = useState("");
   const [unsplashTestSuccess, setUnsplashTestSuccess] = useState(false);
@@ -391,36 +388,17 @@ export default function PhotoSettingsPage() {
                       {t("immichUrlHint")}
                     </p>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="immich-api-key">
-                      <Key className="size-4 inline mr-2" />
-                      {t("immichApiKeyLabel")}
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="immich-api-key"
-                        type={showImmichKey ? "text" : "password"}
-                        placeholder={t("immichApiKeyPlaceholder")}
-                        value={immichApiKey}
-                        onChange={(e) => setImmichApiKey(e.target.value)}
-                        className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowImmichKey(!showImmichKey)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        {showImmichKey ? (
-                          <EyeOff className="size-4" />
-                        ) : (
-                          <Eye className="size-4" />
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {t("immichApiKeyHint")}
-                    </p>
-                  </div>
+                  <SecretField
+                    id="immich-api-key"
+                    label={t("immichApiKeyLabel")}
+                    icon={Key}
+                    value={immichApiKey}
+                    onChange={setImmichApiKey}
+                    placeholder={t("immichApiKeyPlaceholder")}
+                    hint={t("immichApiKeyHint")}
+                    showLabel={t("showKey")}
+                    hideLabel={t("hideKey")}
+                  />
 
                   {immichError && (
                     <div className="flex items-center gap-2 text-destructive text-sm">
@@ -588,36 +566,17 @@ export default function PhotoSettingsPage() {
                   <DialogTitle>{t("unsplashDialogTitle")}</DialogTitle>
                 </DialogHeader>
                 <div className="flex flex-col gap-4 mt-4">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="unsplash-key">
-                      <Key className="size-4 inline mr-2" />
-                      {t("unsplashAccessKeyLabel")}
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="unsplash-key"
-                        type={showUnsplashKey ? "text" : "password"}
-                        placeholder={t("unsplashAccessKeyPlaceholder")}
-                        value={unsplashKey}
-                        onChange={(e) => setUnsplashKey(e.target.value)}
-                        className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowUnsplashKey(!showUnsplashKey)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        {showUnsplashKey ? (
-                          <EyeOff className="size-4" />
-                        ) : (
-                          <Eye className="size-4" />
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {t("unsplashAccessKeyHint")}
-                    </p>
-                  </div>
+                  <SecretField
+                    id="unsplash-key"
+                    label={t("unsplashAccessKeyLabel")}
+                    icon={Key}
+                    value={unsplashKey}
+                    onChange={setUnsplashKey}
+                    placeholder={t("unsplashAccessKeyPlaceholder")}
+                    hint={t("unsplashAccessKeyHint")}
+                    showLabel={t("showKey")}
+                    hideLabel={t("hideKey")}
+                  />
 
                   {unsplashError && (
                     <div className="flex items-center gap-2 text-destructive text-sm">
