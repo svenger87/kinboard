@@ -1262,7 +1262,7 @@
       "childBadge": "Kind",
       "deleteAria": "Person löschen",
       "deleteDialogTitle": "Person löschen?",
-      "deleteDialogDescription": "Möchtest du „{name}“ wirklich löschen? Alle zugehörigen Daten (Todos, Termine, etc.) werden ebenfalls gelöscht.",
+      "deleteDialogDescription": "Möchtest du „{name}“ wirklich löschen? Das Taschengeldkonto (inklusive Verlauf) und der Stundenplan werden dauerhaft gelöscht. Geburtstagseinträge, Termine und Todos bleiben erhalten, sind aber dann niemandem zugeordnet.",
       "deleteCancel": "Abbrechen",
       "deleteConfirm": "Löschen",
       "loadErrorTitle": "Fehler beim Laden",

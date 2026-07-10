@@ -1262,7 +1262,7 @@
       "childBadge": "Enfant",
       "deleteAria": "Supprimer la personne",
       "deleteDialogTitle": "Supprimer la personne ?",
-      "deleteDialogDescription": "Voulez-vous vraiment supprimer “{name}” ? Toutes les données associées (tâches, événements, …) seront également supprimées.",
+      "deleteDialogDescription": "Voulez-vous vraiment supprimer “{name}” ? Son compte d'argent de poche (historique compris) et son emploi du temps seront définitivement supprimés. Les anniversaires, les événements et les tâches sont conservés mais ne seront plus attribués.",
       "deleteCancel": "Annuler",
       "deleteConfirm": "Supprimer",
       "loadErrorTitle": "Échec du chargement",

@@ -1262,7 +1262,7 @@
       "childBadge": "Child",
       "deleteAria": "Delete person",
       "deleteDialogTitle": "Delete person?",
-      "deleteDialogDescription": "Do you really want to delete “{name}”? All related data (todos, events, …) will be deleted as well.",
+      "deleteDialogDescription": "Do you really want to delete “{name}”? Their pocket-money account (including history) and school schedules will be permanently deleted. Birthday entries, events and todos are kept but become unassigned.",
       "deleteCancel": "Cancel",
       "deleteConfirm": "Delete",
       "loadErrorTitle": "Failed to load",
