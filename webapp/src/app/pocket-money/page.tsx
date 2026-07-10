@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Clock, PiggyBank, Plus, ShoppingBag } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GlassCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { AvatarDisplay } from "@/components/pocket-money/avatar-display";
 import { BalanceDisplay } from "@/components/pocket-money/balance-display";
 import { GoalCard } from "@/components/pocket-money/goal-card";
@@ -31,6 +32,7 @@ type CelebrationKind = "evolution" | "goal-reached" | "interest-pay";
 
 export default function PocketMoneyPage() {
   const t = useTranslations("pocketMoney");
+  const router = useRouter();
   const { data: accounts = [], isPending } = usePocketMoneyAccounts();
   const { data: people = [] } = usePeople();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -90,12 +92,11 @@ export default function PocketMoneyPage() {
     return (
       <div className="p-8 max-w-2xl mx-auto space-y-6">
         <PageHeader title={t("title")} icon={PiggyBank} />
-        <GlassCard className="p-8 text-center space-y-4">
-          <p className="text-muted-foreground">{t("noAccountsYet")}</p>
-          <Button asChild>
-            <Link href="/settings/pocket-money">{t("goToSettings")}</Link>
-          </Button>
-        </GlassCard>
+        <EmptyState
+          icon={PiggyBank}
+          title={t("noAccountsYet")}
+          action={{ label: t("goToSettings"), onClick: () => router.push("/settings/pocket-money") }}
+        />
       </div>
     );
   }

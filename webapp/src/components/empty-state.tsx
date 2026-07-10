@@ -10,6 +10,7 @@ interface EmptyStateProps {
     label: string;
     onClick: () => void;
     variant?: "default" | "outline" | "link" | "month";
+    disabled?: boolean;
   };
   className?: string;
 }
@@ -36,7 +37,12 @@ export function EmptyState({
         <p className="max-w-[30ch] text-sm text-muted-foreground">{description}</p>
       )}
       {action && (
-        <Button variant={action.variant || "link"} onClick={action.onClick} className="mt-1">
+        <Button
+          variant={action.variant || "link"}
+          onClick={action.onClick}
+          disabled={action.disabled}
+          className="mt-1"
+        >
           {action.variant === "default" && (
             <Plus className="size-4" strokeWidth={1.75} aria-hidden="true" />
           )}

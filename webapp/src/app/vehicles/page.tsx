@@ -2,18 +2,21 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { Car, Plus } from "lucide-react";
+import { Car } from "lucide-react";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { getDriver } from "@/plugins/vehicles/drivers/registry";
 
 export default function VehiclesPage() {
   const t = useTranslations("vehicles");
+  const router = useRouter();
   const { data: vehicles = [], isPending } = useVehicles();
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -29,15 +32,11 @@ export default function VehiclesPage() {
     return (
       <div className="p-8 max-w-2xl mx-auto">
         <PageHeader title={t("title")} icon={Car} />
-        <GlassCard className="p-8 text-center space-y-4">
-          <p className="text-muted-foreground">{t("emptyState")}</p>
-          <Button asChild>
-            <Link href="/settings/vehicles/new">
-              <Plus className="size-4 mr-2" />
-              {t("addFirstVehicle")}
-            </Link>
-          </Button>
-        </GlassCard>
+        <EmptyState
+          icon={Car}
+          title={t("emptyState")}
+          action={{ label: t("addFirstVehicle"), onClick: () => router.push("/settings/vehicles/new") }}
+        />
       </div>
     );
   }
