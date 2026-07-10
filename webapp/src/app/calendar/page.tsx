@@ -55,6 +55,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -1521,30 +1532,42 @@ export default function CalendarPage() {
                         <Pencil className="size-4 mr-2" />
                         {tCommon("edit")}
                       </Button>
-                      <Button
-                        variant="destructive"
-                        className="flex-1"
-                        disabled={deleteEvent.isPending}
-                        onClick={async () => {
-                          if (confirm(t("deleteConfirm"))) {
-                            try {
-                              await deleteEvent.mutateAsync(selectedEvent.id);
-                              setSelectedEvent(null);
-                            } catch {
-                              toast.error(t("toastDeleteFailed"));
-                            }
-                          }
-                        }}
-                      >
-                        {deleteEvent.isPending ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Trash2 className="size-4 mr-2" />
-                            {tCommon("delete")}
-                          </>
-                        )}
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" className="flex-1" disabled={deleteEvent.isPending}>
+                            {deleteEvent.isPending ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Trash2 className="size-4 mr-2" />
+                                {tCommon("delete")}
+                              </>
+                            )}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+                            <AlertDialogDescription>{t("deleteConfirm")}</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={async () => {
+                                try {
+                                  await deleteEvent.mutateAsync(selectedEvent.id);
+                                  setSelectedEvent(null);
+                                } catch {
+                                  toast.error(t("toastDeleteFailed"));
+                                }
+                              }}
+                            >
+                              {tCommon("delete")}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 </>

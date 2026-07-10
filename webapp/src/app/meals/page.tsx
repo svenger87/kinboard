@@ -74,6 +74,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -469,6 +479,7 @@ export default function MealPlannerPage() {
   const [showEditNoteDialog, setShowEditNoteDialog] = useState(false);
   const [editNoteEntry, setEditNoteEntry] = useState<MealPlanEntryWithRecipe | null>(null);
   const [editNoteInput, setEditNoteInput] = useState("");
+  const [entryPendingDelete, setEntryPendingDelete] = useState<MealPlanEntryWithRecipe | null>(null);
 
   // Calculate week start
   const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate]);
@@ -645,14 +656,7 @@ export default function MealPlannerPage() {
         break;
 
       case "delete":
-        try {
-          await deleteEntry.mutateAsync({
-            entryId: entry.id,
-            weekStart,
-          });
-        } catch {
-          toast.error(t("deleteFailed"));
-        }
+        setEntryPendingDelete(entry);
         break;
 
       case "shopping":
@@ -1772,6 +1776,33 @@ export default function MealPlannerPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={!!entryPendingDelete} onOpenChange={(open) => !open && setEntryPendingDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>{t("deleteDialogDescription")}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={async () => {
+                  const entry = entryPendingDelete;
+                  setEntryPendingDelete(null);
+                  if (!entry) return;
+                  try {
+                    await deleteEntry.mutateAsync({ entryId: entry.id, weekStart });
+                  } catch {
+                    toast.error(t("deleteFailed"));
+                  }
+                }}
+              >
+                {tCommon("delete")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </TooltipProvider>
   );
