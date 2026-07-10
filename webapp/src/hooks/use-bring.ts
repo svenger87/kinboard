@@ -1,8 +1,9 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSetting, useUpdateSetting } from "./use-supabase-queries";
+import { useSetting, useUpdateSetting, queryKeys } from "./use-supabase-queries";
 import { useFamilyStore } from "@/stores/family-store";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 export interface BringCredentials {
   uuid: string;
@@ -57,7 +58,7 @@ const DEFAULT_SETTINGS: BringSettings = {
 };
 
 export function useBringSettings() {
-  return useSetting<BringSettings>("bring_settings", DEFAULT_SETTINGS);
+  return useSetting<BringSettings>(SETTINGS_KEYS.bringSettings, DEFAULT_SETTINGS);
 }
 
 export function useBringLogin() {
@@ -92,10 +93,13 @@ export function useBringLogin() {
       };
 
       // Get current settings and update with credentials
-      const currentSettings = queryClient.getQueryData<BringSettings>(["setting", "bring_settings"]) || DEFAULT_SETTINGS;
+      const currentSettings =
+        queryClient.getQueryData<BringSettings>(
+          queryKeys.settings(family?.id ?? "", SETTINGS_KEYS.bringSettings)
+        ) || DEFAULT_SETTINGS;
 
       await updateSetting.mutateAsync({
-        key: "bring_settings",
+        key: SETTINGS_KEYS.bringSettings,
         value: {
           ...currentSettings,
           credentials,
@@ -121,11 +125,11 @@ export function useBringLogout() {
         await fetch("/api/settings", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ family_id: family.id, key: "bring_settings" }),
+          body: JSON.stringify({ family_id: family.id, key: SETTINGS_KEYS.bringSettings }),
         });
       }
       await updateSetting.mutateAsync({
-        key: "bring_settings",
+        key: SETTINGS_KEYS.bringSettings,
         value: DEFAULT_SETTINGS,
       });
     },
@@ -242,18 +246,24 @@ export function useBringRemoveItem() {
 export function useUpdateBringSettings() {
   const updateSetting = useUpdateSetting();
   const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
 
   return useMutation({
     mutationFn: async (updates: Partial<BringSettings>) => {
-      const currentSettings = queryClient.getQueryData<BringSettings>(["setting", "bring_settings"]) || DEFAULT_SETTINGS;
+      const currentSettings =
+        queryClient.getQueryData<BringSettings>(
+          queryKeys.settings(family?.id ?? "", SETTINGS_KEYS.bringSettings)
+        ) || DEFAULT_SETTINGS;
 
       await updateSetting.mutateAsync({
-        key: "bring_settings",
+        key: SETTINGS_KEYS.bringSettings,
         value: { ...currentSettings, ...updates },
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["setting", "bring_settings"] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.settings(family?.id ?? "", SETTINGS_KEYS.bringSettings),
+      });
     },
   });
 }

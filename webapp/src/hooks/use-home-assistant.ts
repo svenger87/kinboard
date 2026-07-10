@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
 import { safeRandomUUID } from "@/lib/uuid";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import type {
   HomeAssistantSettings,
   HAEntity,
@@ -28,7 +29,7 @@ export function useHomeAssistantStatus() {
       if (!family?.id) return null;
 
       try {
-        const response = await fetch(`/api/settings?family_id=${family.id}&key=home_assistant`);
+        const response = await fetch(`/api/settings?family_id=${family.id}&key=${SETTINGS_KEYS.homeAssistant}`);
         if (!response.ok) {
           if (response.status === 404) return null;
           throw new Error("Failed to fetch Home Assistant status");
@@ -143,7 +144,7 @@ export function useSaveHomeAssistantSettings() {
       if (!family?.id) throw new Error("No family");
 
       // Get existing settings first
-      const existingResponse = await fetch(`/api/settings?family_id=${family.id}&key=home_assistant`);
+      const existingResponse = await fetch(`/api/settings?family_id=${family.id}&key=${SETTINGS_KEYS.homeAssistant}`);
       let existingSettings: HomeAssistantSettings = {
         url: "",
         access_token: "",
@@ -173,7 +174,7 @@ export function useSaveHomeAssistantSettings() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           family_id: family.id,
-          key: "home_assistant",
+          key: SETTINGS_KEYS.homeAssistant,
           value: newSettings,
         }),
       });
@@ -206,7 +207,7 @@ export function useDisconnectHomeAssistant() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           family_id: family.id,
-          key: "home_assistant",
+          key: SETTINGS_KEYS.homeAssistant,
         }),
       });
 
@@ -320,7 +321,7 @@ export function useCreateDashboard() {
 
   return useMutation({
     mutationFn: async (dashboard: Omit<Dashboard, "id" | "position" | "created_at" | "cards">) => {
-      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=home_assistant`);
+      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=${SETTINGS_KEYS.homeAssistant}`);
       let settings: HomeAssistantSettings = {
         url: "",
         access_token: "",
@@ -359,7 +360,7 @@ export function useUpdateDashboard() {
 
   return useMutation({
     mutationFn: async ({ dashboardId, updates }: { dashboardId: string; updates: Partial<Dashboard> }) => {
-      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=home_assistant`);
+      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=${SETTINGS_KEYS.homeAssistant}`);
       if (!statusResponse.ok) throw new Error("Failed to get settings");
 
       const data = await statusResponse.json();
@@ -382,7 +383,7 @@ export function useDeleteDashboard() {
 
   return useMutation({
     mutationFn: async (dashboardId: string) => {
-      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=home_assistant`);
+      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=${SETTINGS_KEYS.homeAssistant}`);
       if (!statusResponse.ok) throw new Error("Failed to get settings");
 
       const data = await statusResponse.json();
@@ -405,7 +406,7 @@ export function useReorderDashboards() {
 
   return useMutation({
     mutationFn: async (dashboardIds: string[]) => {
-      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=home_assistant`);
+      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=${SETTINGS_KEYS.homeAssistant}`);
       if (!statusResponse.ok) throw new Error("Failed to get settings");
 
       const data = await statusResponse.json();
@@ -436,7 +437,7 @@ export function useAddCardToDashboard() {
 
   return useMutation({
     mutationFn: async ({ dashboardId, card }: { dashboardId: string; card: Omit<DashboardCard, "id" | "position"> }) => {
-      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=home_assistant`);
+      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=${SETTINGS_KEYS.homeAssistant}`);
       if (!statusResponse.ok) throw new Error("Failed to get settings");
 
       const data = await statusResponse.json();
@@ -474,7 +475,7 @@ export function useRemoveCardFromDashboard() {
 
   return useMutation({
     mutationFn: async ({ dashboardId, cardId }: { dashboardId: string; cardId: string }) => {
-      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=home_assistant`);
+      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=${SETTINGS_KEYS.homeAssistant}`);
       if (!statusResponse.ok) throw new Error("Failed to get settings");
 
       const data = await statusResponse.json();
@@ -509,7 +510,7 @@ export function useUpdateCardInDashboard() {
       cardId: string;
       updates: Partial<DashboardCard>;
     }) => {
-      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=home_assistant`);
+      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=${SETTINGS_KEYS.homeAssistant}`);
       if (!statusResponse.ok) throw new Error("Failed to get settings");
 
       const data = await statusResponse.json();
@@ -536,7 +537,7 @@ export function useReorderCardsInDashboard() {
 
   return useMutation({
     mutationFn: async ({ dashboardId, cardIds }: { dashboardId: string; cardIds: string[] }) => {
-      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=home_assistant`);
+      const statusResponse = await fetch(`/api/settings?family_id=${family?.id}&key=${SETTINGS_KEYS.homeAssistant}`);
       if (!statusResponse.ok) throw new Error("Failed to get settings");
 
       const data = await statusResponse.json();

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Rss, Plus, Pencil, Trash2, Copy, Check, Loader2, Info, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,6 +88,7 @@ const emptyForm = (): FeedFormState => ({
 export default function IcsSettingsPage() {
   const t = useTranslations("settings.ics");
   const tCommon = useTranslations("common");
+  const locale = useLocale();
 
   const { data: allCalendars = [], isLoading } = useCalendars();
   const { data: people = [] } = usePeople();
@@ -230,7 +231,7 @@ export default function IcsSettingsPage() {
   const formatLastSynced = (ts: string | null) => {
     if (!ts) return t("neverSynced");
     const d = new Date(ts);
-    return t("lastSynced", { time: d.toLocaleString() });
+    return t("lastSynced", { time: d.toLocaleString(locale) });
   };
 
   return (
@@ -337,7 +338,7 @@ export default function IcsSettingsPage() {
                       size="icon"
                       className="size-8"
                       onClick={() => copyUrl(cal)}
-                      title="Copy URL"
+                      title={t("copyUrlTitle")}
                     >
                       {copiedId === cal.id ? (
                         <Check className="size-4 text-success" />
@@ -485,7 +486,7 @@ export default function IcsSettingsPage() {
                   value={form.color}
                   onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
                   className="size-7 rounded-full border border-border cursor-pointer bg-transparent p-0"
-                  title="Custom color"
+                  title={t("customColorTitle")}
                 />
               </div>
             </div>

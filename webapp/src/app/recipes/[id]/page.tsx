@@ -63,6 +63,7 @@ import {
 } from "@/hooks";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { formatRecipeTime } from "@/lib/recipe-time";
 import type { RecipeInstruction, RecipeIngredient, MealType } from "@/types/database";
 
 // Difficulty colors
@@ -118,13 +119,7 @@ export default function RecipeDetailPage() {
     : [];
 
   // Format time
-  const formatTime = (minutes: number | null) => {
-    if (!minutes) return null;
-    if (minutes < 60) return t("timeMinutes", { count: minutes });
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? t("timeHoursMinutes", { hours, minutes: mins }) : t("timeHours", { hours });
-  };
+  const formatTime = (m: number | null) => formatRecipeTime(t, m);
 
   // Format quantity
   const formatQuantity = (quantity: number | null) => {

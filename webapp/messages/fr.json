@@ -990,7 +990,8 @@
       "title": "Navigation",
       "intro": "Faites glisser pour réorganiser la navigation du bas. L'ordre s'applique uniquement à cet appareil — le kiosque de cuisine, le téléphone et les tablettes des enfants conservent leurs propres dispositions.",
       "reset": "Réinitialiser l'ordre par défaut",
-      "perDeviceHint": "Enregistré sur cet appareil. Les nouvelles surfaces (ex. un plugin récemment activé) apparaissent à la fin jusqu'à ce que vous les réorganisiez."
+      "perDeviceHint": "Enregistré sur cet appareil. Les nouvelles surfaces (ex. un plugin récemment activé) apparaissent à la fin jusqu'à ce que vous les réorganisiez.",
+      "dragToReorder": "Glisser pour réorganiser"
     },
     "theme": {
       "title": "Design",
@@ -1911,7 +1912,9 @@
       "syncSuccessBody": "{succeeded} flux synchronisé(s){failed, plural, =0 {} other {, # échec(s)}}.",
       "syncErrorTitle": "Échec de la synchronisation",
       "holidaysBadge": "Jours fériés",
-      "wasteBadge": "Déchets"
+      "wasteBadge": "Déchets",
+      "copyUrlTitle": "Copier l'URL",
+      "customColorTitle": "Couleur personnalisée"
     },
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "mise à jour vers {version} disponible",
@@ -3086,7 +3089,9 @@
       "test": "Tester la connexion",
       "testing": "Test…",
       "ok": "Connecté à {locationName}",
-      "fail": "Impossible d'atteindre cette URL avec ce jeton. Vérifiez les deux."
+      "fail": "Impossible d'atteindre cette URL avec ce jeton. Vérifiez les deux.",
+      "hideToken": "Masquer le jeton",
+      "showToken": "Afficher le jeton"
     },
     "weather": {
       "title": "Définir votre emplacement",

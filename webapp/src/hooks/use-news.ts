@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSetting } from "./use-supabase-queries";
 import { DEFAULT_NEWS_SOURCES } from "@/lib/news-providers";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 export interface NewsItem {
   title: string;
@@ -14,7 +15,7 @@ export interface NewsItem {
 }
 
 export function useNewsSources() {
-  return useSetting<string[]>("news_sources", DEFAULT_NEWS_SOURCES);
+  return useSetting<string[]>(SETTINGS_KEYS.newsSources, DEFAULT_NEWS_SOURCES);
 }
 
 export interface NewsProviderSummary {

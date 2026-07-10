@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 interface ImmichSettings {
   url: string;
@@ -36,7 +37,7 @@ export function useImmichStatus() {
       }
 
       try {
-        const response = await fetch(`/api/settings?family_id=${family.id}&key=immich`);
+        const response = await fetch(`/api/settings?family_id=${family.id}&key=${SETTINGS_KEYS.immich}`);
         if (!response.ok) {
           // 404 means not configured yet - return null, don't throw
           if (response.status === 404) {
@@ -194,7 +195,7 @@ export function useSaveImmichSettings() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           family_id: family.id,
-          key: "immich",
+          key: SETTINGS_KEYS.immich,
           value: settings,
         }),
       });
@@ -250,7 +251,7 @@ export function useDisconnectImmich() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           family_id: family.id,
-          key: "immich",
+          key: SETTINGS_KEYS.immich,
         }),
       });
 

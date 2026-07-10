@@ -39,6 +39,7 @@ import {
   useSwipeNavigation,
   type ExternalRecipeResult,
 } from "@/hooks";
+import { formatRecipeTime } from "@/lib/recipe-time";
 
 // Difficulty colors
 const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -88,13 +89,7 @@ export default function RecipeSearchPage() {
   };
 
   // Format time
-  const formatTime = (minutes: number | null) => {
-    if (!minutes) return null;
-    if (minutes < 60) return t("timeMinutes", { count: minutes });
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? t("timeHoursMinutes", { hours, minutes: mins }) : t("timeHours", { hours });
-  };
+  const formatTime = (m: number | null) => formatRecipeTime(t, m);
 
   // Format rating
   const formatRating = (rating: number) => {

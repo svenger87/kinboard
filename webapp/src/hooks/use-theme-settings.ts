@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useSetting } from "./use-supabase-queries";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 const MONTHLY_THEMES = [
   "theme-january",
@@ -50,7 +51,7 @@ export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
  * - Returns all theme settings for use in components
  */
 export function useThemeSettings() {
-  const { data: settings, isLoading } = useSetting<ThemeSettings>("theme", DEFAULT_THEME_SETTINGS);
+  const { data: settings, isLoading } = useSetting<ThemeSettings>(SETTINGS_KEYS.theme, DEFAULT_THEME_SETTINGS);
 
   const currentMonth = new Date().getMonth();
   const themeOverride = settings?.themeOverride ?? null;

@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 // Placeholder returned to the browser instead of a stored secret. Truthy,
 // so existing `!!settings?.access_token`-style connected-checks keep
@@ -8,11 +9,11 @@ export const SECRET_SENTINEL = "__secret_stored__";
 // Setting key → dotted paths (within the setting's JSON value) that must
 // never reach the browser. Secrets rows store the SAME nested shape.
 export const SECRET_FIELDS: Record<string, string[]> = {
-  home_assistant: ["access_token"],
-  immich: ["api_key"],
-  unsplash: ["access_key"],
-  google_calendar: ["access_token", "refresh_token"],
-  bring_settings: ["credentials.accessToken", "credentials.refreshToken"],
+  [SETTINGS_KEYS.homeAssistant]: ["access_token"],
+  [SETTINGS_KEYS.immich]: ["api_key"],
+  [SETTINGS_KEYS.unsplash]: ["access_key"],
+  [SETTINGS_KEYS.googleCalendar]: ["access_token", "refresh_token"],
+  [SETTINGS_KEYS.bringSettings]: ["credentials.accessToken", "credentials.refreshToken"],
 };
 
 type JsonObject = Record<string, unknown>;

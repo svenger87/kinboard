@@ -990,7 +990,8 @@
       "title": "Navigation",
       "intro": "Untere Navigation per Drag & Drop sortieren. Die Reihenfolge gilt nur auf diesem Gerät — Küchen-Kiosk, Telefon und Tablets der Kinder behalten jeweils ihre eigene Anordnung.",
       "reset": "Standard wiederherstellen",
-      "perDeviceHint": "Auf diesem Gerät gespeichert. Neue Bereiche (z. B. ein frisch aktiviertes Plugin) erscheinen am Ende, bis du sie verschiebst."
+      "perDeviceHint": "Auf diesem Gerät gespeichert. Neue Bereiche (z. B. ein frisch aktiviertes Plugin) erscheinen am Ende, bis du sie verschiebst.",
+      "dragToReorder": "Zum Sortieren ziehen"
     },
     "theme": {
       "title": "Design",
@@ -1911,7 +1912,9 @@
       "syncSuccessBody": "{succeeded} Feed(s) synchronisiert{failed, plural, =0 {} other {, # fehlgeschlagen}}.",
       "syncErrorTitle": "Sync fehlgeschlagen",
       "holidaysBadge": "Feiertage",
-      "wasteBadge": "Müll"
+      "wasteBadge": "Müll",
+      "copyUrlTitle": "URL kopieren",
+      "customColorTitle": "Eigene Farbe"
     },
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "Update auf {version} verfügbar",
@@ -3086,7 +3089,9 @@
       "test": "Verbindung testen",
       "testing": "Teste…",
       "ok": "Verbunden mit {locationName}",
-      "fail": "Diese URL mit diesem Token nicht erreichbar. Bitte beides prüfen."
+      "fail": "Diese URL mit diesem Token nicht erreichbar. Bitte beides prüfen.",
+      "hideToken": "Token verbergen",
+      "showToken": "Token anzeigen"
     },
     "weather": {
       "title": "Standort festlegen",

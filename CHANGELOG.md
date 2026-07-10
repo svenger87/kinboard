@@ -24,6 +24,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The delete-person confirmation now states what actually happens: the pocket-money account (with history) and school schedules are permanently deleted, while birthday entries, events/todos are kept but unassigned. The old text claimed events and todos would be deleted (they aren't) and didn't mention pocket money (which is).
 - Push notifications now speak your language: shopping, todo, and calendar-reminder notifications are generated in the family's UI language (English/German/French) instead of always German. The family's language is now remembered server-side whenever someone changes it, so scheduled reminders can use it. Families that never changed the language keep German.
 - Weather condition labels ("Cloudy", "Rain", …) now follow the app language instead of always German.
+- Bring!: re-connecting or changing one Bring option no longer silently resets your other Bring settings (sync direction, list choice) to defaults.
+- Assorted untranslated tooltips/labels (copy-URL, custom color, drag-to-reorder, token show/hide) and dates that ignored the app language now follow EN/DE/FR.
 
 ### Security
 - Integration credentials (Home Assistant access token, Immich API key, Unsplash access key, Google Calendar OAuth tokens, Bring! tokens) no longer reach the browser. They move into a new server-only `integration_secrets` table that the browser-facing database role cannot read and that is excluded from realtime broadcasts; the settings API returns a placeholder instead. Existing installs are migrated automatically on next start (`migration_integration_secrets.sql`) — no action needed, integrations keep working without reconnecting.
