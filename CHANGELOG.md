@@ -10,6 +10,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A quiet "Live updates paused — reconnecting…" pill appears above the navigation when the realtime connection drops, so a wall kiosk can no longer show stale data with no signal. It disappears automatically once the connection is back.
 
 ### Fixed
+- When the server is unreachable (stack down, network issue), the app now shows a "Can't reach the Kinboard server" screen with a retry button after ~12 seconds instead of spinning forever.
 - Settings, Google Calendar, and ICS pages now actually show their success/error toasts (connect, sync, PIN saved, feed added/deleted, …). These pages fired notifications into a toast system that was never mounted, so all their feedback silently disappeared.
 - Failed saves now tell you: weather location, news sources, stonks watchlist add/remove, and new-vehicle creation show an error toast instead of failing silently. Starting the Google connect flow without server OAuth keys now returns you to the Google settings page with an explanation instead of a raw 500 error.
 - The delete-person confirmation now states what actually happens: the pocket-money account (with history) and school schedules are permanently deleted, while birthday entries, events/todos are kept but unassigned. The old text claimed events and todos would be deleted (they aren't) and didn't mention pocket money (which is).

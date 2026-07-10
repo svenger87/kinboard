@@ -9,7 +9,10 @@
     "searchClear": "Clear search",
     "newEntriesAria": "{count, plural, one {# new entry} other {# new entries}}",
     "seeOnDashboardOrNewsPage": "see on the dashboard widget or on /news",
-    "liveUpdatesPaused": "Live updates paused — reconnecting…"
+    "liveUpdatesPaused": "Live updates paused — reconnecting…",
+    "serverUnreachableTitle": "Can't reach the Kinboard server",
+    "serverUnreachableBody": "The app can't load your family data. Check that the Kinboard stack is running and that this device can reach it, then try again.",
+    "serverUnreachableRetry": "Try again"
   },
   "components": {
     "back": "Back",
