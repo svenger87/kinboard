@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - A quiet "Live updates paused — reconnecting…" pill appears above the navigation when the realtime connection drops, so a wall kiosk can no longer show stale data with no signal. It disappears automatically once the connection is back.
 
+### Changed
+- All destructive deletes now use the same styled confirmation dialog: calendar events, vehicles, Home Assistant rooms (previously native browser popups, which look foreign and can be suppressed in kiosk fullscreen), and meal-plan entries (previously deleted with no confirmation at all).
+
 ### Fixed
 - Added `webapp/.dockerignore`: building the webapp image on a machine that had run `npm run dev` failed with a tar checksum error on `.next/dev`, and the build context needlessly shipped `node_modules`, the local Postgres data directory, and the stack's `.env` secrets into intermediate image layers. Source builds are now smaller and work regardless of local dev state.
 - When the server is unreachable (stack down, network issue), the app now shows a "Can't reach the Kinboard server" screen with a retry button after ~12 seconds instead of spinning forever.

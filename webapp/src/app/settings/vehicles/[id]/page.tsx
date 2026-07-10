@@ -16,6 +16,17 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { useFamilyStore } from "@/stores/family-store";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function EditVehiclePage({
   params,
@@ -24,6 +35,7 @@ export default function EditVehiclePage({
 }) {
   const { id } = use(params);
   const t = useTranslations("settings.vehicles");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const { data: vehicle, isPending } = useVehicle(id);
   const { mutateAsync: save } = useSaveVehicle();
@@ -93,7 +105,6 @@ export default function EditVehiclePage({
 
   async function handleDelete() {
     if (!vehicle) return;
-    if (!confirm(t("confirmDelete", { name: vehicle.nickname }))) return;
     await del(vehicle.id);
     router.replace("/settings/vehicles");
   }
@@ -109,9 +120,30 @@ export default function EditVehiclePage({
           backHref="/settings/vehicles"
           actions={
             <div className="flex gap-2">
-              <Button variant="destructive" size="sm" onClick={handleDelete}>
-                {t("delete")}
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm">
+                    {t("delete")}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t("confirmDelete", { name: vehicle.nickname })}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={handleDelete}
+                    >
+                      {tCommon("delete")}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               <Button size="sm" onClick={handleSave}>
                 <Save className="size-4 mr-2" />
                 {t("save")}
@@ -187,9 +219,30 @@ export default function EditVehiclePage({
             <Link href="/settings/vehicles">{t("back")}</Link>
           </Button>
           <div className="flex gap-2">
-            <Button variant="destructive" onClick={handleDelete}>
-              {t("delete")}
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">
+                  {t("delete")}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t("confirmDelete", { name: vehicle.nickname })}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={handleDelete}
+                  >
+                    {tCommon("delete")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <Button onClick={handleSave}>
               <Save className="size-4 mr-2" />
               {t("save")}
