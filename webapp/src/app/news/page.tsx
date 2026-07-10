@@ -7,12 +7,14 @@ import { useState, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { GlassCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { useNews, type NewsItem } from "@/hooks/use-news";
 import { useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
@@ -26,6 +28,7 @@ export default function NewsPage() {
   useSwipeNavigation();
   const t = useTranslations("news");
   const locale = useLocale();
+  const router = useRouter();
   const { data: news, isLoading, isFetching, refetch } = useNews();
 
   const [query, setQuery] = useState("");
@@ -124,16 +127,15 @@ export default function NewsPage() {
         )}
 
         {!isLoading && filtered.length === 0 && (
-          <GlassCard className="p-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              {news && news.length === 0 ? t("emptyNoSources") : t("emptyFiltered")}
-            </p>
-            {news && news.length === 0 && (
-              <Button asChild variant="outline" className="mt-4">
-                <Link href="/settings/news">{t("manageSources")}</Link>
-              </Button>
-            )}
-          </GlassCard>
+          news && news.length === 0 ? (
+            <EmptyState
+              icon={Newspaper}
+              title={t("emptyNoSources")}
+              action={{ label: t("manageSources"), onClick: () => router.push("/settings/news"), variant: "outline" }}
+            />
+          ) : (
+            <EmptyState icon={Newspaper} title={t("emptyFiltered")} />
+          )
         )}
 
         {!isLoading && filtered.length > 0 && (

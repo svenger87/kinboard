@@ -108,7 +108,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -116,7 +115,8 @@ import { PersonAvatar } from "@/components/person-avatar";
 import { ChecklistItem } from "@/components/checklist-item";
 import { ErrorState } from "@/components/error-state";
 import { PageHeader } from "@/components/page-header";
-import Link from "next/link";
+import { EmptyState } from "@/components/empty-state";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useSchedules, usePeople, useSubjects, useSetting, useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
 import type { Person, Subject } from "@/types/database";
@@ -183,6 +183,7 @@ export default function SchedulePage() {
   useSwipeNavigation();
 
   const t = useTranslations("schedule");
+  const router = useRouter();
   const DAYS = [
     t("days.monday"),
     t("days.tuesday"),
@@ -398,18 +399,12 @@ export default function SchedulePage() {
             className="mb-8"
           />
 
-          <Card>
-            <CardContent className="p-8 pt-8 text-center">
-              <GraduationCap className="size-16 mx-auto mb-4 text-muted-foreground opacity-50" strokeWidth={1.75} />
-              <h2 className="text-xl font-semibold mb-2">{t("noChildrenTitle")}</h2>
-              <p className="text-muted-foreground mb-4">
-                {t("noChildrenDescription")}
-              </p>
-              <Button variant="default" asChild>
-                <Link href="/settings/people">{t("noChildrenAction")}</Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={GraduationCap}
+            title={t("noChildrenTitle")}
+            description={t("noChildrenDescription")}
+            action={{ label: t("noChildrenAction"), onClick: () => router.push("/settings/people") }}
+          />
         </div>
       </main>
     );
@@ -606,15 +601,11 @@ export default function SchedulePage() {
           transition={{ delay: 0.1 }}
         >
           {maxPeriods === 0 ? (
-            <Card className="overflow-hidden">
-              <div className="p-8 text-center">
-                <GraduationCap className="size-12 mx-auto mb-3 text-muted-foreground opacity-50" strokeWidth={1.75} />
-                <p className="text-muted-foreground">{t("noScheduleMessage")}</p>
-                <Button variant="outline" className="mt-4" asChild>
-                  <Link href="/settings/schedule">{t("noScheduleAction")}</Link>
-                </Button>
-              </div>
-            </Card>
+            <EmptyState
+              icon={GraduationCap}
+              title={t("noScheduleMessage")}
+              action={{ label: t("noScheduleAction"), onClick: () => router.push("/settings/schedule"), variant: "outline" }}
+            />
           ) : (
             <>
               {/* Mobile: Day-by-day vertical view */}

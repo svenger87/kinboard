@@ -8,9 +8,7 @@ import {
   Home,
   Settings,
   RefreshCw,
-  Loader2,
   LayoutGrid,
-  Plus,
   Activity,
   Power,
   PowerOff,
@@ -18,6 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +32,7 @@ import {
   useSwipeNavigation,
 } from "@/hooks";
 import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { EntityCard } from "@/components/home-assistant/entity-card";
 import { DashboardSelector } from "@/components/home-assistant/dashboard-selector";
 import type { Dashboard } from "@/types/home-assistant";
@@ -41,6 +41,7 @@ export default function HausautomationPage() {
   useKeyboardShortcuts();
   useSwipeNavigation();
   const t = useTranslations("homeAutomation");
+  const router = useRouter();
   const { data: settings, isLoading: loadingSettings, refetch } = useHomeAssistantStatus();
   const { data: dashboards = [], isLoading: loadingDashboards } = useDashboards();
   const createDashboard = useCreateDashboard();
@@ -224,26 +225,17 @@ export default function HausautomationPage() {
             </Link>
           </motion.div>
 
-          <Card>
-            <CardContent className="p-8 text-center">
-              <LayoutGrid className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h2 className="text-lg font-medium mb-2">{t("noDashboardsTitle")}</h2>
-              <p className="text-muted-foreground mb-6">
-                {t("noDashboardsDescription")}
-              </p>
-              <Button
-                onClick={() => handleCreateDashboard(t("defaultDashboardName"), "home", "custom")}
-                disabled={createDashboard.isPending}
-              >
-                {createDashboard.isPending ? (
-                  <Loader2 className="size-4 mr-2 animate-spin" />
-                ) : (
-                  <Plus className="size-4 mr-2" />
-                )}
-                {t("noDashboardsAction")}
-              </Button>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={LayoutGrid}
+            title={t("noDashboardsTitle")}
+            description={t("noDashboardsDescription")}
+            action={{
+              label: t("noDashboardsAction"),
+              onClick: () => handleCreateDashboard(t("defaultDashboardName"), "home", "custom"),
+              variant: "default",
+              disabled: createDashboard.isPending,
+            }}
+          />
         </div>
       </main>
     );
@@ -298,21 +290,16 @@ export default function HausautomationPage() {
 
         {/* Empty Dashboard State */}
         {dashboardCards.length === 0 && activeDashboard?.type !== "energy" && (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <LayoutGrid className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h2 className="text-lg font-medium mb-2">{t("emptyDashboardTitle")}</h2>
-              <p className="text-muted-foreground mb-6">
-                {t("emptyDashboardDescription")}
-              </p>
-              <Link href={`/settings/homeassistant?dashboard=${activeDashboardId}`}>
-                <Button>
-                  <Plus className="size-4 mr-2" />
-                  {t("emptyDashboardAction")}
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={LayoutGrid}
+            title={t("emptyDashboardTitle")}
+            description={t("emptyDashboardDescription")}
+            action={{
+              label: t("emptyDashboardAction"),
+              onClick: () => router.push(`/settings/homeassistant?dashboard=${activeDashboardId}`),
+              variant: "default",
+            }}
+          />
         )}
 
         {/* Energy Dashboard - Redirect to dedicated page */}
