@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useFamilyStore } from "@/stores/family-store";
 import {
@@ -9,7 +10,8 @@ import {
   useRestoreDeviceSession,
   useValidateStoredFamily,
 } from "@/hooks/use-supabase-queries";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, ServerOff } from "lucide-react";
 
 const PUBLIC_PATHS = ["/join"];
 const HEARTBEAT_INTERVAL = 60000; // Update last_seen every 60 seconds
@@ -21,6 +23,7 @@ interface AuthGuardProps {
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const t = useTranslations("common");
   const { family, device, clearSession } = useFamilyStore();
   const [isHydrated, setIsHydrated] = useState(false);
   const [restoreAttempted, setRestoreAttempted] = useState(false);
@@ -30,6 +33,15 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
   const restoreAttemptedRef = useRef(false);
   const orphanHandledRef = useRef(false);
+
+  // If we're still in a blocking-loading state after this long, the
+  // server is likely unreachable — show an explanation instead of a
+  // spinner that never resolves (Kong/Postgres down, wrong SITE_URL, …).
+  const [loadingDeadlinePassed, setLoadingDeadlinePassed] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setLoadingDeadlinePassed(true), 12000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Wait for Zustand to hydrate from cookies
   useEffect(() => {
@@ -136,23 +148,37 @@ export function AuthGuard({ children }: AuthGuardProps) {
     }
   }, [family, pathname, router, isHydrated, restoreAttempted, validateFamily.data, clearSession]);
 
-  // Show loading while hydrating or restoring
-  if (!isHydrated || !restoreAttempted) {
+  const blockingScreen = () => {
+    if (loadingDeadlinePassed) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background p-6">
+          <div className="max-w-sm w-full rounded-lg border border-border bg-card p-6 text-center space-y-3">
+            <ServerOff className="size-8 mx-auto text-muted-foreground" aria-hidden />
+            <h1 className="font-medium">{t("serverUnreachableTitle")}</h1>
+            <p className="text-sm text-muted-foreground">{t("serverUnreachableBody")}</p>
+            <Button onClick={() => window.location.reload()}>
+              {t("serverUnreachableRetry")}
+            </Button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
       </div>
     );
+  };
+
+  // Show loading while hydrating or restoring
+  if (!isHydrated || !restoreAttempted) {
+    return blockingScreen();
   }
 
   // Don't render protected content until we verify auth
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
   if (!family && !isPublicPath) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return blockingScreen();
   }
 
   // Block child rendering on protected paths until we've confirmed the
@@ -166,11 +192,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     !isPublicPath &&
     (!validateFamily.isFetched || validateFamily.data === false)
   ) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return blockingScreen();
   }
 
   return <>{children}</>;

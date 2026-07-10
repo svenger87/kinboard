@@ -9,7 +9,10 @@
     "searchClear": "Suche leeren",
     "newEntriesAria": "{count, plural, one {# neuer Eintrag} other {# neue Einträge}}",
     "seeOnDashboardOrNewsPage": "auf dem Dashboard-Widget oder unter /news",
-    "liveUpdatesPaused": "Live-Updates pausiert — Verbindung wird wiederhergestellt…"
+    "liveUpdatesPaused": "Live-Updates pausiert — Verbindung wird wiederhergestellt…",
+    "serverUnreachableTitle": "Kinboard-Server nicht erreichbar",
+    "serverUnreachableBody": "Die App kann deine Familiendaten nicht laden. Prüfe, ob der Kinboard-Stack läuft und dieses Gerät ihn erreichen kann, und versuche es dann erneut.",
+    "serverUnreachableRetry": "Erneut versuchen"
   },
   "components": {
     "back": "Zurück",
