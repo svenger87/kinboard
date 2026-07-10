@@ -1147,6 +1147,8 @@
       "emailLabel": "E-mail",
       "emailPlaceholder": "vous@email.com",
       "passwordLabel": "Mot de passe",
+      "showPassword": "Afficher le mot de passe",
+      "hidePassword": "Masquer le mot de passe",
       "loginSubmitting": "Connexion…",
       "loginSubmit": "Se connecter",
       "loginSecurityHint": "Vos identifiants sont stockés en toute sécurité sur le serveur.",
@@ -3100,8 +3102,6 @@
     "weather": {
       "title": "Définir votre emplacement",
       "description": "Choisissez une ville pour que le widget météo du tableau de bord sache où regarder. Les prévisions et le résolveur d'emplacement utilisent l'offre gratuite d'OpenWeatherMap.",
-      "cityLabel": "Ville",
-      "cityPlaceholder": "Paris",
       "apiKeyTitle": "Clé API OpenWeatherMap requise",
       "apiKeyBody": "La météo reste désactivée tant qu'aucune clé n'est configurée — vous pourrez aussi le faire plus tard. Clé gratuite sur openweathermap.org/api.",
       "saved": "Emplacement enregistré",

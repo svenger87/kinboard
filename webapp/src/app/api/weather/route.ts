@@ -51,7 +51,8 @@ export async function GET(request: NextRequest) {
   const lat = searchParams.get("lat");
   const lon = searchParams.get("lon");
   const city = searchParams.get("city");
-  const lang = searchParams.get("lang") || "de";
+  const rawLang = searchParams.get("lang") || "de";
+  const lang = ["de", "en", "fr"].includes(rawLang) ? rawLang : "de";
 
   if (!OPENWEATHERMAP_API_KEY) {
     return NextResponse.json({ configured: false }, { status: 200 });

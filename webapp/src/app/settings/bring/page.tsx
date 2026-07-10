@@ -8,8 +8,6 @@ import {
   RefreshCw,
   AlertCircle,
   Clock,
-  Eye,
-  EyeOff,
   Mail,
   Lock,
   Loader2,
@@ -22,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/page-header";
+import { SecretField } from "@/components/settings/secret-field";
 import {
   Select,
   SelectContent,
@@ -59,7 +58,6 @@ export default function BringSettingsPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [loginError, setLoginError] = useState("");
 
@@ -180,30 +178,16 @@ export default function BringSettingsPage() {
                     />
                   </div>
                 </div>
-                <div className="flex flex-col gap-2">
-                  <Label>{t("passwordLabel")}</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="size-4" />
-                      ) : (
-                        <Eye className="size-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
+                <SecretField
+                  id="bring-password"
+                  label={t("passwordLabel")}
+                  icon={Lock}
+                  value={password}
+                  onChange={setPassword}
+                  placeholder="••••••••"
+                  showLabel={t("showPassword")}
+                  hideLabel={t("hidePassword")}
+                />
 
                 {loginError && (
                   <div className="flex items-center gap-2 text-destructive text-sm">

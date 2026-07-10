@@ -18,9 +18,9 @@ interface SecretFieldProps {
   autoComplete?: string;
 }
 
-// Matches the eye-toggle markup previously copy-pasted across the HA,
-// Immich, Unsplash and Bring connect dialogs — keep classes in sync if
-// this ever needs to change so all four stay visually identical.
+// Shared eye-toggle input used by the HA, Immich, Unsplash and Bring
+// connect dialogs — keep classes in sync if this ever needs to change so
+// all four stay visually identical.
 export function SecretField({
   id,
   label,
