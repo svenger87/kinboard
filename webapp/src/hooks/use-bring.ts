@@ -2,14 +2,13 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSetting, useUpdateSetting } from "./use-supabase-queries";
+import { useFamilyStore } from "@/stores/family-store";
 
 export interface BringCredentials {
   uuid: string;
   email: string;
   name: string;
   defaultListId: string;
-  accessToken: string;
-  refreshToken: string;
   expiresAt: number;
 }
 
@@ -64,13 +63,16 @@ export function useBringSettings() {
 export function useBringLogin() {
   const queryClient = useQueryClient();
   const updateSetting = useUpdateSetting();
+  const { family } = useFamilyStore();
 
   return useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      if (!family?.id) throw new Error("No family");
+
       const response = await fetch("/api/bring/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, family_id: family.id }),
       });
 
       if (!response.ok) {
@@ -86,8 +88,6 @@ export function useBringLogin() {
         email: data.email,
         name: data.name,
         defaultListId: data.defaultListId,
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
         expiresAt: Date.now() + data.expiresIn * 1000,
       };
 
@@ -109,11 +109,21 @@ export function useBringLogin() {
 }
 
 export function useBringLogout() {
+  const { family } = useFamilyStore();
   const updateSetting = useUpdateSetting();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
+      // Clear the secrets row (and the setting) server-side; then restore
+      // the default non-secret settings shape for the UI.
+      if (family?.id) {
+        await fetch("/api/settings", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ family_id: family.id, key: "bring_settings" }),
+        });
+      }
       await updateSetting.mutateAsync({
         key: "bring_settings",
         value: DEFAULT_SETTINGS,
@@ -121,25 +131,22 @@ export function useBringLogout() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bring"] });
+      queryClient.invalidateQueries({ queryKey: ["setting", "bring_settings"] });
     },
   });
 }
 
 export function useBringLists() {
+  const { family } = useFamilyStore();
   const { data: settings } = useBringSettings();
   const credentials = settings?.credentials;
 
   return useQuery({
     queryKey: ["bring", "lists", credentials?.uuid],
     queryFn: async (): Promise<BringList[]> => {
-      if (!credentials) return [];
+      if (!credentials || !family?.id) return [];
 
-      const response = await fetch("/api/bring/lists", {
-        headers: {
-          Authorization: `Bearer ${credentials.accessToken}`,
-          "X-Bring-UUID": credentials.uuid,
-        },
-      });
+      const response = await fetch(`/api/bring/lists?family_id=${family.id}`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch lists");
@@ -147,12 +154,13 @@ export function useBringLists() {
 
       return response.json();
     },
-    enabled: !!credentials,
+    enabled: !!credentials && !!family?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
 export function useBringItems(listId?: string | null) {
+  const { family } = useFamilyStore();
   const { data: settings } = useBringSettings();
   const credentials = settings?.credentials;
   const effectiveListId = listId || settings?.selectedListId;
@@ -160,13 +168,9 @@ export function useBringItems(listId?: string | null) {
   return useQuery({
     queryKey: ["bring", "items", effectiveListId],
     queryFn: async () => {
-      if (!credentials || !effectiveListId) return { items: [], recentItems: [] };
+      if (!credentials || !effectiveListId || !family?.id) return { items: [], recentItems: [] };
 
-      const response = await fetch(`/api/bring/items?listId=${effectiveListId}`, {
-        headers: {
-          Authorization: `Bearer ${credentials.accessToken}`,
-        },
-      });
+      const response = await fetch(`/api/bring/items?listId=${effectiveListId}&family_id=${family.id}`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch items");
@@ -174,28 +178,28 @@ export function useBringItems(listId?: string | null) {
 
       return response.json();
     },
-    enabled: !!credentials && !!effectiveListId,
+    enabled: !!credentials && !!effectiveListId && !!family?.id,
     staleTime: 60 * 1000, // 1 minute
     refetchInterval: 2 * 60 * 1000, // Refetch every 2 minutes
   });
 }
 
 export function useBringAddItem() {
+  const { family } = useFamilyStore();
   const { data: settings } = useBringSettings();
   const credentials = settings?.credentials;
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ listId, itemName, specification }: { listId: string; itemName: string; specification?: string }) => {
-      if (!credentials) throw new Error("Not authenticated");
+      if (!credentials || !family?.id) throw new Error("Not authenticated");
 
       const response = await fetch("/api/bring/items", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${credentials.accessToken}`,
         },
-        body: JSON.stringify({ listId, itemName, specification }),
+        body: JSON.stringify({ listId, itemName, specification, family_id: family.id }),
       });
 
       if (!response.ok) {
@@ -211,19 +215,17 @@ export function useBringAddItem() {
 }
 
 export function useBringRemoveItem() {
+  const { family } = useFamilyStore();
   const { data: settings } = useBringSettings();
   const credentials = settings?.credentials;
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ listId, itemName }: { listId: string; itemName: string }) => {
-      if (!credentials) throw new Error("Not authenticated");
+      if (!credentials || !family?.id) throw new Error("Not authenticated");
 
-      const response = await fetch(`/api/bring/items?listId=${listId}&itemName=${encodeURIComponent(itemName)}`, {
+      const response = await fetch(`/api/bring/items?listId=${listId}&itemName=${encodeURIComponent(itemName)}&family_id=${family.id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${credentials.accessToken}`,
-        },
       });
 
       if (!response.ok) {
