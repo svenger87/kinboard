@@ -96,11 +96,11 @@ export function ShoppingInstallPrompt() {
       >
         <Card className="p-4 border-info/30 bg-info/5">
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-blue-500/20 shrink-0">
-              <Compass className="size-5 text-blue-500" />
+            <div className="p-2 rounded-xl bg-info/20 shrink-0">
+              <Compass className="size-5 text-info" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-blue-400">{t("iosStandaloneHintTitle")}</h3>
+              <h3 className="font-medium text-info">{t("iosStandaloneHintTitle")}</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 {t("iosStandaloneHintBody")}
               </p>
@@ -135,17 +135,17 @@ export function ShoppingInstallPrompt() {
         >
           <Card className="p-4 border-success/30 bg-success/5">
             <div className="flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-green-500/20 shrink-0">
-                <Smartphone className="size-5 text-green-500" />
+              <div className="p-2 rounded-xl bg-success/20 shrink-0">
+                <Smartphone className="size-5 text-success" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-green-400">{t("title")}</h3>
+                <h3 className="font-medium text-success">{t("title")}</h3>
                 <p className="text-sm text-muted-foreground mt-1">
                   {isIOS ? t("iosBody") : t("androidBody")}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-3">
                   <Link href="/einkaufen">
-                    <Button variant="outline" size="sm" className="border-green-500/30 hover:bg-green-500/10">
+                    <Button variant="outline" size="sm" className="border-success/30 hover:bg-success/10">
                       {isIOS ? (
                         <>
                           <ExternalLink className="size-4 mr-2" />

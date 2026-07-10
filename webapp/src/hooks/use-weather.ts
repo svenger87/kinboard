@@ -101,7 +101,7 @@ export function useWeather() {
     queryFn: async (): Promise<WeatherData | null> => {
       let url = "/api/weather?";
 
-      if (weatherLocation.type === "coordinates" && weatherLocation.lat && weatherLocation.lon) {
+      if (weatherLocation.type === "coordinates" && weatherLocation.lat != null && weatherLocation.lon != null) {
         url += `lat=${weatherLocation.lat}&lon=${weatherLocation.lon}`;
       } else if (weatherLocation.city) {
         url += `city=${encodeURIComponent(weatherLocation.city)}`;
@@ -141,7 +141,7 @@ export function useWeatherForecast() {
     queryFn: async (): Promise<ForecastData | null> => {
       let url = "/api/weather/forecast?";
 
-      if (weatherLocation.type === "coordinates" && weatherLocation.lat && weatherLocation.lon) {
+      if (weatherLocation.type === "coordinates" && weatherLocation.lat != null && weatherLocation.lon != null) {
         url += `lat=${weatherLocation.lat}&lon=${weatherLocation.lon}`;
       } else if (weatherLocation.city) {
         url += `city=${encodeURIComponent(weatherLocation.city)}`;

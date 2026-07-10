@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { LOCALES } from "@/i18n/locales";
 
 const OPENWEATHERMAP_API_KEY = process.env.OPENWEATHERMAP_API_KEY;
 const BASE_URL = process.env.OPENWEATHERMAP_BASE_URL || "https://api.openweathermap.org/data/2.5";
@@ -53,12 +54,20 @@ function getDayName(date: Date, locale: string = "de-DE"): string {
   return date.toLocaleDateString(locale, { weekday: "short" });
 }
 
+// Maps the app's short lang code to the BCP47 tag used by Intl date/time
+// formatting, so forecast day names and hourly times follow the app
+// language instead of always being formatted as German.
+function bcp47ForLang(lang: string): string {
+  return LOCALES.find((l) => l.code === lang)?.bcp47 ?? "de-DE";
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const lat = searchParams.get("lat");
   const lon = searchParams.get("lon");
   const city = searchParams.get("city");
-  const lang = searchParams.get("lang") || "de";
+  const rawLang = searchParams.get("lang") || "de";
+  const lang = ["de", "en", "fr"].includes(rawLang) ? rawLang : "de";
 
   if (!OPENWEATHERMAP_API_KEY) {
     return NextResponse.json({ configured: false }, { status: 200 });
@@ -129,7 +138,7 @@ export async function GET(request: NextRequest) {
 
       return {
         date: dateKey,
-        dayName: getDayName(date),
+        dayName: getDayName(date, bcp47ForLang(lang)),
         tempMax: maxTemp,
         tempMin: minTemp,
         condition: mapCondition(middayItem.weather[0].main, lang),
@@ -147,7 +156,7 @@ export async function GET(request: NextRequest) {
     const hourlyForecast = data.list.slice(0, 8).map(item => {
       const date = new Date(item.dt * 1000);
       return {
-        time: date.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }),
+        time: date.toLocaleTimeString(bcp47ForLang(lang), { hour: "2-digit", minute: "2-digit" }),
         temp: Math.round(item.main.temp),
         condition: mapCondition(item.weather[0].main, lang),
         conditionMain: item.weather[0].main,

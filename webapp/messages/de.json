@@ -1147,6 +1147,8 @@
       "emailLabel": "E-Mail",
       "emailPlaceholder": "deine@email.de",
       "passwordLabel": "Passwort",
+      "showPassword": "Passwort anzeigen",
+      "hidePassword": "Passwort verbergen",
       "loginSubmitting": "Anmelden…",
       "loginSubmit": "Anmelden",
       "loginSecurityHint": "Deine Anmeldedaten werden sicher auf dem Server gespeichert.",
@@ -3100,8 +3102,6 @@
     "weather": {
       "title": "Standort festlegen",
       "description": "Wähle eine Stadt, damit das Wetter-Widget weiß, wohin es schauen soll. Vorhersage und Standortauflösung nutzen den OpenWeatherMap-Gratistarif.",
-      "cityLabel": "Stadt",
-      "cityPlaceholder": "Hamburg",
       "apiKeyTitle": "OpenWeatherMap API-Key fehlt",
       "apiKeyBody": "Das Wetter bleibt deaktiviert, bis ein Key hinterlegt ist — das geht auch später noch. Gratis-Key über openweathermap.org/api.",
       "saved": "Standort gespeichert",
