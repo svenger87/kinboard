@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import {
+  SECRET_FIELDS,
+  applySentinels,
+  getStoredSecrets,
+  splitSecrets,
+  upsertSecrets,
+  deleteSecrets,
+} from "@/lib/integration-secrets";
 
 // GET: Fetch a setting by family_id and key
 export async function GET(request: NextRequest) {
@@ -43,6 +51,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  if (SECRET_FIELDS[key]) {
+    const secrets = await getStoredSecrets(familyId, key);
+    return NextResponse.json({
+      ...data,
+      value: applySentinels(key, data.value, secrets),
+    });
+  }
   return NextResponse.json(data);
 }
 
@@ -60,14 +75,22 @@ export async function PUT(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-   
+  let valueToStore = value;
+  if (SECRET_FIELDS[key]) {
+    const { publicValue, secretValue } = splitSecrets(key, value);
+    valueToStore = publicValue;
+    if (secretValue) {
+      await upsertSecrets(family_id, key, secretValue);
+    }
+  }
+
   const { data, error } = await (supabase as any)
     .from("settings")
     .upsert(
       {
         family_id,
         key,
-        value,
+        value: valueToStore,
         updated_at: new Date().toISOString(),
       },
       {
@@ -82,6 +105,14 @@ export async function PUT(request: NextRequest) {
       { error: error.message },
       { status: 500 }
     );
+  }
+
+  if (SECRET_FIELDS[key]) {
+    const secrets = await getStoredSecrets(family_id, key);
+    return NextResponse.json({
+      ...data,
+      value: applySentinels(key, data.value, secrets),
+    });
   }
 
   return NextResponse.json(data);
@@ -113,6 +144,10 @@ export async function DELETE(request: NextRequest) {
       { error: error.message },
       { status: 500 }
     );
+  }
+
+  if (SECRET_FIELDS[key]) {
+    await deleteSecrets(family_id, key);
   }
 
   return NextResponse.json({ success: true });
