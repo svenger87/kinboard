@@ -58,7 +58,17 @@
     },
     "shortcuts": {
       "title": "Tastenkürzel",
-      "showHelp": "Diese Hilfe anzeigen"
+      "showHelp": "Diese Hilfe anzeigen",
+      "navHome": "Home / Dashboard",
+      "navCalendar": "Kalender",
+      "navTodos": "Aufgaben",
+      "navShopping": "Einkauf",
+      "navBirthdays": "Geburtstage",
+      "navSettings": "Einstellungen",
+      "nextElement": "Nächstes Element",
+      "prevElement": "Vorheriges Element",
+      "activate": "Aktivieren",
+      "close": "Schließen / Abbrechen"
     },
     "theme": {
       "light": "Hell",
