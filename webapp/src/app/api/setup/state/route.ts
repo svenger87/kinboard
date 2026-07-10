@@ -33,10 +33,13 @@ export async function GET(request: NextRequest) {
     console.error("setup/state: calendars query failed:", calendarsR.error);
   }
   if (settingsR.error) {
-    // Settings reads are optional — HA and weather are skippable wizard
-    // steps. Log the failure and treat both integrations as unconfigured
-    // rather than 500ing the whole state read; the wizard will surface
-    // the steps as incomplete and the user can retry by navigating in.
+    // The batch query only covers weather_location — a skippable wizard
+    // step read straight from `settings`. Home Assistant's access_token
+    // now lives in integration_secrets, so it's fetched separately below
+    // via getMergedSetting (server-only, secrets merged in). Log the
+    // failure and treat weather as unconfigured rather than 500ing the
+    // whole state read; the wizard will surface the step as incomplete
+    // and the user can retry by navigating in.
     console.error("setup/state: settings query failed:", settingsR.error);
   }
 

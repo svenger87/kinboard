@@ -86,7 +86,22 @@ export function splitSecrets(
   return { publicValue, secretValue };
 }
 
-/** Inject the sentinel wherever a stored secret exists (for GET responses). */
+/**
+ * Inject the sentinel wherever a secret must not reach the browser (for GET
+ * / PUT responses). Two cases trigger masking at a given path:
+ *   1. A stored secret exists at that path (the expected, steady-state case).
+ *   2. The incoming `value` itself carries a non-empty raw value at that path
+ *      — defense in depth against a raw secret being re-planted directly into
+ *      `settings` (e.g. by seed SQL, or a stale client doing a direct
+ *      PostgREST write) even though `getStoredSecrets` found nothing.
+ * Case 2 masks the value but does NOT persist it as a secret — `getMergedSetting`
+ * (server-side) still returns the raw value from `settings` until the next
+ * boot migration sweeps it out. If the masked value later round-trips through
+ * PUT, `splitSecrets` drops the sentinel from the public value and does not
+ * treat it as a real secret to store, so the field converges to "unset,
+ * reconnect required" rather than silently persisting garbage — the safe
+ * direction to fail in.
+ */
 export function applySentinels(
   key: string,
   value: unknown,
@@ -97,7 +112,14 @@ export function applySentinels(
   let out = value;
   for (const path of paths) {
     const stored = getPath(secrets, path);
-    if (stored !== undefined && stored !== null && stored !== "") {
+    const hasStored = stored !== undefined && stored !== null && stored !== "";
+    const incoming = getPath(value, path);
+    const hasRawIncoming =
+      incoming !== undefined &&
+      incoming !== null &&
+      incoming !== "" &&
+      incoming !== SECRET_SENTINEL;
+    if (hasStored || hasRawIncoming) {
       out = setPath(out, path, SECRET_SENTINEL);
     }
   }
@@ -177,9 +199,10 @@ export async function upsertSecrets(
 
 export async function deleteSecrets(familyId: string, key: string): Promise<void> {
   const supabase = createAdminClient();
-  await (supabase as any)
+  const { error } = await (supabase as any)
     .from("integration_secrets")
     .delete()
     .eq("family_id", familyId)
     .eq("key", key);
+  if (error) throw new Error(`Failed to delete secrets for ${key}: ${error.message}`);
 }
