@@ -51,6 +51,10 @@ import {
 } from "@/components/ui/dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
+import { useFamilyStore } from "@/stores/family-store";
+import { showUndoToast } from "@/lib/undo-toast";
 import {
   useRecipe,
   useToggleRecipeFavorite,
@@ -60,6 +64,7 @@ import {
   getWeekStart,
   useKeyboardShortcuts,
   useSwipeNavigation,
+  recipeQueryKeys,
 } from "@/hooks";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -106,6 +111,8 @@ export default function RecipeDetailPage() {
   const deleteRecipe = useDeleteRecipe();
   const addToShoppingList = useAddRecipeToShoppingList();
   const addMealPlanEntry = useAddMealPlanEntry();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
 
   // Initialize servings from recipe
   const effectiveServings = servings ?? recipe?.servings ?? 4;
@@ -133,9 +140,57 @@ export default function RecipeDetailPage() {
 
   // Handle delete
   const handleDelete = async () => {
+    if (!recipe) return;
+
+    // recipe (ingredients included) is already loaded via useRecipe; tag
+    // assignments aren't, so fetch them just-in-time before the cascade delete.
+    const supabase = createClient();
+    let tagAssignmentSnapshot: { recipe_id: string; tag_id: string }[] = [];
+    try {
+      const { data } = await (supabase as any)
+        .from("recipe_tag_assignments")
+        .select("*")
+        .eq("recipe_id", recipeId);
+      tagAssignmentSnapshot = data ?? [];
+    } catch {
+      // Best-effort snapshot — undo will still restore the recipe + ingredients.
+    }
+
+    const { ingredients, tags: _tags, ...recipeSnapshot } = recipe;
+    const ingredientSnapshot = ingredients;
+
     try {
       await deleteRecipe.mutateAsync(recipeId);
       router.push("/recipes");
+      // Fire the undo toast after navigation — sonner's Toaster is mounted at
+      // the root layout, so it survives the route change to /recipes.
+      showUndoToast({
+        message: t("recipeDeleted"),
+        undoLabel: tCommon("undo"),
+        errorMessage: tCommon("undoFailed"),
+        onUndo: async () => {
+          const undoClient = createClient();
+          const { error: recipeError } = await (undoClient as any)
+            .from("recipes")
+            .insert(recipeSnapshot);
+          if (recipeError) throw recipeError;
+          if (ingredientSnapshot.length > 0) {
+            const { error: ingredientsError } = await (undoClient as any)
+              .from("recipe_ingredients")
+              .insert(ingredientSnapshot);
+            if (ingredientsError) throw ingredientsError;
+          }
+          if (tagAssignmentSnapshot.length > 0) {
+            const { error: tagsError } = await (undoClient as any)
+              .from("recipe_tag_assignments")
+              .insert(tagAssignmentSnapshot);
+            if (tagsError) throw tagsError;
+          }
+          if (family?.id) {
+            queryClient.invalidateQueries({ queryKey: recipeQueryKeys.all(family.id) });
+          }
+        },
+      });
     } catch {
       toast.error(t("deleteFailed"));
     }

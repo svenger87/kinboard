@@ -54,6 +54,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
+import { useFamilyStore } from "@/stores/family-store";
+import { showUndoToast } from "@/lib/undo-toast";
 import { ErrorState } from "@/components/error-state";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -65,9 +69,10 @@ import {
   useRecipeTags,
   useKeyboardShortcuts,
   useSwipeNavigation,
+  recipeQueryKeys,
 } from "@/hooks";
 import { formatRecipeTime } from "@/lib/recipe-time";
-import type { Recipe, RecipeWithIngredients, RecipeTag } from "@/types/database";
+import type { Recipe, RecipeIngredient, RecipeWithIngredients, RecipeTag } from "@/types/database";
 
 // Type for recipe card that accepts either Recipe or RecipeWithIngredients
 type RecipeCardData = Recipe & { ingredients?: RecipeWithIngredients["ingredients"] };
@@ -105,6 +110,8 @@ export default function RecipesPage() {
   const deleteRecipe = useDeleteRecipe();
   const importRecipe = useImportRecipe();
   const { data: tags = [] } = useRecipeTags();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
 
   const router = useRouter();
 
@@ -143,10 +150,60 @@ export default function RecipesPage() {
   // Handle delete
   const handleDelete = async () => {
     if (!deleteRecipeId) return;
+    const id = deleteRecipeId;
+    const supabase = createClient();
+
+    // Just-in-time snapshot: the card being deleted may have come from search
+    // results (no ingredients joined) rather than the favorites-filtered list,
+    // so fetch recipe + children fresh instead of trusting cached data.
+    let recipeSnapshot: Recipe | null = null;
+    let ingredientSnapshot: RecipeIngredient[] = [];
+    let tagAssignmentSnapshot: { recipe_id: string; tag_id: string }[] = [];
+    try {
+      const [{ data: recipeData }, { data: ingredientData }, { data: tagData }] = await Promise.all([
+        (supabase as any).from("recipes").select("*").eq("id", id).single(),
+        (supabase as any).from("recipe_ingredients").select("*").eq("recipe_id", id),
+        (supabase as any).from("recipe_tag_assignments").select("*").eq("recipe_id", id),
+      ]);
+      recipeSnapshot = recipeData ?? null;
+      ingredientSnapshot = (ingredientData as RecipeIngredient[] | null) ?? [];
+      tagAssignmentSnapshot = tagData ?? [];
+    } catch {
+      // Best-effort snapshot — if it fails, delete still proceeds without undo.
+    }
 
     try {
-      await deleteRecipe.mutateAsync(deleteRecipeId);
+      await deleteRecipe.mutateAsync(id);
       setDeleteRecipeId(null);
+      if (recipeSnapshot) {
+        showUndoToast({
+          message: t("recipeDeleted"),
+          undoLabel: tCommon("undo"),
+          errorMessage: tCommon("undoFailed"),
+          onUndo: async () => {
+            const undoClient = createClient();
+            const { error: recipeError } = await (undoClient as any)
+              .from("recipes")
+              .insert(recipeSnapshot);
+            if (recipeError) throw recipeError;
+            if (ingredientSnapshot.length > 0) {
+              const { error: ingredientsError } = await (undoClient as any)
+                .from("recipe_ingredients")
+                .insert(ingredientSnapshot);
+              if (ingredientsError) throw ingredientsError;
+            }
+            if (tagAssignmentSnapshot.length > 0) {
+              const { error: tagsError } = await (undoClient as any)
+                .from("recipe_tag_assignments")
+                .insert(tagAssignmentSnapshot);
+              if (tagsError) throw tagsError;
+            }
+            if (family?.id) {
+              queryClient.invalidateQueries({ queryKey: recipeQueryKeys.all(family.id) });
+            }
+          },
+        });
+      }
     } catch {
       toast.error(t("deleteFailed"));
     }
