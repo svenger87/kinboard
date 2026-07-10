@@ -19,6 +19,7 @@
  */
 
 import { test, expect, Page, ConsoleMessage } from "@playwright/test";
+import { joinFamilyViaUI, JOIN_CTA_RE, REJOIN_RE } from "./helpers";
 
 const FAMILY_CODE = process.env.FAMILY_CODE ?? "";
 const DEVICE_NAME = process.env.PLAYWRIGHT_DEVICE_NAME ?? "Smoke Test Device";
@@ -71,9 +72,21 @@ test.describe("Anonymous smoke", () => {
     const response = await page.goto("/join");
     expect(response?.status(), "GET /join").toBeLessThan(400);
 
-    // Form must be reachable — locator covers EN + DE wording.
-    const codeInput = page.locator('input[placeholder*="ABC123"], input[placeholder*="123ABC"]');
-    await expect(codeInput).toBeVisible({ timeout: 10_000 });
+    // Join must be reachable — either the welcome screen's "Join with a
+    // code" CTA (fresh device) or a "Sign back in" quick-rejoin offer
+    // (device fingerprint recognized from a prior run). Locators cover
+    // EN + DE wording.
+    const joinCta = page.getByRole("button", { name: JOIN_CTA_RE });
+    const rejoinButton = page.getByRole("button", { name: REJOIN_RE });
+    await expect(joinCta.or(rejoinButton)).toBeVisible({ timeout: 10_000 });
+
+    // When the welcome screen shows the join CTA, follow it and confirm
+    // the six-cell code input actually renders behind it.
+    if (await joinCta.isVisible().catch(() => false)) {
+      await joinCta.click();
+      const firstCell = page.getByRole("textbox", { name: "Character 1" });
+      await expect(firstCell).toBeVisible();
+    }
 
     expect(
       describeConsoleErrors(errors),
@@ -107,32 +120,7 @@ test.describe("Authenticated smoke", () => {
     authedPage = await context.newPage();
     consoleErrors = attachConsoleCapture(authedPage);
 
-    await authedPage.goto("/join");
-
-    if (authedPage.url().includes("/join")) {
-      const codeInput = authedPage.locator(
-        'input[placeholder*="ABC123"], input[placeholder*="123ABC"]',
-      );
-      await codeInput.fill(FAMILY_CODE);
-
-      const deviceInput = authedPage.locator(
-        'input[placeholder*="Wohnzimmer"], input[placeholder*="Living"]',
-      );
-      if (await deviceInput.isVisible()) {
-        await deviceInput.fill(DEVICE_NAME);
-      }
-
-      // Locale-tolerant exact match — page also has a "Join family" *tab*
-      // whose label contains "Join", so a non-anchored regex would click
-      // the (already-active) tab instead of the submit button.
-      const submit = authedPage.getByRole("button", {
-        name: /^(beitreten|join)$/i,
-      });
-      await submit.click();
-      await authedPage.waitForURL((url) => !url.pathname.startsWith("/join"), {
-        timeout: 15_000,
-      });
-    }
+    await joinFamilyViaUI(authedPage, FAMILY_CODE, DEVICE_NAME);
   });
 
   test.afterAll(async () => {
