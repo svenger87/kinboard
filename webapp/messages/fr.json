@@ -142,10 +142,27 @@
       "centerLabel": "Anniversaires",
       "centerTurns": "aura {age} ans",
       "centerInDays": "{count, plural, one {dans # jour} other {dans # jours}}"
+    },
+    "push": {
+      "subscribeError": "Échec de l'abonnement",
+      "unsubscribeError": "Échec du désabonnement"
     }
   },
   "localeSwitcher": {
     "label": "Langue"
+  },
+  "push": {
+    "newItemOne": "Nouvel article",
+    "newItemMany": "{count} nouveaux articles",
+    "moreSuffix": "+{count} de plus",
+    "todoAssignedOne": "Tâche attribuée",
+    "todoAssignedMany": "{count} tâches attribuées",
+    "todoNewOne": "Nouvelle tâche",
+    "todoNewMany": "{count} nouvelles tâches",
+    "eventFallbackTitle": "Événement",
+    "eventStartsAt": "Commence à {time}",
+    "eventStartsSoon": "Commence bientôt",
+    "eventsMany": "{count} événements"
   },
   "join": {
     "title": "Kinboard",

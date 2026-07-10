@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendPushToMultiple, isVapidConfigured, DatabaseSubscription } from "@/lib/push-sender";
+import { getPushTranslator } from "@/lib/notifications/messages";
+import { getFamilyLocale } from "@/lib/family-locale";
 import type { PushSubscription, NotificationPreferences } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -107,19 +109,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Build notification content
+    const locale = await getFamilyLocale(familyId);
+    const t = getPushTranslator(locale);
     let title: string;
     let body: string;
 
     if (type === "assigned") {
-      title = items.length === 1 ? "Aufgabe zugewiesen" : `${items.length} Aufgaben zugewiesen`;
+      title = items.length === 1 ? t("todoAssignedOne") : t("todoAssignedMany", { count: items.length });
       body = items.length <= 3
         ? items.map((i) => `${i.title} → ${i.personName}`).join(", ")
-        : `${items.slice(0, 3).map((i) => `${i.title} → ${i.personName}`).join(", ")} +${items.length - 3} weitere`;
+        : `${items.slice(0, 3).map((i) => `${i.title} → ${i.personName}`).join(", ")} ${t("moreSuffix", { count: items.length - 3 })}`;
     } else {
-      title = items.length === 1 ? "Neue Aufgabe" : `${items.length} neue Aufgaben`;
+      title = items.length === 1 ? t("todoNewOne") : t("todoNewMany", { count: items.length });
       body = items.length <= 3
         ? items.map((i) => i.title).join(", ")
-        : `${items.slice(0, 3).map((i) => i.title).join(", ")} +${items.length - 3} weitere`;
+        : `${items.slice(0, 3).map((i) => i.title).join(", ")} ${t("moreSuffix", { count: items.length - 3 })}`;
     }
 
     const result = await sendPushToMultiple(eligibleSubscriptions as DatabaseSubscription[], {

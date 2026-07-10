@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendPushToMultiple, isVapidConfigured, DatabaseSubscription } from "@/lib/push-sender";
 import { formatEventTime } from "@/lib/notifications/format";
+import { getPushTranslator } from "@/lib/notifications/messages";
+import { getFamilyLocale } from "@/lib/family-locale";
 import type { PushSubscription, NotificationPreferences } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -79,6 +81,19 @@ export async function POST(request: NextRequest) {
   let totalFailed = 0;
   const processedIds: string[] = [];
 
+  // Groups are keyed by family_id + notification_type, so the same family
+  // can appear in more than one group per cron tick. Cache the resolved
+  // locale per family so we hit `settings` at most once per family per run.
+  const localeCache = new Map<string, Promise<string>>();
+  function localeForFamily(familyId: string): Promise<string> {
+    let cached = localeCache.get(familyId);
+    if (!cached) {
+      cached = getFamilyLocale(familyId);
+      localeCache.set(familyId, cached);
+    }
+    return cached;
+  }
+
   for (const [, notifications] of Array.from(groups.entries())) {
     const familyId = notifications[0].family_id;
     const notificationType = notifications[0].notification_type;
@@ -155,7 +170,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Build notification payload
-    const { title, body, tag, url } = buildNotificationPayload(notificationType, notifications);
+    const locale = await localeForFamily(familyId);
+    const t = getPushTranslator(locale);
+    const { title, body, tag, url } = buildNotificationPayload(notificationType, notifications, t);
 
     const result = await sendPushToMultiple(eligible as DatabaseSubscription[], {
       title,
@@ -222,15 +239,16 @@ function getPreferenceColumn(type: string): string | null {
  */
 function buildNotificationPayload(
   type: string,
-  notifications: ScheduledNotification[]
+  notifications: ScheduledNotification[],
+  t: ReturnType<typeof getPushTranslator>
 ): { title: string; body: string; tag: string; url: string } {
   switch (type) {
     case "shopping_collaborative": {
       const items = notifications.map((n) => n.data?.item_name || n.body || "");
-      const title = items.length === 1 ? "Neuer Artikel" : `${items.length} neue Artikel`;
+      const title = items.length === 1 ? t("newItemOne") : t("newItemMany", { count: items.length });
       const body = items.length <= 3
         ? items.join(", ")
-        : `${items.slice(0, 3).join(", ")} +${items.length - 3} weitere`;
+        : `${items.slice(0, 3).join(", ")} ${t("moreSuffix", { count: items.length - 3 })}`;
       // /einkaufen (not /shopping) so iOS scope-matches an installed
       // Shopping PWA on tap. The URL is rewritten to /shopping content
       // server-side; the URL itself stays /einkaufen for the PWA-launch
@@ -244,19 +262,19 @@ function buildNotificationPayload(
         const personName = n.data?.person_name;
         return personName ? `${todoTitle} → ${personName}` : todoTitle;
       });
-      const title = items.length === 1 ? "Aufgabe zugewiesen" : `${items.length} Aufgaben zugewiesen`;
+      const title = items.length === 1 ? t("todoAssignedOne") : t("todoAssignedMany", { count: items.length });
       const body = items.length <= 3
         ? items.join(", ")
-        : `${items.slice(0, 3).join(", ")} +${items.length - 3} weitere`;
+        : `${items.slice(0, 3).join(", ")} ${t("moreSuffix", { count: items.length - 3 })}`;
       return { title, body, tag: "todo-update", url: "/todos" };
     }
 
     case "todo_created": {
       const items = notifications.map((n) => n.data?.todo_title || n.body || "");
-      const title = items.length === 1 ? "Neue Aufgabe" : `${items.length} neue Aufgaben`;
+      const title = items.length === 1 ? t("todoNewOne") : t("todoNewMany", { count: items.length });
       const body = items.length <= 3
         ? items.join(", ")
-        : `${items.slice(0, 3).join(", ")} +${items.length - 3} weitere`;
+        : `${items.slice(0, 3).join(", ")} ${t("moreSuffix", { count: items.length - 3 })}`;
       return { title, body, tag: "todo-update", url: "/todos" };
     }
 
@@ -269,8 +287,8 @@ function buildNotificationPayload(
         const eventTime = n.data?.start_at as string | undefined;
         const timeStr = eventTime ? formatEventTime(eventTime) : null;
         return {
-          title: n.title || "Termin",
-          body: timeStr ? `Beginnt um ${timeStr}` : "Beginnt bald",
+          title: n.title || t("eventFallbackTitle"),
+          body: timeStr ? t("eventStartsAt", { time: timeStr }) : t("eventStartsSoon"),
           // Tag uses event ID so a re-fired notification for the same event
           // replaces the previous toast rather than stacking.
           tag: `calendar-${n.related_entity_id ?? n.id}`,
@@ -278,12 +296,12 @@ function buildNotificationPayload(
         };
       }
       // Multiple events starting around the same time
-      const titles = notifications.map((n) => n.title || "Termin");
+      const titles = notifications.map((n) => n.title || t("eventFallbackTitle"));
       return {
-        title: `${notifications.length} Termine`,
+        title: t("eventsMany", { count: notifications.length }),
         body: titles.length <= 3
           ? titles.join(", ")
-          : `${titles.slice(0, 3).join(", ")} +${titles.length - 3} weitere`,
+          : `${titles.slice(0, 3).join(", ")} ${t("moreSuffix", { count: titles.length - 3 })}`,
         tag: "calendar-reminders",
         url: "/calendar",
       };

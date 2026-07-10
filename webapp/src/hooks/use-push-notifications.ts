@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { useFamilyStore } from "@/stores/family-store";
 
 // Why push isn't usable in the current browsing context. Lets the UI
@@ -91,6 +92,7 @@ async function checkServerSubscription(deviceId: string, familyId: string): Prom
  */
 export function usePushNotifications(): UsePushNotificationsReturn {
   const { family, device } = useFamilyStore();
+  const t = useTranslations("components.push");
   const [state, setState] = useState<PushNotificationState>({
     isSupported: false,
     unsupportedReason: null,
@@ -406,11 +408,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err instanceof Error ? err.message : "Fehler beim Abonnieren",
+        error: err instanceof Error ? err.message : t("subscribeError"),
       }));
       return false;
     }
-  }, [state.isSupported, state.permission, family?.id, device?.id, getVapidKey, requestPermission]);
+  }, [state.isSupported, state.permission, family?.id, device?.id, getVapidKey, requestPermission, t]);
 
   /**
    * Unsubscribe from push notifications
@@ -453,11 +455,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err instanceof Error ? err.message : "Fehler beim Abmelden",
+        error: err instanceof Error ? err.message : t("unsubscribeError"),
       }));
       return false;
     }
-  }, [state.isSupported, device?.id]);
+  }, [state.isSupported, device?.id, t]);
 
   return {
     ...state,
