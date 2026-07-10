@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { upsertSecrets } from "@/lib/integration-secrets";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +21,18 @@ interface BringAuthResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    const { email, password, family_id } = await request.json();
 
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password required" },
+        { status: 400 }
+      );
+    }
+
+    if (!family_id) {
+      return NextResponse.json(
+        { error: "family_id is required" },
         { status: 400 }
       );
     }
@@ -57,14 +65,19 @@ export async function POST(request: NextRequest) {
 
     const data: BringAuthResponse = await response.json();
 
-    // Return sanitized auth data
+    await upsertSecrets(family_id, "bring_settings", {
+      credentials: {
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+      },
+    });
+
+    // Return sanitized auth data — tokens stay server-side.
     return NextResponse.json({
       uuid: data.uuid,
       email: data.email,
       name: data.name,
       defaultListId: data.bringListUUID,
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
       expiresIn: data.expires_in,
     });
   } catch (error) {

@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 - Settings, Google Calendar, and ICS pages now actually show their success/error toasts (connect, sync, PIN saved, feed added/deleted, …). These pages fired notifications into a toast system that was never mounted, so all their feedback silently disappeared.
 
+### Security
+- Integration credentials (Home Assistant access token, Immich API key, Unsplash access key, Google Calendar OAuth tokens, Bring! tokens) no longer reach the browser. They move into a new server-only `integration_secrets` table that the browser-facing database role cannot read and that is excluded from realtime broadcasts; the settings API returns a placeholder instead. Existing installs are migrated automatically on next start (`migration_integration_secrets.sql`) — no action needed, integrations keep working without reconnecting.
+
 ## [1.3.0] - 2026-07-10
 
 ### Added

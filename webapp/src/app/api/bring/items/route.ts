@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getMergedSetting } from "@/lib/integration-secrets";
 
 export const dynamic = "force-dynamic";
+
+// Server-side merged shape: unlike the client's BringCredentials, this
+// includes the real access token (re-injected by getMergedSetting from
+// integration_secrets — never sent to the browser).
+interface BringSettings {
+  credentials: {
+    accessToken: string;
+  } | null;
+}
 
 const BRING_API_URL = "https://api.getbring.com/rest/v2";
 const BRING_API_KEY = "cof4Nc6D8saplXjE3h3HXqHH8m7VU2i1Gs0g85Sp";
@@ -19,15 +29,24 @@ interface BringItemsResponse {
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
+    const familyId = request.nextUrl.searchParams.get("family_id");
     const listId = request.nextUrl.searchParams.get("listId");
 
-    if (!authHeader) {
+    if (!familyId) {
+      return NextResponse.json(
+        { error: "family_id is required" },
+        { status: 400 }
+      );
+    }
+    const settings = await getMergedSetting<BringSettings>(familyId, "bring_settings");
+    const credentials = settings?.credentials;
+    if (!credentials?.accessToken) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
     }
+    const authHeader = `Bearer ${credentials.accessToken}`;
 
     if (!listId) {
       return NextResponse.json(
@@ -82,15 +101,23 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const { listId, itemName, specification } = await request.json();
+    const { listId, itemName, specification, family_id: familyId } = await request.json();
 
-    if (!authHeader) {
+    if (!familyId) {
+      return NextResponse.json(
+        { error: "family_id is required" },
+        { status: 400 }
+      );
+    }
+    const settings = await getMergedSetting<BringSettings>(familyId, "bring_settings");
+    const credentials = settings?.credentials;
+    if (!credentials?.accessToken) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
     }
+    const authHeader = `Bearer ${credentials.accessToken}`;
 
     if (!listId || !itemName) {
       return NextResponse.json(
@@ -133,16 +160,25 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
+    const familyId = request.nextUrl.searchParams.get("family_id");
     const listId = request.nextUrl.searchParams.get("listId");
     const itemName = request.nextUrl.searchParams.get("itemName");
 
-    if (!authHeader) {
+    if (!familyId) {
+      return NextResponse.json(
+        { error: "family_id is required" },
+        { status: 400 }
+      );
+    }
+    const settings = await getMergedSetting<BringSettings>(familyId, "bring_settings");
+    const credentials = settings?.credentials;
+    if (!credentials?.accessToken) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
     }
+    const authHeader = `Bearer ${credentials.accessToken}`;
 
     if (!listId || !itemName) {
       return NextResponse.json(
