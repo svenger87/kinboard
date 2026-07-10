@@ -28,6 +28,27 @@ type TableName =
   | "notification_preferences"
   | "birthday_gift_ideas";
 
+const ALL_TABLES: TableName[] = [
+  "people",
+  "events",
+  "todos",
+  "shopping_items",
+  "subjects",
+  "schedules",
+  "birthdays",
+  "notes",
+  "settings",
+  "recipes",
+  "recipe_ingredients",
+  "recipe_tags",
+  "meal_plans",
+  "meal_plan_entries",
+  "item_catalog",
+  "push_subscriptions",
+  "notification_preferences",
+  "birthday_gift_ideas",
+];
+
 interface UseRealtimeOptions {
   tables?: TableName[];
   enabled?: boolean;
@@ -41,29 +62,7 @@ interface UseRealtimeOptions {
  * @param options.enabled - Whether to enable subscriptions (defaults to true)
  */
 export function useRealtime(options: UseRealtimeOptions = {}) {
-  const {
-    tables = [
-      "people",
-      "events",
-      "todos",
-      "shopping_items",
-      "subjects",
-      "schedules",
-      "birthdays",
-      "notes",
-      "settings",
-      "recipes",
-      "recipe_ingredients",
-      "recipe_tags",
-      "meal_plans",
-      "meal_plan_entries",
-      "item_catalog",
-      "push_subscriptions",
-      "notification_preferences",
-      "birthday_gift_ideas",
-    ],
-    enabled = true,
-  } = options;
+  const { tables = ALL_TABLES, enabled = true } = options;
 
   const supabase = createClient();
   const queryClient = useQueryClient();
@@ -184,6 +183,8 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
   useEffect(() => {
     if (!enabled || !family?.id) return;
 
+    let disposed = false;
+
     // Create a channel for all subscriptions
     const channel = supabase.channel(`family-${family.id}`);
 
@@ -205,6 +206,8 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
     // internally (rejoin timer), so the status flips back to SUBSCRIBED on
     // recovery without any action on our side.
     channel.subscribe((status) => {
+      if (disposed) return;
+
       if (status === "SUBSCRIBED") {
         setStatus("connected");
       } else if (
@@ -216,9 +219,13 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
       }
     });
 
-    // Cleanup on unmount. Do NOT set "disconnected" here — unmount/remount
-    // of the provider would flash the pill; the store keeps its last value.
+    // Cleanup on unmount. supabase.removeChannel() fires this same
+    // subscribe callback with status "CLOSED" — flip `disposed` first so
+    // that self-inflicted close doesn't overwrite the store with
+    // "disconnected" (a genuinely unexpected pre-cleanup CLOSED is still
+    // handled above, before this runs).
     return () => {
+      disposed = true;
       supabase.removeChannel(channel);
     };
   }, [supabase, family?.id, enabled, tables, handleChange, setStatus]);
