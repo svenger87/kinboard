@@ -6,11 +6,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-10
+
 ### Added
 - Settings: opt-in join-code expiry — a "Regenerate code" button lets the admin rotate the join code and optionally set a TTL (Never / 1 h / 24 h / 7 d); expired codes are rejected at join time so a stale code cannot be used to join the family. NULL = never expires; existing installs are unaffected (`migration_join_code_expiry.sql`).
 - People: optional birth date field and parent/child role label in the wizard and Settings → People; role shows "Parent" or "Child · N years" when birth date is set (`migration_person_birthdate.sql`).
 - Theme: selectable neutral palette on `/settings/theme` — **Sand** (default), **Sage**, or **Warm grey**. Changes the warmth of backgrounds/surfaces (and elevation shadow tint) while keeping the accent color and monthly themes; composes with dark mode.
 - Birthdays: gift-ideas list per birthday — add, check off (strikethrough), and delete gift ideas directly in the edit dialog and the next-birthday hero card; persisted in the new `birthday_gift_ideas` table (`migration_birthday_gift_ideas.sql`).
+- Notes: optional author per note — pick a family member when adding or editing a note; their color dot and name appear on the sticky note (`migration_note_author.sql`).
 - Birthdays: optional per-birthday photo upload in the add/edit dialog; the hero card, year-ring dots, and lists now show the birthday's own photo instead of the linked family member's avatar.
 - Screensaver: a compact weather chip (temperature + condition icon) in the top corner, and upcoming events now show the assigned family member's avatar.
 - French (FR) translations for the new settings status strings; Home Assistant settings gained a Re-sync action and a re-sync footer.
@@ -48,13 +51,15 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Recipe URL import now shows a detection preview (title, photo, ingredient chips) before saving instead of importing silently.
 
 ### Fixed
+- Navigation is shown on all devices again, including kiosk and installed PWAs — the kiosk status-line-only chrome had left some devices with no way to navigate.
+- Mobile: fixed horizontal overflows and duplicate controls across several pages — the birthdays year-overview strip now scrolls and the year-ring scales to its card (April/Oktober no longer clipped), shopping's top actions wrap instead of bleeding off the left edge, the calendar and shopping expose a single add button on phones (was two), and the schedule-widget header, join-code cells, and dashboard today-strip no longer overflow or sit off-center.
+- Long agenda event titles marquee-scroll on overflow instead of truncating (disabled under `prefers-reduced-motion`).
 - Energy page now shows the animated flow diagram on phones too (previously mobile got a static chevron row with no motion).
 - Birthday countdowns and the birthday nav badge now refresh when the day rolls over (at midnight, or when the device wakes) instead of staying stale until a manual reload.
 - Meal planner dates now follow the selected language instead of always German; the drag-to-move failure message is localized.
 
 ### Notes
-- Deferred: per-note author dot (needs a `notes.person_id` schema migration) and birthday gift-ideas list (needs a `gift_ideas` table). The Gift icon on birthdays is decorative only. Both require DB migrations and are out of scope for this visual redesign.
-- Onboarding redesign deferred two mockup elements with no functional backing: the on-screen numeric keypad on join-mobile (the join code is alphanumeric, so a numeric keypad can't enter it — the native keyboard handles the cells) and the kiosk "show this code" screen with an expiry countdown (`families.join_code` is a static value with no expiry column; a timer would be fake).
+- Still deferred (UI-only, not schema-blocked): the on-screen numeric keypad on join-mobile (the join code is alphanumeric, so the native keyboard handles the cells) and the kiosk full-screen "show this code" display. Join-code *expiry* itself now ships as an opt-in Settings option (see Added).
 
 ## [1.2.0] - 2026-06-01 — Onboarding completeness + setup/self-host hardening
 
