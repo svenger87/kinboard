@@ -9,9 +9,21 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function VehiclesSettingsPage() {
   const t = useTranslations("settings.vehicles");
+  const tCommon = useTranslations("common");
   const { data: vehicles = [] } = useVehicles();
   const { mutateAsync: deleteVehicle } = useDeleteVehicle();
 
@@ -80,18 +92,37 @@ export default function VehiclesSettingsPage() {
                             <Pencil className="size-4" />
                           </Link>
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-destructive hover:text-destructive"
-                          onClick={async () => {
-                            if (confirm(t("confirmDelete", { name: v.nickname }))) {
-                              await deleteVehicle(v.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-destructive hover:text-destructive"
+                              aria-label={t("deleteAria")}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {t("confirmDelete", { name: v.nickname })}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={async () => {
+                                  await deleteVehicle(v.id);
+                                }}
+                              >
+                                {tCommon("delete")}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </div>
                   );

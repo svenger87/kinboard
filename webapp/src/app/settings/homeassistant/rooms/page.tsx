@@ -43,6 +43,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   useRoomsConfig,
   useCreateRoom,
   useUpdateRoom,
@@ -302,6 +313,7 @@ function RoomCard({
   onRemoveEntity: (entityId: string) => void;
 }) {
   const t = useTranslations("settings.homeassistantRooms");
+  const tCommon = useTranslations("common");
   const Icon = ICON_MAP[room.icon] || Home;
   const entityIds = room.entities.map((e) => e.entity_id);
   const { data: haStatus } = useHomeAssistantStatus();
@@ -343,15 +355,33 @@ function RoomCard({
           <Button variant="ghost" size="icon" onClick={onEdit} aria-label={t("editAria")}>
             <Edit className="size-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onDelete}
-            className="text-muted-foreground hover:text-destructive"
-            aria-label={t("deleteAria")}
-          >
-            <Trash2 className="size-4" />
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-destructive"
+                aria-label={t("deleteAria")}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+                <AlertDialogDescription>{t("deleteConfirm")}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={onDelete}
+                >
+                  {tCommon("delete")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -452,12 +482,10 @@ export default function RoomsSettingsPage() {
   };
 
   const handleDeleteRoom = async (roomId: string) => {
-    if (confirm(t("deleteConfirm"))) {
-      try {
-        await deleteRoom.mutateAsync(roomId);
-      } catch {
-        toast.error(t("toastDeleteFailed"));
-      }
+    try {
+      await deleteRoom.mutateAsync(roomId);
+    } catch {
+      toast.error(t("toastDeleteFailed"));
     }
   };
 
