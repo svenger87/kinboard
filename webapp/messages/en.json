@@ -516,6 +516,7 @@
   "meals": {
     "title": "Meal planning",
     "subtitle": "Plan your week and generate shopping lists",
+    "fabAria": "Add meal",
     "shoppingButton": "Shopping list",
     "recipesButton": "Recipes",
     "prevWeekAria": "Previous week",
@@ -2813,7 +2814,6 @@
   },
   "vehicles": {
     "title": "Vehicles",
-    "loading": "Loading vehicles…",
     "emptyState": "No vehicles configured yet.",
     "addFirstVehicle": "Add vehicle",
     "manage": "Manage",
@@ -3105,7 +3105,6 @@
   },
   "stonks": {
     "title": "Stonks",
-    "loading": "Loading stocks…",
     "emptyState": "Your watchlist is empty. Add a symbol to get started.",
     "addFirst": "Add your first ticker",
     "manage": "Manage",
@@ -3133,7 +3132,6 @@
   },
   "pocketMoney": {
     "title": "Pocket Money",
-    "loading": "Loading…",
     "noAccountsYet": "No pocket money accounts set up yet.",
     "goToSettings": "Go to Settings",
     "manage": "Manage",

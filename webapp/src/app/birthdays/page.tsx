@@ -60,6 +60,7 @@ import { BirthdayYearRing } from "@/components/birthday-year-ring";
 import { BirthdayPhotoField } from "@/components/birthday-photo-field";
 import { GiftIdeasList } from "@/components/gift-ideas-list";
 import { PageHeader } from "@/components/page-header";
+import { FAB } from "@/components/fab";
 import { format } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
@@ -340,7 +341,7 @@ export default function BirthdaysPage() {
               }
               actions={
                 <DialogTrigger asChild>
-                  <Button className="gap-2">
+                  <Button className="hidden sm:inline-flex gap-2">
                     <Plus className="size-4" />
                     {t("newButton")}
                   </Button>
@@ -1132,6 +1133,14 @@ export default function BirthdaysPage() {
           )}
 
         </div>
+
+        {/* Mobile add FAB — desktop uses the header button */}
+        <FAB
+          icon={Plus}
+          onClick={() => setIsAddOpen(true)}
+          ariaLabel={t("newButton")}
+          className="sm:hidden"
+        />
       </main>
     </TooltipProvider>
   );

@@ -80,6 +80,7 @@ import {
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { ErrorState } from "@/components/error-state";
+import { FAB } from "@/components/fab";
 import {
   useTodos,
   useCreateTodo,
@@ -567,7 +568,7 @@ export default function TodosPage() {
               {/* Add Task Button */}
               <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="month" size="sm" className="gap-2">
+                  <Button variant="month" size="sm" className="hidden sm:inline-flex gap-2">
                     <Plus className="size-4" />
                     {t("newButton")}
                   </Button>
@@ -1288,6 +1289,14 @@ export default function TodosPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Mobile add FAB — desktop uses the header button */}
+        <FAB
+          icon={Plus}
+          onClick={() => setDialogOpen(true)}
+          ariaLabel={t("newButton")}
+          className="sm:hidden"
+        />
       </main>
     </TooltipProvider>
   );

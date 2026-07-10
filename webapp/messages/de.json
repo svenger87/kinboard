@@ -516,6 +516,7 @@
   "meals": {
     "title": "Mahlzeitenplanung",
     "subtitle": "Plane deine Woche und erstelle Einkaufslisten",
+    "fabAria": "Mahlzeit hinzufügen",
     "shoppingButton": "Einkaufsliste",
     "recipesButton": "Rezepte",
     "prevWeekAria": "Vorherige Woche",
@@ -2813,7 +2814,6 @@
   },
   "vehicles": {
     "title": "Fahrzeuge",
-    "loading": "Fahrzeuge werden geladen…",
     "emptyState": "Noch keine Fahrzeuge konfiguriert.",
     "addFirstVehicle": "Fahrzeug hinzufügen",
     "manage": "Verwalten",
@@ -3105,7 +3105,6 @@
   },
   "stonks": {
     "title": "Stonks",
-    "loading": "Lade Aktien…",
     "emptyState": "Deine Watchlist ist leer. Füge ein Symbol hinzu, um zu starten.",
     "addFirst": "Erste Aktie hinzufügen",
     "manage": "Verwalten",
@@ -3133,7 +3132,6 @@
   },
   "pocketMoney": {
     "title": "Taschengeld",
-    "loading": "Lädt…",
     "noAccountsYet": "Noch keine Taschengeld-Konten eingerichtet.",
     "goToSettings": "Zu den Einstellungen",
     "manage": "Verwalten",

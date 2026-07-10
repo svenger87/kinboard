@@ -112,6 +112,7 @@ import {
   type CreateMealPlanEntryInput,
 } from "@/hooks";
 import { ErrorState } from "@/components/error-state";
+import { FAB } from "@/components/fab";
 import type { MealPlanEntryWithRecipe, MealType, Recipe } from "@/types/database";
 
 // Meal type icon mapping
@@ -1803,6 +1804,14 @@ export default function MealPlannerPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Mobile add FAB */}
+        <FAB
+          icon={Plus}
+          onClick={() => handleAddClick(today, "dinner")}
+          ariaLabel={t("fabAria")}
+          className="sm:hidden"
+        />
       </main>
     </TooltipProvider>
   );
