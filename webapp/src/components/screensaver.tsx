@@ -130,7 +130,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
 
   // Weather chip (renders nothing when unconfigured)
   const { data: weather } = useWeather();
-  const WeatherIcon = weather ? screensaverWeatherIcon(weather.condition) : null;
+  const WeatherIcon = weather ? screensaverWeatherIcon(weather.conditionMain ?? weather.condition) : null;
 
 
   // Fetch energy config and entity states for screensaver solar widget

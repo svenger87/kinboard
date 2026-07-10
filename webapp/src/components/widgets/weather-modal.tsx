@@ -219,7 +219,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
     );
   }
 
-  const WeatherIcon = getWeatherIcon(currentWeather.condition);
+  const WeatherIcon = getWeatherIcon(currentWeather.conditionMain ?? currentWeather.condition);
   const upcomingDays = forecast?.daily || [];
   const hourly = forecast?.hourly || [];
 
@@ -343,7 +343,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
               <ScrollArea className="w-full">
                 <div className="flex gap-3 pb-2">
                   {hourly.map((hour, index) => {
-                    const HourIcon = getWeatherIcon(hour.condition);
+                    const HourIcon = getWeatherIcon(hour.conditionMain ?? hour.condition);
                     return (
                       <div
                         key={index}
@@ -386,7 +386,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                 <h3 className="text-sm font-medium text-muted-foreground mb-3">{t("sectionForecast")}</h3>
                 <div className="flex flex-col gap-2">
                   {upcomingDays.map((day, index) => {
-                    const DayIcon = getWeatherIcon(day.condition);
+                    const DayIcon = getWeatherIcon(day.conditionMain ?? day.condition);
                     const isToday = index === 0;
                     const barLeft = ((day.tempMin - globalMin) / tempRange) * 100;
                     const barWidth = ((day.tempMax - day.tempMin) / tempRange) * 100;

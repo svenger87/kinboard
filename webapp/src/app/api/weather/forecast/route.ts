@@ -39,19 +39,14 @@ interface OpenWeatherForecastResponse {
   };
 }
 
-function mapCondition(weatherMain: string): string {
-  const mapping: Record<string, string> = {
-    Clear: "Klar",
-    Clouds: "Bewölkt",
-    Rain: "Regen",
-    Drizzle: "Nieselregen",
-    Thunderstorm: "Gewitter",
-    Snow: "Schnee",
-    Mist: "Nebel",
-    Fog: "Nebel",
-    Haze: "Dunst",
-  };
-  return mapping[weatherMain] || weatherMain;
+const CONDITION_LABELS: Record<string, Record<string, string>> = {
+  de: { Clear: "Klar", Clouds: "Bewölkt", Rain: "Regen", Drizzle: "Nieselregen", Thunderstorm: "Gewitter", Snow: "Schnee", Mist: "Nebel", Fog: "Nebel", Haze: "Dunst" },
+  en: { Clear: "Clear", Clouds: "Cloudy", Rain: "Rain", Drizzle: "Drizzle", Thunderstorm: "Thunderstorm", Snow: "Snow", Mist: "Mist", Fog: "Fog", Haze: "Haze" },
+  fr: { Clear: "Dégagé", Clouds: "Nuageux", Rain: "Pluie", Drizzle: "Bruine", Thunderstorm: "Orage", Snow: "Neige", Mist: "Brume", Fog: "Brouillard", Haze: "Brume sèche" },
+};
+
+function mapCondition(weatherMain: string, lang: string): string {
+  return CONDITION_LABELS[lang]?.[weatherMain] ?? CONDITION_LABELS.de[weatherMain] ?? weatherMain;
 }
 
 function getDayName(date: Date, locale: string = "de-DE"): string {
@@ -63,6 +58,7 @@ export async function GET(request: NextRequest) {
   const lat = searchParams.get("lat");
   const lon = searchParams.get("lon");
   const city = searchParams.get("city");
+  const lang = searchParams.get("lang") || "de";
 
   if (!OPENWEATHERMAP_API_KEY) {
     return NextResponse.json({ configured: false }, { status: 200 });
@@ -72,9 +68,9 @@ export async function GET(request: NextRequest) {
     let url: string;
 
     if (lat && lon) {
-      url = `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&units=metric&lang=de&appid=${OPENWEATHERMAP_API_KEY}`;
+      url = `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&units=metric&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
     } else if (city) {
-      url = `${BASE_URL}/forecast?q=${encodeURIComponent(city)}&units=metric&lang=de&appid=${OPENWEATHERMAP_API_KEY}`;
+      url = `${BASE_URL}/forecast?q=${encodeURIComponent(city)}&units=metric&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
     } else {
       return NextResponse.json(
         { error: "Either lat/lon or city parameter required" },
@@ -136,7 +132,8 @@ export async function GET(request: NextRequest) {
         dayName: getDayName(date),
         tempMax: maxTemp,
         tempMin: minTemp,
-        condition: mapCondition(middayItem.weather[0].main),
+        condition: mapCondition(middayItem.weather[0].main, lang),
+        conditionMain: middayItem.weather[0].main,
         conditionIcon: middayItem.weather[0].icon,
         humidity: Math.round(items.reduce((sum, i) => sum + i.main.humidity, 0) / items.length),
         windSpeed: Math.round((items.reduce((sum, i) => sum + i.wind.speed, 0) / items.length) * 3.6),
@@ -152,7 +149,8 @@ export async function GET(request: NextRequest) {
       return {
         time: date.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }),
         temp: Math.round(item.main.temp),
-        condition: mapCondition(item.weather[0].main),
+        condition: mapCondition(item.weather[0].main, lang),
+        conditionMain: item.weather[0].main,
         conditionIcon: item.weather[0].icon,
         precipProbability: Math.round(item.pop * 100),
         windSpeed: Math.round(item.wind.speed * 3.6),

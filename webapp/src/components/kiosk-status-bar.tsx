@@ -19,7 +19,7 @@ function conditionIcon(condition: string) {
 export function KioskStatusBar() {
   const tNav = useTranslations("nav");
   const { data: weather } = useWeather();
-  const WeatherIcon = weather ? conditionIcon(weather.condition) : null;
+  const WeatherIcon = weather ? conditionIcon(weather.conditionMain ?? weather.condition) : null;
 
   return (
     <div
