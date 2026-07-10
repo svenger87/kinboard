@@ -25,6 +25,10 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
+import { useFamilyStore } from "@/stores/family-store";
+import { showUndoToast } from "@/lib/undo-toast";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -89,6 +93,7 @@ import {
   usePeople,
   useKeyboardShortcuts,
   useSwipeNavigation,
+  queryKeys,
 } from "@/hooks";
 import type { Todo } from "@/types/database";
 
@@ -168,6 +173,8 @@ export default function TodosPage() {
   const createTodo = useCreateTodo();
   const updateTodo = useUpdateTodo();
   const deleteTodo = useDeleteTodo();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
 
   const isLoading = loadingTodos || loadingPeople;
   const error = todosError || peopleError;
@@ -268,8 +275,25 @@ export default function TodosPage() {
   };
 
   const handleDeleteTask = async (id: string) => {
+    const taskSnapshot = (todos || []).find((task) => task.id === id);
     try {
       await deleteTodo.mutateAsync(id);
+      if (taskSnapshot) {
+        showUndoToast({
+          message: t("todoDeleted"),
+          undoLabel: tCommon("undo"),
+          errorMessage: tCommon("undoFailed"),
+          onUndo: async () => {
+            const supabase = createClient();
+
+            const { error } = await (supabase as any).from("todos").insert(taskSnapshot);
+            if (error) throw error;
+            if (family?.id) {
+              queryClient.invalidateQueries({ queryKey: queryKeys.todos(family.id) });
+            }
+          },
+        });
+      }
     } catch {
       toast.error(t("deleteFailed"));
     }

@@ -6,6 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
+import { useFamilyStore } from "@/stores/family-store";
+import { showUndoToast } from "@/lib/undo-toast";
 import { getIntlLocale } from "@/i18n/intl-locale";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -104,6 +108,7 @@ import {
   getWeekDates,
   formatDate,
   MEAL_TYPES,
+  mealPlanQueryKeys,
   useRecipes,
   useRecipe,
   useAddRecipeToShoppingList,
@@ -498,6 +503,8 @@ export default function MealPlannerPage() {
   const generateShopping = useGenerateShoppingFromMealPlan();
   const postponeMeal = usePostponeMeal();
   const addToShoppingList = useAddRecipeToShoppingList();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
 
   // Fetch full recipe with ingredients when showing ingredient dialog
   const { data: ingredientRecipe } = useRecipe(ingredientEntry?.recipe_id || null);
@@ -1794,6 +1801,25 @@ export default function MealPlannerPage() {
                   if (!entry) return;
                   try {
                     await deleteEntry.mutateAsync({ entryId: entry.id, weekStart });
+                    const { recipe, ...entrySnapshot } = entry;
+                    showUndoToast({
+                      message: t("entryDeleted"),
+                      undoLabel: tCommon("undo"),
+                      errorMessage: tCommon("undoFailed"),
+                      onUndo: async () => {
+                        const supabase = createClient();
+
+                        const { error } = await (supabase as any)
+                          .from("meal_plan_entries")
+                          .insert(entrySnapshot);
+                        if (error) throw error;
+                        if (family?.id) {
+                          queryClient.invalidateQueries({
+                            queryKey: mealPlanQueryKeys.week(family.id, weekStart),
+                          });
+                        }
+                      },
+                    });
                   } catch {
                     toast.error(t("deleteFailed"));
                   }

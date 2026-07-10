@@ -39,6 +39,10 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { ErrorState } from "@/components/error-state";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
+import { useFamilyStore } from "@/stores/family-store";
+import { showUndoToast } from "@/lib/undo-toast";
 import {
   useNotes,
   useCreateNote,
@@ -47,6 +51,7 @@ import {
   useKeyboardShortcuts,
   useSwipeNavigation,
   usePeople,
+  queryKeys,
 } from "@/hooks";
 import {
   Select,
@@ -91,6 +96,8 @@ export default function NotesPage() {
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
   const { data: people } = usePeople();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -158,9 +165,29 @@ export default function NotesPage() {
 
   const handleConfirmDelete = async () => {
     if (!deleteNoteId) return;
+    const noteSnapshot = (notes as NoteWithPinned[] | undefined)?.find(
+      (n) => n.id === deleteNoteId
+    );
     try {
       await deleteNote.mutateAsync(deleteNoteId);
-      toast.success(t("toastDeleted"));
+      if (noteSnapshot) {
+        showUndoToast({
+          message: t("toastDeleted"),
+          undoLabel: tCommon("undo"),
+          errorMessage: tCommon("undoFailed"),
+          onUndo: async () => {
+            const supabase = createClient();
+
+            const { error } = await (supabase as any).from("notes").insert(noteSnapshot);
+            if (error) throw error;
+            if (family?.id) {
+              queryClient.invalidateQueries({ queryKey: queryKeys.notes(family.id) });
+            }
+          },
+        });
+      } else {
+        toast.success(t("toastDeleted"));
+      }
     } catch {
       toast.error(t("toastDeleteFailed"));
     } finally {
