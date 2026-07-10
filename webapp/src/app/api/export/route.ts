@@ -1,0 +1,207 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/server";
+import { SECRET_FIELDS, splitSecrets } from "@/lib/integration-secrets";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+
+// GET /api/export?family_id=<uuid>
+//
+// Full-family JSON export (Milestone C Task 1). Downloads everything a
+// family has stored so a self-hoster can back up / migrate without direct
+// DB access.
+//
+// FK-respecting import order, if this payload is ever replayed:
+//   families → people → calendars → events
+//   recipes → recipe_ingredients / recipe_tags → recipe_tag_assignments
+//   meal_plans → meal_plan_entries
+//   birthdays → birthday_gift_ideas
+//   item_catalog → shopping_items
+//
+// NEVER included: families.join_code, devices, push_subscriptions,
+// notification_preferences, scheduled_notifications, notification_logs,
+// oauth_credentials, integration_secrets, settings_pin, or raw secret
+// values inside `settings` (scrubbed via splitSecrets for SECRET_FIELDS
+// keys — belt-and-suspenders even though secrets already live only in
+// integration_secrets).
+export async function GET(request: NextRequest) {
+  const familyId = request.nextUrl.searchParams.get("family_id");
+
+  if (!familyId) {
+    return NextResponse.json(
+      { error: "family_id is required" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const supabase = createAdminClient();
+    // The generated Database type doesn't cover every table this route
+    // reads (same house style as other admin routes) — cast once locally.
+
+    const db = supabase as any;
+
+    const { data: family, error: familyError } = await db
+      .from("families")
+      .select("id, name, created_at")
+      .eq("id", familyId)
+      .maybeSingle();
+
+    if (familyError) {
+      return NextResponse.json(
+        { error: familyError.message },
+        { status: 500 }
+      );
+    }
+    if (!family) {
+      return NextResponse.json({ error: "Family not found" }, { status: 404 });
+    }
+
+    const people = await fetchAll(db, (q, from, to) =>
+      q.from("people").select("*").eq("family_id", familyId).range(from, to)
+    );
+    const calendars = await fetchAll(db, (q, from, to) =>
+      q.from("calendars").select("*").eq("family_id", familyId).range(from, to)
+    );
+    const calendarIds = calendars.map((c: Record<string, unknown>) => c.id as string);
+    const events = await fetchAllByIds(db, "events", "calendar_id", calendarIds);
+
+    const todos = await fetchAll(db, (q, from, to) =>
+      q.from("todos").select("*").eq("family_id", familyId).range(from, to)
+    );
+    const shopping_items = await fetchAll(db, (q, from, to) =>
+      q.from("shopping_items").select("*").eq("family_id", familyId).range(from, to)
+    );
+    const subjects = await fetchAll(db, (q, from, to) =>
+      q.from("subjects").select("*").eq("family_id", familyId).range(from, to)
+    );
+    const schedules = await fetchAll(db, (q, from, to) =>
+      q.from("schedules").select("*").eq("family_id", familyId).range(from, to)
+    );
+    const birthdays = await fetchAll(db, (q, from, to) =>
+      q.from("birthdays").select("*").eq("family_id", familyId).range(from, to)
+    );
+    const birthday_gift_ideas = await fetchAll(db, (q, from, to) =>
+      q.from("birthday_gift_ideas").select("*").eq("family_id", familyId).range(from, to)
+    );
+    const notes = await fetchAll(db, (q, from, to) =>
+      q.from("notes").select("*").eq("family_id", familyId).range(from, to)
+    );
+
+    const recipes = await fetchAll(db, (q, from, to) =>
+      q.from("recipes").select("*").eq("family_id", familyId).range(from, to)
+    );
+    const recipeIds = recipes.map((r: Record<string, unknown>) => r.id as string);
+    const recipe_ingredients = await fetchAllByIds(db, "recipe_ingredients", "recipe_id", recipeIds);
+    const recipe_tags = await fetchAll(db, (q, from, to) =>
+      q.from("recipe_tags").select("*").eq("family_id", familyId).range(from, to)
+    );
+    const recipe_tag_assignments = await fetchAllByIds(db, "recipe_tag_assignments", "recipe_id", recipeIds);
+
+    const meal_plans = await fetchAll(db, (q, from, to) =>
+      q.from("meal_plans").select("*").eq("family_id", familyId).range(from, to)
+    );
+    const mealPlanIds = meal_plans.map((m: Record<string, unknown>) => m.id as string);
+    const meal_plan_entries = await fetchAllByIds(db, "meal_plan_entries", "meal_plan_id", mealPlanIds);
+
+    // family_id is nullable on item_catalog (global catalog rows have
+    // family_id = NULL); .eq() never matches NULL, so this naturally
+    // excludes the global rows and returns only family-owned entries.
+    const item_catalog = await fetchAll(db, (q, from, to) =>
+      q.from("item_catalog").select("*").eq("family_id", familyId).range(from, to)
+    );
+
+    const rawSettings = await fetchAll(db, (q, from, to) =>
+      q.from("settings").select("*").eq("family_id", familyId).range(from, to)
+    );
+    const settings = rawSettings
+      .filter((row: Record<string, unknown>) => row.key !== SETTINGS_KEYS.settingsPin)
+      .map((row: Record<string, unknown>) => {
+        const key = row.key as string;
+        return SECRET_FIELDS[key]
+          ? { ...row, value: splitSecrets(key, row.value).publicValue }
+          : row;
+      });
+
+    const exportedAt = new Date().toISOString();
+    const payload = {
+      format: "kinboard-export",
+      version: 1,
+      exported_at: exportedAt,
+      family,
+      data: {
+        people,
+        calendars,
+        events,
+        todos,
+        shopping_items,
+        subjects,
+        schedules,
+        birthdays,
+        birthday_gift_ideas,
+        notes,
+        recipes,
+        recipe_ingredients,
+        recipe_tags,
+        recipe_tag_assignments,
+        meal_plans,
+        meal_plan_entries,
+        item_catalog,
+        settings,
+      },
+    };
+
+    const filenameDate = exportedAt.slice(0, 10);
+    return NextResponse.json(payload, {
+      headers: {
+        "Content-Disposition": `attachment; filename="kinboard-export-${filenameDate}.json"`,
+      },
+    });
+  } catch (err) {
+    console.error("export: failed:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Export failed" },
+      { status: 500 }
+    );
+  }
+}
+
+// Supabase selects cap at 1000 rows by default. Page through in fixed-size
+// windows so large families export completely.
+const PAGE_SIZE = 1000;
+
+
+async function fetchAll(
+
+  db: any,
+
+  build: (db: any, from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>
+): Promise<Record<string, unknown>[]> {
+  const rows: Record<string, unknown>[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await build(db, from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as Record<string, unknown>[];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return rows;
+}
+
+// Child tables that have no family_id of their own — scoped via a parent
+// id list (e.g. events via calendar_id IN calendarIds). Returns [] without
+// querying when the parent list is empty (an empty `.in()` filter is not
+// guaranteed to short-circuit the same way across supabase-js versions).
+
+async function fetchAllByIds(
+
+  db: any,
+  table: string,
+  column: string,
+  ids: string[]
+): Promise<Record<string, unknown>[]> {
+  if (ids.length === 0) return [];
+  return fetchAll(db, (q, from, to) =>
+    q.from(table).select("*").in(column, ids).range(from, to)
+  );
+}
