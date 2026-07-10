@@ -14,6 +14,7 @@
 import { test, expect, Page, BrowserContext } from "@playwright/test";
 import path from "path";
 import fs from "fs";
+import { joinFamilyViaUI } from "./helpers";
 
 const FAMILY_CODE = process.env.FAMILY_CODE ?? "";
 if (!FAMILY_CODE) {
@@ -84,16 +85,7 @@ async function ensureAuth(context: BrowserContext): Promise<Page> {
     return page;
   }
 
-  const codeInput = page.locator('input[placeholder*="ABC123"]');
-  await codeInput.fill(FAMILY_CODE);
-
-  const deviceInput = page.locator('input[placeholder*="Wohnzimmer"]');
-  if (await deviceInput.isVisible()) {
-    await deviceInput.fill(DEVICE_NAME);
-  }
-
-  await page.getByRole("button", { name: "Beitreten", exact: true }).click();
-  await page.waitForURL("**/", { timeout: 15000 });
+  await joinFamilyViaUI(page, FAMILY_CODE, DEVICE_NAME);
 
   // Save cookies so subsequent tests reuse this device
   const cookies = await context.cookies();
@@ -125,16 +117,7 @@ test.describe("Visual Audit", () => {
 
     if (sharedPage.url().includes("/join")) {
       // Need to join
-      const codeInput = sharedPage.locator('input[placeholder*="ABC123"]');
-      await codeInput.fill(FAMILY_CODE);
-
-      const deviceInput = sharedPage.locator('input[placeholder*="Wohnzimmer"]');
-      if (await deviceInput.isVisible()) {
-        await deviceInput.fill(DEVICE_NAME);
-      }
-
-      await sharedPage.getByRole("button", { name: "Beitreten", exact: true }).click();
-      await sharedPage.waitForURL("**/", { timeout: 15000 });
+      await joinFamilyViaUI(sharedPage, FAMILY_CODE, DEVICE_NAME);
 
       // Save cookies for future runs
       const cookies = await sharedPage.context().cookies();
