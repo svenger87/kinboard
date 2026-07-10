@@ -179,7 +179,7 @@ export function useWeatherMapConfig() {
       // First we need coordinates
       let lat: number, lon: number;
 
-      if (weatherLocation.type === "coordinates" && weatherLocation.lat && weatherLocation.lon) {
+      if (weatherLocation.type === "coordinates" && weatherLocation.lat != null && weatherLocation.lon != null) {
         lat = weatherLocation.lat;
         lon = weatherLocation.lon;
       } else if (weatherLocation.city) {
