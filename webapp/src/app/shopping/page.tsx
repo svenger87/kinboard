@@ -5,6 +5,10 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
+import { useFamilyStore } from "@/stores/family-store";
+import { showUndoToast } from "@/lib/undo-toast";
 import {
   ShoppingCart,
   Plus,
@@ -67,6 +71,7 @@ import {
   parseShoppingInput,
   useOfflineShopping,
   usePeople,
+  queryKeys,
 } from "@/hooks";
 import { ShoppingInstallPrompt } from "@/components/shopping-install-prompt";
 import { PageHeader } from "@/components/page-header";
@@ -124,6 +129,7 @@ export default function ShoppingPage() {
   useSwipeNavigation();
 
   const t = useTranslations("shopping");
+  const tCommon = useTranslations("common");
   const tCategories = useTranslations("shoppingCategories");
 
   // Fetch items with offline support
@@ -142,6 +148,8 @@ export default function ShoppingPage() {
   } = useOfflineShopping();
   const saveToCatalog = useSaveToCatalog();
   const { data: people = [] } = usePeople();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
   const personById = (id: string | null | undefined) =>
     id ? people.find((p) => p.id === id) ?? null : null;
 
@@ -437,6 +445,28 @@ export default function ShoppingPage() {
         } catch (bringErr) {
           console.error("Failed to remove item from Bring!:", bringErr);
         }
+      }
+
+      // Only offer undo for items that actually existed server-side —
+      // local-only (offline, unsynced) items have no row to re-insert.
+      if (item && !item._isLocal && !id.startsWith("local_")) {
+        const { _syncStatus, _isLocal, _localId, ...itemSnapshot } = item;
+        showUndoToast({
+          message: t("itemDeleted"),
+          undoLabel: tCommon("undo"),
+          errorMessage: tCommon("undoFailed"),
+          onUndo: async () => {
+            const supabase = createClient();
+
+            const { error } = await (supabase as any)
+              .from("shopping_items")
+              .insert(itemSnapshot);
+            if (error) throw error;
+            if (family?.id) {
+              queryClient.invalidateQueries({ queryKey: queryKeys.shoppingItems(family.id) });
+            }
+          },
+        });
       }
     } catch {
       toast.error(t("toastDeleteFailed"));
