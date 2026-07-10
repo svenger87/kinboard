@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { getMergedSetting } from "@/lib/integration-secrets";
 import { DEFAULT_MONTHLY_TERMS } from "@/lib/unsplash-defaults";
 
 interface UnsplashSettings {
@@ -83,24 +83,16 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Get Unsplash settings from Supabase
-  const supabase = createAdminClient();
-   
-  const { data: settings } = await (supabase as any)
-    .from("settings")
-    .select("value")
-    .eq("family_id", familyId)
-    .eq("key", "unsplash")
-    .single();
+  // Get Unsplash settings (with secrets merged in) from Supabase
+  const unsplashSettings = await getMergedSetting<UnsplashSettings>(familyId, "unsplash");
 
-  if (!settings?.value) {
+  if (!unsplashSettings) {
     return NextResponse.json(
       { error: "Unsplash not configured" },
       { status: 401 }
     );
   }
 
-  const unsplashSettings = settings.value as UnsplashSettings;
   if (!unsplashSettings.access_key) {
     return NextResponse.json(
       { error: "Unsplash access key not configured" },

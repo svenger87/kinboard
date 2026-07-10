@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { getMergedSetting } from "@/lib/integration-secrets";
 
 export async function GET(request: NextRequest) {
   const familyId = request.nextUrl.searchParams.get("family_id");
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
     sb.from("families").select("setup_completed").eq("id", familyId).maybeSingle(),
     sb.from("people").select("id", { count: "exact", head: true }).eq("family_id", familyId),
     sb.from("calendars").select("id", { count: "exact", head: true }).eq("family_id", familyId),
-    sb.from("settings").select("key, value").eq("family_id", familyId).in("key", ["home_assistant", "weather_location"]),
+    sb.from("settings").select("key, value").eq("family_id", familyId).in("key", ["weather_location"]),
   ]);
 
   if (familyR.error) {
@@ -40,8 +41,8 @@ export async function GET(request: NextRequest) {
   }
 
   const settingsRows = (settingsR.data ?? []) as Array<{ key: string; value: unknown }>;
-  const ha = settingsRows.find((s) => s.key === "home_assistant")?.value as { url?: string; access_token?: string } | undefined;
   const wx = settingsRows.find((s) => s.key === "weather_location")?.value as { city?: string; lat?: number; lon?: number } | undefined;
+  const ha = await getMergedSetting<{ url?: string; access_token?: string }>(familyId, "home_assistant");
 
   return NextResponse.json({
     setup_completed: !!familyR.data?.setup_completed,
