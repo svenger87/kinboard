@@ -9,15 +9,15 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   if (!isVapidConfigured()) {
-    return NextResponse.json(
-      { error: "Push notifications not configured" },
-      { status: 503 }
-    );
+    // Degrade gracefully: 200 with configured:false, not a 500/503. Callers
+    // must check body.configured rather than relying on res.ok alone.
+    return NextResponse.json({ configured: false }, { status: 200 });
   }
 
   const publicKey = getPublicVapidKey();
 
   return NextResponse.json({
+    configured: true,
     publicKey,
     supported: true,
   });
