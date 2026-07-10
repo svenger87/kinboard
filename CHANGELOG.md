@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - A quiet "Live updates paused — reconnecting…" pill appears above the navigation when the realtime connection drops, so a wall kiosk can no longer show stale data with no signal. It disappears automatically once the connection is back.
 - Full family data export: Settings → "Data & backup" downloads everything (events, todos, shopping, recipes, meal plans, notes, birthdays, schedules, settings) as one JSON file. Credentials and device data are never included.
+- Calendar feed: subscribe to the family calendar from Google Calendar, Apple Calendar, Outlook etc. via a secret ICS link (Settings → Data & backup; rotate the link anytime to revoke access).
 
 ### Changed
 - The setup wizard's weather step now has the same city search with suggestions, coordinates mode, and use-my-location button as the weather settings page (was a bare text field).

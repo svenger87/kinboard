@@ -14,6 +14,12 @@ export const SECRET_FIELDS: Record<string, string[]> = {
   [SETTINGS_KEYS.unsplash]: ["access_key"],
   [SETTINGS_KEYS.googleCalendar]: ["access_token", "refresh_token"],
   [SETTINGS_KEYS.bringSettings]: ["credentials.accessToken", "credentials.refreshToken"],
+  // Not a settings-table key — the outbound ICS feed token lives only in
+  // integration_secrets (`upsertSecrets`/`getStoredSecrets` with key
+  // "calendar_feed"). Added here purely so upsertSecrets' `SECRET_FIELDS[key] ?? []`
+  // path filter doesn't drop the token; the settings table never holds a
+  // calendar_feed row, so the sentinel/applySentinels path is inert for it.
+  calendar_feed: ["token"],
 };
 
 type JsonObject = Record<string, unknown>;
