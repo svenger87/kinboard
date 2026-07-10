@@ -225,6 +225,10 @@ export function usePushNotifications(): UsePushNotificationsReturn {
             return;
           }
           const vapidData = await vapidResponse.json();
+          if (vapidData.configured === false) {
+            console.error("[PushNotifications] Cannot recover: push server not configured");
+            return;
+          }
           const vapidKey = vapidData.publicKey;
           if (!vapidKey) return;
 
@@ -281,6 +285,10 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         return null;
       }
       const data = await response.json();
+      if (data.configured === false || !data.publicKey) {
+        console.error("[PushNotifications] Push server not configured");
+        return null;
+      }
       vapidKeyRef.current = data.publicKey;
       return data.publicKey;
     } catch (err) {
@@ -472,8 +480,10 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 /**
  * Whether the push SERVER is configured (VAPID keys present in .env).
  * Distinct from browser support: even on a perfect HTTPS browser, push is
- * dead if the server has no VAPID keys. /api/notifications/vapid-key returns
- * 503 in that case. Returns null while loading, true/false once known.
+ * dead if the server has no VAPID keys. /api/notifications/vapid-key
+ * returns 200 with `{ configured: false }` in that case (per the project's
+ * "degrade gracefully" API convention — no 503). Returns null while
+ * loading, true/false once known.
  */
 export function usePushServerConfigured(): boolean | null {
   const [configured, setConfigured] = useState<boolean | null>(null);
@@ -481,8 +491,10 @@ export function usePushServerConfigured(): boolean | null {
   useEffect(() => {
     let cancelled = false;
     fetch("/api/notifications/vapid-key")
-      .then((res) => {
-        if (!cancelled) setConfigured(res.ok);
+      .then(async (res) => {
+        if (cancelled) return;
+        const isConfigured = res.ok && (await res.json()).configured !== false;
+        setConfigured(isConfigured);
       })
       .catch(() => {
         // Network error — leave unknown rather than claiming misconfigured.
