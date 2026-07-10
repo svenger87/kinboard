@@ -1,12 +1,14 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useLocale } from "next-intl";
 import { useSetting } from "./use-supabase-queries";
 
 export interface WeatherData {
   temp: number;
   feelsLike: number;
   condition: string;
+  conditionMain?: string;
   conditionIcon: string;
   humidity: number;
   windSpeed: number;
@@ -24,6 +26,7 @@ export interface DailyForecast {
   tempMax: number;
   tempMin: number;
   condition: string;
+  conditionMain?: string;
   conditionIcon: string;
   humidity: number;
   windSpeed: number;
@@ -36,6 +39,7 @@ export interface HourlyForecast {
   time: string;
   temp: number;
   condition: string;
+  conditionMain?: string;
   conditionIcon: string;
   precipProbability: number;
   windSpeed: number;
@@ -87,11 +91,12 @@ export function useWeatherLocation() {
 }
 
 export function useWeather() {
+  const locale = useLocale();
   const { data: location, isLoading: locationLoading } = useWeatherLocation();
   const weatherLocation = location || DEFAULT_LOCATION;
 
   return useQuery({
-    queryKey: ["weather", weatherLocation],
+    queryKey: ["weather", weatherLocation, locale],
     queryFn: async (): Promise<WeatherData | null> => {
       let url = "/api/weather?";
 
@@ -102,6 +107,8 @@ export function useWeather() {
       } else {
         throw new Error("No weather location configured");
       }
+
+      url += `&lang=${locale}`;
 
       const response = await fetch(url);
 
@@ -124,11 +131,12 @@ export function useWeather() {
 }
 
 export function useWeatherForecast() {
+  const locale = useLocale();
   const { data: location, isLoading: locationLoading } = useWeatherLocation();
   const weatherLocation = location || DEFAULT_LOCATION;
 
   return useQuery({
-    queryKey: ["weather", "forecast", weatherLocation],
+    queryKey: ["weather", "forecast", weatherLocation, locale],
     queryFn: async (): Promise<ForecastData | null> => {
       let url = "/api/weather/forecast?";
 
@@ -139,6 +147,8 @@ export function useWeatherForecast() {
       } else {
         throw new Error("No weather location configured");
       }
+
+      url += `&lang=${locale}`;
 
       const response = await fetch(url);
 
