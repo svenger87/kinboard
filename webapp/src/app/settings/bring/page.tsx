@@ -167,11 +167,6 @@ export default function BringSettingsPage() {
                 <DialogTitle>{t("loginDialogTitle")}</DialogTitle>
               </DialogHeader>
               <div className="flex flex-col gap-4 pt-4">
-                {loginError && (
-                  <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-                    {loginError}
-                  </div>
-                )}
                 <div className="flex flex-col gap-2">
                   <Label>{t("emailLabel")}</Label>
                   <div className="relative">
@@ -209,6 +204,14 @@ export default function BringSettingsPage() {
                     </button>
                   </div>
                 </div>
+
+                {loginError && (
+                  <div className="flex items-center gap-2 text-destructive text-sm">
+                    <AlertCircle className="size-4" />
+                    {loginError}
+                  </div>
+                )}
+
                 <Button
                   className="w-full"
                   onClick={handleLogin}

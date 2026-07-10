@@ -12,8 +12,6 @@ import {
   Server,
   Key,
   Loader2,
-  Eye,
-  EyeOff,
   LayoutGrid,
   Plus,
   Trash2,
@@ -27,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { SecretField } from "@/components/settings/secret-field";
 import {
   Dialog,
   DialogContent,
@@ -75,7 +74,6 @@ function HomeAssistantSettingsContent() {
 
   const [url, setUrl] = useState("");
   const [accessToken, setAccessToken] = useState("");
-  const [showToken, setShowToken] = useState(false);
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [entityBrowserOpen, setEntityBrowserOpen] = useState(false);
   const [connectError, setConnectError] = useState("");
@@ -342,36 +340,17 @@ function HomeAssistantSettingsContent() {
                   {t("urlHint")}
                 </p>
               </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="access-token">
-                  <Key className="size-4 inline mr-2" />
-                  {t("tokenLabel")}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="access-token"
-                    type={showToken ? "text" : "password"}
-                    placeholder={t("tokenPlaceholder")}
-                    value={accessToken}
-                    onChange={(e) => setAccessToken(e.target.value)}
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowToken(!showToken)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showToken ? (
-                      <EyeOff className="size-4" />
-                    ) : (
-                      <Eye className="size-4" />
-                    )}
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("tokenHint")}
-                </p>
-              </div>
+              <SecretField
+                id="access-token"
+                label={t("tokenLabel")}
+                icon={Key}
+                value={accessToken}
+                onChange={setAccessToken}
+                placeholder={t("tokenPlaceholder")}
+                hint={t("tokenHint")}
+                showLabel={t("showToken")}
+                hideLabel={t("hideToken")}
+              />
 
               {connectError && (
                 <div className="flex items-center gap-2 text-destructive text-sm">
