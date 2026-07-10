@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { SUPPORTED_LOCALES, type Locale } from "@/i18n/locales";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 function isSupportedLocale(value: unknown): value is Locale {
   return (
@@ -20,7 +21,7 @@ export async function getFamilyLocale(familyId: string): Promise<string> {
       .from("settings")
       .select("value")
       .eq("family_id", familyId)
-      .eq("key", "locale")
+      .eq("key", SETTINGS_KEYS.locale)
       .maybeSingle();
     const value = data?.value;
     return isSupportedLocale(value) ? value : "de";

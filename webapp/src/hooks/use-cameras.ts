@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
 import type { CameraConfig, CameraSettings } from "@/types/home-assistant";
 import { safeRandomUUID } from "@/lib/uuid";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 // Hook to get camera settings
 export function useCameraSettings() {
@@ -13,7 +14,7 @@ export function useCameraSettings() {
       if (!family?.id) return { cameras: [] };
 
       try {
-        const response = await fetch(`/api/settings?family_id=${family.id}&key=cameras`);
+        const response = await fetch(`/api/settings?family_id=${family.id}&key=${SETTINGS_KEYS.cameras}`);
         if (!response.ok) {
           if (response.status === 404) return { cameras: [] };
           throw new Error("Failed to fetch camera settings");
@@ -55,7 +56,7 @@ export function useSaveCameraSettings() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           family_id: family.id,
-          key: "cameras",
+          key: SETTINGS_KEYS.cameras,
           value: settings,
         }),
       });

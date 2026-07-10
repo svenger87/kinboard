@@ -40,7 +40,7 @@ export function formatTime(date: Date): { hours: string; minutes: string; second
 /**
  * Format date for display
  */
-export function formatDate(date: Date, locale: string = "de-DE"): string {
+export function formatDate(date: Date, locale: string): string {
   return date.toLocaleDateString(locale, {
     weekday: "long",
     day: "numeric",

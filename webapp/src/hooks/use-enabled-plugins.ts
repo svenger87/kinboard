@@ -1,8 +1,9 @@
 import { useSetting, useUpdateSetting } from "./use-supabase-queries";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 export type EnabledPluginsMap = Record<string, boolean>;
 
-const SETTING_KEY = "enabled_plugins";
+const SETTING_KEY = SETTINGS_KEYS.enabledPlugins;
 
 // All plugins are considered enabled by default. The "missing key
 // means enabled" rule lets new plugins ship enabled-by-default and

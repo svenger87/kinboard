@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocale } from "next-intl";
 import { useSetting } from "./use-supabase-queries";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 export interface WeatherData {
   temp: number;
@@ -87,7 +88,7 @@ const DEFAULT_LOCATION: WeatherLocation = {
 };
 
 export function useWeatherLocation() {
-  return useSetting<WeatherLocation>("weather_location", DEFAULT_LOCATION);
+  return useSetting<WeatherLocation>(SETTINGS_KEYS.weatherLocation, DEFAULT_LOCATION);
 }
 
 export function useWeather() {

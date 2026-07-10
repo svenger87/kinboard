@@ -3,13 +3,14 @@
 import { useSetting, useUpdateSetting } from "./use-supabase-queries";
 import type { ScreensaverSettings } from "@/types/screensaver";
 import { DEFAULT_SCREENSAVER_SETTINGS } from "@/types/screensaver";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 /**
  * Hook to get screensaver settings for the current family
  */
 export function useScreensaverSettings() {
   const { data: settings, isLoading } = useSetting<ScreensaverSettings>(
-    "screensaver",
+    SETTINGS_KEYS.screensaver,
     DEFAULT_SCREENSAVER_SETTINGS
   );
 

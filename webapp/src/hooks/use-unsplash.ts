@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 export interface UnsplashSettings {
   access_key: string;
@@ -29,7 +30,7 @@ export function useUnsplashStatus() {
       }
 
       try {
-        const response = await fetch(`/api/settings?family_id=${family.id}&key=unsplash`);
+        const response = await fetch(`/api/settings?family_id=${family.id}&key=${SETTINGS_KEYS.unsplash}`);
         if (!response.ok) {
           // 404 means not configured yet - return null, don't throw
           if (response.status === 404) {
@@ -97,7 +98,7 @@ export function useSaveUnsplashSettings() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           family_id: family.id,
-          key: "unsplash",
+          key: SETTINGS_KEYS.unsplash,
           value: settings,
         }),
       });
@@ -148,7 +149,7 @@ export function useDisconnectUnsplash() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           family_id: family.id,
-          key: "unsplash",
+          key: SETTINGS_KEYS.unsplash,
         }),
       });
 
