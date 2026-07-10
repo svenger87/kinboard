@@ -19,6 +19,7 @@ import {
 import { useSetting, useUpdateSetting } from "@/hooks";
 import { COUNTRIES, DEFAULT_COUNTRY, type CountryCode } from "@/lib/holidays";
 import { LOCALES } from "@/i18n/locales";
+import { postLocale } from "@/lib/locale-client";
 import { useFamilyStore } from "@/stores/family-store";
 
 export default function LanguageSettingsPage() {
@@ -34,16 +35,17 @@ export default function LanguageSettingsPage() {
   const [countrySaving, setCountrySaving] = useState(false);
 
   async function pick(code: string) {
-    if (code === current || pending) return;
+    if (pending) return;
+    // Even when re-picking the CURRENT locale, still persist — this is the
+    // repair path for families whose locale setting was never written
+    // (e.g. default-English families that negotiated "en" and never
+    // touched the switcher). Only the UI refresh is skipped, since there's
+    // nothing to re-render.
+    const isSame = code === current;
     setPending(code);
     try {
-      const response = await fetch("/api/locale", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale: code, familyId: family?.id }),
-      });
-      if (!response.ok) throw new Error("locale change failed");
-      router.refresh();
+      await postLocale(code, family?.id);
+      if (!isSame) router.refresh();
     } catch (e) {
       console.error(e);
     } finally {
@@ -88,7 +90,7 @@ export default function LanguageSettingsPage() {
                     key={code}
                     variant={isCurrent ? "default" : "outline"}
                     onClick={() => pick(code)}
-                    disabled={pending !== null || isCurrent}
+                    disabled={pending !== null}
                     className="w-full justify-between h-auto py-4 px-5"
                   >
                     <span className="font-medium">{native}</span>

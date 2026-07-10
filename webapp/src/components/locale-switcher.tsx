@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LOCALES } from "@/i18n/locales";
+import { postLocale } from "@/lib/locale-client";
 import { useFamilyStore } from "@/stores/family-store";
 
 export function LocaleSwitcher({ className }: { className?: string }) {
@@ -15,18 +16,17 @@ export function LocaleSwitcher({ className }: { className?: string }) {
   const [pending, setPending] = useState<string | null>(null);
 
   async function pick(code: string) {
-    if (code === current || pending) return;
+    if (pending) return;
+    // Even when re-picking the CURRENT locale, still persist — this is the
+    // repair path for families whose locale setting was never written.
+    // Only the UI refresh is skipped, since there's nothing to re-render.
+    const isSame = code === current;
     setPending(code);
     try {
-      const response = await fetch("/api/locale", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // family may be null on the pre-family /join switcher; the route
-        // treats a missing familyId as cookie-only (no settings write).
-        body: JSON.stringify({ locale: code, familyId: family?.id }),
-      });
-      if (!response.ok) throw new Error("locale change failed");
-      router.refresh();
+      // family may be null on the pre-family /join switcher; the route
+      // treats a missing familyId as cookie-only (no settings write).
+      await postLocale(code, family?.id);
+      if (!isSame) router.refresh();
     } catch (e) {
       console.error(e);
     } finally {
