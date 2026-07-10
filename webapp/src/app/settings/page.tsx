@@ -33,6 +33,7 @@ import {
   PiggyBank,
   ListOrdered,
   RefreshCw,
+  DatabaseBackup,
 } from "lucide-react";
 import { PinGuard } from "@/components/pin-guard";
 import { Card } from "@/components/ui/card";
@@ -101,6 +102,30 @@ export default function SettingsPage() {
   const [regenDialogOpen, setRegenDialogOpen] = useState(false);
   const [regenConfirmOpen, setRegenConfirmOpen] = useState(false);
   const [selectedTtl, setSelectedTtl] = useState<number | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!family?.id || isExporting) return;
+    setIsExporting(true);
+    try {
+      const res = await fetch(`/api/export?family_id=${family.id}`);
+      if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `kinboard-export-${format(new Date(), "yyyy-MM-dd")}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("settings: export failed:", err);
+      toast.error(t("exportFailed"));
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const statusDot = (color: string) => (
     <span className={`block size-2 rounded-full ${color}`} aria-hidden="true" />
@@ -605,6 +630,36 @@ export default function SettingsPage() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+        </motion.div>
+
+        {/* Data & backup */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.65 }}
+          className="mt-8"
+        >
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <DatabaseBackup className="size-5 text-primary" strokeWidth={1.75} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium">{t("dataCardTitle")}</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("dataCardDescription")}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              className="mt-4 w-full"
+              onClick={handleExport}
+              disabled={isExporting || !family?.id}
+            >
+              {t("exportButton")}
+            </Button>
+          </Card>
         </motion.div>
 
         {/* Back link */}
