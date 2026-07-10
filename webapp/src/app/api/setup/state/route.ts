@@ -53,6 +53,8 @@ export async function GET(request: NextRequest) {
     has_people: (peopleR.count ?? 0) > 0,
     has_calendar: (calendarsR.count ?? 0) > 0,
     has_home_assistant: !!(ha?.url && ha?.access_token),
-    has_weather_location: !!(wx?.city || (wx?.lat && wx?.lon)),
+    // != null (not truthiness): lat/lon 0 are valid coordinates
+    // (equator / prime meridian) now that the wizard can save them.
+    has_weather_location: !!(wx?.city || (wx?.lat != null && wx?.lon != null)),
   });
 }
