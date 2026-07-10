@@ -516,6 +516,7 @@
   "meals": {
     "title": "Planification des repas",
     "subtitle": "Planifiez votre semaine et générez des listes de courses",
+    "fabAria": "Ajouter un repas",
     "shoppingButton": "Liste de courses",
     "recipesButton": "Recettes",
     "prevWeekAria": "Semaine précédente",
@@ -2813,7 +2814,6 @@
   },
   "vehicles": {
     "title": "Véhicules",
-    "loading": "Chargement des véhicules…",
     "emptyState": "Aucun véhicule configuré pour le moment.",
     "addFirstVehicle": "Ajouter un véhicule",
     "manage": "Gérer",
@@ -3105,7 +3105,6 @@
   },
   "stonks": {
     "title": "Actions",
-    "loading": "Chargement des actions…",
     "emptyState": "Votre liste de suivi est vide. Ajoutez un symbole pour commencer.",
     "addFirst": "Ajouter votre premier ticker",
     "manage": "Gérer",
@@ -3133,7 +3132,6 @@
   },
   "pocketMoney": {
     "title": "Argent de poche",
-    "loading": "Chargement…",
     "noAccountsYet": "Aucun compte d'argent de poche configuré pour le moment.",
     "goToSettings": "Aller aux paramètres",
     "manage": "Gérer",

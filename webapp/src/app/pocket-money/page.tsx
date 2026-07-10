@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AvatarDisplay } from "@/components/pocket-money/avatar-display";
 import { BalanceDisplay } from "@/components/pocket-money/balance-display";
 import { GoalCard } from "@/components/pocket-money/goal-card";
@@ -86,7 +87,15 @@ export default function PocketMoneyPage() {
   const primaryGoal = goals.find((g) => g.is_primary && g.status === "active");
   const secondaryGoals = goals.filter((g) => !g.is_primary && g.status === "active");
 
-  if (isPending) return <div className="p-8 text-muted-foreground">{t("loading")}</div>;
+  if (isPending) {
+    return (
+      <div className="p-8 max-w-2xl mx-auto space-y-3">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-32" />
+        <Skeleton className="h-32" />
+      </div>
+    );
+  }
 
   if (accounts.length === 0) {
     return (

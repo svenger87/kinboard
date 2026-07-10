@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getDriver } from "@/plugins/vehicles/drivers/registry";
 
 export default function VehiclesPage() {
@@ -25,7 +26,13 @@ export default function VehiclesPage() {
   }, [vehicles, activeId]);
 
   if (isPending) {
-    return <div className="p-8 text-muted-foreground">{t("loading")}</div>;
+    return (
+      <div className="p-8 max-w-2xl mx-auto space-y-3">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-32" />
+        <Skeleton className="h-32" />
+      </div>
+    );
   }
 
   if (vehicles.length === 0) {
