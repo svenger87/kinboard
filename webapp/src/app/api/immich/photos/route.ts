@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { getMergedSetting } from "@/lib/integration-secrets";
 
 interface ImmichSettings {
   url: string;
@@ -32,24 +32,16 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Get Immich settings from Supabase
-  const supabase = createAdminClient();
-   
-  const { data: settings } = await (supabase as any)
-    .from("settings")
-    .select("value")
-    .eq("family_id", familyId)
-    .eq("key", "immich")
-    .single();
+  // Get Immich settings (with secrets merged in) from Supabase
+  const immichSettings = await getMergedSetting<ImmichSettings>(familyId, "immich");
 
-  if (!settings?.value) {
+  if (!immichSettings) {
     return NextResponse.json(
       { error: "Immich not configured" },
       { status: 401 }
     );
   }
 
-  const immichSettings = settings.value as ImmichSettings;
   if (!immichSettings.url || !immichSettings.api_key) {
     return NextResponse.json(
       { error: "Immich URL or API key not configured" },

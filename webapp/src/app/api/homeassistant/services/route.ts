@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { getMergedSetting } from "@/lib/integration-secrets";
 import type { HomeAssistantSettings, HAServiceCall } from "@/types/home-assistant";
 
 // POST: Call a Home Assistant service
@@ -22,24 +22,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get Home Assistant settings from Supabase
-    const supabase = createAdminClient();
-     
-    const { data: settings } = await (supabase as any)
-      .from("settings")
-      .select("value")
-      .eq("family_id", family_id)
-      .eq("key", "home_assistant")
-      .single();
+    // Get Home Assistant settings (with secrets merged in) from Supabase
+    const haSettings = await getMergedSetting<HomeAssistantSettings>(family_id, "home_assistant");
 
-    if (!settings?.value) {
+    if (!haSettings) {
       return NextResponse.json(
         { error: "Home Assistant not configured" },
         { status: 401 }
       );
     }
 
-    const haSettings = settings.value as HomeAssistantSettings;
     if (!haSettings.url || !haSettings.access_token) {
       return NextResponse.json(
         { error: "Home Assistant URL or access token not configured" },
