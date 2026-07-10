@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
 import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
+import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -49,20 +50,13 @@ interface SyncResult {
 async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
   const supabase = createAdminClient();
 
-  // Get settings for this family
-   
-  const { data: settingsRow } = await (supabase as any)
-    .from("settings")
-    .select("value")
-    .eq("family_id", familyId)
-    .eq("key", "google_calendar")
-    .single();
+  // Get settings (with real tokens merged in) for this family
+  const settings = await getMergedSetting<GoogleCalendarSettings>(familyId, "google_calendar");
 
-  if (!settingsRow?.value) {
+  if (!settings) {
     return { familyId, success: false, error: "No Google Calendar settings" };
   }
 
-  const settings = settingsRow.value as GoogleCalendarSettings;
   if (!settings?.access_token) {
     return { familyId, success: false, error: "No access token" };
   }
@@ -91,15 +85,20 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
     try {
       const { credentials: newTokens } = await oauth2Client.refreshAccessToken();
 
-       
+      await upsertSecrets(familyId, "google_calendar", {
+        access_token: newTokens.access_token,
+        ...(newTokens.refresh_token ? { refresh_token: newTokens.refresh_token } : {}),
+      });
+
+      const { publicValue: refreshedPublicValue } = splitSecrets("google_calendar", {
+        ...settings,
+        expiry_date: newTokens.expiry_date,
+      });
+
       await (supabase as any)
         .from("settings")
         .update({
-          value: {
-            ...settings,
-            access_token: newTokens.access_token,
-            expiry_date: newTokens.expiry_date,
-          },
+          value: refreshedPublicValue,
           updated_at: new Date().toISOString(),
         })
         .eq("family_id", familyId)
@@ -110,16 +109,18 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
       console.error(`[google-sync-cron] Token refresh failed for family ${familyId}:`, refreshError);
       const invalidGrant = isInvalidGrant(refreshError);
 
+      const { publicValue: refreshFailedPublicValue } = splitSecrets("google_calendar", {
+        ...settings,
+        last_auto_sync: new Date().toISOString(),
+        auto_sync_error: "Token refresh failed",
+        // Only flag reconnect on a definitively-dead token, not a blip.
+        needs_reauth: invalidGrant ? true : (settings.needs_reauth ?? false),
+      });
+
       await (supabase as any)
         .from("settings")
         .update({
-          value: {
-            ...settings,
-            last_auto_sync: new Date().toISOString(),
-            auto_sync_error: "Token refresh failed",
-            // Only flag reconnect on a definitively-dead token, not a blip.
-            needs_reauth: invalidGrant ? true : (settings.needs_reauth ?? false),
-          },
+          value: refreshFailedPublicValue,
           updated_at: new Date().toISOString(),
         })
         .eq("family_id", familyId)
@@ -312,17 +313,18 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
     }
 
     // Update timestamps
-     
+    const { publicValue: syncedPublicValue } = splitSecrets("google_calendar", {
+      ...settings,
+      last_sync: new Date().toISOString(),
+      last_auto_sync: new Date().toISOString(),
+      auto_sync_error: null,
+      needs_reauth: false,
+    });
+
     await (supabase as any)
       .from("settings")
       .update({
-        value: {
-          ...settings,
-          last_sync: new Date().toISOString(),
-          last_auto_sync: new Date().toISOString(),
-          auto_sync_error: null,
-          needs_reauth: false,
-        },
+        value: syncedPublicValue,
         updated_at: new Date().toISOString(),
       })
       .eq("family_id", familyId)
@@ -341,15 +343,16 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
     console.error(`[google-sync-cron] Sync error for family ${familyId}:`, err);
 
     // Store error in settings
-     
+    const { publicValue: errorPublicValue } = splitSecrets("google_calendar", {
+      ...settings,
+      last_auto_sync: new Date().toISOString(),
+      auto_sync_error: errorMessage,
+    });
+
     await (supabase as any)
       .from("settings")
       .update({
-        value: {
-          ...settings,
-          last_auto_sync: new Date().toISOString(),
-          auto_sync_error: errorMessage,
-        },
+        value: errorPublicValue,
         updated_at: new Date().toISOString(),
       })
       .eq("family_id", familyId)
@@ -389,10 +392,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
 
-  // Filter to only families with auto_sync enabled and valid tokens
+  // Filter to only families with auto_sync enabled. Tokens now live in
+  // integration_secrets, not this settings value, so the actual
+  // access-token presence check happens per-family in syncFamilyCalendar
+  // (via getMergedSetting) — families with no stored token still show up
+  // here but fail fast there with "No access token".
   const familiesToSync = (settingsRows || []).filter((row: { value: GoogleCalendarSettings }) => {
     const settings = row.value as GoogleCalendarSettings;
-    return settings?.auto_sync === true && settings?.access_token;
+    return settings?.auto_sync === true;
   });
 
   console.log(`[google-sync-cron] Found ${familiesToSync.length} families with auto_sync enabled`);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
+import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -14,21 +15,8 @@ interface GoogleCalendarSettings {
 }
 
 async function getOAuth2Client(familyId: string) {
-  const supabase = createAdminClient();
+  const credentials = await getMergedSetting<GoogleCalendarSettings>(familyId, "google_calendar");
 
-   
-  const { data: settings } = await (supabase as any)
-    .from("settings")
-    .select("value")
-    .eq("family_id", familyId)
-    .eq("key", "google_calendar")
-    .single();
-
-  if (!settings?.value) {
-    return null;
-  }
-
-  const credentials = settings.value as GoogleCalendarSettings;
   if (!credentials?.access_token) {
     return null;
   }
@@ -49,15 +37,22 @@ async function getOAuth2Client(familyId: string) {
     try {
       const { credentials: newTokens } = await oauth2Client.refreshAccessToken();
 
-       
+      await upsertSecrets(familyId, "google_calendar", {
+        access_token: newTokens.access_token,
+        ...(newTokens.refresh_token ? { refresh_token: newTokens.refresh_token } : {}),
+      });
+
+      const { publicValue } = splitSecrets("google_calendar", {
+        ...credentials,
+        expiry_date: newTokens.expiry_date,
+      });
+
+      const supabase = createAdminClient();
+
       await (supabase as any)
         .from("settings")
         .update({
-          value: {
-            ...credentials,
-            access_token: newTokens.access_token,
-            expiry_date: newTokens.expiry_date,
-          },
+          value: publicValue,
           updated_at: new Date().toISOString(),
         })
         .eq("family_id", familyId)

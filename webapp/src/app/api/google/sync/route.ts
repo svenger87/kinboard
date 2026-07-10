@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
 import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
+import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -33,19 +34,7 @@ interface CalendarInfo {
 async function getOAuth2Client(familyId: string) {
   const supabase = createAdminClient();
 
-   
-  const { data: settings } = await (supabase as any)
-    .from("settings")
-    .select("value")
-    .eq("family_id", familyId)
-    .eq("key", "google_calendar")
-    .single();
-
-  if (!settings?.value) {
-    return null;
-  }
-
-  const credentials = settings.value as GoogleCalendarSettings;
+  const credentials = await getMergedSetting<GoogleCalendarSettings>(familyId, "google_calendar");
   if (!credentials?.access_token) {
     return null;
   }
@@ -66,16 +55,21 @@ async function getOAuth2Client(familyId: string) {
     try {
       const { credentials: newTokens } = await oauth2Client.refreshAccessToken();
 
-       
+      await upsertSecrets(familyId, "google_calendar", {
+        access_token: newTokens.access_token,
+        ...(newTokens.refresh_token ? { refresh_token: newTokens.refresh_token } : {}),
+      });
+
+      const { publicValue } = splitSecrets("google_calendar", {
+        ...credentials,
+        expiry_date: newTokens.expiry_date,
+        needs_reauth: false,
+      });
+
       await (supabase as any)
         .from("settings")
         .update({
-          value: {
-            ...credentials,
-            access_token: newTokens.access_token,
-            expiry_date: newTokens.expiry_date,
-            needs_reauth: false,
-          },
+          value: publicValue,
           updated_at: new Date().toISOString(),
         })
         .eq("family_id", familyId)
@@ -85,10 +79,11 @@ async function getOAuth2Client(familyId: string) {
     } catch (refreshError) {
       console.error("Token refresh failed:", refreshError);
       if (isInvalidGrant(refreshError)) {
+        const { publicValue } = splitSecrets("google_calendar", { ...credentials, needs_reauth: true });
         await (supabase as any)
           .from("settings")
           .update({
-            value: { ...credentials, needs_reauth: true },
+            value: publicValue,
             updated_at: new Date().toISOString(),
           })
           .eq("family_id", familyId)
@@ -338,15 +333,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Update last sync time
-     
+    const { publicValue: lastSyncPublicValue } = splitSecrets("google_calendar", {
+      ...settings,
+      last_sync: new Date().toISOString(),
+      needs_reauth: false,
+    });
+
     await (supabase as any)
       .from("settings")
       .update({
-        value: {
-          ...settings,
-          last_sync: new Date().toISOString(),
-          needs_reauth: false,
-        },
+        value: lastSyncPublicValue,
         updated_at: new Date().toISOString(),
       })
       .eq("family_id", family_id)

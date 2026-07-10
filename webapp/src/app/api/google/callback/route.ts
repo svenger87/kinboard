@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
+import { splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -87,15 +88,29 @@ export async function GET(request: NextRequest) {
       connected_at: new Date().toISOString(),
     };
 
+    // Split tokens into the secrets table; everything else stays in settings.
+    const { publicValue, secretValue } = splitSecrets("google_calendar", googleSettings);
+
+    try {
+      if (secretValue) {
+        await upsertSecrets(familyId, "google_calendar", secretValue);
+      }
+    } catch (secretsError) {
+      console.error("Error saving Google secrets:", secretsError);
+      return NextResponse.redirect(
+        new URL("/settings/google?error=save_failed", request.url)
+      );
+    }
+
     // Upsert the google_calendar setting - use type assertion to bypass strict typing
-     
+
     const { error: upsertError } = await (supabase as any)
       .from("settings")
       .upsert(
         {
           family_id: familyId,
           key: "google_calendar",
-          value: googleSettings,
+          value: publicValue,
           updated_at: new Date().toISOString(),
         },
         {
