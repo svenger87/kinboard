@@ -5,6 +5,7 @@ import {
   type Locale,
 } from "@/i18n/request";
 import { createAdminClient } from "@/lib/supabase/server";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
       await (supabase as any)
         .from("settings")
         .upsert(
-          { family_id: familyId, key: "locale", value: locale },
+          { family_id: familyId, key: SETTINGS_KEYS.locale, value: locale },
           { onConflict: "family_id,key" },
         );
     } catch (error) {
