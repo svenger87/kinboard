@@ -61,15 +61,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-import { toast as sonnerToast } from "sonner";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
   useKeyboardShortcuts();
   useSwipeNavigation();
   const t = useTranslations("settings");
   const tCommon = useTranslations("common");
-  const { toast } = useToast();
   const { family, device, clearSession } = useFamilyStore();
   const deleteDevice = useDeleteDevice();
   const isOnline = useIsOnline();
@@ -156,7 +154,7 @@ export default function SettingsPage() {
           onSuccess: () => {
             // Refresh the unlock session so the new PIN becomes the current session proof
             try { sessionStorage.setItem("kinboard_settings_unlock", entered); } catch { /* noop */ }
-            toast({ title: t("pinSavedToastTitle"), description: t("pinSavedToastDescription") });
+            toast.success(t("pinSavedToastTitle"), { description: t("pinSavedToastDescription") });
             setPinDialogOpen(false);
             setPinDigits(["", "", "", ""]);
           },
@@ -177,7 +175,7 @@ export default function SettingsPage() {
       {
         onSuccess: () => {
           try { sessionStorage.removeItem("kinboard_settings_unlock"); } catch { /* noop */ }
-          toast({ title: t("pinRemovedToastTitle"), description: t("pinRemovedToastDescription") });
+          toast.success(t("pinRemovedToastTitle"), { description: t("pinRemovedToastDescription") });
           setPinDialogOpen(false);
         },
       }
@@ -696,7 +694,7 @@ export default function SettingsPage() {
                 { ttlHours: selectedTtl },
                 {
                   onSuccess: () => {
-                    sonnerToast.success(t("regenerateSuccess"));
+                    toast.success(t("regenerateSuccess"));
                   },
                 }
               );

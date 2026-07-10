@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- Settings, Google Calendar, and ICS pages now actually show their success/error toasts (connect, sync, PIN saved, feed added/deleted, …). These pages fired notifications into a toast system that was never mounted, so all their feedback silently disappeared.
+
 ## [1.3.0] - 2026-07-10
 
 ### Added

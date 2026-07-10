@@ -49,7 +49,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/page-header";
 import { IntegrationConfigHint } from "@/components/integration-config-hint";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import {
   PersonMappingRule,
   MatchType,
@@ -76,7 +76,6 @@ import { addDays, startOfDay } from "date-fns";
 
 export default function GoogleSettingsPage() {
   const t = useTranslations("settings.google");
-  const { toast } = useToast();
   const searchParams = useSearchParams();
   const { family } = useFamilyStore();
 
@@ -137,21 +136,18 @@ export default function GoogleSettingsPage() {
     const error = searchParams.get("error");
 
     if (success) {
-      toast({
-        title: t("connectedToastTitle"),
+      toast.success(t("connectedToastTitle"), {
         description: t("connectedToastDescription"),
       });
       // Clear URL params
       window.history.replaceState({}, "", "/settings/google");
     } else if (error) {
-      toast({
-        title: t("errorToastTitle"),
+      toast.error(t("errorToastTitle"), {
         description: t("errorToastDescriptionPrefix", { error }),
-        variant: "destructive",
       });
       window.history.replaceState({}, "", "/settings/google");
     }
-  }, [searchParams, toast, t]);
+  }, [searchParams, t]);
 
   const handleConnect = () => {
     if (!family?.id) return;
@@ -161,15 +157,12 @@ export default function GoogleSettingsPage() {
   const handleDisconnect = async () => {
     try {
       await disconnectGoogle.mutateAsync();
-      toast({
-        title: t("disconnectedToastTitle"),
+      toast.success(t("disconnectedToastTitle"), {
         description: t("disconnectedToastDescription"),
       });
     } catch {
-      toast({
-        title: t("errorToastTitle"),
+      toast.error(t("errorToastTitle"), {
         description: t("disconnectFailedToast"),
-        variant: "destructive",
       });
     }
   };
@@ -186,10 +179,8 @@ export default function GoogleSettingsPage() {
     } catch {
       // Revert on error
       setEnabledCalendarIds(enabledCalendarIds);
-      toast({
-        title: t("errorToastTitle"),
+      toast.error(t("errorToastTitle"), {
         description: t("toggleFailedToast"),
-        variant: "destructive",
       });
     }
   };
@@ -216,10 +207,8 @@ export default function GoogleSettingsPage() {
       await updateMappingRules.mutateAsync(newRules);
     } catch {
       setMappingRules(mappingRules);
-      toast({
-        title: t("errorToastTitle"),
+      toast.error(t("errorToastTitle"), {
         description: t("ruleAddFailedToast"),
-        variant: "destructive",
       });
     }
   };
@@ -232,10 +221,8 @@ export default function GoogleSettingsPage() {
       await updateMappingRules.mutateAsync(newRules);
     } catch {
       setMappingRules(mappingRules);
-      toast({
-        title: t("errorToastTitle"),
+      toast.error(t("errorToastTitle"), {
         description: t("ruleDeleteFailedToast"),
-        variant: "destructive",
       });
     }
   };
@@ -255,8 +242,7 @@ export default function GoogleSettingsPage() {
       clearInterval(interval);
       setSyncProgress(100);
 
-      toast({
-        title: t("syncedToastTitle"),
+      toast.success(t("syncedToastTitle"), {
         description: t("syncedToastDescription", {
           created: result.created,
           updated: result.updated,
@@ -268,10 +254,8 @@ export default function GoogleSettingsPage() {
     } catch {
       clearInterval(interval);
       setSyncProgress(0);
-      toast({
-        title: t("syncFailedToastTitle"),
+      toast.error(t("syncFailedToastTitle"), {
         description: t("syncFailedToastDescription"),
-        variant: "destructive",
       });
     }
   };
