@@ -37,7 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/page-header";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import {
   useCalendars,
   useCreateIcsCalendar,
@@ -88,7 +88,6 @@ const emptyForm = (): FeedFormState => ({
 export default function IcsSettingsPage() {
   const t = useTranslations("settings.ics");
   const tCommon = useTranslations("common");
-  const { toast } = useToast();
 
   const { data: allCalendars = [], isLoading } = useCalendars();
   const { data: people = [] } = usePeople();
@@ -100,17 +99,14 @@ export default function IcsSettingsPage() {
   async function handleSyncNow() {
     try {
       const result = await icsSync.mutateAsync();
-      toast({
-        title: t("syncSuccessTitle"),
+      toast.success(t("syncSuccessTitle"), {
         description: t("syncSuccessBody", {
           succeeded: result.succeeded,
           failed: result.failed,
         }),
       });
     } catch (err) {
-      toast({
-        variant: "destructive",
-        title: t("syncErrorTitle"),
+      toast.error(t("syncErrorTitle"), {
         description: err instanceof Error ? err.message : "",
       });
     }
@@ -185,11 +181,11 @@ export default function IcsSettingsPage() {
         },
         {
           onSuccess: () => {
-            toast({ title: t("toastUpdated") });
+            toast.success(t("toastUpdated"));
             setDialogOpen(false);
           },
           onError: () => {
-            toast({ title: t("toastError"), variant: "destructive" });
+            toast.error(t("toastError"));
           },
         }
       );
@@ -205,11 +201,11 @@ export default function IcsSettingsPage() {
         },
         {
           onSuccess: () => {
-            toast({ title: t("toastAdded") });
+            toast.success(t("toastAdded"));
             setDialogOpen(false);
           },
           onError: () => {
-            toast({ title: t("toastError"), variant: "destructive" });
+            toast.error(t("toastError"));
           },
         }
       );
@@ -219,7 +215,7 @@ export default function IcsSettingsPage() {
   const handleDelete = (calId: string) => {
     deleteCalendar.mutate(calId, {
       onSuccess: () => {
-        toast({ title: t("toastDeleted") });
+        toast.success(t("toastDeleted"));
       },
     });
   };
