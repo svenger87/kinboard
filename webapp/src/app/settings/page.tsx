@@ -146,9 +146,16 @@ export default function SettingsPage() {
 
   const handleFeedCopy = () => {
     if (!feedUrl) return;
-    navigator.clipboard.writeText(feedUrl);
-    setFeedCopied(true);
-    setTimeout(() => setFeedCopied(false), 2000);
+    navigator.clipboard
+      .writeText(feedUrl)
+      .then(() => {
+        setFeedCopied(true);
+        setTimeout(() => setFeedCopied(false), 2000);
+      })
+      .catch((err) => {
+        console.error("settings: calendar feed copy failed:", err);
+        toast.error(t("feedFailed"));
+      });
   };
 
   const handleExport = async () => {

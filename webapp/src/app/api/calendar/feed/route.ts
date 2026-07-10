@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
       .from("events")
       .select("*, calendar:calendars!inner(family_id,name)")
       .eq("calendar.family_id", familyId)
+      .order("id")
       .range(from, to)
   );
 
@@ -50,7 +51,8 @@ export async function GET(request: NextRequest) {
     all_day: !!row.all_day,
   }));
 
-  const ics = buildIcsCalendar(events, (family?.name as string | undefined) ?? "Kinboard");
+  const timeZone = process.env.TZ ?? "Europe/Berlin";
+  const ics = buildIcsCalendar(events, (family?.name as string | undefined) ?? "Kinboard", timeZone);
 
   return new NextResponse(ics, {
     headers: {
@@ -80,7 +82,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to create feed link" }, { status: 500 });
   }
 
-  const url = new URL("/api/calendar/feed", request.nextUrl.origin);
+  // request.nextUrl.origin resolves to the internal request URL — behind
+  // a reverse proxy (e.g. Traefik) that's http://internal-container-host,
+  // not the address a calendar app can reach. Prefer SITE_URL (the
+  // operator-configured public origin, already passed to the webapp
+  // container for GOTRUE_SITE_URL) when set.
+  const siteUrl = process.env.SITE_URL?.replace(/\/+$/, "");
+  const origin = siteUrl || request.nextUrl.origin;
+  const url = new URL("/api/calendar/feed", origin);
   url.searchParams.set("family_id", familyId);
   url.searchParams.set("token", token);
 
