@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendPushToMultiple, isVapidConfigured, DatabaseSubscription } from "@/lib/push-sender";
+import { getPushTranslator } from "@/lib/notifications/messages";
+import { getFamilyLocale } from "@/lib/family-locale";
 import type { PushSubscription, NotificationPreferences } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -122,12 +124,14 @@ export async function POST(request: NextRequest) {
 
     // Build notification content
     // Note: iOS shows "FROM [app name]" automatically, so we use descriptive titles
+    const locale = await getFamilyLocale(familyId);
+    const t = getPushTranslator(locale);
     const title = items.length === 1
-      ? "Neuer Artikel"
-      : `${items.length} neue Artikel`;
+      ? t("newItemOne")
+      : t("newItemMany", { count: items.length });
     const notificationBody = items.length <= 3
       ? items.join(", ")
-      : `${items.slice(0, 3).join(", ")} +${items.length - 3} weitere`;
+      : `${items.slice(0, 3).join(", ")} ${t("moreSuffix", { count: items.length - 3 })}`;
 
     // Send notifications
     const result = await sendPushToMultiple(eligibleSubscriptions as DatabaseSubscription[], {
