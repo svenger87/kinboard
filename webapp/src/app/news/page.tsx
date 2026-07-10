@@ -8,7 +8,7 @@ import { formatDistanceToNow } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -189,7 +189,7 @@ function NewsCard({
         className="block w-full text-left"
         type="button"
       >
-        <GlassCard className="p-4 hover:bg-muted/30 transition-colors">
+        <Card className="p-4 hover:bg-muted/30 transition-colors">
           <div className="flex gap-4">
             {item.image && (
                
@@ -230,7 +230,7 @@ function NewsCard({
               </div>
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </button>
     </motion.article>
   );

@@ -210,7 +210,6 @@ export default function BringSettingsPage() {
                   </div>
                 </div>
                 <Button
-                  variant="month"
                   className="w-full"
                   onClick={handleLogin}
                   disabled={!email || !password || loginMutation.isPending}

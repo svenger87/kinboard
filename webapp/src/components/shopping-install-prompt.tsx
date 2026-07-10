@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingCart, X, Smartphone, ExternalLink, Compass } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 
 const DISMISSED_COOKIE_NAME = "shopping-pwa-prompt-dismissed";
@@ -94,7 +94,7 @@ export function ShoppingInstallPrompt() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-6"
       >
-        <GlassCard className="p-4 border-blue-500/30 bg-blue-500/5">
+        <Card className="p-4 border-info/30 bg-info/5">
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-xl bg-blue-500/20 shrink-0">
               <Compass className="size-5 text-blue-500" />
@@ -113,7 +113,7 @@ export function ShoppingInstallPrompt() {
               <X className="size-5" />
             </button>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
     );
   }
@@ -133,7 +133,7 @@ export function ShoppingInstallPrompt() {
           exit={{ opacity: 0, y: 20 }}
           className="mb-6"
         >
-          <GlassCard className="p-4 border-green-500/30 bg-green-500/5">
+          <Card className="p-4 border-success/30 bg-success/5">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-xl bg-green-500/20 shrink-0">
                 <Smartphone className="size-5 text-green-500" />
@@ -169,7 +169,7 @@ export function ShoppingInstallPrompt() {
                 <X className="size-5" />
               </button>
             </div>
-          </GlassCard>
+          </Card>
         </motion.div>
       )}
     </AnimatePresence>

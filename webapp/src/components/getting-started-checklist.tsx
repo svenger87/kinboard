@@ -11,7 +11,7 @@ import {
   ChevronUp,
   ArrowRight,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useSetupState } from "@/hooks";
@@ -57,7 +57,7 @@ export function GettingStartedChecklist() {
   };
 
   return (
-    <GlassCard className="p-4 mb-4 border-month-primary/30 bg-month-primary/5">
+    <Card className="p-4 mb-4 border-month-primary/30 bg-month-primary/5">
       <button
         type="button"
         onClick={toggle}
@@ -104,7 +104,7 @@ export function GettingStartedChecklist() {
               </Link>
             ))}
           </div>
-          <Button variant="month" size="sm" asChild className="mt-3 w-full">
+          <Button size="sm" asChild className="mt-3 w-full">
             <Link href={allDone ? "/setup/done" : "/setup"}>
               {allDone ? t("finish") : t("resume")}
               <ArrowRight className="size-4 ml-1" />
@@ -112,6 +112,6 @@ export function GettingStartedChecklist() {
           </Button>
         </div>
       )}
-    </GlassCard>
+    </Card>
   );
 }

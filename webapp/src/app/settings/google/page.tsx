@@ -599,7 +599,7 @@ export default function GoogleSettingsPage() {
                     </Button>
                     <Dialog open={ruleDialogOpen} onOpenChange={setRuleDialogOpen}>
                       <DialogTrigger asChild>
-                        <Button variant="month" size="sm">
+                        <Button size="sm">
                           <Plus className="size-4 mr-2" />
                           {t("addRuleButton")}
                         </Button>
@@ -659,7 +659,6 @@ export default function GoogleSettingsPage() {
                           </div>
 
                           <Button
-                            variant="month"
                             className="w-full"
                             onClick={handleAddRule}
                             disabled={!newRulePattern.trim() || !newRulePerson}

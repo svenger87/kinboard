@@ -19,8 +19,6 @@ const buttonVariants = cva(
           "border border-primary text-primary bg-primary/[0.08] hover:bg-primary/[0.14] active:scale-[0.98]",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        month:
-          "bg-month-primary text-white elev-sm hover:bg-month-primary/90 active:scale-[0.98]",
       },
       size: {
         default: "h-11 px-4 py-2",
