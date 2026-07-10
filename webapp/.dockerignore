@@ -1,0 +1,19 @@
+# Build artifacts and local dev state — the image builds these itself.
+# Without these exclusions a build on a machine that ran `npm run dev`
+# fails outright (tar cannot archive .next/dev's special files) and the
+# context needlessly ships hundreds of MB.
+node_modules
+.next
+
+# Test artifacts
+e2e/results
+playwright-report
+test-results
+
+# Local stack state and secrets — must never enter a build context:
+# docker/data is the live Postgres bind mount, docker/.env holds the
+# stack's generated secrets (COPY . . would bake both into builder layers).
+docker/data
+docker/.env
+
+*.log

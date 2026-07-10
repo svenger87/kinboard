@@ -10,6 +10,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A quiet "Live updates paused — reconnecting…" pill appears above the navigation when the realtime connection drops, so a wall kiosk can no longer show stale data with no signal. It disappears automatically once the connection is back.
 
 ### Fixed
+- Added `webapp/.dockerignore`: building the webapp image on a machine that had run `npm run dev` failed with a tar checksum error on `.next/dev`, and the build context needlessly shipped `node_modules`, the local Postgres data directory, and the stack's `.env` secrets into intermediate image layers. Source builds are now smaller and work regardless of local dev state.
 - When the server is unreachable (stack down, network issue), the app now shows a "Can't reach the Kinboard server" screen with a retry button after ~12 seconds instead of spinning forever.
 - Settings, Google Calendar, and ICS pages now actually show their success/error toasts (connect, sync, PIN saved, feed added/deleted, …). These pages fired notifications into a toast system that was never mounted, so all their feedback silently disappeared.
 - Failed saves now tell you: weather location, news sources, stonks watchlist add/remove, and new-vehicle creation show an error toast instead of failing silently. Starting the Google connect flow without server OAuth keys now returns you to the Google settings page with an explanation instead of a raw 500 error.
