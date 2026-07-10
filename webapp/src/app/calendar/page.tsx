@@ -3,6 +3,10 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
+import { useFamilyStore } from "@/stores/family-store";
+import { showUndoToast } from "@/lib/undo-toast";
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -106,6 +110,7 @@ import {
   useGoogleCalendarStatus,
   useKeyboardShortcuts,
   useSwipeNavigation,
+  queryKeys,
 } from "@/hooks";
 import { matchPersonForEvent } from "@/lib/calendar-person-matcher";
 import { getHolidays, type CountryCode } from "@/lib/holidays";
@@ -250,6 +255,8 @@ export default function CalendarPage() {
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
 
   const isLoading = loadingEvents || loadingPeople || loadingCalendars;
   const error = eventsError || peopleError || calendarsError;
@@ -1555,9 +1562,31 @@ export default function CalendarPage() {
                             <AlertDialogAction
                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                               onClick={async () => {
+                                const rawEvent = eventsData?.find((e) => e.id === selectedEvent.id);
                                 try {
                                   await deleteEvent.mutateAsync(selectedEvent.id);
                                   setSelectedEvent(null);
+                                  if (rawEvent) {
+                                    const { calendar: _calendar, ...eventSnapshot } = rawEvent;
+                                    showUndoToast({
+                                      message: t("eventDeleted"),
+                                      undoLabel: tCommon("undo"),
+                                      errorMessage: tCommon("undoFailed"),
+                                      onUndo: async () => {
+                                        const supabase = createClient();
+                                        // useDeleteEvent already deleted the Google-side copy before the
+                                        // local delete — undo can only restore the local row, so the
+                                        // Google link is nulled to avoid pointing at a deleted event.
+                                        const { error } = await (supabase as any)
+                                          .from("events")
+                                          .insert({ ...eventSnapshot, google_event_id: null });
+                                        if (error) throw error;
+                                        if (family?.id) {
+                                          queryClient.invalidateQueries({ queryKey: queryKeys.events(family.id) });
+                                        }
+                                      },
+                                    });
+                                  }
                                 } catch {
                                   toast.error(t("toastDeleteFailed"));
                                 }

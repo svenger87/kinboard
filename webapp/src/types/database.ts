@@ -166,6 +166,7 @@ export interface Database {
           end_at: string;
           all_day: boolean;
           person_id: string | null;
+          recurrence_rule?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -180,6 +181,7 @@ export interface Database {
           end_at: string;
           all_day?: boolean;
           person_id?: string | null;
+          recurrence_rule?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -194,6 +196,7 @@ export interface Database {
           end_at?: string;
           all_day?: boolean;
           person_id?: string | null;
+          recurrence_rule?: string | null;
           created_at?: string;
           updated_at?: string;
         };

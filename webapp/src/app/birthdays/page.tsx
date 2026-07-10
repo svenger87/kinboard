@@ -3,6 +3,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
+import { useFamilyStore } from "@/stores/family-store";
+import { showUndoToast } from "@/lib/undo-toast";
 import {
   Cake,
   Plus,
@@ -79,8 +83,9 @@ import {
   usePeople,
   useKeyboardShortcuts,
   useSwipeNavigation,
+  queryKeys,
 } from "@/hooks";
-import type { Birthday } from "@/types/database";
+import type { Birthday, BirthdayGiftIdea } from "@/types/database";
 
 function BirthdaysSkeleton() {
   return (
@@ -159,6 +164,8 @@ export default function BirthdaysPage() {
   const createBirthday = useCreateBirthday();
   const updateBirthday = useUpdateBirthday();
   const deleteBirthday = useDeleteBirthday();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingBirthday, setEditingBirthday] = useState<Birthday | null>(null);
@@ -260,9 +267,46 @@ export default function BirthdaysPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (birthday: Birthday) => {
+    const supabase = createClient();
+    // Gift ideas aren't loaded at the list level (only fetched per-dialog via
+    // useGiftIdeas), so snapshot them just-in-time before the cascade-delete
+    // wipes them out.
+    let giftIdeaSnapshot: BirthdayGiftIdea[] = [];
     try {
-      await deleteBirthday.mutateAsync(id);
+      const { data } = await (supabase as any)
+        .from("birthday_gift_ideas")
+        .select("*")
+        .eq("birthday_id", birthday.id);
+      giftIdeaSnapshot = (data as BirthdayGiftIdea[] | null) ?? [];
+    } catch {
+      // Best-effort snapshot — undo will still restore the birthday itself.
+    }
+
+    try {
+      await deleteBirthday.mutateAsync(birthday.id);
+      showUndoToast({
+        message: t("birthdayDeleted"),
+        undoLabel: tCommon("undo"),
+        errorMessage: tCommon("undoFailed"),
+        onUndo: async () => {
+          const undoClient = createClient();
+          const { error: birthdayError } = await (undoClient as any)
+            .from("birthdays")
+            .insert(birthday);
+          if (birthdayError) throw birthdayError;
+          if (giftIdeaSnapshot.length > 0) {
+            const { error: giftError } = await (undoClient as any)
+              .from("birthday_gift_ideas")
+              .insert(giftIdeaSnapshot);
+            if (giftError) throw giftError;
+          }
+          if (family?.id) {
+            queryClient.invalidateQueries({ queryKey: queryKeys.birthdays(family.id) });
+          }
+          queryClient.invalidateQueries({ queryKey: queryKeys.giftIdeas(birthday.id) });
+        },
+      });
     } catch {
       toast.error(t("deleteFailed"));
     }
@@ -822,7 +866,7 @@ export default function BirthdaysPage() {
                                       <AlertDialogFooter>
                                         <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
                                         <AlertDialogAction
-                                          onClick={() => handleDelete(birthday.id)}
+                                          onClick={() => handleDelete(birthday)}
                                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                         >
                                           {tCommon("delete")}
@@ -989,7 +1033,7 @@ export default function BirthdaysPage() {
                                           <AlertDialogFooter>
                                             <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
                                             <AlertDialogAction
-                                              onClick={() => handleDelete(birthday.id)}
+                                              onClick={() => handleDelete(birthday)}
                                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                             >
                                               {tCommon("delete")}
