@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useImmichMonthlyPhotos } from "./use-immich";
 import { useUnsplashMonthlyPhotos } from "./use-unsplash";
 
@@ -23,7 +24,7 @@ export function usePhotoSourceSetting() {
   return useQuery<"immich" | "unsplash">({
     queryKey: ["photo-source", family?.id],
     queryFn: async () => {
-      const res = await fetch(`/api/settings?family_id=${family!.id}&key=photo_source`);
+      const res = await fetch(`/api/settings?family_id=${family!.id}&key=${SETTINGS_KEYS.photoSource}`);
       if (res.status === 404) return "immich";
       if (!res.ok) throw new Error("Failed to fetch photo source setting");
       const data = await res.json();
