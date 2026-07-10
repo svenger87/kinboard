@@ -131,7 +131,6 @@ export function useBringLogout() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bring"] });
-      queryClient.invalidateQueries({ queryKey: ["setting", "bring_settings"] });
     },
   });
 }
