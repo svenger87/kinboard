@@ -13,9 +13,10 @@ const SCOPES = [
 // GET: Start OAuth flow - redirect to Google
 export async function GET(request: NextRequest) {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-    return NextResponse.json(
-      { error: "Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET." },
-      { status: 500 }
+    // The settings page renders ?error= codes as a toast; a JSON 500 on a
+    // full-page navigation would strand the user on a raw error body.
+    return NextResponse.redirect(
+      new URL("/settings/google?error=not_configured", request.url)
     );
   }
 

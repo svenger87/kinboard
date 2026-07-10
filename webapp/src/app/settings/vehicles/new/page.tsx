@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { Car } from "lucide-react";
 import { useSaveVehicle } from "@/hooks/use-vehicles";
 import { VEHICLE_DRIVERS } from "@/plugins/vehicles/drivers/registry";
@@ -33,6 +34,8 @@ export default function NewVehiclePage() {
         config: (driver?.defaultConfig ?? {}) as Json,
       });
       router.replace(`/settings/vehicles/${created.id}`);
+    } catch {
+      toast.error(t("createFailed"));
     } finally {
       setBusy(false);
     }
