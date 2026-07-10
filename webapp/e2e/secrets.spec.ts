@@ -38,6 +38,7 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { joinFamilyViaUI } from "./helpers";
 
 const FAMILY_ID = "00000000-0000-0000-0000-000000000001";
 const FAMILY_CODE = process.env.FAMILY_CODE ?? "";
@@ -142,25 +143,7 @@ test.describe("No secret leakage in page traffic", () => {
         });
     });
 
-    await page.goto("/join");
-
-    if (page.url().includes("/join")) {
-      const codeInput = page.locator('input[placeholder*="ABC123"], input[placeholder*="123ABC"]');
-      await codeInput.fill(FAMILY_CODE);
-
-      const deviceInput = page.locator(
-        'input[placeholder*="Wohnzimmer"], input[placeholder*="Living"]',
-      );
-      if (await deviceInput.isVisible()) {
-        await deviceInput.fill(DEVICE_NAME);
-      }
-
-      const submit = page.getByRole("button", { name: /^(beitreten|join)$/i });
-      await submit.click();
-      await page.waitForURL((url) => !url.pathname.startsWith("/join"), {
-        timeout: 15_000,
-      });
-    }
+    await joinFamilyViaUI(page, FAMILY_CODE, DEVICE_NAME);
 
     // `networkidle` is unreliable here — Supabase Realtime keeps a
     // WebSocket open per subscription, so the network never goes idle.
