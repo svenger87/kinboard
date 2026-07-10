@@ -66,6 +66,7 @@ import {
   useKeyboardShortcuts,
   useSwipeNavigation,
 } from "@/hooks";
+import { formatRecipeTime } from "@/lib/recipe-time";
 import type { Recipe, RecipeWithIngredients, RecipeTag } from "@/types/database";
 
 // Type for recipe card that accepts either Recipe or RecipeWithIngredients
@@ -152,13 +153,7 @@ export default function RecipesPage() {
   };
 
   // Format time
-  const formatTime = (minutes: number | null) => {
-    if (!minutes) return null;
-    if (minutes < 60) return t("timeMinutes", { count: minutes });
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? t("timeHoursMinutes", { hours, minutes: mins }) : t("timeHours", { hours });
-  };
+  const formatTime = (m: number | null) => formatRecipeTime(t, m);
 
   // Loading state
   if (isLoading) {

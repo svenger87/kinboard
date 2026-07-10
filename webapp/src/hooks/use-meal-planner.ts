@@ -39,7 +39,7 @@ export function getWeekStart(date: Date): string {
 }
 
 // Helper to format date for display
-export function formatDate(dateStr: string, locale: string = "de-DE"): string {
+export function formatDate(dateStr: string, locale: string): string {
   // Parse as local date (add T12:00 to avoid timezone edge cases)
   const date = new Date(dateStr + "T12:00:00");
   return date.toLocaleDateString(locale, {

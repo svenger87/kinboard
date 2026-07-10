@@ -116,6 +116,7 @@ function NavItemRow({
   // affordance to the explicit handle, so taps on the row body don't
   // accidentally pick up a drag (matters on touch).
   const controls = useDragControls();
+  const t = useTranslations("settings.navigation");
 
   return (
     <Reorder.Item
@@ -128,7 +129,7 @@ function NavItemRow({
         type="button"
         onPointerDown={(e) => controls.start(e)}
         className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground p-1 -ml-1"
-        aria-label="Drag to reorder"
+        aria-label={t("dragToReorder")}
       >
         <GripVertical className="size-4" />
       </button>

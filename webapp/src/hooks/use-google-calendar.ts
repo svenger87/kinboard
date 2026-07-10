@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 interface GoogleCalendarSettings {
   access_token: string;
@@ -80,7 +81,7 @@ export function useGoogleCalendarStatus() {
     queryFn: async (): Promise<GoogleCalendarSettings | null> => {
       if (!family?.id) return null;
 
-      const response = await fetch(`/api/settings?family_id=${family.id}&key=google_calendar`);
+      const response = await fetch(`/api/settings?family_id=${family.id}&key=${SETTINGS_KEYS.googleCalendar}`);
       if (!response.ok) {
         if (response.status === 404) return null;
         throw new Error("Failed to fetch Google Calendar status");
@@ -214,7 +215,7 @@ export function useDisconnectGoogleCalendar() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           family_id: family.id,
-          key: "google_calendar",
+          key: SETTINGS_KEYS.googleCalendar,
         }),
       });
 
@@ -242,7 +243,7 @@ export function useUpdateMappingRules() {
       if (!family?.id) throw new Error("No family");
 
       // Get current settings
-      const statusResponse = await fetch(`/api/settings?family_id=${family.id}&key=google_calendar`);
+      const statusResponse = await fetch(`/api/settings?family_id=${family.id}&key=${SETTINGS_KEYS.googleCalendar}`);
       if (!statusResponse.ok) throw new Error("Not connected");
       const currentSettings = await statusResponse.json();
 
@@ -252,7 +253,7 @@ export function useUpdateMappingRules() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           family_id: family.id,
-          key: "google_calendar",
+          key: SETTINGS_KEYS.googleCalendar,
           value: {
             ...currentSettings.value,
             mapping_rules: mappingRules,
@@ -282,7 +283,7 @@ export function useUpdateAutoSync() {
       if (!family?.id) throw new Error("No family");
 
       // Get current settings
-      const statusResponse = await fetch(`/api/settings?family_id=${family.id}&key=google_calendar`);
+      const statusResponse = await fetch(`/api/settings?family_id=${family.id}&key=${SETTINGS_KEYS.googleCalendar}`);
       if (!statusResponse.ok) throw new Error("Not connected");
       const currentSettings = await statusResponse.json();
 
@@ -292,7 +293,7 @@ export function useUpdateAutoSync() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           family_id: family.id,
-          key: "google_calendar",
+          key: SETTINGS_KEYS.googleCalendar,
           value: {
             ...currentSettings.value,
             auto_sync: enabled,

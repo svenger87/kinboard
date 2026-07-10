@@ -990,7 +990,8 @@
       "title": "Navigation",
       "intro": "Drag to reorder the bottom navigation. The order applies to this device only — kitchen kiosk, phone, and kids' tablets keep their own layouts.",
       "reset": "Reset to default order",
-      "perDeviceHint": "Saved on this device. New surfaces (e.g. a freshly enabled plugin) appear at the end until you reorder them."
+      "perDeviceHint": "Saved on this device. New surfaces (e.g. a freshly enabled plugin) appear at the end until you reorder them.",
+      "dragToReorder": "Drag to reorder"
     },
     "theme": {
       "title": "Design",
@@ -1911,7 +1912,9 @@
       "syncSuccessBody": "{succeeded} feed(s) synced{failed, plural, =0 {} other {, # failed}}.",
       "syncErrorTitle": "Sync failed",
       "holidaysBadge": "Holidays",
-      "wasteBadge": "Waste"
+      "wasteBadge": "Waste",
+      "copyUrlTitle": "Copy URL",
+      "customColorTitle": "Custom color"
     },
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "update to {version} available",
@@ -3086,7 +3089,9 @@
       "test": "Test connection",
       "testing": "Testing…",
       "ok": "Connected to {locationName}",
-      "fail": "Couldn't reach that URL with that token. Double-check both."
+      "fail": "Couldn't reach that URL with that token. Double-check both.",
+      "hideToken": "Hide token",
+      "showToken": "Show token"
     },
     "weather": {
       "title": "Set your location",

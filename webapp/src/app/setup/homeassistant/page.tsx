@@ -85,7 +85,7 @@ export default function SetupHomeAssistantPage() {
                 type="button"
                 onClick={() => setShowToken((s) => !s)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                aria-label={showToken ? "Hide" : "Show"}
+                aria-label={showToken ? t("hideToken") : t("showToken")}
               >
                 {showToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
