@@ -16,6 +16,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Empty pages (vehicles, stocks, pocket money, news, schedule, smart home) now use the same dashed empty-state card as the rest of the app instead of ad-hoc layouts, each with a clear next-step button.
 - Mobile add buttons: todos, birthdays, and the meal plan now have the same floating add button as calendar/notes/recipes on phones (header buttons stay on desktop). Vehicles, stocks, pocket money, and schedule show skeleton placeholders while loading instead of a bare "loading" text line.
 - Finished the flat "Salbei/Leinen" migration on the remaining app surfaces: todos, news, vehicles, stocks, pocket money, error pages, the getting-started checklist, plugin discover cards, the PIN screen, several hint cards, including the Tesla/EV and stocks plugin cards, no longer use the old glass look, and the legacy month-colored button style (which hardcoded white text with contrast issues in dark mode) is replaced by the standard accent button everywhere.
+- The school-schedule entry only appears in the navigation once subjects are configured (like the other optional features); the page itself stays reachable by URL and explains how to set it up.
 
 ### Fixed
 - The keyboard-shortcuts help dialog is now translated (was always German).

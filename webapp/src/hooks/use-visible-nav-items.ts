@@ -3,6 +3,7 @@ import { applyNavOrder } from "@/lib/nav-order";
 import { useHomeAssistantStatus } from "./use-home-assistant";
 import { useIsPluginEnabled } from "./use-enabled-plugins";
 import { useNavOrder } from "./use-nav-order";
+import { useSubjects, useSchedules } from "./use-supabase-queries";
 import { PLUGINS } from "@/plugins/registry";
 import type { NavGatingContext } from "@/plugins/types";
 
@@ -14,6 +15,13 @@ import type { NavGatingContext } from "@/plugins/types";
 // /energy removed — superseded by energyPlugin (plugin-driven nav entry).
 // /cameras removed — superseded by camerasPlugin (plugin-driven nav entry).
 const HA_DEPENDENT_HREFS = new Set(["/home-automation"]);
+
+// School-schedule nav entry: only worth showing once there's something to
+// look at. Gated on subjects OR schedules rather than subjects alone —
+// `schedules.time_slots` stores the subject as a free-text name, not a
+// subject_id FK (see init.sql), so deleting all subjects after building a
+// schedule leaves orphaned-but-real schedule data with subjects.length===0.
+const SCHEDULE_HREF = "/schedule";
 
 /**
  * Returns NAV_ITEMS filtered to only what's actually usable for the
@@ -36,6 +44,8 @@ const HA_DEPENDENT_HREFS = new Set(["/home-automation"]);
 export function useVisibleNavItems(): typeof NAV_ITEMS {
   const { data: haSettings, isPending: haPending } = useHomeAssistantStatus();
   const navOrder = useNavOrder();
+  const { data: subjects, isPending: subjectsPending } = useSubjects();
+  const { data: schedules, isPending: schedulesPending } = useSchedules();
 
   // Call every plugin's useOwnDataCount in stable registry order.
   // PLUGINS is module-level + readonly (see plugins/registry.ts), so
@@ -61,6 +71,11 @@ export function useVisibleNavItems(): typeof NAV_ITEMS {
     if (HA_DEPENDENT_HREFS.has(item.href)) {
       if (haPending) return false;
       return haConnected;
+    }
+
+    if (item.href === SCHEDULE_HREF) {
+      if (subjectsPending || schedulesPending) return true; // avoid flicker-hide while loading
+      return (subjects?.length ?? 0) > 0 || (schedules?.length ?? 0) > 0;
     }
 
     // Plugin-contributed nav items: first check if the plugin is enabled
