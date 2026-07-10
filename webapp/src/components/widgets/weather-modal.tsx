@@ -102,20 +102,36 @@ interface ClothingTip {
   color: string;
 }
 
+const RAINY_CONDITION_MAINS = new Set(["Rain", "Drizzle", "Thunderstorm"]);
+const SNOWY_CONDITION_MAINS = new Set(["Snow"]);
+const CLEAR_CONDITION_MAINS = new Set(["Clear"]);
+
 function getClothingTips(
   temp: number,
   condition: string,
   windSpeed: number,
   precipProbability?: number,
+  conditionMain?: string,
 ): ClothingTip[] {
   const tips: ClothingTip[] = [];
-  const cond = condition.toLowerCase();
-  const isRainy =
-    cond.includes("rain") ||
-    cond.includes("regen") ||
-    cond.includes("drizzle") ||
-    cond.includes("niesel");
-  const isSnowy = cond.includes("snow") || cond.includes("schnee");
+  let isRainy: boolean;
+  let isSnowy: boolean;
+  let isClear: boolean;
+  if (conditionMain) {
+    isRainy = RAINY_CONDITION_MAINS.has(conditionMain);
+    isSnowy = SNOWY_CONDITION_MAINS.has(conditionMain);
+    isClear = CLEAR_CONDITION_MAINS.has(conditionMain);
+  } else {
+    // Fallback for stale cached API responses without conditionMain.
+    const cond = condition.toLowerCase();
+    isRainy =
+      cond.includes("rain") ||
+      cond.includes("regen") ||
+      cond.includes("drizzle") ||
+      cond.includes("niesel");
+    isSnowy = cond.includes("snow") || cond.includes("schnee");
+    isClear = cond.includes("klar") || cond.includes("clear") || cond.includes("sonn");
+  }
   const hasHighPrecip = precipProbability !== undefined ? precipProbability > 50 : isRainy;
 
   if (temp <= 0) {
@@ -140,7 +156,7 @@ function getClothingTips(
   if (isSnowy) {
     tips.push({ icon: Snowflake, textKey: "waterproofShoes", color: "#93c5fd" });
   }
-  if (temp > 22 && (cond.includes("klar") || cond.includes("clear") || cond.includes("sonn"))) {
+  if (temp > 22 && isClear) {
     tips.push({ icon: Glasses, textKey: "sunglasses", color: "#fbbf24" });
   }
   if (windSpeed > 30) {
@@ -371,6 +387,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
             temp={currentWeather.temp}
             feelsLike={currentWeather.feelsLike}
             condition={currentWeather.condition}
+            conditionMain={currentWeather.conditionMain}
             windSpeed={currentWeather.windSpeed}
             precipProbability={hourly[0]?.precipProbability}
           />
@@ -611,17 +628,19 @@ function ClothingAdvisor({
   temp,
   feelsLike,
   condition,
+  conditionMain,
   windSpeed,
   precipProbability,
 }: {
   temp: number;
   feelsLike: number;
   condition: string;
+  conditionMain?: string;
   windSpeed: number;
   precipProbability?: number;
 }) {
   const t = useTranslations("weather");
-  const tips = getClothingTips(temp, condition, windSpeed, precipProbability);
+  const tips = getClothingTips(temp, condition, windSpeed, precipProbability, conditionMain);
   if (tips.length === 0) return null;
   const comfort = getComfortLevel(feelsLike);
   const comfortLabels: Record<ComfortKey, string> = {
