@@ -9,7 +9,7 @@ import { LineChart } from "lucide-react";
 import { useTickers } from "@/hooks/use-tickers";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -85,7 +85,7 @@ export default function StonksPage() {
           <driver.Card ticker={active} />
         </motion.div>
       ) : (
-        <GlassCard className="p-6">{t("driverMissing")}</GlassCard>
+        <Card className="p-6">{t("driverMissing")}</Card>
       )}
     </div>
   );

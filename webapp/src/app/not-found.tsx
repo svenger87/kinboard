@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Home, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -26,7 +26,7 @@ export default function NotFound() {
         transition={{ duration: 0.5 }}
         className="relative z-10 w-full max-w-md"
       >
-        <GlassCard className="p-8 text-center">
+        <Card className="p-8 text-center">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -46,7 +46,7 @@ export default function NotFound() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button variant="month" className="gap-2" asChild>
+            <Button className="gap-2" asChild>
               <Link href="/">
                 <Home className="size-4" />
                 {t("home")}
@@ -61,7 +61,7 @@ export default function NotFound() {
               {t("back")}
             </Button>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
     </div>
   );

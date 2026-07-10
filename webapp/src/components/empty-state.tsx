@@ -9,7 +9,7 @@ interface EmptyStateProps {
   action?: {
     label: string;
     onClick: () => void;
-    variant?: "default" | "outline" | "link" | "month";
+    variant?: "default" | "outline" | "link";
     disabled?: boolean;
   };
   className?: string;

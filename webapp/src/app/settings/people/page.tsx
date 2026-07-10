@@ -454,7 +454,7 @@ export default function PeopleSettingsPage() {
             className="mb-8"
             actions={
               <DialogTrigger asChild>
-                <Button variant="month" size="sm" className="flex-shrink-0">
+                <Button size="sm" className="flex-shrink-0">
                   <Plus className="size-4 mr-1" />
                   {t("addButton")}
                 </Button>
@@ -525,7 +525,7 @@ export default function PeopleSettingsPage() {
                 <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm(); }} disabled={isSaving}>
                   {t("cancelButton")}
                 </Button>
-                <Button variant="month" onClick={handleAddPerson} disabled={!newName.trim() || isSaving}>
+                <Button onClick={handleAddPerson} disabled={!newName.trim() || isSaving}>
                   {createPerson.isPending ? (
                     <>
                       <Loader2 className="size-4 mr-2 animate-spin" />
@@ -689,7 +689,7 @@ export default function PeopleSettingsPage() {
                           <Button variant="outline" onClick={() => { setEditingPerson(null); resetForm(); }} disabled={isSaving}>
                             {t("cancelButton")}
                           </Button>
-                          <Button variant="month" onClick={handleEditPerson} disabled={!newName.trim() || isSaving}>
+                          <Button onClick={handleEditPerson} disabled={!newName.trim() || isSaving}>
                             {updatePerson.isPending ? (
                               <>
                                 <Loader2 className="size-4 mr-2 animate-spin" />

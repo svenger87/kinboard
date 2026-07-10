@@ -742,7 +742,7 @@ export default function ScheduleSettingsPage() {
             <p className="text-muted-foreground mb-4">
               {t("noChildrenDescription")}
             </p>
-            <Button variant="month" asChild>
+            <Button asChild>
               <a href="/settings/people">{t("noChildrenButton")}</a>
             </Button>
           </Card>

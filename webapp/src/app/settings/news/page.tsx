@@ -73,7 +73,7 @@ export default function NewsSettingsPage() {
           className="space-y-6"
         >
           {noneSelected && providers && (
-            <Card className="p-4 border-amber-500/30 bg-amber-500/5">
+            <Card className="p-4 border-warning/30 bg-warning/5">
               <p className="text-sm">{t("noneSelectedHint")}</p>
             </Card>
           )}

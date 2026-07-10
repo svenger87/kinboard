@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { AlertCircle, RefreshCw, Home } from "lucide-react";
 import Link from "next/link";
 
@@ -31,7 +31,7 @@ export default function Error({
         transition={{ duration: 0.5 }}
         className="relative z-10 w-full max-w-md"
       >
-        <GlassCard className="p-8 text-center">
+        <Card className="p-8 text-center">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -51,7 +51,7 @@ export default function Error({
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button onClick={reset} variant="month" className="gap-2">
+            <Button onClick={reset} className="gap-2">
               <RefreshCw className="size-4" />
               {t("retry")}
             </Button>
@@ -62,7 +62,7 @@ export default function Error({
               </Link>
             </Button>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
     </div>
   );

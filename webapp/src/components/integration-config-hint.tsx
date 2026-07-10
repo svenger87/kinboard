@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { AlertCircle } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 
 interface IntegrationConfigHintProps {
   /** Short headline — e.g. "OpenWeatherMap API key not set" */
@@ -37,7 +37,7 @@ export function IntegrationConfigHint({
       animate={{ opacity: 1, y: 0 }}
       className="mb-6"
     >
-      <GlassCard className="p-4 border-amber-500/30 bg-amber-500/5">
+      <Card className="p-4 border-warning/30 bg-warning/5">
         <div className="flex gap-3">
           <AlertCircle
             className="size-5 shrink-0 text-amber-500 mt-0.5"
@@ -63,7 +63,7 @@ export function IntegrationConfigHint({
                   href={docsHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-month-primary hover:underline"
+                  className="text-primary hover:underline"
                 >
                   {docsLabel ?? "Setup guide →"}
                 </a>
@@ -71,7 +71,7 @@ export function IntegrationConfigHint({
             )}
           </div>
         </div>
-      </GlassCard>
+      </Card>
     </motion.div>
   );
 }
