@@ -3103,7 +3103,7 @@
       "cityLabel": "City",
       "cityPlaceholder": "Hamburg",
       "apiKeyTitle": "OpenWeatherMap API key needed",
-      "apiKeyBody": "Add OPENWEATHERMAP_API_KEY=<your-key> to webapp/docker/.env, then run ./docker/start.sh restart. Free key from openweathermap.org/api.",
+      "apiKeyBody": "Weather stays disabled until a key is configured — you can also do this later. Free key from openweathermap.org/api.",
       "saved": "Location saved",
       "saveError": "Couldn't save your location. Try again."
     },

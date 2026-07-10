@@ -3103,7 +3103,7 @@
       "cityLabel": "Ville",
       "cityPlaceholder": "Paris",
       "apiKeyTitle": "Clé API OpenWeatherMap requise",
-      "apiKeyBody": "Ajoutez OPENWEATHERMAP_API_KEY=<votre-clé> à webapp/docker/.env, puis exécutez ./docker/start.sh restart. Clé gratuite sur openweathermap.org/api.",
+      "apiKeyBody": "La météo reste désactivée tant qu'aucune clé n'est configurée — vous pourrez aussi le faire plus tard. Clé gratuite sur openweathermap.org/api.",
       "saved": "Emplacement enregistré",
       "saveError": "Impossible d'enregistrer votre emplacement. Réessayez."
     },
