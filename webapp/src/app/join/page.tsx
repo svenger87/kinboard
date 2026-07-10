@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   useQuickRejoin,
 } from "@/hooks";
 import { getDeviceFingerprint } from "@/lib/device-id";
+import { postLocale } from "@/lib/locale-client";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 
 interface RecognizedDevice {
@@ -33,6 +34,7 @@ interface RecognizedDevice {
 
 export default function JoinPage() {
   const t = useTranslations("join");
+  const locale = useLocale();
   const [mode, setMode] = useState<"join" | "create">("join");
   // Welcome gate: until the user picks a CTA (or is recognized / fresh-install
   // forced into create), show the welcome hero instead of a form.
@@ -150,10 +152,14 @@ export default function JoinPage() {
     setError("");
 
     try {
-      await createFamily.mutateAsync({
+      const { family } = await createFamily.mutateAsync({
         familyName,
         deviceName: deviceName || t("deviceNameDefault"),
       });
+      // Best-effort: back-fill the family-level locale setting so
+      // server-generated push notifications match the UI language the
+      // family onboarded in. Must never block or fail the join flow.
+      postLocale(locale, family.id).catch(() => {});
       router.push("/setup/people");
     } catch {
       setError(t("createError"));
