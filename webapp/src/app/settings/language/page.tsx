@@ -19,11 +19,13 @@ import {
 import { useSetting, useUpdateSetting } from "@/hooks";
 import { COUNTRIES, DEFAULT_COUNTRY, type CountryCode } from "@/lib/holidays";
 import { LOCALES } from "@/i18n/locales";
+import { useFamilyStore } from "@/stores/family-store";
 
 export default function LanguageSettingsPage() {
   const t = useTranslations("settings.language");
   const current = useLocale();
   const router = useRouter();
+  const { family } = useFamilyStore();
   const [pending, setPending] = useState<string | null>(null);
 
   const { data: savedCountry } = useSetting<CountryCode>("holiday_country", DEFAULT_COUNTRY);
@@ -38,7 +40,7 @@ export default function LanguageSettingsPage() {
       const response = await fetch("/api/locale", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale: code }),
+        body: JSON.stringify({ locale: code, familyId: family?.id }),
       });
       if (!response.ok) throw new Error("locale change failed");
       router.refresh();

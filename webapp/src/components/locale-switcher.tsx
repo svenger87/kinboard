@@ -5,11 +5,13 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LOCALES } from "@/i18n/locales";
+import { useFamilyStore } from "@/stores/family-store";
 
 export function LocaleSwitcher({ className }: { className?: string }) {
   const current = useLocale();
   const router = useRouter();
   const t = useTranslations("localeSwitcher");
+  const { family } = useFamilyStore();
   const [pending, setPending] = useState<string | null>(null);
 
   async function pick(code: string) {
@@ -19,7 +21,9 @@ export function LocaleSwitcher({ className }: { className?: string }) {
       const response = await fetch("/api/locale", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale: code }),
+        // family may be null on the pre-family /join switcher; the route
+        // treats a missing familyId as cookie-only (no settings write).
+        body: JSON.stringify({ locale: code, familyId: family?.id }),
       });
       if (!response.ok) throw new Error("locale change failed");
       router.refresh();
