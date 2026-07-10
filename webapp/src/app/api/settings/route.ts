@@ -80,7 +80,15 @@ export async function PUT(request: NextRequest) {
     const { publicValue, secretValue } = splitSecrets(key, value);
     valueToStore = publicValue;
     if (secretValue) {
-      await upsertSecrets(family_id, key, secretValue);
+      try {
+        await upsertSecrets(family_id, key, secretValue);
+      } catch (err) {
+        console.error("settings PUT: upsertSecrets failed:", err);
+        return NextResponse.json(
+          { error: "Failed to store credentials" },
+          { status: 500 }
+        );
+      }
     }
   }
 
@@ -147,7 +155,15 @@ export async function DELETE(request: NextRequest) {
   }
 
   if (SECRET_FIELDS[key]) {
-    await deleteSecrets(family_id, key);
+    try {
+      await deleteSecrets(family_id, key);
+    } catch (err) {
+      console.error("settings DELETE: deleteSecrets failed:", err);
+      return NextResponse.json(
+        { error: "Failed to delete credentials" },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({ success: true });
