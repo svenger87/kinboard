@@ -38,6 +38,7 @@ import {
 import { PinGuard } from "@/components/pin-guard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { IntegrationStatusRow } from "@/components/integration-status-row";
 import {
   AlertDialog,
@@ -53,7 +54,7 @@ import {
 import { useFamilyStore } from "@/stores/family-store";
 import { useKeyboardShortcuts, useSwipeNavigation, useSetting, useUpdateSetting, useIsOnline, useDeleteDevice, useIsPluginEnabled, useHomeAssistantStatus, useHomeAssistantConnectionCheck, useGoogleCalendarStatus, useBringSettings, useImmichStatus, useUnsplashStatus, useRegenerateJoinCode } from "@/hooks";
 import { useVersionCheck } from "@/hooks/use-version-check";
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
   Dialog,
@@ -103,6 +104,52 @@ export default function SettingsPage() {
   const [regenConfirmOpen, setRegenConfirmOpen] = useState(false);
   const [selectedTtl, setSelectedTtl] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [feedEnabled, setFeedEnabled] = useState(false);
+  const [feedUrl, setFeedUrl] = useState<string | null>(null);
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [feedCopied, setFeedCopied] = useState(false);
+
+  useEffect(() => {
+    if (!family?.id) return;
+    let cancelled = false;
+    fetch(`/api/calendar/feed/status?family_id=${family.id}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data) setFeedEnabled(!!data.enabled);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [family?.id]);
+
+  const handleFeedGenerate = async () => {
+    if (!family?.id || feedLoading) return;
+    setFeedLoading(true);
+    try {
+      const res = await fetch("/api/calendar/feed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ family_id: family.id }),
+      });
+      if (!res.ok) throw new Error(`Feed request failed: ${res.status}`);
+      const data = await res.json();
+      setFeedUrl(data.url);
+      setFeedEnabled(true);
+    } catch (err) {
+      console.error("settings: calendar feed failed:", err);
+      toast.error(t("feedFailed"));
+    } finally {
+      setFeedLoading(false);
+    }
+  };
+
+  const handleFeedCopy = () => {
+    if (!feedUrl) return;
+    navigator.clipboard.writeText(feedUrl);
+    setFeedCopied(true);
+    setTimeout(() => setFeedCopied(false), 2000);
+  };
 
   const handleExport = async () => {
     if (!family?.id || isExporting) return;
@@ -659,6 +706,50 @@ export default function SettingsPage() {
             >
               {t("exportButton")}
             </Button>
+
+            <div className="mt-4 pt-4 border-t">
+              <p className="font-medium text-sm">{t("feedTitle")}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {t("feedDescription")}
+              </p>
+
+              {feedUrl && (
+                <div className="mt-3 flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={feedUrl}
+                    className="text-xs"
+                    onFocus={(e) => e.currentTarget.select()}
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label={t("feedCopy")}
+                    onClick={handleFeedCopy}
+                    className="shrink-0"
+                  >
+                    {feedCopied ? (
+                      <Check className="size-4 text-success" strokeWidth={1.75} />
+                    ) : (
+                      <Copy className="size-4" strokeWidth={1.75} />
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              <Button
+                variant="outline"
+                className="mt-3 w-full"
+                onClick={handleFeedGenerate}
+                disabled={feedLoading || !family?.id}
+              >
+                {feedEnabled || feedUrl ? t("feedRotate") : t("feedEnable")}
+              </Button>
+
+              {(feedEnabled || feedUrl) && (
+                <p className="text-xs text-muted-foreground mt-2">{t("feedHint")}</p>
+              )}
+            </div>
           </Card>
         </motion.div>
 
