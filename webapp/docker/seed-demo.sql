@@ -364,9 +364,12 @@ INSERT INTO public.settings (family_id, key, value) VALUES
     -- Home Assistant connection — points at the mock-ha container.
     -- energy_config + tesla_config wire the dashboards to the mock's
     -- sensor entities so /energy and /tesla render with believable data.
+    -- access_token is NOT stored here — it lives in integration_secrets
+    -- (see below), matching the server-only-secrets model the real app
+    -- uses. Keeping it out of `settings` also keeps the sentinel-masking
+    -- path exercised by e2e (a raw token in `settings` would defeat it).
     ('00000000-0000-0000-0000-000000000001', 'home_assistant', $${
         "url": "http://mock-ha:8123",
-        "access_token": "demo-token-not-real",
         "dashboards": [{
             "id": "home", "name": "Home", "type": "custom", "position": 0,
             "created_at": "2026-01-01T00:00:00Z",
@@ -429,6 +432,21 @@ INSERT INTO public.settings (family_id, key, value) VALUES
         {"id":"cam2","name":"Garden","stream_type":"mjpeg","stream_url":"http://go2rtc:1984/api/stream.mjpeg?src=demo_garden","enabled":true,"position":1,"created_at":"2026-01-01T00:00:00Z"},
         {"id":"cam3","name":"Front door","stream_type":"mjpeg","stream_url":"http://go2rtc:1984/api/stream.mjpeg?src=demo_front_door","enabled":true,"position":2,"created_at":"2026-01-01T00:00:00Z"}
      ]}'::jsonb);
+
+-- =========================================================================
+-- Integration secrets — server-only table (see
+-- webapp/docker/migration_integration_secrets.sql). The mock-ha token
+-- above belongs here, not in `settings` (which is anon-readable), so
+-- the demo box exercises the same read-path sentinel-masking as a real
+-- install. ON CONFLICT DO UPDATE keeps this re-runnable by the hourly
+-- demo-reset cron (family_id is also deleted-and-reinserted above, so a
+-- plain INSERT would work too, but this matches the migration's style).
+-- =========================================================================
+INSERT INTO public.integration_secrets (family_id, key, value) VALUES
+    ('00000000-0000-0000-0000-000000000001', 'home_assistant',
+     jsonb_build_object('access_token', 'demo-token-not-real'))
+ON CONFLICT (family_id, key)
+  DO UPDATE SET value = EXCLUDED.value, updated_at = now();
 
 -- =========================================================================
 -- Vehicles (Vehicles plugin, v1.0.12+)
