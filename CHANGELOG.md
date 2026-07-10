@@ -16,6 +16,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Finished the flat "Salbei/Leinen" migration on the remaining app surfaces: todos, news, vehicles, stocks, pocket money, error pages, the getting-started checklist, plugin discover cards, the PIN screen, several hint cards, including the Tesla/EV and stocks plugin cards, no longer use the old glass look, and the legacy month-colored button style (which hardcoded white text with contrast issues in dark mode) is replaced by the standard accent button everywhere.
 
 ### Fixed
+- The keyboard-shortcuts help dialog is now translated (was always German).
 - Added `webapp/.dockerignore`: building the webapp image on a machine that had run `npm run dev` failed with a tar checksum error on `.next/dev`, and the build context needlessly shipped `node_modules`, the local Postgres data directory, and the stack's `.env` secrets into intermediate image layers. Source builds are now smaller and work regardless of local dev state.
 - When the server is unreachable (stack down, network issue), the app now shows a "Can't reach the Kinboard server" screen with a retry button after ~12 seconds instead of spinning forever.
 - Settings, Google Calendar, and ICS pages now actually show their success/error toasts (connect, sync, PIN saved, feed added/deleted, …). These pages fired notifications into a toast system that was never mounted, so all their feedback silently disappeared.
