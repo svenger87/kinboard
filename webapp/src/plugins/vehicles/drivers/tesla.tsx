@@ -28,7 +28,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -459,7 +459,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
 
   if (loadingSettings) {
     return (
-      <GlassCard>
+      <Card>
         <div className="p-6">
           <div className="flex items-center gap-3">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -468,13 +468,13 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
             </span>
           </div>
         </div>
-      </GlassCard>
+      </Card>
     );
   }
 
   if (!isConnected) {
     return (
-      <GlassCard>
+      <Card>
         <div className="p-8 text-center">
           <Car className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
           <h2 className="text-lg font-medium mb-2">
@@ -490,13 +490,13 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
             </Button>
           </Link>
         </div>
-      </GlassCard>
+      </Card>
     );
   }
 
   if (!isConfigured) {
     return (
-      <GlassCard>
+      <Card>
         <div className="p-8 text-center">
           <Car className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
           <h2 className="text-lg font-medium mb-2">
@@ -512,7 +512,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
             </Button>
           </Link>
         </div>
-      </GlassCard>
+      </Card>
     );
   }
 
@@ -549,7 +549,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
 
       {/* Hero Card: Car Image + Battery */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex justify-center mb-6">
               <Image
@@ -631,7 +631,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
               </p>
             )}
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Status Grid */}
@@ -709,7 +709,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
         transition={{ delay: 0.15 }}
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <h2 className="text-lg font-medium mb-4">
               {t("vehicleStatusHeading")}
@@ -756,10 +756,10 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
               )}
             </div>
           </div>
-        </GlassCard>
+        </Card>
 
         {teslaConfig?.tire_pressure_fl && (
-          <GlassCard>
+          <Card>
             <div className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <CircleDot className="size-5 text-muted-foreground" />
@@ -805,7 +805,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
                 </div>
               </div>
             </div>
-          </GlassCard>
+          </Card>
         )}
       </motion.div>
 
@@ -865,7 +865,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.25 }}
       >
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <h2 className="text-lg font-medium">
@@ -938,7 +938,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
               </div>
             )}
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       <div className="text-center text-xs text-muted-foreground pt-4">
@@ -1006,21 +1006,21 @@ export function TeslaWidgetCard({ vehicle }: { vehicle: Vehicle }) {
 
   if (!haConnected) {
     return (
-      <GlassCard className="p-4">
+      <Card className="p-4">
         <p className="text-sm text-muted-foreground">{t("notConnectedTitle")}</p>
-      </GlassCard>
+      </Card>
     );
   }
   if (entityIds.length === 0) {
     return (
-      <GlassCard className="p-4">
+      <Card className="p-4">
         <p className="text-sm text-muted-foreground">{t("notConfiguredTitle")}</p>
-      </GlassCard>
+      </Card>
     );
   }
 
   return (
-    <GlassCard className="p-4">
+    <Card className="p-4">
       <div className="flex justify-center mb-3">
         <Image
           src={vehicle.image_url ?? "/images/tesla-model-y.png"}
@@ -1055,7 +1055,7 @@ export function TeslaWidgetCard({ vehicle }: { vehicle: Vehicle }) {
           )}
         </div>
       </div>
-    </GlassCard>
+    </Card>
   );
 }
 
@@ -1119,20 +1119,20 @@ export function TeslaConfigForm({
 
   if (loadingSettings) {
     return (
-      <GlassCard>
+      <Card>
         <div className="p-6">
           <div className="flex items-center gap-3">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
             <span className="text-muted-foreground">{t("loadingHint")}</span>
           </div>
         </div>
-      </GlassCard>
+      </Card>
     );
   }
 
   if (!isConnected) {
     return (
-      <GlassCard>
+      <Card>
         <div className="p-8 text-center">
           <Car className="size-12 mx-auto mb-4 text-muted-foreground opacity-50" />
           <h2 className="text-lg font-medium mb-2">
@@ -1150,7 +1150,7 @@ export function TeslaConfigForm({
             </Link>
           </div>
         </div>
-      </GlassCard>
+      </Card>
     );
   }
 
@@ -1258,7 +1258,7 @@ export function TeslaConfigForm({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-lg bg-success/10">
@@ -1334,7 +1334,7 @@ export function TeslaConfigForm({
               />
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Climate */}
@@ -1343,7 +1343,7 @@ export function TeslaConfigForm({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-lg bg-orange-500/10">
@@ -1379,7 +1379,7 @@ export function TeslaConfigForm({
               />
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Vehicle Status */}
@@ -1388,7 +1388,7 @@ export function TeslaConfigForm({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-lg bg-destructive/10">
@@ -1440,7 +1440,7 @@ export function TeslaConfigForm({
               />
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Tire Pressure */}
@@ -1449,7 +1449,7 @@ export function TeslaConfigForm({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-lg bg-warning/10">
@@ -1497,7 +1497,7 @@ export function TeslaConfigForm({
               </div>
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Vehicle Info */}
@@ -1506,7 +1506,7 @@ export function TeslaConfigForm({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
       >
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-lg bg-info/10">
@@ -1542,7 +1542,7 @@ export function TeslaConfigForm({
               />
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Display toggles */}
@@ -1551,7 +1551,7 @@ export function TeslaConfigForm({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
@@ -1599,7 +1599,7 @@ export function TeslaConfigForm({
               </div>
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Costs */}
@@ -1608,7 +1608,7 @@ export function TeslaConfigForm({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6 }}
       >
-        <GlassCard>
+        <Card>
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-lg bg-cyan-500/10">
@@ -1651,7 +1651,7 @@ export function TeslaConfigForm({
               </div>
             </div>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
 
       {/* Saved indicator — parent controls actual persistence */}

@@ -7,7 +7,7 @@ import {
   useHomeAssistantStatus,
   useHomeAssistantEntityStates,
 } from "@/hooks";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Vehicle } from "@/types/database";
@@ -52,16 +52,16 @@ function GenericEvCard({ vehicle }: { vehicle: Vehicle }) {
 
   if (!haConnected) {
     return (
-      <GlassCard className="p-6 text-muted-foreground">
+      <Card className="p-6 text-muted-foreground">
         {t("haNotConnected")}
-      </GlassCard>
+      </Card>
     );
   }
   if (entityIds.length === 0) {
     return (
-      <GlassCard className="p-6 text-muted-foreground">
+      <Card className="p-6 text-muted-foreground">
         {t("notConfigured")}
-      </GlassCard>
+      </Card>
     );
   }
 
@@ -89,7 +89,7 @@ function GenericEvCard({ vehicle }: { vehicle: Vehicle }) {
   const state = config.state ? states[config.state]?.state : null;
 
   return (
-    <GlassCard className="p-6 space-y-4">
+    <Card className="p-6 space-y-4">
       {vehicle.image_url ? (
         <img
           src={vehicle.image_url}
@@ -127,7 +127,7 @@ function GenericEvCard({ vehicle }: { vehicle: Vehicle }) {
           </div>
         )}
       </div>
-    </GlassCard>
+    </Card>
   );
 }
 
@@ -157,16 +157,16 @@ function GenericEvWidgetCard({ vehicle }: { vehicle: Vehicle }) {
 
   if (!haConnected) {
     return (
-      <GlassCard className="p-4">
+      <Card className="p-4">
         <p className="text-sm text-muted-foreground">{t("haNotConnected")}</p>
-      </GlassCard>
+      </Card>
     );
   }
   if (entityIds.length === 0) {
     return (
-      <GlassCard className="p-4">
+      <Card className="p-4">
         <p className="text-sm text-muted-foreground">{t("notConfigured")}</p>
-      </GlassCard>
+      </Card>
     );
   }
 
@@ -178,7 +178,7 @@ function GenericEvWidgetCard({ vehicle }: { vehicle: Vehicle }) {
     : null;
 
   return (
-    <GlassCard className="p-4">
+    <Card className="p-4">
       {vehicle.image_url ? (
           <img
           src={vehicle.image_url}
@@ -206,7 +206,7 @@ function GenericEvWidgetCard({ vehicle }: { vehicle: Vehicle }) {
           </div>
         )}
       </div>
-    </GlassCard>
+    </Card>
   );
 }
 

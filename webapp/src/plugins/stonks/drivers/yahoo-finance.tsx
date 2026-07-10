@@ -6,7 +6,7 @@ import { TrendingUp, TrendingDown, Minus, LineChart } from "lucide-react";
 import type { Ticker } from "@/types/database";
 import type { Timeframe } from "@/lib/stonks/types";
 import { useQuotes, useChart } from "@/hooks/use-stonks";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -59,7 +59,7 @@ function YahooFinanceCard({ ticker }: { ticker: Ticker }) {
 
   return (
     <div className="space-y-6">
-      <GlassCard className="p-6">
+      <Card className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-sm text-muted-foreground">{quote?.shortName ?? ticker.symbol}</p>
@@ -98,9 +98,9 @@ function YahooFinanceCard({ ticker }: { ticker: Ticker }) {
         ) : (
           <p className="mt-4 text-sm text-muted-foreground">{t("quoteUnavailable")}</p>
         )}
-      </GlassCard>
+      </Card>
 
-      <GlassCard className="p-4">
+      <Card className="p-4">
         <Tabs value={timeframe} onValueChange={(v) => setTimeframe(v as Timeframe)} className="mb-4">
           <TabsList>
             {TIMEFRAMES.map((tf) => (
@@ -119,7 +119,7 @@ function YahooFinanceCard({ ticker }: { ticker: Ticker }) {
             {t("chartUnavailable")}
           </div>
         )}
-      </GlassCard>
+      </Card>
     </div>
   );
 }
@@ -131,31 +131,31 @@ function YahooFinanceWidgetCard({ ticker }: { ticker: Ticker }) {
 
   if (isPending) {
     return (
-      <GlassCard className="p-4">
+      <Card className="p-4">
         <Skeleton className="h-4 w-24 mb-2" />
         <Skeleton className="h-8 w-32" />
-      </GlassCard>
+      </Card>
     );
   }
 
   if (!quote) {
     return (
-      <GlassCard className="p-4">
+      <Card className="p-4">
         <p className="text-sm text-muted-foreground">{ticker.symbol}</p>
         <p className="text-xs text-muted-foreground">{t("quoteUnavailable")}</p>
-      </GlassCard>
+      </Card>
     );
   }
 
   return (
-    <GlassCard className="p-4 space-y-1">
+    <Card className="p-4 space-y-1">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">{ticker.nickname ?? ticker.symbol}</p>
         <ChangeIcon delta={quote.change} className={`size-4 ${changeColor(quote.change)}`} />
       </div>
       <p className="text-2xl font-bold">{formatPrice(quote.price, quote.currency)}</p>
       <p className={`text-sm ${changeColor(quote.change)}`}>{formatPercent(quote.changePercent)}</p>
-    </GlassCard>
+    </Card>
   );
 }
 
