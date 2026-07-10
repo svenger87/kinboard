@@ -58,7 +58,17 @@
     },
     "shortcuts": {
       "title": "Keyboard shortcuts",
-      "showHelp": "Show this help"
+      "showHelp": "Show this help",
+      "navHome": "Home / Dashboard",
+      "navCalendar": "Calendar",
+      "navTodos": "Tasks",
+      "navShopping": "Shopping",
+      "navBirthdays": "Birthdays",
+      "navSettings": "Settings",
+      "nextElement": "Next element",
+      "prevElement": "Previous element",
+      "activate": "Activate",
+      "close": "Close / Cancel"
     },
     "theme": {
       "light": "Light",

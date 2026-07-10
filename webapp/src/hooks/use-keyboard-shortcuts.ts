@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 interface ShortcutConfig {
   key: string;
@@ -20,13 +21,14 @@ export function useKeyboardShortcuts(customShortcuts: ShortcutConfig[] = []) {
   const router = useRouter();
 
   // Default navigation shortcuts (Alt + key) - memoized to keep stable references
+  // Note: descriptions below are internal matcher-only strings, never rendered to users
   const navigationShortcuts = useMemo<ShortcutConfig[]>(() => [
-    { key: "h", altKey: true, action: () => router.push("/"), description: "Home / Dashboard" },
-    { key: "c", altKey: true, action: () => router.push("/calendar"), description: "Kalender" },
-    { key: "t", altKey: true, action: () => router.push("/todos"), description: "Aufgaben" },
-    { key: "e", altKey: true, action: () => router.push("/shopping"), description: "Einkauf" },
-    { key: "b", altKey: true, action: () => router.push("/birthdays"), description: "Geburtstage" },
-    { key: "s", altKey: true, action: () => router.push("/settings"), description: "Einstellungen" },
+    { key: "h", altKey: true, action: () => router.push("/"), description: "Home" },
+    { key: "c", altKey: true, action: () => router.push("/calendar"), description: "Calendar" },
+    { key: "t", altKey: true, action: () => router.push("/todos"), description: "Tasks" },
+    { key: "e", altKey: true, action: () => router.push("/shopping"), description: "Shopping" },
+    { key: "b", altKey: true, action: () => router.push("/birthdays"), description: "Birthdays" },
+    { key: "s", altKey: true, action: () => router.push("/settings"), description: "Settings" },
   ], [router]);
 
   const allShortcuts = useMemo(() => [...navigationShortcuts, ...customShortcuts], [navigationShortcuts, customShortcuts]);
@@ -72,18 +74,18 @@ export function useKeyboardShortcuts(customShortcuts: ShortcutConfig[] = []) {
  * Hook to show keyboard shortcuts help dialog
  */
 export function useShortcutsHelp() {
-  const defaultShortcuts = [
-    { keys: "Alt + H", description: "Home / Dashboard" },
-    { keys: "Alt + C", description: "Kalender" },
-    { keys: "Alt + T", description: "Aufgaben" },
-    { keys: "Alt + E", description: "Einkauf" },
-    { keys: "Alt + B", description: "Geburtstage" },
-    { keys: "Alt + S", description: "Einstellungen" },
-    { keys: "Tab", description: "Nächstes Element" },
-    { keys: "Shift + Tab", description: "Vorheriges Element" },
-    { keys: "Enter / Space", description: "Aktivieren" },
-    { keys: "Escape", description: "Schließen / Abbrechen" },
+  const t = useTranslations("components.shortcuts");
+  const shortcuts = [
+    { keys: "Alt + H", description: t("navHome") },
+    { keys: "Alt + C", description: t("navCalendar") },
+    { keys: "Alt + T", description: t("navTodos") },
+    { keys: "Alt + E", description: t("navShopping") },
+    { keys: "Alt + B", description: t("navBirthdays") },
+    { keys: "Alt + S", description: t("navSettings") },
+    { keys: "Tab", description: t("nextElement") },
+    { keys: "Shift + Tab", description: t("prevElement") },
+    { keys: "Enter / Space", description: t("activate") },
+    { keys: "Escape", description: t("close") },
   ];
-
-  return { shortcuts: defaultShortcuts };
+  return { shortcuts };
 }

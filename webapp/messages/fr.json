@@ -58,7 +58,17 @@
     },
     "shortcuts": {
       "title": "Raccourcis clavier",
-      "showHelp": "Afficher cette aide"
+      "showHelp": "Afficher cette aide",
+      "navHome": "Accueil / Tableau de bord",
+      "navCalendar": "Calendrier",
+      "navTodos": "Tâches",
+      "navShopping": "Courses",
+      "navBirthdays": "Anniversaires",
+      "navSettings": "Paramètres",
+      "nextElement": "Élément suivant",
+      "prevElement": "Élément précédent",
+      "activate": "Activer",
+      "close": "Fermer / Annuler"
     },
     "theme": {
       "light": "Clair",
