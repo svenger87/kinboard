@@ -102,7 +102,11 @@ interface ClothingTip {
   color: string;
 }
 
-const RAINY_CONDITION_MAINS = new Set(["Rain", "Drizzle", "Thunderstorm"]);
+// Thunderstorm deliberately NOT in the rainy set: the pre-i18n substring
+// logic never matched it, and storm-day umbrella advice already comes
+// from the precipitation-probability branch. Keeps advice byte-identical
+// across the locale migration.
+const RAINY_CONDITION_MAINS = new Set(["Rain", "Drizzle"]);
 const SNOWY_CONDITION_MAINS = new Set(["Snow"]);
 const CLEAR_CONDITION_MAINS = new Set(["Clear"]);
 
