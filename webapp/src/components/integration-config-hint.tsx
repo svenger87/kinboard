@@ -40,7 +40,7 @@ export function IntegrationConfigHint({
       <Card className="p-4 border-warning/30 bg-warning/5">
         <div className="flex gap-3">
           <AlertCircle
-            className="size-5 shrink-0 text-amber-500 mt-0.5"
+            className="size-5 shrink-0 text-warning mt-0.5"
             strokeWidth={1.5}
           />
           <div className="flex-1 space-y-2">
