@@ -142,10 +142,27 @@
       "centerLabel": "Geburtstage",
       "centerTurns": "wird {age}",
       "centerInDays": "{count, plural, one {in # Tag} other {in # Tagen}}"
+    },
+    "push": {
+      "subscribeError": "Fehler beim Abonnieren",
+      "unsubscribeError": "Fehler beim Abmelden"
     }
   },
   "localeSwitcher": {
     "label": "Sprache"
+  },
+  "push": {
+    "newItemOne": "Neuer Artikel",
+    "newItemMany": "{count} neue Artikel",
+    "moreSuffix": "+{count} weitere",
+    "todoAssignedOne": "Aufgabe zugewiesen",
+    "todoAssignedMany": "{count} Aufgaben zugewiesen",
+    "todoNewOne": "Neue Aufgabe",
+    "todoNewMany": "{count} neue Aufgaben",
+    "eventFallbackTitle": "Termin",
+    "eventStartsAt": "Beginnt um {time}",
+    "eventStartsSoon": "Beginnt bald",
+    "eventsMany": "{count} Termine"
   },
   "join": {
     "title": "Kinboard",
