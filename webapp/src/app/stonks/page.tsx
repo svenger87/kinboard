@@ -2,18 +2,21 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { LineChart, Plus } from "lucide-react";
+import { LineChart } from "lucide-react";
 import { useTickers } from "@/hooks/use-tickers";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { getDriver } from "@/plugins/stonks/drivers/registry";
 
 export default function StonksPage() {
-  const t = useTranslations("stonks" as never);
+  const t = useTranslations("stonks");
+  const router = useRouter();
   const { data: tickers = [], isPending } = useTickers();
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -22,22 +25,18 @@ export default function StonksPage() {
   }, [tickers, activeId]);
 
   if (isPending) {
-    return <div className="p-8 text-muted-foreground">{t("loading" as never)}</div>;
+    return <div className="p-8 text-muted-foreground">{t("loading")}</div>;
   }
 
   if (tickers.length === 0) {
     return (
       <div className="p-8 max-w-2xl mx-auto">
-        <PageHeader title={t("title" as never)} icon={LineChart} />
-        <GlassCard className="p-8 text-center space-y-4">
-          <p className="text-muted-foreground">{t("emptyState" as never)}</p>
-          <Button asChild>
-            <Link href="/settings/stonks">
-              <Plus className="size-4 mr-2" />
-              {t("addFirst" as never)}
-            </Link>
-          </Button>
-        </GlassCard>
+        <PageHeader title={t("title")} icon={LineChart} />
+        <EmptyState
+          icon={LineChart}
+          title={t("emptyState")}
+          action={{ label: t("addFirst"), onClick: () => router.push("/settings/stonks") }}
+        />
       </div>
     );
   }
@@ -48,11 +47,11 @@ export default function StonksPage() {
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader
-        title={t("title" as never)}
+        title={t("title")}
         icon={LineChart}
         actions={
           <Button asChild variant="outline" size="sm">
-            <Link href="/settings/stonks">{t("manage" as never)}</Link>
+            <Link href="/settings/stonks">{t("manage")}</Link>
           </Button>
         }
       />
@@ -79,7 +78,7 @@ export default function StonksPage() {
           <driver.Card ticker={active} />
         </motion.div>
       ) : (
-        <GlassCard className="p-6">{t("driverMissing" as never)}</GlassCard>
+        <GlassCard className="p-6">{t("driverMissing")}</GlassCard>
       )}
     </div>
   );

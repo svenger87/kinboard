@@ -11,6 +11,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 - All destructive deletes now use the same styled confirmation dialog: calendar events, vehicles, Home Assistant rooms (previously native browser popups, which look foreign and can be suppressed in kiosk fullscreen), and meal-plan entries (previously deleted with no confirmation at all).
+- Empty pages (vehicles, stocks, pocket money, news, schedule, smart home) now use the same dashed empty-state card as the rest of the app instead of ad-hoc layouts, each with a clear next-step button.
 
 ### Fixed
 - Added `webapp/.dockerignore`: building the webapp image on a machine that had run `npm run dev` failed with a tar checksum error on `.next/dev`, and the build context needlessly shipped `node_modules`, the local Postgres data directory, and the stack's `.env` secrets into intermediate image layers. Source builds are now smaller and work regardless of local dev state.

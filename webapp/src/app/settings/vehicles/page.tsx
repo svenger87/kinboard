@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Car, Plus, Pencil, Trash2 } from "lucide-react";
 import { useVehicles, useDeleteVehicle } from "@/hooks/use-vehicles";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/empty-state";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +26,7 @@ import {
 export default function VehiclesSettingsPage() {
   const t = useTranslations("settings.vehicles");
   const tCommon = useTranslations("common");
+  const router = useRouter();
   const { data: vehicles = [] } = useVehicles();
   const { mutateAsync: deleteVehicle } = useDeleteVehicle();
 
@@ -48,19 +51,12 @@ export default function VehiclesSettingsPage() {
         <Card>
           <div className="p-6">
             {vehicles.length === 0 ? (
-              <div className="text-center py-8">
-                <Car className="size-12 mx-auto text-muted-foreground/50 mb-4" />
-                <h3 className="font-medium mb-2">{t("emptyTitle")}</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {t("emptyDescription")}
-                </p>
-                <Button asChild variant="outline">
-                  <Link href="/settings/vehicles/new">
-                    <Plus className="size-4 mr-2" />
-                    {t("addVehicle")}
-                  </Link>
-                </Button>
-              </div>
+              <EmptyState
+                icon={Car}
+                title={t("emptyTitle")}
+                description={t("emptyDescription")}
+                action={{ label: t("addVehicle"), onClick: () => router.push("/settings/vehicles/new") }}
+              />
             ) : (
               <div className="flex flex-col gap-3">
                 {vehicles.map((v) => {
