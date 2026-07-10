@@ -9,7 +9,10 @@
     "searchClear": "Effacer la recherche",
     "newEntriesAria": "{count, plural, one {# nouvelle entrée} other {# nouvelles entrées}}",
     "seeOnDashboardOrNewsPage": "voir sur le widget du tableau de bord ou sur /news",
-    "liveUpdatesPaused": "Mises à jour en direct suspendues — reconnexion…"
+    "liveUpdatesPaused": "Mises à jour en direct suspendues — reconnexion…",
+    "serverUnreachableTitle": "Impossible de joindre le serveur Kinboard",
+    "serverUnreachableBody": "L'application ne peut pas charger les données de votre famille. Vérifiez que le serveur Kinboard fonctionne et que cet appareil peut le joindre, puis réessayez.",
+    "serverUnreachableRetry": "Réessayer"
   },
   "components": {
     "back": "Retour",
