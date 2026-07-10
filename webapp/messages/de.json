@@ -8,7 +8,8 @@
     "edit": "Bearbeiten",
     "searchClear": "Suche leeren",
     "newEntriesAria": "{count, plural, one {# neuer Eintrag} other {# neue Einträge}}",
-    "seeOnDashboardOrNewsPage": "auf dem Dashboard-Widget oder unter /news"
+    "seeOnDashboardOrNewsPage": "auf dem Dashboard-Widget oder unter /news",
+    "liveUpdatesPaused": "Live-Updates pausiert — Verbindung wird wiederhergestellt…"
   },
   "components": {
     "back": "Zurück",
