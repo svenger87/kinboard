@@ -56,48 +56,48 @@ export async function GET(request: NextRequest) {
     }
 
     const people = await fetchAll(db, (q, from, to) =>
-      q.from("people").select("*").eq("family_id", familyId).range(from, to)
+      q.from("people").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const calendars = await fetchAll(db, (q, from, to) =>
-      q.from("calendars").select("*").eq("family_id", familyId).range(from, to)
+      q.from("calendars").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const calendarIds = calendars.map((c: Record<string, unknown>) => c.id as string);
     const events = await fetchAllByIds(db, "events", "calendar_id", calendarIds);
 
     const todos = await fetchAll(db, (q, from, to) =>
-      q.from("todos").select("*").eq("family_id", familyId).range(from, to)
+      q.from("todos").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const shopping_items = await fetchAll(db, (q, from, to) =>
-      q.from("shopping_items").select("*").eq("family_id", familyId).range(from, to)
+      q.from("shopping_items").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const subjects = await fetchAll(db, (q, from, to) =>
-      q.from("subjects").select("*").eq("family_id", familyId).range(from, to)
+      q.from("subjects").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const schedules = await fetchAll(db, (q, from, to) =>
-      q.from("schedules").select("*").eq("family_id", familyId).range(from, to)
+      q.from("schedules").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const birthdays = await fetchAll(db, (q, from, to) =>
-      q.from("birthdays").select("*").eq("family_id", familyId).range(from, to)
+      q.from("birthdays").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const birthday_gift_ideas = await fetchAll(db, (q, from, to) =>
-      q.from("birthday_gift_ideas").select("*").eq("family_id", familyId).range(from, to)
+      q.from("birthday_gift_ideas").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const notes = await fetchAll(db, (q, from, to) =>
-      q.from("notes").select("*").eq("family_id", familyId).range(from, to)
+      q.from("notes").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
 
     const recipes = await fetchAll(db, (q, from, to) =>
-      q.from("recipes").select("*").eq("family_id", familyId).range(from, to)
+      q.from("recipes").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const recipeIds = recipes.map((r: Record<string, unknown>) => r.id as string);
     const recipe_ingredients = await fetchAllByIds(db, "recipe_ingredients", "recipe_id", recipeIds);
     const recipe_tags = await fetchAll(db, (q, from, to) =>
-      q.from("recipe_tags").select("*").eq("family_id", familyId).range(from, to)
+      q.from("recipe_tags").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const recipe_tag_assignments = await fetchAllByIds(db, "recipe_tag_assignments", "recipe_id", recipeIds);
 
     const meal_plans = await fetchAll(db, (q, from, to) =>
-      q.from("meal_plans").select("*").eq("family_id", familyId).range(from, to)
+      q.from("meal_plans").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const mealPlanIds = meal_plans.map((m: Record<string, unknown>) => m.id as string);
     const meal_plan_entries = await fetchAllByIds(db, "meal_plan_entries", "meal_plan_id", mealPlanIds);
@@ -106,11 +106,11 @@ export async function GET(request: NextRequest) {
     // family_id = NULL); .eq() never matches NULL, so this naturally
     // excludes the global rows and returns only family-owned entries.
     const item_catalog = await fetchAll(db, (q, from, to) =>
-      q.from("item_catalog").select("*").eq("family_id", familyId).range(from, to)
+      q.from("item_catalog").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
 
     const rawSettings = await fetchAll(db, (q, from, to) =>
-      q.from("settings").select("*").eq("family_id", familyId).range(from, to)
+      q.from("settings").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const settings = rawSettings
       .filter((row: Record<string, unknown>) => row.key !== SETTINGS_KEYS.settingsPin)
@@ -202,6 +202,6 @@ async function fetchAllByIds(
 ): Promise<Record<string, unknown>[]> {
   if (ids.length === 0) return [];
   return fetchAll(db, (q, from, to) =>
-    q.from(table).select("*").in(column, ids).range(from, to)
+    q.from(table).select("*").in(column, ids).order("id").range(from, to)
   );
 }
