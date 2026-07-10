@@ -28,17 +28,50 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-// allDay → YYYYMMDD (used with VALUE=DATE), else UTC YYYYMMDDTHHMMSSZ.
-function icsDate(iso: string, allDay: boolean): string {
+// Recovers the wall-clock calendar day (in `timeZone`) for an ISO instant,
+// as { y, m, d } (m is 1-indexed, matching Date.UTC's month+1 convention
+// used by callers). All-day events store LOCAL midnight/23:59:59.999
+// converted to UTC (see calendar/page.tsx handleAddEvent: startOfDay /
+// endOfDay then toISOString) — extracting the UTC day directly shifts the
+// date by the household's UTC offset. Intl with an explicit timeZone
+// recovers the correct local day regardless of server TZ.
+function localDayParts(iso: string, timeZone: string): { y: number; m: number; d: number } {
+  const formatted = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
+  const [y, m, d] = formatted.split("-").map(Number);
+  return { y, m, d };
+}
+
+// allDay → YYYYMMDD (used with VALUE=DATE) in the household timeZone,
+// else UTC YYYYMMDDTHHMMSSZ (timed events are unambiguous instants and
+// keep their current UTC serialization).
+function icsDate(iso: string, allDay: boolean, timeZone: string): string {
   const d = new Date(iso);
+  if (allDay) {
+    const { y, m, d: day } = localDayParts(iso, timeZone);
+    return `${y}${pad(m)}${pad(day)}`;
+  }
   const y = d.getUTCFullYear();
   const mo = pad(d.getUTCMonth() + 1);
   const da = pad(d.getUTCDate());
-  if (allDay) return `${y}${mo}${da}`;
   const h = pad(d.getUTCHours());
   const mi = pad(d.getUTCMinutes());
   const se = pad(d.getUTCSeconds());
   return `${y}${mo}${da}T${h}${mi}${se}Z`;
+}
+
+// Local day of `iso` (in `timeZone`) plus one day, as YYYYMMDD.
+// Date.UTC normalizes day-of-month overflow (e.g. day 31 in a 30-day
+// month) into the correct next month/year, so this is safe across
+// month/year boundaries without manual carry logic.
+function localDayPlusOne(iso: string, timeZone: string): string {
+  const { y, m, d } = localDayParts(iso, timeZone);
+  const next = new Date(Date.UTC(y, m - 1, d + 1));
+  return `${next.getUTCFullYear()}${pad(next.getUTCMonth() + 1)}${pad(next.getUTCDate())}`;
 }
 
 // RFC 5545 §3.1: fold at 75 octets (of the UTF-8 encoding, not chars) by
@@ -71,7 +104,11 @@ function foldLine(line: string): string {
   return chunks.join(CRLF + " ");
 }
 
-export function buildIcsCalendar(events: ExportEvent[], calendarName: string): string {
+export function buildIcsCalendar(
+  events: ExportEvent[],
+  calendarName: string,
+  timeZone: string
+): string {
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -80,7 +117,7 @@ export function buildIcsCalendar(events: ExportEvent[], calendarName: string): s
     `X-WR-CALNAME:${icsEscape(calendarName)}`,
   ];
 
-  const dtstamp = icsDate(new Date().toISOString(), false);
+  const dtstamp = icsDate(new Date().toISOString(), false, timeZone);
 
   for (const event of events) {
     lines.push("BEGIN:VEVENT");
@@ -88,16 +125,15 @@ export function buildIcsCalendar(events: ExportEvent[], calendarName: string): s
     lines.push(`DTSTAMP:${dtstamp}`);
 
     if (event.all_day) {
-      // Stored end_at is the inclusive last day (see calendar/page.tsx
-      // handleAddEvent: endOfDay(endDate)); DTEND must be the exclusive
-      // day after, per RFC 5545 §3.6.1.
-      const endExclusive = new Date(event.end_at);
-      endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-      lines.push(`DTSTART;VALUE=DATE:${icsDate(event.start_at, true)}`);
-      lines.push(`DTEND;VALUE=DATE:${icsDate(endExclusive.toISOString(), true)}`);
+      // Stored end_at is local 23:59:59.999 of the inclusive last day
+      // (see calendar/page.tsx handleAddEvent: endOfDay(endDate) then
+      // toISOString); its local day IS the last day, so DTEND is that
+      // local day plus one — the RFC 5545 §3.6.1 exclusive end.
+      lines.push(`DTSTART;VALUE=DATE:${icsDate(event.start_at, true, timeZone)}`);
+      lines.push(`DTEND;VALUE=DATE:${localDayPlusOne(event.end_at, timeZone)}`);
     } else {
-      lines.push(`DTSTART:${icsDate(event.start_at, false)}`);
-      lines.push(`DTEND:${icsDate(event.end_at, false)}`);
+      lines.push(`DTSTART:${icsDate(event.start_at, false, timeZone)}`);
+      lines.push(`DTEND:${icsDate(event.end_at, false, timeZone)}`);
     }
 
     lines.push(`SUMMARY:${icsEscape(event.title)}`);

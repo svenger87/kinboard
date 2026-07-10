@@ -363,6 +363,12 @@ services:
       # → "06:00"). Self-hosters outside Europe/Berlin should set TZ
       # in .env to their household's IANA zone.
       TZ: ${TZ:-Europe/Berlin}
+      # Public origin, used server-side to build absolute URLs (e.g. the
+      # ICS calendar feed subscribe link) that must be reachable from
+      # outside the Docker network. request.nextUrl.origin resolves to
+      # the internal request URL behind a reverse proxy (Traefik), which
+      # is wrong for links handed to external calendar apps.
+      SITE_URL: ${SITE_URL}
       OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY}
       # Optional override for the OpenWeatherMap API base URL — lets the
       # demo overlay redirect weather calls to a local mock so the
