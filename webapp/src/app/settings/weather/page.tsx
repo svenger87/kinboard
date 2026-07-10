@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import {
   Cloud,
   MapPin,
@@ -143,6 +144,8 @@ export default function WeatherSettingsPage() {
       setHasChanges(false);
       // Refetch weather with new location
       setTimeout(() => refetchWeather(), 500);
+    } catch {
+      toast.error(t("saveFailed"));
     } finally {
       setIsSaving(false);
     }

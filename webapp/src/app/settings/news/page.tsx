@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Newspaper, ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -39,10 +40,18 @@ export default function NewsSettingsPage() {
     if (next.has(id)) next.delete(id);
     else next.add(id);
     setSelected(next);
-    updateSetting.mutate({
-      key: "news_sources",
-      value: Array.from(next),
-    });
+    updateSetting.mutate(
+      {
+        key: "news_sources",
+        value: Array.from(next),
+      },
+      {
+        onError: () => {
+          setSelected(new Set(savedSources ?? []));
+          toast.error(t("saveFailed"));
+        },
+      }
+    );
   }
 
   const noneSelected = selected.size === 0;
