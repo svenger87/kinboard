@@ -154,7 +154,7 @@ export function Weather({ className = "" }: WeatherProps) {
     return <WeatherError error={error?.message || t("errorFallback")} />;
   }
 
-  const WeatherIcon = getWeatherIcon(weatherData.condition);
+  const WeatherIcon = getWeatherIcon(weatherData.conditionMain ?? weatherData.condition);
 
   // Get next 6 days forecast (skip today, show rest of the week)
   const upcomingDays = forecast?.daily?.slice(1, 7) || [];
@@ -216,7 +216,7 @@ export function Weather({ className = "" }: WeatherProps) {
           {upcomingDays.length > 0 && (
             <div className="flex items-center justify-between gap-2 mt-4 pt-4 border-t border-border/30">
               {upcomingDays.map((day) => {
-                const DayIcon = getWeatherIcon(day.condition);
+                const DayIcon = getWeatherIcon(day.conditionMain ?? day.condition);
                 const showRain = day.precipProbability > 0;
                 const isHighRain = day.precipProbability > 40;
                 return (
