@@ -490,6 +490,27 @@ export interface Database {
         };
         Relationships: [];
       };
+      integration_secrets: {
+        Row: {
+          family_id: string;
+          key: string;
+          value: Json;
+          updated_at: string;
+        };
+        Insert: {
+          family_id: string;
+          key: string;
+          value?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          family_id?: string;
+          key?: string;
+          value?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       recipes: {
         Row: {
           id: string;
