@@ -72,22 +72,6 @@ const CardFooter = React.forwardRef<
 ));
 CardFooter.displayName = "CardFooter";
 
-// Glass variant card - glassmorphism for wall-mounted display
-const GlassCard = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      "rounded-2xl border border-white/[0.08] bg-white/[0.08] text-card-foreground shadow-lg shadow-black/20",
-      className
-    )}
-    {...props}
-  />
-));
-GlassCard.displayName = "GlassCard";
-
 export {
   Card,
   CardHeader,
@@ -95,5 +79,4 @@ export {
   CardTitle,
   CardDescription,
   CardContent,
-  GlassCard,
 };
