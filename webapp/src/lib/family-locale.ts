@@ -13,14 +13,20 @@ function isSupportedLocale(value: unknown): value is Locale {
 // hardcoded language of all server-generated notifications, so unset
 // installs behave exactly as before.
 export async function getFamilyLocale(familyId: string): Promise<string> {
-  const supabase = createAdminClient();
+  try {
+    const supabase = createAdminClient();
 
-  const { data } = await (supabase as any)
-    .from("settings")
-    .select("value")
-    .eq("family_id", familyId)
-    .eq("key", "locale")
-    .maybeSingle();
-  const value = data?.value;
-  return isSupportedLocale(value) ? value : "de";
+    const { data } = await (supabase as any)
+      .from("settings")
+      .select("value")
+      .eq("family_id", familyId)
+      .eq("key", "locale")
+      .maybeSingle();
+    const value = data?.value;
+    return isSupportedLocale(value) ? value : "de";
+  } catch {
+    // A locale lookup failure must never fail a notification batch that
+    // would previously have gone out (in German) unconditionally.
+    return "de";
+  }
 }
