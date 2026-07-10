@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { LineChart, Plus, Trash2, Search, Check, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -93,7 +94,7 @@ export default function StonksSettingsPage() {
                           nickname: r.name,
                         })
                         .then(() => setQuery(""))
-                        .catch(console.error)
+                        .catch(() => toast.error(t("addFailed")))
                     }
                     className="w-full flex items-center justify-between gap-3 p-3 rounded-md border border-border hover:bg-muted/30 disabled:opacity-50 disabled:cursor-not-allowed text-left"
                   >
@@ -172,7 +173,7 @@ export default function StonksSettingsPage() {
                             <AlertDialogCancel>{t("cancelButton")}</AlertDialogCancel>
                             <AlertDialogAction
                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              onClick={() => deleteTicker.mutateAsync(tk.id).catch(console.error)}
+                              onClick={() => deleteTicker.mutateAsync(tk.id).catch(() => toast.error(t("deleteFailed")))}
                             >
                               {t("deleteButton")}
                             </AlertDialogAction>

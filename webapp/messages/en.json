@@ -1040,7 +1040,8 @@
       "refreshButton": "Refresh",
       "notConfiguredTitle": "OpenWeatherMap API key not set",
       "notConfiguredDescription": "The weather widget needs a free OpenWeatherMap API key to fetch current conditions and forecasts. The widget stays disabled (no error in the dashboard) until you add the key.",
-      "notConfiguredDocsLabel": "Where to get a free API key →"
+      "notConfiguredDocsLabel": "Where to get a free API key →",
+      "saveFailed": "Could not save the weather location. Please try again."
     },
     "notifications": {
       "title": "Notifications",
@@ -1662,7 +1663,8 @@
       "uploadImage": "Upload image",
       "uploading": "Uploading…",
       "removeImage": "Remove image",
-      "imageUploadError": "Could not upload image. Try a smaller file."
+      "imageUploadError": "Could not upload image. Try a smaller file.",
+      "createFailed": "Could not create the vehicle. Please try again."
     },
     "tesla": {
       "_note": "Strings used by the Tesla driver in webapp/src/plugins/vehicles/drivers/tesla.tsx. The /settings/tesla route is now a redirect (see app/settings/tesla/page.tsx); these keys live on for the driver's TeslaConfigForm + inline EntitySelector. Do NOT delete this namespace.",
@@ -1913,7 +1915,9 @@
       "confirmDeleteTitle": "Remove from watchlist?",
       "confirmDeleteDescription": "Remove {symbol} from the watchlist. Historical data is not deleted.",
       "cancelButton": "Cancel",
-      "deleteButton": "Remove"
+      "deleteButton": "Remove",
+      "addFailed": "Could not add the symbol. Please try again.",
+      "deleteFailed": "Could not remove the symbol. Please try again."
     },
     "pocketMoney": {
       "title": "Pocket Money",
@@ -1964,7 +1968,8 @@
       "lang_de": "German",
       "lang_en": "English",
       "noneSelectedHint": "No sources selected — the news widget and /news page will stay empty until you pick at least one.",
-      "changesAutosave": "Changes save automatically"
+      "changesAutosave": "Changes save automatically",
+      "saveFailed": "Could not save the news sources. Please try again."
     },
     "itemCalendarLabel": "Calendar",
     "itemCalendarDescription": "Connect Google Calendar or subscribe to iCalendar (.ics) feeds — including iCloud Family Sharing.",

@@ -1040,7 +1040,8 @@
       "refreshButton": "Aktualisieren",
       "notConfiguredTitle": "OpenWeatherMap-API-Schlüssel nicht gesetzt",
       "notConfiguredDescription": "Das Wetter-Widget benötigt einen kostenlosen OpenWeatherMap-API-Schlüssel, um aktuelle Bedingungen und Vorhersagen abzurufen. Das Widget bleibt deaktiviert (kein Fehler im Dashboard), bis der Schlüssel hinterlegt ist.",
-      "notConfiguredDocsLabel": "Kostenlosen API-Schlüssel anfordern →"
+      "notConfiguredDocsLabel": "Kostenlosen API-Schlüssel anfordern →",
+      "saveFailed": "Wetter-Standort konnte nicht gespeichert werden. Bitte erneut versuchen."
     },
     "notifications": {
       "title": "Benachrichtigungen",
@@ -1662,7 +1663,8 @@
       "uploadImage": "Bild hochladen",
       "uploading": "Wird hochgeladen…",
       "removeImage": "Bild entfernen",
-      "imageUploadError": "Bild konnte nicht hochgeladen werden. Versuche eine kleinere Datei."
+      "imageUploadError": "Bild konnte nicht hochgeladen werden. Versuche eine kleinere Datei.",
+      "createFailed": "Fahrzeug konnte nicht angelegt werden. Bitte erneut versuchen."
     },
     "tesla": {
       "_note": "Strings used by the Tesla driver in webapp/src/plugins/vehicles/drivers/tesla.tsx. The /settings/tesla route is now a redirect (see app/settings/tesla/page.tsx); these keys live on for the driver's TeslaConfigForm + inline EntitySelector. Do NOT delete this namespace.",
@@ -1913,7 +1915,9 @@
       "confirmDeleteTitle": "Von der Watchlist entfernen?",
       "confirmDeleteDescription": "{symbol} von der Watchlist entfernen. Verlaufsdaten werden nicht gelöscht.",
       "cancelButton": "Abbrechen",
-      "deleteButton": "Entfernen"
+      "deleteButton": "Entfernen",
+      "addFailed": "Symbol konnte nicht hinzugefügt werden. Bitte erneut versuchen.",
+      "deleteFailed": "Symbol konnte nicht entfernt werden. Bitte erneut versuchen."
     },
     "pocketMoney": {
       "title": "Taschengeld",
@@ -1964,7 +1968,8 @@
       "lang_de": "Deutsch",
       "lang_en": "Englisch",
       "noneSelectedHint": "Keine Quellen ausgewählt — das News-Widget und /news bleiben leer, bis mindestens eine Quelle aktiviert ist.",
-      "changesAutosave": "Änderungen werden automatisch gespeichert"
+      "changesAutosave": "Änderungen werden automatisch gespeichert",
+      "saveFailed": "Nachrichtenquellen konnten nicht gespeichert werden. Bitte erneut versuchen."
     },
     "itemCalendarLabel": "Kalender",
     "itemCalendarDescription": "Google Kalender verbinden oder iCalendar-Feeds (.ics) abonnieren — auch iCloud-Familienfreigabe.",

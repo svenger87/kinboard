@@ -1040,7 +1040,8 @@
       "refreshButton": "Actualiser",
       "notConfiguredTitle": "Clé API OpenWeatherMap non définie",
       "notConfiguredDescription": "Le widget météo a besoin d'une clé API OpenWeatherMap gratuite pour obtenir les conditions actuelles et les prévisions. Le widget reste désactivé (aucune erreur sur le tableau de bord) jusqu'à ce que vous ajoutiez la clé.",
-      "notConfiguredDocsLabel": "Où obtenir une clé API gratuite →"
+      "notConfiguredDocsLabel": "Où obtenir une clé API gratuite →",
+      "saveFailed": "Impossible d'enregistrer la position météo. Veuillez réessayer."
     },
     "notifications": {
       "title": "Notifications",
@@ -1662,7 +1663,8 @@
       "uploadImage": "Téléverser une image",
       "uploading": "Téléversement…",
       "removeImage": "Supprimer l'image",
-      "imageUploadError": "Impossible de téléverser l'image. Essayez un fichier plus petit."
+      "imageUploadError": "Impossible de téléverser l'image. Essayez un fichier plus petit.",
+      "createFailed": "Impossible de créer le véhicule. Veuillez réessayer."
     },
     "tesla": {
       "_note": "Chaînes utilisées par le pilote Tesla dans webapp/src/plugins/vehicles/drivers/tesla.tsx. La route /settings/tesla est maintenant une redirection (voir app/settings/tesla/page.tsx) ; ces clés existent pour le TeslaConfigForm + EntitySelector intégré. NE PAS supprimer cet espace de noms.",
@@ -1913,7 +1915,9 @@
       "confirmDeleteTitle": "Supprimer de la liste de suivi ?",
       "confirmDeleteDescription": "Supprimer {symbol} de la liste de suivi. Les données historiques ne sont pas supprimées.",
       "cancelButton": "Annuler",
-      "deleteButton": "Supprimer"
+      "deleteButton": "Supprimer",
+      "addFailed": "Impossible d'ajouter le symbole. Veuillez réessayer.",
+      "deleteFailed": "Impossible de supprimer le symbole. Veuillez réessayer."
     },
     "pocketMoney": {
       "title": "Argent de poche",
@@ -1964,7 +1968,8 @@
       "lang_de": "Allemand",
       "lang_en": "Anglais",
       "noneSelectedHint": "Aucune source sélectionnée — le widget d'actualités et la page /news resteront vides tant que vous n'en aurez pas choisi au moins une.",
-      "changesAutosave": "Les modifications sont enregistrées automatiquement"
+      "changesAutosave": "Les modifications sont enregistrées automatiquement",
+      "saveFailed": "Impossible d'enregistrer les sources d'actualités. Veuillez réessayer."
     },
     "itemCalendarLabel": "Calendrier",
     "itemCalendarDescription": "Connectez Google Agenda ou abonnez-vous à des flux iCalendar (.ics) — y compris le partage familial iCloud.",
