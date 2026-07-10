@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
+import { useRealtimeStatusStore } from "@/stores/realtime-status-store";
 import { queryKeys } from "./use-supabase-queries";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
@@ -67,6 +68,7 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
+  const setStatus = useRealtimeStatusStore((s) => s.setStatus);
 
   const handleChange = useCallback(
     (
@@ -199,14 +201,27 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
       );
     });
 
-    // Subscribe to the channel
-    channel.subscribe();
+    // Subscribe to the channel. supabase-js retries CHANNEL_ERROR/TIMED_OUT
+    // internally (rejoin timer), so the status flips back to SUBSCRIBED on
+    // recovery without any action on our side.
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        setStatus("connected");
+      } else if (
+        status === "CHANNEL_ERROR" ||
+        status === "TIMED_OUT" ||
+        status === "CLOSED"
+      ) {
+        setStatus("disconnected");
+      }
+    });
 
-    // Cleanup on unmount
+    // Cleanup on unmount. Do NOT set "disconnected" here — unmount/remount
+    // of the provider would flash the pill; the store keeps its last value.
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, family?.id, enabled, tables, handleChange]);
+  }, [supabase, family?.id, enabled, tables, handleChange, setStatus]);
 }
 
 /**

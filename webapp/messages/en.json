@@ -8,7 +8,8 @@
     "edit": "Edit",
     "searchClear": "Clear search",
     "newEntriesAria": "{count, plural, one {# new entry} other {# new entries}}",
-    "seeOnDashboardOrNewsPage": "see on the dashboard widget or on /news"
+    "seeOnDashboardOrNewsPage": "see on the dashboard widget or on /news",
+    "liveUpdatesPaused": "Live updates paused — reconnecting…"
   },
   "components": {
     "back": "Back",
