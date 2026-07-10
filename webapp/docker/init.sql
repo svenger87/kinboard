@@ -188,6 +188,31 @@ CREATE TABLE IF NOT EXISTS public.settings (
     UNIQUE(family_id, key)
 );
 
+-- Integration secrets (server-only; not in the realtime publication, not
+-- readable by anon/authenticated). See migration_integration_secrets.sql
+-- for rationale — this mirrors that migration's CREATE TABLE for fresh
+-- installs, without the one-time data moves (nothing to move yet).
+CREATE TABLE IF NOT EXISTS public.integration_secrets (
+    family_id UUID NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
+    key TEXT NOT NULL,
+    value JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (family_id, key)
+);
+
+REVOKE ALL ON TABLE public.integration_secrets FROM PUBLIC;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    REVOKE ALL ON TABLE public.integration_secrets FROM anon;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    REVOKE ALL ON TABLE public.integration_secrets FROM authenticated;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    GRANT ALL ON TABLE public.integration_secrets TO service_role;
+  END IF;
+END $$;
+
 -- ===================
 -- INDEXES
 -- ===================
