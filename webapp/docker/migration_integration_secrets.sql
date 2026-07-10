@@ -87,7 +87,8 @@ SELECT family_id, 'bring_settings',
          'refreshToken', value#>>'{credentials,refreshToken}')))
 FROM public.settings
 WHERE key = 'bring_settings'
-  AND COALESCE(value#>>'{credentials,accessToken}', '') <> ''
+  AND (COALESCE(value#>>'{credentials,accessToken}', '') <> ''
+       OR COALESCE(value#>>'{credentials,refreshToken}', '') <> '')
 ON CONFLICT (family_id, key)
   DO UPDATE SET value = public.integration_secrets.value || EXCLUDED.value,
                 updated_at = now();
