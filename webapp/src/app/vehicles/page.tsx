@@ -9,7 +9,7 @@ import { Car } from "lucide-react";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -85,9 +85,9 @@ export default function VehiclesPage() {
           <driver.Card vehicle={active} />
         </motion.div>
       ) : (
-        <GlassCard className="p-6">
+        <Card className="p-6">
           {t("unknownVendor", { vendor: active.vendor })}
-        </GlassCard>
+        </Card>
       )}
     </div>
   );

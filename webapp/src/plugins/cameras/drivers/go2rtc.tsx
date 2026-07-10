@@ -107,7 +107,7 @@ function Go2rtcCard() {
         action={{
           label: t("emptyAction"),
           onClick: () => router.push("/settings/cameras"),
-          variant: "month",
+          variant: "default",
         }}
       />
     );

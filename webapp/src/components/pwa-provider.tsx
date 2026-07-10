@@ -82,7 +82,7 @@ export function InstallButton() {
   }
 
   return (
-    <Button variant="month" onClick={promptInstall} className="gap-2">
+    <Button onClick={promptInstall} className="gap-2">
       <Download className="size-4" />
       {t("installButton")}
     </Button>

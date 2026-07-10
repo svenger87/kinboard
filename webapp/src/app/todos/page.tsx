@@ -26,7 +26,7 @@ import { format } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -568,7 +568,7 @@ export default function TodosPage() {
               {/* Add Task Button */}
               <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="month" size="sm" className="hidden sm:inline-flex gap-2">
+                  <Button size="sm" className="hidden sm:inline-flex gap-2">
                     <Plus className="size-4" />
                     {t("newButton")}
                   </Button>
@@ -714,7 +714,6 @@ export default function TodosPage() {
                     </div>
 
                     <Button
-                      variant="month"
                       className="w-full"
                       onClick={handleAddTask}
                       disabled={!newTaskTitle.trim() || createTodo.isPending}
@@ -846,22 +845,22 @@ export default function TodosPage() {
           {/* Tasks List */}
           {error ? (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <GlassCard className="p-2">
+              <Card className="p-2">
                 <ErrorState
                   onRetry={handleRetry}
                   message={t("errorMessage")}
                 />
-              </GlassCard>
+              </Card>
             </motion.div>
           ) : isLoading ? (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <GlassCard className="p-2">
+              <Card className="p-2">
                 <TodosSkeleton />
-              </GlassCard>
+              </Card>
             </motion.div>
           ) : sortedTasks.length === 0 ? (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <GlassCard className="p-8">
+              <Card className="p-8">
                 {filterPerson !== "all" || filterStatus !== "all" || filterRecurrence !== "all" ? (
                   <EmptyState
                     icon={Filter}
@@ -883,7 +882,7 @@ export default function TodosPage() {
                     description={t("emptyAllDoneDescription")}
                   />
                 )}
-              </GlassCard>
+              </Card>
             </motion.div>
           ) : (
             <AnimatePresence mode="popLayout">
@@ -957,7 +956,7 @@ export default function TodosPage() {
                           <span className="text-xs opacity-60">({section.tasks.length})</span>
                         </div>
 
-                        <GlassCard className={`p-1.5 border-l-2 ${section.borderClass}`}>
+                        <Card className={`p-1.5 border-l-2 ${section.borderClass}`}>
                           <div className="flex flex-col gap-0.5">
                             {section.tasks.map((task) => {
                               const person = getPersonById(task.person_id);
@@ -1120,7 +1119,7 @@ export default function TodosPage() {
                               );
                             })}
                           </div>
-                        </GlassCard>
+                        </Card>
                       </motion.div>
                     ))}
                   </div>
@@ -1272,7 +1271,6 @@ export default function TodosPage() {
               </div>
 
               <Button
-                variant="month"
                 className="w-full"
                 onClick={handleEditTask}
                 disabled={!editTitle.trim() || updateTodo.isPending}

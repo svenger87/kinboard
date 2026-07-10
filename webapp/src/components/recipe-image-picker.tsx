@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useFamilyStore } from "@/stores/family-store";
 
@@ -280,7 +280,7 @@ export function RecipeImagePicker({
 
       {/* Image picker tabs */}
       {!value && (
-        <GlassCard className="p-4">
+        <Card className="p-4">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
             <TabsList className="w-full grid grid-cols-3 mb-4">
               <TabsTrigger value="search" className="gap-2">
@@ -445,7 +445,7 @@ export function RecipeImagePicker({
 
               <div className="flex justify-center gap-2">
                 {!isCameraActive ? (
-                  <Button onClick={startCamera} variant="month">
+                  <Button onClick={startCamera}>
                     <Camera className="size-4 mr-2" />
                     {t("cameraStart")}
                   </Button>
@@ -455,7 +455,7 @@ export function RecipeImagePicker({
                       <X className="size-4 mr-2" />
                       {t("cameraCancel")}
                     </Button>
-                    <Button onClick={capturePhoto} variant="month" disabled={isUploading}>
+                    <Button onClick={capturePhoto} disabled={isUploading}>
                       <Check className="size-4 mr-2" />
                       {t("cameraCapture")}
                     </Button>
@@ -464,7 +464,7 @@ export function RecipeImagePicker({
               </div>
             </TabsContent>
           </Tabs>
-        </GlassCard>
+        </Card>
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Lock, ArrowLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useSetting } from "@/hooks";
 import { useRouter } from "next/navigation";
@@ -177,7 +177,7 @@ function PinEntryScreen({
         animate={{ opacity: 1, scale: 1 }}
         className="relative z-10 w-full max-w-sm"
       >
-        <GlassCard className="p-8">
+        <Card className="p-8">
           <div className="flex flex-col items-center gap-6">
             <div className="p-3 rounded-xl bg-month-primary/10">
               <Lock className="size-8 text-month-primary" strokeWidth={1.5} />
@@ -231,7 +231,7 @@ function PinEntryScreen({
               {t("cancel")}
             </Button>
           </div>
-        </GlassCard>
+        </Card>
       </motion.div>
     </main>
   );

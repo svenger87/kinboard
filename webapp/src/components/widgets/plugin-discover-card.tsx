@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { X, type LucideIcon } from "lucide-react";
-import { GlassCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 interface PluginDiscoverCardProps {
@@ -44,7 +44,7 @@ export function PluginDiscoverCard({
   if (dismissed) return null;
 
   return (
-    <GlassCard className="p-4 h-full flex flex-col justify-between border-dashed border-month-primary/30 bg-month-primary/5">
+    <Card className="p-4 h-full flex flex-col justify-between border-dashed border-month-primary/30 bg-month-primary/5">
       <div className="flex items-start gap-3">
         <div className="p-2 rounded-lg bg-month-primary/10 shrink-0">
           <Icon className="size-5 text-month-primary" strokeWidth={1.5} />
@@ -68,10 +68,10 @@ export function PluginDiscoverCard({
         </button>
       </div>
       <div className="mt-3">
-        <Button variant="month" size="sm" asChild>
+        <Button size="sm" asChild>
           <Link href={ctaHref}>{ctaLabel}</Link>
         </Button>
       </div>
-    </GlassCard>
+    </Card>
   );
 }
