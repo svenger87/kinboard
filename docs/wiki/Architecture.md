@@ -176,14 +176,14 @@ Per-family settings live in the `public.settings` table as `(family_id, key, val
 
 | Key | Shape (TypeScript-ish) | Where used |
 |---|---|---|
-| `theme` | `{ themeOverride: number? \| null, use24Hour: boolean, showSeconds: boolean, textSize }` | `/settings/theme` |
+| `theme` | `{ themeOverride: number? \| null, use24Hour: boolean, showSeconds: boolean }` — text size is per-device (`localStorage`), not part of this blob | `/settings/theme` |
 | `weather_location` | `{ type: "city" \| "coordinates", city?: string, lat?: number, lon?: number }` | `/settings/weather` |
 | `widget_visibility` | `Record<WidgetKey, boolean>` | `/settings/widgets` |
 | `screensaver` | `{ screensaverTimeout, presenceTimeout, presenceControlMode, photoRotationInterval }` | `/settings/screensaver` |
 | `home_assistant` | `{ url, dashboards: Dashboard[], rooms: Room[] }` — `access_token` is *(secret, moved)* | `/settings/homeassistant` |
 | `cameras` | `{ cameras: CameraConfig[] }` | `/settings/cameras` |
 | `bring_settings` | `{ selectedListId, autoSync, twoWaySync, syncCategories }` — `credentials` is *(secret, moved)* | `/settings/bring` |
-| `google_calendar` | `{ enabled_calendars[], mapping_rules[], auto_sync, last_sync, ... }` — `access_token`/`refresh_token`/`expiry_date` are *(secret, moved)* | `/settings/google` |
+| `google_calendar` | `{ enabled_calendars[], mapping_rules[], auto_sync, last_sync, expiry_date, ... }` — `access_token`/`refresh_token` are *(secret, moved)* | `/settings/google` |
 | `immich` | `{ url, selected_album }` — `api_key` is *(secret, moved)* | `/settings/photos` |
 | `unsplash` | `{ monthly_terms }` — `access_key` is *(secret, moved)* | `/settings/photos` |
 | `photo_source` | `{ source: "immich" \| "unsplash" }` | `/settings/photos` |
