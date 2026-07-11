@@ -36,12 +36,17 @@ import {
   DatabaseBackup,
   Pencil,
   X,
+  Activity,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { PinGuard } from "@/components/pin-guard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IntegrationStatusRow } from "@/components/integration-status-row";
+import { useRealtimeStatusStore } from "@/stores/realtime-status-store";
+import { usePushServerConfigured } from "@/hooks/use-push-notifications";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,6 +82,9 @@ export default function SettingsPage() {
   const deleteDevice = useDeleteDevice();
   const isOnline = useIsOnline();
   const { data: version } = useVersionCheck();
+  const realtimeStatus = useRealtimeStatusStore((s) => s.status);
+  const pushServerConfigured = usePushServerConfigured();
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const { data: haStatus } = useHomeAssistantStatus();
   const haConnected = !!haStatus?.url && !!haStatus?.access_token;
   const { data: haConn } = useHomeAssistantConnectionCheck(haConnected);
@@ -215,6 +223,19 @@ export default function SettingsPage() {
       right: statusDot("bg-muted-foreground/40"),
     };
   };
+
+  // Diagnostics card row: label + colored dot + status text. Reuses the
+  // statusDot()/integrationStatus() pattern above rather than a heavier
+  // component — this card renders zero new queries, only existing hooks.
+  const diagRow = (label: string, status: React.ReactNode, dot: React.ReactNode) => (
+    <div className="flex items-center justify-between gap-3 py-2.5 border-b border-border/50 last:border-b-0">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="flex items-center gap-2 text-sm font-medium">
+        {status}
+        {dot}
+      </span>
+    </div>
+  );
 
   const copyJoinCode = () => {
     if (family?.join_code) {
@@ -924,6 +945,101 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground mt-2">{t("feedHint")}</p>
               )}
             </div>
+          </Card>
+        </motion.div>
+
+        {/* Diagnostics */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="mt-8"
+        >
+          <Card className="p-4">
+            <button
+              type="button"
+              onClick={() => setDiagnosticsOpen((open) => !open)}
+              className="w-full flex items-center gap-3"
+              aria-expanded={diagnosticsOpen}
+            >
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Activity className="size-5 text-primary" strokeWidth={1.75} />
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="font-medium">{t("diagnosticsTitle")}</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("diagnosticsDescription")}
+                </p>
+              </div>
+              {diagnosticsOpen ? (
+                <ChevronUp className="size-4 text-muted-foreground shrink-0" />
+              ) : (
+                <ChevronDown className="size-4 text-muted-foreground shrink-0" />
+              )}
+            </button>
+
+            {diagnosticsOpen && (
+              <div className="mt-4 pt-4 border-t">
+                {diagRow(
+                  t("diagnosticsVersionLabel"),
+                  <span className="text-muted-foreground font-normal">
+                    {version?.current ?? "—"}
+                  </span>,
+                  statusDot("bg-muted-foreground/40")
+                )}
+                {diagRow(
+                  t("diagnosticsNetworkLabel"),
+                  isOnline ? (
+                    <span className="text-success">{t("diagnosticsStatusOk")}</span>
+                  ) : (
+                    <span className="text-destructive">{t("diagnosticsStatusOffline")}</span>
+                  ),
+                  statusDot(isOnline ? "bg-success" : "bg-destructive")
+                )}
+                {diagRow(
+                  t("diagnosticsRealtimeLabel"),
+                  realtimeStatus === "connected" ? (
+                    <span className="text-success">{t("diagnosticsStatusOk")}</span>
+                  ) : realtimeStatus === "connecting" ? (
+                    <span className="text-warning">{t("diagnosticsStatusReconnecting")}</span>
+                  ) : (
+                    <span className="text-destructive">{t("diagnosticsStatusOffline")}</span>
+                  ),
+                  statusDot(
+                    realtimeStatus === "connected"
+                      ? "bg-success"
+                      : realtimeStatus === "connecting"
+                        ? "bg-warning"
+                        : "bg-destructive"
+                  )
+                )}
+                {diagRow(
+                  t("diagnosticsPushLabel"),
+                  pushServerConfigured ? (
+                    <span className="text-success">{t("diagnosticsStatusOk")}</span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {t("diagnosticsStatusNotConfigured")}
+                    </span>
+                  ),
+                  statusDot(pushServerConfigured ? "bg-success" : "bg-muted-foreground/40")
+                )}
+                {(() => {
+                  const ha = integrationStatus(haConnected, haNeedsReauth);
+                  const google = integrationStatus(googleConnected, googleNeedsReauth);
+                  const bring = integrationStatus(bringConnected, false);
+                  const photos = integrationStatus(photosConnected, false);
+                  return (
+                    <>
+                      {diagRow(t("itemHomeAssistantLabel"), ha.node, ha.right)}
+                      {diagRow(t("itemCalendarLabel"), google.node, google.right)}
+                      {diagRow(t("itemBringLabel"), bring.node, bring.right)}
+                      {diagRow(t("itemPhotosLabel"), photos.node, photos.right)}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
           </Card>
         </motion.div>
 
