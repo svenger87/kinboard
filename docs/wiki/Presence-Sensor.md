@@ -168,5 +168,5 @@ The script writes to `C:\presence-sensor.log` (Windows) or wherever you configur
 ## Related
 
 - [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C) — full reference deployment
-- [Database-Schema](Database-Schema) — `devices.has_presence_sensor` flag, presence state on the realtime feed
+- [Architecture](Architecture#database-schema) — `devices.has_presence_sensor` flag, presence state on the realtime feed
 - [`presence-sensor.py`](https://github.com/svenger87/kinboard/blob/main/hardware/presence-sensor.py) — the script itself

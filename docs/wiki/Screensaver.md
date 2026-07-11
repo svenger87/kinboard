@@ -2,9 +2,6 @@
 
 When the kiosk is idle, Kinboard switches to a fullscreen screensaver — a slow photo carousel with a clock overlay, optional news ticker, and presence-aware activation.
 
-> TODO: screenshot of the screensaver in idle state
-> TODO: screenshot of the screensaver showing a news article overlay
-
 ## What's on the screensaver
 
 Top → bottom:

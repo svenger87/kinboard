@@ -7,9 +7,7 @@
 
 **Operations**
 - [[Self-hosting]]
-- [[Onboarding]]
 - [[Security-and-Threat-Model]]
-- [[Database-Schema]]
 - [[Troubleshooting]]
 
 **Integrations**
@@ -37,8 +35,7 @@
 - [[School schedule|Schedule]]
 - [[Smart home & energy|Smart-Home]]
 - [[Screensaver]]
-- [[Family members|Family-Members]]
-- [[Devices]]
+- [[People & devices|People-and-Devices]]
 - [[Notifications]]
 - [[Themes]]
 
@@ -49,6 +46,4 @@
 - [[Pocket Money|Pocket-Money]]
 
 **Contributing**
-- [[Plugin-Authoring]]
-- [[Plugin architecture|Plugin-Architecture]]
-- [[Screenshots TODO|Screenshots-needed]]
+- [[Plugin development|Plugin-Development]]

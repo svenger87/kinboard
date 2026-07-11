@@ -58,8 +58,6 @@ Bottom-right floating button: tap → modal showing every `light` entity in the 
 
 Tap individual lights to toggle, or use the master "all off" / "all on" buttons at the top of the modal.
 
-> TODO: screenshot of the floating lights FAB modal
-
 ### Dashboards (custom card grids)
 
 Beyond rooms, [dashboards](Home-Assistant#dashboards) let you curate a flat grid of cards across rooms. Use cases:

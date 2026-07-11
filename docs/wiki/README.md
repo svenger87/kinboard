@@ -38,12 +38,12 @@ A small `docs/wiki/sync.sh` script can be added later to make this a one-liner.
 | Page | Status |
 |---|---|
 | [Home](Home) | Authored |
-| [Quick-start](Quick-start) | Authored |
-| [Architecture](Architecture) | Authored |
+| [Quick-start](Quick-start) | Authored — absorbed Onboarding |
+| [Architecture](Architecture) | Authored — absorbed Database-Schema |
 | [Self-hosting](Self-hosting) | Authored |
-| [Onboarding](Onboarding) | Authored |
+| [Onboarding](Onboarding) | Merged into Quick-start |
 | [Security-and-Threat-Model](Security-and-Threat-Model) | Authored |
-| [Database-Schema](Database-Schema) | Authored |
+| [Database-Schema](Database-Schema) | Merged into Architecture |
 | [Google-Calendar](Google-Calendar) | Authored — TODO screenshots |
 | [Home-Assistant](Home-Assistant) | Authored — TODO screenshots |
 | [Immich](Immich) | Authored — TODO screenshots |
@@ -57,7 +57,9 @@ A small `docs/wiki/sync.sh` script can be added later to make this a one-liner.
 | [Notifications](Notifications) | Authored — PWA install + iOS quirks |
 | [Themes](Themes) | Authored |
 | [Troubleshooting](Troubleshooting) | Authored — grow as bugs surface |
-| [Plugin-Authoring](Plugin-Authoring) | Stub — v1.1 workstream |
+| [Plugin-Development](Plugin-Development) | Authored — absorbed Plugin-Architecture + Plugin-Authoring |
+| [Plugin-Authoring](Plugin-Authoring) | Merged into Plugin-Development |
+| [Plugin-Architecture](Plugin-Architecture) | Merged into Plugin-Development |
 | [Dashboard](Dashboard) | Authored — TODO screenshots |
 | [Calendar](Calendar) | Authored — two-way Google sync — TODO screenshots |
 | [Shopping](Shopping) | Authored — built-in offline + optional Bring — TODO screenshots |
@@ -68,6 +70,6 @@ A small `docs/wiki/sync.sh` script can be added later to make this a one-liner.
 | [Schedule](Schedule) | Authored — TODO screenshots |
 | [Smart-Home](Smart-Home) | Authored — TODO screenshots |
 | [Screensaver](Screensaver) | Authored — TODO screenshots |
-| [Family-Members](Family-Members) | Authored — TODO screenshots |
-| [Devices](Devices) | Authored — TODO screenshots |
-| [Screenshots-needed](Screenshots-needed) | Master list of every TODO screenshot |
+| [People-and-Devices](People-and-Devices) | Authored — absorbed Family-Members + Devices |
+| [Family-Members](Family-Members) | Merged into People-and-Devices |
+| [Devices](Devices) | Merged into People-and-Devices |

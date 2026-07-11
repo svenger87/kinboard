@@ -65,6 +65,24 @@ Settings → **Settings PIN** sets a 4-digit code that's required to enter `/set
 
 Once set, the PIN persists for the browser session via `sessionStorage`. Closing the tab requires re-entry; navigating between settings sub-pages does not.
 
+## How device recognition works
+
+Kinboard recognizes a returning device first via a stored device-id (cookie + `localStorage` + IndexedDB + service worker, kept in sync across all four). When that's gone — cleared site data, browser reset, fresh device — the server falls back to a **fingerprint**: a hash derived from the browser/OS environment. The current inputs are `navigator.language`, screen geometry (`width × height × colorDepth`), timezone offset, and `navigator.hardwareConcurrency`. `navigator.userAgent` and `navigator.deviceMemory` are deliberately excluded — both drift with browser updates and would invalidate every existing match the moment Safari or Chrome ships a new minor version. The fingerprint is recomputed on every visit and never stored client-side.
+
+Each device row also keeps a `fingerprint_history TEXT[]` array. Every time recognition matches by the current fingerprint **or** by a fingerprint already present in the history, the current fingerprint is appended if it isn't there yet — the lookup is an `OR` against both columns:
+
+```ts
+.or(`fingerprint.eq.${fp},fingerprint_history.cs.{${fp}}`)
+```
+
+Effect: a device that has presented multiple fingerprints across its lifetime (e.g. one before a browser update, one after) has both stored, so a future wipe that lands the device back at *either* fingerprint still recognizes it. A GIN index on `fingerprint_history` keeps the array-contains lookup fast.
+
+**What this doesn't survive:** a brand-new device, or switching browsers entirely — different storage origin, different fingerprint inputs, nothing to match against. Recovery is always available through the family code: any device still connected to the family can show it (**Settings** → "Family code"). On the unrecognized device, open `/join`, paste the code, name the device, and tap "Join". That links the device going forward — its new fingerprint gets stored in `fingerprint_history`, so subsequent wipes recover automatically without re-entering the code.
+
+The fingerprint is intentionally low-entropy and stable — the opposite of tracking-grade fingerprinting (no canvas hashing, no audio context, no font enumeration, no WebGL renderer strings). It's enough to disambiguate the handful of devices in a household, but not so sensitive that a routine browser update breaks recognition for everyone in the family.
+
+Source: `webapp/src/lib/device-id.ts` (fingerprint computation), `webapp/src/hooks/use-supabase-queries.ts` (`useFindDeviceByFingerprint`), `webapp/docker/migration_fingerprint_history.sql` (schema for the history array).
+
 ## Trusted-LAN-but-still-paranoid checklist
 
 - [ ] Stack runs on a host that's not directly reachable from the WAN
