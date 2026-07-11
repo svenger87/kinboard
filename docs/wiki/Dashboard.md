@@ -60,9 +60,7 @@ Below the clock: row of family-member avatars with their colors. Each member's a
 
 Tapping an avatar surfaces upcoming events / pending todos for that person specifically.
 
-> TODO: screenshot of the family-members avatar row
-
-Configure people in [Settings → Family members](Family-Members).
+Configure people in [Settings → Family members](People-and-Devices).
 
 ## Real-time sync
 
@@ -84,5 +82,5 @@ The widget *order* is fixed for now (defined in `webapp/src/app/page.tsx`). Drag
 ## Related
 
 - [Themes](Themes) — the monthly color cycle
-- [Family-Members](Family-Members) — per-person colors and avatars
+- [People-and-Devices](People-and-Devices) — per-person colors and avatars
 - [Notifications](Notifications) — what shows up as a push when widgets change

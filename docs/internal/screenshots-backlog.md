@@ -1,10 +1,12 @@
-# Screenshots needed
+**Internal planning document — not user documentation.**
 
-Master tracking list for every `> TODO: screenshot` marker in the wiki + main README.
+# Screenshots backlog
 
-> **Status (2026-05-07):** 14 of the original 35 markers are captured (40%). The [automated capture toolchain](screenshots/) covers desktop landscape + mobile portrait × dark + light themes against an anonymized prod-data demo, so each captured surface comes in 4 variants. The list below tracks remaining markers — modals, settings sub-pages, mid-state shots, hardware photos that need a real device — plus the bonus surfaces the toolchain captured beyond the original list.
+Master tracking list for wiki screenshot capture. Moved out of the public wiki (`docs/wiki/Screenshots-needed.md`) since it's a maintainer TODO list, not reference content for self-hosters.
 
-> **Format guidance** — capture at native panel resolution where possible (1920×1200 for the kiosk-style UI), PNG, drop into `docs/wiki/images/<page-slug>-<short-name>.png`, and replace the `> TODO: screenshot` line with `![alt text](images/<file>.png)`.
+> **Status (2026-05-07):** 14 of the original 35 markers are captured (40%). The [automated capture toolchain](../wiki/screenshots/) covers desktop landscape + mobile portrait × dark + light themes against an anonymized prod-data demo, so each captured surface comes in 4 variants. The list below tracks remaining markers — modals, settings sub-pages, mid-state shots, hardware photos that need a real device — plus the bonus surfaces the toolchain captured beyond the original list.
+
+> **Format guidance** — capture at native panel resolution where possible (1920×1200 for the kiosk-style UI), PNG, drop into `docs/wiki/images/<page-slug>-<short-name>.png`, and embed with `![alt text](images/<file>.png)` on the source wiki page.
 
 ## Top-priority (these are the hero screenshots — pick 3-4 for the README + Home page)
 
@@ -154,7 +156,7 @@ For physical kiosk photos:
 - Capture both wide + close-up so the README hero shot has options
 - Crop distractions; downscale to ~1600px wide max
 
-After saving, replace the `> TODO: screenshot of X` line on the source page with the embed:
+After saving, replace the `> TODO: screenshot of X` line (if any remain) on the source page with the embed:
 
 ```markdown
 ![Description](images/page-name-screenshot.png)

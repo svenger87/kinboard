@@ -2,8 +2,6 @@
 
 Pull screensaver and gallery photos from your self-hosted [Immich](https://immich.app/) instance.
 
-> TODO: screenshot of the screensaver showing a photo from Immich
-
 ## What it does
 
 - Picks a configured Immich album (or auto-rotates through monthly albums) and serves photos to the screensaver + gallery widget

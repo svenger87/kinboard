@@ -77,6 +77,6 @@ You can add a Google Calendar entry the day before any birthday and it'll show u
 
 ## Related
 
-- [Family-Members](Family-Members) — link birthdays to family members for color matching
+- [People-and-Devices](People-and-Devices) — link birthdays to family members for color matching
 - [Calendar](Calendar) — birthdays also appear as all-day events on the calendar
 - [Dashboard](Dashboard) — birthday widget

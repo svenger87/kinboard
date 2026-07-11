@@ -398,8 +398,7 @@ docker rm -f kinboard-watchtower
 
 ## Related
 
-- [Quick-start](Quick-start) — the bring-up
-- [Onboarding](Onboarding) — first family, joining devices
+- [Quick-start](Quick-start) — the bring-up, first family, joining devices
 - [Notifications](Notifications) — VAPID + cron details
-- [Database-Schema](Database-Schema) — what's in Postgres
+- [Architecture](Architecture#database-schema) — what's in Postgres
 - [Troubleshooting](Troubleshooting) — when it breaks

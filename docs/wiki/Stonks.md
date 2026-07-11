@@ -2,7 +2,7 @@
 
 The Stonks page (`/stonks`) is a watchlist for stocks, ETFs, crypto, indices, and forex pairs. Each ticker gets a per-symbol detail page with proper TradingView candle charts (1d, 1w, 1m, 3m, 1y, max timeframes), a current-price + day-change hero, and a market-state badge (PRE / REGULAR / POST / CLOSED). The dashboard widget rotates through your tickers every 8 seconds so you see something fresh on each glance.
 
-Stonks shipped in v1.0.19 as the fourth bundled [SurfacePlugin](Plugin-Architecture), alongside Vehicles, Energy, and Cameras.
+Stonks shipped in v1.0.19 as the fourth bundled [SurfacePlugin](Plugin-Development), alongside Vehicles, Energy, and Cameras.
 
 ---
 
@@ -89,6 +89,6 @@ If you don't want this plugin at all, toggle it off at `/settings/plugins` → *
 
 ## Related
 
-- [[Plugin-Architecture]] — the `SurfacePlugin` contract Stonks implements
+- [[Plugin-Development]] — the `SurfacePlugin` contract Stonks implements
 - [[Plugin-Directory]] — full list of bundled plugins
 - [[Notifications]] — push notification infrastructure (future home for price alerts)

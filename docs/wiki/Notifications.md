@@ -28,7 +28,6 @@ If step 4 doesn't show the prompt, see [Troubleshooting](#troubleshooting) below
 > **Two PWAs available.** Kinboard ships *two* installable PWAs that share the same backend: the **main Kinboard PWA** (full app) and a **shopping-only PWA** scoped to the shopping list. Push subscriptions are per-origin, so both PWAs share the same notification permission and can receive any notification type. Pick whichever install fits your phone usage. See [Shopping-only PWA](#shopping-only-pwa-separate-install) below.
 
 <img src="images/settings-notifications.png" alt="Settings — notifications: subscription toggle, per-event preferences and quiet hours" width="420"/>
-> TODO: screenshot of an iOS Add-to-Home-Screen flow side-by-side with the resulting subscription state
 
 ## What you can subscribe to
 
@@ -151,6 +150,6 @@ For per-family disable: each user toggles their own subscription off. There's no
 
 ## Related
 
-- [Database-Schema](Database-Schema) — `push_subscriptions` and `notification_preferences` tables
+- [Architecture](Architecture#database-schema) — `push_subscriptions` and `notification_preferences` tables
 - [Quick-start](Quick-start) — `setup.sh` is what generates VAPID keys for you
 - See [`webapp/src/lib/push-sender.ts`](https://github.com/svenger87/kinboard/blob/main/webapp/src/lib/push-sender.ts) for the server-side push code

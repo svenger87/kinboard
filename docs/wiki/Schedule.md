@@ -4,7 +4,7 @@ The `/schedule` page — kids' weekly school timetable, with per-day pack-list r
 
 ![School schedule — Mon-Fri grid with per-period subjects](images/schedule-week-grid.png)
 
-Configured via [Settings → Family members](Family-Members) (mark people as "child / student") and [Settings → School schedule](Database-Schema) (period definitions, pack lists). The `/schedule` view is the **consumer** surface — kids check it before leaving for school.
+Configured via [Settings → Family members](People-and-Devices) (mark people as "child / student") and [Settings → School schedule](Architecture#settings-keys-at-a-glance) (period definitions, pack lists). The `/schedule` view is the **consumer** surface — kids check it before leaving for school.
 
 ## Layout
 
@@ -26,7 +26,7 @@ The dashboard's **schedule widget** also picks one child (the one who's most-act
 
 Below the schedule grid, a **pack list** shows what to bring for tomorrow's classes. Pulled from:
 
-- **Per-subject pack items** — "Bring sportswear for PE" — configured in [Settings → School schedule → Pack list](Database-Schema)
+- **Per-subject pack items** — "Bring sportswear for PE" — configured in [Settings → School schedule → Pack list](Architecture#settings-keys-at-a-glance)
 - **Tomorrow's actual classes** — only items relevant to subjects in tomorrow's grid show up
 
 Example: tomorrow has PE → pack list shows "Sportswear, Sneakers, Water bottle". Reset every morning.
@@ -105,6 +105,6 @@ Real-time published, so editing on a phone propagates to the kitchen wall in ~1 
 
 ## Related
 
-- [Family-Members](Family-Members) — mark a person as "child" to enable schedule features
+- [People-and-Devices](People-and-Devices) — mark a person as "child" to enable schedule features
 - [Dashboard](Dashboard) — schedule widget shows today's lessons
 - [Tasks](Tasks) — homework / project assignments
