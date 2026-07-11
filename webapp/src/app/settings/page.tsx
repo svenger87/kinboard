@@ -34,6 +34,8 @@ import {
   ListOrdered,
   RefreshCw,
   DatabaseBackup,
+  Pencil,
+  X,
 } from "lucide-react";
 import { PinGuard } from "@/components/pin-guard";
 import { Card } from "@/components/ui/card";
@@ -52,7 +54,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useFamilyStore } from "@/stores/family-store";
-import { useKeyboardShortcuts, useSwipeNavigation, useSetting, useUpdateSetting, useIsOnline, useDeleteDevice, useIsPluginEnabled, useHomeAssistantStatus, useHomeAssistantConnectionCheck, useGoogleCalendarStatus, useBringSettings, useImmichStatus, useUnsplashStatus, useRegenerateJoinCode } from "@/hooks";
+import { useKeyboardShortcuts, useSwipeNavigation, useSetting, useUpdateSetting, useIsOnline, useDeleteDevice, useIsPluginEnabled, useHomeAssistantStatus, useHomeAssistantConnectionCheck, useGoogleCalendarStatus, useBringSettings, useImmichStatus, useUnsplashStatus, useRegenerateJoinCode, useRenameFamily } from "@/hooks";
 import { useVersionCheck } from "@/hooks/use-version-check";
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
@@ -100,6 +102,7 @@ export default function SettingsPage() {
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
   const regenerateJoinCode = useRegenerateJoinCode();
+  const renameFamily = useRenameFamily();
   const [regenDialogOpen, setRegenDialogOpen] = useState(false);
   const [regenConfirmOpen, setRegenConfirmOpen] = useState(false);
   const [selectedTtl, setSelectedTtl] = useState<number | null>(null);
@@ -108,6 +111,11 @@ export default function SettingsPage() {
   const [feedUrl, setFeedUrl] = useState<string | null>(null);
   const [feedLoading, setFeedLoading] = useState(false);
   const [feedCopied, setFeedCopied] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [deleteFamilyOpen, setDeleteFamilyOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [isDeletingFamily, setIsDeletingFamily] = useState(false);
 
   useEffect(() => {
     if (!family?.id) return;
@@ -211,6 +219,61 @@ export default function SettingsPage() {
       navigator.clipboard.writeText(family.join_code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const startEditingName = () => {
+    setNameDraft(family?.name ?? "");
+    setEditingName(true);
+  };
+
+  const cancelEditingName = () => {
+    setEditingName(false);
+    setNameDraft(family?.name ?? "");
+  };
+
+  const handleSaveName = () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || trimmed === family?.name) {
+      // No-op: unchanged or empty name never fires the mutation.
+      setEditingName(false);
+      setNameDraft(family?.name ?? "");
+      return;
+    }
+    renameFamily.mutate(
+      { name: trimmed },
+      {
+        onSuccess: () => {
+          toast.success(t("familyRenamed"));
+          setEditingName(false);
+        },
+        onError: (err) => {
+          console.error("settings: rename family failed:", err);
+          toast.error(t("renameFailed"));
+        },
+      }
+    );
+  };
+
+  const handleDeleteFamily = async () => {
+    if (!family?.id || isDeletingFamily) return;
+    setIsDeletingFamily(true);
+    try {
+      const res = await fetch("/api/family", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          family_id: family.id,
+          confirm_name: deleteConfirmName,
+        }),
+      });
+      if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+      clearSession();
+      window.location.href = "/join";
+    } catch (err) {
+      console.error("settings: delete family failed:", err);
+      toast.error(t("deleteFamilyFailed"));
+      setIsDeletingFamily(false);
     }
   };
 
@@ -442,6 +505,53 @@ export default function SettingsPage() {
             transition={{ delay: 0.1 }}
           >
             <Card className="p-6 mb-6">
+              <div className="flex items-center justify-between gap-3 pb-4 mb-4 border-b border-border">
+                {editingName ? (
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <Input
+                      value={nameDraft}
+                      onChange={(e) => setNameDraft(e.target.value)}
+                      className="h-9"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveName();
+                        if (e.key === "Escape") cancelEditingName();
+                      }}
+                    />
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="size-9 shrink-0"
+                      onClick={handleSaveName}
+                      disabled={renameFamily.isPending}
+                    >
+                      <Check className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-9 shrink-0"
+                      onClick={cancelEditingName}
+                      disabled={renameFamily.isPending}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <p className="truncate text-lg font-semibold">{family.name}</p>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-7 shrink-0"
+                      aria-label={t("renameFamilyAria")}
+                      onClick={startEditingName}
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm text-muted-foreground mb-1">
@@ -680,6 +790,61 @@ export default function SettingsPage() {
                   }}
                 >
                   {t("leaveFamilyConfirm")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </motion.div>
+
+        {/* Danger zone: delete family */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.62 }}
+          className="mt-2 text-center"
+        >
+          <AlertDialog
+            open={deleteFamilyOpen}
+            onOpenChange={(open) => {
+              setDeleteFamilyOpen(open);
+              if (!open) setDeleteConfirmName("");
+            }}
+          >
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+              >
+                {t("deleteFamilyButton")}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("deleteFamilyTitle")}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("deleteFamilyDescription")}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <Input
+                value={deleteConfirmName}
+                onChange={(e) => setDeleteConfirmName(e.target.value)}
+                placeholder={family?.name ?? ""}
+                autoComplete="off"
+              />
+              <AlertDialogFooter>
+                <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={
+                    !family?.name ||
+                    deleteConfirmName !== family.name ||
+                    isDeletingFamily
+                  }
+                  onClick={() => {
+                    handleDeleteFamily();
+                  }}
+                >
+                  {t("deleteFamilyConfirm")}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

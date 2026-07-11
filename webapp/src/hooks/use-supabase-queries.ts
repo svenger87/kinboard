@@ -1943,6 +1943,36 @@ export function useRegenerateJoinCode() {
 }
 
 // ===================
+// FAMILY RENAME
+// ===================
+
+export function useRenameFamily() {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+  const { family, setFamily } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async ({ name }: { name: string }) => {
+      const familyId = requireFamilyId(family);
+
+      const { data, error } = await (supabase as any)
+        .from("families")
+        .update({ name, updated_at: new Date().toISOString() })
+        .eq("id", familyId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Family;
+    },
+    onSuccess: (updatedFamily) => {
+      setFamily(updatedFamily);
+      queryClient.invalidateQueries({ queryKey: ["family"] });
+    },
+  });
+}
+
+// ===================
 // HELPER FUNCTIONS
 // ===================
 
