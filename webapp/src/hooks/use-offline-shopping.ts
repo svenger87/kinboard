@@ -29,7 +29,6 @@ import {
  */
 export interface OfflineShoppingItem extends ShoppingItem {
   _syncStatus: SyncStatus;
-  _isLocal: boolean;
   _localId?: string;
 }
 
@@ -75,7 +74,6 @@ export function useOfflineShoppingItems() {
     const result: OfflineShoppingItem[] = (serverItems ?? []).map((item) => ({
       ...item,
       _syncStatus: "synced" as SyncStatus,
-      _isLocal: false,
     }));
 
     return result;

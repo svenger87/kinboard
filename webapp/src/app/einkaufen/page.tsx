@@ -259,7 +259,7 @@ export default function EinkaufenPage() {
     // a delete that was queued offline needs a re-create on undo even if
     // we're back online by the time the toast is tapped.
     const wasOnlineAtDelete = isOnline;
-    const wasServerBacked = !!item && !item._isLocal && !id.startsWith("local_");
+    const wasServerBacked = !!item && !id.startsWith("local_");
 
     try {
       await deleteItem.mutateAsync(id);
@@ -271,7 +271,7 @@ export default function EinkaufenPage() {
         // it keeps whatever bring_item_id was stored; the offline recreate
         // path below goes through the normal add flow and drops it, since
         // createItem has no bring_item_id field to set.
-        const { _syncStatus, _isLocal, _localId, ...itemSnapshot } = item;
+        const { _syncStatus, _localId, ...itemSnapshot } = item;
 
         showUndoToast({
           message: t("itemDeleted"),
