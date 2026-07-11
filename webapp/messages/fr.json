@@ -222,7 +222,10 @@
     "familyNamePlaceholder": "ex. Les Dupont",
     "createSubmit": "Créer la famille",
     "createSubmitting": "Création…",
-    "createError": "Échec de la création de la famille."
+    "createError": "Échec de la création de la famille.",
+    "restoreButton": "Restaurer depuis une sauvegarde",
+    "restoreFailed": "Échec de la restauration — est-ce un fichier de sauvegarde Kinboard ?",
+    "restoreWarnings": "Restauré avec {count} éléments ignorés"
   },
   "holidays": {
     "neujahr": "Jour de l'an",

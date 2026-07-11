@@ -222,7 +222,10 @@
     "familyNamePlaceholder": "z.B. Familie Müller",
     "createSubmit": "Familie erstellen",
     "createSubmitting": "Erstellen…",
-    "createError": "Fehler beim Erstellen der Familie."
+    "createError": "Fehler beim Erstellen der Familie.",
+    "restoreButton": "Aus Sicherung wiederherstellen",
+    "restoreFailed": "Wiederherstellung fehlgeschlagen — ist das eine Kinboard-Sicherungsdatei?",
+    "restoreWarnings": "Mit {count} übersprungenen Einträgen wiederhergestellt"
   },
   "holidays": {
     "neujahr": "Neujahr",

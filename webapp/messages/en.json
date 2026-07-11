@@ -222,7 +222,10 @@
     "familyNamePlaceholder": "e.g. The Smiths",
     "createSubmit": "Create family",
     "createSubmitting": "Creating…",
-    "createError": "Failed to create family."
+    "createError": "Failed to create family.",
+    "restoreButton": "Restore from backup",
+    "restoreFailed": "Restore failed — is this a Kinboard backup file?",
+    "restoreWarnings": "Restored with {count} skipped items"
   },
   "holidays": {
     "neujahr": "New Year's Day",
