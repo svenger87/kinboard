@@ -1,3 +1,5 @@
+**Internal planning document — not user documentation.**
+
 # Launch readiness checklist
 
 Internal document — review before publishing the public repo. Delete or move to `docs/` after launch.
