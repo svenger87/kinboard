@@ -18,6 +18,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Bring!: closed the one remaining case of the v1.4.0 settings-reset fix — changing an option right after app start, before the Bring settings had loaded once, could still reset the others to defaults.
 - Event reminders no longer send the same push notification twice; birthday and meal-plan digests can no longer double-send if their schedule re-runs.
 - The weather settings Save button now disables again when you revert your edits or after saving.
+- Event links: browser back never leaves a stale event address in the URL bar, deleting a deep-linked event can be undone like any other, and shared-link events show the right person color as soon as family data loads.
 
 ## [1.4.0] - 2026-07-11 — Security hardening, full-language support, backup & undo
 
