@@ -13,6 +13,7 @@ Birthday entry asks for:
 - **Name**
 - **Date** — full date including year (year used for "turning N" math)
 - **Person** (optional) — if this birthday is for an existing family member, link to their row to inherit color
+- **Photo** (optional) — shown on the hero card, the year-ring dot, and the list, instead of the linked person's avatar
 - **Notes** (optional) — gift ideas, what they like, allergies for kid party invites
 
 Birthdays without a linked person stay separate from the family-member list. Useful for:
@@ -52,15 +53,16 @@ The today-strip ribbon also shows birthday names if today's the day.
 
 ## Reminders
 
-Currently no push notification for birthdays (planned for v1.1 — same cron infra as the [todo daily digest](Notifications)). For now, the daily glance at the dashboard surfaces them.
+Push notifications for birthdays: enable the per-device toggle in **Settings → Notifications**, then set how much lead time you want per birthday — each birthday entry has its own **notify N days before** field, so a birthday that needs gift-shopping time can get a week's notice while others get a same-day nudge. Runs on the same cron infra as the [todo daily digest](Notifications#server-side-cron) and respects quiet hours. See [Notifications → Birthday reminders](Notifications#birthday-reminders).
 
-You can add a Google Calendar entry the day before any birthday and it'll show up via the regular [Calendar](Calendar) events flow if you want a reminder integrated with the calendar widget.
+You can also add a Google Calendar entry the day before any birthday and it'll show up via the regular [Calendar](Calendar) events flow if you want it integrated with the calendar widget too.
 
 ## Persistence
 
 - Stored in `public.birthdays`
 - One row per birthday (not aggregated by person)
 - Real-time published — adding on a phone updates the ring on the kitchen wall in ~1 s
+- Deleting a birthday shows an "Undo" toast that restores it exactly as it was
 
 ## Patterns that work well
 
@@ -71,8 +73,6 @@ You can add a Google Calendar entry the day before any birthday and it'll show u
 ## What's not supported
 
 - **Anniversaries** (wedding, etc.) — workaround: add as a birthday with a date, name them "Wedding anniversary"
-- **Reminder N days before** — planned for v1.1
-- **Per-person photo on the ring** — only color dots; bringing in avatars is on the v1.2 wishlist
 - **Birthday cards / message generation** — out of scope
 
 ## Related

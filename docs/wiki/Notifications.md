@@ -1,6 +1,6 @@
 # Notifications
 
-Kinboard supports **web push notifications** — every device that opts in gets push messages for shopping-list changes, todo deadlines, and (planned) calendar reminders.
+Kinboard supports **web push notifications** — every device that opts in gets push messages for shopping-list changes, todo deadlines, calendar reminders, and birthday reminders.
 
 ## Requirements (read this first)
 
@@ -37,8 +37,14 @@ Per-device, in **Settings → Notifications**:
 - **Shopping list — reminders** ("you have 12 items still to buy")
 - **Tasks — new tasks** ("Mom assigned a task to you")
 - **Tasks — daily reminder** (8:00 AM digest of today's pending tasks)
+- **Calendar reminders** — a heads-up before an upcoming event
+- **Birthday reminders** — see [Birthday reminders](#birthday-reminders) below
 
 Plus **Quiet hours** — a daily window during which no push is delivered (you still get the badge in-app the next morning).
+
+## Birthday reminders
+
+Per-device toggle in **Settings → Notifications**. When enabled, Kinboard sends a push notification ahead of each tracked birthday, timed by a **per-birthday lead time** (the "notify N days before" field on the birthday entry itself, not a single global setting) — so you can get a week's notice for a birthday that needs gift shopping and a same-day nudge for one that doesn't. Respects quiet hours like every other push type. See [Birthdays → Reminders](Birthdays#reminders).
 
 ## Installing as a PWA
 
@@ -98,7 +104,7 @@ If you regenerate the keys, every existing subscription becomes invalid and user
 
 ## Server-side cron
 
-Reminders that aren't event-triggered (the daily 8:00 AM todo digest, future calendar reminders) run on a schedule via the `cron` container. Configuration in `webapp/docker/ofelia.ini`:
+Reminders that aren't event-triggered (the daily 8:00 AM todo digest, calendar reminders, birthday reminders) run on a schedule via the `cron` container. Configuration in `webapp/docker/ofelia.ini`:
 
 ```ini
 [job-exec "todo-reminders"]
@@ -122,9 +128,7 @@ Full step-by-step in [Installing as a PWA → iOS (Safari)](#ios-safari) above.
 
 ## Quiet hours
 
-Per-device quiet window. Push notifications received during quiet hours get queued server-side and... actually, that's not implemented yet (v1.0). Currently quiet-hours-mode just suppresses delivery during the window — you don't get a digest at the end.
-
-Roadmap for v1.1: queue-and-summarize during quiet hours.
+Per-device quiet window. Quiet-hours-mode suppresses push delivery during the window — there's no queue-and-summarize-afterward behavior; you just don't get a digest at the end. Anything that happened during quiet hours is still visible in-app as normal (badges, lists) the next time you open Kinboard.
 
 ## Testing
 
@@ -152,4 +156,5 @@ For per-family disable: each user toggles their own subscription off. There's no
 
 - [Architecture](Architecture#database-schema) — `push_subscriptions` and `notification_preferences` tables
 - [Quick-start](Quick-start) — `setup.sh` is what generates VAPID keys for you
+- [Birthdays](Birthdays) — where the per-birthday lead time is set
 - See [`webapp/src/lib/push-sender.ts`](https://github.com/svenger87/kinboard/blob/main/webapp/src/lib/push-sender.ts) for the server-side push code

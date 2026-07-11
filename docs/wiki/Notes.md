@@ -45,7 +45,7 @@ Tables, code blocks, and images are not rendered (intentional — keeps it light
 
 ## Lifecycle
 
-Notes don't auto-expire. Delete them manually from the note card. The widget on the dashboard shows the **most recent 3**, so newer notes naturally push older ones off-glance without requiring deletion.
+Notes don't auto-expire. Delete them manually from the note card — an "Undo" toast appears afterward to restore it exactly as it was. The widget on the dashboard shows the **most recent 3**, so newer notes naturally push older ones off-glance without requiring deletion.
 
 ## Real-time
 

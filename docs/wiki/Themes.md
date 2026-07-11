@@ -43,21 +43,19 @@ Settings → Theme → **24-hour format** toggle. Affects the clock widget + eve
 
 Settings → Theme → **Show seconds** toggle. Adds `:ss` to the clock widget. Stored in `settings.theme.showSeconds`.
 
+## Text size
+
+Settings → Theme → **Text size**: three sizes (small / medium / large). Stored **per device** in `localStorage`, not per family — so a wall kiosk can go large enough to read from across the kitchen while everyone's phones stay at a normal size. Applies app-wide, not just the clock.
+
 ## Locales
 
-Kinboard ships **English (en)** and **German (de)** out of the box. The whole UI is translated — 2200+ strings, parity-checked in CI.
+Kinboard ships **English (en)**, **German (de)**, and **French (fr)** out of the box. The whole UI is translated — 2200+ strings, parity-checked in CI. Push notification text also follows the family's chosen language (with correct pluralization in all three), not just the UI.
 
 ### Switching locale
 
-Currently locale is **cookie-based** with no UI picker yet. To change:
+**Settings → Language** has a picker — no browser console needed. It sets a `NEXT_LOCALE` cookie for the current device (so each device can run its own language) and also saves a family-level default, used only when a server-side process without a request cookie needs a language — push notification text and cron-generated messages.
 
-```js
-// browser console
-document.cookie = "NEXT_LOCALE=en; path=/; max-age=31536000";
-location.reload();
-```
-
-A proper Settings → Locale picker is on the v1.1 list.
+The same Settings → Language page also has a **country picker** for holidays — Germany, US, UK, Netherlands, or France — independent of the UI locale (a German-speaking family living in the US can pick `de` for the UI and `us` for holidays). Existing families default to Germany. See [Calendar → Holidays](Calendar#holidays).
 
 ### Architecture
 
@@ -135,9 +133,10 @@ For inline-styled chunks, use `t.rich()` with named tags:
 ## German-specific gotchas
 
 - The original repo was German-first; many internal IDs in DB still use German keys (e.g. `obst_gemuese` for the fruits-and-vegetables shopping category). Don't rename these — they're stable identifiers; only the displayed labels are translated.
-- `getGermanHolidays()` in `webapp/src/lib/german-holidays.ts` is hardcoded to German federal holidays + a few Niedersachsen-specific ones (Reformationstag). For other countries, this is the v1.1 work — generalizing into `holidays/<country-code>.ts`.
+- Holidays live in `webapp/src/lib/holidays/<country-code>.ts` (`de`, `us`, `uk`, `nl`, `fr` today), one file per country, selected via the Settings → Language country picker. Add a new country by dropping in another `<country-code>.ts` provider and registering it in `webapp/src/lib/holidays/index.ts`.
 
 ## Related
 
 - [Architecture](Architecture) — where the i18n bundles live
+- [Calendar](Calendar#holidays) — where the country picker's effect shows up
 - See [`webapp/messages/en.json`](https://github.com/svenger87/kinboard/blob/main/webapp/messages/en.json) for the source of truth

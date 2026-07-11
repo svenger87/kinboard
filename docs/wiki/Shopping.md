@@ -96,13 +96,13 @@ Auto-categorization uses a German keyword list (~2000 entries) — works great i
 ## Item lifecycle
 
 ```
-[+ Add]  →  unchecked  →  ☑ checked  →  (auto-removed after N hours)
+[+ Add]  →  unchecked  →  ☑ checked  →  stays until manually cleared
 ```
 
 - Newly added items appear at the top of their category
 - Tap the checkbox to mark as bought (item moves to the bottom, struck through)
-- Checked items auto-remove after **24 hours** (configurable per family — coming v1.1)
-- Manually clear all checked at any time via the "Clear checked" button
+- Checked items don't disappear on their own — there's no auto-remove timer. Clear them via the "Clear checked" button whenever you're ready; the "Hide checked" toggle in the header lets you hide them from view in the meantime without deleting anything
+- Deleting a single item (checked or not) shows an "Undo" toast that restores it exactly as it was
 
 ## Bring! sync (optional, off by default)
 
