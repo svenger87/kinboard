@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-11
+
 ### Added
 - "What's new": after an update the app shows a small notice with the release notes, and the version line in Settings opens the changelog anytime.
 - A quiet "Live updates paused — reconnecting…" pill appears above the navigation when the realtime connection drops, so a wall kiosk can no longer show stale data with no signal. It disappears automatically once the connection is back.
@@ -47,6 +49,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Security
 - Integration credentials (Home Assistant access token, Immich API key, Unsplash access key, Google Calendar OAuth tokens, Bring! tokens) no longer reach the browser. They move into a new server-only `integration_secrets` table that the browser-facing database role cannot read and that is excluded from realtime broadcasts; the settings API returns a placeholder instead. Existing installs are migrated automatically on next start (`migration_integration_secrets.sql`) — no action needed, integrations keep working without reconnecting.
 - The settings PIN is now checked on the server and stored where browsers cannot read it (previously any device on the network could read the PIN from the database and the check ran client-side). Existing PINs are migrated automatically.
+
+### Notes
+- After updating, hard-refresh installed-PWA and kiosk devices once (pull down to reload, or Ctrl+F5). Devices still running the old cached app can briefly write credentials the old way until reloaded; the next stack restart cleans any such rows up automatically.
+- If your install predates mid-2025 and the app misbehaves when opened via `http://localhost`, your `webapp/docker/kong.yml` may be an old copy missing the localhost CORS entries — re-run `./setup.sh` once and `docker restart kinboard-kong` to regenerate it from the current template.
 
 ## [1.3.0] - 2026-07-10
 
