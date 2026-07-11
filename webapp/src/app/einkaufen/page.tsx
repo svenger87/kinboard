@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -28,14 +29,21 @@ import {
   useCatalogSearch,
   parseShoppingInput,
   useOfflineShopping,
+  queryKeys,
 } from "@/hooks";
 import Link from "next/link";
 import { OfflineBanner, OfflineIndicator } from "@/components/offline-banner";
 import { CATEGORIES, detectCategory } from "@/lib/shopping-categories";
+import { showUndoToast } from "@/lib/undo-toast";
+import { createClient } from "@/lib/supabase/client";
+import { useFamilyStore } from "@/stores/family-store";
 
 export default function EinkaufenPage() {
   const t = useTranslations("einkaufen");
+  const tCommon = useTranslations("common");
   const tCategories = useTranslations("shoppingCategories");
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
 
   // Fetch items with offline support
   const {
@@ -246,9 +254,64 @@ export default function EinkaufenPage() {
   };
 
   const handleDeleteItem = async (id: string) => {
+    const item = items.find((i) => i.id === id);
+    // Decide the restore path from the state at delete time, not undo time —
+    // a delete that was queued offline needs a re-create on undo even if
+    // we're back online by the time the toast is tapped.
+    const wasOnlineAtDelete = isOnline;
+    const wasServerBacked = !!item && !item._isLocal && !id.startsWith("local_");
+
     try {
       await deleteItem.mutateAsync(id);
       triggerHaptic();
+
+      if (item) {
+        // bring_item_id is intentionally NOT restored or re-synced to Bring!
+        // on undo — Bring-side undo is out of scope (plan Non-goals), so a
+        // restored row may carry a stale bring_item_id if one was set.
+        const { _syncStatus, _isLocal, _localId, ...itemSnapshot } = item;
+
+        showUndoToast({
+          message: t("itemDeleted"),
+          undoLabel: tCommon("undo"),
+          errorMessage: tCommon("undoFailed"),
+          onUndo: async () => {
+            if (wasServerBacked && wasOnlineAtDelete) {
+              // Deleted online, row existed on the server — re-insert under
+              // the original id (Task C3 pattern).
+              const supabase = createClient();
+
+              const { error } = await (supabase as any)
+                .from("shopping_items")
+                .insert(itemSnapshot);
+              if (error) throw error;
+              if (family?.id) {
+                queryClient.invalidateQueries({ queryKey: queryKeys.shoppingItems(family.id) });
+              }
+            } else {
+              // Offline delete (queued) or a local_-prefixed item that never
+              // reached the server: re-create through the normal add path.
+              // This restores content, not identity — the new row gets a
+              // fresh id, so if the original delete is still queued it only
+              // ever targets the old server id and can't touch this one.
+              const restored = await createItem.mutateAsync({
+                name: itemSnapshot.name,
+                category: itemSnapshot.category ?? undefined,
+                quantity: itemSnapshot.quantity,
+                unit: itemSnapshot.unit,
+                notes: itemSnapshot.notes,
+                image_url: itemSnapshot.image_url,
+                catalog_item_id: itemSnapshot.catalog_item_id,
+                recipe_id: itemSnapshot.recipe_id,
+                added_by: itemSnapshot.added_by,
+              });
+              if (itemSnapshot.checked) {
+                await updateItem.mutateAsync({ id: restored.id, checked: true });
+              }
+            }
+          },
+        });
+      }
     } catch {
       toast.error(t("toastDeleteFailed"));
     }
