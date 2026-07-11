@@ -19,6 +19,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Event reminders no longer send the same push notification twice; birthday and meal-plan digests can no longer double-send if their schedule re-runs.
 - The weather settings Save button now disables again when you revert your edits or after saving.
 - Event links: browser back never leaves a stale event address in the URL bar, deleting a deep-linked event can be undone like any other, and shared-link events show the right person color as soon as family data loads.
+- "What's new" shows a loading shimmer instead of a blank panel, renders nested release-note lists properly, and retries sooner after a failed fetch.
 
 ## [1.4.0] - 2026-07-11 — Security hardening, full-language support, backup & undo
 

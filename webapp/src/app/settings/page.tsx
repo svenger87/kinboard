@@ -74,6 +74,38 @@ import {
 import { toast } from "sonner";
 import { WhatsNewDialog } from "@/components/whats-new-dialog";
 
+// Diagnostics-only push status row. usePushServerConfigured() fires a fetch
+// on mount — isolating it here (rendered only while the diagnostics
+// collapsible is open) keeps that probe from firing on every settings-page
+// load.
+function DiagnosticsPushRow({
+  label,
+  okLabel,
+  notConfiguredLabel,
+}: {
+  label: string;
+  okLabel: string;
+  notConfiguredLabel: string;
+}) {
+  const pushServerConfigured = usePushServerConfigured();
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5 border-b border-border/50 last:border-b-0">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="flex items-center gap-2 text-sm font-medium">
+        {pushServerConfigured ? (
+          <span className="text-success">{okLabel}</span>
+        ) : (
+          <span className="text-muted-foreground">{notConfiguredLabel}</span>
+        )}
+        <span
+          className={`block size-2 rounded-full ${pushServerConfigured ? "bg-success" : "bg-muted-foreground/40"}`}
+          aria-hidden="true"
+        />
+      </span>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   useKeyboardShortcuts();
   useSwipeNavigation();
@@ -84,7 +116,6 @@ export default function SettingsPage() {
   const isOnline = useIsOnline();
   const { data: version } = useVersionCheck();
   const realtimeStatus = useRealtimeStatusStore((s) => s.status);
-  const pushServerConfigured = usePushServerConfigured();
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const { data: haStatus } = useHomeAssistantStatus();
   const haConnected = !!haStatus?.url && !!haStatus?.access_token;
@@ -1043,17 +1074,11 @@ export default function SettingsPage() {
                         : "bg-destructive"
                   )
                 )}
-                {diagRow(
-                  t("diagnosticsPushLabel"),
-                  pushServerConfigured ? (
-                    <span className="text-success">{t("diagnosticsStatusOk")}</span>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      {t("diagnosticsStatusNotConfigured")}
-                    </span>
-                  ),
-                  statusDot(pushServerConfigured ? "bg-success" : "bg-muted-foreground/40")
-                )}
+                <DiagnosticsPushRow
+                  label={t("diagnosticsPushLabel")}
+                  okLabel={t("diagnosticsStatusOk")}
+                  notConfiguredLabel={t("diagnosticsStatusNotConfigured")}
+                />
                 {(() => {
                   const ha = integrationStatus(haConnected, haNeedsReauth);
                   const google = integrationStatus(googleConnected, googleNeedsReauth);
