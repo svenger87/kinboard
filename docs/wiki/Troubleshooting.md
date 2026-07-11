@@ -1,6 +1,6 @@
 # Troubleshooting
 
-A growing list of common breakages and fixes. If your problem isn't here, open an issue with reproduction steps.
+A growing list of common breakages and fixes. This page is an **index**: genuinely cross-cutting issues (stack won't start, ports, CORS/origin, real-time sync, deployment, performance, data) are documented here in full. Per-integration issues live on that integration's own page — this page links to them. If your problem isn't here, open an issue with reproduction steps.
 
 ## Setup / first run
 
@@ -50,6 +50,10 @@ If you're hitting Kinboard directly (no Traefik), check that `WEBAPP_PORT` in `.
 
 `kong.yml` still has the placeholder JWTs (`REPLACE_WITH_ANON_KEY` / `REPLACE_WITH_SERVICE_ROLE_KEY`). After pasting your Supabase keys into `.env`, re-run `setup.sh` — it substitutes them into kong.yml automatically.
 
+### App misbehaves (blocked requests, mismatched origin) when opened via `localhost` or a different hostname than expected
+
+Kong's `cors` plugin allows only the single origin baked in from `SITE_URL` at setup time (see the `# webapp_origin` line per plugin block in `kong.yml`). If you're opening Kinboard through a hostname `setup.sh` wasn't last run with, or your `kong.yml` predates the current template, requests from that origin get silently rejected. Re-run `./setup.sh` (with `--url` if needed), then `docker restart kinboard-kong` — `kong reload` doesn't fully re-parse declarative config in DB-less mode.
+
 ### Logs show `password authentication failed for user "authenticator"` (auth/rest/storage/realtime crash-loop)
 
 The Supabase service roles (`authenticator`, `supabase_auth_admin`, `supabase_storage_admin`) ship with empty passwords and need aligning to `POSTGRES_PASSWORD`. **Fixed in current images** by a one-shot `db-init` service that runs before those containers start, so a plain `docker compose up -d` now works. If you're on an older `docker-compose.yml`, either `git pull` to get the `db-init` service, or run the stack via `./start.sh up` (which previously did this alignment from the host).
@@ -89,77 +93,21 @@ Either:
 
 ## Integrations
 
-### Google Calendar — connect popup says "redirect_uri_mismatch"
+Per-integration issues are documented on each integration's own page:
 
-The redirect URI in Google Cloud Console doesn't match what Kinboard sends. Add:
-
-- `http://localhost:3001/api/google/callback` (dev)
-- `https://<your-domain>/api/google/callback` (prod)
-
-…to **Authorized redirect URIs** in your OAuth client.
-
-### Google Calendar — events stopped syncing / a "Reconnect" banner appeared
-
-Google rejected the stored authorization (`invalid_grant` — the consent was revoked, the password changed, or the refresh token expired after long disuse). Sync can't recover on its own. Go to **Settings → Google Calendar** and click **Reconnect** to re-authorize; the banner clears automatically on the next successful sync.
-
-### Home Assistant — "Connection failed" but the URL works in a browser
-
-- Token has expired or was revoked (long-lived tokens last 10 years, but if the user was deleted in HA, the token's gone too). **Settings → Home Assistant** now shows a **Reconnect** banner in this case — paste a fresh long-lived token to recover.
-- Kinboard runs HTTPS but HA URL is HTTP (mixed content blocked). Either upgrade HA to HTTPS or run Kinboard on HTTP.
-- `cors_allowed_origins` in HA config restricts the origin list. Add your Kinboard origin.
-
-### Bring! — "Login failed"
-
-Bring! rate-limits credential checks. Wait 5 minutes between attempts. If you've correctly typed your email + password three times and it's still rejected, sign out + back in via the Bring! mobile app to confirm the credentials work; then retry.
-
-### Cameras — black tile, no stream
-
-WebRTC ICE failure. Check:
-- `WEBRTC_LAN_IP` in `.env` matches your server's LAN IP
-- UDP 8555 is forwarded through your firewall
-- `go2rtc.yaml` substitutions (`CAMERA_USER`, `CAMERA_PASS`, etc.) are filled in
-
-### Cameras — auth dialog pops in browser
-
-The stream URL has credentials but the browser doesn't accept them. Use the **Authentication** section in `/settings/cameras` to set username + password + Digest type. Kinboard's `/api/cameras` proxy will handle the auth server-side.
+- **Google Calendar** — redirect URI mismatch, "Reconnect" banner, no calendars listed: [Google-Calendar → Troubleshooting](Google-Calendar#troubleshooting)
+- **Home Assistant** — connection failed, CORS, mixed content, token revocation: [Home-Assistant → Troubleshooting](Home-Assistant#troubleshooting)
+- **Bring!** — login failed, sync issues: [Bring → Troubleshooting](Bring#troubleshooting)
+- **Cameras** — black tile, auth dialogs, WebRTC ICE failures: [Cameras → Troubleshooting](Cameras#troubleshooting)
 
 ## Notifications
 
-### Test notification doesn't arrive
-
-1. Check the device is subscribed (Settings → Notifications, push toggle is on)
-2. Check VAPID keys are set in `.env` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`)
-3. Some browsers block notifications when the page isn't HTTPS. Run Kinboard over HTTPS for production.
-
-### iOS device — push button toggles but nothing arrives
-
-iOS only delivers web push to **installed PWAs**. Tap Share → Add to Home Screen, then open from the home-screen icon.
+Test notification doesn't arrive, iOS push not working, subscription issues: [Notifications → Troubleshooting](Notifications#troubleshooting)
 
 ## Kiosk
 
-### Edge `--kiosk` doesn't auto-launch on boot
-
-Open Task Scheduler → KioskLauncher task → check **Last run result**. Common results:
-- `0x41306` — task failed because user wasn't logged on. Confirm AutoLogon is set.
-- `0x1` — script returned nonzero. Check `C:\kiosk.log` for what failed.
-
-### On-screen keyboard doesn't appear
-
-`EnableDesktopModeAutoInvoke` registry key not set, or `TabTip.exe` isn't running. Re-run `kiosk-launcher.bat` manually:
-
-```bat
-C:\kiosk-launcher.bat
-```
-
-Verify TabTip is in Task Manager. If not, it failed to start — likely Windows blocked it. Run `gpedit.msc` → Computer Configuration → Administrative Templates → Windows Components → Tablet PC → make sure "Touch Keyboard" isn't disabled.
-
-### Presence sensor reads "no data" / "watchdog reconnecting"
-
-- Serial cable physically loose
-- USB-UART driver missing (CH340 needs a manual driver download from wch.cn; FTDI is built-in)
-- Wrong baud rate (LD2410 default is 256000, not 115200)
-
-Check `C:\presence-sensor.log` — the watchdog message tells you exactly when it last got data.
+- **Edge doesn't auto-launch, on-screen keyboard, Task Scheduler error codes**: [Kiosk-Windows-11-Mele-4C → Troubleshooting](Kiosk-Windows-11-Mele-4C#troubleshooting)
+- **Presence sensor no data / watchdog reconnecting**: [Presence-Sensor → Troubleshooting](Presence-Sensor#troubleshooting)
 
 ## Deployment
 

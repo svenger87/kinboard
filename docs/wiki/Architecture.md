@@ -100,22 +100,9 @@ A 30,000-foot view of how the pieces fit together. Read this once before you cha
 
 ## Settings storage
 
-Per-family settings live in the `public.settings` table as `(family_id, key, value JSONB)`. Common keys:
+Per-family settings live in the `public.settings` table as `(family_id, key, value JSONB)`. The shape is intentionally loose — the app reads with `useSetting<T>("key", default)` and writes with `useUpdateSetting`. This avoids schema migrations for settings shape changes.
 
-| Key | Schema |
-|---|---|
-| `theme` | `{ themeOverride: number?, use24Hour: bool, showSeconds: bool }` |
-| `weather_location` | `{ type: "city"|"coordinates", city?: string, lat?: number, lon?: number }` |
-| `widget_visibility` | record of widget keys → bool |
-| `screensaver` | timeout, presence sensor mode/timeout, photo rotation |
-| `home_assistant` | `{ url, access_token, dashboards, mapping_rules }` |
-| `cameras` | `{ cameras: [{ id, name, stream_type, stream_url, auth, ... }] }` |
-| `bring_settings` | `{ credentials, selectedListId, autoSync, ... }` |
-| `google_calendar` | OAuth tokens, enabled calendars, mapping rules, sync state |
-| `immich`, `unsplash`, `photo_source` | photo source config |
-| `notification_preferences` | per-device push notification settings |
-
-The shape is intentionally loose — the app reads with `useSetting<T>("key", default)` and writes with `useUpdateSetting`. This avoids schema migrations for settings shape changes.
+Full key-by-key catalog: [Database-Schema → Settings keys at a glance](Database-Schema#settings-keys-at-a-glance).
 
 ## API routes
 

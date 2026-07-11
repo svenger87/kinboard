@@ -86,7 +86,7 @@ Hidden under [Settings → Google Calendar](Google-Calendar). Useful when:
 - One shared family calendar, want each person's events colored differently → use rules to auto-assign by title pattern
 - Subscribed to a calendar that mixes events for multiple people (school, sports club) → rules split it
 
-Rules support `contains` / `starts_with` / `ends_with` / `regex` matching. Test in-place with the **Test** button before saving.
+Full match-type reference and the **Test** button: see [Google-Calendar → Mapping rules](Google-Calendar#mapping-rules).
 
 ## iCalendar (.ics) feeds
 

@@ -152,7 +152,7 @@ PIR (passive infrared) sensors detect movement, not presence. If you stand still
 
 ## Logging
 
-The script writes to `C:\presence-sensor.log` (Windows) or wherever you configure. As of v1.0 there's no log rotation — file just grows. A v1.1 fix will swap to `RotatingFileHandler`. For now, `Clear-Content` it manually if it gets large.
+The script writes to `C:\presence-sensor.log` (Windows) or wherever you configure. There's no log rotation — the file just grows. `Clear-Content` it manually if it gets large.
 
 ## Troubleshooting
 
@@ -162,7 +162,7 @@ The script writes to `C:\presence-sensor.log` (Windows) or wherever you configur
 | **"Permission denied" on /dev/ttyUSB0** | User not in the `dialout` group: `sudo usermod -aG dialout $USER`, then re-login. |
 | **Detected presence but display doesn't turn off** | The Windows `SC_MONITORPOWER` message doesn't always work — depends on monitor + driver. As a fallback, force-blank via PowerShell: `(Add-Type ... SendMessage(...))`. |
 | **Distance reads 0 always** | Sensor wired to TX/RX swap incorrectly. Try swapping the wires. |
-| **Watchdog reconnects every 30 s** | Serial cable is loose, or the sensor is power-cycling. Check the 5V supply. |
+| **Watchdog reconnects every 30 s** | Serial cable is loose, or the sensor is power-cycling (check the 5V supply) — or the baud rate is wrong (LD2410 default is 256000, not 115200; check `BAUD_RATE` in the script). |
 | **Display turns off mid-conversation** | DISPLAY_OFF_DELAY too short. Bump from 30 to 90 s. |
 
 ## Related

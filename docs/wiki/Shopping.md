@@ -49,9 +49,10 @@ If you've **already installed the main Kinboard PWA** and want the shopping one 
 | Manifest | `/manifest.json` | `/manifest-shopping.json` |
 | Icon | Kinboard logo | Shopping logo |
 | Scope | Whole app | Just the shopping page |
-| Push notifications | Yes (all types) | Yes (shopping notifications still work) |
+| Theme color | Per monthly theme | Green (`#22c55e`) |
+| Push notifications | All types | All types (same origin = same permission) |
 | Offline shopping | Yes | Yes |
-| Best for | Daily-driver phone, kitchen kiosk | "I just want the shopping list on my phone" |
+| Best for | Daily-driver phone, kitchen kiosk, kids | "I just want the shopping list on my phone" |
 
 Both can be installed on the same device.
 
@@ -105,15 +106,7 @@ Auto-categorization uses a German keyword list (~2000 entries) — works great i
 
 ## Bring! sync (optional, off by default)
 
-You don't need Bring at all — the built-in shopping list is fully featured on its own. Connect Bring only if your family already uses Bring as their phone shopping app and you want a single list that works in both places.
-
-If you've connected [Bring!](Bring), items sync two-way every 2 minutes:
-
-- Add in Kinboard → appears in Bring! on family members' phones
-- Add in Bring! on a phone → appears in Kinboard
-- Check off in either → marks bought in both
-
-The sync indicator in the page header shows last-sync time + status. Tap to force-sync.
+You don't need Bring at all — the built-in shopping list works fully on its own. Connect it only if your family already uses [Bring!](Bring) as their phone shopping app; the two-way sync mechanics live on that page. The sync indicator in the page header shows last-sync time + status — tap to force-sync.
 
 ## Quick-add chips
 

@@ -73,45 +73,9 @@ The kiosk install on the [Mele 4C](Kiosk-Windows-11-Mele-4C) is also a Chrome PW
 
 ### Shopping-only PWA (separate install)
 
-Kinboard also ships a **dedicated shopping-only PWA** with its own manifest (`/manifest-shopping.json`), shopping logo icon, and home-screen entry — completely separate from the main Kinboard PWA. The two coexist on the same device.
-
-**Why it exists:** family members who do the shopping want a fast-launching phone app that opens straight to the list without nav clutter. Power-user pattern: parents who do groceries install only the shopping PWA; the kitchen kiosk + a kid's phone install the full Kinboard PWA.
-
-**What it gives you:**
-
-- A separate home-screen icon (shopping logo, distinct from the main Kinboard icon)
-- Scoped install — opens directly to the shopping list every time, no other surfaces visible
-- Its own splash screen + green theme (`#22c55e`)
-- A "Quick add item" home-screen shortcut on Android (long-press the icon)
-- Full offline support — service worker + IndexedDB queue for the basement-Lidl scenario
-
-**How to install:**
-
-When you open `/shopping` on a phone, a green install banner appears after ~2 seconds. Tap it:
-
-- **iOS**: the banner deep-links to `/einkaufen` (the route that exposes the shopping-specific manifest), then walk through Safari Share → Add to Home Screen. The icon that lands on your home screen is the shopping logo, scoped to the shopping page only.
-- **Android**: same deep-link, then accept the browser's install prompt. The browser auto-detects the scoped manifest at `/einkaufen` and installs accordingly.
-
-> **Why the dedicated manifest is at `/einkaufen` and not `/shopping`:** historic — that's the original German URL. Both `/einkaufen` and `/shopping` render the same UI, but only the `/einkaufen` route serves the shopping-specific manifest. The install prompt automatically routes you there.
-
-**Already installed the main PWA and want the shopping one too?** Open `/einkaufen` directly in your browser (not via the existing PWA icon), then install. Both icons coexist on the home screen.
+Kinboard also ships a **dedicated shopping-only PWA**, installed separately from the main app and scoped to just the shopping list — the two coexist on the same device. For what it gives you, the install steps (iOS/Android), and the full comparison table, see [Shopping → Standalone shopping-list PWA](Shopping#standalone-shopping-list-pwa).
 
 **Notifications inside the shopping PWA:** because both PWAs share the same origin, push permission is per-origin — toggle Settings → Notifications inside *either* PWA and the subscription works for both. If you have only the shopping PWA installed and the main PWA isn't installed at all, push still works fine via the shopping PWA's service worker.
-
-**Comparison:**
-
-| | Main Kinboard PWA | Shopping-only PWA |
-|---|---|---|
-| Install from | Anywhere in Kinboard | `/einkaufen` (banner deep-links you there) |
-| Manifest | `/manifest.json` | `/manifest-shopping.json` |
-| Icon | Kinboard logo | Shopping logo |
-| Scope | Whole app | Just the shopping page |
-| Theme color | Per monthly theme | Green (`#22c55e`) |
-| Push notifications | All types | All types (same origin = same permission) |
-| Offline shopping | Yes | Yes |
-| Best for | Daily-driver phone, kitchen kiosk, kids | "I just want the shopping list on my phone" |
-
-For the dedicated shopping-PWA section in the shopping docs, see [Shopping](Shopping#standalone-shopping-list-pwa).
 
 ## How push works (the boring bits)
 
