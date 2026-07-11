@@ -188,6 +188,21 @@ CREATE TABLE IF NOT EXISTS public.settings (
     UNIQUE(family_id, key)
 );
 
+-- Writes to settings must go through the Next.js server (which enforces
+-- family membership and splits secret-bearing keys into
+-- integration_secrets). See migration_settings_write_lockdown.sql for
+-- rationale — this mirrors that migration's REVOKE for fresh installs.
+-- SELECT stays granted: useSetting() reads directly via PostgREST, and
+-- Realtime broadcasts on this table are unaffected.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    REVOKE INSERT, UPDATE, DELETE ON public.settings FROM anon;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    REVOKE INSERT, UPDATE, DELETE ON public.settings FROM authenticated;
+  END IF;
+END $$;
+
 -- Integration secrets (server-only; not in the realtime publication, not
 -- readable by anon/authenticated). See migration_integration_secrets.sql
 -- for rationale — this mirrors that migration's CREATE TABLE for fresh
