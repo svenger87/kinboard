@@ -1832,32 +1832,44 @@ export function useDeleteNote() {
 // SETTINGS HOOKS
 // ===================
 
+/** Fetch a single setting row fresh from the DB (bypasses the query cache).
+ * Shared by `useSetting`'s queryFn and by feature hooks (e.g. Bring!) that
+ * need to merge a partial update onto the *stored* value rather than a
+ * possibly-cold `queryClient` cache entry. Falls back to `defaultValue`
+ * only when no row exists yet. */
+export async function fetchSetting<T>(
+  supabase: ReturnType<typeof createClient>,
+  familyId: string,
+  key: string,
+  defaultValue: T
+): Promise<T> {
+
+  const { data, error } = await (supabase as any)
+    .from("settings")
+    .select("value")
+    .eq("family_id", familyId)
+    .eq("key", key)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  // maybeSingle returns null when no rows found
+  if (!data) {
+    return defaultValue;
+  }
+
+  return (data as { value: unknown }).value as T;
+}
+
 export function useSetting<T>(key: string, defaultValue: T) {
   const supabase = createClient();
   const { family } = useFamilyStore();
 
   return useQuery({
     queryKey: queryKeys.settings(family?.id ?? "", key),
-    queryFn: async () => {
-       
-      const { data, error } = await (supabase as any)
-        .from("settings")
-        .select("value")
-        .eq("family_id", requireFamilyId(family))
-        .eq("key", key)
-        .maybeSingle();
-
-      if (error) {
-        throw error;
-      }
-
-      // maybeSingle returns null when no rows found
-      if (!data) {
-        return defaultValue;
-      }
-
-      return (data as { value: unknown }).value as T;
-    },
+    queryFn: async () => fetchSetting<T>(supabase, requireFamilyId(family), key, defaultValue),
     enabled: !!family?.id,
   });
 }

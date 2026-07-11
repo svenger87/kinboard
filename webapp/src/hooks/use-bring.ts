@@ -1,9 +1,10 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSetting, useUpdateSetting, queryKeys } from "./use-supabase-queries";
+import { useSetting, useUpdateSetting, fetchSetting, queryKeys } from "./use-supabase-queries";
 import { useFamilyStore } from "@/stores/family-store";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { createClient } from "@/lib/supabase/client";
 
 export interface BringCredentials {
   uuid: string;
@@ -62,6 +63,7 @@ export function useBringSettings() {
 }
 
 export function useBringLogin() {
+  const supabase = createClient();
   const queryClient = useQueryClient();
   const updateSetting = useUpdateSetting();
   const { family } = useFamilyStore();
@@ -92,11 +94,17 @@ export function useBringLogin() {
         expiresAt: Date.now() + data.expiresIn * 1000,
       };
 
-      // Get current settings and update with credentials
-      const currentSettings =
-        queryClient.getQueryData<BringSettings>(
-          queryKeys.settings(family?.id ?? "", SETTINGS_KEYS.bringSettings)
-        ) || DEFAULT_SETTINGS;
+      // Fetch the stored row fresh — a cold query cache (e.g. right after
+      // app start, before any useSetting mount) must not be treated as
+      // "no other options set" and silently reset them to defaults.
+      const currentSettings = family?.id
+        ? await fetchSetting<BringSettings>(
+            supabase,
+            family.id,
+            SETTINGS_KEYS.bringSettings,
+            DEFAULT_SETTINGS
+          )
+        : DEFAULT_SETTINGS;
 
       await updateSetting.mutateAsync({
         key: SETTINGS_KEYS.bringSettings,
@@ -244,16 +252,23 @@ export function useBringRemoveItem() {
 }
 
 export function useUpdateBringSettings() {
+  const supabase = createClient();
   const updateSetting = useUpdateSetting();
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
 
   return useMutation({
     mutationFn: async (updates: Partial<BringSettings>) => {
-      const currentSettings =
-        queryClient.getQueryData<BringSettings>(
-          queryKeys.settings(family?.id ?? "", SETTINGS_KEYS.bringSettings)
-        ) || DEFAULT_SETTINGS;
+      // Merge against the stored row, not a possibly-cold query cache — see
+      // useBringLogin above for the same rationale.
+      const currentSettings = family?.id
+        ? await fetchSetting<BringSettings>(
+            supabase,
+            family.id,
+            SETTINGS_KEYS.bringSettings,
+            DEFAULT_SETTINGS
+          )
+        : DEFAULT_SETTINGS;
 
       await updateSetting.mutateAsync({
         key: SETTINGS_KEYS.bringSettings,
