@@ -96,6 +96,7 @@ export {
   useSetting,
   useUpdateSetting,
   useRegenerateJoinCode,
+  useRenameFamily,
 } from "./use-supabase-queries";
 
 // Google Calendar Hooks
