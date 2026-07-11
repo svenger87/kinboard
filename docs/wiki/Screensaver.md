@@ -27,10 +27,7 @@ Two configurable sources, picked in [Settings → Photos](Immich):
 
 ### Immich
 
-If you have a self-hosted [Immich](https://immich.app/) instance, point Kinboard at it + pick an album. Two album modes:
-
-- **Specific album** — always the same one
-- **Automatic monthly album** — Kinboard searches for an album named like the current month (e.g. `2026-05`, `May 2026`, `Mai 2026`) and uses it. Falls back to a default if none match.
+If you have a self-hosted [Immich](https://immich.app/) instance, point Kinboard at it + pick an album — either a specific one or an auto-rotating monthly one. See [Immich → Album naming for monthly auto mode](Immich#album-naming-for-monthly-auto-mode) for how the monthly match works.
 
 The "monthly album" mode pairs nicely with a Smart Album in Immich that filters photos taken in this month across all years — your kitchen wall shows mid-May 2024 photos in mid-May 2026.
 

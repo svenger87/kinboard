@@ -96,6 +96,7 @@ The OAuth tokens stored in `settings.value` are deleted on disconnect.
 | **No calendars listed** after connect | API not enabled in Cloud Console; or your account has zero calendars |
 | **`/api/google/callback` 500 error** | `GOOGLE_REDIRECT_URI` env var doesn't match the one in Cloud Console |
 | **Auto-sync stops after 6 months** | Google's refresh tokens expire if unused. Click **Sync now** once to refresh, or revoke + reconnect |
+| **"Reconnect" banner appears, sync stopped** | Google rejected the stored authorization (`invalid_grant` — consent revoked, password changed, or the refresh token expired from long disuse). Click **Reconnect** in Settings → Google Calendar to re-authorize; the banner clears automatically on the next successful sync. |
 
 ## Related
 
