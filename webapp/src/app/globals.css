@@ -283,10 +283,12 @@
 
   /* Kiosk-distance typography scale — for 1-3m viewing on wall-mounted display.
      Bridges the gap between the clock hero (160px inline) and widget body text. */
+  /* vw-clamp is intentionally display-proportional, not text-scale-proportional —
+     the hero clock should track viewport size, not the per-device text-scale setting. */
   .text-kiosk-hero      { @apply font-display font-light leading-none tracking-tight; font-size: clamp(96px, 14vw, 160px); font-variant-numeric: tabular-nums; }
   .text-kiosk-primary   { @apply text-3xl font-semibold tabular-nums leading-none; }
   .text-kiosk-secondary { @apply text-xl font-medium leading-tight; }
-  .text-kiosk-label     { @apply text-[11px] uppercase tracking-wider font-medium text-muted-foreground; font-family: var(--font-mono), monospace; }
+  .text-kiosk-label     { @apply text-[0.6875rem] uppercase tracking-wider font-medium text-muted-foreground; font-family: var(--font-mono), monospace; }
 
   /* Glass morphism effect - enhanced for wall-mounted display */
   /* Glass morphism - no backdrop-blur for ARM GPU compatibility */

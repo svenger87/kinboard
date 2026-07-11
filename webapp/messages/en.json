@@ -1056,6 +1056,11 @@
       "use24HourLabel": "24-hour format",
       "showSecondsLabel": "Show seconds",
       "showSecondsDescription": "In the clock display",
+      "textScaleLabel": "Text size",
+      "textScaleNormal": "Standard",
+      "textScaleLarge": "Larger",
+      "textScaleXL": "Largest",
+      "textScaleHint": "Saved per device — set it on the kiosk itself.",
       "previewHeading": "Preview"
     },
     "screensaver": {

@@ -1056,6 +1056,11 @@
       "use24HourLabel": "Format 24 heures",
       "showSecondsLabel": "Afficher les secondes",
       "showSecondsDescription": "Dans l'affichage de l'horloge",
+      "textScaleLabel": "Taille du texte",
+      "textScaleNormal": "Standard",
+      "textScaleLarge": "Plus grand",
+      "textScaleXL": "Le plus grand",
+      "textScaleHint": "Enregistré par appareil — réglez-le sur la borne elle-même.",
       "previewHeading": "Aperçu"
     },
     "screensaver": {

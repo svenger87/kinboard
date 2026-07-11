@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { Palette, Moon, Sun, Clock, Loader2 } from "lucide-react";
+import { Palette, Moon, Sun, Clock, Loader2, Type } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { format } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSetting, useUpdateSetting } from "@/hooks";
+import { useSetting, useUpdateSetting, useTextScale, type TextScale } from "@/hooks";
 import { useTheme } from "next-themes";
 import { PageHeader } from "@/components/page-header";
 
@@ -41,6 +41,14 @@ const PALETTES: { id: Palette; bg: string; card: string; border: string }[] = [
   { id: "sand", bg: "38 37% 88%", card: "43 54% 97%", border: "37 31% 85%" },
   { id: "salbei", bg: "72 25% 92%", card: "75 50% 98%", border: "77 19% 85%" },
   { id: "warmgrey", bg: "37 18% 91%", card: "40 33% 98%", border: "37 18% 86%" },
+];
+
+// Per-device text scale (localStorage, not the Supabase theme blob above —
+// see useTextScale). A wall kiosk and a phone need different sizes.
+const TEXT_SCALES: { value: TextScale; labelKey: string }[] = [
+  { value: 1, labelKey: "textScaleNormal" },
+  { value: 1.15, labelKey: "textScaleLarge" },
+  { value: 1.3, labelKey: "textScaleXL" },
 ];
 
 interface ThemeSettings {
@@ -73,6 +81,9 @@ export default function ThemeSettingsPage() {
   // Load settings from Supabase
   const { data: settings, isLoading } = useSetting<ThemeSettings>("theme", DEFAULT_SETTINGS);
   const updateSetting = useUpdateSetting<ThemeSettings>();
+
+  // Per-device text scale — localStorage, not the Supabase settings above.
+  const [textScale, setTextScale] = useTextScale();
 
   const themeOverride = settings?.themeOverride ?? null;
   const palette: Palette = settings?.palette ?? "sand";
@@ -323,6 +334,31 @@ export default function ThemeSettingsPage() {
                     onCheckedChange={handleShowSecondsChange}
                     disabled={updateSetting.isPending}
                   />
+                </div>
+
+                {/* Text Size (per-device, localStorage) */}
+                <div className="p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Type className="size-5 text-primary" />
+                    <Label className="font-medium">{t("textScaleLabel")}</Label>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {TEXT_SCALES.map((s) => (
+                      <button
+                        key={s.value}
+                        onClick={() => setTextScale(s.value)}
+                        aria-pressed={textScale === s.value}
+                        className={`rounded-lg border px-3 py-2 text-sm font-medium text-center transition-all ${
+                          textScale === s.value
+                            ? "border-primary bg-primary/10 text-primary ring-1 ring-primary"
+                            : "border-border text-muted-foreground hover:bg-muted/50"
+                        }`}
+                      >
+                        {t(s.labelKey)}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">{t("textScaleHint")}</p>
                 </div>
               </Card>
             </motion.div>
