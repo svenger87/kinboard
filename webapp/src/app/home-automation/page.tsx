@@ -234,6 +234,7 @@ export default function HausautomationPage() {
               onClick: () => handleCreateDashboard(t("defaultDashboardName"), "home", "custom"),
               variant: "default",
               disabled: createDashboard.isPending,
+              loading: createDashboard.isPending,
             }}
           />
         </div>
