@@ -180,7 +180,11 @@
     "eventFallbackTitle": "Event",
     "eventStartsAt": "Starts at {time}",
     "eventStartsSoon": "Starts soon",
-    "eventsMany": "{count} events"
+    "eventsMany": "{count} events",
+    "birthdayTitle": "🎂 {name}",
+    "birthdayBody": "Birthday in {count} days",
+    "birthdayToday": "Birthday is today!",
+    "birthdaysMany": "{count} upcoming birthdays"
   },
   "join": {
     "title": "Kinboard",
@@ -1157,6 +1161,9 @@
       "calendarLabel": "Event reminders",
       "calendarDescription": "Notify before events start (all-day events excluded)",
       "calendarMinutesLabel": "Remind me",
+      "birthdayTitle": "Birthdays",
+      "birthdayRemindersLabel": "Birthday reminders",
+      "birthdayRemindersDescription": "Get notified before saved birthdays (per-birthday lead time).",
       "quietHoursHeading": "Quiet hours",
       "quietHoursLabel": "Enable quiet hours",
       "quietHoursDescription": "No notifications during quiet hours",

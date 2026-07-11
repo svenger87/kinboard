@@ -229,6 +229,8 @@ function getPreferenceColumn(type: string): string | null {
       return "todo_collaborative";
     case "calendar_reminder":
       return "calendar_reminders";
+    case "birthday_reminder":
+      return "birthday_reminders";
     default:
       return null;
   }
@@ -304,6 +306,35 @@ function buildNotificationPayload(
           : `${titles.slice(0, 3).join(", ")} ${t("moreSuffix", { count: titles.length - 3 })}`,
         tag: "calendar-reminders",
         url: "/calendar",
+      };
+    }
+
+    case "birthday_reminder": {
+      // Enqueued by /api/cron/birthday-reminders, one row per birthday.
+      // n.title is the person's name; n.data.days_until is a string
+      // (JSONB round-trip) with 0 meaning "today".
+      if (notifications.length === 1) {
+        const n = notifications[0];
+        const name = n.title || (n.data?.name as string | undefined) || "";
+        const daysUntil = Number(n.data?.days_until ?? 0);
+        const body = daysUntil <= 0 ? t("birthdayToday") : t("birthdayBody", { count: daysUntil });
+        return {
+          title: t("birthdayTitle", { name }),
+          body,
+          tag: `birthday-${n.related_entity_id ?? n.id}`,
+          url: "/birthdays",
+        };
+      }
+      // Multiple birthdays land in the same batch (rare, but possible
+      // when several people share a notify-days-before offset).
+      const names = notifications.map((n) => n.title || (n.data?.name as string | undefined) || "");
+      return {
+        title: t("birthdaysMany", { count: notifications.length }),
+        body: names.length <= 3
+          ? names.join(", ")
+          : `${names.slice(0, 3).join(", ")} ${t("moreSuffix", { count: names.length - 3 })}`,
+        tag: "birthday-reminders",
+        url: "/birthdays",
       };
     }
 
