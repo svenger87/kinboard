@@ -47,7 +47,7 @@ A handful of `<img>` warnings are pre-existing and acceptable. Treat anything el
 
 The repo follows a few conventions worth knowing about:
 
-- **Translations.** All user-facing strings live in `webapp/messages/{en,de}.json`. New strings need entries in both locales. Use `useTranslations("namespace")` rather than hardcoding text.
+- **Translations.** All user-facing strings live in `webapp/messages/{en,de,fr}.json`. New strings need entries in all locales. Use `useTranslations("namespace")` rather than hardcoding text.
 - **Date formatting.** Use `date-fns` with `de | enUS` locales rather than hardcoded month/day names.
 - **Server vs. client state.** Server state goes through TanStack Query (`webapp/src/hooks/`). UI state goes through Zustand (`webapp/src/stores/`).
 - **Database changes.** Schema changes ship as new `webapp/docker/migration*.sql` files (idempotent — guarded with `IF NOT EXISTS` / type checks). `init.sql` is reserved for fresh installs and runs once. `start.sh up` applies migrations on every boot.
@@ -77,7 +77,7 @@ Niche integrations (Tesla, Zendure SolarFlow, etc.) are designed to live as opt-
 
 ## Translations
 
-EN and DE ship in the box. Adding another locale is two steps:
+EN, DE, and FR ship in the box. Adding another locale is two steps:
 
 1. Add one entry to the `LOCALES` array in `webapp/src/i18n/locales.ts`
    (`{ code, label, native, bcp47 }`) and a matching `case` to
