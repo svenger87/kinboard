@@ -15,6 +15,10 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 //   meal_plans → meal_plan_entries
 //   birthdays → birthday_gift_ideas
 //   item_catalog → shopping_items
+//   families → vehicles (standalone, family-scoped)
+//   families → tickers (standalone, family-scoped)
+//   people → pocket_money_accounts → pocket_money_goals /
+//     pocket_money_transactions / pocket_money_withdrawal_requests
 //
 // NEVER included: families.join_code, devices, push_subscriptions,
 // notification_preferences, scheduled_notifications, notification_logs,
@@ -94,7 +98,15 @@ export async function GET(request: NextRequest) {
     const recipe_tags = await fetchAll(db, (q, from, to) =>
       q.from("recipe_tags").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
-    const recipe_tag_assignments = await fetchAllByIds(db, "recipe_tag_assignments", "recipe_id", recipeIds);
+    // recipe_tag_assignments has a composite PK (recipe_id, tag_id) — no
+    // `id` column exists, so the default order-by-"id" would 500.
+    const recipe_tag_assignments = await fetchAllByIds(
+      db,
+      "recipe_tag_assignments",
+      "recipe_id",
+      recipeIds,
+      ["recipe_id", "tag_id"]
+    );
 
     const meal_plans = await fetchAll(db, (q, from, to) =>
       q.from("meal_plans").select("*").eq("family_id", familyId).order("id").range(from, to)
@@ -108,6 +120,29 @@ export async function GET(request: NextRequest) {
     const item_catalog = await fetchAll(db, (q, from, to) =>
       q.from("item_catalog").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
+
+    // Vehicles plugin (migration_vehicles.sql) — standalone, family-scoped.
+    const vehicles = await fetchAll(db, (q, from, to) =>
+      q.from("vehicles").select("*").eq("family_id", familyId).order("id").range(from, to)
+    );
+
+    // Stonks plugin (migration_tickers.sql) — standalone, family-scoped.
+    const tickers = await fetchAll(db, (q, from, to) =>
+      q.from("tickers").select("*").eq("family_id", familyId).order("id").range(from, to)
+    );
+
+    // Pocket Money plugin (migration_pocket_money.sql). Accounts carry
+    // family_id directly (in addition to a UNIQUE person_id), so they're
+    // scoped the same way as every other family-owned table; the three
+    // child tables have no family_id of their own and are scoped via the
+    // collected account ids, like events/ingredients/entries above.
+    const pocket_money_accounts = await fetchAll(db, (q, from, to) =>
+      q.from("pocket_money_accounts").select("*").eq("family_id", familyId).order("id").range(from, to)
+    );
+    const pocketMoneyAccountIds = pocket_money_accounts.map((a: Record<string, unknown>) => a.id as string);
+    const pocket_money_goals = await fetchAllByIds(db, "pocket_money_goals", "account_id", pocketMoneyAccountIds);
+    const pocket_money_transactions = await fetchAllByIds(db, "pocket_money_transactions", "account_id", pocketMoneyAccountIds);
+    const pocket_money_withdrawal_requests = await fetchAllByIds(db, "pocket_money_withdrawal_requests", "account_id", pocketMoneyAccountIds);
 
     const rawSettings = await fetchAll(db, (q, from, to) =>
       q.from("settings").select("*").eq("family_id", familyId).order("id").range(from, to)
@@ -145,6 +180,12 @@ export async function GET(request: NextRequest) {
         meal_plans,
         meal_plan_entries,
         item_catalog,
+        vehicles,
+        tickers,
+        pocket_money_accounts,
+        pocket_money_goals,
+        pocket_money_transactions,
+        pocket_money_withdrawal_requests,
         settings,
       },
     };
@@ -198,10 +239,15 @@ async function fetchAllByIds(
   db: any,
   table: string,
   column: string,
-  ids: string[]
+  ids: string[],
+  orderColumns: string[] = ["id"]
 ): Promise<Record<string, unknown>[]> {
   if (ids.length === 0) return [];
-  return fetchAll(db, (q, from, to) =>
-    q.from(table).select("*").in(column, ids).order("id").range(from, to)
-  );
+  return fetchAll(db, (q, from, to) => {
+    let query = q.from(table).select("*").in(column, ids);
+    for (const orderColumn of orderColumns) {
+      query = query.order(orderColumn);
+    }
+    return query.range(from, to);
+  });
 }

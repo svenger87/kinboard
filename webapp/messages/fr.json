@@ -183,7 +183,7 @@
     "eventStartsSoon": "Commence bientôt",
     "eventsMany": "{count} événements",
     "birthdayTitle": "🎂 {name}",
-    "birthdayBody": "Anniversaire dans {count} jours",
+    "birthdayBody": "Anniversaire dans {count, plural, one {# jour} other {# jours}}",
     "birthdayToday": "C'est l'anniversaire aujourd'hui !",
     "birthdaysMany": "{count} anniversaires à venir"
   },
