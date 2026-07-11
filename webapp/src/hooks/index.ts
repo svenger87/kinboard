@@ -166,6 +166,8 @@ export {
   useThemeSettings,
   DEFAULT_THEME_SETTINGS,
   type ThemeSettings,
+  useTextScale,
+  type TextScale,
 } from "./use-theme-settings";
 
 // News Hook

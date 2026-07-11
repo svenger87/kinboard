@@ -1056,6 +1056,11 @@
       "use24HourLabel": "24-Stunden-Format",
       "showSecondsLabel": "Sekunden anzeigen",
       "showSecondsDescription": "In der Uhranzeige",
+      "textScaleLabel": "Textgröße",
+      "textScaleNormal": "Standard",
+      "textScaleLarge": "Größer",
+      "textScaleXL": "Am größten",
+      "textScaleHint": "Wird pro Gerät gespeichert — direkt am Kiosk einstellen.",
       "previewHeading": "Vorschau"
     },
     "screensaver": {
