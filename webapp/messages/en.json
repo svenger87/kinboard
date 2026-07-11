@@ -185,7 +185,8 @@
     "birthdayTitle": "🎂 {name}",
     "birthdayBody": "Birthday in {count, plural, one {# day} other {# days}}",
     "birthdayToday": "Birthday is today!",
-    "birthdaysMany": "{count} upcoming birthdays"
+    "birthdaysMany": "{count} upcoming birthdays",
+    "mealPrepTitle": "Tomorrow's meals"
   },
   "join": {
     "title": "Kinboard",
@@ -1183,6 +1184,8 @@
       "birthdayTitle": "Birthdays",
       "birthdayRemindersLabel": "Birthday reminders",
       "birthdayRemindersDescription": "Get notified before saved birthdays (per-birthday lead time).",
+      "mealPrepLabel": "Meal-plan preview",
+      "mealPrepDescription": "Every evening at 6 pm: a push with tomorrow's planned meals.",
       "quietHoursHeading": "Quiet hours",
       "quietHoursLabel": "Enable quiet hours",
       "quietHoursDescription": "No notifications during quiet hours",

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bell, ShoppingCart, Moon, Send, Loader2, AlertCircle, CheckCircle2, ListTodo, CalendarClock, Cake } from "lucide-react";
+import { Bell, ShoppingCart, Moon, Send, Loader2, AlertCircle, CheckCircle2, ListTodo, CalendarClock, Cake, ChefHat } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -402,9 +402,6 @@ export default function NotificationSettingsPage() {
         </motion.div>
 
         {/* Birthday Reminders */}
-        {/* meal_prep_reminders (also on notification_preferences) deliberately
-            has no toggle here — meal plans don't carry a time of day, so
-            "remind me before meal prep" has no well-defined lead time yet. */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -429,6 +426,35 @@ export default function NotificationSettingsPage() {
                 checked={prefs.birthday_reminders}
                 onCheckedChange={(checked) =>
                   handlePreferenceChange("birthday_reminders", checked)
+                }
+                disabled={!isSubscribed || updatePreferences.isPending}
+              />
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Meal-plan preview */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.295 }}
+          className="mb-6"
+        >
+          <Card className={`p-4 ${!isSubscribed ? "opacity-50" : ""}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <ChefHat className="size-5 text-primary" />
+                <div>
+                  <Label className="font-medium">{t("mealPrepLabel")}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t("mealPrepDescription")}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={prefs.meal_prep_reminders}
+                onCheckedChange={(checked) =>
+                  handlePreferenceChange("meal_prep_reminders", checked)
                 }
                 disabled={!isSubscribed || updatePreferences.isPending}
               />

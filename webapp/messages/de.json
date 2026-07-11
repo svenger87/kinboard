@@ -185,7 +185,8 @@
     "birthdayTitle": "🎂 {name}",
     "birthdayBody": "Geburtstag in {count, plural, one {# Tag} other {# Tagen}}",
     "birthdayToday": "Geburtstag ist heute!",
-    "birthdaysMany": "{count} anstehende Geburtstage"
+    "birthdaysMany": "{count} anstehende Geburtstage",
+    "mealPrepTitle": "Morgen auf dem Plan"
   },
   "join": {
     "title": "Kinboard",
@@ -1183,6 +1184,8 @@
       "birthdayTitle": "Geburtstage",
       "birthdayRemindersLabel": "Geburtstags-Erinnerungen",
       "birthdayRemindersDescription": "Werde vor gespeicherten Geburtstagen benachrichtigt (Vorlauf je Geburtstag).",
+      "mealPrepLabel": "Essensplan-Vorschau",
+      "mealPrepDescription": "Jeden Abend um 18 Uhr: eine Push-Nachricht mit den morgigen Mahlzeiten.",
       "quietHoursHeading": "Ruhezeiten",
       "quietHoursLabel": "Ruhezeiten aktivieren",
       "quietHoursDescription": "Keine Benachrichtigungen während der Ruhezeit",

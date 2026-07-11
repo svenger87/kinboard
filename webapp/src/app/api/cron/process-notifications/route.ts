@@ -231,6 +231,8 @@ function getPreferenceColumn(type: string): string | null {
       return "calendar_reminders";
     case "birthday_reminder":
       return "birthday_reminders";
+    case "meal_prep_reminder":
+      return "meal_prep_reminders";
     default:
       return null;
   }
@@ -335,6 +337,28 @@ function buildNotificationPayload(
           : `${names.slice(0, 3).join(", ")} ${t("moreSuffix", { count: names.length - 3 })}`,
         tag: "birthday-reminders",
         url: "/birthdays",
+      };
+    }
+
+    case "meal_prep_reminder": {
+      // Enqueued by /api/cron/meal-prep-reminders, one row per family per
+      // day — tomorrow's meal-plan entries are already pre-joined into a
+      // single row's data.titles_json, so this always renders notifications[0].
+      const n = notifications[0];
+      let titles: string[] = [];
+      try {
+        titles = JSON.parse((n.data?.titles_json as string | undefined) ?? "[]");
+      } catch {
+        titles = [];
+      }
+      const body = titles.length <= 3
+        ? titles.join(", ")
+        : `${titles.slice(0, 3).join(", ")} ${t("moreSuffix", { count: titles.length - 3 })}`;
+      return {
+        title: t("mealPrepTitle"),
+        body,
+        tag: "meal-prep-reminder",
+        url: "/meals",
       };
     }
 
