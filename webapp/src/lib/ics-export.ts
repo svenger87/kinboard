@@ -74,6 +74,29 @@ function localDayPlusOne(iso: string, timeZone: string): string {
   return `${next.getUTCFullYear()}${pad(next.getUTCMonth() + 1)}${pad(next.getUTCDate())}`;
 }
 
+// True when `iso`'s wall-clock time, read in `timeZone`, is exactly local
+// midnight (00:00:00.000). Milliseconds are timezone-invariant (only the
+// date/hour/minute/second components shift across zones), so checking the
+// Date's own ms field is safe to combine with the localized H:M:S check.
+// Used to distinguish the three all_day `end_at` storage conventions in
+// buildIcsCalendar below — only the raw-exclusive-DTEND convention ever
+// lands on local midnight; both inclusive conventions land on 23:59:59.999
+// local or on 12:00:00.000 UTC (which is local midnight only in the
+// unusual case of a household exactly UTC+/-12).
+function isLocalMidnight(iso: string, timeZone: string): boolean {
+  const d = new Date(iso);
+  if (d.getUTCMilliseconds() !== 0) return false;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value;
+  return get("hour") === "00" && get("minute") === "00" && get("second") === "00";
+}
+
 // RFC 5545 §3.1: fold at 75 octets (of the UTF-8 encoding, not chars) by
 // inserting CRLF + a single leading space before the continuation. The
 // leading space itself counts against the 75-octet budget of the
@@ -125,12 +148,29 @@ export function buildIcsCalendar(
     lines.push(`DTSTAMP:${dtstamp}`);
 
     if (event.all_day) {
-      // Stored end_at is local 23:59:59.999 of the inclusive last day
-      // (see calendar/page.tsx handleAddEvent: endOfDay(endDate) then
-      // toISOString); its local day IS the last day, so DTEND is that
-      // local day plus one — the RFC 5545 §3.6.1 exclusive end.
+      // end_at's storage convention depends on the event's origin, and
+      // only two of the three need the RFC 5545 §3.6.1 exclusive-end +1:
+      //
+      //  1. Kinboard-native events (calendar/page.tsx handleAddEvent):
+      //     local 23:59:59.999 of the INCLUSIVE last day → +1.
+      //  2. Google-Calendar-synced events: noon UTC of the INCLUSIVE last
+      //     day (a different inclusive convention, same need for +1).
+      //  3. Inbound-ICS-subscribed calendars (ics-fetcher.ts mapInstance /
+      //     ics-sync.ts): the RAW parsed DTEND from the source feed,
+      //     passed straight through with no adjustment. RFC 5545 already
+      //     defines DTEND as EXCLUSIVE (local midnight of the day AFTER
+      //     the last event day) — re-adding +1 here would double-extend
+      //     the event by a day on the outbound feed.
+      //
+      // Distinguish #3 by local wall-clock time: only the raw-exclusive
+      // convention lands on local midnight; both inclusive conventions
+      // land on 23:59:59 local or noon UTC. When it's local midnight,
+      // that day already IS the exclusive end — emit as-is, no +1.
+      const dtend = isLocalMidnight(event.end_at, timeZone)
+        ? icsDate(event.end_at, true, timeZone)
+        : localDayPlusOne(event.end_at, timeZone);
       lines.push(`DTSTART;VALUE=DATE:${icsDate(event.start_at, true, timeZone)}`);
-      lines.push(`DTEND;VALUE=DATE:${localDayPlusOne(event.end_at, timeZone)}`);
+      lines.push(`DTEND;VALUE=DATE:${dtend}`);
     } else {
       lines.push(`DTSTART:${icsDate(event.start_at, false, timeZone)}`);
       lines.push(`DTEND:${icsDate(event.end_at, false, timeZone)}`);
