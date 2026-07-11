@@ -715,6 +715,7 @@ export default function EinkaufenPage() {
             onClick={handleAddItem}
             disabled={!inputValue.trim() || createItem.isPending}
             className="absolute right-2 top-1/2 -translate-y-1/2 size-10"
+            aria-label={t("addItemAria")}
           >
             {createItem.isPending ? (
               <Loader2 className="size-5 animate-spin" />

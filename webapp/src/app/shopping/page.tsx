@@ -1206,7 +1206,7 @@ export default function ShoppingPage() {
                                         }}
                                       >
                                         <PopoverTrigger asChild>
-                                          <Button variant="ghost" size="icon" className="size-9 shrink-0 self-center">
+                                          <Button variant="ghost" size="icon" className="size-9 shrink-0 self-center" aria-label={t("editItemAria", { name: item.name })}>
                                             <MoreVertical className="size-4" />
                                           </Button>
                                         </PopoverTrigger>

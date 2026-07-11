@@ -623,6 +623,7 @@ export default function PeopleSettingsPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => openEditDialog(person)}
+                          aria-label={t("editAria", { name: person.name })}
                         >
                           <Pencil className="size-4" />
                         </Button>
