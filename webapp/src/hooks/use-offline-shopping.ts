@@ -20,6 +20,7 @@ import {
   saveLocalItem,
   getLocalItems,
   removeLocalItem,
+  removeQueueOperationsForLocalId,
   cacheQueryData,
 } from "@/lib/offline-db";
 
@@ -252,6 +253,10 @@ export function useOfflineDeleteShoppingItem() {
 
       if (id.startsWith("local_")) {
         await removeLocalItem(id);
+        // Also cancel the still-pending "create" (and any "update") queue
+        // ops for this id — otherwise sync later re-creates the item we
+        // just "deleted", duplicating it alongside any undo re-create.
+        await removeQueueOperationsForLocalId(id);
         return;
       }
 
