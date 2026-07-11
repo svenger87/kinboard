@@ -152,7 +152,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [1.0.19] - 2026-05-09 — Stonks plugin + iCalendar (.ics) feeds + unified calendar settings
 
 ### Added
-- Add a Stonks plugin to track stocks, ETFs, crypto, indices, and forex in a watchlist, with a dashboard widget and a candlestick chart page for each ticker (Settings → Stonks).
+- Add a Stonks plugin to track stocks, ETFs, crypto, indices, and forex in a watchlist via Yahoo Finance (no API key needed), with a dashboard widget and per-ticker chart page (Settings → Stonks).
 - Subscribe to read-only calendar feeds via an `.ics` or `webcal://` link — covers iCloud, Google's secret iCal address, and most CalDAV providers — with per-feed name, color, and person assignment (Settings → Calendar).
 - Add a manual "Sync now" button (Settings → Calendar) to refresh ICS feeds on demand instead of waiting for the automatic 30-minute sync.
 
@@ -219,7 +219,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 - Fix a migration-ordering bug that could make a fresh install fail during its first boot.
 - Fix uploaded recipe and vehicle images failing to load in the browser because the generated URL pointed at an internal-only address.
-- Fix public image URLs (recipe photos, vehicle photos, camera thumbnails) sometimes failing to load because the API gateway required a key for files that should be publicly readable.
+- Fix public image URLs (recipe and vehicle photos) sometimes failing to load because the API gateway required a key for files that should be publicly readable.
 
 ## [1.0.11] - 2026-05-08 — Device recognition resilience + interactive setup + Shopping PWA fixes
 
