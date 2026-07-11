@@ -56,7 +56,8 @@
       "title": "Enter PIN",
       "description": "This area is protected",
       "incorrect": "Wrong PIN",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "pinRateLimited": "Too many attempts — wait a minute."
     },
     "shortcuts": {
       "title": "Keyboard shortcuts",
@@ -920,6 +921,8 @@
     "pinSavedToastDescription": "Calendar settings are now protected.",
     "pinRemovedToastTitle": "PIN removed",
     "pinRemovedToastDescription": "Calendar settings are no longer protected.",
+    "pinSaveFailed": "Could not save PIN. Try again.",
+    "pinRemoveFailed": "Could not remove PIN. Try again.",
     "networkConnected": "Connected",
     "networkConnectedDescription": "Real-time sync active",
     "networkOffline": "Offline",

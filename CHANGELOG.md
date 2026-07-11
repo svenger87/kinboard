@@ -42,6 +42,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 - Integration credentials (Home Assistant access token, Immich API key, Unsplash access key, Google Calendar OAuth tokens, Bring! tokens) no longer reach the browser. They move into a new server-only `integration_secrets` table that the browser-facing database role cannot read and that is excluded from realtime broadcasts; the settings API returns a placeholder instead. Existing installs are migrated automatically on next start (`migration_integration_secrets.sql`) — no action needed, integrations keep working without reconnecting.
+- The settings PIN is now checked on the server and stored where browsers cannot read it (previously any device on the network could read the PIN from the database and the check ran client-side). Existing PINs are migrated automatically.
 
 ## [1.3.0] - 2026-07-10
 
