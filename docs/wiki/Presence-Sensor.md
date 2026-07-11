@@ -152,7 +152,7 @@ PIR (passive infrared) sensors detect movement, not presence. If you stand still
 
 ## Logging
 
-The script writes to `C:\presence-sensor.log` (Windows) or wherever you configure. There's no log rotation — the file just grows. `Clear-Content` it manually if it gets large.
+The script writes to `C:\presence-sensor.log` (Windows) or wherever you configure — the watchdog messages there tell you exactly when the sensor last delivered data. There's no log rotation — the file just grows. `Clear-Content` it manually if it gets large.
 
 ## Troubleshooting
 
