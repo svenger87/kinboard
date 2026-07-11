@@ -4,17 +4,23 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Lock, ArrowLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useSetting } from "@/hooks";
+import { useFamilyStore } from "@/stores/family-store";
 import { useRouter } from "next/navigation";
 
 const PIN_LENGTH = 4;
 
-// sessionStorage key. Value is the current PIN at time of unlock — so if the
-// user changes their PIN, the stored session no longer matches and re-entry
-// is required naturally. Scoped to browser session, cleared on close.
+// sessionStorage key. Value is a literal marker, not the PIN itself — the
+// PIN is never sent to the browser (verified server-side via /api/pin).
+// A side effect: changing the PIN on one device no longer invalidates an
+// already-unlocked session on another tab/device; that's an accepted
+// tradeoff of not shipping the PIN client-side. Sessions are still scoped
+// to sessionStorage (cleared on tab close) and re-verified on every mount
+// via the /api/pin status query below.
 const SESSION_KEY = "kinboard_settings_unlock";
+const UNLOCKED_MARKER = "unlocked";
 
 interface PinGuardProps {
   children: React.ReactNode;
@@ -38,31 +44,39 @@ function readSession(): string | null {
  * sub-page and returning does not re-prompt.
  */
 export function PinGuard({ children, cancelHref = "/" }: PinGuardProps) {
-  const { data: storedPin, isLoading } = useSetting<string | null>("settings_pin", null);
-  // Optimistic initial state from sessionStorage; validated against actual PIN once loaded.
-  const [unlocked, setUnlocked] = useState<boolean>(() => readSession() !== null);
+  const { family } = useFamilyStore();
+  const { data: status, isLoading } = useQuery({
+    queryKey: ["pin-status", family?.id],
+    queryFn: async (): Promise<{ set: boolean }> => {
+      const res = await fetch(`/api/pin?family_id=${family!.id}`);
+      if (!res.ok) throw new Error("Failed to load PIN status");
+      return res.json();
+    },
+    enabled: !!family?.id,
+  });
+  const pinIsSet = !!status?.set;
+
+  // Optimistic initial state from sessionStorage; reconciled against actual
+  // PIN status once it loads (a PIN that was removed elsewhere clears it).
+  const [unlocked, setUnlocked] = useState<boolean>(() => readSession() === UNLOCKED_MARKER);
   const [digits, setDigits] = useState<string[]>(Array(PIN_LENGTH).fill(""));
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<"wrong" | "rateLimited" | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const router = useRouter();
 
-  // Reconcile session against the actual stored PIN once it loads. If they match
-  // keep unlocked; if not, clear stale session and require re-entry.
   useEffect(() => {
-    if (!storedPin) return;
-    const session = readSession();
-    if (session === storedPin) {
-      setUnlocked(true);
-    } else {
-      if (session !== null) {
-        try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
-      }
+    if (isLoading) return;
+    if (!pinIsSet) {
+      setUnlocked(false);
+      return;
+    }
+    if (readSession() !== UNLOCKED_MARKER) {
       setUnlocked(false);
     }
-  }, [storedPin]);
+  }, [isLoading, pinIsSet]);
 
   // No PIN set — pass through
-  if (!isLoading && !storedPin) {
+  if (!isLoading && !pinIsSet) {
     return <>{children}</>;
   }
 
@@ -81,9 +95,9 @@ export function PinGuard({ children, cancelHref = "/" }: PinGuardProps) {
       error={error}
       setError={setError}
       inputRefs={inputRefs}
-      storedPin={storedPin!}
+      familyId={family!.id}
       onSuccess={() => {
-        try { sessionStorage.setItem(SESSION_KEY, storedPin!); } catch { /* noop */ }
+        try { sessionStorage.setItem(SESSION_KEY, UNLOCKED_MARKER); } catch { /* noop */ }
         setUnlocked(true);
       }}
       onCancel={() => router.push(cancelHref)}
@@ -97,42 +111,62 @@ function PinEntryScreen({
   error,
   setError,
   inputRefs,
-  storedPin,
+  familyId,
   onSuccess,
   onCancel,
 }: {
   digits: string[];
   setDigits: (d: string[]) => void;
-  error: boolean;
-  setError: (e: boolean) => void;
+  error: "wrong" | "rateLimited" | null;
+  setError: (e: "wrong" | "rateLimited" | null) => void;
   inputRefs: React.MutableRefObject<(HTMLInputElement | null)[]>;
-  storedPin: string;
+  familyId: string;
   onSuccess: () => void;
   onCancel: () => void;
 }) {
   const t = useTranslations("components.pin");
+  const [verifying, setVerifying] = useState(false);
   // Focus first input on mount
   useEffect(() => {
     inputRefs.current[0]?.focus();
   }, [inputRefs]);
 
   const checkPin = useCallback(
-    (newDigits: string[]) => {
+    async (newDigits: string[]) => {
       const entered = newDigits.join("");
-      if (entered.length === PIN_LENGTH) {
-        if (entered === storedPin) {
-          onSuccess();
-        } else {
-          setError(true);
-          setTimeout(() => {
-            setDigits(Array(PIN_LENGTH).fill(""));
-            setError(false);
-            inputRefs.current[0]?.focus();
-          }, 600);
+      if (entered.length !== PIN_LENGTH || verifying) return;
+      setVerifying(true);
+      try {
+        const res = await fetch("/api/pin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ family_id: familyId, action: "verify", pin: entered }),
+        });
+        if (res.status === 429) {
+          setError("rateLimited");
+          setDigits(Array(PIN_LENGTH).fill(""));
+          inputRefs.current[0]?.focus();
+          return;
         }
+        const data = res.ok ? await res.json() : { valid: false };
+        if (data.valid) {
+          onSuccess();
+          return;
+        }
+        setError("wrong");
+        setTimeout(() => {
+          setDigits(Array(PIN_LENGTH).fill(""));
+          setError(null);
+          inputRefs.current[0]?.focus();
+        }, 600);
+      } catch (err) {
+        console.error("pin-guard: verify failed:", err);
+        setError("wrong");
+      } finally {
+        setVerifying(false);
       }
     },
-    [storedPin, onSuccess, setDigits, setError, inputRefs]
+    [familyId, onSuccess, setDigits, setError, inputRefs, verifying]
   );
 
   const handleChange = (index: number, value: string) => {
@@ -201,13 +235,14 @@ function PinEntryScreen({
                   onChange={(e) => handleChange(i, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(i, e)}
                   className={`w-14 h-16 text-center text-2xl font-mono rounded-xl border-2 bg-background/50 outline-none transition-all duration-200 ${
-                    error
+                    error === "wrong"
                       ? "border-destructive animate-shake"
                       : digit
                       ? "border-month-primary"
                       : "border-border focus:border-month-primary/60"
                   }`}
                   autoComplete="off"
+                  disabled={verifying}
                 />
               ))}
             </div>
@@ -218,7 +253,7 @@ function PinEntryScreen({
                 animate={{ opacity: 1, y: 0 }}
                 className="text-sm text-destructive"
               >
-                {t("incorrect")}
+                {error === "rateLimited" ? t("pinRateLimited") : t("incorrect")}
               </motion.p>
             )}
 

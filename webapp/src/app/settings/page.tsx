@@ -59,7 +59,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useFamilyStore } from "@/stores/family-store";
-import { useKeyboardShortcuts, useSwipeNavigation, useSetting, useUpdateSetting, useIsOnline, useDeleteDevice, useIsPluginEnabled, useHomeAssistantStatus, useHomeAssistantConnectionCheck, useGoogleCalendarStatus, useBringSettings, useImmichStatus, useUnsplashStatus, useRegenerateJoinCode, useRenameFamily } from "@/hooks";
+import { useKeyboardShortcuts, useSwipeNavigation, useIsOnline, useDeleteDevice, useIsPluginEnabled, useHomeAssistantStatus, useHomeAssistantConnectionCheck, useGoogleCalendarStatus, useBringSettings, useImmichStatus, useUnsplashStatus, useRegenerateJoinCode, useRenameFamily } from "@/hooks";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVersionCheck } from "@/hooks/use-version-check";
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
@@ -98,8 +99,18 @@ export default function SettingsPage() {
   const { data: unsplashStatus } = useUnsplashStatus();
   const photosConnected = (!!immichStatus?.url && !!immichStatus?.api_key) || !!unsplashStatus?.access_key;
   const [copied, setCopied] = useState(false);
-  const { data: storedPin } = useSetting<string | null>("settings_pin", null);
-  const updatePin = useUpdateSetting<string | null>();
+  const queryClient = useQueryClient();
+  const { data: pinStatus } = useQuery({
+    queryKey: ["pin-status", family?.id],
+    queryFn: async (): Promise<{ set: boolean }> => {
+      const res = await fetch(`/api/pin?family_id=${family!.id}`);
+      if (!res.ok) throw new Error("Failed to load PIN status");
+      return res.json();
+    },
+    enabled: !!family?.id,
+  });
+  const pinIsSet = !!pinStatus?.set;
+  const [pinSaving, setPinSaving] = useState(false);
   const vehiclesPluginEnabled = useIsPluginEnabled("vehicles");
   const energyPluginEnabled = useIsPluginEnabled("energy");
   const camerasPluginEnabled = useIsPluginEnabled("cameras");
@@ -312,19 +323,27 @@ export default function SettingsPage() {
 
     // Auto-save when all 4 digits entered
     const entered = newDigits.join("");
-    if (entered.length === 4) {
-      updatePin.mutate(
-        { key: "settings_pin", value: entered },
-        {
-          onSuccess: () => {
-            // Refresh the unlock session so the new PIN becomes the current session proof
-            try { sessionStorage.setItem("kinboard_settings_unlock", entered); } catch { /* noop */ }
-            toast.success(t("pinSavedToastTitle"), { description: t("pinSavedToastDescription") });
-            setPinDialogOpen(false);
-            setPinDigits(["", "", "", ""]);
-          },
-        }
-      );
+    if (entered.length === 4 && family?.id && !pinSaving) {
+      setPinSaving(true);
+      fetch("/api/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ family_id: family.id, action: "set", pin: entered }),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error(`PIN save failed: ${res.status}`);
+          // Refresh the unlock session so the new PIN becomes the current session proof
+          try { sessionStorage.setItem("kinboard_settings_unlock", "unlocked"); } catch { /* noop */ }
+          toast.success(t("pinSavedToastTitle"), { description: t("pinSavedToastDescription") });
+          setPinDialogOpen(false);
+          setPinDigits(["", "", "", ""]);
+          queryClient.invalidateQueries({ queryKey: ["pin-status", family.id] });
+        })
+        .catch((err) => {
+          console.error("settings: PIN save failed:", err);
+          toast.error(t("pinSaveFailed"));
+        })
+        .finally(() => setPinSaving(false));
     }
   };
 
@@ -335,16 +354,23 @@ export default function SettingsPage() {
   };
 
   const handleRemovePin = () => {
-    updatePin.mutate(
-      { key: "settings_pin", value: null },
-      {
-        onSuccess: () => {
-          try { sessionStorage.removeItem("kinboard_settings_unlock"); } catch { /* noop */ }
-          toast.success(t("pinRemovedToastTitle"), { description: t("pinRemovedToastDescription") });
-          setPinDialogOpen(false);
-        },
-      }
-    );
+    if (!family?.id) return;
+    fetch("/api/pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ family_id: family.id, action: "remove" }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`PIN remove failed: ${res.status}`);
+        try { sessionStorage.removeItem("kinboard_settings_unlock"); } catch { /* noop */ }
+        toast.success(t("pinRemovedToastTitle"), { description: t("pinRemovedToastDescription") });
+        setPinDialogOpen(false);
+        queryClient.invalidateQueries({ queryKey: ["pin-status", family.id] });
+      })
+      .catch((err) => {
+        console.error("settings: PIN remove failed:", err);
+        toast.error(t("pinRemoveFailed"));
+      });
   };
 
   const settingsSections = [
@@ -690,12 +716,12 @@ export default function SettingsPage() {
                 <div>
                   <p className="font-medium">{t("pinLabel")}</p>
                   <p className="text-sm text-muted-foreground">
-                    {storedPin ? t("pinProtected") : t("pinNotSet")}
+                    {pinIsSet ? t("pinProtected") : t("pinNotSet")}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {storedPin && (
+                {pinIsSet && (
                   <Button variant="ghost" size="icon" onClick={handleRemovePin} className="text-destructive hover:text-destructive">
                     <Trash2 className="size-4" />
                   </Button>
@@ -709,12 +735,12 @@ export default function SettingsPage() {
                 }}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
-                      {storedPin ? t("pinChangeButton") : t("pinSetButton")}
+                      {pinIsSet ? t("pinChangeButton") : t("pinSetButton")}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-sm">
                     <DialogHeader>
-                      <DialogTitle>{storedPin ? t("pinDialogTitleChange") : t("pinDialogTitleSet")}</DialogTitle>
+                      <DialogTitle>{pinIsSet ? t("pinDialogTitleChange") : t("pinDialogTitleSet")}</DialogTitle>
                     </DialogHeader>
                     <div className="flex flex-col items-center gap-4 py-4">
                       <p className="text-sm text-muted-foreground text-center">
