@@ -19,7 +19,7 @@ Calendar · weather · photos · shopping list · smart-home — one screen, eve
 
 ### **[Visit kinboard.app](https://kinboard.app)** &nbsp;·&nbsp; **[▶ Try the live demo](https://demo.kinboard.app)**
 
-<sub>The landing page at **[kinboard.app](https://kinboard.app)** has the pitch, screenshots, and install path. The demo at **[demo.kinboard.app](https://demo.kinboard.app)** runs the latest tagged release with mock integrations — use join code **`DEMO01`** to load a populated household, or create your own family from scratch. Demo data resets daily.</sub>
+<sub>The landing page at **[kinboard.app](https://kinboard.app)** has the pitch, screenshots, and install path. The demo at **[demo.kinboard.app](https://demo.kinboard.app)** runs the latest tagged release with mock integrations — use join code **`DEMO01`** to load a populated household, or create your own family from scratch. Demo data resets hourly.</sub>
 
 <br/>
 
@@ -92,7 +92,7 @@ The full wiki has a page for every feature plus integration setup, kiosk hardwar
 
 You need **Docker** (with Compose v2), **Node.js 20+** (for the VAPID key generator that powers push notifications — `setup.sh` uses `npx`; if Node.js is missing, setup completes but push notifications stay disabled), ~2 GB free disk, and ~10 minutes. The bundled `docker-compose.yml` brings up the Next.js app, a self-hosted Supabase stack, and supporting services.
 
-> **RAM**: the local Next.js build peaks around **4 GB**, plus another ~3-4 GB during type-check and static-page generation. On a 4 GB VM you'll need **≥ 8 GB total swap** to avoid OOM kills during build (`fallocate -l 8G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile`). Or — recommended — skip the build entirely by using the pre-built image at [`docker-compose.image.yml`](webapp/docker/docker-compose.image.yml). That drops bring-up to ~30 sec and needs only ~512 MB at runtime.
+> **RAM**: the local Next.js build peaks around **~4 GB** during type-check and static-page generation. On a 4 GB VM you'll need **≥ 8 GB total swap** to avoid OOM kills during build (`fallocate -l 8G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile`). Or — recommended — skip the build entirely by using the pre-built image at [`docker-compose.image.yml`](webapp/docker/docker-compose.image.yml). That drops bring-up to ~30 sec and needs only ~512 MB at runtime.
 
 If you don't have Docker yet:
 
@@ -176,7 +176,7 @@ Niche integrations (Tesla Fleet, Zendure SolarFlow batteries, etc.) ship as opt-
 
 ## Tech stack
 
-- **[Next.js](https://nextjs.org/) 14** (App Router) + **[React](https://react.dev/) 18**
+- **[Next.js](https://nextjs.org/) 16** (App Router) + **[React](https://react.dev/) 19**
 - **[shadcn/ui](https://ui.shadcn.com/)** + **[Tailwind CSS](https://tailwindcss.com/)** for UI
 - **[TanStack Query](https://tanstack.com/query)** (server state) + **[Zustand](https://zustand-demo.pmnd.rs/)** (client state)
 - **[Supabase](https://supabase.com/)** (Postgres + Realtime) — self-hosted
@@ -211,7 +211,7 @@ The wiki is the source of truth for everything beyond this README:
 
 ## Status & roadmap
 
-**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.4.0](https://github.com/svenger87/kinboard/releases/tag/v1.4.0) (2026-07-11).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Diun + the self-update webhook; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
+**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.4.0](https://github.com/svenger87/kinboard/releases/tag/v1.4.0) (2026-07-11).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Diun + the self-update webhook; data resets hourly). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
 
 **Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](https://github.com/svenger87/kinboard/wiki/Security-and-Threat-Model) and [`SECURITY.md`](SECURITY.md).
 
@@ -219,9 +219,7 @@ The wiki is the source of truth for everything beyond this README:
 - [x] **Security hardening, backup & export, undo** (v1.4.0) — integration credentials and the settings PIN moved to server-only storage; Settings → Data & backup can export everything to JSON or publish a secret ICS feed of your calendar; deleted items get an Undo toast; birthday reminders now actually send a push; the webapp container reports health for automated monitoring
 - [x] **Redesign completion, French, join-code expiry** (v1.3.0) — the flat sage-linen visual refresh reaches nearly every page; Kinboard ships a French interface alongside English and German (community-contributed, #9); Settings can rotate the family join code and set it to expire
 - [x] **Onboarding completeness + setup hardening** (v1.2.0) — a persistent getting-started checklist replaces the one-time setup banner, "discover" cards explain empty plugin widgets, Reconnect banners surface rejected Google/Home Assistant credentials, and the stack self-aligns service passwords so a bare `docker compose up` works out of the box
-- [x] **Pocket Money plugin (Piggy)** (v1.1.0) — per-kid virtual pocket-money accounts with parent-configurable APR (daily accrual + daily commit), scheduled allowance (weekly / biweekly / every 4 weeks), multi-goal saving queue with image lookup + URL paste + upload, kid-proposed withdrawals routed through a parent-approval inbox, and an evolving kid-facing avatar (5 species × 8 stages, driven off `lifetime_saved_cents`). Forecast panel on `/settings/pocket-money` projects balance at 1 / 3 / 6 / 12 months at the current APR + allowance. Fifth registered SurfacePlugin alongside Vehicles + Energy + Cameras + Stonks. See [Pocket Money](https://github.com/svenger87/kinboard/wiki/Pocket-Money)
-- [x] **End-to-end auto-update** (v1.1.0) — Diun + webhook overlay runs the full upgrade path (`git pull` → `setup.sh` → `docker compose pull` → `up -d` → conditional Kong + Diun reload) every time a new image lands on GHCR. Replaces the deprecated Watchtower overlay (archived upstream, missing the config-substitution step). See [Self-hosting → Auto-updates](https://github.com/svenger87/kinboard/wiki/Self-hosting#auto-updates)
-- [x] **Drag-reorder for the bottom navigation** (v1.1.0) — per-device localStorage at `/settings/navigation`; kitchen kiosk, parent's phone, and kids' tablets each keep their own layout
+- [x] **Pocket Money plugin, end-to-end auto-update, and nav drag-reorder** (v1.1.0) — per-kid virtual pocket-money accounts with parent-configurable interest and savings goals, a Diun + webhook overlay that pulls and applies new images automatically, and drag-and-drop reordering of the bottom navigation per device. See [Pocket Money](https://github.com/svenger87/kinboard/wiki/Pocket-Money)
 
 ### Up next (no fixed dates)
 - [ ] Additional Stonks data drivers — paid sources like Polygon or Tiingo for users wanting higher-resolution intraday + cleaner symbol coverage than Yahoo's unofficial endpoints. The driver contract already leaves room; only API-key plumbing and a settings UI need to land

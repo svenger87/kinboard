@@ -17,7 +17,7 @@ Or relax `npm ci` to `npm install --no-audit --no-fund` (looser; lockfile drift 
 
 ### `setup.sh` errors on macOS — "command not found: bash"
 
-The script uses bash 4-isms (associative arrays, `[ ... ]( ... .md)`). macOS ships bash 3.2 by default. Install via Homebrew:
+The script uses bash 4-isms (associative arrays, `[[ ... ]]`). macOS ships bash 3.2 by default. Install via Homebrew:
 
 ```bash
 brew install bash

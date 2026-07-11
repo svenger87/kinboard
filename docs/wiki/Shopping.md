@@ -91,7 +91,7 @@ Items are grouped by category for supermarket-aisle order. The default categorie
 
 Auto-categorization uses a German keyword list (~2000 entries) — works great in German, partial in English. To override an item's category, tap the item, change category in the dropdown.
 
-[Localized labels](Themes) in EN + DE.
+[Localized labels](Themes) in EN/DE/FR.
 
 ## Item lifecycle
 

@@ -49,7 +49,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.3.0] - 2026-07-10 — Redesign completion, French, join-code expiry
 
-*Upgrade notes:* Still deferred (UI-only, not schema-blocked): the on-screen numeric keypad on join-mobile (the join code is alphanumeric, so the native keyboard handles the cells) and the kiosk full-screen "show this code" display. Join-code expiry itself now ships as an opt-in Settings option (see Added).
+*Upgrade notes:* Join-code expiry is opt-in — existing codes keep working unless you set a TTL.
 
 ### Added
 - Settings can now rotate the family join code and set it to expire (never / 1 hour / 24 hours / 7 days); expired codes are rejected at join time, and existing installs are unaffected.
@@ -325,11 +325,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 - The pre-built Docker image now works with any self-hoster's URL — server URLs are injected at request time instead of baked in at build, so the published image no longer ships a broken join page, and `.env` URL changes apply on container restart without a rebuild.
-- Quick-start prerequisites now flag the **interactive-terminal requirement** for `setup.sh`. The URL prompt only fires when `stdin` is a TTY; piping over SSH or scripting silently defaults to `localhost:8100`, which leaves anyone not on the same box with a broken install. Doc now points at the `API_EXTERNAL_URL` / `SITE_URL` pre-set workaround for non-interactive runs.
+- Quick-start docs now flag that `setup.sh` needs an interactive terminal — piping it over SSH or a script silently defaults to `localhost:8100`, breaking access for every other device, and the docs now point at the `API_EXTERNAL_URL` / `SITE_URL` workaround for non-interactive runs.
 
 ### Changed
 - Project email addresses moved to the new `@kinboard.app` domain (Cloudflare Email Routing). `security@kinboard.app` (was `security@svenger87.de`) and `conduct@kinboard.app` (was `conduct@svenger87.de`) — referenced from `SECURITY.md`, `CODE_OF_CONDUCT.md`, and `SUPPORT.md`.
-- `docs/wiki/Quick-start.md` section 2 now surfaces the **pre-built image overlay** as the primary recommendation (~30 sec bring-up + ~512 MB RAM, vs ~5–10 min source build + ~4 GB peak). Path B (source build) kept for users who patched the code or want a frozen build. Validated end-to-end on a fresh Hetzner box.
+- Quick-start now recommends the pre-built image overlay first (~30 sec bring-up, ~512 MB RAM) over a source build (~5–10 min, ~4 GB peak), keeping the source-build path for users who patched the code or want a frozen build.
 
 ## [1.0.1] - 2026-05-05 — Renamed to Kinboard
 
@@ -351,60 +351,31 @@ The project was renamed from **Familyboard** to **Kinboard** to avoid namespace 
 Initial public release.
 
 ### Added
-- Built-in real-time shopping list with offline support (PWA + IndexedDB
-  queue), separately installable as its own home-screen icon
-- Two-way Google Calendar sync: events created in Kinboard now push
-  back to Google
-- Recipe import from Chefkoch.de + any schema.org/Recipe URL
-- Energy dashboard live flow + power/energy/battery charts pulling
-  from Home Assistant via the existing HA integration
-- Web push notifications for shopping items, task assignments, and
-  the daily todo digest (PWA install required on iOS)
-- LD2410 presence sensor support — display blanks when no one is in
-  the room
-- Multi-locale UI (English + German) via `next-intl`, with monthly
-  themes that rotate colors through the year
-- Reference hardware build: Mele Quieter 4C + 27" Novomatic
-  open-frame touchscreen, with full BOM in the wiki
-- Automated screenshot capture toolchain (`docs/wiki/screenshots/`):
-  local docker stack with anonymized prod data + mock HA/Tesla/
-  OpenWeatherMap/go2rtc + Playwright suite covering 13 routes × 2
-  themes × 2 viewports = 50 screenshots
-- GitHub Actions CI pipeline: lint + i18n parity + shellcheck on PRs
-- Multi-arch (amd64 + arm64) Docker images published to
-  `ghcr.io/svenger87/kinboard` on push to main and tagged releases
-- Optional `docker-compose.image.yml` overlay so self-hosters can pull
-  pre-built images instead of building locally
+- Built-in real-time shopping list with offline support, installable as its own home-screen icon
+- Two-way Google Calendar sync — events created in Kinboard now push back to Google
+- Recipe import from Chefkoch.de and any schema.org/Recipe URL
+- Energy dashboard with live power/energy/battery flow and charts from Home Assistant
+- Web push notifications for shopping items, task assignments, and the daily todo digest (PWA install required on iOS)
+- LD2410 presence sensor support — the display blanks when no one is in the room
+- English and German UI, with monthly themes that rotate colors through the year
+- A documented reference hardware build (Mele Quieter 4C mini-PC + 27" touchscreen) for a wall-mounted kiosk
+- Multi-arch (amd64 + arm64) Docker images published to `ghcr.io/svenger87/kinboard`, with an optional pre-built-image overlay so self-hosters don't need to build locally
 
 ### Changed
-- Schema migrations now ship as separate `migration_*.sql` files; the
-  monolithic `init.sql` is reserved for fresh installs
-- Row-level security disabled in the canonical schema; the device-cookie
-  + family-join-code model is the actual auth boundary, RLS at the
-  postgres level was aspirational and never reliably enforced
-- Dashboard widgets accept locale-specific date / time / number
-  formatting via the active `next-intl` bundle
+- Schema migrations now ship as separate files, keeping the initial schema reserved for fresh installs
+- Row-level security is disabled — the device-cookie + family-join-code model is the actual auth boundary
+- Dashboard widgets follow locale-specific date, time, and number formatting
 
 ### Fixed
-- `init.sql` was missing `people.is_child`, `events.person_id`, and
-  `birthdays.person_id` — fresh installs now match what production has
-  been running. Existing installs get patched up by
-  `migration_person_assignment.sql`.
-- `_realtime` schema now created up-front in `init.sql` — some
-  `supabase/postgres` image versions don't auto-create it, causing the
-  realtime container to crash-loop with "no schema has been selected"
-- `webapp/deploy.sh` chains `docker-compose.traefik.yml` overlay on
-  every recreate, so Traefik labels survive container rebuilds
-- The full `energy` translation namespace (58 keys) — the page was
-  rendering literal `energy.title` placeholders before
-- Weather routes now accept `OPENWEATHERMAP_BASE_URL` env override
-  (defaults unchanged) so the screenshot toolchain can mock OWM
+- Fresh installs were missing a few columns that production already had; existing installs get patched automatically
+- A missing database schema could make the realtime service crash-loop on some Postgres image versions
+- Production deploys now keep their Traefik reverse-proxy configuration across container rebuilds
+- The energy dashboard no longer shows raw translation-key placeholders instead of text
+- Weather routes support a configurable base URL for testing without hitting the real API
 
 ### Security
-- Demo screenshot toolchain anonymizes prod data exhaustively before
-  any capture — see `docs/wiki/screenshots/scripts/4-anonymize.mjs`
-- VAPID keys, Supabase secrets, and family join codes are generated
-  fresh per install via `setup.sh`; no shared defaults
+- Demo and documentation screenshots are anonymized before capture, so no real household data appears in them
+- VAPID keys, Supabase secrets, and family join codes are generated fresh per install — no shared defaults
 
 ---
 
