@@ -402,6 +402,10 @@ export default function CalendarPage() {
     const handlePopState = () => {
       eventHistoryPushedRef.current = false;
       setSelectedEvent(null);
+      // The edit dialog is driven by editMode independently of
+      // selectedEvent — without this, back-during-edit leaves an
+      // orphaned form whose save silently no-ops.
+      setEditMode(false);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
