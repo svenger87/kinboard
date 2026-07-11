@@ -45,7 +45,7 @@ Settings → Theme → **Show seconds** toggle. Adds `:ss` to the clock widget. 
 
 ## Text size
 
-Settings → Theme → **Text size**: three sizes (small / medium / large). Stored **per device** in `localStorage`, not per family — so a wall kiosk can go large enough to read from across the kitchen while everyone's phones stay at a normal size. Applies app-wide, not just the clock.
+Settings → Theme → **Text size**: three sizes (Normal / Large / XL). Stored **per device** in `localStorage`, not per family — so a wall kiosk can go large enough to read from across the kitchen while everyone's phones stay at a normal size. Applies app-wide, not just the clock.
 
 ## Locales
 
