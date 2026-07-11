@@ -40,6 +40,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Bring!: re-connecting or changing one Bring option no longer silently resets your other Bring settings (sync direction, list choice) to defaults.
 - Assorted untranslated tooltips/labels (copy-URL, custom color, drag-to-reorder, token show/hide) and dates that ignored the app language now follow EN/DE/FR.
 - Screen readers: every icon-only button (edit, delete, copy, etc.) now announces what it does.
+- Full family data export no longer fails with a 500 for families that have any recipes (a composite-key table had no `id` column to sort by); the export now also includes vehicles, stocks watchlist, and pocket-money accounts/goals/transactions/withdrawal-requests.
+- Calendar feed (ICS subscription): a whole-day event synced in from an external calendar no longer shows up one day too long — the feed was adding an extra day on top of the source calendar's own end date.
+- Birthday push notifications now grammatically pluralize "in N day(s)" in English, German, and French instead of always using the plural form.
 
 ### Security
 - Integration credentials (Home Assistant access token, Immich API key, Unsplash access key, Google Calendar OAuth tokens, Bring! tokens) no longer reach the browser. They move into a new server-only `integration_secrets` table that the browser-facing database role cannot read and that is excluded from realtime broadcasts; the settings API returns a placeholder instead. Existing installs are migrated automatically on next start (`migration_integration_secrets.sql`) — no action needed, integrations keep working without reconnecting.

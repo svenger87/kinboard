@@ -183,7 +183,7 @@
     "eventStartsSoon": "Starts soon",
     "eventsMany": "{count} events",
     "birthdayTitle": "🎂 {name}",
-    "birthdayBody": "Birthday in {count} days",
+    "birthdayBody": "Birthday in {count, plural, one {# day} other {# days}}",
     "birthdayToday": "Birthday is today!",
     "birthdaysMany": "{count} upcoming birthdays"
   },
