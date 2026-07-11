@@ -314,6 +314,7 @@ function Go2rtcConfigForm() {
                           size="icon"
                           onClick={() => handleToggle(camera)}
                           className="size-8"
+                          aria-label={camera.enabled ? t("disableAria", { name: camera.name }) : t("enableAria", { name: camera.name })}
                         >
                           {camera.enabled ? (
                             <Power className="size-4 text-success" />
@@ -327,6 +328,7 @@ function Go2rtcConfigForm() {
                           size="icon"
                           onClick={() => openEditDialog(camera)}
                           className="size-8"
+                          aria-label={t("editCameraAria", { name: camera.name })}
                         >
                           <Pencil className="size-4" />
                         </Button>
@@ -337,6 +339,7 @@ function Go2rtcConfigForm() {
                               variant="ghost"
                               size="icon"
                               className="size-8 text-destructive hover:text-destructive"
+                              aria-label={t("deleteAria", { name: camera.name })}
                             >
                               <Trash2 className="size-4" />
                             </Button>

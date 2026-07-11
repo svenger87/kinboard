@@ -222,6 +222,7 @@ function RoomEditorDialog({
                   variant="ghost"
                   size="icon"
                   onClick={() => setColor("")}
+                  aria-label={t("clearColorAria")}
                 >
                   <X className="size-4" />
                 </Button>

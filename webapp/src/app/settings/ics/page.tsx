@@ -351,6 +351,7 @@ export default function IcsSettingsPage() {
                       size="icon"
                       className="size-8"
                       onClick={() => openEditDialog(cal)}
+                      aria-label={t("editAria", { name: cal.name })}
                     >
                       <Pencil className="size-4" />
                     </Button>
@@ -360,6 +361,7 @@ export default function IcsSettingsPage() {
                           variant="ghost"
                           size="icon"
                           className="size-8 text-destructive hover:text-destructive"
+                          aria-label={t("deleteAria", { name: cal.name })}
                         >
                           <Trash2 className="size-4" />
                         </Button>

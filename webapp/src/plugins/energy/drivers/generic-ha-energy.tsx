@@ -975,7 +975,7 @@ function ChartEntityEditor({
                   ))}
                 </SelectContent>
               </Select>
-              <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => removeEntity(index)}>
+              <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => removeEntity(index)} aria-label={t("chartRemoveAria")}>
                 <X className="size-4" />
               </Button>
             </div>

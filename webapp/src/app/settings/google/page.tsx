@@ -726,6 +726,7 @@ export default function GoogleSettingsPage() {
                               size="icon"
                               className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
                               onClick={() => handleDeleteRule(rule.id)}
+                              aria-label={t("deleteRuleAria", { pattern: rule.pattern })}
                             >
                               <Trash2 className="size-4" />
                             </Button>

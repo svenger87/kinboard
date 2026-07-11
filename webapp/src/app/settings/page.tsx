@@ -573,6 +573,7 @@ export default function SettingsPage() {
                       className="size-9 shrink-0"
                       onClick={handleSaveName}
                       disabled={renameFamily.isPending}
+                      aria-label={t("saveFamilyNameAria")}
                     >
                       <Check className="size-4" />
                     </Button>
@@ -582,6 +583,7 @@ export default function SettingsPage() {
                       className="size-9 shrink-0"
                       onClick={cancelEditingName}
                       disabled={renameFamily.isPending}
+                      aria-label={t("cancelRenameAria")}
                     >
                       <X className="size-4" />
                     </Button>
@@ -624,6 +626,7 @@ export default function SettingsPage() {
                   <Button
                     variant="outline"
                     size="icon"
+                    aria-label={t("copyJoinCodeAria")}
                     onClick={copyJoinCode}
                   >
                     {copied ? (
@@ -637,6 +640,7 @@ export default function SettingsPage() {
                     variant="outline"
                     size="icon"
                     title={t("regenerateCode")}
+                    aria-label={t("regenerateCode")}
                     onClick={() => setRegenDialogOpen(true)}
                   >
                     <RefreshCw className="size-4" />
@@ -722,7 +726,7 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-center gap-2">
                 {pinIsSet && (
-                  <Button variant="ghost" size="icon" onClick={handleRemovePin} className="text-destructive hover:text-destructive">
+                  <Button variant="ghost" size="icon" onClick={handleRemovePin} aria-label={t("pinRemoveAria")} className="text-destructive hover:text-destructive">
                     <Trash2 className="size-4" />
                   </Button>
                 )}

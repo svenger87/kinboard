@@ -480,6 +480,7 @@ function HomeAssistantSettingsContent() {
                         size="icon"
                         className="size-8 text-muted-foreground hover:text-destructive"
                         onClick={() => handleRemoveCard(card.id)}
+                        aria-label={t("removeCardAria", { name: card.display_name || card.entity_id })}
                       >
                         <Trash2 className="size-4" />
                       </Button>

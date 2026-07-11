@@ -1192,6 +1192,7 @@ export default function MealPlannerPage() {
                           size="icon"
                           className="size-7"
                           onClick={() => handleAddClick(date, "dinner")}
+                          aria-label={t("addAnotherAria")}
                         >
                           <Plus className="size-4" />
                         </Button>
