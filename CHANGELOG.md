@@ -47,7 +47,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Integration credentials (Home Assistant, Immich, Unsplash, Google, Bring!) are no longer readable from the browser — they moved to server-only storage. Existing installs migrate automatically; integrations keep working without reconnecting.
 - The settings PIN is now checked and stored server-side, where devices on the network could previously read it or bypass the check client-side; existing PINs migrate automatically.
 
-## [1.3.0] - 2026-07-10
+## [1.3.0] - 2026-07-10 — Redesign completion, French, join-code expiry
+
+*Upgrade notes:* Still deferred (UI-only, not schema-blocked): the on-screen numeric keypad on join-mobile (the join code is alphanumeric, so the native keyboard handles the cells) and the kiosk full-screen "show this code" display. Join-code expiry itself now ships as an opt-in Settings option (see Added).
 
 ### Added
 - Settings: opt-in join-code expiry — a "Regenerate code" button lets the admin rotate the join code and optionally set a TTL (Never / 1 h / 24 h / 7 d); expired codes are rejected at join time so a stale code cannot be used to join the family. NULL = never expires; existing installs are unaffected (`migration_join_code_expiry.sql`).
@@ -98,9 +100,6 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Energy page now shows the animated flow diagram on phones too (previously mobile got a static chevron row with no motion).
 - Birthday countdowns and the birthday nav badge now refresh when the day rolls over (at midnight, or when the device wakes) instead of staying stale until a manual reload.
 - Meal planner dates now follow the selected language instead of always German; the drag-to-move failure message is localized.
-
-### Notes
-- Still deferred (UI-only, not schema-blocked): the on-screen numeric keypad on join-mobile (the join code is alphanumeric, so the native keyboard handles the cells) and the kiosk full-screen "show this code" display. Join-code *expiry* itself now ships as an opt-in Settings option (see Added).
 
 ## [1.2.0] - 2026-06-01 — Onboarding completeness + setup/self-host hardening
 
@@ -334,6 +333,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.0.2] - 2026-05-05 — Image-overlay path actually works
 
+*Upgrade notes:* Self-hosters on `1.0.1` using the source-build path need no action — `start.sh restart` picks up the new code on the next pull. Self-hosters on the image-overlay path: pull `:1.0.2` (or `:latest`) and run `docker compose down && docker compose -f docker-compose.yml -f docker-compose.image.yml up -d`; the browser console error goes away.
+
 ### Fixed
 - **Pre-built Docker image now works for any self-hoster's URL.** The `1.0.1` published image (`ghcr.io/svenger87/kinboard:1.0.1`) had `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` baked into the browser bundle as empty strings (CI built without these env vars set), causing every fresh self-hoster using the image-overlay path to see `@supabase/ssr: Your project's URL and API key are required to create a Supabase client!` in the browser console + a non-functional `/join` page. Source-build path was unaffected because `docker compose build` passed the user's URL via build-arg. Fix: `app/layout.tsx` now renders a server-side `<script>window.__ENV=…</script>` populated from `process.env` at request time. The browser-side supabase client (`lib/supabase/client.ts`) reads from `window.__ENV` first and falls back to `process.env.*` (the build-time bake). Both paths now work; the image-overlay path picks up `webapp/docker/.env` changes on container restart, no rebuild needed.
 - Quick-start prerequisites now flag the **interactive-terminal requirement** for `setup.sh`. The URL prompt only fires when `stdin` is a TTY; piping over SSH or scripting silently defaults to `localhost:8100`, which leaves anyone not on the same box with a broken install. Doc now points at the `API_EXTERNAL_URL` / `SITE_URL` pre-set workaround for non-interactive runs.
@@ -342,33 +343,22 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Project email addresses moved to the new `@kinboard.app` domain (Cloudflare Email Routing). `security@kinboard.app` (was `security@svenger87.de`) and `conduct@kinboard.app` (was `conduct@svenger87.de`) — referenced from `SECURITY.md`, `CODE_OF_CONDUCT.md`, and `SUPPORT.md`.
 - `docs/wiki/Quick-start.md` section 2 now surfaces the **pre-built image overlay** as the primary recommendation (~30 sec bring-up + ~512 MB RAM, vs ~5–10 min source build + ~4 GB peak). Path B (source build) kept for users who patched the code or want a frozen build. Validated end-to-end on a fresh Hetzner box.
 
-### Migration
-- Self-hosters on `1.0.1` who used the **source-build path** (`./start.sh up`): no action needed; `start.sh restart` will pick up the new code on next pull.
-- Self-hosters on `1.0.1` who used the **image-overlay path**: pull `:1.0.2` (or `:latest`) → `docker compose down && docker compose -f docker-compose.yml -f docker-compose.image.yml up -d`. The browser console error goes away.
-
 ## [1.0.1] - 2026-05-05 — Renamed to Kinboard
 
 The project was renamed from **Familyboard** to **Kinboard** to avoid namespace overlap with two existing products in the same space (`familyboard.net` is a similarly-positioned family-organizer SaaS, and `familyboard.cz` is a Czech family message-board app). v1.0.1 ships zero functional changes — only branding, container names, image registry path, and badge URLs.
 
-### Breaking
-- **Image registry path changed** from `ghcr.io/svenger87/familyboard` to `ghcr.io/svenger87/kinboard`. The old `familyboard` images stay frozen at `1.0.0` for anyone already running them; new pulls and tags publish under the `kinboard` name.
-- **Default Docker container name prefix changed** from `familyboard-*` to `kinboard-*`. Self-hosters already running v1.0.0 will need to either:
-  - Set `PROJECT_NAME=familyboard` in their `webapp/docker/.env` to keep the old container names, or
-  - Run `cd webapp/docker && docker compose down && docker compose -f docker-compose.yml -f docker-compose.image.yml up -d` to recreate under the new names. Volumes are mount-bind based on `${DATA_DIR}` (default `./data/`), so the database survives the container recreation.
-- **Repo URL changed** from `github.com/svenger87/familyboard` to `github.com/svenger87/kinboard`. GitHub auto-redirects the old URL, but `git remote set-url` is recommended for clarity.
+*Upgrade notes:* Image registry path changed from `ghcr.io/svenger87/familyboard` to `ghcr.io/svenger87/kinboard` (old `familyboard` images stay frozen at `1.0.0`). If you're on `:latest`, pointing `image:` at `ghcr.io/svenger87/kinboard:latest` and running `docker compose pull && docker compose up -d` is enough. If you've pinned `:1.0.0`, plan to bump to `:1.0.1` on the new image path — data is preserved either way. Default container name prefix also changed from `familyboard-*` to `kinboard-*`: set `PROJECT_NAME=familyboard` in `webapp/docker/.env` to keep the old names, or run `cd webapp/docker && docker compose down && docker compose -f docker-compose.yml -f docker-compose.image.yml up -d` to recreate under the new ones (volumes are bind-mounted from `${DATA_DIR}`, so the database survives). Repo URL also changed from `github.com/svenger87/familyboard` to `github.com/svenger87/kinboard` — GitHub auto-redirects, but `git remote set-url` is recommended for clarity. First-time installers see only Kinboard branding everywhere; this rename is invisible to them.
 
 ### Changed
+- **Image registry path changed** from `ghcr.io/svenger87/familyboard` to `ghcr.io/svenger87/kinboard`.
+- **Default Docker container name prefix changed** from `familyboard-*` to `kinboard-*`.
+- **Repo URL changed** from `github.com/svenger87/familyboard` to `github.com/svenger87/kinboard`.
 - Brand: `Familyboard` → `Kinboard` everywhere user-visible (PWA name, push notification title, page titles, settings labels, README, wiki).
 - npm package name: `familyboard` → `kinboard` in `webapp/package.json`.
 - Domain placeholder in docs and `.env.example` now uses `kinboard.app` / `kinboard.example.com` instead of `familyboard.example.com`.
 - All English + German user-facing strings updated (`webapp/messages/en.json`, `webapp/messages/de.json`).
 
-### Migration notes for self-hosters
-- **If you're on `:latest`**, a `docker compose pull && docker compose up -d` after pointing `image:` at `ghcr.io/svenger87/kinboard:latest` (the new `docker-compose.image.yml` already does this) is enough.
-- **If you've pinned `:1.0.0`**, plan to bump to `:1.0.1` on the new image path. Your data is preserved either way.
-- **First-time installers** see only Kinboard branding everywhere; this rename is invisible to them.
-
-## [1.0.0] - 2026-05-04
+## [1.0.0] - 2026-05-04 — Initial public release
 
 Initial public release.
 
@@ -430,7 +420,28 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/svenger87/kinboard/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/svenger87/kinboard/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/svenger87/kinboard/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/svenger87/kinboard/compare/v1.0.19...v1.1.0
+[1.0.19]: https://github.com/svenger87/kinboard/compare/v1.0.18...v1.0.19
+[1.0.18]: https://github.com/svenger87/kinboard/compare/v1.0.17...v1.0.18
+[1.0.17]: https://github.com/svenger87/kinboard/compare/v1.0.16...v1.0.17
+[1.0.16]: https://github.com/svenger87/kinboard/compare/v1.0.15...v1.0.16
+[1.0.15]: https://github.com/svenger87/kinboard/compare/v1.0.14...v1.0.15
+[1.0.14]: https://github.com/svenger87/kinboard/compare/v1.0.13...v1.0.14
+[1.0.13]: https://github.com/svenger87/kinboard/compare/v1.0.12...v1.0.13
+[1.0.12]: https://github.com/svenger87/kinboard/compare/v1.0.11...v1.0.12
+[1.0.11]: https://github.com/svenger87/kinboard/compare/v1.0.10...v1.0.11
+[1.0.10]: https://github.com/svenger87/kinboard/compare/v1.0.9...v1.0.10
+[1.0.9]: https://github.com/svenger87/kinboard/compare/v1.0.8...v1.0.9
+[1.0.8]: https://github.com/svenger87/kinboard/compare/v1.0.7...v1.0.8
+[1.0.7]: https://github.com/svenger87/kinboard/compare/v1.0.6...v1.0.7
+[1.0.6]: https://github.com/svenger87/kinboard/compare/v1.0.5...v1.0.6
+[1.0.5]: https://github.com/svenger87/kinboard/compare/v1.0.4...v1.0.5
+[1.0.4]: https://github.com/svenger87/kinboard/compare/v1.0.3...v1.0.4
+[1.0.3]: https://github.com/svenger87/kinboard/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/svenger87/kinboard/releases/tag/v1.0.2
 [1.0.1]: https://github.com/svenger87/kinboard/releases/tag/v1.0.1
 [1.0.0]: https://github.com/svenger87/kinboard/releases/tag/v1.0.0
