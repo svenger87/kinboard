@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-11 — Restore from backup, meal-plan digest, notification fixes
+
+*Upgrade notes:* The schema migration (settings write lockdown) applies automatically on `./start.sh up`. Hard-refresh installed-PWA and kiosk devices once after updating.
+
 ### Added
 - Restore from backup: the join screen can rebuild a family from a Kinboard export file — everything comes back (people, calendar, recipes, lists, plans) under a fresh join code.
 - Meal-plan preview push: an optional evening notification (per-device toggle) lists tomorrow's planned meals.
@@ -396,7 +400,8 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/svenger87/kinboard/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/svenger87/kinboard/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/svenger87/kinboard/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/svenger87/kinboard/compare/v1.1.0...v1.2.0
