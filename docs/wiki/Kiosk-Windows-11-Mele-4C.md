@@ -119,6 +119,8 @@ Replace `https://<your-kinboard-url>/` and `--lang=de` to taste.
 
 The `EnableDesktopModeAutoInvoke=1` registry key is **load-bearing**. It's the setting that makes Windows pop the on-screen keyboard when a text field gets focus, even outside tablet mode.
 
+> **Don't use Windows AssignedAccess kiosk mode** for the kiosk user account. Edge's `--kiosk` flag (above) already does the lockdown, without AssignedAccess's complications around notifications and app coexistence.
+
 ### 4. Drop the presence-sensor wrapper
 
 Save as `C:\run-presence-hidden.vbs`:
