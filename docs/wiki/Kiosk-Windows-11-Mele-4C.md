@@ -252,7 +252,7 @@ The Mele just runs a browser pointing at your Kinboard host. When you update the
 Push the new `presence-sensor.py` to the Mele over SSH:
 
 ```bash
-scp presence-sensor.py calendar@<mele-ip>:C:\presence-sensor.py
+scp hardware/presence-sensor.py calendar@<mele-ip>:C:\presence-sensor.py
 ssh calendar@<mele-ip> "schtasks /End /TN PresenceSensor; schtasks /Run /TN PresenceSensor"
 ```
 

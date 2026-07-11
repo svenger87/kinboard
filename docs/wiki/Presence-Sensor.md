@@ -20,7 +20,7 @@ Place the sensor pointing at the area in front of the kiosk display, with line-o
 
 ## Software (Windows)
 
-The Windows path uses the `presence-sensor.py` script in the repo root. It opens the FTDI port, reads LD2410 reports, POSTs presence to `/api/presence`, and controls Windows display power via `SendMessage(SC_MONITORPOWER)`.
+The Windows path uses the `presence-sensor.py` script from the repo's `hardware/` folder. It opens the FTDI port, reads LD2410 reports, POSTs presence to `/api/presence`, and controls Windows display power via `SendMessage(SC_MONITORPOWER)`.
 
 ### Install Python deps
 
