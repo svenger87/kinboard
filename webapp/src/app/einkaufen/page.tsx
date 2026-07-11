@@ -266,9 +266,11 @@ export default function EinkaufenPage() {
       triggerHaptic();
 
       if (item) {
-        // bring_item_id is intentionally NOT restored or re-synced to Bring!
-        // on undo — Bring-side undo is out of scope (plan Non-goals), so a
-        // restored row may carry a stale bring_item_id if one was set.
+        // The Bring! service side is never touched on undo (out of scope —
+        // plan Non-goals): the online path re-inserts the full snapshot, so
+        // it keeps whatever bring_item_id was stored; the offline recreate
+        // path below goes through the normal add flow and drops it, since
+        // createItem has no bring_item_id field to set.
         const { _syncStatus, _isLocal, _localId, ...itemSnapshot } = item;
 
         showUndoToast({
