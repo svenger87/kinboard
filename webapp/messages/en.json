@@ -3230,6 +3230,7 @@
     "toastAddFailed": "Failed to add item",
     "toastToggleFailed": "Update failed",
     "toastDeleteFailed": "Failed to delete item",
+    "itemDeleted": "Item deleted",
     "toastClearedAll": "{count, plural, one {# item removed} other {# items removed}}",
     "toastClearPartial": "Some items could not be removed"
   },

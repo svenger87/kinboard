@@ -3230,6 +3230,7 @@
     "toastAddFailed": "Artikel konnte nicht hinzugefügt werden",
     "toastToggleFailed": "Änderung fehlgeschlagen",
     "toastDeleteFailed": "Artikel konnte nicht gelöscht werden",
+    "itemDeleted": "Artikel gelöscht",
     "toastClearedAll": "{count, plural, one {# Artikel entfernt} other {# Artikel entfernt}}",
     "toastClearPartial": "Einige Artikel konnten nicht entfernt werden"
   },

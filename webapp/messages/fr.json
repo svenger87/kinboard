@@ -3230,6 +3230,7 @@
     "toastAddFailed": "Échec de l'ajout de l'article",
     "toastToggleFailed": "Échec de la mise à jour",
     "toastDeleteFailed": "Échec de la suppression de l'article",
+    "itemDeleted": "Article supprimé",
     "toastClearedAll": "{count, plural, one {# article supprimé} other {# articles supprimés}}",
     "toastClearPartial": "Certains articles n'ont pas pu être supprimés"
   },
