@@ -41,15 +41,23 @@ export async function POST(request: Request) {
     // Persist alongside the device cookie so server-side contexts with no
     // request cookie (crons, push payload generation) can resolve the
     // family's language. Best-effort: a failure here shouldn't block the
-    // cookie-based locale switch the user is actively waiting on.
+    // cookie-based locale switch the user is actively waiting on — the
+    // cookie path below must never fail, even if familyId is stale (e.g.
+    // a device cookie surviving a family deletion/reset).
     try {
       const supabase = createAdminClient();
-      await (supabase as any)
-        .from("settings")
-        .upsert(
-          { family_id: familyId, key: SETTINGS_KEYS.locale, value: locale },
-          { onConflict: "family_id,key" },
-        );
+      const { count } = await (supabase as any)
+        .from("families")
+        .select("id", { count: "exact", head: true })
+        .eq("id", familyId);
+      if (count) {
+        await (supabase as any)
+          .from("settings")
+          .upsert(
+            { family_id: familyId, key: SETTINGS_KEYS.locale, value: locale },
+            { onConflict: "family_id,key" },
+          );
+      }
     } catch (error) {
       console.error("[api/locale] Failed to persist family locale setting:", error);
     }
