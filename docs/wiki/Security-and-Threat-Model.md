@@ -24,7 +24,7 @@ The one place Kinboard does enforce a real database-level boundary is secrets: t
 ## What this is NOT good for
 
 - **Public internet exposure without a wrapping auth layer.** The join code is 6 alphanumeric characters (~30 bits of entropy). Brute force is possible. Don't expose `/join` publicly without something like Authelia, Authentik, Cloudflare Access, or Traefik forward-auth in front.
-- **Untrusted users on the same family.** Anyone with the code can read every event, todo, recipe, photo URL, OAuth token, and device fingerprint of every other device in the family. The model assumes "everyone in the family has the same trust level."
+- **Untrusted users on the same family.** Anyone with the code can read every event, todo, recipe, photo URL, and device fingerprint of every other device in the family. The model assumes "everyone in the family has the same trust level."
 - **Compliance scenarios.** No audit logs, no role-based access, no per-resource ACL. Don't use Kinboard for anything that needs HIPAA, GDPR-data-controller distinction, or similar.
 
 ## Sensitive data Kinboard handles
@@ -54,7 +54,7 @@ For the typical home deployment:
 
 - **Disable signup if you self-host Supabase Auth.** Kinboard doesn't actually use GoTrue auth flows for the family identity model, so leaving signup off avoids accidental account creation. Set `GOTRUE_DISABLE_SIGNUP=true` in `webapp/docker/.env`.
 - **Limit the Postgres port to localhost.** The default `docker-compose.yml` exposes 5432 to the host network so you can `psql` for ops. If you don't need that, change `"5432:5432"` to `"127.0.0.1:5432:5432"`.
-- **Rotate the family join code occasionally.** Currently no UI for this — direct DB update needed (`UPDATE families SET join_code=... WHERE id=...`).
+- **Rotate the family join code occasionally.** Settings → the join-code card has a "Rotate" action, plus an opt-in expiry (never / 1 hour / 24 hours / 7 days) — expired codes are rejected at join time.
 
 ### Nice-to-have
 
@@ -105,4 +105,4 @@ Source: `webapp/src/lib/device-id.ts` (fingerprint computation), `webapp/src/hoo
 
 ## Reporting a vulnerability
 
-Email **security@svenger87.de**. Don't open public issues. Acknowledgement within 7 days, fix targeted within 30 days for high-severity. Full text in [`SECURITY.md`](https://github.com/svenger87/kinboard/blob/main/SECURITY.md).
+Email **security@kinboard.app**. Don't open public issues. Acknowledgement within 7 days, fix targeted within 30 days for high-severity. Full text in [`SECURITY.md`](https://github.com/svenger87/kinboard/blob/main/SECURITY.md).
