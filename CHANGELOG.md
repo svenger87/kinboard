@@ -92,7 +92,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Fixed several mobile layout issues: overflowing or duplicated controls on birthdays, shopping, calendar, and the schedule widget, plus off-center join-code cells and dashboard elements.
 - Long agenda event titles now scroll instead of truncating, unless you've turned on reduced motion.
 - The energy page's animated flow diagram now also displays on phones (previously a static row).
-- Birthday countdowns and the birthday nav badge now refresh at midnight instead of staying stale until a manual reload.
+- Birthday countdowns and the birthday nav badge now refresh at midnight or when the device wakes, instead of staying stale until a manual reload.
 - Meal planner dates now follow your selected language instead of always showing German, and the drag-to-move error message is localized too.
 
 ## [1.2.0] - 2026-06-01 — Onboarding completeness + setup/self-host hardening
@@ -100,8 +100,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - Empty plugin widgets (Vehicles, Stonks, Pocket Money) now show a "discover" card explaining the feature and linking to enable it or add your first item, dismissible per device.
 - Settings → Notifications now shows a "push server not configured" hint when no VAPID keys exist, explaining why push doesn't work and linking to the setup guide.
-- The weather widget now shows a "set up weather" link to Settings when no API key is configured, instead of a cryptic error.
-- The calendar page now shows an "add a calendar" banner linking to settings when no calendars exist yet.
+- The weather widget now shows a "set up weather" link to Settings → Weather when no API key is configured, instead of a cryptic error.
+- The calendar page now shows an "add a calendar" banner linking to Settings → Calendar when no calendars exist yet.
 - The first-run setup wizard gained a Calendar step to connect Google, add an iCal feed, or skip, so new families aren't left with an empty, unguided calendar.
 - The dashboard's one-time setup banner is now a persistent, collapsible getting-started checklist that tracks family members, calendar, weather, and Home Assistant setup as you complete them.
 - The shopping list header now shows a "Connect Bring!" button when Bring isn't linked yet.
