@@ -1,14 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CodeInput } from "@/components/code-input";
-import { Users, ArrowRight, Sparkles, RefreshCw, PartyPopper, Plus, KeyRound } from "lucide-react";
+import {
+  Users,
+  ArrowRight,
+  Sparkles,
+  RefreshCw,
+  PartyPopper,
+  Plus,
+  KeyRound,
+  Upload,
+  Loader2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   useJoinFamily,
@@ -43,6 +54,8 @@ export default function JoinPage() {
   const [familyName, setFamilyName] = useState("");
   const [deviceName, setDeviceName] = useState("");
   const [error, setError] = useState("");
+  const [restoring, setRestoring] = useState(false);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
 
   // Surfaces the demo family's join code on public-demo deployments
   // (KINBOARD_DEMO_FAMILY_CODE set on the server). Self-hosters running
@@ -144,6 +157,63 @@ export default function JoinPage() {
       router.push("/");
     } catch {
       setError(t("joinError"));
+    }
+  };
+
+  // Restore from a Kinboard export file. /api/import already creates the
+  // new family server-side (fresh id + join_code); joining it here is
+  // functionally the same device-registration business logic handleCreate
+  // triggers after its own family insert — useJoinFamily just looks the
+  // family up by join_code instead of inserting it — so we reuse that hook
+  // rather than duplicating device-registration code, then back-fill the
+  // locale exactly like handleCreate does for a brand-new family.
+  const handleRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setRestoring(true);
+    try {
+      const text = await file.text();
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        throw new Error("Backup file is not valid JSON");
+      }
+
+      const res = await fetch("/api/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed),
+      });
+      if (!res.ok) {
+        throw new Error(`Import failed with status ${res.status}`);
+      }
+      const result: {
+        family_id: string;
+        join_code: string;
+        name: string;
+        warnings: string[];
+      } = await res.json();
+
+      await joinFamily.mutateAsync({
+        joinCode: result.join_code,
+        deviceName: deviceName || t("deviceNameDefault"),
+      });
+      // Best-effort, same as handleCreate — never blocks or fails the flow.
+      postLocale(locale, result.family_id).catch(() => {});
+
+      if (result.warnings.length > 0) {
+        toast(t("restoreWarnings", { count: result.warnings.length }));
+      }
+      router.push("/");
+    } catch (err) {
+      console.error("join: restore from backup failed:", err);
+      toast.error(t("restoreFailed"));
+    } finally {
+      setRestoring(false);
+      // Reset so the same file can be re-selected after a failed attempt
+      // (browsers don't re-fire onChange for an unchanged input value).
+      e.target.value = "";
     }
   };
 
@@ -454,6 +524,36 @@ export default function JoinPage() {
           )}
           </CardContent>
         </Card>
+        )}
+
+        {/* Restore from backup — quiet secondary action, create-family
+            screen only (a restore rebuilds a whole family, so it doesn't
+            belong on the join-with-code tab). */}
+        {mode === "create" && (modeChosen || isFreshInstall) && recognizedDevices.length === 0 && (
+          <div className="mt-4 text-center">
+            <input
+              ref={restoreInputRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={handleRestoreFile}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              disabled={loading || restoring}
+              onClick={() => restoreInputRef.current?.click()}
+            >
+              {restoring ? (
+                <Loader2 className="size-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="size-4 mr-2" />
+              )}
+              {t("restoreButton")}
+            </Button>
+          </div>
         )}
 
         {/* Recovery hint — shows after the fingerprint check has run
