@@ -82,7 +82,7 @@ Family logistics are scattered across calendars, chat threads, sticky notes, and
 | **Web push notifications** — shopping items, task assignments, daily todo digest. **PWA install** required on iOS. | [Notifications](https://github.com/svenger87/kinboard/wiki/Notifications) |
 | **Multi-device + multi-person** — devices join a family with a 6-char code, per-person color coding everywhere | [Family members](https://github.com/svenger87/kinboard/wiki/Family-Members), [Devices](https://github.com/svenger87/kinboard/wiki/Devices) |
 | **Monthly themes** — colors shift through the year automatically | [Themes & locales](https://github.com/svenger87/kinboard/wiki/Themes) |
-| **i18n** — English + German, full UI parity | [Themes & locales](https://github.com/svenger87/kinboard/wiki/Themes) |
+| **i18n** — English, German, French — partial translations welcome | [Themes & locales](https://github.com/svenger87/kinboard/wiki/Themes) |
 
 The full wiki has a page for every feature plus integration setup, kiosk hardware reference build, security model, and database schema.
 
@@ -126,7 +126,7 @@ cd webapp/docker
 ./start.sh restart    # rebuilds the webapp image + recreates webapp + cron
 ```
 
-**Hands-off auto-update** — `cp docker-compose.diun.yml.example docker-compose.diun.yml`, run `./setup.sh --non-interactive` to fill in the required `.env` keys (`DIUN_WEBHOOK_SECRET`, `KINBOARD_PROJECT_DIR`, `COMPOSE_PROJECT_NAME`, `COMPOSE_FILES`), then bring the stack up with `-f docker-compose.diun.yml --build` added. Diun watches GHCR for new `kinboard-webapp` digests; when one lands, a webhook fires `kinboard-self-update.sh` which runs the full upgrade path (`git pull` → `setup.sh --non-interactive` → `compose pull` → `up -d` → `kong restart` if `kong.yml` changed). Replaces the deprecated Watchtower overlay (Watchtower was archived in 2024 and only handles the image step, missing the surrounding config substitutions). See [Self-hosting → Auto-updates](https://github.com/svenger87/kinboard/wiki/Self-hosting#auto-updates) for the full setup including the flat-layout migration.
+**Hands-off auto-update** — an optional Diun + webhook overlay watches GHCR for new `kinboard-webapp` images and runs the full upgrade path (pull, migrate, restart) automatically when one lands. Replaces the deprecated Watchtower overlay. See [Self-hosting → Auto-updates](https://github.com/svenger87/kinboard/wiki/Self-hosting#auto-updates) for setup.
 
 For production self-hosting (Traefik + custom domain + backups + updates), see [Self-hosting](https://github.com/svenger87/kinboard/wiki/Self-hosting).
 
@@ -170,7 +170,7 @@ A light-mode variant of every screenshot is available with `-light` suffix (e.g.
 | Bring! | Shopping list sync (built-in list works without it) | Optional |
 | go2rtc | WebRTC camera streams | Optional |
 
-Niche integrations (Tesla Fleet, Zendure SolarFlow batteries, etc.) ship as opt-in plugins. A plugin authoring guide is in the works.
+Niche integrations (Tesla Fleet, Zendure SolarFlow batteries, etc.) ship as opt-in plugins. See the [Plugin authoring guide](https://github.com/svenger87/kinboard/wiki/Plugin-Authoring) to write your own.
 
 ---
 
@@ -180,7 +180,7 @@ Niche integrations (Tesla Fleet, Zendure SolarFlow batteries, etc.) ship as opt-
 - **[shadcn/ui](https://ui.shadcn.com/)** + **[Tailwind CSS](https://tailwindcss.com/)** for UI
 - **[TanStack Query](https://tanstack.com/query)** (server state) + **[Zustand](https://zustand-demo.pmnd.rs/)** (client state)
 - **[Supabase](https://supabase.com/)** (Postgres + Realtime) — self-hosted
-- **[next-intl](https://next-intl.dev/)** for i18n (EN + DE)
+- **[next-intl](https://next-intl.dev/)** for i18n (EN/DE/FR)
 - **[Framer Motion](https://www.framer.com/motion/)** for transitions
 - **Service worker + IndexedDB** for offline shopping
 - **[Playwright](https://playwright.dev/)** for the screenshot capture suite
@@ -211,34 +211,24 @@ The wiki is the source of truth for everything beyond this README:
 
 ## Status & roadmap
 
-**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.1.0](https://github.com/svenger87/kinboard/releases/tag/v1.1.0) (2026-05-11).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Diun + the self-update webhook; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
+**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.4.0](https://github.com/svenger87/kinboard/releases/tag/v1.4.0) (2026-07-11).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Diun + the self-update webhook; data resets daily). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
 
 **Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](https://github.com/svenger87/kinboard/wiki/Security-and-Threat-Model) and [`SECURITY.md`](SECURITY.md).
 
 ### Recently shipped
+- [x] **Security hardening, backup & export, undo** (v1.4.0) — integration credentials and the settings PIN moved to server-only storage; Settings → Data & backup can export everything to JSON or publish a secret ICS feed of your calendar; deleted items get an Undo toast; birthday reminders now actually send a push; the webapp container reports health for automated monitoring
+- [x] **Redesign completion, French, join-code expiry** (v1.3.0) — the flat sage-linen visual refresh reaches every remaining page; Kinboard ships a French interface alongside English and German (community-contributed, #9); Settings can rotate the family join code and set it to expire
+- [x] **Onboarding completeness + setup hardening** (v1.2.0) — a persistent getting-started checklist replaces the one-time setup banner, "discover" cards explain empty plugin widgets, Reconnect banners surface rejected Google/Home Assistant credentials, and the stack self-aligns service passwords so a bare `docker compose up` works out of the box
 - [x] **Pocket Money plugin (Piggy)** (v1.1.0) — per-kid virtual pocket-money accounts with parent-configurable APR (daily accrual + daily commit), scheduled allowance (weekly / biweekly / every 4 weeks), multi-goal saving queue with image lookup + URL paste + upload, kid-proposed withdrawals routed through a parent-approval inbox, and an evolving kid-facing avatar (5 species × 8 stages, driven off `lifetime_saved_cents`). Forecast panel on `/settings/pocket-money` projects balance at 1 / 3 / 6 / 12 months at the current APR + allowance. Fifth registered SurfacePlugin alongside Vehicles + Energy + Cameras + Stonks. See [Pocket Money](https://github.com/svenger87/kinboard/wiki/Pocket-Money)
 - [x] **End-to-end auto-update** (v1.1.0) — Diun + webhook overlay runs the full upgrade path (`git pull` → `setup.sh` → `docker compose pull` → `up -d` → conditional Kong + Diun reload) every time a new image lands on GHCR. Replaces the deprecated Watchtower overlay (archived upstream, missing the config-substitution step). See [Self-hosting → Auto-updates](https://github.com/svenger87/kinboard/wiki/Self-hosting#auto-updates)
 - [x] **Drag-reorder for the bottom navigation** (v1.1.0) — per-device localStorage at `/settings/navigation`; kitchen kiosk, parent's phone, and kids' tablets each keep their own layout
-- [x] **Stonks plugin** (v1.0.19) — track stocks, ETFs, crypto, indices, and forex pairs in a watchlist with proper TradingView candle charts (1d / 1w / 1m / 3m / 1y / max timeframes). Yahoo Finance is the v1 data driver — no API key required, covers every asset class through one source. Per-ticker detail page, rotating dashboard widget, server-side TTL cache (30s spot quotes, 5min charts) so kiosk auto-refresh doesn't rate-limit. Fourth registered SurfacePlugin alongside Vehicles + Energy + Cameras
-- [x] **iCalendar (.ics) feed support** (v1.0.19) — read-only calendar feeds via shared `.ics` URLs. Covers iCloud Family Sharing, Google's "secret iCal address", and most CalDAV providers in one feature. Skips the Google Cloud OAuth setup entirely for read-only use. Manual "Sync now" button + 30-min cron with ETag conditional GETs and recurring-event expansion
-- [x] **Energy + Cameras migrated onto the plugin contract** (v1.0.18 + v1.0.19) — both surfaces now ship as drivers under the same `SurfacePlugin` model that Vehicles introduced. Per-family enable/disable at `/settings/plugins`. The contract is now validated on four concrete surfaces (Vehicles, Energy, Cameras, Stonks)
-- [x] **Calendar event reminders via web push** (v1.0.17) — family devices subscribed to push receive a notification N minutes before each event starts (configurable on `/settings/notifications`, default 30 min). All-day events are skipped. Idempotent scheduling — multiple cron ticks scanning the same window don't double-send
-- [x] **Country-aware public holidays** (v1.0.16) — DE / US / UK / NL / FR. Per-family country picker on `/settings/language`; existing families default to DE so behaviour is unchanged
-- [x] Pre-built multi-arch (amd64 + arm64) Docker images on `ghcr.io` — self-hosters skip the build step
-- [x] CI on every PR — ESLint + i18n bundle parity + shellcheck — plus a full E2E smoke run that boots the docker stack with mock integrations and verifies the dashboard against Playwright
-- [x] Public live demo at [demo.kinboard.app](https://demo.kinboard.app) with mock Home Assistant / Tesla / weather / cameras so visitors see the full UI without configuring real integrations
-- [x] First-run setup wizard at `/setup/{people,homeassistant,weather,done}` — guides fresh self-hosters through onboarding instead of dropping them on an empty dashboard; dismissible "Finish setting up" banner on the dashboard until completed
-- [x] Interactive `setup.sh` — prompts for the optional API keys most self-hosters need (OpenWeatherMap, Google Calendar OAuth, maintainer email) at first-run time, with `--non-interactive` and `--advanced` flags for automation and power users
-- [x] Device recognition that survives browser/OS updates — fingerprint-history table so a Safari/Chrome bump doesn't strand the device on `/join` (v1.0.11)
-- [x] **Vehicles surface + build-time plugin contract** (v1.0.12) — multi-car, multi-vendor `/vehicles` page. Tesla driver (native UI via Home Assistant Fleet) + Generic-EV driver (any car HA can talk to: VW We Connect, BMW Connected Drive, Polestar, Hyundai BlueLink, OBD2 dongles). First plugin under the `SurfacePlugin` contract. See [Plugin architecture](https://github.com/svenger87/kinboard/wiki/Plugin-Architecture), [Vehicles](https://github.com/svenger87/kinboard/wiki/Vehicles), and the [Plugin directory](https://github.com/svenger87/kinboard/wiki/Plugin-Directory)
-- [x] **Image-baked migrations** (v1.0.12) — schema migrations are baked into the webapp Docker image and applied automatically on container start. Self-hoster updates (via the Diun overlay or any other path) pick up new schema without anyone running `start.sh migrate` from the host
 
 ### Up next (no fixed dates)
 - [ ] Additional Stonks data drivers — paid sources like Polygon or Tiingo for users wanting higher-resolution intraday + cleaner symbol coverage than Yahoo's unofficial endpoints. The driver contract already leaves room; only API-key plumbing and a settings UI need to land
 - [ ] News feed per ticker on the Stonks detail page — Yahoo already returns it via `quoteSummary`, just needs UI
 - [ ] Per-ticker price alerts via the existing notification queue
 - [ ] Drag-reorder for the Stonks watchlist (currently creation-order)
-- [ ] Additional locales beyond EN + DE (community PRs welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md#translations))
+- [x] More community locales (FR shipped in v1.3.0) — additional languages welcome via PR, see [`CONTRIBUTING.md`](CONTRIBUTING.md#translations)
 
 ---
 
