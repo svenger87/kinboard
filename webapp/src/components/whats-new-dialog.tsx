@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useChangelog, type ChangelogEntry } from "@/hooks/use-changelog";
 
 const REPO_RELEASES_URL = "https://github.com/svenger87/kinboard/releases";
@@ -23,10 +24,15 @@ function stripLinks(line: string): string {
 
 // Minimal markdown-lite renderer for GitHub release bodies: headings, list
 // items, and paragraphs. No raw HTML, no markdown dependency.
+interface ListItem {
+  text: string;
+  nested: string[];
+}
+
 function renderBody(body: string): ReactNode[] {
   const lines = body.replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
-  let listItems: string[] = [];
+  let listItems: ListItem[] = [];
   let paragraph: string[] = [];
 
   const flushList = () => {
@@ -34,7 +40,16 @@ function renderBody(body: string): ReactNode[] {
     blocks.push(
       <ul key={`ul-${blocks.length}`} className="list-disc pl-5 space-y-0.5 text-sm">
         {listItems.map((item, i) => (
-          <li key={i}>{stripLinks(item)}</li>
+          <li key={i}>
+            {stripLinks(item.text)}
+            {item.nested.length > 0 && (
+              <ul className="list-[circle] pl-5 mt-0.5 space-y-0.5">
+                {item.nested.map((nested, j) => (
+                  <li key={j}>{stripLinks(nested)}</li>
+                ))}
+              </ul>
+            )}
+          </li>
         ))}
       </ul>
     );
@@ -69,9 +84,12 @@ function renderBody(body: string): ReactNode[] {
           {stripLinks(line.slice(4))}
         </h4>,
       );
+    } else if (/^\s+[-*] /.test(line) && listItems.length > 0) {
+      // Indented bullet under the preceding top-level item — nested list.
+      listItems[listItems.length - 1].nested.push(line.trim().slice(2));
     } else if (line.startsWith("- ") || line.startsWith("* ")) {
       flushParagraph();
-      listItems.push(line.slice(2));
+      listItems.push({ text: line.slice(2), nested: [] });
     } else if (line.trim() === "") {
       flushList();
       flushParagraph();
@@ -107,7 +125,13 @@ export function WhatsNewDialog({ open, onOpenChange }: WhatsNewDialogProps) {
             {t("title")}
           </DialogTitle>
         </DialogHeader>
-        {unavailable ? (
+        {isLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+          </div>
+        ) : unavailable ? (
           <p className="text-sm text-muted-foreground">
             {t("changelogUnavailable")}{" "}
             <a
