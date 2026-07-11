@@ -81,6 +81,8 @@ Effect: a device that has presented multiple fingerprints across its lifetime (e
 
 The fingerprint is intentionally low-entropy and stable — the opposite of tracking-grade fingerprinting (no canvas hashing, no audio context, no font enumeration, no WebGL renderer strings). It's enough to disambiguate the handful of devices in a household, but not so sensitive that a routine browser update breaks recognition for everyone in the family.
 
+**Privacy notes:** at family scale, fingerprint collisions (e.g. two identical phones with the same language/timezone) are handled, not prevented — both matching rows are returned, and the rejoin card lets the user pick the right one. The fingerprint is also not a tracking identifier: every lookup is scoped `family_id + fingerprint`, never global, so it can't be used to identify a device across families.
+
 Source: `webapp/src/lib/device-id.ts` (fingerprint computation), `webapp/src/hooks/use-supabase-queries.ts` (`useFindDeviceByFingerprint`), `webapp/docker/migration_fingerprint_history.sql` (schema for the history array).
 
 ## Trusted-LAN-but-still-paranoid checklist
