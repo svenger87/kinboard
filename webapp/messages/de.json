@@ -150,6 +150,12 @@
       "alreadyInstalled": "Bereits installiert",
       "installButton": "App installieren"
     },
+    "whatsNew": {
+      "title": "Was ist neu",
+      "updatedToast": "Kinboard wurde auf {version} aktualisiert",
+      "whatsNewAction": "Was ist neu",
+      "changelogUnavailable": "Versionshinweise nicht verfügbar — siehe GitHub."
+    },
     "birthdayYearRing": {
       "centerLabel": "Geburtstage",
       "centerTurns": "wird {age}",
@@ -1950,6 +1956,7 @@
     },
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "Update auf {version} verfügbar",
+    "whatsNewButtonLabel": "Versionshinweise anzeigen",
     "itemNewsLabel": "Nachrichtenquellen",
     "itemNewsDescription": "Welche RSS-Feeds das News-Widget und die /news-Seite befüllen",
     "itemPluginsLabel": "Plugins",
