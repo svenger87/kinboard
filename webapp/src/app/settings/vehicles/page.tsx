@@ -83,7 +83,7 @@ export default function VehiclesSettingsPage() {
                         </p>
                       </div>
                       <div className="flex gap-1 shrink-0">
-                        <Button asChild variant="ghost" size="icon" className="size-8">
+                        <Button asChild variant="ghost" size="icon" className="size-8" aria-label={t("editAria")}>
                           <Link href={`/settings/vehicles/${v.id}`}>
                             <Pencil className="size-4" />
                           </Link>

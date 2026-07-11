@@ -885,6 +885,7 @@ export default function ScheduleSettingsPage() {
                         size="icon"
                         className="size-7 text-muted-foreground hover:text-foreground"
                         onClick={() => openEditPackDialog(item)}
+                        aria-label={t("editPackItemAria", { subject: item.subject })}
                       >
                         <Pencil className="size-3.5" />
                       </Button>
@@ -893,6 +894,7 @@ export default function ScheduleSettingsPage() {
                         size="icon"
                         className="size-7 text-destructive hover:text-destructive"
                         onClick={() => handleDeletePackItem(item.subject)}
+                        aria-label={t("deletePackItemAria", { subject: item.subject })}
                       >
                         <X className="size-3.5" />
                       </Button>
@@ -1350,6 +1352,7 @@ export default function ScheduleSettingsPage() {
                       className="shrink-0 text-destructive hover:text-destructive"
                       onClick={() => handleRemovePeriod(index)}
                       disabled={editingPeriods.length <= 1}
+                      aria-label={t("removePeriodAria", { num: period.num })}
                     >
                       <Trash2 className="size-4" />
                     </Button>

@@ -412,6 +412,7 @@ export default function EditRecipePage() {
                       size="icon"
                       onClick={() => removeIngredient(ing.id)}
                       disabled={ingredients.length === 1}
+                      aria-label={t("form.removeIngredientAria")}
                     >
                       <Trash2 className="size-4" />
                     </Button>
@@ -454,6 +455,7 @@ export default function EditRecipePage() {
                       size="icon"
                       onClick={() => removeInstruction(index)}
                       disabled={instructions.length === 1}
+                      aria-label={t("form.removeStepAria", { n: index + 1 })}
                     >
                       <Trash2 className="size-4" />
                     </Button>

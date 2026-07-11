@@ -236,6 +236,7 @@ export default function DevicesSettingsPage() {
                             className="shrink-0 size-8"
                             onClick={() => handleSaveEdit(device.id)}
                             disabled={updateDevice.isPending}
+                            aria-label={t("saveNameAria")}
                           >
                             {updateDevice.isPending ? (
                               <Loader2 className="size-4 animate-spin" />
@@ -284,6 +285,7 @@ export default function DevicesSettingsPage() {
                                       size="icon"
                                       className="size-5"
                                       onClick={() => handleCopyDeviceId(device.id)}
+                                      aria-label={t("copyDeviceIdTooltip")}
                                     >
                                       {copiedId === device.id ? (
                                         <Check className="size-3 text-success" />
@@ -351,6 +353,7 @@ export default function DevicesSettingsPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleStartEdit(device)}
+                          aria-label={t("editAria", { name: device.name })}
                         >
                           <Pencil className="size-4" />
                         </Button>

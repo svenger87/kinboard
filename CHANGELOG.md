@@ -39,6 +39,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Weather condition labels ("Cloudy", "Rain", …) now follow the app language instead of always German.
 - Bring!: re-connecting or changing one Bring option no longer silently resets your other Bring settings (sync direction, list choice) to defaults.
 - Assorted untranslated tooltips/labels (copy-URL, custom color, drag-to-reorder, token show/hide) and dates that ignored the app language now follow EN/DE/FR.
+- Screen readers: every icon-only button (edit, delete, copy, etc.) now announces what it does.
 
 ### Security
 - Integration credentials (Home Assistant access token, Immich API key, Unsplash access key, Google Calendar OAuth tokens, Bring! tokens) no longer reach the browser. They move into a new server-only `integration_secrets` table that the browser-facing database role cannot read and that is excluded from realtime broadcasts; the settings API returns a placeholder instead. Existing installs are migrated automatically on next start (`migration_integration_secrets.sql`) — no action needed, integrations keep working without reconnecting.
