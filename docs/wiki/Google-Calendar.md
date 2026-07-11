@@ -67,8 +67,6 @@ The Settings page shows **Last sync**. Click **Sync now** to trigger an immediat
 
 If you have a single shared family calendar but want events auto-assigned to people based on title patterns, use mapping rules:
 
-> TODO: screenshot of /settings/google mapping rules
-
 | Match type | Example | What it matches |
 |---|---|---|
 | `contains` | `Emma` | Any event title containing "Emma" (case-sensitive substring) |
@@ -100,5 +98,5 @@ The OAuth tokens stored in `settings.value` are deleted on disconnect.
 
 ## Related
 
-- [Database-Schema](Database-Schema) — `calendars` and `events` tables
+- [Architecture](Architecture#database-schema) — `calendars` and `events` tables
 - [Notifications](Notifications) — event-based reminders (planned, not shipped in v1.0)

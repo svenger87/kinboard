@@ -40,8 +40,6 @@ A **dashboard** is a curated grid of entity cards. Kinboard auto-creates a defau
 - Browse / search HA entities; tap to add. Each card uses the appropriate domain control.
 - Reorder by dragging the grip handle.
 
-> TODO: screenshot of dashboard cards
-
 ### 4. Configure rooms
 
 Rooms group entities for the touch-friendly room view at `/home-automation`:

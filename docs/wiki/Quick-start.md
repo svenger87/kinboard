@@ -122,6 +122,30 @@ Open the menu → **Settings** and walk through the integrations you care about.
 
 Bind paths default to `./data/` (relative to `webapp/docker/`). Override with `DATA_DIR=/some/abs/path` in `.env` for NAS or external storage.
 
+## Adding more devices
+
+Any device on the network can join the family you just created: browse to `http://<host>:<port>/join`, tap **Join family**, and enter the 6-character code (shown at **Settings** → top of the page on any already-connected device). Give the new device a name and tap **Join** — there's no hard cap on devices per family, and everything (kitchen kiosk, phones, tablets, a dev laptop) sees the same state, synced via Supabase Realtime within ~100 ms.
+
+Once a device has joined, its browser fingerprint is remembered, so on future visits `/join` offers a one-tap "Welcome back" rejoin instead of asking for the code again — see [how device recognition works](Security-and-Threat-Model#how-device-recognition-works).
+
+> **Don't share the join code over the public internet.** Anyone with the code + the URL can join your family. The model assumes a trusted LAN — see [Security-and-Threat-Model](Security-and-Threat-Model).
+
+## Leaving or switching a family
+
+A device belongs to exactly one family at a time. **Settings → Leave family** deletes the device's row from the family's `devices` table (the family itself stays) and clears local browser state (cookies + localStorage), landing you back on `/join`. To switch families, leave the current one and join the new one with its code.
+
+If the device you're leaving is the last one in the family, the family's data stays in the database — any other device with the join code can re-enter later and pick up where you left off.
+
+To wipe a fresh-install state entirely during development:
+
+```bash
+docker exec -i kinboard-db psql -U postgres -d postgres <<'EOF'
+TRUNCATE families CASCADE;
+EOF
+```
+
+`CASCADE` removes everything linked: devices, people, calendars, events, todos, shopping_items, etc. The schema and the demo seed (if applied) are unaffected.
+
 ## Putting it on the wall
 
 When you're ready to mount a touchscreen, see:
@@ -131,5 +155,4 @@ When you're ready to mount a touchscreen, see:
 
 ## Next
 
-- **[Onboarding](Onboarding)** — joining additional devices, multi-family scenarios, leaving a family
 - **[Self-hosting](Self-hosting)** — production deployment with Traefik, backups, updates

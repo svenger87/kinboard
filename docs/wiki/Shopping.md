@@ -116,8 +116,6 @@ Below the input field, the most-frequently-added items show as one-tap chips. Th
 - **After 30 days**: shows your top 12 by add-frequency
 - Per-family — kids' shopping habits influence the chips alongside adults'
 
-> TODO: screenshot of the quick-add chips row
-
 ## Item catalog memory
 
 Kinboard remembers items per family in `public.item_catalog`. When you add "Müsli," Kinboard offers the suggestion next time without recomputing the keyword match. Edits to category / unit / preferred brand stick across re-additions.

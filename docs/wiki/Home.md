@@ -8,9 +8,8 @@ Kinboard runs on your hardware, in your house. No cloud account, no telemetry, n
 
 ## Start here
 
-1. **[Quick-start](Quick-start)** — bring up the stack with one Docker command
-2. **[Onboarding](Onboarding)** — create your first family, add devices
-3. **[Self-hosting](Self-hosting)** — deeper deployment guide (Traefik, override files, backups)
+1. **[Quick-start](Quick-start)** — bring up the stack with one Docker command, create your first family, add devices
+2. **[Self-hosting](Self-hosting)** — deeper deployment guide (Traefik, override files, backups)
 
 ## Pick the integrations you actually use
 
@@ -37,7 +36,7 @@ The reference deployment is a wall-mounted touchscreen running in browser kiosk 
 ## Ops
 
 - **[Security-and-Threat-Model](Security-and-Threat-Model)** — what Kinboard expects of your network and what it doesn't
-- **[Database-Schema](Database-Schema)** — tables, RLS policies, migration story
+- **[Architecture](Architecture#database-schema)** — tables, RLS policies, migration story
 - **[Notifications](Notifications)** — web push setup, server-side cron, quiet hours
 - **[Themes](Themes)** — monthly themes, English + German
 - **[Troubleshooting](Troubleshooting)** — common breakages and fixes

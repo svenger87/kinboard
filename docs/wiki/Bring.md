@@ -37,8 +37,6 @@ Credentials are stored encrypted in `settings.value` (`bring_settings`). Only th
 
 After connect, the dropdown shows all your Bring! lists. Pick one — that becomes Kinboard's primary shopping list.
 
-> TODO: screenshot of /settings/bring with list selector
-
 ### 3. Tweak sync settings
 
 | Toggle | What |
