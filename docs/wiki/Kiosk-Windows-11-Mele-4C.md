@@ -141,7 +141,7 @@ The `Run …, 0, False` arguments mean: window-style 0 = hidden, wait = no-wait.
 
 ### 5. Drop the presence-sensor script
 
-Copy `presence-sensor.py` from the [Kinboard repo](https://github.com/svenger87/kinboard/blob/main/presence-sensor.py) to `C:\presence-sensor.py`.
+Copy `presence-sensor.py` from the [Kinboard repo](https://github.com/svenger87/kinboard/blob/main/hardware/presence-sensor.py) to `C:\presence-sensor.py`.
 
 Edit the URL constant:
 
