@@ -32,6 +32,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Fresh installs no longer log a failed request on the notifications settings page when no push notification keys are configured.
 
 ### Fixed
+- Source builds and CI work again: a dependency-bot update had broken `npm ci` with an out-of-sync lock file (red since July 6); the lock file is regenerated and verified.
 - Building the webapp image on a machine that had run the dev server no longer fails, and local dev files — including the stack's `.env` secrets — are no longer bundled into image layers.
 - When the server is unreachable, the app now shows a "Can't reach the Kinboard server" screen with a retry button after about 12 seconds instead of spinning forever.
 - Settings pages now correctly show success and error toasts (connect, sync, PIN saved, feed changes), and previously-silent failures — weather location, news sources, stonks watchlist, new vehicles, Google Calendar setup without server keys — now show a clear error instead of failing silently.
