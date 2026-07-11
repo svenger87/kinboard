@@ -155,6 +155,40 @@ export async function removeFromQueue(id: string): Promise<void> {
   });
 }
 
+// Remove all queued operations tied to a local (never-synced) item id.
+// A "create" op keys off data.localId; an "update" queued against the same
+// item before it synced keys off data.serverId holding that same local_
+// string (see useOfflineUpdateShoppingItem, which always writes the target
+// id into serverId regardless of whether it's a real server id yet). Both
+// must be purged so a deleted local item leaves no trace to resurrect on sync.
+export async function removeQueueOperationsForLocalId(
+  localId: string
+): Promise<void> {
+  const db = await openOfflineDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_STORES.QUEUE, "readwrite");
+    const store = tx.objectStore(OFFLINE_STORES.QUEUE);
+    const request = store.openCursor();
+
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      const op = cursor.value as OfflineQueueOperation;
+      if (op.data.localId === localId || op.data.serverId === localId) {
+        cursor.delete();
+      }
+      cursor.continue();
+    };
+    request.onerror = () => reject(request.error);
+
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 // Clear all completed/synced operations for a family
 export async function clearSyncedOperations(familyId: string): Promise<void> {
   const operations = await getQueuedOperations(familyId);
