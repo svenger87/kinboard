@@ -62,6 +62,8 @@ Tap delete → confirm. The device's row is removed from the family — it can n
 
 If a browser's cookies/site data are wiped, the device re-creates as a new row with a new ID on next join — the old row stays orphaned and needs manual deletion. Kinboard tries to avoid this by falling back to a browser fingerprint; see [how device recognition works](Security-and-Threat-Model#how-device-recognition-works) for the mechanism and its limits.
 
+**Don't manually edit the `devices` table** unless you know what you're doing — the webapp uses the row's UUID as the active device key in cookies. Renaming a row is fine; deleting or replacing its UUID can strand the device (logs it out, or worse, leaves it pointing at nothing).
+
 ### Patterns that work well
 
 - **After adding a family member**: open `/settings/devices`, name each row properly, mark which one is kiosk.
