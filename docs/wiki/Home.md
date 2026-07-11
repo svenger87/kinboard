@@ -13,16 +13,7 @@ Kinboard runs on your hardware, in your house. No cloud account, no telemetry, n
 
 ## Pick the integrations you actually use
 
-Kinboard's integrations are all opt-in and configured per-family in the in-app `/settings` UI:
-
-| Service | Purpose | Page |
-|---|---|---|
-| Google Calendar | Calendar sync, per-person mapping | [Google-Calendar](Google-Calendar) |
-| Home Assistant | Smart-home entities, energy dashboard, rooms | [Home-Assistant](Home-Assistant) |
-| Immich | Screensaver and gallery photos | [Immich](Immich) |
-| Bring! | Shopping list sync | [Bring](Bring) |
-| OpenWeatherMap | Weather widget + forecast | [OpenWeatherMap](OpenWeatherMap) |
-| Cameras (go2rtc) | Live WebRTC / RTSP / MJPEG streams | [Cameras](Cameras) |
+Kinboard's integrations are all opt-in and configured per-family in the in-app `/settings` UI — see the [README's integrations table](https://github.com/svenger87/kinboard#integrations) for the full list, or jump straight to a page: [Google-Calendar](Google-Calendar), [Home-Assistant](Home-Assistant), [Immich](Immich), [Bring](Bring), [OpenWeatherMap](OpenWeatherMap), [Cameras](Cameras).
 
 ## Kiosk setups
 

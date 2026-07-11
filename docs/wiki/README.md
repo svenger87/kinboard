@@ -43,6 +43,7 @@ A small `docs/wiki/sync.sh` script can be added later to make this a one-liner.
 | [Self-hosting](Self-hosting) | Authored |
 | [Onboarding](Onboarding) | Merged into Quick-start |
 | [Security-and-Threat-Model](Security-and-Threat-Model) | Authored |
+| [Device-Recognition](Device-Recognition) | Merged into Security-and-Threat-Model |
 | [Database-Schema](Database-Schema) | Merged into Architecture |
 | [Google-Calendar](Google-Calendar) | Authored — TODO screenshots |
 | [Home-Assistant](Home-Assistant) | Authored — TODO screenshots |
