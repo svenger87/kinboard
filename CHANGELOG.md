@@ -12,9 +12,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 - "What's new": after an update, the app shows a short notice with the release notes, and the version line in Settings opens the changelog anytime.
-- A "Live updates paused" pill appears above the navigation when the realtime connection drops, so a kiosk display never shows stale data without warning.
+- A "Live updates paused" pill appears above the navigation when the realtime connection drops, and clears itself on reconnect — a kiosk display never shows stale data without warning.
 - Settings → Data & backup can now export everything — events, todos, shopping, recipes, meal plans, notes, birthdays, schedules, settings — as one JSON file, excluding credentials and device data.
-- Subscribe to the family calendar from Google Calendar, Apple Calendar, or Outlook via a secret ICS link, which can be rotated anytime to revoke access.
+- Subscribe to the family calendar from Google Calendar, Apple Calendar, or Outlook via a secret ICS link (Settings → Data & backup), rotatable anytime to revoke access.
 - Deleting a note, todo, shopping item, meal-plan entry, event, birthday, or recipe now shows an "Undo" toast that restores it exactly as it was.
 - Calendar events are now searchable by title, location, or description, and every event has a shareable link that jumps straight to its date; the back button now closes the event dialog instead of leaving the calendar.
 - Families can now be renamed from Settings and deleted entirely from the danger zone, which requires typing the family name and erases all data — export a backup first.
@@ -32,7 +32,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Fresh installs no longer log a failed request on the notifications settings page when no push notification keys are configured.
 
 ### Fixed
-- Building the webapp image on a machine that had run the dev server no longer fails, and source builds are now smaller since local dev files are no longer bundled in.
+- Building the webapp image on a machine that had run the dev server no longer fails, and local dev files — including the stack's `.env` secrets — are no longer bundled into image layers.
 - When the server is unreachable, the app now shows a "Can't reach the Kinboard server" screen with a retry button after about 12 seconds instead of spinning forever.
 - Settings pages now correctly show success and error toasts (connect, sync, PIN saved, feed changes), and previously-silent failures — weather location, news sources, stonks watchlist, new vehicles, Google Calendar setup without server keys — now show a clear error instead of failing silently.
 - The delete-person confirmation now correctly states that the pocket-money account and school schedules are deleted, while birthdays, events, and todos are kept but unassigned.
