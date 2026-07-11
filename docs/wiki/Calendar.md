@@ -53,7 +53,7 @@ The blue "+ New event" button opens a dialog:
 
 Events show up immediately for everyone in the family. If you picked a Google calendar, the event lands on Google within a few seconds and the next sync round-trip cements it. Edits and deletes also propagate.
 
-Tap any existing event → edit dialog with the same fields. Delete via the trash icon.
+Tap any existing event → edit dialog with the same fields. Delete via the trash icon — a confirmation dialog guards it, and an "Undo" toast appears afterward to restore the event exactly as it was.
 
 ## Day-detail panel
 
@@ -70,14 +70,24 @@ The day panel is the main "interaction" surface — month/week views are glance 
 ## Quick patterns
 
 - **"What's on this week"** → tap any day in the current week, then arrow through
-- **"Find an event"** → no built-in search yet (v1.2). For now, eyeball it or browse Google Calendar
+- **"Find an event"** → use the search field in the calendar's control row — see [Event search & links](#event-search--links) below
 - **"Add a recurring event"** → not directly supported in the local-event editor. Add as a recurring event in Google Calendar and it'll sync in.
+
+## Event search & links
+
+The control row above the month/week grid has a search field: type 2+ characters and it matches against every event's title, location, and description (case-insensitive), searching across your full event history — not just the visible month. Tap a result to jump straight to it.
+
+Every event also has a shareable link that deep-links to its date and opens it directly (`?event=<id>&date=<date>`) — useful for pasting into a family chat ("here's the appointment"). Opening the link jumps the calendar to that date and opens the event dialog automatically; the back button closes the dialog instead of leaving the calendar.
+
+## Publish your calendar (ICS feed)
+
+Settings → **Data & backup** has a **Calendar feed (ICS)** card. Tap **Create feed link** to generate a secret, read-only ICS URL for your family's events, then paste it into Google Calendar ("From URL"), Apple Calendar, or Outlook to subscribe — external calendar apps pull your Kinboard events on their own refresh schedule from there.
+
+The link is a shared secret: anyone who has it can read your family's events (title, time, location), so treat it like a password. If it leaks, tap **Rotate link** on the same card — that invalidates the old URL and issues a new one, and you'll need to re-subscribe every calendar app that was using it.
 
 ## Holidays
 
-The holidays widget reads German federal holidays (`webapp/src/lib/german-holidays.ts`) by default. Add a Google Calendar with the "holidays" flag to override or augment with your country's holidays.
-
-> Country-aware holiday support is on the v1.1 list — `getGermanHolidays` will generalize to a `holidays/<country-code>` directory.
+The holidays widget is country-aware: pick your country in **Settings → Language** (Germany, US, UK, Netherlands, or France; existing families default to Germany). Add a Google Calendar with the "holidays" flag to override or augment further. See [Themes → Locales](Themes#locales) for the country picker.
 
 ## Calendar mapping rule editor
 
@@ -113,4 +123,5 @@ ICS sources Kinboard handles cleanly today: iCloud Family Sharing, Google's "sec
 
 - [Google-Calendar](Google-Calendar) — connect Google + per-event mapping rules
 - [Birthdays](Birthdays) — birthdays appear in the calendar; managed separately
-- [Themes](Themes) — date formatting per locale
+- [Themes](Themes) — date formatting per locale + the holiday country picker
+- [Self-hosting](Self-hosting#backing-up-your-data) — the JSON export vs. the ICS feed, and when to use each

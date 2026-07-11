@@ -46,7 +46,7 @@ The main dashboard area. Widgets are toggle-able per family in **Settings → Wi
 | **Waste collection** | Next pickups grouped by waste type. Reads any Google Calendar marked as a "waste pickup" calendar. |
 | **Tasks** | Open todos, sorted by priority + due date. See [Tasks](Tasks). |
 | **Notes** | Latest 3 family notes + "+ new note" pinned to bottom. See [Notes](Notes). |
-| **Tesla** | Battery, range, charging status (only if Tesla integration configured — slated for plugin extraction in v1.1). |
+| **Vehicles** | Battery, range, and charging status for every configured car, rotating through multiple vehicles every 8 seconds. Ships via the [Vehicles](Vehicles) plugin (Tesla + Generic EV drivers). |
 
 Each widget independently toggleable in **Settings → Widgets**. The toggle has a live mini-preview so you can see what each looks like before enabling.
 
@@ -77,10 +77,11 @@ The dashboard is what the [kiosk](Kiosk-Windows-11-Mele-4C) shows when it's idle
 - **Show seconds / 24h vs 12h** in Settings → Theme
 - **Light vs dark mode** in Settings → Theme
 
-The widget *order* is fixed for now (defined in `webapp/src/app/page.tsx`). Drag-to-reorder is on the v1.2 wishlist.
+The widget *order* is fixed (defined in `webapp/src/app/page.tsx`) — no drag-to-reorder yet.
 
 ## Related
 
 - [Themes](Themes) — the monthly color cycle
 - [People-and-Devices](People-and-Devices) — per-person colors and avatars
 - [Notifications](Notifications) — what shows up as a push when widgets change
+- [Vehicles](Vehicles) — the vehicles widget and plugin setup

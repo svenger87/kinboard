@@ -49,12 +49,12 @@ A 30,000-foot view of how the pieces fit together. Read this once before you cha
 
 ## Data flow
 
-1. **All data is family-scoped.** A `family_id` UUID gates every row via [Row-Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security). See [Database schema](#database-schema) below.
+1. **All data is family-scoped.** A `family_id` UUID column exists on every row. **Row-Level Security is disabled in the canonical schema** — it was an aspirational layer in early versions that the application code never reliably set the required Postgres GUC for, so it blocked legitimate writes (notably the join flow's `INSERT` into `devices`) more often than it protected anything. The actual authorization boundary is the device-cookie + join-code model enforced in application code, not Postgres RLS. See [Database schema](#database-schema) below and [Security-and-Threat-Model](Security-and-Threat-Model) for the full threat model.
 2. **Devices join families via 6-character join codes.** Stored in `families.join_code`. Auth model is "device fingerprint + join code" — see [Security-and-Threat-Model](Security-and-Threat-Model).
 3. **Real-time updates** use Supabase Realtime (Postgres logical replication → WebSocket). The hook `use-realtime.ts` subscribes to a table and the relevant TanStack Query cache invalidates automatically.
 4. **Server-side data access** uses two Supabase clients:
-   - `createClient()` — anon-key client, RLS-enforced, used inside API routes that should respect family scoping
-   - `createAdminClient()` — service-role client, bypasses RLS, used only in clearly bounded routes (`/api/setup/status`, cron endpoints)
+   - `createClient()` — anon-key client, used inside API routes that should still respect family scoping in their own query filters (RLS is off, so this is a naming convention, not an enforced boundary)
+   - `createAdminClient()` — service-role client, used in routes that need elevated access (`/api/setup/status`, cron endpoints, anything touching `integration_secrets`)
 
 ## Project layout
 
@@ -84,7 +84,7 @@ A 30,000-foot view of how the pieces fit together. Read this once before you cha
 │   └── docker/                  # docker-compose stack + helpers
 │       ├── docker-compose.yml
 │       ├── docker-compose.traefik.yml.example
-│       ├── init.sql             # Schema + RLS policies
+│       ├── init.sql             # Schema (RLS disabled — see Security-and-Threat-Model)
 │       ├── seed-demo.sql        # Optional demo dataset
 │       ├── start.sh             # up/down/logs/restart/migrate/seed-demo
 │       ├── migrate-prod.sh      # Live-host upgrade helper
@@ -123,9 +123,9 @@ families  (id, name, join_code)
    └── settings (key, value JSONB)
 ```
 
-### RLS policies
+### Row-Level Security: disabled, and why
 
-Every table has a policy of the form:
+Earlier versions of `init.sql` shipped RLS policies of this shape on every table:
 
 ```sql
 CREATE POLICY "<table> belong to families" ON public.<table>
@@ -134,9 +134,13 @@ CREATE POLICY "<table> belong to families" ON public.<table>
   WITH CHECK (family_id IN (SELECT id FROM families WHERE join_code = current_setting('app.join_code', true)));
 ```
 
-The Next.js server sets the `app.join_code` GUC on each connection from the active family's join code (read from cookies). Without that GUC, RLS denies everything.
+This depended on the Next.js server setting an `app.join_code` GUC on every connection, sourced from a cookie. In practice the application code didn't set that GUC reliably on every code path, so the policies ended up blocking legitimate writes — most visibly the join flow's `INSERT` into `devices` for a brand-new family. Production has run with RLS disabled on all family-scoped tables since shortly after launch; `webapp/docker/migration_disable_rls.sql` brings older installs into the same state, and current `init.sql` doesn't enable RLS on fresh installs at all.
 
-The `families` table itself has policies allowing `SELECT` for any client whose join code matches, and `INSERT` for everyone (so new families can be created via `/join`). The `devices` table allows `SELECT` / `UPDATE` / `DELETE` if `family_id` matches the active family, and `INSERT` for joining (no family-scope check on insert; the insert payload determines the family).
+**Kinboard's actual authorization boundary is the device-cookie + join-code model**, enforced by application code filtering every query on `family_id`, not by Postgres. Anyone holding a family's join code (or the raw `family_id`, which isn't itself treated as a secret) can read and write that family's data via the API — this is a deliberate trust-a-single-household design, not an oversight. Full threat model, what this is and isn't good for, and hardening recommendations: [Security-and-Threat-Model](Security-and-Threat-Model).
+
+The `families` table has no meaningful access policy beyond "join code matches" checks done in application code; `INSERT` is open (so new families can be created via `/join`). The `devices` table is filtered by `family_id` in queries for read/update/delete; `INSERT` also has no database-level family-scope check — the insert payload determines the family.
+
+Secrets are the one place Kinboard does enforce a real Postgres-level boundary: OAuth tokens, API keys, and the settings PIN live in `public.integration_secrets`, which has `anon`/`authenticated` privileges **revoked** (`REVOKE ALL ... FROM anon`) — only the service-role client can read it. That's a privilege grant, not RLS, but it's actually enforced. See [Security-and-Threat-Model → Integration credentials](Security-and-Threat-Model#integration-credentials).
 
 ### Migrations
 
@@ -166,29 +170,35 @@ Applies `seed-demo.sql`, which creates a "Demo Family" (join code `DEMO01`) with
 
 Per-family settings live in the `public.settings` table as `(family_id, key, value JSONB)`. The shape is intentionally loose — the app reads with `useSetting<T>("key", default)` and writes with `useUpdateSetting`. This avoids schema migrations for settings shape changes.
 
+`settings` is anon-readable (no RLS, plus it's in the Realtime publication for live sync), so it's the wrong place for secrets. Since v1.4.0, integration credentials live in a separate server-only table instead — see [Integration credentials](#integration-credentials) below. The table here shows the non-secret shape as it exists today; fields marked *(secret, moved)* are no longer present under these keys.
+
 ### Settings keys at a glance
 
 | Key | Shape (TypeScript-ish) | Where used |
 |---|---|---|
-| `theme` | `{ themeOverride: number? \| null, use24Hour: boolean, showSeconds: boolean }` | `/settings/theme` |
+| `theme` | `{ themeOverride: number? \| null, use24Hour: boolean, showSeconds: boolean, textSize }` | `/settings/theme` |
 | `weather_location` | `{ type: "city" \| "coordinates", city?: string, lat?: number, lon?: number }` | `/settings/weather` |
 | `widget_visibility` | `Record<WidgetKey, boolean>` | `/settings/widgets` |
 | `screensaver` | `{ screensaverTimeout, presenceTimeout, presenceControlMode, photoRotationInterval }` | `/settings/screensaver` |
-| `home_assistant` | `{ url, access_token, dashboards: Dashboard[], rooms: Room[] }` | `/settings/homeassistant` |
+| `home_assistant` | `{ url, dashboards: Dashboard[], rooms: Room[] }` — `access_token` is *(secret, moved)* | `/settings/homeassistant` |
 | `cameras` | `{ cameras: CameraConfig[] }` | `/settings/cameras` |
-| `bring_settings` | `{ credentials, selectedListId, autoSync, twoWaySync, syncCategories }` | `/settings/bring` |
-| `google_calendar` | `{ access_token, refresh_token, expiry_date, enabled_calendars[], mapping_rules[], auto_sync, last_sync, ... }` | `/settings/google` |
-| `immich` | `{ url, api_key, selected_album }` | `/settings/photos` |
-| `unsplash` | `{ access_key, monthly_terms }` | `/settings/photos` |
+| `bring_settings` | `{ selectedListId, autoSync, twoWaySync, syncCategories }` — `credentials` is *(secret, moved)* | `/settings/bring` |
+| `google_calendar` | `{ enabled_calendars[], mapping_rules[], auto_sync, last_sync, ... }` — `access_token`/`refresh_token`/`expiry_date` are *(secret, moved)* | `/settings/google` |
+| `immich` | `{ url, selected_album }` — `api_key` is *(secret, moved)* | `/settings/photos` |
+| `unsplash` | `{ monthly_terms }` — `access_key` is *(secret, moved)* | `/settings/photos` |
 | `photo_source` | `{ source: "immich" \| "unsplash" }` | `/settings/photos` |
 | `tesla` | per-entity ID mapping | `/settings/tesla` (plugin) |
 | `energy` | per-entity ID mapping for solar/battery/grid | `/settings/homeassistant/energy` |
 | `schedule_periods` | `PeriodConfig[]` | `/settings/schedule` |
 | `schedule_pack_items` | `PackItemConfig[]` | `/settings/schedule` |
 | `notification_preferences` | per-device push prefs | `/settings/notifications` |
-| `settings_pin` | `string \| null` (4 digits) | `/settings` (PIN gate) |
+| `settings_pin` | *(secret, moved — no longer written under this key; see below)* | `/settings` (PIN gate) |
 
 The schema is intentionally not normalized into per-feature tables — settings shapes evolve faster than schema migrations are worth.
+
+### Integration credentials
+
+OAuth tokens, API keys, and the settings PIN live in `public.integration_secrets` (`family_id, key, value JSONB`), added in v1.4.0 (`webapp/docker/migration_integration_secrets.sql`, `migration_pin_secret.sql`). Unlike `settings`, this table has `anon`/`authenticated` privileges revoked and is excluded from the Realtime publication — only the service-role client (`createAdminClient()`) can read it, so a browser on the LAN can no longer read another device's Google/Home Assistant/Immich/Bring tokens or the PIN via PostgREST. Settings pages that need to show "connected" state read a merged view (`getMergedSetting`) that overlays the secret on top of the public settings shape without ever sending the secret value itself to the browser — a PUT that includes the sentinel placeholder means "keep the stored secret unchanged." Existing installs migrate their previously-exposed values into this table automatically on upgrade. Full reasoning: [Security-and-Threat-Model → Integration credentials](Security-and-Threat-Model#integration-credentials).
 
 ## API routes
 

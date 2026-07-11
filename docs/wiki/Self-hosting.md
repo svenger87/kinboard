@@ -191,6 +191,30 @@ echo | openssl s_client -connect yourdomain:443 -servername yourdomain 2>/dev/nu
 
 If the cert hasn't issued after ~30 seconds, check `docker logs traefik` for ACME errors. Most failures are DNS not pointing at the host, port 80 not reachable from the internet, or rate-limit hits if you've been re-issuing during testing (Let's Encrypt caps at 50 certs per registered domain per week).
 
+## Health endpoint
+
+`GET /api/health` is an unauthenticated liveness probe — no family data, just `{ status, version, db }`. It's the one API route that intentionally breaks Kinboard's usual "always return 200, degrade gracefully" convention: a healthcheck needs a real failure signal, so it returns HTTP 503 (`status: "degraded", db: false`) if the database probe fails or times out (3s), and HTTP 200 (`status: "ok", db: true`) otherwise.
+
+The webapp container's `docker-compose.yml` entry wires this in directly:
+
+```yaml
+healthcheck:
+  test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 30s
+```
+
+`docker ps` shows `(healthy)` / `(unhealthy)` for the webapp container accordingly — useful for external monitoring (Uptime Kuma, a simple cron+curl script, Diun-adjacent tooling) without needing to poll a real page. Separately, Settings has its own **Diagnostics** section showing network/live-updates/push/integration status for troubleshooting inside the app — that's a different, family-facing check, not powered by this endpoint.
+
+## Backing up your data
+
+Two options, at different levels:
+
+- **Family-level JSON export** — Settings → **Data & backup** → **Download backup**. Downloads everything the app manages for your family (events, todos, shopping, recipes, meal plans, notes, birthdays, schedules, settings) as one JSON file, excluding credentials and device data. Good for a quick "just in case" snapshot before a risky change, or for migrating a family between installs. Not a full restore mechanism by itself — there's no matching "import" flow yet, so treat it as a reference/manual-recovery backup, not a one-click restore.
+- **Full database backup (`pg_dump`)** — see below. This is the complete, restorable backup: every family on the instance, all integration credentials, everything. Use this for real disaster recovery.
+
 ## Backups
 
 The bind paths under `${DATA_DIR}` are what need backing up:

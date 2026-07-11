@@ -55,7 +55,7 @@ Full ingredients list, full instructions (numbered, large readable type for kitc
 - ✏️ Edit
 - 🗑 Delete
 
-The "Add to shopping list" pre-fills quantities by current serving size, so doubling the recipe doubles the list items.
+The "Add to shopping list" pre-fills quantities by current serving size, so doubling the recipe doubles the list items. Deleting a recipe or a meal-plan entry shows an "Undo" toast that restores it exactly as it was.
 
 ### Tags
 
@@ -113,11 +113,11 @@ Free-form entries don't contribute to the shopping list (no ingredients to extra
 - **Sunday planning ritual**: open `/meals`, drag-and-drop the week, click "Generate shopping list" → done
 - **Kid-friendly menu picker**: filter recipes by tag `kinderfreundlich`, let the kids pick which meal to plan
 - **"What can I make with what's in the fridge"**: search recipes by ingredient (in the cookbook search), pick one
-- **Photographing handwritten recipes**: in `/recipes/new`, use the Camera tab to snap the recipe card and OCR is on the v1.2 wishlist (currently it's just an image)
+- **Photographing handwritten recipes**: in `/recipes/new`, use the Camera tab to snap the recipe card — it's stored as the recipe's image; there's no text extraction from it, so ingredients still need typing in
 
 ## What's not supported
 
-- **OCR / auto-extracting ingredients from a photo** — manual entry only (v1.2 wishlist)
+- **OCR / auto-extracting ingredients from a photo** — manual entry only
 - **Nutritional info** — no calorie / macro tracking
 - **External recipe APIs** beyond Chefkoch + schema.org URL import (no Spoonacular / Edamam / etc. integration yet)
 - **Per-person dietary preferences** (vegetarian, gluten-free) — handled via tags, not a structured filter

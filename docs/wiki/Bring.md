@@ -29,7 +29,7 @@ Two-way sync between Kinboard's shopping list and the [Bring!](https://www.getbr
 3. Enter your Bring! email + password
 4. **Sign in**
 
-Credentials are stored encrypted in `settings.value` (`bring_settings`). Only the server side decrypts them when posting to the Bring! API.
+Credentials are stored server-side only, in the `integration_secrets` table (key `bring_settings`) — never in the anon-readable `settings` table, and never sent to the browser. Only the server reads them when posting to the Bring! API. See [Security-and-Threat-Model → Integration credentials](Security-and-Threat-Model#integration-credentials).
 
 <img src="images/settings-bring.png" alt="Settings — Bring!: connection form and shared list selector" width="420"/>
 
