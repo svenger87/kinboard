@@ -175,7 +175,7 @@ Replace `you@example.com` with a real address — Let's Encrypt sends expiry war
 
 Then follow [Wiring kinboard into your existing Traefik](#wiring-kinboard-into-your-existing-traefik) above.
 
-**Firewall (UFW):** open 80/tcp and 443/tcp publicly. Close 3001 and 8100 — Traefik fronts both. If you've followed the [Hardening](#hardening) section's DOCKER-USER chain pattern, mirror the change there too (drop `--ctorigdstport 3001` and `8100`, add `80` and `443`).
+**Firewall (UFW):** open 80/tcp and 443/tcp publicly. Close 3001 and 8100 — Traefik fronts both. If you've applied Docker-level firewall rules per [Security-and-Threat-Model → Recommended hardening](Security-and-Threat-Model#recommended-hardening), mirror the port change there too (drop `3001` and `8100`, add `80` and `443`).
 
 **Verify:**
 
@@ -397,7 +397,7 @@ docker rm -f kinboard-watchtower
 - Keep `WEBAPP_PORT=3001` (or expose any port you like).
 - No HTTPS — fine inside a trusted network. **Don't expose this to the internet without auth in front.**
 
-> **Trade-off without HTTPS: push notifications and PWA install won't work.** Browsers gate the Service Worker API, Push API, and the install prompt on a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts) (HTTPS, or `http://localhost` from the *same* machine). On a phone visiting `http://192.168.x.x:3001`, registering for push silently fails and "Add to Home Screen" produces a regular shortcut without offline support. Everything else (live sync via Supabase Realtime, all integrations, all UI) keeps working — push + PWA install are the only features lost. If you need them on a LAN-only setup, the easiest paths are: (a) issue a self-signed cert and trust it on every device (rough); (b) use a [Cloudflare Tunnel](#reverse-proxied-via-cloudflare-tunnel) which gives you HTTPS without opening ports; or (c) terminate TLS on the NAS itself with Traefik + a private CA you control. See [Notifications → Requirements](Notifications#requirements) for the full constraint list.
+> **Trade-off without HTTPS: push notifications and PWA install won't work.** Browsers gate the Service Worker API, Push API, and the install prompt on a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts) (HTTPS, or `http://localhost` from the *same* machine). On a phone visiting `http://192.168.x.x:3001`, registering for push silently fails and "Add to Home Screen" produces a regular shortcut without offline support. Everything else (live sync via Supabase Realtime, all integrations, all UI) keeps working — push + PWA install are the only features lost. If you need them on a LAN-only setup, the easiest paths are: (a) issue a self-signed cert and trust it on every device (rough); (b) use a [Cloudflare Tunnel](#reverse-proxied-via-cloudflare-tunnel) which gives you HTTPS without opening ports; or (c) terminate TLS on the NAS itself with Traefik + a private CA you control. See [Notifications → Requirements](Notifications#requirements-read-this-first) for the full constraint list.
 
 ### Behind Traefik with Cloudflare DNS-01
 
