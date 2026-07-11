@@ -172,7 +172,10 @@ function validatePayload(body: unknown): { payload: ExportPayload } | { error: s
     payload: {
       format: body.format as string,
       version: body.version as number,
-      family: { id: family.id, name: family.name },
+      // Trim: backups from families created before name-trimming shipped can
+      // carry trailing whitespace, which would re-arm the delete-confirmation
+      // trap the trim fix closed.
+      family: { id: family.id, name: family.name.trim() },
       data: data as Record<string, unknown[]>,
     },
   };
