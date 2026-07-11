@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -44,13 +44,25 @@ export default function WeatherSettingsPage() {
   const [savedBaseline, setSavedBaseline] = useState<WeatherLocation>(DEFAULT_LOCATION);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Tracks the baseline as of the previous savedLocation arrival, read
+  // (not written) inside the effect below so the sync decision always
+  // compares against pre-update state rather than a stale closure.
+  const previousBaselineRef = useRef<WeatherLocation>(DEFAULT_LOCATION);
 
   // Load saved settings on hydration (and after a successful save's refetch).
   useEffect(() => {
-    if (savedLocation) {
-      setLocationValue(savedLocation);
-      setSavedBaseline(savedLocation);
-    }
+    if (!savedLocation) return;
+    // Realtime invalidates every ["settings", familyId] query on ANY
+    // settings row changing (not just this one), so this effect can fire
+    // from an unrelated save on another device. Only resync locationValue
+    // when the user has no unsaved edit here; the baseline always tracks
+    // DB truth so hasChanges stays correct either way.
+    const previousBaseline = previousBaselineRef.current;
+    setLocationValue((current) =>
+      isEqualLocation(current, previousBaseline) ? savedLocation : current
+    );
+    setSavedBaseline(savedLocation);
+    previousBaselineRef.current = savedLocation;
   }, [savedLocation]);
 
   const hasChanges = !isEqualLocation(locationValue, savedBaseline);
