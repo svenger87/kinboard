@@ -8,14 +8,7 @@ The reason for choosing Windows over Linux on a wall-mounted touchscreen comes d
 
 ## Hardware at a glance
 
-| Component | Spec |
-|---|---|
-| Mini PC | **Mele Quieter 4C** — fanless Intel N100/N150, 16 GB RAM, 256 GB eMMC |
-| Display | 27" Novomatic open-frame touchscreen, 1920×1200, capacitive multi-touch via USB |
-| Enclosure | Custom oak frame with rabbet for the panel + plywood back |
-| Sensor | HLK-LD2410 mounted on top of the frame (optional) |
-| Connectivity | Mele has Wi-Fi 5 + 2.5 GbE; reference build runs on Wi-Fi at 192.168.1.x |
-
+Fanless Mele Quieter 4C mini PC + 27" Novomatic open-frame touchscreen in a custom oak frame, with an optional HLK-LD2410 presence sensor on top.
 For the **full build** — BOM, vendor links, frame construction, cabling, photos — see [Reference-Build](Reference-Build). This page covers the **software** that runs on top.
 
 The unit captured for this wiki has these specifics:
@@ -269,7 +262,7 @@ Each part writes to a separate log:
 | `C:\kiosk.log` | KioskLauncher startup events |
 | `C:\presence-sensor.log` | Presence sensor activity (state changes, distance reads, watchdog) |
 
-Note: the presence-sensor log is not currently rotated. As of writing it can grow several MB per week. A v1.1 fix will swap to `RotatingFileHandler`. For now, `Clear-Content` it manually if it gets large:
+Neither log rotates — `C:\presence-sensor.log` especially can grow several MB per week. `Clear-Content` it manually if it gets large:
 
 ```powershell
 Clear-Content C:\presence-sensor.log
@@ -304,7 +297,7 @@ Then drop your public key into `C:\Users\Calendar\.ssh\authorized_keys` and you 
 
 | Symptom | Likely cause |
 |---|---|
-| **Edge doesn't auto-launch on boot** | KioskLauncher task didn't fire. Check `C:\kiosk.log` exists; if not, verify the task is enabled and runs as `Calendar` with **Run only when user is logged on**. |
+| **Edge doesn't auto-launch on boot** | KioskLauncher task didn't fire. Check `C:\kiosk.log` exists; if not, verify the task is enabled and runs as `Calendar` with **Run only when user is logged on**. Check Task Scheduler → KioskLauncher → **Last run result**: `0x41306` means the task fired before the user was logged on (confirm AutoLogon is set); `0x1` means the batch script returned nonzero (check `C:\kiosk.log` for what failed). |
 | **On-screen keyboard doesn't appear** | `EnableDesktopModeAutoInvoke` not set, or TabTip.exe not running. Re-run `kiosk-launcher.bat` manually and verify both. |
 | **Presence sensor not detecting** | Check `C:\presence-sensor.log` for the COM port detected. If wrong, set `SERIAL_PORT` env var or hard-code in the script. |
 | **Display turns off mid-day** | Powercfg `monitor-timeout-ac` got reset by Windows Update. Re-apply via DisplayWake. |

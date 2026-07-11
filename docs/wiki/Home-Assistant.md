@@ -67,24 +67,7 @@ The energy backend uses HA's `/api/history/period` and `/api/statistics` endpoin
 
 ## Entity domain support
 
-| Domain | Card |
-|---|---|
-| `light` | Brightness slider, color picker, on/off |
-| `switch`, `input_boolean` | Toggle |
-| `sensor`, `binary_sensor` | Read-only with device-class icon |
-| `climate` | Set-point, mode, current temp |
-| `cover` | Open/close/stop, position slider |
-| `fan` | Speed slider, on/off |
-| `media_player` | Play/pause/volume, source title, artwork |
-| `lock` | Lock/unlock |
-| `alarm_control_panel` | Arm/disarm with PIN keypad |
-| `scene`, `script` | Activate button |
-| `vacuum` | Start/stop/dock |
-| `weather` | Current + forecast (used by widget) |
-| `person`, `device_tracker` | Avatar + location label |
-| `camera` | MJPEG stream (also see [Cameras](Cameras) for non-HA cameras) |
-
-Unsupported domains render a generic card with the raw state.
+Each entity domain renders with an appropriate card — slider for lights, set-point for climate, PIN keypad for alarms, and so on. Full domain-to-card reference: [Smart-Home → Cards](Smart-Home#cards).
 
 ## Disconnecting
 
@@ -94,7 +77,7 @@ Settings → Home Assistant → **Disconnect**. All configured dashboards, rooms
 
 | Symptom | Likely cause |
 |---|---|
-| **"Connection failed"** | URL or token wrong, or HA's CORS settings reject the origin. HA defaults are open enough for Kinboard but if you've tightened them, allow the Kinboard origin. |
+| **"Connection failed"** | URL or token wrong, or HA's `cors_allowed_origins` rejects the origin (HA defaults are open enough for Kinboard, but tighten and you'll need to add the Kinboard origin). Also check mixed content (Kinboard on HTTPS, HA on plain HTTP — browsers block that) and token revocation — if the HA user was deleted, the token dies with it; Settings → Home Assistant shows a **Reconnect** banner in that case, paste a fresh long-lived token. |
 | **State updates lag by 30s** | Kinboard uses 15 s polling for entities not on its WebSocket subscription list. If you need real-time on a specific sensor, add it to a dashboard card (those subscribe). |
 | **Energy chart is blank** | Sensors not yet configured — visit `/settings/homeassistant/energy` and wire them up. Chart needs at least 24h of history. |
 | **Token works in HA UI but fails here** | Long-lived tokens have a 10-year expiry; not the issue. More likely: URL must match exactly (`https://` vs `http://`, trailing slash, port). |

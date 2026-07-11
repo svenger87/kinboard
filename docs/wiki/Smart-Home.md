@@ -45,8 +45,10 @@ Inside a room tab: one card per entity. Card type adapts to the entity domain:
 | `vacuum` | Start/stop/dock |
 | `weather` | Conditions + forecast |
 | `person`, `device_tracker` | Avatar + location label |
-| `camera` | MJPEG thumbnail (live tap → fullscreen) |
+| `camera` | MJPEG thumbnail (live tap → fullscreen; also see [Cameras](Cameras) for non-HA cameras) |
 | `sensor`, `binary_sensor` | Read-only with device-class icon |
+
+Unsupported domains render a generic card with the raw state.
 
 State updates are real-time — toggle a light from the kiosk, the actual bulb changes within ~200 ms.
 
