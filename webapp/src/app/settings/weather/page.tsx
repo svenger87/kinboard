@@ -6,17 +6,27 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Cloud, Loader2, Check, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useWeatherLocation, useWeather } from "@/hooks";
-import { useUpdateSetting } from "@/hooks";
+import { useWeatherLocation, useWeather, useUpdateSetting, type WeatherLocation } from "@/hooks";
 import { Weather } from "@/components/widgets/weather";
 import { PageHeader } from "@/components/page-header";
 import { IntegrationConfigHint } from "@/components/integration-config-hint";
-import {
-  CityLocationPicker,
-  type WeatherLocationValue,
-} from "@/components/settings/city-location-picker";
+import { CityLocationPicker } from "@/components/settings/city-location-picker";
 
-const DEFAULT_LOCATION: WeatherLocationValue = { type: "city", city: "Hamburg" };
+const DEFAULT_LOCATION: WeatherLocation = { type: "city", city: "Hamburg" };
+
+// null/undefined lat/lon (unset) and NaN (in-progress coordinate input)
+// both mean "no value" here, so they compare equal to each other.
+function sameCoord(a: number | undefined, b: number | undefined): boolean {
+  return (a ?? null) === (b ?? null) || (Number.isNaN(a) && Number.isNaN(b));
+}
+
+function isEqualLocation(a: WeatherLocation, b: WeatherLocation): boolean {
+  if (a.type !== b.type) return false;
+  if (a.type === "city") {
+    return (a.city ?? "") === (b.city ?? "");
+  }
+  return sameCoord(a.lat, b.lat) && sameCoord(a.lon, b.lon);
+}
 
 export default function WeatherSettingsPage() {
   const t = useTranslations("settings.weather");
@@ -28,21 +38,25 @@ export default function WeatherSettingsPage() {
   const weatherUnconfigured = weatherData === null;
   const updateSetting = useUpdateSetting();
 
-  const [locationValue, setLocationValue] = useState<WeatherLocationValue>(DEFAULT_LOCATION);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [locationValue, setLocationValue] = useState<WeatherLocation>(DEFAULT_LOCATION);
+  // The last-saved value. Compared against locationValue to derive
+  // hasChanges, so reverting an edit (or saving) disables the button again.
+  const [savedBaseline, setSavedBaseline] = useState<WeatherLocation>(DEFAULT_LOCATION);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Load saved settings. Runs on hydration only — must NOT flip hasChanges.
+  // Load saved settings on hydration (and after a successful save's refetch).
   useEffect(() => {
     if (savedLocation) {
       setLocationValue(savedLocation);
+      setSavedBaseline(savedLocation);
     }
   }, [savedLocation]);
 
-  const handleLocationChange = (next: WeatherLocationValue) => {
+  const hasChanges = !isEqualLocation(locationValue, savedBaseline);
+
+  const handleLocationChange = (next: WeatherLocation) => {
     setLocationValue(next);
-    setHasChanges(true);
     setSaved(false);
   };
 
@@ -54,8 +68,8 @@ export default function WeatherSettingsPage() {
         key: "weather_location",
         value: locationValue,
       });
+      setSavedBaseline(locationValue);
       setSaved(true);
-      setHasChanges(false);
       // Refetch weather with new location
       setTimeout(() => refetchWeather(), 500);
     } catch {
