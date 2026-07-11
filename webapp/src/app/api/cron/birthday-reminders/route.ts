@@ -82,9 +82,10 @@ function daysUntilNextOccurrence(month: number, day: number, today: HouseholdDat
  * scheduled_notifications. process-notifications then delivers it,
  * honoring quiet hours and the per-device birthday_reminders preference.
  *
- * Idempotent — skips a birthday if an unsent reminder for it was already
- * enqueued today (guards against a manual re-trigger double-firing; the
- * following year's match is a separate calendar day so it isn't blocked).
+ * Idempotent — skips a birthday if a reminder for it was already enqueued
+ * today, regardless of processed state (guards against a manual re-trigger
+ * double-firing even after today's row was already delivered; the following
+ * year's match is a separate calendar day so it isn't blocked).
  */
 export async function POST(request: NextRequest) {
   if (!CRON_SECRET) {
@@ -135,15 +136,16 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    // Dedup: skip if an unsent reminder for this birthday was already
-    // enqueued today. A previous year's (already-sent) row has
-    // processed = true so it never blocks this year's reminder.
+    // Dedup: skip if a reminder for this birthday was already enqueued
+    // today, regardless of processed state — a manual re-run/restart after
+    // today's row was already processed must not double-send. A previous
+    // year's row falls on a different calendar day so it never blocks this
+    // year's reminder.
     const { data: existingRows } = await supabase
       .from("scheduled_notifications")
       .select("id, scheduled_for")
       .eq("notification_type", "birthday_reminder")
-      .eq("related_entity_id", birthday.id)
-      .eq("processed", false);
+      .eq("related_entity_id", birthday.id);
 
     const alreadyScheduledToday = (existingRows || []).some((row) => {
       const scheduledDate = formatInTimeZone(new Date(row.scheduled_for), timeZone);

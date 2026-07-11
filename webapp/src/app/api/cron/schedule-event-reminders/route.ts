@@ -22,8 +22,14 @@ interface EventRow {
  * POST /api/cron/schedule-event-reminders
  * Runs every 5 minutes via Ofelia. For each family with active push subscriptions,
  * finds events starting within the configured reminder window and inserts rows
- * into scheduled_notifications. Idempotent — skips events that already have a
- * pending scheduled_notifications row.
+ * into scheduled_notifications. Idempotent — skips events that already have ANY
+ * scheduled_notifications row (processed or not) for this exact occurrence
+ * (matched on start_at). We deliberately don't filter on processed = false: the
+ * 10-minute scan window overlaps process-notifications' delivery time (it flips
+ * processed = true at start_at - reminderMinutes, 5 min before the event exits
+ * the window), so an unprocessed-only check let the next 5-min tick re-insert
+ * and double-send. Scoping on start_at instead of "any row ever" still lets a
+ * rescheduled event (new start_at) get a fresh reminder.
  *
  * All-day events are skipped — "in 30 min" is semantically meaningless for them.
  */
@@ -125,13 +131,15 @@ export async function POST(request: NextRequest) {
     }));
 
     for (const event of events) {
-      // Idempotency: check for an existing unprocessed scheduled_notifications row
+      // Idempotency: check for any scheduled_notifications row already enqueued
+      // for this exact event occurrence (see doc comment above for why we don't
+      // filter on processed = false here).
       const { data: existing } = await supabase
         .from("scheduled_notifications")
         .select("id")
         .eq("notification_type", "calendar_reminder")
         .eq("related_entity_id", event.id)
-        .eq("processed", false)
+        .eq("data->>start_at", event.start_at)
         .limit(1)
         .maybeSingle();
 
