@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- "What's new": after an update the app shows a small notice with the release notes, and the version line in Settings opens the changelog anytime.
 - A quiet "Live updates paused — reconnecting…" pill appears above the navigation when the realtime connection drops, so a wall kiosk can no longer show stale data with no signal. It disappears automatically once the connection is back.
 - Full family data export: Settings → "Data & backup" downloads everything (events, todos, shopping, recipes, meal plans, notes, birthdays, schedules, settings) as one JSON file. Credentials and device data are never included.
 - Calendar feed: subscribe to the family calendar from Google Calendar, Apple Calendar, Outlook etc. via a secret ICS link (Settings → Data & backup; rotate the link anytime to revoke access).
