@@ -27,13 +27,13 @@ The reference deployment is a wall-mounted touchscreen running in browser kiosk 
 ## Ops
 
 - **[Security-and-Threat-Model](Security-and-Threat-Model)** — what Kinboard expects of your network and what it doesn't
-- **[Architecture](Architecture#database-schema)** — tables, RLS policies, migration story
+- **[Architecture](Architecture#database-schema)** — tables, why RLS is off, migration story
 - **[Notifications](Notifications)** — web push setup, server-side cron, quiet hours
-- **[Themes](Themes)** — monthly themes, English + German
+- **[Themes](Themes)** — monthly themes, EN/DE/FR
 - **[Troubleshooting](Troubleshooting)** — common breakages and fixes
 
 ## Status
 
-Kinboard is single-maintainer, MIT-licensed, and supported on best-effort. Bug reports and PRs welcome — see [`CONTRIBUTING.md`](https://github.com/svenger87/kinboard/blob/main/CONTRIBUTING.md). Security issues to **security@svenger87.de** (see [Security-and-Threat-Model](Security-and-Threat-Model)).
+Kinboard is single-maintainer, MIT-licensed, and supported on best-effort. Bug reports and PRs welcome — see [`CONTRIBUTING.md`](https://github.com/svenger87/kinboard/blob/main/CONTRIBUTING.md). Security issues to **security@kinboard.app** (see [Security-and-Threat-Model](Security-and-Threat-Model)).
 
 If Kinboard is useful to your family and you'd like to help keep it healthy: [GitHub Sponsors](https://github.com/sponsors/svenger87) (recurring) or [Buy Me a Coffee](https://buymeacoffee.com/sven.7687) (one-time tip).
