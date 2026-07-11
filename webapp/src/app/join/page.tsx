@@ -223,7 +223,7 @@ export default function JoinPage() {
 
     try {
       const { family } = await createFamily.mutateAsync({
-        familyName,
+        familyName: familyName.trim(),
         deviceName: deviceName || t("deviceNameDefault"),
       });
       // Best-effort: back-fill the family-level locale setting so
@@ -509,7 +509,7 @@ export default function JoinPage() {
                 type="submit"
                 size="kiosk"
                 className="w-full"
-                disabled={loading || !familyName}
+                disabled={loading || !familyName.trim()}
               >
                 {loading ? (
                   t("createSubmitting")
