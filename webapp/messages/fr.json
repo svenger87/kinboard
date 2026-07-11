@@ -56,7 +56,8 @@
       "title": "Saisir le code PIN",
       "description": "Cette zone est protégée",
       "incorrect": "Code PIN incorrect",
-      "cancel": "Annuler"
+      "cancel": "Annuler",
+      "pinRateLimited": "Trop de tentatives — attendez une minute."
     },
     "shortcuts": {
       "title": "Raccourcis clavier",
@@ -920,6 +921,8 @@
     "pinSavedToastDescription": "Les paramètres du calendrier sont maintenant protégés.",
     "pinRemovedToastTitle": "Code PIN supprimé",
     "pinRemovedToastDescription": "Les paramètres du calendrier ne sont plus protégés.",
+    "pinSaveFailed": "Impossible d'enregistrer le code PIN. Réessayez.",
+    "pinRemoveFailed": "Impossible de supprimer le code PIN. Réessayez.",
     "networkConnected": "Connecté",
     "networkConnectedDescription": "Synchronisation en temps réel active",
     "networkOffline": "Hors ligne",

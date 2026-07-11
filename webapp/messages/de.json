@@ -56,7 +56,8 @@
       "title": "PIN eingeben",
       "description": "Dieser Bereich ist geschützt",
       "incorrect": "Falscher PIN",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "pinRateLimited": "Zu viele Versuche — warte eine Minute."
     },
     "shortcuts": {
       "title": "Tastenkürzel",
@@ -920,6 +921,8 @@
     "pinSavedToastDescription": "Kalender-Einstellungen sind jetzt geschützt.",
     "pinRemovedToastTitle": "PIN entfernt",
     "pinRemovedToastDescription": "Kalender-Einstellungen sind nicht mehr geschützt.",
+    "pinSaveFailed": "PIN konnte nicht gespeichert werden. Bitte erneut versuchen.",
+    "pinRemoveFailed": "PIN konnte nicht entfernt werden. Bitte erneut versuchen.",
     "networkConnected": "Verbunden",
     "networkConnectedDescription": "Echtzeit-Sync aktiv",
     "networkOffline": "Offline",

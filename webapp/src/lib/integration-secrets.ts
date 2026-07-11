@@ -20,6 +20,11 @@ export const SECRET_FIELDS: Record<string, string[]> = {
   // path filter doesn't drop the token; the settings table never holds a
   // calendar_feed row, so the sentinel/applySentinels path is inert for it.
   calendar_feed: ["token"],
+  // Same shape as calendar_feed: settings_pin lives only in
+  // integration_secrets (see src/app/api/pin/route.ts), never in `settings`.
+  // Listed here so /api/settings would mask it defensively if a raw
+  // settings_pin row ever reappeared (e.g. stale seed SQL).
+  [SETTINGS_KEYS.settingsPin]: ["pin"],
 };
 
 type JsonObject = Record<string, unknown>;
