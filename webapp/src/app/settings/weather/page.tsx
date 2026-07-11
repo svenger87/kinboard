@@ -81,6 +81,10 @@ export default function WeatherSettingsPage() {
         value: locationValue,
       });
       setSavedBaseline(locationValue);
+      // Keep the ref in step with the baseline we just set, or the post-save
+      // refetch would compare against the pre-save baseline and could clobber
+      // an edit made in the save→refetch window.
+      previousBaselineRef.current = locationValue;
       setSaved(true);
       // Refetch weather with new location
       setTimeout(() => refetchWeather(), 500);
