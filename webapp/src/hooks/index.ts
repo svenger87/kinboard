@@ -63,6 +63,7 @@ export {
   useDeleteCalendar,
   useIcsSync,
   useEvents,
+  useEventById,
   useCreateEvent,
   useUpdateEvent,
   useDeleteEvent,
@@ -369,6 +370,8 @@ export {
 
 // Offline Cache (generic, any module can use)
 export { useOfflineCachedQuery } from "./use-offline-cache";
+
+export type { EventWithCalendar } from "./use-supabase-queries";
 
 // Setup Wizard Hooks
 export { useSetupState, useMarkSetupCompleted } from "./use-setup-state";

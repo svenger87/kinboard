@@ -2111,6 +2111,10 @@
     "toastUpdateFailed": "Échec de la mise à jour de l'événement",
     "toastDeleteFailed": "Échec de la suppression de l'événement",
     "eventDeleted": "Événement supprimé",
+    "eventNotFound": "Événement introuvable — il a peut-être été supprimé.",
+    "searchPlaceholder": "Rechercher des événements…",
+    "searchNoResults": "Aucun événement trouvé",
+    "searchResultsAria": "Résultats de la recherche",
     "monthView": {
       "weekHeader": "Sem",
       "moreCount": "+{count} autres"
