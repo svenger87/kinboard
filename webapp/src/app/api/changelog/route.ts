@@ -58,6 +58,11 @@ export async function GET() {
       body: r.body ?? "",
     })),
   };
-  cache = { data, expiresAt: Date.now() + CACHE_TTL_MS };
+  // Only cache a successful upstream fetch — caching a failure (releases ===
+  // null) would poison the cache for CACHE_TTL_MS and force every request in
+  // that window to see an empty changelog even after GitHub recovers.
+  if (releases !== null) {
+    cache = { data, expiresAt: Date.now() + CACHE_TTL_MS };
+  }
   return NextResponse.json(data);
 }
