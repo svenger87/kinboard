@@ -66,6 +66,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { WhatsNewDialog } from "@/components/whats-new-dialog";
 
 export default function SettingsPage() {
   useKeyboardShortcuts();
@@ -104,6 +105,7 @@ export default function SettingsPage() {
   const regenerateJoinCode = useRegenerateJoinCode();
   const renameFamily = useRenameFamily();
   const [regenDialogOpen, setRegenDialogOpen] = useState(false);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [regenConfirmOpen, setRegenConfirmOpen] = useState(false);
   const [selectedTtl, setSelectedTtl] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -938,9 +940,16 @@ export default function SettingsPage() {
         {/* App info footer */}
         <div className="mt-6 pb-4 text-center text-[11px] text-muted-foreground/40 space-y-0.5">
           <p>
-            {version?.current
-              ? t("appVersionDynamic", { version: version.current })
-              : t("appVersion")}
+            <button
+              type="button"
+              onClick={() => setWhatsNewOpen(true)}
+              aria-label={t("whatsNewButtonLabel")}
+              className="hover:text-foreground hover:underline transition-colors"
+            >
+              {version?.current
+                ? t("appVersionDynamic", { version: version.current })
+                : t("appVersion")}
+            </button>
             {version?.updateAvailable && version.releaseUrl && (
               <>
                 {" · "}
@@ -959,6 +968,8 @@ export default function SettingsPage() {
         </div>
       </div>
     </main>
+
+    <WhatsNewDialog open={whatsNewOpen} onOpenChange={setWhatsNewOpen} />
 
     {/* TTL picker — sibling root, no nesting with AlertDialog */}
     <Dialog open={regenDialogOpen} onOpenChange={setRegenDialogOpen}>

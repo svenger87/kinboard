@@ -150,6 +150,12 @@
       "alreadyInstalled": "Déjà installé",
       "installButton": "Installer l'application"
     },
+    "whatsNew": {
+      "title": "Nouveautés",
+      "updatedToast": "Kinboard a été mis à jour vers {version}",
+      "whatsNewAction": "Nouveautés",
+      "changelogUnavailable": "Notes de version indisponibles — voir GitHub."
+    },
     "birthdayYearRing": {
       "centerLabel": "Anniversaires",
       "centerTurns": "aura {age} ans",
@@ -1950,6 +1956,7 @@
     },
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "mise à jour vers {version} disponible",
+    "whatsNewButtonLabel": "Voir les notes de version",
     "itemNewsLabel": "Sources d'actualités",
     "itemNewsDescription": "Choisissez quels flux RSS alimentent le widget d'actualités et la page /news",
     "itemPluginsLabel": "Plugins",
