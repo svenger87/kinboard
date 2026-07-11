@@ -10,7 +10,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The browser can no longer write settings directly to the database — all changes go through the app server, closing the last path a stale or hostile client on the network could use to plant settings values. Reads and live updates are unchanged.
 
 ### Fixed
-- Bring!: changing one option right after app start no longer risks resetting the other Bring options to defaults.
+- Bring!: closed the one remaining case of the v1.4.0 settings-reset fix — changing an option right after app start, before the Bring settings had loaded once, could still reset the others to defaults.
 
 ## [1.4.0] - 2026-07-11 — Security hardening, full-language support, backup & undo
 
