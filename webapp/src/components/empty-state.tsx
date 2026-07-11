@@ -1,4 +1,4 @@
-import { Plus, type LucideIcon } from "lucide-react";
+import { Loader2, Plus, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ interface EmptyStateProps {
     onClick: () => void;
     variant?: "default" | "outline" | "link";
     disabled?: boolean;
+    loading?: boolean;
   };
   className?: string;
 }
@@ -40,11 +41,15 @@ export function EmptyState({
         <Button
           variant={action.variant || "link"}
           onClick={action.onClick}
-          disabled={action.disabled}
+          disabled={action.disabled || action.loading}
           className="mt-1"
         >
-          {action.variant === "default" && (
-            <Plus className="size-4" strokeWidth={1.75} aria-hidden="true" />
+          {action.loading ? (
+            <Loader2 className="size-4 animate-spin" strokeWidth={1.75} aria-hidden="true" />
+          ) : (
+            action.variant === "default" && (
+              <Plus className="size-4" strokeWidth={1.75} aria-hidden="true" />
+            )
           )}
           {action.label}
         </Button>
