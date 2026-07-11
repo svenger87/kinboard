@@ -180,7 +180,11 @@
     "eventFallbackTitle": "Événement",
     "eventStartsAt": "Commence à {time}",
     "eventStartsSoon": "Commence bientôt",
-    "eventsMany": "{count} événements"
+    "eventsMany": "{count} événements",
+    "birthdayTitle": "🎂 {name}",
+    "birthdayBody": "Anniversaire dans {count} jours",
+    "birthdayToday": "C'est l'anniversaire aujourd'hui !",
+    "birthdaysMany": "{count} anniversaires à venir"
   },
   "join": {
     "title": "Kinboard",
@@ -1157,6 +1161,9 @@
       "calendarLabel": "Rappels d'événements",
       "calendarDescription": "Notifier avant le début des événements (les événements toute la journée sont exclus)",
       "calendarMinutesLabel": "Me rappeler",
+      "birthdayTitle": "Anniversaires",
+      "birthdayRemindersLabel": "Rappels d'anniversaire",
+      "birthdayRemindersDescription": "Soyez averti avant les anniversaires enregistrés (délai par anniversaire).",
       "quietHoursHeading": "Heures silencieuses",
       "quietHoursLabel": "Activer les heures silencieuses",
       "quietHoursDescription": "Pas de notifications pendant les heures silencieuses",
