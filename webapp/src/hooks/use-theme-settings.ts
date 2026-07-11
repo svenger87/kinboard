@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSetting } from "./use-supabase-queries";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
@@ -88,4 +88,56 @@ export function useThemeSettings() {
     screensaverTimeout: settings?.screensaverTimeout ?? 120,
     activeThemeIndex,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Per-device text scaling
+//
+// Deliberately NOT part of the family-wide theme settings blob above: the
+// wall kiosk and a family member's phone need different text sizes (same
+// rationale as the per-device nav order in /settings/navigation). Stored in
+// localStorage per device instead of Supabase.
+// ---------------------------------------------------------------------------
+
+const TEXT_SCALE_STORAGE_KEY = "kinboard_text_scale";
+const TEXT_SCALE_CHANGE_EVENT = "kinboard:text-scale-change";
+
+export type TextScale = 1 | 1.15 | 1.3;
+
+const VALID_TEXT_SCALES: TextScale[] = [1, 1.15, 1.3];
+
+function readStoredTextScale(): TextScale {
+  if (typeof window === "undefined") return 1;
+  const raw = window.localStorage.getItem(TEXT_SCALE_STORAGE_KEY);
+  const parsed = raw ? Number(raw) : 1;
+  return (VALID_TEXT_SCALES as number[]).includes(parsed) ? (parsed as TextScale) : 1;
+}
+
+/**
+ * Per-device text scale: `[scale, setScale]`, backed by localStorage.
+ * Multiple hook instances (e.g. the settings control + the provider that
+ * applies it) stay in sync via a same-tab CustomEvent — the native
+ * `storage` event only fires in *other* tabs.
+ */
+export function useTextScale(): [TextScale, (scale: TextScale) => void] {
+  const [scale, setScaleState] = useState<TextScale>(1);
+
+  useEffect(() => {
+    setScaleState(readStoredTextScale());
+
+    const handleChange = (event: Event) => {
+      const detail = (event as CustomEvent<TextScale>).detail;
+      if (detail !== undefined) setScaleState(detail);
+    };
+    window.addEventListener(TEXT_SCALE_CHANGE_EVENT, handleChange);
+    return () => window.removeEventListener(TEXT_SCALE_CHANGE_EVENT, handleChange);
+  }, []);
+
+  const setScale = useCallback((next: TextScale) => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(TEXT_SCALE_STORAGE_KEY, String(next));
+    window.dispatchEvent(new CustomEvent<TextScale>(TEXT_SCALE_CHANGE_EVENT, { detail: next }));
+  }, []);
+
+  return [scale, setScale];
 }
