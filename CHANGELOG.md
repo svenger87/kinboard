@@ -6,53 +6,46 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [1.4.0] - 2026-07-11
+## [1.4.0] - 2026-07-11 — Security hardening, full-language support, backup & undo
+
+*Upgrade notes:* Hard-refresh installed-PWA and kiosk devices once after updating (pull to reload, or Ctrl+F5). If localhost access misbehaves on an older install, re-run `./setup.sh` and `docker restart kinboard-kong` to regenerate an outdated kong.yml.
 
 ### Added
-- "What's new": after an update the app shows a small notice with the release notes, and the version line in Settings opens the changelog anytime.
-- A quiet "Live updates paused — reconnecting…" pill appears above the navigation when the realtime connection drops, so a wall kiosk can no longer show stale data with no signal. It disappears automatically once the connection is back.
-- Full family data export: Settings → "Data & backup" downloads everything (events, todos, shopping, recipes, meal plans, notes, birthdays, schedules, settings) as one JSON file. Credentials and device data are never included.
-- Calendar feed: subscribe to the family calendar from Google Calendar, Apple Calendar, Outlook etc. via a secret ICS link (Settings → Data & backup; rotate the link anytime to revoke access).
-- Undo after delete: removing a note, todo, shopping item, meal-plan entry, calendar event, birthday (with its gift ideas), or recipe (with ingredients and tags) now shows an "Undo" toast for a few seconds that restores it exactly as it was.
-- Calendar: events are searchable (title, location, description) across all dates, and every event has a shareable link (?event=…) — opening one jumps to its date; the back button/gesture now closes the event dialog instead of leaving the calendar.
-- Families can be renamed (Settings, pencil next to the name) and deleted entirely (Settings → danger zone; requires typing the family name and erases all data for every device — do a backup export first).
-- Health endpoint (/api/health) with a Docker healthcheck on the webapp container, and a Diagnostics section in Settings showing network, live-updates, push, and integration status at a glance.
-- Birthday push reminders: the notify-days-before setting on each birthday now actually sends a push notification (respecting quiet hours), with a per-device toggle under Settings → Notifications.
-- Text size setting (Settings → Theme): three sizes, saved per device — make the wall kiosk readable from across the room without affecting phones.
+- "What's new": after an update, the app shows a short notice with the release notes, and the version line in Settings opens the changelog anytime.
+- A "Live updates paused" pill appears above the navigation when the realtime connection drops, so a kiosk display never shows stale data without warning.
+- Settings → Data & backup can now export everything — events, todos, shopping, recipes, meal plans, notes, birthdays, schedules, settings — as one JSON file, excluding credentials and device data.
+- Subscribe to the family calendar from Google Calendar, Apple Calendar, or Outlook via a secret ICS link, which can be rotated anytime to revoke access.
+- Deleting a note, todo, shopping item, meal-plan entry, event, birthday, or recipe now shows an "Undo" toast that restores it exactly as it was.
+- Calendar events are now searchable by title, location, or description, and every event has a shareable link that jumps straight to its date; the back button now closes the event dialog instead of leaving the calendar.
+- Families can now be renamed from Settings and deleted entirely from the danger zone, which requires typing the family name and erases all data — export a backup first.
+- A new Diagnostics section in Settings shows network, live-updates, push, and integration status at a glance, and the webapp container now reports its health for automated monitoring.
+- Birthday reminders now actually send a push notification per the notify-days-before setting, respecting quiet hours, with a per-device toggle in Settings → Notifications.
+- A new text-size setting (Settings → Theme) offers three sizes saved per device, so a wall kiosk can be read from across the room without affecting phones.
 
 ### Changed
-- The setup wizard's weather step now has the same city search with suggestions, coordinates mode, and use-my-location button as the weather settings page (was a bare text field).
-- Credential fields (Home Assistant token, Immich/Unsplash keys, Bring password) share one show/hide input component; the setup wizard's Home Assistant step now trims trailing slashes and uses the same success styling as settings.
-- All destructive deletes now use the same styled confirmation dialog: calendar events, vehicles, Home Assistant rooms (previously native browser popups, which look foreign and can be suppressed in kiosk fullscreen), and meal-plan entries (previously deleted with no confirmation at all).
-- Empty pages (vehicles, stocks, pocket money, news, schedule, smart home) now use the same dashed empty-state card as the rest of the app instead of ad-hoc layouts, each with a clear next-step button.
-- Mobile add buttons: todos, birthdays, and the meal plan now have the same floating add button as calendar/notes/recipes on phones (header buttons stay on desktop). Vehicles, stocks, pocket money, and schedule show skeleton placeholders while loading instead of a bare "loading" text line.
-- Finished the flat "Salbei/Leinen" migration on the remaining app surfaces: todos, news, vehicles, stocks, pocket money, error pages, the getting-started checklist, plugin discover cards, the PIN screen, and several hint cards — including the Tesla/EV and stocks plugin cards — no longer use the old glass look; the legacy month-colored button style (which hardcoded white text with contrast issues in dark mode) is replaced by the standard accent button everywhere.
-- The school-schedule entry only appears in the navigation once a school schedule or subjects are configured (like the other optional features); the page itself stays reachable by URL and explains how to set it up.
-- Push-notification server probe: `/api/notifications/vapid-key` now answers 200 with `configured:false` instead of a 503 when no VAPID keys are set — fresh installs no longer log a failed request on the notifications settings page.
+- The setup wizard's weather step now has the same city search, suggestions, coordinates mode, and use-my-location button as the weather settings page; credential fields (Home Assistant token, Immich/Unsplash keys, Bring password) share one show/hide input everywhere, and the wizard's Home Assistant step trims trailing slashes automatically.
+- Deleting calendar events, vehicles, Home Assistant rooms, or meal-plan entries now shows the same styled confirmation dialog instead of native browser popups or no confirmation at all.
+- Empty pages (vehicles, stocks, pocket money, news, schedule, smart home) now use the same empty-state card as the rest of the app, each with a clear next step.
+- Todos, birthdays, and the meal plan now have the same floating add button on phones as calendar, notes, and recipes; vehicles, stocks, pocket money, and schedule show loading skeletons instead of plain text.
+- The flat visual theme now covers the remaining app surfaces (todos, news, vehicles, stocks, pocket money, error pages, getting-started checklist, plugin cards, PIN screen), replacing the old glass look and a dark-mode contrast bug in month-colored buttons.
+- The school-schedule entry only appears in navigation once a schedule or subjects are configured, matching other optional features; the page stays reachable by direct link and explains setup.
+- Fresh installs no longer log a failed request on the notifications settings page when no push notification keys are configured.
 
 ### Fixed
-- The keyboard-shortcuts help dialog is now translated (was always German).
-- Added `webapp/.dockerignore`: building the webapp image on a machine that had run `npm run dev` failed with a tar checksum error on `.next/dev`, and the build context needlessly shipped `node_modules`, the local Postgres data directory, and the stack's `.env` secrets into intermediate image layers. Source builds are now smaller and work regardless of local dev state.
-- When the server is unreachable (stack down, network issue), the app now shows a "Can't reach the Kinboard server" screen with a retry button after ~12 seconds instead of spinning forever.
-- Settings, Google Calendar, and ICS pages now actually show their success/error toasts (connect, sync, PIN saved, feed added/deleted, …). These pages fired notifications into a toast system that was never mounted, so all their feedback silently disappeared.
-- Failed saves now tell you: weather location, news sources, stonks watchlist add/remove, and new-vehicle creation show an error toast instead of failing silently. Starting the Google connect flow without server OAuth keys now returns you to the Google settings page with an explanation instead of a raw 500 error.
-- The delete-person confirmation now states what actually happens: the pocket-money account (with history) and school schedules are permanently deleted, while birthday entries, events/todos are kept but unassigned. The old text claimed events and todos would be deleted (they aren't) and didn't mention pocket money (which is).
-- Push notifications now speak your language: shopping, todo, and calendar-reminder notifications are generated in the family's UI language (English/German/French) instead of always German. The family's language is saved whenever someone picks a language (including re-selecting the current one) and when a new family is created; existing families that never touch the language switcher keep German pushes until they do.
-- Weather condition labels ("Cloudy", "Rain", …) now follow the app language instead of always German.
-- Bring!: re-connecting or changing one Bring option no longer silently resets your other Bring settings (sync direction, list choice) to defaults.
-- Assorted untranslated tooltips/labels (copy-URL, custom color, drag-to-reorder, token show/hide) and dates that ignored the app language now follow EN/DE/FR.
-- Screen readers: every icon-only button (edit, delete, copy, etc.) now announces what it does.
-- Full family data export no longer fails with a 500 for families that have any recipes (a composite-key table had no `id` column to sort by); the export now also includes vehicles, stocks watchlist, and pocket-money accounts/goals/transactions/withdrawal-requests.
-- Calendar feed (ICS subscription): a whole-day event synced in from an external calendar no longer shows up one day too long — the feed was adding an extra day on top of the source calendar's own end date.
-- Birthday push notifications now grammatically pluralize "in N day(s)" in English, German, and French instead of always using the plural form.
+- Building the webapp image on a machine that had run the dev server no longer fails, and source builds are now smaller since local dev files are no longer bundled in.
+- When the server is unreachable, the app now shows a "Can't reach the Kinboard server" screen with a retry button after about 12 seconds instead of spinning forever.
+- Settings pages now correctly show success and error toasts (connect, sync, PIN saved, feed changes), and previously-silent failures — weather location, news sources, stonks watchlist, new vehicles, Google Calendar setup without server keys — now show a clear error instead of failing silently.
+- The delete-person confirmation now correctly states that the pocket-money account and school schedules are deleted, while birthdays, events, and todos are kept but unassigned.
+- Push notifications for shopping, todos, calendar reminders, and birthday reminders now use the family's chosen language and correctly pluralize "in N day(s)" in English, German, and French, instead of always German; families that never pick a language keep German pushes.
+- The keyboard-shortcuts help dialog, weather condition labels, and assorted tooltips, labels, and dates now follow the app language (English, German, or French) instead of always showing German.
+- Reconnecting or changing one Bring! option no longer silently resets your other Bring! settings (sync direction, list choice) to their defaults.
+- Screen readers now announce what every icon-only button does — edit, delete, copy, and more.
+- Family data export no longer fails for families with recipes, and now includes vehicles, the stocks watchlist, and pocket-money data.
+- Calendar feed subscriptions no longer show whole-day events one day too long.
 
 ### Security
-- Integration credentials (Home Assistant access token, Immich API key, Unsplash access key, Google Calendar OAuth tokens, Bring! tokens) no longer reach the browser. They move into a new server-only `integration_secrets` table that the browser-facing database role cannot read and that is excluded from realtime broadcasts; the settings API returns a placeholder instead. Existing installs are migrated automatically on next start (`migration_integration_secrets.sql`) — no action needed, integrations keep working without reconnecting.
-- The settings PIN is now checked on the server and stored where browsers cannot read it (previously any device on the network could read the PIN from the database and the check ran client-side). Existing PINs are migrated automatically.
-
-### Notes
-- After updating, hard-refresh installed-PWA and kiosk devices once (pull down to reload, or Ctrl+F5). Devices still running the old cached app can briefly write credentials the old way until reloaded; the next stack restart cleans any such rows up automatically.
-- If your install predates mid-2025 and the app misbehaves when opened via `http://localhost`, your `webapp/docker/kong.yml` may be an old copy missing the localhost CORS entries — re-run `./setup.sh` once and `docker restart kinboard-kong` to regenerate it from the current template.
+- Integration credentials (Home Assistant, Immich, Unsplash, Google, Bring!) are no longer readable from the browser — they moved to server-only storage. Existing installs migrate automatically; integrations keep working without reconnecting.
+- The settings PIN is now checked and stored server-side, where devices on the network could previously read it or bypass the check client-side; existing PINs migrate automatically.
 
 ## [1.3.0] - 2026-07-10
 
