@@ -9,13 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-
-export interface WeatherLocationValue {
-  type: "city" | "coordinates";
-  city?: string;
-  lat?: number;
-  lon?: number;
-}
+import type { WeatherLocation } from "@/hooks";
 
 interface CityResult {
   name: string;
@@ -27,8 +21,8 @@ interface CityResult {
 }
 
 interface CityLocationPickerProps {
-  value: WeatherLocationValue;
-  onChange: (value: WeatherLocationValue) => void;
+  value: WeatherLocation;
+  onChange: (value: WeatherLocation) => void;
 }
 
 // NaN !== NaN, so a strict comparison would treat an echoed "in-progress
@@ -44,7 +38,7 @@ function numberToInputText(n: number | undefined) {
 // Shared by the weather settings page and the setup wizard's weather step —
 // city autocomplete (debounced /api/cities search), coordinates mode, and
 // browser geolocation. Owns its own search/suggestion state; the caller
-// owns the committed WeatherLocationValue via value/onChange.
+// owns the committed WeatherLocation via value/onChange.
 export function CityLocationPicker({ value, onChange }: CityLocationPickerProps) {
   const t = useTranslations("settings.weather");
 
@@ -62,9 +56,9 @@ export function CityLocationPicker({ value, onChange }: CityLocationPickerProps)
   // "the parent echoed back what we just sent" apart from "the parent
   // hydrated us with a saved setting after mount" — only the latter should
   // overwrite in-progress local edits (e.g. a half-typed coordinate).
-  const lastEmittedRef = useRef<WeatherLocationValue | null>(null);
+  const lastEmittedRef = useRef<WeatherLocation | null>(null);
 
-  const emit = (next: WeatherLocationValue) => {
+  const emit = (next: WeatherLocation) => {
     lastEmittedRef.current = next;
     onChange(next);
   };

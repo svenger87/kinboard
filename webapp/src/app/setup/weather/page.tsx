@@ -6,21 +6,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { WizardProgress } from "@/components/setup/wizard-progress";
 import { WizardStepFooter } from "@/components/setup/wizard-step-footer";
-import { useUpdateSetting, useWeather } from "@/hooks";
+import { useUpdateSetting, useWeather, type WeatherLocation } from "@/hooks";
 import { IntegrationConfigHint } from "@/components/integration-config-hint";
-import {
-  CityLocationPicker,
-  type WeatherLocationValue,
-} from "@/components/settings/city-location-picker";
+import { CityLocationPicker } from "@/components/settings/city-location-picker";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 export default function SetupWeatherPage() {
   const t = useTranslations("setup.weather");
-  const [locationValue, setLocationValue] = useState<WeatherLocationValue>({
+  const [locationValue, setLocationValue] = useState<WeatherLocation>({
     type: "city",
     city: "",
   });
-  const update = useUpdateSetting<WeatherLocationValue>();
+  const update = useUpdateSetting<WeatherLocation>();
   const { data: weather } = useWeather();
   const apiKeyMissing = weather === null;
 
@@ -36,7 +33,7 @@ export default function SetupWeatherPage() {
       return;
     }
 
-    const value: WeatherLocationValue =
+    const value: WeatherLocation =
       locationValue.type === "city"
         ? { type: "city", city: locationValue.city!.trim() }
         : locationValue;
