@@ -70,7 +70,7 @@ The 8 AM job runs in the cron container. Quiet hours respected.
 
 Tap the circle on the task card → it moves to the **Completed** section, struck through, with a "✓ done by Mama" attribution. Auto-archives after 7 days.
 
-If you tap done by accident, tap the checkmark again within ~5 seconds to undo.
+If you tap done by accident, tap the checkmark again within ~5 seconds to undo. Deleting a task outright (not just marking it done) shows a separate "Undo" toast that restores it exactly as it was.
 
 ## Persistence
 

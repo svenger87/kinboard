@@ -1,6 +1,6 @@
 # OpenWeatherMap
 
-Powers the weather widget on the dashboard + the dedicated `/weather` modal/page.
+Powers the weather widget on the dashboard + the full-detail weather modal (tap the widget to open it).
 
 ## What it does
 
@@ -45,7 +45,7 @@ The location is stored in `settings.weather_location`. The widget on the dashboa
 
 ## Disable the weather feature
 
-If you don't want weather (or don't want to set up OpenWeatherMap), just leave `OPENWEATHERMAP_API_KEY` blank. The dashboard hides the weather widget when no key is present, and the `/weather` page shows a friendly "not configured" state.
+If you don't want weather (or don't want to set up OpenWeatherMap), just leave `OPENWEATHERMAP_API_KEY` blank. The dashboard hides the weather widget when no key is present.
 
 You can also hide the widget per-family via Settings → Widgets → toggle off **Weather**.
 

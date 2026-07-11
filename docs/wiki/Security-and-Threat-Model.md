@@ -11,7 +11,9 @@ Identity is a 2-tuple:
 
 There are **no user accounts**. There is **no password protection on data access by default** beyond the join code. There is an optional 4-digit PIN gate on the `/settings/*` area (see "Settings PIN" below).
 
-Every database row is gated by a [Row-Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security) policy that checks `family_id` against a header derived from the join code. The Supabase service-role key bypasses RLS and is held only by the Next.js server process — never exposed to the browser.
+**Row-Level Security is disabled on all family-scoped tables in the canonical schema.** Earlier versions shipped RLS policies keyed on `family_id`, but the application never reliably set the Postgres GUC they depended on, so the policies blocked legitimate writes more than they protected data — production has run with RLS off since shortly after launch (`webapp/docker/migration_disable_rls.sql`). **The device-cookie + join-code model described above is the actual, load-bearing security boundary** — it's enforced entirely in application code (every API route filters by `family_id`), not by Postgres. Anyone who can reach the API with a valid join code (or a `family_id`, which isn't itself a secret — it's visible in the client bundle and `localStorage`) can read and write that family's data; there is no database-level backstop if a route ever forgot to filter. See [Architecture → Row-Level Security](Architecture#row-level-security-disabled-and-why) for the technical detail.
+
+The one place Kinboard does enforce a real database-level boundary is secrets: the Supabase service-role key bypasses everything and is held only by the Next.js server process, never exposed to the browser, and integration credentials get their own locked-down table — see [Integration credentials](#integration-credentials) below.
 
 ## What this is good for
 
@@ -29,7 +31,7 @@ Every database row is gated by a [Row-Level Security](https://supabase.com/docs/
 
 If something goes wrong, these categories are at risk:
 
-- **OAuth refresh tokens** for Google Calendar (in `settings.value` JSONB, AES-encrypted at rest by Postgres only if you enable disk encryption — Kinboard itself does not encrypt the column)
+- **OAuth refresh tokens** for Google Calendar (in `integration_secrets`, encrypted at rest by Postgres only if you enable disk encryption — Kinboard itself does not encrypt the column, but the table is locked down from anon/authenticated reads; see [Integration credentials](#integration-credentials))
 - **Long-lived access tokens** for Home Assistant
 - **API keys** for Immich, OpenWeatherMap, Bring! account credentials
 - **VAPID push notification keys** at host level (in `webapp/docker/.env`)
@@ -61,9 +63,15 @@ For the typical home deployment:
 
 ## The Settings PIN
 
-Settings → **Settings PIN** sets a 4-digit code that's required to enter `/settings/*`. The PIN itself is stored as plaintext in the `settings.value` JSONB (under the `settings_pin` key) — it's a "keep curious kids out" feature, not a real auth boundary.
+Settings → **Settings PIN** sets a 4-digit code that's required to enter `/settings/*`. It's a "keep curious kids out" feature, not a real auth boundary — there's no per-user identity behind it, just a shared 4-digit code for the whole family.
+
+As of v1.4.0, the PIN is checked and stored **server-side**: the value lives in `integration_secrets` (not the anon-readable `settings` table) and verification happens in `/api/pin`, rate-limited to 5 failed attempts per minute per family. Before v1.4.0 the PIN was compared client-side against a plaintext value any device on the network could read via PostgREST — that's fixed now; existing PINs migrated automatically on upgrade.
 
 Once set, the PIN persists for the browser session via `sessionStorage`. Closing the tab requires re-entry; navigating between settings sub-pages does not.
+
+## Integration credentials
+
+OAuth tokens (Google, Home Assistant) and API keys (Immich, Unsplash, Bring!) live in `public.integration_secrets`, a table with `anon`/`authenticated` database privileges revoked and excluded from the Realtime publication — only the server's service-role client can read it. Before v1.4.0 these lived in the same `settings` table as everything else, which is anon-readable by design (so the dashboard can live-sync); that meant any device on the network could read another family member's Google refresh token or Home Assistant long-lived token via PostgREST. Settings pages now read a merged, secret-stripped view to show "connected" status without the browser ever receiving the actual token. Existing installs migrate their previously-exposed credentials into the locked-down table automatically on upgrade — no reconnecting required.
 
 ## How device recognition works
 

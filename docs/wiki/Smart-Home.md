@@ -66,7 +66,7 @@ Beyond rooms, [dashboards](Home-Assistant#dashboards) let you curate a flat grid
 - A "media room" dashboard with TV media player + ambient lights + Roku scenes
 - A "security check" dashboard with all locks + alarm + cameras
 
-Dashboards are the legacy surface (predates rooms in the codebase). The room view is the recommended primary surface; dashboards work but are slated for consolidation in v1.2.
+Dashboards are the legacy surface (predates rooms in the codebase). The room view is the recommended primary surface; dashboards still work and aren't going away, just not the first thing to reach for.
 
 ## Energy
 
@@ -115,7 +115,7 @@ Sidebar widgets:
 - **Today's battery throughput**
 - **Cost** (if you've set €/kWh tariffs in settings)
 
-The cost calculation is approximate — uses simple `import × cost - export × feed-in-tariff`. Doesn't model time-of-use tariffs (planned for v1.2).
+The cost calculation is approximate — uses simple `import × cost - export × feed-in-tariff`. Doesn't model time-of-use tariffs.
 
 ### Screensaver integration
 
@@ -131,7 +131,7 @@ If you toggle **Show on screensaver** in the energy settings, the screensaver ov
 
 - **Editing automations / scripts** — Kinboard surfaces them as triggers (tap to run) but doesn't edit them. Edit in HA's UI.
 - **History timeline / logbook** — see HA's UI for that
-- **Energy time-of-use tariffs** — single flat rate per direction. v1.2 wishlist.
+- **Energy time-of-use tariffs** — single flat rate per direction only.
 - **Multi-instance HA** — one HA per family. Multiple HA instances would need per-room-tab sourcing, not implemented.
 
 ## Related
