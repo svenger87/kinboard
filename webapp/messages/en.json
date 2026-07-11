@@ -2111,6 +2111,10 @@
     "toastUpdateFailed": "Failed to update event",
     "toastDeleteFailed": "Failed to delete event",
     "eventDeleted": "Event deleted",
+    "eventNotFound": "Event not found — it may have been deleted.",
+    "searchPlaceholder": "Search events…",
+    "searchNoResults": "No events found",
+    "searchResultsAria": "Search results",
     "monthView": {
       "weekHeader": "Wk",
       "moreCount": "+{count} more"
