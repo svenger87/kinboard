@@ -66,8 +66,9 @@ function entryTitle(entry: MealPlanEntryRow): string {
  * then delivers it, honoring quiet hours and the per-device meal_prep_reminders
  * preference.
  *
- * Idempotent — skips a family if an unsent meal_prep_reminder was already
- * enqueued today (guards against a manual re-trigger double-firing).
+ * Idempotent — skips a family if a meal_prep_reminder was already enqueued
+ * today, regardless of processed state (guards against a manual re-trigger
+ * double-firing even after today's row was already delivered).
  */
 export async function POST(request: NextRequest) {
   if (!CRON_SECRET) {
@@ -140,15 +141,16 @@ export async function POST(request: NextRequest) {
 
     if (titles.length === 0) continue;
 
-    // Dedup: skip if an unsent meal_prep_reminder for this family was
-    // already enqueued today. A previous day's (already-sent) row has
-    // processed = true so it never blocks today's reminder.
+    // Dedup: skip if a meal_prep_reminder for this family was already
+    // enqueued today, regardless of processed state — a manual re-run/restart
+    // after today's row was already processed must not double-send. A
+    // previous day's row falls on a different calendar day so it never
+    // blocks today's reminder.
     const { data: existingRows } = await supabase
       .from("scheduled_notifications")
       .select("id, scheduled_for")
       .eq("notification_type", "meal_prep_reminder")
-      .eq("family_id", familyId)
-      .eq("processed", false);
+      .eq("family_id", familyId);
 
     const alreadyScheduledToday = (existingRows || []).some((row) => {
       const scheduledDate = formatInTimeZone(new Date(row.scheduled_for), timeZone);
