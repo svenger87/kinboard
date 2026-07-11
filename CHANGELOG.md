@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The weather settings Save button now disables again when you revert your edits or after saving.
 - Event links: browser back never leaves a stale event address in the URL bar, deleting a deep-linked event can be undone like any other, and shared-link events show the right person color as soon as family data loads.
 - "What's new" shows a loading shimmer instead of a blank panel, renders nested release-note lists properly, and retries sooner after a failed fetch.
+- Family names are trimmed at creation, so the delete-family confirmation never demands an invisible trailing space.
 
 ## [1.4.0] - 2026-07-11 — Security hardening, full-language support, backup & undo
 

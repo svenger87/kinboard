@@ -449,8 +449,8 @@ export default function ShoppingPage() {
 
       // Only offer undo for items that actually existed server-side —
       // local-only (offline, unsynced) items have no row to re-insert.
-      if (item && !item._isLocal && !id.startsWith("local_")) {
-        const { _syncStatus, _isLocal, _localId, ...itemSnapshot } = item;
+      if (item && !id.startsWith("local_")) {
+        const { _syncStatus, _localId, ...itemSnapshot } = item;
         showUndoToast({
           message: t("itemDeleted"),
           undoLabel: tCommon("undo"),
