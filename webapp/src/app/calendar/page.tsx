@@ -206,6 +206,13 @@ export default function CalendarPage() {
   // initial load) — determines whether closing should go back or just
   // clean up the URL. See openEventDetail/closeEventDetail below.
   const eventHistoryPushedRef = useRef(false);
+  // True while the currently-selected event is the one opened by the
+  // ?event= deep-link (vs. a normal click-through). Used to scope the
+  // late-color-resolution effect below to deep-link opens only.
+  const isDeepLinkEventRef = useRef(false);
+  // Guards the late-color-resolution effect so it applies at most once —
+  // it must not clobber a color the user set afterwards via edit.
+  const deepLinkColorFixedRef = useRef(false);
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -406,6 +413,19 @@ export default function CalendarPage() {
       // selectedEvent — without this, back-during-edit leaves an
       // orphaned form whose save silently no-ops.
       setEditMode(false);
+      // After this, nothing is open. If the entry we landed on (e.g. the
+      // original deep-link entry, one hop back past a click-opened dialog)
+      // still carries ?event=, the address bar would lie about a closed
+      // dialog — strip just that param, keeping any others (like ?date=)
+      // intact. Guarded to /calendar since popstate also fires when
+      // navigating away from the page entirely.
+      if (window.location.pathname === "/calendar") {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has("event")) {
+          url.searchParams.delete("event");
+          window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+        }
+      }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -418,12 +438,33 @@ export default function CalendarPage() {
     if (!eventParam || eventParamConsumedRef.current || !deepLinkFetched) return;
     eventParamConsumedRef.current = true;
     if (deepLinkEventData) {
+      isDeepLinkEventRef.current = true;
       setCurrentDate(new Date(deepLinkEventData.start_at));
       setSelectedEvent(toCalendarEvent(deepLinkEventData));
     } else {
       toast.error(t("eventNotFound"));
+      // The param references nothing openable — nothing will ever open to
+      // clean it up via closeEventDetail, so strip it here.
+      if (window.location.pathname === "/calendar") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("event");
+        window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+      }
     }
   }, [eventParam, deepLinkFetched, deepLinkEventData, toCalendarEvent, t]);
+
+  // Late-color resolution: if the deep-link dialog opened before `people`
+  // finished loading, its color used the fallback. Once people settle,
+  // re-map the same event once (ref-guarded — never fires twice, so it
+  // can't clobber a color change the user makes afterwards via edit).
+  useEffect(() => {
+    if (deepLinkColorFixedRef.current || !isDeepLinkEventRef.current) return;
+    if (!people?.length || !deepLinkEventData) return;
+    deepLinkColorFixedRef.current = true;
+    setSelectedEvent((prev) =>
+      prev && prev.id === deepLinkEventData.id ? toCalendarEvent(deepLinkEventData) : prev
+    );
+  }, [people, deepLinkEventData, toCalendarEvent]);
 
   const handleAddEvent = async () => {
     if (!newEvent.title.trim() || !newEvent.calendar_id) return;
@@ -1713,7 +1754,14 @@ export default function CalendarPage() {
                             <AlertDialogAction
                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                               onClick={async () => {
-                                const rawEvent = eventsData?.find((e) => e.id === selectedEvent.id);
+                                // The loaded-range query misses events opened via
+                                // ?event= deep-link whose date falls outside the
+                                // current view — fall back to the byId row so the
+                                // undo snapshot isn't empty. Both queries select
+                                // the same shape (raw row + joined calendar).
+                                const rawEvent =
+                                  eventsData?.find((e) => e.id === selectedEvent.id) ??
+                                  (deepLinkEventData?.id === selectedEvent.id ? deepLinkEventData : undefined);
                                 try {
                                   await deleteEvent.mutateAsync(selectedEvent.id);
                                   closeEventDetail();
