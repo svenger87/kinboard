@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
-import { SECRET_FIELDS } from "@/lib/integration-secrets";
+import { SECRET_FIELDS, splitSecrets } from "@/lib/integration-secrets";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 // POST /api/import — restore a family from a Kinboard backup file
@@ -220,17 +220,31 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Settings: drop settings_pin (never legitimately exported, but guard
-  // defensively) and any key whose value carries secret-bearing fields —
-  // those fields are already scrubbed at export time, but the surviving
-  // public value (e.g. a base_url with no token) is not useful on its own
-  // and importing it would look "configured" without working. Force a
-  // clean re-connect instead.
+  // Settings: settings_pin is a pure secret (no public part) and never
+  // legitimately exported — dropped defensively. Every other SECRET_FIELDS
+  // key re-runs splitSecrets to strip only the secret sub-path(s); the
+  // surrounding public value (e.g. HA base_url + entity/dashboard
+  // selections, Immich/Unsplash URLs, Google calendar selections, Bring
+  // list selections) is legitimate user config that must survive a
+  // restore. splitSecrets is also defense-in-depth here: it strips any raw
+  // secret or sentinel a hand-edited backup file could carry, even though
+  // export already scrubbed secrets at write time.
   const secretKeys = new Set(Object.keys(SECRET_FIELDS));
-  const settingsRows = (payload.data.settings ?? []).filter((row) => {
-    if (!isRecord(row) || typeof row.key !== "string") return false;
-    return row.key !== SETTINGS_KEYS.settingsPin && !secretKeys.has(row.key);
-  });
+  let scrubbedSettingsCount = 0;
+  const settingsRows: Record<string, unknown>[] = [];
+  for (const row of payload.data.settings ?? []) {
+    if (!isRecord(row) || typeof row.key !== "string") continue;
+    if (row.key === SETTINGS_KEYS.settingsPin) continue;
+    if (secretKeys.has(row.key)) {
+      const { publicValue, secretValue } = splitSecrets(row.key, row.value);
+      if (secretValue && Object.keys(secretValue).length > 0) {
+        scrubbedSettingsCount++;
+      }
+      settingsRows.push({ ...row, value: publicValue });
+      continue;
+    }
+    settingsRows.push(row);
+  }
   const droppedSettingsCount = (payload.data.settings ?? []).length - settingsRows.length;
   payload.data.settings = settingsRows;
 
@@ -370,7 +384,12 @@ export async function POST(request: NextRequest) {
   }
   if (droppedSettingsCount > 0) {
     warnings.push(
-      `settings: dropped ${droppedSettingsCount} row(s) referencing secret-bearing integrations — reconnect those integrations after import`
+      `settings: dropped ${droppedSettingsCount} row(s) with no public value to restore (PIN) — reconnect after import`
+    );
+  }
+  if (scrubbedSettingsCount > 0) {
+    warnings.push(
+      `settings: stripped secret fields from ${scrubbedSettingsCount} row(s) — reconnect those integrations after import`
     );
   }
 
