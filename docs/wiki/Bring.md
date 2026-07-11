@@ -66,7 +66,7 @@ Settings → Bring! → **Disconnect**. Local shopping list stays; just stops sy
 
 | Symptom | Likely cause |
 |---|---|
-| **Login failed** | Bring! sometimes rate-limits credential checks; wait 5 min |
+| **Login failed** | Bring! sometimes rate-limits credential checks; wait 5 min. Still rejected after several correct attempts? Sign out and back in via the Bring! mobile app to confirm the credentials work, then retry |
 | **Sync runs but new items don't appear** | The active list ID is stale (you deleted it in Bring!). Re-pick the list. |
 | **Categories show in German when I switched to English** | The category names from Bring! are German because that's what Bring! sent. Disable **Sync categories** to use Kinboard's localized auto-detection. |
 | **Kinboard's quantity (`2 × Apples`) shows as `2x Apples` in Bring!** | Bring's freeform `specification` field doesn't have a separate quantity. Kinboard packs `quantity + unit + name` into the name on push. |
