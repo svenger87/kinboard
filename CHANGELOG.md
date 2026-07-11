@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+- The browser can no longer write settings directly to the database — all changes go through the app server, closing the last path a stale or hostile client on the network could use to plant settings values. Reads and live updates are unchanged.
+
 ## [1.4.0] - 2026-07-11 — Security hardening, full-language support, backup & undo
 
 *Upgrade notes:* Hard-refresh installed-PWA and kiosk devices once after updating (pull to reload, or Ctrl+F5). If localhost access misbehaves on an older install, re-run `./setup.sh` and `docker restart kinboard-kong` to regenerate an outdated kong.yml.

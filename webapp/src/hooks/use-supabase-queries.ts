@@ -1863,24 +1863,18 @@ export function useSetting<T>(key: string, defaultValue: T) {
 }
 
 export function useUpdateSetting<T>() {
-  const supabase = createClient();
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
 
   return useMutation({
     mutationFn: async ({ key, value }: { key: string; value: T }) => {
-       
-      const { data, error } = await (supabase as any)
-        .from("settings")
-        .upsert(
-          { family_id: requireFamilyId(family), key, value: value as unknown },
-          { onConflict: "family_id,key" }
-        )
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ family_id: requireFamilyId(family), key, value }),
+      });
+      if (!res.ok) throw new Error("Failed to save setting");
+      return res.json();
     },
     onSuccess: (_, { key }) => {
       queryClient.invalidateQueries({
