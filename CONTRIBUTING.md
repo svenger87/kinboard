@@ -67,7 +67,7 @@ Skip the changelog entry for: CI/lockfile-only changes, pure internal refactors 
 2. Keep PRs focused — one concern per PR. Smaller diffs get reviewed faster.
 3. Include a brief description of the change and the user-facing impact. Screenshots help for UI changes.
 4. Make sure `npm run lint` passes.
-5. New strings: add both `en` and `de` translations.
+5. New strings: add `en`, `de`, and `fr` translations.
 6. Update `CHANGELOG.md` if the change is user-visible.
 7. Commit message follows Conventional Commits (see above).
 

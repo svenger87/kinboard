@@ -81,7 +81,7 @@ body:
       options:
         - English (en)
         - German (de)
-        - Français (fr)
+        - French (fr)
         - Other / mixed
     validations:
       required: true
