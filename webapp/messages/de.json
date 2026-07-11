@@ -180,7 +180,11 @@
     "eventFallbackTitle": "Termin",
     "eventStartsAt": "Beginnt um {time}",
     "eventStartsSoon": "Beginnt bald",
-    "eventsMany": "{count} Termine"
+    "eventsMany": "{count} Termine",
+    "birthdayTitle": "🎂 {name}",
+    "birthdayBody": "Geburtstag in {count} Tagen",
+    "birthdayToday": "Geburtstag ist heute!",
+    "birthdaysMany": "{count} anstehende Geburtstage"
   },
   "join": {
     "title": "Kinboard",
@@ -1157,6 +1161,9 @@
       "calendarLabel": "Terminerinnerungen",
       "calendarDescription": "Benachrichtigung vor Terminstart (ganztägige Termine ausgenommen)",
       "calendarMinutesLabel": "Erinnere mich",
+      "birthdayTitle": "Geburtstage",
+      "birthdayRemindersLabel": "Geburtstags-Erinnerungen",
+      "birthdayRemindersDescription": "Werde vor gespeicherten Geburtstagen benachrichtigt (Vorlauf je Geburtstag).",
       "quietHoursHeading": "Ruhezeiten",
       "quietHoursLabel": "Ruhezeiten aktivieren",
       "quietHoursDescription": "Keine Benachrichtigungen während der Ruhezeit",

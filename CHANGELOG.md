@@ -15,6 +15,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Calendar: events are searchable (title, location, description) across all dates, and every event has a shareable link (?event=…) — opening one jumps to its date; the back button/gesture now closes the event dialog instead of leaving the calendar.
 - Families can be renamed (Settings, pencil next to the name) and deleted entirely (Settings → danger zone; requires typing the family name and erases all data for every device — do a backup export first).
 - Health endpoint (/api/health) with a Docker healthcheck on the webapp container, and a Diagnostics section in Settings showing network, live-updates, push, and integration status at a glance.
+- Birthday push reminders: the notify-days-before setting on each birthday now actually sends a push notification (respecting quiet hours), with a per-device toggle under Settings → Notifications.
 
 ### Changed
 - The setup wizard's weather step now has the same city search with suggestions, coordinates mode, and use-my-location button as the weather settings page (was a bare text field).
