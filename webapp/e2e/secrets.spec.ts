@@ -116,6 +116,46 @@ test.describe("PostgREST anon-key boundary", () => {
     expect(text, "raw token must not appear in the error response").not.toContain(RAW_TOKEN);
   });
 
+  test("settings table is write-locked for the anon role", async ({ request }) => {
+    // Milestone D: INSERT/UPDATE/DELETE on settings are REVOKEd from anon
+    // (migration_settings_write_lockdown.sql) — writes go through
+    // PUT /api/settings only. SELECT stays open (useSetting reads directly).
+    const response = await request.patch(
+      `${SUPABASE_URL}/rest/v1/settings?family_id=eq.${FAMILY_ID}&key=eq.home_assistant`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json",
+        },
+        data: { value: { url: "http://attacker.example" } },
+      },
+    );
+
+    // Same non-2xx tolerance as the integration_secrets read test: the
+    // exact status for a permission failure varies by PostgREST version.
+    expect(
+      response.status(),
+      `expected a non-2xx (write denied) status, got ${response.status()}`,
+    ).toBeGreaterThanOrEqual(400);
+
+    // The row must be unchanged — re-read via the still-open SELECT path.
+    const verify = await request.get(
+      `${SUPABASE_URL}/rest/v1/settings?family_id=eq.${FAMILY_ID}&key=eq.home_assistant&select=value`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+      },
+    );
+    const rows = await verify.json();
+    expect(
+      JSON.stringify(rows?.[0]?.value ?? {}),
+      "settings row must be unchanged after the denied write",
+    ).not.toContain("attacker.example");
+  });
+
   test("settings table holds no PIN rows (anon PostgREST)", async ({ request }) => {
     const response = await request.get(
       `${SUPABASE_URL}/rest/v1/settings?key=eq.settings_pin&select=key`,
