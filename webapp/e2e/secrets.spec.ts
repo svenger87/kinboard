@@ -115,6 +115,22 @@ test.describe("PostgREST anon-key boundary", () => {
     const text = await response.text();
     expect(text, "raw token must not appear in the error response").not.toContain(RAW_TOKEN);
   });
+
+  test("settings table holds no PIN rows (anon PostgREST)", async ({ request }) => {
+    const response = await request.get(
+      `${SUPABASE_URL}/rest/v1/settings?key=eq.settings_pin&select=key`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+      },
+    );
+    expect(response.status(), "GET settings?key=eq.settings_pin").toBe(200);
+
+    const rows = await response.json();
+    expect(rows, "settings_pin rows must be absent").toEqual([]);
+  });
 });
 
 test.describe("No secret leakage in page traffic", () => {
