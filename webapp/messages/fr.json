@@ -185,7 +185,8 @@
     "birthdayTitle": "🎂 {name}",
     "birthdayBody": "Anniversaire dans {count, plural, one {# jour} other {# jours}}",
     "birthdayToday": "C'est l'anniversaire aujourd'hui !",
-    "birthdaysMany": "{count} anniversaires à venir"
+    "birthdaysMany": "{count} anniversaires à venir",
+    "mealPrepTitle": "Repas de demain"
   },
   "join": {
     "title": "Kinboard",
@@ -1183,6 +1184,8 @@
       "birthdayTitle": "Anniversaires",
       "birthdayRemindersLabel": "Rappels d'anniversaire",
       "birthdayRemindersDescription": "Soyez averti avant les anniversaires enregistrés (délai par anniversaire).",
+      "mealPrepLabel": "Aperçu du menu",
+      "mealPrepDescription": "Chaque soir à 18 h : une notification avec les repas prévus demain.",
       "quietHoursHeading": "Heures silencieuses",
       "quietHoursLabel": "Activer les heures silencieuses",
       "quietHoursDescription": "Pas de notifications pendant les heures silencieuses",

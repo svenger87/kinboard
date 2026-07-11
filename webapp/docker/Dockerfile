@@ -121,6 +121,11 @@ RUN echo '#!/bin/sh' > /usr/local/bin/birthday-reminders && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/birthday-reminders' >> /usr/local/bin/birthday-reminders && \
     chmod +x /usr/local/bin/birthday-reminders
 
+# Add meal-prep-reminder scheduler cron script
+RUN echo '#!/bin/sh' > /usr/local/bin/meal-prep-reminders && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/meal-prep-reminders' >> /usr/local/bin/meal-prep-reminders && \
+    chmod +x /usr/local/bin/meal-prep-reminders
+
 # Add ICS feed sync cron script
 RUN echo '#!/bin/sh' > /usr/local/bin/sync-ics && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-ics' >> /usr/local/bin/sync-ics && \

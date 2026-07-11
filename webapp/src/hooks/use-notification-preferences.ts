@@ -19,6 +19,11 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: Omit<
   meal_prep_reminders: true,
   birthday_reminders: true,
   default_event_reminder_minutes: 15,
+  // meal_prep_advance_minutes: kept for schema back-compat only. The
+  // original "remind me N minutes before meal prep" idea was abandoned —
+  // meal-plan entries don't carry a time of day, so there's no anchor to
+  // count down from. Superseded by a fixed daily 18:00 digest
+  // (meal_prep_reminders toggle + /api/cron/meal-prep-reminders).
   meal_prep_advance_minutes: 60,
   quiet_hours_enabled: false,
   quiet_hours_start: "22:00",
