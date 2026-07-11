@@ -935,7 +935,9 @@ export function useIcsSync() {
 // EVENTS HOOKS
 // ===================
 
-export function useEvents(startDate?: string, endDate?: string) {
+export type EventWithCalendar = Event & { calendar: { family_id: string; person_id: string | null; color: string; name: string; is_holidays: boolean; is_waste_collection: boolean } };
+
+export function useEvents(startDate?: string, endDate?: string, options?: { enabled?: boolean }) {
   const supabase = createClient();
   const { family } = useFamilyStore();
 
@@ -962,9 +964,36 @@ export function useEvents(startDate?: string, endDate?: string) {
 
       const { data, error } = await query.order("start_at");
       if (error) throw error;
-      return data as (Event & { calendar: { family_id: string; person_id: string | null; color: string; name: string; is_holidays: boolean; is_waste_collection: boolean } })[];
+      return data as EventWithCalendar[];
     },
-    enabled: !!family?.id,
+    enabled: (options?.enabled ?? true) && !!family?.id,
+  });
+}
+
+/** Fetch a single event by id, scoped to the current family. Used for
+ * deep-link (`?event=`) and search-result opens where the event may fall
+ * outside the currently loaded date range. */
+export function useEventById(id?: string) {
+  const supabase = createClient();
+  const { family } = useFamilyStore();
+
+  return useQuery({
+    queryKey: ["events", family?.id ?? "", "byId", id ?? ""],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select(`
+          *,
+          calendar:calendars!inner(family_id, person_id, color, name, is_holidays, is_waste_collection)
+        `)
+        .eq("id", id as string)
+        .eq("calendar.family_id", requireFamilyId(family))
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as EventWithCalendar | null;
+    },
+    enabled: !!id && !!family?.id,
   });
 }
 

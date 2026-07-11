@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -18,6 +18,7 @@ import {
   Loader2,
   Trash2,
   Pencil,
+  Search,
 } from "lucide-react";
 import {
   format,
@@ -100,6 +101,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   useEvents,
+  useEventById,
   useCreateEvent,
   useUpdateEvent,
   useDeleteEvent,
@@ -111,6 +113,7 @@ import {
   useKeyboardShortcuts,
   useSwipeNavigation,
   queryKeys,
+  type EventWithCalendar,
 } from "@/hooks";
 import { matchPersonForEvent } from "@/lib/calendar-person-matcher";
 import { getHolidays, type CountryCode } from "@/lib/holidays";
@@ -193,8 +196,20 @@ export default function CalendarPage() {
     }
     return new Date();
   });
+  // ?event= deep-link — read once, consumed by the effect below once the
+  // byId fetch resolves (guarded so it can't re-fire / loop).
+  const [eventParam] = useState(() => searchParams.get("event"));
+  const eventParamConsumedRef = useRef(false);
+
+  // Tracks whether the currently-open detail dialog owns a pushed history
+  // entry (opened via click) vs. not (opened via ?event= deep-link on
+  // initial load) — determines whether closing should go back or just
+  // clean up the URL. See openEventDetail/closeEventDetail below.
+  const eventHistoryPushedRef = useRef(false);
+
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({ title: "", location: "", startDate: new Date(), endDate: new Date(), startTime: "", endTime: "", allDay: false, person_id: null as string | null });
   const [view, setView] = useState<"month" | "week">("month");
@@ -245,6 +260,13 @@ export default function CalendarPage() {
 
   // Fetch data from Supabase
   const { data: eventsData, isLoading: loadingEvents, error: eventsError, refetch: refetchEvents } = useEvents(dateRange.start, dateRange.end);
+  // Deep-link resolve: the linked event may fall outside the current view's
+  // date range, so it's fetched by id directly.
+  const { data: deepLinkEventData, isFetched: deepLinkFetched } = useEventById(eventParam ?? undefined);
+  // Unbounded search — only runs while actively searching (2+ chars) so it
+  // doesn't fire a full-family query on every calendar visit.
+  const searchActive = searchQuery.trim().length >= 2;
+  const { data: searchEventsData } = useEvents(undefined, undefined, { enabled: searchActive });
   const { data: people, isLoading: loadingPeople, error: peopleError, refetch: refetchPeople } = usePeople();
   const { data: calendars, isLoading: loadingCalendars, error: calendarsError, refetch: refetchCalendars } = useCalendars();
   const { data: defaultCalendarId } = useSetting<string | null>("default_calendar_id", null);
@@ -294,37 +316,110 @@ export default function CalendarPage() {
     setAddDialogOpen(true);
   };
 
+  // Maps a raw events-table row (+ joined calendar) to the display shape.
+  // Shared by the events memo, the ?event= deep-link resolver, and search
+  // results so they all agree on color/person fallbacks.
+  const toCalendarEvent = useCallback((event: EventWithCalendar): CalendarEvent => {
+    // Use event's person_id first, then fall back to calendar's person_id
+    const personId = event.person_id || event.calendar?.person_id;
+    const person = personId ? people?.find((p) => p.id === personId) : undefined;
+    const calendarColor = event.calendar?.color;
+    return {
+      id: event.id,
+      title: event.title,
+      start: new Date(event.start_at),
+      end: new Date(event.end_at),
+      allDay: event.all_day,
+      color: person?.color || calendarColor || "#3b82f6",
+      location: event.location || undefined,
+      description: event.description || undefined,
+      person_id: personId ?? undefined,
+      calendar_name: event.calendar?.name,
+      is_holiday: event.calendar?.is_holidays ?? false,
+      is_waste_collection: event.calendar?.is_waste_collection ?? false,
+    };
+  }, [people]);
+
   // Transform events to display format
   const events: CalendarEvent[] = useMemo(() => {
     if (!eventsData) return [];
-    return eventsData.map((event) => {
-      // Use event's person_id first, then fall back to calendar's person_id
-      const personId = event.person_id || event.calendar?.person_id;
-      const person = personId ? people?.find((p) => p.id === personId) : undefined;
-      const calendarColor = event.calendar?.color;
-      return {
-        id: event.id,
-        title: event.title,
-        start: new Date(event.start_at),
-        end: new Date(event.end_at),
-        allDay: event.all_day,
-        color: person?.color || calendarColor || "#3b82f6",
-        location: event.location || undefined,
-        description: event.description || undefined,
-        person_id: personId ?? undefined,
-        calendar_name: event.calendar?.name,
-        is_holiday: event.calendar?.is_holidays ?? false,
-        is_waste_collection: event.calendar?.is_waste_collection ?? false,
-      };
-    });
-  }, [eventsData, people]);
+    return eventsData.map(toCalendarEvent);
+  }, [eventsData, toCalendarEvent]);
 
-  // Apply the person filter. null = no filter yet (show all). Person-less
-  // events (no person_id) are always visible.
+  // Search: matches title/location/description, case-insensitive.
+  const searchResults: EventWithCalendar[] = useMemo(() => {
+    if (!searchActive || !searchEventsData) return [];
+    const q = searchQuery.trim().toLowerCase();
+    return searchEventsData
+      .filter((e) =>
+        e.title?.toLowerCase().includes(q) ||
+        e.location?.toLowerCase().includes(q) ||
+        e.description?.toLowerCase().includes(q)
+      )
+      .slice(0, 20);
+  }, [searchActive, searchEventsData, searchQuery]);
+
+  // Apply the person filter, then the search filter. null personIds = no
+  // filter yet (show all). Person-less events are always visible.
   const visibleEvents = useMemo(() => {
-    if (!selectedPersonIds) return events;
-    return events.filter((e) => !e.person_id || selectedPersonIds.has(e.person_id));
-  }, [events, selectedPersonIds]);
+    let filtered = selectedPersonIds
+      ? events.filter((e) => !e.person_id || selectedPersonIds.has(e.person_id))
+      : events;
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length >= 2) {
+      filtered = filtered.filter((e) =>
+        e.title.toLowerCase().includes(q) ||
+        e.location?.toLowerCase().includes(q) ||
+        e.description?.toLowerCase().includes(q)
+      );
+    }
+    return filtered;
+  }, [events, selectedPersonIds, searchQuery]);
+
+  // Opens the event detail dialog and records a history entry so the
+  // back button/gesture closes the dialog instead of leaving /calendar.
+  const openEventDetail = useCallback((event: CalendarEvent) => {
+    eventHistoryPushedRef.current = true;
+    window.history.pushState({}, "", `/calendar?event=${event.id}`);
+    setSelectedEvent(event);
+  }, []);
+
+  // Closes the event detail dialog. If we pushed a history entry to open
+  // it, go back (consumes that entry — no stacking on rapid open/close);
+  // otherwise (opened via ?event= deep-link) just strip the query param.
+  const closeEventDetail = useCallback(() => {
+    setSelectedEvent(null);
+    if (eventHistoryPushedRef.current) {
+      eventHistoryPushedRef.current = false;
+      window.history.back();
+    } else {
+      window.history.replaceState({}, "", "/calendar");
+    }
+  }, []);
+
+  // Back button/gesture closes the dialog rather than navigating away.
+  useEffect(() => {
+    const handlePopState = () => {
+      eventHistoryPushedRef.current = false;
+      setSelectedEvent(null);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Deep-link resolve: jump to the event's month/week and open it once the
+  // byId fetch settles. Runs at most once (guarded by the consumed ref) —
+  // no pushState here, since the URL already reflects ?event=.
+  useEffect(() => {
+    if (!eventParam || eventParamConsumedRef.current || !deepLinkFetched) return;
+    eventParamConsumedRef.current = true;
+    if (deepLinkEventData) {
+      setCurrentDate(new Date(deepLinkEventData.start_at));
+      setSelectedEvent(toCalendarEvent(deepLinkEventData));
+    } else {
+      toast.error(t("eventNotFound"));
+    }
+  }, [eventParam, deepLinkFetched, deepLinkEventData, toCalendarEvent, t]);
 
   const handleAddEvent = async () => {
     if (!newEvent.title.trim() || !newEvent.calendar_id) return;
@@ -759,6 +854,17 @@ export default function CalendarPage() {
                 ))}
               </div>
             )}
+            <div className="relative w-full sm:w-56 order-last sm:order-none">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t("searchPlaceholder")}
+                aria-label={t("searchPlaceholder")}
+                className="h-8 pl-8 text-xs sm:text-sm"
+              />
+            </div>
             <div className="flex items-center gap-1">
               <Button variant="outline" size="icon" className="size-8" onClick={goToPrevious} aria-label={t("previousAria")}>
                 <ChevronLeft className="size-4" />
@@ -771,6 +877,47 @@ export default function CalendarPage() {
               </Button>
             </div>
           </div>
+
+          {/* Search results panel — shown once the query is specific enough
+              to search across all dates (not just the current view) */}
+          {searchActive && (
+            <div
+              role="region"
+              aria-label={t("searchResultsAria")}
+              className="mb-4 rounded-xl border bg-card p-2 max-h-72 overflow-y-auto"
+            >
+              {searchResults.length === 0 ? (
+                <p className="text-sm text-muted-foreground p-3">{t("searchNoResults")}</p>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {searchResults.map((row) => {
+                    const person = getPersonById(row.person_id || row.calendar?.person_id || undefined);
+                    return (
+                      <button
+                        key={row.id}
+                        type="button"
+                        onClick={() => {
+                          const ev = toCalendarEvent(row);
+                          setCurrentDate(ev.start);
+                          openEventDetail(ev);
+                          setSearchQuery("");
+                        }}
+                        className="flex items-center gap-3 w-full text-left px-3 py-2 rounded-lg hover:bg-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <span className="text-xs text-muted-foreground tabular-nums w-16 shrink-0">
+                          {format(new Date(row.start_at), "d MMM", { locale: dateLocale })}
+                        </span>
+                        {person && (
+                          <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: person.color }} />
+                        )}
+                        <span className="text-sm truncate">{row.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Monthly Stats Bar */}
           {!isLoading && !error && events.length > 0 && view === "month" && (() => {
@@ -833,7 +980,7 @@ export default function CalendarPage() {
                   selectedDate={selectedDate}
                   events={visibleEvents}
                   onSelectDate={setSelectedDate}
-                  onSelectEvent={setSelectedEvent}
+                  onSelectEvent={openEventDetail}
                 />
               ) : (
                 <WeekView
@@ -841,7 +988,7 @@ export default function CalendarPage() {
                   selectedDate={selectedDate}
                   events={visibleEvents}
                   onSelectDate={setSelectedDate}
-                  onSelectEvent={setSelectedEvent}
+                  onSelectEvent={openEventDetail}
                 />
               )}
             </motion.div>
@@ -903,7 +1050,7 @@ export default function CalendarPage() {
                               {allDayEvents.map((ev) => (
                                 <button
                                   key={ev.id}
-                                  onClick={() => setSelectedEvent(ev)}
+                                  onClick={() => openEventDetail(ev)}
                                   className="text-xs px-2.5 py-1 rounded-full truncate max-w-full hover:brightness-125 transition-all focus-visible:ring-2 focus-visible:ring-ring"
                                   style={{ backgroundColor: `${ev.color}30`, color: ev.color, borderLeft: `2px solid ${ev.color}` }}
                                 >
@@ -956,7 +1103,7 @@ export default function CalendarPage() {
                               return (
                                 <button
                                   key={event.id}
-                                  onClick={() => setSelectedEvent(event)}
+                                  onClick={() => openEventDetail(event)}
                                   className={`absolute left-1 right-0 rounded-md px-2 py-0.5 overflow-hidden text-left transition-all hover:brightness-125 focus-visible:ring-2 focus-visible:ring-ring ${isOngoing ? "ring-1 ring-primary/60" : ""}`}
                                   style={{
                                     top: `${top}%`,
@@ -1080,11 +1227,11 @@ export default function CalendarPage() {
                                   role="button"
                                   tabIndex={0}
                                   aria-label={`${event.title}, ${t("allDayBadge")}${event.location ? `, ${event.location}` : ""}`}
-                                  onClick={() => setSelectedEvent(event)}
+                                  onClick={() => openEventDetail(event)}
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter" || e.key === " ") {
                                       e.preventDefault();
-                                      setSelectedEvent(event);
+                                      openEventDetail(event);
                                     }
                                   }}
                                   className="p-3 rounded-xl cursor-pointer hover:bg-accent/50 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
@@ -1133,11 +1280,11 @@ export default function CalendarPage() {
                                   role="button"
                                   tabIndex={0}
                                   aria-label={`${event.title}, ${format(event.start, "HH:mm")} - ${format(event.end, "HH:mm")}${event.location ? `, ${event.location}` : ""}${isOngoing ? `, ${t("ongoingAria")}` : ""}`}
-                                  onClick={() => setSelectedEvent(event)}
+                                  onClick={() => openEventDetail(event)}
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter" || e.key === " ") {
                                       e.preventDefault();
-                                      setSelectedEvent(event);
+                                      openEventDetail(event);
                                     }
                                   }}
                                   className={`cursor-pointer transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded-xl ${
@@ -1424,7 +1571,7 @@ export default function CalendarPage() {
                         });
 
                         setEditMode(false);
-                        setSelectedEvent(null);
+                        closeEventDetail();
                       } catch {
                         toast.error(t("toastUpdateFailed"));
                       }
@@ -1447,7 +1594,7 @@ export default function CalendarPage() {
           {/* Event Detail Dialog */}
           <Dialog
             open={!!selectedEvent && !editMode}
-            onOpenChange={(open) => !open && setSelectedEvent(null)}
+            onOpenChange={(open) => !open && closeEventDetail()}
           >
             <DialogContent className="sm:max-w-[500px]">
               {selectedEvent && (
@@ -1565,7 +1712,7 @@ export default function CalendarPage() {
                                 const rawEvent = eventsData?.find((e) => e.id === selectedEvent.id);
                                 try {
                                   await deleteEvent.mutateAsync(selectedEvent.id);
-                                  setSelectedEvent(null);
+                                  closeEventDetail();
                                   if (rawEvent) {
                                     const { calendar: _calendar, ...eventSnapshot } = rawEvent;
                                     showUndoToast({

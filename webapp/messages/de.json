@@ -2111,6 +2111,10 @@
     "toastUpdateFailed": "Termin konnte nicht aktualisiert werden",
     "toastDeleteFailed": "Termin konnte nicht gelöscht werden",
     "eventDeleted": "Termin gelöscht",
+    "eventNotFound": "Termin nicht gefunden — er wurde evtl. gelöscht.",
+    "searchPlaceholder": "Termine suchen…",
+    "searchNoResults": "Keine Termine gefunden",
+    "searchResultsAria": "Suchergebnisse",
     "monthView": {
       "weekHeader": "KW",
       "moreCount": "+{count} weitere"
