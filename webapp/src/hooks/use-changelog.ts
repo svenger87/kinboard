@@ -7,6 +7,11 @@ export interface ChangelogEntry {
   name: string;
   publishedAt: string | null;
   body: string;
+  /**
+   * Only ever true on an instance that is itself running a pre-release —
+   * the API filters release candidates out for stable installs entirely.
+   */
+  prerelease: boolean;
 }
 
 interface ChangelogResponse {

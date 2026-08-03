@@ -151,6 +151,14 @@ export function WhatsNewDialog({ open, onOpenChange }: WhatsNewDialogProps) {
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="font-semibold text-sm">
                       {release.name || release.tag}
+                      {release.prerelease && (
+                        // Reached only on an instance running a
+                        // pre-release; a stable install never receives
+                        // these entries at all.
+                        <span className="ml-2 align-middle rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-warning-foreground">
+                          {t("prereleaseBadge")}
+                        </span>
+                      )}
                     </span>
                     {release.publishedAt && (
                       <span className="text-xs text-muted-foreground shrink-0">
