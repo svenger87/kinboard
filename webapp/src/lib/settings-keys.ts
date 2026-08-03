@@ -12,6 +12,7 @@ export const SETTINGS_KEYS = {
   schedulePeriods: "schedule_periods",
   screensaver: "screensaver",
   newsSources: "news_sources",
+  newsCustomFeeds: "news_custom_feeds",
   enabledPlugins: "enabled_plugins",
   bringSettings: "bring_settings",
   photoSource: "photo_source",

@@ -31,6 +31,7 @@
 - [[Recipes & meal planning|Recipes]]
 - [[Tasks & todos|Tasks]]
 - [[Notes]]
+- [[News]]
 - [[Birthdays]]
 - [[School schedule|Schedule]]
 - [[Smart home & energy|Smart-Home]]
