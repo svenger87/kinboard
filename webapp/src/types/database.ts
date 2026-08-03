@@ -1032,6 +1032,7 @@ export interface Database {
           avatar_species: string;
           lifetime_saved_cents: number;
           last_seen_tier: number;
+          best_tier: number;
           created_at: string;
           updated_at: string;
         };
@@ -1054,6 +1055,7 @@ export interface Database {
           avatar_species?: string;
           lifetime_saved_cents?: number;
           last_seen_tier?: number;
+          best_tier?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -1076,6 +1078,7 @@ export interface Database {
           avatar_species?: string;
           lifetime_saved_cents?: number;
           last_seen_tier?: number;
+          best_tier?: number;
           created_at?: string;
           updated_at?: string;
         };

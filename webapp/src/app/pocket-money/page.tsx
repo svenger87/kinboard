@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
-import { Clock, PiggyBank, Plus, ShoppingBag } from "lucide-react";
+import { useTranslations, useLocale } from "next-intl";
+import { CalendarClock, Clock, PiggyBank, Plus, ShoppingBag, Star } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
@@ -26,13 +26,19 @@ import {
   usePeople,
 } from "@/hooks";
 import { AmountDialog } from "@/components/pocket-money/amount-dialog";
-import { tierFromLifetimeSaved, nextTierThreshold } from "@/lib/pocket-money/interest";
+import {
+  tierFromBalance,
+  nextTierThreshold,
+  effectiveBestTier,
+} from "@/lib/pocket-money/interest";
+import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import { formatCents } from "@/lib/pocket-money/format";
 
 type CelebrationKind = "evolution" | "goal-reached" | "interest-pay";
 
 export default function PocketMoneyPage() {
   const t = useTranslations("pocketMoney");
+  const locale = useLocale();
   const router = useRouter();
   const { data: accounts = [], isPending } = usePocketMoneyAccounts();
   const { data: people = [] } = usePeople();
@@ -58,18 +64,34 @@ export default function PocketMoneyPage() {
     "pending",
   );
 
-  // Fire the avatar-evolution celebration once per tier promotion.
+  // Celebrate a promotion, and record the high-water mark.
+  //
+  // The stage now follows the balance, so it can go down as well as up.
+  // `last_seen_tier` gates the celebration and must therefore track the
+  // stage in both directions — otherwise a kid who reaches stage 6,
+  // spends down to 4 and saves back to 6 would get no celebration the
+  // second time. `best_tier` only ever climbs; that's the whole point of
+  // it.
   useEffect(() => {
     if (!active) return;
-    const currentTier = tierFromLifetimeSaved(active.lifetime_saved_cents);
+    const currentTier = tierFromBalance(active.balance_cents);
+    const update: { last_seen_tier?: number; best_tier?: number } = {};
+
     if (currentTier > active.last_seen_tier) {
       setCelebration("evolution");
-      updateAccount
-        .mutateAsync({ id: active.id, update: { last_seen_tier: currentTier } })
-        .catch(console.error);
+      update.last_seen_tier = currentTier;
+    } else if (currentTier < active.last_seen_tier) {
+      // Silent: dropping a stage is not something to animate at a child.
+      update.last_seen_tier = currentTier;
+    }
+
+    if (currentTier > (active.best_tier ?? 1)) update.best_tier = currentTier;
+
+    if (Object.keys(update).length > 0) {
+      updateAccount.mutateAsync({ id: active.id, update }).catch(console.error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active?.id, active?.lifetime_saved_cents]);
+  }, [active?.id, active?.balance_cents]);
 
   // Stable callback so re-renders don't reset CelebrationOverlay's
   // dismissal timer mid-animation.
@@ -83,6 +105,23 @@ export default function PocketMoneyPage() {
       .filter((tx) => tx.type === "interest" && tx.created_at.startsWith(today))
       .reduce((sum, tx) => sum + tx.amount_cents, 0);
   })();
+
+  // Stage + high-water mark, both driven by the current balance.
+  const currentTier = active ? tierFromBalance(active.balance_cents) : 1;
+  const bestTier = active ? effectiveBestTier(active.balance_cents, active.best_tier ?? 1) : 1;
+  const showBestBadge = bestTier > currentTier;
+
+  // When the next allowance lands. Previously nowhere in the UI, which
+  // is why a fortnightly allowance that was working perfectly got
+  // reported as broken — ten quiet days look identical to a dead cron.
+  const nextAllowance =
+    active && active.weekly_allowance_cents > 0
+      ? nextAllowanceDate({
+          lastAllowanceAt: active.last_allowance_at,
+          intervalDays: active.allowance_interval_days ?? 7,
+          dayOfWeek: active.allowance_day_of_week,
+        })
+      : null;
 
   const primaryGoal = goals.find((g) => g.is_primary && g.status === "active");
   const secondaryGoals = goals.filter((g) => !g.is_primary && g.status === "active");
@@ -144,7 +183,7 @@ export default function PocketMoneyPage() {
       <div className="flex flex-col items-center text-center space-y-3">
         <AvatarDisplay
           species={active.avatar_species}
-          lifetimeSavedCents={active.lifetime_saved_cents}
+          balanceCents={active.balance_cents}
           size={220}
         />
         <div className="flex flex-col items-center gap-0.5">
@@ -162,15 +201,26 @@ export default function PocketMoneyPage() {
             className="flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 hover:bg-white/[0.04] active:scale-[0.98] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50"
             aria-label={t("stagesSheetOpenAria")}
           >
-            <p className="text-xl font-bold">
-              {t(`species.${active.avatar_species}.tier${tierFromLifetimeSaved(active.lifetime_saved_cents)}` as never)}
+            <p className="text-xl font-bold flex items-center gap-2">
+              {t(`species.${active.avatar_species}.tier${currentTier}` as never)}
+              {showBestBadge && (
+                <span
+                  className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300"
+                  title={t("bestStageTooltip")}
+                >
+                  <Star className="size-3 fill-current" />
+                  {t("bestStageBadge", {
+                    stage: t(`species.${active.avatar_species}.tier${bestTier}` as never),
+                  })}
+                </span>
+              )}
             </p>
             {(() => {
-              const nextCents = nextTierThreshold(active.lifetime_saved_cents);
+              const nextCents = nextTierThreshold(active.balance_cents);
               if (nextCents === null) {
                 return <p className="text-xs text-muted-foreground">{t("maxStageHint")}</p>;
               }
-              const nextTier = tierFromLifetimeSaved(nextCents);
+              const nextTier = tierFromBalance(nextCents);
               return (
                 <p className="text-xs text-muted-foreground">
                   {t("nextStageHint", {
@@ -188,6 +238,30 @@ export default function PocketMoneyPage() {
           currency={active.currency}
           todayInterestCents={todayInterestCents}
         />
+
+        {/* When the next allowance lands. The single most-missed piece of
+            information on this screen: without it there is no way to tell
+            "not due yet" from "the job is broken". */}
+        {nextAllowance && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <CalendarClock className="size-3.5 shrink-0" />
+            {(() => {
+              const days = daysUntil(nextAllowance);
+              const amount = formatCents(active.weekly_allowance_cents, active.currency);
+              if (days === 0) return t("nextAllowanceToday", { amount });
+              if (days === 1) return t("nextAllowanceTomorrow", { amount });
+              return t("nextAllowanceInDays", {
+                amount,
+                days,
+                date: nextAllowance.toLocaleDateString(locale, {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                }),
+              });
+            })()}
+          </p>
+        )}
       </div>
 
       {pendingRequests.length > 0 && (
@@ -283,7 +357,8 @@ export default function PocketMoneyPage() {
         open={stagesSheetOpen}
         onOpenChange={setStagesSheetOpen}
         species={active.avatar_species}
-        lifetimeSavedCents={active.lifetime_saved_cents}
+        balanceCents={active.balance_cents}
+        bestTier={bestTier}
         currency={active.currency}
       />
     </div>

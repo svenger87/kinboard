@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { AvatarDisplay } from "@/components/pocket-money/avatar-display";
+import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople } from "@/hooks";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { PluginDiscoverCard } from "./plugin-discover-card";
@@ -87,8 +88,17 @@ function PersonName({ accountPersonId }: { accountPersonId: string }) {
 }
 
 function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
+  const t = useTranslations("pocketMoney");
   const { data: goals = [] } = usePocketMoneyGoals(account.id);
   const primary = goals.find((g) => g.is_primary && g.status === "active");
+  const nextAllowance =
+    account.weekly_allowance_cents > 0
+      ? nextAllowanceDate({
+          lastAllowanceAt: account.last_allowance_at,
+          intervalDays: account.allowance_interval_days ?? 7,
+          dayOfWeek: account.allowance_day_of_week,
+        })
+      : null;
   const progress = primary
     ? Math.min(100, Math.floor((account.balance_cents * 100) / primary.target_amount_cents))
     : 0;
@@ -97,7 +107,7 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
     <div className="flex items-center gap-3">
       <AvatarDisplay
         species={account.avatar_species}
-        lifetimeSavedCents={account.lifetime_saved_cents}
+        balanceCents={account.balance_cents}
         size={56}
         className="shrink-0"
       />
@@ -105,11 +115,22 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
         <p className="text-2xl font-bold">
           {formatCents(account.balance_cents, account.currency)}
         </p>
-        {primary && (
+        {primary ? (
           <>
             <p className="text-[10px] text-muted-foreground truncate">{primary.name}</p>
             <Progress value={progress} className="h-1.5 mt-1" />
           </>
+        ) : (
+          nextAllowance && (
+            // Only shown when no goal is competing for the line, so the
+            // widget keeps its height on the dashboard grid.
+            <p className="text-[10px] text-muted-foreground truncate">
+              {t("nextAllowanceShort", {
+                amount: formatCents(account.weekly_allowance_cents, account.currency),
+                days: daysUntil(nextAllowance),
+              })}
+            </p>
+          )
         )}
       </div>
     </div>

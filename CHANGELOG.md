@@ -6,6 +6,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **Pocket money: the avatar stage now reflects the current balance, not lifetime earnings.** It used to only ever go up, so it said nothing about how a child's savings were actually doing — spending a month's savings left the avatar untouched. Stages now rise as money is saved and fall as it's spent. Nothing is lost: a **"best: Stage N"** badge records the highest stage ever reached and never falls, and the stage list marks stages that were reached before. Existing accounts keep their achievement — the badge is backfilled from lifetime earnings on upgrade, so nobody opens the app to find their avatar demoted with nothing to show for it.
+- Pocket money stage thresholds retuned for balances (€2 / €5 / €10 / €25 / €50 / €100 / €200). The old top stage was €1000 of lifetime earnings, unreachable as a balance for a child on a few euro a week, which left the upper half of the progression dead.
+
+### Added
+- Pocket money now shows **when the next allowance arrives** — on the child's page, the dashboard widget and the parent settings screen, alongside the last payment date. The date was previously stored and never displayed, which made a correctly-working fortnightly allowance indistinguishable from a broken one for up to 13 days.
+
 ## [1.5.0] - 2026-07-11 — Restore from backup, meal-plan digest, notification fixes
 
 *Upgrade notes:* The schema migration (settings write lockdown) applies automatically on `./start.sh up`. Hard-refresh installed-PWA and kiosk devices once after updating.
