@@ -38,12 +38,26 @@ const nextConfig = {
     '/api/stonks/search': ['./node_modules/yahoo-finance2/**/*'],
   },
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
-    ],
+    // The image optimizer is off, which also disables /_next/image.
+    //
+    // It was configured with `remotePatterns: [{ hostname: '**' }]`,
+    // which turned that endpoint into an open image proxy: anyone able
+    // to reach a Kinboard instance could make the server fetch and
+    // decode an arbitrary remote image. Verified against both a family
+    // box and the public demo before changing it.
+    //
+    // That mattered because Next bundles its own sharp (0.34.5, below
+    // the 0.35.0 that patches a batch of libvips CVEs) into the runtime
+    // container, so the decoder handling those attacker-chosen images
+    // was the vulnerable one.
+    //
+    // Nothing needed it. Every <Image> in the app with a remote src
+    // already passes `unoptimized`, and every other image is a plain
+    // <img>. Turning the optimizer off costs nothing and removes the
+    // endpoint entirely, rather than trying to enumerate safe hosts for
+    // user-supplied shopping and recipe images that can legitimately
+    // come from anywhere.
+    unoptimized: true,
   },
   experimental: {
     serverActions: {
