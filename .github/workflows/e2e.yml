@@ -44,6 +44,14 @@ jobs:
           cache: "npm"
           cache-dependency-path: webapp/package-lock.json
 
+      # npm 10 (bundled with Node 20) and npm 11 disagree on lockfile
+      # shape, and `npm ci` on the wrong one fails outright. Corepack
+      # reads `packageManager` from webapp/package.json so the version
+      # is pinned in exactly one place. Plain `corepack enable` does
+      # NOT shim npm — the explicit `npm` argument is required.
+      - name: Use the pinned npm
+        run: corepack enable npm
+
       - name: Install webapp deps
         run: npm ci
 
