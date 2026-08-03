@@ -560,7 +560,11 @@ export default function ShoppingPage() {
 
     setImageSearchLoading(true);
     try {
-      const response = await fetch(`/api/images/search?q=${encodeURIComponent(query)}&limit=12`);
+      // family_id is optional — it only unlocks the Unsplash provider
+      // for households that already configured a key for the screensaver.
+      const params = new URLSearchParams({ q: query, limit: "12", locale });
+      if (family?.id) params.set("family_id", family.id);
+      const response = await fetch(`/api/images/search?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         setImageSearchResults(data.results || []);

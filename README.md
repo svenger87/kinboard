@@ -67,7 +67,7 @@ Family logistics are scattered across calendars, chat threads, sticky notes, and
 |---|---|
 | **Dashboard** — clock, today strip, configurable widget grid | [Dashboard](https://github.com/svenger87/kinboard/wiki/Dashboard) |
 | **Calendar** — two-way sync with Google Calendar **and any CalDAV server**, read-only `.ics` feeds, per-person colors, holidays, waste-pickup widgets | [Calendar](https://github.com/svenger87/kinboard/wiki/Calendar) · [CalDAV](https://github.com/svenger87/kinboard/wiki/CalDAV) |
-| **Shopping list** — built-in real-time list with **offline support** + dedicated standalone PWA, optional Bring! sync | [Shopping](https://github.com/svenger87/kinboard/wiki/Shopping) |
+| **Shopping list** — built-in real-time list with **offline support**, editable from any phone, + dedicated standalone PWA, optional Bring! sync | [Shopping](https://github.com/svenger87/kinboard/wiki/Shopping) |
 | **Recipes & meal planning** — Chefkoch.de search + schema.org URL import, weekly meal board, recipe-driven shopping | [Recipes & meals](https://github.com/svenger87/kinboard/wiki/Recipes) |
 | **Tasks & todos** — per-person assignment, priorities, daily reminder push | [Tasks & todos](https://github.com/svenger87/kinboard/wiki/Tasks) |
 | **Notes** — quick shared sticky notes for the household | [Notes](https://github.com/svenger87/kinboard/wiki/Notes) |
@@ -134,16 +134,31 @@ For production self-hosting (Traefik + custom domain + backups + updates), see [
 
 ## Screenshots
 
-A few highlights from the [demo data set](docs/wiki/screenshots/) — see the [wiki](docs/wiki/) for the per-feature pages.
+A few highlights from the [demo data set](docs/wiki/screenshots/). See the [wiki](docs/wiki/) for the per-feature pages.
+
+### On your phone
+
+The wall display is the point, but you're not always in front of it. The whole app is responsive and installs as a PWA, so the shopping list you edit in the supermarket is on the kitchen wall before you get home, and push notifications reach you when you're out.
 
 <table>
   <tr>
+    <td align="center"><a href="docs/wiki/images/mobile/shopping-list-mixed.png"><img src="docs/wiki/images/mobile/shopping-list-mixed.png" alt="Shopping list on a phone" width="200"/></a><br/><sub><b>Shopping list</b><br/>Add with your thumb,<br/>tick off in the aisle</sub></td>
+    <td align="center"><a href="docs/wiki/images/mobile/settings-notifications.png"><img src="docs/wiki/images/mobile/settings-notifications.png" alt="Notification settings on a phone" width="200"/></a><br/><sub><b>Notifications</b><br/>Per device, so the<br/>wall stays quiet</sub></td>
+    <td align="center"><a href="docs/wiki/images/mobile/calendar-month-view.png"><img src="docs/wiki/images/mobile/calendar-month-view.png" alt="Calendar on a phone" width="200"/></a><br/><sub><b>Calendar</b><br/>Same data, laid out<br/>for a thumb</sub></td>
+    <td align="center"><a href="docs/wiki/images/mobile/dashboard-portrait.png"><img src="docs/wiki/images/mobile/dashboard-portrait.png" alt="Dashboard on a phone" width="200"/></a><br/><sub><b>Dashboard</b><br/>The same board,<br/>pocket-sized</sub></td>
+  </tr>
+</table>
+
+### On the wall
+
+<table>
+  <tr>
+    <td align="center"><a href="docs/wiki/images/shopping-list-mixed.png"><img src="docs/wiki/images/shopping-list-mixed.png" alt="Shopping" width="280"/></a><br/><sub>Shopping</sub></td>
     <td align="center"><a href="docs/wiki/images/calendar-month-view.png"><img src="docs/wiki/images/calendar-month-view.png" alt="Calendar" width="280"/></a><br/><sub>Calendar</sub></td>
-    <td align="center"><a href="docs/wiki/images/energy-flow-diagram.png"><img src="docs/wiki/images/energy-flow-diagram.png" alt="Energy" width="280"/></a><br/><sub>Energy dashboard</sub></td>
     <td align="center"><a href="docs/wiki/images/home-automation-rooms.png"><img src="docs/wiki/images/home-automation-rooms.png" alt="Home automation" width="280"/></a><br/><sub>Home automation</sub></td>
   </tr>
   <tr>
-    <td align="center"><a href="docs/wiki/images/shopping-list-mixed.png"><img src="docs/wiki/images/shopping-list-mixed.png" alt="Shopping" width="280"/></a><br/><sub>Shopping</sub></td>
+    <td align="center"><a href="docs/wiki/images/energy-flow-diagram.png"><img src="docs/wiki/images/energy-flow-diagram.png" alt="Energy" width="280"/></a><br/><sub>Energy dashboard</sub></td>
     <td align="center"><a href="docs/wiki/images/birthdays-year-ring.png"><img src="docs/wiki/images/birthdays-year-ring.png" alt="Birthdays" width="280"/></a><br/><sub>Birthdays</sub></td>
     <td align="center"><a href="docs/wiki/images/recipes-library.png"><img src="docs/wiki/images/recipes-library.png" alt="Recipes" width="280"/></a><br/><sub>Recipes</sub></td>
   </tr>
@@ -154,7 +169,7 @@ A few highlights from the [demo data set](docs/wiki/screenshots/) — see the [w
   </tr>
 </table>
 
-A light-mode variant of every screenshot is available with `-light` suffix (e.g. `dashboard-portrait-light.png`), and a phone-viewport variant lives in `docs/wiki/images/mobile/`. The full toolchain that produces them — local docker stack with anonymized prod data + mock HA / Tesla / OpenWeatherMap servers + Playwright capture — lives in [`docs/wiki/screenshots/`](docs/wiki/screenshots/).
+Every screenshot has a light-mode variant with a `-light` suffix, and the phone-viewport captures live in [`docs/wiki/images/mobile/`](docs/wiki/images/mobile/). The full toolchain that produces them — local docker stack with anonymized prod data + mock HA / Tesla / OpenWeatherMap servers + Playwright capture — lives in [`docs/wiki/screenshots/`](docs/wiki/screenshots/).
 
 ---
 

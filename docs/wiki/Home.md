@@ -6,6 +6,21 @@
 
 Kinboard runs on your hardware, in your house. No cloud account, no telemetry, no subscription. The kitchen-wall display, your phone, the kids' tablets — they all show the same family state, kept in sync by a self-hosted Supabase Realtime backend.
 
+### It's on your phone too
+
+The wall display is the point, but you're not always in front of it. The whole app is responsive and installs as a PWA, pairing to the same family with the same join code. Add something to the shopping list in the supermarket and it's on the kitchen wall before you get home; push notifications reach you when you're out.
+
+<table>
+  <tr>
+    <td align="center"><img src="images/mobile/shopping-list-mixed.png" alt="Shopping list on a phone" width="190"/><br/><sub><b>Shopping list</b></sub></td>
+    <td align="center"><img src="images/mobile/settings-notifications.png" alt="Notification settings on a phone" width="190"/><br/><sub><b>Notifications</b></sub></td>
+    <td align="center"><img src="images/mobile/calendar-month-view.png" alt="Calendar on a phone" width="190"/><br/><sub><b>Calendar</b></sub></td>
+    <td align="center"><img src="images/mobile/dashboard-portrait.png" alt="Dashboard on a phone" width="190"/><br/><sub><b>Dashboard</b></sub></td>
+  </tr>
+</table>
+
+See [Notifications](Notifications) for the push setup and [Shopping](Shopping) for the offline-capable list.
+
 ## Start here
 
 1. **[Quick-start](Quick-start)** — bring up the stack with one Docker command, create your first family, add devices
