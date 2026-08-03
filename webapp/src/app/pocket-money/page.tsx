@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
+import { toast } from "sonner";
 import { CalendarClock, Clock, PiggyBank, Plus, ShoppingBag, Star } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -122,6 +123,27 @@ export default function PocketMoneyPage() {
           dayOfWeek: active.allowance_day_of_week,
         })
       : null;
+
+  // Ask a parent to release money for a goal. Previously inline on the
+  // primary goal only, with errors going to the console — so a child
+  // tapping "ready to buy" on a failure saw no response at all.
+  const requestGoalPurchase = (goal: { id: string; name: string; target_amount_cents: number }) => {
+    createWithdrawalRequest
+      .mutateAsync({
+        accountId: active.id,
+        input: {
+          amount_cents: goal.target_amount_cents,
+          reason: goal.name,
+          related_goal_id: goal.id,
+        },
+      })
+      .then(() => toast.success(t("goalRequestSent")))
+      .catch((err) =>
+        toast.error(t("goalRequestFailed"), {
+          description: err instanceof Error ? err.message : undefined,
+        }),
+      );
+  };
 
   const primaryGoal = goals.find((g) => g.is_primary && g.status === "active");
   const secondaryGoals = goals.filter((g) => !g.is_primary && g.status === "active");
@@ -295,18 +317,9 @@ export default function PocketMoneyPage() {
           currentBalanceCents={active.balance_cents}
           currency={active.currency}
           variant="primary"
-          onReadyToBuy={() => {
-            createWithdrawalRequest
-              .mutateAsync({
-                accountId: active.id,
-                input: {
-                  amount_cents: primaryGoal.target_amount_cents,
-                  reason: primaryGoal.name,
-                  related_goal_id: primaryGoal.id,
-                },
-              })
-              .catch(console.error);
-          }}
+          allowanceCents={active.weekly_allowance_cents}
+          allowanceIntervalDays={active.allowance_interval_days ?? 7}
+          onReadyToBuy={() => requestGoalPurchase(primaryGoal)}
         />
       )}
 
@@ -318,6 +331,9 @@ export default function PocketMoneyPage() {
               goal={g}
               currentBalanceCents={active.balance_cents}
               currency={active.currency}
+              allowanceCents={active.weekly_allowance_cents}
+              allowanceIntervalDays={active.allowance_interval_days ?? 7}
+              onReadyToBuy={() => requestGoalPurchase(g)}
             />
           ))}
         </div>
