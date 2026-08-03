@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { Calendar, Rss, ChevronRight, Check, AlertCircle } from "lucide-react";
+import { Calendar, Rss, Server, ChevronRight, Check, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,10 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { useGoogleCalendarStatus, useCalendars } from "@/hooks";
 
 /**
- * Calendar settings landing — unified entry point for the two calendar
- * sources Kinboard supports today: Google Calendar (OAuth) and ICS
- * feeds (read-only public URLs, e.g. iCloud Family Sharing). Each
- * source has its own detail page reachable via the Manage link; this
+ * Calendar settings landing — unified entry point for the three calendar
+ * sources Kinboard supports: Google Calendar (OAuth, read/write), ICS
+ * feeds (read-only public URLs, e.g. iCloud Family Sharing) and CalDAV
+ * (authenticated, read/write — Nextcloud, Radicale, Fastmail, iCloud).
+ * Each source has its own detail page reachable via the Manage link; this
  * landing just shows current connection state at a glance.
  *
  * Light unification (per "A first" decision): keep the existing
@@ -30,6 +31,11 @@ export default function CalendarSettingsPage() {
 
   const icsCount = useMemo(
     () => allCalendars.filter((c) => Boolean(c.ics_url)).length,
+    [allCalendars],
+  );
+
+  const caldavCount = useMemo(
+    () => allCalendars.filter((c) => Boolean(c.caldav_url)).length,
     [allCalendars],
   );
 
@@ -124,7 +130,43 @@ export default function CalendarSettingsPage() {
         </Link>
       </motion.div>
 
-      {/* Why two sources? */}
+      {/* CalDAV */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, delay: 0.1 }}
+      >
+        <Link
+          href="/settings/caldav"
+          className="block group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-4 focus-visible:ring-offset-background rounded-lg"
+        >
+          <Card className="p-5 flex items-center gap-4 group-hover:bg-muted/30 transition-colors">
+            <div className="p-3 rounded-xl bg-primary/10 shrink-0">
+              <Server className="size-6 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-medium">{t("caldavHeading")}</h3>
+                {calendarsLoading ? (
+                  <Skeleton className="h-5 w-16" />
+                ) : caldavCount > 0 ? (
+                  <Badge variant="outline" className="border-success/50 text-success text-xs">
+                    {t("statusCalendarCount", { count: caldavCount })}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs">
+                    {t("statusNotConnected")}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">{t("caldavDescription")}</p>
+            </div>
+            <ChevronRight className="size-5 text-muted-foreground shrink-0" />
+          </Card>
+        </Link>
+      </motion.div>
+
+      {/* Why three sources? */}
       <Card className="p-4 bg-muted/20 border-muted-foreground/20">
         <div className="flex items-start gap-3">
           <AlertCircle className="size-5 text-muted-foreground shrink-0 mt-0.5" />

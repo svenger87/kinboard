@@ -21,6 +21,7 @@ import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { personStrongTint, personText } from "@/lib/person-color";
+import { layoutDayEvents, visibleHourRange } from "@/lib/calendar-layout";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
@@ -48,8 +49,9 @@ interface WeekViewProps {
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
-const HOURS = Array.from({ length: 17 }, (_, i) => i + 6); // 6:00 - 22:00
 const HOUR_HEIGHT = 60; // pixels per hour
+/** Gap between side-by-side events, as a fraction of the day column. */
+const COLUMN_GAP = 0.02;
 
 export function WeekView({
   currentDate,
@@ -96,6 +98,22 @@ export function WeekView({
     );
   };
 
+  // The grid's hour range follows the week's actual events, so a 05:30
+  // start or a 22:30 finish stays on screen instead of being drawn
+  // outside the container. Defaults to the familiar 6:00–22:00.
+  const timedEvents = useMemo(
+    () => events.filter((e) => !e.allDay && !isMultiDayEvent(e)),
+    [events],
+  );
+  const { startHour, endHour } = useMemo(
+    () => visibleHourRange(timedEvents),
+    [timedEvents],
+  );
+  const hours = useMemo(
+    () => Array.from({ length: endHour - startHour }, (_, i) => i + startHour),
+    [startHour, endHour],
+  );
+
   // Get all-day/multi-day events for a specific day
   const getAllDayEventsForDay = (day: Date) => {
     return allDayAndMultiDayEvents.filter((event) => eventOccursOnDay(event, day));
@@ -103,11 +121,12 @@ export function WeekView({
 
   // Calculate event position and height
   const getEventStyle = (event: CalendarEvent) => {
-    const startHour = getHours(event.start);
+    const eventStartHour = getHours(event.start);
     const startMinute = getMinutes(event.start);
     const duration = differenceInMinutes(event.end, event.start);
 
-    const top = (startHour - 6) * HOUR_HEIGHT + (startMinute / 60) * HOUR_HEIGHT;
+    const top =
+      (eventStartHour - startHour) * HOUR_HEIGHT + (startMinute / 60) * HOUR_HEIGHT;
     const height = Math.max((duration / 60) * HOUR_HEIGHT, 24); // Minimum 24px height
 
     return { top, height };
@@ -118,8 +137,8 @@ export function WeekView({
   const currentTimeTop = (() => {
     const hour = getHours(now);
     const minute = getMinutes(now);
-    if (hour < 6 || hour >= 22) return null;
-    return (hour - 6) * HOUR_HEIGHT + (minute / 60) * HOUR_HEIGHT;
+    if (hour < startHour || hour >= endHour) return null;
+    return (hour - startHour) * HOUR_HEIGHT + (minute / 60) * HOUR_HEIGHT;
   })();
 
   return (
@@ -229,7 +248,7 @@ export function WeekView({
         <div className="grid grid-cols-[2.5rem_repeat(7,1fr)] sm:grid-cols-[4rem_repeat(7,1fr)] relative">
           {/* Time Labels */}
           <div>
-            {HOURS.map((hour) => (
+            {hours.map((hour) => (
               <div
                 key={hour}
                 className="text-xs text-muted-foreground text-right pr-2 relative"
@@ -246,20 +265,23 @@ export function WeekView({
           {/* Day Columns */}
           {weekDays.map((day) => {
             const dayEvents = getTimedEventsForDay(day);
+            // Events happening at the same time share the column's width
+            // instead of covering each other.
+            const placements = layoutDayEvents(dayEvents);
             const isDayToday = isToday(day);
 
             return (
               <div
                 key={day.toISOString()}
                 className="relative border-l border-border/20"
-                style={{ height: HOURS.length * HOUR_HEIGHT }}
+                style={{ height: hours.length * HOUR_HEIGHT }}
               >
                 {/* Hour lines */}
-                {HOURS.map((hour) => (
+                {hours.map((hour) => (
                   <div
                     key={hour}
                     className="absolute w-full border-t border-border/10"
-                    style={{ top: (hour - 6) * HOUR_HEIGHT }}
+                    style={{ top: (hour - startHour) * HOUR_HEIGHT }}
                   />
                 ))}
 
@@ -277,8 +299,11 @@ export function WeekView({
                 )}
 
                 {/* Events */}
-                {dayEvents.map((event) => {
+                {placements.map(({ event, left, width, clusterSize }) => {
                   const { top, height } = getEventStyle(event);
+                  // Once a slot is split, there isn't room for the time
+                  // line or the location — the title is what matters.
+                  const isNarrow = width < 0.5;
 
                   return (
                     <Tooltip key={event.id}>
@@ -288,7 +313,7 @@ export function WeekView({
                           animate={{ opacity: 1, scale: 1 }}
                           role="button"
                           tabIndex={0}
-                          aria-label={`${event.title}, ${format(event.start, "HH:mm")} - ${format(event.end, "HH:mm")}${event.location ? `, ${event.location}` : ""}`}
+                          aria-label={`${event.title}, ${format(event.start, "HH:mm")} - ${format(event.end, "HH:mm")}${event.location ? `, ${event.location}` : ""}${clusterSize > 1 ? `, ${t("weekView.overlapAria", { count: clusterSize - 1 })}` : ""}`}
                           onClick={() => onSelectEvent(event)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
@@ -296,25 +321,31 @@ export function WeekView({
                               onSelectEvent(event);
                             }
                           }}
-                          className="absolute left-1 right-1 p-1 sm:p-1.5 rounded cursor-pointer hover:opacity-90 transition-opacity overflow-hidden z-10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                          className="absolute p-1 sm:p-1.5 rounded cursor-pointer hover:opacity-90 hover:z-20 transition-opacity overflow-hidden z-10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:z-20"
                           style={{
                             top,
                             height,
+                            // Percentages of the day column: `left-1
+                            // right-1` would put every event in the same
+                            // place, so concurrent events used to hide
+                            // each other completely.
+                            left: `calc(${left * 100}% + 2px)`,
+                            width: `calc(${Math.max(width - COLUMN_GAP, 0.1) * 100}% - 2px)`,
                             backgroundColor: personStrongTint(event.color),
                             borderLeft: `3px solid ${event.color}`,
                             color: personText(event.color),
                           }}
                         >
-                          <p className="text-xs font-semibold truncate">
+                          <p className="text-xs font-semibold truncate leading-tight">
                             {event.title}
                           </p>
-                          {height > 40 && (
+                          {height > 40 && !isNarrow && (
                             <p className="text-[10px] font-mono tabular-nums opacity-80">
                               {format(event.start, "HH:mm")} -{" "}
                               {format(event.end, "HH:mm")}
                             </p>
                           )}
-                          {height > 60 && event.location && (
+                          {height > 60 && !isNarrow && event.location && (
                             <p className="text-[10px] opacity-70 truncate">
                               {event.location}
                             </p>

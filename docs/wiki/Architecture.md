@@ -200,12 +200,15 @@ The schema is intentionally not normalized into per-feature tables — settings 
 
 OAuth tokens, API keys, and the settings PIN live in `public.integration_secrets` (`family_id, key, value JSONB`), added in v1.4.0 (`webapp/docker/migration_integration_secrets.sql`, `migration_pin_secret.sql`). Unlike `settings`, this table has `anon`/`authenticated` privileges revoked and is excluded from the Realtime publication — only the service-role client (`createAdminClient()`) can read it, so a browser on the LAN can no longer read another device's Google/Home Assistant/Immich/Bring tokens or the PIN via PostgREST. Settings pages that need to show "connected" state read a merged view (`getMergedSetting`) that overlays the secret on top of the public settings shape without ever sending the secret value itself to the browser — a PUT that includes the sentinel placeholder means "keep the stored secret unchanged." Existing installs migrate their previously-exposed values into this table automatically on upgrade. Full reasoning: [Security-and-Threat-Model → Integration credentials](Security-and-Threat-Model#integration-credentials).
 
+CalDAV credentials are the one entry keyed per *object* rather than per integration: each connected calendar stores its username/password under `caldav:<calendar_id>`, because a family can have calendars on different servers with different logins. That dynamic key doesn't fit `SECRET_FIELDS`' static path filter in `lib/integration-secrets.ts`, so `lib/caldav-credentials.ts` writes the row directly with the service-role client. The storage guarantee is identical — the table is the same locked-down one — and no API response ever contains a CalDAV password, which is why changing one means re-entering it rather than round-tripping a sentinel.
+
 ## API routes
 
 All under `webapp/src/app/api/`. Highlights:
 
 - `/api/setup/status` — public, returns `{ hasFamilies }`. Used by `/join` to detect fresh installs.
 - `/api/google/*` — OAuth flow + sync ([Google-Calendar](Google-Calendar)).
+- `/api/caldav/*` — CalDAV discovery, calendar CRUD, and event write-through ([CalDAV](CalDAV)). Calendar rows go through the API rather than PostgREST because the password must land in `integration_secrets`.
 - `/api/homeassistant/*` — HA REST proxy with the family's stored token ([Home-Assistant](Home-Assistant)).
 - `/api/immich/*`, `/api/bring/*` — photo / shopping integration proxies.
 - `/api/weather`, `/api/cities` — OpenWeatherMap proxies (server-side keeps the API key).

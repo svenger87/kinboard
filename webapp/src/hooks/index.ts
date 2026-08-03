@@ -63,6 +63,11 @@ export {
   useCreateIcsCalendar,
   useDeleteCalendar,
   useIcsSync,
+  useCaldavDiscover,
+  useCreateCaldavCalendar,
+  useUpdateCaldavCalendar,
+  useDeleteCaldavCalendar,
+  useCaldavSync,
   useEvents,
   useEventById,
   useCreateEvent,
@@ -376,6 +381,10 @@ export {
 export { useOfflineCachedQuery } from "./use-offline-cache";
 
 export type { EventWithCalendar } from "./use-supabase-queries";
+export type {
+  DiscoveredCaldavCalendar,
+  CaldavConnectionInput,
+} from "./use-supabase-queries";
 
 // Setup Wizard Hooks
 export { useSetupState, useMarkSetupCompleted } from "./use-setup-state";

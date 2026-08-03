@@ -127,63 +127,103 @@ function foldLine(line: string): string {
   return chunks.join(CRLF + " ");
 }
 
-export function buildIcsCalendar(
-  events: ExportEvent[],
-  calendarName: string,
+/**
+ * The lines of a single VEVENT, BEGIN/END inclusive.
+ *
+ * Split out of `buildIcsCalendar` so the CalDAV writer
+ * (lib/caldav-serialize.ts) emits byte-identical VEVENTs — CalDAV PUTs
+ * one calendar object per event rather than one document per calendar,
+ * but the DTSTART/DTEND conventions below are subtle enough (see the
+ * all-day comment) that a second implementation would drift.
+ *
+ * `uid` is the full UID value, unescaped by the caller's choice: the
+ * outbound feed uses `<row id>@kinboard`, CalDAV reuses whatever UID the
+ * server already knows the resource by.
+ */
+export function buildVEventLines(
+  event: ExportEvent,
+  uid: string,
+  dtstamp: string,
   timeZone: string
-): string {
+): string[] {
+  const lines: string[] = [];
+  lines.push("BEGIN:VEVENT");
+  lines.push(`UID:${uid}`);
+  lines.push(`DTSTAMP:${dtstamp}`);
+
+  if (event.all_day) {
+    // end_at's storage convention depends on the event's origin, and
+    // only two of the four need the RFC 5545 §3.6.1 exclusive-end +1:
+    //
+    //  1. Kinboard-native events (calendar/page.tsx handleAddEvent):
+    //     local 23:59:59.999 of the INCLUSIVE last day → +1.
+    //  2. Google-Calendar-synced events: noon UTC of the INCLUSIVE last
+    //     day (a different inclusive convention, same need for +1).
+    //  3. Inbound-ICS-subscribed calendars (ics-fetcher.ts mapInstance /
+    //     ics-sync.ts): the RAW parsed DTEND from the source feed,
+    //     passed straight through with no adjustment. RFC 5545 already
+    //     defines DTEND as EXCLUSIVE (local midnight of the day AFTER
+    //     the last event day) — re-adding +1 here would double-extend
+    //     the event by a day on the outbound feed.
+    //  4. CalDAV-synced events: same as #3 — caldav-client.ts parses
+    //     server bodies with the identical node-ical path, so the raw
+    //     exclusive DTEND lands in end_at untouched.
+    //
+    // Distinguish #3/#4 by local wall-clock time: only the raw-exclusive
+    // convention lands on local midnight; both inclusive conventions
+    // land on 23:59:59 local or noon UTC. When it's local midnight,
+    // that day already IS the exclusive end — emit as-is, no +1.
+    const dtend = isLocalMidnight(event.end_at, timeZone)
+      ? icsDate(event.end_at, true, timeZone)
+      : localDayPlusOne(event.end_at, timeZone);
+    lines.push(`DTSTART;VALUE=DATE:${icsDate(event.start_at, true, timeZone)}`);
+    lines.push(`DTEND;VALUE=DATE:${dtend}`);
+  } else {
+    lines.push(`DTSTART:${icsDate(event.start_at, false, timeZone)}`);
+    lines.push(`DTEND:${icsDate(event.end_at, false, timeZone)}`);
+  }
+
+  lines.push(`SUMMARY:${icsEscape(event.title)}`);
+  if (event.location) lines.push(`LOCATION:${icsEscape(event.location)}`);
+  if (event.description) lines.push(`DESCRIPTION:${icsEscape(event.description)}`);
+
+  lines.push("END:VEVENT");
+
+  return lines;
+}
+
+/**
+ * Wrap pre-built component lines in a VCALENDAR envelope, fold every
+ * line to 75 octets, and join with CRLF. The single place that decides
+ * what a Kinboard-emitted iCalendar document looks like on the wire.
+ */
+export function wrapVCalendar(componentLines: string[], calendarName?: string): string {
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Kinboard//Calendar//EN",
     "CALSCALE:GREGORIAN",
-    `X-WR-CALNAME:${icsEscape(calendarName)}`,
   ];
-
-  const dtstamp = icsDate(new Date().toISOString(), false, timeZone);
-
-  for (const event of events) {
-    lines.push("BEGIN:VEVENT");
-    lines.push(`UID:${event.id}@kinboard`);
-    lines.push(`DTSTAMP:${dtstamp}`);
-
-    if (event.all_day) {
-      // end_at's storage convention depends on the event's origin, and
-      // only two of the three need the RFC 5545 §3.6.1 exclusive-end +1:
-      //
-      //  1. Kinboard-native events (calendar/page.tsx handleAddEvent):
-      //     local 23:59:59.999 of the INCLUSIVE last day → +1.
-      //  2. Google-Calendar-synced events: noon UTC of the INCLUSIVE last
-      //     day (a different inclusive convention, same need for +1).
-      //  3. Inbound-ICS-subscribed calendars (ics-fetcher.ts mapInstance /
-      //     ics-sync.ts): the RAW parsed DTEND from the source feed,
-      //     passed straight through with no adjustment. RFC 5545 already
-      //     defines DTEND as EXCLUSIVE (local midnight of the day AFTER
-      //     the last event day) — re-adding +1 here would double-extend
-      //     the event by a day on the outbound feed.
-      //
-      // Distinguish #3 by local wall-clock time: only the raw-exclusive
-      // convention lands on local midnight; both inclusive conventions
-      // land on 23:59:59 local or noon UTC. When it's local midnight,
-      // that day already IS the exclusive end — emit as-is, no +1.
-      const dtend = isLocalMidnight(event.end_at, timeZone)
-        ? icsDate(event.end_at, true, timeZone)
-        : localDayPlusOne(event.end_at, timeZone);
-      lines.push(`DTSTART;VALUE=DATE:${icsDate(event.start_at, true, timeZone)}`);
-      lines.push(`DTEND;VALUE=DATE:${dtend}`);
-    } else {
-      lines.push(`DTSTART:${icsDate(event.start_at, false, timeZone)}`);
-      lines.push(`DTEND:${icsDate(event.end_at, false, timeZone)}`);
-    }
-
-    lines.push(`SUMMARY:${icsEscape(event.title)}`);
-    if (event.location) lines.push(`LOCATION:${icsEscape(event.location)}`);
-    if (event.description) lines.push(`DESCRIPTION:${icsEscape(event.description)}`);
-
-    lines.push("END:VEVENT");
-  }
-
+  if (calendarName) lines.push(`X-WR-CALNAME:${icsEscape(calendarName)}`);
+  lines.push(...componentLines);
   lines.push("END:VCALENDAR");
 
   return lines.map(foldLine).join(CRLF) + CRLF;
+}
+
+/** UTC DTSTAMP for "now" — the moment a document is generated. */
+export function icsDtstamp(timeZone: string): string {
+  return icsDate(new Date().toISOString(), false, timeZone);
+}
+
+export function buildIcsCalendar(
+  events: ExportEvent[],
+  calendarName: string,
+  timeZone: string
+): string {
+  const dtstamp = icsDtstamp(timeZone);
+  const componentLines = events.flatMap((event) =>
+    buildVEventLines(event, `${event.id}@kinboard`, dtstamp, timeZone)
+  );
+  return wrapVCalendar(componentLines, calendarName);
 }

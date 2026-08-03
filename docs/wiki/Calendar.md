@@ -11,9 +11,10 @@ The `/calendar` page — month and week views of your family's calendar, synced 
 The calendar surface unifies events from:
 
 1. **Google Calendar (two-way sync)** — any calendar you've enabled in [Settings → Google Calendar](Google-Calendar). Events created or edited in Kinboard are pushed back to Google; edits made on the Google side flow down at the next sync interval. Subject to Google's per-calendar permissions: a read-only subscribed calendar (holidays, sports schedules, etc.) stays read-only in Kinboard too.
-2. **Local events** — added directly in the Kinboard UI without selecting a Google calendar. Lives in `public.events` with no Google link and never round-trips to Google.
-3. **Holidays** — Google calendars marked with the "holidays" badge get rendered with the 🎉 indicator and slightly different styling.
-4. **Waste-pickup calendars** — Google calendars marked with the "waste pickup" badge are *hidden* from the calendar view and show up only on the waste widget. Avoids cluttering month view with weekly bin reminders.
+2. **CalDAV (two-way sync)** — any calendar connected in [Settings → Calendar → CalDAV](CalDAV). Nextcloud, Radicale, Baïkal, Fastmail, iCloud and friends: username + password, events written back on save. The recommended option if you're not in the Google ecosystem.
+3. **Local events** — added directly in the Kinboard UI without selecting a Google or CalDAV calendar. Lives in `public.events` with no external link and never round-trips anywhere.
+4. **Holidays** — calendars marked with the "holidays" badge get rendered with the 🎉 indicator and slightly different styling.
+5. **Waste-pickup calendars** — calendars marked with the "waste pickup" badge are *hidden* from the calendar view and show up only on the waste widget. Avoids cluttering month view with weekly bin reminders.
 
 ## Month view
 
@@ -29,6 +30,8 @@ Tap a day → day-detail panel slides in showing all events + birthdays + holida
 ## Week view
 
 7-column hourly grid for the active week, like a typical calendar app. Useful for time-bound planning. Time-of-day events show as colored blocks; all-day events float at the top.
+
+Events happening at the same time split the day's width between them and sit side by side, widening again as soon as nothing is beside them. When a slot is split, the block shows just the title — hover (or tap) for the full time and location. The grid normally runs 6:00–22:00 and stretches automatically when the week contains anything earlier or later, so no event is ever hidden off-grid.
 
 ## Per-person colors
 
@@ -113,11 +116,20 @@ Recurring events are expanded server-side and capped at 200 instances per calend
 
 ICS sources Kinboard handles cleanly today: iCloud Family Sharing, Google's "secret iCal address", Outlook/Office 365 calendar publishing, most CalDAV providers (via their published `.ics` URL), school district calendars, sports league schedules.
 
+If the calendar you want is served over CalDAV, prefer [CalDAV](CalDAV) over its published `.ics` URL — you get authentication and write access instead of an anonymous read-only snapshot.
+
+## CalDAV
+
+Full two-way sync with any CalDAV server: Nextcloud, Radicale, Baïkal, SOGo, Synology, Fastmail, iCloud. Connect once with a username and password, pick which calendars to sync, and events created or edited in Kinboard are written straight back to the server. Conflicting edits are caught with ETag preconditions rather than silently overwritten.
+
+See [CalDAV](CalDAV) for setup, provider URLs and troubleshooting.
+
 ## What's not supported
 
-- **Attendees / invites.** Google events show their attendees in the day panel as read-only text; you can't RSVP or invite people from Kinboard.
-- **Editing read-only subscribed Google calendars** — if Google itself marks the calendar as read-only (someone else's calendar shared with you, public holiday calendars, etc.), Kinboard can't write to it either.
-- **Writing to ICS feeds.** ICS support is read-only by design — feeds are typically published-only URLs without CalDAV write semantics. Use Google Calendar for editable family events.
+- **Attendees / invites.** Google events show their attendees in the day panel as read-only text; you can't RSVP or invite people from Kinboard, and CalDAV writes carry no `ATTENDEE` lines.
+- **Editing read-only subscribed calendars** — if the provider itself marks the calendar as read-only (someone else's calendar shared with you, public holiday calendars, etc.), Kinboard can't write to it either. CalDAV calendars in that state get a "Read-only" badge.
+- **Writing to ICS feeds.** ICS support is read-only by design — feeds are published-only URLs with no write semantics. Use CalDAV or Google Calendar for editable family events.
+- **Editing one occurrence of a repeating event.** A series is a single resource on the server; Kinboard edits whole events, so it declines the edit rather than rewriting every occurrence. Change it in your calendar app instead.
 
 ## Related
 

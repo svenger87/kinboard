@@ -46,6 +46,7 @@ A small `docs/wiki/sync.sh` script can be added later to make this a one-liner.
 | [Device-Recognition](Device-Recognition) | Merged into Security-and-Threat-Model |
 | [Database-Schema](Database-Schema) | Merged into Architecture |
 | [Google-Calendar](Google-Calendar) | Authored — TODO screenshots |
+| [CalDAV](CalDAV) | Authored — two-way sync, provider URLs, troubleshooting |
 | [Home-Assistant](Home-Assistant) | Authored — TODO screenshots |
 | [Immich](Immich) | Authored — TODO screenshots |
 | [Bring](Bring) | Authored — TODO screenshots |
@@ -62,7 +63,7 @@ A small `docs/wiki/sync.sh` script can be added later to make this a one-liner.
 | [Plugin-Authoring](Plugin-Authoring) | Merged into Plugin-Development |
 | [Plugin-Architecture](Plugin-Architecture) | Merged into Plugin-Development |
 | [Dashboard](Dashboard) | Authored — TODO screenshots |
-| [Calendar](Calendar) | Authored — two-way Google sync — TODO screenshots |
+| [Calendar](Calendar) | Authored — two-way Google + CalDAV sync — TODO screenshots |
 | [Shopping](Shopping) | Authored — built-in offline + optional Bring — TODO screenshots |
 | [Recipes](Recipes) | Authored — Chefkoch + schema.org URL import — TODO screenshots |
 | [Tasks](Tasks) | Authored — TODO screenshots |

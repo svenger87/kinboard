@@ -123,6 +123,11 @@ export interface Database {
           ics_url: string | null;
           ics_etag: string | null;
           last_synced_at: string | null;
+          caldav_url: string | null;
+          caldav_server_url: string | null;
+          caldav_ctag: string | null;
+          caldav_read_only: boolean;
+          caldav_last_error: string | null;
         };
         Insert: {
           id?: string;
@@ -137,6 +142,11 @@ export interface Database {
           ics_url?: string | null;
           ics_etag?: string | null;
           last_synced_at?: string | null;
+          caldav_url?: string | null;
+          caldav_server_url?: string | null;
+          caldav_ctag?: string | null;
+          caldav_read_only?: boolean;
+          caldav_last_error?: string | null;
         };
         Update: {
           id?: string;
@@ -151,6 +161,11 @@ export interface Database {
           ics_url?: string | null;
           ics_etag?: string | null;
           last_synced_at?: string | null;
+          caldav_url?: string | null;
+          caldav_server_url?: string | null;
+          caldav_ctag?: string | null;
+          caldav_read_only?: boolean;
+          caldav_last_error?: string | null;
         };
         Relationships: [];
       };
@@ -167,6 +182,8 @@ export interface Database {
           all_day: boolean;
           person_id: string | null;
           recurrence_rule?: string | null;
+          caldav_href: string | null;
+          caldav_etag: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -182,6 +199,8 @@ export interface Database {
           all_day?: boolean;
           person_id?: string | null;
           recurrence_rule?: string | null;
+          caldav_href?: string | null;
+          caldav_etag?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -197,6 +216,8 @@ export interface Database {
           all_day?: boolean;
           person_id?: string | null;
           recurrence_rule?: string | null;
+          caldav_href?: string | null;
+          caldav_etag?: string | null;
           created_at?: string;
           updated_at?: string;
         };
