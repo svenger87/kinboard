@@ -14,6 +14,53 @@ Kinboard follows [Semantic Versioning 2.0.0](https://semver.org/):
 
 Breaking changes are documented in `CHANGELOG.md` under a `### Removed` or prominently flagged in `### Changed`. Avoid them when reasonable — self-hosters update on their own schedule and a noisy upgrade story erodes trust.
 
+## Pre-releases (the `next` channel)
+
+Community testers offered to try changes before they ship — issue #19's
+reporter among them. Release candidates are how that happens, and the
+publishing pipeline already handles them.
+
+**Cutting one:**
+
+```bash
+git tag v1.6.0-rc.1
+git push origin v1.6.0-rc.1
+```
+
+Any tag with a prerelease identifier (`-rc.1`, `-beta.2`, `-alpha.1`)
+publishes two image tags: the exact version (`1.6.0-rc.1`) and a moving
+`next` tag pointing at the newest pre-release.
+
+Then create the GitHub Release from that tag and **tick "Set as a
+pre-release"**, so it doesn't display as the latest release and doesn't
+notify everyone watching releases.
+
+**What a pre-release cannot break.** `latest` is gated on a push to the
+default branch, and a tag push is never that — so a release candidate can
+never become `latest`. `docker/metadata-action` also omits the
+`{{major}}` and `{{major}}.{{minor}}` aliases for prerelease versions, so
+`v1.6.0-rc.1` cannot claim `1` or `1.6` either. Stable self-hosters see
+nothing.
+
+**Telling a tester how to opt in** — they set one line in
+`webapp/docker/.env`:
+
+```bash
+KINBOARD_TAG=next
+```
+
+then `cd webapp/docker && ./start.sh up`. If they run the Diun
+auto-update overlay they keep receiving each new RC automatically. To go
+back to stable, remove the line (or set `KINBOARD_TAG=latest`) and bring
+the stack up again.
+
+Point testers at [Self-hosting → Pre-release channel](https://github.com/svenger87/kinboard/wiki/Self-hosting#pre-release-channel)
+rather than repeating the instructions in the issue thread.
+
+**Ask testers to report against the exact version**, not "next" — `next`
+moves, so "broken on next" is unactionable a week later. The version is
+shown in Settings.
+
 ## Cadence
 
 There's no fixed release cadence. Cut a release when:
