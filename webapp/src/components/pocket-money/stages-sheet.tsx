@@ -15,14 +15,15 @@ import {
   type AvatarSpecies,
   type AvatarTier,
 } from "@/lib/pocket-money/types";
-import { tierFromLifetimeSaved } from "@/lib/pocket-money/interest";
+import { tierFromBalance, effectiveBestTier } from "@/lib/pocket-money/interest";
 import { formatCents } from "@/lib/pocket-money/format";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   species: AvatarSpecies;
-  lifetimeSavedCents: number;
+  balanceCents: number;
+  bestTier: number;
   currency: string;
 }
 
@@ -30,11 +31,16 @@ export function StagesSheet({
   open,
   onOpenChange,
   species,
-  lifetimeSavedCents,
+  balanceCents,
+  bestTier,
   currency,
 }: Props) {
   const t = useTranslations("pocketMoney");
-  const currentTier = tierFromLifetimeSaved(lifetimeSavedCents);
+  const currentTier = tierFromBalance(balanceCents);
+  // Stages above the current one but at or below the best-ever mark
+  // are shown as previously reached rather than locked — the kid did
+  // earn them, they just spent back down.
+  const bestReached = effectiveBestTier(balanceCents, bestTier);
 
   // Build the stage list from TIER_THRESHOLDS_CENTS so adding/removing
   // tiers in lib/pocket-money/types.ts is the single source of truth.
@@ -56,6 +62,10 @@ export function StagesSheet({
           {stages.map(({ tier, threshold }) => {
             const isCurrent = tier === currentTier;
             const isUnlocked = tier <= currentTier;
+            // Reached before, spent back down out of. Distinguished
+            // from never-reached so the sheet reads as a record of what
+            // the kid achieved, not just what they hold today.
+            const wasReached = !isUnlocked && tier <= bestReached;
             const stageName = t(`species.${species}.tier${tier}` as never);
 
             return (
@@ -66,7 +76,9 @@ export function StagesSheet({
                     ? "border-month-primary bg-month-primary/5 ring-2 ring-month-primary/30"
                     : isUnlocked
                       ? "border-border"
-                      : "border-border/50 opacity-60"
+                      : wasReached
+                        ? "border-amber-400/40 bg-amber-400/[0.04]"
+                        : "border-border/50 opacity-60"
                 }`}
               >
                 <Image
@@ -85,6 +97,11 @@ export function StagesSheet({
                         {t("stagesCurrentBadge")}
                       </span>
                     )}
+                    {wasReached && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 font-medium">
+                        {t("stagesReachedBadge")}
+                      </span>
+                    )}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {threshold === 0
@@ -99,6 +116,8 @@ export function StagesSheet({
                     <Star className="size-5 text-month-primary fill-month-primary" />
                   ) : isUnlocked ? (
                     <Check className="size-5 text-success" />
+                  ) : wasReached ? (
+                    <Star className="size-5 text-amber-400" />
                   ) : (
                     <Lock className="size-5 text-muted-foreground/60" />
                   )}

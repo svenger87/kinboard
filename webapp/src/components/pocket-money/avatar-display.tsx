@@ -1,18 +1,19 @@
 "use client";
 
-import { tierFromLifetimeSaved } from "@/lib/pocket-money/interest";
+import { tierFromBalance } from "@/lib/pocket-money/interest";
 import type { AvatarSpecies } from "@/lib/pocket-money/types";
 import { motion } from "framer-motion";
 
 interface Props {
   species: AvatarSpecies;
-  lifetimeSavedCents: number;
+  /** Current balance — the stage tracks what's in the account now. */
+  balanceCents: number;
   size?: number;
   className?: string;
 }
 
-export function AvatarDisplay({ species, lifetimeSavedCents, size = 200, className = "" }: Props) {
-  const tier = tierFromLifetimeSaved(lifetimeSavedCents);
+export function AvatarDisplay({ species, balanceCents, size = 200, className = "" }: Props) {
+  const tier = tierFromBalance(balanceCents);
   const src = `/pocket-money/avatars/${species}-${tier}.svg`;
 
   return (

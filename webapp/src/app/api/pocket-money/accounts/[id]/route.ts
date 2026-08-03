@@ -56,6 +56,12 @@ export async function PATCH(
     update.avatar_species = body.avatar_species;
   }
   if (body.last_seen_tier !== undefined) update.last_seen_tier = body.last_seen_tier;
+  // The avatar's high-water mark. Client-written because it's derived
+  // from the balance the client just rendered; the route clamps it to a
+  // valid stage so a bad value can't push the badge past stage 8.
+  if (body.best_tier !== undefined) {
+    update.best_tier = Math.min(8, Math.max(1, Math.floor(Number(body.best_tier) || 1)));
+  }
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: "no updatable fields provided" }, { status: 400 });
