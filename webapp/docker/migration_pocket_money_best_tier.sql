@@ -47,15 +47,22 @@ BEGIN
     -- but a one-time backfill can't import TypeScript, and the
     -- alternative (backfilling from the app on first load) would leave
     -- the column wrong for every family that never opens the page.
+    --
+    -- Installs that already ran this migration keep the value they were
+    -- given; the IF NOT EXISTS guard above means it never runs twice.
+    -- That's correct — best_tier records the highest stage a child
+    -- actually reached, not a figure recomputed whenever the thresholds
+    -- are retuned. Rewriting it would erase history to match a new
+    -- scale.
     UPDATE public.pocket_money_accounts
     SET best_tier = CASE
       WHEN lifetime_saved_cents >= 20000 THEN 8
-      WHEN lifetime_saved_cents >= 10000 THEN 7
-      WHEN lifetime_saved_cents >=  5000 THEN 6
-      WHEN lifetime_saved_cents >=  2500 THEN 5
-      WHEN lifetime_saved_cents >=  1000 THEN 4
-      WHEN lifetime_saved_cents >=   500 THEN 3
-      WHEN lifetime_saved_cents >=   200 THEN 2
+      WHEN lifetime_saved_cents >=  8000 THEN 7
+      WHEN lifetime_saved_cents >=  3000 THEN 6
+      WHEN lifetime_saved_cents >=  1000 THEN 5
+      WHEN lifetime_saved_cents >=   400 THEN 4
+      WHEN lifetime_saved_cents >=   150 THEN 3
+      WHEN lifetime_saved_cents >=    50 THEN 2
       ELSE 1
     END;
 
