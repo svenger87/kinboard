@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Pre-release channel for testers: set `KINBOARD_TAG=next` in `webapp/docker/.env` to run release candidates and try fixes before they ship. `next` always points at the newest candidate, and removing the line returns you to stable. See [Self-hosting → Pre-release channel](https://github.com/svenger87/kinboard/wiki/Self-hosting#pre-release-channel).
+
 ## [1.5.0] - 2026-07-11 — Restore from backup, meal-plan digest, notification fixes
 
 *Upgrade notes:* The schema migration (settings write lockdown) applies automatically on `./start.sh up`. Hard-refresh installed-PWA and kiosk devices once after updating.
