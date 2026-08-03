@@ -40,7 +40,7 @@ A 30,000-foot view of how the pieces fit together. Read this once before you cha
 
 ## Frontend stack
 
-- **Next.js 14** with the **App Router**. Almost all pages are client components (`"use client"`) because the dashboard is interactive end-to-end.
+- **Next.js 16** (React 19) with the **App Router**. Almost all pages are client components (`"use client"`) because the dashboard is interactive end-to-end.
 - **shadcn/ui** primitives + **Tailwind CSS**. Components live in `webapp/src/components/ui/` (don't modify directly) and `webapp/src/components/` (project-specific).
 - **TanStack Query** for server state (cached, background-refetched, optimistic updates). Hooks live in `webapp/src/hooks/`.
 - **Zustand** for ephemeral client state — currently just `family-store.ts` for the active family + device.
@@ -80,15 +80,15 @@ A 30,000-foot view of how the pieces fit together. Read this once before you cha
 │   │   │   ├── unsplash-defaults.ts
 │   │   │   └── utils.ts         # Including monthly-theme logic
 │   │   └── types/               # Database + HA + recipe types
-│   ├── messages/                # next-intl bundles: en.json, de.json
+│   ├── messages/                # next-intl bundles: en.json, de.json, fr.json
 │   └── docker/                  # docker-compose stack + helpers
 │       ├── docker-compose.yml
 │       ├── docker-compose.traefik.yml.example
-│       ├── init.sql             # Schema (RLS disabled — see Security-and-Threat-Model)
-│       ├── seed-demo.sql        # Optional demo dataset
-│       ├── start.sh             # up/down/logs/restart/migrate/seed-demo
-│       ├── migrate-prod.sh      # Live-host upgrade helper
-│       └── kong.yml             # Supabase API gateway config
+│       ├── init.sql                 # Schema (RLS disabled — see Security-and-Threat-Model)
+│       ├── seed-demo.sql            # Optional demo dataset
+│       ├── start.sh                 # up/down/logs/restart/migrate/seed-demo
+│       ├── kinboard-self-update.sh  # Live-host upgrade helper (Diun webhook or by hand)
+│       └── kong.yml                 # Supabase API gateway config
 ├── kiosk/                       # Kiosk-side scripts (presence sensor)
 ├── tools/                       # Debugging / development helpers
 ├── docs/wiki/                   # This wiki
