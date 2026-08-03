@@ -12,7 +12,10 @@ Thanks for your interest. Kinboard is a small project maintained on personal tim
 
 You'll need:
 
-- **Node.js 20+** and **npm 10+**
+- **Node.js 20.9+** and **npm 11** — the lockfile is npm 11 shaped and `npm ci` fails on npm 10,
+  which is what Node 20 bundles. `cd webapp && corepack enable npm` activates the pinned version
+  from `packageManager` in `package.json` (the explicit `npm` argument is required; plain
+  `corepack enable` only shims yarn and pnpm).
 - **Docker** (for the bundled Supabase stack)
 - A POSIX shell — the helper scripts assume `bash`. On Windows, use WSL2 or Git Bash
 
