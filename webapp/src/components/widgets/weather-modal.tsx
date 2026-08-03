@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   useWeather,
+  useWeatherUnits,
   useWeatherForecast,
   useWeatherMapConfig,
 } from "@/hooks";
@@ -204,6 +205,7 @@ interface WeatherModalProps {
 export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
   const t = useTranslations("weather");
   const { data: currentWeather } = useWeather();
+  const { labels: unitLabels } = useWeatherUnits();
   const { data: forecast } = useWeatherForecast();
   const { data: mapConfig, isLoading: mapLoading } = useWeatherMapConfig();
 
@@ -294,11 +296,11 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Wind className="size-4 text-muted-foreground" />
-                  <span>{currentWeather.windSpeed} km/h</span>
+                  <span>{currentWeather.windSpeed} {unitLabels.speed}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-muted-foreground">{t("visibility")}</span>
-                  <span>{currentWeather.visibility} km</span>
+                  <span>{currentWeather.visibility} {unitLabels.distance}</span>
                 </div>
               </div>
 
@@ -431,8 +433,8 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>{t("rainProbabilityTooltip")}</p>
-                              {day.rainAmount > 0 && <p>{t("rainAmount", { amount: day.rainAmount })}</p>}
-                              {day.snowAmount > 0 && <p>{t("snowAmount", { amount: day.snowAmount })}</p>}
+                              {day.rainAmount > 0 && <p>{t("rainAmount", { amount: day.rainAmount, unit: unitLabels.precipitation })}</p>}
+                              {day.snowAmount > 0 && <p>{t("snowAmount", { amount: day.snowAmount, unit: unitLabels.precipitation })}</p>}
                             </TooltipContent>
                           </Tooltip>
                         ) : (
