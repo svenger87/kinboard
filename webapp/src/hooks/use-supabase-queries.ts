@@ -1,6 +1,8 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { getDeviceId, persistDeviceId, getDeviceFingerprint } from "@/lib/device-id";
@@ -932,10 +934,242 @@ export function useIcsSync() {
   });
 }
 
+// CALDAV HOOKS
+// ===================
+
+/**
+ * CalDAV calendars are managed through /api/caldav/* rather than direct
+ * PostgREST writes (the way ICS feeds are). The reason is the password:
+ * it has to land in integration_secrets, which is service_role-only, so
+ * the browser can never do that write itself.
+ */
+
+export interface DiscoveredCaldavCalendar {
+  url: string;
+  displayName: string;
+  color: string | null;
+  ctag: string | null;
+  readOnly: boolean;
+  components: string[];
+}
+
+export interface CaldavConnectionInput {
+  server_url: string;
+  username: string;
+  password: string;
+  /** Reuse the stored password for an already-connected calendar. */
+  calendar_id?: string;
+}
+
+async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = (await response.json().catch(() => ({}))) as T & { error?: string };
+  if (!response.ok) {
+    throw new Error(data.error ?? `Request failed: ${response.status}`);
+  }
+  return data;
+}
+
+/** Probe a server and list its calendars. Nothing is persisted. */
+export function useCaldavDiscover() {
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async (input: CaldavConnectionInput) => {
+      const result = await postJson<{
+        ok: boolean;
+        calendars?: DiscoveredCaldavCalendar[];
+        error?: string;
+      }>("/api/caldav/discover", { family_id: requireFamilyId(family), ...input });
+
+      // Discovery answers 200 with ok:false for *expected* failures (bad
+      // password, wrong host) so the settings form can show the reason
+      // inline instead of treating it as a crash.
+      if (!result.ok) throw new Error(result.error ?? "Discovery failed");
+      return result.calendars ?? [];
+    },
+  });
+}
+
+export function useCreateCaldavCalendar() {
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async (input: {
+      name: string;
+      color: string;
+      server_url: string;
+      calendar_url: string;
+      username: string;
+      password: string;
+      person_id?: string | null;
+      is_holidays?: boolean;
+      is_waste_collection?: boolean;
+      read_only?: boolean;
+    }) =>
+      postJson<{
+        ok: true;
+        calendar: Calendar;
+        sync: { success: boolean; error?: string; synced?: number };
+      }>("/api/caldav/calendars", { family_id: requireFamilyId(family), ...input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendars", requireFamilyId(family)] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+  });
+}
+
+export function useUpdateCaldavCalendar() {
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async ({
+      calendar_id,
+      ...updates
+    }: {
+      calendar_id: string;
+      name?: string;
+      color?: string;
+      person_id?: string | null;
+      is_holidays?: boolean;
+      is_waste_collection?: boolean;
+      username?: string;
+      /** Empty string means "keep the stored password". */
+      password?: string;
+    }) => {
+      const response = await fetch("/api/caldav/calendars", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          family_id: requireFamilyId(family),
+          calendar_id,
+          ...updates,
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(data.error ?? `Update failed: ${response.status}`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendars", requireFamilyId(family)] });
+    },
+  });
+}
+
+export function useDeleteCaldavCalendar() {
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async (calendarId: string) => {
+      const response = await fetch("/api/caldav/calendars", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          family_id: requireFamilyId(family),
+          calendar_id: calendarId,
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(data.error ?? `Delete failed: ${response.status}`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendars", requireFamilyId(family)] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+  });
+}
+
+/** Manual "Sync now" for every CalDAV calendar in the family. */
+export function useCaldavSync() {
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async () =>
+      postJson<{
+        ok: true;
+        processed: number;
+        succeeded: number;
+        failed: number;
+        results: Array<{
+          calendarId: string;
+          success: boolean;
+          synced?: number;
+          created?: number;
+          updated?: number;
+          deleted?: number;
+          notModified?: boolean;
+          error?: string;
+        }>;
+        timestamp: string;
+      }>("/api/calendar/sync-caldav", { family_id: requireFamilyId(family) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendars", requireFamilyId(family)] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+  });
+}
+
+// ===================
 // EVENTS HOOKS
 // ===================
 
-export type EventWithCalendar = Event & { calendar: { family_id: string; person_id: string | null; color: string; name: string; is_holidays: boolean; is_waste_collection: boolean } };
+/**
+ * Find a calendar in the already-cached list.
+ *
+ * Event writes need to know which provider backs the calendar so they
+ * push to the right endpoint. The calendars query is loaded on every
+ * surface that can create an event, so reading the cache avoids an extra
+ * round-trip on the critical path. A cache miss falls through to the
+ * Google path, which no-ops for calendars it doesn't own.
+ */
+function findCachedCalendar(
+  queryClient: ReturnType<typeof useQueryClient>,
+  familyId: string,
+  calendarId: string,
+): Calendar | undefined {
+  return queryClient
+    .getQueryData<Calendar[]>(["calendars", familyId])
+    ?.find((c) => c.id === calendarId);
+}
+
+/**
+ * Push one event mutation to a CalDAV server.
+ *
+ * Returns the failure message instead of throwing: the local write has
+ * already succeeded by the time this runs, so a server that's down must
+ * not roll back the UI. Callers surface the message as a toast — unlike
+ * the Google path's silent console.warn, because a self-hosted CalDAV
+ * server being unreachable is common enough that the user needs to know
+ * their edit hasn't propagated yet.
+ */
+async function pushToCaldav(
+  method: "POST" | "PATCH" | "DELETE",
+  body: Record<string, unknown>,
+): Promise<string | null> {
+  try {
+    const response = await fetch("/api/caldav/events", {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (response.ok) return null;
+    const data = (await response.json().catch(() => ({}))) as { error?: string };
+    return data.error ?? `CalDAV sync failed (HTTP ${response.status})`;
+  } catch (err) {
+    return err instanceof Error ? err.message : "CalDAV sync failed";
+  }
+}
+
+export type EventWithCalendar = Event &{ calendar: { family_id: string; person_id: string | null; color: string; name: string; is_holidays: boolean; is_waste_collection: boolean } };
 
 export function useEvents(startDate?: string, endDate?: string, options?: { enabled?: boolean }) {
   const supabase = createClient();
@@ -1001,6 +1235,7 @@ export function useCreateEvent() {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
+  const tCaldav = useTranslations("calendar.caldavToast");
 
   return useMutation({
     mutationFn: async (event: {
@@ -1022,6 +1257,28 @@ export function useCreateEvent() {
 
       if (error) throw error;
       const createdEvent = data as Event;
+
+      // Route by provider: a CalDAV-backed calendar gets a PUT to its
+      // server, anything else keeps the existing Google push (which
+      // itself no-ops for local-only calendars).
+      const calendar = findCachedCalendar(
+        queryClient,
+        requireFamilyId(family),
+        event.calendar_id,
+      );
+      if (calendar?.caldav_url) {
+        const caldavError = await pushToCaldav("POST", {
+          family_id: requireFamilyId(family),
+          event_id: createdEvent.id,
+          calendar_id: event.calendar_id,
+        });
+        // Deliberately not thrown: the event exists locally and must
+        // still appear. The toast tells the user it hasn't reached the
+        // server; the next sync will retry nothing, so the repair path
+        // in PATCH /api/caldav/events picks it up on the next edit.
+        if (caldavError) toast.error(tCaldav("pushFailed"), { description: caldavError });
+        return createdEvent;
+      }
 
       // Push to Google Calendar (non-blocking)
       try {
@@ -1065,10 +1322,11 @@ export function useUpdateEvent() {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
+  const tCaldav = useTranslations("calendar.caldavToast");
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Event> & { id: string }) => {
-       
+
       const { data, error } = await (supabase as any)
         .from("events")
         .update(updates)
@@ -1078,6 +1336,22 @@ export function useUpdateEvent() {
 
       if (error) throw error;
       const updatedEvent = data as Event;
+
+      // CalDAV replaces the whole resource, so the server route re-reads
+      // the row we just wrote rather than taking a field delta here.
+      const calendar = findCachedCalendar(
+        queryClient,
+        requireFamilyId(family),
+        updatedEvent.calendar_id,
+      );
+      if (calendar?.caldav_url) {
+        const caldavError = await pushToCaldav("PATCH", {
+          family_id: requireFamilyId(family),
+          event_id: id,
+        });
+        if (caldavError) toast.error(tCaldav("updateFailed"), { description: caldavError });
+        return updatedEvent;
+      }
 
       // Push update to Google Calendar (non-blocking)
       if (updatedEvent.google_event_id) {
@@ -1117,25 +1391,53 @@ export function useDeleteEvent() {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
+  const tCaldav = useTranslations("calendar.caldavToast");
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // Delete from Google Calendar first (non-blocking, but we try before local delete)
-      try {
-        await fetch("/api/google/events", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            family_id: requireFamilyId(family),
-            event_id: id,
-          }),
+      // The event row is needed before the local delete to know which
+      // provider owns it — afterwards there's nothing left to look up.
+      const { data: existing } = await (supabase as any)
+        .from("events")
+        .select("calendar_id")
+        .eq("id", id)
+        .maybeSingle();
+
+      const calendar = existing
+        ? findCachedCalendar(queryClient, requireFamilyId(family), existing.calendar_id)
+        : undefined;
+
+      if (calendar?.caldav_url) {
+        const caldavError = await pushToCaldav("DELETE", {
+          family_id: requireFamilyId(family),
+          event_id: id,
         });
-      } catch (err) {
-        console.warn("Error deleting event from Google:", err);
+        // A server-side delete that failed would leave the event on the
+        // phone and gone from Kinboard — until the next sync pulls it
+        // straight back. Keeping the local row and saying why is less
+        // confusing than a delete that silently undoes itself.
+        if (caldavError) {
+          toast.error(tCaldav("deleteFailed"), { description: caldavError });
+          throw new Error(caldavError);
+        }
+      } else {
+        // Delete from Google Calendar first (non-blocking, but we try before local delete)
+        try {
+          await fetch("/api/google/events", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              family_id: requireFamilyId(family),
+              event_id: id,
+            }),
+          });
+        } catch (err) {
+          console.warn("Error deleting event from Google:", err);
+        }
       }
 
       // Delete locally
-       
+
       const { error } = await (supabase as any).from("events").delete().eq("id", id);
       if (error) throw error;
     },

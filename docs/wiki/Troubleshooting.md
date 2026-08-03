@@ -96,6 +96,7 @@ Either:
 Per-integration issues are documented on each integration's own page:
 
 - **Google Calendar** — redirect URI mismatch, "Reconnect" banner, no calendars listed: [Google-Calendar → Troubleshooting](Google-Calendar#troubleshooting)
+- **CalDAV** — authentication failed, wrong server URL, self-signed certificates, a calendar that stopped updating: [CalDAV → Troubleshooting](CalDAV#troubleshooting)
 - **Home Assistant** — connection failed, CORS, mixed content, token revocation: [Home-Assistant → Troubleshooting](Home-Assistant#troubleshooting)
 - **Bring!** — login failed, sync issues: [Bring → Troubleshooting](Bring#troubleshooting)
 - **Cameras** — black tile, auth dialogs, WebRTC ICE failures: [Cameras → Troubleshooting](Cameras#troubleshooting)

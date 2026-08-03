@@ -131,6 +131,11 @@ RUN echo '#!/bin/sh' > /usr/local/bin/sync-ics && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-ics' >> /usr/local/bin/sync-ics && \
     chmod +x /usr/local/bin/sync-ics
 
+# Add CalDAV sync cron script
+RUN echo '#!/bin/sh' > /usr/local/bin/sync-caldav && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-caldav' >> /usr/local/bin/sync-caldav && \
+    chmod +x /usr/local/bin/sync-caldav
+
 # Add pocket-money cron scripts
 RUN echo '#!/bin/sh' > /usr/local/bin/pocket-money-accrue-interest && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/accrue-interest' >> /usr/local/bin/pocket-money-accrue-interest && \
