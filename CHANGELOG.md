@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+- The Next.js image optimizer is disabled. It was configured to accept **any** remote host, which made `/_next/image` an open image proxy: anyone able to reach a Kinboard instance could have the server fetch and decode an arbitrary remote image. That mattered because the bundled image decoder (sharp/libvips) is a version with known parsing vulnerabilities. Nothing in the app used the optimizer, so this closes the endpoint with no visible change.
+- Updated `postcss` (path traversal when reading source-map comments) and `brace-expansion` (denial of service via crafted patterns) to patched versions.
+
 ### Added
 - **Pocket money goals can now be edited and deleted.** There was previously no way to change a goal's name, target or picture, or to remove one at all — a typo or an abandoned goal stayed on a child's page forever. Deleting a goal keeps the money and its transaction history untouched. Any goal can also be promoted to the main goal.
 - Pocket money goals now show how much is still needed and roughly how many more allowances that is — the question a child actually asks, which a percentage bar doesn't answer. Any goal you can already afford offers the "ready to buy" action, not just the primary one, and asking a parent for the money now confirms it was sent instead of failing silently.
