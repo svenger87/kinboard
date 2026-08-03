@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Repository usage statistics in [`stats/`](stats/), snapshotted daily. These are GitHub's own traffic numbers (clones, views, stars) archived because the API only exposes the last 14 days. **This is not telemetry** — nothing is collected from running installations, and none is planned.
+
 ## [1.5.0] - 2026-07-11 — Restore from backup, meal-plan digest, notification fixes
 
 *Upgrade notes:* The schema migration (settings write lockdown) applies automatically on `./start.sh up`. Hard-refresh installed-PWA and kiosk devices once after updating.

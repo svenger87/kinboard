@@ -10,8 +10,20 @@ const __dirname = path.dirname(__filename);
 
 /** Resolved at module-load — read the demo family's join code from postgres. */
 export function getDemoJoinCode(): string {
+  // Explicit code wins. The capture has to be runnable from inside a
+  // container (the Playwright image is the only place a browser will
+  // start on a Slackware host like Unraid), and `docker exec` isn't
+  // available there without mounting the socket — which is a lot of
+  // privilege to hand a screenshot job.
+  const fromEnv = process.env.DEMO_JOIN_CODE?.trim();
+  if (fromEnv) return fromEnv;
+
+  // Container name is overridable so the capture can run against any
+  // seeded stack, not only the one scripts/2-bringup.sh creates — e.g. a
+  // throwaway demo stack on a different compose project.
+  const container = process.env.DEMO_DB_CONTAINER ?? "kinboard-demo-db";
   const out = execSync(
-    `docker exec kinboard-demo-db psql -U postgres -d postgres -tAc "SELECT join_code FROM public.families LIMIT 1"`,
+    `docker exec ${container} psql -U postgres -d postgres -tAc "SELECT join_code FROM public.families LIMIT 1"`,
     { encoding: "utf8" },
   ).trim();
   if (!out) throw new Error("Could not read demo join code from postgres");
