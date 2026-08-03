@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  toUnitSystem,
+  windSpeedForDisplay,
+  precipitationForDisplay,
+} from "@/lib/weather-units";
 import { LOCALES } from "@/i18n/locales";
 
 const OPENWEATHERMAP_API_KEY = process.env.OPENWEATHERMAP_API_KEY;
@@ -68,6 +73,7 @@ export async function GET(request: NextRequest) {
   const city = searchParams.get("city");
   const rawLang = searchParams.get("lang") || "de";
   const lang = ["de", "en", "fr"].includes(rawLang) ? rawLang : "de";
+  const units = toUnitSystem(searchParams.get("units"));
 
   if (!OPENWEATHERMAP_API_KEY) {
     return NextResponse.json({ configured: false }, { status: 200 });
@@ -77,9 +83,9 @@ export async function GET(request: NextRequest) {
     let url: string;
 
     if (lat && lon) {
-      url = `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&units=metric&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
+      url = `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&units=${units}&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
     } else if (city) {
-      url = `${BASE_URL}/forecast?q=${encodeURIComponent(city)}&units=metric&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
+      url = `${BASE_URL}/forecast?q=${encodeURIComponent(city)}&units=${units}&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
     } else {
       return NextResponse.json(
         { error: "Either lat/lon or city parameter required" },
@@ -145,10 +151,15 @@ export async function GET(request: NextRequest) {
         conditionMain: middayItem.weather[0].main,
         conditionIcon: middayItem.weather[0].icon,
         humidity: Math.round(items.reduce((sum, i) => sum + i.main.humidity, 0) / items.length),
-        windSpeed: Math.round((items.reduce((sum, i) => sum + i.wind.speed, 0) / items.length) * 3.6),
+        windSpeed: windSpeedForDisplay(
+          items.reduce((sum, i) => sum + i.wind.speed, 0) / items.length,
+          units,
+        ),
         precipProbability: maxPop,
-        rainAmount: Math.round(totalRain * 10) / 10,
-        snowAmount: Math.round(totalSnow * 10) / 10,
+        // Precipitation is millimetres from the API in both unit
+        // systems, so it always needs converting for imperial.
+        rainAmount: precipitationForDisplay(totalRain, units),
+        snowAmount: precipitationForDisplay(totalSnow, units),
       };
     });
 
@@ -162,7 +173,7 @@ export async function GET(request: NextRequest) {
         conditionMain: item.weather[0].main,
         conditionIcon: item.weather[0].icon,
         precipProbability: Math.round(item.pop * 100),
-        windSpeed: Math.round(item.wind.speed * 3.6),
+        windSpeed: windSpeedForDisplay(item.wind.speed, units),
       };
     });
 
@@ -172,6 +183,7 @@ export async function GET(request: NextRequest) {
       timezone: data.city.timezone,
       daily: days,
       hourly: hourlyForecast,
+      units,
     });
   } catch (error) {
     console.error("Forecast API error:", error);
