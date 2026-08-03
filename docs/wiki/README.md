@@ -31,7 +31,14 @@ git commit -m "Sync from main repo"
 git push
 ```
 
-A small `docs/wiki/sync.sh` script can be added later to make this a one-liner.
+**This is now automatic.** `.github/workflows/wiki-sync.yml` publishes on
+every push to `main` that touches `docs/wiki/`, so the steps above are only
+needed for a manual out-of-band push. The manual process is what let
+`CalDAV.md` ship finished-but-unpublished, with every link to it returning
+a 404.
+
+Note that `README.md` (this file) is excluded — publishing it would create
+a stray "README" page in the wiki navigation.
 
 ## Page index
 
