@@ -124,6 +124,16 @@ jobs:
             type=semver,pattern={{major}}
             type=sha,prefix=sha-,format=short
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            # Pre-release channel. Any semver tag carrying a prerelease
+            # identifier (v1.6.0-rc.1, v1.6.0-beta.2) also publishes a
+            # moving `next` tag, so testers pin KINBOARD_TAG=next once and
+            # keep receiving release candidates without editing .env again.
+            #
+            # `latest` is unaffected: it is gated on the default branch, and
+            # a tag push is never refs/heads/main. metadata-action also omits
+            # the {{major}} / {{major}}.{{minor}} aliases for prereleases, so
+            # v1.6.0-rc.1 cannot claim the `1` or `1.6` tags either.
+            type=raw,value=next,enable=${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-') }}
 
       - name: Build per-platform image (push as digest)
         id: build
@@ -189,6 +199,16 @@ jobs:
             type=semver,pattern={{major}}
             type=sha,prefix=sha-,format=short
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            # Pre-release channel. Any semver tag carrying a prerelease
+            # identifier (v1.6.0-rc.1, v1.6.0-beta.2) also publishes a
+            # moving `next` tag, so testers pin KINBOARD_TAG=next once and
+            # keep receiving release candidates without editing .env again.
+            #
+            # `latest` is unaffected: it is gated on the default branch, and
+            # a tag push is never refs/heads/main. metadata-action also omits
+            # the {{major}} / {{major}}.{{minor}} aliases for prereleases, so
+            # v1.6.0-rc.1 cannot claim the `1` or `1.6` tags either.
+            type=raw,value=next,enable=${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-') }}
 
       - name: Create + push manifest list
         working-directory: /tmp/digests
