@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
+import { readCurrentVersion } from "@/lib/app-version";
 
 // Module-level cache: every container instance hits the GitHub API at
 // most once per 6h. Self-hoster's running stack does ~4 calls/day total,
@@ -19,16 +18,6 @@ interface VersionCheckResult {
   // null = couldn't reach GitHub (rate limited, offline, etc.)
   // The frontend treats this as "show current only, no badge"
   fetchedAt: string;
-}
-
-async function readCurrentVersion(): Promise<string> {
-  try {
-    const pkgPath = path.join(process.cwd(), "package.json");
-    const pkg = JSON.parse(await fs.readFile(pkgPath, "utf8"));
-    return typeof pkg.version === "string" ? pkg.version : "0.0.0";
-  } catch {
-    return "0.0.0";
-  }
 }
 
 interface GithubRelease {
