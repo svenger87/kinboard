@@ -2,6 +2,13 @@
 
 import Image from "next/image";
 import { useTranslations } from "next-intl";
+import { MoreVertical, Pencil, Star, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { formatCents } from "@/lib/pocket-money/format";
 import type { PocketMoneyGoal } from "@/types/database";
@@ -15,6 +22,9 @@ interface Props {
   /** Allowance amount + cadence, used for the "N more allowances" hint. */
   allowanceCents?: number;
   allowanceIntervalDays?: number;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onMakePrimary?: () => void;
 }
 
 export function GoalCard({
@@ -25,6 +35,9 @@ export function GoalCard({
   onReadyToBuy,
   allowanceCents = 0,
   allowanceIntervalDays = 7,
+  onEdit,
+  onDelete,
+  onMakePrimary,
 }: Props) {
   const t = useTranslations("pocketMoney");
   // A zero or negative target would divide by zero and render Infinity%.
@@ -77,6 +90,44 @@ export function GoalCard({
             </p>
           )}
         </div>
+        {/* Goals previously had no edit or delete anywhere in the app —
+            a mistyped target or an abandoned goal was permanent. */}
+        {(onEdit || onDelete || onMakePrimary) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={t("goalActionsAria", { name: goal.name })}
+              >
+                <MoreVertical className="size-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {onMakePrimary && !goal.is_primary && (
+                <DropdownMenuItem onClick={onMakePrimary}>
+                  <Star className="size-4 mr-2" />
+                  {t("goalMakePrimary")}
+                </DropdownMenuItem>
+              )}
+              {onEdit && (
+                <DropdownMenuItem onClick={onEdit}>
+                  <Pencil className="size-4 mr-2" />
+                  {t("goalEdit")}
+                </DropdownMenuItem>
+              )}
+              {onDelete && (
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="size-4 mr-2" />
+                  {t("goalDelete")}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
       <Progress value={pct} />
       {reached && (

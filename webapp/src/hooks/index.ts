@@ -444,6 +444,7 @@ export {
   usePocketMoneyGoals,
   useCreatePocketMoneyGoal,
   useUpdatePocketMoneyGoal,
+  useDeletePocketMoneyGoal,
   useGoalImageSearch,
 } from "./use-pocket-money-goals";
 export {

@@ -178,7 +178,16 @@ export default function PocketMoneySettingsPage() {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border">
+              {/* Allowance first: it's the setting a parent actually
+                  revisits. Interest is set once and forgotten, so it
+                  sits below under its own heading rather than
+                  interleaved with the allowance knobs in one flat grid. */}
+              <div className="pt-3 border-t border-border">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  {t("groupInterest")}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>
                     {t("aprLabel")} ({(acct.apr_bps / 100).toFixed(1)}%)
@@ -205,6 +214,17 @@ export default function PocketMoneySettingsPage() {
                     </p>
                   )}
                 </div>
+              </div>
+
+              <div className="pt-3 border-t border-border">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  {t("groupAllowance")}
+                </p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {t("groupAllowanceHint")}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>{t("allowanceLabel")}</Label>
                   <Input

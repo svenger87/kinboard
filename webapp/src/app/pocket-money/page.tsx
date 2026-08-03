@@ -10,6 +10,17 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import type { PocketMoneyGoal } from "@/types/database";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AvatarDisplay } from "@/components/pocket-money/avatar-display";
 import { BalanceDisplay } from "@/components/pocket-money/balance-display";
@@ -18,6 +29,8 @@ import { GoalAddDialog } from "@/components/pocket-money/goal-add-dialog";
 import { CelebrationOverlay } from "@/components/pocket-money/celebration-overlay";
 import { StagesSheet } from "@/components/pocket-money/stages-sheet";
 import {
+  useUpdatePocketMoneyGoal,
+  useDeletePocketMoneyGoal,
   usePocketMoneyAccounts,
   usePocketMoneyGoals,
   usePocketMoneyAccountTransactions,
@@ -39,12 +52,16 @@ type CelebrationKind = "evolution" | "goal-reached" | "interest-pay";
 
 export default function PocketMoneyPage() {
   const t = useTranslations("pocketMoney");
+  const tCommon = useTranslations("common");
   const locale = useLocale();
   const router = useRouter();
   const { data: accounts = [], isPending } = usePocketMoneyAccounts();
   const { data: people = [] } = usePeople();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
+  // Non-null while editing; the dialog doubles as the editor.
+  const [editingGoal, setEditingGoal] = useState<PocketMoneyGoal | null>(null);
+  const [goalPendingDelete, setGoalPendingDelete] = useState<PocketMoneyGoal | null>(null);
   const [stagesSheetOpen, setStagesSheetOpen] = useState(false);
   const [spendDialogOpen, setSpendDialogOpen] = useState(false);
   const [celebration, setCelebration] = useState<CelebrationKind | null>(null);
@@ -58,6 +75,8 @@ export default function PocketMoneyPage() {
   const { data: transactions = [] } = usePocketMoneyAccountTransactions(active?.id);
   const createWithdrawalRequest = useCreateWithdrawalRequest();
   const updateAccount = useUpdatePocketMoneyAccount();
+  const updateGoal = useUpdatePocketMoneyGoal();
+  const deleteGoal = useDeletePocketMoneyGoal();
   // Pending spend requests for the active account — drives the
   // "waiting for parent approval" hint above the goal/balance area.
   const { data: pendingRequests = [] } = useWithdrawalRequests(
@@ -140,6 +159,35 @@ export default function PocketMoneyPage() {
       .then(() => toast.success(t("goalRequestSent")))
       .catch((err) =>
         toast.error(t("goalRequestFailed"), {
+          description: err instanceof Error ? err.message : undefined,
+        }),
+      );
+  };
+
+  const openGoalEditor = (goal: PocketMoneyGoal) => {
+    setEditingGoal(goal);
+    setGoalDialogOpen(true);
+  };
+
+  const makeGoalPrimary = (goal: PocketMoneyGoal) => {
+    updateGoal
+      .mutateAsync({ id: goal.id, accountId: active.id, update: { is_primary: true } })
+      .catch((err) =>
+        toast.error(t("goalUpdateFailed"), {
+          description: err instanceof Error ? err.message : undefined,
+        }),
+      );
+  };
+
+  const confirmDeleteGoal = () => {
+    if (!goalPendingDelete) return;
+    const goal = goalPendingDelete;
+    setGoalPendingDelete(null);
+    deleteGoal
+      .mutateAsync({ id: goal.id, accountId: active.id })
+      .then(() => toast.success(t("goalDeleted", { name: goal.name })))
+      .catch((err) =>
+        toast.error(t("goalDeleteFailed"), {
           description: err instanceof Error ? err.message : undefined,
         }),
       );
@@ -320,6 +368,8 @@ export default function PocketMoneyPage() {
           allowanceCents={active.weekly_allowance_cents}
           allowanceIntervalDays={active.allowance_interval_days ?? 7}
           onReadyToBuy={() => requestGoalPurchase(primaryGoal)}
+          onEdit={() => openGoalEditor(primaryGoal)}
+          onDelete={() => setGoalPendingDelete(primaryGoal)}
         />
       )}
 
@@ -334,6 +384,9 @@ export default function PocketMoneyPage() {
               allowanceCents={active.weekly_allowance_cents}
               allowanceIntervalDays={active.allowance_interval_days ?? 7}
               onReadyToBuy={() => requestGoalPurchase(g)}
+              onEdit={() => openGoalEditor(g)}
+              onDelete={() => setGoalPendingDelete(g)}
+              onMakePrimary={() => makeGoalPrimary(g)}
             />
           ))}
         </div>
@@ -353,7 +406,38 @@ export default function PocketMoneyPage() {
         </Button>
       </div>
 
-      <GoalAddDialog accountId={active.id} open={goalDialogOpen} onOpenChange={setGoalDialogOpen} />
+      <GoalAddDialog
+        accountId={active.id}
+        open={goalDialogOpen}
+        goal={editingGoal}
+        onOpenChange={(open) => {
+          setGoalDialogOpen(open);
+          if (!open) setEditingGoal(null);
+        }}
+      />
+
+      <AlertDialog
+        open={goalPendingDelete !== null}
+        onOpenChange={(open) => !open && setGoalPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("goalDeleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("goalDeleteDescription", { name: goalPendingDelete?.name ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmDeleteGoal}
+            >
+              {t("goalDelete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AmountDialog
         open={spendDialogOpen}

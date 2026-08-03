@@ -7,10 +7,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Changed
+- Pocket money parent settings are grouped under Allowance and Interest headings instead of one flat grid of six controls, with a note that the allowance pays automatically on the chosen weekday.
 - **Pocket money: the avatar stage now reflects the current balance, not lifetime earnings.** It used to only ever go up, so it said nothing about how a child's savings were actually doing — spending a month's savings left the avatar untouched. Stages now rise as money is saved and fall as it's spent. Nothing is lost: a **"best: Stage N"** badge records the highest stage ever reached and never falls, and the stage list marks stages that were reached before. Existing accounts keep their achievement — the badge is backfilled from lifetime earnings on upgrade, so nobody opens the app to find their avatar demoted with nothing to show for it.
 - Pocket money stage thresholds retuned for balances (€2 / €5 / €10 / €25 / €50 / €100 / €200). The old top stage was €1000 of lifetime earnings, unreachable as a balance for a child on a few euro a week, which left the upper half of the progression dead.
 
 ### Added
+- **Pocket money goals can now be edited and deleted.** There was previously no way to change a goal's name, target or picture, or to remove one at all — a typo or an abandoned goal stayed on a child's page forever. Deleting a goal keeps the money and its transaction history untouched. Any goal can also be promoted to the main goal.
 - Pocket money goals now show how much is still needed and roughly how many more allowances that is — the question a child actually asks, which a percentage bar doesn't answer. Any goal you can already afford offers the "ready to buy" action, not just the primary one, and asking a parent for the money now confirms it was sent instead of failing silently.
 - Pocket money spend requests now show a badge on the navigation, so a parent sees a child is waiting on an answer without opening settings. The waiting-request notice on the child's page links straight to the approval screen.
 - Pocket money now shows **when the next allowance arrives** — on the child's page, the dashboard widget and the parent settings screen, alongside the last payment date. The date was previously stored and never displayed, which made a correctly-working fortnightly allowance indistinguishable from a broken one for up to 13 days.
