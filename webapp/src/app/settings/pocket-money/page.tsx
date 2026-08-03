@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { PiggyBank, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, PiggyBank, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ import {
   usePeople,
 } from "@/hooks";
 import type { AvatarSpecies } from "@/lib/pocket-money/types";
+import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { formatCents } from "@/lib/pocket-money/format";
 import { BalanceForecast } from "@/components/pocket-money/balance-forecast";
@@ -61,6 +62,7 @@ const ALLOWANCE_INTERVAL_OPTIONS: ReadonlyArray<{ days: number; labelKey: string
 
 export default function PocketMoneySettingsPage() {
   const t = useTranslations("settings.pocketMoney");
+  const locale = useLocale();
   const { data: accounts = [] } = usePocketMoneyAccounts();
   const { data: people = [] } = usePeople();
   const kids = people.filter((p) => p.is_child);
@@ -128,6 +130,44 @@ export default function PocketMoneySettingsPage() {
                       days: acct.allowance_interval_days ?? 7,
                     })}
                   </p>
+                  {/* The schedule is only trustworthy if you can see when
+                      it next fires. Without this a correctly-working
+                      fortnightly allowance is indistinguishable from a
+                      broken cron for up to 13 days. */}
+                  {(() => {
+                    if (acct.weekly_allowance_cents <= 0) return null;
+                    const next = nextAllowanceDate({
+                      lastAllowanceAt: acct.last_allowance_at,
+                      intervalDays: acct.allowance_interval_days ?? 7,
+                      dayOfWeek: acct.allowance_day_of_week,
+                    });
+                    if (!next) return null;
+                    const days = daysUntil(next);
+                    return (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                        <CalendarClock className="size-3.5 shrink-0" />
+                        {t("nextAllowanceSummary", {
+                          date: next.toLocaleDateString(locale, {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                          }),
+                          days,
+                        })}
+                        {acct.last_allowance_at && (
+                          <span className="opacity-70">
+                            ·{" "}
+                            {t("lastAllowanceSummary", {
+                              date: new Date(acct.last_allowance_at).toLocaleDateString(locale, {
+                                day: "numeric",
+                                month: "short",
+                              }),
+                            })}
+                          </span>
+                        )}
+                      </p>
+                    );
+                  })()}
                 </div>
                 <Button
                   variant="ghost"
@@ -138,7 +178,16 @@ export default function PocketMoneySettingsPage() {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border">
+              {/* Allowance first: it's the setting a parent actually
+                  revisits. Interest is set once and forgotten, so it
+                  sits below under its own heading rather than
+                  interleaved with the allowance knobs in one flat grid. */}
+              <div className="pt-3 border-t border-border">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  {t("groupInterest")}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>
                     {t("aprLabel")} ({(acct.apr_bps / 100).toFixed(1)}%)
@@ -165,6 +214,17 @@ export default function PocketMoneySettingsPage() {
                     </p>
                   )}
                 </div>
+              </div>
+
+              <div className="pt-3 border-t border-border">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  {t("groupAllowance")}
+                </p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {t("groupAllowanceHint")}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>{t("allowanceLabel")}</Label>
                   <Input

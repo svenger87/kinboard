@@ -3,12 +3,24 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
-import { Clock, PiggyBank, Plus, ShoppingBag } from "lucide-react";
+import { useTranslations, useLocale } from "next-intl";
+import { toast } from "sonner";
+import { CalendarClock, Clock, PiggyBank, Plus, ShoppingBag, Star } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import type { PocketMoneyGoal } from "@/types/database";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AvatarDisplay } from "@/components/pocket-money/avatar-display";
 import { BalanceDisplay } from "@/components/pocket-money/balance-display";
@@ -17,6 +29,8 @@ import { GoalAddDialog } from "@/components/pocket-money/goal-add-dialog";
 import { CelebrationOverlay } from "@/components/pocket-money/celebration-overlay";
 import { StagesSheet } from "@/components/pocket-money/stages-sheet";
 import {
+  useUpdatePocketMoneyGoal,
+  useDeletePocketMoneyGoal,
   usePocketMoneyAccounts,
   usePocketMoneyGoals,
   usePocketMoneyAccountTransactions,
@@ -26,18 +40,28 @@ import {
   usePeople,
 } from "@/hooks";
 import { AmountDialog } from "@/components/pocket-money/amount-dialog";
-import { tierFromLifetimeSaved, nextTierThreshold } from "@/lib/pocket-money/interest";
+import {
+  tierFromBalance,
+  nextTierThreshold,
+  effectiveBestTier,
+} from "@/lib/pocket-money/interest";
+import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import { formatCents } from "@/lib/pocket-money/format";
 
 type CelebrationKind = "evolution" | "goal-reached" | "interest-pay";
 
 export default function PocketMoneyPage() {
   const t = useTranslations("pocketMoney");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
   const router = useRouter();
   const { data: accounts = [], isPending } = usePocketMoneyAccounts();
   const { data: people = [] } = usePeople();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
+  // Non-null while editing; the dialog doubles as the editor.
+  const [editingGoal, setEditingGoal] = useState<PocketMoneyGoal | null>(null);
+  const [goalPendingDelete, setGoalPendingDelete] = useState<PocketMoneyGoal | null>(null);
   const [stagesSheetOpen, setStagesSheetOpen] = useState(false);
   const [spendDialogOpen, setSpendDialogOpen] = useState(false);
   const [celebration, setCelebration] = useState<CelebrationKind | null>(null);
@@ -51,6 +75,8 @@ export default function PocketMoneyPage() {
   const { data: transactions = [] } = usePocketMoneyAccountTransactions(active?.id);
   const createWithdrawalRequest = useCreateWithdrawalRequest();
   const updateAccount = useUpdatePocketMoneyAccount();
+  const updateGoal = useUpdatePocketMoneyGoal();
+  const deleteGoal = useDeletePocketMoneyGoal();
   // Pending spend requests for the active account — drives the
   // "waiting for parent approval" hint above the goal/balance area.
   const { data: pendingRequests = [] } = useWithdrawalRequests(
@@ -58,18 +84,34 @@ export default function PocketMoneyPage() {
     "pending",
   );
 
-  // Fire the avatar-evolution celebration once per tier promotion.
+  // Celebrate a promotion, and record the high-water mark.
+  //
+  // The stage now follows the balance, so it can go down as well as up.
+  // `last_seen_tier` gates the celebration and must therefore track the
+  // stage in both directions — otherwise a kid who reaches stage 6,
+  // spends down to 4 and saves back to 6 would get no celebration the
+  // second time. `best_tier` only ever climbs; that's the whole point of
+  // it.
   useEffect(() => {
     if (!active) return;
-    const currentTier = tierFromLifetimeSaved(active.lifetime_saved_cents);
+    const currentTier = tierFromBalance(active.balance_cents);
+    const update: { last_seen_tier?: number; best_tier?: number } = {};
+
     if (currentTier > active.last_seen_tier) {
       setCelebration("evolution");
-      updateAccount
-        .mutateAsync({ id: active.id, update: { last_seen_tier: currentTier } })
-        .catch(console.error);
+      update.last_seen_tier = currentTier;
+    } else if (currentTier < active.last_seen_tier) {
+      // Silent: dropping a stage is not something to animate at a child.
+      update.last_seen_tier = currentTier;
+    }
+
+    if (currentTier > (active.best_tier ?? 1)) update.best_tier = currentTier;
+
+    if (Object.keys(update).length > 0) {
+      updateAccount.mutateAsync({ id: active.id, update }).catch(console.error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active?.id, active?.lifetime_saved_cents]);
+  }, [active?.id, active?.balance_cents]);
 
   // Stable callback so re-renders don't reset CelebrationOverlay's
   // dismissal timer mid-animation.
@@ -83,6 +125,73 @@ export default function PocketMoneyPage() {
       .filter((tx) => tx.type === "interest" && tx.created_at.startsWith(today))
       .reduce((sum, tx) => sum + tx.amount_cents, 0);
   })();
+
+  // Stage + high-water mark, both driven by the current balance.
+  const currentTier = active ? tierFromBalance(active.balance_cents) : 1;
+  const bestTier = active ? effectiveBestTier(active.balance_cents, active.best_tier ?? 1) : 1;
+  const showBestBadge = bestTier > currentTier;
+
+  // When the next allowance lands. Previously nowhere in the UI, which
+  // is why a fortnightly allowance that was working perfectly got
+  // reported as broken — ten quiet days look identical to a dead cron.
+  const nextAllowance =
+    active && active.weekly_allowance_cents > 0
+      ? nextAllowanceDate({
+          lastAllowanceAt: active.last_allowance_at,
+          intervalDays: active.allowance_interval_days ?? 7,
+          dayOfWeek: active.allowance_day_of_week,
+        })
+      : null;
+
+  // Ask a parent to release money for a goal. Previously inline on the
+  // primary goal only, with errors going to the console — so a child
+  // tapping "ready to buy" on a failure saw no response at all.
+  const requestGoalPurchase = (goal: { id: string; name: string; target_amount_cents: number }) => {
+    createWithdrawalRequest
+      .mutateAsync({
+        accountId: active.id,
+        input: {
+          amount_cents: goal.target_amount_cents,
+          reason: goal.name,
+          related_goal_id: goal.id,
+        },
+      })
+      .then(() => toast.success(t("goalRequestSent")))
+      .catch((err) =>
+        toast.error(t("goalRequestFailed"), {
+          description: err instanceof Error ? err.message : undefined,
+        }),
+      );
+  };
+
+  const openGoalEditor = (goal: PocketMoneyGoal) => {
+    setEditingGoal(goal);
+    setGoalDialogOpen(true);
+  };
+
+  const makeGoalPrimary = (goal: PocketMoneyGoal) => {
+    updateGoal
+      .mutateAsync({ id: goal.id, accountId: active.id, update: { is_primary: true } })
+      .catch((err) =>
+        toast.error(t("goalUpdateFailed"), {
+          description: err instanceof Error ? err.message : undefined,
+        }),
+      );
+  };
+
+  const confirmDeleteGoal = () => {
+    if (!goalPendingDelete) return;
+    const goal = goalPendingDelete;
+    setGoalPendingDelete(null);
+    deleteGoal
+      .mutateAsync({ id: goal.id, accountId: active.id })
+      .then(() => toast.success(t("goalDeleted", { name: goal.name })))
+      .catch((err) =>
+        toast.error(t("goalDeleteFailed"), {
+          description: err instanceof Error ? err.message : undefined,
+        }),
+      );
+  };
 
   const primaryGoal = goals.find((g) => g.is_primary && g.status === "active");
   const secondaryGoals = goals.filter((g) => !g.is_primary && g.status === "active");
@@ -144,7 +253,7 @@ export default function PocketMoneyPage() {
       <div className="flex flex-col items-center text-center space-y-3">
         <AvatarDisplay
           species={active.avatar_species}
-          lifetimeSavedCents={active.lifetime_saved_cents}
+          balanceCents={active.balance_cents}
           size={220}
         />
         <div className="flex flex-col items-center gap-0.5">
@@ -162,15 +271,26 @@ export default function PocketMoneyPage() {
             className="flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 hover:bg-white/[0.04] active:scale-[0.98] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50"
             aria-label={t("stagesSheetOpenAria")}
           >
-            <p className="text-xl font-bold">
-              {t(`species.${active.avatar_species}.tier${tierFromLifetimeSaved(active.lifetime_saved_cents)}` as never)}
+            <p className="text-xl font-bold flex items-center gap-2">
+              {t(`species.${active.avatar_species}.tier${currentTier}` as never)}
+              {showBestBadge && (
+                <span
+                  className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300"
+                  title={t("bestStageTooltip")}
+                >
+                  <Star className="size-3 fill-current" />
+                  {t("bestStageBadge", {
+                    stage: t(`species.${active.avatar_species}.tier${bestTier}` as never),
+                  })}
+                </span>
+              )}
             </p>
             {(() => {
-              const nextCents = nextTierThreshold(active.lifetime_saved_cents);
+              const nextCents = nextTierThreshold(active.balance_cents);
               if (nextCents === null) {
                 return <p className="text-xs text-muted-foreground">{t("maxStageHint")}</p>;
               }
-              const nextTier = tierFromLifetimeSaved(nextCents);
+              const nextTier = tierFromBalance(nextCents);
               return (
                 <p className="text-xs text-muted-foreground">
                   {t("nextStageHint", {
@@ -188,12 +308,40 @@ export default function PocketMoneyPage() {
           currency={active.currency}
           todayInterestCents={todayInterestCents}
         />
+
+        {/* When the next allowance lands. The single most-missed piece of
+            information on this screen: without it there is no way to tell
+            "not due yet" from "the job is broken". */}
+        {nextAllowance && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <CalendarClock className="size-3.5 shrink-0" />
+            {(() => {
+              const days = daysUntil(nextAllowance);
+              const amount = formatCents(active.weekly_allowance_cents, active.currency);
+              if (days === 0) return t("nextAllowanceToday", { amount });
+              if (days === 1) return t("nextAllowanceTomorrow", { amount });
+              return t("nextAllowanceInDays", {
+                amount,
+                days,
+                date: nextAllowance.toLocaleDateString(locale, {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                }),
+              });
+            })()}
+          </p>
+        )}
       </div>
 
       {pendingRequests.length > 0 && (
-        <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 flex items-center gap-2 text-sm">
+        // A waiting request now offers the way to resolve it. The nav
+        // badge brings a parent here, but approval is PIN-gated in
+        // settings — without this link the badge led to a screen where
+        // nothing could be done about it.
+        <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 flex items-center gap-3 text-sm">
           <Clock className="size-4 text-amber-400 shrink-0" />
-          <p className="text-amber-100/90">
+          <p className="text-amber-100/90 flex-1 min-w-0">
             {pendingRequests.length === 1
               ? t("pendingRequestHintOne", {
                   amount: formatCents(
@@ -205,6 +353,9 @@ export default function PocketMoneyPage() {
                   count: pendingRequests.length,
                 })}
           </p>
+          <Button asChild size="sm" variant="outline" className="shrink-0">
+            <Link href="/settings/pocket-money">{t("reviewRequests")}</Link>
+          </Button>
         </div>
       )}
 
@@ -214,18 +365,11 @@ export default function PocketMoneyPage() {
           currentBalanceCents={active.balance_cents}
           currency={active.currency}
           variant="primary"
-          onReadyToBuy={() => {
-            createWithdrawalRequest
-              .mutateAsync({
-                accountId: active.id,
-                input: {
-                  amount_cents: primaryGoal.target_amount_cents,
-                  reason: primaryGoal.name,
-                  related_goal_id: primaryGoal.id,
-                },
-              })
-              .catch(console.error);
-          }}
+          allowanceCents={active.weekly_allowance_cents}
+          allowanceIntervalDays={active.allowance_interval_days ?? 7}
+          onReadyToBuy={() => requestGoalPurchase(primaryGoal)}
+          onEdit={() => openGoalEditor(primaryGoal)}
+          onDelete={() => setGoalPendingDelete(primaryGoal)}
         />
       )}
 
@@ -237,6 +381,12 @@ export default function PocketMoneyPage() {
               goal={g}
               currentBalanceCents={active.balance_cents}
               currency={active.currency}
+              allowanceCents={active.weekly_allowance_cents}
+              allowanceIntervalDays={active.allowance_interval_days ?? 7}
+              onReadyToBuy={() => requestGoalPurchase(g)}
+              onEdit={() => openGoalEditor(g)}
+              onDelete={() => setGoalPendingDelete(g)}
+              onMakePrimary={() => makeGoalPrimary(g)}
             />
           ))}
         </div>
@@ -256,7 +406,38 @@ export default function PocketMoneyPage() {
         </Button>
       </div>
 
-      <GoalAddDialog accountId={active.id} open={goalDialogOpen} onOpenChange={setGoalDialogOpen} />
+      <GoalAddDialog
+        accountId={active.id}
+        open={goalDialogOpen}
+        goal={editingGoal}
+        onOpenChange={(open) => {
+          setGoalDialogOpen(open);
+          if (!open) setEditingGoal(null);
+        }}
+      />
+
+      <AlertDialog
+        open={goalPendingDelete !== null}
+        onOpenChange={(open) => !open && setGoalPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("goalDeleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("goalDeleteDescription", { name: goalPendingDelete?.name ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmDeleteGoal}
+            >
+              {t("goalDelete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AmountDialog
         open={spendDialogOpen}
@@ -283,7 +464,8 @@ export default function PocketMoneyPage() {
         open={stagesSheetOpen}
         onOpenChange={setStagesSheetOpen}
         species={active.avatar_species}
-        lifetimeSavedCents={active.lifetime_saved_cents}
+        balanceCents={active.balance_cents}
+        bestTier={bestTier}
         currency={active.currency}
       />
     </div>

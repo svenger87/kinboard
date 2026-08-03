@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePocketMoneyAccounts } from "./use-pocket-money-accounts";
 import type {
   PocketMoneyWithdrawalRequest,
   PocketMoneyWithdrawalRequestInsert,
@@ -76,4 +77,39 @@ export function useDecideWithdrawalRequest() {
       qc.invalidateQueries({ queryKey: ["pocket-money-accounts"] });
     },
   });
+}
+
+/**
+ * Family-wide count of spend requests waiting on a parent.
+ *
+ * Approval lives on the pocket-money settings screen, which a parent has
+ * no reason to open on a normal day — so a child's request could sit
+ * unnoticed indefinitely, with the child assuming they'd been ignored.
+ * This feeds the navigation badge, making a waiting request visible from
+ * anywhere in the app.
+ *
+ * One query per account rather than a bespoke aggregate endpoint: a
+ * household has a handful of children, the per-account queries are
+ * already cached for the screens that show them, and this reuses that
+ * cache instead of adding a second source of truth.
+ */
+export function usePendingWithdrawalCount(): number {
+  const { data: accounts = [] } = usePocketMoneyAccounts();
+
+  const results = useQueries({
+    queries: accounts.map((account) => ({
+      queryKey: [KEY, account.id, "pending"],
+      queryFn: async (): Promise<PocketMoneyWithdrawalRequest[]> => {
+        const r = await fetch(
+          `/api/pocket-money/accounts/${account.id}/withdrawal-requests?status=pending`,
+        );
+        if (!r.ok) throw new Error(`requests: ${r.status}`);
+        return ((await r.json()) as { requests: PocketMoneyWithdrawalRequest[] })
+          .requests;
+      },
+      staleTime: 30_000,
+    })),
+  });
+
+  return results.reduce((sum, r) => sum + (r.data?.length ?? 0), 0);
 }
