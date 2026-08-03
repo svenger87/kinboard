@@ -12,6 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { useFamilyStore } from "@/stores/family-store";
 
 interface ArticleResult {
   readable: boolean;
@@ -51,11 +52,18 @@ export function NewsArticleSheet({
 }: NewsArticleSheetProps) {
   const t = useTranslations("news.reader");
   const locale = useLocale();
+  const { family } = useFamilyStore();
+  const familyId = family?.id ?? "";
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["news-article", url],
+    queryKey: ["news-article", url, familyId],
     queryFn: async (): Promise<ArticleResult> => {
-      const r = await fetch(`/api/news/article?url=${encodeURIComponent(url!)}`);
+      // The family id lets the server widen reader mode to hosts this
+      // household added itself; catalog articles never need it.
+      const r = await fetch(
+        `/api/news/article?url=${encodeURIComponent(url!)}` +
+          (familyId ? `&family_id=${encodeURIComponent(familyId)}` : ""),
+      );
       if (!r.ok) throw new Error(`reader: ${r.status}`);
       return r.json();
     },

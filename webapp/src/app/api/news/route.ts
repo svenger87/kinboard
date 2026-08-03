@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import DOMPurify from "isomorphic-dompurify";
 import {
-  NEWS_PROVIDERS,
   DEFAULT_NEWS_SOURCES,
   getProvider,
+  isCustomFeedId,
+  customFeedAsProvider,
   type NewsProvider,
 } from "@/lib/news-providers";
+import { loadCustomFeeds } from "@/lib/news-custom-feeds";
+import { parseFeed } from "@/lib/rss-parser";
+import { validateExternalUrl } from "@/lib/validate-external-url";
+import { safeFetch } from "@/lib/safe-fetch";
 import { isDemoMode, getDemoNewsItems } from "@/lib/demo-news";
 
 interface NewsItem {
@@ -29,84 +33,25 @@ const providerCache: Map<string, { items: NewsItem[]; expiresAt: number }> = new
 const MAX_ITEMS_PER_SOURCE = 15;
 const MAX_ITEMS_TOTAL = 40;
 
-function decodeHtmlEntities(text: string): string {
-  // Decode `&amp;` LAST. Decoding it first would convert `&amp;lt;`
-  // (literal "&lt;" — which the original feed wanted shown as text)
-  // into `&lt;` and then into `<`, double-decoding past the original
-  // intent. Doing it last preserves single-pass-decode semantics.
-  return text
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&");
-}
-
-function stripHtml(text: string): string {
-  // DOMPurify with empty allow-lists strips ALL tags + attributes
-  // robustly — including pathological inputs like `<scr<x>ipt>` that
-  // a single-pass regex (`<[^>]*>`) leaves dangerous after one
-  // replacement. Used for RSS title/description text on the news
-  // widget; output is rendered as React text (not innerHTML), but
-  // defense-in-depth.
-  const stripped = DOMPurify.sanitize(text, {
-    ALLOWED_TAGS: [],
-    ALLOWED_ATTR: [],
-  });
-  return stripped.replace(/\s+/g, " ").trim();
-}
-
-function parseRss(xml: string, provider: NewsProvider): NewsItem[] {
-  const items: NewsItem[] = [];
-  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-  let match;
-
-  while ((match = itemRegex.exec(xml)) !== null) {
-    const itemXml = match[1];
-
-    const title =
-      itemXml.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)?.[1] ||
-      itemXml.match(/<title>(.*?)<\/title>/)?.[1] ||
-      "";
-    const link = itemXml.match(/<link>(.*?)<\/link>/)?.[1] || "";
-    const pubDate = itemXml.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || "";
-    const description =
-      itemXml.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/)?.[1] ||
-      itemXml.match(/<description>(.*?)<\/description>/)?.[1] ||
-      "";
-
-    const enclosureUrl =
-      itemXml.match(/<enclosure[^>]*url="([^"]*\.(jpg|jpeg|png|webp)[^"]*)"/i)?.[1] ||
-      itemXml.match(/<enclosure[^>]*url="([^"]*)"/)?.[1] ||
-      "";
-    const mediaContent = itemXml.match(/<media:content[^>]*url="([^"]*)"/)?.[1] || "";
-    const mediaThumbnail = itemXml.match(/<media:thumbnail[^>]*url="([^"]*)"/)?.[1] || "";
-    const imgInDescription = description.match(/src="([^"]*\.(jpg|jpeg|png|webp)[^"]*)"/i)?.[1] || "";
-    const image = enclosureUrl || mediaContent || mediaThumbnail || imgInDescription || "";
-
-    const category =
-      itemXml.match(/<category><!\[CDATA\[(.*?)\]\]><\/category>/)?.[1] ||
-      itemXml.match(/<category[^>]*>(.*?)<\/category>/)?.[1] ||
-      "";
-
-    if (title) {
-      items.push({
-        title: decodeHtmlEntities(title),
-        link: link.trim(),
-        pubDate,
-        description: stripHtml(decodeHtmlEntities(description)),
-        image,
-        category: decodeHtmlEntities(category),
-        source: provider.id,
-        sourceName: provider.name,
-      });
-    }
-
-    if (items.length >= MAX_ITEMS_PER_SOURCE) break;
-  }
-
-  return items;
+/**
+ * Feed parsing moved to `lib/rss-parser` when custom feeds arrived —
+ * the discovery endpoint needs the same logic, and the inline version
+ * only understood RSS `<item>`, so any Atom feed a user added would
+ * have come back empty with nothing to explain why.
+ */
+function toNewsItems(xml: string, provider: NewsProvider): NewsItem[] {
+  const feed = parseFeed(xml, MAX_ITEMS_PER_SOURCE);
+  if (!feed) return [];
+  return feed.items.map((item) => ({
+    title: item.title,
+    link: item.link,
+    pubDate: item.pubDate,
+    description: item.description,
+    image: item.image,
+    category: item.category,
+    source: provider.id,
+    sourceName: provider.name,
+  }));
 }
 
 async function fetchProvider(provider: NewsProvider): Promise<NewsItem[]> {
@@ -115,10 +60,18 @@ async function fetchProvider(provider: NewsProvider): Promise<NewsItem[]> {
     return cached.items;
   }
 
+  // Catalog URLs are compiled in; custom ones came from a settings row
+  // and are re-checked on every fetch. See lib/news-custom-feeds.ts.
+  if (isCustomFeedId(provider.id) && !validateExternalUrl(provider.url).ok) {
+    return [];
+  }
+
   try {
-    const response = await fetch(provider.url, {
+    // Catalog feeds could use plain fetch, but routing both through the
+    // same call means a custom feed can never be the one that skips the
+    // address check by accident.
+    const response = await safeFetch(provider.url, {
       headers: { "User-Agent": "Kinboard/1.0 (+https://kinboard.app)" },
-      next: { revalidate: 600 },
       // 10s connection budget — slow feeds shouldn't block the others
       signal: AbortSignal.timeout(10_000),
     });
@@ -127,7 +80,7 @@ async function fetchProvider(provider: NewsProvider): Promise<NewsItem[]> {
       return cached?.items ?? [];
     }
     const xml = await response.text();
-    const items = parseRss(xml, provider);
+    const items = toNewsItems(xml, provider);
     providerCache.set(provider.id, {
       items,
       expiresAt: Date.now() + PROVIDER_CACHE_TTL_MS,
@@ -162,9 +115,19 @@ export async function GET(request: NextRequest) {
     ? sourcesParam.split(",").map((s) => s.trim()).filter(Boolean)
     : DEFAULT_NEWS_SOURCES;
 
+  // Custom ids only mean something in the context of a family, so they
+  // resolve against that family's saved feeds. Without a family_id they
+  // simply don't resolve, and are dropped like any unknown id.
+  const familyId = request.nextUrl.searchParams.get("family_id") ?? "";
+  const custom = requested.some(isCustomFeedId) ? await loadCustomFeeds(familyId) : [];
+
   // Resolve & sanitize: drop unknown IDs silently, fall back to defaults if empty
   const providers: NewsProvider[] = requested
-    .map(getProvider)
+    .map((id) => {
+      if (!isCustomFeedId(id)) return getProvider(id);
+      const feed = custom.find((f) => f.id === id);
+      return feed ? customFeedAsProvider(feed) : undefined;
+    })
     .filter((p): p is NewsProvider => Boolean(p));
   const effective = providers.length > 0
     ? providers
