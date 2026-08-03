@@ -23,14 +23,22 @@ export function accrueDailyInterest(args: {
 }
 
 /**
- * Returns the avatar tier (1..5) for a given lifetime-saved amount.
- * Withdrawals don't reduce lifetime_saved_cents, so this is monotonic
- * over time.
+ * The avatar stage for a given balance.
+ *
+ * Balance, not lifetime earnings: the stage is meant to answer "how is
+ * this account doing right now", so it falls when money is spent and
+ * climbs again as it's saved. The achievement isn't lost — the account's
+ * `best_tier` high-water mark records the highest stage ever reached and
+ * is displayed alongside.
+ *
+ * A negative balance shouldn't be possible (the transactions route
+ * rejects overdrafts) but clamps to stage 1 rather than throwing if one
+ * ever appears.
  */
-export function tierFromLifetimeSaved(lifetimeSavedCents: number): AvatarTier {
+export function tierFromBalance(balanceCents: number): AvatarTier {
   let tier: AvatarTier = 1;
   for (let i = 0; i < TIER_THRESHOLDS_CENTS.length; i++) {
-    if (lifetimeSavedCents >= TIER_THRESHOLDS_CENTS[i]) {
+    if (balanceCents >= TIER_THRESHOLDS_CENTS[i]) {
       tier = (i + 1) as AvatarTier;
     }
   }
@@ -38,17 +46,33 @@ export function tierFromLifetimeSaved(lifetimeSavedCents: number): AvatarTier {
 }
 
 /**
- * Returns the next-tier threshold in cents, or null when the avatar is
- * already at the top tier. Used to show "next stage at €X" hints in
- * the kid view so a kid (and parent) can see what to save toward.
+ * The balance at which the next stage unlocks, or null at the top
+ * stage. Drives the "next stage at €X" hint, so a kid can see what
+ * they're saving toward.
  */
-export function nextTierThreshold(lifetimeSavedCents: number): number | null {
+export function nextTierThreshold(balanceCents: number): number | null {
   for (let i = 0; i < TIER_THRESHOLDS_CENTS.length; i++) {
-    if (lifetimeSavedCents < TIER_THRESHOLDS_CENTS[i]) {
+    if (balanceCents < TIER_THRESHOLDS_CENTS[i]) {
       return TIER_THRESHOLDS_CENTS[i];
     }
   }
   return null;
+}
+
+/**
+ * The stage to display as the high-water mark.
+ *
+ * Guards against a stored `best_tier` that is behind the current stage —
+ * possible for a moment after a deposit, before the client has written
+ * the new high-water mark back, and for any row the migration's backfill
+ * didn't cover.
+ */
+export function effectiveBestTier(
+  balanceCents: number,
+  storedBestTier: number,
+): AvatarTier {
+  const current = tierFromBalance(balanceCents);
+  return Math.max(current, storedBestTier) as AvatarTier;
 }
 
 /**

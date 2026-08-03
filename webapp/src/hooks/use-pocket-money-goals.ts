@@ -72,6 +72,23 @@ export function useUpdatePocketMoneyGoal() {
   });
 }
 
+export function useDeletePocketMoneyGoal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; accountId: string }) => {
+      const r = await fetch(`/api/pocket-money/goals/${id}`, { method: "DELETE" });
+      if (!r.ok) {
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? `goal delete: ${r.status}`);
+      }
+      return true;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: [KEY, vars.accountId] });
+    },
+  });
+}
+
 interface ImageSearchResult {
   name: string;
   image_url: string;

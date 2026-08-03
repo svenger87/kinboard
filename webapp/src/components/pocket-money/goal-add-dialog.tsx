@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Dialog,
@@ -14,17 +14,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useFamilyStore } from "@/stores/family-store";
-import { useGoalImageSearch, useCreatePocketMoneyGoal } from "@/hooks";
+import {
+  useGoalImageSearch,
+  useCreatePocketMoneyGoal,
+  useUpdatePocketMoneyGoal,
+} from "@/hooks";
+import type { PocketMoneyGoal } from "@/types/database";
 
 interface Props {
   accountId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * When set, the dialog edits this goal instead of creating one. Reused
+   * rather than duplicated so editing keeps the image search and the
+   * same validation the create flow has.
+   */
+  goal?: PocketMoneyGoal | null;
 }
 
-export function GoalAddDialog({ accountId, open, onOpenChange }: Props) {
+export function GoalAddDialog({ accountId, open, onOpenChange, goal = null }: Props) {
   const t = useTranslations("pocketMoney");
   const createGoal = useCreatePocketMoneyGoal();
+  const updateGoal = useUpdatePocketMoneyGoal();
+  const isEditing = goal !== null;
   const [name, setName] = useState("");
   const [targetCents, setTargetCents] = useState<number>(1000); // €10 default
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -41,19 +54,40 @@ export function GoalAddDialog({ accountId, open, onOpenChange }: Props) {
     setImageSource("catalog");
   };
 
+  // Load the goal being edited whenever the dialog opens, so reopening
+  // it after a cancel doesn't show the previous edit's leftovers.
+  useEffect(() => {
+    if (!open) return;
+    if (goal) {
+      setName(goal.name);
+      setTargetCents(goal.target_amount_cents);
+      setImageUrl(goal.image_url);
+      setImageSource((goal.image_source as "catalog" | "upload" | "url") ?? "catalog");
+      setSearchQuery("");
+    } else {
+      reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, goal?.id]);
+
   const handleSubmit = async () => {
     if (!name || targetCents <= 0) return;
-    await createGoal
-      .mutateAsync({
-        accountId,
-        input: {
-          name,
-          target_amount_cents: targetCents,
-          image_url: imageUrl,
-          image_source: imageSource,
-        },
-      })
-      .catch(console.error);
+    const input = {
+      name,
+      target_amount_cents: targetCents,
+      image_url: imageUrl,
+      image_source: imageSource,
+    };
+    try {
+      if (goal) {
+        await updateGoal.mutateAsync({ id: goal.id, accountId, update: input });
+      } else {
+        await createGoal.mutateAsync({ accountId, input });
+      }
+    } catch (err) {
+      console.error(err);
+      return; // keep the dialog open so the entered values aren't lost
+    }
     reset();
     onOpenChange(false);
   };
@@ -62,7 +96,7 @@ export function GoalAddDialog({ accountId, open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{t("addGoalTitle")}</DialogTitle>
+          <DialogTitle>{isEditing ? t("editGoalTitle") : t("addGoalTitle")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
