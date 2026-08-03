@@ -20,6 +20,28 @@ const ICS_FETCH_TIMEOUT_MS = 30_000;
 const MAX_ICS_BYTES = 5 * 1024 * 1024; // 5 MB
 
 /**
+ * The sync window every iCalendar-shaped source is scoped to: 30 days of
+ * history through 60 days ahead. Shared with the CalDAV path (see
+ * lib/caldav-client.ts) so a family's events table has one retention
+ * story regardless of which provider a calendar came from.
+ */
+export const ICS_WINDOW_PAST_DAYS = 30;
+export const ICS_WINDOW_FUTURE_DAYS = 60;
+
+export interface IcsWindow {
+  start: Date;
+  end: Date;
+}
+
+export function icsSyncWindow(now: Date = new Date()): IcsWindow {
+  const start = new Date(now);
+  start.setDate(start.getDate() - ICS_WINDOW_PAST_DAYS);
+  const end = new Date(now);
+  end.setDate(end.getDate() + ICS_WINDOW_FUTURE_DAYS);
+  return { start, end };
+}
+
+/**
  * Fetch + parse an ICS URL. Handles webcal:// → https:// rewrite (iCloud
  * shares calendars as webcal links), respects ETag for conditional GETs,
  * caps response size at 5 MB to avoid memory blowups on misconfigured sources.
@@ -77,20 +99,29 @@ export async function fetchIcsCalendar(
     );
   }
 
-  const parsed = ical.sync.parseICS(text);
-  const events = expandToWindow(parsed);
+  const events = parseIcsEvents(text);
   const newEtag = response.headers.get("etag");
 
   return { events, etag: newEtag, notModified: false };
 }
 
-function expandToWindow(parsed: ical.CalendarResponse): IcsEvent[] {
-  const now = new Date();
-  const windowStart = new Date(now);
-  windowStart.setDate(windowStart.getDate() - 30);
-  const windowEnd = new Date(now);
-  windowEnd.setDate(windowEnd.getDate() + 60);
+/**
+ * Parse raw iCalendar text into window-scoped events. Split out of
+ * `fetchIcsCalendar` so the CalDAV path can reuse the exact same parsing
+ * and recurrence expansion on the bodies a `calendar-query` REPORT
+ * returns — the transport differs, the VEVENT semantics don't.
+ */
+export function parseIcsEvents(
+  text: string,
+  window: IcsWindow = icsSyncWindow(),
+): IcsEvent[] {
+  return expandToWindow(ical.sync.parseICS(text), window);
+}
 
+function expandToWindow(
+  parsed: ical.CalendarResponse,
+  { start: windowStart, end: windowEnd }: IcsWindow,
+): IcsEvent[] {
   const out: IcsEvent[] = [];
 
   for (const key of Object.keys(parsed)) {
