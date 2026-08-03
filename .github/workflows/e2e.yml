@@ -112,12 +112,15 @@ jobs:
         working-directory: ${{ github.workspace }}/webapp/docker
         run: bash start.sh seed-demo
 
+      # calendar-layout.spec.ts is pure logic (no browser, no stack) but
+      # rides along here because Playwright is the only test runner in
+      # the project — it costs a couple of seconds.
       - name: Run smoke suite
         env:
           FAMILY_CODE: DEMO01
           PLAYWRIGHT_BASE_URL: http://localhost:3001
           PLAYWRIGHT_DEVICE_NAME: "CI Smoke (GH Actions)"
-        run: npx playwright test e2e/smoke.spec.ts --project=desktop
+        run: npx playwright test e2e/smoke.spec.ts e2e/calendar-layout.spec.ts --project=desktop
 
       - name: Upload Playwright report
         if: always()

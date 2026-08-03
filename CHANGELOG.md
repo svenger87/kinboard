@@ -6,6 +6,15 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- CalDAV calendars (Settings → Calendar → CalDAV): connect Nextcloud, Radicale, Baïkal, SOGo, Synology, Fastmail, iCloud or any other CalDAV server with a username and password, pick which calendars to sync, and edit events from Kinboard — creations, changes and deletions are written back to the server. Closes the gap left by read-only `.ics` feeds for households outside the Google ecosystem ([#18](https://github.com/svenger87/kinboard/discussions/18)).
+- Conflicting calendar edits are now caught rather than silently overwritten: if an event changed on your phone since Kinboard last synced, the save is refused with an explanation instead of discarding the other change.
+- CalDAV calendars the server marks as read-only get a badge and are never written to, and a calendar that stops syncing (usually an expired app password) shows the reason in settings.
+
+### Fixed
+- Calendar week view: events happening at the same time no longer cover each other. Overlapping events now share the day's width side by side — as in any calendar app — and widen again as soon as there's room. Previously the second of two parallel events was drawn exactly on top of the first and was invisible.
+- Calendar week view: events starting before 6:00 or ending after 22:00 are no longer cut off. The hour grid was fixed to 6:00–22:00, so an early-morning or late-evening event was drawn outside the visible area; the grid now stretches to cover whatever the week actually contains.
+
 ## [1.5.0] - 2026-07-11 — Restore from backup, meal-plan digest, notification fixes
 
 *Upgrade notes:* The schema migration (settings write lockdown) applies automatically on `./start.sh up`. Hard-refresh installed-PWA and kiosk devices once after updating.
