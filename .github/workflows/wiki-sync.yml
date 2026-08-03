@@ -1,0 +1,59 @@
+name: Publish wiki
+
+# Pushes docs/wiki/ to the GitHub wiki whenever it changes on main.
+#
+# Publishing used to be a manual copy-and-push documented in
+# docs/wiki/README.md, which meant the wiki drifted silently: CalDAV.md
+# shipped in v1.6.0-rc.1 and was never published, so every link to it —
+# from the README, the release notes and discussion #18 — was a 404 while
+# the page sat finished in the repo.
+#
+# The wiki is a sibling git repo at <repo>.wiki.git. It has no CI and no
+# review, which is exactly why the sources live in the main repo and get
+# PR'd like code; this only mirrors them.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/wiki/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wiki-sync
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone the wiki
+        run: |
+          git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git" wiki
+
+      - name: Sync
+        run: |
+          # README.md is this directory's own readme explaining the
+          # conventions — publishing it would create a stray "README"
+          # page in the wiki's navigation.
+          find docs/wiki -maxdepth 1 -name '*.md' ! -name 'README.md' -exec cp {} wiki/ \;
+          mkdir -p wiki/images
+          cp -r docs/wiki/images/. wiki/images/ 2>/dev/null || true
+
+      - name: Commit + push
+        working-directory: wiki
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "wiki already up to date"
+          else
+            git commit -m "Sync from ${{ github.sha }}"
+            git push
+          fi
