@@ -52,11 +52,22 @@ function isPrivateIpv4(parts: number[]): boolean {
   return false;
 }
 
-function isPrivateOrLoopbackHostname(hostname: string): boolean {
+/**
+ * Exported so callers that resolve DNS themselves can run the same test
+ * against the *resolved* addresses — see `lib/safe-fetch.ts`. The check
+ * accepts hostnames and bare IPs alike.
+ */
+export function isPrivateOrLoopbackHostname(hostname: string): boolean {
   // Strip surrounding brackets from IPv6 literals.
-  const host = hostname.replace(/^\[|\]$/g, "");
+  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
 
-  if (host === "localhost") return true;
+  if (host === "localhost" || host.endsWith(".localhost")) return true;
+
+  // IPv4-mapped IPv6 (`::ffff:127.0.0.1`) — the form Node's DNS resolver
+  // hands back on dual-stack hosts. Without this the IPv4 rules below
+  // never see it and loopback passes as public.
+  const mapped = host.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i);
+  if (mapped) return isPrivateOrLoopbackHostname(mapped[1]);
 
   const m = host.match(IPV4_RE);
   if (m) {

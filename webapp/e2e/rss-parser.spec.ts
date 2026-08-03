@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { parseFeed } from "../src/lib/rss-parser";
+import { isPrivateOrLoopbackHostname } from "../src/lib/validate-external-url";
+import { safeFetch, BlockedAddressError } from "../src/lib/safe-fetch";
 import {
   parentDomain,
   customFeedHosts,
@@ -168,5 +170,48 @@ test.describe("custom feed ids", () => {
     expect(provider.id).toBe("custom:1");
     expect(provider.name).toBe("My blog");
     expect(provider.homepage).toBe("https://example.com");
+  });
+});
+
+test.describe("safeFetch address checks", () => {
+  // These stay offline on purpose. The DNS-bypass cases they stand in for
+  // (`localtest.me` -> 127.0.0.1, `169.254.169.254.nip.io` -> the metadata
+  // IP) were verified by hand against the live route; wiring third-party
+  // DNS tricks into CI would buy one more assertion at the cost of a suite
+  // that fails whenever someone else's service is down.
+
+  test("recognises private space in every form the resolver returns", () => {
+    for (const host of [
+      "127.0.0.1",
+      "10.1.2.3",
+      "172.16.0.1",
+      "192.168.1.1",
+      "169.254.169.254", // cloud metadata
+      "0.0.0.0",
+      "localhost",
+      "app.localhost",
+      "::1",
+      "fe80::1",
+      "fd00::1",
+      "::ffff:127.0.0.1", // IPv4-mapped, the form dual-stack lookups return
+    ]) {
+      expect(isPrivateOrLoopbackHostname(host), host).toBe(true);
+    }
+  });
+
+  test("leaves ordinary public addresses alone", () => {
+    for (const host of ["example.com", "8.8.8.8", "172.32.0.1", "9.9.9.9", "2606:4700::1"]) {
+      expect(isPrivateOrLoopbackHostname(host), host).toBe(false);
+    }
+  });
+
+  test("refuses a literal private address without touching the network", async () => {
+    await expect(safeFetch("http://192.168.1.1/feed.xml")).rejects.toBeInstanceOf(
+      BlockedAddressError,
+    );
+    await expect(safeFetch("http://169.254.169.254/latest/meta-data/")).rejects.toBeInstanceOf(
+      BlockedAddressError,
+    );
+    await expect(safeFetch("file:///etc/passwd")).rejects.toBeInstanceOf(BlockedAddressError);
   });
 });

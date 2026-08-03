@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { JSDOM } from "jsdom";
 import { validateExternalUrl } from "@/lib/validate-external-url";
+import { safeFetch, BlockedAddressError } from "@/lib/safe-fetch";
 import { parseFeed } from "@/lib/rss-parser";
 
 export const runtime = "nodejs";
@@ -22,10 +23,13 @@ export const dynamic = "force-dynamic";
  *     `<link rel="alternate" type="application/rss+xml">` and follow it.
  *
  * SSRF: unlike CalDAV, where a LAN address is the entire use case, RSS
- * feeds are public internet resources. So `validateExternalUrl` applies
- * here in full — private, loopback and link-local hosts are refused.
- * The same check runs again at fetch time; a stored URL is not trusted
- * just because it passed once.
+ * feeds are public internet resources. So the address is refused unless
+ * it is public — and because the URL arrives in the request body, that
+ * means `safeFetch`, which resolves the hostname and checks the address
+ * it actually points at, and re-checks every redirect hop, rather than
+ * trusting the hostname the way `validateExternalUrl` alone does. The
+ * same check runs again whenever a feed is fetched; a stored URL is not
+ * trusted just because it passed once.
  */
 
 const TIMEOUT_MS = 12_000;
@@ -47,10 +51,13 @@ interface DiscoverResult {
 }
 
 async function fetchText(url: string): Promise<{ body: string; contentType: string }> {
-  const response = await fetch(url, {
-    headers: { "User-Agent": UA, Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.8" },
+  const response = await safeFetch(url, {
+    headers: {
+      "User-Agent": UA,
+      Accept:
+        "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.8",
+    },
     signal: AbortSignal.timeout(TIMEOUT_MS),
-    redirect: "follow",
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -190,7 +197,14 @@ export async function POST(request: NextRequest) {
       result = { ok: false, error: "That address didn't return RSS or Atom." };
     }
   } catch (err) {
-    result = { ok: false, error: describe(errorDetail(err)) };
+    result =
+      err instanceof BlockedAddressError
+        ? {
+            ok: false,
+            error:
+              "That address points into a private network. News feeds need to be reachable on the public internet.",
+          }
+        : { ok: false, error: describe(errorDetail(err)) };
   }
 
   return NextResponse.json(result);

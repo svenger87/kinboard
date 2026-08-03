@@ -75,7 +75,9 @@ Duplicate articles are removed by link, so overlapping sources don't show the sa
 
 Feeds must be reachable on the public internet over http or https. Addresses on your own network — `192.168.x.x`, `10.x.x.x`, `localhost`, link-local — are refused, and so are non-web schemes like `file://`.
 
-This is different from [CalDAV](CalDAV) and [Home Assistant](Home-Assistant), where a LAN address is the whole point. Those are configured against a server you run; a news feed is a public resource, so accepting private addresses would only ever make Kinboard useful as a tool for probing your own network from the outside. Feed URLs are re-checked every time they're fetched, not just when they're added.
+This is different from [CalDAV](CalDAV) and [Home Assistant](Home-Assistant), where a LAN address is the whole point. Those are configured against a server you run; a news feed is a public resource, so accepting private addresses would only ever make Kinboard useful as a tool for probing your own network from the outside.
+
+The check goes past the address you typed. Kinboard resolves the hostname and tests what it actually points at — a name like `feeds.example.com` can perfectly legally carry an A record for `127.0.0.1` — and validates each redirect along the way, since a public host is free to redirect to a private one. Feed URLs are re-checked every time they're fetched, not only when they're added.
 
 ---
 

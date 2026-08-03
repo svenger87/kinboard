@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Security
+- Feed fetching now resolves a URL's hostname and checks the address it actually points at, and validates every redirect hop, instead of trusting the hostname alone. A name like `feeds.example.com` can carry an A record pointing at `127.0.0.1` or a cloud provider's metadata endpoint, and a public host can redirect to one — either would previously have had the server fetch it. Applies to news feeds, which are the only URLs a household types in that Kinboard fetches on demand.
 - The Next.js image optimizer is disabled. It was configured to accept **any** remote host, which made `/_next/image` an open image proxy: anyone able to reach a Kinboard instance could have the server fetch and decode an arbitrary remote image. That mattered because the bundled image decoder (sharp/libvips) is a version with known parsing vulnerabilities. Nothing in the app used the optimizer, so this closes the endpoint with no visible change.
 - Updated `postcss` (path traversal when reading source-map comments) and `brace-expansion` (denial of service via crafted patterns) to patched versions.
 

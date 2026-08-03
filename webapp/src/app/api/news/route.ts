@@ -9,6 +9,7 @@ import {
 import { loadCustomFeeds } from "@/lib/news-custom-feeds";
 import { parseFeed } from "@/lib/rss-parser";
 import { validateExternalUrl } from "@/lib/validate-external-url";
+import { safeFetch } from "@/lib/safe-fetch";
 import { isDemoMode, getDemoNewsItems } from "@/lib/demo-news";
 
 interface NewsItem {
@@ -66,9 +67,11 @@ async function fetchProvider(provider: NewsProvider): Promise<NewsItem[]> {
   }
 
   try {
-    const response = await fetch(provider.url, {
+    // Catalog feeds could use plain fetch, but routing both through the
+    // same call means a custom feed can never be the one that skips the
+    // address check by accident.
+    const response = await safeFetch(provider.url, {
       headers: { "User-Agent": "Kinboard/1.0 (+https://kinboard.app)" },
-      next: { revalidate: 600 },
       // 10s connection budget — slow feeds shouldn't block the others
       signal: AbortSignal.timeout(10_000),
     });
