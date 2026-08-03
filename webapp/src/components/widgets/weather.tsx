@@ -28,7 +28,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useWeather, useWeatherForecast } from "@/hooks";
+import { useWeather, useWeatherForecast, useWeatherUnits } from "@/hooks";
 import { WeatherModal } from "./weather-modal";
 import { WidgetCard } from "@/components/widget-card";
 
@@ -138,6 +138,7 @@ export function Weather({ className = "" }: WeatherProps) {
   const t = useTranslations("weather");
   const [modalOpen, setModalOpen] = useState(false);
   const { data: weatherData, isLoading, error } = useWeather();
+  const { labels: unitLabels } = useWeatherUnits();
   const { data: forecast } = useWeatherForecast();
 
   if (isLoading) {
@@ -204,7 +205,7 @@ export function Weather({ className = "" }: WeatherProps) {
               <Badge variant="neutral" className="font-medium">{weatherData.location}</Badge>
               <div className="flex flex-col gap-1 text-sm text-muted-foreground tabular-nums">
                 <span className="flex items-center justify-end gap-1"><Droplets className="size-3" />{weatherData.humidity}%</span>
-                <span className="flex items-center justify-end gap-1"><Wind className="size-3" />{weatherData.windSpeed} km/h</span>
+                <span className="flex items-center justify-end gap-1"><Wind className="size-3" />{weatherData.windSpeed} {unitLabels.speed}</span>
                 {weatherData.feelsLike && (
                   <span className="flex items-center justify-end gap-1"><Thermometer className="size-3" />{t("feelsLike", { temp: weatherData.feelsLike })}</span>
                 )}

@@ -4,6 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocale } from "next-intl";
 import { useSetting } from "./use-supabase-queries";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import {
+  DEFAULT_UNIT_SYSTEM,
+  unitLabels,
+  type UnitSystem,
+  type UnitLabels,
+} from "@/lib/weather-units";
 
 export interface WeatherData {
   temp: number;
@@ -19,6 +25,7 @@ export interface WeatherData {
   visibility: number;
   sunrise: string;
   sunset: string;
+  units?: UnitSystem;
 }
 
 export interface DailyForecast {
@@ -52,6 +59,7 @@ export interface ForecastData {
   timezone: number;
   daily: DailyForecast[];
   hourly: HourlyForecast[];
+  units?: UnitSystem;
 }
 
 export interface WeatherMapConfig {
@@ -87,6 +95,26 @@ const DEFAULT_LOCATION: WeatherLocation = {
   city: "Hamburg",
 };
 
+/**
+ * The household's unit system, plus the labels to render it with.
+ *
+ * Stored per family rather than per device: a household picks one system
+ * and every screen in the house should agree, the same way the locale
+ * and holiday country already work.
+ */
+export function useWeatherUnits(): {
+  system: UnitSystem;
+  labels: UnitLabels;
+  isLoading: boolean;
+} {
+  const { data, isLoading } = useSetting<UnitSystem>(
+    SETTINGS_KEYS.weatherUnits,
+    DEFAULT_UNIT_SYSTEM,
+  );
+  const system = data ?? DEFAULT_UNIT_SYSTEM;
+  return { system, labels: unitLabels(system), isLoading };
+}
+
 export function useWeatherLocation() {
   return useSetting<WeatherLocation>(SETTINGS_KEYS.weatherLocation, DEFAULT_LOCATION);
 }
@@ -94,10 +122,13 @@ export function useWeatherLocation() {
 export function useWeather() {
   const locale = useLocale();
   const { data: location, isLoading: locationLoading } = useWeatherLocation();
+  const { system: units, isLoading: unitsLoading } = useWeatherUnits();
   const weatherLocation = location || DEFAULT_LOCATION;
 
   return useQuery({
-    queryKey: ["weather", weatherLocation, locale],
+    // `units` is part of the key: switching systems must refetch rather
+    // than relabel cached Celsius numbers as Fahrenheit.
+    queryKey: ["weather", weatherLocation, locale, units],
     queryFn: async (): Promise<WeatherData | null> => {
       let url = "/api/weather?";
 
@@ -109,7 +140,7 @@ export function useWeather() {
         throw new Error("No weather location configured");
       }
 
-      url += `&lang=${locale}`;
+      url += `&lang=${locale}&units=${units}`;
 
       const response = await fetch(url);
 
@@ -124,7 +155,7 @@ export function useWeather() {
       if (data && data.configured === false) return null;
       return data;
     },
-    enabled: !locationLoading,
+    enabled: !locationLoading && !unitsLoading,
     staleTime: 10 * 60 * 1000, // 10 minutes
     refetchInterval: 15 * 60 * 1000, // Refetch every 15 minutes
     retry: 2,
@@ -134,10 +165,11 @@ export function useWeather() {
 export function useWeatherForecast() {
   const locale = useLocale();
   const { data: location, isLoading: locationLoading } = useWeatherLocation();
+  const { system: units, isLoading: unitsLoading } = useWeatherUnits();
   const weatherLocation = location || DEFAULT_LOCATION;
 
   return useQuery({
-    queryKey: ["weather", "forecast", weatherLocation, locale],
+    queryKey: ["weather", "forecast", weatherLocation, locale, units],
     queryFn: async (): Promise<ForecastData | null> => {
       let url = "/api/weather/forecast?";
 
@@ -149,7 +181,7 @@ export function useWeatherForecast() {
         throw new Error("No weather location configured");
       }
 
-      url += `&lang=${locale}`;
+      url += `&lang=${locale}&units=${units}`;
 
       const response = await fetch(url);
 
@@ -162,7 +194,7 @@ export function useWeatherForecast() {
       if (data && data.configured === false) return null;
       return data;
     },
-    enabled: !locationLoading,
+    enabled: !locationLoading && !unitsLoading,
     staleTime: 30 * 60 * 1000, // 30 minutes
     refetchInterval: 60 * 60 * 1000, // Refetch every hour
     retry: 2,

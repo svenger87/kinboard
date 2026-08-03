@@ -6,7 +6,17 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Cloud, Loader2, Check, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useWeatherLocation, useWeather, useUpdateSetting, type WeatherLocation } from "@/hooks";
+import {
+  useWeatherLocation,
+  useWeather,
+  useWeatherUnits,
+  useUpdateSetting,
+  type WeatherLocation,
+} from "@/hooks";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { UNIT_LABELS, type UnitSystem } from "@/lib/weather-units";
+import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Weather } from "@/components/widgets/weather";
 import { PageHeader } from "@/components/page-header";
 import { IntegrationConfigHint } from "@/components/integration-config-hint";
@@ -37,6 +47,24 @@ export default function WeatherSettingsPage() {
   // Loading-state suppresses the hint until the first fetch resolves.
   const weatherUnconfigured = weatherData === null;
   const updateSetting = useUpdateSetting();
+  const { system: unitSystem } = useWeatherUnits();
+
+  // Units save on tap rather than via the location Save button: it's
+  // a two-state toggle whose effect is visible in the preview below
+  // immediately, so staging it behind a save step would only add a
+  // way to forget to press it.
+  const handleUnitsChange = async (next: UnitSystem) => {
+    if (next === unitSystem) return;
+    try {
+      await updateSetting.mutateAsync({
+        key: SETTINGS_KEYS.weatherUnits,
+        value: next,
+      });
+      setTimeout(() => refetchWeather(), 300);
+    } catch {
+      toast.error(t("saveFailed"));
+    }
+  };
 
   const [locationValue, setLocationValue] = useState<WeatherLocation>(DEFAULT_LOCATION);
   // The last-saved value. Compared against locationValue to derive
@@ -125,6 +153,50 @@ export default function WeatherSettingsPage() {
         )}
 
         <CityLocationPicker value={locationValue} onChange={handleLocationChange} />
+
+        {/* Unit system */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-6"
+        >
+          <Card className="p-4">
+            <Label className="mb-1 block">{t("unitsLabel")}</Label>
+            <p className="text-xs text-muted-foreground mb-3">{t("unitsHint")}</p>
+            <div
+              role="radiogroup"
+              aria-label={t("unitsLabel")}
+              className="grid grid-cols-2 gap-2"
+            >
+              {(["metric", "imperial"] as const).map((system) => {
+                const active = unitSystem === system;
+                return (
+                  <button
+                    key={system}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => handleUnitsChange(system)}
+                    className={`rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                      active
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:bg-muted/40"
+                    }`}
+                  >
+                    <span className="block text-sm font-medium">
+                      {t(system === "metric" ? "unitsMetric" : "unitsImperial")}
+                    </span>
+                    <span className="block text-xs text-muted-foreground tabular-nums">
+                      {UNIT_LABELS[system].temperature} · {UNIT_LABELS[system].speed} ·{" "}
+                      {UNIT_LABELS[system].distance}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+        </motion.div>
 
         {/* Save Button */}
         <motion.div
