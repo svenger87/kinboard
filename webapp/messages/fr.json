@@ -155,7 +155,8 @@
       "title": "Nouveautés",
       "updatedToast": "Kinboard a été mis à jour vers {version}",
       "whatsNewAction": "Nouveautés",
-      "changelogUnavailable": "Notes de version indisponibles — voir GitHub."
+      "changelogUnavailable": "Notes de version indisponibles — voir GitHub.",
+      "prereleaseBadge": "Préversion"
     },
     "birthdayYearRing": {
       "centerLabel": "Anniversaires",

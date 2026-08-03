@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readCurrentVersion, isPrereleaseVersion } from "@/lib/app-version";
 
 // Module-level cache: every container instance hits the GitHub API at
 // most once per 6h, same posture as /api/version-check.
@@ -12,6 +13,8 @@ export interface ChangelogEntry {
   name: string;
   publishedAt: string | null;
   body: string;
+  /** Lets the UI badge an RC when a tester is shown one. */
+  prerelease: boolean;
 }
 
 interface ChangelogResult {
@@ -23,6 +26,7 @@ interface GithubRelease {
   name: string | null;
   published_at: string | null;
   body: string | null;
+  prerelease: boolean;
 }
 
 async function fetchReleases(): Promise<GithubRelease[] | null> {
@@ -49,13 +53,30 @@ export async function GET() {
   if (cache && cache.expiresAt > Date.now()) {
     return NextResponse.json(cache.data);
   }
+
+  // Which channel is this instance on? `/releases` returns pre-releases
+  // too — unlike `/releases/latest`, which filters them out and is why
+  // /api/version-check never had this problem. Without the filter below,
+  // a household on stable opened "What's new" and read release notes for
+  // release candidates it isn't running and can't get, described in the
+  // same words as shipped features.
+  //
+  // Testers keep seeing them: someone running an RC is exactly who the
+  // notes are written for, and hiding them there would leave them with
+  // no in-app record of what they're testing.
+  const onPrereleaseChannel = isPrereleaseVersion(await readCurrentVersion());
+
   const releases = await fetchReleases();
+  const visible = (releases ?? []).filter(
+    (r) => onPrereleaseChannel || !r.prerelease,
+  );
   const data: ChangelogResult = {
-    releases: (releases ?? []).map((r) => ({
+    releases: visible.map((r) => ({
       tag: r.tag_name,
       name: r.name ?? r.tag_name,
       publishedAt: r.published_at,
       body: r.body ?? "",
+      prerelease: r.prerelease,
     })),
   };
   // Only cache a successful upstream fetch — caching a failure (releases ===
