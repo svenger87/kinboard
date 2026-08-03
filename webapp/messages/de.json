@@ -3355,6 +3355,7 @@
     "nextStageHint": "Nächste Stufe: {stage} bei {amount}",
     "maxStageHint": "🌟 Höchste Stufe erreicht!",
     "bestStageBadge": "Bestwert: {stage}",
+    "reviewRequests": "Prüfen",
     "bestStageTooltip": "Die höchste Stufe, die du je erreicht hast. Sie bleibt, auch wenn du Geld ausgibst.",
     "stagesReachedBadge": "schon erreicht",
     "nextAllowanceToday": "{amount} Taschengeld kommt heute",

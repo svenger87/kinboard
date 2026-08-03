@@ -3355,6 +3355,7 @@
     "nextStageHint": "Prochain : {stage} à {amount}",
     "maxStageHint": "🌟 Stade maximum atteint !",
     "bestStageBadge": "record : {stage}",
+    "reviewRequests": "Vérifier",
     "bestStageTooltip": "Le niveau le plus élevé que tu aies atteint. Il reste, même si tu dépenses.",
     "stagesReachedBadge": "déjà atteint",
     "nextAllowanceToday": "{amount} d'argent de poche arrive aujourd'hui",

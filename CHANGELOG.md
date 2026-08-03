@@ -11,6 +11,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Pocket money stage thresholds retuned for balances (€2 / €5 / €10 / €25 / €50 / €100 / €200). The old top stage was €1000 of lifetime earnings, unreachable as a balance for a child on a few euro a week, which left the upper half of the progression dead.
 
 ### Added
+- Pocket money spend requests now show a badge on the navigation, so a parent sees a child is waiting on an answer without opening settings. The waiting-request notice on the child's page links straight to the approval screen.
 - Pocket money now shows **when the next allowance arrives** — on the child's page, the dashboard widget and the parent settings screen, alongside the last payment date. The date was previously stored and never displayed, which made a correctly-working fortnightly allowance indistinguishable from a broken one for up to 13 days.
 
 ## [1.5.0] - 2026-07-11 — Restore from backup, meal-plan digest, notification fixes

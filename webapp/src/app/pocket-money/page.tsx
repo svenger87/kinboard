@@ -265,9 +265,13 @@ export default function PocketMoneyPage() {
       </div>
 
       {pendingRequests.length > 0 && (
-        <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 flex items-center gap-2 text-sm">
+        // A waiting request now offers the way to resolve it. The nav
+        // badge brings a parent here, but approval is PIN-gated in
+        // settings — without this link the badge led to a screen where
+        // nothing could be done about it.
+        <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 flex items-center gap-3 text-sm">
           <Clock className="size-4 text-amber-400 shrink-0" />
-          <p className="text-amber-100/90">
+          <p className="text-amber-100/90 flex-1 min-w-0">
             {pendingRequests.length === 1
               ? t("pendingRequestHintOne", {
                   amount: formatCents(
@@ -279,6 +283,9 @@ export default function PocketMoneyPage() {
                   count: pendingRequests.length,
                 })}
           </p>
+          <Button asChild size="sm" variant="outline" className="shrink-0">
+            <Link href="/settings/pocket-money">{t("reviewRequests")}</Link>
+          </Button>
         </div>
       )}
 
