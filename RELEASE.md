@@ -23,9 +23,31 @@ publishing pipeline already handles them.
 **Cutting one:**
 
 ```bash
+# 1. Bump the version FIRST — see below for why this is not optional.
+#    webapp/package.json:  "version": "1.6.0-rc.1"
+git add webapp/package.json
+git commit -m "release: bump version for v1.6.0-rc.1"
+
+# 2. Then tag the commit that carries the bump.
 git tag v1.6.0-rc.1
 git push origin v1.6.0-rc.1
 ```
+
+**Why the bump matters on a pre-release.** It is tempting to skip it —
+the version only "really" changes at the stable release. Two things break
+if you do, and rc.1 and rc.2 of 1.6.0 both shipped with them broken:
+
+- **The service worker never evicts its cache.** `CACHE_NAME` is
+  `kinboard-<package.json version>`, substituted at build time, and the SW
+  deletes every cache whose name doesn't match on activate. Leave the
+  version alone and the key is identical across builds, so stale
+  `_next/static/chunks/*` survive — which is exactly the ChunkLoadError
+  the mechanism exists to prevent, aimed at the people most likely to be
+  auto-updating.
+- **Testers cannot report a version.** Settings shows
+  `package.json`'s version, so an RC identifies itself as the last stable
+  release. That directly contradicts the instruction further down this
+  page to report against the exact version rather than "next".
 
 Any tag with a prerelease identifier (`-rc.1`, `-beta.2`, `-alpha.1`)
 publishes two image tags: the exact version (`1.6.0-rc.1`) and a moving
