@@ -7,6 +7,17 @@ Powers the weather widget on the dashboard + the full-detail weather modal (tap 
 - Current conditions, hourly forecast, 6-day forecast, sunrise/sunset
 - City lookup by name (German + international cities) via OpenWeatherMap geocoding
 - "Comfort" feels-like rating + clothing suggestion ("light jacket", "rain coat", etc.)
+- Metric or imperial units, family-wide
+
+## Units
+
+**Settings → Weather → Units** switches the whole household between metric (°C, km/h, km, mm) and imperial (°F, mph, mi, in). The choice is stored per family, so every screen in the house agrees — it is not a per-device preference.
+
+The setting takes effect immediately: it changes the units Kinboard asks OpenWeatherMap for, rather than converting numbers after the fact, so temperatures come back already rounded in the right system.
+
+Two values need converting regardless of the setting, because OpenWeatherMap always reports them the same way: **visibility** is always metres, and **rainfall/snowfall** are always millimetres. Kinboard converts both. Wind is the opposite trap — metric responses are metres per second (converted to km/h for display), while imperial responses are already miles per hour and are passed through untouched.
+
+The weather map's rain overlay is served by OpenWeatherMap as metric tiles and keeps its mm/h legend in both systems.
 
 ## Setup
 

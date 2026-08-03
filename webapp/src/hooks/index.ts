@@ -3,6 +3,7 @@ export { useToday } from "./use-today";
 export { useIdleTimeout } from "./use-idle-timeout";
 export {
   useWeather,
+  useWeatherUnits,
   useWeatherLocation,
   useWeatherForecast,
   useWeatherMapConfig,
