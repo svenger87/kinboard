@@ -3,6 +3,7 @@
 // scattered as literals across hooks, pages, and API routes.)
 export const SETTINGS_KEYS = {
   weatherLocation: "weather_location",
+  weatherUnits: "weather_units",
   defaultCalendarId: "default_calendar_id",
   holidayCountry: "holiday_country",
   theme: "theme",

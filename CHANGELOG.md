@@ -8,8 +8,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 - Pre-release channel for testers: set `KINBOARD_TAG=next` in `webapp/docker/.env` to run release candidates and try fixes before they ship. `next` always points at the newest candidate, and removing the line returns you to stable. See [Self-hosting → Pre-release channel](https://github.com/svenger87/kinboard/wiki/Self-hosting#pre-release-channel).
+- Weather can now be shown in imperial units. **Settings → Weather → Units** switches the whole household between metric (°C, km/h, km, mm) and imperial (°F, mph, mi, in), covering the widget, the detail view and the forecast ([#19](https://github.com/svenger87/kinboard/issues/19)).
 
 ### Fixed
+- **Shopping list image search no longer returns unrelated or adult images.** The feature scraped Bing's HTML search page with no SafeSearch setting, and fell back to DuckDuckGo when Bing returned nothing. Bing changed what it serves automated clients, so in practice every search fell through to that fallback — which, because its per-query token no longer matched the query, answered with results for something else entirely and with no content filtering. No Kinboard release caused this; it broke underneath us. **Update as soon as you can if children use your board.**
+- Image search now requests SafeSearch properly and *verifies* it was applied, and no longer trusts a single source: results also come from Open Food Facts (real product photos) with Openverse and — if you've set a key — Unsplash filling gaps. Every result is checked against a blocklist and, crucially, against the search term itself, so a source that ignores what you typed returns nothing rather than something random.
+- Shopping-list image search now actually finds the product: searching "Bananen" returns supermarket listings rather than nutrition-blog headers, and brand searches like "Domestos" or "L'Oréal Haarspray" return the real item. Results follow your interface language.
+- The idle screensaver no longer appears on phones, where it rendered distorted and served no purpose. Devices marked as a kiosk keep it regardless of screen size.
+- If image search can't return trustworthy results it now shows an empty state instead of falling back to an unfiltered source. Set `KINBOARD_IMAGE_SEARCH=off` to disable web image search entirely.
 - CI: the end-to-end smoke suite had been failing on every push since 25 July, before it ran a single test. `npm ci` aborted during dependency install because the workflow used the npm bundled with Node 20 (npm 10) while the lockfile is npm 11 shaped. The npm version is now pinned in one place (`packageManager` in `webapp/package.json`) and activated in CI and the Docker build, so contributors and CI resolve dependencies identically.
 
 ## [1.5.0] - 2026-07-11 — Restore from backup, meal-plan digest, notification fixes

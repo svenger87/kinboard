@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  toUnitSystem,
+  windSpeedForDisplay,
+  visibilityForDisplay,
+} from "@/lib/weather-units";
 
 const OPENWEATHERMAP_API_KEY = process.env.OPENWEATHERMAP_API_KEY;
 const BASE_URL = process.env.OPENWEATHERMAP_BASE_URL || "https://api.openweathermap.org/data/2.5";
@@ -53,6 +58,7 @@ export async function GET(request: NextRequest) {
   const city = searchParams.get("city");
   const rawLang = searchParams.get("lang") || "de";
   const lang = ["de", "en", "fr"].includes(rawLang) ? rawLang : "de";
+  const units = toUnitSystem(searchParams.get("units"));
 
   if (!OPENWEATHERMAP_API_KEY) {
     return NextResponse.json({ configured: false }, { status: 200 });
@@ -62,9 +68,9 @@ export async function GET(request: NextRequest) {
     let url: string;
 
     if (lat && lon) {
-      url = `${BASE_URL}/weather?lat=${lat}&lon=${lon}&units=metric&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
+      url = `${BASE_URL}/weather?lat=${lat}&lon=${lon}&units=${units}&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
     } else if (city) {
-      url = `${BASE_URL}/weather?q=${encodeURIComponent(city)}&units=metric&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
+      url = `${BASE_URL}/weather?q=${encodeURIComponent(city)}&units=${units}&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
     } else {
       return NextResponse.json(
         { error: "Either lat/lon or city parameter required" },
@@ -96,13 +102,19 @@ export async function GET(request: NextRequest) {
       conditionMain: data.weather[0].main,
       conditionIcon: data.weather[0].icon,
       humidity: data.main.humidity,
-      windSpeed: Math.round(data.wind.speed * 3.6), // m/s to km/h
+      // m/s → km/h for metric; imperial already arrives as mph.
+      windSpeed: windSpeedForDisplay(data.wind.speed, units),
       location: data.name,
       high: Math.round(data.main.temp_max),
       low: Math.round(data.main.temp_min),
-      visibility: Math.round(data.visibility / 1000), // m to km
+      // Always metres from the API, whatever `units` says.
+      visibility: visibilityForDisplay(data.visibility, units),
       sunrise: formatTime(data.sys.sunrise, data.timezone),
       sunset: formatTime(data.sys.sunset, data.timezone),
+      // Echoed back so the client labels the numbers with the system
+      // they were actually produced in, even if the setting changed
+      // while this response was in flight.
+      units,
     };
 
     return NextResponse.json(weather);
