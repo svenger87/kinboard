@@ -138,6 +138,117 @@ function pickMealHint(hintsRaw: string, mealType: MealType, date: string): strin
   return hints[hash % hints.length];
 }
 
+/**
+ * Pick a few recipes to suggest, stably.
+ *
+ * This replaced `recipes.sort(() => Math.random() - 0.5).slice(0, 3)`
+ * written inline in the JSX, which had three problems stacked on top of
+ * each other:
+ *
+ *  - `sort` mutates in place, and `recipes` is the array held by the
+ *    TanStack Query cache. Rendering the meal planner quietly reordered
+ *    the recipe list every other consumer reads.
+ *  - It re-ran on every render with new randomness, so the three cards
+ *    changed under the reader's hands on any state change at all — a
+ *    hover, a refetch, a drag. That's the flicker.
+ *  - Images inside the cards then reload at different heights, which is
+ *    what makes the page jump while you're scrolling it.
+ *
+ * A hash of the recipe id and a seed gives a shuffle that is random-
+ * looking but fixed: the same week shows the same suggestions until the
+ * recipes or the week actually change.
+ */
+function hashString(value: string): number {
+  // djb2 — deterministic across renders, reloads and devices, unlike
+  // anything seeded from Math.random or a timestamp.
+  let hash = 5381;
+  for (let i = 0; i < value.length; i++) {
+    hash = ((hash << 5) + hash + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+const SUGGESTION_COUNT = 3;
+
+function RecipeSuggestions({
+  recipes,
+  seed,
+  onSelect,
+}: {
+  recipes: Recipe[];
+  /** Changing this reshuffles; the visible week is the natural choice. */
+  seed: string;
+  onSelect: () => void;
+}) {
+  const t = useTranslations("meals");
+
+  const suggestions = useMemo(
+    () =>
+      // Copy before sorting — see above.
+      [...recipes]
+        .sort((a, b) => hashString(seed + a.id) - hashString(seed + b.id))
+        .slice(0, SUGGESTION_COUNT),
+    [recipes, seed],
+  );
+
+  if (suggestions.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+    >
+      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3 px-1">
+        {t("recipeSuggestions")}
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {suggestions.map((recipe) => (
+          <Card
+            key={recipe.id}
+            className="group cursor-pointer hover:bg-accent/40 transition-all"
+            onClick={onSelect}
+          >
+            <CardContent className="p-4 flex items-center gap-3">
+              {recipe.image_url ? (
+                <div className="size-12 rounded-lg overflow-hidden shrink-0 bg-muted/30">
+                  <img
+                    src={recipe.image_url}
+                    alt={recipe.title}
+                    className="size-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <UtensilsCrossed className="size-5 text-primary" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{recipe.title}</p>
+                <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                  {recipe.prep_time_minutes && (
+                    <span className="flex items-center gap-0.5">
+                      <Clock className="size-3" />
+                      {recipe.prep_time_minutes} min
+                    </span>
+                  )}
+                  {recipe.servings && (
+                    <span className="flex items-center gap-0.5">
+                      <Users className="size-3" />
+                      {recipe.servings}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
 // Meal slot droppable component
 function MealSlot({
   date,
@@ -943,18 +1054,27 @@ export default function MealPlannerPage() {
                     <p className="text-sm text-muted-foreground max-w-sm mb-6">
                       {t("emptyDescription")}
                     </p>
-                    <div className="flex gap-3">
+                    {/* Wraps rather than overflowing: "Mahlzeit
+                        hinzufügen" and "Rezepte durchsuchen" are far
+                        wider than their English equivalents and pushed
+                        past both edges of the card on a phone. The
+                        buttons keep their own labels on one line and
+                        stack instead, and `max-w-full` stops a long
+                        translation from widening the row past the
+                        card. */}
+                    <div className="flex flex-wrap justify-center gap-3 w-full max-w-full">
                       <Button
                         variant="outline"
+                        className="max-w-full"
                         onClick={() => handleAddClick(today, "dinner")}
                       >
-                        <Plus className="size-4 mr-2" />
-                        {t("emptyAction")}
+                        <Plus className="size-4 mr-2 shrink-0" />
+                        <span className="truncate">{t("emptyAction")}</span>
                       </Button>
-                      <Link href="/recipes">
-                        <Button variant="outline">
-                          <ChefHat className="size-4 mr-2" />
-                          {t("browseRecipes")}
+                      <Link href="/recipes" className="max-w-full">
+                        <Button variant="outline" className="w-full max-w-full">
+                          <ChefHat className="size-4 mr-2 shrink-0" />
+                          <span className="truncate">{t("browseRecipes")}</span>
                         </Button>
                       </Link>
                     </div>
@@ -962,63 +1082,11 @@ export default function MealPlannerPage() {
                 </CardContent></Card>
 
                 {/* Quick recipe suggestions */}
-                {recipes.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3 px-1">
-                      {t("recipeSuggestions")}
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {recipes
-                        .sort(() => Math.random() - 0.5)
-                        .slice(0, 3)
-                        .map((recipe) => (
-                          <Card
-                            key={recipe.id}
-                            className="group cursor-pointer hover:bg-accent/40 transition-all"
-                            onClick={() => handleAddClick(today, "dinner")}
-                          >
-                            <CardContent className="p-4 flex items-center gap-3">
-                              {recipe.image_url ? (
-                                <div className="size-12 rounded-lg overflow-hidden shrink-0 bg-muted/30">
-                                  <img
-                                    src={recipe.image_url}
-                                    alt={recipe.title}
-                                    className="size-full object-cover"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                  <UtensilsCrossed className="size-5 text-primary" />
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate">{recipe.title}</p>
-                                <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                                  {recipe.prep_time_minutes && (
-                                    <span className="flex items-center gap-0.5">
-                                      <Clock className="size-3" />
-                                      {recipe.prep_time_minutes} min
-                                    </span>
-                                  )}
-                                  {recipe.servings && (
-                                    <span className="flex items-center gap-0.5">
-                                      <Users className="size-3" />
-                                      {recipe.servings}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                            </CardContent>
-                          </Card>
-                        ))}
-                    </div>
-                  </motion.div>
-                )}
+                <RecipeSuggestions
+                  recipes={recipes}
+                  seed={weekStart}
+                  onSelect={() => handleAddClick(today, "dinner")}
+                />
               </div>
             ) : viewMode === "grid" ? (
               <>
@@ -1094,63 +1162,14 @@ export default function MealPlannerPage() {
               </DndContext>
 
               {/* Recipe suggestions below grid when empty */}
-              {mealPlanData && mealPlanData.entries.length === 0 && recipes.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="mt-4"
-                >
-                  <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3 px-1">
-                    {t("recipeSuggestions")}
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {recipes
-                      .sort(() => Math.random() - 0.5)
-                      .slice(0, 3)
-                      .map((recipe) => (
-                        <Card
-                          key={recipe.id}
-                          className="group cursor-pointer hover:bg-accent/40 transition-all"
-                          onClick={() => handleAddClick(today, "dinner")}
-                        >
-                          <CardContent className="p-4 flex items-center gap-3">
-                            {recipe.image_url ? (
-                              <div className="size-12 rounded-lg overflow-hidden shrink-0 bg-muted/30">
-                                <img
-                                  src={recipe.image_url}
-                                  alt={recipe.title}
-                                  className="size-full object-cover"
-                                />
-                              </div>
-                            ) : (
-                              <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                <UtensilsCrossed className="size-5 text-primary" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{recipe.title}</p>
-                              <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                                {recipe.prep_time_minutes && (
-                                  <span className="flex items-center gap-0.5">
-                                    <Clock className="size-3" />
-                                    {recipe.prep_time_minutes} min
-                                  </span>
-                                )}
-                                {recipe.servings && (
-                                  <span className="flex items-center gap-0.5">
-                                    <Users className="size-3" />
-                                    {recipe.servings}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                          </CardContent>
-                        </Card>
-                      ))}
-                  </div>
-                </motion.div>
+              {mealPlanData && mealPlanData.entries.length === 0 && (
+                <div className="mt-4">
+                  <RecipeSuggestions
+                    recipes={recipes}
+                    seed={weekStart}
+                    onSelect={() => handleAddClick(today, "dinner")}
+                  />
+                </div>
               )}
               </>
             ) : (
