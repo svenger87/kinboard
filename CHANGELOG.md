@@ -6,6 +6,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Shopping list image search no longer returns unrelated or adult images.** The feature scraped Bing's HTML search page with no SafeSearch setting, and fell back to DuckDuckGo when Bing returned nothing. Bing changed what it serves automated clients, so in practice every search fell through to that fallback — which, because its per-query token no longer matched the query, answered with results for something else entirely and with no content filtering. No Kinboard release caused this; it broke underneath us. **Update as soon as you can if children use your board.**
+- Image search now uses documented APIs instead of scraping: Open Food Facts for shopping-list items (real product photos, and a grocery database has no adult content to return), Openverse for everything else, and Unsplash when you have already set an access key for the screensaver. Results are additionally checked against a blocklist and, crucially, against the search term itself — a provider that ignores what you typed now returns nothing rather than something random.
+- If image search can't return trustworthy results it now shows an empty state instead of falling back to an unfiltered source. Set `KINBOARD_IMAGE_SEARCH=off` to disable web image search entirely.
+
 ## [1.5.0] - 2026-07-11 — Restore from backup, meal-plan digest, notification fixes
 
 *Upgrade notes:* The schema migration (settings write lockdown) applies automatically on `./start.sh up`. Hard-refresh installed-PWA and kiosk devices once after updating.
