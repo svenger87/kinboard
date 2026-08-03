@@ -389,6 +389,37 @@ COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compo
 docker rm -f kinboard-watchtower
 ```
 
+## Pre-release channel
+
+Kinboard publishes release candidates ahead of stable releases. Running one is how you try a fix before it ships — and how you help catch the problem it *didn't* fix.
+
+Add one line to `webapp/docker/.env`:
+
+```bash
+KINBOARD_TAG=next
+```
+
+then bring the stack up:
+
+```bash
+cd webapp/docker
+./start.sh up
+```
+
+`next` always points at the newest release candidate, so you set it once. If you run the [Diun auto-update overlay](#updates), each new candidate arrives automatically.
+
+**Going back to stable** — delete the line (or set `KINBOARD_TAG=latest`) and `./start.sh up` again.
+
+> **Back up first.** Release candidates can contain schema migrations that a later stable release changes. Migrations are forward-only: downgrading the image does **not** undo a migration that has already run. Take a backup (Settings → Data & backup, or copy `DATA_DIR`) before switching to `next`, and keep it until you're back on stable.
+
+**Reporting a problem:** quote the exact version from Settings (e.g. `1.6.0-rc.1`), not "next" — `next` moves, so a report against it can't be reproduced later.
+
+Pinning one specific candidate works too, and is worth doing if you want a stable target while you investigate something:
+
+```bash
+KINBOARD_TAG=1.6.0-rc.1
+```
+
 ## Common deployment shapes
 
 ### LAN-only on a NAS (no public internet)
