@@ -31,7 +31,7 @@ The one place Kinboard does enforce a real database-level boundary is secrets: t
 
 If something goes wrong, these categories are at risk:
 
-- **OAuth refresh tokens** for Google Calendar (in `integration_secrets`, encrypted at rest by Postgres only if you enable disk encryption — Kinboard itself does not encrypt the column, but the table is locked down from anon/authenticated reads; see [Integration credentials](#integration-credentials))
+- **OAuth refresh tokens** for Google Calendar, and **CalDAV account passwords** (both in `integration_secrets`, encrypted at rest by Postgres only if you enable disk encryption — Kinboard itself does not encrypt the column, but the table is locked down from anon/authenticated reads; see [Integration credentials](#integration-credentials)). Prefer a provider-issued app password over your main account password for CalDAV: it can be revoked on its own if a backup leaks.
 - **Long-lived access tokens** for Home Assistant
 - **API keys** for Immich, OpenWeatherMap, Bring! account credentials
 - **VAPID push notification keys** at host level (in `webapp/docker/.env`)
@@ -71,7 +71,7 @@ Once set, the PIN persists for the browser session via `sessionStorage`. Closing
 
 ## Integration credentials
 
-OAuth tokens (Google, Home Assistant) and API keys (Immich, Unsplash, Bring!) live in `public.integration_secrets`, a table with `anon`/`authenticated` database privileges revoked and excluded from the Realtime publication — only the server's service-role client can read it. Before v1.4.0 these lived in the same `settings` table as everything else, which is anon-readable by design (so the dashboard can live-sync); that meant any device on the network could read another family member's Google refresh token or Home Assistant long-lived token via PostgREST. Settings pages now read a merged, secret-stripped view to show "connected" status without the browser ever receiving the actual token. Existing installs migrate their previously-exposed credentials into the locked-down table automatically on upgrade — no reconnecting required.
+OAuth tokens (Google, Home Assistant), CalDAV passwords, and API keys (Immich, Unsplash, Bring!) live in `public.integration_secrets`, a table with `anon`/`authenticated` database privileges revoked and excluded from the Realtime publication — only the server's service-role client can read it. Before v1.4.0 these lived in the same `settings` table as everything else, which is anon-readable by design (so the dashboard can live-sync); that meant any device on the network could read another family member's Google refresh token or Home Assistant long-lived token via PostgREST. Settings pages now read a merged, secret-stripped view to show "connected" status without the browser ever receiving the actual token. Existing installs migrate their previously-exposed credentials into the locked-down table automatically on upgrade — no reconnecting required.
 
 ## How device recognition works
 

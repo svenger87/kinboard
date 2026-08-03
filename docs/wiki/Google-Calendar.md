@@ -2,6 +2,8 @@
 
 **Two-way sync** of selected Google calendars into the dashboard view. Events created or edited in Kinboard get pushed back to Google; events created in Google flow into Kinboard at the next sync interval. Per-event mapping rules let you assign events to specific family members based on title patterns.
 
+> Not on Google? [CalDAV](CalDAV) gives you the same two-way sync against Nextcloud, Radicale, Fastmail, iCloud and friends — with a username and password instead of a Google Cloud project. The mapping rules below are shared by both providers.
+
 <img src="images/settings-google.png" alt="Settings — Google Calendar: connection status, enabled calendars and last-sync indicator" width="420"/>
 
 ## What it does
