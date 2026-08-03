@@ -562,7 +562,7 @@ export default function ShoppingPage() {
     try {
       // family_id is optional — it only unlocks the Unsplash provider
       // for households that already configured a key for the screensaver.
-      const params = new URLSearchParams({ q: query, limit: "12" });
+      const params = new URLSearchParams({ q: query, limit: "12", locale });
       if (family?.id) params.set("family_id", family.id);
       const response = await fetch(`/api/images/search?${params.toString()}`);
       if (response.ok) {

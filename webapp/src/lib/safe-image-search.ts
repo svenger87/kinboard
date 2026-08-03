@@ -30,10 +30,14 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
  *
  * ## What replaces them
  *
- * Documented JSON APIs only. None has a per-query token to go stale,
- * all return structured JSON, and a failure is a failure rather than a
- * silent switch to unfiltered content.
+ * Providers, in the order results are presented:
  *
+ *   0. **Bing Images with SafeSearch strict.** Kept, because nothing
+ *      else has the coverage to answer "Loreal Haarspray" with the
+ *      actual product — open datasets alone made the feature unusable.
+ *      What changed is that SafeSearch is now genuinely requested and
+ *      *verified*, and it is no longer the only thing standing between a
+ *      bad upstream day and a child's screen. See `searchBing`.
  *   1. **Open Food Facts** (`mode: "product"`) — a community grocery
  *      database with real product front-of-pack photos. This is the
  *      right answer for a shopping list, and it is safe *by
@@ -80,6 +84,8 @@ export interface SafeImageSearchOptions {
    * toys and games Open Food Facts doesn't carry.
    */
   mode?: "product" | "general";
+  /** Household UI locale ("de" | "en" | "fr"); drives result region. */
+  locale?: string;
 }
 
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -160,6 +166,37 @@ const BLOCKED_PHRASE_RE = new RegExp(
   `(^|[^\\p{L}])(${BLOCKED_PHRASES.join("|")})([^\\p{L}]|$)`,
   "iu",
 );
+
+/**
+ * Words appended to a shopping-list query to bias Bing toward retailer
+ * listings instead of magazine articles.
+ *
+ * Without it, "Bananen" returns nutrition-blog headers; with it, Lidl
+ * and tegut product photos. Brand queries ("Domestos") are unaffected —
+ * they already resolve to shop pages.
+ *
+ * Only the bias words are localised; they're appended to the query the
+ * user actually typed, and the relevance check downstream still runs
+ * against the *original* query, so these words can never make an
+ * unrelated result look relevant.
+ */
+const PRODUCT_BIAS: Record<string, string> = {
+  de: "Produkt kaufen",
+  en: "product buy",
+  fr: "produit acheter",
+};
+
+/** Accept-Language for the search locale, so results are region-appropriate. */
+function acceptLanguageFor(locale: string): string {
+  const lang = normalizeLocale(locale);
+  const region = { de: "de-DE", fr: "fr-FR", en: "en-US" }[lang] ?? "en-US";
+  return `${region},${lang};q=0.9,en;q=0.8`;
+}
+
+function normalizeLocale(locale: string): "de" | "en" | "fr" {
+  const base = locale.slice(0, 2).toLowerCase();
+  return base === "de" || base === "fr" ? base : "en";
+}
 
 /** Web image search turned off for this deployment. */
 export function imageSearchDisabled(): boolean {
@@ -307,6 +344,109 @@ async function searchUnsplash(
   });
 }
 
+/**
+ * Bing Images with SafeSearch strict.
+ *
+ * Bing is back as the primary provider because nothing else comes close
+ * on coverage: it finds "L'Oréal Paris Studio Line Haarspray" on
+ * Rossmann and the actual Domestos bottle on a retailer page, where the
+ * open datasets return a vaguely related stock photo or nothing.
+ *
+ * What's different from the implementation that caused the incident:
+ *
+ *   - **SafeSearch is actually requested.** The old code sent no
+ *     SafeSearch signal at all. The `SRCHHPGUSR=ADLT=STRICT` cookie is
+ *     the one that matters — Bing honours it for non-browser clients
+ *     where the query parameter alone is ignored. It is also, usefully,
+ *     what makes the scrape work: without the cookie Bing serves a
+ *     degraded page with ~1 parseable result instead of ~35, which is
+ *     precisely how the old code came to depend on its fallback.
+ *   - **It verifies before trusting.** The response must echo
+ *     `adlt=strict` back or we discard the whole batch. A scrape that
+ *     can't confirm its own safety setting is not a scrape we ship to a
+ *     children's screen.
+ *   - **It is not load-bearing for safety on its own.** The denylist and
+ *     the relevance check in `searchSafeImages` apply on top.
+ */
+async function searchBing(
+  query: string,
+  limit: number,
+  locale: string,
+): Promise<SafeImageResult[]> {
+  const params = new URLSearchParams({
+    q: query,
+    form: "HDRSC2",
+    first: "1",
+    adlt: "strict",
+    safesearch: "strict",
+  });
+
+  const response = await fetch(
+    `https://www.bing.com/images/search?${params.toString()}`,
+    {
+      headers: {
+        // A real browser UA: Bing serves scrapers the degraded page.
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": acceptLanguageFor(locale),
+        Cookie: "SRCHHPGUSR=ADLT=STRICT",
+      },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      redirect: "follow",
+    },
+  );
+
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const html = await response.text();
+
+  // Fail closed: no confirmation, no results.
+  if (!html.includes("adlt=strict")) {
+    console.error(
+      "[image-search] Bing did not confirm SafeSearch strict — discarding results",
+    );
+    return [];
+  }
+
+  const results: SafeImageResult[] = [];
+  // Each thumbnail is an anchor carrying an HTML-escaped JSON blob.
+  const pattern = /class="iusc"[^>]*\sm="([^"]+)"/g;
+  const ceiling = limit * 3; // leave the filters room to work
+
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(html)) !== null && results.length < ceiling) {
+    try {
+      // `&amp;` MUST decode last, or `&amp;lt;` becomes `<` — decoding
+      // one step past what the source intended.
+      const json = match[1]
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&");
+
+      const data = JSON.parse(json) as {
+        murl?: string;
+        turl?: string;
+        t?: string;
+        purl?: string;
+      };
+      if (!data.murl || !data.turl) continue;
+
+      results.push({
+        url: data.murl,
+        thumbnail: data.turl,
+        title: typeof data.t === "string" ? data.t : "",
+        source: typeof data.purl === "string" ? data.purl : "",
+      });
+    } catch {
+      continue; // malformed entry — skip, don't fail the search
+    }
+  }
+
+  return results;
+}
+
 interface OpenFoodFactsResponse {
   hits?: Array<{
     code?: string;
@@ -429,7 +569,7 @@ async function searchOpenverse(
  */
 export async function searchSafeImages(
   query: string,
-  { limit = 12, familyId, mode = "general" }: SafeImageSearchOptions = {},
+  { limit = 12, familyId, mode = "general", locale = "en" }: SafeImageSearchOptions = {},
 ): Promise<SafeImageResult[]> {
   if (imageSearchDisabled()) return [];
 
@@ -446,7 +586,20 @@ export async function searchSafeImages(
   // Providers run concurrently; a slow or broken one costs its own
   // results, never the whole search. Order here is the order results
   // are presented in, because dedupe below keeps the first occurrence.
-  const providers: Array<Promise<SafeImageResult[]>> = [];
+  // Shopping-list searches get the retailer bias; a pocket-money goal
+  // ("Lego Technic") is already a product name and needs no help.
+  const bingQuery =
+    mode === "product"
+      ? `${q} ${PRODUCT_BIAS[normalizeLocale(locale)]}`.trim()
+      : q;
+
+  const providers: Array<Promise<SafeImageResult[]>> = [
+    // Bing first: it is the only source with the coverage to answer a
+    // brand-and-variant query like "Loreal Haarspray" with the actual
+    // product. The open datasets below fill gaps and provide clean
+    // packshots, but on their own they made the feature unusable.
+    searchBing(bingQuery, limit, locale).catch(guard("Bing")),
+  ];
 
   if (mode === "product") {
     providers.push(searchOpenFoodFacts(q, limit).catch(guard("Open Food Facts")));

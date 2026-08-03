@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
     limit,
     familyId,
     mode: "product",
+    locale: searchParams.get("locale") ?? "de",
   });
 
   return NextResponse.json({
