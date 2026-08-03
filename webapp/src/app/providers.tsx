@@ -6,6 +6,7 @@ import { useState, useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { useRealtimeSync, useIdleTimeout } from "@/hooks";
+import { useIsHandheld } from "@/hooks/use-is-handheld";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { usePresence } from "@/hooks/use-presence";
 import { useFamilyStore } from "@/stores/family-store";
@@ -97,8 +98,20 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
     setSkipScreensaver(isNoNavPath(path));
   }, []);
 
+  // The screensaver is a wall-display feature: a full-bleed photo canvas
+  // with an overlaid clock and widgets, laid out for a landscape panel.
+  // On a phone it renders distorted, and it has no purpose there anyway —
+  // a phone locks itself and lives in a pocket. So it simply doesn't
+  // activate on handheld-width screens.
+  //
+  // `is_kiosk` overrides the check: a device explicitly configured as a
+  // kiosk should keep its screensaver even on a small panel, which is the
+  // one case where a narrow viewport really is a permanent display.
+  const isHandheld = useIsHandheld();
+  const suppressForViewport = isHandheld && !(device?.is_kiosk ?? false);
+
   // Hide nav bars during screensaver to save GPU (backdrop-blur is expensive on ARM)
-  const showScreensaver = isIdle && !skipScreensaver;
+  const showScreensaver = isIdle && !skipScreensaver && !suppressForViewport;
   useEffect(() => {
     if (showScreensaver) {
       document.documentElement.setAttribute("data-screensaver", "true");
