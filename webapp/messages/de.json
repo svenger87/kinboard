@@ -155,7 +155,8 @@
       "title": "Was ist neu",
       "updatedToast": "Kinboard wurde auf {version} aktualisiert",
       "whatsNewAction": "Was ist neu",
-      "changelogUnavailable": "Versionshinweise nicht verfügbar — siehe GitHub."
+      "changelogUnavailable": "Versionshinweise nicht verfügbar — siehe GitHub.",
+      "prereleaseBadge": "Vorabversion"
     },
     "birthdayYearRing": {
       "centerLabel": "Geburtstage",
