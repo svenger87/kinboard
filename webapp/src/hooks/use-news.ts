@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSetting } from "./use-supabase-queries";
-import { DEFAULT_NEWS_SOURCES } from "@/lib/news-providers";
+import { useFamilyStore } from "@/stores/family-store";
+import { DEFAULT_NEWS_SOURCES, type CustomFeed } from "@/lib/news-providers";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 export interface NewsItem {
@@ -16,6 +17,16 @@ export interface NewsItem {
 
 export function useNewsSources() {
   return useSetting<string[]>(SETTINGS_KEYS.newsSources, DEFAULT_NEWS_SOURCES);
+}
+
+/**
+ * The family's own RSS feeds. Stored separately from `news_sources`
+ * because the two answer different questions — this one is "which feeds
+ * exist", `news_sources` is "which are switched on" — and a feed you
+ * toggled off shouldn't have to be re-added and re-tested to come back.
+ */
+export function useCustomFeeds() {
+  return useSetting<CustomFeed[]>(SETTINGS_KEYS.newsCustomFeeds, []);
 }
 
 export interface NewsProviderSummary {
@@ -46,12 +57,20 @@ export function useNewsProviders() {
 
 export function useNews() {
   const { data: sources } = useNewsSources();
+  const { family } = useFamilyStore();
+  const familyId = family?.id ?? "";
   const sourcesParam = (sources && sources.length > 0 ? sources : DEFAULT_NEWS_SOURCES).join(",");
 
   return useQuery({
-    queryKey: ["news", sourcesParam],
+    // Custom feeds resolve per family, so the family is part of the key —
+    // otherwise switching families on one device would serve the previous
+    // family's articles from cache.
+    queryKey: ["news", sourcesParam, familyId],
     queryFn: async (): Promise<NewsItem[]> => {
-      const response = await fetch(`/api/news?sources=${encodeURIComponent(sourcesParam)}`);
+      const response = await fetch(
+        `/api/news?sources=${encodeURIComponent(sourcesParam)}` +
+          (familyId ? `&family_id=${encodeURIComponent(familyId)}` : ""),
+      );
       if (!response.ok) {
         throw new Error("Failed to fetch news");
       }

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 import DOMPurify from "isomorphic-dompurify";
-import { NEWS_PROVIDERS } from "@/lib/news-providers";
+import { NEWS_PROVIDERS, customFeedHosts } from "@/lib/news-providers";
+import { loadCustomFeeds } from "@/lib/news-custom-feeds";
 import { isDemoMode, findDemoArticle } from "@/lib/demo-news";
 
 // Extracts the main article content from a news URL using Mozilla
@@ -61,20 +62,25 @@ for (const [_, hosts] of Object.entries(HOST_ALIASES)) {
   for (const h of hosts) ALLOWED_HOSTS.add(h);
 }
 
-function isHostAllowed(host: string): boolean {
+/**
+ * `extra` carries the hosts of one family's own feeds, and is never
+ * merged into ALLOWED_HOSTS. A feed URL someone typed on their own
+ * dashboard widens reader mode for that household only — otherwise the
+ * first person to add a feed would quietly extend what every other
+ * install's server is willing to fetch.
+ */
+function isHostAllowed(host: string, extra: ReadonlyArray<string> = []): boolean {
   // Exact match or one-level subdomain (`a.bbc.com` allowed if `bbc.com`).
-  for (const h of ALLOWED_HOSTS) {
+  for (const h of [...ALLOWED_HOSTS, ...extra]) {
     if (host === h || host.endsWith("." + h)) return true;
   }
   return false;
 }
 
-async function fetchArticle(url: string): Promise<ArticleResult> {
-  const cached = articleCache.get(url);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.data;
-  }
-
+async function fetchArticle(
+  url: string,
+  extraHosts: ReadonlyArray<string> = [],
+): Promise<ArticleResult> {
   let parsedUrl: URL;
   try {
     parsedUrl = new URL(url);
@@ -84,8 +90,16 @@ async function fetchArticle(url: string): Promise<ArticleResult> {
   if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
     return { readable: false, url, reason: "invalid-protocol" };
   }
-  if (!isHostAllowed(parsedUrl.hostname)) {
+  // Checked before the cache is consulted, not after. The cache is keyed
+  // by URL and shared across families; looking up first would hand a
+  // family an article from a host only some other family had allowed.
+  if (!isHostAllowed(parsedUrl.hostname, extraHosts)) {
     return { readable: false, url, reason: "host-not-allowed" };
+  }
+
+  const cached = articleCache.get(url);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
   }
 
   try {
@@ -240,6 +254,20 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const result = await fetchArticle(url);
+  // Only pay for the settings read when the URL isn't already covered by
+  // the built-in catalog, which is the overwhelmingly common case.
+  let extraHosts: string[] = [];
+  const familyId = request.nextUrl.searchParams.get("family_id");
+  if (familyId) {
+    try {
+      if (!isHostAllowed(new URL(url).hostname)) {
+        extraHosts = customFeedHosts(await loadCustomFeeds(familyId));
+      }
+    } catch {
+      // Malformed URL — fetchArticle reports it properly below.
+    }
+  }
+
+  const result = await fetchArticle(url, extraHosts);
   return NextResponse.json(result);
 }
