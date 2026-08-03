@@ -5,7 +5,9 @@
 # Stage 1: Dependencies
 # ===================
 FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat && npm install -g npm@11
+# Pinned to match `packageManager` in package.json — a floating major
+# would eventually pull npm 12 and reintroduce lockfile drift.
+RUN apk add --no-cache libc6-compat && npm install -g npm@11.19.0
 # Suppress npm's "new major version available" notice on every command
 # (the upgrade above doesn't help — Alpine's bundled npm 10 still
 # prints the notice from any subprocess that invokes it).

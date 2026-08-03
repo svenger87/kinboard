@@ -2,6 +2,11 @@
   "name": "kinboard",
   "version": "1.5.0",
   "private": true,
+  "packageManager": "npm@11.19.0",
+  "engines": {
+    "node": ">=20.9",
+    "npm": ">=11"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

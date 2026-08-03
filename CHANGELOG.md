@@ -14,6 +14,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 - Calendar week view: events happening at the same time no longer cover each other. Overlapping events now share the day's width side by side — as in any calendar app — and widen again as soon as there's room. Previously the second of two parallel events was drawn exactly on top of the first and was invisible.
 - Calendar week view: events starting before 6:00 or ending after 22:00 are no longer cut off. The hour grid was fixed to 6:00–22:00, so an early-morning or late-evening event was drawn outside the visible area; the grid now stretches to cover whatever the week actually contains.
+- CI: the end-to-end smoke suite had been failing on every push since 25 July, before it ran a single test. `npm ci` aborted during dependency install because the workflow used the npm bundled with Node 20 (npm 10) while the lockfile is npm 11 shaped. The npm version is now pinned in one place (`packageManager` in `webapp/package.json`) and activated in CI and the Docker build, so contributors and CI resolve dependencies identically.
 
 ## [1.5.0] - 2026-07-11 — Restore from backup, meal-plan digest, notification fixes
 
