@@ -25,31 +25,43 @@ const iso = (y: number, m: number, d: number, h = 0) =>
 test.describe("avatar stage tracks the current balance", () => {
   test("stage rises with the balance", () => {
     expect(tierFromBalance(0)).toBe(1);
-    expect(tierFromBalance(199)).toBe(1);
-    expect(tierFromBalance(200)).toBe(2);
-    expect(tierFromBalance(500)).toBe(3);
-    expect(tierFromBalance(1_000)).toBe(4);
-    expect(tierFromBalance(2_500)).toBe(5);
-    expect(tierFromBalance(5_000)).toBe(6);
-    expect(tierFromBalance(10_000)).toBe(7);
+    expect(tierFromBalance(49)).toBe(1);
+    expect(tierFromBalance(50)).toBe(2);
+    expect(tierFromBalance(150)).toBe(3);
+    expect(tierFromBalance(400)).toBe(4);
+    expect(tierFromBalance(1_000)).toBe(5);
+    expect(tierFromBalance(3_000)).toBe(6);
+    expect(tierFromBalance(8_000)).toBe(7);
     expect(tierFromBalance(20_000)).toBe(8);
     expect(tierFromBalance(999_999)).toBe(8);
+  });
+
+  test("only a genuinely empty account sits at the bottom stage", () => {
+    // The whole point of the retune. A child who saves up and buys the
+    // thing lands on an empty account; the next coin has to visibly
+    // move them, or the flattest stretch of the progression lands
+    // exactly when they did the right thing.
+    expect(tierFromBalance(0)).toBe(1);
+    expect(tierFromBalance(50)).toBeGreaterThan(1);
+    // One €5 allowance should be real progress, not one step.
+    expect(tierFromBalance(500)).toBe(4);
   });
 
   test("stage falls again when money is spent", () => {
     // The reported bug: this used to stay put, because the stage was
     // derived from lifetime earnings.
-    const afterSaving = tierFromBalance(5_000);
+    const afterSaving = tierFromBalance(8_000);
     const afterSpending = tierFromBalance(1_200);
-    expect(afterSaving).toBe(6);
-    expect(afterSpending).toBe(4);
+    expect(afterSaving).toBe(7);
+    expect(afterSpending).toBe(5);
     expect(afterSpending).toBeLessThan(afterSaving);
   });
 
   test("the best-ever badge survives spending", () => {
-    const peak = tierFromBalance(5_000); // 6
-    expect(effectiveBestTier(1_200, peak)).toBe(6);
-    expect(effectiveBestTier(0, peak)).toBe(6);
+    const peak = tierFromBalance(8_000); // 7
+    expect(effectiveBestTier(1_200, peak)).toBe(7);
+    // The harshest real case: spent to zero, badge still holds.
+    expect(effectiveBestTier(0, peak)).toBe(7);
   });
 
   test("a new high water mark overtakes a stale stored value", () => {
@@ -58,8 +70,8 @@ test.describe("avatar stage tracks the current balance", () => {
   });
 
   test("next threshold points at the next stage, null at the top", () => {
-    expect(nextTierThreshold(0)).toBe(200);
-    expect(nextTierThreshold(1_455)).toBe(2_500);
+    expect(nextTierThreshold(0)).toBe(50);
+    expect(nextTierThreshold(1_455)).toBe(3_000);
     expect(nextTierThreshold(20_000)).toBeNull();
   });
 });
