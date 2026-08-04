@@ -376,11 +376,22 @@ export async function getLastSyncTime(): Promise<number | null> {
 // MERGE HELPERS
 // ==================
 
-// Merge operations for the same item (optimization)
-// e.g., multiple updates to same item become one update
+/**
+ * Collapse the queued operations for one item into a single request.
+ *
+ * e.g. three updates to the same item become one update; a create followed
+ * by a delete becomes nothing at all.
+ *
+ * Returns the rows to send *and* the rows to discard, because the caller
+ * cannot work the second out for itself. It used to return only the merged
+ * operations, and the drain removed only the id it was handed — so every row
+ * that had been merged away stayed in IndexedDB marked "pending". The badge
+ * never cleared, and each later drain re-merged the same rows and re-sent
+ * the request they had already produced.
+ */
 export function mergeOperations(
   operations: OfflineQueueOperation[]
-): OfflineQueueOperation[] {
+): { operations: OfflineQueueOperation[]; discarded: string[] } {
   const itemOperations = new Map<string, OfflineQueueOperation[]>();
 
   // Group by item (serverId or localId)
@@ -393,13 +404,20 @@ export function mergeOperations(
   }
 
   const merged: OfflineQueueOperation[] = [];
+  // Rows collapsed into nothing at all — a create followed by a delete. They
+  // still have to leave the queue, or they sit there as "pending" forever.
+  const discarded: string[] = [];
 
   // Use Array.from for compatibility with older TS targets
   for (const ops of Array.from(itemOperations.values())) {
     if (ops.length === 1) {
-      merged.push(ops[0]);
+      merged.push({ ...ops[0], mergedFrom: [ops[0].id] });
       continue;
     }
+
+    // Every merged operation records the rows it stands in for, so the drain
+    // can clear all of them once the single request it produced succeeds.
+    const sourceIds = ops.map((op) => op.id);
 
     // Sort by timestamp
     ops.sort((a, b) => a.timestamp - b.timestamp);
@@ -410,10 +428,12 @@ export function mergeOperations(
       // If item was created then deleted locally, remove both
       const createOp = ops.find((op) => op.type === "create");
       if (createOp) {
-        // Don't add anything - item never existed on server
+        // Nothing to send — the item never reached the server. The rows do
+        // still need clearing, which is what discarded is for.
+        discarded.push(...sourceIds);
         continue;
       }
-      merged.push(deleteOp);
+      merged.push({ ...deleteOp, mergedFrom: sourceIds });
       continue;
     }
 
@@ -431,6 +451,7 @@ export function mergeOperations(
         ...createOp,
         data: { ...createOp.data, payload: mergedPayload },
         timestamp: ops[ops.length - 1].timestamp, // Use latest timestamp
+        mergedFrom: sourceIds,
       });
     } else if (updates.length > 0) {
       // Merge all updates
@@ -442,11 +463,19 @@ export function mergeOperations(
         ...updates[0],
         data: { ...updates[0].data, payload: mergedPayload },
         timestamp: updates[updates.length - 1].timestamp,
+        mergedFrom: sourceIds,
       });
+    } else {
+      // Neither a create nor an update survived — nothing to send, but the
+      // rows still have to go.
+      discarded.push(...sourceIds);
     }
   }
 
-  return merged.sort((a, b) => a.timestamp - b.timestamp);
+  return {
+    operations: merged.sort((a, b) => a.timestamp - b.timestamp),
+    discarded,
+  };
 }
 
 // ==================
