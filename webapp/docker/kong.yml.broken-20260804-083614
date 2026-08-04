@@ -1,0 +1,327 @@
+_format_version: "2.1"
+_transform: true
+
+###
+### Consumers / Users
+###
+consumers:
+  - username: DASHBOARD
+  - username: anon
+
+###
+### Access Control List
+###
+acls:
+  - consumer: DASHBOARD
+    group: admin
+  - consumer: anon
+    group: anon
+
+###
+### API Keys
+### Replace the placeholder values below with your real Supabase JWTs.
+### Generate them per https://supabase.com/docs/guides/self-hosting#api-keys
+### or let `./setup.sh` populate them from your .env automatically.
+###
+keyauth_credentials:
+  - consumer: DASHBOARD
+    key: REPLACE_WITH_SERVICE_ROLE_KEY
+  - consumer: anon
+    key: REPLACE_WITH_ANON_KEY
+
+###
+### Services
+###
+services:
+  ## PostgREST
+  - name: rest-v1
+    _comment: "PostgREST: /rest/v1/* -> rest:3000/*"
+    url: http://rest:3000/
+    routes:
+      - name: rest-v1-route
+        strip_path: true
+        paths:
+          - /rest/v1/
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - http://localhost:3000
+            - http://localhost:3001
+            - REPLACE_WITH_WEBAPP_ORIGIN  # webapp_origin
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Profile
+            - Accept-Version
+            - Authorization
+            - Content-Length
+            - Content-Type
+            - Content-Profile
+            - Date
+            - X-Auth-Token
+            - X-Client-Info
+            - X-Retry-Count
+            - apikey
+            - Prefer
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
+      - name: key-auth
+        config:
+          hide_credentials: false
+          key_in_header: true
+          key_names:
+            - apikey
+
+  - name: rest-v1-rpc
+    _comment: "PostgREST RPC: /rest/v1/rpc/* -> rest:3000/rpc/*"
+    url: http://rest:3000/rpc/
+    routes:
+      - name: rest-v1-rpc-route
+        strip_path: true
+        paths:
+          - /rest/v1/rpc/
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - http://localhost:3000
+            - http://localhost:3001
+            - REPLACE_WITH_WEBAPP_ORIGIN  # webapp_origin
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Profile
+            - Accept-Version
+            - Authorization
+            - Content-Length
+            - Content-Type
+            - Content-Profile
+            - Date
+            - X-Auth-Token
+            - X-Client-Info
+            - X-Retry-Count
+            - apikey
+            - Prefer
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
+      - name: key-auth
+        config:
+          hide_credentials: false
+          key_in_header: true
+          key_names:
+            - apikey
+
+  ## Auth (GoTrue)
+  - name: auth-v1
+    _comment: "GoTrue: /auth/v1/* -> auth:9999/*"
+    url: http://auth:9999/
+    routes:
+      - name: auth-v1-route
+        strip_path: true
+        paths:
+          - /auth/v1/
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - http://localhost:3000
+            - http://localhost:3001
+            - REPLACE_WITH_WEBAPP_ORIGIN  # webapp_origin
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Profile
+            - Accept-Version
+            - Authorization
+            - Content-Length
+            - Content-Type
+            - Content-Profile
+            - Date
+            - X-Auth-Token
+            - X-Client-Info
+            - X-Retry-Count
+            - apikey
+            - Prefer
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
+      - name: key-auth
+        config:
+          hide_credentials: false
+          key_in_header: true
+          key_names:
+            - apikey
+
+  ## Realtime
+  - name: realtime-v1-ws
+    _comment: "Realtime WebSocket: /realtime/v1/* -> realtime-dev:4000/socket/* (the realtime container has a 'realtime-dev' network alias; the hostname must match the seeded tenant external_id since realtime parses tenant_id from the first label of the Host header)"
+    url: http://realtime-dev:4000/socket/
+    routes:
+      - name: realtime-v1-ws-route
+        strip_path: true
+        paths:
+          - /realtime/v1/
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - http://localhost:3000
+            - http://localhost:3001
+            - REPLACE_WITH_WEBAPP_ORIGIN  # webapp_origin
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Profile
+            - Accept-Version
+            - Authorization
+            - Content-Length
+            - Content-Type
+            - Content-Profile
+            - Date
+            - X-Auth-Token
+            - X-Client-Info
+            - X-Retry-Count
+            - apikey
+            - Prefer
+            - Upgrade
+            - Connection
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
+      - name: key-auth
+        config:
+          hide_credentials: false
+          # WebSocket clients can't set arbitrary headers during the upgrade
+          # handshake, so the realtime route must accept the apikey from the
+          # query string in addition to the header.
+          key_in_header: true
+          key_in_query: true
+          key_names:
+            - apikey
+
+  ## Storage — public bucket reads (no auth, mirrors Supabase hosted)
+  #
+  # `/storage/v1/object/public/*` is intentionally world-readable in Supabase
+  # — public buckets are public. Without splitting this route off, Kong's
+  # key-auth plugin on the catchall storage route would 401 every browser
+  # request to a public-bucket image, breaking the Tesla / vehicle / recipe
+  # image rendering whenever the URL is loaded by anything other than the
+  # Supabase JS client (which carries the apikey header).
+  #
+  # The more-specific path is matched first by Kong, so this route handles
+  # public-bucket reads with CORS only; everything else falls through to
+  # the keyed `storage-v1` service below.
+  - name: storage-v1-public
+    _comment: "Storage public reads: /storage/v1/object/public/* -> storage:5000/object/public/*"
+    # The upstream URL keeps the `/object/public/` prefix so that with
+    # strip_path: true (which strips `/storage/v1/object/public/`), the
+    # final upstream path is `/object/public/<bucket>/<key>` — exactly
+    # what the storage container expects. The catchall storage-v1 route
+    # below uses the same pattern (`url: http://storage:5000/` with
+    # strip_path on `/storage/v1/`) so storage gets `/object/...`.
+    url: http://storage:5000/object/public/
+    routes:
+      - name: storage-v1-public-route
+        strip_path: true
+        paths:
+          - /storage/v1/object/public/
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - http://localhost:3000
+            - http://localhost:3001
+            - REPLACE_WITH_WEBAPP_ORIGIN  # webapp_origin
+          methods:
+            - GET
+            - HEAD
+            - OPTIONS
+          headers:
+            - Accept
+            - Cache-Control
+            - Content-Type
+            - Range
+          exposed_headers:
+            - Content-Range
+            - Content-Length
+          credentials: false
+          max_age: 3600
+
+  ## Storage
+  - name: storage-v1
+    _comment: "Storage: /storage/v1/* -> storage:5000/*"
+    url: http://storage:5000/
+    routes:
+      - name: storage-v1-route
+        strip_path: true
+        paths:
+          - /storage/v1/
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - http://localhost:3000
+            - http://localhost:3001
+            - REPLACE_WITH_WEBAPP_ORIGIN  # webapp_origin
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Profile
+            - Accept-Version
+            - Authorization
+            - Content-Length
+            - Content-Type
+            - Content-Profile
+            - Date
+            - X-Auth-Token
+            - X-Client-Info
+            - X-Retry-Count
+            - apikey
+            - Prefer
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
+      - name: key-auth
+        config:
+          hide_credentials: false
+          key_in_header: true
+          key_names:
+            - apikey

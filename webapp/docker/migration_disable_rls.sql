@@ -13,7 +13,7 @@
 -- the API could read and write every family's data. On 2026-08-04 an
 -- unauthenticated request from the internet returned a family's join code.
 --
--- migration_enable_rls.sql replaces those broken policies with ones that read
+-- migration_zz_row_level_security.sql replaces those broken policies with ones that read
 -- a `family_id` claim from the request's JWT — a mechanism the application
 -- does set, via /api/session/token.
 --
