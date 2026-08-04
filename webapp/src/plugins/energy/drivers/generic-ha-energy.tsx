@@ -22,6 +22,7 @@ import {
   X,
   ArrowLeft,
 } from "lucide-react";
+import { DEFAULT_EXPORT_PRICE, DEFAULT_IMPORT_PRICE, parsePrice } from "@/lib/tariff";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -162,11 +163,11 @@ function EnergyCard() {
   const periodHomeConsumption = gridImport + solarTotal + batteryOut - gridExport - batteryIn;
   const autarky = periodHomeConsumption > 0 ? ((periodHomeConsumption - gridImport) / periodHomeConsumption) * 100 : 0;
 
-  const importCost = (energyConfig?.cost_per_kwh_import || 0.35) * gridImport;
-  const exportRevenue = (energyConfig?.cost_per_kwh_export || 0.08) * gridExport;
+  const importCost = (energyConfig?.cost_per_kwh_import ?? DEFAULT_IMPORT_PRICE) * gridImport;
+  const exportRevenue = (energyConfig?.cost_per_kwh_export ?? DEFAULT_EXPORT_PRICE) * gridExport;
   const netCost = importCost - exportRevenue;
 
-  const gridToBatteryCost = (energyConfig?.cost_per_kwh_import || 0.35) * gridToBattery;
+  const gridToBatteryCost = (energyConfig?.cost_per_kwh_import ?? DEFAULT_IMPORT_PRICE) * gridToBattery;
   const solarToBattery = Math.max(0, batteryIn - gridToBattery);
   const solarChargingRatio = batteryIn > 0 ? (solarToBattery / batteryIn) * 100 : 100;
 
@@ -1359,8 +1360,8 @@ function EnergyConfigForm() {
                     type="number"
                     step="0.01"
                     placeholder={t("costImportPlaceholder")}
-                    value={config.cost_per_kwh_import || ""}
-                    onChange={(e) => updateField("cost_per_kwh_import", parseFloat(e.target.value) || undefined)}
+                    value={config.cost_per_kwh_import ?? ""}
+                    onChange={(e) => updateField("cost_per_kwh_import", parsePrice(e.target.value))}
                     className="pr-16"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
@@ -1375,8 +1376,8 @@ function EnergyConfigForm() {
                     type="number"
                     step="0.01"
                     placeholder={t("costExportPlaceholder")}
-                    value={config.cost_per_kwh_export || ""}
-                    onChange={(e) => updateField("cost_per_kwh_export", parseFloat(e.target.value) || undefined)}
+                    value={config.cost_per_kwh_export ?? ""}
+                    onChange={(e) => updateField("cost_per_kwh_export", parsePrice(e.target.value))}
                     className="pr-16"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
