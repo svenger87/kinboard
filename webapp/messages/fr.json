@@ -2105,7 +2105,10 @@
       "confirmDeleteTitle": "Supprimer le compte ?",
       "confirmDeleteDescription": "Cela supprimera définitivement le compte et toutes ses transactions. Cette action est irréversible.",
       "cancel": "Annuler",
-      "delete": "Supprimer"
+      "delete": "Supprimer",
+      "errorInsufficientFunds": "Il n'y a plus assez sur le compte — l'argent a été dépensé depuis la demande.",
+      "errorAlreadyDecided": "Quelqu'un a déjà répondu à cette demande.",
+      "errorGeneric": "Cela n'a pas fonctionné. Merci de réessayer."
     },
     "news": {
       "title": "Sources d'actualités",
@@ -3478,6 +3481,9 @@
     "stagesSheetDescription": "Épargnez plus pour atteindre chaque stade suivant.",
     "stagesStartingThreshold": "Stade de départ",
     "stagesThreshold": "Débloqué à {amount} d'économies",
-    "stagesCurrentBadge": "Vous êtes ici"
+    "stagesCurrentBadge": "Vous êtes ici",
+    "errorInsufficientFunds": "Il n'y a pas assez sur le compte.",
+    "errorAlreadyDecided": "Cette demande a déjà été traitée.",
+    "errorGeneric": "Cela n'a pas fonctionné. Merci de réessayer."
   }
 }

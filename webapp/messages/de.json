@@ -2105,7 +2105,10 @@
       "confirmDeleteTitle": "Konto löschen?",
       "confirmDeleteDescription": "Dadurch wird das Konto und alle zugehörigen Transaktionen dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden.",
       "cancel": "Abbrechen",
-      "delete": "Löschen"
+      "delete": "Löschen",
+      "errorInsufficientFunds": "So viel ist nicht mehr auf dem Konto — das Geld wurde seit der Anfrage ausgegeben.",
+      "errorAlreadyDecided": "Diese Anfrage wurde bereits beantwortet.",
+      "errorGeneric": "Das hat nicht geklappt. Bitte noch einmal versuchen."
     },
     "news": {
       "title": "Nachrichtenquellen",
@@ -3478,6 +3481,9 @@
     "stagesSheetDescription": "Spare mehr, um die nächste Stufe zu erreichen.",
     "stagesStartingThreshold": "Startstufe",
     "stagesThreshold": "Freigeschaltet bei {amount} gespart",
-    "stagesCurrentBadge": "Hier bist du"
+    "stagesCurrentBadge": "Hier bist du",
+    "errorInsufficientFunds": "So viel ist nicht auf dem Konto.",
+    "errorAlreadyDecided": "Diese Anfrage wurde bereits entschieden.",
+    "errorGeneric": "Das hat nicht geklappt. Bitte noch einmal versuchen."
   }
 }
