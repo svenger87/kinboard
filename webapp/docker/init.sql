@@ -253,7 +253,7 @@ CREATE INDEX IF NOT EXISTS idx_settings_family ON public.settings(family_id);
 -- ROW LEVEL SECURITY
 -- ===================
 --
--- Enabled, and defined in migration_enable_rls.sql — not here. The entrypoint
+-- Enabled, and defined in migration_zz_row_level_security.sql — not here. The entrypoint
 -- applies every migration on boot, so that file is the single definition of
 -- who can see what.
 --
@@ -619,7 +619,7 @@ CREATE INDEX IF NOT EXISTS idx_notification_logs_family ON public.notification_l
 -- ROW-LEVEL SECURITY
 -- ===================
 --
--- Not defined here. It lives in migration_enable_rls.sql, which the entrypoint
+-- Not defined here. It lives in migration_zz_row_level_security.sql, which the entrypoint
 -- applies on every boot, so there is exactly one definition of who can see
 -- what.
 --

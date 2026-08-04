@@ -29,6 +29,21 @@
 -- family server-side. It also means RLS is a backstop for the direct-PostgREST
 -- path, not a replacement for the `family_id` filtering in the API routes.
 --
+-- WHY THE FILENAME STARTS WITH zz
+--
+-- Migrations apply in alphabetical order on every boot, and this one has to
+-- run after all of them. It was called migration_enable_rls.sql, which sorts
+-- early — so migration_pocket_money.sql and migration_vehicles_image.sql,
+-- both of which create their own policies, ran afterwards and put legacy
+-- policies back. On an existing database that went unnoticed, because those
+-- tables already had what they needed. On a *fresh* install it left row-level
+-- security enabled on 11 tables out of 33 with none of these policies at all
+-- — a new self-hoster would have been unprotected on day one.
+--
+-- Sorting last is what makes that structural rather than a rule to remember.
+-- A migration added later that creates a policy gets cleaned up here instead
+-- of quietly winning.
+--
 -- Safe to run more than once.
 
 BEGIN;
