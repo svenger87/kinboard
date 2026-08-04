@@ -41,6 +41,7 @@ import {
   type CreateRecipeInput,
   type ParsedRecipe,
 } from "@/hooks";
+import { RecipeTagInput } from "@/components/recipe-tag-input";
 import type { RecipeInstruction } from "@/types/database";
 
 // Ingredient input type
@@ -74,6 +75,7 @@ export default function NewRecipePage() {
     { id: "1", name: "", quantity: "", unit: "" },
   ]);
   const [instructions, setInstructions] = useState<string[]>([""]);
+  const [tags, setTags] = useState<string[]>([]);
 
   // Mutations
   const importRecipe = useImportRecipe();
@@ -134,6 +136,7 @@ export default function NewRecipePage() {
           step: idx + 1,
           text: text.trim(),
         })) as RecipeInstruction[],
+      tags,
     };
 
     try {
@@ -445,6 +448,11 @@ export default function NewRecipePage() {
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+
+                  <div>
+                    <Label>{t("form.fieldTags")}</Label>
+                    <RecipeTagInput value={tags} onChange={setTags} />
                   </div>
                 </div>
               </Card>

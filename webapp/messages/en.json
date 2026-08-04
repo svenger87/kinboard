@@ -775,7 +775,10 @@
       "placeholderStep": "Step {n}…",
       "stepImageAlt": "Step {step}",
       "addStep": "Add step",
-      "removeStepAria": "Remove step {n}"
+      "removeStepAria": "Remove step {n}",
+      "fieldTags": "Tags",
+      "tagPlaceholder": "Add a tag and press Enter",
+      "tagRemoveAria": "Remove tag {tag}"
     },
     "new": {
       "title": "New recipe",
