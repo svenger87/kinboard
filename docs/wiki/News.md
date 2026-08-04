@@ -59,10 +59,10 @@ Some publishers defeat extraction regardless — paywalls, consent walls, or art
 | | |
 |---|---|
 | Custom feeds per family | 20 |
-| Articles per source | 15 |
-| Articles shown in total | 40, newest first |
+| Articles per source | 50 |
+| Articles shown in total | 150, newest first |
 | Refresh | Every 10 minutes per source |
-| Feed size | 3 MB |
+| Feed read | up to 8 MB; a larger feed is truncated, not rejected |
 | Timeout | 12 seconds |
 
 Sources are fetched in parallel and cached separately, so one slow publisher doesn't hold up the others. If a feed fails, the last articles that did load are kept rather than blanking the page — a feed that's briefly down doesn't cost you the news.
@@ -94,6 +94,8 @@ On the public demo (`demo.kinboard.app`), news is synthetic — real publisher c
 **"That domain doesn't resolve"** — a typo in the address, or the site is gone.
 
 **"HTTP 403 — the feed may have moved or require a login"** — some publishers block server-side fetching outright, or the feed is subscriber-only.
+
+**A very large feed** — Kinboard reads the first 8 MB and takes the newest articles from that. Nothing is refused for being big; some publishers ship a hundred full-text articles per feed and you simply get the recent ones.
 
 **The feed works but the news page doesn't show it** — check the switch is on in Settings → News sources. Also give it up to 10 minutes: sources are cached, so a newly-added feed can take one refresh cycle to appear on the dashboard widget.
 

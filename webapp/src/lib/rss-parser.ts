@@ -17,7 +17,11 @@ import DOMPurify from "isomorphic-dompurify";
  * descriptions go through `stripHtml` and are rendered as React text.
  */
 
-const MAX_ITEMS_PER_FEED = 15;
+/**
+ * Default ceiling when a caller doesn't specify one. The news route sets
+ * its own; this only bounds ad-hoc parses such as feed discovery.
+ */
+const MAX_ITEMS_PER_FEED = 50;
 
 export interface ParsedFeedItem {
   title: string;

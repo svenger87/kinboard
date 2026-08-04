@@ -24,6 +24,7 @@ import { PageHeader } from "@/components/page-header";
 import { useUpdateSetting } from "@/hooks";
 import { useNewsSources, useNewsProviders, useCustomFeeds } from "@/hooks/use-news";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { safeRandomUUID } from "@/lib/uuid";
 import { CUSTOM_FEED_PREFIX, type CustomFeed } from "@/lib/news-providers";
 
 const MAX_CUSTOM_FEEDS = 20;
@@ -137,14 +138,20 @@ export default function NewsSettingsPage() {
       return;
     }
 
-    const feed: CustomFeed = {
-      id: `${CUSTOM_FEED_PREFIX}${crypto.randomUUID()}`,
-      name: (name.trim() || test.title || new URL(test.url).hostname).slice(0, 80),
-      url: test.url,
-    };
-
     setSaving(true);
     try {
+      // `safeRandomUUID`, not `crypto.randomUUID`: the latter exists only
+      // in a secure context, so on a plain-HTTP LAN deployment — which is
+      // how most of Kinboard runs — it is undefined. Calling it here threw
+      // before the try block, so Add appeared to do nothing at all: no
+      // feed, no error, just the button animation. See lib/uuid.ts, which
+      // exists because the same thing once broke the setup wizard.
+      const feed: CustomFeed = {
+        id: `${CUSTOM_FEED_PREFIX}${safeRandomUUID()}`,
+        name: (name.trim() || test.title || new URL(test.url).hostname).slice(0, 80),
+        url: test.url,
+      };
+
       await updateFeeds.mutateAsync({
         key: SETTINGS_KEYS.newsCustomFeeds,
         value: [...feeds, feed],
@@ -156,7 +163,10 @@ export default function NewsSettingsPage() {
       persistSources(next);
       toast.success(t("toastAdded"));
       resetForm();
-    } catch {
+    } catch (err) {
+      // Every failure path ends here now — a silent one is what made this
+      // bug unreportable in the first place.
+      console.error("[news] adding a custom feed failed:", err);
       toast.error(t("saveFailed"));
     } finally {
       setSaving(false);
