@@ -86,7 +86,8 @@
       "save": "Speichern"
     },
     "locationAutocomplete": {
-      "placeholder": "Ort eingeben…"
+      "placeholder": "Ort eingeben…",
+      "clearAria": "Ort löschen"
     },
     "recipeImagePicker": {
       "imageAlt": "Rezeptbild",
@@ -2064,7 +2065,8 @@
       "cancelButton": "Abbrechen",
       "deleteButton": "Entfernen",
       "addFailed": "Symbol konnte nicht hinzugefügt werden. Bitte erneut versuchen.",
-      "deleteFailed": "Symbol konnte nicht entfernt werden. Bitte erneut versuchen."
+      "deleteFailed": "Symbol konnte nicht entfernt werden. Bitte erneut versuchen.",
+      "deleteAria": "{symbol} von der Watchlist entfernen"
     },
     "pocketMoney": {
       "title": "Taschengeld",
