@@ -126,7 +126,13 @@ export async function syncIcsCalendar(
       .select("id")
       .eq("calendar_id", calendarId)
       .eq("google_event_id", googleEventId)
-      .single();
+      // maybeSingle, not single: `.single()` errors when more than one
+      // row matches as well as when none does, and both surfaced as null
+      // — so an existing duplicate sent this down the insert path and
+      // added another one on every sync.
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (existing) {
 
