@@ -15,10 +15,32 @@ const OFFLINE_URL = '/offline';
 // Assets to cache immediately on install
 const PRECACHE_ASSETS = [
   '/',
+  // The standalone shopping app is a separate installable PWA
+  // (public/manifest-shopping.json, start_url and scope /einkaufen). It was
+  // missing here, so it had nothing of its own to fall back to and landed in
+  // the main app instead — see SHOPPING_SCOPE below.
+  '/einkaufen',
   '/manifest.json',
+  '/manifest-shopping.json',
   '/icons/icon-192.svg',
   '/icons/icon-512.svg',
 ];
+
+// Where a failed navigation should land.
+//
+// This service worker is registered at the root, so it intercepts navigations
+// for both installed apps. Falling back to '/' unconditionally meant the
+// shopping PWA showed Kinboard whenever its own navigation didn't complete —
+// a cold launch, a flaky phone connection — which looks exactly like the
+// shopping app "routing to the main app".
+//
+// Each app falls back inside its own scope now, so a launch that can't reach
+// the network still opens the app the user actually tapped.
+const SHOPPING_SCOPE = '/einkaufen';
+
+function navigationFallbackFor(url) {
+  return url.pathname.startsWith(SHOPPING_SCOPE) ? SHOPPING_SCOPE : '/';
+}
 
 // Install event - precache essential assets
 self.addEventListener('install', (event) => {
@@ -97,9 +119,10 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          // Return cached version or offline page
+          // Return the cached page itself, or the fallback for whichever app
+          // this navigation belongs to — never the other one's start page.
           return caches.match(request).then((cached) => {
-            return cached || caches.match('/');
+            return cached || caches.match(navigationFallbackFor(url));
           });
         })
     );
