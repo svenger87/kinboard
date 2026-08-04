@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useFamilyStore } from "@/stores/family-store";
 import type {
   PocketMoneyGoal,
   PocketMoneyGoalInsert,
@@ -8,11 +9,17 @@ import type {
 const KEY = "pocket-money-goals";
 
 export function usePocketMoneyGoals(accountId: string | undefined) {
+  const { family } = useFamilyStore();
   return useQuery({
-    queryKey: [KEY, accountId],
-    enabled: Boolean(accountId),
+    // The family is part of the key as well as the request: these routes
+    // now scope by it, so a cached result from one family must not be
+    // handed to another after a switch.
+    queryKey: [KEY, accountId, family?.id],
+    enabled: Boolean(accountId) && Boolean(family?.id),
     queryFn: async (): Promise<PocketMoneyGoal[]> => {
-      const r = await fetch(`/api/pocket-money/accounts/${accountId}/goals`);
+      const r = await fetch(
+        `/api/pocket-money/accounts/${accountId}/goals?family_id=${family!.id}`,
+      );
       if (!r.ok) throw new Error(`goals: ${r.status}`);
       return ((await r.json()) as { goals: PocketMoneyGoal[] }).goals;
     },
@@ -21,6 +28,7 @@ export function usePocketMoneyGoals(accountId: string | undefined) {
 
 export function useCreatePocketMoneyGoal() {
   const qc = useQueryClient();
+  const { family } = useFamilyStore();
   return useMutation({
     mutationFn: async ({
       accountId,
@@ -32,7 +40,7 @@ export function useCreatePocketMoneyGoal() {
       const r = await fetch(`/api/pocket-money/accounts/${accountId}/goals`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
+        body: JSON.stringify({ ...input, family_id: family?.id }),
       });
       if (!r.ok) {
         const err = (await r.json().catch(() => ({}))) as { error?: string };
@@ -47,6 +55,7 @@ export function useCreatePocketMoneyGoal() {
 }
 
 export function useUpdatePocketMoneyGoal() {
+  const { family } = useFamilyStore();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -61,7 +70,7 @@ export function useUpdatePocketMoneyGoal() {
       const r = await fetch(`/api/pocket-money/goals/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(update),
+        body: JSON.stringify({ ...update, family_id: family?.id }),
       });
       if (!r.ok) throw new Error(`goal update: ${r.status}`);
       return ((await r.json()) as { goal: PocketMoneyGoal }).goal;
@@ -73,10 +82,14 @@ export function useUpdatePocketMoneyGoal() {
 }
 
 export function useDeletePocketMoneyGoal() {
+  const { family } = useFamilyStore();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id }: { id: string; accountId: string }) => {
-      const r = await fetch(`/api/pocket-money/goals/${id}`, { method: "DELETE" });
+      const r = await fetch(
+        `/api/pocket-money/goals/${id}?family_id=${family?.id ?? ""}`,
+        { method: "DELETE" },
+      );
       if (!r.ok) {
         const body = (await r.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `goal delete: ${r.status}`);

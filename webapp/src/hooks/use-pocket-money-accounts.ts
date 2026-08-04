@@ -23,11 +23,14 @@ export function usePocketMoneyAccounts() {
 }
 
 export function usePocketMoneyAccount(id: string | undefined) {
+  const { family } = useFamilyStore();
   return useQuery({
     queryKey: [KEY, "one", id],
     enabled: Boolean(id),
     queryFn: async (): Promise<PocketMoneyAccount> => {
-      const r = await fetch(`/api/pocket-money/accounts/${id}`);
+      const r = await fetch(
+        `/api/pocket-money/accounts/${id}?family_id=${family?.id ?? ""}`,
+      );
       if (!r.ok) throw new Error(`account: ${r.status}`);
       return ((await r.json()) as { account: PocketMoneyAccount }).account;
     },
@@ -35,11 +38,14 @@ export function usePocketMoneyAccount(id: string | undefined) {
 }
 
 export function usePocketMoneyAccountTransactions(accountId: string | undefined) {
+  const { family } = useFamilyStore();
   return useQuery({
     queryKey: [KEY, "transactions", accountId],
     enabled: Boolean(accountId),
     queryFn: async (): Promise<PocketMoneyTransaction[]> => {
-      const r = await fetch(`/api/pocket-money/accounts/${accountId}/transactions`);
+      const r = await fetch(
+        `/api/pocket-money/accounts/${accountId}/transactions?family_id=${family?.id ?? ""}`,
+      );
       if (!r.ok) throw new Error(`txns: ${r.status}`);
       return ((await r.json()) as { transactions: PocketMoneyTransaction[] }).transactions;
     },
@@ -93,7 +99,10 @@ export function useDeletePocketMoneyAccount() {
   const { family } = useFamilyStore();
   return useMutation({
     mutationFn: async (id: string) => {
-      const r = await fetch(`/api/pocket-money/accounts/${id}`, { method: "DELETE" });
+      const r = await fetch(
+        `/api/pocket-money/accounts/${id}?family_id=${family?.id ?? ""}`,
+        { method: "DELETE" },
+      );
       if (!r.ok) throw new Error(`delete: ${r.status}`);
     },
     onSuccess: () => {
@@ -104,6 +113,7 @@ export function useDeletePocketMoneyAccount() {
 
 export function useCreatePocketMoneyTransaction() {
   const qc = useQueryClient();
+  const { family } = useFamilyStore();
   return useMutation({
     mutationFn: async ({
       accountId,
@@ -123,7 +133,14 @@ export function useCreatePocketMoneyTransaction() {
       const r = await fetch(`/api/pocket-money/accounts/${accountId}/transactions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount_cents, type, note, related_goal_id, created_by_person_id }),
+        body: JSON.stringify({
+          amount_cents,
+          type,
+          note,
+          related_goal_id,
+          created_by_person_id,
+          family_id: family?.id,
+        }),
       });
       if (!r.ok) {
         const err = (await r.json().catch(() => ({}))) as { error?: string };
