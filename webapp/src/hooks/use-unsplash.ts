@@ -14,6 +14,7 @@ export interface UnsplashPhoto {
   url: string;
   photographer: string;
   photographerUrl: string;
+  downloadLocation: string | null;
   location: string | null;
   description: string | null;
 }
