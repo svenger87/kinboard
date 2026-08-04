@@ -86,7 +86,8 @@
       "save": "Enregistrer"
     },
     "locationAutocomplete": {
-      "placeholder": "Saisir un emplacement…"
+      "placeholder": "Saisir un emplacement…",
+      "clearAria": "Effacer le lieu"
     },
     "recipeImagePicker": {
       "imageAlt": "Image de la recette",
@@ -2064,7 +2065,8 @@
       "cancelButton": "Annuler",
       "deleteButton": "Supprimer",
       "addFailed": "Impossible d'ajouter le symbole. Veuillez réessayer.",
-      "deleteFailed": "Impossible de supprimer le symbole. Veuillez réessayer."
+      "deleteFailed": "Impossible de supprimer le symbole. Veuillez réessayer.",
+      "deleteAria": "Retirer {symbol} de la liste de suivi"
     },
     "pocketMoney": {
       "title": "Argent de poche",
