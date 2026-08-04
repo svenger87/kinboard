@@ -255,9 +255,14 @@ export default function CalendarPage() {
   // Calculate date range based on view
   const dateRange = useMemo(() => {
     if (view === "month") {
+      // The grid draws whole weeks, so it shows days either side of the
+      // month — up to six at each end. Fetching only the calendar month
+      // left those cells permanently empty: an event on the 30th of the
+      // previous month was drawn as a blank Monday in this month's grid,
+      // and clicking it opened an empty day panel.
       return {
-        start: startOfMonth(currentDate).toISOString(),
-        end: endOfMonth(currentDate).toISOString(),
+        start: startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 }).toISOString(),
+        end: endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 }).toISOString(),
       };
     } else {
       return {
