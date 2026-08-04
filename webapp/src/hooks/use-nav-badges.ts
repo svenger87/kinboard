@@ -5,6 +5,7 @@ import { useTodos, useBirthdays } from "@/hooks/use-supabase-queries";
 import { useToday } from "@/hooks/use-today";
 import { parseBirthdayDate, getDaysUntilBirthday } from "@/lib/birthday";
 import { usePendingWithdrawalCount } from "@/hooks/use-pocket-money-withdrawal-requests";
+import { isTodoOpen } from "@/lib/todo-recurrence";
 
 export type NavBadges = Record<string, number>;
 
@@ -21,8 +22,12 @@ export function useNavBadges(): NavBadges {
   return useMemo(() => {
     const badges: NavBadges = {};
 
-    // Pending todos count
-    const pendingTodos = (todos || []).filter((t) => !t.completed).length;
+    // Pending todos count. Recurring chores are never marked completed, so
+    // `!completed` alone would keep this badge lit permanently once a family
+    // has a single daily task.
+    // `today` is in the dep list, so this also re-runs at midnight when a
+    // daily chore becomes due again.
+    const pendingTodos = (todos || []).filter((t) => isTodoOpen(t)).length;
     if (pendingTodos > 0) {
       badges["/todos"] = pendingTodos;
     }
