@@ -24,6 +24,17 @@ export interface OfflineQueueOperation {
   retryCount: number;
   lastError?: string;
   status: "pending" | "syncing" | "failed";
+  /**
+   * Queue rows this operation was merged from, including its own id.
+   *
+   * mergeOperations collapses several queued operations on one item into a
+   * single request. The drain then removed only the survivor's id, so the
+   * rows it superseded stayed in IndexedDB as "pending" for good — a badge
+   * that never cleared, and a merge that redid the same work on every
+   * subsequent drain. Set by mergeOperations; the drain removes all of them
+   * together.
+   */
+  mergedFrom?: string[];
   // Optional Bring! sync data
   bringSync?: {
     action: "add" | "remove";
