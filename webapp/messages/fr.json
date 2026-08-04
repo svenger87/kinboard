@@ -50,7 +50,9 @@
       "androidOpen": "Ouvrir l'application de courses",
       "iosStandaloneHintTitle": "Vous voulez une application Courses séparée ?",
       "iosStandaloneHintBody": "iOS permet seulement d'\"Ajouter à l'écran d'accueil\" depuis Safari, pas depuis cette application Kinboard. Ouvrez Safari, visitez cette page, et la carte d'installation apparaîtra.",
-      "dismissAria": "Fermer"
+      "dismissAria": "Fermer",
+      "openStandalone": "Appli courses",
+      "openStandaloneAria": "Ouvrir l'application courses autonome"
     },
     "pin": {
       "title": "Saisir le code PIN",
