@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
               "x-api-key": immichSettings.api_key,
               "Accept": "application/json",
             },
+            signal: AbortSignal.timeout(20_000),
           }
         );
 
@@ -101,6 +102,7 @@ export async function GET(request: NextRequest) {
                 "Accept": "application/json",
                 "Content-Type": "application/json",
               },
+              signal: AbortSignal.timeout(20_000),
               body: JSON.stringify({
                 albumId: id,
                 page: page,
@@ -142,6 +144,7 @@ export async function GET(request: NextRequest) {
             "x-api-key": immichSettings.api_key,
             "Accept": "application/json",
           },
+          signal: AbortSignal.timeout(20_000),
         }
       );
 
