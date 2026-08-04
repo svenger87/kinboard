@@ -33,7 +33,23 @@ export const dynamic = "force-dynamic";
  */
 
 const TIMEOUT_MS = 12_000;
-const MAX_BYTES = 3 * 1024 * 1024;
+
+/**
+ * How much of a document we're willing to read.
+ *
+ * This used to reject anything larger, which turned out to be the wrong
+ * shape entirely: The Walt Disney Company publishes a 3.13 MB feed
+ * carrying 100 full-content items, and Kinboard shows at most a few
+ * dozen. A perfectly good feed was refused over content that would have
+ * been discarded a moment later.
+ *
+ * So the ceiling still exists — an unbounded read is how one enormous
+ * feed takes the box down — but it truncates rather than errors. The
+ * parser matches complete `<item>`/`<entry>` blocks, so a document cut
+ * mid-element simply yields the items that were whole, and never a
+ * partial one.
+ */
+const MAX_BYTES = 8 * 1024 * 1024;
 
 const UA =
   "Mozilla/5.0 (Kinboard feed discovery; +https://kinboard.app) AppleWebKit/537.36";
@@ -61,14 +77,46 @@ async function fetchText(url: string): Promise<{ body: string; contentType: stri
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-  const declared = response.headers.get("content-length");
-  if (declared && Number(declared) > MAX_BYTES) {
-    throw new Error("Feed is too large");
-  }
-  const body = await response.text();
-  if (body.length > MAX_BYTES) throw new Error("Feed is too large");
+  return {
+    body: await readCapped(response),
+    contentType: response.headers.get("content-type") ?? "",
+  };
+}
 
-  return { body, contentType: response.headers.get("content-type") ?? "" };
+/**
+ * Read a response body up to `MAX_BYTES`, then stop and keep what we have.
+ *
+ * Deliberately not `response.text()` with a length check afterwards: that
+ * buffers the whole document before deciding, so an enormous feed is
+ * already in memory by the time it's rejected. Reading the stream bounds
+ * the memory as well as the outcome.
+ */
+async function readCapped(response: Response): Promise<string> {
+  if (!response.body) return response.text();
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  let bytes = 0;
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      // `stream: true` so a multi-byte character split across two chunks
+      // isn't mangled into a replacement char.
+      text += decoder.decode(value, { stream: true });
+      if (bytes >= MAX_BYTES) break;
+    }
+    text += decoder.decode();
+  } finally {
+    // Releasing the lock lets the connection be reused; cancelling tells
+    // the server to stop sending the remaining megabytes we don't want.
+    void reader.cancel().catch(() => {});
+  }
+
+  return text;
 }
 
 /**
@@ -237,6 +285,7 @@ function describe(raw: string): string {
     return "The site took too long to respond.";
   if (/ECONNRESET|EPIPE/i.test(raw)) return "The connection was closed before the feed loaded.";
   if (/HTTP 4\d\d/.test(raw)) return `${raw} — the feed may have moved or require a login.`;
+  if (/too large/i.test(raw)) return "That feed is unusually large; only the newest articles were read.";
   if (/HTTP 5\d\d/.test(raw)) return `${raw} — the site is having trouble right now.`;
   if (/fetch failed/i.test(raw)) return "Could not reach that address.";
   return raw;
