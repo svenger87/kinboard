@@ -191,7 +191,10 @@ export function useBringItems(listId?: string | null) {
     },
     enabled: !!credentials && !!effectiveListId && !!family?.id,
     staleTime: 60 * 1000, // 1 minute
-    refetchInterval: 2 * 60 * 1000, // Refetch every 2 minutes
+    // The "Auto sync" switch in Settings → Bring! promises exactly this, and
+    // used to control nothing: the poll ran every two minutes regardless.
+    // Turning it off stops the background poll; "Sync now" still works.
+    refetchInterval: settings?.autoSync === false ? false : 2 * 60 * 1000,
   });
 }
 

@@ -40,6 +40,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 - Recipe tags work now. The tag filter on the recipes page, the tags table and the export/import round-trip were all in place, but there was no way to put a tag on a recipe — creating one made the tag and never attached it, editing one ignored tags entirely. Both recipe forms now have a tag field that suggests the tags you already use.
+- Two switches in Settings → Bring! now do what they say. "Auto sync" polled every two minutes whether it was on or off, and "Adopt Bring! categories" had no effect at all — both saved their state and were read by nothing.
 - Container logs no longer grow without limit. Docker keeps writing them until the disk fills, and Kong logs a line per request — on a dashboard that polls, roughly 10–15 MB a day, a few gigabytes a year, on a machine meant to run untouched. Each container is now capped at 30 MB of history.
 - Setting the screensaver to **Off** no longer turns it permanently on. Choosing "Off" made the screensaver appear straight away and re-appear on every touch, leaving the display stuck behind it with no way out except changing the setting from another device.
 - The month calendar now shows events on the days either side of the month. Those cells are part of the grid — the last days of the previous month and the first of the next — but nothing was ever drawn on them, so an appointment on the 30th looked like a free Monday and tapping it opened an empty day.

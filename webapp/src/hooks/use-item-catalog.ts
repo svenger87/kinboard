@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
 import { requireFamilyId } from "./use-supabase-queries";
+import { useBringSettings } from "./use-bring";
 import { useState, useCallback, useMemo, useEffect } from "react";
 
 // Types
@@ -47,10 +48,17 @@ export const catalogQueryKeys = {
  */
 export function useCatalogSearch(query: string, options?: { enabled?: boolean }) {
   const { family } = useFamilyStore();
+  const { data: bringSettings } = useBringSettings();
   const debouncedQuery = useDebounce(query, 300);
+  const useBringCategories = bringSettings?.syncCategories !== false;
 
   return useQuery({
-    queryKey: catalogQueryKeys.search(family?.id ?? "", debouncedQuery),
+    // The flag is in the key: flipping the switch has to re-fetch, or the
+    // suggestions keep their old categories until the cache expires.
+    queryKey: [
+      ...catalogQueryKeys.search(family?.id ?? "", debouncedQuery),
+      useBringCategories,
+    ],
     queryFn: async (): Promise<CatalogSearchResult[]> => {
       if (!debouncedQuery || debouncedQuery.length < 2) {
         return [];
@@ -61,6 +69,13 @@ export function useCatalogSearch(query: string, options?: { enabled?: boolean })
         family_id: requireFamilyId(family),
         limit: "20",
       });
+      // Settings → Bring! → "Adopt Bring! categories". With it off, a
+      // suggestion's category comes from our own keyword detection instead of
+      // the Bring! section it happens to sit in. The switch previously did
+      // nothing at all.
+      if (bringSettings?.syncCategories === false) {
+        params.set("bring_categories", "0");
+      }
 
       const response = await fetch(`/api/catalog/search?${params}`);
       if (!response.ok) {
