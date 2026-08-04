@@ -97,7 +97,7 @@ export function useReorderTickers() {
       const r = await fetch("/api/tickers/reorder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, family_id: family?.id }),
       });
       if (!r.ok) throw new Error(`reorder: ${r.status}`);
     },

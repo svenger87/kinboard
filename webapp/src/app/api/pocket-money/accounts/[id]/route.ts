@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { PocketMoneyAccountUpdate } from "@/types/database";
 import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
+import { familyIdFrom, rowInFamily, accountInFamily } from "@/lib/family-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -11,16 +12,22 @@ const VALID_SPECIES: ReadonlySet<string> = new Set(
 
 // GET /api/pocket-money/accounts/[id]
 export async function GET(
-  _: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  // RLS is off, so this filter is the whole boundary — see lib/family-scope.
+  const familyId = familyIdFrom(request);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
   const supabase = createAdminClient();
 
   const { data, error } = await (supabase as any)
     .from("pocket_money_accounts")
     .select("*")
     .eq("id", id)
+    .eq("family_id", familyId)
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -34,7 +41,14 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const body = (await request.json()) as Partial<PocketMoneyAccountUpdate>;
+  const body = (await request.json()) as Partial<PocketMoneyAccountUpdate> & {
+    family_id?: string;
+  };
+
+  const familyId = familyIdFrom(request, body);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
 
   // Whitelist editable fields. balance_cents, lifetime_saved_cents,
   // pending_interest_cents etc. are driven by transactions/cron — not settable here.
@@ -72,6 +86,7 @@ export async function PATCH(
     .from("pocket_money_accounts")
     .update(update)
     .eq("id", id)
+    .eq("family_id", familyId)
     .select()
     .maybeSingle();
 
@@ -82,16 +97,23 @@ export async function PATCH(
 
 // DELETE /api/pocket-money/accounts/[id]
 export async function DELETE(
-  _: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+
+  const familyId = familyIdFrom(request);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
+
   const supabase = createAdminClient();
 
   const { error } = await (supabase as any)
     .from("pocket_money_accounts")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("family_id", familyId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
