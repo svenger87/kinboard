@@ -28,9 +28,25 @@ self.addEventListener('install', (event) => {
       return cache.addAll(PRECACHE_ASSETS);
     })
   );
-  // Activate immediately
-  self.skipWaiting();
+  // Deliberately NOT skipWaiting() here.
+  //
+  // Activating immediately looks helpful and breaks two things. The new
+  // worker never enters the `waiting` state, so `registration.waiting` is
+  // always null and the "update available" button in the UI had nothing
+  // to message — tapping it did nothing at all, not even reload, and a
+  // kiosk stayed on the old bundle indefinitely.
+  //
+  // It also runs the cache purge in `activate` while pages built against
+  // the OLD bundle are still open and still lazy-loading chunks. Those
+  // chunks are gone from the cache and gone from the server, which is the
+  // ChunkLoadError this file's header says the versioned cache prevents.
+  //
+  // So: install, wait, and activate when the page asks below.
 });
+
+// The page asks for the update when the user accepts it — see the
+// 'skipWaiting' branch of the message handler further down, which already
+// existed and was unreachable while install skipped waiting on its own.
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
@@ -46,8 +62,9 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  // Take control of all clients immediately
-  self.clients.claim();
+  // Inside waitUntil: activation isn't finished until the claim resolves,
+  // otherwise a client can still be talking to the old worker afterwards.
+  event.waitUntil(self.clients.claim());
 });
 
 // Fetch event - network first, fallback to cache
