@@ -279,7 +279,7 @@ export function useJoinFamily() {
         .eq("join_code", joinCode.toUpperCase())
         .single();
 
-      if (familyError) throw new Error("Familie nicht gefunden");
+      if (familyError) throw new Error("Family not found for that join code");
 
       // Expiry is opt-in: null = never expires (current behaviour).
       // Reject the code if an explicit expiry timestamp is set and has passed.
@@ -288,7 +288,7 @@ export function useJoinFamily() {
         familyRaw.join_code_expires_at != null &&
         new Date(familyRaw.join_code_expires_at).getTime() < Date.now()
       ) {
-        throw new Error("Familie nicht gefunden");
+        throw new Error("Family not found for that join code");
       }
       const family = familyRaw;
 

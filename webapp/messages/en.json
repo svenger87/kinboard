@@ -165,7 +165,11 @@
     },
     "push": {
       "subscribeError": "Subscription failed",
-      "unsubscribeError": "Unsubscribe failed"
+      "unsubscribeError": "Unsubscribe failed",
+      "unsupported": "Push notifications aren't supported on this device.",
+      "noFamilyOrDevice": "No family or device found — reconnect this device and try again.",
+      "permissionDenied": "Notifications weren't allowed. Enable them for this site in your browser settings.",
+      "vapidMissing": "The push server isn't configured. Set the VAPID keys in .env."
     }
   },
   "localeSwitcher": {
