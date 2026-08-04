@@ -34,7 +34,7 @@ test("no icon-only button ships without an accessible name", () => {
     const source = readFileSync(file, "utf8");
     // A <button>/<Button> whose entire body is one self-closing capitalised
     // component — i.e. an icon and nothing else.
-    const pattern = /<(button|Button)\b((?:[^>"]|"[^"]*")*?)>\s*<([A-Z][A-Za-z0-9]*)\b[^>]*\/>\s*<\/\1>/gs;
+    const pattern = /<(button|Button)\b((?:[^>"]|"[^"]*")*?)>\s*<([A-Z][A-Za-z0-9]*)\b[^>]*\/>\s*<\/\1>/g;
     for (const match of source.matchAll(pattern)) {
       const attrs = match[2];
       if (/aria-label|aria-labelledby|title=|sr-only/.test(attrs)) continue;
