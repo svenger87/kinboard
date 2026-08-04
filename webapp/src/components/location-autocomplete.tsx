@@ -117,6 +117,7 @@ export function LocationAutocomplete({
           <button
             type="button"
             onClick={handleClear}
+            aria-label={t("clearAria")}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="size-4" />

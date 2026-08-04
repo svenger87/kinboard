@@ -86,7 +86,8 @@
       "save": "Save"
     },
     "locationAutocomplete": {
-      "placeholder": "Enter a location…"
+      "placeholder": "Enter a location…",
+      "clearAria": "Clear the location"
     },
     "recipeImagePicker": {
       "imageAlt": "Recipe image",
@@ -2064,7 +2065,8 @@
       "cancelButton": "Cancel",
       "deleteButton": "Remove",
       "addFailed": "Could not add the symbol. Please try again.",
-      "deleteFailed": "Could not remove the symbol. Please try again."
+      "deleteFailed": "Could not remove the symbol. Please try again.",
+      "deleteAria": "Remove {symbol} from the watchlist"
     },
     "pocketMoney": {
       "title": "Pocket Money",
