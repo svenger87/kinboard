@@ -215,6 +215,13 @@ Should show both `amd64` and `arm64`. If only one arch is present, the merge job
 - [ ] Test the published image on a fresh box (`docker compose -f docker-compose.yml -f docker-compose.image.yml pull && up -d`)
 - [ ] Tweet / Mastodon post / Discussions announcement (link to the GitHub Release page, mention 1–2 highlights)
 - [ ] If breaking change: write a wiki migration note linked from the release notes
+- [ ] If the release forces users to re-authenticate, or changes what the
+      database enforces: write `docs/release-notes/vX.Y.Z.md` and use it as the
+      release body instead of the changelog extract. The changelog says what
+      changed; a note like that has to say what the reader must *do*, and say
+      it before anything else. `docs/release-notes/v1.6.0.md` is the worked
+      example — it leads with "write your join code down first", because
+      upgrading without it locks you out of your own instance.
 - [ ] If security fix: ensure CVE/advisory is published on GitHub Security tab
 
 ## Hotfix workflow (urgent patch)
