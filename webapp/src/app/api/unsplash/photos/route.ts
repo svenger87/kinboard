@@ -29,8 +29,15 @@ interface UnsplashPhoto {
 // (unlike /search/photos which is deterministic relevance-sorted). Combining
 // multiple terms dilutes thematic overrepresentation (e.g. chimneys swamping
 // November), while still respecting the user-curated monthly term list.
-const TERMS_PER_FETCH = 3;
-const COUNT_PER_TERM = 15; // Unsplash /photos/random max is 30 per call.
+// Five terms rather than three. Each month now offers fourteen, so three was
+// sampling under a quarter of the month's variety per fetch — and the set only
+// refreshes hourly, so whatever those three returned was the entire hour's
+// wallpaper. Five calls an hour is nothing against Unsplash's rate limits.
+const TERMS_PER_FETCH = 5;
+// Below this the rotation starts repeating inside a single hour however well
+// it shuffles, so it's worth spending another request or two to get there.
+const MIN_POOL_SIZE = 40;
+const COUNT_PER_TERM = 12; // Unsplash /photos/random max is 30 per call.
 
 // Fisher-Yates shuffle for an unbiased random sample.
 function shuffle<T>(arr: T[]): T[] {
@@ -110,24 +117,43 @@ export async function GET(request: NextRequest) {
     return NextResponse.json([], { status: 200 });
   }
 
-  const pickedTerms = shuffle(termsList).slice(0, Math.min(TERMS_PER_FETCH, termsList.length));
+  const ordered = shuffle(termsList);
+  const pickedTerms = ordered.slice(0, Math.min(TERMS_PER_FETCH, termsList.length));
   // If fewer terms are available than TERMS_PER_FETCH, pull more per term so total ~30+.
   const countPerTerm = pickedTerms.length >= 2 ? COUNT_PER_TERM : 30;
 
   try {
-    const perTermResults = await Promise.all(
-      pickedTerms.map((term) => fetchRandomPhotos(unsplashSettings.access_key, term, countPerTerm)),
-    );
-
-    // Flatten + dedup by id (the random endpoint can occasionally return the same photo for overlapping queries)
     const seen = new Set<string>();
     const combined: UnsplashPhoto[] = [];
-    for (const batch of perTermResults) {
-      for (const photo of batch) {
-        if (seen.has(photo.id)) continue;
-        seen.add(photo.id);
-        combined.push(photo);
+
+    const collect = async (terms: string[]) => {
+      const batches = await Promise.all(
+        terms.map((term) => fetchRandomPhotos(unsplashSettings.access_key, term, countPerTerm)),
+      );
+      for (const batch of batches) {
+        for (const photo of batch) {
+          // The random endpoint can return the same photo for overlapping
+          // queries, and a narrow term can return almost nothing.
+          if (seen.has(photo.id)) continue;
+          seen.add(photo.id);
+          combined.push(photo);
+        }
       }
+    };
+
+    await collect(pickedTerms);
+
+    // A term can be narrow enough that Unsplash has barely any portrait
+    // photos for it — "sunflowers tall rows" returned exactly one. Without
+    // this, one such term in the draw shrinks the whole hour's wallpaper,
+    // and the screensaver cycles a handful of pictures until the next
+    // refetch. Top up from the terms we didn't draw rather than let that
+    // happen; the rate limit has ample room for a couple of extra calls.
+    let nextTerm = pickedTerms.length;
+    while (combined.length < MIN_POOL_SIZE && nextTerm < ordered.length) {
+      const topUp = ordered.slice(nextTerm, nextTerm + 2);
+      nextTerm += topUp.length;
+      await collect(topUp);
     }
 
     // Final shuffle so photos from different terms are interleaved, not grouped.

@@ -49,13 +49,32 @@ function calculateUpcomingAge(birthDate: Date): number {
   return nextBirthday.getFullYear() - birthDate.getFullYear();
 }
 
-function getRandomIndex(length: number, excludeIndex: number): number {
-  if (length <= 1) return 0;
-  let next;
-  do {
-    next = Math.floor(Math.random() * length);
-  } while (next === excludeIndex);
-  return next;
+/**
+ * The order photos are shown in.
+ *
+ * Rotation used to pick a random index each time, excluding only the one on
+ * screen — sampling with replacement. With the ~45 photos a fetch returns and
+ * a 30-second rotation, that means a photo comes back around after roughly
+ * ten others, about every five minutes, while a few of the fetched photos are
+ * never shown at all before the hourly refetch replaces them. That is why the
+ * same pictures kept turning up.
+ *
+ * A shuffle bag deals the whole set in a random order and only reshuffles
+ * once it is exhausted, so every photo is shown before any repeats — first
+ * repeat after 46 rather than 10, measured over the same pool.
+ */
+function makeShuffledOrder(length: number, avoidFirst = -1): number[] {
+  const order = Array.from({ length }, (_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  // Don't open a fresh bag with the photo that's already on screen — that's
+  // the one visible repeat a shuffle can still produce, at the seam.
+  if (length > 1 && order[0] === avoidFirst) {
+    [order[0], order[order.length - 1]] = [order[order.length - 1], order[0]];
+  }
+  return order;
 }
 
 function formatEventTime(
@@ -108,6 +127,11 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // Update clock every 60 seconds - screensaver only shows hours:minutes, not seconds
   const { hours, minutes, date } = useClock(60000);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(-1); // -1 means not initialized
+  // The shuffled running order and how far through it we are. Refs, because
+  // advancing the bag must not re-render — the rotation effect already
+  // re-runs on every photo change.
+  const photoOrder = useRef<number[]>([]);
+  const photoOrderCursor = useRef(0);
   const [previousPhotoIndex, setPreviousPhotoIndex] = useState(-1);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [readerOpen, setReaderOpen] = useState(false);
@@ -257,7 +281,9 @@ export function Screensaver({ photos }: ScreensaverProps) {
   useEffect(() => {
     if (photoUrls.length === 0 || currentPhotoIndex !== -1) return;
 
-    const initIndex = Math.floor(Math.random() * photoUrls.length);
+    photoOrder.current = makeShuffledOrder(photoUrls.length);
+    photoOrderCursor.current = 1;
+    const initIndex = photoOrder.current[0];
 
     (async () => {
       const blobUrl = await loadImageAsBlob(photoUrls[initIndex]);
@@ -275,7 +301,17 @@ export function Screensaver({ photos }: ScreensaverProps) {
     if (photoUrls.length <= 1 || currentPhotoIndex === -1) return;
 
     const timer = setInterval(async () => {
-      const nextIndex = getRandomIndex(photoUrls.length, currentPhotoIndex);
+      // A new set of photos arrived (the hourly refetch), or the bag ran
+      // out — deal a fresh one rather than indexing into a stale order.
+      if (
+        photoOrder.current.length !== photoUrls.length ||
+        photoOrderCursor.current >= photoOrder.current.length
+      ) {
+        photoOrder.current = makeShuffledOrder(photoUrls.length, currentPhotoIndex);
+        photoOrderCursor.current = 0;
+      }
+      const nextIndex = photoOrder.current[photoOrderCursor.current];
+      photoOrderCursor.current += 1;
 
       // Ensure the next image blob is ready before switching
       let nextBlobUrl = blobCache.current.get(nextIndex) ?? null;
@@ -308,8 +344,13 @@ export function Screensaver({ photos }: ScreensaverProps) {
     if (photoUrls.length <= 1 || currentPhotoIndex === -1) return;
 
     const preloadTimer = setTimeout(async () => {
-      // Pick a candidate and preload it halfway through the interval
-      const candidateIndex = getRandomIndex(photoUrls.length, currentPhotoIndex);
+      // Preload the photo that is genuinely next, not a guess. This used to
+      // pick at random, which with a set of ~45 had about a one-in-45 chance
+      // of preloading the one actually shown next — so the crossfade nearly
+      // always waited on a cold fetch anyway. The running order knows.
+      const order = photoOrder.current;
+      if (order.length === 0) return;
+      const candidateIndex = order[photoOrderCursor.current % order.length];
       if (!blobCache.current.has(candidateIndex)) {
         const blobUrl = await loadImageAsBlob(photoUrls[candidateIndex]);
         if (blobUrl) {
