@@ -72,13 +72,6 @@ export interface WeatherMapConfig {
     wind: string;
     pressure: string;
   };
-  layerNames: {
-    precipitation: string;
-    clouds: string;
-    temperature: string;
-    wind: string;
-    pressure: string;
-  };
   baseLayer: string;
   attribution: string;
 }

@@ -35,6 +35,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { displayTempToCelsius, displayWindToKmh, type UnitSystem } from "@/lib/weather-units";
 import {
   useWeather,
   useWeatherUnits,
@@ -115,6 +116,7 @@ function getClothingTips(
   temp: number,
   condition: string,
   windSpeed: number,
+  system: UnitSystem,
   precipProbability?: number,
   conditionMain?: string,
 ): ClothingTip[] {
@@ -139,17 +141,24 @@ function getClothingTips(
   }
   const hasHighPrecip = precipProbability !== undefined ? precipProbability > 50 : isRainy;
 
-  if (temp <= 0) {
+  // Thresholds below are Celsius and km/h; the incoming values are in the
+  // household's display system, so normalise before comparing. Without
+  // this an imperial reading of 40 °F fell past the 25 "t-shirt" rung and
+  // out of the ladder entirely.
+  const tempC = displayTempToCelsius(temp, system);
+  const windKmh = displayWindToKmh(windSpeed, system);
+
+  if (tempC <= 0) {
     tips.push({ icon: Snowflake, textKey: "winterJacket", color: "#60a5fa" });
-  } else if (temp <= 5) {
+  } else if (tempC <= 5) {
     tips.push({ icon: Shirt, textKey: "warmJacket", color: "#93c5fd" });
-  } else if (temp <= 10) {
+  } else if (tempC <= 10) {
     tips.push({ icon: Shirt, textKey: "jacketOrSweater", color: "#a5b4fc" });
-  } else if (temp <= 15) {
+  } else if (tempC <= 15) {
     tips.push({ icon: Shirt, textKey: "lightJacketOrCardigan", color: "#86efac" });
-  } else if (temp <= 20) {
+  } else if (tempC <= 20) {
     tips.push({ icon: Shirt, textKey: "longSleeveOrLightJacket", color: "#fde047" });
-  } else if (temp <= 25) {
+  } else if (tempC <= 25) {
     tips.push({ icon: Shirt, textKey: "tshirt", color: "#fb923c" });
   } else {
     tips.push({ icon: Sun, textKey: "breathable", color: "#f87171" });
@@ -161,10 +170,10 @@ function getClothingTips(
   if (isSnowy) {
     tips.push({ icon: Snowflake, textKey: "waterproofShoes", color: "#93c5fd" });
   }
-  if (temp > 22 && isClear) {
+  if (tempC > 22 && isClear) {
     tips.push({ icon: Glasses, textKey: "sunglasses", color: "#fbbf24" });
   }
-  if (windSpeed > 30) {
+  if (windKmh > 30) {
     tips.push({ icon: Wind, textKey: "windproof", color: "#94a3b8" });
   }
 
@@ -184,8 +193,11 @@ type ComfortKey =
 
 function getComfortLevel(
   feelsLike: number,
+  system: UnitSystem,
 ): { labelKey: ComfortKey; color: string; position: number } {
-  const fl = feelsLike;
+  // Same story as the clothing ladder: metric rungs, so normalise first.
+  // 68 °F used to land past the 30 rung and render a red "very hot".
+  const fl = displayTempToCelsius(feelsLike, system);
   if (fl <= -5) return { labelKey: "icy", color: "#60a5fa", position: 5 };
   if (fl <= 0) return { labelKey: "veryCold", color: "#93c5fd", position: 15 };
   if (fl <= 5) return { labelKey: "cold", color: "#a5b4fc", position: 25 };
@@ -205,7 +217,7 @@ interface WeatherModalProps {
 export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
   const t = useTranslations("weather");
   const { data: currentWeather } = useWeather();
-  const { labels: unitLabels } = useWeatherUnits();
+  const { labels: unitLabels, system } = useWeatherUnits();
   const { data: forecast } = useWeatherForecast();
   const { data: mapConfig, isLoading: mapLoading } = useWeatherMapConfig();
 
@@ -449,7 +461,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                             style={{
                               left: `${barLeft}%`,
                               width: `${Math.max(barWidth, 4)}%`,
-                              background: `linear-gradient(to right, ${tempBarColor(day.tempMin)}, ${tempBarColor(day.tempMax)})`,
+                              background: `linear-gradient(to right, ${tempBarColor(day.tempMin, system)}, ${tempBarColor(day.tempMax, system)})`,
                             }}
                           />
                           {isToday && (
@@ -478,11 +490,14 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
   );
 }
 
-function tempBarColor(temp: number) {
-  if (temp <= 0) return "#60a5fa";
-  if (temp <= 10) return "#67e8f9";
-  if (temp <= 20) return "#86efac";
-  if (temp <= 30) return "#fbbf24";
+function tempBarColor(temp: number, system: UnitSystem) {
+  // Metric rungs again — in Fahrenheit every day cleared 30 and the whole
+  // week rendered the same red, so the gradient carried no information.
+  const c = displayTempToCelsius(temp, system);
+  if (c <= 0) return "#60a5fa";
+  if (c <= 10) return "#67e8f9";
+  if (c <= 20) return "#86efac";
+  if (c <= 30) return "#fbbf24";
   return "#f87171";
 }
 
@@ -646,9 +661,10 @@ function ClothingAdvisor({
   precipProbability?: number;
 }) {
   const t = useTranslations("weather");
-  const tips = getClothingTips(temp, condition, windSpeed, precipProbability, conditionMain);
+  const { system } = useWeatherUnits();
+  const tips = getClothingTips(temp, condition, windSpeed, system, precipProbability, conditionMain);
   if (tips.length === 0) return null;
-  const comfort = getComfortLevel(feelsLike);
+  const comfort = getComfortLevel(feelsLike, system);
   const comfortLabels: Record<ComfortKey, string> = {
     icy: t("comfort.icy"),
     veryCold: t("comfort.veryCold"),
@@ -724,8 +740,30 @@ function ClothingAdvisor({
   );
 }
 
+/** OpenWeatherMap's wind tile scale, in m/s — the unit the tiles use. */
+const WIND_STOPS_MS = [0, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100];
+
 function MapLegend({ layer }: { layer: MapLayer }) {
   const t = useTranslations("weather");
+  const { system } = useWeatherUnits();
+  const imperial = system === "imperial";
+
+  // The overlay tiles come from OpenWeatherMap pre-rendered, so their
+  // colours are fixed and there is no units parameter to pass — an
+  // imperial household gets a metric map and that can't be helped.
+  //
+  // The legend underneath is ours, though, and the colour stops sit at
+  // known values. Relabelling those values in °F leaves the legend
+  // correct: same colours, right numbers. Reported on #19, where the
+  // reasonable assumption was that the whole thing was stuck in metric.
+  //
+  // Wind gets the same treatment in both directions: the tiles are m/s,
+  // which is not what the rest of the app shows in either system —
+  // km/h in metric, mph in imperial.
+  //
+  // Precipitation and pressure are left alone. Inches per hour puts the
+  // useful end of the scale at 0.00-0.01, which reads as nothing at all,
+  // so mm/h stays the honest label.
   const legends: Record<MapLayer, { colors: string[]; labels: string[]; unit: string }> = {
     precipitation: {
       colors: ["#00000000", "#0000CD", "#0000FF", "#00FFFF", "#00FF00", "#FFFF00", "#FF7F00", "#FF0000"],
@@ -739,13 +777,22 @@ function MapLegend({ layer }: { layer: MapLayer }) {
     },
     temperature: {
       colors: ["#821692", "#0000FF", "#00BFFF", "#00FF00", "#FFFF00", "#FFA500", "#FF0000", "#8B0000"],
-      labels: ["-40°", "-20°", "0°", "10°", "20°", "25°", "30°", "40°+"],
-      unit: "C",
+      labels: imperial
+        // Same stops as the °C row below, converted: -40, -4, 32, 50, 68,
+        // 77, 86, 104. -40 is the one place the two scales meet.
+        ? ["-40°", "-4°", "32°", "50°", "68°", "77°", "86°", "104°+"]
+        : ["-40°", "-20°", "0°", "10°", "20°", "25°", "30°", "40°+"],
+      unit: imperial ? "F" : "C",
     },
     wind: {
       colors: ["#FFFFFF00", "#AEFFFF", "#96F7DC", "#96F7B4", "#6FF46F", "#73ED12", "#A4ED12", "#DAED12", "#EDC512", "#ED9112", "#ED6312", "#ED2912"],
-      labels: ["0", "5", "10", "15", "20", "25", "30", "40", "50", "60", "80", "100+"],
-      unit: "m/s",
+      // The tile scale is m/s; these are the same stops in the unit the
+      // rest of the app uses, so the legend agrees with the widget.
+      labels: WIND_STOPS_MS.map((ms, i) => {
+        const v = Math.round(imperial ? ms * 2.23694 : ms * 3.6);
+        return i === WIND_STOPS_MS.length - 1 ? `${v}+` : `${v}`;
+      }),
+      unit: imperial ? "mph" : "km/h",
     },
     pressure: {
       colors: ["#0000FF", "#00BFFF", "#00FF00", "#FFFF00", "#FF7F00", "#FF0000"],
