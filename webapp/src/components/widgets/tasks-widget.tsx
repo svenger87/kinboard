@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import type { Todo } from "@/types/database";
 import { WidgetCard } from "@/components/widget-card";
 import { ChecklistItem } from "@/components/checklist-item";
+import { comparePriority } from "@/lib/todo-priority";
+import { isTodoOpen } from "@/lib/todo-recurrence";
 import { PersonAvatar } from "@/components/person-avatar";
 
 interface TasksWidgetProps {
@@ -68,7 +70,9 @@ export function TasksWidget({
   const openTodos = useMemo(() => {
     if (!todos) return [];
     return todos
-      .filter((t) => !t.completed)
+      // A recurring chore ticked off today is not outstanding, even though
+      // its row stays `completed: false` so it can come round again.
+      .filter((t) => isTodoOpen(t))
       .sort((a, b) => {
         // Overdue first
         const aOverdue = isOverdue(a);
@@ -81,9 +85,8 @@ export function TasksWidget({
         if (aToday !== bToday) return aToday ? -1 : 1;
 
         // Higher priority first
-        const aPri = parseInt(a.priority) || 0;
-        const bPri = parseInt(b.priority) || 0;
-        if (aPri !== bPri) return bPri - aPri;
+        const byPriority = comparePriority(a, b);
+        if (byPriority !== 0) return byPriority;
 
         // Oldest first
         return a.created_at.localeCompare(b.created_at);

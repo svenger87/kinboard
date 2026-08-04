@@ -57,8 +57,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // If push failed, handle deactivation
-    if (result.shouldDeactivate) {
+    // Only a definitive "this subscription is gone" deactivates here. A
+    // single test send has no batch to compare against, so an ambiguous 4xx
+    // can't be told apart from a bad request on our side — and the whole
+    // point of the test button is to diagnose that, not to punish the device.
+    if (result.shouldDeactivate === "gone") {
       console.log("[SendTest] Deactivating stale subscription for device:", deviceId);
        
       const sub = subscription as any;

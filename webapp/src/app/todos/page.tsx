@@ -95,6 +95,8 @@ import {
   useSwipeNavigation,
   queryKeys,
 } from "@/hooks";
+import { comparePriority } from "@/lib/todo-priority";
+import { isRecurringTaskDue } from "@/lib/todo-recurrence";
 import type { Todo } from "@/types/database";
 
 // Priority types and config
@@ -313,28 +315,6 @@ export default function TodosPage() {
   const getPersonById = (id: string | null) =>
     people?.find((p) => p.id === id);
 
-  // Check if a recurring task is currently due
-  const isRecurringTaskDue = (todo: { recurrence?: string | null; last_completed?: string | null; due_date?: string | null }): boolean => {
-    if (!todo.recurrence || todo.recurrence === "once") return false;
-    if (!todo.last_completed) return true;
-
-    const lastCompleted = new Date(todo.last_completed);
-    const now = new Date();
-    const daysSinceCompleted = Math.floor((now.getTime() - lastCompleted.getTime()) / (1000 * 60 * 60 * 24));
-
-    switch (todo.recurrence) {
-      case "daily":
-        return daysSinceCompleted >= 1;
-      case "weekly":
-        return daysSinceCompleted >= 7;
-      case "biweekly":
-        return daysSinceCompleted >= 14;
-      case "monthly":
-        return daysSinceCompleted >= 30;
-      default:
-        return false;
-    }
-  };
 
   // Get effective due date considering recurrence
   const getEffectiveDueDate = (todo: { recurrence?: string | null; last_completed?: string | null; due_date?: string | null }): Date | null => {
@@ -381,12 +361,8 @@ export default function TodosPage() {
     const bRecurringDue = isRecurringTaskDue(b);
     if (aRecurringDue !== bRecurringDue) return aRecurringDue ? -1 : 1;
 
-    const priorityOrder = { high: 0, medium: 1, low: 2 };
-    const aPriority = (a.priority as Priority) || "medium";
-    const bPriority = (b.priority as Priority) || "medium";
-    if (priorityOrder[aPriority] !== priorityOrder[bPriority]) {
-      return priorityOrder[aPriority] - priorityOrder[bPriority];
-    }
+    const byPriority = comparePriority(a, b);
+    if (byPriority !== 0) return byPriority;
 
     const aEffectiveDue = getEffectiveDueDate(a);
     const bEffectiveDue = getEffectiveDueDate(b);
