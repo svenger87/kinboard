@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     if (!isVapidConfigured()) {
       return NextResponse.json({
         success: false,
-        error: "VAPID-Schlüssel nicht konfiguriert",
+        error: "Push notifications not configured",
       });
     }
 
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
     if (!deviceId || !familyId) {
       return NextResponse.json(
-        { success: false, error: "deviceId und familyId erforderlich" },
+        { success: false, error: "deviceId and familyId are required" },
         { status: 400 }
       );
     }
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       console.log("[SendTest] No active subscription found for device:", deviceId);
       return NextResponse.json({
         success: false,
-        error: "Kein aktives Push-Abonnement gefunden. Bitte zuerst Benachrichtigungen aktivieren.",
+        error: "No active push subscription found. Please enable notifications first.",
       });
     }
 
@@ -70,12 +70,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: false,
-      error: result.error || "Push-Benachrichtigung fehlgeschlagen",
+      error: result.error || "Failed to send push notification",
     });
   } catch (error) {
     console.error("[SendTest] Error:", error);
     return NextResponse.json(
-      { success: false, error: "Serverfehler beim Senden der Test-Benachrichtigung" },
+      { success: false, error: "Internal server error" },
       { status: 500 }
     );
   }
