@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { invalidateFamilyToken } from "@/lib/supabase/family-token";
 import { useFamilyStore } from "@/stores/family-store";
 import { getDeviceId, persistDeviceId, getDeviceFingerprint } from "@/lib/device-id";
 import type {
@@ -296,6 +297,10 @@ export function useJoinFamily() {
       };
 
       await persistDeviceId(hardwareId);
+      // A session exists now; drop the "no session" answer the client may have
+      // cached while this page was anonymous, so the next query mints a token
+      // straight away rather than waiting the negative-cache window out.
+      invalidateFamilyToken();
 
       // Now that a session exists, this call carries the family token and RLS
       // lets it through.
@@ -351,6 +356,7 @@ export function useCreateFamilyWithDevice() {
       };
 
       await persistDeviceId(hardwareId);
+      invalidateFamilyToken();
 
       return { family, device };
     },

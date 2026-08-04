@@ -38,6 +38,15 @@ let cached: CachedToken | null = null;
  */
 let inFlight: Promise<CachedToken | null> | null = null;
 
+/**
+ * When we last learned there is no session, and until when to believe it.
+ *
+ * Without this, every query on an anonymous page asks again. Short enough
+ * that joining takes effect promptly — the join flow clears it explicitly.
+ */
+let noSessionUntil = 0;
+const NO_SESSION_CACHE_MS = 30_000;
+
 function isFresh(entry: CachedToken | null): entry is CachedToken {
   if (!entry) return false;
   const now = Math.floor(Date.now() / 1000);
@@ -52,15 +61,24 @@ async function fetchToken(): Promise<CachedToken | null> {
       cache: "no-store",
     });
     if (!response.ok) {
-      // 401 means no valid session — the caller is not joined, or was signed
-      // out. Not an error to shout about: the auth guard will send them to
-      // /join. Returning null lets the request proceed with the anon key,
-      // which under RLS simply sees nothing.
       cached = null;
       return null;
     }
-    const data = (await response.json()) as { token: string; expiresAt: number };
+    const data = (await response.json()) as {
+      token: string | null;
+      expiresAt: number | null;
+    };
+    if (!data.token || !data.expiresAt) {
+      // Not joined, or signed out. The auth guard sends them to /join; the
+      // request meanwhile proceeds with the anon key, which under RLS sees
+      // nothing. Remembered for a short while so an anonymous page with a
+      // dozen queries doesn't ask a dozen times.
+      cached = null;
+      noSessionUntil = Date.now() + NO_SESSION_CACHE_MS;
+      return null;
+    }
     cached = { token: data.token, expiresAt: data.expiresAt };
+    noSessionUntil = 0;
     return cached;
   } catch {
     // Offline. Keep whatever we have — a cached token may still be valid, and
@@ -72,6 +90,7 @@ async function fetchToken(): Promise<CachedToken | null> {
 /** The current token, refreshing it if it is missing or close to expiry. */
 export async function getFamilyToken(): Promise<string | null> {
   if (isFresh(cached)) return cached.token;
+  if (Date.now() < noSessionUntil) return null;
 
   if (!inFlight) {
     inFlight = fetchToken().finally(() => {
@@ -91,10 +110,12 @@ export async function getFamilyToken(): Promise<string | null> {
  */
 export function invalidateFamilyToken(): void {
   cached = null;
+  noSessionUntil = 0;
 }
 
 /** Forget everything. For sign-out. */
 export function clearFamilyToken(): void {
   cached = null;
   inFlight = null;
+  noSessionUntil = 0;
 }

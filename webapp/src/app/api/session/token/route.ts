@@ -22,7 +22,19 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: NextRequest) {
   const result = await requireSession(request);
-  if (!result.ok) return result.response;
+
+  // No session is a normal answer here, not a failure.
+  //
+  // This endpoint exists to tell a client whether it has one, so 401 would be
+  // answering the question with an error. It also meant every anonymous page
+  // load — /join in particular — logged a console error, which is noise on a
+  // path that is working exactly as intended. The smoke suite caught it.
+  if (!result.ok) {
+    return NextResponse.json(
+      { token: null, expiresAt: null, familyId: null },
+      { headers: { "Cache-Control": "no-store, private" } },
+    );
+  }
 
   const { token, expiresAt } = mintFamilyToken(result.session.familyId);
 
