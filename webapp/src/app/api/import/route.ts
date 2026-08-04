@@ -48,6 +48,20 @@ interface TableSpec {
   nullableFks: string[]; // set to NULL if unresolved
   forceNullColumns: string[]; // external references, always nulled
   arrayFks: string[]; // uuid[] columns, remapped element-wise, unmapped elements dropped
+  /**
+   * Settings keys whose *value* is a row id from another table.
+   *
+   * The remap works on columns, and `settings` has none that hold ids — the
+   * id sits inside the JSON value. So `default_calendar_id` came through a
+   * restore still naming a calendar from the source install, and the calendar
+   * page's "default calendar" pointed at something that no longer existed.
+   *
+   * Only ids that reference another Kinboard row belong here. Real settings
+   * carry plenty of other UUIDs — a camera's own id, a Home Assistant
+   * dashboard's id — that are internal to the setting's own blob and must be
+   * left alone.
+   */
+  settingValueFks: string[];
 }
 
 function spec(table: string, overrides: Partial<TableSpec> = {}): TableSpec {
@@ -59,6 +73,7 @@ function spec(table: string, overrides: Partial<TableSpec> = {}): TableSpec {
     nullableFks: [],
     forceNullColumns: [],
     arrayFks: [],
+    settingValueFks: [],
     ...overrides,
   };
 }
@@ -118,7 +133,7 @@ const TABLE_SPECS: TableSpec[] = [
     requiredFks: ["account_id"],
     nullableFks: ["parent_decided_by_person_id", "related_goal_id"],
   }),
-  spec("settings"),
+  spec("settings", { settingValueFks: [SETTINGS_KEYS.defaultCalendarId] }),
 ];
 
 interface ExportPayload {
@@ -126,6 +141,16 @@ interface ExportPayload {
   version: number;
   family: { id: string; name: string };
   data: Record<string, unknown[]>;
+  /**
+   * Added in export version 2. Absent from version 1 backups, which is
+   * why every read of it is guarded rather than assumed.
+   */
+  storage?: {
+    included: boolean;
+    object_count: number;
+    objects: Array<{ table: string; row_id: string; bucket: string; path: string }>;
+    note: string;
+  };
 }
 
 function generateJoinCode(): string {
@@ -146,9 +171,18 @@ function validatePayload(body: unknown): { payload: ExportPayload } | { error: s
   if (!isRecord(body)) {
     return { error: "Invalid backup file", status: 400 };
   }
-  if (body.format !== "kinboard-export" || body.version !== 1) {
+  // Version 2 only adds the `storage` block; the data section is identical,
+  // so both restore the same way. Accepting a range rather than one number
+  // also means a future additive bump doesn't lock users out of their own
+  // backups until they upgrade.
+  const SUPPORTED_VERSIONS = [1, 2];
+  if (
+    body.format !== "kinboard-export" ||
+    typeof body.version !== "number" ||
+    !SUPPORTED_VERSIONS.includes(body.version)
+  ) {
     return {
-      error: 'Not a Kinboard export (expected format="kinboard-export", version=1)',
+      error: `Not a Kinboard export (expected format="kinboard-export", version ${SUPPORTED_VERSIONS.join(" or ")})`,
       status: 400,
     };
   }
@@ -333,6 +367,21 @@ export async function POST(request: NextRequest) {
       out[column] = null;
     }
 
+    if (tableSpec.settingValueFks.length > 0 && typeof row.key === "string") {
+      if (tableSpec.settingValueFks.includes(row.key)) {
+        const mapped = resolve(row.value);
+        if (!mapped) {
+          // The calendar it named didn't come across. Dropping the setting
+          // leaves the app to fall back to its own default, which is a good
+          // deal better than a pointer to a row in someone else's install.
+          const key = `${tableSpec.table}:${row.key}`;
+          skipCounts.set(key, (skipCounts.get(key) ?? 0) + 1);
+          return null;
+        }
+        out.value = mapped;
+      }
+    }
+
     for (const column of tableSpec.arrayFks) {
       const oldValue = row[column];
       out[column] = Array.isArray(oldValue)
@@ -393,6 +442,19 @@ export async function POST(request: NextRequest) {
   if (scrubbedSettingsCount > 0) {
     warnings.push(
       `settings: stripped secret fields from ${scrubbedSettingsCount} row(s) — reconnect those integrations after import`
+    );
+  }
+  // Uploaded images are files in Supabase Storage, not database rows, so a
+  // JSON backup carries their URLs and not the files themselves. Say so:
+  // otherwise the restore reports success and the user finds broken images
+  // later, with nothing connecting the two.
+  const storageObjectCount =
+    isRecord(payload.storage) && typeof payload.storage.object_count === "number"
+      ? payload.storage.object_count
+      : 0;
+  if (storageObjectCount > 0) {
+    warnings.push(
+      `storage: ${storageObjectCount} uploaded image(s) are referenced but not contained in this backup — copy the storage volume too, or they will be missing`
     );
   }
 
