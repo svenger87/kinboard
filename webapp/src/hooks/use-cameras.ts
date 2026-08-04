@@ -4,31 +4,65 @@ import type { CameraConfig, CameraSettings } from "@/types/home-assistant";
 import { safeRandomUUID } from "@/lib/uuid";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
+const cameraSettingsKey = (familyId: string | undefined) => ["camera-settings", familyId];
+
+async function fetchCameraSettings(familyId: string): Promise<CameraSettings> {
+  try {
+    const response = await fetch(`/api/settings?family_id=${familyId}&key=${SETTINGS_KEYS.cameras}`);
+    if (!response.ok) {
+      if (response.status === 404) return { cameras: [] };
+      throw new Error("Failed to fetch camera settings");
+    }
+    const data = await response.json();
+    return (data.value as CameraSettings) || { cameras: [] };
+  } catch (error) {
+    console.warn("[Cameras] Settings fetch error:", error);
+    return { cameras: [] };
+  }
+}
+
 // Hook to get camera settings
 export function useCameraSettings() {
   const { family } = useFamilyStore();
 
   return useQuery({
-    queryKey: ["camera-settings", family?.id],
+    queryKey: cameraSettingsKey(family?.id),
     queryFn: async (): Promise<CameraSettings> => {
       if (!family?.id) return { cameras: [] };
-
-      try {
-        const response = await fetch(`/api/settings?family_id=${family.id}&key=${SETTINGS_KEYS.cameras}`);
-        if (!response.ok) {
-          if (response.status === 404) return { cameras: [] };
-          throw new Error("Failed to fetch camera settings");
-        }
-        const data = await response.json();
-        return (data.value as CameraSettings) || { cameras: [] };
-      } catch (error) {
-        console.warn("[Cameras] Settings fetch error:", error);
-        return { cameras: [] };
-      }
+      return fetchCameraSettings(family.id);
     },
     enabled: !!family?.id,
     staleTime: 30000,
   });
+}
+
+/**
+ * The camera list as it is *now*, for a mutation about to rewrite it.
+ *
+ * Every camera mutation rewrites the whole `cameras` array, and each read
+ * that array out of `useCameraSettings()` — a value captured when the
+ * component last rendered. Two changes in quick succession therefore both
+ * computed from the same starting list, and the second overwrote the first:
+ * delete two cameras and the one you deleted first comes back, because the
+ * second write still had it. `staleTime: 30000` widened that window
+ * considerably.
+ *
+ * Reading through the query client instead returns the freshest value and
+ * joins an in-flight refetch rather than racing it.
+ */
+function useCurrentCameras() {
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return async (): Promise<CameraConfig[]> => {
+    if (!family?.id) return [];
+    const settings = await queryClient.fetchQuery({
+      queryKey: cameraSettingsKey(family.id),
+      queryFn: () => fetchCameraSettings(family.id),
+      staleTime: 0,
+    });
+    return settings?.cameras ?? [];
+  };
 }
 
 // Hook to get all enabled cameras
@@ -67,20 +101,24 @@ export function useSaveCameraSettings() {
 
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["camera-settings", family?.id] });
+    onSuccess: (_data, settings) => {
+      // Seed the cache with what we just wrote before invalidating, so a
+      // second mutation started right away computes from this list rather
+      // than from whatever the refetch hasn't returned yet.
+      queryClient.setQueryData(cameraSettingsKey(family?.id), settings);
+      queryClient.invalidateQueries({ queryKey: cameraSettingsKey(family?.id) });
     },
   });
 }
 
 // Hook to add a camera
 export function useAddCamera() {
-  const { data: settings } = useCameraSettings();
+  const currentCameras = useCurrentCameras();
   const { mutateAsync: saveSettings } = useSaveCameraSettings();
 
   return useMutation({
     mutationFn: async (camera: Omit<CameraConfig, "id" | "position" | "created_at">) => {
-      const cameras = settings?.cameras || [];
+      const cameras = await currentCameras();
 
       const newCamera: CameraConfig = {
         ...camera,
@@ -97,12 +135,12 @@ export function useAddCamera() {
 
 // Hook to update a camera
 export function useUpdateCamera() {
-  const { data: settings } = useCameraSettings();
+  const currentCameras = useCurrentCameras();
   const { mutateAsync: saveSettings } = useSaveCameraSettings();
 
   return useMutation({
     mutationFn: async ({ cameraId, updates }: { cameraId: string; updates: Partial<CameraConfig> }) => {
-      const cameras = settings?.cameras || [];
+      const cameras = await currentCameras();
       const updatedCameras = cameras.map((cam) =>
         cam.id === cameraId ? { ...cam, ...updates } : cam
       );
@@ -114,12 +152,12 @@ export function useUpdateCamera() {
 
 // Hook to delete a camera
 export function useDeleteCamera() {
-  const { data: settings } = useCameraSettings();
+  const currentCameras = useCurrentCameras();
   const { mutateAsync: saveSettings } = useSaveCameraSettings();
 
   return useMutation({
     mutationFn: async (cameraId: string) => {
-      const cameras = settings?.cameras || [];
+      const cameras = await currentCameras();
       const updatedCameras = cameras
         .filter((cam) => cam.id !== cameraId)
         .map((cam, index) => ({ ...cam, position: index }));
@@ -131,12 +169,12 @@ export function useDeleteCamera() {
 
 // Hook to reorder cameras
 export function useReorderCameras() {
-  const { data: settings } = useCameraSettings();
+  const currentCameras = useCurrentCameras();
   const { mutateAsync: saveSettings } = useSaveCameraSettings();
 
   return useMutation({
     mutationFn: async (cameraIds: string[]) => {
-      const cameras = settings?.cameras || [];
+      const cameras = await currentCameras();
       const cameraMap = new Map(cameras.map((c) => [c.id, c]));
 
       const reorderedCameras = cameraIds
