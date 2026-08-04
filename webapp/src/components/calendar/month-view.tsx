@@ -23,6 +23,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Trash2 } from "lucide-react";
 import { EventPill } from "@/components/event-pill";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import {
   Tooltip,
   TooltipContent,
@@ -70,6 +71,7 @@ export function MonthView({
   onSelectDate,
   onSelectEvent,
 }: MonthViewProps) {
+  const { formatTime } = useTimeFormat();
   const t = useTranslations("calendar");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
@@ -233,7 +235,7 @@ export function MonthView({
                                 <p className="text-xs opacity-70">
                                   {isMulti
                                     ? `${format(event.start, "d. MMM", { locale: dateLocale })} - ${format(event.end, "d. MMM", { locale: dateLocale })}`
-                                    : `${format(event.start, "HH:mm")} - ${format(event.end, "HH:mm")}`}
+                                    : `${formatTime(event.start)} - ${formatTime(event.end)}`}
                                 </p>
                                 {event.location && (
                                   <p className="text-xs opacity-70">{event.location}</p>

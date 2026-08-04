@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useEvents } from "@/hooks";
 import { WidgetCard } from "@/components/widget-card";
 import type { LucideIcon } from "lucide-react";
+import { useTimeFormat } from "@/hooks/use-time-format";
 
 // Waste bin types: keywords match against German calendar event titles
 // (a Phase 2d task to generalize), but display labels are resolved
@@ -102,6 +103,7 @@ export function WasteCollectionWidget({
   maxItems = 4,
   className = "",
 }: WasteCollectionWidgetProps) {
+  const { formatTime } = useTimeFormat();
   const t = useTranslations("wasteCollectionWidget");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
@@ -222,7 +224,7 @@ export function WasteCollectionWidget({
                   <p className="truncate text-sm font-medium">{wasteLabels[event.wasteType.id]}</p>
                   <p className="text-xs text-muted-foreground tabular-nums">
                     {formatDayLabel(event.date, event.daysUntil)}
-                    {event.date.getHours() > 0 && ` ${format(event.date, "HH:mm")}`}
+                    {event.date.getHours() > 0 && ` ${formatTime(event.date)}`}
                   </p>
                 </div>
                 {isUrgent ? (
