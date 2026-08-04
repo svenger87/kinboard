@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
       headers: {
         "x-api-key": immichSettings.api_key,
       },
+      signal: AbortSignal.timeout(20_000),
     });
 
     if (!response.ok) {
