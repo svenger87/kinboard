@@ -60,6 +60,8 @@ The repo follows a few conventions worth knowing about:
 
 Kinboard follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/). **Every PR with user-visible behavior must update `CHANGELOG.md`** under `[Unreleased]` in the matching section (`Added` / `Changed` / `Fixed` / `Security` / `Removed`).
 
+You do not need to worry about conflicting with other branches there. `CHANGELOG.md` is marked `merge=union` in `.gitattributes`, so git keeps both sides when two branches add entries to the same section instead of raising a conflict. Add your line and leave it alone — just skim the merged section when cutting a release, since union can order two same-section entries oddly.
+
 The reader is a self-hoster deciding whether to update — write for them, not for the maintainer. Lead with the user-visible effect; reference the implementation only when the cause matters (e.g. a security fix).
 
 Skip the changelog entry for: CI/lockfile-only changes, pure internal refactors with no behavioral effect, doc-only edits.
