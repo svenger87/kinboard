@@ -26,6 +26,7 @@ import {
   Pencil,
   Link2,
   Mic,
+  Smartphone,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -129,6 +130,7 @@ export default function ShoppingPage() {
   useSwipeNavigation();
 
   const t = useTranslations("shopping");
+  const tPrompt = useTranslations("components.shoppingPrompt");
   const tCommon = useTranslations("common");
   const tCategories = useTranslations("shoppingCategories");
 
@@ -765,6 +767,23 @@ export default function ShoppingPage() {
                     </Link>
                   </Button>
                 )}
+                {/*
+                  A permanent way into the standalone shopping app.
+
+                  It used to be reachable only from the install banner below,
+                  which sets a one-year dismissal cookie — so dismissing it
+                  once made /einkaufen unreachable for a year. The route has no
+                  navigation of its own either (it's in NO_NAV_PATHS), so
+                  nothing else pointed at it apart from push notification
+                  links. Living in the header means it stays findable whether
+                  or not anyone wants the banner.
+                */}
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/einkaufen" aria-label={tPrompt("openStandaloneAria")}>
+                    <Smartphone className="size-4 mr-2" />
+                    {tPrompt("openStandalone")}
+                  </Link>
+                </Button>
               </>
             }
           />
