@@ -32,12 +32,17 @@ test.describe("a tariff of zero", () => {
   });
 
   test("the consumer keeps a configured zero instead of defaulting", () => {
-    const cost = (configured: number | undefined) => configured ?? DEFAULT_IMPORT_PRICE;
-    expect(cost(0)).toBe(0);
-    expect(cost(undefined)).toBe(DEFAULT_IMPORT_PRICE);
-    // The old expression:
-    expect(0 || DEFAULT_IMPORT_PRICE).toBe(DEFAULT_IMPORT_PRICE);
-    expect((undefined as number | undefined) ?? DEFAULT_EXPORT_PRICE).toBe(DEFAULT_EXPORT_PRICE);
+    const importCost = (configured: number | undefined) => configured ?? DEFAULT_IMPORT_PRICE;
+    const exportPrice = (configured: number | undefined) => configured ?? DEFAULT_EXPORT_PRICE;
+
+    expect(importCost(0)).toBe(0);
+    expect(importCost(undefined)).toBe(DEFAULT_IMPORT_PRICE);
+    expect(exportPrice(0)).toBe(0);
+    expect(exportPrice(undefined)).toBe(DEFAULT_EXPORT_PRICE);
+
+    // The old expression, for contrast: a real zero became the default.
+    const oldImportCost = (configured: number | undefined) => configured || DEFAULT_IMPORT_PRICE;
+    expect(oldImportCost(0)).toBe(DEFAULT_IMPORT_PRICE);
   });
 });
 
