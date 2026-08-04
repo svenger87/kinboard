@@ -47,6 +47,20 @@ interface Props {
  * fire two prompts back-to-back). Numeric input, validated to > 0,
  * confirm disabled until valid.
  */
+/**
+ * Turn what the mutation threw into something a person can act on.
+ *
+ * The server answers with short codes rather than sentences, so the two
+ * that a family will actually hit get proper text; anything else falls
+ * back to a generic line rather than showing a raw code.
+ */
+function messageFor(err: unknown, t: (key: string) => string): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (raw.includes("insufficient_funds")) return t("errorInsufficientFunds");
+  if (raw.includes("already_decided")) return t("errorAlreadyDecided");
+  return t("errorGeneric");
+}
+
 export function AmountDialog({
   open,
   onOpenChange,
@@ -70,16 +84,29 @@ export function AmountDialog({
     if (open) {
       setAmount("");
       setReason("");
+      setError(null);
     }
   }, [open]);
+
+  const [error, setError] = useState<string | null>(null);
 
   const cents = Math.round(Number(amount.replace(",", ".")) * 100);
   const valid = Number.isFinite(cents) && cents > 0;
 
   const handleSubmit = async () => {
     if (!valid) return;
-    await onConfirm(cents, withReason ? reason.trim() : undefined);
-    onOpenChange(false);
+    setError(null);
+    try {
+      await onConfirm(cents, withReason ? reason.trim() : undefined);
+      onOpenChange(false);
+    } catch (err) {
+      // Without this the rejection escaped, `onOpenChange(false)` never
+      // ran, and nothing was rendered: the dialog simply sat there. The
+      // most likely trigger is routine — withdrawing more than the
+      // balance returns 400 insufficient_funds — so the commonest error
+      // in the feature was also the most invisible.
+      setError(messageFor(err, t));
+    }
   };
 
   return (
@@ -128,6 +155,12 @@ export function AmountDialog({
             </div>
           )}
         </div>
+
+        {error && (
+          <p role="alert" className="text-sm text-destructive px-1">
+            {error}
+          </p>
+        )}
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

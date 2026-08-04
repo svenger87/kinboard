@@ -2105,7 +2105,10 @@
       "confirmDeleteTitle": "Delete account?",
       "confirmDeleteDescription": "This will permanently delete the account and all its transactions. This cannot be undone.",
       "cancel": "Cancel",
-      "delete": "Delete"
+      "delete": "Delete",
+      "errorInsufficientFunds": "There isn't enough in the account any more — the money was spent since the request was made.",
+      "errorAlreadyDecided": "Someone already answered that request.",
+      "errorGeneric": "That didn't work. Please try again."
     },
     "news": {
       "title": "News sources",
@@ -3478,6 +3481,9 @@
     "stagesSheetDescription": "Save more to grow into each next stage.",
     "stagesStartingThreshold": "Starting stage",
     "stagesThreshold": "Unlocks at {amount} saved",
-    "stagesCurrentBadge": "You are here"
+    "stagesCurrentBadge": "You are here",
+    "errorInsufficientFunds": "There isn't enough in the account for that.",
+    "errorAlreadyDecided": "That request was already decided.",
+    "errorGeneric": "That didn't work. Please try again."
   }
 }
