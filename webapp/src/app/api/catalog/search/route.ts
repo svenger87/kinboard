@@ -63,8 +63,12 @@ interface CatalogSearchResult {
 
 // Map Bring! section names to our shopping categories
 // Uses shared BRING_TO_LOCAL_CATEGORY map, falls back to keyword detection
-function mapBringSectionToCategory(sectionName: string, itemName?: string): string {
-  const mapped = BRING_TO_LOCAL_CATEGORY[sectionName];
+function mapBringSectionToCategory(
+  sectionName: string,
+  itemName?: string,
+  useBringCategories = true,
+): string {
+  const mapped = useBringCategories ? BRING_TO_LOCAL_CATEGORY[sectionName] : undefined;
   if (mapped) return mapped;
 
   // Fall back to keyword-based detection if item name provided
@@ -126,7 +130,8 @@ async function getBringCatalog(): Promise<BringCatalogItem[]> {
 // Search Bring! catalog
 async function searchBringCatalog(
   query: string,
-  limit: number = 15
+  limit: number = 15,
+  useBringCategories = true,
 ): Promise<CatalogSearchResult[]> {
   const catalog = await getBringCatalog();
   const normalizedQuery = query.toLowerCase().trim();
@@ -165,7 +170,7 @@ async function searchBringCatalog(
     name: r.item.name,
     image_url: null,
     thumbnail_url: null,
-    category: mapBringSectionToCategory(r.item.sectionName, r.item.name),
+    category: mapBringSectionToCategory(r.item.sectionName, r.item.name, useBringCategories),
     barcode: null,
     source: "bring" as const,
     default_unit: null,
@@ -178,6 +183,9 @@ export async function GET(request: NextRequest) {
   const query = searchParams.get("q");
   const familyId = searchParams.get("family_id");
   const limit = parseInt(searchParams.get("limit") || "20", 10);
+  // "Adopt Bring! categories" — off means classify by our own keywords
+  // instead of by the section the item sits in on Bring!.
+  const useBringCategories = searchParams.get("bring_categories") !== "0";
 
   if (!query || query.length < 2) {
     return NextResponse.json(
@@ -254,7 +262,7 @@ export async function GET(request: NextRequest) {
 
   // 3. Search Bring! catalog (curated German grocery items)
   if (results.length < limit) {
-    const bringResults = await searchBringCatalog(query, limit);
+    const bringResults = await searchBringCatalog(query, limit, useBringCategories);
 
     for (const item of bringResults) {
       const nameLower = item.name.toLowerCase();
