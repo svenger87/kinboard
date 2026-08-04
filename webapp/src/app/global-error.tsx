@@ -1,6 +1,61 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+/**
+ * This page replaces the root layout when rendering fails there, so there is
+ * no next-intl provider and no `useTranslations` — which is why it was
+ * written in hardcoded German and stayed that way while error.tsx and
+ * not-found.tsx were translated. An English or French household saw German
+ * at the one moment nothing else on screen could explain itself.
+ *
+ * A three-language table inline is the whole fix. It stays in step with
+ * messages/*.json by being tiny: four strings, no interpolation.
+ */
+const STRINGS = {
+  en: {
+    heading: "Something broke badly",
+    fallback: "A serious error occurred. Please try again.",
+    retry: "Try again",
+    home: "Go to dashboard",
+  },
+  de: {
+    heading: "Kritischer Fehler",
+    fallback: "Ein schwerwiegender Fehler ist aufgetreten. Bitte versuche es erneut.",
+    retry: "Erneut versuchen",
+    home: "Zum Dashboard",
+  },
+  fr: {
+    heading: "Une erreur grave est survenue",
+    fallback: "Une erreur grave s'est produite. Veuillez réessayer.",
+    retry: "Réessayer",
+    home: "Aller au tableau de bord",
+  },
+} as const;
+
+type ErrorLocale = keyof typeof STRINGS;
+
+/**
+ * The locale, worked out client-side.
+ *
+ * Same cookie the rest of the app negotiates on (src/i18n/locales.ts), with
+ * the browser's own preference as the fallback — the cookie is only set once
+ * someone has picked a language.
+ */
+function detectLocale(): ErrorLocale {
+  if (typeof document === "undefined") return "en";
+
+  const cookie = document.cookie
+    .split("; ")
+    .find((entry) => entry.startsWith("NEXT_LOCALE="))
+    ?.split("=")[1];
+  if (cookie && cookie in STRINGS) return cookie as ErrorLocale;
+
+  const browser = navigator.language?.slice(0, 2);
+  if (browser && browser in STRINGS) return browser as ErrorLocale;
+
+  return "en";
+}
 
 export default function GlobalError({
   error,
@@ -13,8 +68,15 @@ export default function GlobalError({
     console.error("Global error:", error);
   }, [error]);
 
+  // Resolved after mount so the server and the first client render agree —
+  // neither cookies nor navigator.language exist during SSR, and a mismatch
+  // here would hydrate-error inside the error page itself.
+  const [locale, setLocale] = useState<ErrorLocale>("en");
+  useEffect(() => setLocale(detectLocale()), []);
+  const t = STRINGS[locale];
+
   return (
-    <html>
+    <html lang={locale}>
       <body>
         <div
           style={{
@@ -48,10 +110,10 @@ export default function GlobalError({
               </svg>
             </div>
             <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem", fontWeight: 300 }}>
-              Kritischer Fehler
+              {t.heading}
             </h2>
             <p style={{ color: "#71717a", marginBottom: "2rem", fontSize: "0.875rem", lineHeight: 1.6 }}>
-              {error.message || "Ein schwerwiegender Fehler ist aufgetreten. Bitte versuche es erneut."}
+              {error.message || t.fallback}
             </p>
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
               <button
@@ -67,7 +129,7 @@ export default function GlobalError({
                   fontWeight: 500,
                 }}
               >
-                Erneut versuchen
+                {t.retry}
               </button>
               <button
                 onClick={() => { window.location.href = "/"; }}
@@ -82,7 +144,7 @@ export default function GlobalError({
                   fontWeight: 500,
                 }}
               >
-                Zum Dashboard
+                {t.home}
               </button>
             </div>
           </div>
