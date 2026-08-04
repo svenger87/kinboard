@@ -39,6 +39,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The ticker and vehicle endpoints matched on the id from the URL alone, without checking which family the row belonged to. Anyone who knew or guessed a row's UUID could read, edit or delete another family's entry. Both now filter by family, and a test blocks any future endpoint from shipping without that filter.
 
 ### Fixed
+- Some stocks and ETFs showed an empty chart even though the data was there. The provider's library was rejecting the whole response over one field it didn't expect, and Kinboard read that as "no data". One holding in testing went from a blank chart to twenty candles.
 - Searching for a stock or ETF works again. Every search — including plain ones like "AAPL" — returned "Yahoo Finance unavailable", so nothing could be added to the watchlist at all. The data provider's library was rejecting Yahoo's whole response because one entry in it no longer matched a shape the library expected.
 - The crash page and the push-notification errors in Settings were German only. Everything else in the app has spoken your language for a while; these were the last places that didn't, and the crash page is the one screen with nothing else on it to explain itself.
 - Changing two cameras in quick succession no longer undoes the first change. Deleting two cameras brought the first one back; adding two in a row kept only the second. Each change was calculated from the camera list as it stood when the page last drew, so whichever finished second overwrote the other.
