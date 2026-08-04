@@ -165,7 +165,11 @@
     },
     "push": {
       "subscribeError": "Fehler beim Abonnieren",
-      "unsubscribeError": "Fehler beim Abmelden"
+      "unsubscribeError": "Fehler beim Abmelden",
+      "unsupported": "Push-Benachrichtigungen werden auf diesem Gerät nicht unterstützt.",
+      "noFamilyOrDevice": "Familie oder Gerät nicht gefunden — verbinde dieses Gerät neu und versuche es erneut.",
+      "permissionDenied": "Benachrichtigungen wurden nicht erlaubt. Erlaube sie für diese Seite in deinen Browser-Einstellungen.",
+      "vapidMissing": "Der Push-Server ist nicht konfiguriert. Bitte VAPID-Schlüssel in .env setzen."
     }
   },
   "localeSwitcher": {

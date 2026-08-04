@@ -165,7 +165,11 @@
     },
     "push": {
       "subscribeError": "Échec de l'abonnement",
-      "unsubscribeError": "Échec du désabonnement"
+      "unsubscribeError": "Échec du désabonnement",
+      "unsupported": "Les notifications push ne sont pas prises en charge sur cet appareil.",
+      "noFamilyOrDevice": "Famille ou appareil introuvable — reconnectez cet appareil et réessayez.",
+      "permissionDenied": "Les notifications ont été refusées. Autorisez-les pour ce site dans les réglages de votre navigateur.",
+      "vapidMissing": "Le serveur push n'est pas configuré. Renseignez les clés VAPID dans .env."
     }
   },
   "localeSwitcher": {
