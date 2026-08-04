@@ -7,6 +7,7 @@ import { useClock } from "@/hooks/use-clock";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useBirthdays, useEvents, usePeople, usePhotoSource, useNews, useEnergyConfig, useTeslaConfig, useHomeAssistantEntityStates, useWeather, type NewsItem } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
+import { useFamilyStore } from "@/stores/family-store";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
 import { PersonAvatar } from "@/components/person-avatar";
 import { Cake, Calendar, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Battery, Zap, Car } from "lucide-react";
@@ -156,6 +157,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
 
   // Fetch photos from configured source (Immich or Unsplash)
   const { photos: sourcePhotos } = usePhotoSource();
+  const family = useFamilyStore((s) => s.family);
 
   // Weather chip (renders nothing when unconfigured)
   const { data: weather } = useWeather();
@@ -242,11 +244,42 @@ export function Screensaver({ photos }: ScreensaverProps) {
     return photos || DEFAULT_PHOTOS;
   }, [sourcePhotos, photos]);
 
+  // Photos already reported to Unsplash this session. Their guidelines want
+  // one request per display event, not one per render.
+  const reportedDownloads = useRef<Set<string>>(new Set());
+
   // Get metadata for the current photo (for Unsplash attribution)
   const currentPhotoMetadata = useMemo(() => {
     if (currentPhotoIndex < 0 || !sourcePhotos || sourcePhotos.length === 0) return null;
     return sourcePhotos[currentPhotoIndex]?.metadata || null;
   }, [currentPhotoIndex, sourcePhotos]);
+
+  // Tell Unsplash the photo was displayed.
+  //
+  // Their guidelines: "When your application performs something similar to a
+  // download (like when a user chooses the image to include in a blog post,
+  // set as a header, etc.), you must send a request to the download endpoint."
+  // Showing one as wallpaper is that event, and Kinboard has never sent it —
+  // which is how a photographer's download count reflects the use.
+  //
+  // Fire and forget, once per photo per session: it reports something that
+  // already happened, so a failure must not affect what happens next.
+  useEffect(() => {
+    const downloadLocation = currentPhotoMetadata?.downloadLocation;
+    const familyId = family?.id;
+    if (!downloadLocation || !familyId) return;
+    if (reportedDownloads.current.has(downloadLocation)) return;
+    reportedDownloads.current.add(downloadLocation);
+
+    void fetch("/api/unsplash/track-download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ family_id: familyId, download_location: downloadLocation }),
+      keepalive: true,
+    }).catch(() => {
+      // Reporting is best-effort; the screensaver carries on regardless.
+    });
+  }, [currentPhotoMetadata, family?.id]);
 
   // Blob URL cache
   const blobCache = useRef<Map<number, string>>(new Map());
@@ -930,7 +963,25 @@ export function Screensaver({ photos }: ScreensaverProps) {
           style={{ animationDelay: "1s" }}
         >
           <p className="text-white/30 text-xs text-center">
-            {t("photoCredit", { photographer: currentPhotoMetadata.photographer })}
+            {/*
+              Unsplash's guidelines require crediting Unsplash as well as the
+              photographer, and linking back to their profile. Only the name
+              was shown before, and photographerUrl was fetched and then
+              dropped. On a kiosk nobody taps a screensaver, so the link is
+              there to satisfy the requirement and for anyone who does.
+            */}
+            {currentPhotoMetadata.photographerUrl ? (
+              <a
+                href={currentPhotoMetadata.photographerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white/60 transition-colors"
+              >
+                {t("photoCreditUnsplash", { photographer: currentPhotoMetadata.photographer })}
+              </a>
+            ) : (
+              t("photoCredit", { photographer: currentPhotoMetadata.photographer })
+            )}
             {currentPhotoMetadata.location && ` · ${currentPhotoMetadata.location}`}
           </p>
         </div>
