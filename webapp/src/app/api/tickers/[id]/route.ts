@@ -1,21 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { familyIdFrom, rowInFamily } from "@/lib/family-scope";
 import type { TickerUpdate } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/tickers/[id]
 export async function GET(
-  _: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const familyId = familyIdFrom(request);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
   const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from("tickers")
     .select("*")
     .eq("id", id)
+    .eq("family_id", familyId)
     .maybeSingle();
 
   if (error) {
@@ -43,12 +49,23 @@ export async function PATCH(
   if (body.color !== undefined) update.color = body.color;
   if (body.position !== undefined) update.position = body.position;
 
+  const familyId = familyIdFrom(request, body);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
+
   const supabase = createAdminClient();
+  if (!(await rowInFamily(supabase, "tickers", id, familyId))) {
+    // Same 404 for "not yours" as for "doesn't exist", so ids can't be
+    // enumerated by watching the status code.
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
 
   const { data, error } = await supabase
     .from("tickers")
     .update(update)
     .eq("id", id)
+    .eq("family_id", familyId)
     .select()
     .single();
 
@@ -60,16 +77,21 @@ export async function PATCH(
 
 // DELETE /api/tickers/[id]
 export async function DELETE(
-  _: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const familyId = familyIdFrom(request);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
   const supabase = createAdminClient();
 
   const { error } = await supabase
     .from("tickers")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("family_id", familyId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
