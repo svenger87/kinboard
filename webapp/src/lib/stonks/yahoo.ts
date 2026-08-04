@@ -168,6 +168,29 @@ export async function fetchChart(symbol: string, timeframe: Timeframe): Promise<
   return candles;
 }
 
+/**
+ * The four fields the search mapping reads, and the shape it needs them in.
+ *
+ * Unvalidated Yahoo output is `unknown`, which is honest — this narrows it
+ * ourselves rather than trusting a schema that has already drifted. A row
+ * without a usable symbol is dropped, so a shape change upstream costs us
+ * that row instead of the whole response.
+ */
+interface TradeableQuote {
+  symbol: string;
+  shortname?: string;
+  longname?: string;
+  exchDisp?: string;
+}
+
+function isTradeableQuote(row: unknown): row is TradeableQuote {
+  if (!row || typeof row !== "object") return false;
+  const r = row as Record<string, unknown>;
+  // isYahooFinance false means a Crunchbase company or a news item, neither
+  // of which can go on a watchlist.
+  return r.isYahooFinance === true && typeof r.symbol === "string" && r.symbol !== "";
+}
+
 /** Symbol autocomplete — backs the "Add ticker" search box. */
 export async function searchSymbols(query: string): Promise<SearchResult[]> {
   const q = query.trim();
@@ -177,17 +200,37 @@ export async function searchSymbols(query: string): Promise<SearchResult[]> {
   const hit = cacheGet(searchCache, cacheKey);
   if (hit) return hit;
 
-  const result = await yf.search(q, { quotesCount: 10, newsCount: 0 });
+  // validateResult: false, deliberately.
+  //
+  // yahoo-finance2 validates every response against a schema it ships, and
+  // Yahoo has since started returning values that schema doesn't allow — a
+  // fund comes back as quoteType "MUTUALFUND" / typeDisp "Fund" where the
+  // schema expects "MONEY_MARKET" / "MoneyMarket". The library throws
+  // FailedYahooValidationError on the whole response when any entry fails,
+  // so a single unexpected row took down the entire search.
+  //
+  // That wasn't a degraded search, it was no search: every query 503'd,
+  // including "AAPL". With the add-ticker box being the only way to add a
+  // symbol, the watchlist could not be added to at all.
+  //
+  // Validation here protects us from nothing we don't already handle — the
+  // mapping below reads four fields and defaults each one, and the
+  // isYahooFinance filter drops anything that isn't a tradeable symbol. An
+  // upstream schema fix would let this be removed, but the feature should
+  // not be offline until then.
+  const result = (await yf.search(
+    q,
+    { quotesCount: 10, newsCount: 0 },
+    { validateResult: false },
+  )) as { quotes?: unknown[] };
+
   const out: SearchResult[] = (result.quotes ?? [])
-    .filter(
-      (r): r is Extract<typeof r, { isYahooFinance: true }> =>
-        "isYahooFinance" in r && (r as { isYahooFinance: unknown }).isYahooFinance === true,
-    )
+    .filter(isTradeableQuote)
     .map((r) => ({
       symbol: r.symbol,
       name: r.shortname ?? r.longname ?? r.symbol,
       exchange: r.exchDisp ?? null,
-      assetType: classifyAssetType(r as Record<string, unknown>),
+      assetType: classifyAssetType(r as unknown as Record<string, unknown>),
     }));
 
   cacheSet(searchCache, cacheKey, out, SEARCH_TTL_MS);
