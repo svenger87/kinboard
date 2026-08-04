@@ -86,10 +86,22 @@ export async function POST(request: NextRequest) {
     deviceId: (device as { id: string }).id,
     userAgent,
   });
-  const familyToken = mintFamilyToken(family.id);
+  // Best effort, same as the join route: a token that can't be minted must not
+  // stop a family being created.
+  let familyToken: { token: string; expiresAt: number } | null = null;
+  try {
+    familyToken = mintFamilyToken(family.id);
+  } catch (err) {
+    console.error("[session/create] could not mint a family token:", err);
+  }
 
   const response = NextResponse.json(
-    { family, device, token: familyToken.token, expiresAt: familyToken.expiresAt },
+    {
+      family,
+      device,
+      token: familyToken?.token ?? null,
+      expiresAt: familyToken?.expiresAt ?? null,
+    },
     { headers: { "Cache-Control": "no-store, private" } },
   );
 

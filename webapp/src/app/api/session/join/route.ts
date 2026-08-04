@@ -104,15 +104,24 @@ export async function POST(request: NextRequest) {
     userAgent,
   });
 
-  // Saves the client an immediate round trip to /api/session/token.
-  const familyToken = mintFamilyToken(family.id);
+  // Saves the client an immediate round trip to /api/session/token — but it is
+  // an optimisation, not part of joining. If minting fails (JWT_SECRET absent
+  // or mismatched) the session is still valid, and the client will ask
+  // /api/session/token separately. Letting this throw would turn a
+  // misconfiguration into "nobody can join", which is how it first surfaced.
+  let familyToken: { token: string; expiresAt: number } | null = null;
+  try {
+    familyToken = mintFamilyToken(family.id);
+  } catch (err) {
+    console.error("[session/join] could not mint a family token:", err);
+  }
 
   const response = NextResponse.json(
     {
       family: familyRow,
       device,
-      token: familyToken.token,
-      expiresAt: familyToken.expiresAt,
+      token: familyToken?.token ?? null,
+      expiresAt: familyToken?.expiresAt ?? null,
     },
     { headers: { "Cache-Control": "no-store, private" } },
   );
