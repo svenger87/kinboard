@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { PinGuard } from "@/components/pin-guard";
 
 export default function SettingsLayout({
   children,
@@ -16,7 +17,8 @@ export default function SettingsLayout({
   const t = useTranslations("settings");
 
   return (
-    <div className="min-h-screen relative">
+    <PinGuard cancelHref="/">
+      <div className="min-h-screen relative">
       {/* Background */}
       <div className="page-gradient fixed inset-0 pointer-events-none z-[-1]" />
 
@@ -40,5 +42,6 @@ export default function SettingsLayout({
 
       {children}
     </div>
+    </PinGuard>
   );
 }
