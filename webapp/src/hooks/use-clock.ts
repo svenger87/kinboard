@@ -10,14 +10,27 @@ interface ClockState {
 }
 
 /**
+ * 12-hour hours, the way a clock face writes them: 1-12, unpadded, with
+ * midnight and noon as 12 rather than 0. Padding here would render
+ * "03:05 PM", which no 12-hour clock does.
+ */
+function hoursFor(now: Date, use24Hour: boolean): string {
+  if (use24Hour) return now.getHours().toString().padStart(2, "0");
+  return (now.getHours() % 12 || 12).toString();
+}
+
+/**
  * Hook for real-time clock updates
  * @param updateInterval - Update interval in milliseconds (default: 60000ms for minute updates)
  */
-export function useClock(updateInterval: number = 60000): ClockState {
+export function useClock(
+  updateInterval: number = 60000,
+  use24Hour: boolean = true,
+): ClockState {
   const [time, setTime] = useState<ClockState>(() => {
     const now = new Date();
     return {
-      hours: now.getHours().toString().padStart(2, "0"),
+      hours: hoursFor(now, use24Hour),
       minutes: now.getMinutes().toString().padStart(2, "0"),
       seconds: now.getSeconds().toString().padStart(2, "0"),
       date: now,
@@ -33,7 +46,7 @@ export function useClock(updateInterval: number = 60000): ClockState {
 
     const tick = () => {
       const now = new Date();
-      const hours = now.getHours().toString().padStart(2, "0");
+      const hours = hoursFor(now, use24Hour);
       const minutes = now.getMinutes().toString().padStart(2, "0");
       const seconds = now.getSeconds().toString().padStart(2, "0");
 
@@ -70,7 +83,7 @@ export function useClock(updateInterval: number = 60000): ClockState {
         clearInterval(intervalId);
       }
     };
-  }, [updateInterval]);
+  }, [updateInterval, use24Hour]);
 
   return time;
 }

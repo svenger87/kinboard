@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useEvents, usePeople } from "@/hooks";
 import { WidgetCard } from "@/components/widget-card";
 import { EventPill } from "@/components/event-pill";
+import { useTimeFormat } from "@/hooks/use-time-format";
 
 interface UpcomingEventsProps {
   maxEvents?: number;
@@ -54,6 +55,7 @@ export function UpcomingEvents({
   maxEvents = 5,
   className = "",
 }: UpcomingEventsProps) {
+  const { formatTime } = useTimeFormat();
   const t = useTranslations("upcomingEvents");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
@@ -162,7 +164,7 @@ export function UpcomingEvents({
                     variant="agenda"
                     title={event.title}
                     color={event.color}
-                    time={event.allDay ? undefined : format(event.start, "HH:mm")}
+                    time={event.allDay ? undefined : formatTime(event.start)}
                   />
                 </motion.div>
               );
