@@ -56,9 +56,31 @@ export interface CreateRecipeInput {
   tags?: string[];
 }
 
-export interface UpdateRecipeInput extends Partial<CreateRecipeInput> {
+export interface UpdateRecipeInput
+  extends Omit<
+    Partial<CreateRecipeInput>,
+    | "description"
+    | "image_url"
+    | "prep_time_minutes"
+    | "cook_time_minutes"
+    | "total_time_minutes"
+    | "source_url"
+  > {
   id: string;
   is_favorite?: boolean;
+
+  /**
+   * Nullable columns have to be settable to null, or a field can never be
+   * emptied. `undefined` looks like it would work and doesn't: supabase-js
+   * serialises the update to JSON, which drops undefined keys, so the
+   * column keeps its old value while the save reports success.
+   */
+  description?: string | null;
+  image_url?: string | null;
+  prep_time_minutes?: number | null;
+  cook_time_minutes?: number | null;
+  total_time_minutes?: number | null;
+  source_url?: string | null;
 }
 
 // Fetch all recipes for the family
