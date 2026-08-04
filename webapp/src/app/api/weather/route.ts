@@ -68,7 +68,20 @@ export async function GET(request: NextRequest) {
     let url: string;
 
     if (lat && lon) {
-      url = `${BASE_URL}/weather?lat=${lat}&lon=${lon}&units=${units}&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
+      // Parsed to numbers rather than interpolated as strings: these come
+      // from a settings row, and a value containing `&` would otherwise
+      // append parameters of its own to the upstream request. The city
+      // branch below has always been encoded; this one was not.
+      const latNum = Number(lat);
+      const lonNum = Number(lon);
+      if (!Number.isFinite(latNum) || !Number.isFinite(lonNum) ||
+          latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) {
+        return NextResponse.json(
+          { error: "Invalid coordinates configured" },
+          { status: 400 },
+        );
+      }
+      url = `${BASE_URL}/weather?lat=${latNum}&lon=${lonNum}&units=${units}&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
     } else if (city) {
       url = `${BASE_URL}/weather?q=${encodeURIComponent(city)}&units=${units}&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
     } else {

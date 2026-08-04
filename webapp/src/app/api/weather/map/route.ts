@@ -31,14 +31,30 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Return map configuration with tile URLs
-  // Clients will use these URLs directly with their map library
-  const tileUrlTemplate = `https://tile.openweathermap.org/map/{layer}/{z}/{x}/{y}.png?appid=${OPENWEATHERMAP_API_KEY}`;
+  // Tile URLs point at our own proxy, never at OpenWeatherMap directly.
+  // The previous template carried `appid=<key>` and was handed to the
+  // browser, which put the key in this response body, the client's query
+  // cache and every tile request in the network tab. See
+  // api/weather/tile/[layer]/[z]/[x]/[y]/route.ts.
+  const tileUrlTemplate = "/api/weather/tile/{layer}/{z}/{x}/{y}";
+
+  // parseFloat returns NaN for junk, and NaN serialises to JSON null —
+  // which Leaflet receives as a centre of [null, null] and throws on. A
+  // bad stored coordinate should be a clear 400, not a crashed map.
+  const latNum = parseFloat(lat);
+  const lonNum = parseFloat(lon);
+  if (!Number.isFinite(latNum) || !Number.isFinite(lonNum) ||
+      latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) {
+    return NextResponse.json(
+      { error: "lat and lon must be valid coordinates" },
+      { status: 400 },
+    );
+  }
 
   return NextResponse.json({
     center: {
-      lat: parseFloat(lat),
-      lon: parseFloat(lon),
+      lat: latNum,
+      lon: lonNum,
     },
     zoom: 8,
     layers: {
@@ -47,13 +63,6 @@ export async function GET(request: NextRequest) {
       temperature: tileUrlTemplate.replace("{layer}", WEATHER_MAP_LAYERS.temperature),
       wind: tileUrlTemplate.replace("{layer}", WEATHER_MAP_LAYERS.wind),
       pressure: tileUrlTemplate.replace("{layer}", WEATHER_MAP_LAYERS.pressure),
-    },
-    layerNames: {
-      precipitation: "Niederschlag",
-      clouds: "Wolken",
-      temperature: "Temperatur",
-      wind: "Wind",
-      pressure: "Luftdruck",
     },
     // OpenStreetMap base layer
     baseLayer: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
