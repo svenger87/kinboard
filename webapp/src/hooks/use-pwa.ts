@@ -29,6 +29,14 @@ export function useServiceWorker() {
         setIsRegistered(true);
         console.log("[PWA] Service worker registered");
 
+        // A worker can already be waiting when the page loads — the
+        // update was found during a previous visit and never applied.
+        // `updatefound` won't fire again for it, so without this the
+        // prompt never appears and the instance sits on the old build.
+        if (reg.waiting && navigator.serviceWorker.controller) {
+          setIsUpdateAvailable(true);
+        }
+
         // Check for updates
         reg.addEventListener("updatefound", () => {
           const newWorker = reg.installing;
@@ -50,10 +58,37 @@ export function useServiceWorker() {
   }, []);
 
   const updateServiceWorker = useCallback(() => {
-    if (registration?.waiting) {
-      registration.waiting.postMessage("skipWaiting");
+    const waiting = registration?.waiting;
+    if (!waiting) {
+      // Nothing is waiting — either there is no update, or the page has
+      // been open long enough that the worker already took over. Reload
+      // anyway rather than leaving the button inert, which is what it
+      // used to be: install() called skipWaiting(), so `waiting` was
+      // always null and this whole function was a no-op.
       window.location.reload();
+      return;
     }
+
+    // Reload once the new worker is actually in control. Reloading
+    // immediately after posting the message races activation, and a page
+    // that reloads too early is served by the OLD worker and comes back
+    // on the old build — the update appearing not to have worked.
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      () => window.location.reload(),
+      { once: true },
+    );
+
+    // If activation never completes, fall back rather than leaving the
+    // user staring at a button that did something invisible.
+    const fallback = window.setTimeout(() => window.location.reload(), 3000);
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      () => window.clearTimeout(fallback),
+      { once: true },
+    );
+
+    waiting.postMessage("skipWaiting");
   }, [registration]);
 
   return { isRegistered, isUpdateAvailable, updateServiceWorker };
