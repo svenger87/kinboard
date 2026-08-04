@@ -11,11 +11,27 @@
 # (Compose v2 ignores the top-level `version:` field and prints a
 # deprecation warning on every up; omitted intentionally.)
 
+# Container logs are unbounded by default: Docker's json-file driver keeps
+# writing until the disk fills. Kong alone logs one line per API request,
+# which on a dashboard that polls comes to roughly 10-15 MB a day — a few
+# gigabytes a year, inside Docker's storage, on a box that is meant to run
+# untouched for years.
+#
+# 10 MB x 3 files caps each container at 30 MB while still leaving enough
+# history to debug yesterday's problem. Applied to every service below via
+# the YAML anchor.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   # ===================
   # PostgreSQL Database
   # ===================
   db:
+    logging: *default-logging
     image: supabase/postgres:15.1.1.61
     container_name: ${PROJECT_NAME:-kinboard}-db
     restart: unless-stopped
@@ -66,6 +82,7 @@ services:
   # `docker compose up` work on its own. The dependent services below wait
   # for this to complete (service_completed_successfully). Idempotent.
   db-init:
+    logging: *default-logging
     image: supabase/postgres:15.1.1.61
     container_name: ${PROJECT_NAME:-kinboard}-db-init
     restart: "no"
@@ -111,6 +128,7 @@ services:
   # Supabase Kong (API Gateway)
   # ===================
   kong:
+    logging: *default-logging
     image: kong:2.8.1
     container_name: ${PROJECT_NAME:-kinboard}-kong
     restart: unless-stopped
@@ -136,6 +154,7 @@ services:
   # Supabase Auth (GoTrue)
   # ===================
   auth:
+    logging: *default-logging
     image: supabase/gotrue:v2.143.0
     container_name: ${PROJECT_NAME:-kinboard}-auth
     restart: unless-stopped
@@ -188,6 +207,7 @@ services:
   # Supabase Realtime
   # ===================
   realtime:
+    logging: *default-logging
     image: supabase/realtime:v2.28.32
     container_name: ${PROJECT_NAME:-kinboard}-realtime
     restart: unless-stopped
@@ -241,6 +261,7 @@ services:
   # Supabase REST (PostgREST)
   # ===================
   rest:
+    logging: *default-logging
     image: postgrest/postgrest:v12.0.1
     container_name: ${PROJECT_NAME:-kinboard}-rest
     restart: unless-stopped
@@ -265,6 +286,7 @@ services:
   # Supabase Storage
   # ===================
   storage:
+    logging: *default-logging
     image: supabase/storage-api:v0.46.4
     container_name: ${PROJECT_NAME:-kinboard}-storage
     restart: unless-stopped
@@ -307,6 +329,7 @@ services:
   # Image Proxy (for storage transformations)
   # ===================
   imgproxy:
+    logging: *default-logging
     image: darthsim/imgproxy:v3.21
     container_name: ${PROJECT_NAME:-kinboard}-imgproxy
     restart: unless-stopped
@@ -329,6 +352,7 @@ services:
   # Next.js Webapp
   # ===================
   webapp:
+    logging: *default-logging
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -412,6 +436,7 @@ services:
   # Cron Scheduler (Ofelia)
   # ===================
   cron:
+    logging: *default-logging
     image: mcuadros/ofelia:latest
     container_name: ${PROJECT_NAME:-kinboard}-cron
     restart: unless-stopped
@@ -430,6 +455,7 @@ services:
   # go2rtc (RTSP to WebRTC)
   # ===================
   go2rtc:
+    logging: *default-logging
     image: alexxit/go2rtc:1.9.12
     container_name: ${PROJECT_NAME:-kinboard}-go2rtc
     restart: unless-stopped
