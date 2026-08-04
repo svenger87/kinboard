@@ -99,7 +99,8 @@ export function useRecipes(options?: { favorites?: boolean }) {
         .select(
           `
           *,
-          ingredients:recipe_ingredients(*)
+          ingredients:recipe_ingredients(*),
+          tags:recipe_tags(*)
         `
         )
         .eq("family_id", requireFamilyId(family))
@@ -133,7 +134,8 @@ export function useRecipe(recipeId: string | null) {
         .select(
           `
           *,
-          ingredients:recipe_ingredients(*)
+          ingredients:recipe_ingredients(*),
+          tags:recipe_tags(*)
         `
         )
         .eq("id", recipeId)
@@ -171,6 +173,85 @@ export function useRecipeSearch(query: string) {
     },
     enabled: !!family?.id && query.length >= 2,
   });
+}
+
+/**
+ * Make the recipe's tags exactly `names`.
+ *
+ * Tags were half-wired: the tables, the query key, the filter chips on the
+ * recipes page and the export/import round-trip all existed, but nothing
+ * ever wrote a row into recipe_tag_assignments. Creating a recipe created
+ * the tag and forgot to link it; editing one dropped the tags entirely. So
+ * every tag chip filtered to an empty list.
+ *
+ * Names are matched case-insensitively against the family's existing tags,
+ * so "Vegan" and "vegan" don't become two chips for the same thing.
+ */
+async function syncRecipeTags(
+  // The recipe hooks use an untyped client throughout; matching that rather
+  // than introducing a second convention here.
+  supabase: any,
+  familyId: string,
+  recipeId: string,
+  names: string[],
+): Promise<void> {
+  const wanted = [...new Set(names.map((name) => name.trim()).filter(Boolean))];
+
+  if (wanted.length === 0) {
+    const { error } = await supabase
+      .from("recipe_tag_assignments")
+      .delete()
+      .eq("recipe_id", recipeId);
+    if (error) throw error;
+    return;
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from("recipe_tags")
+    .select("id, name")
+    .eq("family_id", familyId);
+  if (existingError) throw existingError;
+
+  const byName = new Map<string, string>(
+    ((existing ?? []) as Array<{ id: string; name: string }>).map((tag) => [
+      tag.name.toLowerCase(),
+      tag.id,
+    ]),
+  );
+
+  const missing = wanted.filter((name) => !byName.has(name.toLowerCase()));
+  if (missing.length > 0) {
+    const { data: created, error: createError } = await supabase
+      .from("recipe_tags")
+      .insert(missing.map((name) => ({ family_id: familyId, name })))
+      .select("id, name");
+    if (createError) throw createError;
+    for (const tag of (created ?? []) as Array<{ id: string; name: string }>) {
+      byName.set(tag.name.toLowerCase(), tag.id);
+    }
+  }
+
+  const tagIds = wanted
+    .map((name) => byName.get(name.toLowerCase()))
+    .filter((id): id is string => Boolean(id));
+
+  // Drop the assignments that are no longer wanted, then add the rest. The
+  // primary key is (recipe_id, tag_id), so re-adding an existing one would
+  // conflict — upsert with ignoreDuplicates keeps this idempotent.
+  const { error: pruneError } = await supabase
+    .from("recipe_tag_assignments")
+    .delete()
+    .eq("recipe_id", recipeId)
+    .not("tag_id", "in", `(${tagIds.join(",")})`);
+  if (pruneError) throw pruneError;
+
+  const { error: linkError } = await supabase
+    .from("recipe_tag_assignments")
+    .upsert(
+      tagIds.map((tagId) => ({ recipe_id: recipeId, tag_id: tagId })),
+      { onConflict: "recipe_id,tag_id", ignoreDuplicates: true },
+    );
+  if (linkError) throw linkError;
 }
 
 // Fetch recipe tags
@@ -236,27 +317,11 @@ export function useCreateRecipe() {
         if (ingredientsError) throw ingredientsError;
       }
 
-      // Create or link tags
+      // Create the tags and attach them to the recipe. The second half was
+      // missing: tag rows were created and then never linked, so a recipe
+      // never had a tag and the filter on the recipes page returned nothing.
       if (tags && tags.length > 0) {
-        for (const tagName of tags) {
-          // Try to find or create the tag
-           
-          const { data: existingTag } = await (supabase as any)
-            .from("recipe_tags")
-            .select("id")
-            .eq("family_id", requireFamilyId(family))
-            .eq("name", tagName)
-            .single();
-
-          if (!existingTag) {
-             
-            const { error: tagError } = await (supabase as any).from("recipe_tags").insert({
-              family_id: requireFamilyId(family),
-              name: tagName,
-            });
-            if (tagError) throw tagError;
-          }
-        }
+        await syncRecipeTags(supabase, requireFamilyId(family), recipe.id, tags);
       }
 
       return recipe as Recipe;
@@ -325,6 +390,13 @@ export function useUpdateRecipe() {
         }
       }
 
+      // Editing tags did nothing at all — they were destructured off the
+      // input and never used. `undefined` still means "leave them alone", so
+      // callers that don't touch tags are unaffected.
+      if (tags !== undefined) {
+        await syncRecipeTags(supabase, requireFamilyId(family), id, tags);
+      }
+
       return recipe as Recipe;
     },
     onSuccess: (data) => {
@@ -333,6 +405,9 @@ export function useUpdateRecipe() {
       });
       queryClient.invalidateQueries({
         queryKey: recipeQueryKeys.detail(requireFamilyId(family), data.id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: recipeQueryKeys.tags(requireFamilyId(family)),
       });
     },
   });

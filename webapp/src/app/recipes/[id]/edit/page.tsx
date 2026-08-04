@@ -37,6 +37,7 @@ import {
   useKeyboardShortcuts,
   useSwipeNavigation,
 } from "@/hooks";
+import { RecipeTagInput } from "@/components/recipe-tag-input";
 import { parseInstructions } from "@/lib/recipe-instructions";
 import type { RecipeInstruction } from "@/types/database";
 
@@ -74,6 +75,7 @@ export default function EditRecipePage() {
     { id: "1", name: "", quantity: "", unit: "", notes: "" },
   ]);
   const [instructions, setInstructions] = useState<string[]>([""]);
+  const [tags, setTags] = useState<string[]>([]);
   const [initialized, setInitialized] = useState(false);
 
   // Initialize form with recipe data
@@ -105,6 +107,8 @@ export default function EditRecipePage() {
       if (parsedInstructions.length > 0) {
         setInstructions(parsedInstructions.map((i) => i.text));
       }
+
+      setTags((recipe.tags ?? []).map((tag) => tag.name));
 
       setInitialized(true);
     }
@@ -150,6 +154,7 @@ export default function EditRecipePage() {
             step: idx + 1,
             text: text.trim(),
           })) as RecipeInstruction[],
+        tags,
       });
       router.push(`/recipes/${recipeId}`);
     } catch {
@@ -366,6 +371,11 @@ export default function EditRecipePage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div>
+                  <Label>{t("form.fieldTags")}</Label>
+                  <RecipeTagInput value={tags} onChange={setTags} />
                 </div>
               </div>
             </Card>
