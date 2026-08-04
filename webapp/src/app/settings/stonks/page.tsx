@@ -158,7 +158,7 @@ export default function StonksSettingsPage() {
                       </div>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" aria-label={t("deleteAria", { symbol: tk.symbol })}>
                             <Trash2 className="size-4 text-destructive" />
                           </Button>
                         </AlertDialogTrigger>
