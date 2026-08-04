@@ -55,8 +55,33 @@ function mapCondition(weatherMain: string, lang: string): string {
   return CONDITION_LABELS[lang]?.[weatherMain] ?? CONDITION_LABELS.de[weatherMain] ?? weatherMain;
 }
 
+/**
+ * A Date whose **UTC** fields read as the forecast location's local time.
+ *
+ * OpenWeatherMap returns UTC timestamps plus `city.timezone`, the
+ * location's offset in seconds. That offset was fetched, echoed in the
+ * response, and never applied: days were bucketed by UTC calendar date
+ * and hours were rendered in whatever zone the *container* runs in
+ * (Europe/Berlin by default).
+ *
+ * What that produced: a Berlin household at UTC+2 filed its 00:00 and
+ * 01:00 slots under the previous day, so a day's low could come from the
+ * wrong date and the last bucket was a two-hour stub. Worse for anyone
+ * further out — a US self-hoster's "hourly forecast" was labelled in
+ * Berlin time, six to nine hours off their own clock.
+ *
+ * Shifting the instant and then reading UTC fields is the trick that
+ * avoids needing an IANA zone name, which the API doesn't give us.
+ * Everything derived from these Dates must therefore read UTC fields, or
+ * format with `timeZone: "UTC"` — reading local fields would put the
+ * container's zone straight back in.
+ */
+function atLocation(unixSeconds: number, offsetSeconds: number): Date {
+  return new Date((unixSeconds + offsetSeconds) * 1000);
+}
+
 function getDayName(date: Date, locale: string = "de-DE"): string {
-  return date.toLocaleDateString(locale, { weekday: "short" });
+  return date.toLocaleDateString(locale, { weekday: "short", timeZone: "UTC" });
 }
 
 // Maps the app's short lang code to the BCP47 tag used by Intl date/time
@@ -122,11 +147,14 @@ export async function GET(request: NextRequest) {
 
     const data: OpenWeatherForecastResponse = await response.json();
 
-    // Group forecasts by day
+    // Seconds east of UTC for the forecast location.
+    const tzOffset = data.city.timezone ?? 0;
+
+    // Group forecasts by the day they fall on *where the weather is*.
     const dailyForecasts: Record<string, ForecastItem[]> = {};
 
     for (const item of data.list) {
-      const date = new Date(item.dt * 1000);
+      const date = atLocation(item.dt, tzOffset);
       const dateKey = date.toISOString().split("T")[0];
 
       if (!dailyForecasts[dateKey]) {
@@ -137,6 +165,9 @@ export async function GET(request: NextRequest) {
 
     // Process each day to get summary
     const days = Object.entries(dailyForecasts).map(([dateKey, items]) => {
+      // `dateKey` is a bare YYYY-MM-DD, which parses as UTC midnight —
+      // hence the UTC timeZone in getDayName, or a browser west of
+      // Greenwich would name the previous day.
       const date = new Date(dateKey);
       const temps = items.map(i => i.main.temp);
       const maxTemp = Math.round(Math.max(...temps));
@@ -144,7 +175,10 @@ export async function GET(request: NextRequest) {
 
       // Get most common weather condition (prefer midday)
       const middayItem = items.find(i => {
-        const hour = new Date(i.dt * 1000).getHours();
+        // getUTCHours on the shifted instant = the hour where the weather
+        // is. getHours() read the container's zone, so the "midday" icon
+        // for a distant city came from the middle of its night.
+        const hour = atLocation(i.dt, tzOffset).getUTCHours();
         return hour >= 11 && hour <= 14;
       }) || items[Math.floor(items.length / 2)];
 
@@ -178,9 +212,14 @@ export async function GET(request: NextRequest) {
 
     // Get hourly forecast for next 24 hours
     const hourlyForecast = data.list.slice(0, 8).map(item => {
-      const date = new Date(item.dt * 1000);
+      const date = atLocation(item.dt, tzOffset);
       return {
-        time: date.toLocaleTimeString(bcp47ForLang(lang), { hour: "2-digit", minute: "2-digit" }),
+        // UTC formatting of the shifted instant — the location's clock.
+        time: date.toLocaleTimeString(bcp47ForLang(lang), {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "UTC",
+        }),
         temp: Math.round(item.main.temp),
         condition: mapCondition(item.weather[0].main, lang),
         conditionMain: item.weather[0].main,
