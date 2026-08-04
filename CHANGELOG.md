@@ -44,6 +44,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The screensaver stops showing you the same photos. It picked each next photo at random, so one came back around every five minutes or so while a few of the photos it had fetched were never shown at all. It now works through the whole set in a shuffled order before any repeats. Each month also has fourteen search terms instead of eight, five are used per refresh instead of three, and the mix is less relentlessly industrial.
 
 ### Fixed
+- Pinning a note works again. The column it needs was only ever created on brand-new installs, so on anything that had been upgraded the pin button failed silently.
 - The shopping app stops dropping you into the main dashboard. Two separate causes: a launch that couldn't reach the network fell back to Kinboard's home page instead of the shopping app's own, and joining a household from inside the shopping app always finished on the dashboard rather than where you started.
 - The shopping list now has a permanent "Shopping app" button. The standalone shopping app could only be reached from the install tip, and dismissing that tip hid it for a year with nothing left to say it existed.
 - Some stocks and ETFs showed an empty chart even though the data was there. The provider's library was rejecting the whole response over one field it didn't expect, and Kinboard read that as "no data". One holding in testing went from a blank chart to twenty candles.
