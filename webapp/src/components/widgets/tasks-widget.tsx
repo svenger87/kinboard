@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/local-date";
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
@@ -44,13 +45,13 @@ function TasksWidgetSkeleton() {
 
 function isOverdue(todo: Todo): boolean {
   if (!todo.due_date || todo.completed) return false;
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayKey();
   return todo.due_date < today;
 }
 
 function isDueToday(todo: Todo): boolean {
   if (!todo.due_date || todo.completed) return false;
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayKey();
   return todo.due_date === today;
 }
 
