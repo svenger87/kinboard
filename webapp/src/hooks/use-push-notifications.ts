@@ -535,7 +535,7 @@ export async function sendTestNotification(
     console.error("[PushNotifications] Test notification error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Netzwerkfehler",
+      error: err instanceof Error ? err.message : "Network error",
     };
   }
 }
