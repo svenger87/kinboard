@@ -25,6 +25,7 @@ import {
   Check,
   ArrowLeft,
 } from "lucide-react";
+import { DEFAULT_KWH_PRICE, parsePrice } from "@/lib/tariff";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -840,7 +841,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
           {teslaConfig?.charge_energy_added && (
             <StatisticsCard
               title={t("statSessionCost")}
-              value={chargeEnergyAdded * (teslaConfig.cost_per_kwh || 0.35)}
+              value={chargeEnergyAdded * (teslaConfig.cost_per_kwh ?? DEFAULT_KWH_PRICE)}
               unit={teslaConfig.currency || "€"}
               format="currency"
               icon={<Battery className="size-4" />}
@@ -1625,13 +1626,8 @@ export function TeslaConfigForm({
                     type="number"
                     step="0.01"
                     placeholder={t("costPerKwhPlaceholder")}
-                    value={editingConfig.cost_per_kwh || ""}
-                    onChange={(e) =>
-                      updateField(
-                        "cost_per_kwh",
-                        parseFloat(e.target.value) || undefined
-                      )
-                    }
+                    value={editingConfig.cost_per_kwh ?? ""}
+                    onChange={(e) => updateField("cost_per_kwh", parsePrice(e.target.value))}
                     className="pr-16"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">

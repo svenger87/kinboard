@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { albumMatchesMonth } from "@/lib/month-names";
 
 interface ImmichSettings {
   url: string;
@@ -135,14 +136,14 @@ export function useImmichMonthlyPhotos() {
 
   const { data: albums } = useImmichAlbums(isConnected);
 
-  // Get current month name in German
+  // Find the Wallpaper album for the current month, e.g. "Wallpaper Januar",
+  // "Wallpaper March" or "Wallpaper 03" — the album name is whatever the user
+  // typed, so match the month in any language the app speaks.
   const currentMonth = new Date();
-  const monthNameDE = currentMonth.toLocaleDateString("de-DE", { month: "long" });
-
-  // Find the Wallpaper album for current month (e.g., "Wallpaper Januar")
-  const monthlyAlbum = albums?.find((album) =>
-    album.name.toLowerCase().includes("wallpaper") &&
-    album.name.toLowerCase().includes(monthNameDE.toLowerCase())
+  const monthlyAlbum = albums?.find(
+    (album) =>
+      album.name.toLowerCase().includes("wallpaper") &&
+      albumMatchesMonth(album.name, currentMonth),
   );
 
   const albumId = monthlyAlbum?.id;
