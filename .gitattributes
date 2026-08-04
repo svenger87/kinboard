@@ -43,3 +43,16 @@ Dockerfile text eol=lf
 *.ttf   binary
 *.otf   binary
 *.eot   binary
+
+# CHANGELOG conflicts on essentially every branch, because every PR appends
+# to the same `[Unreleased]` section — the entries are independent, so the
+# resolution is always "keep both". `union` is git's built-in driver for
+# exactly that: it takes both sides of a conflicting hunk instead of
+# stopping. Five PRs in one afternoon each needed a hand-resolve without it.
+#
+# It is not magic. Union can interleave two entries inside the same section
+# in an odd order, and it will happily keep both halves of a line someone
+# genuinely rewrote. So: read the merged section before pushing a release,
+# and reorder if it reads badly. That is a far smaller job than resolving
+# the same conflict on every branch.
+CHANGELOG.md merge=union
