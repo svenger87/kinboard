@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateExternalUrl } from "@/lib/validate-external-url";
+import { safeFetch, BlockedAddressError } from "@/lib/safe-fetch";
 
 // Schema.org Recipe type
 interface SchemaOrgRecipe {
@@ -316,6 +317,43 @@ function getDomain(url: string): string {
   }
 }
 
+/**
+ * How much of a page we will read. Recipe pages are tens to hundreds of
+ * kilobytes; anything past this is not a recipe.
+ */
+const MAX_PAGE_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Read a response body up to `limit`, then stop.
+ *
+ * Deliberately not `response.text()` followed by a length check: that
+ * buffers the whole document before deciding, so an enormous page is
+ * already in memory by the time it would be rejected.
+ */
+async function readCapped(response: Response, limit: number): Promise<string> {
+  if (!response.body) return response.text();
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  let bytes = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      // stream: true so a multi-byte character split across chunks isn't
+      // mangled into a replacement character.
+      text += decoder.decode(value, { stream: true });
+      if (bytes >= limit) break;
+    }
+    text += decoder.decode();
+  } finally {
+    void reader.cancel().catch(() => {});
+  }
+  return text;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -328,10 +366,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SSRF guard — reject non-http(s) schemes (file://, javascript:,
-    // data:) and literal private/loopback IPs in the host. Returns
-    // 400 with a stable error code; downstream tooling can surface a
-    // user-facing message keyed off `reason`. (CodeQL #21 closure.)
+    // Shape check first, so a typo gets a clear 400 rather than a
+    // network error. The real SSRF work happens in safeFetch below.
     const validated = validateExternalUrl(url);
     if (!validated.ok) {
       return NextResponse.json(
@@ -341,15 +377,36 @@ export async function POST(request: NextRequest) {
     }
     const parsedUrl = validated.url;
 
-    // Fetch the page (12s timeout — recipes are typically small HTML).
-    const response = await fetch(parsedUrl.toString(), {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; FamilyCalendar/1.0)",
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
-      },
-      signal: AbortSignal.timeout(12_000),
-    });
+    // safeFetch, not fetch. validate-external-url documents in its own
+    // header what it does NOT cover — DNS rebinding and redirects — and
+    // this route pastes in a URL from the user and fetches it
+    // immediately, which makes both reachable. `fetch` defaults to
+    // redirect: "follow", so a public host answering
+    // `302 Location: http://10.0.0.1/admin` was fetched with no
+    // re-check at all, and a hostname whose A record points at
+    // 169.254.169.254 passed the check outright.
+    //
+    // Every other route that fetches a user-supplied URL already moved
+    // to safeFetch; this one was missed.
+    let response: Response;
+    try {
+      response = await safeFetch(parsedUrl.toString(), {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; Kinboard/1.0)",
+          Accept: "text/html,application/xhtml+xml",
+          "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
+        },
+        signal: AbortSignal.timeout(12_000),
+      });
+    } catch (err) {
+      if (err instanceof BlockedAddressError) {
+        return NextResponse.json(
+          { error: "That address is not reachable on the public internet." },
+          { status: 400 }
+        );
+      }
+      throw err;
+    }
 
     if (!response.ok) {
       return NextResponse.json(
@@ -358,7 +415,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const html = await response.text();
+    // Read with a cap rather than response.text(). The timeout bounds
+    // how long a page may take, not how large it may be — a hostile or
+    // merely enormous page was buffered whole before anything looked at
+    // it, which is an OOM for the entire household. Same reasoning as
+    // readCapped in api/news/discover.
+    const html = await readCapped(response, MAX_PAGE_BYTES);
 
     // Extract recipe from JSON-LD
     const schemaRecipe = extractRecipeFromHtml(html);
