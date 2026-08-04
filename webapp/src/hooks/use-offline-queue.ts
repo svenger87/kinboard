@@ -212,28 +212,48 @@ export function useOfflineQueue(options: UseOfflineQueueOptions = {}) {
     try {
       // Get and merge pending operations
       const pending = await getPendingOperations(familyId);
-      const operations = mergeOperations(pending);
+      const { operations, discarded } = mergeOperations(pending);
+
+      // Rows that merged away to nothing — an item created and deleted while
+      // offline never reached the server, so there's nothing to send, but the
+      // rows still have to leave the queue. They used to stay behind as
+      // "pending" for good.
+      for (const id of discarded) {
+        await removeFromQueue(id);
+      }
 
       for (const operation of operations) {
-        // Mark as syncing
-        await updateQueueOperation(operation.id, { status: "syncing" });
+        // Mark every row this operation stands in for as syncing, not just
+        // the survivor, so the badge reflects what is actually happening.
+        const sourceIds = operation.mergedFrom ?? [operation.id];
+        for (const id of sourceIds) {
+          await updateQueueOperation(id, { status: "syncing" });
+        }
 
         const { success, error } = await executeOperation(operation);
 
         if (success) {
-          // Remove from queue
-          await removeFromQueue(operation.id);
+          // Remove every row that went into this request. Removing only the
+          // merged operation's own id left the rest pending forever, and the
+          // next drain re-merged and re-sent them.
+          for (const id of sourceIds) {
+            await removeFromQueue(id);
+          }
           result.syncedCount++;
         } else {
           // Increment retry count or mark as failed
           const newRetryCount = operation.retryCount + 1;
           const newStatus = newRetryCount >= opts.maxRetries ? "failed" : "pending";
 
-          await updateQueueOperation(operation.id, {
-            status: newStatus,
-            retryCount: newRetryCount,
-            lastError: error,
-          });
+          // Put every source row back, or the ones that aren't the survivor
+          // stay stuck on "syncing" and never retry.
+          for (const id of sourceIds) {
+            await updateQueueOperation(id, {
+              status: newStatus,
+              retryCount: newRetryCount,
+              lastError: error,
+            });
+          }
 
           result.failedCount++;
           result.errors.push({ operationId: operation.id, error: error || "Unknown error" });
