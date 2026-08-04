@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { PocketMoneyGoalInsert } from "@/types/database";
+import { familyIdFrom, rowInFamily, accountInFamily } from "@/lib/family-scope";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // The account this hangs off must belong to the caller's family. RLS is
+  // off, so this check is the boundary — see lib/family-scope.
+  const familyId = familyIdFrom(request);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
   const supabase = createAdminClient();
+  if (!(await accountInFamily(supabase, id, familyId))) {
+    // Same answer for "not yours" and "doesn't exist", so ids can't be probed.
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
 
   const { data, error } = await (supabase as any)
     .from("pocket_money_goals")
@@ -20,13 +31,23 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: accountId } = await params;
-  const body = (await request.json()) as Partial<PocketMoneyGoalInsert>;
+  const body = (await request.json()) as Partial<PocketMoneyGoalInsert> & { family_id?: string };
 
   if (!body.name || !body.target_amount_cents || body.target_amount_cents <= 0) {
     return NextResponse.json({ error: "name + positive target_amount_cents required" }, { status: 400 });
   }
 
+  // The account this hangs off must belong to the caller's family. RLS is
+  // off, so this check is the boundary — see lib/family-scope.
+  const familyId = familyIdFrom(request, body);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
   const supabase = createAdminClient();
+  if (!(await accountInFamily(supabase, accountId, familyId))) {
+    // Same answer for "not yours" and "doesn't exist", so ids can't be probed.
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
 
   // Determine next position.
   const { data: maxRow } = await (supabase as any)

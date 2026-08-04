@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { PocketMoneyGoalUpdate } from "@/types/database";
+import { familyIdFrom, rowInFamily, accountInFamily } from "@/lib/family-scope";
 
 export const dynamic = "force-dynamic";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const body = (await request.json()) as Partial<PocketMoneyGoalUpdate>;
+  const body = (await request.json()) as Partial<PocketMoneyGoalUpdate> & { family_id?: string };
+  // A goal reaches its family through its account, so ownership is one hop
+  // away — see lib/family-scope. RLS is off; this is the boundary.
+  const familyId = familyIdFrom(request, body);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
 
   const update: PocketMoneyGoalUpdate = {};
   if (body.name !== undefined) update.name = body.name;
@@ -22,6 +29,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const supabase = createAdminClient();
+  if (!(await rowInFamily(supabase, "pocket_money_goals", id, familyId))) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
 
   // If we're setting is_primary=true, first unset any existing primary on this account.
   if (update.is_primary === true) {
@@ -69,10 +79,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
  * goal disappears.
  */
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+
+  const familyId = familyIdFrom(request);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
+
   const supabase = createAdminClient();
 
   const { data: goal } = await (supabase as any)
@@ -81,7 +97,11 @@ export async function DELETE(
     .eq("id", id)
     .maybeSingle();
 
-  if (!goal) return NextResponse.json({ error: "not found" }, { status: 404 });
+  // Not found and not yours answer identically, so a caller can't tell
+  // which goal ids exist by probing.
+  if (!goal || !(await accountInFamily(supabase, goal.account_id, familyId))) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
 
   // Detach history first; a failure here must not leave transactions
   // pointing at a goal that's about to vanish.

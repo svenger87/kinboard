@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { familyIdFrom } from "@/lib/family-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -10,10 +11,19 @@ interface ReorderItem {
 
 // POST /api/tickers/reorder  body: { items: [{id, position}, ...] }
 export async function POST(request: NextRequest) {
-  const body = (await request.json()) as { items?: ReorderItem[] };
+  const body = (await request.json()) as { items?: ReorderItem[]; family_id?: string };
   const items = body.items;
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: "items[] required" }, { status: 400 });
+  }
+
+  // Without this the route updated any row whose id was supplied, using
+  // the service-role client — so a caller who knew a ticker's UUID could
+  // reorder another family's watchlist. RLS is off, so the filter here is
+  // the only thing standing between the two.
+  const familyId = familyIdFrom(request, body);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
   }
 
   const supabase = createAdminClient();
@@ -24,7 +34,8 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase
       .from("tickers")
       .update({ position: item.position })
-      .eq("id", item.id);
+      .eq("id", item.id)
+      .eq("family_id", familyId);
     if (error) {
       console.error("[tickers] reorder error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
