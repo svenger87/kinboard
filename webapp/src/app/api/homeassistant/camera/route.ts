@@ -39,10 +39,19 @@ export async function GET(request: NextRequest) {
       ? `${haSettings.url}/api/camera_proxy_stream/${entityId}`
       : `${haSettings.url}/api/camera_proxy/${entityId}`;
 
+    const isStream = type === "stream";
+
     const response = await fetch(endpoint, {
       headers: {
         Authorization: `Bearer ${haSettings.access_token}`,
       },
+      // A snapshot must not hang forever on a camera that is powered off
+      // but still answers. A stream, by definition, never completes — so
+      // the timeout applies only to getting the response headers back for
+      // one, and the body is passed through rather than awaited.
+      signal: isStream
+        ? AbortSignal.timeout(15_000)
+        : AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {
@@ -54,6 +63,22 @@ export async function GET(request: NextRequest) {
     }
 
     const contentType = response.headers.get("content-type") || "image/jpeg";
+
+    // camera_proxy_stream is multipart/x-mixed-replace: it never ends, so
+    // arrayBuffer() never resolved. "Start stream" showed a blank frame
+    // forever while the container's memory climbed by the camera's full
+    // bitrate until the OOM killer took it — and closing the dialog did
+    // not stop the download. Streams are piped straight through, which is
+    // what the sibling /api/cameras proxy already does for MJPEG.
+    if (isStream) {
+      return new NextResponse(response.body, {
+        headers: {
+          "Content-Type": contentType,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
     const imageBuffer = await response.arrayBuffer();
 
     return new NextResponse(imageBuffer, {

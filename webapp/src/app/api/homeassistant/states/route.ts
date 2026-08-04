@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
         Authorization: `Bearer ${haSettings.access_token}`,
         "Content-Type": "application/json",
       },
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {

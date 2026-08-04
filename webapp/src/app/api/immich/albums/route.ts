@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
         "x-api-key": immichSettings.api_key,
         "Accept": "application/json",
       },
+      signal: AbortSignal.timeout(15_000),
     });
 
     if (!response.ok) {
