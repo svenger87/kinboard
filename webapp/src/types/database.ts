@@ -39,11 +39,48 @@ export interface Database {
         };
         Relationships: [];
       };
+      device_sessions: {
+        Row: {
+          id: string;
+          token_hash: string;
+          family_id: string;
+          device_id: string | null;
+          created_at: string;
+          expires_at: string;
+          last_used_at: string | null;
+          revoked_at: string | null;
+          user_agent: string | null;
+        };
+        Insert: {
+          id?: string;
+          token_hash: string;
+          family_id: string;
+          device_id?: string | null;
+          created_at?: string;
+          expires_at: string;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+          user_agent?: string | null;
+        };
+        Update: {
+          id?: string;
+          token_hash?: string;
+          family_id?: string;
+          device_id?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+          user_agent?: string | null;
+        };
+        Relationships: [];
+      };
       devices: {
         Row: {
           id: string;
           family_id: string;
           name: string;
+          user_agent: string | null;
           is_kiosk: boolean;
           has_presence_sensor: boolean;
           last_seen: string;
@@ -56,6 +93,7 @@ export interface Database {
           id?: string;
           family_id: string;
           name: string;
+          user_agent?: string | null;
           is_kiosk?: boolean;
           has_presence_sensor?: boolean;
           last_seen?: string;
@@ -67,6 +105,7 @@ export interface Database {
           id?: string;
           family_id?: string;
           name?: string;
+          user_agent?: string | null;
           is_kiosk?: boolean;
           has_presence_sensor?: boolean;
           last_seen?: string;

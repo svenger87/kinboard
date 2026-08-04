@@ -386,6 +386,12 @@ services:
       # Use internal URL for server-side access
       SUPABASE_URL: http://kong:8000
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      # Signs the short-lived family-scoped tokens the browser uses for its
+      # direct PostgREST connection. Must be the same secret PostgREST
+      # verifies with (PGRST_JWT_SECRET below), or nothing the app mints will
+      # be accepted. Without it, joining a family fails outright — the join
+      # route mints a token as part of the response.
+      JWT_SECRET: ${JWT_SECRET}
       # Container timezone — used by server-side date/time formatting
       # (push notification bodies, cron timestamps, etc.). Without this,
       # the webapp container runs in UTC and push notifications for
