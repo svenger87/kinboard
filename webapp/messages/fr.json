@@ -775,7 +775,10 @@
       "placeholderStep": "Étape {n}…",
       "stepImageAlt": "Étape {step}",
       "addStep": "Ajouter une étape",
-      "removeStepAria": "Supprimer l'étape {n}"
+      "removeStepAria": "Supprimer l'étape {n}",
+      "fieldTags": "Étiquettes",
+      "tagPlaceholder": "Ajoutez une étiquette et appuyez sur Entrée",
+      "tagRemoveAria": "Retirer l'étiquette {tag}"
     },
     "new": {
       "title": "Nouvelle recette",
