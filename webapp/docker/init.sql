@@ -250,110 +250,53 @@ CREATE INDEX IF NOT EXISTS idx_notes_family ON public.notes(family_id);
 CREATE INDEX IF NOT EXISTS idx_settings_family ON public.settings(family_id);
 
 -- ===================
--- ROW LEVEL SECURITY (currently disabled — see comment below)
+-- ROW LEVEL SECURITY
 -- ===================
 --
--- Kinboard's threat model is "trusted home network." Authentication
--- is device-cookie-based, not row-level. Earlier iterations enabled RLS
--- here with policies keyed off a `current_setting('app.current_family_id')`
--- session GUC, but the application code doesn't reliably set that GUC on
--- every PostgREST request, so the policies blocked legitimate writes
--- (notably the join flow, which inserts into `devices` from the anon
--- role before any family membership exists).
+-- Enabled, and defined in migration_enable_rls.sql — not here. The entrypoint
+-- applies every migration on boot, so that file is the single definition of
+-- who can see what.
 --
--- Production has run with RLS DISABLED on all the family-scoped tables
--- since shortly after launch. Keep these tables non-RLS unless and until
--- the app is reworked to consistently set the GUC, OR a real auth model
--- (signed JWTs with embedded family_id, etc.) is wired in.
+-- What used to be here, for anyone reading the history: 25 policies keyed on
+-- `current_setting('app.current_family_id')`, a GUC the application never
+-- set, with RLS deliberately left off so they could not block the join flow.
+-- The reasoning was "trusted home network" — and it held right up until the
+-- instance was published. The browser talks to PostgREST directly with the
+-- anon key, which is public by design, so an unauthenticated request from the
+-- internet returned a family's join code on 2026-08-04.
 --
--- Policies remain DEFINED below as documentation for what the eventual
--- correct state should look like, but they are NOT in force.
+-- The replacement reads a `family_id` claim from the request's JWT, which the
+-- application does set: a device joins with the family code, gets an HttpOnly
+-- session cookie, and exchanges it at /api/session/token for a short-lived
+-- family-scoped token. service_role keeps BYPASSRLS, so the API routes and
+-- cron jobs are unaffected.
 
--- (Intentionally no ENABLE ROW LEVEL SECURITY here.)
 
--- Family isolation policy (devices can only see their family's data)
--- Using a session variable set by the application: current_setting('app.current_family_id')
 
-CREATE POLICY "Families are accessible by join code" ON public.families
-    FOR SELECT USING (true);
-
-CREATE POLICY "Families can be created" ON public.families
-    FOR INSERT WITH CHECK (true);
 
 -- Devices policy
-CREATE POLICY "Devices belong to families" ON public.devices
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
 
 -- People policy
-CREATE POLICY "People belong to families" ON public.people
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
 
 -- Calendars policy
-CREATE POLICY "Calendars belong to families" ON public.calendars
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
 
 -- Events policy (through calendar)
-CREATE POLICY "Events belong to family calendars" ON public.events
-    FOR ALL USING (
-        calendar_id IN (
-            SELECT id FROM public.calendars
-            WHERE family_id::text = current_setting('app.current_family_id', true)
-        )
-    );
 
 -- Todos policy
-CREATE POLICY "Todos belong to families" ON public.todos
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
 
 -- Shopping items policy
-CREATE POLICY "Shopping items belong to families" ON public.shopping_items
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
 
 -- Subjects policy
-CREATE POLICY "Subjects belong to families" ON public.subjects
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
 
 -- Schedules policy
-CREATE POLICY "Schedules belong to families" ON public.schedules
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
 
 -- Birthdays policy
-CREATE POLICY "Birthdays belong to families" ON public.birthdays
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
 
 -- Notes policy
-CREATE POLICY "Notes belong to families" ON public.notes
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
 
 -- OAuth credentials policy
-CREATE POLICY "OAuth credentials belong to families" ON public.oauth_credentials
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
 
 -- Settings policy
-CREATE POLICY "Settings belong to families" ON public.settings
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
 
 -- ===================
 -- TRIGGERS
@@ -673,93 +616,26 @@ CREATE INDEX IF NOT EXISTS idx_scheduled_notifications_time ON public.scheduled_
 CREATE INDEX IF NOT EXISTS idx_notification_logs_family ON public.notification_logs(family_id);
 
 -- ===================
--- ADDITIONAL RLS POLICIES (also disabled — see top-of-file note)
+-- ROW-LEVEL SECURITY
 -- ===================
 --
--- Same story as the main RLS block earlier: policies are defined for
--- documentation, but ENABLE ROW LEVEL SECURITY is intentionally NOT
--- called. Production runs with RLS off on all of these.
-
--- (Intentionally no ENABLE ROW LEVEL SECURITY here.)
-
--- Recipes policy
-CREATE POLICY "Recipes belong to families" ON public.recipes
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
-
--- Recipe ingredients policy (through recipe)
-CREATE POLICY "Recipe ingredients accessible via recipe" ON public.recipe_ingredients
-    FOR ALL USING (
-        recipe_id IN (
-            SELECT id FROM public.recipes
-            WHERE family_id::text = current_setting('app.current_family_id', true)
-        )
-    );
-
--- Recipe tags policy
-CREATE POLICY "Recipe tags belong to families" ON public.recipe_tags
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
-
--- Recipe tag assignments policy
-CREATE POLICY "Recipe tag assignments accessible via recipe" ON public.recipe_tag_assignments
-    FOR ALL USING (
-        recipe_id IN (
-            SELECT id FROM public.recipes
-            WHERE family_id::text = current_setting('app.current_family_id', true)
-        )
-    );
-
--- Meal plans policy
-CREATE POLICY "Meal plans belong to families" ON public.meal_plans
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
-
--- Meal plan entries policy (through meal plan)
-CREATE POLICY "Meal plan entries accessible via meal plan" ON public.meal_plan_entries
-    FOR ALL USING (
-        meal_plan_id IN (
-            SELECT id FROM public.meal_plans
-            WHERE family_id::text = current_setting('app.current_family_id', true)
-        )
-    );
-
--- Item catalog policy (allow global items + family items)
-CREATE POLICY "Item catalog accessible to families" ON public.item_catalog
-    FOR ALL USING (
-        family_id IS NULL OR family_id::text = current_setting('app.current_family_id', true)
-    );
-
--- Push subscriptions policy
-CREATE POLICY "Push subscriptions belong to families" ON public.push_subscriptions
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
-
--- Notification preferences policy
-CREATE POLICY "Notification preferences belong to families" ON public.notification_preferences
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
-
--- Scheduled notifications policy
-CREATE POLICY "Scheduled notifications belong to families" ON public.scheduled_notifications
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
-
--- Notification logs policy
-CREATE POLICY "Notification logs belong to families" ON public.notification_logs
-    FOR ALL USING (
-        family_id::text = current_setting('app.current_family_id', true)
-    );
-
--- ===================
--- ADDITIONAL TRIGGERS
--- ===================
+-- Not defined here. It lives in migration_enable_rls.sql, which the entrypoint
+-- applies on every boot, so there is exactly one definition of who can see
+-- what.
+--
+-- This file used to carry 25 policies keyed on
+-- `current_setting('app.current_family_id')` — a GUC nothing in the
+-- application ever set — with RLS left disabled on almost every table so they
+-- never ran. That combination is why an unauthenticated request from the
+-- internet could read a family's join code on 2026-08-04: the browser talks
+-- to PostgREST directly with the anon key, which is public by design, and
+-- nothing in the database disagreed.
+--
+-- Do not add policies here. A policy defined in two places is a policy that
+-- will disagree with itself, and permissive policies are OR'd — so the more
+-- generous copy silently wins. That is exactly how a `USING (family_id IS NOT
+-- NULL)` policy in migration_server_notifications.sql leaked every
+-- household's reminders to every other household.
 
 CREATE TRIGGER update_recipes_updated_at
     BEFORE UPDATE ON public.recipes
