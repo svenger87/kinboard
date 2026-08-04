@@ -1,16 +1,32 @@
 import { TIER_THRESHOLDS_CENTS, type AvatarTier } from "./types";
 
+/** One cent, expressed in the carry unit. */
+export const MICROS_PER_CENT = 1_000_000;
+
 /**
  * Daily interest accrual.
  *
  * Math: balance_eligible × (apr_bps / 10000) / 365
  * Where balance_eligible = min(balance_cents, max_balance_eligible_cents)
  *
- * APR is in basis points (1000 = 10%). Returns the cents to add to
- * pending_interest_cents. Always non-negative; rounds DOWN (banker's
- * floor) so the platform never overpays.
+ * This used to floor the daily figure to whole cents and throw the
+ * fraction away. At the default 10% APR the daily amount only reaches one
+ * cent at a balance of €36.50, so every realistic child's balance earned
+ * exactly nothing — permanently — while the settings screen advertised
+ * "10.0%". It cost the bigger balances too: €100 earned €7.30 a year
+ * rather than €10, because the rounding happened 365 times instead of
+ * once.
+ *
+ * So the fraction is kept. Accrual is returned in millionths of a cent,
+ * the caller adds it to the account's carry, and whole cents overflow
+ * from there into pending_interest_cents. A €5 balance earns its first
+ * cent after about eight days instead of never.
+ *
+ * Still rounds down, so the account is never credited a fraction that
+ * hasn't actually accrued — the difference is that it is now carried
+ * rather than discarded.
  */
-export function accrueDailyInterest(args: {
+export function accrueDailyInterestMicros(args: {
   balanceCents: number;
   maxBalanceEligibleCents: number;
   aprBps: number;
@@ -18,8 +34,46 @@ export function accrueDailyInterest(args: {
   const { balanceCents, maxBalanceEligibleCents, aprBps } = args;
   if (balanceCents <= 0 || aprBps <= 0) return 0;
   const eligible = Math.min(balanceCents, maxBalanceEligibleCents);
-  const accrued = (eligible * aprBps) / (10_000 * 365);
-  return Math.floor(accrued);
+  // Scale before dividing so the division keeps its precision.
+  return Math.floor((eligible * aprBps * MICROS_PER_CENT) / (10_000 * 365));
+}
+
+/**
+ * Fold a day's accrual into an account's carry.
+ *
+ * Returns the whole cents to add to `pending_interest_cents` and the
+ * remaining sub-cent carry to store back.
+ */
+export function applyDailyAccrual(args: {
+  balanceCents: number;
+  maxBalanceEligibleCents: number;
+  aprBps: number;
+  carryMicros: number;
+}): { addCents: number; carryMicros: number } {
+  const total =
+    (args.carryMicros ?? 0) +
+    accrueDailyInterestMicros({
+      balanceCents: args.balanceCents,
+      maxBalanceEligibleCents: args.maxBalanceEligibleCents,
+      aprBps: args.aprBps,
+    });
+  const addCents = Math.floor(total / MICROS_PER_CENT);
+  return { addCents, carryMicros: total - addCents * MICROS_PER_CENT };
+}
+
+/**
+ * Whole-cent daily accrual.
+ *
+ * Kept because the forecast card projects with it, where a per-day cent
+ * figure is what's wanted. It is NOT what the cron uses — see
+ * `applyDailyAccrual`, which carries the fraction.
+ */
+export function accrueDailyInterest(args: {
+  balanceCents: number;
+  maxBalanceEligibleCents: number;
+  aprBps: number;
+}): number {
+  return Math.floor(accrueDailyInterestMicros(args) / MICROS_PER_CENT);
 }
 
 /**
