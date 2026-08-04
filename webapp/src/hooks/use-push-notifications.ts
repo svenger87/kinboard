@@ -320,12 +320,12 @@ export function usePushNotifications(): UsePushNotificationsReturn {
    */
   const subscribe = useCallback(async (): Promise<boolean> => {
     if (!state.isSupported) {
-      setState((prev) => ({ ...prev, error: "Push-Benachrichtigungen werden nicht unterstützt" }));
+      setState((prev) => ({ ...prev, error: t("unsupported") }));
       return false;
     }
 
     if (!family?.id || !device?.id) {
-      setState((prev) => ({ ...prev, error: "Familie oder Gerät nicht gefunden" }));
+      setState((prev) => ({ ...prev, error: t("noFamilyOrDevice") }));
       return false;
     }
 
@@ -340,7 +340,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
           setState((prev) => ({
             ...prev,
             isLoading: false,
-            error: "Benachrichtigungen wurden nicht erlaubt",
+            error: t("permissionDenied"),
           }));
           return false;
         }
@@ -352,7 +352,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         setState((prev) => ({
           ...prev,
           isLoading: false,
-          error: "Push-Server nicht konfiguriert. Bitte VAPID-Schlüssel in .env setzen.",
+          error: t("vapidMissing"),
         }));
         return false;
       }
