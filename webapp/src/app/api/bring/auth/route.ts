@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       if (response.status === 401) {
         return NextResponse.json(
-          { error: "Ungültige Anmeldedaten" },
+          { error: "Invalid credentials" },
           { status: 401 }
         );
       }
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Bring auth error:", error);
     return NextResponse.json(
-      { error: "Authentifizierung fehlgeschlagen" },
+      { error: "Authentication failed" },
       { status: 500 }
     );
   }
