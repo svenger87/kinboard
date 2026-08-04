@@ -65,6 +65,20 @@ export function useIdleTimeout({
   useEffect(() => {
     if (presenceEnabled) return; // Skip if using presence sensor
 
+    // "Screensaver: off" arrives here as a non-finite timeout, and
+    // setTimeout does NOT treat that as "never". The delay goes through
+    // ToInt32, and ToInt32(Infinity) is 0 — so the screensaver appeared
+    // at once, and every touch re-armed it with the same 0ms delay, which
+    // left the display stuck behind it with no way out except changing
+    // the setting from another device.
+    //
+    // The presence branch above already guards its degenerate value; this
+    // one never did.
+    if (!Number.isFinite(timeout) || timeout <= 0) {
+      setIsIdle(false);
+      return;
+    }
+
     let timer: NodeJS.Timeout;
 
     const handleActivity = (e: Event) => {
