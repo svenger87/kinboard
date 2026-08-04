@@ -69,6 +69,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { formatRecipeTime } from "@/lib/recipe-time";
+import { parseInstructions } from "@/lib/recipe-instructions";
 import type { RecipeInstruction, RecipeIngredient, MealType } from "@/types/database";
 
 // Difficulty colors
@@ -119,11 +120,7 @@ export default function RecipeDetailPage() {
   const multiplier = recipe?.servings ? effectiveServings / recipe.servings : 1;
 
   // Parse instructions
-  const instructions: RecipeInstruction[] = recipe?.instructions
-    ? (typeof recipe.instructions === "string"
-        ? JSON.parse(recipe.instructions)
-        : recipe.instructions)
-    : [];
+  const instructions: RecipeInstruction[] = parseInstructions(recipe?.instructions);
 
   // Format time
   const formatTime = (m: number | null) => formatRecipeTime(t, m);
