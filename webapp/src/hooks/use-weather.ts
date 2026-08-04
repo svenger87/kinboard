@@ -25,6 +25,8 @@ export interface WeatherData {
   visibility: number;
   sunrise: string;
   sunset: string;
+  /** Seconds east of UTC at the weather location. */
+  timezoneOffset?: number;
   units?: UnitSystem;
 }
 
