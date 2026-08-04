@@ -124,6 +124,12 @@ export async function GET(request: NextRequest) {
       visibility: visibilityForDisplay(data.visibility, units),
       sunrise: formatTime(data.sys.sunrise, data.timezone),
       sunset: formatTime(data.sys.sunset, data.timezone),
+      // Seconds east of UTC at the *forecast location*. sunrise/sunset
+      // above are already in that zone, so anything comparing them
+      // against "now" needs this or it compares two different clocks —
+      // which is what drew the sun at the wrong point of its arc for any
+      // board configured to a city in another zone.
+      timezoneOffset: data.timezone,
       // Echoed back so the client labels the numbers with the system
       // they were actually produced in, even if the setting changed
       // while this response was in flight.

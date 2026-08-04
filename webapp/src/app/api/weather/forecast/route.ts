@@ -1,3 +1,4 @@
+import { atLocation, localDateKey, localHour } from "@/lib/weather-time";
 import { NextRequest, NextResponse } from "next/server";
 import {
   toUnitSystem,
@@ -53,31 +54,6 @@ const CONDITION_LABELS: Record<string, Record<string, string>> = {
 
 function mapCondition(weatherMain: string, lang: string): string {
   return CONDITION_LABELS[lang]?.[weatherMain] ?? CONDITION_LABELS.de[weatherMain] ?? weatherMain;
-}
-
-/**
- * A Date whose **UTC** fields read as the forecast location's local time.
- *
- * OpenWeatherMap returns UTC timestamps plus `city.timezone`, the
- * location's offset in seconds. That offset was fetched, echoed in the
- * response, and never applied: days were bucketed by UTC calendar date
- * and hours were rendered in whatever zone the *container* runs in
- * (Europe/Berlin by default).
- *
- * What that produced: a Berlin household at UTC+2 filed its 00:00 and
- * 01:00 slots under the previous day, so a day's low could come from the
- * wrong date and the last bucket was a two-hour stub. Worse for anyone
- * further out — a US self-hoster's "hourly forecast" was labelled in
- * Berlin time, six to nine hours off their own clock.
- *
- * Shifting the instant and then reading UTC fields is the trick that
- * avoids needing an IANA zone name, which the API doesn't give us.
- * Everything derived from these Dates must therefore read UTC fields, or
- * format with `timeZone: "UTC"` — reading local fields would put the
- * container's zone straight back in.
- */
-function atLocation(unixSeconds: number, offsetSeconds: number): Date {
-  return new Date((unixSeconds + offsetSeconds) * 1000);
 }
 
 function getDayName(date: Date, locale: string = "de-DE"): string {
@@ -154,8 +130,7 @@ export async function GET(request: NextRequest) {
     const dailyForecasts: Record<string, ForecastItem[]> = {};
 
     for (const item of data.list) {
-      const date = atLocation(item.dt, tzOffset);
-      const dateKey = date.toISOString().split("T")[0];
+      const dateKey = localDateKey(item.dt, tzOffset);
 
       if (!dailyForecasts[dateKey]) {
         dailyForecasts[dateKey] = [];
@@ -178,7 +153,7 @@ export async function GET(request: NextRequest) {
         // getUTCHours on the shifted instant = the hour where the weather
         // is. getHours() read the container's zone, so the "midday" icon
         // for a distant city came from the middle of its night.
-        const hour = atLocation(i.dt, tzOffset).getUTCHours();
+        const hour = localHour(i.dt, tzOffset);
         return hour >= 11 && hour <= 14;
       }) || items[Math.floor(items.length / 2)];
 
