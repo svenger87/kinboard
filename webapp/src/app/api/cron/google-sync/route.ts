@@ -215,11 +215,17 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
           // Handle cancelled/deleted events
           if (event.status === "cancelled") {
              
+            // Scoped to this calendar, and maybeSingle rather than
+            // single. Unscoped, a Google calendar subscribed by two
+            // families matched the OTHER family's row and deleted it.
+            // `.single()` also errors on more than one match, which the
+            // caller read as "not found".
             const { data: existingToDelete } = await (supabase as any)
               .from("events")
               .select("id")
               .eq("google_event_id", event.id)
-              .single();
+              .eq("calendar_id", localCalendar.id)
+              .maybeSingle();
 
             if (existingToDelete) {
                
@@ -275,11 +281,24 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
           }
 
            
+          // Same scoping as the delete above. Without the calendar
+          // filter, two families subscribed to the same Google calendar
+          // updated each other's rows — and because the update also sets
+          // calendar_id, the event moved out of one family's calendar
+          // into the other's.
+          //
+          // maybeSingle, not single: `.single()` errors when 0 OR >1 rows
+          // match, and both cases returned null data, so a duplicate made
+          // the code take the insert branch and add ANOTHER duplicate on
+          // every run — every 15 minutes, indefinitely.
           const { data: existing } = await (supabase as any)
             .from("events")
             .select("id, updated_at")
             .eq("google_event_id", event.id)
-            .single();
+            .eq("calendar_id", localCalendar.id)
+            .order("created_at", { ascending: true })
+            .limit(1)
+            .maybeSingle();
 
           const eventData = {
             calendar_id: localCalendar.id,
@@ -303,8 +322,24 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
             updated++;
           } else {
              
-            await (supabase as any).from("events").insert(eventData);
-            created++;
+            const { error: insertErr } = await (supabase as any)
+              .from("events")
+              .insert(eventData);
+            if (insertErr) {
+              // 23505 is the unique index added in
+              // migration_events_unique_source_id: another writer created
+              // this event between our lookup and our insert. That's the
+              // race the index exists to catch, and the row we wanted is
+              // already there, so there is nothing to repair.
+              if (insertErr.code !== "23505") {
+                console.error(
+                  `[google-sync-cron] insert failed for ${event.id}:`,
+                  insertErr.message,
+                );
+              }
+            } else {
+              created++;
+            }
           }
         }
       } catch (calError) {
