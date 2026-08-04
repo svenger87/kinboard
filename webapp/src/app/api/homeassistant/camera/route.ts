@@ -16,6 +16,18 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // The entity id is interpolated straight into the path of a request that
+  // carries the family's Home Assistant token. Unchecked, a value like
+  // "../../states" walks out of /api/camera_proxy/ and reaches other Home
+  // Assistant endpoints with those credentials — the host can't be changed
+  // (it comes from PIN-protected settings) but the path could be.
+  //
+  // Home Assistant entity ids are `domain.object_id`, lowercase alphanumerics
+  // and underscores. Anything else is not an entity id.
+  if (!/^[a-z0-9_]+\.[a-z0-9_]+$/.test(entityId)) {
+    return NextResponse.json({ error: "invalid entity_id" }, { status: 400 });
+  }
+
   // Get Home Assistant settings (with secrets merged in) from Supabase
   const haSettings = await getMergedSetting<HomeAssistantSettings>(familyId, "home_assistant");
 

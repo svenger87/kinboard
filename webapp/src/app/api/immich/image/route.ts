@@ -11,13 +11,24 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const familyId = searchParams.get("family_id");
   const assetId = searchParams.get("asset_id");
-  const size = searchParams.get("size") || "preview"; // thumbnail, preview, or original
+  // Also user-controlled, and it lands in the query string. Immich only
+  // understands these three, so anything else is either a typo or an attempt
+  // to append parameters of the caller's choosing.
+  const sizeParam = searchParams.get("size") || "preview";
+  const size = ["thumbnail", "preview", "original"].includes(sizeParam) ? sizeParam : "preview";
 
   if (!familyId || !assetId) {
     return NextResponse.json(
       { error: "family_id and asset_id are required" },
       { status: 400 }
     );
+  }
+
+  // Same reasoning as the Home Assistant camera proxy: this id lands in the
+  // path of a request carrying the family's Immich API key, so it has to be
+  // an asset id and nothing else. Immich asset ids are UUIDs.
+  if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(assetId)) {
+    return NextResponse.json({ error: "invalid asset_id" }, { status: 400 });
   }
 
   // Get Immich settings (with secrets merged in) from Supabase
