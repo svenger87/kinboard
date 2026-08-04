@@ -35,6 +35,7 @@ import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { formatCents } from "@/lib/pocket-money/format";
 import { BalanceForecast } from "@/components/pocket-money/balance-forecast";
 import { AmountDialog } from "@/components/pocket-money/amount-dialog";
+import { toast } from "sonner";
 
 // Locale-aware short weekday names indexed 0=Sun..6=Sat. Built once
 // per locale via Intl.DateTimeFormat off a known Sunday so we don't
@@ -59,6 +60,14 @@ const ALLOWANCE_INTERVAL_OPTIONS: ReadonlyArray<{ days: number; labelKey: string
   { days: 14, labelKey: "intervalBiweekly" },
   { days: 28, labelKey: "intervalEveryFourWeeks" },
 ];
+
+/** Server codes turned into something a parent can act on. */
+function decideError(err: unknown, t: (key: string) => string): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (raw.includes("already_decided")) return t("errorAlreadyDecided");
+  if (raw.includes("insufficient_funds")) return t("errorInsufficientFunds");
+  return t("errorGeneric");
+}
 
 export default function PocketMoneySettingsPage() {
   const t = useTranslations("settings.pocketMoney");
@@ -440,7 +449,11 @@ function AccountInbox({
               onClick={() =>
                 decide
                   .mutateAsync({ id: r.id, status: "approved" })
-                  .catch(console.error)
+                  // 409 already_decided (another device got there first)
+                  // and an auto-deny for insufficient funds both landed
+                  // here silently, leaving the row looking pending
+                  // forever with no explanation to anyone.
+                  .catch((err) => toast.error(decideError(err, t)))
               }
             >
               {t("approve")}
@@ -451,7 +464,7 @@ function AccountInbox({
               onClick={() =>
                 decide
                   .mutateAsync({ id: r.id, status: "denied" })
-                  .catch(console.error)
+                  .catch((err) => toast.error(decideError(err, t)))
               }
             >
               {t("deny")}
