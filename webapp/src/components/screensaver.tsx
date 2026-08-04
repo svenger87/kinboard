@@ -13,6 +13,7 @@ import { Cake, Calendar, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Su
 import { format, differenceInDays, setYear, isPast, addYears, isToday, isTomorrow, addDays, startOfDay, endOfDay, parseISO } from "date-fns";
 import { type Locale } from "date-fns/locale";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
+import { useTimeFormat } from "@/hooks/use-time-format";
 
 // Parse date string safely without timezone shift
 // "1990-01-28" should be January 28th local, not UTC midnight
@@ -61,17 +62,20 @@ function formatEventTime(
   start: Date,
   allDay: boolean | undefined,
   labels: { today: string; tomorrow: string },
-  dateLocale: Locale
+  dateLocale: Locale,
+  // Passed in rather than read here: this is a module-level helper, so it
+  // can't call the hook that knows the household's 24-hour setting.
+  formatTime: (value: Date | string | number) => string,
 ): string {
   if (allDay) {
     if (isToday(start)) return labels.today;
     if (isTomorrow(start)) return labels.tomorrow;
     return format(start, "EEE", { locale: dateLocale });
   }
-  const timeStr = format(start, "HH:mm");
+  const timeStr = formatTime(start);
   if (isToday(start)) return `${labels.today}, ${timeStr}`;
   if (isTomorrow(start)) return `${labels.tomorrow}, ${timeStr}`;
-  return format(start, "EEE, HH:mm", { locale: dateLocale });
+  return `${format(start, "EEE", { locale: dateLocale })}, ${formatTime(start)}`;
 }
 
 // No default photos — screensaver shows clock-only mode when Immich is not connected
@@ -87,6 +91,7 @@ function screensaverWeatherIcon(condition: string) {
 }
 
 export function Screensaver({ photos }: ScreensaverProps) {
+  const { formatTime } = useTimeFormat();
   const t = useTranslations("components.screensaver");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
@@ -793,7 +798,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
                       {event.title}
                     </p>
                     <div className="flex items-center gap-2 text-white/50 text-xs">
-                      <span>{formatEventTime(event.start, event.allDay, eventLabels, dateLocale)}</span>
+                      <span>{formatEventTime(event.start, event.allDay, eventLabels, dateLocale, formatTime)}</span>
                       {event.location && (
                         <span className="flex items-center gap-1 truncate">
                           <MapPin className="size-3 shrink-0" />

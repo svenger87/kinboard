@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useTimeFormat } from "@/hooks/use-time-format";
 
 interface ClockProps {
   showDate?: boolean;
@@ -68,7 +69,10 @@ export function Clock({
 
   // Only update every second if showing seconds, otherwise every minute
   const updateInterval = showSeconds ? 1000 : 60000;
-  const { hours, minutes, seconds, date } = useClock(updateInterval);
+  const { use24Hour } = useTimeFormat();
+  const { hours, minutes, seconds, date } = useClock(updateInterval, use24Hour);
+  // Locale-aware: a French install shouldn't be handed an English "PM".
+  const meridiem = use24Hour ? null : format(date, "a", { locale: dateLocale });
 
   const formattedDate = date.toLocaleDateString(intlLocale, {
     weekday: "long",
@@ -137,6 +141,16 @@ export function Clock({
                       {seconds}
                     </span>
                   </>
+                )}
+                {meridiem && (
+                  // Sized down and set alongside rather than inline with
+                  // the digits: on the xl wall-display clock a full-height
+                  // "PM" would compete with the time itself.
+                  <span
+                    className={`font-display font-light ${secondsSizeClasses[size]} clock-display text-muted-foreground/60 ml-2 self-center uppercase`}
+                  >
+                    {meridiem}
+                  </span>
                 )}
               </time>
             </button>

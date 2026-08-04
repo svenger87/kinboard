@@ -23,6 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { personStrongTint, personText } from "@/lib/person-color";
 import { layoutDayEvents, visibleHourRange } from "@/lib/calendar-layout";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import {
   Tooltip,
   TooltipContent,
@@ -60,6 +61,7 @@ export function WeekView({
   onSelectDate,
   onSelectEvent,
 }: WeekViewProps) {
+  const { formatTime } = useTimeFormat();
   const t = useTranslations("calendar");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
@@ -313,7 +315,7 @@ export function WeekView({
                           animate={{ opacity: 1, scale: 1 }}
                           role="button"
                           tabIndex={0}
-                          aria-label={`${event.title}, ${format(event.start, "HH:mm")} - ${format(event.end, "HH:mm")}${event.location ? `, ${event.location}` : ""}${clusterSize > 1 ? `, ${t("weekView.overlapAria", { count: clusterSize - 1 })}` : ""}`}
+                          aria-label={`${event.title}, ${formatTime(event.start)} - ${formatTime(event.end)}${event.location ? `, ${event.location}` : ""}${clusterSize > 1 ? `, ${t("weekView.overlapAria", { count: clusterSize - 1 })}` : ""}`}
                           onClick={() => onSelectEvent(event)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
@@ -341,8 +343,8 @@ export function WeekView({
                           </p>
                           {height > 40 && !isNarrow && (
                             <p className="text-[10px] font-mono tabular-nums opacity-80">
-                              {format(event.start, "HH:mm")} -{" "}
-                              {format(event.end, "HH:mm")}
+                              {formatTime(event.start)} -{" "}
+                              {formatTime(event.end)}
                             </p>
                           )}
                           {height > 60 && !isNarrow && event.location && (
@@ -355,8 +357,8 @@ export function WeekView({
                       <TooltipContent>
                         <p className="font-medium">{event.title}</p>
                         <p className="text-xs opacity-70">
-                          {format(event.start, "HH:mm")} -{" "}
-                          {format(event.end, "HH:mm")}
+                          {formatTime(event.start)} -{" "}
+                          {formatTime(event.end)}
                         </p>
                         {event.location && (
                           <p className="text-xs opacity-70">{event.location}</p>

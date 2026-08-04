@@ -117,6 +117,7 @@ import {
 } from "@/hooks";
 import { matchPersonForEvent } from "@/lib/calendar-person-matcher";
 import { getHolidays, type CountryCode } from "@/lib/holidays";
+import { useTimeFormat } from "@/hooks/use-time-format";
 
 // Types
 interface CalendarEvent {
@@ -177,6 +178,7 @@ function CalendarSkeleton({ view = "month" }: { view?: "month" | "week" }) {
 }
 
 export default function CalendarPage() {
+  const { formatTime } = useTimeFormat();
   // Enable keyboard shortcuts and swipe navigation
   useKeyboardShortcuts();
   useSwipeNavigation();
@@ -1160,7 +1162,7 @@ export default function CalendarPage() {
                                 >
                                   <span className="text-[11px] font-medium truncate block leading-tight">{event.title}</span>
                                   <span className="text-[9px] text-muted-foreground truncate block">
-                                    {format(event.start, "HH:mm")} – {format(event.end, "HH:mm")}
+                                    {formatTime(event.start)} – {formatTime(event.end)}
                                   </span>
                                 </button>
                               );
@@ -1244,7 +1246,7 @@ export default function CalendarPage() {
                                         {!event.allDay && (
                                           <span className="flex items-center gap-0.5">
                                             <Clock className="size-2.5" />
-                                            {format(event.start, "HH:mm")}
+                                            {formatTime(event.start)}
                                           </span>
                                         )}
                                       </div>
@@ -1324,7 +1326,7 @@ export default function CalendarPage() {
                                   transition={{ delay: index * 0.05 }}
                                   role="button"
                                   tabIndex={0}
-                                  aria-label={`${event.title}, ${format(event.start, "HH:mm")} - ${format(event.end, "HH:mm")}${event.location ? `, ${event.location}` : ""}${isOngoing ? `, ${t("ongoingAria")}` : ""}`}
+                                  aria-label={`${event.title}, ${formatTime(event.start)} - ${formatTime(event.end)}${event.location ? `, ${event.location}` : ""}${isOngoing ? `, ${t("ongoingAria")}` : ""}`}
                                   onClick={() => openEventDetail(event)}
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter" || e.key === " ") {
@@ -1340,7 +1342,7 @@ export default function CalendarPage() {
                                     variant="agenda"
                                     title={event.title}
                                     color={event.color}
-                                    time={format(event.start, "HH:mm")}
+                                    time={formatTime(event.start)}
                                     icon={event.is_waste_collection ? Trash2 : undefined}
                                   />
                                   <div className="flex flex-wrap items-center gap-2 px-4 pt-1.5">
@@ -1673,7 +1675,7 @@ export default function CalendarPage() {
                               <p className="text-sm">{t("allDayBadge")}</p>
                             ) : (
                               <p className="text-sm">
-                                {format(selectedEvent.start, "HH:mm")} &ndash; {format(selectedEvent.end, "HH:mm")}
+                                {formatTime(selectedEvent.start)} &ndash; {formatTime(selectedEvent.end)}
                               </p>
                             )}
                           </>
@@ -1720,8 +1722,8 @@ export default function CalendarPage() {
                             location: selectedEvent.location || "",
                             startDate: selectedEvent.start,
                             endDate: selectedEvent.end,
-                            startTime: format(selectedEvent.start, "HH:mm"),
-                            endTime: format(selectedEvent.end, "HH:mm"),
+                            startTime: formatTime(selectedEvent.start),
+                            endTime: formatTime(selectedEvent.end),
                             allDay: selectedEvent.allDay,
                             person_id: selectedEvent.person_id || null,
                           });
