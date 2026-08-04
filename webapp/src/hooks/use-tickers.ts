@@ -19,11 +19,12 @@ export function useTickers() {
 }
 
 export function useTicker(id: string | undefined) {
+  const { family } = useFamilyStore();
   return useQuery({
-    queryKey: [TICKERS_KEY, "one", id],
-    enabled: Boolean(id),
+    queryKey: [TICKERS_KEY, "one", id, family?.id],
+    enabled: Boolean(id) && Boolean(family?.id),
     queryFn: async (): Promise<Ticker> => {
-      const r = await fetch(`/api/tickers/${id}`);
+      const r = await fetch(`/api/tickers/${id}?family_id=${family!.id}`);
       if (!r.ok) throw new Error(`ticker: ${r.status}`);
       const json = (await r.json()) as { ticker: Ticker };
       return json.ticker;
@@ -62,7 +63,7 @@ export function useUpdateTicker() {
       const r = await fetch(`/api/tickers/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(update),
+        body: JSON.stringify({ ...update, family_id: family?.id }),
       });
       if (!r.ok) throw new Error(`update: ${r.status}`);
       const json = (await r.json()) as { ticker: Ticker };
@@ -70,7 +71,7 @@ export function useUpdateTicker() {
     },
     onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: [TICKERS_KEY, family?.id] });
-      qc.invalidateQueries({ queryKey: [TICKERS_KEY, "one", saved.id] });
+      qc.invalidateQueries({ queryKey: [TICKERS_KEY, "one", saved.id, family?.id] });
     },
   });
 }
@@ -80,7 +81,9 @@ export function useDeleteTicker() {
   const { family } = useFamilyStore();
   return useMutation({
     mutationFn: async (id: string) => {
-      const r = await fetch(`/api/tickers/${id}`, { method: "DELETE" });
+      const r = await fetch(`/api/tickers/${id}?family_id=${family?.id ?? ""}`, {
+        method: "DELETE",
+      });
       if (!r.ok) throw new Error(`delete: ${r.status}`);
     },
     onSuccess: () => {

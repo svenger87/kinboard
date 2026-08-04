@@ -19,11 +19,12 @@ export function useVehicles() {
 }
 
 export function useVehicle(id: string | undefined) {
+  const { family } = useFamilyStore();
   return useQuery({
-    queryKey: [VEHICLES_KEY, "one", id],
-    enabled: Boolean(id),
+    queryKey: [VEHICLES_KEY, "one", id, family?.id],
+    enabled: Boolean(id) && Boolean(family?.id),
     queryFn: async (): Promise<Vehicle> => {
-      const r = await fetch(`/api/vehicles/${id}`);
+      const r = await fetch(`/api/vehicles/${id}?family_id=${family!.id}`);
       if (!r.ok) throw new Error(`vehicle: ${r.status}`);
       const json = (await r.json()) as { vehicle: Vehicle };
       return json.vehicle;
@@ -41,9 +42,9 @@ export function useSaveVehicle() {
       const isUpdate = Boolean(input.id);
       const url = isUpdate ? `/api/vehicles/${input.id}` : "/api/vehicles";
       const method = isUpdate ? "PATCH" : "POST";
-      const body = isUpdate
-        ? input
-        : { ...input, family_id: family?.id };
+      // family_id goes on both paths now: on create it sets the owner, on
+      // update the route uses it to confirm the row is ours before touching it.
+      const body = { ...input, family_id: family?.id };
       const r = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -58,7 +59,7 @@ export function useSaveVehicle() {
     },
     onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: [VEHICLES_KEY, family?.id] });
-      qc.invalidateQueries({ queryKey: [VEHICLES_KEY, "one", saved.id] });
+      qc.invalidateQueries({ queryKey: [VEHICLES_KEY, "one", saved.id, family?.id] });
     },
   });
 }
@@ -68,7 +69,9 @@ export function useDeleteVehicle() {
   const { family } = useFamilyStore();
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      const r = await fetch(`/api/vehicles/${id}`, { method: "DELETE" });
+      const r = await fetch(`/api/vehicles/${id}?family_id=${family?.id ?? ""}`, {
+        method: "DELETE",
+      });
       if (!r.ok) throw new Error(`delete: ${r.status}`);
     },
     onSuccess: () => {

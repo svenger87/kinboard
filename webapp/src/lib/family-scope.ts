@@ -24,6 +24,7 @@ import { NextRequest } from "next/server";
 const SCOPE: Record<string, { column: "family_id" } | { via: "account" }> = {
   pocket_money_accounts: { column: "family_id" },
   tickers: { column: "family_id" },
+  vehicles: { column: "family_id" },
   push_subscriptions: { column: "family_id" },
   // These hang off an account rather than carrying a family of their own,
   // so ownership is one hop away.
