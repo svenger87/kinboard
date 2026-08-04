@@ -39,6 +39,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The ticker and vehicle endpoints matched on the id from the URL alone, without checking which family the row belonged to. Anyone who knew or guessed a row's UUID could read, edit or delete another family's entry. Both now filter by family, and a test blocks any future endpoint from shipping without that filter.
 
 ### Fixed
+- Restoring a backup keeps your default calendar. The setting still named a calendar from the old install, so the calendar page fell back to no default at all.
+- Backups now say what they don't contain. Uploaded photos are files rather than database rows, so they were never in the export — and a restore reported success while leaving every uploaded image broken, with nothing to connect the two. The backup now lists the images it references, and the restore tells you to copy the storage volume as well.
 - Recipe tags work now. The tag filter on the recipes page, the tags table and the export/import round-trip were all in place, but there was no way to put a tag on a recipe — creating one made the tag and never attached it, editing one ignored tags entirely. Both recipe forms now have a tag field that suggests the tags you already use.
 - Two switches in Settings → Bring! now do what they say. "Auto sync" polled every two minutes whether it was on or off, and "Adopt Bring! categories" had no effect at all — both saved their state and were read by nothing.
 - Reminders no longer fire for appointments you cancelled or moved. A reminder is queued up to ten minutes ahead and nothing rechecked it before sending, so a deleted event still announced itself at the old time, and a rescheduled one announced itself twice — once for the old slot and once for the new.
