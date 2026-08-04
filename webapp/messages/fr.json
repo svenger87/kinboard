@@ -2231,6 +2231,11 @@
       "updateFailed": "Modification enregistrée, mais non envoyée au serveur CalDAV",
       "deleteFailed": "Impossible de supprimer l'événement sur le serveur CalDAV"
     },
+    "googleToast": {
+      "pushFailed": "Événement enregistré, mais non envoyé à Google Agenda",
+      "updateFailed": "Modification enregistrée, mais non envoyée à Google Agenda",
+      "deleteFailed": "Impossible de supprimer l'événement dans Google Agenda"
+    },
     "title": "Calendrier",
     "newEventButton": "Événement",
     "addDialogTitle": "Nouvel événement",

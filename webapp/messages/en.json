@@ -2231,6 +2231,11 @@
       "updateFailed": "Change saved, but not sent to the CalDAV server",
       "deleteFailed": "Could not delete the event on the CalDAV server"
     },
+    "googleToast": {
+      "pushFailed": "Event saved, but not sent to Google Calendar",
+      "updateFailed": "Change saved, but not sent to Google Calendar",
+      "deleteFailed": "Could not delete the event on Google Calendar"
+    },
     "title": "Calendar",
     "newEventButton": "Event",
     "addDialogTitle": "New event",

@@ -2231,6 +2231,11 @@
       "updateFailed": "Änderung gespeichert, aber nicht an den CalDAV-Server gesendet",
       "deleteFailed": "Termin konnte auf dem CalDAV-Server nicht gelöscht werden"
     },
+    "googleToast": {
+      "pushFailed": "Termin gespeichert, aber nicht an Google Kalender gesendet",
+      "updateFailed": "Änderung gespeichert, aber nicht an Google Kalender gesendet",
+      "deleteFailed": "Termin konnte in Google Kalender nicht gelöscht werden"
+    },
     "title": "Kalender",
     "newEventButton": "Termin",
     "addDialogTitle": "Neuer Termin",
