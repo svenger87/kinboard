@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { familyIdFrom, accountInFamily } from "@/lib/family-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const body = (await request.json()) as Partial<DecideBody>;
+  const body = (await request.json()) as Partial<DecideBody> & { family_id?: string };
+
+  // Approving a request moves real money out of a child's balance, so
+  // this is the write that most needs the family check. RLS is off —
+  // see lib/family-scope.
+  const familyId = familyIdFrom(request, body);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
 
   if (body.status !== "approved" && body.status !== "denied") {
     return NextResponse.json(
@@ -32,7 +41,10 @@ export async function PATCH(
     .maybeSingle();
 
   if (readErr) return NextResponse.json({ error: readErr.message }, { status: 500 });
-  if (!req) return NextResponse.json({ error: "not found" }, { status: 404 });
+  // Not found and not yours are the same answer, so ids can't be probed.
+  if (!req || !(await accountInFamily(supabase, req.account_id, familyId))) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
   if (req.status !== "pending") {
     return NextResponse.json({ error: "already_decided" }, { status: 409 });
   }

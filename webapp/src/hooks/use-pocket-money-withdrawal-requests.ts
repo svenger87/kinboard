@@ -1,3 +1,4 @@
+import { useFamilyStore } from "@/stores/family-store";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePocketMoneyAccounts } from "./use-pocket-money-accounts";
 import type {
@@ -11,11 +12,14 @@ export function useWithdrawalRequests(
   accountId: string | undefined,
   status?: "pending" | "approved" | "denied"
 ) {
+  const { family } = useFamilyStore();
   return useQuery({
     queryKey: [KEY, accountId, status ?? "all"],
     enabled: Boolean(accountId),
     queryFn: async (): Promise<PocketMoneyWithdrawalRequest[]> => {
-      const url = `/api/pocket-money/accounts/${accountId}/withdrawal-requests${status ? `?status=${status}` : ""}`;
+      const params = new URLSearchParams({ family_id: family?.id ?? "" });
+      if (status) params.set("status", status);
+      const url = `/api/pocket-money/accounts/${accountId}/withdrawal-requests?${params}`;
       const r = await fetch(url);
       if (!r.ok) throw new Error(`requests: ${r.status}`);
       return ((await r.json()) as { requests: PocketMoneyWithdrawalRequest[] }).requests;
@@ -24,6 +28,7 @@ export function useWithdrawalRequests(
 }
 
 export function useCreateWithdrawalRequest() {
+  const { family } = useFamilyStore();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -36,7 +41,7 @@ export function useCreateWithdrawalRequest() {
       const r = await fetch(`/api/pocket-money/accounts/${accountId}/withdrawal-requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
+        body: JSON.stringify({ ...input, family_id: family?.id }),
       });
       if (!r.ok) throw new Error(`create request: ${r.status}`);
       return ((await r.json()) as { request: PocketMoneyWithdrawalRequest }).request;
@@ -48,6 +53,7 @@ export function useCreateWithdrawalRequest() {
 }
 
 export function useDecideWithdrawalRequest() {
+  const { family } = useFamilyStore();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -62,7 +68,7 @@ export function useDecideWithdrawalRequest() {
       const r = await fetch(`/api/pocket-money/withdrawal-requests/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, parent_decided_by_person_id }),
+        body: JSON.stringify({ status, parent_decided_by_person_id, family_id: family?.id }),
       });
       if (!r.ok) {
         const err = (await r.json().catch(() => ({}))) as { error?: string };
@@ -94,6 +100,7 @@ export function useDecideWithdrawalRequest() {
  * cache instead of adding a second source of truth.
  */
 export function usePendingWithdrawalCount(): number {
+  const { family } = useFamilyStore();
   const { data: accounts = [] } = usePocketMoneyAccounts();
 
   const results = useQueries({
@@ -101,7 +108,7 @@ export function usePendingWithdrawalCount(): number {
       queryKey: [KEY, account.id, "pending"],
       queryFn: async (): Promise<PocketMoneyWithdrawalRequest[]> => {
         const r = await fetch(
-          `/api/pocket-money/accounts/${account.id}/withdrawal-requests?status=pending`,
+          `/api/pocket-money/accounts/${account.id}/withdrawal-requests?status=pending&family_id=${family?.id ?? ""}`,
         );
         if (!r.ok) throw new Error(`requests: ${r.status}`);
         return ((await r.json()) as { requests: PocketMoneyWithdrawalRequest[] })

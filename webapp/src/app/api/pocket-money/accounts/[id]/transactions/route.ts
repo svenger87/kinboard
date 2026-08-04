@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { PocketMoneyTransactionInsert } from "@/types/database";
+import { familyIdFrom, rowInFamily, accountInFamily } from "@/lib/family-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,17 @@ export async function GET(
   const limit = Math.min(Number.isFinite(rawLimit) ? rawLimit : 50, 200);
 
   const supabase = createAdminClient();
+  // The account must belong to the caller's family. RLS is off, so this
+  // check is the boundary — see lib/family-scope.
+  const familyId = familyIdFrom(request);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
+  if (!(await accountInFamily(supabase, id, familyId))) {
+    // Same answer as "doesn't exist", so ids can't be probed.
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+
   const { data, error } = await (supabase as any)
     .from("pocket_money_transactions")
     .select("*")
@@ -29,7 +41,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: accountId } = await params;
-  const body = (await request.json()) as Partial<PocketMoneyTransactionInsert>;
+  const body = (await request.json()) as Partial<PocketMoneyTransactionInsert> & { family_id?: string };
 
   if (typeof body.amount_cents !== "number" || body.amount_cents === 0) {
     return NextResponse.json(
@@ -68,6 +80,15 @@ export async function POST(
   }
 
   const supabase = createAdminClient();
+  // The account must belong to the caller's family. RLS is off, so this
+  // check is the boundary — see lib/family-scope.
+  const familyId = familyIdFrom(request, body);
+  if (!familyId) {
+    return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
+  if (!(await accountInFamily(supabase, accountId, familyId))) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
 
   const { data: account, error: readErr } = await (supabase as any)
     .from("pocket_money_accounts")
