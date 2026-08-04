@@ -71,6 +71,15 @@ test.describe("the row filter, which is what actually guards the shape", () => {
   });
 });
 
+test("the symbol never lands in a format-string position", () => {
+  // `symbol` comes straight off a query parameter, and console.warn treats
+  // its first argument as a format string — a symbol containing %s or %d
+  // would consume the arguments after it. CodeQL js/tainted-format-string.
+  const warn = source.slice(source.indexOf("chart fetch failed") - 200, source.indexOf("chart fetch failed") + 200);
+  expect(warn).not.toMatch(/console\.warn\(`[^`]*\$\{symbol\}/);
+  expect(warn).toContain('console.warn("[stonks/yahoo] chart fetch failed for", symbol');
+});
+
 test("quote validates; search and chart do not", () => {
   const quote = source.slice(source.indexOf("yf.quote("), source.indexOf("yf.quote(") + 200);
   expect(quote).not.toContain("validateResult");

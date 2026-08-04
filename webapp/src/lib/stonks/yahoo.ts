@@ -172,7 +172,7 @@ export async function fetchChart(symbol: string, timeframe: Timeframe): Promise<
       // can render a "no data" state instead of 500ing. Don't cache the
       // null: a symbol may become valid later and we don't want to
       // memoize a transient Yahoo outage.
-      console.warn(`[stonks/yahoo] chart fetch failed for ${symbol}:`, (err as Error)?.message ?? err);
+      console.warn("[stonks/yahoo] chart fetch failed for", symbol, (err as Error)?.message ?? err);
       return null;
     })) as { quotes?: ChartRow[] } | null;
   if (!result) return [];
