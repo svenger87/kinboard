@@ -30,8 +30,12 @@ interface NewsItem {
 const PROVIDER_CACHE_TTL_MS = 10 * 60 * 1000;
 const providerCache: Map<string, { items: NewsItem[]; expiresAt: number }> = new Map();
 
-const MAX_ITEMS_PER_SOURCE = 15;
-const MAX_ITEMS_TOTAL = 40;
+// Raised from 15/40. Fifteen headlines per source is roughly a day for a
+// wire service, which meant a household with two sources ran out of news
+// by evening. Publishers commonly ship 50-100 items per feed, so this
+// takes more of what has already been fetched rather than fetching more.
+const MAX_ITEMS_PER_SOURCE = 50;
+const MAX_ITEMS_TOTAL = 150;
 
 /**
  * Feed parsing moved to `lib/rss-parser` when custom feeds arrived —

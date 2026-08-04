@@ -215,3 +215,35 @@ test.describe("safeFetch address checks", () => {
     await expect(safeFetch("file:///etc/passwd")).rejects.toBeInstanceOf(BlockedAddressError);
   });
 });
+
+test.describe("oversized feeds (issue #37)", () => {
+  // The Walt Disney Company ships a 3.13 MB feed with 100 full-content
+  // items. Discovery used to refuse anything over 3 MB outright, so a
+  // working feed was rejected over content Kinboard would have discarded
+  // anyway. It now reads up to a ceiling and parses what arrived, which
+  // only works if a document cut mid-element degrades cleanly.
+
+  const feedOf = (n: number) =>
+    `<rss version="2.0"><channel><title>Big</title>` +
+    Array.from({ length: n }, (_, i) =>
+      `<item><title>Item ${i}</title><link>https://example.com/${i}</link></item>`).join("") +
+    `</channel></rss>`;
+
+  test("a document cut mid-item keeps the whole ones and drops the partial", () => {
+    const full = feedOf(5);
+    const cut = full.slice(0, full.indexOf("<title>Item 4</title>") + 10);
+    const feed = parseFeed(cut);
+    expect(feed).not.toBeNull();
+    expect(feed!.items.map((i) => i.title)).toEqual(["Item 0", "Item 1", "Item 2", "Item 3"]);
+  });
+
+  test("a document cut before any item closes yields none rather than junk", () => {
+    const full = feedOf(3);
+    const cut = full.slice(0, full.indexOf("</item>"));
+    expect(parseFeed(cut)!.items).toHaveLength(0);
+  });
+
+  test("reads well past the old 15-item ceiling", () => {
+    expect(parseFeed(feedOf(100), 50)!.items).toHaveLength(50);
+  });
+});
