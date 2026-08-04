@@ -6,8 +6,10 @@ import { format, startOfDay, endOfDay, isAfter } from "date-fns";
 import { useTranslations } from "next-intl";
 import { useEvents, usePeople } from "@/hooks";
 import { TodayStripPill } from "@/components/today-strip-pill";
+import { useTimeFormat } from "@/hooks/use-time-format";
 
 export function TodayStrip() {
+  const { formatTime } = useTimeFormat();
   const t = useTranslations("todayStrip");
 
   // Recompute "today" every minute so a kiosk display stays correct past midnight
@@ -63,7 +65,7 @@ export function TodayStrip() {
         timedToday.map((e) => (
           <TodayStripPill
             key={e.id}
-            time={format(new Date(e.start_at), "HH:mm")}
+            time={formatTime(new Date(e.start_at))}
             title={e.title}
             color={colorFor(e)}
           />
