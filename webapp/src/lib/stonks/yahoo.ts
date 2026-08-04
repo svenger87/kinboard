@@ -137,20 +137,44 @@ function timeframeToParams(tf: Timeframe): { period1: Date; interval: "5m" | "15
   }
 }
 
+/** The fields a candle is built from. Unvalidated Yahoo output is `unknown`. */
+interface ChartRow {
+  date?: Date | null;
+  open?: number | null;
+  high?: number | null;
+  low?: number | null;
+  close?: number | null;
+  volume?: number | null;
+}
+
 export async function fetchChart(symbol: string, timeframe: Timeframe): Promise<Candle[]> {
   const cacheKey = `${symbol}|${timeframe}`;
   const hit = cacheGet(chartCache, cacheKey);
   if (hit) return hit;
 
   const { period1, interval } = timeframeToParams(timeframe);
-  const result = await yf.chart(symbol, { period1, interval }).catch((err: unknown) => {
-    // Unknown / delisted / typo'd symbol — return null so the route
-    // can render a "no data" state instead of 500ing. Don't cache the
-    // null: a symbol may become valid later and we don't want to
-    // memoize a transient Yahoo outage.
-    console.warn(`[stonks/yahoo] chart fetch failed for ${symbol}:`, (err as Error)?.message ?? err);
-    return null;
-  });
+  // validateResult: false, for the same reason as searchSymbols above.
+  //
+  // yahoo-finance2 throws FailedYahooValidationError on the whole response
+  // when any part of it fails the schema it ships, and Yahoo returns
+  // `meta.currency: null` for some perfectly ordinary listings — WITS.DE is
+  // one. The catch below turns that into an empty array, so a chart with 22
+  // real candles behind it rendered as "no data" with nothing on screen to
+  // say why. Validation was hiding data, not protecting anyone from it.
+  //
+  // Nothing here trusts the shape: each row is filtered for the three fields
+  // that must be present and every number is coerced, which is what a chart
+  // needs regardless of whether a schema signed it off.
+  const result = (await yf
+    .chart(symbol, { period1, interval }, { validateResult: false })
+    .catch((err: unknown) => {
+      // Unknown / delisted / typo'd symbol — return null so the route
+      // can render a "no data" state instead of 500ing. Don't cache the
+      // null: a symbol may become valid later and we don't want to
+      // memoize a transient Yahoo outage.
+      console.warn(`[stonks/yahoo] chart fetch failed for ${symbol}:`, (err as Error)?.message ?? err);
+      return null;
+    })) as { quotes?: ChartRow[] } | null;
   if (!result) return [];
 
   const candles: Candle[] = (result.quotes ?? [])
