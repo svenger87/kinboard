@@ -1236,6 +1236,7 @@ export function useCreateEvent() {
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
   const tCaldav = useTranslations("calendar.caldavToast");
+  const tGoogle = useTranslations("calendar.googleToast");
 
   return useMutation({
     mutationFn: async (event: {
@@ -1304,10 +1305,15 @@ export function useCreateEvent() {
             createdEvent.google_event_id = result.google_event_id;
           }
         } else {
+          // The CalDAV branch above already toasts on a failed push. Google
+          // only logged, so an event that never reached the phone looked
+          // exactly like one that did.
           console.warn("Failed to push event to Google Calendar");
+          toast.warning(tGoogle("pushFailed"));
         }
       } catch (err) {
         console.warn("Error pushing event to Google:", err);
+        toast.warning(tGoogle("pushFailed"));
       }
 
       return createdEvent;
@@ -1323,6 +1329,7 @@ export function useUpdateEvent() {
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
   const tCaldav = useTranslations("calendar.caldavToast");
+  const tGoogle = useTranslations("calendar.googleToast");
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Event> & { id: string }) => {
@@ -1373,9 +1380,11 @@ export function useUpdateEvent() {
           });
           if (!response.ok) {
             console.warn("Failed to update event on Google Calendar");
+            toast.warning(tGoogle("updateFailed"));
           }
         } catch (err) {
           console.warn("Error updating event on Google:", err);
+          toast.warning(tGoogle("updateFailed"));
         }
       }
 
@@ -1392,6 +1401,7 @@ export function useDeleteEvent() {
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
   const tCaldav = useTranslations("calendar.caldavToast");
+  const tGoogle = useTranslations("calendar.googleToast");
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -1421,9 +1431,17 @@ export function useDeleteEvent() {
           throw new Error(caldavError);
         }
       } else {
-        // Delete from Google Calendar first (non-blocking, but we try before local delete)
+        // Delete from Google first, and keep the local row if that fails —
+        // the same reasoning the CalDAV branch above spells out. Deleting
+        // locally while the event survives on Google means the next sync
+        // pulls it straight back, so the delete appears to undo itself with
+        // nothing to explain why.
+        //
+        // The response was previously not checked at all, so a 500 from
+        // Google counted as a successful delete.
+        let googleError: string | null = null;
         try {
-          await fetch("/api/google/events", {
+          const response = await fetch("/api/google/events", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -1431,8 +1449,16 @@ export function useDeleteEvent() {
               event_id: id,
             }),
           });
+          if (!response.ok) {
+            googleError = `Google Calendar returned ${response.status}`;
+          }
         } catch (err) {
           console.warn("Error deleting event from Google:", err);
+          googleError = err instanceof Error ? err.message : String(err);
+        }
+        if (googleError) {
+          toast.error(tGoogle("deleteFailed"), { description: googleError });
+          throw new Error(googleError);
         }
       }
 
