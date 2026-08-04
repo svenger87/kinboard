@@ -15,6 +15,8 @@ export interface ScreensaverPhoto {
     photographerUrl?: string;
     location?: string | null;
     description?: string | null;
+    /** Unsplash only — the URL to ping when the photo is displayed. */
+    downloadLocation?: string | null;
   };
 }
 
@@ -54,6 +56,7 @@ export function usePhotoSource(): {
           photographerUrl: photo.photographerUrl,
           location: photo.location,
           description: photo.description,
+          downloadLocation: photo.downloadLocation,
         },
       }));
     }
