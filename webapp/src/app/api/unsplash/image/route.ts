@@ -24,10 +24,7 @@ import { NextResponse } from "next/server";
  * known exactly, and naming it is a far tighter control than proving an
  * address is public.
  */
-const ALLOWED_HOSTS = new Set([
-  "images.unsplash.com",
-  "plus.unsplash.com",
-]);
+const ALLOWED_HOSTS = ["images.unsplash.com", "plus.unsplash.com"] as const;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -50,12 +47,24 @@ export async function GET(request: Request) {
 
   // https only — an http URL to an allowed host could still be intercepted,
   // and Unsplash serves everything over TLS anyway.
-  if (target.protocol !== "https:" || !ALLOWED_HOSTS.has(target.hostname)) {
+  //
+  // The host is taken *from the allowlist*, not from the parsed URL, and the
+  // request below is rebuilt around it. So the address fetched is always one
+  // of the two literals above: the caller chooses which, and the path, and
+  // nothing else. Comparing and then reusing the caller's own URL would be
+  // equivalent in practice, but this way the destination host is a constant
+  // by construction rather than by argument.
+  const host = ALLOWED_HOSTS.find((allowed) => allowed === target.hostname);
+  if (target.protocol !== "https:" || !host) {
     return NextResponse.json({ error: "photo_url is not an Unsplash image" }, { status: 400 });
   }
 
+  const upstream = new URL(`https://${host}`);
+  upstream.pathname = target.pathname;
+  upstream.search = target.search;
+
   try {
-    const res = await fetch(target.href, {
+    const res = await fetch(upstream.href, {
       // A hung CDN shouldn't hold a connection open indefinitely.
       signal: AbortSignal.timeout(15_000),
       redirect: "manual",

@@ -22,6 +22,22 @@ interface UnsplashPhoto {
   location?: {
     name: string | null;
   };
+  links: {
+    // Unsplash requires a request to this URL when an app does something
+    // "similar to a download" — their own example includes setting an image
+    // as a header. Showing one as wallpaper is that event.
+    download_location: string;
+  };
+}
+
+/**
+ * Unsplash's guidelines: "All links back to Unsplash should use utm
+ * parameters in the `?utm_source=your_app_name&utm_medium=referral`."
+ */
+const UTM = "utm_source=kinboard&utm_medium=referral";
+
+function withUtm(url: string): string {
+  return url.includes("?") ? `${url}&${UTM}` : `${url}?${UTM}`;
 }
 
 // How many distinct search terms to use per fetch, and how many random photos
@@ -163,7 +179,10 @@ export async function GET(request: NextRequest) {
       id: photo.id,
       url: `/api/unsplash/image?family_id=${familyId}&photo_url=${encodeURIComponent(photo.urls.raw + "&w=1080&h=1920&fit=crop&q=80")}`,
       photographer: photo.user.name,
-      photographerUrl: photo.user.links.html,
+      photographerUrl: withUtm(photo.user.links.html),
+      // Passed through so the screensaver can report the display event; the
+      // access key needed to call it stays on the server.
+      downloadLocation: photo.links?.download_location ?? null,
       location: photo.location?.name ?? null,
       description: photo.alt_description ?? null,
     }));

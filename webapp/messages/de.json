@@ -140,7 +140,8 @@
       "birthdaysLabel": "Geburtstage",
       "birthdayTurns": "{name} wird {age}",
       "birthdayToday": "Heute!",
-      "birthdayDays": "{count, plural, one {# Tag} other {# Tage}}"
+      "birthdayDays": "{count, plural, one {# Tag} other {# Tage}}",
+      "photoCreditUnsplash": "Foto: {photographer} / Unsplash"
     },
     "pwa": {
       "updateTitle": "Update verfügbar",

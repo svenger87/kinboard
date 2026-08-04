@@ -140,7 +140,8 @@
       "birthdaysLabel": "Anniversaires",
       "birthdayTurns": "{name} fête ses {age} ans",
       "birthdayToday": "Aujourd'hui !",
-      "birthdayDays": "{count, plural, one {# jour} other {# jours}}"
+      "birthdayDays": "{count, plural, one {# jour} other {# jours}}",
+      "photoCreditUnsplash": "Photo : {photographer} / Unsplash"
     },
     "pwa": {
       "updateTitle": "Mise à jour disponible",
