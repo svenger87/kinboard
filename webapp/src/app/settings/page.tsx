@@ -59,7 +59,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useFamilyStore } from "@/stores/family-store";
-import { useKeyboardShortcuts, useSwipeNavigation, useIsOnline, useDeleteDevice, useIsPluginEnabled, useHomeAssistantStatus, useHomeAssistantConnectionCheck, useGoogleCalendarStatus, useBringSettings, useImmichStatus, useUnsplashStatus, useRegenerateJoinCode, useRenameFamily } from "@/hooks";
+import { useKeyboardShortcuts, useSwipeNavigation, useIsOnline, useDeleteDevice, useIsPluginEnabled, useHomeAssistantStatus, useHomeAssistantConnectionCheck, useGoogleCalendarStatus, useBringSettings, useImmichStatus, useUnsplashStatus, useRegenerateJoinCode, useRenameFamily, useCalendars
+} from "@/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVersionCheck } from "@/hooks/use-version-check";
 import React, { useState, useRef, useEffect } from "react";
@@ -548,8 +549,25 @@ export default function SettingsPage() {
     },
   ];
 
+  // A calendar counts as connected if ANY source is set up, not just
+  // Google. Reported by a tester on discussion #18: a household syncing
+  // via CalDAV — or ICS before that — saw "not connected" permanently,
+  // with nothing wrong at their end and no way to tell the label was
+  // lying.
+  const { data: calendarRows } = useCalendars();
+  const calendarConnected =
+    googleConnected ||
+    (calendarRows ?? []).some((c) => !!c.ics_url || !!c.caldav_url);
+
+  // A CalDAV calendar that has stopped syncing — usually an expired app
+  // password — is the same situation as Google needing re-auth, so it
+  // gets the same "needs attention" treatment rather than sitting there
+  // looking healthy.
+  const calendarNeedsReauth =
+    googleNeedsReauth || (calendarRows ?? []).some((c) => !!c.caldav_last_error);
+
   const integrationStatusByHref: Record<string, { connected: boolean; needsReauth: boolean }> = {
-    "/settings/calendar": { connected: googleConnected, needsReauth: googleNeedsReauth },
+    "/settings/calendar": { connected: calendarConnected, needsReauth: calendarNeedsReauth },
     "/settings/bring": { connected: bringConnected, needsReauth: false },
     "/settings/photos": { connected: photosConnected, needsReauth: false },
     "/settings/homeassistant": { connected: haConnected, needsReauth: haNeedsReauth },
