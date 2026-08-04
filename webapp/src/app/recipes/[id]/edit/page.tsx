@@ -37,6 +37,7 @@ import {
   useKeyboardShortcuts,
   useSwipeNavigation,
 } from "@/hooks";
+import { parseInstructions } from "@/lib/recipe-instructions";
 import type { RecipeInstruction } from "@/types/database";
 
 // Ingredient input type
@@ -100,11 +101,7 @@ export default function EditRecipePage() {
       }
 
       // Initialize instructions
-      const parsedInstructions: RecipeInstruction[] = recipe.instructions
-        ? typeof recipe.instructions === "string"
-          ? JSON.parse(recipe.instructions)
-          : recipe.instructions
-        : [];
+      const parsedInstructions: RecipeInstruction[] = parseInstructions(recipe.instructions);
       if (parsedInstructions.length > 0) {
         setInstructions(parsedInstructions.map((i) => i.text));
       }
