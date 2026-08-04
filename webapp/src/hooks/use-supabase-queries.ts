@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { invalidateFamilyToken } from "@/lib/supabase/family-token";
 import { useFamilyStore } from "@/stores/family-store";
 import { getDeviceId, persistDeviceId, getDeviceFingerprint } from "@/lib/device-id";
 import type {
@@ -267,79 +268,42 @@ export function useJoinFamily() {
       joinCode: string;
       deviceName: string;
     }) => {
-      // Get persistent device ID and fingerprint
       const hardwareId = await getDeviceId();
       const fingerprint = getDeviceFingerprint();
 
-      // Find family by join code
+      // Joining happens server-side now.
+      //
+      // This used to read `families` by join_code straight from PostgREST with
+      // the anon key. Row-level security forbids that — `families` holds the
+      // join codes — and it was never really validation anyway: a client that
+      // can read the table can read every family's code.
+      //
+      // The response sets an HttpOnly session cookie, which is what every
+      // later request authenticates with.
+      const response = await fetch("/api/session/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ joinCode, deviceName, hardwareId, fingerprint }),
+      });
 
-      const { data: familyData, error: familyError } = await (supabase as any)
-        .from("families")
-        .select("*")
-        .eq("join_code", joinCode.toUpperCase())
-        .single();
-
-      if (familyError) throw new Error("Family not found for that join code");
-
-      // Expiry is opt-in: null = never expires (current behaviour).
-      // Reject the code if an explicit expiry timestamp is set and has passed.
-      const familyRaw = familyData as Family;
-      if (
-        familyRaw.join_code_expires_at != null &&
-        new Date(familyRaw.join_code_expires_at).getTime() < Date.now()
-      ) {
+      if (!response.ok) {
         throw new Error("Family not found for that join code");
       }
-      const family = familyRaw;
 
-      // Check if this device already exists in this family (by hardware_id)
-       
-      const { data: existingDevice } = await (supabase as any)
-        .from("devices")
-        .select("*")
-        .eq("family_id", family.id)
-        .eq("hardware_id", hardwareId)
-        .maybeSingle();
+      const { family, device } = (await response.json()) as {
+        family: Family;
+        device: Device;
+      };
 
-      let device: Device;
-
-      if (existingDevice) {
-        // Device already registered, just restore session
-        device = existingDevice as Device;
-        // Update last_seen and fingerprint
-         
-        await (supabase as any)
-          .from("devices")
-          .update({
-            last_seen: new Date().toISOString(),
-            fingerprint: fingerprint,
-          })
-          .eq("id", device.id);
-        device = { ...device, fingerprint };
-      } else {
-        // Register new device with hardware_id and fingerprint
-         
-        const { data: newDevice, error: deviceError } = await (supabase as any)
-          .from("devices")
-          .insert({
-            family_id: family.id,
-            name: deviceName || "Unbekanntes Gerät",
-            hardware_id: hardwareId,
-            fingerprint: fingerprint,
-            user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-          })
-          .select()
-          .single();
-
-        if (deviceError) throw deviceError;
-        device = newDevice as Device;
-      }
-
-      // Persist device ID to all storage locations
       await persistDeviceId(hardwareId);
+      // A session exists now; drop the "no session" answer the client may have
+      // cached while this page was anonymous, so the next query mints a token
+      // straight away rather than waiting the negative-cache window out.
+      invalidateFamilyToken();
 
-      // Fetch family members
-       
+      // Now that a session exists, this call carries the family token and RLS
+      // lets it through.
       const { data: people } = await (supabase as any)
         .from("people")
         .select("*")
@@ -357,7 +321,6 @@ export function useJoinFamily() {
 }
 
 export function useCreateFamilyWithDevice() {
-  const supabase = createClient();
   const { setFamily, setDevice } = useFamilyStore();
 
   return useMutation({
@@ -368,43 +331,34 @@ export function useCreateFamilyWithDevice() {
       familyName: string;
       deviceName: string;
     }) => {
-      // Get persistent device ID and fingerprint
       const hardwareId = await getDeviceId();
       const fingerprint = getDeviceFingerprint();
 
-      // Generate join code
-      const joinCode = generateJoinCode();
+      // Server-side for the same reason as joining: under row-level security
+      // `anon` cannot insert into `families`, because the policy checks a
+      // family claim the caller cannot have yet — the family doesn't exist.
+      // Without this a fresh install couldn't get past its first screen.
+      const response = await fetch("/api/session/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ familyName, deviceName, hardwareId, fingerprint }),
+      });
 
-      // Create family
-       
-      const { data: family, error: familyError } = await (supabase as any)
-        .from("families")
-        .insert({ name: familyName, join_code: joinCode })
-        .select()
-        .single();
+      if (!response.ok) {
+        const err = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(err.error ?? "Could not create the family");
+      }
 
-      if (familyError) throw familyError;
+      const { family, device } = (await response.json()) as {
+        family: Family;
+        device: Device;
+      };
 
-      // Register device with hardware_id and fingerprint
-       
-      const { data: device, error: deviceError } = await (supabase as any)
-        .from("devices")
-        .insert({
-          family_id: family.id,
-          name: deviceName || "Erstes Gerät",
-          hardware_id: hardwareId,
-          fingerprint: fingerprint,
-          user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-        })
-        .select()
-        .single();
-
-      if (deviceError) throw deviceError;
-
-      // Persist device ID to all storage locations
       await persistDeviceId(hardwareId);
+      invalidateFamilyToken();
 
-      return { family: family as Family, device: device as Device };
+      return { family, device };
     },
     onSuccess: ({ family, device }) => {
       setFamily(family);
