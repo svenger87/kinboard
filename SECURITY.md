@@ -30,7 +30,9 @@ If you put Kinboard on the open internet, you're responsible for adding a revers
 - The Next.js webapp (`webapp/src/`) and its API routes (`webapp/src/app/api/`)
 - The bundled Docker stack (`webapp/docker/`) including kong configuration and CORS allowlists
 - Database schema (`webapp/docker/init.sql` + `migration*.sql`)
-- The auth boundary: device-fingerprint + family-join-code (RLS in Postgres is intentionally disabled — the device-cookie + join-code model is the actual auth boundary; treating Kinboard as if RLS were enforced is a misconfiguration, not a vulnerability)
+- The auth boundary: a device joins with the family code and receives a server-issued, HttpOnly session cookie; that cookie is exchanged at `/api/session/token` for a short-lived family-scoped JWT, and **row-level security in Postgres enforces isolation** using the `family_id` claim on that token (`webapp/docker/migration_enable_rls.sql`). `service_role` keeps `BYPASSRLS`, so the API routes and cron jobs establish the family server-side instead.
+
+  This changed on 2026-08-04. RLS was previously disabled by design, on the reasoning that Kinboard runs on a trusted home network. That reasoning does not survive publishing the instance: the browser talks to PostgREST directly with the anon key, which is public by design, so with RLS off an unauthenticated request from the internet could read and write every table — including `families.join_code`. If you are running a build from before that date, treat your instance as readable by anyone who can reach it.
 - The bootstrap script (`setup.sh`) and helper scripts (`webapp/docker/start.sh`, `webapp/deploy.sh`)
 
 ## What's out of scope

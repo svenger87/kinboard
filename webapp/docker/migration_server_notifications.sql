@@ -38,13 +38,25 @@ CREATE TABLE IF NOT EXISTS public.notification_logs (
 ALTER TABLE public.scheduled_notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notification_logs ENABLE ROW LEVEL SECURITY;
 
+-- Policies for these two tables now come from migration_enable_rls.sql,
+-- which scopes them to the caller's family.
+--
+-- What used to be here was `USING (family_id IS NOT NULL)`, which matches
+-- every row that belongs to any family — so it granted every household read
+-- and write access to every other household's notifications. Harmless while
+-- RLS was disabled, and a live leak the moment it was turned on: permissive
+-- policies are OR'd together, so this one overrode the family scoping.
+--
+-- It also survived the cleanup in migration_enable_rls.sql, because the
+-- runner applies migrations in filename order on every boot and
+-- `server_notifications` sorts after `enable_rls` — so the leak was recreated
+-- on each restart. Measured on 2026-08-04: a token for a family that does not
+-- exist read 225 rows of other households' reminders.
+--
+-- Do not reintroduce a policy here. If these tables need different rules,
+-- change them in migration_enable_rls.sql where the rest live.
 DROP POLICY IF EXISTS scheduled_notifications_policy ON public.scheduled_notifications;
-CREATE POLICY scheduled_notifications_policy ON public.scheduled_notifications
-    FOR ALL USING (family_id IS NOT NULL) WITH CHECK (family_id IS NOT NULL);
-
 DROP POLICY IF EXISTS notification_logs_policy ON public.notification_logs;
-CREATE POLICY notification_logs_policy ON public.notification_logs
-    FOR ALL USING (family_id IS NOT NULL) WITH CHECK (family_id IS NOT NULL);
 
 -- ===================
 -- 1. Add source_device_id to shopping_items and todos
