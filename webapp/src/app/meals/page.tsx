@@ -119,6 +119,7 @@ import {
 } from "@/hooks";
 import { ErrorState } from "@/components/error-state";
 import { FAB } from "@/components/fab";
+import { parseInstructions } from "@/lib/recipe-instructions";
 import type { MealPlanEntryWithRecipe, MealType, Recipe } from "@/types/database";
 
 // Meal type icon mapping
@@ -251,6 +252,51 @@ function RecipeSuggestions({
 }
 
 // Meal slot droppable component
+/**
+ * A meal-type row in list view, as a drop target.
+ *
+ * List view is the default on mobile, and it had no DndContext at all — the
+ * cards carried drag listeners that could never fire, so the reorder gesture
+ * the grid advertises simply did nothing on a phone. Same drop-target id
+ * contract as MealSlot (`date_mealType`) so one handler serves both views.
+ */
+function ListMealGroup({
+  date,
+  mealType,
+  label,
+  icon: TypeIcon,
+  children,
+  isEmpty,
+}: {
+  date: string;
+  mealType: MealType;
+  label: string;
+  icon: (typeof MEAL_TYPE_ICONS)[MealType];
+  children?: React.ReactNode;
+  isEmpty?: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: `${date}_${mealType}` });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-lg transition-colors ${
+        isOver
+          ? "bg-primary/15 ring-1 ring-primary"
+          : isEmpty
+          ? "border border-dashed border-border/40"
+          : ""
+      } ${isEmpty ? "px-2 py-1.5" : ""}`}
+    >
+      <p className="text-kiosk-label mb-1 flex items-center gap-1">
+        <TypeIcon className="size-3.5" />
+        {label}
+      </p>
+      {children}
+    </div>
+  );
+}
+
 function MealSlot({
   date,
   mealType,
@@ -623,6 +669,10 @@ export default function MealPlannerPage() {
 
   // Fetch full recipe for detail view
   const { data: detailRecipe, isLoading: isDetailLoading } = useRecipe(detailEntry?.recipe_id || null);
+  // Parsed once here so the heading can be suppressed when there are no
+  // readable steps — an empty array is truthy, so the raw column can't
+  // decide that on its own.
+  const detailInstructions = parseInstructions(detailRecipe?.instructions);
 
   // Filter recipes for sidebar
   const filteredRecipes = useMemo(() => {
@@ -909,6 +959,7 @@ export default function MealPlannerPage() {
   };
 
   // Get active entry for drag overlay
+  const isDragActive = activeId !== null;
   const activeEntry = activeId
     ? mealPlanData?.entries.find((e) => e.id === activeId)
     : null;
@@ -1175,6 +1226,12 @@ export default function MealPlannerPage() {
               </>
             ) : (
               // List View
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
               <div className="flex flex-col gap-3">
                 {weekDates.map((date) => {
                   const dayEntries = mealPlanData?.entries.filter(
@@ -1218,22 +1275,28 @@ export default function MealPlannerPage() {
                         </Button>
                       </div>
 
-                      {hasMeals ? (
+                      {hasMeals || isDragActive ? (
                         <div className="flex flex-col gap-1.5">
                           {(["breakfast", "lunch", "dinner", "snack"] as MealType[]).map(
                             (mealType) => {
                               const typeEntries = dayEntries.filter(
                                 (e) => e.meal_type === mealType
                               );
-                              if (typeEntries.length === 0) return null;
+                              // Empty rows appear only while dragging: they
+                              // exist to be dropped onto, and showing four
+                              // near-blank rows per day the rest of the time
+                              // would bury the meals that are actually planned.
+                              if (typeEntries.length === 0 && !isDragActive) return null;
 
-                              const TypeIcon = MEAL_TYPE_ICONS[mealType];
                               return (
-                                <div key={mealType}>
-                                  <p className="text-kiosk-label mb-1 flex items-center gap-1">
-                                    <TypeIcon className="size-3.5" />
-                                    {mealTypeLabel(mealType)}
-                                  </p>
+                                <ListMealGroup
+                                  key={mealType}
+                                  date={date}
+                                  mealType={mealType}
+                                  label={mealTypeLabel(mealType)}
+                                  icon={MEAL_TYPE_ICONS[mealType]}
+                                  isEmpty={typeEntries.length === 0}
+                                >
                                   <div className="flex flex-col gap-1.5">
                                     {typeEntries.map((entry) => (
                                       <MealEntryCard
@@ -1245,7 +1308,7 @@ export default function MealPlannerPage() {
                                       />
                                     ))}
                                   </div>
-                                </div>
+                                </ListMealGroup>
                               );
                             }
                           )}
@@ -1260,6 +1323,13 @@ export default function MealPlannerPage() {
                   );
                 })}
               </div>
+
+              <DragOverlay>
+                {activeEntry && (
+                  <MealEntryCard entry={activeEntry} onAction={() => {}} isDragging />
+                )}
+              </DragOverlay>
+              </DndContext>
             )}
           </motion.div>
         </div>
@@ -1698,14 +1768,21 @@ export default function MealPlannerPage() {
                   )}
 
                   {/* Instructions */}
-                  {detailRecipe.instructions && (
+                  {detailInstructions.length > 0 && (
                     <div>
                       <h4 className="text-sm font-semibold mb-2">{t("detailInstructionsHeading")}</h4>
-                      <div className="text-sm text-muted-foreground whitespace-pre-wrap">
-                        {typeof detailRecipe.instructions === "string"
-                          ? detailRecipe.instructions
-                          : JSON.stringify(detailRecipe.instructions, null, 2)}
-                      </div>
+                      <ol className="space-y-3">
+                        {detailInstructions.map((instruction, index) => (
+                          <li key={index} className="flex gap-3 text-sm">
+                            <span className="shrink-0 size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium">
+                              {instruction.step}
+                            </span>
+                            <span className="flex-1 text-muted-foreground whitespace-pre-wrap">
+                              {instruction.text}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
                     </div>
                   )}
 
