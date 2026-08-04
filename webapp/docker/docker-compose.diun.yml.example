@@ -40,12 +40,28 @@ services:
   # that's also using `image: ghcr.io/...` is the only thing Diun needs
   # to start watching.)
   webapp:
+    # Inline rather than the anchor in docker-compose.yml: YAML anchors
+    # don't cross files, so an overlay that adds a service has to cap its
+    # own logs or that container writes without limit.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     labels:
       - diun.enable=true
 
   # Diun watches GHCR for new digests on labelled services and POSTs to
   # the webhook container when one lands.
   diun:
+    # Inline rather than the anchor in docker-compose.yml: YAML anchors
+    # don't cross files, so an overlay that adds a service has to cap its
+    # own logs or that container writes without limit.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     image: crazymax/diun:latest
     container_name: ${PROJECT_NAME:-kinboard}-diun
     restart: unless-stopped
@@ -71,6 +87,14 @@ services:
   #
   # Not exposed externally — only Diun (on the same network) reaches it.
   webhook:
+    # Inline rather than the anchor in docker-compose.yml: YAML anchors
+    # don't cross files, so an overlay that adds a service has to cap its
+    # own logs or that container writes without limit.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     # Built locally from Dockerfile.webhook — upstream almir/webhook
     # ships only the webhook binary (no git, no docker CLI), and
     # kinboard-self-update.sh needs both. The custom image weighs ~70 MB
