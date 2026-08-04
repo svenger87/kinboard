@@ -190,7 +190,10 @@ export function Weather({ className = "" }: WeatherProps) {
                   <p className="font-display text-5xl font-light tracking-tight tabular-nums">
                     {weatherData.temp}°
                   </p>
-                  {weatherData.high && weatherData.low && (
+                  {/* Number check, not truthiness: 0° is falsy, so at
+                      exactly freezing this row vanished — the one
+                      temperature where the day's range matters most. */}
+                  {weatherData.high !== undefined && weatherData.low !== undefined && (
                     <div className="text-sm text-muted-foreground tabular-nums">
                       <span className="text-foreground/70">{weatherData.high}°</span>
                       {" / "}
@@ -206,7 +209,8 @@ export function Weather({ className = "" }: WeatherProps) {
               <div className="flex flex-col gap-1 text-sm text-muted-foreground tabular-nums">
                 <span className="flex items-center justify-end gap-1"><Droplets className="size-3" />{weatherData.humidity}%</span>
                 <span className="flex items-center justify-end gap-1"><Wind className="size-3" />{weatherData.windSpeed} {unitLabels.speed}</span>
-                {weatherData.feelsLike && (
+                {/* Same trap: "feels like 0°" disappeared entirely. */}
+                {weatherData.feelsLike !== undefined && (
                   <span className="flex items-center justify-end gap-1"><Thermometer className="size-3" />{t("feelsLike", { temp: weatherData.feelsLike })}</span>
                 )}
               </div>
