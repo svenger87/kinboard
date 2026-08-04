@@ -99,10 +99,44 @@ export async function fetchIcsCalendar(
     );
   }
 
+  assertLooksLikeCalendar(text, response);
+
   const events = parseIcsEvents(text);
   const newEtag = response.headers.get("etag");
 
   return { events, etag: newEtag, notModified: false };
+}
+
+/**
+ * Refuse a 200 that isn't an iCalendar document.
+ *
+ * `ical.sync.parseICS` doesn't throw on rubbish — hand it an HTML login
+ * page, a Cloudflare interstitial or a "share link expired" page that
+ * answers 200, and it returns an object with no VEVENT components. The
+ * sync then reads that as "this calendar now has zero events" and
+ * deletes every event it had, which is how a family calendar empties
+ * itself because a provider had a bad afternoon.
+ *
+ * A genuinely empty calendar is a different thing and must still work:
+ * it says BEGIN:VCALENDAR and simply contains no VEVENT. So the test is
+ * for the envelope, not for the contents.
+ *
+ * Throwing here rather than returning empty puts this on the same path
+ * as a transport failure, which the caller already handles by leaving
+ * the existing events alone.
+ */
+function assertLooksLikeCalendar(text: string, response: Response): void {
+  // Only the head is checked: the marker is the first line of any valid
+  // iCalendar stream, and scanning a multi-megabyte body for it would
+  // let a large HTML page pass on a stray mention.
+  if (/BEGIN:VCALENDAR/i.test(text.slice(0, 2048))) return;
+
+  const contentType = response.headers.get("content-type") ?? "unknown";
+  const preview = text.slice(0, 80).replace(/\s+/g, " ").trim();
+  throw new Error(
+    `Response was not an iCalendar document (content-type: ${contentType}). ` +
+      `Existing events were left untouched. First bytes: ${preview}`,
+  );
 }
 
 /**

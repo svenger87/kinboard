@@ -25,6 +25,29 @@ export interface IcsSyncResult {
   error?: string;
 }
 
+/**
+ * How long an ETag may be trusted before we re-read the feed regardless.
+ *
+ * Comfortably inside ICS_WINDOW_FUTURE_DAYS, so the window can never
+ * advance past the events we last parsed.
+ */
+const ETAG_MAX_AGE_DAYS = 7;
+
+async function syncedRecently(
+  supabase: any,
+  calendarId: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("calendars")
+    .select("last_synced_at")
+    .eq("id", calendarId)
+    .maybeSingle();
+
+  if (!data?.last_synced_at) return false;
+  const ageMs = Date.now() - new Date(data.last_synced_at).getTime();
+  return ageMs < ETAG_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+}
+
 export async function syncIcsCalendar(
   calendarId: string,
   icsUrl: string,
@@ -34,9 +57,22 @@ export async function syncIcsCalendar(
 ): Promise<IcsSyncResult> {
   const supabase = createAdminClient();
 
+  // Honour the stored ETag only if we've re-parsed this feed recently.
+  //
+  // The sync window is relative to now (see icsSyncWindow), but a
+  // conditional GET is keyed on content. A feed that never changes —
+  // school holidays, a club fixture list, a shared calendar set up once —
+  // answers 304 forever, so the window advances past events we never
+  // parsed and the far end of the calendar goes quietly empty. A full
+  // re-read every so often fills it in, and still leaves the ETag doing
+  // its job the rest of the time.
+  const effectiveEtag = (await syncedRecently(supabase, calendarId))
+    ? previousEtag
+    : null;
+
   let fetchResult;
   try {
-    fetchResult = await fetchIcsCalendar(icsUrl, previousEtag);
+    fetchResult = await fetchIcsCalendar(icsUrl, effectiveEtag);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown fetch error";
     console.error(`[ics-sync] Fetch failed for calendar ${calendarId}: ${msg}`);
