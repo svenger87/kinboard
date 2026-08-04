@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/local-date";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { getISOWeek } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -680,7 +681,7 @@ export default function MealPlannerPage() {
   const isCurrentWeek = currentWeekStart === weekStart;
 
   // Get today's date string
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayKey();
 
   // Handle add meal click
   const handleAddClick = (date: string, mealType: MealType) => {

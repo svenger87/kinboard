@@ -1,5 +1,6 @@
 "use client";
 
+import { toLocalDateKey } from "@/lib/local-date";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
@@ -20,13 +21,9 @@ export const mealPlanQueryKeys = {
     ["meal-plans", familyId, "entries", mealPlanId] as const,
 };
 
-// Helper to format date as YYYY-MM-DD in local timezone (avoids UTC shift)
-function toLocalDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+// Moved to lib/local-date so the rest of the app stops reinventing it —
+// three places in this file were bypassing it with toISOString().
+const toLocalDateString = toLocalDateKey;
 
 // Helper to get the Monday of a given week
 export function getWeekStart(date: Date): string {
@@ -232,13 +229,13 @@ export function useUpdateMealPlanEntry() {
       queryClient.invalidateQueries({
         queryKey: mealPlanQueryKeys.week(
           requireFamilyId(family),
-          prevWeek.toISOString().split("T")[0]
+          toLocalDateKey(prevWeek)
         ),
       });
       queryClient.invalidateQueries({
         queryKey: mealPlanQueryKeys.week(
           requireFamilyId(family),
-          nextWeek.toISOString().split("T")[0]
+          toLocalDateKey(nextWeek)
         ),
       });
     },
@@ -541,7 +538,9 @@ export function usePostponeMeal() {
     }) => {
       const tomorrow = new Date(currentDate);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      const newDate = tomorrow.toISOString().split("T")[0];
+      // toISOString here produced *today* for anyone east of Greenwich,
+      // so "move to tomorrow" silently left the meal where it was.
+      const newDate = toLocalDateKey(tomorrow);
 
       return rescheduleMeal.mutateAsync({
         entryId,
