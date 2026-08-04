@@ -2,27 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 const OPENWEATHERMAP_API_KEY = process.env.OPENWEATHERMAP_API_KEY;
 
-// Available weather map layers from OpenWeatherMap
-const WEATHER_MAP_LAYERS = {
-  precipitation: "precipitation_new",
-  clouds: "clouds_new",
-  temperature: "temp_new",
-  wind: "wind_new",
-  pressure: "pressure_new",
-} as const;
+// The layer keys the UI uses. The mapping to OpenWeatherMap's own names
+// (`precipitation_new` and friends) belongs to the tile proxy, which is
+// the only thing that talks to them — this route just names the layers.
+const WEATHER_MAP_LAYERS = ["precipitation", "clouds", "temperature", "wind", "pressure"] as const;
 
 // Get map configuration for a location
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const lat = searchParams.get("lat");
   const lon = searchParams.get("lon");
-
-  if (!OPENWEATHERMAP_API_KEY) {
-    return NextResponse.json(
-      { error: "Weather API not configured" },
-      { status: 500 }
-    );
-  }
 
   if (!lat || !lon) {
     return NextResponse.json(
@@ -51,19 +40,29 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Checked after the request itself: a malformed coordinate is a 400
+  // whatever the server's configuration, and answering 500 for it sent
+  // people looking for a server fault that wasn't there. 503 rather than
+  // 500 — the service isn't broken, it isn't set up.
+  if (!OPENWEATHERMAP_API_KEY) {
+    return NextResponse.json(
+      { error: "Weather API not configured" },
+      { status: 503 },
+    );
+  }
+
   return NextResponse.json({
     center: {
       lat: latNum,
       lon: lonNum,
     },
     zoom: 8,
-    layers: {
-      precipitation: tileUrlTemplate.replace("{layer}", WEATHER_MAP_LAYERS.precipitation),
-      clouds: tileUrlTemplate.replace("{layer}", WEATHER_MAP_LAYERS.clouds),
-      temperature: tileUrlTemplate.replace("{layer}", WEATHER_MAP_LAYERS.temperature),
-      wind: tileUrlTemplate.replace("{layer}", WEATHER_MAP_LAYERS.wind),
-      pressure: tileUrlTemplate.replace("{layer}", WEATHER_MAP_LAYERS.pressure),
-    },
+    // Keys, not OpenWeatherMap's internal names: the proxy allowlists
+    // these and translates. Emitting `precipitation_new` here made every
+    // tile request 404 and the map render blank.
+    layers: Object.fromEntries(
+      WEATHER_MAP_LAYERS.map((layer) => [layer, tileUrlTemplate.replace("{layer}", layer)]),
+    ),
     // OpenStreetMap base layer
     baseLayer: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> | Weather: OpenWeatherMap',
