@@ -37,6 +37,28 @@ interface UseOfflineQueueOptions {
   onSyncError?: (error: Error) => void;
 }
 
+/**
+ * Families currently being drained, shared by every hook instance.
+ *
+ * `syncInProgressRef` below is a `useRef`, so it only ever guarded
+ * re-entry *within one instance*. use-offline-shopping mounts five
+ * instances in a single component tree, each with its own ref and its own
+ * auto-sync effect — and `autoSync` defaults to true. On reconnect all
+ * five saw `wasOffline && isOnline && pendingCount > 0` in the same
+ * commit and all called processQueue(). Each read the pending list before
+ * any of them had marked a row "syncing", so they executed the same
+ * inserts: adding three items offline could produce up to fifteen copies,
+ * while operations one processor removed made another throw and abandon
+ * the rest of its batch.
+ *
+ * Module scope is the right shape here because the instances share a tab
+ * and a database. It does NOT coordinate across tabs — two open boards
+ * can still overlap. That needs a claim in IndexedDB itself, which is a
+ * larger change; this removes the failure that happens on every
+ * reconnect, not the one that needs two tabs.
+ */
+const drainingFamilies = new Set<string>();
+
 const DEFAULT_OPTIONS: Required<UseOfflineQueueOptions> = {
   autoSync: true,
   maxRetries: 3,
@@ -170,10 +192,13 @@ export function useOfflineQueue(options: UseOfflineQueueOptions = {}) {
 
   // Process the entire queue
   const processQueue = useCallback(async (): Promise<SyncResult> => {
-    if (!familyId || syncInProgressRef.current) {
+    // The module-level set is what actually prevents concurrent drains —
+    // the ref only ever covered this one instance, and there are five.
+    if (!familyId || syncInProgressRef.current || drainingFamilies.has(familyId)) {
       return { success: false, syncedCount: 0, failedCount: 0, errors: [] };
     }
 
+    drainingFamilies.add(familyId);
     syncInProgressRef.current = true;
     setIsSyncing(true);
 
@@ -236,6 +261,7 @@ export function useOfflineQueue(options: UseOfflineQueueOptions = {}) {
       opts.onSyncError(err);
       return { success: false, syncedCount: 0, failedCount: 0, errors: [] };
     } finally {
+      drainingFamilies.delete(familyId);
       syncInProgressRef.current = false;
       setIsSyncing(false);
     }
