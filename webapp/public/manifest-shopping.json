@@ -1,4 +1,5 @@
 {
+  "id": "/einkaufen",
   "name": "Einkaufsliste",
   "short_name": "Einkauf",
   "description": "Familien-Einkaufsliste für den Supermarkt",
@@ -34,7 +35,10 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["shopping", "lifestyle"],
+  "categories": [
+    "shopping",
+    "lifestyle"
+  ],
   "shortcuts": [
     {
       "name": "Artikel hinzufügen",

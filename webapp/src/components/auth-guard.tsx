@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useFamilyStore } from "@/stores/family-store";
@@ -14,6 +14,22 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ServerOff } from "lucide-react";
 
 const PUBLIC_PATHS = ["/join"];
+
+/**
+ * Where to go after joining.
+ *
+ * Only same-origin absolute paths are honoured, and never "/join" itself. A
+ * `next` that starts with "//" is protocol-relative — the browser reads
+ * "//evil.example/x" as another origin — so anything the caller supplies is
+ * checked rather than trusted, even though today it only ever comes from our
+ * own redirect.
+ */
+export function safeNextPath(next: string | null | undefined): string {
+  if (!next) return "/";
+  if (!next.startsWith("/") || next.startsWith("//")) return "/";
+  if (next.startsWith("/join")) return "/";
+  return next;
+}
 const HEARTBEAT_INTERVAL = 60000; // Update last_seen every 60 seconds
 
 interface AuthGuardProps {
@@ -23,6 +39,7 @@ interface AuthGuardProps {
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const t = useTranslations("common");
   const { family, device, clearSession } = useFamilyStore();
   const [isHydrated, setIsHydrated] = useState(false);
@@ -126,9 +143,15 @@ export function AuthGuard({ children }: AuthGuardProps) {
       return;
     }
 
-    // If not authenticated and not on public path, redirect to join
+    // If not authenticated and not on public path, redirect to join —
+    // remembering where they were going.
+    //
+    // Without this, joining always landed on "/". Opening the installed
+    // shopping app while signed out therefore walked /einkaufen -> /join ->
+    // "/", leaving the user in the main dashboard inside the shopping app's
+    // window — which reads as the shopping PWA routing to the main one.
     if (!family && !isPublicPath) {
-      router.replace("/join");
+      router.replace(`/join?next=${encodeURIComponent(pathname)}`);
     }
 
     // If authenticated and on join page, redirect — into the wizard if
@@ -143,10 +166,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
       const target =
         (family as { setup_completed?: boolean }).setup_completed === false
           ? "/setup"
-          : "/";
+          : safeNextPath(searchParams.get("next"));
       router.replace(target);
     }
-  }, [family, pathname, router, isHydrated, restoreAttempted, validateFamily.data, clearSession]);
+  }, [family, pathname, searchParams, router, isHydrated, restoreAttempted, validateFamily.data, clearSession]);
 
   const blockingScreen = () => {
     if (loadingDeadlinePassed) {
