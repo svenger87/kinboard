@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Security
+- The settings PIN now covers every settings page, not just the front one. Sub-pages were reachable directly, so a child on the kiosk could open Settings → Pocket money from the link on their own page and approve their own spend request, change the interest rate or edit the allowance — the page telling them approvals were PIN-protected linked straight past the PIN.
 - Updated `undici` (five advisories, one high: information disclosure between users, request smuggling, cookie and CRLF injection), `sharp`/libvips (four CVEs in image decoding) and `@babel/core` (arbitrary file read via a source-map comment, build-time only).
 - The OpenWeatherMap API key is no longer sent to the browser. The weather map handed out tile URLs with the key embedded, so it appeared in the page's network requests and was readable by anyone who could open the dashboard — a guest on the wifi, anyone passing an unlocked kiosk. Tiles now go through Kinboard, and the key stays on the server.
 - Feed fetching now resolves a URL's hostname and checks the address it actually points at, and validates every redirect hop, instead of trusting the hostname alone. A name like `feeds.example.com` can carry an A record pointing at `127.0.0.1` or a cloud provider's metadata endpoint, and a public host can redirect to one — either would previously have had the server fetch it. Applies to news feeds, which are the only URLs a household types in that Kinboard fetches on demand.
