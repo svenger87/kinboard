@@ -1615,7 +1615,10 @@ export default function CalendarPage() {
                         await updateEvent.mutateAsync({
                           id: selectedEvent.id,
                           title: editForm.title,
-                          location: editForm.location || undefined,
+                          // null, not undefined — an undefined key is
+                          // dropped from the JSON body, so clearing a
+                          // location silently kept the old one.
+                          location: editForm.location || null,
                           start_at: start.toISOString(),
                           end_at: end.toISOString(),
                           all_day: editForm.allDay,

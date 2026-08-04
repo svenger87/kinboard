@@ -121,14 +121,20 @@ export default function EditRecipePage() {
       await updateRecipe.mutateAsync({
         id: recipeId,
         title: title.trim(),
-        description: description.trim() || undefined,
-        image_url: imageUrl || undefined,
+        // null, not undefined. supabase-js serialises the update to
+        // JSON, which drops undefined keys — so emptying a field sent
+        // nothing at all and the old value survived, while the save
+        // reported success. `person_id` in this same form already sent
+        // null correctly, which is why clearing the person worked and
+        // clearing the description didn't.
+        description: description.trim() || null,
+        image_url: imageUrl || null,
         servings: parseInt(servings, 10) || 4,
-        prep_time_minutes: prepTime ? parseInt(prepTime, 10) : undefined,
-        cook_time_minutes: cookTime ? parseInt(cookTime, 10) : undefined,
+        prep_time_minutes: prepTime ? parseInt(prepTime, 10) : null,
+        cook_time_minutes: cookTime ? parseInt(cookTime, 10) : null,
         total_time_minutes:
           (prepTime ? parseInt(prepTime, 10) : 0) +
-          (cookTime ? parseInt(cookTime, 10) : 0) || undefined,
+            (cookTime ? parseInt(cookTime, 10) : 0) || null,
         difficulty,
         ingredients: ingredients
           .filter((i) => i.name.trim())
