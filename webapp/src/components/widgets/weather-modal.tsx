@@ -1,5 +1,6 @@
 "use client";
 
+import { minutesOfDayAt } from "@/lib/weather-time";
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
@@ -319,6 +320,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
               <SunArc
                 sunrise={currentWeather.sunrise}
                 sunset={currentWeather.sunset}
+                timezoneOffset={currentWeather.timezoneOffset}
               />
             </div>
 
@@ -501,7 +503,15 @@ function tempBarColor(temp: number, system: UnitSystem) {
   return "#f87171";
 }
 
-function SunArc({ sunrise, sunset }: { sunrise: string; sunset: string }) {
+function SunArc({
+  sunrise,
+  sunset,
+  timezoneOffset,
+}: {
+  sunrise: string;
+  sunset: string;
+  timezoneOffset?: number;
+}) {
   const t = useTranslations("weather");
   const parseTime = (time: string) => {
     const [h, m] = time.split(":").map(Number);
@@ -509,11 +519,24 @@ function SunArc({ sunrise, sunset }: { sunrise: string; sunset: string }) {
   };
   const sunriseMin = parseTime(sunrise);
   const sunsetMin = parseTime(sunset);
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  // sunrise/sunset arrive already converted to the weather location's
+  // zone. Reading the browser's clock here compared two different
+  // clocks, so a board set to a city elsewhere drew the sun at the wrong
+  // point — or showed night at noon. Shift "now" the same way, falling
+  // back to the browser when the server didn't send an offset.
+  const nowMin = minutesOfDayAt(new Date(), timezoneOffset);
+
+  // Guard the division: inside the polar circles a day can have no
+  // sunrise or no sunset, and sunset can precede sunrise across a DST
+  // boundary. dayLength <= 0 rendered NaN, and `daylightLabel` printed
+  // things like "-1h 47m of daylight".
   const dayLength = sunsetMin - sunriseMin;
-  const progress = Math.max(0, Math.min(1, (nowMin - sunriseMin) / dayLength));
-  const isDaytime = nowMin >= sunriseMin && nowMin <= sunsetMin;
+  const hasNormalDay = dayLength > 0;
+  const progress = hasNormalDay
+    ? Math.max(0, Math.min(1, (nowMin - sunriseMin) / dayLength))
+    : 0;
+  const isDaytime = hasNormalDay && nowMin >= sunriseMin && nowMin <= sunsetMin;
 
   const width = 280;
   const height = 80;
