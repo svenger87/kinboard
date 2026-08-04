@@ -26,6 +26,41 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 // values inside `settings` (scrubbed via splitSecrets for SECRET_FIELDS
 // keys — belt-and-suspenders even though secrets already live only in
 // integration_secrets).
+/**
+ * The uploaded files this export references but does not contain.
+ *
+ * Recipe photos, vehicle photos and pocket-money goal images are uploaded to
+ * Supabase Storage; the database only holds their URL. Anything pointing
+ * somewhere else — a recipe imported from a website keeps the publisher's
+ * CDN link — is not ours and is left out.
+ */
+function collectStorageObjects(
+  tables: Record<string, Array<Record<string, unknown>> | null | undefined>,
+): Array<{ table: string; row_id: string; bucket: string; path: string }> {
+  const objects: Array<{ table: string; row_id: string; bucket: string; path: string }> = [];
+
+  for (const [table, rows] of Object.entries(tables)) {
+    for (const row of rows ?? []) {
+      const url = row.image_url;
+      if (typeof url !== "string") continue;
+
+      // Both the absolute form (external base configured) and the relative
+      // fallback publicStorageUrl emits when it isn't.
+      const match = url.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+      if (!match) continue;
+
+      objects.push({
+        table,
+        row_id: typeof row.id === "string" ? row.id : "",
+        bucket: match[1],
+        path: decodeURI(match[2]),
+      });
+    }
+  }
+
+  return objects;
+}
+
 export async function GET(request: NextRequest) {
   const familyId = request.nextUrl.searchParams.get("family_id");
 
@@ -156,12 +191,34 @@ export async function GET(request: NextRequest) {
           : row;
       });
 
+    // Uploaded images live in Supabase Storage, not in Postgres, so a JSON
+    // export carries their URLs and not the files. Restore into a fresh
+    // install and every uploaded photo is a broken image, with nothing to say
+    // why. Embedding the binaries would turn a photo library into a
+    // multi-hundred-megabyte JSON file, so instead the export states plainly
+    // what it references and leaves out.
+    const storageObjects = collectStorageObjects({
+      recipes,
+      vehicles,
+      pocket_money_goals,
+    });
+
     const exportedAt = new Date().toISOString();
     const payload = {
       format: "kinboard-export",
-      version: 1,
+      version: 2,
       exported_at: exportedAt,
       family,
+      storage: {
+        /** File contents are not in this file — only the references to them. */
+        included: false,
+        object_count: storageObjects.length,
+        objects: storageObjects,
+        note:
+          storageObjects.length > 0
+            ? "Uploaded images are stored as files, not database rows, so they are not in this backup. Copy the storage volume alongside it, or these images will be missing after a restore."
+            : "No uploaded images to carry.",
+      },
       data: {
         people,
         calendars,
