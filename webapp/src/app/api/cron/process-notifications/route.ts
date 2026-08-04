@@ -30,6 +30,66 @@ interface ScheduledNotification {
  *
  * Called by Ofelia cron every 30 seconds.
  */
+/**
+ * Split queued reminders into those still worth sending and those whose event
+ * has been deleted or moved.
+ *
+ * Only calendar reminders are checked — they are the ones that carry a start
+ * time, and the only ones a user can invalidate by editing something after
+ * the reminder was queued. Anything else passes through untouched.
+ *
+ * A lookup failure keeps the reminder. Sending a reminder for an event that
+ * did happen is a much smaller harm than silently swallowing every reminder
+ * because a query failed.
+ */
+async function dropStaleEventReminders(
+  supabase: any,
+  pending: ScheduledNotification[],
+): Promise<{ kept: ScheduledNotification[]; stale: string[] }> {
+  const eventReminders = pending.filter(
+    (n) => n.related_entity_type === "event" && n.related_entity_id,
+  );
+  if (eventReminders.length === 0) return { kept: pending, stale: [] };
+
+  const ids = [...new Set(eventReminders.map((n) => n.related_entity_id as string))];
+  const { data, error } = await supabase
+    .from("events")
+    .select("id, start_at")
+    .in("id", ids);
+
+  if (error) {
+    console.error("[process-notifications] Could not verify events, sending anyway:", error);
+    return { kept: pending, stale: [] };
+  }
+
+  const startById = new Map<string, string>(
+    ((data ?? []) as Array<{ id: string; start_at: string }>).map((e) => [e.id, e.start_at]),
+  );
+
+  const stale = new Set<string>();
+  for (const reminder of eventReminders) {
+    const currentStart = startById.get(reminder.related_entity_id as string);
+
+    // Event deleted.
+    if (!currentStart) {
+      stale.add(reminder.id);
+      continue;
+    }
+
+    // Event moved. The scheduler adds a fresh row for the new start_at, so
+    // without this the user gets both — one at the old time, one at the new.
+    const scheduledStart = reminder.data?.start_at as string | undefined;
+    if (scheduledStart && new Date(scheduledStart).getTime() !== new Date(currentStart).getTime()) {
+      stale.add(reminder.id);
+    }
+  }
+
+  return {
+    kept: pending.filter((n) => !stale.has(n.id)),
+    stale: [...stale],
+  };
+}
+
 export async function POST(request: NextRequest) {
   // Validate cron secret
   if (!CRON_SECRET) {
@@ -61,10 +121,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch pending notifications" }, { status: 500 });
   }
 
-  const pending = (pendingData || []) as ScheduledNotification[];
+  const allPending = (pendingData || []) as ScheduledNotification[];
+
+  if (allPending.length === 0) {
+    return NextResponse.json({ processed: 0, sent: 0 });
+  }
+
+  // A queued reminder is a snapshot of an event taken up to ten minutes
+  // earlier. Nothing rechecked it before sending, so a cancelled appointment
+  // still announced itself at the old time, and a rescheduled one announced
+  // itself twice — once from the stale row, once from the fresh row the
+  // scheduler correctly added for the new start.
+  //
+  // scheduled_notifications.related_entity_id has no foreign key (it points
+  // at whichever table related_entity_type names), so there's no cascade to
+  // lean on. Check the event is still there, and still starts when this row
+  // was written for, right before sending.
+  const { kept: pending, stale } = await dropStaleEventReminders(supabase, allPending);
+
+  if (stale.length > 0) {
+    // Marked processed rather than deleted: the row is the record that a
+    // reminder was scheduled, and the scheduler's idempotency check reads
+    // rows regardless of processed state.
+    const { error: staleError } = await supabase
+      .from("scheduled_notifications")
+      .update({ processed: true })
+      .in("id", stale);
+    if (staleError) {
+      console.error("[process-notifications] Failed to retire stale reminders:", staleError);
+    } else {
+      console.log(`[process-notifications] Retired ${stale.length} reminder(s) for events that were deleted or moved`);
+    }
+  }
 
   if (pending.length === 0) {
-    return NextResponse.json({ processed: 0, sent: 0 });
+    return NextResponse.json({ processed: stale.length, sent: 0, stale: stale.length });
   }
 
   // Group by family_id + notification_type
