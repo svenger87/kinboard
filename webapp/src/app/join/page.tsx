@@ -20,7 +20,8 @@ import {
   Upload,
   Loader2,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { safeNextPath } from "@/components/auth-guard";
 import {
   useJoinFamily,
   useCreateFamilyWithDevice,
@@ -82,6 +83,7 @@ export default function JoinPage() {
   const [isFreshInstall, setIsFreshInstall] = useState(false);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const joinFamily = useJoinFamily();
   const createFamily = useCreateFamilyWithDevice();
   const findByFingerprint = useFindDeviceByFingerprint();
@@ -137,7 +139,7 @@ export default function JoinPage() {
     setError("");
     try {
       await quickRejoin.mutateAsync({ deviceId });
-      router.push("/");
+      router.push(safeNextPath(searchParams.get("next")));
     } catch (err) {
       console.error("Quick rejoin failed:", err);
       setError(t("rejoinError"));
@@ -154,7 +156,7 @@ export default function JoinPage() {
         joinCode: joinCode.toUpperCase(),
         deviceName: deviceName || t("deviceNameDefault"),
       });
-      router.push("/");
+      router.push(safeNextPath(searchParams.get("next")));
     } catch {
       setError(t("joinError"));
     }
@@ -205,7 +207,7 @@ export default function JoinPage() {
       if (result.warnings.length > 0) {
         toast(t("restoreWarnings", { count: result.warnings.length }));
       }
-      router.push("/");
+      router.push(safeNextPath(searchParams.get("next")));
     } catch (err) {
       console.error("join: restore from backup failed:", err);
       toast.error(t("restoreFailed"));

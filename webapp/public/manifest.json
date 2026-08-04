@@ -1,17 +1,25 @@
 {
+  "id": "/",
   "name": "Kinboard",
   "short_name": "Kinboard",
   "description": "A self-hosted family dashboard for calendar, weather, photos, shopping, and smart home.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "fullscreen"],
+  "display_override": [
+    "standalone",
+    "fullscreen"
+  ],
   "background_color": "#0a0a0a",
   "theme_color": "#3b82f6",
   "orientation": "any",
   "lang": "de-DE",
   "dir": "ltr",
-  "categories": ["productivity", "lifestyle", "utilities"],
+  "categories": [
+    "productivity",
+    "lifestyle",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "/icons/icon-192.png",
