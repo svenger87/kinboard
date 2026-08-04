@@ -40,7 +40,6 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { PinGuard } from "@/components/pin-guard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -574,7 +573,10 @@ export default function SettingsPage() {
   };
 
   return (
-    <PinGuard cancelHref="/">
+    // Two siblings here (the page and the regenerate-code dialog); the PIN
+    // guard that used to wrap them now lives in the layout, so every
+    // settings sub-page is covered rather than just this index.
+    <>
     <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto">
         {/* Header */}
@@ -1223,6 +1225,6 @@ export default function SettingsPage() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-    </PinGuard>
+    </>
   );
 }
