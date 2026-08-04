@@ -150,9 +150,21 @@ export async function GET(request: NextRequest) {
 
     let response: Response;
 
+    // A camera that is powered off but still answers ARP, or one behind a
+    // dropped VPN, held these sockets open for the OS-level TCP timeout.
+    // The thumbnail refreshes every 10s (2s fullscreen), so hung requests
+    // accumulated faster than they retired. `fetchWithDigestAuth` has
+    // taken a signal all along; nothing ever passed one.
+    const signal = AbortSignal.timeout(10_000);
+
     if (camera.auth) {
       if (camera.auth.type === "digest") {
-        response = await fetchWithDigestAuth(url, camera.auth.username, camera.auth.password);
+        response = await fetchWithDigestAuth(
+          url,
+          camera.auth.username,
+          camera.auth.password,
+          signal,
+        );
       } else {
         // Basic auth
         const authHeader = Buffer.from(`${camera.auth.username}:${camera.auth.password}`).toString("base64");
@@ -160,10 +172,11 @@ export async function GET(request: NextRequest) {
           headers: {
             Authorization: `Basic ${authHeader}`,
           },
+          signal,
         });
       }
     } else {
-      response = await fetch(url);
+      response = await fetch(url, { signal });
     }
 
     if (!response.ok) {
