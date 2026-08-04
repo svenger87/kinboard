@@ -25,6 +25,20 @@ export const SECRET_FIELDS: Record<string, string[]> = {
   // Listed here so /api/settings would mask it defensively if a raw
   // settings_pin row ever reappeared (e.g. stale seed SQL).
   [SETTINGS_KEYS.settingsPin]: ["pin"],
+  // Camera credentials. These lived in the `settings` row in the clear:
+  // returned by /api/settings to every device, readable through PostgREST
+  // by anything on the LAN (SELECT on `settings` is granted to anon), and
+  // written verbatim into every backup — and /api/export has no PIN, so
+  // the settings PIN did not protect them either. migration_caldav.sql
+  // names this exact hazard: "a password column here would be a password
+  // handed to every device in the family".
+  //
+  // The wildcard is why expandPaths exists — cameras are a list, and each
+  // entry carries its own credentials.
+  [SETTINGS_KEYS.cameras]: [
+    "cameras.*.auth.password",
+    "cameras.*.webrtc_config.turn_password",
+  ],
 };
 
 type JsonObject = Record<string, unknown>;
@@ -33,11 +47,43 @@ function isObject(v: unknown): v is JsonObject {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/** Objects and arrays both index by key; arrays just use numeric ones. */
+function isContainer(v: unknown): v is JsonObject {
+  return typeof v === "object" && v !== null;
+}
+
+/**
+ * Expand a path containing `*` into one concrete path per array element.
+ *
+ * Cameras are a list and each entry carries its own credentials, so no
+ * fixed path names them: `cameras.*.auth.password` becomes
+ * `cameras.0.auth.password`, `cameras.1.auth.password`, and so on against
+ * the value being processed.
+ *
+ * A path with no `*` comes back unchanged, so every existing key behaves
+ * exactly as it did.
+ */
+function expandPaths(value: unknown, path: string): string[] {
+  if (!path.includes("*")) return [path];
+
+  const parts = path.split(".");
+  const i = parts.indexOf("*");
+  const prefix = parts.slice(0, i).join(".");
+  const suffix = parts.slice(i + 1).join(".");
+  const arr = prefix ? getPath(value, prefix) : value;
+  if (!Array.isArray(arr)) return [];
+
+  return arr.flatMap((_, index) =>
+    // Recurse so a second wildcard further along still expands.
+    expandPaths(value, [prefix, String(index), suffix].filter(Boolean).join(".")),
+  );
+}
+
 function getPath(obj: unknown, path: string): unknown {
   let cur: unknown = obj;
   for (const part of path.split(".")) {
-    if (!isObject(cur)) return undefined;
-    cur = cur[part];
+    if (!isContainer(cur)) return undefined;
+    cur = (cur as JsonObject)[part];
   }
   return cur;
 }
@@ -46,11 +92,16 @@ function getPath(obj: unknown, path: string): unknown {
 // creating intermediate objects as needed.
 function setPath(obj: unknown, path: string, value: unknown): JsonObject {
   const parts = path.split(".");
-  const root: JsonObject = isObject(obj) ? { ...obj } : {};
+  // Arrays must be cloned as arrays: rebuilding one as an object would
+  // turn `cameras` into {0:…,1:…} and break every consumer while still
+  // looking plausible in JSON.
+  const clone = (v: unknown): JsonObject =>
+    Array.isArray(v) ? ([...v] as unknown as JsonObject) : isObject(v) ? { ...v } : {};
+
+  const root: JsonObject = clone(obj);
   let cur = root;
   for (let i = 0; i < parts.length - 1; i++) {
-    const next = cur[parts[i]];
-    cur[parts[i]] = isObject(next) ? { ...next } : {};
+    cur[parts[i]] = clone(cur[parts[i]]);
     cur = cur[parts[i]] as JsonObject;
   }
   cur[parts[parts.length - 1]] = value;
@@ -59,14 +110,17 @@ function setPath(obj: unknown, path: string, value: unknown): JsonObject {
 
 // Immutable delete of a dotted path (no-op if absent).
 function deletePath(obj: unknown, path: string): unknown {
-  if (!isObject(obj)) return obj;
+  if (!isContainer(obj)) return obj;
   const parts = path.split(".");
-  const root: JsonObject = { ...obj };
+  const clone = (v: unknown): JsonObject =>
+    Array.isArray(v) ? ([...v] as unknown as JsonObject) : { ...(v as JsonObject) };
+
+  const root: JsonObject = clone(obj);
   let cur: JsonObject = root;
   for (let i = 0; i < parts.length - 1; i++) {
     const next = cur[parts[i]];
-    if (!isObject(next)) return root;
-    cur[parts[i]] = { ...next };
+    if (!isContainer(next)) return root;
+    cur[parts[i]] = clone(next);
     cur = cur[parts[i]] as JsonObject;
   }
   delete cur[parts[parts.length - 1]];
@@ -88,7 +142,7 @@ export function splitSecrets(
 
   let publicValue = value;
   let secretValue: JsonObject | null = null;
-  for (const path of paths) {
+  for (const path of paths.flatMap((p) => expandPaths(value, p))) {
     const v = getPath(value, path);
     publicValue = deletePath(publicValue, path);
     if (v !== undefined && v !== null && v !== "" && v !== SECRET_SENTINEL) {
@@ -122,7 +176,7 @@ export function applySentinels(
   const paths = SECRET_FIELDS[key];
   if (!paths || value === null || value === undefined) return value;
   let out = value;
-  for (const path of paths) {
+  for (const path of paths.flatMap((p) => expandPaths(value, p))) {
     const stored = getPath(secrets, path);
     const hasStored = stored !== undefined && stored !== null && stored !== "";
     const incoming = getPath(value, path);
@@ -143,7 +197,7 @@ export function mergeSecrets(key: string, value: unknown, secrets: unknown): unk
   const paths = SECRET_FIELDS[key];
   if (!paths || value === null || value === undefined) return value;
   let out = value;
-  for (const path of paths) {
+  for (const path of paths.flatMap((p) => expandPaths(value, p))) {
     const stored = getPath(secrets, path);
     if (stored !== undefined) out = setPath(out, path, stored);
   }
@@ -193,7 +247,7 @@ export async function upsertSecrets(
   const supabase = createAdminClient();
   const existing = (await getStoredSecrets(familyId, key)) ?? {};
   let merged: unknown = existing;
-  for (const path of SECRET_FIELDS[key] ?? []) {
+  for (const path of (SECRET_FIELDS[key] ?? []).flatMap((p) => expandPaths(secretValue, p))) {
     const v = getPath(secretValue, path);
     if (v !== undefined) merged = setPath(merged, path, v);
   }
