@@ -105,6 +105,23 @@ jobs:
           echo "✗ stack did not become ready in 7.5 min"
           exit 1
 
+      # A readiness timeout with no logs is unactionable — it tells you that
+      # something didn't come up, not what. Capture the state before teardown.
+      - name: Diagnose a stack that never came up
+        if: failure()
+        working-directory: ${{ github.workspace }}/webapp/docker
+        env:
+          COMPOSE_FILES: "-f docker-compose.yml -f docker-compose.demo.yml"
+        run: |
+          echo "::group::container states"
+          docker compose $COMPOSE_FILES ps -a || true
+          echo "::endgroup::"
+          for svc in db webapp kong rest auth storage realtime; do
+            echo "::group::logs: $svc"
+            docker compose $COMPOSE_FILES logs --tail=100 "$svc" 2>&1 || true
+            echo "::endgroup::"
+          done
+
       - name: Re-run migrations (belt-and-suspenders for first-boot race)
         # During local-dev verification we hit a race where migration.sql
         # (the original, no-suffix file) didn't apply on the very first
