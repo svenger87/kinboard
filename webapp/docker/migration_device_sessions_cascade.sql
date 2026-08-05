@@ -29,3 +29,9 @@ ALTER TABLE public.device_sessions
 ALTER TABLE public.device_sessions
     ADD CONSTRAINT device_sessions_device_id_fkey
     FOREIGN KEY (device_id) REFERENCES public.devices(id) ON DELETE CASCADE;
+
+-- And stop a null getting back in. A cascade has nothing to cascade from when
+-- device_id is null, so such a row would be a session that deleting the device
+-- can never revoke — the very gap this file closes. The DELETE above clears any
+-- that exist, so this is safe to apply on an upgrade as well as a fresh install.
+ALTER TABLE public.device_sessions ALTER COLUMN device_id SET NOT NULL;
