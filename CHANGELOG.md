@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.6.5] - 2026-08-05
+
 ### Fixed
 - **The battery charts were still losing a digit after 1.6.4.** Widening the axis wasn't enough on its own: all three energy charts pulled themselves leftwards with a negative margin, dragging part of the axis off the edge of the drawing area where it was clipped away. The battery percentage lost the most and still read "00%" where it meant "100%". The charts no longer do that, so the axis keeps the width it asks for.
 
@@ -537,7 +539,8 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.6.4...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.6.5...HEAD
+[1.6.5]: https://github.com/svenger87/kinboard/compare/v1.6.4...v1.6.5
 [1.6.4]: https://github.com/svenger87/kinboard/compare/v1.6.3...v1.6.4
 [1.6.3]: https://github.com/svenger87/kinboard/compare/v1.6.2...v1.6.3
 [1.6.2]: https://github.com/svenger87/kinboard/compare/v1.6.1...v1.6.2
