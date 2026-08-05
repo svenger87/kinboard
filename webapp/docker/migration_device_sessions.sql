@@ -50,6 +50,32 @@ CREATE INDEX IF NOT EXISTS idx_device_sessions_expiry
 
 -- RLS is disabled across this schema by design (see SECURITY.md); this table
 -- follows the same rule so it doesn't behave differently from its neighbours.
+-- (Superseded: migration_zz_row_level_security.sql now enables RLS on every
+-- table including this one. Left in place because it runs before that file.)
 ALTER TABLE public.device_sessions DISABLE ROW LEVEL SECURITY;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.device_sessions TO anon, authenticated;
+-- The browser must never touch this table.
+--
+-- It used to hold SELECT, INSERT, UPDATE and DELETE here, from when RLS was
+-- off schema-wide and every table was granted alike. Nothing in the app needs
+-- it: session.ts is the only consumer and it goes through the service role.
+-- What the grant did allow, for anyone able to make a PostgREST call as their
+-- own family, was to write their own credentials — INSERT a row with a chosen
+-- token hash and a far-future expiry to mint a session that never ends, clear
+-- revoked_at to undo a sign-out, or DELETE to sign the kitchen display out.
+-- That is the same failure the ON DELETE SET NULL foreign key caused, reached
+-- through a different door: a credential outliving the control meant to end it.
+--
+-- Row-level security stays as the second layer, but the grant is the first.
+REVOKE ALL ON TABLE public.device_sessions FROM PUBLIC;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    REVOKE ALL ON TABLE public.device_sessions FROM anon;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    REVOKE ALL ON TABLE public.device_sessions FROM authenticated;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    GRANT ALL ON TABLE public.device_sessions TO service_role;
+  END IF;
+END $$;

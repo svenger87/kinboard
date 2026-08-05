@@ -51,7 +51,13 @@ export function hashToken(token: string): string {
  */
 export async function createSession(params: {
   familyId: string;
-  deviceId?: string | null;
+  /**
+   * Required. A session with no device is one that deleting the device can
+   * never reach — the foreign key cascades, and a null has nothing to cascade
+   * from. Both callers register the device first, so this only ever documents
+   * what they already do.
+   */
+  deviceId: string;
   userAgent?: string | null;
 }): Promise<string> {
   const token = randomBytes(32).toString("base64url");
@@ -62,7 +68,7 @@ export async function createSession(params: {
   const { error } = await supabase.from("device_sessions").insert({
     token_hash: hashToken(token),
     family_id: params.familyId,
-    device_id: params.deviceId ?? null,
+    device_id: params.deviceId,
     expires_at: expiresAt.toISOString(),
     user_agent: params.userAgent ?? null,
   });
