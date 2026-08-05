@@ -129,7 +129,7 @@ services:
   # ===================
   kong:
     logging: *default-logging
-    image: kong:2.8.1
+    image: kong:3.9.3
     container_name: ${PROJECT_NAME:-kinboard}-kong
     restart: unless-stopped
     depends_on:
@@ -155,7 +155,7 @@ services:
   # ===================
   auth:
     logging: *default-logging
-    image: supabase/gotrue:v2.143.0
+    image: supabase/gotrue:v2.189.0
     container_name: ${PROJECT_NAME:-kinboard}-auth
     restart: unless-stopped
     depends_on:
@@ -287,7 +287,7 @@ services:
   # ===================
   storage:
     logging: *default-logging
-    image: supabase/storage-api:v0.46.4
+    image: supabase/storage-api:v1.60.4
     container_name: ${PROJECT_NAME:-kinboard}-storage
     restart: unless-stopped
     depends_on:
@@ -330,7 +330,7 @@ services:
   # ===================
   imgproxy:
     logging: *default-logging
-    image: darthsim/imgproxy:v3.21
+    image: darthsim/imgproxy:v4.0.12
     container_name: ${PROJECT_NAME:-kinboard}-imgproxy
     restart: unless-stopped
     healthcheck:
@@ -341,8 +341,16 @@ services:
     environment:
       IMGPROXY_BIND: ":8080"
       IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
-      IMGPROXY_USE_ETAG: true
-      IMGPROXY_ENABLE_WEBP_DETECTION: true
+      # Renamed in v4, and v4 has no alias mechanism: it ignores unknown
+      # IMGPROXY_* vars silently, with no warning. Under the old names WebP
+      # detection simply switches off (IMGPROXY_AUTO_WEBP defaults to false),
+      # which nothing reports — you would find it as unexplained bandwidth.
+      IMGPROXY_ETAG_ENABLED: true
+      IMGPROXY_AUTO_WEBP: true
+      # v3.23 raised the default source limit 16.8MP -> 50MP. Held at the old
+      # value: this decodes untrusted images, and the ceiling is the memory a
+      # single request can cost.
+      IMGPROXY_MAX_SRC_RESOLUTION: 16.8
     volumes:
       - ${DATA_DIR:-./data}/storage:/var/lib/storage:ro
     networks:
@@ -443,7 +451,7 @@ services:
   # ===================
   cron:
     logging: *default-logging
-    image: mcuadros/ofelia:latest
+    image: mcuadros/ofelia@sha256:efcbe2c5cf658a25de6443c1462d653f9cc03791d642e01fc6c638a00f97e492
     container_name: ${PROJECT_NAME:-kinboard}-cron
     restart: unless-stopped
     depends_on:
@@ -462,7 +470,7 @@ services:
   # ===================
   go2rtc:
     logging: *default-logging
-    image: alexxit/go2rtc:1.9.12
+    image: alexxit/go2rtc:1.9.14
     container_name: ${PROJECT_NAME:-kinboard}-go2rtc
     restart: unless-stopped
     ports:
