@@ -781,10 +781,17 @@ export default function ShoppingPage() {
                   or not anyone wants the banner.
                 */}
                 <Button variant="ghost" size="sm" asChild>
-                  <Link href="/einkaufen" aria-label={tPrompt("openStandaloneAria")}>
+                  {/*
+                    A real document load, like the install prompt's own button:
+                    /einkaufen carries its own manifest, and the browser only
+                    weighs up what to install for the document it actually
+                    loaded. Arriving there by client-side navigation can leave
+                    the install offering the main app, scoped to "/".
+                  */}
+                  <a href="/einkaufen" aria-label={tPrompt("openStandaloneAria")}>
                     <Smartphone className="size-4 mr-2" />
                     {tPrompt("openStandalone")}
-                  </Link>
+                  </a>
                 </Button>
               </>
             }

@@ -278,6 +278,31 @@ export function PowerChart({
     );
   };
 
+  /**
+   * Width the y-axis needs for its widest label.
+   *
+   * Recharts does not grow the axis to fit its ticks — it draws them into
+   * whatever width it was given and the overflow is clipped. At the old fixed
+   * 45px a four-digit watt reading lost its leading digit, so 1600 W rendered
+   * as "600" and the axis read 600, 200, 800, 400, 0 going down. Sizing from
+   * the data keeps it honest at any scale, from a few hundred watts to a
+   * five-digit array.
+   */
+  const yAxisWidth = useMemo(() => {
+    let widest = 0;
+    for (const point of chartData) {
+      for (const [key, value] of Object.entries(point)) {
+        if (key === "timestamp") continue;
+        if (typeof value === "number" && Number.isFinite(value)) {
+          widest = Math.max(widest, Math.abs(value));
+        }
+      }
+    }
+    // Recharts rounds ticks outward, so the label can be wider than the datum.
+    const digits = Math.round(widest).toString().length + 1;
+    return Math.max(45, digits * 9 + 12);
+  }, [chartData]);
+
   // Calculate tick count based on data
   const getTickInterval = () => {
     const len = chartData.length;
@@ -357,7 +382,7 @@ export function PowerChart({
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `${v}`}
-            width={45}
+            width={yAxisWidth}
             label={unitKw ? { value: "kW", position: "insideTopLeft", offset: -5, style: { fontSize: 11, fill: "currentColor", opacity: 0.6 } } : undefined}
           />
 
