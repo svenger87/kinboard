@@ -90,6 +90,67 @@ async function dropStaleEventReminders(
   };
 }
 
+// How long a delivered notification is kept, and how often we bother looking.
+const RETENTION_DAYS = 30;
+const SWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+// Module scope, so it survives between requests in the same server process and
+// resets on deploy. Losing it just means one extra sweep after a restart.
+let lastSweepAt = 0;
+
+/**
+ * Delete delivered notifications older than the retention window.
+ *
+ * Nothing ever removed these rows. The queue is written by database triggers
+ * on every shopping item and every todo, plus one row per calendar reminder,
+ * birthday and meal plan — a couple of rows a day for an ordinary family, none
+ * of which are read again once processed, all of which sit in a table every
+ * request has to scan past. Over a few years of a dashboard that is meant to
+ * run untouched, that is the table that quietly grows.
+ *
+ * This lives here rather than in a database job because the row lifecycle
+ * already lives here: this route is what marks rows processed, and it is
+ * already scheduled. Adding pg_cron entries or another ofelia job would mean a
+ * second thing to configure, and one more place to look when notifications
+ * misbehave.
+ *
+ * Thirty days is far outside every scheduler's idempotency lookback — the
+ * calendar scheduler matches an existing row on the event's exact start_at
+ * (written minutes before the event), and the birthday and meal-prep
+ * schedulers only ask whether they already enqueued something *today*. So a
+ * deleted row can never cause a duplicate send.
+ *
+ * Failure is logged and swallowed. Housekeeping must never stop delivery.
+ */
+async function sweepOldNotifications(supabase: ReturnType<typeof createAdminClient>): Promise<void> {
+  const now = Date.now();
+  if (now - lastSweepAt < SWEEP_INTERVAL_MS) return;
+  lastSweepAt = now;
+
+  const cutoff = new Date(now - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  // Only processed rows. An unprocessed row older than the cutoff is a
+  // reminder that never went out, which is a bug worth being able to see.
+  const { error: queueError } = await supabase
+    .from("scheduled_notifications")
+    .delete()
+    .eq("processed", true)
+    .lt("scheduled_for", cutoff);
+
+  if (queueError) {
+    console.error("[process-notifications] Retention sweep (queue) failed:", queueError);
+  }
+
+  const { error: logError } = await supabase
+    .from("notification_logs")
+    .delete()
+    .lt("created_at", cutoff);
+
+  if (logError) {
+    console.error("[process-notifications] Retention sweep (logs) failed:", logError);
+  }
+}
+
 export async function POST(request: NextRequest) {
   // Validate cron secret
   if (!CRON_SECRET) {
@@ -101,11 +162,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const supabase = createAdminClient();
+
+  // Before the VAPID gate on purpose. The triggers that fill the queue fire
+  // whether or not push is set up, so an install that never configured
+  // notifications is exactly the one whose queue would otherwise grow forever
+  // with nothing ever draining it.
+  await sweepOldNotifications(supabase);
+
   if (!isVapidConfigured()) {
     return NextResponse.json({ error: "Push not configured" }, { status: 503 });
   }
-
-  const supabase = createAdminClient();
 
   // Fetch all unprocessed notifications scheduled for now or earlier
   const { data: pendingData, error: fetchError } = await supabase
