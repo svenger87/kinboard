@@ -8,6 +8,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 - **A device could issue itself a session that never ended.** The table holding device sessions was left writable by the browser, from back when the database had no row-level security and every table was opened up alike. Nothing in Kinboard used it — sessions are only ever written by the server — but it meant any device already in the household could quietly give itself a credential with no expiry, undo a sign-out you had just performed from the Devices screen, or sign another device out. It is now server-only, which is what the rest of the app already assumed. No re-joining; nothing to do.
+### Fixed
+- **Removing a family member did nothing if they had ever been assigned an event.** Settings → People closed the dialog and left the person sitting exactly where they were, with nothing on screen to say why. Their events were the reason: the database refused the deletion outright instead of simply unassigning them, which is what it was always meant to do and what it already did for birthdays and notes. Only installs that upgraded were affected — a brand-new one got this right, which is why it went unnoticed.
+- **Gift ideas on a birthday never saved and never appeared.** The list came back empty no matter how many you had added, and adding one did nothing at all. Kinboard was refusing the browser access to that one table — it is the only one that never got the permission every other table has, so the feature had never worked on any install.
+- **A shopping item no longer holds on to a recipe or a person that has been deleted.** Removing a family member or a recipe left the items they had added still pointing at them, so those items stopped showing where they came from. Anything already stranded this way is tidied up on upgrade.
+- **Kinboard no longer keeps every notification it has ever sent.** Delivered reminders were never cleared out, so the table behind them grew for the life of the install with nothing ever reading the old rows again. They are now kept for 30 days. Deleting a device, a person or a recipe also got considerably faster — Kinboard was reading whole tables end to end to work out what still pointed at them.
+- **An upgraded install now checks recipe difficulty and meal times the same way a fresh one does**, so an import can no longer drop a meal into a slot the app doesn't recognise and have it quietly vanish from the plan.
 
 ## [1.6.6] - 2026-08-05
 
