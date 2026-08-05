@@ -26,6 +26,18 @@ services:
       - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.entrypoints=websecure"
       - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}"
       - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.priority=100"
+      # Reject service_role from the public endpoint (pentest F3).
+      #
+      # PostgREST accepts any validly-signed JWT, and service_role bypasses
+      # row-level security entirely. It is only ever used server-side over the
+      # internal webapp->kong path (which never touches Traefik), so it should
+      # never arrive from the internet. This forward-auth gate inspects the
+      # role claim on each public request and 403s service_role; the anon key
+      # and family-scoped tokens pass through, and PostgREST still verifies the
+      # signature afterwards. The gate fails open (see the route) so it can't
+      # take the dashboard down.
+      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.middlewares=${PROJECT_NAME:-kinboard}-rolegate@docker"
+      - "traefik.http.middlewares.${PROJECT_NAME:-kinboard}-rolegate.forwardauth.address=http://${PROJECT_NAME:-kinboard}-webapp:3000/api/internal/rest-gate"
       # Published to the internet deliberately. What protects it is row-level
       # security (docker/migration_zz_row_level_security.sql): the anon key that ships in
       # the browser bundle carries no family claim, so it reads nothing, and a
