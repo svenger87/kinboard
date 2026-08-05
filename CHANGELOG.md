@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+- **Removing a device now signs it out.** Deleting a device from Settings → Family → Devices only forgot the name attached to it: the session it was using stayed valid until it expired on its own, so a phone that was lost or handed on kept its access to the household. Sessions are now deleted along with the device by the database itself, which is the only place that can guarantee it — devices are removed straight from the browser. Any sessions already stranded this way are cleared on upgrade, so a device removed before today is signed out too.
+
 ## [1.6.5] - 2026-08-05
 
 ### Fixed
