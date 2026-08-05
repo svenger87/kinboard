@@ -101,6 +101,12 @@ export async function verifySession(token: string | undefined): Promise<SessionC
 
   if (row.revoked_at) return null;
   if (new Date(row.expires_at).getTime() <= Date.now()) return null;
+  // A session always belongs to a device (both routes that create one register
+  // the device first), so a null here means the device was deleted underneath
+  // it. The foreign key now cascades, which should make this unreachable —
+  // but this is the check that decides whether a credential is good, and
+  // "removed from Settings" has to mean signed out even if a row survives.
+  if (!row.device_id) return null;
 
   // Heartbeat, at most hourly, and deliberately not awaited: a failure to
   // record "last seen" must never fail the request it was observing.
