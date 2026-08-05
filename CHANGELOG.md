@@ -11,6 +11,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [1.6.0] - 2026-08-04
 
 ### Security
+- The admin database key can no longer be used from the internet. It is only ever needed by Kinboard's own server, which reaches the database on the internal network — so the public entry point now rejects it outright, while the ordinary browser connection is unaffected. Defence in depth: the key is not exposed, but a leak would no longer be usable from outside.
 - Joining and creating a household are now rate-limited, and the app sends the security headers a public site should — HSTS, clickjacking protection, and more. Both from a security review of the 1.6.0 release.
 - A brand-new install now has row-level security fully applied on its first start. Two migrations ran after the one that sets it up and put the old rules back, so a fresh install ended up protecting only a third of its tables — an existing installation upgrading was unaffected, which is why this only showed up when building one from scratch.
 - Fresh installs and upgrades now enable row-level security correctly. `init.sql` was still creating the old policies that never applied, and two migrations were fighting the new ones on every restart — one disabling row-level security outright, another re-creating a rule that let every household read every other household's notifications. See UPGRADING.md: **every device has to re-join after this**, so note your join code down first.
