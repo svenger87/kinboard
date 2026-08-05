@@ -115,9 +115,16 @@ export async function POST(request: NextRequest) {
     device = created as { id: string };
   }
 
+  if (!device) {
+    // Unreachable: both branches above assign it, and the insert path returns
+    // early on error. Stated anyway so the type is honest — a session without a
+    // device is one no device deletion can ever revoke.
+    return NextResponse.json({ error: "could not register device" }, { status: 500 });
+  }
+
   const sessionToken = await createSession({
     familyId: family.id,
-    deviceId: device?.id ?? null,
+    deviceId: device.id,
     userAgent,
   });
 

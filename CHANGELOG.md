@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+- **A device could issue itself a session that never ended.** The table holding device sessions was left writable by the browser, from back when the database had no row-level security and every table was opened up alike. Nothing in Kinboard used it — sessions are only ever written by the server — but it meant any device already in the household could quietly give itself a credential with no expiry, undo a sign-out you had just performed from the Devices screen, or sign another device out. It is now server-only, which is what the rest of the app already assumed. No re-joining; nothing to do.
+
 ## [1.6.6] - 2026-08-05
 
 ### Security
