@@ -269,10 +269,10 @@ export function EnergyChart({
         }
       }
     }
-    // Integer digits, the decimal point and one decimal place, plus a little
-    // slack because recharts rounds its ticks outward past the data.
-    const chars = Math.round(widest).toString().length + 3;
-    return Math.max(50, chars * 9 + 12);
+    // Labels carry one decimal, and recharts rounds its ticks outward past the
+    // data, so measure the longest label it could actually produce.
+    const chars = `${Math.round(widest).toFixed(1)}`.length + 1;
+    return Math.max(40, chars * 8 + 14);
   }, [chartData]);
 
   if (chartData.length === 0) {
@@ -305,7 +305,7 @@ export function EnergyChart({
       <ResponsiveContainer width="100%" height={height}>
         <AreaChart
           data={chartData}
-          margin={{ top: 5, right: 5, left: -10, bottom: 0 }}
+          margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
         >
           <defs>
             {lines.map((line) => (
