@@ -250,6 +250,31 @@ export function EnergyChart({
     return Math.ceil(len / 10);
   };
 
+  /**
+   * Width the y-axis needs for its widest label.
+   *
+   * Recharts draws ticks into the width it is given and clips the overflow
+   * rather than making room, so a fixed value silently truncates once the
+   * numbers grow — the sibling power chart lost the leading digit of every
+   * four-digit reading that way. Labels here carry one decimal, so a whole
+   * month's kWh total is the case that has to fit.
+   */
+  const yAxisWidth = useMemo(() => {
+    let widest = 0;
+    for (const point of chartData) {
+      for (const [key, value] of Object.entries(point)) {
+        if (key === "timestamp") continue;
+        if (typeof value === "number" && Number.isFinite(value)) {
+          widest = Math.max(widest, Math.abs(value));
+        }
+      }
+    }
+    // Integer digits, the decimal point and one decimal place, plus a little
+    // slack because recharts rounds its ticks outward past the data.
+    const chars = Math.round(widest).toString().length + 3;
+    return Math.max(50, chars * 9 + 12);
+  }, [chartData]);
+
   if (chartData.length === 0) {
     return (
       <div className={cn(
@@ -320,7 +345,7 @@ export function EnergyChart({
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `${v.toFixed(1)}`}
-            width={50}
+            width={yAxisWidth}
           />
 
           <Tooltip

@@ -6,6 +6,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **The energy charts were cutting the numbers off their own axis.** Solar power lost the leading digit of anything over 999 W, so a 1600 W reading showed as "600" and the scale read 600, 200, 800, 400, 0 on the way down — nonsense, and quietly wrong rather than obviously broken. The battery charts were worse: the percentages disappeared entirely and left a column of bare "%" signs. Both charts now size their axis to the numbers they actually have to show, so it holds at a few hundred watts or at five figures.
+- **Adding the shopping list to an iPhone home screen could save the main app instead.** Opening it from the dashboard prompt handed over without a fresh page load, and both iOS's "Add to Home Screen" and Chrome's install decide what they're installing from the page as it was loaded — so you could end up with Kinboard on your home screen, opening to the dashboard, when you asked for the shopping list.
+- **Pinch to zoom works in the shopping list too.** It was switched back on everywhere in 1.6.3, but the shopping app kept its own screen settings and overrode that — leaving it disabled on exactly the screen most likely to be read at arm's length in a supermarket, and with no browser zoom to fall back on once it's on your home screen.
+
 ## [1.6.3] - 2026-08-05
 
 ### Fixed

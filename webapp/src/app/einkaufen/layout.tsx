@@ -27,8 +27,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // No maximumScale/userScalable here. A nested layout's viewport replaces the
+  // root one wholesale, so pinning them re-disabled pinch-to-zoom for the
+  // shopping app alone — in a supermarket, on the screen most likely to be
+  // read at arm's length, and with no browser zoom to fall back on once it is
+  // installed to the home screen.
   viewportFit: "cover",
   themeColor: "#22c55e",
 };
