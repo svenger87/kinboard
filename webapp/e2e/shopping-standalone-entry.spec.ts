@@ -17,7 +17,19 @@ const src = (...p: string[]) => readFileSync(join(__dirname, "..", "src", ...p),
 const shopping = src("app", "shopping", "page.tsx");
 
 test("the shopping header links to the standalone app", () => {
-  expect(shopping).toContain('<Link href="/einkaufen"');
+  expect(shopping).toContain('href="/einkaufen"');
+});
+
+test("that link is a real navigation, not a client-side one", () => {
+  // It must be a plain <a>, never next/link. Both iOS "Add to Home Screen" and
+  // Chrome's install prompt decide what they are installing from the document
+  // as it was loaded, and /einkaufen carries its own manifest scoped to itself.
+  // Arriving there by client-side navigation left the browser still offering
+  // the main app, scoped to "/", so people ended up with Kinboard on their home
+  // screen when they had asked for the shopping list.
+  const link = shopping.slice(shopping.indexOf('href="/einkaufen"') - 200);
+  expect(link.slice(0, 260)).toContain('<a href="/einkaufen"');
+  expect(shopping).not.toContain('<Link href="/einkaufen"');
 });
 
 test("that link is outside the dismissible banner", () => {
@@ -28,7 +40,7 @@ test("that link is outside the dismissible banner", () => {
 });
 
 test("it has an accessible name, not just an icon", () => {
-  const link = shopping.slice(shopping.indexOf('<Link href="/einkaufen"'));
+  const link = shopping.slice(shopping.indexOf('href="/einkaufen"'));
   expect(link.slice(0, 260)).toContain("aria-label");
 });
 
