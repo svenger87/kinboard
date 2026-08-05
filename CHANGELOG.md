@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.6.4] - 2026-08-05
+
 ### Fixed
 - **The energy charts were cutting the numbers off their own axis.** Solar power lost the leading digit of anything over 999 W, so a 1600 W reading showed as "600" and the scale read 600, 200, 800, 400, 0 on the way down — nonsense, and quietly wrong rather than obviously broken. The battery charts were worse: the percentages disappeared entirely and left a column of bare "%" signs. Both charts now size their axis to the numbers they actually have to show, so it holds at a few hundred watts or at five figures.
 - **Adding the shopping list to an iPhone home screen could save the main app instead.** Opening it from the dashboard prompt handed over without a fresh page load, and both iOS's "Add to Home Screen" and Chrome's install decide what they're installing from the page as it was loaded — so you could end up with Kinboard on your home screen, opening to the dashboard, when you asked for the shopping list.
@@ -532,7 +534,8 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.6.3...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.6.4...HEAD
+[1.6.4]: https://github.com/svenger87/kinboard/compare/v1.6.3...v1.6.4
 [1.6.3]: https://github.com/svenger87/kinboard/compare/v1.6.2...v1.6.3
 [1.6.2]: https://github.com/svenger87/kinboard/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/svenger87/kinboard/compare/v1.6.0...v1.6.1
