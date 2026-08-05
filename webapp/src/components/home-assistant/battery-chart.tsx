@@ -137,7 +137,11 @@ export function BatteryChart({
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `${v}%`}
-            width={35}
+            // Recharts clips tick text rather than growing the axis: at 35px
+            // "100%" lost its digits entirely and the axis rendered as a column
+            // of bare "%" signs. Wide enough for the longest label in the
+            // fixed 0-100 domain.
+            width={48}
           />
 
           <Tooltip content={<CustomTooltip />} />

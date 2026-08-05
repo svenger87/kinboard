@@ -7,7 +7,6 @@ import { ShoppingCart, X, Smartphone, ExternalLink, Compass } from "lucide-react
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 
 const DISMISSED_COOKIE_NAME = "shopping-pwa-prompt-dismissed";
 // Separate dismiss state for the "open in Safari" hint shown when the
@@ -145,7 +144,20 @@ export function ShoppingInstallPrompt() {
                   {isIOS ? t("iosBody") : t("androidBody")}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-3">
-                  <Link href="/einkaufen">
+                  {/*
+                    A real document load, not a client-side <Link>.
+
+                    This prompt also renders on the dashboard, whose document
+                    declares /manifest.json. Next does swap the <link rel=
+                    "manifest"> on a client navigation, but the browser has
+                    already decided what is installable for this document and
+                    fired beforeinstallprompt for the main app — so installing
+                    after a soft nav can hand back Kinboard rather than the
+                    shopping app, scoped to "/" instead of /einkaufen. Loading
+                    the page properly means the install candidate is evaluated
+                    against manifest-shopping.json from the start.
+                  */}
+                  <a href="/einkaufen">
                     <Button variant="outline" size="sm" className="border-success/30 hover:bg-success/10">
                       {isIOS ? (
                         <>
@@ -159,7 +171,7 @@ export function ShoppingInstallPrompt() {
                         </>
                       )}
                     </Button>
-                  </Link>
+                  </a>
                 </div>
               </div>
               <button
