@@ -63,3 +63,9 @@ CLAUDE.md
 New Logos/
 ToDo.md
 _backups/
+
+# Diun's runtime database and any other container runtime state under the
+# docker data dir. This is written constantly at runtime and was committed by
+# accident — a tracked copy collides with each host's local one and aborts the
+# auto-update git pull. Runtime state does not belong in git.
+webapp/docker/data/
