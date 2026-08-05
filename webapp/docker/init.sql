@@ -779,6 +779,7 @@ DO $$
 DECLARE
     obj record;
 BEGIN
+    -- Tables, partitions, views, materialised views, sequences.
     FOR obj IN
         SELECT c.relname, c.relkind
           FROM pg_class c
@@ -797,5 +798,37 @@ BEGIN
             END,
             obj.relname
         );
+    END LOOP;
+
+    -- Functions, procedures and aggregates. migration_server_notifications.sql
+    -- does CREATE OR REPLACE on trigger functions this file already defined,
+    -- and that needs ownership just as ALTER TABLE does.
+    FOR obj IN
+        SELECT p.oid::regprocedure::text AS signature, p.prokind
+          FROM pg_proc p
+         WHERE p.pronamespace = 'public'::regnamespace
+           AND pg_get_userbyid(p.proowner) <> 'postgres'
+    LOOP
+        EXECUTE format(
+            'ALTER %s %s OWNER TO postgres',
+            CASE obj.prokind
+                WHEN 'p' THEN 'PROCEDURE'
+                WHEN 'a' THEN 'AGGREGATE'
+                ELSE 'FUNCTION'
+            END,
+            obj.signature
+        );
+    END LOOP;
+
+    -- Standalone types: enums, domains, composites. A table's row type follows
+    -- its table automatically, so those are already handled above.
+    FOR obj IN
+        SELECT t.oid::regtype::text AS type_name
+          FROM pg_type t
+         WHERE t.typnamespace = 'public'::regnamespace
+           AND pg_get_userbyid(t.typowner) <> 'postgres'
+           AND t.typtype IN ('e', 'd', 'r')
+    LOOP
+        EXECUTE format('ALTER TYPE %s OWNER TO postgres', obj.type_name);
     END LOOP;
 END $$;
