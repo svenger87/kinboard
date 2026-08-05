@@ -14,13 +14,16 @@
     "liveUpdatesPaused": "Live-Updates pausiert — Verbindung wird wiederhergestellt…",
     "serverUnreachableTitle": "Kinboard-Server nicht erreichbar",
     "serverUnreachableBody": "Die App kann deine Familiendaten nicht laden. Prüfe, ob der Kinboard-Stack läuft und dieses Gerät ihn erreichen kann, und versuche es dann erneut.",
-    "serverUnreachableRetry": "Erneut versuchen"
+    "serverUnreachableRetry": "Erneut versuchen",
+    "serverUnreachableAutoRetry": "Wird automatisch erneut versucht …"
   },
   "components": {
     "back": "Zurück",
     "errorTitle": "Fehler beim Laden",
     "retry": "Erneut versuchen",
     "appError": {
+      "autoRetry": "Automatischer neuer Versuch in {seconds}s …",
+      "autoRetryExhausted": "Automatische Versuche beendet.",
       "title": "Etwas ist schiefgelaufen",
       "fallback": "Ein unerwarteter Fehler ist aufgetreten.",
       "retry": "Erneut versuchen",
@@ -128,6 +131,7 @@
     },
     "screensaver": {
       "newsCloseAria": "Nachricht schließen",
+      "newsOpenOriginal": "Originalartikel öffnen",
       "newsRead": "Artikel lesen",
       "newsClose": "Schließen",
       "touchHint": "Berühren zum Entsperren",
@@ -148,6 +152,7 @@
     "pwa": {
       "updateTitle": "Update verfügbar",
       "updateDescription": "Eine neue Version ist verfügbar.",
+      "updateDescriptionAuto": "Eine neue Version ist verfügbar. Sie wird automatisch installiert, sobald dieses Gerät einige Minuten inaktiv war.",
       "updateAction": "Aktualisieren",
       "installTitle": "App installieren",
       "installDescription": "Installiere Kinboard für schnelleren Zugriff.",
@@ -1119,6 +1124,7 @@
       "info1": "Der Präsenzsensor erkennt Personen via Radar (LD2410)",
       "info2": "„Nur Bildschirmschoner“ zeigt Fotos bei Abwesenheit",
       "info3": "„Display aus“ nutzt DPMS für maximales Energiesparen",
+      "presenceModeDisplayUnavailable": "„Display aus“ lässt sich hier nicht schalten – ein Browser kann keinen Bildschirm ausschalten. Der Präsenzsensor-Dienst des Kiosks erledigt das selbst, mit eigenem Timer.",
       "info4": "Bei Anwesenheit wird sofort zum Dashboard gewechselt",
       "minutes1": "1 Minute",
       "minutes2": "2 Minuten",
@@ -1776,6 +1782,7 @@
       "addVehicle": "Fahrzeug hinzufügen",
       "nickname": "Name",
       "nicknamePlaceholder": "z. B. Model Y",
+      "deleteFailed": "Fahrzeug konnte nicht gelöscht werden. Bitte versuche es erneut.",
       "vendor": "Fahrzeugtyp",
       "color": "Akzentfarbe",
       "create": "Fahrzeug hinzufügen",
@@ -2037,6 +2044,7 @@
       "title": "Plugins",
       "intro": "Integrierte Plugins für diese Familie aktivieren oder deaktivieren. Deaktivierte Plugins verschwinden aus der Navigation, dem Dashboard und der Integrationsliste — die Daten bleiben erhalten (keine Zeilen werden gelöscht; durch erneutes Aktivieren wird das Plugin genau wiederhergestellt).",
       "noPlugins": "In diesem Build sind keine Plugins enthalten.",
+      "toggleFailed": "Plugin konnte nicht geändert werden. Bitte versuche es erneut.",
       "footnote": "Plugins sind Bestandteil des Kinboard-Builds. Informationen zur Installation von Drittanbieter-Plugins findest du auf der Wiki-Seite zur Plugin-Architektur.",
       "label": {
         "vehicles": "Fahrzeuge",
@@ -3335,6 +3343,7 @@
     "emptyTitle": "Einkaufsliste ist leer",
     "emptyDescription": "Füge oben neue Artikel hinzu",
     "doneSection": "Erledigt",
+    "addItemAria": "Artikel hinzufügen",
     "deleteAllDoneAria": "Alle erledigten Artikel löschen",
     "checkAria": "{name} abhaken",
     "markDoneAria": "{name} als erledigt markieren",

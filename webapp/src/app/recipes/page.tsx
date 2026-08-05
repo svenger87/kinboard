@@ -273,6 +273,8 @@ export default function RecipesPage() {
         {/* Background */}
         <div className="page-gradient" />
 
+        {/* pb clears the fixed mobile nav (and the FAB) — without it the last
+            recipe card stays under it no matter how far you scroll. */}
         <div className="relative z-10 p-4 md:p-8 max-w-7xl mx-auto safe-area-inset">
           <PageHeader
             icon={ChefHat}
@@ -485,7 +487,9 @@ export default function RecipesPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <ScrollArea className="h-[calc(100vh-280px)]">
+            {/* Phones scroll the page itself: the fixed-height viewport left the
+                last card behind the nav, reachable only by a second scroll. */}
+            <ScrollArea className="h-auto md:h-[calc(100vh-280px)]">
               <AnimatePresence mode="popLayout">
                 {sortedRecipes.length === 0 ? (
                   <motion.div

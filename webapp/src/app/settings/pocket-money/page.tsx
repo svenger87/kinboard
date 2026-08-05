@@ -214,7 +214,10 @@ export default function PocketMoneySettingsPage() {
                     onValueCommit={([v]) =>
                       update
                         .mutateAsync({ id: acct.id, update: { apr_bps: v } })
-                        .catch(console.error)
+                        // These controls are uncontrolled, so a rejected save
+                        // left the widget showing the new value as if it had
+                        // stuck. Say so instead.
+                        .catch(() => toast.error(t("errorGeneric")))
                     }
                   />
                   {acct.apr_bps > 2000 && (
@@ -250,7 +253,7 @@ export default function PocketMoneySettingsPage() {
                           id: acct.id,
                           update: { weekly_allowance_cents: cents },
                         })
-                        .catch(console.error);
+                        .catch(() => toast.error(t("errorGeneric")));
                     }}
                   />
                 </div>
@@ -267,7 +270,7 @@ export default function PocketMoneySettingsPage() {
                             allowance_interval_days: Number(e.target.value),
                           },
                         })
-                        .catch(console.error)
+                        .catch(() => toast.error(t("errorGeneric")))
                     }
                   >
                     {ALLOWANCE_INTERVAL_OPTIONS.map((opt) => (
@@ -290,7 +293,7 @@ export default function PocketMoneySettingsPage() {
                             allowance_day_of_week: Number(e.target.value),
                           },
                         })
-                        .catch(console.error)
+                        .catch(() => toast.error(t("errorGeneric")))
                     }
                   >
                     {days.map((d, i) => (
@@ -343,7 +346,7 @@ export default function PocketMoneySettingsPage() {
             onCreate={(species) =>
               create
                 .mutateAsync({ person_id: kid.id, avatar_species: species })
-                .catch(console.error)
+                .catch(() => toast.error(t("errorGeneric")))
             }
             isPending={create.isPending}
           />
@@ -407,7 +410,12 @@ export default function PocketMoneySettingsPage() {
               <AlertDialogAction
                 onClick={() => {
                   if (pendingDelete)
-                    del.mutateAsync(pendingDelete).catch(console.error);
+                    del
+                      .mutateAsync(pendingDelete)
+                      // The dialog closes on click either way, so a failed
+                      // delete looked exactly like a successful one — the
+                      // account just quietly reappeared.
+                      .catch(() => toast.error(t("errorGeneric")));
                   setPendingDelete(null);
                 }}
               >

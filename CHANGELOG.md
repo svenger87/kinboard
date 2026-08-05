@@ -6,6 +6,18 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **A wall display left running for days no longer quietly empties itself.** Upcoming events, the bin-collection reminder and the screensaver each worked out their date range once, when the page was first opened, and never again — so after a fortnight they showed nothing at all while real events sat in the calendar, and "bin day tomorrow" simply stopped arriving. The countdowns beside birthdays had the same problem and would sit on the same number indefinitely. Nothing ever closes and reopens a kiosk, which is why this only ever bit the screen it matters most on.
+- **An unattended screen can get itself out of trouble again.** An error used to leave the display parked on a card that only a person standing in front of it could clear, and the same was true when Kinboard couldn't reach its server — so a hiccup at 3am meant a dead panel until somebody walked past. Both now keep trying on their own, and say so while they do. A pending update no longer waits forever for someone to tap it either.
+- **The screensaver now shifts its clock and panels by a few pixels every so often**, so a screen that shows the same layout around the clock doesn't wear it into the panel.
+- **"Display off" in the screensaver settings no longer pretends to do something.** A browser cannot power a screen down, and the kiosk's own presence sensor was handling it independently the whole time — so the setting had never had any effect in either position. It is now shown as unavailable, with an explanation, instead of silently doing nothing.
+- **Things that failed used to fail invisibly.** Deleting a vehicle, saving a pocket-money goal, changing an allowance or interest rate, closing a pocket-money account, and switching a plugin on or off could all quietly do nothing at all — the dialog closed either way, so a failed delete looked exactly like a successful one. Vehicles, stocks and news also announced "nothing here yet, add your first one" when the truth was that loading had failed, which sent you off adding things that were already there.
+- **Pinch to zoom works again.** It had been switched off everywhere, which left anyone who needs larger text with no way to get it — installed as an app there isn't even a browser zoom control to fall back on.
+- **Buttons that were too small to hit reliably** on phones: opening a news article's original page, the calendar's month and week controls, ticking off a to-do, and the language picker. Delete and drag controls in the Google calendar settings only appeared when a mouse hovered over them, so on a phone or tablet they were invisible.
+- **Pages that ran off the side of the screen or hid their own content** on a phone: the stocks page scrolled sideways, the setup wizard pushed its own buttons out of view (worst in German and French), and the last items on the shopping and recipe pages sat permanently underneath the bottom navigation where they could not be tapped.
+- **The shopping app no longer dumps you into the main app.** Its back arrow led to the dashboard, which is outside the shopping app's own boundary — so tapping it left the shopping app entirely, with no navigation to get back. Inside the installed app the arrow is simply gone; in a browser tab, where the dashboard really is where you came from, it stays.
+- Two labels for screen-reader users were missing in every language and showed a raw error instead of their text.
+
 ## [1.6.2] - 2026-08-05
 
 ## [1.6.1] - 2026-08-05

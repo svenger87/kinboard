@@ -12,13 +12,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getDriver } from "@/plugins/vehicles/drivers/registry";
 
 export default function VehiclesPage() {
   const t = useTranslations("vehicles");
   const router = useRouter();
-  const { data: vehicles = [], isPending } = useVehicles();
+  const { data: vehicles = [], isPending, error, refetch } = useVehicles();
   const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export default function VehiclesPage() {
 
   if (isPending) {
     return (
-      <div className="p-8 max-w-2xl mx-auto space-y-3">
+      <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-3">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-32" />
         <Skeleton className="h-32" />
@@ -37,13 +38,19 @@ export default function VehiclesPage() {
 
   if (vehicles.length === 0) {
     return (
-      <div className="p-8 max-w-2xl mx-auto">
+      <div className="p-4 md:p-8 max-w-2xl mx-auto">
         <PageHeader title={t("title")} icon={Car} />
-        <EmptyState
-          icon={Car}
-          title={t("emptyState")}
-          action={{ label: t("addFirstVehicle"), onClick: () => router.push("/settings/vehicles/new") }}
-        />
+        {/* A failed fetch also lands here with an empty list — offering
+            "add your first vehicle" would be the wrong thing to do. */}
+        {error ? (
+          <ErrorState onRetry={() => refetch()} />
+        ) : (
+          <EmptyState
+            icon={Car}
+            title={t("emptyState")}
+            action={{ label: t("addFirstVehicle"), onClick: () => router.push("/settings/vehicles/new") }}
+          />
+        )}
       </div>
     );
   }
@@ -52,7 +59,7 @@ export default function VehiclesPage() {
   const driver = getDriver(active.vendor);
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader
         title={t("title")}
         icon={Car}
@@ -65,7 +72,8 @@ export default function VehiclesPage() {
 
       {vehicles.length > 1 && (
         <Tabs value={active.id} onValueChange={setActiveId}>
-          <TabsList>
+          {/* Scrollable: one trigger per vehicle overflows a phone screen. */}
+          <TabsList className="w-full justify-start overflow-x-auto">
             {vehicles.map((v) => (
               <TabsTrigger key={v.id} value={v.id}>
                 {v.nickname}

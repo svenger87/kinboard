@@ -1,6 +1,7 @@
 export { useClock } from "./use-clock";
 export { useToday } from "./use-today";
 export { useIdleTimeout } from "./use-idle-timeout";
+export { useIsStandalone } from "./use-standalone";
 export {
   useWeather,
   useWeatherUnits,

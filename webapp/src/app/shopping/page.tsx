@@ -721,6 +721,8 @@ export default function ShoppingPage() {
         {/* Background */}
         <div className="page-gradient" />
 
+        {/* pb clears the fixed mobile nav — without it the last list row and the
+            progress bar stay under it no matter how far you scroll. */}
         <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
             icon={ShoppingCart}
@@ -1017,7 +1019,10 @@ export default function ShoppingPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <ScrollArea className="h-[calc(100vh-420px)]">
+            {/* Phones scroll the page itself: the fixed-height viewport was
+                taller than the space left below the form, so its last rows sat
+                behind the nav and were only reachable by a second scroll. */}
+            <ScrollArea className="h-auto md:h-[calc(100vh-420px)]">
               <AnimatePresence mode="popLayout">
                 {sortedCategories.length === 0 ? (
                   <motion.div

@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { Puzzle } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Card } from "@/components/ui/card";
@@ -20,10 +21,16 @@ export default function PluginsSettingsPage() {
   }
 
   async function toggle(id: string, next: boolean) {
-    await update.mutateAsync({
-      key: "enabled_plugins",
-      value: { ...enabled, [id]: next },
-    });
+    try {
+      await update.mutateAsync({
+        key: "enabled_plugins",
+        value: { ...enabled, [id]: next },
+      });
+    } catch {
+      // The Switch snaps back to the saved value on its own; without a
+      // toast that reads as the click not registering.
+      toast.error(t("toggleFailed"));
+    }
   }
 
   return (

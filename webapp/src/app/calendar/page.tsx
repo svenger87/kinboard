@@ -888,9 +888,9 @@ export default function CalendarPage() {
           {/* View tabs + person filter + navigation — kept below PageHeader */}
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-3 mb-6 sm:mb-8">
             <Tabs value={view} onValueChange={(v) => setView(v as "month" | "week")}>
-              <TabsList aria-label={t("viewSwitcherAria")}>
-                <TabsTrigger value="month" className="text-xs sm:text-sm px-2 sm:px-3">{t("viewMonth")}</TabsTrigger>
-                <TabsTrigger value="week" className="text-xs sm:text-sm px-2 sm:px-3">{t("viewWeek")}</TabsTrigger>
+              <TabsList aria-label={t("viewSwitcherAria")} className="h-auto sm:h-10">
+                <TabsTrigger value="month" className="text-xs sm:text-sm px-2 sm:px-3 min-h-[44px] sm:min-h-0">{t("viewMonth")}</TabsTrigger>
+                <TabsTrigger value="week" className="text-xs sm:text-sm px-2 sm:px-3 min-h-[44px] sm:min-h-0">{t("viewWeek")}</TabsTrigger>
               </TabsList>
             </Tabs>
             {people && people.length > 0 && (
@@ -918,13 +918,13 @@ export default function CalendarPage() {
               />
             </div>
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="icon" className="size-8" onClick={goToPrevious} aria-label={t("previousAria")}>
+              <Button variant="outline" size="icon" className="size-11 sm:size-8" onClick={goToPrevious} aria-label={t("previousAria")}>
                 <ChevronLeft className="size-4" />
               </Button>
-              <Button variant="outline" size="sm" className="h-8 text-xs sm:text-sm px-2 sm:px-3" onClick={goToToday}>
+              <Button variant="outline" size="sm" className="h-11 sm:h-8 text-xs sm:text-sm px-2 sm:px-3" onClick={goToToday}>
                 {t("todayButton")}
               </Button>
-              <Button variant="outline" size="icon" className="size-8" onClick={goToNext} aria-label={t("nextAria")}>
+              <Button variant="outline" size="icon" className="size-11 sm:size-8" onClick={goToNext} aria-label={t("nextAria")}>
                 <ChevronRight className="size-4" />
               </Button>
             </div>

@@ -530,10 +530,10 @@ export default function RoomsSettingsPage() {
   };
 
   return (
-    <main id="main-content" className="min-h-screen bg-background text-foreground">
+    <main id="main-content" className="min-h-screen bg-background text-foreground safe-area-inset">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background border-b border-border/50">
-        <div className="flex items-center gap-4 p-4">
+      <header className="sticky top-[env(safe-area-inset-top,0px)] z-50 -mx-4 px-4 bg-background border-b border-border/50">
+        <div className="flex items-center gap-4 py-4">
           <Link href="/settings/homeassistant">
             <Button variant="ghost" size="icon" aria-label={t("backAria")}>
               <ArrowLeft className="size-5" />
@@ -552,7 +552,7 @@ export default function RoomsSettingsPage() {
         </div>
       </header>
 
-      <div className="p-4 flex flex-col gap-6 max-w-2xl mx-auto">
+      <div className="py-4 flex flex-col gap-6 max-w-2xl mx-auto">
         {/* Global settings */}
         <div className="bg-card rounded-xl border p-4 flex flex-col gap-4">
           <h2 className="font-semibold">{t("settingsHeading")}</h2>

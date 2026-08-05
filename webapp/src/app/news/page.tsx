@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
 import { useNews, type NewsItem } from "@/hooks/use-news";
 import { useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
@@ -29,7 +30,7 @@ export default function NewsPage() {
   const t = useTranslations("news");
   const locale = useLocale();
   const router = useRouter();
-  const { data: news, isLoading, isFetching, refetch } = useNews();
+  const { data: news, isLoading, isFetching, error, refetch } = useNews();
 
   const [query, setQuery] = useState("");
   const [activeSource, setActiveSource] = useState<string | null>(null);
@@ -127,7 +128,12 @@ export default function NewsPage() {
         )}
 
         {!isLoading && filtered.length === 0 && (
-          news && news.length === 0 ? (
+          /* A failed fetch leaves us with nothing to show, which used to
+             read as "no headlines match the current filter" even when no
+             filter was set. */
+          error ? (
+            <ErrorState onRetry={() => refetch()} />
+          ) : news && news.length === 0 ? (
             <EmptyState
               icon={Newspaper}
               title={t("emptyNoSources")}
@@ -222,7 +228,7 @@ function NewsCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  className="inline-flex size-11 -my-3.5 shrink-0 items-center justify-center rounded-md text-xs text-muted-foreground hover:text-foreground"
                   aria-label={t("openOriginal")}
                 >
                   <ExternalLink className="size-3" />

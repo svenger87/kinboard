@@ -234,7 +234,17 @@ export default function ScreensaverSettingsPage() {
                   )}
                 </div>
 
-                {/* Control Mode */}
+                {/* Control Mode.
+                    "Display off" is deliberately not selectable. Switching a
+                    panel's power means driving the compositor (Mutter's
+                    PowerSaveMode over D-Bus, or DPMS) and a browser tab
+                    simply cannot do that — the Wake Lock API keeps a screen
+                    awake, it can't put one to sleep. The kiosk's own
+                    presence-sensor service does the real DPMS work, on its
+                    own timer, and never read this setting anyway. Rather
+                    than leave a switch that quietly does nothing, the option
+                    stays visible (families who picked it still see their
+                    stored value) but is disabled and explained. */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Radar className="size-5 text-primary" />
@@ -260,7 +270,7 @@ export default function ScreensaverSettingsPage() {
                           {t("presenceModeScreensaver")}
                         </div>
                       </SelectItem>
-                      <SelectItem value="display_power">
+                      <SelectItem value="display_power" disabled>
                         <div className="flex items-center gap-2">
                           <Power className="size-4" />
                           {t("presenceModeDisplay")}
@@ -269,6 +279,10 @@ export default function ScreensaverSettingsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <p className="text-xs text-muted-foreground -mt-2">
+                  {t("presenceModeDisplayUnavailable")}
+                </p>
 
                 {/* Presence Timeout */}
                 <div className="flex items-center justify-between">

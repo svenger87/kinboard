@@ -39,8 +39,15 @@ export function WizardStepFooter({
     router.push(nextHref);
   };
 
+  // The footer wraps rather than overflowing: all three buttons are
+  // whitespace-nowrap and cannot shrink, so on a 390px phone Back + Skip +
+  // Continue need more width than the step has, and `justify-between` pins the
+  // left group while pushing the right one off screen. Only the steps passing
+  // `backHref` carry all three, which is why exactly those scrolled sideways.
+  // German and French need noticeably more width than English, so this has to
+  // hold for the longest translation rather than the shortest.
   return (
-    <div className="flex items-center justify-between mt-8">
+    <div className="flex flex-wrap items-center justify-between gap-2 mt-8">
       <div className="flex items-center gap-2">
         {backHref ? (
           <Button variant="ghost" size="sm" onClick={() => router.push(backHref)}>
