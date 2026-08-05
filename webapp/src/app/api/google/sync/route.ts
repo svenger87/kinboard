@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 
@@ -96,8 +97,15 @@ async function getOAuth2Client(familyId: string) {
   return { oauth2Client, settings: credentials, supabase };
 }
 
+// Every verb here reaches a family's connected Google account with the
+// refresh token stored for it, so the family named in the request decides
+// whose calendar gets read, written or deleted. It was decided by the caller.
+
 // POST: Sync events from Google Calendar to local database
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { family_id } = body;
 
@@ -106,6 +114,10 @@ export async function POST(request: NextRequest) {
       { error: "family_id is required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, family_id)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const result = await getOAuth2Client(family_id);

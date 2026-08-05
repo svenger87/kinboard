@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncFamilyCaldavCalendars } from "@/lib/caldav-sync";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,9 +11,13 @@ export const dynamic = "force-dynamic";
  * equivalent lives at /api/cron/sync-caldav (auth via CRON_SECRET); both
  * share `syncCaldavCalendar` so their behaviour can't drift.
  *
- * Auth model matches /api/calendar/sync-ics: family_id from the body.
+ * Auth model matches /api/calendar/sync-ics: a device session for the
+ * family named in the body.
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   let body: unknown;
   try {
     body = await request.json();
@@ -23,6 +28,10 @@ export async function POST(request: NextRequest) {
   const familyId = (body as Record<string, unknown>)?.family_id;
   if (typeof familyId !== "string" || !familyId) {
     return NextResponse.json({ error: "family_id is required" }, { status: 400 });
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   try {

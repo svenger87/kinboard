@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import type { HomeAssistantSettings, StatisticsPeriod } from "@/types/home-assistant";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 // Statistics response from Home Assistant
 interface HAStatisticsResponse {
@@ -17,7 +18,12 @@ interface HAStatisticsResponse {
 }
 
 // GET: Fetch statistics for entities
+// Proxies the household's own Home Assistant with the token stored for that
+// family — see the note in ../route.ts.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const searchParams = request.nextUrl.searchParams;
   const familyId = searchParams.get("family_id");
   const statisticIds = searchParams.get("statistic_ids"); // Comma-separated entity IDs
@@ -30,6 +36,10 @@ export async function GET(request: NextRequest) {
       { error: "family_id is required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   if (!statisticIds) {

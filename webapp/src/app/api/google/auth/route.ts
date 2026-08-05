@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -11,7 +12,17 @@ const SCOPES = [
 ];
 
 // GET: Start OAuth flow - redirect to Google
+//
+// The family_id here is carried through Google and comes back in `state`,
+// where the callback uses it to decide whose account the tokens belong to.
+// Anyone could therefore start a flow naming someone else's family and, with
+// their own Google consent, attach their calendar to that household. It's a
+// top-level navigation from a signed-in device, so the session cookie is
+// present (SameSite=Lax sends it on GET navigations) and can be checked.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     // The settings page renders ?error= codes as a toast; a JSON 500 on a
     // full-page navigation would strand the user on a raw error body.
@@ -29,6 +40,10 @@ export async function GET(request: NextRequest) {
       { error: "family_id is required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const oauth2Client = new google.auth.OAuth2(

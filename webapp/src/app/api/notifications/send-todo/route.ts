@@ -4,6 +4,7 @@ import { sendPushToMultiple, isVapidConfigured, DatabaseSubscription } from "@/l
 import { getPushTranslator } from "@/lib/notifications/messages";
 import { getFamilyLocale } from "@/lib/family-locale";
 import type { PushSubscription, NotificationPreferences } from "@/types/database";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,9 @@ interface SendTodoRequest {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   try {
     if (!isVapidConfigured()) {
       return NextResponse.json(
@@ -36,6 +40,10 @@ export async function POST(request: NextRequest) {
         { error: "familyId and items are required" },
         { status: 400 }
       );
+    }
+
+    if (!familyMatchesSession(auth.session, familyId)) {
+      return NextResponse.json({ error: "not authenticated" }, { status: 401 });
     }
 
     const supabase = createAdminClient();

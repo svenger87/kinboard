@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { PocketMoneyTransactionInsert } from "@/types/database";
 import { familyIdFrom, rowInFamily, accountInFamily } from "@/lib/family-scope";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
@@ -14,12 +15,21 @@ export async function GET(
   const limit = Math.min(Number.isFinite(rawLimit) ? rawLimit : 50, 200);
 
   const supabase = createAdminClient();
+
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   // The account must belong to the caller's family. RLS is off, so this
   // check is the boundary — see lib/family-scope.
   const familyId = familyIdFrom(request);
   if (!familyId) {
     return NextResponse.json({ error: "family_id required" }, { status: 400 });
   }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
+  }
+
   if (!(await accountInFamily(supabase, id, familyId))) {
     // Same answer as "doesn't exist", so ids can't be probed.
     return NextResponse.json({ error: "not found" }, { status: 404 });
@@ -80,12 +90,21 @@ export async function POST(
   }
 
   const supabase = createAdminClient();
+
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   // The account must belong to the caller's family. RLS is off, so this
   // check is the boundary — see lib/family-scope.
   const familyId = familyIdFrom(request, body);
   if (!familyId) {
     return NextResponse.json({ error: "family_id required" }, { status: 400 });
   }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
+  }
+
   if (!(await accountInFamily(supabase, accountId, familyId))) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }

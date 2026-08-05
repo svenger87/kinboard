@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { searchWebImages } from "@/lib/pocket-money/web-image-search";
+import { requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,16 @@ interface ResultRow {
 // the rest of the page. Returns { results: [{ name, image_url, source }, ...] }
 // where `source` is "catalog" (or whatever the curated row recorded)
 // for catalog hits and "web" for web-search hits.
+//
+// No family_id — the curated catalog is shared and the web search is not
+// family data — so there is nothing to match against the session. The session
+// is still required, because this fans out to an upstream image search and an
+// open endpoint that makes outbound requests on demand is someone else's
+// bandwidth to spend.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const q = (request.nextUrl.searchParams.get("q") ?? "").trim();
   if (q.length < 2) return NextResponse.json({ results: [] });
 

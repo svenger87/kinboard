@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { PushSubscription, NotificationPreferences } from "@/types/database";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,9 @@ interface SubscribeRequest {
  * Register a push subscription for a device
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const body: SubscribeRequest = await request.json();
     const { subscription, deviceId, familyId } = body;
@@ -38,6 +42,10 @@ export async function POST(request: NextRequest) {
         { error: "deviceId and familyId are required" },
         { status: 400 }
       );
+    }
+
+    if (!familyMatchesSession(auth.session, familyId)) {
+      return NextResponse.json({ error: "not authenticated" }, { status: 401 });
     }
 
     const supabase = createAdminClient();

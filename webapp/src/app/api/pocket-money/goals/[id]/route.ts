@@ -2,17 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { PocketMoneyGoalUpdate } from "@/types/database";
 import { familyIdFrom, rowInFamily, accountInFamily } from "@/lib/family-scope";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = (await request.json()) as Partial<PocketMoneyGoalUpdate> & { family_id?: string };
+
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   // A goal reaches its family through its account, so ownership is one hop
   // away — see lib/family-scope. RLS is off; this is the boundary.
   const familyId = familyIdFrom(request, body);
   if (!familyId) {
     return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const update: PocketMoneyGoalUpdate = {};
@@ -84,9 +93,16 @@ export async function DELETE(
 ) {
   const { id } = await params;
 
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const familyId = familyIdFrom(request);
   if (!familyId) {
     return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();

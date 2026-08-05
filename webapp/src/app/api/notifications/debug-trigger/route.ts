@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendPushToMultiple, isVapidConfigured, DatabaseSubscription } from "@/lib/push-sender";
 import type { PushSubscription } from "@/types/database";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,18 @@ export const dynamic = "force-dynamic";
  *   familyId - required
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const { searchParams } = new URL(request.url);
   const familyId = searchParams.get("familyId");
 
   if (!familyId) {
     return NextResponse.json({ error: "familyId query param required" }, { status: 400 });
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
    
@@ -64,12 +72,19 @@ export async function GET(request: NextRequest) {
  * Body: { familyId, action, deviceId? }
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
     const { familyId, action, deviceId } = body;
 
     if (!familyId) {
       return NextResponse.json({ error: "familyId required" }, { status: 400 });
+    }
+
+    if (!familyMatchesSession(auth.session, familyId)) {
+      return NextResponse.json({ error: "not authenticated" }, { status: 401 });
     }
 
      

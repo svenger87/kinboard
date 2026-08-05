@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendPushNotification, isVapidConfigured, type DatabaseSubscription } from "@/lib/push-sender";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   try {
     if (!isVapidConfigured()) {
       return NextResponse.json({
@@ -20,6 +24,10 @@ export async function POST(request: NextRequest) {
         { success: false, error: "deviceId and familyId are required" },
         { status: 400 }
       );
+    }
+
+    if (!familyMatchesSession(auth.session, familyId)) {
+      return NextResponse.json({ error: "not authenticated" }, { status: 401 });
     }
 
     const supabase = createAdminClient();

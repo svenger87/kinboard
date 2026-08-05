@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   LOCALE_COOKIE,
   SUPPORTED_LOCALES,
   type Locale,
 } from "@/i18n/request";
 import { createAdminClient } from "@/lib/supabase/server";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
@@ -16,7 +17,14 @@ function isSupportedLocale(value: unknown): value is Locale {
   );
 }
 
-export async function POST(request: Request) {
+// Two things happen here, and only one of them is family data.
+//
+// Setting the locale cookie is a per-browser preference and stays open — the
+// language switcher is on /join, before anyone has a family or a session, and
+// making it 401 there would leave a visitor unable to read the page they are
+// trying to join from. Writing the family's stored locale is family data, so
+// naming a family requires a session for it.
+export async function POST(request: NextRequest) {
   let payload: unknown;
   try {
     payload = await request.json();
@@ -38,6 +46,12 @@ export async function POST(request: Request) {
 
   const familyId = typeof body?.familyId === "string" ? body.familyId : null;
   if (familyId) {
+    const auth = await requireSession(request);
+    if (!auth.ok) return auth.response;
+    if (!familyMatchesSession(auth.session, familyId)) {
+      return NextResponse.json({ error: "not authenticated" }, { status: 401 });
+    }
+
     // Persist alongside the device cookie so server-side contexts with no
     // request cookie (crons, push payload generation) can resolve the
     // family's language. Best-effort: a failure here shouldn't block the

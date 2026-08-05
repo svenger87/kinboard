@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 // Open Food Facts API base URL
 const OFF_API_BASE = "https://world.openfoodfacts.org";
@@ -137,7 +138,12 @@ async function lookupBarcode(barcode: string): Promise<ProductLookupResult | nul
   }
 }
 
+// Same reasoning as ../search: family_id is optional, but where it is given
+// it names a family's own catalog rows, so it has to be the session's.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const searchParams = request.nextUrl.searchParams;
   const barcode = searchParams.get("barcode");
   const familyId = searchParams.get("family_id");
@@ -147,6 +153,10 @@ export async function GET(request: NextRequest) {
       { error: "Valid barcode is required (at least 8 digits)" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   // 1. Check local catalog first
