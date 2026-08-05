@@ -64,6 +64,42 @@ const nextConfig = {
       bodySizeLimit: '2mb',
     },
   },
+  // Security response headers.
+  //
+  // The instance is served on the public internet, and until now carried none
+  // of these. A pentest on 2026-08-05 flagged the gap: no clickjacking
+  // protection, no TLS pinning, no MIME-sniff protection.
+  //
+  // Everything here is safe against the app as it stands. Notably absent is a
+  // script-src CSP: the root layout ships an inline `window.__ENV=...` script
+  // (so the Docker image can pick up the self-hoster's Supabase URL at runtime
+  // without a rebuild), and Next injects its own inline hydration scripts.
+  // Locking script-src down needs a nonce threaded through both, which is a
+  // separate change — the CSP below deliberately sets only the directives that
+  // do not touch scripts.
+  async headers() {
+    const securityHeaders = [
+      // Pin HTTPS for two years, including subdomains. Only sent over TLS, so
+      // it can't strand a plain-http dev setup.
+      { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+      // No MIME sniffing — a text response can't be coaxed into running as a script.
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      // Belt to frame-ancestors' braces, for anything that still reads it.
+      { key: "X-Frame-Options", value: "DENY" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      // Drop ambient access to sensors the app doesn't use.
+      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
+      // Clickjacking + a couple of cheap wins, none of which constrain scripts:
+      // the dashboard cannot be framed, forms cannot be pointed elsewhere, and
+      // <base> cannot be hijacked.
+      {
+        key: "Content-Security-Policy",
+        value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'",
+      },
+    ];
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
+
   async redirects() {
     return [
       // Renamed slugs under /rezepte (specific first, then catch-all)
