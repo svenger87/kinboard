@@ -61,6 +61,12 @@ jobs:
           if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
             echo "build=true" >> "$GITHUB_OUTPUT"; echo "no base sha → build"; exit 0
           fi
+          # A force-push (e.g. a history rewrite) leaves github.event.before
+          # pointing at a commit that no longer exists, so the diff below would
+          # abort with "bad object". Treat a missing base as "can't tell" and build.
+          if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "build=true" >> "$GITHUB_OUTPUT"; echo "base sha gone (force-push) → build"; exit 0
+          fi
           changed=$(git diff --name-only "$base" "${{ github.sha }}")
           echo "Changed files:"; echo "$changed"
           # Build unless EVERY changed file is docs/markdown.
