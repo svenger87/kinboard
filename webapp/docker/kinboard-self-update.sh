@@ -69,8 +69,35 @@ DIUN_BEFORE="$(stat -c %Y webapp/docker/diun/diun.yml 2>/dev/null || echo 0)"
 
 if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
   log "pulling $LOCAL_SHA → $REMOTE_SHA"
-  git pull --ff-only origin main >>"$LOG_FILE" 2>&1
-  log "pulled $REMOTE_SHA"
+  # The git pull brings new compose/kong files. The IMAGE pull below (steps 3-4)
+  # is what carries the actual release, and it must not be held hostage to the
+  # working tree being clean — so a git failure here logs loudly and continues,
+  # rather than aborting under `set -e` and leaving the container on the old,
+  # possibly-vulnerable image. This is exactly how the demo silently stalled on
+  # an old build while `latest` moved three releases ahead.
+  if ! git pull --ff-only origin main >>"$LOG_FILE" 2>&1; then
+    log "WARN: git pull failed — attempting to clear collisions and retry"
+    # The common cause: files that used to be created locally (compose
+    # overlays, the diun runtime db) are now tracked upstream, so an untracked
+    # local copy blocks the merge. Remove ONLY untracked paths that origin/main
+    # actually tracks — git is about to replace each with its own version, so
+    # nothing local-only is lost. Everything else is left untouched.
+    git ls-files --others --exclude-standard 2>/dev/null | while IFS= read -r f; do
+      if git cat-file -e "origin/main:$f" 2>/dev/null; then
+        log "  removing stale untracked (now tracked upstream): $f"
+        rm -f "$f"
+      fi
+    done
+    if git pull --ff-only origin main >>"$LOG_FILE" 2>&1; then
+      log "pulled $REMOTE_SHA after clearing collisions"
+    else
+      # Still stuck (local commits, real conflicts). Do not abort — the image
+      # pull is the point, and new migrations ride in the image regardless.
+      log "WARN: git still behind at $LOCAL_SHA; continuing to image pull anyway"
+    fi
+  else
+    log "pulled $REMOTE_SHA"
+  fi
 else
   log "git up-to-date at $LOCAL_SHA"
 fi
