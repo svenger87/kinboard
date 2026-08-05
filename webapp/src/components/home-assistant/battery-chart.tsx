@@ -113,7 +113,13 @@ export function BatteryChart({
   return (
     <div className={className}>
       <ResponsiveContainer width="100%" height={height}>
-        <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+        {/*
+          left: 0, not a negative margin. Pulling the chart left drags the y-axis
+          partly off the SVG, and recharts clips whatever ends up outside — which
+          is what ate the leading digit of "100%" and left a column of "00%".
+          The axis width below is what reserves the space now.
+        */}
+        <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="socGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={color} stopOpacity={0.3} />
@@ -137,11 +143,9 @@ export function BatteryChart({
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `${v}%`}
-            // Recharts clips tick text rather than growing the axis: at 35px
-            // "100%" lost its digits entirely and the axis rendered as a column
-            // of bare "%" signs. Wide enough for the longest label in the
-            // fixed 0-100 domain.
-            width={48}
+            // Room for the longest label in the fixed 0-100 domain ("100%").
+            // Recharts clips tick text rather than growing the axis to fit.
+            width={44}
           />
 
           <Tooltip content={<CustomTooltip />} />
