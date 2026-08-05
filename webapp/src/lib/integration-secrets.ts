@@ -95,13 +95,26 @@ function setPath(obj: unknown, path: string, value: unknown): JsonObject {
   // Arrays must be cloned as arrays: rebuilding one as an object would
   // turn `cameras` into {0:…,1:…} and break every consumer while still
   // looking plausible in JSON.
-  const clone = (v: unknown): JsonObject =>
-    Array.isArray(v) ? ([...v] as unknown as JsonObject) : isObject(v) ? { ...v } : {};
+  //
+  // Cloning alone isn't enough, though. The secret half is built from nothing
+  // (`secretValue ?? {}`), so there is no array here to clone — the level just
+  // doesn't exist yet, and an empty object was the fallback. That produced the
+  // exact {0:…,1:…} shape this comment warns about, on the one side nobody
+  // looks at. When creating a level, shape it from the key about to be written
+  // into it: a numeric segment means a list.
+  const cloneFor = (v: unknown, nextKey: string | undefined): JsonObject =>
+    Array.isArray(v)
+      ? ([...v] as unknown as JsonObject)
+      : isObject(v)
+        ? { ...v }
+        : nextKey !== undefined && /^\d+$/.test(nextKey)
+          ? ([] as unknown as JsonObject)
+          : {};
 
-  const root: JsonObject = clone(obj);
+  const root: JsonObject = cloneFor(obj, parts[0]);
   let cur = root;
   for (let i = 0; i < parts.length - 1; i++) {
-    cur[parts[i]] = clone(cur[parts[i]]);
+    cur[parts[i]] = cloneFor(cur[parts[i]], parts[i + 1]);
     cur = cur[parts[i]] as JsonObject;
   }
   cur[parts[parts.length - 1]] = value;

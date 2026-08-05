@@ -224,3 +224,72 @@ jobs:
             fi
           fi
           echo "Changelog check passed."
+
+  specs:
+    name: Specs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webapp
+    # 40 of the 43 spec files never touch a browser or a running stack — they
+    # assert on pure functions and on the source itself. They were written,
+    # reviewed and merged, and then only ever ran if somebody ran them by hand:
+    # e2e.yml executes two files, and every security spec written for the
+    # pentest (rest-gate, rate-limit, security-headers, family-scope) sat
+    # dormant. They belong here, where they gate a PR in seconds, rather than
+    # behind the E2E job's Docker boot.
+    #
+    # Deliberately no Playwright browser install: `playwright test` is being
+    # used as a plain test runner. Adding one would put a 200MB download on the
+    # critical path of every PR for tests that never open a page.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: webapp/package-lock.json
+
+      # See the migrations job: corepack reads the pinned npm from
+      # webapp/package.json so the lockfile shape always matches.
+      - name: Use the pinned npm
+        run: corepack enable npm
+      - name: Install dependencies
+        run: npm ci
+
+      # smoke/secrets/setup take Playwright's page or request fixture, so they
+      # need the stack that e2e.yml boots. visual-audit is a manual tool that
+      # throws at import unless FAMILY_CODE is set, and it drives a real
+      # instance — it is not a test. Everything else runs here.
+      - name: Run the stack-free specs
+        run: npx playwright test $(ls e2e/*.spec.ts | grep -vE '/(smoke|secrets|setup|visual-audit)\.spec\.ts$' | tr '\n' ' ')
+
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webapp
+    # `tsc --noEmit` cannot see what `next build` sees: "use client" boundary
+    # violations, invalid route segment config, server-only imports pulled into
+    # a client component, prerender-time failures. Without this a PR can merge
+    # green and break the image build on main, where it is found later and by
+    # somebody else.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: webapp/package-lock.json
+      - name: Use the pinned npm
+        run: corepack enable npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        # The real build needs these at compile time; the values are irrelevant
+        # here because nothing is served, but their absence fails the build.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://localhost:8000
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+        run: npm run build
