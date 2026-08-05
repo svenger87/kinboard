@@ -43,6 +43,7 @@ export function GoalAddDialog({ accountId, open, onOpenChange, goal = null }: Pr
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageSource, setImageSource] = useState<"catalog" | "upload" | "url">("catalog");
   const [searchQuery, setSearchQuery] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const { data: searchResults = [] } = useGoalImageSearch(searchQuery);
 
@@ -58,6 +59,7 @@ export function GoalAddDialog({ accountId, open, onOpenChange, goal = null }: Pr
   // it after a cancel doesn't show the previous edit's leftovers.
   useEffect(() => {
     if (!open) return;
+    setError(null);
     if (goal) {
       setName(goal.name);
       setTargetCents(goal.target_amount_cents);
@@ -78,15 +80,18 @@ export function GoalAddDialog({ accountId, open, onOpenChange, goal = null }: Pr
       image_url: imageUrl,
       image_source: imageSource,
     };
+    setError(null);
     try {
       if (goal) {
         await updateGoal.mutateAsync({ id: goal.id, accountId, update: input });
       } else {
         await createGoal.mutateAsync({ accountId, input });
       }
-    } catch (err) {
-      console.error(err);
-      return; // keep the dialog open so the entered values aren't lost
+    } catch {
+      // Keep the dialog open so the entered values aren't lost, but say
+      // so — a swallowed failure looked identical to a saved goal.
+      setError(t("errorGeneric"));
+      return;
     }
     reset();
     onOpenChange(false);
@@ -193,6 +198,12 @@ export function GoalAddDialog({ accountId, open, onOpenChange, goal = null }: Pr
             </TabsContent>
           </Tabs>
         </div>
+
+        {error && (
+          <p role="alert" className="text-sm text-destructive px-1">
+            {error}
+          </p>
+        )}
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

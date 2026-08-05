@@ -97,7 +97,7 @@ export function NewsArticleSheet({
                 </p>
               </div>
               {url && (
-                <Button asChild variant="ghost" size="icon" aria-label={t("openOriginal")}>
+                <Button asChild variant="ghost" size="icon" className="shrink-0" aria-label={t("openOriginal")}>
                   <a href={url} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="size-4" />
                   </a>

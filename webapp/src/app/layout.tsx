@@ -35,8 +35,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // No maximumScale/userScalable: pinch-to-zoom stays available (WCAG 1.4.4).
+  // As an installed PWA there is no browser zoom UI to fall back on, so
+  // locking the scale would leave dense views (calendar, meals, timetable)
+  // unreadable with no way out.
   themeColor: "#000000",
   viewportFit: "cover",
 };

@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { getIntlLocale } from "@/i18n/intl-locale";
 import { useClock } from "@/hooks/use-clock";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useBirthdays, useEvents, usePeople, usePhotoSource, useNews, useEnergyConfig, useTeslaConfig, useHomeAssistantEntityStates, useWeather, type NewsItem } from "@/hooks";
+import { useBirthdays, useEvents, usePeople, usePhotoSource, useNews, useEnergyConfig, useTeslaConfig, useHomeAssistantEntityStates, useToday, useWeather, type NewsItem } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { useFamilyStore } from "@/stores/family-store";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
@@ -26,12 +26,30 @@ const BLOB_CLEANUP_DELAY = 2500;
 /** Auto-close news modal after this much inactivity (ms) */
 const MODAL_INACTIVITY_TIMEOUT = 5 * 60 * 1000;
 
+/**
+ * Burn-in mitigation for the overlays.
+ *
+ * The photo behind them changes every half minute, but the clock, the news
+ * list and the events column sit on the exact same pixels for as long as the
+ * screensaver is up — days, on a wall display. Bright glyphs held that still
+ * age an OLED (and mark some LCDs) unevenly.
+ *
+ * So the overlay layer walks a small closed loop of offsets: nothing moves far
+ * enough or fast enough to catch the eye, but no edge stays on one pixel.
+ */
+const BURN_IN_OFFSETS = ["0px 0px", "8px 5px", "-5px 8px", "6px -7px", "-8px -4px"];
+const BURN_IN_INTERVAL = 4 * 60 * 1000;
+/** Long enough that the shift reads as drift rather than a step. */
+const BURN_IN_TRANSITION = "translate 6s ease-in-out";
+
 interface ScreensaverProps {
   photos?: string[];
 }
 
-function getNextBirthday(date: Date): Date {
-  const today = startOfDay(new Date());
+// `now` defaults to the current date; pass a tick value (see `useToday`) so
+// callers recompute when the calendar day rolls over.
+function getNextBirthday(date: Date, now: Date = new Date()): Date {
+  const today = startOfDay(now);
   const thisYearBirthday = startOfDay(setYear(date, today.getFullYear()));
 
   if (differenceInDays(today, thisYearBirthday) > 0) {
@@ -40,9 +58,9 @@ function getNextBirthday(date: Date): Date {
   return thisYearBirthday;
 }
 
-function getDaysUntilBirthday(date: Date): number {
-  const nextBirthday = getNextBirthday(date);
-  return differenceInDays(startOfDay(nextBirthday), startOfDay(new Date()));
+function getDaysUntilBirthday(date: Date, now: Date = new Date()): number {
+  const nextBirthday = getNextBirthday(date, now);
+  return differenceInDays(startOfDay(nextBirthday), startOfDay(now));
 }
 
 function calculateUpcomingAge(birthDate: Date): number {
@@ -145,14 +163,19 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // Fetch news
   const { data: news } = useNews();
 
+  // Re-render at midnight so the query window and the birthday countdowns
+  // follow the day. Nothing unmounts a screensaver, so without this it would
+  // still be asking for the week it started in a week later.
+  const today = useToday();
+
   // Get events for the next 7 days
   const { startDate, endDate } = useMemo(() => {
-    const today = new Date();
+    const start = new Date(today); // useToday() is already start-of-day
     return {
-      startDate: startOfDay(today).toISOString(),
-      endDate: endOfDay(addDays(today, 7)).toISOString(),
+      startDate: start.toISOString(),
+      endDate: endOfDay(addDays(start, 7)).toISOString(),
     };
-  }, []);
+  }, [today]);
   const { data: events } = useEvents(startDate, endDate);
 
   // Fetch photos from configured source (Immich or Unsplash)
@@ -437,6 +460,22 @@ export function Screensaver({ photos }: ScreensaverProps) {
     return () => clearTimeout(timer);
   }, [selectedNews, modalLastInteraction]);
 
+  // Step the overlay layer around its offset loop (see BURN_IN_OFFSETS)
+  const [burnInStep, setBurnInStep] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setBurnInStep((step) => (step + 1) % BURN_IN_OFFSETS.length);
+    }, BURN_IN_INTERVAL);
+    return () => clearInterval(timer);
+  }, []);
+  // The CSS `translate` property, not a transform: it composes with the
+  // entry animations and the `-translate-x-1/2` centering already on these
+  // elements instead of overwriting them.
+  const burnInStyle = useMemo(
+    () => ({ translate: BURN_IN_OFFSETS[burnInStep], transition: BURN_IN_TRANSITION }),
+    [burnInStep]
+  );
+
   // Track modal interaction
   const handleModalInteraction = () => {
     setModalLastInteraction(Date.now());
@@ -476,14 +515,14 @@ export function Screensaver({ photos }: ScreensaverProps) {
           id: birthday.id,
           name: birthday.name,
           date: parseBirthdayDate(birthday.date),
-          daysUntil: getDaysUntilBirthday(parseBirthdayDate(birthday.date)),
+          daysUntil: getDaysUntilBirthday(parseBirthdayDate(birthday.date), new Date(today)),
           personColor: person?.color,
         };
       })
       .filter((b) => b.daysUntil <= 30)
       .sort((a, b) => a.daysUntil - b.daysUntil)
       .slice(0, 3);
-  }, [birthdays, people]);
+  }, [birthdays, people, today]);
 
   // Process upcoming events
   const upcomingEvents = useMemo(() => {
@@ -540,7 +579,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       {news && news.length > 0 && (
         <div
           className={`absolute top-0 left-0 landscape:lg:top-0 landscape:lg:left-0 p-4 pt-16 landscape:lg:p-12 w-96 landscape:lg:w-[28rem] safe-area-inset screensaver-slide-down ${selectedNews ? 'opacity-0 pointer-events-none' : ''}`}
-          style={{ animationDelay: "0.8s", backgroundColor: "rgba(0,0,0,0.001)" }}
+          style={{ animationDelay: "0.8s", backgroundColor: "rgba(0,0,0,0.001)", ...burnInStyle }}
           data-no-wake
         >
           <div className="flex items-center gap-2 text-white/60 mb-3">
@@ -594,7 +633,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       {weather && WeatherIcon && (
         <div
           className="absolute top-4 right-4 landscape:lg:top-12 landscape:lg:right-12 safe-area-inset screensaver-slide-down"
-          style={{ animationDelay: "0.85s" }}
+          style={{ animationDelay: "0.85s", ...burnInStyle }}
         >
           <div className="flex items-center gap-3 bg-black/40 rounded-xl px-4 py-2.5">
             <WeatherIcon className="size-7 text-white" strokeWidth={1.75} />
@@ -609,7 +648,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       {(showEnergyWidget || showTeslaWidget) && (
         <div
           className="absolute top-20 right-4 landscape:lg:top-28 landscape:lg:right-12 pt-12 landscape:lg:pt-0 safe-area-inset screensaver-slide-down"
-          style={{ animationDelay: "0.9s" }}
+          style={{ animationDelay: "0.9s", ...burnInStyle }}
         >
           <div className="bg-black/50 rounded-xl p-4 flex flex-col gap-3 gpu-blur">
             {/* Solar Power */}
@@ -817,7 +856,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       {/* Clock overlay - bottom left (compact for mobile & portrait) */}
       <div
         className="absolute bottom-32 landscape:lg:bottom-12 left-4 landscape:lg:left-12 safe-area-inset screensaver-slide-up"
-        style={{ animationDelay: "0.5s" }}
+        style={{ animationDelay: "0.5s", ...burnInStyle }}
       >
         <div className="flex items-baseline">
           <span className="font-display font-light text-7xl landscape:lg:text-[8rem] text-white clock-display tracking-tighter leading-none">
@@ -838,7 +877,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       {/* Right side - Events and Birthdays (above clock for portrait/mobile, right side for landscape desktop) */}
       <div
         className="absolute bottom-56 left-4 right-4 landscape:lg:bottom-12 landscape:lg:left-auto landscape:lg:right-12 max-w-sm flex flex-col gap-4 landscape:lg:gap-6 safe-area-inset screensaver-slide-right"
-        style={{ animationDelay: "0.7s" }}
+        style={{ animationDelay: "0.7s", ...burnInStyle }}
       >
         {/* Upcoming Events */}
         {upcomingEvents.length > 0 && (
@@ -960,7 +999,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       {currentPhotoMetadata?.photographer && (
         <div
           className="absolute bottom-4 left-1/2 -translate-x-1/2 screensaver-fade-in"
-          style={{ animationDelay: "1s" }}
+          style={{ animationDelay: "1s", ...burnInStyle }}
         >
           <p className="text-white/30 text-xs text-center">
             {/*
@@ -990,7 +1029,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       {/* Touch hint */}
       <p
         className="absolute top-8 left-1/2 -translate-x-1/2 text-white/40 text-sm safe-area-inset screensaver-fade-in"
-        style={{ animationDelay: "2s", paddingTop: 'env(safe-area-inset-top, 0)' }}
+        style={{ animationDelay: "2s", paddingTop: 'env(safe-area-inset-top, 0)', ...burnInStyle }}
       >
         {t("touchHint")}
       </p>

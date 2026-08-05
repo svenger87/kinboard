@@ -50,7 +50,9 @@ export function LocaleSwitcher({ className }: { className?: string }) {
           onClick={() => pick(code)}
           disabled={pending !== null}
           className={cn(
-            "px-3 py-1 rounded-full transition-colors",
+            // min-h-11 gives the 44px touch target without touching the
+            // text size or the horizontal padding, so the pills stay narrow.
+            "inline-flex min-h-11 items-center justify-center px-3 py-1 rounded-full transition-colors",
             current === code
               ? "bg-month-primary text-month-primary-foreground"
               : "text-muted-foreground hover:text-foreground",

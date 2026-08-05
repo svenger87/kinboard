@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useIsStandalone } from "@/hooks";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingCart, X, Smartphone, ExternalLink, Compass } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -32,16 +33,13 @@ export function ShoppingInstallPrompt() {
   const t = useTranslations("components.shoppingPrompt");
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
+  // Shared with /einkaufen, which hides its out-of-scope "back" link on the
+  // same signal — one definition of "installed" for both.
+  const isStandalone = useIsStandalone();
   const [dismissed, setDismissed] = useState(false);
   const [hintDismissed, setHintDismissed] = useState(false);
 
   useEffect(() => {
-    // Check if already running as standalone PWA
-    const isStandalonePWA = window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-    setIsStandalone(isStandalonePWA);
-
     // Check if iOS
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     setIsIOS(iOS);
@@ -62,11 +60,14 @@ export function ShoppingInstallPrompt() {
     }
 
     // Show prompt after a short delay
-    if (!isStandalonePWA) {
+    if (!isStandalone) {
       const timer = setTimeout(() => setShowPrompt(true), 2000);
       return () => clearTimeout(timer);
     }
-  }, []);
+    // Depends on isStandalone because useIsStandalone resolves after mount:
+    // reading it once would schedule the prompt on an installed app before the
+    // real launch mode is known. Re-running clears the timer when it flips.
+  }, [isStandalone]);
 
   const handleDismiss = () => {
     setShowPrompt(false);

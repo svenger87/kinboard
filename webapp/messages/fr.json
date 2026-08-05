@@ -14,13 +14,16 @@
     "liveUpdatesPaused": "Mises à jour en direct suspendues — reconnexion…",
     "serverUnreachableTitle": "Impossible de joindre le serveur Kinboard",
     "serverUnreachableBody": "L'application ne peut pas charger les données de votre famille. Vérifiez que le serveur Kinboard fonctionne et que cet appareil peut le joindre, puis réessayez.",
-    "serverUnreachableRetry": "Réessayer"
+    "serverUnreachableRetry": "Réessayer",
+    "serverUnreachableAutoRetry": "Nouvelle vérification automatique…"
   },
   "components": {
     "back": "Retour",
     "errorTitle": "Échec du chargement",
     "retry": "Réessayer",
     "appError": {
+      "autoRetry": "Nouvelle tentative automatique dans {seconds} s…",
+      "autoRetryExhausted": "Tentatives automatiques arrêtées.",
       "title": "Une erreur s'est produite",
       "fallback": "Une erreur inattendue s'est produite.",
       "retry": "Réessayer",
@@ -128,6 +131,7 @@
     },
     "screensaver": {
       "newsCloseAria": "Fermer l'article d'actualité",
+      "newsOpenOriginal": "Ouvrir l'article original",
       "newsRead": "Lire l'article",
       "newsClose": "Fermer",
       "touchHint": "Touchez pour déverrouiller",
@@ -148,6 +152,7 @@
     "pwa": {
       "updateTitle": "Mise à jour disponible",
       "updateDescription": "Une nouvelle version est disponible.",
+      "updateDescriptionAuto": "Une nouvelle version est disponible. Elle s'installe automatiquement lorsque cet appareil est inactif depuis quelques minutes.",
       "updateAction": "Actualiser",
       "installTitle": "Installer l'application",
       "installDescription": "Installez Kinboard pour un accès plus rapide.",
@@ -1119,6 +1124,7 @@
       "info1": "Le capteur de présence détecte les personnes via radar (LD2410)",
       "info2": "“Économiseur d'écran uniquement” affiche des photos quand personne n'est présent",
       "info3": "“Éteindre l'écran” utilise DPMS pour des économies d'énergie maximales",
+      "presenceModeDisplayUnavailable": "« Éteindre l'écran » ne peut pas être commandé ici : un navigateur ne peut pas éteindre un écran. Le service de capteur de présence du kiosque s'en charge lui-même, selon son propre minuteur.",
       "info4": "Quand la présence revient, le tableau de bord réapparaît immédiatement",
       "minutes1": "1 minute",
       "minutes2": "2 minutes",
@@ -1776,6 +1782,7 @@
       "addVehicle": "Ajouter un véhicule",
       "nickname": "Surnom",
       "nicknamePlaceholder": "ex. Model Y",
+      "deleteFailed": "Impossible de supprimer le véhicule. Veuillez réessayer.",
       "vendor": "Type de véhicule",
       "color": "Couleur d'accent",
       "create": "Ajouter le véhicule",
@@ -2037,6 +2044,7 @@
       "title": "Plugins",
       "intro": "Activez ou désactivez les plugins inclus pour cette famille. Les plugins désactivés disparaissent de la navigation, du tableau de bord et de la liste des intégrations — mais leurs données sont préservées (aucune ligne n'est supprimée ; réactiver un plugin le restaure exactement).",
       "noPlugins": "Aucun plugin n'est inclus dans cette version.",
+      "toggleFailed": "Impossible de modifier le plugin. Veuillez réessayer.",
       "footnote": "Les plugins font partie de la version Kinboard. Pour installer un plugin tiers, consultez la page wiki Architecture des plugins.",
       "label": {
         "vehicles": "Véhicules",
@@ -3335,6 +3343,7 @@
     "emptyTitle": "La liste de courses est vide",
     "emptyDescription": "Ajoutez de nouveaux articles ci-dessus",
     "doneSection": "Achetés",
+    "addItemAria": "Ajouter un article",
     "deleteAllDoneAria": "Supprimer tous les articles achetés",
     "checkAria": "Cocher {name}",
     "markDoneAria": "Marquer {name} comme acheté",

@@ -1,3 +1,18 @@
+/**
+ * What the app does when the presence sensor stops seeing anyone.
+ *
+ * `display_power` is kept in the union for stored settings that already
+ * contain it, but nothing in the webapp acts on it — and nothing can. Cutting
+ * power to a panel means talking to the compositor (Mutter's `PowerSaveMode`
+ * over the session D-Bus, or DPMS), and a browser tab has no such reach: the
+ * Wake Lock API can only keep a screen awake, never put it to sleep.
+ *
+ * The real DPMS behaviour lives on the kiosk itself, in kiosk/presence-sensor.py
+ * (`set_display_power`), which switches the panel off after its own hardcoded
+ * delay and has never read this setting. So a family choosing "display off"
+ * here changed nothing either way — see the note on the screensaver settings
+ * page, which now says so instead of offering the choice.
+ */
 export type PresenceControlMode = 'screensaver' | 'display_power';
 
 export interface ScreensaverSettings {

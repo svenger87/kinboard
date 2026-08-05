@@ -987,7 +987,7 @@ export default function TodosPage() {
                                     <TooltipTrigger asChild>
                                       <button
                                         onClick={() => handleToggleTask(task.id, task.completed, task.recurrence || undefined)}
-                                        className="shrink-0"
+                                        className="shrink-0 -m-2.5 p-2.5 rounded-full"
                                         disabled={updateTodo.isPending}
                                         aria-label={task.completed ? t("toggleAriaIncomplete", { title: task.title }) : t("toggleAriaComplete", { title: task.title })}
                                       >

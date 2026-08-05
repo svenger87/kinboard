@@ -76,6 +76,12 @@ function StorageMigration({ children }: { children: ReactNode }) {
 
 // Global screensaver - activates on idle on any page (except join/shopping)
 function ScreensaverProvider({ children }: { children: ReactNode }) {
+  // `presenceControlMode` is deliberately not read here. Its other value,
+  // 'display_power', would mean cutting power to the panel — which no browser
+  // API can do (Wake Lock keeps a screen awake, it cannot sleep one), and
+  // which the kiosk's own presence-sensor service already handles over D-Bus
+  // on its own timer. The settings page now says so rather than offering a
+  // choice that lands nowhere; see types/screensaver.ts for the full note.
   const { screensaverTimeout, presenceTimeout } = useScreensaverSettings();
   const { device } = useFamilyStore();
   const hasPresenceSensor = device?.has_presence_sensor ?? false;
