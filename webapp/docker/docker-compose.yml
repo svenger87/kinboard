@@ -32,7 +32,7 @@ services:
   # ===================
   db:
     logging: *default-logging
-    image: supabase/postgres:15.1.1.61
+    image: supabase/postgres:15.14.1.159
     container_name: ${PROJECT_NAME:-kinboard}-db
     restart: unless-stopped
     healthcheck:
@@ -83,7 +83,7 @@ services:
   # for this to complete (service_completed_successfully). Idempotent.
   db-init:
     logging: *default-logging
-    image: supabase/postgres:15.1.1.61
+    image: supabase/postgres:15.14.1.159
     container_name: ${PROJECT_NAME:-kinboard}-db-init
     restart: "no"
     depends_on:
