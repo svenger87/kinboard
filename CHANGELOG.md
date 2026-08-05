@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.6.8] - 2026-08-05
+
 ### Security
 - **The services Kinboard is built on are years newer.** The API gateway that sits in front of everything, the service that issues sign-in tokens, the file storage service and the image processor were all pinned to versions from 2023 and 2024. The gateway in particular had a serious denial-of-service flaw that a crafted request could trigger. Upgrading is invisible in day-to-day use — nothing to reconfigure, nothing to re-join.
 
@@ -563,7 +565,8 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.6.7...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.6.8...HEAD
+[1.6.8]: https://github.com/svenger87/kinboard/compare/v1.6.7...v1.6.8
 [1.6.7]: https://github.com/svenger87/kinboard/compare/v1.6.6...v1.6.7
 [1.6.6]: https://github.com/svenger87/kinboard/compare/v1.6.5...v1.6.6
 [1.6.5]: https://github.com/svenger87/kinboard/compare/v1.6.4...v1.6.5
