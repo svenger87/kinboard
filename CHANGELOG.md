@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **The battery charts were still losing a digit after 1.6.4.** Widening the axis wasn't enough on its own: all three energy charts pulled themselves leftwards with a negative margin, dragging part of the axis off the edge of the drawing area where it was clipped away. The battery percentage lost the most and still read "00%" where it meant "100%". The charts no longer do that, so the axis keeps the width it asks for.
+
 ## [1.6.4] - 2026-08-05
 
 ### Fixed

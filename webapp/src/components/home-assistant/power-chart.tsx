@@ -298,9 +298,10 @@ export function PowerChart({
         }
       }
     }
-    // Recharts rounds ticks outward, so the label can be wider than the datum.
-    const digits = Math.round(widest).toString().length + 1;
-    return Math.max(45, digits * 9 + 12);
+    // Recharts rounds its ticks outward past the data, so allow a digit more
+    // than the largest value actually needs.
+    const chars = Math.round(widest).toString().length + 1;
+    return Math.max(40, chars * 8 + 14);
   }, [chartData]);
 
   // Calculate tick count based on data
@@ -342,7 +343,7 @@ export function PowerChart({
       <ResponsiveContainer width="100%" height={height}>
         <AreaChart
           data={chartData}
-          margin={{ top: 5, right: 5, left: -15, bottom: 0 }}
+          margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
         >
           <defs>
             {lines.map((line) => (
