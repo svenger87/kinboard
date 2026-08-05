@@ -17,6 +17,7 @@ import {
   parseBirthdayDate,
   getNextBirthday,
   getDaysUntilBirthday,
+  hasBirthYear,
 } from "@/lib/birthday";
 
 interface BirthdayWidgetProps {
@@ -171,7 +172,12 @@ export function BirthdayWidget({
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{t("turnsAge", { name: birthday.name, age: calculateUpcomingAge(birthday.date) })}</p>
+                  {/* No birth year stored means no age to announce - see hasBirthYear. */}
+                  <p className="truncate text-sm font-medium">
+                    {hasBirthYear(birthday.date)
+                      ? t("turnsAge", { name: birthday.name, age: calculateUpcomingAge(birthday.date) })
+                      : birthday.name}
+                  </p>
                   <p className="text-xs text-muted-foreground tabular-nums">{format(birthday.date, "d. MMM", { locale: dateLocale })}</p>
                 </div>
                 {isToday ? (

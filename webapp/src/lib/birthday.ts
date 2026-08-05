@@ -45,3 +45,19 @@ export function getUpcomingAge(date: Date): number {
   const nextBirthday = getNextBirthday(date);
   return differenceInYears(nextBirthday, startOfDay(date));
 }
+
+/**
+ * Whether a stored birthday actually carries a birth year.
+ *
+ * Leaving the year blank in the birthday form does not store null — the form
+ * falls back to the current year, so a yearless entry is a date whose year is
+ * this one. Every age derived from it is therefore 0, which is how "Nils turns
+ * 0" reached the dashboard for someone whose birth year nobody knew.
+ *
+ * Check this before showing an age. A child genuinely born this year is
+ * indistinguishable from a missing year in the stored data, and saying nothing
+ * is the better failure of the two.
+ */
+export function hasBirthYear(date: Date, now: Date = new Date()): boolean {
+  return date.getFullYear() < now.getFullYear();
+}

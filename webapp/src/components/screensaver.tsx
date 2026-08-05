@@ -14,6 +14,7 @@ import { Cake, Calendar, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Su
 import { format, differenceInDays, setYear, isPast, addYears, isToday, isTomorrow, addDays, startOfDay, endOfDay, parseISO } from "date-fns";
 import { type Locale } from "date-fns/locale";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
+import { hasBirthYear } from "@/lib/birthday";
 import { useTimeFormat } from "@/hooks/use-time-format";
 
 // Parse date string safely without timezone shift
@@ -960,7 +961,10 @@ export function Screensaver({ photos }: ScreensaverProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-medium truncate text-sm">
-                      {t("birthdayTurns", { name: birthday.name, age: calculateUpcomingAge(birthday.date) })}
+                      {/* No birth year stored means no age to announce - see hasBirthYear. */}
+                      {hasBirthYear(birthday.date)
+                        ? t("birthdayTurns", { name: birthday.name, age: calculateUpcomingAge(birthday.date) })
+                        : birthday.name}
                     </p>
                     <p className="text-white/50 text-xs">
                       {format(birthday.date, locale === "de" ? "d. MMMM" : "MMMM d", { locale: dateLocale })}
