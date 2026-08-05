@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
 import { mintFamilyToken } from "@/lib/family-jwt";
+import { hitLimit, clientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,22 @@ export async function POST(request: NextRequest) {
 
   if (!joinCode || !hardwareId) {
     return NextResponse.json({ error: "joinCode and hardwareId are required" }, { status: 400 });
+  }
+
+  // Brute force and resource exhaustion both live here: the code space is
+  // large but the endpoint was unmetered, and every successful join writes a
+  // device and a session row. Cap attempts per client IP, and — because IP is
+  // spoofable in x-forwarded-for — also cap per hardware id, which the request
+  // supplies but which a single attacker cannot fan out cheaply.
+  const ip = clientIp(request);
+  const byIp = hitLimit(`join:ip:${ip}`, 10, 60_000);
+  const byHw = hitLimit(`join:hw:${hardwareId}`, 10, 60_000);
+  if (byIp.limited || byHw.limited) {
+    const retryAfter = Math.ceil(Math.max(byIp.retryAfterMs, byHw.retryAfterMs) / 1000);
+    return NextResponse.json(
+      { error: "too many attempts, slow down" },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } },
+    );
   }
 
   const supabase = createAdminClient();

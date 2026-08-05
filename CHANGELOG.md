@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [1.6.0] - 2026-08-04
 
 ### Security
+- Joining and creating a household are now rate-limited, and the app sends the security headers a public site should — HSTS, clickjacking protection, and more. Both from a security review of the 1.6.0 release.
 - A brand-new install now has row-level security fully applied on its first start. Two migrations ran after the one that sets it up and put the old rules back, so a fresh install ended up protecting only a third of its tables — an existing installation upgrading was unaffected, which is why this only showed up when building one from scratch.
 - Fresh installs and upgrades now enable row-level security correctly. `init.sql` was still creating the old policies that never applied, and two migrations were fighting the new ones on every restart — one disabling row-level security outright, another re-creating a rule that let every household read every other household's notifications. See UPGRADING.md: **every device has to re-join after this**, so note your join code down first.
 - Joining a household, and creating one, now happen on the server. Kinboard used to look your family up by join code from the browser, against a table the browser could read in full — which meant the code wasn't really being checked, and every household's code was readable. Devices now get a proper session that the browser cannot read or forge.

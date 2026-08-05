@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
 import { mintFamilyToken } from "@/lib/family-jwt";
 import { generateJoinCode } from "@/lib/utils";
+import { hitLimit, clientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,18 @@ export async function POST(request: NextRequest) {
 
   if (!familyName || !hardwareId) {
     return NextResponse.json({ error: "familyName and hardwareId are required" }, { status: 400 });
+  }
+
+  // Creating a family inserts a families + devices + device_sessions row and
+  // burns join-code generation. Tighter than join: nobody legitimately creates
+  // families in a loop.
+  const ip = clientIp(request);
+  const limit = hitLimit(`create:ip:${ip}`, 5, 60_000);
+  if (limit.limited) {
+    return NextResponse.json(
+      { error: "too many attempts, slow down" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(limit.retryAfterMs / 1000)) } },
+    );
   }
 
   const supabase = createAdminClient();
