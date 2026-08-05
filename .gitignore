@@ -69,3 +69,7 @@ _backups/
 # accident — a tracked copy collides with each host's local one and aborts the
 # auto-update git pull. Runtime state does not belong in git.
 webapp/docker/data/
+
+# Internal notes — pentest reports, host-specific diagnostics. These name
+# real instances and must never be published to the public repo.
+docs/internal/
