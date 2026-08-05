@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-08-05
+
 ### Fixed
 - **A wall display left running for days no longer quietly empties itself.** Upcoming events, the bin-collection reminder and the screensaver each worked out their date range once, when the page was first opened, and never again — so after a fortnight they showed nothing at all while real events sat in the calendar, and "bin day tomorrow" simply stopped arriving. The countdowns beside birthdays had the same problem and would sit on the same number indefinitely. Nothing ever closes and reopens a kiosk, which is why this only ever bit the screen it matters most on.
 - **An unattended screen can get itself out of trouble again.** An error used to leave the display parked on a card that only a person standing in front of it could clear, and the same was true when Kinboard couldn't reach its server — so a hiccup at 3am meant a dead panel until somebody walked past. Both now keep trying on their own, and say so while they do. A pending update no longer waits forever for someone to tap it either.
@@ -524,7 +526,11 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.6.3...HEAD
+[1.6.3]: https://github.com/svenger87/kinboard/compare/v1.6.2...v1.6.3
+[1.6.2]: https://github.com/svenger87/kinboard/compare/v1.6.1...v1.6.2
+[1.6.1]: https://github.com/svenger87/kinboard/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/svenger87/kinboard/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/svenger87/kinboard/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/svenger87/kinboard/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/svenger87/kinboard/compare/v1.2.0...v1.3.0
