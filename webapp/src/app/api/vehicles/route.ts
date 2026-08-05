@@ -1,14 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { VehicleInsert } from "@/types/database";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
+// As with tickers: /api/vehicles/[id] checks ownership, the collection did
+// not, so listing or adding to another family's garage only needed its id.
 // GET /api/vehicles?family_id=X
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const familyId = request.nextUrl.searchParams.get("family_id");
   if (!familyId) {
     return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();
@@ -29,12 +39,19 @@ export async function GET(request: NextRequest) {
 
 // POST /api/vehicles  body: VehicleInsert
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = (await request.json()) as Partial<VehicleInsert>;
   if (!body.family_id || !body.vendor || !body.nickname) {
     return NextResponse.json(
       { error: "family_id, vendor, nickname are required" },
       { status: 400 },
     );
+  }
+
+  if (!familyMatchesSession(auth.session, body.family_id)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
   if (body.vendor !== "tesla" && body.vendor !== "generic-ev") {
     return NextResponse.json({ error: "unknown vendor" }, { status: 400 });

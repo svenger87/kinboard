@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 // Bring! catalog URL for German locale
 const BRING_CATALOG_URL = "https://web.getbring.com/locale/catalog.de-DE.json";
@@ -174,7 +175,12 @@ interface LocalCatalogItem {
  * Body: { family_id: string, items: string[] }
  * Returns: { matches: Record<string, CatalogMatch | null> }
  */
+// Same reasoning as ../search: family_id is optional, but where it is given
+// it names a family's own catalog rows, so it has to be the session's.
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
     const { family_id, items } = body;
@@ -184,6 +190,10 @@ export async function POST(request: NextRequest) {
         { error: "Items array is required" },
         { status: 400 }
       );
+    }
+
+    if (!familyMatchesSession(auth.session, family_id)) {
+      return NextResponse.json({ error: "not authenticated" }, { status: 401 });
     }
 
     const matches: Record<string, CatalogMatch | null> = {};

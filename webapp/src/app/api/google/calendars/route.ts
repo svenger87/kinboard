@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -69,8 +70,15 @@ async function getOAuth2Client(familyId: string) {
   return oauth2Client;
 }
 
+// Every verb here reaches a family's connected Google account with the
+// refresh token stored for it, so the family named in the request decides
+// whose calendar gets read, written or deleted. It was decided by the caller.
+
 // GET: Fetch list of calendars
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const searchParams = request.nextUrl.searchParams;
   const familyId = searchParams.get("family_id");
 
@@ -79,6 +87,10 @@ export async function GET(request: NextRequest) {
       { error: "family_id is required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const oauth2Client = await getOAuth2Client(familyId);
@@ -115,6 +127,9 @@ export async function GET(request: NextRequest) {
 
 // POST: Update enabled calendars
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { family_id, enabled_calendars } = body;
 
@@ -123,6 +138,10 @@ export async function POST(request: NextRequest) {
       { error: "family_id and enabled_calendars are required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, family_id)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();

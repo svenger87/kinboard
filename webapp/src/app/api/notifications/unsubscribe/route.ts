@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +12,18 @@ interface UnsubscribeRequest {
 /**
  * POST /api/notifications/unsubscribe
  * Remove a push subscription
+ *
+ * This one never took a family_id at all, which sounds safer than it was:
+ * it deleted whatever row matched the endpoint or device id it was handed,
+ * across every family. Knowing another household's device id was enough to
+ * switch their notifications off and leave them wondering why the shopping
+ * list stopped nudging. The session supplies the family now, and the delete
+ * is scoped to it.
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const body: UnsubscribeRequest = await request.json();
     const { endpoint, deviceId } = body;
@@ -26,7 +37,10 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    let query = supabase.from("push_subscriptions").delete();
+    let query = supabase
+      .from("push_subscriptions")
+      .delete()
+      .eq("family_id", auth.session.familyId);
 
     if (endpoint) {
       query = query.eq("endpoint", endpoint);

@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import type { HomeAssistantSettings, HAConfig } from "@/types/home-assistant";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 // GET: Test connection and return HA config
+// Every one of these proxies a request to the household's own Home Assistant,
+// signed with the long-lived access token stored for that family. Without a
+// session, a family id was enough to read the house's sensors — and, via
+// /services, to unlock a door or open a garage.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const searchParams = request.nextUrl.searchParams;
   const familyId = searchParams.get("family_id");
 
@@ -12,6 +20,10 @@ export async function GET(request: NextRequest) {
       { error: "family_id is required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   // Get Home Assistant settings (with secrets merged in) from Supabase
@@ -71,7 +83,15 @@ export async function GET(request: NextRequest) {
 }
 
 // POST: Test connection with provided credentials (before saving)
+//
+// No family_id — the credentials to test are in the body, not in storage — so
+// there is nothing to match. It still takes a session, because otherwise it is
+// an open "fetch this URL with this header and tell me what came back" service
+// running inside the operator's network.
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const { url, access_token } = await request.json();
 

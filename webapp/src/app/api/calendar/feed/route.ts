@@ -3,10 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getStoredSecrets, upsertSecrets } from "@/lib/integration-secrets";
 import { buildIcsCalendar, ExportEvent } from "@/lib/ics-export";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
-// Outbound ICS calendar feed (Milestone C Task 2). GET is unauthenticated
-// by device/join-code — it's meant to be pasted into Google/Apple/Outlook
-// calendar apps — so the secret rotatable token IS the access control.
+// Outbound ICS calendar feed (Milestone C Task 2). GET deliberately takes no
+// device session — the URL is pasted into Google/Apple/Outlook, which fetch it
+// from their own servers with no cookie of ours — so the secret rotatable
+// token IS the access control, and it is a real one: 24 random bytes, stored
+// server-side, compared in constant time, revocable by rotating. That is the
+// distinction from family_id, which the rest of these routes were wrongly
+// treating as a credential.
 // Never leak whether a family exists: absent/mismatched token both 401
 // with an identical body.
 export async function GET(request: NextRequest) {
@@ -65,12 +70,23 @@ export async function GET(request: NextRequest) {
 // POST /api/calendar/feed { family_id } → generates/rotates the secret
 // token and returns the absolute subscribe URL. Rotating invalidates any
 // previously issued link (old token no longer matches what's stored).
+//
+// Unlike GET, this one does take a session: it mints the credential. Without
+// that, anyone could rotate a family's feed token — quietly breaking every
+// calendar app subscribed to it — and be handed the working URL in the reply.
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json().catch(() => null);
   const familyId = body?.family_id;
 
   if (!familyId || typeof familyId !== "string") {
     return NextResponse.json({ error: "family_id is required" }, { status: 400 });
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const token = crypto.randomBytes(24).toString("hex");

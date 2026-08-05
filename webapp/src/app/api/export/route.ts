@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { SECRET_FIELDS, splitSecrets } from "@/lib/integration-secrets";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 // GET /api/export?family_id=<uuid>
 //
@@ -62,6 +63,15 @@ function collectStorageObjects(
 }
 
 export async function GET(request: NextRequest) {
+  // This hands back everything a family has ever entered — people, calendars,
+  // events, notes, birthdays, shopping, pocket money. The only thing standing
+  // in front of it was a family id in the query string, which is not a secret
+  // and never was. A wrong id used to come back as "Family not found", i.e.
+  // the route looked the family up before deciding whether the caller was
+  // allowed to ask, which also made it an id oracle.
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const familyId = request.nextUrl.searchParams.get("family_id");
 
   if (!familyId) {
@@ -69,6 +79,10 @@ export async function GET(request: NextRequest) {
       { error: "family_id is required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   try {

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import type { HomeAssistantSettings, HAEntityState, HAEntity } from "@/types/home-assistant";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 // GET: Fetch all entities or filter by domain
+// Proxies the household's own Home Assistant with the token stored for that
+// family — see the note in ../route.ts.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const searchParams = request.nextUrl.searchParams;
   const familyId = searchParams.get("family_id");
   const domain = searchParams.get("domain"); // Optional: filter by domain (e.g., "sensor", "light")
@@ -14,6 +20,10 @@ export async function GET(request: NextRequest) {
       { error: "family_id is required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   // Get Home Assistant settings (with secrets merged in) from Supabase

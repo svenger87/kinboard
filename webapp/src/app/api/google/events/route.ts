@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -68,8 +69,15 @@ async function getOAuth2Client(familyId: string) {
   return { oauth2Client, settings: credentials };
 }
 
+// Every verb here reaches a family's connected Google account with the
+// refresh token stored for it, so the family named in the request decides
+// whose calendar gets read, written or deleted. It was decided by the caller.
+
 // GET: Fetch events from enabled calendars
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const searchParams = request.nextUrl.searchParams;
   const familyId = searchParams.get("family_id");
   const timeMin = searchParams.get("time_min") || new Date().toISOString();
@@ -80,6 +88,10 @@ export async function GET(request: NextRequest) {
       { error: "family_id is required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const result = await getOAuth2Client(familyId);
@@ -169,6 +181,9 @@ export async function GET(request: NextRequest) {
 
 // POST: Create event on Google Calendar
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { family_id, event_id, calendar_id, title, description, location, start_at, end_at, all_day, person_id } = body;
 
@@ -177,6 +192,10 @@ export async function POST(request: NextRequest) {
       { error: "family_id and calendar_id are required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, family_id)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const result = await getOAuth2Client(family_id);
@@ -263,6 +282,9 @@ export async function POST(request: NextRequest) {
 
 // PATCH: Update event on Google Calendar
 export async function PATCH(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { family_id, event_id, title, description, location, start_at, end_at, all_day, person_id } = body;
 
@@ -271,6 +293,10 @@ export async function PATCH(request: NextRequest) {
       { error: "family_id and event_id are required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, family_id)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const result = await getOAuth2Client(family_id);
@@ -356,6 +382,9 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE: Delete event from Google Calendar
 export async function DELETE(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { family_id, event_id } = body;
 
@@ -364,6 +393,10 @@ export async function DELETE(request: NextRequest) {
       { error: "family_id and event_id are required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, family_id)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const result = await getOAuth2Client(family_id);

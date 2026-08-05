@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { PocketMoneyAccountInsert } from "@/types/database";
 import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +13,20 @@ const VALID_SPECIES: ReadonlySet<string> = new Set(
 );
 
 // GET /api/pocket-money/accounts?family_id=X
+//
+// Every child's balance in one response — the per-account routes were already
+// scoped, this collection was the way to read them all anyway.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const familyId = request.nextUrl.searchParams.get("family_id");
   if (!familyId) {
     return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();
@@ -35,6 +46,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/pocket-money/accounts  body: Partial<PocketMoneyAccountInsert>
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = (await request.json()) as Partial<PocketMoneyAccountInsert>;
 
   if (!body.family_id || !body.person_id) {
@@ -42,6 +56,10 @@ export async function POST(request: NextRequest) {
       { error: "family_id and person_id are required" },
       { status: 400 },
     );
+  }
+
+  if (!familyMatchesSession(auth.session, body.family_id)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();

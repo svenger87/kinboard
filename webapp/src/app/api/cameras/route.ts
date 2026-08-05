@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { createHash } from "crypto";
 import type { CameraSettings, CameraConfig } from "@/types/home-assistant";
 
@@ -96,8 +97,14 @@ async function fetchWithDigestAuth(
 }
 
 // GET: Proxy camera snapshot/stream
-// Security: Requires valid family_id and camera_id, camera must be enabled
+// Security: a device session for the family, plus a camera_id that family has
+// configured and enabled. "Valid family_id" used to be the whole check, which
+// meant a live view of someone else's front door for anyone holding an id
+// that was never secret — and the proxy supplied their camera's credentials.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const searchParams = request.nextUrl.searchParams;
   const familyId = searchParams.get("family_id");
   const cameraId = searchParams.get("camera_id");
@@ -108,6 +115,10 @@ export async function GET(request: NextRequest) {
       { error: "family_id and camera_id are required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   // Get camera settings from Supabase

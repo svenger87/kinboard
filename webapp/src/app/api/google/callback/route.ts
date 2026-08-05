@@ -2,13 +2,30 @@ import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
 import { splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "http://localhost:3000/api/google/callback";
 
 // GET: Handle OAuth callback from Google
+//
+// `state` is base64 JSON the caller composed on the way out, not something
+// Google vouches for, so the family named in it is the caller's word. Google
+// returns here as a top-level navigation, which carries the session cookie —
+// so the family the tokens get written against is checked against the device
+// that is actually signed in, not against whatever came back in the URL.
+//
+// Failures redirect rather than returning JSON: this is a page navigation,
+// and the settings screen turns ?error= into a toast.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) {
+    return NextResponse.redirect(
+      new URL("/settings/google?error=not_authenticated", request.url)
+    );
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
   const state = searchParams.get("state");
@@ -36,6 +53,12 @@ export async function GET(request: NextRequest) {
   } catch {
     return NextResponse.redirect(
       new URL("/settings/google?error=invalid_state", request.url)
+    );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.redirect(
+      new URL("/settings/google?error=not_authenticated", request.url)
     );
   }
 

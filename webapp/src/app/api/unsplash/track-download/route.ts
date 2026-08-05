@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 interface UnsplashSettings {
   access_key?: string;
@@ -24,7 +25,10 @@ interface UnsplashSettings {
  */
 const ALLOWED_HOST = "api.unsplash.com";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   let body: { family_id?: string; download_location?: string };
   try {
     body = await request.json();
@@ -38,6 +42,10 @@ export async function POST(request: Request) {
       { error: "family_id and download_location are required" },
       { status: 400 },
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   // Same reasoning as the image proxy: this URL comes from the client, so it

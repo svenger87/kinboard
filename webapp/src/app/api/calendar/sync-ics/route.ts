@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncFamilyIcsCalendars } from "@/lib/ics-sync";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 // Same Node-runtime + dynamic constraints as the cron path — node-ical's
 // transitive deps don't survive Next's static prerender.
@@ -13,13 +14,16 @@ export const dynamic = "force-dynamic";
  * CRON_SECRET); both share the same `syncIcsCalendar` helper so the
  * upsert/delete behaviour can't drift.
  *
- * Auth model: family_id from the body. Same shape every other family-
- * scoped POST endpoint uses (e.g. /api/google/sync, /api/vehicles).
- * Row-Level Security is disabled; the device-cookie + join-code model
- * is the actual boundary (per CLAUDE.md). A device can only know its
- * family_id after joining, so passing it explicitly is sufficient.
+ * Auth model: a device session, and family_id has to be the session's. The
+ * old note here said "a device can only know its family_id after joining, so
+ * passing it explicitly is sufficient" — which was never true. The id is in
+ * localStorage and in the query string of most requests; knowing one proves
+ * nothing about having joined.
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   let body: unknown;
   try {
     body = await request.json();
@@ -30,6 +34,10 @@ export async function POST(request: NextRequest) {
   const familyId = (body as Record<string, unknown>)?.family_id;
   if (typeof familyId !== "string" || !familyId) {
     return NextResponse.json({ error: "family_id is required" }, { status: 400 });
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   try {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,9 @@ export const dynamic = "force-dynamic";
  * Check if a device has an active push subscription on the server
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const { searchParams } = new URL(request.url);
   const deviceId = searchParams.get("deviceId");
   const familyId = searchParams.get("familyId");
@@ -17,6 +21,10 @@ export async function GET(request: NextRequest) {
       { error: "deviceId and familyId are required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   try {

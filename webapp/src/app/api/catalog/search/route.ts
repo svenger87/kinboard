@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { BRING_TO_LOCAL_CATEGORY, detectCategory } from "@/lib/shopping-categories";
 
 // Bring! catalog URL for German locale
@@ -178,7 +179,15 @@ async function searchBringCatalog(
   }));
 }
 
+// A session is required even though family_id is optional here: the private
+// half of the catalog is the family's own item list, and the public half fans
+// out to Open Food Facts and Bring! on every miss. Where family_id is given it
+// has to be the session's, or the "family-specific" rows in the answer would
+// be someone else's shopping habits.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const searchParams = request.nextUrl.searchParams;
   const query = searchParams.get("q");
   const familyId = searchParams.get("family_id");
@@ -192,6 +201,10 @@ export async function GET(request: NextRequest) {
       { error: "Query must be at least 2 characters" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const results: CatalogSearchResult[] = [];
@@ -301,12 +314,19 @@ export async function GET(request: NextRequest) {
 
 // Save an item from Open Food Facts to local catalog
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
     const { family_id, name, barcode, image_url, thumbnail_url, category, source } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    }
+
+    if (!familyMatchesSession(auth.session, family_id)) {
+      return NextResponse.json({ error: "not authenticated" }, { status: 401 });
     }
 
     const supabase = await createAdminClient();

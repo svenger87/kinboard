@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import {
   createCaldavClient,
   createCaldavEvent,
@@ -198,6 +199,9 @@ async function createOnServer(
 
 // POST: push a newly-created Kinboard event to the server.
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = await readBody(request);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
@@ -212,11 +216,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
+  }
+
   return createOnServer(familyId, eventId, calendarId);
 }
 
 // PATCH: replace the resource with the event's current state.
 export async function PATCH(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = await readBody(request);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
@@ -228,6 +239,10 @@ export async function PATCH(request: NextRequest) {
       { error: "family_id and event_id are required" },
       { status: 400 },
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();
@@ -287,6 +302,9 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE: remove the resource from the server.
 export async function DELETE(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = await readBody(request);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
@@ -298,6 +316,10 @@ export async function DELETE(request: NextRequest) {
       { error: "family_id and event_id are required" },
       { status: 400 },
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();

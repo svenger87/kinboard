@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 /**
  * Proxy for Unsplash photos, so the browser never talks to Unsplash directly
@@ -16,7 +17,8 @@ import { NextResponse } from "next/server";
  *
  *  - the host must be one Unsplash actually serves images from, which is the
  *    entire legitimate use of this endpoint; and
- *  - a family_id must be present, which the only caller has always sent.
+ *  - a family_id must be present, and it must be the session's. "Present"
+ *    was the whole test before, which any caller could satisfy.
  *
  * A host allowlist rather than safeFetch (src/lib/safe-fetch.ts) on purpose:
  * safeFetch exists for URLs a household types in, where the destination is
@@ -26,7 +28,12 @@ import { NextResponse } from "next/server";
  */
 const ALLOWED_HOSTS = ["images.unsplash.com", "plus.unsplash.com"] as const;
 
-export async function GET(request: Request) {
+// The screensaver renders these as <img src>, a same-origin subresource, so
+// the session cookie rides along with the request the same as any fetch.
+export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const { searchParams } = new URL(request.url);
   const photoUrl = searchParams.get("photo_url");
   const familyId = searchParams.get("family_id");
@@ -36,6 +43,10 @@ export async function GET(request: Request) {
       { error: "family_id and photo_url are required" },
       { status: 400 },
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   let target: URL;
