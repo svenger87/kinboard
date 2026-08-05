@@ -3,14 +3,14 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Calendar, ChevronRight } from "lucide-react";
-import { format, isToday, isTomorrow, addDays, startOfDay, endOfDay } from "date-fns";
+import { format, isToday, isTomorrow, addDays, endOfDay } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
-import { useEvents, usePeople } from "@/hooks";
+import { useEvents, usePeople, useToday } from "@/hooks";
 import { WidgetCard } from "@/components/widget-card";
 import { EventPill } from "@/components/event-pill";
 import { useTimeFormat } from "@/hooks/use-time-format";
@@ -59,15 +59,20 @@ export function UpcomingEvents({
   const t = useTranslations("upcomingEvents");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
+  // Re-render at midnight so the query window follows the day.
+  const today = useToday();
 
-  // Get events for today and the next 14 days - memoized to prevent infinite refetches
+  // Get events for today and the next 14 days - memoized to prevent infinite
+  // refetches, but keyed on the day: on a kiosk that runs for days an empty
+  // dependency list would keep asking for the window it was mounted with,
+  // which eventually lies entirely in the past.
   const { startDate, endDate } = useMemo(() => {
-    const today = new Date();
+    const start = new Date(today); // useToday() is already start-of-day
     return {
-      startDate: startOfDay(today).toISOString(),
-      endDate: endOfDay(addDays(today, 14)).toISOString(),
+      startDate: start.toISOString(),
+      endDate: endOfDay(addDays(start, 14)).toISOString(),
     };
-  }, []);
+  }, [today]);
 
   const { data: events, isLoading, isError } = useEvents(startDate, endDate);
   const { data: people } = usePeople();

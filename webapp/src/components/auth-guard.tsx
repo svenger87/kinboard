@@ -60,6 +60,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
     return () => clearTimeout(timer);
   }, []);
 
+  // How many times the unreachable screen has retried by itself. Drives the
+  // backoff below and nothing else.
+  const [recheckAttempt, setRecheckAttempt] = useState(0);
+
   // Wait for Zustand to hydrate from cookies
   useEffect(() => {
     setIsHydrated(true);
@@ -171,6 +175,68 @@ export function AuthGuard({ children }: AuthGuardProps) {
     }
   }, [family, pathname, searchParams, router, isHydrated, restoreAttempted, validateFamily.data, clearSession]);
 
+  const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
+
+  // Everything that keeps children from rendering, in one place — the early
+  // returns below read from it, and so does the auto-recheck, which must not
+  // keep polling once the app has come back.
+  const isBlocked =
+    // Still hydrating Zustand from cookies, or still restoring the device
+    // session from the hardware ID.
+    !isHydrated ||
+    !restoreAttempted ||
+    // Not authenticated on a protected path: the redirect to /join is in
+    // flight, don't flash protected content in the meantime.
+    (!family && !isPublicPath) ||
+    // Block child rendering on protected paths until we've confirmed the
+    // stored family still exists, OR while the orphan effect is racing
+    // to clear the session. Without this, the dashboard mounts and fires
+    // dozens of REST calls with a stale family_id before validateFamily
+    // resolves, producing a wall of 409 FK-violation errors that don't
+    // recover even after the redirect lands.
+    (!!family &&
+      !isPublicPath &&
+      (!validateFamily.isFetched || validateFamily.data === false));
+
+  // The unreachable card used to be a dead end: a button, and nothing else.
+  // If Kong or Postgres goes down at 3am the wall display sat on it until
+  // somebody walked up and tapped — which is the one thing a kiosk can't
+  // count on. So re-check on a timer.
+  //
+  // Deliberately *not* window.location.reload(): if the Next.js server is
+  // the thing that's down, a reload swaps our card for the browser's own
+  // "site can't be reached" page, which has no retry of its own at all —
+  // turning a recoverable state into a permanently dead panel. Re-running
+  // the two calls that got us stuck keeps the recovery inside the app.
+  //
+  // The work sits behind a ref because both the mutation and the query hand
+  // back a new object whenever their own state changes: an effect that
+  // depended on them directly would re-arm its timer on every one of those
+  // renders and never actually reach the timeout.
+  const recheckRef = useRef(() => {});
+  recheckRef.current = () => {
+    // Let attemptRestore run again — its ref guard is what makes it
+    // one-shot, and a hung request left it latched on the failed try.
+    restoreAttemptedRef.current = false;
+    attemptRestore();
+    validateFamily.refetch();
+  };
+
+  useEffect(() => {
+    if (!loadingDeadlinePassed || !isBlocked) return;
+
+    // 30s, doubling to a 5 minute ceiling: quick enough to catch a stack
+    // that came back a minute later, gentle enough not to hammer a server
+    // that is still struggling through its own startup.
+    const delay = Math.min(30000 * 2 ** recheckAttempt, 300000);
+    const timer = setTimeout(() => {
+      recheckRef.current();
+      setRecheckAttempt((n) => n + 1);
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [loadingDeadlinePassed, isBlocked, recheckAttempt]);
+
   const blockingScreen = () => {
     if (loadingDeadlinePassed) {
       return (
@@ -182,6 +248,17 @@ export function AuthGuard({ children }: AuthGuardProps) {
             <Button onClick={() => window.location.reload()}>
               {t("serverUnreachableRetry")}
             </Button>
+            {/* Say so, rather than letting the screen look inert: whoever
+                does eventually walk past should be able to tell the display
+                is still trying, and not have to guess whether tapping is
+                the only thing that will help. */}
+            <p
+              className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground/70"
+              aria-live="polite"
+            >
+              <Loader2 className="size-3 animate-spin" aria-hidden />
+              {t("serverUnreachableAutoRetry")}
+            </p>
           </div>
         </div>
       );
@@ -193,28 +270,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   };
 
-  // Show loading while hydrating or restoring
-  if (!isHydrated || !restoreAttempted) {
-    return blockingScreen();
-  }
-
-  // Don't render protected content until we verify auth
-  const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
-  if (!family && !isPublicPath) {
-    return blockingScreen();
-  }
-
-  // Block child rendering on protected paths until we've confirmed the
-  // stored family still exists, OR while the orphan effect is racing
-  // to clear the session. Without this, the dashboard mounts and fires
-  // dozens of REST calls with a stale family_id before validateFamily
-  // resolves, producing a wall of 409 FK-violation errors that don't
-  // recover even after the redirect lands.
-  if (
-    family &&
-    !isPublicPath &&
-    (!validateFamily.isFetched || validateFamily.data === false)
-  ) {
+  // Reasons are spelled out where isBlocked is built, above — it lives up
+  // there because the auto-recheck effect needs the same answer.
+  if (isBlocked) {
     return blockingScreen();
   }
 

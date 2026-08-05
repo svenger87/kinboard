@@ -3,14 +3,14 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Trash2, Recycle, Newspaper, Leaf, Package, ChevronRight } from "lucide-react";
-import { format, isToday, isTomorrow, addDays, startOfDay, endOfDay, differenceInCalendarDays } from "date-fns";
+import { format, isToday, isTomorrow, addDays, endOfDay, differenceInCalendarDays } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
-import { useEvents } from "@/hooks";
+import { useEvents, useToday } from "@/hooks";
 import { WidgetCard } from "@/components/widget-card";
 import type { LucideIcon } from "lucide-react";
 import { useTimeFormat } from "@/hooks/use-time-format";
@@ -115,14 +115,19 @@ export function WasteCollectionWidget({
     packaging: t("types.packaging"),
   };
 
-  // Look ahead 14 days for waste collection events
+  // Re-render at midnight so the query window and daysUntil follow the day.
+  const today = useToday();
+
+  // Look ahead 14 days for waste collection events — keyed on the day, since a
+  // kiosk left running would otherwise keep requesting the window it mounted
+  // with until the bin days it covers have all gone by.
   const { startDate, endDate } = useMemo(() => {
-    const today = new Date();
+    const start = new Date(today); // useToday() is already start-of-day
     return {
-      startDate: startOfDay(today).toISOString(),
-      endDate: endOfDay(addDays(today, 14)).toISOString(),
+      startDate: start.toISOString(),
+      endDate: endOfDay(addDays(start, 14)).toISOString(),
     };
-  }, []);
+  }, [today]);
 
   const { data: events, isLoading } = useEvents(startDate, endDate);
 
@@ -137,8 +142,6 @@ export function WasteCollectionWidget({
       wasteType: (typeof WASTE_TYPES)[0];
       daysUntil: number;
     }[] = [];
-
-    const today = new Date();
 
     for (const event of events) {
       const wasteType = detectWasteType(event.title);
@@ -169,7 +172,7 @@ export function WasteCollectionWidget({
     });
 
     return unique.slice(0, maxItems);
-  }, [events, maxItems]);
+  }, [events, maxItems, today]);
 
   if (isLoading) {
     return <WasteCollectionSkeleton />;

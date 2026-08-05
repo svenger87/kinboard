@@ -29,6 +29,7 @@ import {
   useCatalogSearch,
   parseShoppingInput,
   useOfflineShopping,
+  useIsStandalone,
   queryKeys,
 } from "@/hooks";
 import Link from "next/link";
@@ -40,6 +41,8 @@ import { useFamilyStore } from "@/stores/family-store";
 
 export default function EinkaufenPage() {
   const t = useTranslations("einkaufen");
+  // Drives whether the out-of-scope "back" link is rendered at all (see below).
+  const isStandalone = useIsStandalone();
   const tCommon = useTranslations("common");
   const tCategories = useTranslations("shoppingCategories");
   const queryClient = useQueryClient();
@@ -456,9 +459,22 @@ export default function EinkaufenPage() {
               </p>
             </div>
           </div>
-          <Link href="/" className="p-2 text-muted-foreground hover:text-foreground transition-colors" aria-label={t("backHomeAria")}>
-            <ChevronLeft className="size-5" />
-          </Link>
+          {/*
+            Only a way back when there is somewhere to go back to.
+
+            This route is the installed shopping app's start_url, and its
+            manifest scopes it to /einkaufen. Following this link from inside
+            the installed app navigates out of that scope, which hands the user
+            to the main Kinboard app and strands them there — the shopping app
+            has no navigation of its own to get back with. In a browser tab the
+            link is still useful, because there the dashboard is where they
+            came from.
+          */}
+          {!isStandalone && (
+            <Link href="/" className="p-2 text-muted-foreground hover:text-foreground transition-colors" aria-label={t("backHomeAria")}>
+              <ChevronLeft className="size-5" />
+            </Link>
+          )}
         </div>
 
         {/* Offline banner */}

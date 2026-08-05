@@ -14,13 +14,16 @@
     "liveUpdatesPaused": "Live updates paused — reconnecting…",
     "serverUnreachableTitle": "Can't reach the Kinboard server",
     "serverUnreachableBody": "The app can't load your family data. Check that the Kinboard stack is running and that this device can reach it, then try again.",
-    "serverUnreachableRetry": "Try again"
+    "serverUnreachableRetry": "Try again",
+    "serverUnreachableAutoRetry": "Checking again automatically…"
   },
   "components": {
     "back": "Back",
     "errorTitle": "Failed to load",
     "retry": "Try again",
     "appError": {
+      "autoRetry": "Retrying automatically in {seconds}s…",
+      "autoRetryExhausted": "Automatic retries stopped.",
       "title": "Something went wrong",
       "fallback": "An unexpected error occurred.",
       "retry": "Try again",
@@ -128,6 +131,7 @@
     },
     "screensaver": {
       "newsCloseAria": "Close news item",
+      "newsOpenOriginal": "Open original article",
       "newsRead": "Read article",
       "newsClose": "Close",
       "touchHint": "Touch to unlock",
@@ -148,6 +152,7 @@
     "pwa": {
       "updateTitle": "Update available",
       "updateDescription": "A new version is available.",
+      "updateDescriptionAuto": "A new version is available. It installs itself once this device has been idle for a few minutes.",
       "updateAction": "Refresh",
       "installTitle": "Install app",
       "installDescription": "Install Kinboard for faster access.",
@@ -1119,6 +1124,7 @@
       "info1": "The presence sensor detects people via radar (LD2410)",
       "info2": "“Screensaver only” shows photos when nobody is present",
       "info3": "“Display off” uses DPMS for maximum energy savings",
+      "presenceModeDisplayUnavailable": "“Display off” can't be switched from here — a browser can't power a screen down. The kiosk's presence-sensor service does that itself, on its own timer.",
       "info4": "When presence returns, the dashboard appears immediately",
       "minutes1": "1 minute",
       "minutes2": "2 minutes",
@@ -1776,6 +1782,7 @@
       "addVehicle": "Add vehicle",
       "nickname": "Nickname",
       "nicknamePlaceholder": "e.g. Model Y",
+      "deleteFailed": "Could not delete the vehicle. Please try again.",
       "vendor": "Vehicle type",
       "color": "Accent color",
       "create": "Add vehicle",
@@ -2037,6 +2044,7 @@
       "title": "Plugins",
       "intro": "Enable or disable bundled plugins for this family. Disabled plugins disappear from the navigation, the dashboard, and the integrations list — but their data is preserved (no rows are deleted; toggling a plugin back on restores it exactly).",
       "noPlugins": "No plugins are bundled in this build.",
+      "toggleFailed": "Could not change the plugin. Please try again.",
       "footnote": "Plugins are part of the Kinboard build. To install a third-party plugin, see the Plugin Architecture wiki page.",
       "label": {
         "vehicles": "Vehicles",
@@ -3335,6 +3343,7 @@
     "emptyTitle": "Shopping list is empty",
     "emptyDescription": "Add new items above",
     "doneSection": "Done",
+    "addItemAria": "Add item",
     "deleteAllDoneAria": "Delete all done items",
     "checkAria": "Check {name}",
     "markDoneAria": "Mark {name} as done",

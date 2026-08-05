@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { Car, Plus, Pencil, Trash2 } from "lucide-react";
 import { useVehicles, useDeleteVehicle } from "@/hooks/use-vehicles";
 import { getDriver } from "@/plugins/vehicles/drivers/registry";
@@ -28,7 +29,7 @@ export default function VehiclesSettingsPage() {
   const tCommon = useTranslations("common");
   const router = useRouter();
   const { data: vehicles = [] } = useVehicles();
-  const { mutateAsync: deleteVehicle } = useDeleteVehicle();
+  const { mutateAsync: deleteVehicle, isPending: deleting } = useDeleteVehicle();
 
   return (
     <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
@@ -110,8 +111,16 @@ export default function VehiclesSettingsPage() {
                               <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
                               <AlertDialogAction
                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                disabled={deleting}
                                 onClick={async () => {
-                                  await deleteVehicle(v.id);
+                                  try {
+                                    await deleteVehicle(v.id);
+                                  } catch {
+                                    // The dialog closes either way, so without
+                                    // this a failed DELETE looked exactly like
+                                    // a successful one.
+                                    toast.error(t("deleteFailed"));
+                                  }
                                 }}
                               >
                                 {tCommon("delete")}

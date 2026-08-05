@@ -694,7 +694,7 @@ export default function GoogleSettingsPage() {
                             className="flex items-center justify-between p-4 group"
                           >
                             <div className="flex items-center gap-3">
-                              <GripVertical className="size-4 text-muted-foreground opacity-0 group-hover:opacity-50 cursor-grab" />
+                              <GripVertical className="size-4 text-muted-foreground opacity-50 sm:opacity-0 sm:group-hover:opacity-50 transition-opacity cursor-grab" />
                               <div>
                                 <div className="flex items-center gap-2">
                                   <code className="text-sm bg-muted px-2 py-0.5 rounded">
@@ -724,7 +724,7 @@ export default function GoogleSettingsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+                              className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
                               onClick={() => handleDeleteRule(rule.id)}
                               aria-label={t("deleteRuleAria", { pattern: rule.pattern })}
                             >

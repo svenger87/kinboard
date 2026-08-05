@@ -64,7 +64,8 @@ const SheetContent = React.forwardRef<
       className={cn(sheetVariants({ side }), className)}
       {...props}
     >
-      <SheetPrimitive.Close className="absolute right-4 top-4 p-1.5 rounded-lg opacity-70 ring-offset-background transition-all hover:opacity-100 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
+      {/* 44px minimum touch target — see the matching note in dialog.tsx. */}
+      <SheetPrimitive.Close className="absolute right-2.5 top-2.5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg opacity-70 ring-offset-background transition-all hover:opacity-100 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
         <X className="h-5 w-5" />
         <span className="sr-only">Close</span>
       </SheetPrimitive.Close>
@@ -80,7 +81,9 @@ const SheetHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-2 text-center sm:text-left pr-8",
+      // Clears the close button's hit area (44px + inset); at pr-8 the tail of
+      // a long title sat under it and tapping the title dismissed the sheet.
+      "flex flex-col space-y-2 text-center sm:text-left pr-14",
       className
     )}
     {...props}
