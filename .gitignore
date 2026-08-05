@@ -73,3 +73,7 @@ webapp/docker/data/
 # Internal notes — pentest reports, host-specific diagnostics. These name
 # real instances and must never be published to the public repo.
 docs/internal/
+
+# Local planning scratch from the superpowers workflow — design plans and
+# specs. Working notes, not project docs; kept out of the public repo.
+docs/superpowers/
