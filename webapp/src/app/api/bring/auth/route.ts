@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { upsertSecrets } from "@/lib/integration-secrets";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,11 @@ interface BringAuthResponse {
   expires_in: number;
 }
 
+// Talks to Bring! as the family, with the account credentials stored for them.
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const { email, password, family_id } = await request.json();
 
@@ -35,6 +40,10 @@ export async function POST(request: NextRequest) {
         { error: "family_id is required" },
         { status: 400 }
       );
+    }
+
+    if (!familyMatchesSession(auth.session, family_id)) {
+      return NextResponse.json({ error: "not authenticated" }, { status: 401 });
     }
 
     // Authenticate with Bring!

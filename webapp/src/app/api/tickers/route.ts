@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { TickerInsert } from "@/types/database";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
+// The per-id routes under this one already refuse to touch another family's
+// ticker (rowInFamily). The collection routes were the way around that: ask
+// for a family's whole list, or add a row to it, by naming the family.
 // GET /api/tickers?family_id=X
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const familyId = request.nextUrl.searchParams.get("family_id");
   if (!familyId) {
     return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();
@@ -29,12 +40,19 @@ export async function GET(request: NextRequest) {
 
 // POST /api/tickers  body: TickerInsert
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = (await request.json()) as Partial<TickerInsert>;
   if (!body.family_id || !body.symbol || !body.asset_type) {
     return NextResponse.json(
       { error: "family_id, symbol, asset_type are required" },
       { status: 400 },
     );
+  }
+
+  if (!familyMatchesSession(auth.session, body.family_id)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const validTypes = ["stock", "etf", "crypto", "index", "forex"] as const;

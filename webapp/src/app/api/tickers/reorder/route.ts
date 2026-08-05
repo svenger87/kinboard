@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyIdFrom } from "@/lib/family-scope";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "items[] required" }, { status: 400 });
   }
 
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   // Without this the route updated any row whose id was supplied, using
   // the service-role client — so a caller who knew a ticker's UUID could
   // reorder another family's watchlist. RLS is off, so the filter here is
@@ -24,6 +28,10 @@ export async function POST(request: NextRequest) {
   const familyId = familyIdFrom(request, body);
   if (!familyId) {
     return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();

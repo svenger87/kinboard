@@ -8,9 +8,20 @@ import {
   upsertSecrets,
   deleteSecrets,
 } from "@/lib/integration-secrets";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
+
+// Every verb here reads or writes one family's settings row, and the family
+// was picked entirely by the caller. That covered integration config — Home
+// Assistant base URLs, Immich and Unsplash endpoints, camera lists, the lot —
+// and on the write side let anyone repoint another household's integrations.
+// The session decides which family this route may touch; family_id is now only
+// allowed to agree with it.
 
 // GET: Fetch a setting by family_id and key
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const searchParams = request.nextUrl.searchParams;
   const familyId = searchParams.get("family_id");
   const key = searchParams.get("key");
@@ -20,6 +31,10 @@ export async function GET(request: NextRequest) {
       { error: "family_id and key are required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();
@@ -63,6 +78,9 @@ export async function GET(request: NextRequest) {
 
 // PUT: Update or create a setting
 export async function PUT(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { family_id, key, value } = body;
 
@@ -71,6 +89,10 @@ export async function PUT(request: NextRequest) {
       { error: "family_id, key, and value are required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, family_id)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();
@@ -128,6 +150,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE: Delete a setting
 export async function DELETE(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { family_id, key } = body;
 
@@ -136,6 +161,10 @@ export async function DELETE(request: NextRequest) {
       { error: "family_id and key are required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, family_id)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();

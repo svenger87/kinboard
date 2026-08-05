@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { DEFAULT_MONTHLY_TERMS } from "@/lib/unsplash-defaults";
 
 interface UnsplashSettings {
@@ -95,7 +96,12 @@ async function fetchRandomPhotos(
 }
 
 // GET: Fetch a diverse pool of random photos matching the current month's search terms.
+// Spends the family's own Unsplash access key, and the search terms come back
+// with it — a small window onto what a household has configured.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const searchParams = request.nextUrl.searchParams;
   const familyId = searchParams.get("family_id");
 
@@ -104,6 +110,10 @@ export async function GET(request: NextRequest) {
       { error: "family_id is required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   // Get Unsplash settings (with secrets merged in) from Supabase

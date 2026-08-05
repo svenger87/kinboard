@@ -3,15 +3,24 @@ import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
 import { SECRET_FIELDS, splitSecrets } from "@/lib/integration-secrets";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { clientIp, hitLimit } from "@/lib/rate-limit";
 
 // POST /api/import — restore a family from a Kinboard backup file
 // (Milestone D Task 3; inverts GET /api/export).
 //
-// No auth on this route — it mirrors family creation (useCreateFamily
-// inserts a new `families` row directly, no auth check, because Kinboard's
-// threat model is "trusted home network": anyone on the LAN can already
-// create a brand-new family via /join). Accepting an import payload from
-// the LAN doesn't grant any capability a visitor didn't already have.
+// Deliberately reachable without a session, and the one route in the
+// family-data set that is. Restoring a backup is the first thing a fresh
+// install does: /join uploads the file, this route creates the new family,
+// and only then can the browser join it and be issued a session. Requiring a
+// session here would mean you can only restore a backup onto an install that
+// already has a family — i.e. never, on the machine that actually needs it.
+//
+// What that grants a stranger is bounded, and it is the same thing
+// /api/session/create already grants: make a *new* family from data they
+// supplied themselves. It reads nothing, and it cannot touch a family that
+// already exists — every row is rewritten to a freshly generated id, and the
+// join code for the result is returned only to the caller who uploaded the
+// file. The exposure is disk, so that is what the rate limit below bounds.
 //
 // FK-respecting import order (mirrors + extends the comment atop
 // src/app/api/export/route.ts — extended here with the concrete
@@ -216,6 +225,19 @@ function validatePayload(body: unknown): { payload: ExportPayload } | { error: s
 }
 
 export async function POST(request: NextRequest) {
+  // A 25 MB write that anyone can issue, so meter it the way
+  // /api/session/create meters family creation. Restoring a backup is
+  // something a person does once, twice if the first attempt failed — nobody
+  // legitimately does it in a loop.
+  const ip = clientIp(request);
+  const limit = hitLimit(`import:ip:${ip}`, 3, 60_000);
+  if (limit.limited) {
+    return NextResponse.json(
+      { error: "too many attempts, slow down" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(limit.retryAfterMs / 1000)) } },
+    );
+  }
+
   const contentLength = request.headers.get("content-length");
   if (contentLength && Number(contentLength) > MAX_BYTES) {
     return NextResponse.json({ error: "Backup file exceeds 25 MB" }, { status: 400 });

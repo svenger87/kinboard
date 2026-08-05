@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
+// Reports how far through setup a family is — which reveals whether a family
+// exists at that id, whether it has people and calendars, and whether Home
+// Assistant is wired up. Reconnaissance rather than a dump, but it was a
+// dump's worth of hints for free.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const familyId = request.nextUrl.searchParams.get("family_id");
   if (!familyId) {
     return NextResponse.json({ error: "family_id required" }, { status: 400 });
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();

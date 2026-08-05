@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchSafeImages, imageSearchDisabled } from "@/lib/safe-image-search";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,9 +18,18 @@ export const dynamic = "force-dynamic";
  * lib/safe-image-search.ts for the full post-mortem.
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const searchParams = request.nextUrl.searchParams;
   const query = searchParams.get("q");
   const familyId = searchParams.get("family_id") ?? undefined;
+
+  // family_id is optional here — it only picks which family's stored image
+  // provider to spend — so absent is fine and present has to be the caller's.
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
+  }
 
   const parsedLimit = Number.parseInt(searchParams.get("limit") ?? "12", 10);
   const limit = Number.isFinite(parsedLimit)

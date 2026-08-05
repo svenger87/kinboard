@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import type { HomeAssistantSettings, HAServiceCall } from "@/types/home-assistant";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 // POST: Call a Home Assistant service
+// Proxies the household's own Home Assistant with the token stored for that
+// family — see the note in ../route.ts. This is the verb that acts rather
+// than reads: unlocking a door is a service call.
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
     const { family_id, domain, service, entity_id, service_data } = body as HAServiceCall & { family_id: string };
@@ -13,6 +20,10 @@ export async function POST(request: NextRequest) {
         { error: "family_id is required" },
         { status: 400 }
       );
+    }
+
+    if (!familyMatchesSession(auth.session, family_id)) {
+      return NextResponse.json({ error: "not authenticated" }, { status: 401 });
     }
 
     if (!domain || !service) {

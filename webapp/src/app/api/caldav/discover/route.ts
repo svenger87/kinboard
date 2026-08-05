@@ -5,6 +5,7 @@ import {
   type DiscoveredCaldavCalendar,
 } from "@/lib/caldav-client";
 import { getCaldavCredentials } from "@/lib/caldav-credentials";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 // tsdav reaches for Node's http/https stack through its fetch shim, and
 // discovery is inherently per-request — same constraints as the ICS routes.
@@ -26,11 +27,15 @@ export const dynamic = "force-dynamic";
  * settings UI can refresh a calendar list without asking the user to
  * retype a 30-character app password.
  *
- * Auth model: family_id in the body, matching every other family-scoped
- * POST in this app (see /api/calendar/sync-ics for the rationale — RLS is
- * off and the device-cookie + join-code pairing is the real boundary).
+ * Auth model: a device session for the family in the body. The re-discovery
+ * path reuses a stored CalDAV password, so family_id alone would have let
+ * anyone replay another household's server credentials against a server of
+ * their choosing — and watch the result come back.
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -48,6 +53,10 @@ export async function POST(request: NextRequest) {
       { ok: false, error: "family_id is required" },
       { status: 400 },
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ ok: false, error: "not authenticated" }, { status: 401 });
   }
   if (!serverUrl || !username) {
     return NextResponse.json(

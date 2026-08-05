@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 interface ImmichSettings {
   url: string;
@@ -7,7 +8,12 @@ interface ImmichSettings {
 }
 
 // GET: Proxy image from Immich (handles authentication)
+// Proxies the family's own Immich server using the API key stored for them,
+// so the family id in the query decided whose photo library got read.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const searchParams = request.nextUrl.searchParams;
   const familyId = searchParams.get("family_id");
   const assetId = searchParams.get("asset_id");
@@ -22,6 +28,10 @@ export async function GET(request: NextRequest) {
       { error: "family_id and asset_id are required" },
       { status: 400 }
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   // Same reasoning as the Home Assistant camera proxy: this id lands in the

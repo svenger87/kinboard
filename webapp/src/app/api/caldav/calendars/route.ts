@@ -7,6 +7,7 @@ import {
   saveCaldavCredentials,
 } from "@/lib/caldav-credentials";
 import { syncCaldavCalendar, getMappingRules } from "@/lib/caldav-sync";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,8 +42,14 @@ function readString(body: Record<string, unknown>, key: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+// A CalDAV calendar carries a stored username and password, so these verbs
+// both read and write another household's server credentials if the family is
+// theirs to name. It isn't any more.
 // POST: add a discovered calendar to the family.
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -72,6 +79,10 @@ export async function POST(request: NextRequest) {
       { error: `Missing required field(s): ${[...missing, ...(payload.password ? [] : ["password"])].join(", ")}` },
       { status: 400 },
     );
+  }
+
+  if (!familyMatchesSession(auth.session, payload.family_id)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   try {
@@ -155,6 +166,9 @@ export async function POST(request: NextRequest) {
 
 // PATCH: edit presentation fields, and optionally rotate credentials.
 export async function PATCH(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -169,6 +183,10 @@ export async function PATCH(request: NextRequest) {
       { error: "family_id and calendar_id are required" },
       { status: 400 },
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const updates: Record<string, unknown> = {};
@@ -236,6 +254,9 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE: remove the calendar, its synced events, and its credentials.
 export async function DELETE(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -250,6 +271,10 @@ export async function DELETE(request: NextRequest) {
       { error: "family_id and calendar_id are required" },
       { status: 400 },
     );
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const supabase = createAdminClient();

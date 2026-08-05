@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { publicStorageUrl } from "@/lib/supabase/public-url";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
+// The uploaded file lands in a folder named after family_id, so an
+// unauthenticated caller could write recipe photos into any family's
+// storage prefix — and fill the disk of an instance they don't own.
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const formData = await request.formData();
     const file = formData.get("image") as File | null;
@@ -25,6 +32,10 @@ export async function POST(request: NextRequest) {
         { error: "Family ID is required" },
         { status: 400 }
       );
+    }
+
+    if (!familyMatchesSession(auth.session, familyId)) {
+      return NextResponse.json({ error: "not authenticated" }, { status: 401 });
     }
 
     // Validate file type

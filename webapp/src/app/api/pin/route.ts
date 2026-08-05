@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { deleteSecrets, getStoredSecrets, upsertSecrets } from "@/lib/integration-secrets";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 // Server-side settings-PIN check (Milestone C Task 11). Previously the PIN
 // lived in the anon-readable `settings` table and was compared in the
@@ -13,20 +14,33 @@ import { deleteSecrets, getStoredSecrets, upsertSecrets } from "@/lib/integratio
 // POST { family_id, action: "set", pin }        → { success: true }
 // POST { family_id, action: "remove" }          → { success: true }
 //
-// set/remove take no proof of the current PIN beyond family_id. That
-// matches the existing trust model: the settings page itself sits behind
-// PinGuard, so reaching this route already implies either no PIN is set or
-// the caller has already passed the PIN screen for this family. The API
-// has no per-request auth beyond the device/join-code model documented in
-// CLAUDE.md (family_id is not a secret — it's visible in the client bundle
-// and localStorage).
+// Every verb requires a device session for the family named in the request.
+// It used to require nothing at all: family_id is not a secret (it is in the
+// client bundle and in localStorage), so "set" and "remove" were open to
+// anyone who could reach the instance — a stranger could put a PIN on a
+// family's settings page, or take an existing one off and walk in. The PIN is
+// still the gate in front of the settings screen for people already inside the
+// household; the session is what decides you are inside it.
+//
+// set/remove deliberately still take no proof of the *current* PIN. The
+// settings page sits behind PinGuard, so a caller with a session that reached
+// this route has either passed the PIN screen or there was no PIN to pass —
+// and a household that has forgotten its own PIN should not be locked out of
+// its own dashboard forever.
 
 const PIN_KEY = "settings_pin";
 
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const familyId = request.nextUrl.searchParams.get("family_id");
   if (!familyId) {
     return NextResponse.json({ error: "family_id is required" }, { status: 400 });
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   const stored = await getStoredSecrets(familyId, PIN_KEY);
@@ -34,12 +48,19 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json().catch(() => null);
   const familyId = body?.family_id;
   const action = body?.action;
 
   if (!familyId || typeof familyId !== "string") {
     return NextResponse.json({ error: "family_id is required" }, { status: 400 });
+  }
+
+  if (!familyMatchesSession(auth.session, familyId)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   if (action === "verify") {

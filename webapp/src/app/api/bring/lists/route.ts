@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,11 @@ interface BringListsResponse {
   lists: BringList[];
 }
 
+// Talks to Bring! as the family, with the account credentials stored for them.
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const familyId = request.nextUrl.searchParams.get("family_id");
     if (!familyId) {
@@ -36,6 +41,11 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    if (!familyMatchesSession(auth.session, familyId)) {
+      return NextResponse.json({ error: "not authenticated" }, { status: 401 });
+    }
+
     const settings = await getMergedSetting<BringSettings>(familyId, "bring_settings");
     const credentials = settings?.credentials;
     if (!credentials?.accessToken) {
