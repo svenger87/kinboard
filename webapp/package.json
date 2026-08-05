@@ -1,6 +1,6 @@
 {
   "name": "kinboard",
-  "version": "1.6.4",
+  "version": "1.6.5",
   "private": true,
   "packageManager": "npm@11.19.0",
   "engines": {
