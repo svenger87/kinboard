@@ -59,7 +59,7 @@ export default function NewsPage() {
   }, [news, query, activeSource]);
 
   return (
-    <main id="main-content" className="min-h-screen p-4 md:p-8 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 md:p-8 relative safe-area-inset">
       <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
 
       <div className="relative z-10 max-w-3xl mx-auto pb-20">

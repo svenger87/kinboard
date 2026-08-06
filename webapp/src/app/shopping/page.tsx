@@ -646,7 +646,7 @@ export default function ShoppingPage() {
   if (isLoading) {
     return (
       <TooltipProvider>
-        <main id="main-content" className="min-h-screen relative overflow-hidden">
+        <main id="main-content" className="min-h-page relative overflow-hidden">
           <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
             <PageHeader
@@ -688,7 +688,7 @@ export default function ShoppingPage() {
   if (error) {
     return (
       <TooltipProvider>
-        <main id="main-content" className="min-h-screen relative overflow-hidden">
+        <main id="main-content" className="min-h-page relative overflow-hidden">
           <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
             <PageHeader
@@ -717,7 +717,7 @@ export default function ShoppingPage() {
 
   return (
     <TooltipProvider>
-      <main id="main-content" className="min-h-screen relative overflow-hidden">
+      <main id="main-content" className="min-h-page relative overflow-hidden">
         {/* Background */}
         <div className="page-gradient" />
 

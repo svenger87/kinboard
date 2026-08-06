@@ -118,7 +118,7 @@ export default function HausautomationPage() {
   // Show loading state
   if (loadingSettings || loadingDashboards) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="page-gradient" />
         <div className="relative z-10 max-w-6xl mx-auto flex flex-col gap-6">
           <motion.div
@@ -161,7 +161,7 @@ export default function HausautomationPage() {
   // Not connected state
   if (!isConnected) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="page-gradient" />
         <div className="relative z-10 max-w-6xl mx-auto flex flex-col gap-6">
           <motion.div
@@ -201,7 +201,7 @@ export default function HausautomationPage() {
   // No dashboards exist yet
   if (dashboards.length === 0) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="page-gradient" />
         <div className="relative z-10 max-w-6xl mx-auto flex flex-col gap-6">
           <motion.div
@@ -244,7 +244,7 @@ export default function HausautomationPage() {
 
   // Dashboard view
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="page-gradient" />
       <div className="relative z-10 max-w-6xl mx-auto flex flex-col gap-6">
         <PageHeader

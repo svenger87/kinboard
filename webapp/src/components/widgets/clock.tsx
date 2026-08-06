@@ -92,7 +92,12 @@ export function Clock({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, ease: "easeOut" }}
         role="timer"
-        aria-live="polite"
+        // NOT a live region. This value changes every 60s — every second when
+        // seconds are shown — and `aria-live="polite"` made a screen reader
+        // announce the time continuously, burying everything else on the page
+        // (audit KB-24). The time stays available on demand via role="timer"
+        // and the button's aria-label below.
+        aria-live="off"
         aria-atomic="true"
         className={`flex flex-col items-center justify-center ${className}`}
       >

@@ -9,6 +9,7 @@ import { isNoNavPath } from "@/lib/constants";
 import { useNavBadges } from "@/hooks/use-nav-badges";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const FIXED_HREFS = new Set(["/", "/calendar", "/shopping"]);
 
@@ -100,9 +101,16 @@ export function MobileNav() {
       </nav>
 
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-        <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-card backdrop-blur-none border-border">
+        <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-card border-border">
           <SheetHeader>
-            <SheetTitle>{tNav("more")}</SheetTitle>
+            {/* The theme toggle lives only in DesktopNav, which is `hidden md:block`
+                — so on a phone the control exists in the DOM but is never visible,
+                and light/dark can only be reached via Settings → Design (audit
+                KB-33). The "More" sheet is the phone's equivalent surface. */}
+            <div className="flex items-center justify-between gap-3 pr-6">
+              <SheetTitle>{tNav("more")}</SheetTitle>
+              <ThemeToggle />
+            </div>
           </SheetHeader>
           <ul className="mt-4 grid grid-cols-2 gap-2 pb-2">
             {moreItems.map((item) => {

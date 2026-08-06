@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Calendar, CheckSquare, GraduationCap, X } from "lucide-react";
+import { User, Calendar, CheckSquare, GraduationCap, X , AlertCircle} from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { PersonAvatar } from "@/components/person-avatar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -70,7 +70,7 @@ function FamilyMembersSkeleton() {
 
 export function FamilyMembers({ className = "" }: FamilyMembersProps) {
   const t = useTranslations("familyMembers");
-  const { data: people, isLoading: loadingPeople } = usePeople();
+  const { data: people, isLoading: loadingPeople, isError: peopleError } = usePeople();
   const { data: todos } = useTodos();
 
   // Only fetch upcoming events (today + next 7 days)
@@ -88,6 +88,20 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
 
   if (loadingPeople) {
     return <FamilyMembersSkeleton />;
+  }
+
+  // A failed fetch used to fall through to the "no family members yet" empty
+  // state below — the same failure-reads-as-truth problem as TodayStrip
+  // (audit KB-05). Say it failed instead.
+  if (peopleError) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-8" role="alert">
+        <div className="flex size-16 items-center justify-center rounded-full bg-destructive/10">
+          <AlertCircle className="size-8 text-destructive" strokeWidth={1.75} />
+        </div>
+        <p className="text-sm font-medium text-destructive">{t("loadFailed")}</p>
+      </div>
+    );
   }
 
   if (!people || people.length === 0) {

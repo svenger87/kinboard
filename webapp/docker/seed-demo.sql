@@ -31,18 +31,32 @@ DELETE FROM public.families WHERE id = '00000000-0000-0000-0000-000000000001';
 -- =========================================================================
 -- Family + join code
 -- =========================================================================
-INSERT INTO public.families (id, name, join_code) VALUES
-    ('00000000-0000-0000-0000-000000000001', 'Demo Family', 'DEMO01');
+-- setup_completed=true: the getting-started checklist is a first-run affordance,
+-- and on the demo it is permanent furniture — it took 31% of a landscape wall
+-- and the entire viewport at 200% zoom, above the populated product visitors
+-- came to look at (audit KB-13). A demo should open on the finished state.
+INSERT INTO public.families (id, name, join_code, setup_completed) VALUES
+    ('00000000-0000-0000-0000-000000000001', 'Demo Family', 'DEMO01', true);
 
 -- =========================================================================
 -- People (2 parents, 2 kids — gender-neutral names for a public demo)
 -- =========================================================================
-INSERT INTO public.people (id, family_id, name, color) VALUES
-    ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-000000000001', 'Alex',   '#3b82f6'),
-    ('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-000000000001', 'Sam',    '#ec4899'),
-    ('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-000000000001', 'Riley',  '#a855f7'),
-    ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-000000000001', 'Jordan', '#22c55e'),
-    ('00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-000000000001', 'Casey',  '#f59e0b');
+-- Colours come from PERSON_COLORS (src/lib/person-color.ts), not raw Tailwind
+-- defaults: this seed backs the public demo, so it was showing every visitor a
+-- palette the design system does not contain (audit KB-40).
+--
+-- is_child matters more than it looks: /schedule and the Stundenplan widget both
+-- gate on it, so with no child marked the demo rendered "Kein Kind eingerichtet"
+-- and the timetable + pack list — already fully seeded below — were unreachable
+-- to everyone evaluating Kinboard.
+INSERT INTO public.people (id, family_id, name, color, is_child, birth_date) VALUES
+    ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-000000000001', 'Alex',   '#4A8FD6', false, NULL),
+    ('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-000000000001', 'Sam',    '#D667A0', false, NULL),
+    ('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-000000000001', 'Riley',  '#A968C4', true,
+     (CURRENT_DATE - INTERVAL '12 years')::date),
+    ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-000000000001', 'Jordan', '#3FA56B', true,
+     (CURRENT_DATE - INTERVAL '9 years')::date),
+    ('00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-000000000001', 'Casey',  '#D98A2B', false, NULL);
 
 -- =========================================================================
 -- Devices — one fingerprinted "kitchen kiosk" so the family looks active
@@ -496,6 +510,67 @@ INSERT INTO public.tickers (family_id, position, symbol, asset_type, nickname, c
     ('00000000-0000-0000-0000-000000000001', 3, 'BTC-USD', 'crypto', 'Bitcoin',   '#f7931a'),
     ('00000000-0000-0000-0000-000000000001', 4, 'ETH-USD', 'crypto', 'Ethereum',  '#627eea'),
     ('00000000-0000-0000-0000-000000000001', 5, '^GDAXI',  'index',  'DAX',       '#0a5d2c');
+
+
+-- =========================================================================
+-- Pack list — matched to THIS seed's subject names
+-- =========================================================================
+-- DEFAULT_PACK_ITEMS in src/app/schedule/page.tsx keys on German subject names
+-- (Sport, Kunst, Musik, ...) and matches with `includes()`. This seed's subjects
+-- are English, so none of them matched and the "Für morgen einpacken" card never
+-- rendered on the demo even once a child was marked. Seeding an explicit
+-- schedule_pack_items row fixes the demo without touching the German defaults a
+-- real household gets.
+INSERT INTO public.settings (family_id, key, value) VALUES
+    ('00000000-0000-0000-0000-000000000001', 'schedule_pack_items',
+     -- Covers every subject on the timetable, not just the "special" ones:
+     -- the card only lists items for TOMORROW's lessons, so a demo seeded with
+     -- only PE/Art/Music renders nothing on four days out of five.
+     '[{"subject":"PE","items":["Sports kit","Trainers","Water bottle"]},
+       {"subject":"Art","items":["Apron","Brushes & paints"]},
+       {"subject":"Music","items":["Instrument","Music book"]},
+       {"subject":"Biology","items":["Lab notebook"]},
+       {"subject":"Math","items":["Maths book","Calculator"]},
+       {"subject":"English","items":["Reading book"]},
+       {"subject":"German","items":["Vocab book"]},
+       {"subject":"History","items":["Atlas"]},
+       {"subject":"Physics","items":["Lab notebook","Ruler"]}]'::jsonb)
+ON CONFLICT (family_id, key) DO UPDATE SET value = EXCLUDED.value;
+
+-- =========================================================================
+-- Notification preferences — subscribed=false, but preferences on
+-- =========================================================================
+-- Reproduces the state the audit found on a live instance: push is off while
+-- every dependent toggle still reads as "on" (audit KB-65). Seeded so the
+-- regression suite can assert the fixed rendering.
+INSERT INTO public.notification_preferences
+    (family_id, device_id, shopping_reminders, shopping_collaborative,
+     calendar_reminders, todo_reminders, todo_collaborative,
+     default_event_reminder_minutes)
+VALUES
+    ('00000000-0000-0000-0000-000000000001', NULL, true, true, true, true, true, 15);
+
+-- =========================================================================
+-- Birthday density — ~50 entries spread across the year
+-- =========================================================================
+-- The hand-written entries above are enough to show the "next birthday" hero,
+-- but not enough to exercise the year ring, which collapses into an unreadable
+-- cluster of overlapping avatars at real family volume (audit KB-60). generate_series
+-- gives the regression suite a deterministic ~50-entry fixture.
+INSERT INTO public.birthdays (family_id, name, date, notify_days_before, person_id)
+SELECT
+    '00000000-0000-0000-0000-000000000001',
+    (ARRAY['Ada','Bruno','Cleo','Dmitri','Elif','Farid','Greta','Hugo','Ines','Jonas',
+           'Kira','Lars','Maya','Nils','Olive','Pia','Quinn','Rosa','Sven','Tessa',
+           'Uwe','Vera','Wim','Xenia','Yara','Zoe','Anton','Bea','Carl','Dora',
+           'Emil','Frida','Gustav','Hanna','Ivo','Jette','Klaus','Lena','Mats','Nora',
+           'Otto','Paula'])[i],
+    (DATE_TRUNC('year', CURRENT_DATE)
+       + ((i * 8.6)::int * INTERVAL '1 day')
+       - ((20 + (i % 45)) * INTERVAL '1 year'))::date,
+    7,
+    NULL
+FROM generate_series(1, 42) AS i;
 
 COMMIT;
 
