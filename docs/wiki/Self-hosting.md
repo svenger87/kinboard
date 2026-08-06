@@ -227,8 +227,40 @@ ${DATA_DIR}/storage/    # Supabase Storage objects (recipe images, avatars)
 For a clean backup, snapshot the DB with `pg_dump` rather than copying `db/` while Postgres is running:
 
 ```bash
-docker exec -t kinboard-db pg_dump -U postgres -F c postgres > /backups/kinboard-$(date +%F).pgdump
+docker exec kinboard-db pg_dump -U supabase_admin -F c postgres > /backups/kinboard-$(date +%F).pgdump
 ```
+
+Two details in that line are load-bearing.
+
+**`-U supabase_admin`, not `postgres`.** `postgres` is not a superuser in the
+Supabase image. The `_realtime` schema is split between owners and `pg_dump`
+locks every table, so as `postgres` it aborts on the first table it doesn't
+own — `permission denied for table _realtime.feature_flags` or similar. Which
+tables sit under which owner changes with the realtime image version, so this
+can start failing on a setup that had been fine for months.
+
+**No `-t`.** `-F c` is a binary format, and `docker exec -t` allocates a TTY
+that rewrites line endings in the stream. The dump still *looks* fine — right
+order of magnitude, no error — but it is corrupt and `pg_restore` rejects it.
+Use `-i` if you need stdin, never `-t` for binary output.
+
+Verify every backup. Both failure modes above produce a file, and neither says
+anything is wrong:
+
+```bash
+docker exec -i kinboard-db pg_restore -l < /backups/kinboard-$(date +%F).pgdump | head
+```
+
+A good dump prints a table of contents (`; Archive created at …`, `TOC
+Entries: …`). A bad one prints `input file does not appear to be a valid
+archive`. That single command catches both the permission failure and the TTY
+corruption — checking the file size does not, since a TTY-mangled dump is
+*larger* than a correct one.
+
+If you script this, don't pipe the dump straight into `gzip`. A shell pipeline
+reports the *last* command's exit status, so `pg_dump | gzip > file` reports
+success even when the dump failed. Write the dump first, check the exit status,
+then compress.
 
 Storage objects can be `tar`'d safely while the stack is up — they're write-once.
 
