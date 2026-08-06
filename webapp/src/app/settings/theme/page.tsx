@@ -161,7 +161,7 @@ export default function ThemeSettingsPage() {
   const isDarkMode = theme === "dark";
 
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto">
         <PageHeader
           icon={Palette}
@@ -297,7 +297,7 @@ export default function ThemeSettingsPage() {
                       </p>
                     </div>
                   </div>
-                  <Switch checked={isDarkMode} onCheckedChange={handleDarkModeChange} />
+                  <Switch aria-label={t("darkModeLabel")} checked={isDarkMode} onCheckedChange={handleDarkModeChange} />
                 </div>
 
                 {/* 24h Format */}
@@ -312,6 +312,7 @@ export default function ThemeSettingsPage() {
                     </div>
                   </div>
                   <Switch
+                    aria-label={t("use24HourLabel")}
                     checked={use24Hour}
                     onCheckedChange={handleUse24HourChange}
                     disabled={updateSetting.isPending}
@@ -330,6 +331,7 @@ export default function ThemeSettingsPage() {
                     </div>
                   </div>
                   <Switch
+                    aria-label={t("showSecondsDescription")}
                     checked={showSeconds}
                     onCheckedChange={handleShowSecondsChange}
                     disabled={updateSetting.isPending}

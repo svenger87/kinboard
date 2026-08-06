@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { personOn } from "@/lib/person-color";
 
 export interface PersonAvatarProps {
   name: string;
@@ -35,7 +36,7 @@ export function PersonAvatar({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-bold text-white select-none",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-bold select-none",
         ring && "ring-[var(--pa-ring-w)] ring-card",
         className
       )}
@@ -43,6 +44,9 @@ export function PersonAvatar({
         width: size,
         height: size,
         backgroundColor: color,
+        // Was a hard-coded text-white, which measured 2.15:1 on the seeded
+        // amber and fails for every colour in the curated palette (KB-09).
+        color: personOn(color),
         fontSize: Math.round(size * 0.42),
         ["--pa-ring-w" as string]: `${ringWidth}px`,
       }}

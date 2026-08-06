@@ -18,7 +18,10 @@ export function PersonChip({
   className,
 }: PersonChipProps) {
   const base =
-    "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold transition-colors [transition-duration:120ms]";
+    // 32px tall was the second-largest cluster of undersized targets in
+    // the audit, on the calendar's primary filtering control (KB-52). 44px
+    // from tablet width up, where these are touched.
+    "inline-flex min-h-[36px] md:min-h-[44px] items-center gap-2 rounded-full px-3 py-1.5 md:px-4 text-sm font-semibold transition-colors [transition-duration:120ms]";
   const style = selected
     ? { backgroundColor: personTint(color), color: personText(color) }
     : undefined;

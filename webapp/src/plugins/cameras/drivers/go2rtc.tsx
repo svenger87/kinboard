@@ -272,7 +272,7 @@ function Go2rtcConfigForm() {
             {cameras.length === 0 ? (
               <div className="text-center py-8">
                 <Video className="size-12 mx-auto text-muted-foreground/50 mb-4" />
-                <h3 className="font-medium mb-2">{t("emptyTitle")}</h3>
+                <h2 className="font-medium mb-2">{t("emptyTitle")}</h2>
                 <p className="text-sm text-muted-foreground mb-4">
                   {t("emptyDescription")}
                 </p>
@@ -389,7 +389,7 @@ function Go2rtcConfigForm() {
       >
         <Card>
           <CardContent className="p-6">
-            <h3 className="font-medium mb-3">{t("streamTypesHeading")}</h3>
+            <h2 className="font-medium mb-3">{t("streamTypesHeading")}</h2>
             <div className="flex flex-col gap-3 text-sm">
               <div>
                 <span className="font-medium">{t("streamTypeRtspName")}</span>
@@ -500,6 +500,7 @@ function Go2rtcConfigForm() {
               <div className="flex items-center justify-between">
                 <Label htmlFor="auth-enabled">{t("authLabel")}</Label>
                 <Switch
+                  aria-label={t("authLabel")}
                   id="auth-enabled"
                   checked={authEnabled}
                   onCheckedChange={setAuthEnabled}

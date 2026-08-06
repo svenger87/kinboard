@@ -98,7 +98,7 @@ export function UpcomingEvents({
   if (isError) {
     return (
       <Card className={`accent-border-top h-full ${className}`}>
-        <CardContent className="flex flex-col gap-4 p-[18px]">
+        <CardContent className="flex flex-col gap-4 p-4">
           <div className="flex items-center gap-3">
             <span className="icon-badge">
               <Calendar className="size-5" strokeWidth={1.75} aria-hidden="true" />
@@ -161,7 +161,7 @@ export function UpcomingEvents({
                 <motion.div key={event.id} variants={item}>
                   {showSeparator && (
                     <div className="mb-1.5 mt-2 flex items-center gap-2 first:mt-0">
-                      <span className="text-kiosk-label text-[11px]">{dayLabel}</span>
+                      <span className="text-kiosk-label text-2xs">{dayLabel}</span>
                       <div className="h-px flex-1 bg-border/40" />
                     </div>
                   )}

@@ -18,7 +18,7 @@ export default function SettingsLayout({
 
   return (
     <PinGuard cancelHref="/">
-      <div className="min-h-screen relative">
+      <div className="min-h-page relative">
       {/* Background */}
       <div className="page-gradient fixed inset-0 pointer-events-none z-[-1]" />
 
@@ -32,6 +32,11 @@ export default function SettingsLayout({
         >
           <Link
             href="/settings"
+            // The label is `hidden sm:inline`, so below 640px this link is an
+            // icon alone. Without an explicit name it reached assistive tech as
+            // an unnamed link on all 18 settings sub-pages — and it is the only
+            // way back out of them on a phone (audit KB-17).
+            aria-label={t("layoutBackLabel")}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group bg-card border border-border rounded-full px-3 py-2 elev-sm"
           >
             <ChevronLeft className="size-5 group-hover:-translate-x-1 transition-transform" strokeWidth={1.75} />

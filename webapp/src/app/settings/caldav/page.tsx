@@ -279,7 +279,7 @@ export default function CaldavSettingsPage() {
   return (
     <main
       id="main-content"
-      className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset"
+      className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset"
     >
       <div className="relative z-10 max-w-2xl mx-auto flex flex-col gap-6">
         <PageHeader
@@ -652,6 +652,7 @@ export default function CaldavSettingsPage() {
                     {t("isHolidaysLabel")}
                   </Label>
                   <Switch
+                    aria-label={t("isHolidaysLabel")}
                     id="caldav-holidays"
                     checked={editForm.is_holidays}
                     onCheckedChange={(v) =>
@@ -664,6 +665,7 @@ export default function CaldavSettingsPage() {
                     {t("isWasteLabel")}
                   </Label>
                   <Switch
+                    aria-label={t("isWasteLabel")}
                     id="caldav-waste"
                     checked={editForm.is_waste_collection}
                     onCheckedChange={(v) =>

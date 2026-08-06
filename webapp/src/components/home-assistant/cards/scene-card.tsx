@@ -46,7 +46,7 @@ export function SceneCard({ card, entity }: SceneCardProps) {
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
-        <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500">
+        <div className="p-2 rounded-lg bg-state-cool/10 text-state-cool">
           <Sparkles className="size-5" />
         </div>
         <span className="text-xs text-muted-foreground">

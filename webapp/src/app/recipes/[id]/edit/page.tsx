@@ -211,7 +211,7 @@ export default function EditRecipePage() {
   if (isLoading) {
     return (
       <TooltipProvider>
-        <main id="main-content" className="min-h-screen relative overflow-hidden">
+        <main id="main-content" className="min-h-page relative overflow-hidden">
           <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
             <div className="flex items-center gap-4 mb-6">
@@ -243,7 +243,7 @@ export default function EditRecipePage() {
   if (error || !recipe) {
     return (
       <TooltipProvider>
-        <main id="main-content" className="min-h-screen relative overflow-hidden">
+        <main id="main-content" className="min-h-page relative overflow-hidden">
           <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
             <Card className="p-8 text-center">
@@ -267,7 +267,7 @@ export default function EditRecipePage() {
 
   return (
     <TooltipProvider>
-      <main id="main-content" className="min-h-screen relative overflow-hidden">
+      <main id="main-content" className="min-h-page relative overflow-hidden">
         {/* Background */}
         <div className="page-gradient" />
 

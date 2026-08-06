@@ -5,8 +5,16 @@
 @layer base {
   :root {
     --mobile-nav-height: 5rem;
-    --desktop-nav-height: 4rem;
+    /* 44px items + py-3 = 68px. Must track DesktopNav's real height or the
+       fixed bar overlaps page content (raised from 4rem with KB-22). */
+    --desktop-nav-height: 4.25rem;
     --nav-spacing: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
+    /* Width of DesktopNav's pinned Home block. The scroller reserves exactly
+       this much padding, so scrolled-away items can never surface in a gutter
+       between the two. Both sides must read the same value — when they were
+       independent (auto-width block vs. a hardcoded 10.5rem pad) a 27px slot
+       opened up and "Stundenplan" showed through it as a bare "an". */
+    --nav-home-pin: 8.5rem;
 
     /* Default neutral palette = Sand / Papier. Salbei is opt-in (.palette-salbei). */
     --background: 38 37% 88%;
@@ -24,6 +32,40 @@
     --secondary-foreground: 33 15% 12%;
     --muted: 38 46% 91%;
     --muted-foreground: 35 9% 39%;
+    /* Section labels. Deliberately darker than --muted-foreground: labels name
+       the value beside them and must stay readable at 1-2m (audit KB-48). */
+    --label-foreground: 35 12% 30%;
+
+    /* How a person's colour is adjusted when it is used as TEXT. personText()
+       in lib/person-color.ts mixes toward this target by this amount. Living in
+       CSS rather than JS means the direction flips with the theme without any
+       component needing to know the theme — the old fixed "18% toward black"
+       moved dark-mode text toward its own background (audit KB-09).
+       34% is the computed minimum to clear 4.5:1 across the palette; 38% ships
+       for headroom on custom colours. */
+    --person-text-mix: #000000;
+    --person-text-amount: 38%;
+
+    /* Device / entity state (audit KB-12).
+       The Home Assistant card family reached for raw Tailwind palette classes —
+       text-green-500, bg-yellow-500 and friends, ~100 usages — which do not
+       follow light/dark, the monthly accent or the neutral palettes. The
+       measured consequences included a 30px stat at 1.27:1 in light mode.
+       These are the semantic replacements; they are the only colours a device
+       card should reach for. */
+    --state-on: 150 43% 38%;          /* device is active */
+    --state-light: 42 82% 42%;        /* a light that is emitting */
+    --state-cool: 210 63% 48%;        /* climate cooling, water */
+    --state-alert: 8 57% 52%;         /* alarm, fault */
+    --state-off: 35 9% 39%;           /* inactive but reachable */
+
+    /* Status colours used as TEXT on a light surface. --warning and --info are
+       tuned as fills paired with a dark foreground; as text on a near-white
+       card --warning measures 2.14:1 (audit KB-12). These are their text-safe
+       companions — same hue, enough darkness to clear 4.5:1. */
+    --warning-strong: 33 75% 33%;
+    --info-strong: 210 70% 38%;
+    --success-strong: 150 45% 30%;
     --accent: 38 46% 91%;
     --accent-foreground: 33 15% 12%;
     --destructive: 8 57% 52%;
@@ -80,12 +122,31 @@
     --chart-3: 33 70% 51%;
     --chart-4: 210 63% 56%;
     --chart-5: 272 42% 52%;
+
+    /* Calendar month-grid event chips. One lever for the grid's density.
+       Chips only render at >=640px (phones get dots instead), so these values
+       never squeeze a phone. 11px was unreadable at wall distance and the 21px
+       chip height sat below WCAG 2.2 AA 2.5.8's 24px minimum (audit KB-07/08). */
+    --event-pill-size: 0.8125rem;   /* 13px */
+    --event-pill-min-h: 1.5rem;     /* 24px — the AA floor */
+  }
+
+  @media (min-width: 1024px) {
+    :root { --event-pill-size: 0.875rem; --event-pill-min-h: 1.75rem; }
+  }
+  @media (min-width: 1440px) {
+    :root { --event-pill-size: 1rem; --event-pill-min-h: 2rem; }
   }
 
   @media (min-width: 768px) {
     :root {
       --nav-spacing: var(--desktop-nav-height);
     }
+  }
+
+  /* Nav items step up to 48px at lg, so the bar grows with them. */
+  @media (min-width: 1024px) {
+    :root { --desktop-nav-height: 4.5rem; --nav-home-pin: 10.5rem; }
   }
 
   .dark {
@@ -103,6 +164,21 @@
     --secondary-foreground: 38 42% 91%;
     --muted: 36 13% 15%;
     --muted-foreground: 38 12% 61%;
+    --label-foreground: 38 16% 72%;
+    /* Toward white on a dark card, not black. 20% is the computed minimum;
+       28% ships for headroom. */
+    --person-text-mix: #ffffff;
+    --person-text-amount: 28%;
+
+    --state-on: 155 41% 55%;
+    --state-light: 45 85% 60%;
+    --state-cool: 210 68% 62%;
+    --state-alert: 10 72% 60%;
+    --state-off: 38 12% 61%;
+
+    --warning-strong: 37 72% 62%;
+    --info-strong: 210 70% 68%;
+    --success-strong: 155 45% 60%;
     --accent: 36 13% 15%;
     --accent-foreground: 38 42% 91%;
     --destructive: 10 72% 60%;
@@ -188,7 +264,7 @@
     --card:75 50% 98%; --card-foreground:90 17% 14%;
     --popover:75 50% 98%; --popover-foreground:90 17% 14%;
     --secondary:77 24% 89%; --secondary-foreground:90 17% 14%;
-    --muted:77 24% 89%; --muted-foreground:82 10% 36%;
+    --muted:77 24% 89%; --muted-foreground:82 10% 36%; --label-foreground:82 13% 27%;
     --accent:77 24% 89%; --accent-foreground:90 17% 14%;
     --border:77 19% 85%; --input:77 19% 85%; --priority-low:82 10% 36%;
     --shadow-rgb:40 50 30;
@@ -198,7 +274,7 @@
     --card:84 18% 11%; --card-foreground:77 33% 92%;
     --popover:84 18% 11%; --popover-foreground:77 33% 92%;
     --secondary:77 22% 13%; --secondary-foreground:77 33% 92%;
-    --muted:77 22% 13%; --muted-foreground:75 11% 58%;
+    --muted:77 22% 13%; --muted-foreground:75 11% 58%; --label-foreground:75 15% 70%;
     --accent:77 22% 13%; --accent-foreground:77 33% 92%;
     --border:79 17% 18%; --input:79 17% 18%; --priority-low:75 11% 58%;
   }
@@ -208,7 +284,7 @@
     --card:40 33% 98%; --card-foreground:30 12% 13%;
     --popover:40 33% 98%; --popover-foreground:30 12% 13%;
     --secondary:36 16% 88%; --secondary-foreground:30 12% 13%;
-    --muted:36 16% 88%; --muted-foreground:32 7% 37%;
+    --muted:36 16% 88%; --muted-foreground:32 7% 37%; --label-foreground:32 10% 28%;
     --accent:36 16% 88%; --accent-foreground:30 12% 13%;
     --border:37 18% 86%; --input:37 18% 86%; --priority-low:32 7% 37%;
     --shadow-rgb:50 45 40;
@@ -218,7 +294,7 @@
     --card:38 14% 11%; --card-foreground:37 30% 92%;
     --popover:38 14% 11%; --popover-foreground:37 30% 92%;
     --secondary:36 14% 15%; --secondary-foreground:37 30% 92%;
-    --muted:36 14% 15%; --muted-foreground:36 10% 60%;
+    --muted:36 14% 15%; --muted-foreground:36 10% 60%; --label-foreground:36 14% 71%;
     --accent:36 14% 15%; --accent-foreground:37 30% 92%;
     --border:36 11% 18%; --input:36 11% 18%; --priority-low:36 10% 60%;
   }
@@ -269,14 +345,61 @@
   }
 
   /* Cards and interactive containers */
-  .glass:focus-visible,
   [role="listitem"]:focus-visible {
     @apply ring-2 ring-month-primary ring-offset-2 ring-offset-background;
   }
 }
 
+/* Section labels — deliberately in @layer components, not utilities.
+   ------------------------------------------------------------------
+   This utility sets `color`. When it lived in @layer utilities it was emitted
+   AFTER Tailwind's generated utilities, so its colour beat any text-colour
+   class composed alongside it, regardless of class order. That silently
+   overrode `text-primary-foreground/80` on the /schedule pack-list header,
+   rendering the subtitle mid-grey on an orange fill (audit KB-58).
+
+   The components layer is emitted BEFORE utilities, so `text-primary-foreground`
+   and friends now win naturally, while call sites that specify nothing still
+   get the sensible default. Size raised 11px -> 13px, and 15px on kiosk-width
+   displays, because at 11px this was the least legible text in the product
+   despite carrying "kiosk" in its name (KB-48). It is rem-based, so it also
+   responds to the text-scale accessibility setting. */
+@layer components {
+  .text-kiosk-label {
+    @apply text-[0.8125rem] uppercase tracking-wide font-medium;
+    font-family: var(--font-mono), monospace;
+    color: hsl(var(--label-foreground));
+  }
+  /* Wall displays are not always wide: a 1080x1920 portrait panel is a kiosk
+     but is narrower than a laptop. Key the step on either dimension. */
+  @media (min-width: 1280px), (min-height: 1400px) {
+    .text-kiosk-label { font-size: 0.9375rem; }
+  }
+
+}
+
 /* Custom Utilities */
 @layer utilities {
+  /* Kiosk density step (audit KB-56).
+     ---------------------------------
+     Deliberately in @layer utilities, not components: these OVERRIDE Tailwind's
+     own generated `text-xs`, and the components layer is emitted first, so a
+     copy living there lost the cascade and the step silently did nothing.
+
+     Type sizes were identical at 390px and 2560px, so the smallest labels were
+     sized for a phone held at arm's length and then hung on a wall. Rather than
+     rescale everything — which would destabilise every layout — this raises the
+     floor on the three smallest steps, which is where the illegibility actually
+     was: 9-12px badges, counts, weekday headers and week numbers.
+
+     The rule is: no load-bearing text below 13px on a wall display. */
+  @media (min-width: 1280px), (min-height: 1400px) {
+    .text-3xs { font-size: 0.8125rem; line-height: 1.15rem; }
+    .text-2xs { font-size: 0.875rem;  line-height: 1.25rem; }
+    .text-xs  { font-size: 0.8125rem; line-height: 1.15rem; }
+  }
+
+
   .text-balance {
     text-wrap: balance;
   }
@@ -288,17 +411,14 @@
   .text-kiosk-hero      { @apply font-display font-light leading-none tracking-tight; font-size: clamp(96px, 14vw, 160px); font-variant-numeric: tabular-nums; }
   .text-kiosk-primary   { @apply text-3xl font-semibold tabular-nums leading-none; }
   .text-kiosk-secondary { @apply text-xl font-medium leading-tight; }
-  .text-kiosk-label     { @apply text-[0.6875rem] uppercase tracking-wider font-medium text-muted-foreground; font-family: var(--font-mono), monospace; }
 
-  /* Glass morphism effect - enhanced for wall-mounted display */
-  /* Glass morphism - no backdrop-blur for ARM GPU compatibility */
-  .glass {
-    @apply bg-white/[0.10] border border-white/[0.08] shadow-lg shadow-black/20;
-  }
+  /* .text-kiosk-label lives in @layer components (below), NOT here — see the
+     note there for why its cascade position matters. */
 
-  .glass-subtle {
-    @apply bg-white/[0.07] border border-white/[0.05];
-  }
+  /* .glass / .glass-subtle removed: zero component uses, and they
+     hard-coded white overlays and black shadows that are invisible in
+     light mode and ignore the warm --shadow-rgb system (audit KB-46).
+     Depth comes from .elev-* only. */
 
   /* Noise texture overlay to prevent gradient banding */
   .noise-overlay::after {
@@ -336,19 +456,40 @@
     display: none;
   }
 
-  /* Hide body scrollbar globally - kiosk display, no one needs it */
-  html, body {
+  /* Hide the body scrollbar on KIOSK DEVICES ONLY.
+     This used to apply everywhere. "no one needs it" is true of a wall panel
+     with no pointer; it is not true of a desktop browser or a phone, where it
+     removed the only cue that a page scrolls at all — while nearly every page
+     was scrollable by at least one nav height (audit KB-35, KB-21). */
+  html[data-kiosk] , html[data-kiosk] body {
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
   }
-  html::-webkit-scrollbar, body::-webkit-scrollbar {
+  html[data-kiosk]::-webkit-scrollbar, html[data-kiosk] body::-webkit-scrollbar {
     display: none !important;
   }
+
+  /* Page roots: viewport height minus the fixed nav. `min-h-screen` (100vh)
+     plus PageShell's padding-bottom made every page exactly one nav-height
+     taller than its viewport, so pages that fit still scrolled (audit KB-21). */
+  .min-h-page { min-height: calc(100vh - var(--nav-spacing)); }
 
   /* Portrait display optimization */
   @media (orientation: portrait) and (min-height: 1200px) {
     .portrait-optimized {
       @apply text-lg;
+    }
+  }
+
+  /* Dashboard hero cap — see the comment in src/app/page.tsx.
+     Only bites on short, wide viewports (the landscape wall and desktop), where
+     `flex-1` otherwise let the clock block absorb the height the widget grid
+     needed. Portrait panels and phones keep the original centred composition. */
+  @media (orientation: landscape) and (min-width: 1024px) {
+    .hero-block {
+      flex: 0 1 auto;
+      max-height: 38vh;
+      justify-content: center;
     }
   }
 
@@ -380,8 +521,10 @@
       left: 0;
       width: 50%;
       height: 28px;
-      background: hsl(var(--card) / 0.95);
-      backdrop-filter: blur(4px);
+      /* Opaque rather than blurred: this strip exists only to mask the
+         browser's link-status tooltip, and blur is banned on kiosk surfaces
+         for ARM GPUs — a rule this file states four times (audit KB-29). */
+      background: hsl(var(--card));
       z-index: 40;
       pointer-events: none;
     }
@@ -458,8 +601,16 @@
 @keyframes marchDashReverse {
   to { stroke-dashoffset: 14; }
 }
+/* Runs only while `data-flowing` is set on the diagram. An always-on kitchen
+   display should not carry perpetual motion in the corner once the numbers have
+   settled (audit KB-54); prefers-reduced-motion still disables it outright. */
 .flow-dash {
   animation: marchDash 1s linear infinite;
+  animation-play-state: paused;
+}
+[data-flowing="true"] .flow-dash,
+[data-flowing="true"] .flow-dash-reverse {
+  animation-play-state: running;
 }
 
 /* Overflow-only marquee for long titles (see components/marquee-text.tsx).
@@ -482,6 +633,18 @@
 /* GPU hints removed - caused constant CPU overhead on ARM devices (RPI/Odroid) */
 .gpu-blur {
   /* Previously had will-change, transform, backface-visibility - removed for ARM compatibility */
+}
+
+/* No photo source configured means DEFAULT_PHOTOS is empty and there is
+   literally nothing to draw, so the canvas was flat black — a ~1100x850px void
+   in the middle of an otherwise well-composed screen, and the ordinary state
+   of a fresh self-hosted install (audit KB-19). A warm gradient built from the
+   month's accent reads as intentional instead of broken. */
+.screensaver-canvas-empty {
+  background:
+    radial-gradient(120% 80% at 50% 0%, hsl(var(--month-primary) / 0.22), transparent 70%),
+    radial-gradient(100% 70% at 50% 100%, hsl(var(--month-primary) / 0.10), transparent 65%),
+    hsl(var(--background));
 }
 
 /* Screensaver fade-in animations (CSS-only, no JS overhead) */
@@ -524,6 +687,22 @@
 /* FAB positioning above bottom nav */
 .fab-above-nav {
   bottom: calc(var(--nav-spacing) + 1rem);
+}
+
+/* The FAB is fixed, so it floats over whatever ends up beneath it — on the
+   dashboard that was the Aufgaben card's corner and its "+N more" link, on a
+   phone the today-strip pill, and at 200% zoom the clock (audit KB-04). Pages
+   that render a FAB reserve a corner's worth of space at the end of their
+   scroll so nothing lands underneath it. */
+.has-fab > :last-child {
+  scroll-margin-bottom: 5rem;
+}
+.has-fab::after {
+  content: "";
+  display: block;
+  height: 4.5rem;
+  flex: 0 0 auto;
+  pointer-events: none;
 }
 
 /* Ambient gradient glow for dashboard */

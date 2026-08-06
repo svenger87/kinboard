@@ -83,11 +83,11 @@ export function WeatherCard({ card, entity }: WeatherCardProps) {
 
   // Get icon color based on condition
   const getIconColor = () => {
-    if (condition.includes("sunny") || condition === "clear-night") return "text-yellow-500";
-    if (condition.includes("rain") || condition.includes("pouring")) return "text-blue-500";
-    if (condition.includes("snow")) return "text-cyan-300";
-    if (condition.includes("lightning")) return "text-yellow-400";
-    return "text-gray-400";
+    if (condition.includes("sunny") || condition === "clear-night") return "text-state-light";
+    if (condition.includes("rain") || condition.includes("pouring")) return "text-state-cool";
+    if (condition.includes("snow")) return "text-state-cool";
+    if (condition.includes("lightning")) return "text-state-light";
+    return "text-state-off";
   };
 
   return (
@@ -162,7 +162,7 @@ export function WeatherCard({ card, entity }: WeatherCardProps) {
                 </div>
                 <span className="text-xs font-medium">{Math.round(day.temperature)}°</span>
                 {day.templow !== undefined && (
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-3xs text-muted-foreground">
                     {Math.round(day.templow)}°
                   </span>
                 )}

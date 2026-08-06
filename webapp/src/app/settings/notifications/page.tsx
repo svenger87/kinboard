@@ -85,7 +85,7 @@ export default function NotificationSettingsPage() {
 
   if (prefsLoading) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="relative z-10 max-w-2xl mx-auto flex flex-col gap-6">
           <Skeleton className="h-12 w-48" />
           <Skeleton className="h-32 w-full rounded-xl" />
@@ -96,7 +96,7 @@ export default function NotificationSettingsPage() {
   }
 
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto">
         <PageHeader
           icon={Bell}
@@ -190,6 +190,7 @@ export default function NotificationSettingsPage() {
                     </div>
                   </div>
                   <Switch
+                    aria-label={t("pushLabel")}
                     checked={isSubscribed}
                     onCheckedChange={handleToggleSubscription}
                     disabled={pushLoading}
@@ -259,7 +260,8 @@ export default function NotificationSettingsPage() {
                   </div>
                 </div>
                 <Switch
-                  checked={prefs.shopping_collaborative}
+                  aria-label={t("shoppingNewItemsDescription")}
+                  checked={isSubscribed && prefs.shopping_collaborative}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("shopping_collaborative", checked)
                   }
@@ -278,7 +280,8 @@ export default function NotificationSettingsPage() {
                   </div>
                 </div>
                 <Switch
-                  checked={prefs.shopping_reminders}
+                  aria-label={t("shoppingRemindersDescription")}
+                  checked={isSubscribed && prefs.shopping_reminders}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("shopping_reminders", checked)
                   }
@@ -312,7 +315,8 @@ export default function NotificationSettingsPage() {
                   </div>
                 </div>
                 <Switch
-                  checked={prefs.todo_collaborative}
+                  aria-label={t("todoNewDescription")}
+                  checked={isSubscribed && prefs.todo_collaborative}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("todo_collaborative", checked)
                   }
@@ -331,7 +335,8 @@ export default function NotificationSettingsPage() {
                   </div>
                 </div>
                 <Switch
-                  checked={prefs.todo_reminders}
+                  aria-label={t("todoReminderDescription")}
+                  checked={isSubscribed && prefs.todo_reminders}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("todo_reminders", checked)
                   }
@@ -365,7 +370,8 @@ export default function NotificationSettingsPage() {
                   </div>
                 </div>
                 <Switch
-                  checked={prefs.calendar_reminders}
+                  aria-label={t("calendarDescription")}
+                  checked={isSubscribed && prefs.calendar_reminders}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("calendar_reminders", checked)
                   }
@@ -385,7 +391,10 @@ export default function NotificationSettingsPage() {
                     }
                     disabled={!isSubscribed || updatePreferences.isPending}
                   >
-                    <SelectTrigger className="w-36">
+                    {/* SelectValue supplies the visible text but no accessible
+                        name, so this reached assistive tech as an unnamed
+                        combobox (audit KB-18). */}
+                    <SelectTrigger className="w-36" aria-label={t("calendarMinutesLabel")}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -423,7 +432,8 @@ export default function NotificationSettingsPage() {
                 </div>
               </div>
               <Switch
-                checked={prefs.birthday_reminders}
+                aria-label={t("birthdayRemindersDescription")}
+                checked={isSubscribed && prefs.birthday_reminders}
                 onCheckedChange={(checked) =>
                   handlePreferenceChange("birthday_reminders", checked)
                 }
@@ -452,7 +462,8 @@ export default function NotificationSettingsPage() {
                 </div>
               </div>
               <Switch
-                checked={prefs.meal_prep_reminders}
+                aria-label={t("mealPrepDescription")}
+                checked={isSubscribed && prefs.meal_prep_reminders}
                 onCheckedChange={(checked) =>
                   handlePreferenceChange("meal_prep_reminders", checked)
                 }
@@ -485,7 +496,8 @@ export default function NotificationSettingsPage() {
                   </div>
                 </div>
                 <Switch
-                  checked={prefs.quiet_hours_enabled}
+                  aria-label={t("quietHoursDescription")}
+                  checked={isSubscribed && prefs.quiet_hours_enabled}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("quiet_hours_enabled", checked)
                   }

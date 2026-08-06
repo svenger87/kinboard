@@ -9,6 +9,7 @@ import { isNoNavPath } from "@/lib/constants";
 import { useNavBadges } from "@/hooks/use-nav-badges";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const FIXED_HREFS = new Set(["/", "/calendar", "/shopping"]);
 
@@ -70,14 +71,14 @@ export function MobileNav() {
                 <Icon size={23} strokeWidth={1.75} />
                 {badge && !tab.active && (
                   <span
-                    className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
+                    className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-3xs font-bold text-primary-foreground"
                     aria-label={tCommon("newEntriesAria", { count: badge })}
                   >
                     {badge}
                   </span>
                 )}
               </span>
-              <span className={`text-[10px] ${tab.active ? "font-semibold" : "font-medium"}`}>
+              <span className={`text-3xs ${tab.active ? "font-semibold" : "font-medium"}`}>
                 {tNav(tab.labelKey)}
               </span>
             </Link>
@@ -93,16 +94,23 @@ export function MobileNav() {
           className={tabClass(moreActive)}
         >
           <MoreHorizontal size={23} strokeWidth={1.75} />
-          <span className={`text-[10px] ${moreActive ? "font-semibold" : "font-medium"}`}>
+          <span className={`text-3xs ${moreActive ? "font-semibold" : "font-medium"}`}>
             {tNav("more")}
           </span>
         </button>
       </nav>
 
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-        <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-card backdrop-blur-none border-border">
+        <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-2xl bg-card border-border">
           <SheetHeader>
-            <SheetTitle>{tNav("more")}</SheetTitle>
+            {/* The theme toggle lives only in DesktopNav, which is `hidden md:block`
+                — so on a phone the control exists in the DOM but is never visible,
+                and light/dark can only be reached via Settings → Design (audit
+                KB-33). The "More" sheet is the phone's equivalent surface. */}
+            <div className="flex items-center justify-between gap-3 pr-6">
+              <SheetTitle>{tNav("more")}</SheetTitle>
+              <ThemeToggle />
+            </div>
           </SheetHeader>
           <ul className="mt-4 grid grid-cols-2 gap-2 pb-2">
             {moreItems.map((item) => {
@@ -129,7 +137,7 @@ export function MobileNav() {
                       {tNav(item.labelKey)}
                     </span>
                     {badge && (
-                      <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground tabular-nums">
+                      <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-2xs font-bold text-primary-foreground tabular-nums">
                         {badge}
                       </span>
                     )}

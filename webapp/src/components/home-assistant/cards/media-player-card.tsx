@@ -59,8 +59,8 @@ export function MediaPlayerCard({ card, entity }: MediaPlayerCardProps) {
   const supportsVolume = volumeLevel !== undefined;
 
   const getStateColor = () => {
-    if (isPlaying) return "text-green-500";
-    if (isPaused) return "text-yellow-500";
+    if (isPlaying) return "text-state-on";
+    if (isPaused) return "text-state-light";
     return "text-muted-foreground";
   };
 
@@ -98,9 +98,9 @@ export function MediaPlayerCard({ card, entity }: MediaPlayerCardProps) {
     <div
       className={`rounded-2xl border bg-card elev-sm p-4 transition-all ${
         isPlaying
-          ? "bg-green-500/10 border-green-500/30"
+          ? "bg-state-on/10 border-state-on/30"
           : isPaused
-          ? "bg-yellow-500/10 border-yellow-500/30"
+          ? "bg-state-light/10 border-state-light/30"
           : "bg-card hover:border-primary/30"
       } ${isUnavailable ? "opacity-50" : ""}`}
     >
@@ -109,9 +109,9 @@ export function MediaPlayerCard({ card, entity }: MediaPlayerCardProps) {
         <div
           className={`p-2 rounded-lg shrink-0 ${
             isPlaying
-              ? "bg-green-500/20 text-green-500"
+              ? "bg-state-on/20 text-state-on"
               : isPaused
-              ? "bg-yellow-500/20 text-yellow-500"
+              ? "bg-state-light/20 text-state-light"
               : "bg-muted text-muted-foreground"
           }`}
         >

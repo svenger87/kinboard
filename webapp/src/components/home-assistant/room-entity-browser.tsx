@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { useTranslations } from "next-intl";
 import {
   useHomeAssistantEntities,
@@ -126,7 +126,7 @@ function EntityRow({
           variant="outline"
           className={`shrink-0 text-xs ${
             entity.state === "on"
-              ? "border-green-500/50 text-green-500"
+              ? "border-state-on/50 text-state-on"
               : entity.state === "off"
               ? "border-muted-foreground/30"
               : ""
@@ -263,20 +263,18 @@ export function RoomEntityBrowser({
 
       {/* Type filter tabs */}
       <div className="px-4 py-2 border-b overflow-x-auto">
-        <Tabs value={typeFilter} onValueChange={setTypeFilter}>
-          <TabsList className="w-full justify-start">
-            {TYPE_FILTERS.map((filter) => (
-              <TabsTrigger
-                key={filter.value}
-                value={filter.value}
-                className="flex items-center gap-1.5"
-              >
-                <filter.icon className="size-3.5" />
-                {t(filter.labelKey)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <SegmentedControl value={typeFilter} onValueChange={setTypeFilter} className="w-full justify-start">
+          {TYPE_FILTERS.map((filter) => (
+            <SegmentedControlItem
+              key={filter.value}
+              value={filter.value}
+              className="flex items-center gap-1.5"
+            >
+              <filter.icon className="size-3.5" />
+              {t(filter.labelKey)}
+            </SegmentedControlItem>
+          ))}
+        </SegmentedControl>
       </div>
 
       {/* Selection actions */}

@@ -38,6 +38,7 @@ import { usePeople, useCreatePerson, useUpdatePerson, useDeletePerson } from "@/
 import { ImageCropper } from "@/components/image-cropper";
 import { PageHeader } from "@/components/page-header";
 import { personRoleLabel } from "@/lib/person-role";
+import { personColorKey } from "@/lib/person-color";
 
 // Preset colors for family members
 const PRESET_COLORS = [
@@ -72,6 +73,7 @@ const isUploadedAvatar = (avatar: string | null): boolean => {
 
 export default function PeopleSettingsPage() {
   const t = useTranslations("settings.people");
+  const tColor = useTranslations("personColor");
 
   // Fetch people from Supabase
   const { data: people = [], isLoading, error, refetch } = usePeople();
@@ -391,7 +393,7 @@ export default function PeopleSettingsPage() {
   // Loading state
   if (isLoading) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="relative z-10 max-w-2xl mx-auto">
           <PageHeader
             icon={Users}
@@ -419,7 +421,7 @@ export default function PeopleSettingsPage() {
   // Error state
   if (error) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="relative z-10 max-w-2xl mx-auto">
           <Card className="p-8 text-center">
             <Users className="size-12 mx-auto mb-3 text-destructive opacity-50" />
@@ -442,7 +444,7 @@ export default function PeopleSettingsPage() {
   }
 
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto">
         {/* Header + Add Dialog */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -489,6 +491,7 @@ export default function PeopleSettingsPage() {
                     </p>
                   </div>
                   <Switch
+                    aria-label={t("isChildDescription")}
                     id="is-child"
                     checked={isChild}
                     onCheckedChange={setIsChild}
@@ -604,13 +607,23 @@ export default function PeopleSettingsPage() {
                         className="size-3 rounded-full"
                         style={{ backgroundColor: person.color }}
                       />
-                      <span className="text-xs text-muted-foreground uppercase">
-                        {person.color}
+                      <span className="text-xs text-muted-foreground">
+                        {/* The stored value is a hex string; showing it verbatim
+                            put a developer detail on a family-facing screen
+                            (audit KB-16). Names come from the curated palette;
+                            anything outside it reads as a custom colour. */}
+                        {(() => {
+                          const key = personColorKey(person.color);
+                          return key ? tColor(key) : tColor("custom");
+                        })()}
                       </span>
                     </div>
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions. Edit and delete used to sit ~20px apart, which on a
+                      phone puts a destructive action inside the same thumb sweep
+                      as the common one (audit KB-15). A separator and a wider
+                      gap before delete make the two distinct targets. */}
                   <div className="flex items-center gap-1">
                     <Dialog
                       open={editingPerson?.id === person.id}
@@ -652,6 +665,7 @@ export default function PeopleSettingsPage() {
                               </p>
                             </div>
                             <Switch
+                              aria-label={t("isChildDescription")}
                               id="edit-is-child"
                               checked={isChild}
                               onCheckedChange={setIsChild}
@@ -704,6 +718,7 @@ export default function PeopleSettingsPage() {
                       </DialogContent>
                     </Dialog>
 
+                    <span className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden="true" />
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label={t("deleteAria")}>

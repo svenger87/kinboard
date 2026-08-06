@@ -59,7 +59,7 @@ export default function NewsPage() {
   }, [news, query, activeSource]);
 
   return (
-    <main id="main-content" className="min-h-screen p-4 md:p-8 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 md:p-8 relative safe-area-inset">
       <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
 
       <div className="relative z-10 max-w-3xl mx-auto pb-20">
@@ -207,13 +207,13 @@ function NewsCard({
               />
             )}
             <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+              <div className="flex items-center gap-2 text-2xs text-muted-foreground">
+                <Badge variant="outline" className="text-3xs py-0 px-1.5">
                   {item.sourceName}
                 </Badge>
                 {relativeDate && <span>· {relativeDate}</span>}
               </div>
-              <h3 className="font-medium leading-tight line-clamp-2">{item.title}</h3>
+              <h2 className="font-medium leading-tight line-clamp-2">{item.title}</h2>
               {item.description && (
                 <p className="text-xs text-muted-foreground line-clamp-2">
                   {item.description}

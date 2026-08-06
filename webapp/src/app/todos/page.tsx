@@ -384,7 +384,7 @@ export default function TodosPage() {
 
   return (
     <TooltipProvider>
-      <main id="main-content" className="min-h-screen relative overflow-hidden">
+      <main id="main-content" className="min-h-page relative overflow-hidden">
         {/* Background */}
         <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
 
@@ -753,9 +753,9 @@ export default function TodosPage() {
 
             const statCards = [
               { label: t("statOpen"), value: activeCount, icon: ListChecks, color: "text-month-primary", bg: "bg-month-primary/10", border: "border-month-primary/20" },
-              { label: t("statOverdue"), value: overdueCount, icon: AlertTriangle, color: overdueCount > 0 ? "text-destructive" : "text-muted-foreground", bg: overdueCount > 0 ? "bg-destructive/10" : "bg-white/5", border: overdueCount > 0 ? "border-destructive/20" : "border-border/20" },
-              { label: t("statToday"), value: dueTodayCount, icon: Clock, color: dueTodayCount > 0 ? "text-amber-400" : "text-muted-foreground", bg: dueTodayCount > 0 ? "bg-amber-400/10" : "bg-white/5", border: dueTodayCount > 0 ? "border-amber-400/20" : "border-border/20" },
-              { label: t("statRecurring"), value: recurringDueCount, icon: Repeat, color: recurringDueCount > 0 ? "text-blue-400" : "text-muted-foreground", bg: recurringDueCount > 0 ? "bg-blue-400/10" : "bg-white/5", border: recurringDueCount > 0 ? "border-blue-400/20" : "border-border/20" },
+              { label: t("statOverdue"), value: overdueCount, icon: AlertTriangle, color: overdueCount > 0 ? "text-destructive" : "text-muted-foreground", bg: overdueCount > 0 ? "bg-destructive/10" : "bg-muted/40", border: overdueCount > 0 ? "border-destructive/20" : "border-border/20" },
+              { label: t("statToday"), value: dueTodayCount, icon: Clock, color: dueTodayCount > 0 ? "text-warning-strong" : "text-muted-foreground", bg: dueTodayCount > 0 ? "bg-warning/10" : "bg-muted/40", border: dueTodayCount > 0 ? "border-warning/30" : "border-border/20" },
+              { label: t("statRecurring"), value: recurringDueCount, icon: Repeat, color: recurringDueCount > 0 ? "text-info-strong" : "text-muted-foreground", bg: recurringDueCount > 0 ? "bg-info/10" : "bg-muted/40", border: recurringDueCount > 0 ? "border-info/30" : "border-border/20" },
             ];
 
             return (
@@ -932,7 +932,7 @@ export default function TodosPage() {
 
                 const sections: TaskSection[] = [
                   { key: "overdue", label: t("sectionOverdue"), icon: CalendarIcon, tasks: overdueTasks, accentClass: "text-destructive", borderClass: "border-l-destructive" },
-                  { key: "recurring", label: t("sectionRecurringDue"), icon: Repeat, tasks: recurringDueTasks, accentClass: "text-blue-400", borderClass: "border-l-blue-400" },
+                  { key: "recurring", label: t("sectionRecurringDue"), icon: Repeat, tasks: recurringDueTasks, accentClass: "text-info-strong", borderClass: "border-l-info" },
                   { key: "today", label: t("sectionToday"), icon: CalendarIcon, tasks: dueTodayTasks, accentClass: "text-month-primary", borderClass: "border-l-month-primary" },
                   { key: "upcoming", label: t("sectionUpcoming"), icon: Circle, tasks: upcomingTasks, accentClass: "text-muted-foreground", borderClass: "border-l-muted-foreground/30" },
                   { key: "completed", label: t("sectionCompleted"), icon: CheckCircle2, tasks: completedTasks, accentClass: "text-success", borderClass: "border-l-success/30" },

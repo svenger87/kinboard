@@ -145,7 +145,7 @@ export default function DevicesSettingsPage() {
   const totalCount = devices?.length ?? 0;
 
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto">
         <PageHeader
           icon={Monitor}
@@ -203,11 +203,18 @@ export default function DevicesSettingsPage() {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="flex items-center gap-4 p-4"
+                    // A device row carries an icon, a name that can wrap, up to
+                    // two badges, two switches and two icon buttons. On a phone
+                    // that never fit one line: the name wrapped, the controls
+                    // were squeezed on top of it and the kiosk switch ended up
+                    // drawn over the device name (audit KB-71). Below `sm` the
+                    // controls now get their own row underneath.
+                    className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4"
                   >
+                    <div className="flex min-w-0 flex-1 items-center gap-4">
                     {/* Icon */}
                     <div
-                      className={`p-3 rounded-xl ${
+                      className={`shrink-0 p-3 rounded-xl ${
                         deviceIsOnline
                           ? "bg-success/10 text-success"
                           : "bg-muted text-muted-foreground"
@@ -247,8 +254,8 @@ export default function DevicesSettingsPage() {
                         </div>
                       ) : (
                         <>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{device.name}</p>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <p className="min-w-0 break-words font-medium">{device.name}</p>
                             {isCurrentDevice && (
                               <Badge variant="outline" className="text-xs">
                                 {t("thisDeviceBadge")}
@@ -274,7 +281,7 @@ export default function DevicesSettingsPage() {
                           {/* Device ID (shown when presence sensor is enabled) */}
                           {device.has_presence_sensor && (
                             <div className="flex items-center gap-1.5 mt-1">
-                              <code className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded font-mono">
+                              <code className="text-3xs text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded font-mono">
                                 {device.id.slice(0, 8)}...
                               </code>
                               <TooltipProvider>
@@ -304,7 +311,10 @@ export default function DevicesSettingsPage() {
                         </>
                       )}
                     </div>
+                    </div>
 
+                    {!isEditing && (
+                    <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-4">
                     {/* Kiosk Toggle */}
                     {!isEditing && (
                       <TooltipProvider>
@@ -312,6 +322,7 @@ export default function DevicesSettingsPage() {
                           <TooltipTrigger asChild>
                             <div className="flex items-center">
                               <Switch
+                                aria-label={t("kioskToggleAria", { name: device.name })}
                                 checked={device.is_kiosk}
                                 onCheckedChange={(checked) => handleToggleKiosk(device.id, checked)}
                                 disabled={updateDevice.isPending}
@@ -333,6 +344,7 @@ export default function DevicesSettingsPage() {
                             <div className="flex items-center gap-1">
                               <Radar className={`size-4 ${device.has_presence_sensor ? "text-success" : "text-muted-foreground"}`} />
                               <Switch
+                                aria-label={t("presenceToggleAria", { name: device.name })}
                                 checked={device.has_presence_sensor}
                                 onCheckedChange={(checked) => handleTogglePresenceSensor(device.id, checked)}
                                 disabled={updateDevice.isPending}
@@ -390,6 +402,8 @@ export default function DevicesSettingsPage() {
                           </AlertDialog>
                         )}
                       </div>
+                    )}
+                    </div>
                     )}
                   </motion.div>
                 );

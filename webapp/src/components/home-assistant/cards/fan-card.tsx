@@ -48,7 +48,7 @@ export function FanCard({ card, entity }: FanCardProps) {
     <div
       className={`rounded-2xl border bg-card elev-sm p-4 transition-all ${
         isOn
-          ? "bg-cyan-500/10 border-cyan-500/30"
+          ? "bg-state-cool/10 border-state-cool/30"
           : "bg-card hover:border-primary/30"
       } ${isUnavailable ? "opacity-50" : ""}`}
     >
@@ -58,8 +58,8 @@ export function FanCard({ card, entity }: FanCardProps) {
           onClick={handleToggle}
           disabled={isPending || isUnavailable}
           className={`p-2 rounded-lg transition-colors ${
-            isOn ? "bg-cyan-500/20 text-cyan-500" : "bg-muted text-muted-foreground"
-          } hover:bg-cyan-500/30 disabled:opacity-50`}
+            isOn ? "bg-state-cool/20 text-state-cool" : "bg-muted text-muted-foreground"
+          } hover:bg-state-cool/30 disabled:opacity-50`}
         >
           {isPending ? (
             <Loader2 className="size-5 animate-spin" />
@@ -67,7 +67,7 @@ export function FanCard({ card, entity }: FanCardProps) {
             <FanIcon className={`size-5 ${isOn ? "animate-spin" : ""}`} style={{ animationDuration: "2s" }} />
           )}
         </button>
-        <span className={`text-sm font-medium ${isOn ? "text-cyan-500" : "text-muted-foreground"}`}>
+        <span className={`text-sm font-medium ${isOn ? "text-state-cool" : "text-muted-foreground"}`}>
           {isUnavailable ? tState("unavailable") : isOn ? tState("on") : tState("off")}
         </span>
       </div>

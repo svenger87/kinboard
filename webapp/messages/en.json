@@ -15,7 +15,8 @@
     "serverUnreachableTitle": "Can't reach the Kinboard server",
     "serverUnreachableBody": "The app can't load your family data. Check that the Kinboard stack is running and that this device can reach it, then try again.",
     "serverUnreachableRetry": "Try again",
-    "serverUnreachableAutoRetry": "Checking again automatically…"
+    "serverUnreachableAutoRetry": "Checking again automatically…",
+    "loading": "Loading…"
   },
   "components": {
     "back": "Back",
@@ -62,7 +63,8 @@
       "description": "This area is protected",
       "incorrect": "Wrong PIN",
       "cancel": "Cancel",
-      "pinRateLimited": "Too many attempts — wait a minute."
+      "pinRateLimited": "Too many attempts — wait a minute.",
+      "digitAria": "Digit {position}"
     },
     "shortcuts": {
       "title": "Keyboard shortcuts",
@@ -493,7 +495,8 @@
     "giftIdeaPlaceholder": "Add a gift idea…",
     "addGiftIdea": "Add gift idea",
     "giftIdeasEmpty": "No ideas yet",
-    "removeGiftIdeaAria": "Remove gift idea"
+    "removeGiftIdeaAria": "Remove gift idea",
+    "monthOverview": "Month overview"
   },
   "todos": {
     "title": "Tasks",
@@ -966,7 +969,7 @@
     "deleteFamilyConfirm": "Delete forever",
     "deleteFamilyFailed": "Could not delete the family. Please try again.",
     "dataCardTitle": "Data & backup",
-    "dataCardDescription": "Download everything your family has stored — events, recipes, lists, notes and more — as one JSON file. Credentials are never included.",
+    "dataCardDescription": "Download everything your family has stored — events, recipes, lists, notes and more — as one JSON file. Credentials are never included. To restore one, open Kinboard on a new device and choose “Restore from a backup”.",
     "exportButton": "Download backup",
     "exportFailed": "Export failed. Please try again.",
     "feedTitle": "Calendar feed (ICS)",
@@ -1311,7 +1314,9 @@
       "presenceHelpStep5Body": "In <bold>Settings → Screensaver</bold> you can configure:",
       "presenceHelpStep5BulletMode": "<bold>Control mode:</bold> Screensaver only or display off (DPMS)",
       "presenceHelpStep5BulletDelay": "<bold>Delay:</bold> Wait time after last detection (10s – 5min)",
-      "presenceHelpTip": "<bold>Tip:</bold> The sensor reports its status roughly every second. If it shows “No connection” in settings, check that the script is running and uses the correct device ID."
+      "presenceHelpTip": "<bold>Tip:</bold> The sensor reports its status roughly every second. If it shows “No connection” in settings, check that the script is running and uses the correct device ID.",
+      "kioskToggleAria": "Kiosk mode for {name}",
+      "presenceToggleAria": "Presence sensor for {name}"
     },
     "cameras": {
       "title": "Cameras",
@@ -2425,7 +2430,8 @@
     },
     "light": {
       "brightness": "Brightness",
-      "colorTemp": "Color temperature"
+      "colorTemp": "Color temperature",
+      "toggleAria": "Toggle {name}"
     },
     "fab": {
       "loading": "Loading…",
@@ -2866,7 +2872,11 @@
       "iconClimate": "Climate",
       "iconGarden": "Garden",
       "iconEnergy": "Energy"
-    }
+    },
+    "unreachableTitle": "Home Assistant is unreachable",
+    "unreachableBody": "Nothing here can be controlled until the connection is back.",
+    "unreachableRetry": "Try again",
+    "unreachableSettings": "Check connection"
   },
   "dashboard": {
     "ariaClock": "Clock and family members",
@@ -2972,7 +2982,9 @@
     "pendingTodos": "open",
     "wasteToday": "{count, plural, one {pickup today} other {pickups today}}",
     "daysUntil": "{count, plural, one {in # day} other {in # days}}",
-    "emptyState": "No events or tasks for today"
+    "emptyState": "No events or tasks for today",
+    "loadFailed": "Couldn't load today's schedule",
+    "loading": "Loading today…"
   },
   "mealPlanWidget": {
     "loadingAria": "Loading meals",
@@ -3108,7 +3120,8 @@
     "moreCount": "+{count} more",
     "statusEvents": "{count, plural, one {# event} other {# events}}",
     "statusTasks": "{count, plural, one {# task} other {# tasks}}",
-    "statusNothing": "All clear"
+    "statusNothing": "All clear",
+    "loadFailed": "Couldn't load your family"
   },
   "tasksWidget": {
     "loadingAria": "Loading tasks",
@@ -3282,7 +3295,8 @@
       "birthDateLabel": "Date of birth",
       "roleParent": "Parent",
       "roleChild": "Child",
-      "ageYears": "{count, plural, one {# year} other {# years}}"
+      "ageYears": "{count, plural, one {# year} other {# years}}",
+      "isChildAria": "{name} is a child"
     },
     "calendar": {
       "title": "Add a calendar",
@@ -3501,7 +3515,6 @@
     "nextAllowanceTomorrow": "{amount} pocket money arrives tomorrow",
     "nextAllowanceInDays": "{amount} pocket money in {days} days ({date})",
     "nextAllowanceShort": "{amount} in {days}d",
-    "stagesSheetOpenHint": "Tap to see all stages",
     "stagesSheetOpenAria": "Show all evolution stages",
     "stagesSheetTitle": "Evolution stages",
     "stagesSheetDescription": "Save more to grow into each next stage.",
@@ -3511,5 +3524,24 @@
     "errorInsufficientFunds": "There isn't enough in the account for that.",
     "errorAlreadyDecided": "That request was already decided.",
     "errorGeneric": "That didn't work. Please try again."
+  },
+  "connectivity": {
+    "title": "Can't reach the server",
+    "description": "Some of this dashboard may be out of date or missing.",
+    "retry": "Try again"
+  },
+  "personColor": {
+    "coral": "Coral",
+    "amber": "Amber",
+    "citron": "Citron",
+    "forest": "Forest",
+    "teal": "Teal",
+    "sky": "Sky",
+    "indigo": "Indigo",
+    "lilac": "Lilac",
+    "berry": "Berry",
+    "clay": "Clay",
+    "custom": "Custom colour",
+    "legend": "Colour"
   }
 }

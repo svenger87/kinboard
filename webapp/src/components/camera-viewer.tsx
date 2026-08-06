@@ -45,7 +45,7 @@ function ScanlineOverlay() {
 // "LIVE" pill — red dot + label, shown only when a stream is actively rendering.
 function LivePill({ label }: { label: string }) {
   return (
-    <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/55 text-white text-[10px] font-medium uppercase tracking-wider">
+    <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/55 text-white text-3xs font-medium uppercase tracking-wider">
       <span className="size-1.5 rounded-full bg-red-500" />
       {label}
     </div>

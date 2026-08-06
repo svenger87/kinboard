@@ -47,7 +47,7 @@ export default function CalendarSettingsPage() {
   const googleEmail = googleStatus?.email ?? null;
 
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
     <div className="relative z-10 max-w-2xl mx-auto space-y-6">
       <PageHeader title={t("title")} icon={Calendar} backHref="/settings" />
 
@@ -69,7 +69,7 @@ export default function CalendarSettingsPage() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-medium">{t("googleHeading")}</h3>
+                <h2 className="font-medium">{t("googleHeading")}</h2>
                 {googleLoading ? (
                   <Skeleton className="h-5 w-20" />
                 ) : googleConnected ? (
@@ -110,7 +110,7 @@ export default function CalendarSettingsPage() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-medium">{t("icsHeading")}</h3>
+                <h2 className="font-medium">{t("icsHeading")}</h2>
                 {calendarsLoading ? (
                   <Skeleton className="h-5 w-16" />
                 ) : icsCount > 0 ? (
@@ -146,7 +146,7 @@ export default function CalendarSettingsPage() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-medium">{t("caldavHeading")}</h3>
+                <h2 className="font-medium">{t("caldavHeading")}</h2>
                 {calendarsLoading ? (
                   <Skeleton className="h-5 w-16" />
                 ) : caldavCount > 0 ? (

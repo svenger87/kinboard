@@ -111,7 +111,7 @@ export default function BringSettingsPage() {
 
   if (loadingSettings) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="relative z-10 max-w-2xl mx-auto">
           <PageHeader
             icon={ShoppingCart}
@@ -133,7 +133,7 @@ export default function BringSettingsPage() {
 
   return (
     <TooltipProvider>
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="relative z-10 max-w-2xl mx-auto">
           <PageHeader
             icon={ShoppingCart}
@@ -307,6 +307,7 @@ export default function BringSettingsPage() {
                       </p>
                     </div>
                     <Switch
+                      aria-label={t("autoSyncDescription")}
                       checked={settings?.autoSync ?? true}
                       onCheckedChange={(checked) => handleSettingChange("autoSync", checked)}
                     />
@@ -319,6 +320,7 @@ export default function BringSettingsPage() {
                       </p>
                     </div>
                     <Switch
+                      aria-label={t("twoWayDescription")}
                       checked={settings?.twoWaySync ?? true}
                       onCheckedChange={(checked) => handleSettingChange("twoWaySync", checked)}
                     />
@@ -331,6 +333,7 @@ export default function BringSettingsPage() {
                       </p>
                     </div>
                     <Switch
+                      aria-label={t("categoriesDescription")}
                       checked={settings?.syncCategories ?? true}
                       onCheckedChange={(checked) => handleSettingChange("syncCategories", checked)}
                     />

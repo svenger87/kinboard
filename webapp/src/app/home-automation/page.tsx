@@ -14,6 +14,7 @@ import {
   PowerOff,
   CircleDot,
   Zap,
+  WifiOff,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -73,7 +74,18 @@ export default function HausautomationPage() {
     data: entities = [],
     isLoading: loadingEntities,
     isFetching,
+    isError: entitiesError,
   } = useHomeAssistantEntityStates(entityIds, isConnected && entityIds.length > 0);
+
+  // With Home Assistant unreachable, every card degrades individually to
+  // "unavailable" — which is the right per-card behaviour, but it left the page
+  // showing five identical shrugs and no statement of the cause or route to a
+  // fix (audit KB-51). "All of them at once" means the integration is down.
+  const allUnavailable =
+    entityIds.length > 0 &&
+    entities.length > 0 &&
+    entities.every((e) => e.state === "unavailable");
+  const haUnreachable = entitiesError || allUnavailable;
 
   // Create a map for quick lookup
   const entityMap = useMemo(
@@ -118,7 +130,7 @@ export default function HausautomationPage() {
   // Show loading state
   if (loadingSettings || loadingDashboards) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="page-gradient" />
         <div className="relative z-10 max-w-6xl mx-auto flex flex-col gap-6">
           <motion.div
@@ -161,7 +173,7 @@ export default function HausautomationPage() {
   // Not connected state
   if (!isConnected) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="page-gradient" />
         <div className="relative z-10 max-w-6xl mx-auto flex flex-col gap-6">
           <motion.div
@@ -201,7 +213,7 @@ export default function HausautomationPage() {
   // No dashboards exist yet
   if (dashboards.length === 0) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="page-gradient" />
         <div className="relative z-10 max-w-6xl mx-auto flex flex-col gap-6">
           <motion.div
@@ -244,9 +256,25 @@ export default function HausautomationPage() {
 
   // Dashboard view
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="page-gradient" />
       <div className="relative z-10 max-w-6xl mx-auto flex flex-col gap-6">
+        {haUnreachable && !loadingEntities && (
+          <div role="alert" className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3">
+            <WifiOff className="size-5 shrink-0 text-warning" strokeWidth={1.75} aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-base font-semibold">{t("unreachableTitle")}</p>
+              <p className="text-sm text-muted-foreground">{t("unreachableBody")}</p>
+            </div>
+            <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+              {t("unreachableRetry")}
+            </Button>
+            <Button variant="ghost" asChild>
+              <Link href="/settings/homeassistant">{t("unreachableSettings")}</Link>
+            </Button>
+          </div>
+        )}
+
         <PageHeader
           icon={Home}
           title={t("title")}
@@ -368,7 +396,7 @@ export default function HausautomationPage() {
                     </div>
                   )}
                   {otherEntities.length > 0 && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 text-sm text-blue-500">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-state-cool/10 text-sm text-state-cool">
                       <CircleDot className="size-3.5" />
                       {t("statusOther", { count: otherEntities.length })}
                     </div>

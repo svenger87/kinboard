@@ -530,7 +530,7 @@ export default function RoomsSettingsPage() {
   };
 
   return (
-    <main id="main-content" className="min-h-screen bg-background text-foreground safe-area-inset">
+    <main id="main-content" className="min-h-page bg-background text-foreground safe-area-inset">
       {/* Header */}
       <header className="sticky top-[env(safe-area-inset-top,0px)] z-50 -mx-4 px-4 bg-background border-b border-border/50">
         <div className="flex items-center gap-4 py-4">
@@ -565,6 +565,7 @@ export default function RoomsSettingsPage() {
               </p>
             </div>
             <Switch
+              aria-label={t("showUnassignedDescription")}
               checked={roomsConfig.show_unassigned}
               onCheckedChange={(checked) =>
                 updateRoomsSettings.mutate({ show_unassigned: checked })

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { personText } from "@/lib/person-color";
 
 export interface TodayStripPillProps {
   time: string;
@@ -16,7 +17,9 @@ export function TodayStripPill({ time, title, color, className }: TodayStripPill
         className
       )}
     >
-      <span className="text-sm font-bold tabular-nums" style={{ color }}>
+      {/* Raw person colour as text on a card — one of three different
+          person-colour text strategies in the same design system (KB-09). */}
+      <span className="text-sm font-bold tabular-nums" style={{ color: personText(color) }}>
         {time}
       </span>
       <span className="truncate text-sm font-medium">{title}</span>

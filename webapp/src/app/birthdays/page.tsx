@@ -365,7 +365,7 @@ export default function BirthdaysPage() {
 
   return (
     <TooltipProvider>
-      <main id="main-content" className="min-h-screen p-4 md:p-8 safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 md:p-8 safe-area-inset">
         {/* Background gradient */}
         <div className="page-gradient" />
         <div className="relative z-10 max-w-6xl mx-auto">
@@ -540,7 +540,7 @@ export default function BirthdaysPage() {
                     <div className="flex items-center gap-3 mb-3">
                       <Calendar className="size-4 text-muted-foreground" />
                       <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        {t("yearOverview")}
+                        {t("monthOverview")}
                       </span>
                     </div>
                     <div className="flex gap-1 sm:gap-1.5 overflow-x-auto scrollbar-hide">
@@ -558,7 +558,7 @@ export default function BirthdaysPage() {
                           <Tooltip key={month}>
                             <TooltipTrigger asChild>
                               <div className="flex-1 min-w-[34px] flex flex-col items-center gap-1.5">
-                                <span className={`text-[10px] sm:text-xs font-medium ${
+                                <span className={`text-3xs sm:text-xs font-medium ${
                                   isCurrentMonth ? "text-primary" : "text-muted-foreground/60"
                                 }`}>
                                   {monthsShort[month]}
@@ -593,7 +593,7 @@ export default function BirthdaysPage() {
                                     );
                                   })}
                                   {birthdaysInMonth.length > 4 && (
-                                    <span className="text-[8px] text-muted-foreground">+{birthdaysInMonth.length - 4}</span>
+                                    <span className="text-3xs text-muted-foreground">+{birthdaysInMonth.length - 4}</span>
                                   )}
                                 </div>
                               </div>

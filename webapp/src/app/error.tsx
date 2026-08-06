@@ -90,7 +90,7 @@ export default function Error({
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-page flex items-center justify-center p-4 relative overflow-hidden">
       <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-destructive/5 pointer-events-none" />
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, hsl(var(--destructive) / 0.08) 0%, transparent 70%)" }} />
 

@@ -216,7 +216,7 @@ export default function RecipesPage() {
   if (isLoading) {
     return (
       <TooltipProvider>
-        <main id="main-content" className="min-h-screen relative overflow-hidden">
+        <main id="main-content" className="min-h-page relative overflow-hidden">
           <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-7xl mx-auto safe-area-inset">
             <PageHeader
@@ -251,7 +251,7 @@ export default function RecipesPage() {
   if (error) {
     return (
       <TooltipProvider>
-        <main id="main-content" className="min-h-screen relative overflow-hidden">
+        <main id="main-content" className="min-h-page relative overflow-hidden">
           <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-7xl mx-auto safe-area-inset">
             <Card className="p-8">
@@ -269,7 +269,7 @@ export default function RecipesPage() {
 
   return (
     <TooltipProvider>
-      <main id="main-content" className="min-h-screen relative overflow-hidden">
+      <main id="main-content" className="min-h-page relative overflow-hidden">
         {/* Background */}
         <div className="page-gradient" />
 
@@ -418,7 +418,7 @@ export default function RecipesPage() {
                   {/* View Mode Toggle */}
                   <div className="flex border rounded-lg">
                     <Button
-                      variant={viewMode === "grid" ? "secondary" : "ghost"}
+                      variant={viewMode === "grid" ? "outline" : "ghost"}
                       size="icon"
                       className="size-9 rounded-r-none"
                       onClick={() => setViewMode("grid")}
@@ -428,7 +428,7 @@ export default function RecipesPage() {
                       <Grid3X3 className="size-4" />
                     </Button>
                     <Button
-                      variant={viewMode === "list" ? "secondary" : "ghost"}
+                      variant={viewMode === "list" ? "outline" : "ghost"}
                       size="icon"
                       className="size-9 rounded-l-none"
                       onClick={() => setViewMode("list")}
@@ -668,8 +668,16 @@ function RecipeCard({
               </div>
             )}
 
-            {/* Gradient overlay for text readability */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            {/* Gradient overlay for text readability. The lower stop is /90
+                rather than /80: at /80 the title measured 4.39:1 against the
+                light-mode placeholder — just under the 4.5:1 it needs at
+                16px/600 — and a pale photograph behaves the same way. The
+                `text-shadow-sm` that used to sit on the title was the intended
+                safety net, but Tailwind ships no text-shadow utility and this
+                project registers no plugin providing one, so it never rendered
+                (audit KB-11). The scrim is now the only thing holding this up,
+                so it carries the margin. */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
 
             {/* Favorite Button */}
             <button
@@ -689,7 +697,7 @@ function RecipeCard({
             {/* Source badge */}
             {recipe.source_domain && (
               <div className="absolute top-3 left-3">
-                <Badge variant="secondary" className="text-[10px] border-0 bg-black/55 text-white/90">
+                <Badge variant="secondary" className="text-3xs border-0 bg-black/55 text-white/90">
                   <ExternalLink className="size-2.5 mr-1" />
                   {recipe.source_domain}
                 </Badge>
@@ -698,24 +706,24 @@ function RecipeCard({
 
             {/* Title + meta overlaid on image bottom */}
             <div className="absolute bottom-0 left-0 right-0 p-4">
-              <h3 className="font-semibold text-white text-shadow-sm line-clamp-2 leading-tight">
+              <h2 className="font-semibold text-white line-clamp-2 leading-tight">
                 {recipe.title}
-              </h3>
+              </h2>
               <div className="flex items-center gap-2.5 mt-2">
                 {recipe.total_time_minutes && (
-                  <span className="flex items-center gap-1 text-xs text-white/70">
+                  <span className="flex items-center gap-1 text-xs text-white/85">
                     <Clock className="size-3" />
                     {formatTime(recipe.total_time_minutes)}
                   </span>
                 )}
                 {recipe.servings && (
-                  <span className="flex items-center gap-1 text-xs text-white/70">
+                  <span className="flex items-center gap-1 text-xs text-white/85">
                     <Users className="size-3" />
                     {recipe.servings}
                   </span>
                 )}
                 {recipe.difficulty && (
-                  <Badge className={`${difficulty.bg} ${difficulty.text} border-0 text-[10px] py-0 h-5`}>
+                  <Badge className={`${difficulty.bg} ${difficulty.text} border-0 text-3xs py-0 h-5`}>
                     {difficultyLabels[recipe.difficulty] || recipe.difficulty}
                   </Badge>
                 )}
@@ -780,9 +788,9 @@ function RecipeListItem({
             {/* Content */}
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
+                <h2 className="font-semibold truncate group-hover:text-primary transition-colors">
                   {recipe.title}
-                </h3>
+                </h2>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={(e) => {

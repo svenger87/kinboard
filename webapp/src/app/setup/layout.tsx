@@ -10,7 +10,7 @@ export default function SetupLayout({ children }: { children: React.ReactNode })
   const t = useTranslations("setup");
 
   return (
-    <main className="min-h-screen flex flex-col safe-area-inset relative">
+    <main className="min-h-page flex flex-col safe-area-inset relative">
       <div className="page-gradient" />
       {/* flex-wrap: the wordmark plus the locale pills and a long "exit"
           label (fr: "Quitter l'installation") don't fit one 390px row and
