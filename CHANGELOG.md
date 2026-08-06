@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.6.9] - 2026-08-06
+
 ### Security
 - **The database moves up to the current 15.x.** It had been pinned to a build from early 2023 and was thirteen point releases behind, each of which carries upstream PostgreSQL fixes. Same major version, so nothing about your data changes and there is no conversion step — it starts up on exactly the files it was already using.
 
@@ -572,7 +574,8 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.6.8...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.6.9...HEAD
+[1.6.9]: https://github.com/svenger87/kinboard/compare/v1.6.8...v1.6.9
 [1.6.8]: https://github.com/svenger87/kinboard/compare/v1.6.7...v1.6.8
 [1.6.7]: https://github.com/svenger87/kinboard/compare/v1.6.6...v1.6.7
 [1.6.6]: https://github.com/svenger87/kinboard/compare/v1.6.5...v1.6.6
