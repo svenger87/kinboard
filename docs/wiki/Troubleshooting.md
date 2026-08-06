@@ -211,11 +211,52 @@ If the cookie is missing, you'll be on `/join` and creating a new family looks l
 
 ### `pg_dump` errors with permission denied
 
-The Postgres container runs as user `postgres`. `pg_dump` needs to run inside the container or with credentials:
+```
+pg_dump: error: query failed: ERROR:  permission denied for table feature_flags
+pg_dump: detail: Query was: LOCK TABLE _realtime.feature_flags IN ACCESS SHARE MODE
+```
+
+You're dumping as `postgres`, which is **not** a superuser in the Supabase
+image — `supabase_admin` is. The `_realtime` schema is split between the two
+owners, and `pg_dump` takes an `ACCESS SHARE` lock on every table, so it aborts
+on the first one `postgres` doesn't own. Dump as `supabase_admin` instead:
 
 ```bash
-docker exec -t kinboard-db pg_dump -U postgres -F c postgres > /backups/kinboard.pgdump
+docker exec kinboard-db pg_dump -U supabase_admin -F c postgres > /backups/kinboard.pgdump
 ```
+
+The same applies to `pg_dumpall`.
+
+Which tables sit under which owner changes with the realtime image version, so
+this can appear after a stack upgrade on a setup that had been backing up fine
+for months.
+
+**Check any backups taken since your last upgrade.** The failure is quiet: the
+dump aborts, but the redirect has already created the file, leaving a couple of
+hundred bytes that looks like a backup until you need it.
+
+### A backup is the right size but won't restore
+
+```
+pg_restore: error: input file does not appear to be a valid archive
+```
+
+If the dump was taken with `docker exec -t`, that's the cause. `-F c` is a
+binary format and `-t` allocates a TTY, which rewrites line endings in the
+stream and corrupts the archive. The damage is invisible by size — a mangled
+dump comes out *larger* than a correct one, so it passes every "is the file
+plausible" check.
+
+Drop the `-t`. Use `-i` only when you actually need to pipe something in, as
+`pg_restore` does:
+
+```bash
+docker exec -i kinboard-db pg_restore -l < /backups/kinboard.pgdump | head
+```
+
+That prints a table of contents for a good dump and errors on a bad one, and is
+worth running on every backup — it catches both this and the permission failure
+above.
 
 ## When all else fails
 
