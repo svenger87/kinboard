@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sun, Battery, Home, Zap, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -98,6 +98,21 @@ export function EnergyFlow({
 }: EnergyFlowProps) {
   const t = useTranslations("homeAutomation.charts");
 
+  // The dashes march only while the numbers are actually moving. On an
+  // always-on kitchen display, perpetual motion in the corner is the kind of
+  // thing that stops being informative and starts being a tic (audit KB-54).
+  // A settled flow keeps the dashed paths — direction is still readable — but
+  // stops animating them after a short quiet period.
+  const flowSignature = [solarPower, batteryPower, gridPower, homePower]
+    .map((v) => Math.round(v / 25))
+    .join(",");
+  const [flowing, setFlowing] = useState(true);
+  useEffect(() => {
+    setFlowing(true);
+    const timer = setTimeout(() => setFlowing(false), 30_000);
+    return () => clearTimeout(timer);
+  }, [flowSignature]);
+
   // Calculate active flows and their power levels
   const activeFlows = useMemo(() => {
     const flows: Record<string, { active: boolean; power: number; color: string }> = {};
@@ -171,7 +186,9 @@ export function EnergyFlow({
   );
 
   return (
-    <div className={cn("w-full max-w-md mx-auto", className)}>
+    <div className={// Steps up once it has the card to itself. A 200x228 viewBox does not
+      // want to be full-bleed, but max-w-md left most of a wide card empty.
+      cn("w-full max-w-md lg:max-w-lg xl:max-w-xl mx-auto", className)} data-flowing={flowing ? "true" : "false"}>
       <svg
         viewBox="0 0 200 228"
         className="w-full"

@@ -174,25 +174,30 @@ INSERT INTO public.birthdays (family_id, name, date, notify_days_before, person_
      7, NULL);
 
 -- =========================================================================
--- Shopping list (mix of categories + checked state)
+-- Shopping list
+-- Categories MUST use the slugs in src/lib/shopping-categories.ts. The page
+-- does `CATEGORIES[item.category]` and renders `null` for anything it does not
+-- recognise, so English names here made every row disappear while the header
+-- still counted them — the demo's shopping list read "14 of 16 to buy" above
+-- an empty page. (mix of categories + checked state)
 -- =========================================================================
 INSERT INTO public.shopping_items (family_id, name, checked, category) VALUES
-    ('00000000-0000-0000-0000-000000000001', 'Milk',          false, 'Dairy'),
-    ('00000000-0000-0000-0000-000000000001', 'Yoghurt',       false, 'Dairy'),
-    ('00000000-0000-0000-0000-000000000001', 'Eggs',          false, 'Dairy'),
-    ('00000000-0000-0000-0000-000000000001', 'Bread',         false, 'Bakery'),
-    ('00000000-0000-0000-0000-000000000001', 'Croissants',    false, 'Bakery'),
-    ('00000000-0000-0000-0000-000000000001', 'Apples',        false, 'Produce'),
-    ('00000000-0000-0000-0000-000000000001', 'Carrots',       false, 'Produce'),
-    ('00000000-0000-0000-0000-000000000001', 'Spinach',       false, 'Produce'),
-    ('00000000-0000-0000-0000-000000000001', 'Onions',        true,  'Produce'),
-    ('00000000-0000-0000-0000-000000000001', 'Pasta',         false, 'Pantry'),
-    ('00000000-0000-0000-0000-000000000001', 'Olive oil',     false, 'Pantry'),
-    ('00000000-0000-0000-0000-000000000001', 'Coffee beans',  false, 'Pantry'),
-    ('00000000-0000-0000-0000-000000000001', 'Toilet paper',  false, 'Household'),
-    ('00000000-0000-0000-0000-000000000001', 'Dish soap',     true,  'Household'),
-    ('00000000-0000-0000-0000-000000000001', 'Chicken breast',false, 'Meat'),
-    ('00000000-0000-0000-0000-000000000001', 'Salmon',        false, 'Fish');
+    ('00000000-0000-0000-0000-000000000001', 'Milk',          false, 'milchprodukte'),
+    ('00000000-0000-0000-0000-000000000001', 'Yoghurt',       false, 'milchprodukte'),
+    ('00000000-0000-0000-0000-000000000001', 'Eggs',          false, 'milchprodukte'),
+    ('00000000-0000-0000-0000-000000000001', 'Bread',         false, 'backwaren'),
+    ('00000000-0000-0000-0000-000000000001', 'Croissants',    false, 'backwaren'),
+    ('00000000-0000-0000-0000-000000000001', 'Apples',        false, 'obst_gemuese'),
+    ('00000000-0000-0000-0000-000000000001', 'Carrots',       false, 'obst_gemuese'),
+    ('00000000-0000-0000-0000-000000000001', 'Spinach',       false, 'obst_gemuese'),
+    ('00000000-0000-0000-0000-000000000001', 'Onions',        true,  'obst_gemuese'),
+    ('00000000-0000-0000-0000-000000000001', 'Pasta',         false, 'vorrat'),
+    ('00000000-0000-0000-0000-000000000001', 'Olive oil',     false, 'vorrat'),
+    ('00000000-0000-0000-0000-000000000001', 'Coffee beans',  false, 'vorrat'),
+    ('00000000-0000-0000-0000-000000000001', 'Toilet paper',  false, 'haushalt'),
+    ('00000000-0000-0000-0000-000000000001', 'Dish soap',     true,  'haushalt'),
+    ('00000000-0000-0000-0000-000000000001', 'Chicken breast',false, 'fleisch'),
+    ('00000000-0000-0000-0000-000000000001', 'Salmon',        false, 'fleisch');
 
 -- =========================================================================
 -- Recipes (5 — covers Chefkoch-style imports + family classics)

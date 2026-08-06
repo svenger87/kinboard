@@ -445,10 +445,19 @@ export function FloatingLightsFab() {
 
   return (
     <>
-      {/* Floating Action Button */}
+      {/* A fixed button floats over whatever happens to be beneath it, and on a
+          390px phone that is the weather widget's wind speed and humidity —
+          60% and 40% of those readings covered at the top of the dashboard
+          (audit KB-72). No layout change can fix that while the button is
+          fixed: the content underneath changes as you scroll. So on phones it
+          stops floating and takes a tile in the widget grid, where it occupies
+          real space and can cover nothing. From `sm` up there is room for it
+          to float without landing on anything — the occlusion sweep found no
+          overlap at any wall or desktop viewport — so it stays a FAB there.
+          One component, two triggers, one sheet. */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed right-4 z-50 p-4 rounded-full bg-primary text-primary-foreground elev-md shadow-[0_0_20px_hsl(var(--primary)/0.3)] hover:elev-lg transition-all hover:scale-105 active:scale-95 fab-above-nav"
+        className="hidden sm:block fixed right-4 z-50 p-4 rounded-full bg-primary text-primary-foreground elev-md shadow-[0_0_20px_hsl(var(--primary)/0.3)] hover:elev-lg transition-all hover:scale-105 active:scale-95 fab-above-nav"
         aria-label={t("fabAria")}
         aria-expanded={isOpen}
         aria-controls="lights-control-panel"
@@ -459,6 +468,22 @@ export function FloatingLightsFab() {
             <span className="absolute -top-1 -right-1 size-3 bg-state-light rounded-full border-2 border-primary" />
           )}
         </div>
+      </button>
+
+      <button
+        onClick={() => setIsOpen(true)}
+        className="sm:hidden flex min-h-[56px] w-full items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left elev-sm transition-colors hover:bg-accent active:scale-[0.99]"
+        aria-label={t("fabAria")}
+        aria-expanded={isOpen}
+        aria-controls="lights-control-panel"
+      >
+        <span className="relative flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+          <Lightbulb className="size-5" />
+          {totalLightsOn > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 size-3 rounded-full border-2 border-primary bg-state-light" />
+          )}
+        </span>
+        <span className="min-w-0 font-medium">{t("fabAria")}</span>
       </button>
 
       {/* Bottom Sheet */}

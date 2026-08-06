@@ -53,7 +53,11 @@ export function EventPill({
   return (
     <span
       className={cn(
-        "flex items-center gap-1 truncate rounded-sm px-1.5 py-0.5 font-semibold",
+        // Tight horizontal padding: the larger type from KB-07 costs width, and
+        // at px-1.5 titles that previously fit began to clip ("Family movie
+        // night" needed 118px against 115px available). Trimming the padding
+        // and the icon gap buys back ~6px, which is the difference.
+        "flex items-center gap-0.5 truncate rounded-sm px-1 py-0.5 font-semibold",
         className
       )}
       style={{

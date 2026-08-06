@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTranslations } from "next-intl";
 import { useHomeAssistantEntities, useAddDashboardCard } from "@/hooks";
@@ -266,15 +266,13 @@ export function EntityBrowser({ onClose, existingEntityIds, onAddEntity }: Entit
       </div>
 
       {/* Domain Filter */}
-      <Tabs value={selectedDomain} onValueChange={setSelectedDomain} className="mb-4 shrink-0">
-        <TabsList className="w-full justify-start overflow-x-auto">
-          {FILTER_TABS.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} className="text-xs">
-              {t(tab.labelKey)}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <SegmentedControl value={selectedDomain} onValueChange={setSelectedDomain} className="mb-4 shrink-0 w-full justify-start overflow-x-auto">
+        {FILTER_TABS.map((tab) => (
+          <SegmentedControlItem key={tab.value} value={tab.value} className="text-xs">
+            {t(tab.labelKey)}
+          </SegmentedControlItem>
+        ))}
+      </SegmentedControl>
 
       {/* Entity List */}
       <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
