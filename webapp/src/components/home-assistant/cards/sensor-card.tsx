@@ -129,7 +129,7 @@ export function SensorCard({ card, entity }: SensorCardProps) {
           </div>
           <div className="flex items-center gap-1">
             {deviceLabel && (
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60">{deviceLabel}</span>
+              <span className="text-3xs uppercase tracking-wider text-muted-foreground/60">{deviceLabel}</span>
             )}
             <ChevronRight className="size-4 text-muted-foreground/40" />
           </div>

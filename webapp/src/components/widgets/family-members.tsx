@@ -279,14 +279,14 @@ function PersonDetailsDialog({ person, todos, events, onClose }: PersonDetailsDi
               style={{ backgroundColor: `${person.color}15` }}
             >
               <p className="text-lg font-semibold" style={{ color: person.color }}>{events.length}</p>
-              <p className="text-[11px] text-muted-foreground">{t("statEvents")}</p>
+              <p className="text-2xs text-muted-foreground">{t("statEvents")}</p>
             </div>
             <div
               className="flex-1 rounded-xl px-3 py-2 text-center"
               style={{ backgroundColor: `${person.color}15` }}
             >
               <p className="text-lg font-semibold" style={{ color: person.color }}>{todos.length}</p>
-              <p className="text-[11px] text-muted-foreground">{t("statTodos")}</p>
+              <p className="text-2xs text-muted-foreground">{t("statTodos")}</p>
             </div>
           </div>
         </div>

@@ -307,6 +307,7 @@ export default function BringSettingsPage() {
                       </p>
                     </div>
                     <Switch
+                      aria-label={t("autoSyncDescription")}
                       checked={settings?.autoSync ?? true}
                       onCheckedChange={(checked) => handleSettingChange("autoSync", checked)}
                     />
@@ -319,6 +320,7 @@ export default function BringSettingsPage() {
                       </p>
                     </div>
                     <Switch
+                      aria-label={t("twoWayDescription")}
                       checked={settings?.twoWaySync ?? true}
                       onCheckedChange={(checked) => handleSettingChange("twoWaySync", checked)}
                     />
@@ -331,6 +333,7 @@ export default function BringSettingsPage() {
                       </p>
                     </div>
                     <Switch
+                      aria-label={t("categoriesDescription")}
                       checked={settings?.syncCategories ?? true}
                       onCheckedChange={(checked) => handleSettingChange("syncCategories", checked)}
                     />

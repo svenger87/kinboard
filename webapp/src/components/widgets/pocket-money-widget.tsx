@@ -117,14 +117,14 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
         </p>
         {primary ? (
           <>
-            <p className="text-[10px] text-muted-foreground truncate">{primary.name}</p>
+            <p className="text-3xs text-muted-foreground truncate">{primary.name}</p>
             <Progress value={progress} className="h-1.5 mt-1" />
           </>
         ) : (
           nextAllowance && (
             // Only shown when no goal is competing for the line, so the
             // widget keeps its height on the dashboard grid.
-            <p className="text-[10px] text-muted-foreground truncate">
+            <p className="text-3xs text-muted-foreground truncate">
               {t("nextAllowanceShort", {
                 amount: formatCents(account.weekly_allowance_cents, account.currency),
                 days: daysUntil(nextAllowance),

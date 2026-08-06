@@ -523,6 +523,7 @@ export default function IcsSettingsPage() {
                   {t("isHolidaysLabel")}
                 </Label>
                 <Switch
+                  aria-label={t("isHolidaysLabel")}
                   id="ics-holidays"
                   checked={form.is_holidays}
                   onCheckedChange={(v) => setForm((f) => ({ ...f, is_holidays: v }))}
@@ -533,6 +534,7 @@ export default function IcsSettingsPage() {
                   {t("isWasteLabel")}
                 </Label>
                 <Switch
+                  aria-label={t("isWasteLabel")}
                   id="ics-waste"
                   checked={form.is_waste_collection}
                   onCheckedChange={(v) =>

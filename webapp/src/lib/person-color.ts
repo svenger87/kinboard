@@ -18,9 +18,43 @@ export function personStrongTint(hex: string, transparentPct = 84): string {
   return `color-mix(in srgb, ${hex}, transparent ${transparentPct}%)`;
 }
 
-/** Darkened text color (mix toward black) for legibility on a tinted bg. */
-export function personText(hex: string, blackPct = 18): string {
-  return `color-mix(in srgb, ${hex}, black ${blackPct}%)`;
+/**
+ * Person colour rendered as *text*, legible in both themes.
+ *
+ * This used to mix a fixed 18% toward black regardless of theme, which is
+ * exactly backwards in dark mode: it moved the text toward the background.
+ * Measured across the palette it landed at 2.1-3.4:1 on a dark card (audit
+ * KB-09). The mix target and amount now come from CSS variables that flip with
+ * the theme, so no component needs to know which theme is active.
+ *
+ * The amounts (38% toward black in light, 28% toward white in dark) were
+ * derived by computing the worst case across all ten palette colours against a
+ * 16% tint of the same hue; 34%/20% are the minimums that clear 4.5:1, and the
+ * shipped values carry headroom for custom colours outside the palette.
+ */
+export function personText(hex: string): string {
+  return `color-mix(in srgb, ${hex}, var(--person-text-mix) var(--person-text-amount))`;
+}
+
+/**
+ * Black or white, whichever is legible ON an opaque fill of `hex` — for text
+ * sitting directly on a person's colour, as avatar initials do.
+ *
+ * PersonAvatar hard-coded `text-white`, which measured 2.15:1 on the seeded
+ * amber and fails for every colour in the curated palette (audit KB-09).
+ * Choosing by relative luminance gives at worst 4.91:1 across the palette.
+ */
+export function personOn(hex: string): string {
+  const m = hex.trim().replace("#", "");
+  const full = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) || 0);
+  const lin = (v: number) => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  // contrast against black is (L+0.05)/0.05; against white 1.05/(L+0.05)
+  return (L + 0.05) / 0.05 >= 1.05 / (L + 0.05) ? "#000000" : "#ffffff";
 }
 
 /**

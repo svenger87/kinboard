@@ -146,7 +146,7 @@ export function DesktopNav() {
                 <Icon className="size-4 lg:size-5" strokeWidth={1.75} />
                 {badges[item.href] && !isActive && (
                   <span
-                    className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground px-1"
+                    className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-primary text-3xs font-bold text-primary-foreground px-1"
                     aria-label={tCommon("newEntriesAria", { count: badges[item.href] })}
                   >
                     {badges[item.href]}

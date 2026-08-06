@@ -400,6 +400,7 @@ export default function GoogleSettingsPage() {
                       </div>
                     </div>
                     <Switch
+                      aria-label={t("autoSyncDescription")}
                       checked={googleStatus?.auto_sync ?? false}
                       onCheckedChange={(checked) => updateAutoSync.mutate(checked)}
                       disabled={updateAutoSync.isPending}
@@ -558,6 +559,7 @@ export default function GoogleSettingsPage() {
                               </>
                             )}
                             <Switch
+                              aria-label={calendar.name}
                               checked={enabledCalendarIds.includes(calendar.id)}
                               onCheckedChange={() => handleToggleCalendar(calendar.id)}
                             />

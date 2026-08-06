@@ -61,6 +61,7 @@ export function SwitchControlItem({ roomEntity, entity }: SwitchControlItemProps
         </div>
 
         <Switch
+          aria-label={label}
           checked={isOn}
           onCheckedChange={handleToggle}
           disabled={isPending || isUnavailable}

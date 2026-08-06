@@ -697,7 +697,7 @@ function RecipeCard({
             {/* Source badge */}
             {recipe.source_domain && (
               <div className="absolute top-3 left-3">
-                <Badge variant="secondary" className="text-[10px] border-0 bg-black/55 text-white/90">
+                <Badge variant="secondary" className="text-3xs border-0 bg-black/55 text-white/90">
                   <ExternalLink className="size-2.5 mr-1" />
                   {recipe.source_domain}
                 </Badge>
@@ -723,7 +723,7 @@ function RecipeCard({
                   </span>
                 )}
                 {recipe.difficulty && (
-                  <Badge className={`${difficulty.bg} ${difficulty.text} border-0 text-[10px] py-0 h-5`}>
+                  <Badge className={`${difficulty.bg} ${difficulty.text} border-0 text-3xs py-0 h-5`}>
                     {difficultyLabels[recipe.difficulty] || recipe.difficulty}
                   </Badge>
                 )}

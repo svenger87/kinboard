@@ -558,7 +558,7 @@ export default function BirthdaysPage() {
                           <Tooltip key={month}>
                             <TooltipTrigger asChild>
                               <div className="flex-1 min-w-[34px] flex flex-col items-center gap-1.5">
-                                <span className={`text-[10px] sm:text-xs font-medium ${
+                                <span className={`text-3xs sm:text-xs font-medium ${
                                   isCurrentMonth ? "text-primary" : "text-muted-foreground/60"
                                 }`}>
                                   {monthsShort[month]}
@@ -593,7 +593,7 @@ export default function BirthdaysPage() {
                                     );
                                   })}
                                   {birthdaysInMonth.length > 4 && (
-                                    <span className="text-[8px] text-muted-foreground">+{birthdaysInMonth.length - 4}</span>
+                                    <span className="text-3xs text-muted-foreground">+{birthdaysInMonth.length - 4}</span>
                                   )}
                                 </div>
                               </div>

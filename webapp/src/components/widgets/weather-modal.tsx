@@ -737,7 +737,7 @@ function ClothingAdvisor({
             style={{ left: `${comfort.position}%`, backgroundColor: comfort.color }}
           />
         </div>
-        <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground/50">
+        <div className="flex justify-between mt-1.5 text-3xs text-muted-foreground/50">
           <span>{t("comfortScaleCold")}</span>
           <span>{t("comfortScalePleasant")}</span>
           <span>{t("comfortScaleHot")}</span>
@@ -841,7 +841,7 @@ function MapLegend({ layer }: { layer: MapLayer }) {
       </div>
       <div className="flex justify-between mt-1">
         {legend.labels.filter((_, i) => i % 2 === 0 || legend.labels.length <= 8).map((label, i) => (
-          <span key={i} className="text-[10px] text-muted-foreground">{label}</span>
+          <span key={i} className="text-3xs text-muted-foreground">{label}</span>
         ))}
       </div>
     </div>

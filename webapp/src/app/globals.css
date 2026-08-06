@@ -29,6 +29,16 @@
     /* Section labels. Deliberately darker than --muted-foreground: labels name
        the value beside them and must stay readable at 1-2m (audit KB-48). */
     --label-foreground: 35 12% 30%;
+
+    /* How a person's colour is adjusted when it is used as TEXT. personText()
+       in lib/person-color.ts mixes toward this target by this amount. Living in
+       CSS rather than JS means the direction flips with the theme without any
+       component needing to know the theme — the old fixed "18% toward black"
+       moved dark-mode text toward its own background (audit KB-09).
+       34% is the computed minimum to clear 4.5:1 across the palette; 38% ships
+       for headroom on custom colours. */
+    --person-text-mix: #000000;
+    --person-text-amount: 38%;
     --accent: 38 46% 91%;
     --accent-foreground: 33 15% 12%;
     --destructive: 8 57% 52%;
@@ -128,6 +138,10 @@
     --muted: 36 13% 15%;
     --muted-foreground: 38 12% 61%;
     --label-foreground: 38 16% 72%;
+    /* Toward white on a dark card, not black. 20% is the computed minimum;
+       28% ships for headroom. */
+    --person-text-mix: #ffffff;
+    --person-text-amount: 28%;
     --accent: 36 13% 15%;
     --accent-foreground: 38 42% 91%;
     --destructive: 10 72% 60%;
@@ -325,10 +339,31 @@
   @media (min-width: 1280px), (min-height: 1400px) {
     .text-kiosk-label { font-size: 0.9375rem; }
   }
+
 }
 
 /* Custom Utilities */
 @layer utilities {
+  /* Kiosk density step (audit KB-56).
+     ---------------------------------
+     Deliberately in @layer utilities, not components: these OVERRIDE Tailwind's
+     own generated `text-xs`, and the components layer is emitted first, so a
+     copy living there lost the cascade and the step silently did nothing.
+
+     Type sizes were identical at 390px and 2560px, so the smallest labels were
+     sized for a phone held at arm's length and then hung on a wall. Rather than
+     rescale everything — which would destabilise every layout — this raises the
+     floor on the three smallest steps, which is where the illegibility actually
+     was: 9-12px badges, counts, weekday headers and week numbers.
+
+     The rule is: no load-bearing text below 13px on a wall display. */
+  @media (min-width: 1280px), (min-height: 1400px) {
+    .text-3xs { font-size: 0.8125rem; line-height: 1.15rem; }
+    .text-2xs { font-size: 0.875rem;  line-height: 1.25rem; }
+    .text-xs  { font-size: 0.8125rem; line-height: 1.15rem; }
+  }
+
+
   .text-balance {
     text-wrap: balance;
   }
@@ -390,12 +425,16 @@
     display: none;
   }
 
-  /* Hide body scrollbar globally - kiosk display, no one needs it */
-  html, body {
+  /* Hide the body scrollbar on KIOSK DEVICES ONLY.
+     This used to apply everywhere. "no one needs it" is true of a wall panel
+     with no pointer; it is not true of a desktop browser or a phone, where it
+     removed the only cue that a page scrolls at all — while nearly every page
+     was scrollable by at least one nav height (audit KB-35, KB-21). */
+  html[data-kiosk] , html[data-kiosk] body {
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
   }
-  html::-webkit-scrollbar, body::-webkit-scrollbar {
+  html[data-kiosk]::-webkit-scrollbar, html[data-kiosk] body::-webkit-scrollbar {
     display: none !important;
   }
 

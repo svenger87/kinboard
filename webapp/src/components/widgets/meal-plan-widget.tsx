@@ -134,7 +134,7 @@ export function MealPlanWidget({ className = "" }: MealPlanWidgetProps) {
         headerRight={
           <>
             {todayMeals.length > 0 && (
-              <Badge variant="neutral" className="h-5 px-1.5 py-0 text-[10px] font-medium">
+              <Badge variant="neutral" className="h-5 px-1.5 py-0 text-3xs font-medium">
                 {todayMeals.length}
               </Badge>
             )}
