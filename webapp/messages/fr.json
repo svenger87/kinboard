@@ -15,7 +15,8 @@
     "serverUnreachableTitle": "Impossible de joindre le serveur Kinboard",
     "serverUnreachableBody": "L'application ne peut pas charger les données de votre famille. Vérifiez que le serveur Kinboard fonctionne et que cet appareil peut le joindre, puis réessayez.",
     "serverUnreachableRetry": "Réessayer",
-    "serverUnreachableAutoRetry": "Nouvelle vérification automatique…"
+    "serverUnreachableAutoRetry": "Nouvelle vérification automatique…",
+    "loading": "Chargement…"
   },
   "components": {
     "back": "Retour",
@@ -2870,7 +2871,11 @@
       "iconClimate": "Climatisation",
       "iconGarden": "Jardin",
       "iconEnergy": "Énergie"
-    }
+    },
+    "unreachableTitle": "Home Assistant injoignable",
+    "unreachableBody": "Rien n'est contrôlable ici tant que la connexion n'est pas rétablie.",
+    "unreachableRetry": "Réessayer",
+    "unreachableSettings": "Vérifier la connexion"
   },
   "dashboard": {
     "ariaClock": "Horloge et membres de la famille",

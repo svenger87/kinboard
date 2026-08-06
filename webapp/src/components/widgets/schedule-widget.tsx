@@ -174,20 +174,18 @@ export function ScheduleWidget({
   // No child configured
   if (!personId) {
     return (
-      <Card className={`accent-border-top h-full ${className}`}>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 font-display text-lg font-semibold">
-            <span className="icon-badge">
-              <GraduationCap className="size-5 text-primary" strokeWidth={1.75} />
-            </span>
-            {t("title")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-4">
-            <GraduationCap className="size-8 mx-auto mb-2 text-primary/20" />
-            <p className="text-muted-foreground text-sm">{t("noChildTitle")}</p>
-            <p className="text-muted-foreground text-xs mt-1">{t("noChildDescription")}</p>
+      // Deliberately NOT h-full. An unconfigured widget was taking a full grid
+      // cell in prime position on the wall, and because a taller neighbour set
+      // the row height it also left a ~500x230px hole beside it (audit KB-06).
+      // A compact card states the same thing and lets the grid pack around it.
+      <Card className={`accent-border-top ${className}`}>
+        <CardContent className="flex items-center gap-3 p-[18px]">
+          <span className="icon-badge shrink-0">
+            <GraduationCap className="size-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <p className="font-display text-base font-semibold leading-tight">{t("title")}</p>
+            <p className="text-xs text-muted-foreground">{t("noChildTitle")}</p>
           </div>
         </CardContent>
       </Card>

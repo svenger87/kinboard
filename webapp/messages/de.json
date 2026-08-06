@@ -15,7 +15,8 @@
     "serverUnreachableTitle": "Kinboard-Server nicht erreichbar",
     "serverUnreachableBody": "Die App kann deine Familiendaten nicht laden. Prüfe, ob der Kinboard-Stack läuft und dieses Gerät ihn erreichen kann, und versuche es dann erneut.",
     "serverUnreachableRetry": "Erneut versuchen",
-    "serverUnreachableAutoRetry": "Wird automatisch erneut versucht …"
+    "serverUnreachableAutoRetry": "Wird automatisch erneut versucht …",
+    "loading": "Wird geladen…"
   },
   "components": {
     "back": "Zurück",
@@ -2870,7 +2871,11 @@
       "iconClimate": "Klima",
       "iconGarden": "Garten",
       "iconEnergy": "Energie"
-    }
+    },
+    "unreachableTitle": "Home Assistant nicht erreichbar",
+    "unreachableBody": "Bis die Verbindung zurück ist, lässt sich hier nichts steuern.",
+    "unreachableRetry": "Erneut versuchen",
+    "unreachableSettings": "Verbindung prüfen"
   },
   "dashboard": {
     "ariaClock": "Uhr und Familienmitglieder",

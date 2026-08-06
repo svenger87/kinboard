@@ -284,8 +284,17 @@ export function useHomeAssistantEntityStates(entityIds: string[], isConnected?: 
         const data = await response.json();
         return data.entities;
       } catch (error) {
+        // Deliberately rethrown. This used to log and return [], which makes an
+        // unreachable Home Assistant indistinguishable from one that simply has
+        // no entities: `isError` stayed false and every consumer saw a
+        // successful empty result. That is the same failure-reads-as-empty
+        // shape as the dashboard's (audit KB-05), and it is why /home-automation
+        // could show five "unavailable" cards while never saying why (KB-51).
+        //
+        // Callers already default the data to [] at the destructuring site, so
+        // rendering is unaffected — they simply gain the ability to know.
         console.warn("[HomeAssistant] Entity states fetch error:", error);
-        return [];
+        throw error instanceof Error ? error : new Error("Failed to fetch entity states");
       }
     },
     enabled: !!family?.id && entityIds.length > 0 && isConnected !== false,

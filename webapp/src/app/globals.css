@@ -425,12 +425,16 @@
     display: none;
   }
 
-  /* Hide body scrollbar globally - kiosk display, no one needs it */
-  html, body {
+  /* Hide the body scrollbar on KIOSK DEVICES ONLY.
+     This used to apply everywhere. "no one needs it" is true of a wall panel
+     with no pointer; it is not true of a desktop browser or a phone, where it
+     removed the only cue that a page scrolls at all — while nearly every page
+     was scrollable by at least one nav height (audit KB-35, KB-21). */
+  html[data-kiosk] , html[data-kiosk] body {
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
   }
-  html::-webkit-scrollbar, body::-webkit-scrollbar {
+  html[data-kiosk]::-webkit-scrollbar, html[data-kiosk] body::-webkit-scrollbar {
     display: none !important;
   }
 

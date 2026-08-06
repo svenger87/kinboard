@@ -12,6 +12,7 @@ import {
 } from "@/hooks/use-supabase-queries";
 import { Button } from "@/components/ui/button";
 import { Loader2, ServerOff } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const PUBLIC_PATHS = ["/join"];
 
@@ -263,9 +264,38 @@ export function AuthGuard({ children }: AuthGuardProps) {
         </div>
       );
     }
+    // A blank screen with one 24px spinner was the entire first paint of a
+    // wall display while data loaded — no clock, no layout, no branding, and on
+    // a slow self-hosted stack it could sit there for seconds (audit KB-39).
+    // The shell that follows is the dashboard's actual shape, so the page grows
+    // into it rather than replacing it.
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <div className="min-h-screen bg-background" aria-busy="true" aria-live="polite">
+        <div className="page-gradient pointer-events-none fixed inset-0 z-0" />
+        <div className="relative z-10 flex min-h-screen flex-col p-4 md:p-6 lg:p-8">
+          <span className="sr-only">{t("loading")}</span>
+
+          {/* Clock block — the hero the dashboard opens on */}
+          <section className="flex flex-1 flex-col items-center justify-center">
+            <Skeleton className="h-[96px] w-[280px] rounded-2xl md:h-[130px] md:w-[420px]" />
+            <Skeleton className="mt-4 h-4 w-48" />
+            <div className="mt-10 flex items-center gap-4 md:gap-6">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="flex flex-col items-center gap-2">
+                  <Skeleton className="size-16 rounded-full" />
+                  <Skeleton className="h-3 w-12" />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Widget grid — same columns the real one uses, so nothing jumps */}
+          <section className="mt-auto grid w-[min(96vw,2200px)] grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-4 portrait:lg:grid-cols-2">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-48 rounded-2xl" />
+            ))}
+          </section>
+        </div>
       </div>
     );
   };

@@ -15,7 +15,8 @@
     "serverUnreachableTitle": "Can't reach the Kinboard server",
     "serverUnreachableBody": "The app can't load your family data. Check that the Kinboard stack is running and that this device can reach it, then try again.",
     "serverUnreachableRetry": "Try again",
-    "serverUnreachableAutoRetry": "Checking again automatically…"
+    "serverUnreachableAutoRetry": "Checking again automatically…",
+    "loading": "Loading…"
   },
   "components": {
     "back": "Back",
@@ -2870,7 +2871,11 @@
       "iconClimate": "Climate",
       "iconGarden": "Garden",
       "iconEnergy": "Energy"
-    }
+    },
+    "unreachableTitle": "Home Assistant is unreachable",
+    "unreachableBody": "Nothing here can be controlled until the connection is back.",
+    "unreachableRetry": "Try again",
+    "unreachableSettings": "Check connection"
   },
   "dashboard": {
     "ariaClock": "Clock and family members",
