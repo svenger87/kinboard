@@ -239,6 +239,8 @@ notification_preferences
 - **No SSR data fetching outside API routes.** Pages are client-rendered; API routes do server-side work where needed.
 - **No telemetry, no analytics, no error reporting.** Self-hosted means self-hosted.
 
+  Usage figures in [`stats/`](https://github.com/svenger87/kinboard/tree/main/stats) are not an exception to this. They are GitHub's own traffic numbers about github.com — clones, views, stars — snapshotted daily by a workflow because the API discards them after 14 days. Nothing is collected from running installations, which is also why those numbers can show interest but never install count.
+
 ## Where to next
 
 - [Self-hosting](Self-hosting) — production deployment specifics

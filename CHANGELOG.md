@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Usage figures are now archived instead of evaporating.** GitHub reports how often the repository is cloned and viewed, but only ever for the last 14 days — every day that passed without someone writing the numbers down was a day of data gone for good. A daily workflow now snapshots clones, views, stars, forks and watchers into `stats/traffic.json` and renders a readable summary in `stats/README.md`. This is not telemetry and does not change what Kinboard installs send anywhere, which is still nothing: these are GitHub's own numbers about github.com, read back by the repository owner. It follows that they can show whether interest is growing but can never show how many installations are running — a clone is not an install.
+
 ### Fixed
 - **Times and counts no longer switch to a different typeface.** Clock times in the calendar, the school timetable and the pack list, along with dates on birthdays, note timestamps and shopping quantities, were all being drawn in the monospaced font used for join codes — so those areas looked like they belonged to a different app. They now use the same typeface as everything around them, and the digits still line up. Monospace stays where it earns its place: join codes, PINs, keyboard shortcuts, addresses and device ids. The small uppercase headings scattered through settings, shopping, birthdays and recipes now share one definition instead of six near-identical copies that had drifted apart in size and letter-spacing.
 
