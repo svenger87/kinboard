@@ -500,6 +500,7 @@ function Go2rtcConfigForm() {
               <div className="flex items-center justify-between">
                 <Label htmlFor="auth-enabled">{t("authLabel")}</Label>
                 <Switch
+                  aria-label={t("authLabel")}
                   id="auth-enabled"
                   checked={authEnabled}
                   onCheckedChange={setAuthEnabled}

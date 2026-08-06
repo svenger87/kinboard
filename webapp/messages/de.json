@@ -1312,7 +1312,9 @@
       "presenceHelpStep5Body": "In <bold>Einstellungen → Bildschirmschoner</bold> kannst du festlegen:",
       "presenceHelpStep5BulletMode": "<bold>Steuerungsmodus:</bold> Nur Bildschirmschoner oder Display aus (DPMS)",
       "presenceHelpStep5BulletDelay": "<bold>Verzögerung:</bold> Wartezeit nach letzter Erkennung (10s - 5min)",
-      "presenceHelpTip": "<bold>Tipp:</bold> Der Sensor meldet alle ~1 Sekunde seinen Status. Bei „Keine Verbindung“ in den Einstellungen prüfe, ob das Skript läuft und die richtige Geräte-ID verwendet."
+      "presenceHelpTip": "<bold>Tipp:</bold> Der Sensor meldet alle ~1 Sekunde seinen Status. Bei „Keine Verbindung“ in den Einstellungen prüfe, ob das Skript läuft und die richtige Geräte-ID verwendet.",
+      "kioskToggleAria": "Kiosk-Modus für {name}",
+      "presenceToggleAria": "Anwesenheitssensor für {name}"
     },
     "cameras": {
       "title": "Kameras",
@@ -2426,7 +2428,8 @@
     },
     "light": {
       "brightness": "Helligkeit",
-      "colorTemp": "Farbtemperatur"
+      "colorTemp": "Farbtemperatur",
+      "toggleAria": "{name} schalten"
     },
     "fab": {
       "loading": "Laden…",
@@ -3286,7 +3289,8 @@
       "birthDateLabel": "Geburtsdatum",
       "roleParent": "Elternteil",
       "roleChild": "Kind",
-      "ageYears": "{count, plural, one {# Jahr} other {# Jahre}}"
+      "ageYears": "{count, plural, one {# Jahr} other {# Jahre}}",
+      "isChildAria": "{name} ist ein Kind"
     },
     "calendar": {
       "title": "Kalender hinzufügen",

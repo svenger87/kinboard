@@ -312,6 +312,7 @@ export default function DevicesSettingsPage() {
                           <TooltipTrigger asChild>
                             <div className="flex items-center">
                               <Switch
+                                aria-label={t("kioskToggleAria", { name: device.name })}
                                 checked={device.is_kiosk}
                                 onCheckedChange={(checked) => handleToggleKiosk(device.id, checked)}
                                 disabled={updateDevice.isPending}
@@ -333,6 +334,7 @@ export default function DevicesSettingsPage() {
                             <div className="flex items-center gap-1">
                               <Radar className={`size-4 ${device.has_presence_sensor ? "text-success" : "text-muted-foreground"}`} />
                               <Switch
+                                aria-label={t("presenceToggleAria", { name: device.name })}
                                 checked={device.has_presence_sensor}
                                 onCheckedChange={(checked) => handleTogglePresenceSensor(device.id, checked)}
                                 disabled={updateDevice.isPending}

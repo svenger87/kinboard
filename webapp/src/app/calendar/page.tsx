@@ -640,6 +640,7 @@ export default function CalendarPage() {
                     <div className="flex items-center justify-between">
                       <Label htmlFor="allDay">{t("fieldAllDay")}</Label>
                       <Switch
+                        aria-label={t("fieldAllDay")}
                         id="allDay"
                         checked={newEvent.allDay}
                         onCheckedChange={(checked) =>
@@ -1420,6 +1421,7 @@ export default function CalendarPage() {
                 <div className="flex items-center justify-between">
                   <Label htmlFor="edit-allDay">{t("fieldAllDay")}</Label>
                   <Switch
+                    aria-label={t("fieldAllDay")}
                     id="edit-allDay"
                     checked={editForm.allDay}
                     onCheckedChange={(checked) =>

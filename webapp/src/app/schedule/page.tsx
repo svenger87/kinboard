@@ -114,6 +114,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PersonAvatar } from "@/components/person-avatar";
 import { ChecklistItem } from "@/components/checklist-item";
 import { ErrorState } from "@/components/error-state";
+import { personText } from "@/lib/person-color";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { useRouter } from "next/navigation";
@@ -531,7 +532,7 @@ export default function SchedulePage() {
                           className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm font-medium"
                           style={{
                             backgroundColor: `${getSubjectColor(currentLesson.subject)}20`,
-                            color: getSubjectColor(currentLesson.subject),
+                            color: personText(getSubjectColor(currentLesson.subject)),
                           }}
                         >
                           {(() => {
@@ -661,8 +662,8 @@ export default function SchedulePage() {
                                   borderLeft: `3px solid ${color}`,
                                 }}
                               >
-                                <SubjectIcon className="size-4 shrink-0" strokeWidth={1.75} style={{ color }} />
-                                <span className="font-medium text-sm" style={{ color }}>
+                                <SubjectIcon className="size-4 shrink-0" strokeWidth={1.75} style={{ color: personText(color) }} />
+                                <span className="font-medium text-sm" style={{ color: personText(color) }}>
                                   {slot.subject}
                                 </span>
                                 {isCurrentPeriod && (
@@ -756,13 +757,13 @@ export default function SchedulePage() {
                                             <SubjectIcon
                                               className="size-3.5 shrink-0"
                                               strokeWidth={1.75}
-                                              style={{ color: getSubjectColor(slot.subject) }}
+                                              style={{ color: personText(getSubjectColor(slot.subject)) }}
                                             />
                                           );
                                         })()}
                                         <span
                                           className="font-medium text-sm truncate"
-                                          style={{ color: getSubjectColor(slot.subject) }}
+                                          style={{ color: personText(getSubjectColor(slot.subject)) }}
                                         >
                                           {slot.subject}
                                         </span>
@@ -833,7 +834,7 @@ export default function SchedulePage() {
                         color={reminder.color}
                         label={item}
                         meta={
-                          <span className="text-xs font-medium" style={{ color: reminder.color }}>
+                          <span className="text-xs font-medium" style={{ color: personText(reminder.color) }}>
                             {reminder.subject}
                           </span>
                         }
@@ -890,10 +891,10 @@ export default function SchedulePage() {
                         className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 elev-sm"
                         style={{ borderLeft: `3px solid ${color}` }}
                       >
-                        <span className="text-xs font-bold tabular-nums" style={{ color }}>
+                        <span className="text-xs font-bold tabular-nums" style={{ color: personText(color) }}>
                           {slot.start}
                         </span>
-                        <SubjectIcon className="size-4 shrink-0" strokeWidth={1.75} style={{ color }} />
+                        <SubjectIcon className="size-4 shrink-0" strokeWidth={1.75} style={{ color: personText(color) }} />
                         <span className="flex-1 text-sm font-semibold">{slot.subject}</span>
                       </motion.div>
                     );
@@ -935,8 +936,8 @@ export default function SchedulePage() {
                       className="flex items-center gap-3"
                     >
                       <div className="flex items-center gap-2 w-28 sm:w-36 shrink-0 min-w-0">
-                        <SubjectIcon className="size-3.5 shrink-0" style={{ color }} />
-                        <span className="text-xs font-medium truncate" style={{ color }}>
+                        <SubjectIcon className="size-3.5 shrink-0" style={{ color: personText(color) }} />
+                        <span className="text-xs font-medium truncate" style={{ color: personText(color) }}>
                           {stat.subject}
                         </span>
                       </div>
@@ -950,7 +951,7 @@ export default function SchedulePage() {
                         />
                         <span
                           className="absolute inset-y-0 flex items-center text-[10px] font-medium px-2"
-                          style={{ color }}
+                          style={{ color: personText(color) }}
                         >
                           {stat.count}×
                         </span>

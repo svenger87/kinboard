@@ -29,6 +29,16 @@
     /* Section labels. Deliberately darker than --muted-foreground: labels name
        the value beside them and must stay readable at 1-2m (audit KB-48). */
     --label-foreground: 35 12% 30%;
+
+    /* How a person's colour is adjusted when it is used as TEXT. personText()
+       in lib/person-color.ts mixes toward this target by this amount. Living in
+       CSS rather than JS means the direction flips with the theme without any
+       component needing to know the theme — the old fixed "18% toward black"
+       moved dark-mode text toward its own background (audit KB-09).
+       34% is the computed minimum to clear 4.5:1 across the palette; 38% ships
+       for headroom on custom colours. */
+    --person-text-mix: #000000;
+    --person-text-amount: 38%;
     --accent: 38 46% 91%;
     --accent-foreground: 33 15% 12%;
     --destructive: 8 57% 52%;
@@ -128,6 +138,10 @@
     --muted: 36 13% 15%;
     --muted-foreground: 38 12% 61%;
     --label-foreground: 38 16% 72%;
+    /* Toward white on a dark card, not black. 20% is the computed minimum;
+       28% ships for headroom. */
+    --person-text-mix: #ffffff;
+    --person-text-amount: 28%;
     --accent: 36 13% 15%;
     --accent-foreground: 38 42% 91%;
     --destructive: 10 72% 60%;

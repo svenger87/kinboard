@@ -1407,6 +1407,7 @@ function EnergyConfigForm() {
                 </div>
               </div>
               <Switch
+                aria-label={t("screensaverDescription")}
                 checked={config.show_on_screensaver ?? false}
                 onCheckedChange={(v) => updateField("show_on_screensaver", v)}
               />

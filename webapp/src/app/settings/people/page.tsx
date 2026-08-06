@@ -491,6 +491,7 @@ export default function PeopleSettingsPage() {
                     </p>
                   </div>
                   <Switch
+                    aria-label={t("isChildDescription")}
                     id="is-child"
                     checked={isChild}
                     onCheckedChange={setIsChild}
@@ -661,6 +662,7 @@ export default function PeopleSettingsPage() {
                               </p>
                             </div>
                             <Switch
+                              aria-label={t("isChildDescription")}
                               id="edit-is-child"
                               checked={isChild}
                               onCheckedChange={setIsChild}

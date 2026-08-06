@@ -1312,7 +1312,9 @@
       "presenceHelpStep5Body": "Dans <bold>Paramètres → Économiseur d'écran</bold> vous pouvez configurer :",
       "presenceHelpStep5BulletMode": "<bold>Mode de contrôle :</bold> Économiseur d'écran uniquement ou éteindre l'écran (DPMS)",
       "presenceHelpStep5BulletDelay": "<bold>Délai :</bold> Temps d'attente après la dernière détection (10s – 5min)",
-      "presenceHelpTip": "<bold>Astuce :</bold> Le capteur signale son état environ toutes les secondes. S'il affiche “Pas de connexion” dans les paramètres, vérifiez que le script s'exécute et utilise le bon ID d'appareil."
+      "presenceHelpTip": "<bold>Astuce :</bold> Le capteur signale son état environ toutes les secondes. S'il affiche “Pas de connexion” dans les paramètres, vérifiez que le script s'exécute et utilise le bon ID d'appareil.",
+      "kioskToggleAria": "Mode kiosque pour {name}",
+      "presenceToggleAria": "Capteur de présence pour {name}"
     },
     "cameras": {
       "title": "Caméras",
@@ -2426,7 +2428,8 @@
     },
     "light": {
       "brightness": "Luminosité",
-      "colorTemp": "Température de couleur"
+      "colorTemp": "Température de couleur",
+      "toggleAria": "Basculer {name}"
     },
     "fab": {
       "loading": "Chargement…",
@@ -3286,7 +3289,8 @@
       "birthDateLabel": "Date de naissance",
       "roleParent": "Parent",
       "roleChild": "Enfant",
-      "ageYears": "{count, plural, one {# an} other {# ans}}"
+      "ageYears": "{count, plural, one {# an} other {# ans}}",
+      "isChildAria": "{name} est un enfant"
     },
     "calendar": {
       "title": "Ajouter un calendrier",
