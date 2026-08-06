@@ -297,7 +297,7 @@ export default function ThemeSettingsPage() {
                       </p>
                     </div>
                   </div>
-                  <Switch checked={isDarkMode} onCheckedChange={handleDarkModeChange} />
+                  <Switch aria-label={t("darkModeLabel")} checked={isDarkMode} onCheckedChange={handleDarkModeChange} />
                 </div>
 
                 {/* 24h Format */}
@@ -312,6 +312,7 @@ export default function ThemeSettingsPage() {
                     </div>
                   </div>
                   <Switch
+                    aria-label={t("use24HourLabel")}
                     checked={use24Hour}
                     onCheckedChange={handleUse24HourChange}
                     disabled={updateSetting.isPending}
@@ -330,6 +331,7 @@ export default function ThemeSettingsPage() {
                     </div>
                   </div>
                   <Switch
+                    aria-label={t("showSecondsDescription")}
                     checked={showSeconds}
                     onCheckedChange={handleShowSecondsChange}
                     disabled={updateSetting.isPending}

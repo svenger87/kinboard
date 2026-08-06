@@ -127,6 +127,7 @@ export function LightControlItem({ card, entity }: LightControlItemProps) {
         </div>
 
         <Switch
+          aria-label={label}
           checked={isOn}
           onCheckedChange={handleToggle}
           disabled={isPending || isUnavailable}

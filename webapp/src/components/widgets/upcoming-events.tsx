@@ -161,7 +161,7 @@ export function UpcomingEvents({
                 <motion.div key={event.id} variants={item}>
                   {showSeparator && (
                     <div className="mb-1.5 mt-2 flex items-center gap-2 first:mt-0">
-                      <span className="text-kiosk-label text-[11px]">{dayLabel}</span>
+                      <span className="text-kiosk-label text-2xs">{dayLabel}</span>
                       <div className="h-px flex-1 bg-border/40" />
                     </div>
                   )}

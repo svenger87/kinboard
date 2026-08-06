@@ -14,6 +14,7 @@ import {
   PowerOff,
   CircleDot,
   Zap,
+  WifiOff,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -73,7 +74,18 @@ export default function HausautomationPage() {
     data: entities = [],
     isLoading: loadingEntities,
     isFetching,
+    isError: entitiesError,
   } = useHomeAssistantEntityStates(entityIds, isConnected && entityIds.length > 0);
+
+  // With Home Assistant unreachable, every card degrades individually to
+  // "unavailable" — which is the right per-card behaviour, but it left the page
+  // showing five identical shrugs and no statement of the cause or route to a
+  // fix (audit KB-51). "All of them at once" means the integration is down.
+  const allUnavailable =
+    entityIds.length > 0 &&
+    entities.length > 0 &&
+    entities.every((e) => e.state === "unavailable");
+  const haUnreachable = entitiesError || allUnavailable;
 
   // Create a map for quick lookup
   const entityMap = useMemo(
@@ -247,6 +259,22 @@ export default function HausautomationPage() {
     <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="page-gradient" />
       <div className="relative z-10 max-w-6xl mx-auto flex flex-col gap-6">
+        {haUnreachable && !loadingEntities && (
+          <div role="alert" className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3">
+            <WifiOff className="size-5 shrink-0 text-warning" strokeWidth={1.75} aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-base font-semibold">{t("unreachableTitle")}</p>
+              <p className="text-sm text-muted-foreground">{t("unreachableBody")}</p>
+            </div>
+            <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+              {t("unreachableRetry")}
+            </Button>
+            <Button variant="ghost" asChild>
+              <Link href="/settings/homeassistant">{t("unreachableSettings")}</Link>
+            </Button>
+          </div>
+        )}
+
         <PageHeader
           icon={Home}
           title={t("title")}

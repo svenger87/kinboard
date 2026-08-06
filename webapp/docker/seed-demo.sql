@@ -572,6 +572,23 @@ SELECT
     NULL
 FROM generate_series(1, 42) AS i;
 
+
+-- =========================================================================
+-- Pocket money — one account per child
+-- =========================================================================
+-- /pocket-money showed every demo visitor an empty state, so the evolving
+-- avatar, the saving goal and the allowance countdown — the whole point of the
+-- feature — were invisible. Balances are chosen so the two children sit at
+-- different avatar tiers, which is what makes the progression legible.
+INSERT INTO public.pocket_money_accounts
+    (family_id, person_id, currency, balance_cents, apr_bps, weekly_allowance_cents,
+     allowance_day_of_week, avatar_species, lifetime_saved_cents, last_seen_tier, best_tier)
+VALUES
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a3',
+     'EUR', 2480, 300, 500, 6, 'dragon', 7300, 4, 4),
+    ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a4',
+     'EUR', 640, 300, 300, 6, 'turtle', 1900, 2, 2);
+
 COMMIT;
 
 \echo

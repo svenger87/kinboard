@@ -87,20 +87,19 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Bottom Section - Widgets Grid - 2x2 for portrait kiosk, 4 cols
-            for landscape. `[&>*]:h-full` makes every direct child fill
-            its grid cell so widgets in the same row visually match the
-            tallest one — no more uneven gaps. Each widget root is
-            responsible for stretching its inner card via `h-full
-            flex flex-col`. */}
-        {/* `max-w-7xl` capped this at 1280px regardless of panel size: on a
+        {/* Widget grid — 2 columns on a portrait kiosk, up to 6 on a wide one.
+            `max-w-7xl` capped this at 1280px regardless of panel size: on a
             2560px kiosk that left 640px of dead margin per side while the cards
             inside were narrow enough to wrap "16° / 12°" (audit KB-02). A
-            reading-measure cap belongs on prose, not a dashboard. Fluid width
-            plus extra columns above 2000px lets a big panel show more, bigger.
-            `auto-rows-min` stops a tall card forcing its whole row tall and
-            leaving holes beside short ones (KB-06). */}
-        <section className="relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 2xl:grid-cols-5 min-[2000px]:grid-cols-6 auto-rows-min gap-4 md:gap-6 w-[min(96vw,2200px)] mx-auto [&>*]:h-full" aria-label={t("ariaWidgets")}>
+            reading-measure cap belongs on prose, not a dashboard.
+
+            `[&>*]:h-full` used to stretch every card to its row's height so
+            neighbours matched. That is what turned a short card next to a tall
+            one into a visible hole — most obviously the unconfigured Stundenplan
+            widget, which left a ~500x230px void beside it (KB-06). Cards now
+            take their natural height, `auto-rows-min` sizes rows to content and
+            `items-start` keeps them top-aligned, so the grid packs instead. */}
+        <section className="relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 2xl:grid-cols-5 min-[2000px]:grid-cols-6 auto-rows-min items-start gap-4 md:gap-6 w-[min(96vw,2200px)] mx-auto" aria-label={t("ariaWidgets")}>
           {w.weather && <Weather />}
           {w.upcomingEvents && <UpcomingEvents maxEvents={3} />}
           {w.schedule && <ScheduleWidget />}

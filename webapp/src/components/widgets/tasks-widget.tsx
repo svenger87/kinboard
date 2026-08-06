@@ -179,7 +179,7 @@ export function TasksWidget({
                 label={
                   <span className="flex flex-col">
                     <span className="truncate leading-tight">{todo.title}</span>
-                    <span className="mt-0.5 flex items-center gap-2 text-[11px]">
+                    <span className="mt-0.5 flex items-center gap-2 text-2xs">
                       {overdue && <span className="text-destructive">{t("overdue")}</span>}
                       {dueToday && !overdue && <span className="text-warning">{t("today")}</span>}
                     </span>

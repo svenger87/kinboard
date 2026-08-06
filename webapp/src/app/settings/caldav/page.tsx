@@ -652,6 +652,7 @@ export default function CaldavSettingsPage() {
                     {t("isHolidaysLabel")}
                   </Label>
                   <Switch
+                    aria-label={t("isHolidaysLabel")}
                     id="caldav-holidays"
                     checked={editForm.is_holidays}
                     onCheckedChange={(v) =>
@@ -664,6 +665,7 @@ export default function CaldavSettingsPage() {
                     {t("isWasteLabel")}
                   </Label>
                   <Switch
+                    aria-label={t("isWasteLabel")}
                     id="caldav-waste"
                     checked={editForm.is_waste_collection}
                     onCheckedChange={(v) =>

@@ -115,6 +115,9 @@ export function LightCard({ card, entity }: LightCardProps) {
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <button
+              // Icon-only toggle: nothing inside it is text, so without this it
+              // reached assistive tech as an unnamed button (audit KB-18).
+              aria-label={tLight("toggleAria", { name: label })}
               onClick={handleToggle}
               disabled={isPending || isUnavailable}
               className={`p-2 rounded-lg transition-colors ${

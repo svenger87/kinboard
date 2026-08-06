@@ -565,6 +565,7 @@ export default function RoomsSettingsPage() {
               </p>
             </div>
             <Switch
+              aria-label={t("showUnassignedDescription")}
               checked={roomsConfig.show_unassigned}
               onCheckedChange={(checked) =>
                 updateRoomsSettings.mutate({ show_unassigned: checked })

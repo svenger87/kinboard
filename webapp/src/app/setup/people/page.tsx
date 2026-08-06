@@ -111,6 +111,7 @@ export default function SetupPeoplePage() {
                   <div className="flex items-center gap-3 flex-wrap">
                     <div className="flex items-center gap-2">
                       <Switch
+                        aria-label={t("isChildAria", { name: d.name || "" })}
                         id={`is-child-${d.id}`}
                         checked={d.isChild}
                         onCheckedChange={(v) => updateDraft(d.id, { isChild: v })}

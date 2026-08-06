@@ -1570,6 +1570,7 @@ export function TeslaConfigForm({
                   </div>
                 </div>
                 <Switch
+                  aria-label={t("displayScreensaverDescription")}
                   checked={editingConfig.show_on_screensaver ?? false}
                   onCheckedChange={(v) =>
                     updateField("show_on_screensaver", v)
@@ -1592,6 +1593,7 @@ export function TeslaConfigForm({
                   </div>
                 </div>
                 <Switch
+                  aria-label={t("displayDashboardDescription")}
                   checked={editingConfig.show_on_dashboard ?? false}
                   onCheckedChange={(v) =>
                     updateField("show_on_dashboard", v)

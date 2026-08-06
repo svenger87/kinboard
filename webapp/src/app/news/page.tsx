@@ -207,8 +207,8 @@ function NewsCard({
               />
             )}
             <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+              <div className="flex items-center gap-2 text-2xs text-muted-foreground">
+                <Badge variant="outline" className="text-3xs py-0 px-1.5">
                   {item.sourceName}
                 </Badge>
                 {relativeDate && <span>· {relativeDate}</span>}

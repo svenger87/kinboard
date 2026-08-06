@@ -69,6 +69,10 @@ export default function PluginsSettingsPage() {
                       </div>
                     </div>
                     <Switch
+                      // htmlFor does not associate a <label> with a button, which is
+                      // what Radix Switch renders — the visible Label above is
+                      // decorative to assistive tech (audit KB-18).
+                      aria-label={t(`label.${p.id}` as never)}
                       id={`plugin-${p.id}`}
                       checked={checked}
                       onCheckedChange={(v) => toggle(p.id, v)}

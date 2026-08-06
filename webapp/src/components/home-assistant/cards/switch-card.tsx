@@ -61,6 +61,7 @@ export function SwitchCard({ card, entity }: SwitchCardProps) {
 
           <div className="flex items-center gap-2">
             <Switch
+              aria-label={label}
               checked={isOn}
               onCheckedChange={() => {}}
               onClick={handleToggle}

@@ -347,7 +347,7 @@ function MealSlot({
             <MealIcon className="size-3.5" />
             <Plus className="size-3.5 text-primary/60 group-hover:text-primary" />
           </div>
-          {hint && <span className="text-[11px]">{hint}?</span>}
+          {hint && <span className="text-2xs">{hint}?</span>}
         </button>
       ) : (
         <div className="flex flex-col gap-2">
@@ -1273,7 +1273,7 @@ export default function MealPlannerPage() {
                             month: "short",
                           })}
                           {isToday && (
-                            <Badge variant="secondary" className="ml-2 text-[10px]">
+                            <Badge variant="secondary" className="ml-2 text-3xs">
                               {t("todayBadge")}
                             </Badge>
                           )}

@@ -249,7 +249,7 @@ export default function NewsSettingsPage() {
                     >
                       {feed.name}
                     </Label>
-                    <span className="text-[11px] text-muted-foreground block truncate">
+                    <span className="text-2xs text-muted-foreground block truncate">
                       {feed.url}
                     </span>
                   </div>
@@ -428,7 +428,7 @@ export default function NewsSettingsPage() {
                               href={p.homepage}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="ml-2 inline-flex items-center text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                              className="ml-2 inline-flex items-center text-2xs text-muted-foreground hover:text-foreground transition-colors"
                             >
                               <ExternalLink className="size-3" />
                             </a>

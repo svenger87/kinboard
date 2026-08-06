@@ -15,7 +15,8 @@
     "serverUnreachableTitle": "Can't reach the Kinboard server",
     "serverUnreachableBody": "The app can't load your family data. Check that the Kinboard stack is running and that this device can reach it, then try again.",
     "serverUnreachableRetry": "Try again",
-    "serverUnreachableAutoRetry": "Checking again automatically…"
+    "serverUnreachableAutoRetry": "Checking again automatically…",
+    "loading": "Loading…"
   },
   "components": {
     "back": "Back",
@@ -1312,7 +1313,9 @@
       "presenceHelpStep5Body": "In <bold>Settings → Screensaver</bold> you can configure:",
       "presenceHelpStep5BulletMode": "<bold>Control mode:</bold> Screensaver only or display off (DPMS)",
       "presenceHelpStep5BulletDelay": "<bold>Delay:</bold> Wait time after last detection (10s – 5min)",
-      "presenceHelpTip": "<bold>Tip:</bold> The sensor reports its status roughly every second. If it shows “No connection” in settings, check that the script is running and uses the correct device ID."
+      "presenceHelpTip": "<bold>Tip:</bold> The sensor reports its status roughly every second. If it shows “No connection” in settings, check that the script is running and uses the correct device ID.",
+      "kioskToggleAria": "Kiosk mode for {name}",
+      "presenceToggleAria": "Presence sensor for {name}"
     },
     "cameras": {
       "title": "Cameras",
@@ -2426,7 +2429,8 @@
     },
     "light": {
       "brightness": "Brightness",
-      "colorTemp": "Color temperature"
+      "colorTemp": "Color temperature",
+      "toggleAria": "Toggle {name}"
     },
     "fab": {
       "loading": "Loading…",
@@ -2867,7 +2871,11 @@
       "iconClimate": "Climate",
       "iconGarden": "Garden",
       "iconEnergy": "Energy"
-    }
+    },
+    "unreachableTitle": "Home Assistant is unreachable",
+    "unreachableBody": "Nothing here can be controlled until the connection is back.",
+    "unreachableRetry": "Try again",
+    "unreachableSettings": "Check connection"
   },
   "dashboard": {
     "ariaClock": "Clock and family members",
@@ -3286,7 +3294,8 @@
       "birthDateLabel": "Date of birth",
       "roleParent": "Parent",
       "roleChild": "Child",
-      "ageYears": "{count, plural, one {# year} other {# years}}"
+      "ageYears": "{count, plural, one {# year} other {# years}}",
+      "isChildAria": "{name} is a child"
     },
     "calendar": {
       "title": "Add a calendar",
@@ -3505,7 +3514,6 @@
     "nextAllowanceTomorrow": "{amount} pocket money arrives tomorrow",
     "nextAllowanceInDays": "{amount} pocket money in {days} days ({date})",
     "nextAllowanceShort": "{amount} in {days}d",
-    "stagesSheetOpenHint": "Tap to see all stages",
     "stagesSheetOpenAria": "Show all evolution stages",
     "stagesSheetTitle": "Evolution stages",
     "stagesSheetDescription": "Save more to grow into each next stage.",

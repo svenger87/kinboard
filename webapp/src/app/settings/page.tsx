@@ -1138,7 +1138,7 @@ export default function SettingsPage() {
         </div>
 
         {/* App info footer */}
-        <div className="mt-6 pb-4 text-center text-[11px] text-muted-foreground/40 space-y-0.5">
+        <div className="mt-6 pb-4 text-center text-2xs text-muted-foreground/40 space-y-0.5">
           <p>
             <button
               type="button"
