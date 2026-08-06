@@ -2972,7 +2972,9 @@
     "pendingTodos": "en cours",
     "wasteToday": "{count, plural, one {collecte aujourd'hui} other {collectes aujourd'hui}}",
     "daysUntil": "{count, plural, one {dans # jour} other {dans # jours}}",
-    "emptyState": "Aucun événement ou tâche pour aujourd'hui"
+    "emptyState": "Aucun événement ou tâche pour aujourd'hui",
+    "loadFailed": "Impossible de charger l'agenda",
+    "loading": "Chargement…"
   },
   "mealPlanWidget": {
     "loadingAria": "Chargement des repas",
@@ -3108,7 +3110,8 @@
     "moreCount": "+{count} autres",
     "statusEvents": "{count, plural, one {# événement} other {# événements}}",
     "statusTasks": "{count, plural, one {# tâche} other {# tâches}}",
-    "statusNothing": "Rien à signaler"
+    "statusNothing": "Rien à signaler",
+    "loadFailed": "Impossible de charger la famille"
   },
   "tasksWidget": {
     "loadingAria": "Chargement des tâches",
@@ -3511,5 +3514,10 @@
     "errorInsufficientFunds": "Il n'y a pas assez sur le compte.",
     "errorAlreadyDecided": "Cette demande a déjà été traitée.",
     "errorGeneric": "Cela n'a pas fonctionné. Merci de réessayer."
+  },
+  "connectivity": {
+    "title": "Serveur injoignable",
+    "description": "Certaines parties du tableau de bord peuvent être obsolètes ou absentes.",
+    "retry": "Réessayer"
   }
 }

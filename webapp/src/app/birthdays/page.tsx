@@ -365,7 +365,7 @@ export default function BirthdaysPage() {
 
   return (
     <TooltipProvider>
-      <main id="main-content" className="min-h-screen p-4 md:p-8 safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 md:p-8 safe-area-inset">
         {/* Background gradient */}
         <div className="page-gradient" />
         <div className="relative z-10 max-w-6xl mx-auto">

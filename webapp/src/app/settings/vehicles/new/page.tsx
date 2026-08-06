@@ -42,7 +42,7 @@ export default function NewVehiclePage() {
   }
 
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-xl mx-auto flex flex-col gap-6">
         <PageHeader
           icon={Car}

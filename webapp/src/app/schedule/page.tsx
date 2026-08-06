@@ -348,7 +348,7 @@ export default function SchedulePage() {
   // Loading state
   if (loadingPeople || loadingSchedules) {
     return (
-      <main id="main-content" className="min-h-screen relative overflow-hidden">
+      <main id="main-content" className="min-h-page relative overflow-hidden">
         <div className="page-gradient" />
         <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
@@ -367,7 +367,7 @@ export default function SchedulePage() {
   // Error state
   if (schedulesError) {
     return (
-      <main id="main-content" className="min-h-screen relative overflow-hidden">
+      <main id="main-content" className="min-h-page relative overflow-hidden">
         <div className="page-gradient" />
         <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
@@ -388,7 +388,7 @@ export default function SchedulePage() {
   // No children configured
   if (children.length === 0) {
     return (
-      <main id="main-content" className="min-h-screen relative overflow-hidden">
+      <main id="main-content" className="min-h-page relative overflow-hidden">
         <div className="page-gradient" />
         <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
@@ -411,7 +411,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <main id="main-content" className="min-h-screen relative overflow-hidden">
+    <main id="main-content" className="min-h-page relative overflow-hidden">
       <div className="page-gradient" />
 
       <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">

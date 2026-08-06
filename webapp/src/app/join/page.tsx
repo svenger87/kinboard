@@ -239,7 +239,7 @@ export default function JoinPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-8 relative overflow-hidden">
+    <main className="min-h-page flex items-center justify-center p-8 relative overflow-hidden">
       {/* Background — flat page gradient, theme-following, no glass */}
       <div className="page-gradient" />
 

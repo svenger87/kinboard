@@ -2972,7 +2972,9 @@
     "pendingTodos": "offen",
     "wasteToday": "{count, plural, one {Abfuhr heute} other {Abfuhren heute}}",
     "daysUntil": "{count, plural, one {in # Tag} other {in # Tagen}}",
-    "emptyState": "Keine Termine oder Aufgaben für heute"
+    "emptyState": "Keine Termine oder Aufgaben für heute",
+    "loadFailed": "Heutige Termine nicht ladbar",
+    "loading": "Lade heute…"
   },
   "mealPlanWidget": {
     "loadingAria": "Mahlzeiten werden geladen",
@@ -3108,7 +3110,8 @@
     "moreCount": "+{count} weitere",
     "statusEvents": "{count, plural, one {# Termin} other {# Termine}}",
     "statusTasks": "{count, plural, one {# Aufgabe} other {# Aufgaben}}",
-    "statusNothing": "Alles erledigt"
+    "statusNothing": "Alles erledigt",
+    "loadFailed": "Familie konnte nicht geladen werden"
   },
   "tasksWidget": {
     "loadingAria": "Aufgaben werden geladen",
@@ -3511,5 +3514,10 @@
     "errorInsufficientFunds": "So viel ist nicht auf dem Konto.",
     "errorAlreadyDecided": "Diese Anfrage wurde bereits entschieden.",
     "errorGeneric": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+  },
+  "connectivity": {
+    "title": "Server nicht erreichbar",
+    "description": "Teile dieses Dashboards sind evtl. veraltet oder fehlen.",
+    "retry": "Erneut versuchen"
   }
 }

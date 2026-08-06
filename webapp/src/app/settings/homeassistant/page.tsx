@@ -118,7 +118,7 @@ function HomeAssistantSettingsContent() {
   // Show loading state
   if (loadingSettings || loadingDashboards) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="relative z-10 max-w-2xl mx-auto flex flex-col gap-6">
           <PageHeader
             icon={Home}
@@ -264,7 +264,7 @@ function HomeAssistantSettingsContent() {
   };
 
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto flex flex-col gap-6">
         <PageHeader
           icon={Home}
@@ -611,7 +611,7 @@ export default function HomeAssistantSettingsPage() {
 function HomeAssistantSettingsFallback() {
   const t = useTranslations("settings.homeassistant");
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto flex flex-col gap-6">
         <PageHeader
           icon={Home}

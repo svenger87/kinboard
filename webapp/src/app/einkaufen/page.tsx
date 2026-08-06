@@ -372,7 +372,7 @@ export default function EinkaufenPage() {
   // Loading state — skeleton matching the real page layout
   if (isLoading) {
     return (
-      <main id="main-content" className="min-h-screen bg-background text-foreground safe-area-inset">
+      <main id="main-content" className="min-h-page bg-background text-foreground safe-area-inset">
         {/* Header skeleton */}
         <header className="fixed top-0 left-0 right-0 z-50 bg-card border-b border-border safe-area-top">
           <div className="flex items-center justify-between p-4">
@@ -426,7 +426,7 @@ export default function EinkaufenPage() {
   // Error state
   if (error) {
     return (
-      <main id="main-content" className="min-h-screen bg-background text-foreground safe-area-inset flex items-center justify-center">
+      <main id="main-content" className="min-h-page bg-background text-foreground safe-area-inset flex items-center justify-center">
         <ErrorState
           icon={ShoppingCart}
           title={t("errorTitle")}
@@ -438,7 +438,7 @@ export default function EinkaufenPage() {
   }
 
   return (
-    <main id="main-content" className="min-h-screen bg-background text-foreground safe-area-inset">
+    <main id="main-content" className="min-h-page bg-background text-foreground safe-area-inset">
       {/* Header - Fixed */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-card border-b border-border safe-area-top">
         <div className="flex items-center justify-between p-4">
@@ -517,7 +517,7 @@ export default function EinkaufenPage() {
       {/* Main content with padding for header and input */}
       <div
         ref={scrollContainerRef}
-        className="pt-[88px] pb-[100px] px-4 min-h-screen"
+        className="pt-[88px] pb-[100px] px-4 min-h-page"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}

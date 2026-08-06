@@ -391,7 +391,7 @@ export default function PeopleSettingsPage() {
   // Loading state
   if (isLoading) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="relative z-10 max-w-2xl mx-auto">
           <PageHeader
             icon={Users}
@@ -419,7 +419,7 @@ export default function PeopleSettingsPage() {
   // Error state
   if (error) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="relative z-10 max-w-2xl mx-auto">
           <Card className="p-8 text-center">
             <Users className="size-12 mx-auto mb-3 text-destructive opacity-50" />
@@ -442,7 +442,7 @@ export default function PeopleSettingsPage() {
   }
 
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto">
         {/* Header + Add Dialog */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
