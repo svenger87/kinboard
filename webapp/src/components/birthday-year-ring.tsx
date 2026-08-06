@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState, useLayoutEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { format, getDayOfYear, startOfDay } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
@@ -49,9 +49,41 @@ export function BirthdayYearRing({
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
   const center = size / 2;
-  const ringRadius = size / 2 - 40;
-  const labelRadius = size / 2 - 14;
+  // The month labels are counter-scaled below, so on a phone they occupy ~19
+  // user units instead of ~13 and reach further in towards the ring than they
+  // used to. At the old radii that swallowed the first letter of the months
+  // sitting behind an avatar ("Feb." rendering as "eb."). Pulling the ring in
+  // by 6 units and the labels out by 2 restores the clearance for the largest
+  // corrected size while keeping the labels inside the viewBox.
+  const ringRadius = size / 2 - 46;
+  const labelRadius = size / 2 - 12;
   const avatarRadius = 13;
+
+  // Text inside a viewBox is drawn in user units and then scaled with the rest
+  // of the drawing, so a font size set in CSS is a promise the SVG does not
+  // keep. The ring renders at its natural 360px on a wall or a desktop (scale
+  // 1.0) but shrinks to about 0.71 on a phone, which turned an 11px month
+  // label into 7.86px on screen — smaller than the 9px this finding was raised
+  // about (KB-57). Measuring the drawn width and dividing the label size by
+  // that scale makes the rendered size constant at every width. The size stays
+  // in rem so it still follows the "larger text" setting; only the correction
+  // factor is computed here.
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [scale, setScale] = useState(1);
+  useLayoutEffect(() => {
+    const el = svgRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const w = el.getBoundingClientRect().width;
+      if (w > 0) setScale(Math.min(1, Math.max(0.4, w / size)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [size]);
+  // Never shrink below the CSS size — only ever compensate for downscaling.
+  const labelFontSize = `calc(0.8125rem / ${scale})`;
   // The next birthday = the smallest daysUntil among the supplied dots.
   const nextId = useMemo(() => {
     if (birthdays.length === 0) return null;
@@ -144,7 +176,7 @@ export function BirthdayYearRing({
 
   return (
     <div className="flex items-center justify-center">
-      <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-auto overflow-visible">
+      <svg ref={svgRef} viewBox={`0 0 ${size} ${size}`} className="w-full h-auto overflow-visible">
         {/* Background ring */}
         <circle
           cx={center}
@@ -173,7 +205,8 @@ export function BirthdayYearRing({
               y={tick.labelPos.y}
               textAnchor="middle"
               dominantBaseline="central"
-              className={`text-3xs font-medium ${
+              style={{ fontSize: labelFontSize }}
+              className={`font-medium ${
                 i === currentMonth ? "fill-primary" : "fill-muted-foreground/60"
               }`}
             >
