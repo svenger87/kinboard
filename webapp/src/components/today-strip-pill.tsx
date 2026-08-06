@@ -16,7 +16,7 @@ export function TodayStripPill({ time, title, color, className }: TodayStripPill
         className
       )}
     >
-      <span className="font-mono text-sm font-bold tabular-nums" style={{ color }}>
+      <span className="text-sm font-bold tabular-nums" style={{ color }}>
         {time}
       </span>
       <span className="truncate text-sm font-medium">{title}</span>

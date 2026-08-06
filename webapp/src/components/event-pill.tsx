@@ -34,7 +34,7 @@ export function EventPill({
       >
         {time && (
           <span
-            className="shrink-0 font-mono text-sm font-bold tabular-nums"
+            className="shrink-0 text-sm font-bold tabular-nums"
             style={{ color: personText(color) }}
           >
             {time}

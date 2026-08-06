@@ -6,7 +6,7 @@ export interface ChecklistItemProps {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   label: ReactNode;
-  /** Right-aligned meta: quantity (font-mono) or a <PersonAvatar/>. */
+  /** Right-aligned meta: quantity (tabular-nums) or a <PersonAvatar/>. */
   meta?: ReactNode;
   /** Context color (person/primary) for the unchecked checkbox border. */
   color?: string;

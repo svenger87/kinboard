@@ -104,7 +104,7 @@ export function ShoppingWidget({ maxItems = 4, className = "" }: ShoppingWidgetP
                 checked={false}
                 onCheckedChange={() => handleToggle(it.id)}
                 label={it.name}
-                meta={it.quantity ? <span className="font-mono tabular-nums">{it.quantity}{it.unit ? ` ${it.unit}` : ""}</span> : undefined}
+                meta={it.quantity ? <span className="tabular-nums">{it.quantity}{it.unit ? ` ${it.unit}` : ""}</span> : undefined}
               />
             </motion.div>
           ))}

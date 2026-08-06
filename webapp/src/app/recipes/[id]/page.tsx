@@ -523,7 +523,7 @@ export default function RecipeDetailPage() {
                       }
                       meta={
                         ingredient.quantity ? (
-                          <span className="font-mono">
+                          <span className="tabular-nums">
                             {formatQuantity(ingredient.quantity)}
                             {ingredient.unit ? ` ${ingredient.unit}` : ""}
                           </span>
