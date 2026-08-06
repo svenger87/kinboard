@@ -6,11 +6,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Security
-- **The live-updates service is around 75 releases newer.** It had been pinned to a build from early 2024, still carrying settings from a hosting platform Kinboard never ran on. Nothing changes in the app; it applies its own database updates on first start, so give it a minute longer than usual to come up.
+## [1.6.10] - 2026-08-06
 
 ### Security
 - **The service that answers the app's data requests is two major versions newer.** It sits between your browser and the database and had been pinned to a build from 2023. Nothing about how Kinboard talks to it changes. Two leftover settings that copied the signing secret into the database session — where any function could have read it — are gone; nothing was using them.
+- **The live-updates service is around 75 releases newer.** It had been pinned to a build from early 2024, still carrying settings from a hosting platform Kinboard never ran on. Nothing changes in the app; it applies its own database updates on first start, so give it a minute longer than usual to come up.
 
 ### Fixed
 - **Changes from other devices now appear straight away again.** Since 1.6.0 the live connection had been carrying the wrong credentials, so the server correctly decided it was allowed to see nothing and sent nothing. It never looked broken — the connection itself was healthy, so the "live updates paused" warning never appeared — and screens simply refreshed on their own schedule instead, up to a minute behind. Adding something on a phone should once again show up on the kitchen display while you are still standing there.
@@ -583,7 +583,8 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.6.9...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.6.10...HEAD
+[1.6.10]: https://github.com/svenger87/kinboard/compare/v1.6.9...v1.6.10
 [1.6.9]: https://github.com/svenger87/kinboard/compare/v1.6.8...v1.6.9
 [1.6.8]: https://github.com/svenger87/kinboard/compare/v1.6.7...v1.6.8
 [1.6.7]: https://github.com/svenger87/kinboard/compare/v1.6.6...v1.6.7
