@@ -188,6 +188,22 @@ git branch -D release-vX.Y.Z
 
 Local `main` keeps full history; `origin` (gitlab) gets the regular push later.
 
+### 7b. Upgrade instructions in the release body
+
+Write the upgrade command as:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.image.yml pull
+./start.sh up
+```
+
+**Not** a bare `docker compose pull && docker compose up -d`. Compose auto-loads only
+`docker-compose.yml` and `docker-compose.override.yml`, so the bare form drops the image
+overlay and silently rebuilds the webapp from whatever source is on disk. For anyone
+running the published image that is a no-op upgrade with no error — reported in #106,
+where a self-hoster stayed on 1.5.0 across several attempts while holding the correct
+image on disk the whole time.
+
 ### 8. Create the GitHub Release
 
 Once the Docker workflow finishes:

@@ -52,6 +52,29 @@ Then re-run with the new shell:
 /usr/local/bin/bash ./setup.sh
 ```
 
+### The version in Settings doesn't change after an upgrade
+
+You pull, you restart, everything comes up clean — and Settings still shows the old version.
+
+Check what compose actually resolved:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.image.yml config | grep -A1 "^  webapp:"
+```
+
+If you see `build:` rather than `image: ghcr.io/svenger87/kinboard:...`, compose is **building the webapp from the source checkout in that directory** and ignoring the image you pulled. A checkout that hasn't been `git pull`ed rebuilds the version it was already on, so the upgrade appears to do nothing.
+
+`docker compose` only auto-loads `docker-compose.yml` and `docker-compose.override.yml`. The published image is defined in `docker-compose.image.yml`, so it has to be named:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.image.yml pull
+./start.sh up
+```
+
+`start.sh` adds the overlay automatically, which is why it works where a bare `docker compose up -d` doesn't.
+
+If you genuinely want to build from source, that's fine — just `git pull --ff-only origin main` first, or you will rebuild the version you already have.
+
 ### Stack starts but webapp returns 404 on every URL
 
 Most common cause: you ran `docker compose up -d` against the **base** compose file but you actually need the **Traefik override** loaded too (the base file has no Traefik labels). Either:
