@@ -652,7 +652,7 @@ export default function SchedulePage() {
                             >
                               <div className="text-xs text-muted-foreground w-10 shrink-0 text-center">
                                 <div className="font-medium tabular-nums">{period}.</div>
-                                <div className="text-[10px] font-mono">{slot.start}</div>
+                                <div className="text-[10px] tabular-nums">{slot.start}</div>
                               </div>
                               <div
                                 className="flex-1 flex items-center gap-2 p-2.5 rounded-lg"
@@ -722,7 +722,7 @@ export default function SchedulePage() {
                           <tr key={period} className="border-b border-border/30 last:border-0">
                             <td className="p-3 text-xs text-muted-foreground align-top">
                               <div className="font-medium tabular-nums">{period}.</div>
-                              <div className="text-[10px] font-mono">{periodTime}</div>
+                              <div className="text-[10px] tabular-nums">{periodTime}</div>
                             </td>
                             {Array.from({ length: 5 }, (_, dayIndex) => {
                               const slot = grid[dayIndex]?.[period];
@@ -817,7 +817,7 @@ export default function SchedulePage() {
                     {isReminderWeekend ? t("packForMonday") : t("packForTomorrow")}
                   </h2>
                 </div>
-                <p className="mt-1 font-mono text-xs uppercase tracking-wider text-primary-foreground/80">
+                <p className="text-kiosk-label mt-1 text-primary-foreground/80">
                   {(isReminderWeekend ? t("packListMonday") : t("packListTomorrow", { day: reminderDayLabel }))}
                 </p>
               </div>
@@ -890,7 +890,7 @@ export default function SchedulePage() {
                         className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 elev-sm"
                         style={{ borderLeft: `3px solid ${color}` }}
                       >
-                        <span className="font-mono text-xs font-bold tabular-nums" style={{ color }}>
+                        <span className="text-xs font-bold tabular-nums" style={{ color }}>
                           {slot.start}
                         </span>
                         <SubjectIcon className="size-4 shrink-0" strokeWidth={1.75} style={{ color }} />

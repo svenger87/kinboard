@@ -342,7 +342,7 @@ export function WeekView({
                             {event.title}
                           </p>
                           {height > 40 && !isNarrow && (
-                            <p className="text-[10px] font-mono tabular-nums opacity-80">
+                            <p className="text-[10px] tabular-nums opacity-80">
                               {formatTime(event.start)} -{" "}
                               {formatTime(event.end)}
                             </p>

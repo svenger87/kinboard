@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Times and counts no longer switch to a different typeface.** Clock times in the calendar, the school timetable and the pack list, along with dates on birthdays, note timestamps and shopping quantities, were all being drawn in the monospaced font used for join codes — so those areas looked like they belonged to a different app. They now use the same typeface as everything around them, and the digits still line up. Monospace stays where it earns its place: join codes, PINs, keyboard shortcuts, addresses and device ids. The small uppercase headings scattered through settings, shopping, birthdays and recipes now share one definition instead of six near-identical copies that had drifted apart in size and letter-spacing.
+
 ## [1.6.10] - 2026-08-06
 
 ### Security

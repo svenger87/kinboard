@@ -1102,7 +1102,7 @@ export default function ShoppingPage() {
                                 style={{ backgroundColor: category.color }}
                                 aria-hidden="true"
                               />
-                              <h3 className="font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                              <h3 className="text-kiosk-label">
                                 {tCategories(category.labelKey)}
                               </h3>
                               <Badge variant="neutral" className="ml-auto">
@@ -1181,7 +1181,7 @@ export default function ShoppingPage() {
                                           meta={
                                             <span className="flex items-center gap-2">
                                               {formatQuantity(item) && (
-                                                <span className="font-mono tabular-nums text-xs">
+                                                <span className="tabular-nums text-xs">
                                                   {formatQuantity(item)}
                                                 </span>
                                               )}

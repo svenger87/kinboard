@@ -674,14 +674,14 @@ export default function BirthdaysPage() {
                         </div>
                         {/* Info */}
                         <div className="relative text-center sm:text-left flex-1">
-                          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1 font-mono">
+                          <p className="text-kiosk-label mb-1">
                             {nextDaysUntil === 0 ? t("todayHero") : t("nextHero")}
                           </p>
                           <h2 className="text-2xl sm:text-3xl font-display font-light mb-1">
                             {nextBirthday.name}
                           </h2>
                           <div className="flex items-center justify-center sm:justify-start gap-3 text-muted-foreground">
-                            <span className="flex items-center gap-1.5 font-mono tabular-nums">
+                            <span className="flex items-center gap-1.5 tabular-nums">
                               <Calendar className="size-3.5" strokeWidth={1.75} />
                               {format(nextBirthdayDate, "d. MMMM", { locale: dateLocale })}
                             </span>
@@ -700,7 +700,7 @@ export default function BirthdaysPage() {
                               </Badge>
                             )}
                           </div>
-                          <p className="mt-2 font-mono text-sm tabular-nums text-foreground">
+                          <p className="mt-2 text-sm tabular-nums text-foreground">
                             {nextDaysUntil === 0 ? t("todayHero") : t("daysSuffix", { count: nextDaysUntil })}
                           </p>
                         </div>
@@ -833,7 +833,7 @@ export default function BirthdaysPage() {
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium truncate">{birthday.name}</p>
                                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <span className="font-mono tabular-nums">{format(date, "d. MMM", { locale: dateLocale })}</span>
+                                    <span className="tabular-nums">{format(date, "d. MMM", { locale: dateLocale })}</span>
                                     {date.getFullYear() < new Date().getFullYear() && (
                                       <span>{t("ageTurns", { age: upcomingAge })}</span>
                                     )}
@@ -970,7 +970,7 @@ export default function BirthdaysPage() {
                                       <div className="flex items-center gap-2 sm:gap-3 text-sm text-muted-foreground flex-wrap">
                                         <span className="flex items-center gap-1">
                                           <Gift className="size-3 shrink-0" strokeWidth={1.75} />
-                                          <span className="whitespace-nowrap font-mono tabular-nums">
+                                          <span className="whitespace-nowrap tabular-nums">
                                             {format(date, "d. MMM", { locale: dateLocale })}
                                           </span>
                                           {date.getFullYear() < new Date().getFullYear() && (
@@ -996,7 +996,7 @@ export default function BirthdaysPage() {
 
                                     {/* Days label */}
                                     <div className="text-right shrink-0">
-                                      <p className="text-sm text-muted-foreground tabular-nums font-mono">
+                                      <p className="text-sm text-muted-foreground tabular-nums">
                                         {t("daysSuffix", { count: daysUntil })}
                                       </p>
                                     </div>
