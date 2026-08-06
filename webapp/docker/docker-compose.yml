@@ -208,7 +208,7 @@ services:
   # ===================
   realtime:
     logging: *default-logging
-    image: supabase/realtime:v2.28.32
+    image: supabase/realtime:v2.102.3
     container_name: ${PROJECT_NAME:-kinboard}-realtime
     restart: unless-stopped
     depends_on:
@@ -235,19 +235,37 @@ services:
       DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
       DB_ENC_KEY: supabaserealtime
       API_JWT_SECRET: ${JWT_SECRET}
-      FLY_ALLOC_ID: fly123
-      # FLY_APP_NAME is the tenant_id realtime uses to look itself up in
-      # _realtime.tenants. Must match the value seeded by the healthcheck
-      # (which hits /api/tenants/realtime-dev/health and auto-creates that
-      # tenant). Using just "realtime" here causes incoming websocket
-      # connections to fail with "tenant `realtime` not found".
-      FLY_APP_NAME: realtime-dev
+      # Guards /metrics only, but it is read with fetch_env! outside any
+      # environment guard — absent, the container exits at boot.
+      METRICS_JWT_SECRET: ${JWT_SECRET}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      # Replaces FLY_APP_NAME, which newer versions no longer read. Both raise
+      # the same message when missing, which makes the swap easy to miss.
+      #
+      # This is NOT the tenant id — that comes from the first label of the Host
+      # header (see the network alias below), which is why `realtime-dev` has to
+      # stay there and not here.
+      APP_NAME: realtime
+      # Creates the realtime-dev tenant at boot. Newer versions no longer
+      # auto-create one when the healthcheck hits them; a missing tenant is
+      # just a 404. Compared as a literal string, so "1" or "True" do nothing.
+      #
+      # Note it deletes and recreates the tenant on every start, so anything
+      # hand-tuned on that row will not survive a restart.
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
+      # The image used to set this itself; newer ones dropped the default.
+      RLIMIT_NOFILE: "10000"
+      # The healthcheck below runs every 5s and would otherwise log four lines
+      # each time.
+      DISABLE_HEALTHCHECK_LOGGING: "true"
       ERL_AFLAGS: -proto_dist inet_tcp
-      ENABLE_TAILSCALE: false
       DNS_NODES: "''"
-    command: >
-      sh -c "/app/bin/migrate && /app/bin/realtime eval 'Realtime.Release.seeds(Realtime.Repo)' && /app/bin/server"
+      # Removed: FLY_ALLOC_ID and FLY_APP_NAME (Fly-era, no longer read),
+      # ENABLE_TAILSCALE (the sidecar is gone from the image entirely).
+    # No command: the image's own run.sh migrates, seeds when SEED_SELF_HOST is
+    # set, then execs the server. Overriding it here would make that run twice —
+    # the second time as root rather than as the unprivileged user.
     networks:
       kinboard:
         # Realtime extracts the tenant_id from the first label of the Host
