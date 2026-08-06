@@ -29,6 +29,31 @@ export function createClient() {
     publicEnv("NEXT_PUBLIC_SUPABASE_URL"),
     publicEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     {
+      /**
+       * The same family-scoped token, for the realtime WebSocket.
+       *
+       * The custom `fetch` below covers every HTTP call, but a WebSocket never
+       * goes through fetch. supabase-js resolves the socket's token separately,
+       * in `_getAccessToken()`: it uses this option when set, and otherwise
+       * falls back to `auth.getSession()` and finally to the anon key.
+       *
+       * Kinboard doesn't use GoTrue at all — it has its own device sessions —
+       * so there was never a session to find and the socket connected with the
+       * anon key. That key carries no `family_id` claim, `current_family_id()`
+       * resolves to NULL inside `realtime.apply_rls()`, and every policy
+       * filters every row away. The socket connected happily and delivered
+       * nothing, which is why this went unnoticed since row-level security
+       * landed in 1.6.0: the "live updates paused" indicator watches the
+       * connection, and the connection was fine.
+       *
+       * Falls back to the anon key rather than null so an anonymous page (the
+       * join screen) still opens a socket and behaves exactly as before.
+       *
+       * Setting this makes the client's `auth` namespace unusable. Nothing here
+       * uses it — see require-session.ts for how the app actually authenticates.
+       */
+      accessToken: async () =>
+        (await getFamilyToken()) ?? publicEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
       global: {
         /**
          * Attach the family-scoped token to every direct Supabase call.
