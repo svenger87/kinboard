@@ -8,6 +8,15 @@ import { useRealtimeStatusStore } from "@/stores/realtime-status-store";
 import { queryKeys } from "./use-supabase-queries";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
+/**
+ * How often to re-authenticate the realtime socket.
+ *
+ * Family tokens live an hour (FAMILY_TOKEN_TTL_SECONDS). Refreshing every 20
+ * minutes means a missed tick or two still lands well inside the window,
+ * which matters on a kiosk that may sleep and wake.
+ */
+const REALTIME_REAUTH_INTERVAL_MS = 20 * 60 * 1000;
+
 type TableName =
   | "people"
   | "events"
@@ -185,6 +194,23 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
 
     let disposed = false;
 
+    /**
+     * Hand the socket a fresh token before the old one expires.
+     *
+     * Family tokens last an hour. The HTTP path re-mints transparently on
+     * every request, but a WebSocket is opened once and then simply held —
+     * exactly the situation a wall display is in, where nothing reloads the
+     * page for days. Without this the socket's JWT ages out and the server
+     * stops honouring the subscription while the connection still looks
+     * healthy: the same silent failure this fix exists to end.
+     *
+     * setAuth() re-reads the `accessToken` option in client.ts, so the
+     * refresh logic stays in exactly one place.
+     */
+    const reauthTimer = setInterval(() => {
+      void supabase.realtime.setAuth();
+    }, REALTIME_REAUTH_INTERVAL_MS);
+
     // Create a channel for all subscriptions
     const channel = supabase.channel(`family-${family.id}`);
 
@@ -226,6 +252,7 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
     // handled above, before this runs).
     return () => {
       disposed = true;
+      clearInterval(reauthTimer);
       supabase.removeChannel(channel);
     };
   }, [supabase, family?.id, enabled, tables, handleChange, setStatus]);
