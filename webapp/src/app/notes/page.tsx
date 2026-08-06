@@ -541,7 +541,7 @@ export default function NotesPage() {
                                 })()}
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                                    <span className="text-xs text-muted-foreground tabular-nums">
                                       {format(new Date(note.created_at), "d. MMM yyyy", { locale: dateLocale })}
                                     </span>
                                   </TooltipTrigger>

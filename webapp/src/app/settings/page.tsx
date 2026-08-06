@@ -711,7 +711,7 @@ export default function SettingsPage() {
             transition={{ delay: 0.2 + sectionIndex * 0.1 }}
             className="mb-6"
           >
-            <h2 className="mb-3 px-1 font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground">
+            <h2 className="text-kiosk-label mb-3 px-1">
               {section.title}
             </h2>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -759,7 +759,7 @@ export default function SettingsPage() {
           transition={{ delay: 0.45 }}
           className="mb-6"
         >
-          <h2 className="mb-3 px-1 font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground">
+          <h2 className="text-kiosk-label mb-3 px-1">
             {t("sectionSecurity")}
           </h2>
           <Card className="p-4">

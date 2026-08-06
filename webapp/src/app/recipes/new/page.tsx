@@ -314,7 +314,7 @@ export default function NewRecipePage() {
 
                     {parsed.ingredients.length > 0 && (
                       <div>
-                        <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                        <p className="text-kiosk-label mb-2">
                           {t("new.detectedIngredientsHeading")}
                         </p>
                         <div className="flex flex-wrap gap-2">
