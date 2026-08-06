@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+- **The service that answers the app's data requests is two major versions newer.** It sits between your browser and the database and had been pinned to a build from 2023. Nothing about how Kinboard talks to it changes. Two leftover settings that copied the signing secret into the database session — where any function could have read it — are gone; nothing was using them.
+
 ### Fixed
 - **Changes from other devices now appear straight away again.** Since 1.6.0 the live connection had been carrying the wrong credentials, so the server correctly decided it was allowed to see nothing and sent nothing. It never looked broken — the connection itself was healthy, so the "live updates paused" warning never appeared — and screens simply refreshed on their own schedule instead, up to a minute behind. Adding something on a phone should once again show up on the kitchen display while you are still standing there.
 
