@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { LineChart } from "lucide-react";
 import { useTickers } from "@/hooks/use-tickers";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
@@ -71,16 +71,15 @@ export default function StonksPage() {
       />
 
       {tickers.length > 1 && (
-        <Tabs value={active.id} onValueChange={setActiveId}>
-          {/* Scrollable: one trigger per ticker overflows a phone screen. */}
-          <TabsList className="w-full justify-start overflow-x-auto">
-            {tickers.map((tk) => (
-              <TabsTrigger key={tk.id} value={tk.id}>
-                {tk.nickname ?? tk.symbol}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <SegmentedControl value={active.id} onValueChange={setActiveId} className="w-full justify-start overflow-x-auto">
+{/* Scrollable: one trigger per ticker overflows a phone screen. */}
+          
+          {tickers.map((tk) => (
+            <SegmentedControlItem key={tk.id} value={tk.id}>
+              {tk.nickname ?? tk.symbol}
+            </SegmentedControlItem>
+          ))}
+        </SegmentedControl>
       )}
 
       {driver ? (

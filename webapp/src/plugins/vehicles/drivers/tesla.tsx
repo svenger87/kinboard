@@ -41,7 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import {
   useHomeAssistantStatus,
   useHomeAssistantEntityStates,
@@ -872,22 +872,19 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
               <h2 className="text-lg font-medium">
                 {t("chargingChartHeading")}
               </h2>
-              <Tabs
-                value={selectedPeriod}
-                onValueChange={(v) => setSelectedPeriod(v as TimePeriod)}
-              >
-                <TabsList>
-                  <TabsTrigger value="today" className="text-xs">
-                    {t("tabToday")}
-                  </TabsTrigger>
-                  <TabsTrigger value="week" className="text-xs">
-                    {t("tabWeek")}
-                  </TabsTrigger>
-                  <TabsTrigger value="month" className="text-xs">
-                    {t("tabMonth")}
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <SegmentedControl value={selectedPeriod}
+              onValueChange={(v) => setSelectedPeriod(v as TimePeriod)}>
+                
+                <SegmentedControlItem value="today" className="text-xs">
+                  {t("tabToday")}
+                </SegmentedControlItem>
+                <SegmentedControlItem value="week" className="text-xs">
+                  {t("tabWeek")}
+                </SegmentedControlItem>
+                <SegmentedControlItem value="month" className="text-xs">
+                  {t("tabMonth")}
+                </SegmentedControlItem>
+              </SegmentedControl>
             </div>
 
             {loadingHistory ? (

@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -521,26 +521,20 @@ function EnergyCard() {
                 <h2 className="text-lg font-medium">
                   {chartType === "power" ? t("chartPowerHeading") : t("chartEnergyHeading")}
                 </h2>
-                <Tabs
-                  value={chartType}
-                  onValueChange={(v) => setChartType(v as ChartType)}
-                >
-                  <TabsList className="h-8">
-                    <TabsTrigger value="power" className="text-xs px-3 h-6">{t("chartTabPower")}</TabsTrigger>
-                    <TabsTrigger value="energy" className="text-xs px-3 h-6">{t("chartTabEnergy")}</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                <SegmentedControl value={chartType}
+                onValueChange={(v) => setChartType(v as ChartType)} className="h-8">
+                  
+                  <SegmentedControlItem value="power" className="text-xs px-3 h-6">{t("chartTabPower")}</SegmentedControlItem>
+                  <SegmentedControlItem value="energy" className="text-xs px-3 h-6">{t("chartTabEnergy")}</SegmentedControlItem>
+                </SegmentedControl>
               </div>
-              <Tabs
-                value={selectedPeriod}
-                onValueChange={(v) => setSelectedPeriod(v as TimePeriod)}
-              >
-                <TabsList>
-                  <TabsTrigger value="today" className="text-xs">{t("tabToday")}</TabsTrigger>
-                  <TabsTrigger value="week" className="text-xs">{t("tabWeek")}</TabsTrigger>
-                  <TabsTrigger value="month" className="text-xs">{t("tabMonth")}</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <SegmentedControl value={selectedPeriod}
+              onValueChange={(v) => setSelectedPeriod(v as TimePeriod)}>
+                
+                <SegmentedControlItem value="today" className="text-xs">{t("tabToday")}</SegmentedControlItem>
+                <SegmentedControlItem value="week" className="text-xs">{t("tabWeek")}</SegmentedControlItem>
+                <SegmentedControlItem value="month" className="text-xs">{t("tabMonth")}</SegmentedControlItem>
+              </SegmentedControl>
             </div>
 
             {chartType === "power" && (

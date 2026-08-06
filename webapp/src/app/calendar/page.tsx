@@ -89,7 +89,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { MonthView, WeekView } from "@/components/calendar";
 import { ErrorState } from "@/components/error-state";
 import { LocationAutocomplete } from "@/components/location-autocomplete";
@@ -888,12 +888,10 @@ export default function CalendarPage() {
 
           {/* View tabs + person filter + navigation — kept below PageHeader */}
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-3 mb-6 sm:mb-8">
-            <Tabs value={view} onValueChange={(v) => setView(v as "month" | "week")}>
-              <TabsList aria-label={t("viewSwitcherAria")} className="h-auto sm:h-10">
-                <TabsTrigger value="month" className="text-xs sm:text-sm px-2 sm:px-3 min-h-[44px] sm:min-h-0">{t("viewMonth")}</TabsTrigger>
-                <TabsTrigger value="week" className="text-xs sm:text-sm px-2 sm:px-3 min-h-[44px] sm:min-h-0">{t("viewWeek")}</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <SegmentedControl value={view} onValueChange={(v) => setView(v as "month" | "week")} aria-label={t("viewSwitcherAria")} className="h-auto sm:h-10">
+              <SegmentedControlItem value="month" className="text-xs sm:text-sm px-2 sm:px-3 min-h-[44px] sm:min-h-0">{t("viewMonth")}</SegmentedControlItem>
+              <SegmentedControlItem value="week" className="text-xs sm:text-sm px-2 sm:px-3 min-h-[44px] sm:min-h-0">{t("viewWeek")}</SegmentedControlItem>
+            </SegmentedControl>
             {people && people.length > 0 && (
               <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("personFilterAria")}>
                 {people.map((person) => (
