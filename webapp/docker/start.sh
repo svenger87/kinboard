@@ -124,6 +124,26 @@ run_migrations() {
 
 case "$cmd" in
   up)
+    # Say something when the stack is about to build the webapp from source
+    # while a published image sits unused on this machine.
+    #
+    # That combination makes an upgrade quietly do nothing: compose rebuilds
+    # whatever the source checkout is on, which for anyone who has not run
+    # `git pull` is the version they already had. It reports success, the
+    # containers come up healthy, and only the version in Settings disagrees
+    # (issue #106). A warning, not a refusal — building from source on
+    # purpose is a supported path.
+    if ! $COMPOSE $COMPOSE_FILES config 2>/dev/null | grep -q 'image: ghcr.io/svenger87/kinboard'; then
+      if docker image inspect "ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest}" >/dev/null 2>&1; then
+        echo "warning: the webapp will be BUILT FROM SOURCE, but the published image" >&2
+        echo "         ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest} is already on this machine." >&2
+        echo "         To run the published image instead, load the overlay:" >&2
+        echo "           COMPOSE_FILES=\"-f docker-compose.yml -f docker-compose.image.yml\" ./start.sh up" >&2
+        echo "         To build on purpose, run 'git pull --ff-only origin main' first, or you" >&2
+        echo "         will rebuild the version you are already running." >&2
+      fi
+    fi
+
     # The one-shot db-init service (docker-compose.yml) aligns role
     # passwords before auth/rest/storage/realtime start, so we just bring
     # the stack up and apply migrations.
