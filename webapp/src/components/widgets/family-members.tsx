@@ -237,7 +237,7 @@ function PersonDetailsDialog({ person, todos, events, onClose }: PersonDetailsDi
           <DialogHeader>
             <DialogTitle className="flex items-center gap-4">
               <Avatar
-                className="size-14 ring-2 ring-white/20 shadow-lg"
+                className="size-14 ring-2 ring-white/20 elev-md"
                 style={{
                   border: `3px solid ${person.color}`,
                   backgroundColor: `${person.color}20`,

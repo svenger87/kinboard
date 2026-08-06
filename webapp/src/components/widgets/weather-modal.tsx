@@ -468,7 +468,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                           />
                           {isToday && (
                             <div
-                              className="absolute top-1/2 -translate-y-1/2 size-2.5 rounded-full bg-white border-2 border-background shadow-sm"
+                              className="absolute top-1/2 -translate-y-1/2 size-2.5 rounded-full bg-white border-2 border-background elev-sm"
                               style={{
                                 left: `${((currentWeather.temp - globalMin) / tempRange) * 100}%`,
                                 marginLeft: "-5px",
@@ -733,7 +733,7 @@ function ClothingAdvisor({
         <div className="relative h-2 rounded-full overflow-hidden bg-gradient-to-r from-blue-500 via-green-400 via-50% via-yellow-400 via-75% to-red-500 opacity-30" />
         <div className="relative h-2 -mt-2 rounded-full overflow-hidden">
           <div
-            className="absolute top-0 -translate-x-1/2 size-3 -mt-0.5 rounded-full border-2 border-background shadow-lg transition-all duration-500"
+            className="absolute top-0 -translate-x-1/2 size-3 -mt-0.5 rounded-full border-2 border-background elev-md transition-all duration-500"
             style={{ left: `${comfort.position}%`, backgroundColor: comfort.color }}
           />
         </div>

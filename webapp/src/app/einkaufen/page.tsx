@@ -503,7 +503,7 @@ export default function EinkaufenPage() {
           transition: pullDistance === 0 ? 'all 0.2s ease-out' : 'none'
         }}
       >
-        <div className={`p-3 rounded-full bg-card border border-border shadow-lg ${isRefreshing ? 'animate-spin' : ''}`}>
+        <div className={`p-3 rounded-full bg-card border border-border elev-md ${isRefreshing ? 'animate-spin' : ''}`}>
           <RefreshCw
             className="size-5 text-primary"
             style={{
@@ -812,7 +812,7 @@ export default function EinkaufenPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
-                className="absolute bottom-full left-0 right-0 mb-2 bg-popover border border-border rounded-xl overflow-hidden max-h-64 overflow-y-auto shadow-lg"
+                className="absolute bottom-full left-0 right-0 mb-2 bg-popover border border-border rounded-xl overflow-hidden max-h-64 overflow-y-auto elev-md"
               >
                 {catalogResults.slice(0, 6).map((result, index) => {
                   const cat = CATEGORIES[result.category || "sonstiges"];

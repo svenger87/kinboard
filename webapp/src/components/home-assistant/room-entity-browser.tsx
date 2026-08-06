@@ -126,7 +126,7 @@ function EntityRow({
           variant="outline"
           className={`shrink-0 text-xs ${
             entity.state === "on"
-              ? "border-green-500/50 text-green-500"
+              ? "border-state-on/50 text-state-on"
               : entity.state === "off"
               ? "border-muted-foreground/30"
               : ""

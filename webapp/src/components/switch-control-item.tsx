@@ -34,14 +34,14 @@ export function SwitchControlItem({ roomEntity, entity }: SwitchControlItemProps
     <div
       className={`rounded-xl border p-3 transition-all ${
         isOn
-          ? "border-blue-500/30 bg-blue-500/10"
+          ? "border-state-cool/30 bg-state-cool/10"
           : "bg-card"
       } ${isUnavailable ? "opacity-50" : ""}`}
     >
       <div className="flex items-center gap-3">
         <div
           className={`p-2 rounded-lg transition-colors ${
-            isOn ? "bg-blue-500/20 text-blue-500" : "bg-muted text-muted-foreground"
+            isOn ? "bg-state-cool/20 text-state-cool" : "bg-muted text-muted-foreground"
           }`}
         >
           {isPending ? (

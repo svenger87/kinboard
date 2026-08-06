@@ -34,7 +34,7 @@ function BirthdayWidgetSkeleton() {
   const t = useTranslations("birthdayWidget");
   return (
     <Card aria-label={t("loadingAria")} aria-busy="true">
-      <CardContent className="flex flex-col gap-4 p-[18px]">
+      <CardContent className="flex flex-col gap-4 p-4">
         <div className="flex items-center gap-3">
           <Skeleton className="size-5 rounded" />
           <Skeleton className="h-5 w-24" />
@@ -100,7 +100,7 @@ export function BirthdayWidget({
   if (isError) {
     return (
       <Card className={`h-full ${className}`}>
-        <CardContent className="flex flex-col gap-4 p-[18px]">
+        <CardContent className="flex flex-col gap-4 p-4">
           <div className="flex items-center gap-3">
             <span className="p-1.5 rounded-lg bg-primary/10">
               <Cake className="size-5 text-primary" strokeWidth={1.5} />

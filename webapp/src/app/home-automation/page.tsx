@@ -396,7 +396,7 @@ export default function HausautomationPage() {
                     </div>
                   )}
                   {otherEntities.length > 0 && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 text-sm text-blue-500">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-state-cool/10 text-sm text-state-cool">
                       <CircleDot className="size-3.5" />
                       {t("statusOther", { count: otherEntities.length })}
                     </div>

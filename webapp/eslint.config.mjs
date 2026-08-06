@@ -51,6 +51,20 @@ const config = [
           message:
             "Blur is banned on kiosk surfaces (ARM GPU cost). Use elev-sm/md/lg for depth and an opaque background. See globals.css.",
         },
+        // One elevation API. Tailwind's shadow-* draws a hard black shadow;
+        // .elev-* is tinted by the active neutral palette via --shadow-rgb.
+        // Both existed side by side for the same job (audit KB-28). Colour-
+        // bearing shadows (shadow-black/20, shadow-[0_0_...]) are unaffected.
+        {
+          selector: "JSXAttribute[name.name='className'] Literal[value=/(^|\\s)shadow-(sm|md|lg|xl|2xl)(\\s|$)/]",
+          message:
+            "Use elev-sm/md/lg instead of shadow-*: they follow the palette's shadow tint (--shadow-rgb). See globals.css.",
+        },
+        {
+          selector: "JSXAttribute[name.name='className'] TemplateElement[value.raw=/(^|\\s)shadow-(sm|md|lg|xl|2xl)(\\s|$)/]",
+          message:
+            "Use elev-sm/md/lg instead of shadow-*: they follow the palette's shadow tint (--shadow-rgb). See globals.css.",
+        },
       ],
       ...REACT_19_TODO_RULES,
     },

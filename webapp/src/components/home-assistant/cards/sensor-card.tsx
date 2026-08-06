@@ -69,16 +69,16 @@ function getSensorIcon(deviceClass?: string) {
 function getSensorColor(deviceClass?: string): string {
   switch (deviceClass) {
     case "temperature":
-      return "text-orange-500";
+      return "text-state-alert";
     case "humidity":
-      return "text-blue-500";
+      return "text-state-cool";
     case "power":
     case "energy":
-      return "text-yellow-500";
+      return "text-state-light";
     case "illuminance":
-      return "text-amber-400";
+      return "text-state-light";
     case "battery":
-      return "text-green-500";
+      return "text-state-on";
     default:
       return "text-primary";
   }

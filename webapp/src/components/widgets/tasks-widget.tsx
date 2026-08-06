@@ -32,7 +32,7 @@ function TasksWidgetSkeleton() {
   const t = useTranslations("tasksWidget");
   return (
     <Card aria-label={t("loadingAria")} aria-busy="true">
-      <CardContent className="flex flex-col gap-2 p-[18px]">
+      <CardContent className="flex flex-col gap-2 p-4">
         <div className="flex items-center gap-2">
           <Skeleton className="size-5 rounded" />
           <Skeleton className="h-5 w-24" />
@@ -128,7 +128,7 @@ export function TasksWidget({
   if (isError) {
     return (
       <Card className={`accent-border-top h-full ${className}`}>
-        <CardContent className="p-[18px]">
+        <CardContent className="p-4">
           <p className="font-display text-lg font-semibold leading-tight mb-4">{t("title")}</p>
           <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
             <AlertCircle className="size-8 mb-2 text-destructive/40" />

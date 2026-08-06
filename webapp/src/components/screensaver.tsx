@@ -758,7 +758,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: "spring", damping: 25 }}
-              className="bg-zinc-900 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl"
+              className="bg-zinc-900 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden elev-lg"
               onClick={(e) => e.stopPropagation()}
             >
               {/* News image */}

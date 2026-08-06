@@ -72,9 +72,9 @@ export function VacuumCard({ card, entity }: VacuumCardProps) {
   const statusLabel = VACUUM_STATUS_KEYS.includes(status) ? tStatus(status as VacuumStatusKey) : status;
 
   const getStatusColor = () => {
-    if (isCleaning) return "text-green-500";
-    if (isPaused) return "text-yellow-500";
-    if (isDocked) return "text-blue-500";
+    if (isCleaning) return "text-state-on";
+    if (isPaused) return "text-state-light";
+    if (isDocked) return "text-state-cool";
     return "text-muted-foreground";
   };
 
@@ -115,7 +115,7 @@ export function VacuumCard({ card, entity }: VacuumCardProps) {
     <div
       className={`rounded-2xl border bg-card elev-sm p-4 transition-all ${
         isCleaning
-          ? "bg-green-500/10 border-green-500/30"
+          ? "bg-state-on/10 border-state-on/30"
           : "border-border hover:border-primary/30"
       } ${isUnavailable ? "opacity-50" : ""}`}
     >
@@ -123,7 +123,7 @@ export function VacuumCard({ card, entity }: VacuumCardProps) {
       <div className="flex items-start justify-between mb-3">
         <div
           className={`p-2.5 rounded-xl ${
-            isCleaning ? "bg-green-500/20 text-green-500" : "bg-muted text-muted-foreground"
+            isCleaning ? "bg-state-on/20 text-state-on" : "bg-muted text-muted-foreground"
           }`}
         >
           <VacuumIcon className="size-5" />
