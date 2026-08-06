@@ -57,9 +57,10 @@ export function DesktopNav() {
     >
       {/* Scroll fade indicators */}
       <div
-        className="pointer-events-none absolute top-0 bottom-0 w-8 z-10 transition-opacity duration-200 left-[8.5rem] lg:left-[10.5rem]"
+        className="pointer-events-none absolute top-0 bottom-0 w-8 z-10 transition-opacity duration-200"
         aria-hidden="true"
         style={{
+          left: "var(--nav-home-pin)",
           opacity: canScrollLeft ? 1 : 0,
           background: "linear-gradient(to right, hsl(var(--card)), transparent)",
         }}
@@ -84,7 +85,14 @@ export function DesktopNav() {
         const HomeIcon = home.icon;
         const isActive = pathname === "/";
         return (
-          <div className="absolute left-0 top-0 bottom-0 z-20 flex items-center pl-4 pr-2 bg-card">
+          // Width is pinned to --nav-home-pin, the same token the scroller uses
+          // for its left padding, and overflow is clipped: the opaque block now
+          // covers the reserved strip exactly, leaving no gap for a scrolled
+          // item to peek through.
+          <div
+            className="absolute left-0 top-0 bottom-0 z-20 flex items-center overflow-hidden pl-4 pr-2 bg-card"
+            style={{ width: "var(--nav-home-pin)" }}
+          >
             <Link
               href="/"
               aria-current={isActive ? "page" : undefined}
@@ -100,14 +108,15 @@ export function DesktopNav() {
                 <div className="absolute -bottom-0.5 left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-full bg-primary" />
               )}
             </Link>
-            <div className="ml-2 h-6 w-px bg-border" aria-hidden="true" />
+            <div className="ml-auto h-6 w-px bg-border" aria-hidden="true" />
           </div>
         );
       })()}
 
       <div
         ref={scrollRef}
-        className="flex items-center overflow-x-auto scrollbar-hide pl-[8.5rem] pr-4 lg:pl-[10.5rem] gap-2 overscroll-x-contain touch-pan-x"
+        className="flex items-center overflow-x-auto scrollbar-hide pr-4 gap-2 overscroll-x-contain touch-pan-x"
+        style={{ paddingLeft: "var(--nav-home-pin)" }}
         onKeyDown={(e) => {
           if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
             e.preventDefault();
