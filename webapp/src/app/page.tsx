@@ -100,6 +100,7 @@ export default function DashboardPage() {
             take their natural height, `auto-rows-min` sizes rows to content and
             `items-start` keeps them top-aligned, so the grid packs instead. */}
         <section className="relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 2xl:grid-cols-5 min-[2000px]:grid-cols-6 auto-rows-min items-start gap-4 md:gap-6 w-[min(96vw,2200px)] mx-auto" aria-label={t("ariaWidgets")}>
+          <FloatingLightsFab />
           {w.weather && <Weather />}
           {w.upcomingEvents && <UpcomingEvents maxEvents={3} />}
           {w.schedule && <ScheduleWidget />}
@@ -115,8 +116,6 @@ export default function DashboardPage() {
           {w.pocketMoney && <PocketMoneyWidget />}
         </section>
       </div>
-
-      <FloatingLightsFab />
     </main>
   );
 }

@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Tooltip,
@@ -327,30 +327,28 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
             <div className="lg:col-span-2 bg-muted/30 rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-muted-foreground">{t("sectionMap")}</h3>
-                <Tabs value={selectedLayer} onValueChange={(v) => setSelectedLayer(v as MapLayer)}>
-                  <TabsList>
-                    <TabsTrigger value="precipitation" className="text-xs px-2">
-                      <Umbrella className="size-3 mr-1" />
-                      {t("layerPrecipitation")}
-                    </TabsTrigger>
-                    <TabsTrigger value="clouds" className="text-xs px-2">
-                      <Cloud className="size-3 mr-1" />
-                      {t("layerClouds")}
-                    </TabsTrigger>
-                    <TabsTrigger value="temperature" className="text-xs px-2">
-                      <Thermometer className="size-3 mr-1" />
-                      {t("layerTemperature")}
-                    </TabsTrigger>
-                    <TabsTrigger value="wind" className="text-xs px-2">
-                      <Wind className="size-3 mr-1" />
-                      {t("layerWind")}
-                    </TabsTrigger>
-                    <TabsTrigger value="pressure" className="text-xs px-2">
-                      <Gauge className="size-3 mr-1" />
-                      {t("layerPressure")}
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                <SegmentedControl value={selectedLayer} onValueChange={(v) => setSelectedLayer(v as MapLayer)}>
+                  <SegmentedControlItem value="precipitation" className="text-xs px-2">
+                    <Umbrella className="size-3 mr-1" />
+                    {t("layerPrecipitation")}
+                  </SegmentedControlItem>
+                  <SegmentedControlItem value="clouds" className="text-xs px-2">
+                    <Cloud className="size-3 mr-1" />
+                    {t("layerClouds")}
+                  </SegmentedControlItem>
+                  <SegmentedControlItem value="temperature" className="text-xs px-2">
+                    <Thermometer className="size-3 mr-1" />
+                    {t("layerTemperature")}
+                  </SegmentedControlItem>
+                  <SegmentedControlItem value="wind" className="text-xs px-2">
+                    <Wind className="size-3 mr-1" />
+                    {t("layerWind")}
+                  </SegmentedControlItem>
+                  <SegmentedControlItem value="pressure" className="text-xs px-2">
+                    <Gauge className="size-3 mr-1" />
+                    {t("layerPressure")}
+                  </SegmentedControlItem>
+                </SegmentedControl>
               </div>
 
               <div className="relative h-[300px] rounded-lg overflow-hidden">

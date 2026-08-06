@@ -540,7 +540,7 @@ export default function BirthdaysPage() {
                     <div className="flex items-center gap-3 mb-3">
                       <Calendar className="size-4 text-muted-foreground" />
                       <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        {t("yearOverview")}
+                        {t("monthOverview")}
                       </span>
                     </div>
                     <div className="flex gap-1 sm:gap-1.5 overflow-x-auto scrollbar-hide">

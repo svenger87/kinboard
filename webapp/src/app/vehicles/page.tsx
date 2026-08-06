@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { Car } from "lucide-react";
 import { useVehicles } from "@/hooks/use-vehicles";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
@@ -71,16 +71,15 @@ export default function VehiclesPage() {
       />
 
       {vehicles.length > 1 && (
-        <Tabs value={active.id} onValueChange={setActiveId}>
-          {/* Scrollable: one trigger per vehicle overflows a phone screen. */}
-          <TabsList className="w-full justify-start overflow-x-auto">
-            {vehicles.map((v) => (
-              <TabsTrigger key={v.id} value={v.id}>
-                {v.nickname}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <SegmentedControl value={active.id} onValueChange={setActiveId} className="w-full justify-start overflow-x-auto">
+{/* Scrollable: one trigger per vehicle overflows a phone screen. */}
+          
+          {vehicles.map((v) => (
+            <SegmentedControlItem key={v.id} value={v.id}>
+              {v.nickname}
+            </SegmentedControlItem>
+          ))}
+        </SegmentedControl>
       )}
 
       {driver ? (

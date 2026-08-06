@@ -9,6 +9,12 @@
        fixed bar overlaps page content (raised from 4rem with KB-22). */
     --desktop-nav-height: 4.25rem;
     --nav-spacing: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
+    /* Width of DesktopNav's pinned Home block. The scroller reserves exactly
+       this much padding, so scrolled-away items can never surface in a gutter
+       between the two. Both sides must read the same value — when they were
+       independent (auto-width block vs. a hardcoded 10.5rem pad) a 27px slot
+       opened up and "Stundenplan" showed through it as a bare "an". */
+    --nav-home-pin: 8.5rem;
 
     /* Default neutral palette = Sand / Papier. Salbei is opt-in (.palette-salbei). */
     --background: 38 37% 88%;
@@ -140,7 +146,7 @@
 
   /* Nav items step up to 48px at lg, so the bar grows with them. */
   @media (min-width: 1024px) {
-    :root { --desktop-nav-height: 4.5rem; }
+    :root { --desktop-nav-height: 4.5rem; --nav-home-pin: 10.5rem; }
   }
 
   .dark {
@@ -595,8 +601,16 @@
 @keyframes marchDashReverse {
   to { stroke-dashoffset: 14; }
 }
+/* Runs only while `data-flowing` is set on the diagram. An always-on kitchen
+   display should not carry perpetual motion in the corner once the numbers have
+   settled (audit KB-54); prefers-reduced-motion still disables it outright. */
 .flow-dash {
   animation: marchDash 1s linear infinite;
+  animation-play-state: paused;
+}
+[data-flowing="true"] .flow-dash,
+[data-flowing="true"] .flow-dash-reverse {
+  animation-play-state: running;
 }
 
 /* Overflow-only marquee for long titles (see components/marquee-text.tsx).
@@ -619,6 +633,18 @@
 /* GPU hints removed - caused constant CPU overhead on ARM devices (RPI/Odroid) */
 .gpu-blur {
   /* Previously had will-change, transform, backface-visibility - removed for ARM compatibility */
+}
+
+/* No photo source configured means DEFAULT_PHOTOS is empty and there is
+   literally nothing to draw, so the canvas was flat black — a ~1100x850px void
+   in the middle of an otherwise well-composed screen, and the ordinary state
+   of a fresh self-hosted install (audit KB-19). A warm gradient built from the
+   month's accent reads as intentional instead of broken. */
+.screensaver-canvas-empty {
+  background:
+    radial-gradient(120% 80% at 50% 0%, hsl(var(--month-primary) / 0.22), transparent 70%),
+    radial-gradient(100% 70% at 50% 100%, hsl(var(--month-primary) / 0.10), transparent 65%),
+    hsl(var(--background));
 }
 
 /* Screensaver fade-in animations (CSS-only, no JS overhead) */

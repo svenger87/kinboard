@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PiggyBank } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { AvatarDisplay } from "@/components/pocket-money/avatar-display";
@@ -56,24 +56,22 @@ export function PocketMoneyWidget() {
     <Link href="/pocket-money" className="block h-full">
       <Card className="p-4 space-y-3 h-full accent-border-top">
         {accounts.length > 1 && (
-          <Tabs value={active.id} onValueChange={(v) => setActiveId(v)}>
-            <TabsList>
-              {accounts.map((a) => (
-                <TabsTrigger
-                  key={a.id}
-                  value={a.id}
-                  onClick={(e) => {
-                    // Prevent the wrapping <Link> from firing when the user
-                    // taps a tab; they want to switch tabs, not navigate.
-                    e.stopPropagation();
-                    e.preventDefault();
-                  }}
-                >
-                  <PersonName accountPersonId={a.person_id} />
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          <SegmentedControl value={active.id} onValueChange={(v) => setActiveId(v)}>
+            {accounts.map((a) => (
+              <SegmentedControlItem
+                key={a.id}
+                value={a.id}
+                onClick={(e) => {
+                  // Prevent the wrapping <Link> from firing when the user
+                  // taps a tab; they want to switch tabs, not navigate.
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
+              >
+                <PersonName accountPersonId={a.person_id} />
+              </SegmentedControlItem>
+            ))}
+          </SegmentedControl>
         )}
         <PocketMoneyWidgetTab account={active} />
       </Card>

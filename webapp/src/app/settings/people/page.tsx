@@ -620,7 +620,10 @@ export default function PeopleSettingsPage() {
                     </div>
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions. Edit and delete used to sit ~20px apart, which on a
+                      phone puts a destructive action inside the same thumb sweep
+                      as the common one (audit KB-15). A separator and a wider
+                      gap before delete make the two distinct targets. */}
                   <div className="flex items-center gap-1">
                     <Dialog
                       open={editingPerson?.id === person.id}
@@ -715,6 +718,7 @@ export default function PeopleSettingsPage() {
                       </DialogContent>
                     </Dialog>
 
+                    <span className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden="true" />
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label={t("deleteAria")}>

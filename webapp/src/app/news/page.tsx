@@ -213,7 +213,7 @@ function NewsCard({
                 </Badge>
                 {relativeDate && <span>· {relativeDate}</span>}
               </div>
-              <h3 className="font-medium leading-tight line-clamp-2">{item.title}</h3>
+              <h2 className="font-medium leading-tight line-clamp-2">{item.title}</h2>
               {item.description && (
                 <p className="text-xs text-muted-foreground line-clamp-2">
                   {item.description}
