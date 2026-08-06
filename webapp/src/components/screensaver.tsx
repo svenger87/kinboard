@@ -548,7 +548,11 @@ export function Screensaver({ photos }: ScreensaverProps) {
   }, [events, people]);
 
   return (
-    <div className="fixed inset-0 bg-black z-[100] screensaver-fade-in">
+    <div
+      className={`fixed inset-0 z-[100] screensaver-fade-in ${
+        currentBlobUrl ? "bg-black" : "screensaver-canvas-empty"
+      }`}
+    >
       {/* Background Photo - Only render current and previous for performance */}
       <div className="absolute inset-0">
         {/* Previous photo (fading out) */}
@@ -573,7 +577,9 @@ export function Screensaver({ photos }: ScreensaverProps) {
         )}
 
         {/* Gradient overlay for readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40" />
+        {currentBlobUrl && (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40" />
+        )}
       </div>
 
       {/* News list - top left (always rendered for data-no-wake) */}
@@ -604,7 +610,11 @@ export function Screensaver({ photos }: ScreensaverProps) {
                       alt=""
                       className="size-full object-cover"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
+                        // Hiding just the <img> left its 64px wrapper behind as
+                        // a bare grey rectangle (audit KB-20). Collapse the
+                        // container so the headline takes the full width.
+                        const wrapper = (e.currentTarget as HTMLImageElement).parentElement;
+                        if (wrapper) wrapper.style.display = "none";
                       }}
                     />
                   </div>
@@ -758,7 +768,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: "spring", damping: 25 }}
-              className="bg-zinc-900 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl"
+              className="bg-zinc-900 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden elev-lg"
               onClick={(e) => e.stopPropagation()}
             >
               {/* News image */}

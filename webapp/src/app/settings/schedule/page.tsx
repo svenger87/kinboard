@@ -671,7 +671,7 @@ export default function ScheduleSettingsPage() {
   // Loading state
   if (isLoading) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="relative z-10 max-w-6xl mx-auto">
           <PageHeader
             icon={GraduationCap}
@@ -694,7 +694,7 @@ export default function ScheduleSettingsPage() {
   // Error state
   if (error) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="relative z-10 max-w-6xl mx-auto">
           <PageHeader
             icon={GraduationCap}
@@ -726,7 +726,7 @@ export default function ScheduleSettingsPage() {
   // No children state
   if (children.length === 0) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="relative z-10 max-w-6xl mx-auto">
           <PageHeader
             icon={GraduationCap}
@@ -752,7 +752,7 @@ export default function ScheduleSettingsPage() {
   }
 
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-6xl mx-auto">
         <PageHeader
           icon={GraduationCap}
@@ -956,7 +956,7 @@ export default function ScheduleSettingsPage() {
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <button
-                                    className="w-full p-2 rounded-lg text-left transition-all hover:scale-[1.02] hover:shadow-md"
+                                    className="w-full p-2 rounded-lg text-left transition-all hover:scale-[1.02] hover:elev-md"
                                     style={{
                                       backgroundColor: `${color}20`,
                                       borderLeft: `3px solid ${color}`,

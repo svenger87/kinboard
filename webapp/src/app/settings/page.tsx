@@ -577,7 +577,7 @@ export default function SettingsPage() {
     // guard that used to wrap them now lives in the layout, so every
     // settings sub-page is covered rather than just this index.
     <>
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto">
         {/* Header */}
         <motion.div
@@ -737,12 +737,14 @@ export default function SettingsPage() {
                     href={item.href}
                     className="flex min-h-[56px] items-center gap-3 rounded-xl border border-border bg-card px-4 elev-sm transition-colors hover:bg-accent/50"
                   >
-                    <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-primary/10 text-primary">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
                       <item.icon className="size-5" strokeWidth={1.75} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{item.label}</p>
-                      <p className="truncate text-xs text-muted-foreground">{item.description}</p>
+                      {/* `truncate` clipped these to one line; German runs ~30% longer than
+                          English and six of them were cut mid-sentence (audit KB-34). */}
+                      <p className="line-clamp-3 text-xs text-muted-foreground">{item.description}</p>
                     </div>
                     <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
                   </Link>
@@ -1013,18 +1015,25 @@ export default function SettingsPage() {
                 </div>
               )}
 
+              {/* Rotating the link revokes the calendar feed for every family
+                  member and every subscribed app. It used to look exactly like
+                  the benign "download a backup" button 12px above it — same
+                  variant, same width, no warning until after the click (audit
+                  KB-64). The consequence now precedes the control, and the
+                  control reads as destructive. Enabling for the first time is
+                  not destructive, so only the rotate case changes. */}
+              {(feedEnabled || feedUrl) && (
+                <p className="mt-3 text-xs text-muted-foreground">{t("feedHint")}</p>
+              )}
+
               <Button
-                variant="outline"
-                className="mt-3 w-full"
+                variant={feedEnabled || feedUrl ? "destructive" : "outline"}
+                className="mt-2 w-full"
                 onClick={handleFeedGenerate}
                 disabled={feedLoading || !family?.id}
               >
                 {feedEnabled || feedUrl ? t("feedRotate") : t("feedEnable")}
               </Button>
-
-              {(feedEnabled || feedUrl) && (
-                <p className="text-xs text-muted-foreground mt-2">{t("feedHint")}</p>
-              )}
             </div>
           </Card>
         </motion.div>
@@ -1129,7 +1138,7 @@ export default function SettingsPage() {
         </div>
 
         {/* App info footer */}
-        <div className="mt-6 pb-4 text-center text-[11px] text-muted-foreground/40 space-y-0.5">
+        <div className="mt-6 pb-4 text-center text-2xs text-muted-foreground/40 space-y-0.5">
           <p>
             <button
               type="button"

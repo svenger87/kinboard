@@ -66,7 +66,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} className={monthTheme} suppressHydrationWarning>
       <body
-        className={`${display.variable} ${sans.variable} ${mono.variable} font-sans antialiased min-h-screen bg-background`}
+        className={`${display.variable} ${sans.variable} ${mono.variable} font-sans antialiased min-h-page bg-background`}
       >
         <script
            

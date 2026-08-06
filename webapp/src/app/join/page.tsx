@@ -19,6 +19,7 @@ import {
   KeyRound,
   Upload,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { safeNextPath } from "@/components/auth-guard";
@@ -239,7 +240,7 @@ export default function JoinPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-8 relative overflow-hidden">
+    <main className="min-h-page flex items-center justify-center p-8 relative overflow-hidden">
       {/* Background — flat page gradient, theme-following, no glass */}
       <div className="page-gradient" />
 
@@ -249,7 +250,9 @@ export default function JoinPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="w-full max-w-md relative z-10"
+        // max-w-md is a phone measure. On a 1080x1920 portrait panel it left
+        // roughly 70% of the first screen anyone ever sees empty (audit KB-45).
+        className="relative z-10 w-full max-w-md lg:max-w-lg xl:max-w-xl"
       >
         {/* Header / Welcome hero */}
         {!modeChosen && recognizedDevices.length === 0 && !isFreshInstall && !isCheckingFingerprint ? (
@@ -417,7 +420,7 @@ export default function JoinPage() {
               onClick={() => setMode("join")}
               className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
                 mode === "join"
-                  ? "bg-background shadow-sm text-foreground"
+                  ? "bg-background elev-sm text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -427,7 +430,7 @@ export default function JoinPage() {
               onClick={() => setMode("create")}
               className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
                 mode === "create"
-                  ? "bg-background shadow-sm text-foreground"
+                  ? "bg-background elev-sm text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -444,10 +447,17 @@ export default function JoinPage() {
             <form onSubmit={handleJoin} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <label htmlFor="join-code" className="text-sm font-medium">{t("joinCodeLabel")}</label>
-                <CodeInput value={joinCode} onChange={setJoinCode} length={6} />
-                <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5 mt-1">
-                  {t("joinCodeHint")}
-                </p>
+                <CodeInput value={joinCode} onChange={setJoinCode} length={6} invalid={!!error} />
+                {error ? (
+                  <p id="join-code-error" role="alert" className="mt-1 flex items-center justify-center gap-1.5 text-sm font-medium text-destructive">
+                    <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
+                    {error}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5 mt-1">
+                    {t("joinCodeHint")}
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col gap-2">
@@ -459,10 +469,6 @@ export default function JoinPage() {
                   onChange={(e) => setDeviceName(e.target.value)}
                 />
               </div>
-
-              {error && (
-                <p className="text-sm text-destructive text-center" role="alert">{error}</p>
-              )}
 
               <Button
                 type="submit"
@@ -502,10 +508,6 @@ export default function JoinPage() {
                   onChange={(e) => setDeviceName(e.target.value)}
                 />
               </div>
-
-              {error && (
-                <p className="text-sm text-destructive text-center" role="alert">{error}</p>
-              )}
 
               <Button
                 type="submit"

@@ -50,7 +50,12 @@ export function LightControlItem({ card, entity }: LightControlItemProps) {
   // Calculate icon color based on color temperature
   const iconColor = isOn && supportsColorTemp && displayColorTemp
     ? getColorTempColor(displayColorTemp, minKelvin, maxKelvin)
-    : isOn ? "#eab308" : undefined; // Default yellow-500 when on without color temp
+    // A light with no reported colour temperature falls back to the semantic
+    // "light is on" token rather than a hard-coded yellow-500 (audit KB-12).
+    // getColorTempColor still returns a real hex when HA reports one, so the
+    // alpha variants below use color-mix rather than hex concatenation — that
+    // works for both a hex and an hsl(var(--...)).
+    : isOn ? "hsl(var(--state-light))" : undefined;
 
   // Check if this is a grouped light (has entity_id array attribute)
   const isGroupedLight = Array.isArray(entity.attributes.entity_id);
@@ -88,19 +93,19 @@ export function LightControlItem({ card, entity }: LightControlItemProps) {
   return (
     <div
       className={`rounded-2xl border bg-card elev-sm p-4 transition-all ${
-        isOn ? "border-yellow-500/30" : "border-border"
+        isOn ? "border-state-light/30" : "border-border"
       } ${isUnavailable ? "opacity-50" : ""}`}
-      style={isOn && iconColor ? { backgroundColor: `${iconColor}15` } : undefined}
+      style={isOn && iconColor ? { backgroundColor: `color-mix(in srgb, ${iconColor}, transparent 92%)` } : undefined}
     >
       {/* Header row: icon, name, group indicator, toggle */}
       <div className="flex items-center gap-3">
         <div
           className={`p-2 rounded-lg transition-colors ${
-            isOn ? "bg-yellow-500/20 icon-badge" : "bg-muted text-muted-foreground"
+            isOn ? "bg-state-light/20 icon-badge" : "bg-muted text-muted-foreground"
           }`}
           style={
             isOn && iconColor
-              ? { color: iconColor, boxShadow: `0 0 16px ${iconColor}66` }
+              ? { color: iconColor, boxShadow: `0 0 16px color-mix(in srgb, ${iconColor}, transparent 60%)` }
               : undefined
           }
         >
@@ -127,6 +132,7 @@ export function LightControlItem({ card, entity }: LightControlItemProps) {
         </div>
 
         <Switch
+          aria-label={label}
           checked={isOn}
           onCheckedChange={handleToggle}
           disabled={isPending || isUnavailable}
@@ -158,9 +164,9 @@ export function LightControlItem({ card, entity }: LightControlItemProps) {
         <div className="mt-3 flex flex-col gap-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
-              <Sun className="size-3 text-orange-400" />
+              <Sun className="size-3 text-state-alert" />
               <span>{tLight("colorTemp")}</span>
-              <Snowflake className="size-3 text-blue-400" />
+              <Snowflake className="size-3 text-state-cool" />
             </div>
             <span>{displayColorTemp}K</span>
           </div>

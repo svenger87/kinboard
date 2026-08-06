@@ -89,7 +89,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { MonthView, WeekView } from "@/components/calendar";
 import { ErrorState } from "@/components/error-state";
 import { LocationAutocomplete } from "@/components/location-autocomplete";
@@ -581,7 +581,7 @@ export default function CalendarPage() {
 
   return (
     <TooltipProvider>
-      <main id="main-content" className="min-h-screen relative overflow-hidden">
+      <main id="main-content" className="min-h-page relative overflow-hidden">
         {/* Background */}
         <div className="page-gradient" />
 
@@ -640,6 +640,7 @@ export default function CalendarPage() {
                     <div className="flex items-center justify-between">
                       <Label htmlFor="allDay">{t("fieldAllDay")}</Label>
                       <Switch
+                        aria-label={t("fieldAllDay")}
                         id="allDay"
                         checked={newEvent.allDay}
                         onCheckedChange={(checked) =>
@@ -887,12 +888,10 @@ export default function CalendarPage() {
 
           {/* View tabs + person filter + navigation — kept below PageHeader */}
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-3 mb-6 sm:mb-8">
-            <Tabs value={view} onValueChange={(v) => setView(v as "month" | "week")}>
-              <TabsList aria-label={t("viewSwitcherAria")} className="h-auto sm:h-10">
-                <TabsTrigger value="month" className="text-xs sm:text-sm px-2 sm:px-3 min-h-[44px] sm:min-h-0">{t("viewMonth")}</TabsTrigger>
-                <TabsTrigger value="week" className="text-xs sm:text-sm px-2 sm:px-3 min-h-[44px] sm:min-h-0">{t("viewWeek")}</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <SegmentedControl value={view} onValueChange={(v) => setView(v as "month" | "week")} aria-label={t("viewSwitcherAria")} className="h-auto sm:h-10">
+              <SegmentedControlItem value="month" className="text-xs sm:text-sm px-2 sm:px-3 min-h-[44px] sm:min-h-0">{t("viewMonth")}</SegmentedControlItem>
+              <SegmentedControlItem value="week" className="text-xs sm:text-sm px-2 sm:px-3 min-h-[44px] sm:min-h-0">{t("viewWeek")}</SegmentedControlItem>
+            </SegmentedControl>
             {people && people.length > 0 && (
               <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("personFilterAria")}>
                 {people.map((person) => (
@@ -1056,9 +1055,9 @@ export default function CalendarPage() {
               <Card className="p-4 h-full">
                 <div className="mb-4">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-medium">
+                    <h2 className="font-medium">
                       {format(displayDate, "EEEE, d. MMMM", { locale: dateLocale })}
-                    </h3>
+                    </h2>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {!selectedDate && (
                         <Badge variant="secondary" className="text-xs">{t("todayBadge")}</Badge>
@@ -1089,9 +1088,18 @@ export default function CalendarPage() {
                   {(() => {
                     const timedEvents = selectedDateEvents.filter((e) => !e.allDay);
                     const allDayEvents = selectedDateEvents.filter((e) => e.allDay);
-                    const TIMELINE_START = 6; // 6:00
-                    const TIMELINE_END = 22; // 22:00
-                    const TOTAL_HOURS = TIMELINE_END - TIMELINE_START;
+                    // A fixed 06:00-22:00 window meant any event outside it was
+                    // drawn against an axis that does not contain it — a 21:30
+                    // film night rendered as a bar below the last hour mark,
+                    // visually detached from any time (audit KB-10). The window
+                    // still defaults to 06:00-22:00, but widens to whatever the
+                    // day actually holds, clamped to the real day.
+                    const hourOf = (d: Date) => d.getHours() + d.getMinutes() / 60;
+                    const earliest = Math.min(...timedEvents.map((e) => hourOf(e.start)), 6);
+                    const latest = Math.max(...timedEvents.map((e) => hourOf(e.end)), 22);
+                    const TIMELINE_START = Math.max(0, Math.floor(earliest));
+                    const TIMELINE_END = Math.min(24, Math.ceil(latest));
+                    const TOTAL_HOURS = Math.max(1, TIMELINE_END - TIMELINE_START);
 
                     if (timedEvents.length > 0) {
                       return (
@@ -1118,7 +1126,7 @@ export default function CalendarPage() {
                               const top = ((hour - TIMELINE_START) / TOTAL_HOURS) * 100;
                               return (
                                 <div key={hour} className="absolute left-0 right-0" style={{ top: `${top}%` }}>
-                                  <span className="absolute -left-8 -translate-y-1/2 text-[10px] text-muted-foreground/50 tabular-nums w-6 text-right">
+                                  <span className="absolute -left-8 -translate-y-1/2 text-3xs text-muted-foreground/50 tabular-nums w-6 text-right">
                                     {hour}:00
                                   </span>
                                   <div className="h-px bg-border/20 w-full" />
@@ -1165,8 +1173,8 @@ export default function CalendarPage() {
                                     borderLeft: `3px solid ${event.color}`,
                                   }}
                                 >
-                                  <span className="text-[11px] font-medium truncate block leading-tight">{event.title}</span>
-                                  <span className="text-[9px] text-muted-foreground truncate block">
+                                  <span className="text-2xs font-medium truncate block leading-tight">{event.title}</span>
+                                  <span className="text-3xs text-muted-foreground truncate block">
                                     {formatTime(event.start)} – {formatTime(event.end)}
                                   </span>
                                 </button>
@@ -1420,6 +1428,7 @@ export default function CalendarPage() {
                 <div className="flex items-center justify-between">
                   <Label htmlFor="edit-allDay">{t("fieldAllDay")}</Label>
                   <Switch
+                    aria-label={t("fieldAllDay")}
                     id="edit-allDay"
                     checked={editForm.allDay}
                     onCheckedChange={(checked) =>

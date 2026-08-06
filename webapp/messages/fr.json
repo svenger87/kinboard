@@ -15,7 +15,8 @@
     "serverUnreachableTitle": "Impossible de joindre le serveur Kinboard",
     "serverUnreachableBody": "L'application ne peut pas charger les données de votre famille. Vérifiez que le serveur Kinboard fonctionne et que cet appareil peut le joindre, puis réessayez.",
     "serverUnreachableRetry": "Réessayer",
-    "serverUnreachableAutoRetry": "Nouvelle vérification automatique…"
+    "serverUnreachableAutoRetry": "Nouvelle vérification automatique…",
+    "loading": "Chargement…"
   },
   "components": {
     "back": "Retour",
@@ -62,7 +63,8 @@
       "description": "Cette zone est protégée",
       "incorrect": "Code PIN incorrect",
       "cancel": "Annuler",
-      "pinRateLimited": "Trop de tentatives — attendez une minute."
+      "pinRateLimited": "Trop de tentatives — attendez une minute.",
+      "digitAria": "Chiffre {position}"
     },
     "shortcuts": {
       "title": "Raccourcis clavier",
@@ -493,7 +495,8 @@
     "giftIdeaPlaceholder": "Ajouter une idée cadeau…",
     "addGiftIdea": "Ajouter une idée cadeau",
     "giftIdeasEmpty": "Aucune idée pour l'instant",
-    "removeGiftIdeaAria": "Supprimer l'idée cadeau"
+    "removeGiftIdeaAria": "Supprimer l'idée cadeau",
+    "monthOverview": "Aperçu mensuel"
   },
   "todos": {
     "title": "Tâches",
@@ -966,7 +969,7 @@
     "deleteFamilyConfirm": "Supprimer définitivement",
     "deleteFamilyFailed": "Impossible de supprimer la famille. Veuillez réessayer.",
     "dataCardTitle": "Données & sauvegarde",
-    "dataCardDescription": "Téléchargez tout ce que votre famille a enregistré — événements, recettes, listes, notes et plus — dans un fichier JSON. Les identifiants ne sont jamais inclus.",
+    "dataCardDescription": "Téléchargez tout ce que votre famille a enregistré — événements, recettes, listes, notes et plus — dans un seul fichier JSON. Les identifiants ne sont jamais inclus. Pour restaurer, ouvrez Kinboard sur un nouvel appareil et choisissez « Restaurer depuis une sauvegarde ».",
     "exportButton": "Télécharger la sauvegarde",
     "exportFailed": "Échec de l'export. Veuillez réessayer.",
     "feedTitle": "Flux de calendrier (ICS)",
@@ -1311,7 +1314,9 @@
       "presenceHelpStep5Body": "Dans <bold>Paramètres → Économiseur d'écran</bold> vous pouvez configurer :",
       "presenceHelpStep5BulletMode": "<bold>Mode de contrôle :</bold> Économiseur d'écran uniquement ou éteindre l'écran (DPMS)",
       "presenceHelpStep5BulletDelay": "<bold>Délai :</bold> Temps d'attente après la dernière détection (10s – 5min)",
-      "presenceHelpTip": "<bold>Astuce :</bold> Le capteur signale son état environ toutes les secondes. S'il affiche “Pas de connexion” dans les paramètres, vérifiez que le script s'exécute et utilise le bon ID d'appareil."
+      "presenceHelpTip": "<bold>Astuce :</bold> Le capteur signale son état environ toutes les secondes. S'il affiche “Pas de connexion” dans les paramètres, vérifiez que le script s'exécute et utilise le bon ID d'appareil.",
+      "kioskToggleAria": "Mode kiosque pour {name}",
+      "presenceToggleAria": "Capteur de présence pour {name}"
     },
     "cameras": {
       "title": "Caméras",
@@ -2425,7 +2430,8 @@
     },
     "light": {
       "brightness": "Luminosité",
-      "colorTemp": "Température de couleur"
+      "colorTemp": "Température de couleur",
+      "toggleAria": "Basculer {name}"
     },
     "fab": {
       "loading": "Chargement…",
@@ -2866,7 +2872,11 @@
       "iconClimate": "Climatisation",
       "iconGarden": "Jardin",
       "iconEnergy": "Énergie"
-    }
+    },
+    "unreachableTitle": "Home Assistant injoignable",
+    "unreachableBody": "Rien n'est contrôlable ici tant que la connexion n'est pas rétablie.",
+    "unreachableRetry": "Réessayer",
+    "unreachableSettings": "Vérifier la connexion"
   },
   "dashboard": {
     "ariaClock": "Horloge et membres de la famille",
@@ -2972,7 +2982,9 @@
     "pendingTodos": "en cours",
     "wasteToday": "{count, plural, one {collecte aujourd'hui} other {collectes aujourd'hui}}",
     "daysUntil": "{count, plural, one {dans # jour} other {dans # jours}}",
-    "emptyState": "Aucun événement ou tâche pour aujourd'hui"
+    "emptyState": "Aucun événement ou tâche pour aujourd'hui",
+    "loadFailed": "Impossible de charger l'agenda",
+    "loading": "Chargement…"
   },
   "mealPlanWidget": {
     "loadingAria": "Chargement des repas",
@@ -3108,7 +3120,8 @@
     "moreCount": "+{count} autres",
     "statusEvents": "{count, plural, one {# événement} other {# événements}}",
     "statusTasks": "{count, plural, one {# tâche} other {# tâches}}",
-    "statusNothing": "Rien à signaler"
+    "statusNothing": "Rien à signaler",
+    "loadFailed": "Impossible de charger la famille"
   },
   "tasksWidget": {
     "loadingAria": "Chargement des tâches",
@@ -3282,7 +3295,8 @@
       "birthDateLabel": "Date de naissance",
       "roleParent": "Parent",
       "roleChild": "Enfant",
-      "ageYears": "{count, plural, one {# an} other {# ans}}"
+      "ageYears": "{count, plural, one {# an} other {# ans}}",
+      "isChildAria": "{name} est un enfant"
     },
     "calendar": {
       "title": "Ajouter un calendrier",
@@ -3501,7 +3515,6 @@
     "nextAllowanceTomorrow": "{amount} d'argent de poche arrive demain",
     "nextAllowanceInDays": "{amount} d'argent de poche dans {days} jours ({date})",
     "nextAllowanceShort": "{amount} dans {days} j",
-    "stagesSheetOpenHint": "Appuyez pour voir tous les stades",
     "stagesSheetOpenAria": "Afficher tous les stades d'évolution",
     "stagesSheetTitle": "Stades d'évolution",
     "stagesSheetDescription": "Épargnez plus pour atteindre chaque stade suivant.",
@@ -3511,5 +3524,24 @@
     "errorInsufficientFunds": "Il n'y a pas assez sur le compte.",
     "errorAlreadyDecided": "Cette demande a déjà été traitée.",
     "errorGeneric": "Cela n'a pas fonctionné. Merci de réessayer."
+  },
+  "connectivity": {
+    "title": "Serveur injoignable",
+    "description": "Certaines parties du tableau de bord peuvent être obsolètes ou absentes.",
+    "retry": "Réessayer"
+  },
+  "personColor": {
+    "coral": "Corail",
+    "amber": "Ambre",
+    "citron": "Citron",
+    "forest": "Forêt",
+    "teal": "Sarcelle",
+    "sky": "Ciel",
+    "indigo": "Indigo",
+    "lilac": "Lilas",
+    "berry": "Baie",
+    "clay": "Argile",
+    "custom": "Couleur personnalisée",
+    "legend": "Couleur"
   }
 }

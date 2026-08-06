@@ -80,7 +80,7 @@ export function GenericCard({ card, entity }: GenericCardProps) {
             <CircleDot className="size-5" />
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60">{domain}</span>
+            <span className="text-3xs uppercase tracking-wider text-muted-foreground/60">{domain}</span>
             <ChevronRight className="size-4 text-muted-foreground/40" />
           </div>
         </div>

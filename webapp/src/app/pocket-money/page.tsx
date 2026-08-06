@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import { CalendarClock, Clock, PiggyBank, Plus, ShoppingBag, Star } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -198,24 +198,24 @@ export default function PocketMoneyPage() {
 
   if (isPending) {
     return (
-      <div className="p-8 max-w-2xl mx-auto space-y-3">
+      <main id="main-content" className="p-8 max-w-2xl mx-auto space-y-3">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-32" />
         <Skeleton className="h-32" />
-      </div>
+      </main>
     );
   }
 
   if (accounts.length === 0) {
     return (
-      <div className="p-8 max-w-2xl mx-auto space-y-6">
+      <main id="main-content" className="p-8 max-w-2xl mx-auto space-y-6">
         <PageHeader title={t("title")} icon={PiggyBank} />
         <EmptyState
           icon={PiggyBank}
           title={t("noAccountsYet")}
           action={{ label: t("goToSettings"), onClick: () => router.push("/settings/pocket-money") }}
         />
-      </div>
+      </main>
     );
   }
 
@@ -224,7 +224,9 @@ export default function PocketMoneyPage() {
   const activePerson = people.find((p) => p.id === active.person_id);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6 safe-area-inset">
+    <main id="main-content" // Widens on a wall panel: with one account this left ~68% of a portrait
+      // display empty (audit KB-67).
+      className="mx-auto w-full max-w-3xl space-y-6 p-6 safe-area-inset lg:max-w-5xl">
       <PageHeader
         title={t("title")}
         icon={PiggyBank}
@@ -236,18 +238,16 @@ export default function PocketMoneyPage() {
       />
 
       {accounts.length > 1 && (
-        <Tabs value={active.id} onValueChange={setActiveId}>
-          <TabsList className="overflow-x-auto">
-            {accounts.map((a) => {
-              const p = people.find((pp) => pp.id === a.person_id);
-              return (
-                <TabsTrigger key={a.id} value={a.id}>
-                  {p?.name ?? a.person_id.slice(0, 6)}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </Tabs>
+        <SegmentedControl value={active.id} onValueChange={setActiveId} className="overflow-x-auto">
+          {accounts.map((a) => {
+            const p = people.find((pp) => pp.id === a.person_id);
+            return (
+              <SegmentedControlItem key={a.id} value={a.id}>
+                {p?.name ?? a.person_id.slice(0, 6)}
+              </SegmentedControlItem>
+            );
+          })}
+        </SegmentedControl>
       )}
 
       <div className="flex flex-col items-center text-center space-y-3">
@@ -268,7 +268,10 @@ export default function PocketMoneyPage() {
           <button
             type="button"
             onClick={() => setStagesSheetOpen(true)}
-            className="flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 hover:bg-white/[0.04] active:scale-[0.98] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50"
+            // A visible affordance rather than a 10px instruction telling a
+            // child that something is tappable (audit KB-59). The border makes
+            // the target legible on its own; the hint text is gone.
+            className="flex flex-col items-center gap-0.5 rounded-xl border border-border/70 px-4 py-2 transition hover:bg-white/[0.04] hover:border-border active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50"
             aria-label={t("stagesSheetOpenAria")}
           >
             <p className="text-xl font-bold flex items-center gap-2">
@@ -288,11 +291,11 @@ export default function PocketMoneyPage() {
             {(() => {
               const nextCents = nextTierThreshold(active.balance_cents);
               if (nextCents === null) {
-                return <p className="text-xs text-muted-foreground">{t("maxStageHint")}</p>;
+                return <p className="text-base font-medium text-muted-foreground">{t("maxStageHint")}</p>;
               }
               const nextTier = tierFromBalance(nextCents);
               return (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base font-medium text-muted-foreground">
                   {t("nextStageHint", {
                     stage: t(`species.${active.avatar_species}.tier${nextTier}` as never),
                     amount: formatCents(nextCents, active.currency),
@@ -300,7 +303,6 @@ export default function PocketMoneyPage() {
                 </p>
               );
             })()}
-            <p className="text-[10px] text-muted-foreground/70 mt-0.5">{t("stagesSheetOpenHint")}</p>
           </button>
         </div>
         <BalanceDisplay
@@ -468,6 +470,6 @@ export default function PocketMoneyPage() {
         bestTier={bestTier}
         currency={active.currency}
       />
-    </div>
+    </main>
   );
 }

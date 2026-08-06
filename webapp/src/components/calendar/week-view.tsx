@@ -181,7 +181,7 @@ export function WeekView({
       {/* All-day and multi-day events row */}
       {allDayAndMultiDayEvents.length > 0 && (
         <div className="grid grid-cols-[2.5rem_repeat(7,1fr)] sm:grid-cols-[4rem_repeat(7,1fr)] border-b border-border/30 pb-2 mb-2">
-          <div className="text-[10px] sm:text-xs text-muted-foreground py-1">
+          <div className="text-3xs sm:text-xs text-muted-foreground py-1">
             {t("weekView.allDayLabel")}
           </div>
           {weekDays.map((day, dayIndex) => {
@@ -256,7 +256,7 @@ export function WeekView({
                 className="text-xs text-muted-foreground text-right pr-2 relative"
                 style={{ height: HOUR_HEIGHT }}
               >
-                <span className="absolute -top-2 right-1 sm:right-2 text-[9px] sm:text-xs">
+                <span className="absolute -top-2 right-1 sm:right-2 text-3xs sm:text-xs">
                   {hour.toString().padStart(2, "0")}
                   <span className="hidden sm:inline">:00</span>
                 </span>
@@ -342,13 +342,13 @@ export function WeekView({
                             {event.title}
                           </p>
                           {height > 40 && !isNarrow && (
-                            <p className="text-[10px] tabular-nums opacity-80">
+                            <p className="text-3xs tabular-nums opacity-80">
                               {formatTime(event.start)} -{" "}
                               {formatTime(event.end)}
                             </p>
                           )}
                           {height > 60 && !isNarrow && event.location && (
-                            <p className="text-[10px] opacity-70 truncate">
+                            <p className="text-3xs opacity-70 truncate">
                               {event.location}
                             </p>
                           )}

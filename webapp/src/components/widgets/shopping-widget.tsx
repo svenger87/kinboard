@@ -22,7 +22,7 @@ function ShoppingWidgetSkeleton() {
   const t = useTranslations("shoppingWidget");
   return (
     <Card aria-label={t("loadingAria")} aria-busy="true" className="accent-border-top h-full">
-      <CardContent className="flex flex-col gap-2 p-[18px]">
+      <CardContent className="flex flex-col gap-2 p-4">
         <Skeleton className="h-6 w-28" />
         <Skeleton className="h-[52px] w-full rounded-xl" />
         <Skeleton className="h-[52px] w-full rounded-xl" />
@@ -59,7 +59,7 @@ export function ShoppingWidget({ maxItems = 4, className = "" }: ShoppingWidgetP
   if (isError) {
     return (
       <Card className={`accent-border-top h-full ${className}`}>
-        <CardContent className="flex flex-col gap-4 p-[18px]">
+        <CardContent className="flex flex-col gap-4 p-4">
           <div className="flex items-center gap-3">
             <span className="icon-badge">
               <ShoppingCart className="size-5" strokeWidth={1.75} aria-hidden="true" />

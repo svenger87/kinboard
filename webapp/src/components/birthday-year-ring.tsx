@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState, useLayoutEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { format, getDayOfYear, startOfDay } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
+import { personOn } from "@/lib/person-color";
 
 interface BirthdayDot {
   id: string;
@@ -48,9 +49,41 @@ export function BirthdayYearRing({
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
   const center = size / 2;
-  const ringRadius = size / 2 - 40;
-  const labelRadius = size / 2 - 14;
+  // The month labels are counter-scaled below, so on a phone they occupy ~19
+  // user units instead of ~13 and reach further in towards the ring than they
+  // used to. At the old radii that swallowed the first letter of the months
+  // sitting behind an avatar ("Feb." rendering as "eb."). Pulling the ring in
+  // by 6 units and the labels out by 2 restores the clearance for the largest
+  // corrected size while keeping the labels inside the viewBox.
+  const ringRadius = size / 2 - 46;
+  const labelRadius = size / 2 - 12;
   const avatarRadius = 13;
+
+  // Text inside a viewBox is drawn in user units and then scaled with the rest
+  // of the drawing, so a font size set in CSS is a promise the SVG does not
+  // keep. The ring renders at its natural 360px on a wall or a desktop (scale
+  // 1.0) but shrinks to about 0.71 on a phone, which turned an 11px month
+  // label into 7.86px on screen — smaller than the 9px this finding was raised
+  // about (KB-57). Measuring the drawn width and dividing the label size by
+  // that scale makes the rendered size constant at every width. The size stays
+  // in rem so it still follows the "larger text" setting; only the correction
+  // factor is computed here.
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [scale, setScale] = useState(1);
+  useLayoutEffect(() => {
+    const el = svgRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const w = el.getBoundingClientRect().width;
+      if (w > 0) setScale(Math.min(1, Math.max(0.4, w / size)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [size]);
+  // Never shrink below the CSS size — only ever compensate for downscaling.
+  const labelFontSize = `calc(0.8125rem / ${scale})`;
   // The next birthday = the smallest daysUntil among the supplied dots.
   const nextId = useMemo(() => {
     if (birthdays.length === 0) return null;
@@ -83,18 +116,67 @@ export function BirthdayYearRing({
     });
   }, [currentYear, daysInYear, ringRadius, labelRadius, center, monthLabels]);
 
+  // One avatar per birthday overlapped into an unreadable smear at real
+  // household volume — around fifty entries, six or more discs stack in the
+  // dense months and only slivers remain (audit KB-60). The compact month strip
+  // on this same page already solves density with "+N" counts; the ring now
+  // uses the same convention.
+  //
+  // Two marks can sit side by side only if their centres are at least one
+  // diameter apart along the circumference, which is a fixed angle for a given
+  // ring radius — so the threshold is derived, not guessed.
   const dots = useMemo(() => {
-    return birthdays.map((b) => {
-      const doy = getDayOfYear(b.date);
-      const angle = dayToAngle(doy, daysInYear);
-      const pos = angleToXY(angle, ringRadius, center);
-      return { ...b, angle, pos };
+    const placed = birthdays
+      .map((b) => {
+        const doy = getDayOfYear(b.date);
+        return { ...b, angle: dayToAngle(doy, daysInYear) };
+      })
+      .sort((a, b) => a.angle - b.angle);
+
+    const minSeparation =
+      (2 * Math.asin(Math.min(1, (avatarRadius + 2) / ringRadius)) * 180) / Math.PI;
+
+    // Compare against the cluster's FIRST member, not its most recent one.
+    // Chaining off the last member merges everything: with ~52 birthdays,
+    // consecutive angles differ by ~7deg, each is within the ~17deg threshold of
+    // the one before it, and the whole year collapses into a single cluster.
+    const clusters: (typeof placed)[] = [];
+    for (const b of placed) {
+      const current = clusters[clusters.length - 1];
+      if (current && b.angle - current[0].angle < minSeparation) current.push(b);
+      else clusters.push([b]);
+    }
+
+    // The ring is a circle, so the last cluster and the first are neighbours
+    // even though their angles are ~359deg apart. Without this, a birthday on
+    // 31 Dec and one on 1 Jan render on top of each other — the single
+    // remaining overlap after clustering.
+    if (clusters.length > 1) {
+      const first = clusters[0];
+      const last = clusters[clusters.length - 1];
+      if (360 - last[0].angle + first[0].angle < minSeparation) {
+        first.unshift(...last);
+        clusters.pop();
+      }
+    }
+
+    return clusters.map((group) => {
+      // The next birthday is the one the page is about, so it always represents
+      // its cluster visually rather than being hidden behind an earlier one.
+      const lead = group.find((g) => g.id === nextId) ?? group[0];
+      // ...but POSITION comes from the cluster's first member, not the lead.
+      // Cluster boundaries are computed from group[0], so rendering at the
+      // lead's angle lets a cluster drift forward into the following one when
+      // the next birthday happens to sit late within it — which reintroduced
+      // exactly one overlapping pair after the clustering was in place.
+      const angle = group[0].angle;
+      return { ...lead, angle, pos: angleToXY(angle, ringRadius, center), extra: group.length - 1 };
     });
-  }, [birthdays, daysInYear, ringRadius, center]);
+  }, [birthdays, daysInYear, ringRadius, center, avatarRadius, nextId]);
 
   return (
     <div className="flex items-center justify-center">
-      <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-auto overflow-visible">
+      <svg ref={svgRef} viewBox={`0 0 ${size} ${size}`} className="w-full h-auto overflow-visible">
         {/* Background ring */}
         <circle
           cx={center}
@@ -123,7 +205,8 @@ export function BirthdayYearRing({
               y={tick.labelPos.y}
               textAnchor="middle"
               dominantBaseline="central"
-              className={`text-[9px] font-medium ${
+              style={{ fontSize: labelFontSize }}
+              className={`font-medium ${
                 i === currentMonth ? "fill-primary" : "fill-muted-foreground/60"
               }`}
             >
@@ -195,12 +278,36 @@ export function BirthdayYearRing({
                     y={dot.pos.y}
                     textAnchor="middle"
                     dominantBaseline="central"
-                    className="text-[11px] font-bold pointer-events-none"
-                    fill="#ffffff"
+                    className="text-2xs font-bold pointer-events-none"
+                    fill={personOn(dot.color)}
                   >
                     {(dot.name.trim()[0] ?? "?").toUpperCase()}
                   </text>
                 </>
+              )}
+
+              {/* "+N" for the birthdays this mark stands in for, so a dense
+                  month reads as a count rather than a smear (audit KB-60). */}
+              {dot.extra > 0 && (
+                <g className="pointer-events-none">
+                  <circle
+                    cx={dot.pos.x + avatarRadius * 0.85}
+                    cy={dot.pos.y - avatarRadius * 0.85}
+                    r={9}
+                    fill="hsl(var(--background))"
+                    stroke="hsl(var(--border))"
+                  />
+                  <text
+                    x={dot.pos.x + avatarRadius * 0.85}
+                    y={dot.pos.y - avatarRadius * 0.85}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    className="text-3xs font-bold"
+                    fill="hsl(var(--foreground))"
+                  >
+                    +{dot.extra}
+                  </text>
+                </g>
               )}
             </g>
           );
@@ -222,7 +329,7 @@ export function BirthdayYearRing({
                 x={center}
                 y={center + 6}
                 textAnchor="middle"
-                className="fill-primary text-[11px] font-medium"
+                className="fill-primary text-2xs font-medium"
               >
                 {t("centerTurns", { age: nextAge })}
               </text>
@@ -231,7 +338,7 @@ export function BirthdayYearRing({
               x={center}
               y={center + 24}
               textAnchor="middle"
-              className="fill-muted-foreground text-[10px] tabular-nums"
+              className="fill-muted-foreground text-3xs tabular-nums"
             >
               {t("centerInDays", { count: nextDaysUntil ?? 0 })}
             </text>
@@ -250,7 +357,7 @@ export function BirthdayYearRing({
               x={center}
               y={center + 10}
               textAnchor="middle"
-              className="fill-muted-foreground text-[10px]"
+              className="fill-muted-foreground text-3xs"
             >
               {t("centerLabel")}
             </text>

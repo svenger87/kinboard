@@ -76,7 +76,7 @@ export function BalanceForecast({
               key={m.days}
               className="rounded-md bg-white/[0.03] px-2 py-1.5 text-center"
             >
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              <p className="text-3xs uppercase tracking-wide text-muted-foreground">
                 {t(m.labelKey)}
               </p>
               <p className="text-sm font-semibold tabular-nums">
@@ -87,13 +87,13 @@ export function BalanceForecast({
         })}
       </div>
       {hitCap && (
-        <p className="text-[11px] text-amber-500">
+        <p className="text-2xs text-amber-500">
           {t("forecastCapHint", {
             cap: formatCents(maxBalanceEligibleCents, currency),
           })}
         </p>
       )}
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-3xs text-muted-foreground">
         {t("forecastDisclaimer")}
       </p>
     </div>

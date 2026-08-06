@@ -33,7 +33,7 @@ export function SwitchCard({ card, entity }: SwitchCardProps) {
       <div
         className={`rounded-2xl border bg-card elev-sm p-4 transition-all cursor-pointer ${
           isOn
-            ? "bg-green-500/10 border-green-500/30"
+            ? "bg-state-on/10 border-state-on/30"
             : "border-border hover:border-primary/30"
         } ${isUnavailable ? "opacity-50" : ""}`}
         onClick={() => setDetailOpen(true)}
@@ -42,7 +42,7 @@ export function SwitchCard({ card, entity }: SwitchCardProps) {
           <div className="flex items-center gap-3">
             <div
               className={`p-2.5 rounded-xl transition-colors ${
-                isOn ? "bg-green-500/20 text-green-500" : "bg-muted text-muted-foreground"
+                isOn ? "bg-state-on/20 text-state-on" : "bg-muted text-muted-foreground"
               }`}
             >
               {isPending ? (
@@ -53,7 +53,7 @@ export function SwitchCard({ card, entity }: SwitchCardProps) {
             </div>
             <div>
               <p className="text-sm font-medium truncate">{label}</p>
-              <p className={`text-xs ${isOn ? "text-green-500" : "text-muted-foreground"}`}>
+              <p className={`text-xs ${isOn ? "text-state-on" : "text-muted-foreground"}`}>
                 {isUnavailable ? tState("unavailable") : isOn ? tState("on") : tState("off")}
               </p>
             </div>
@@ -61,6 +61,7 @@ export function SwitchCard({ card, entity }: SwitchCardProps) {
 
           <div className="flex items-center gap-2">
             <Switch
+              aria-label={label}
               checked={isOn}
               onCheckedChange={() => {}}
               onClick={handleToggle}

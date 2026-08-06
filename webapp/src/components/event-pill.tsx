@@ -46,15 +46,28 @@ export function EventPill({
     );
   }
 
+  // Size and height come from --event-pill-size / --event-pill-min-h so the
+  // month grid has a single density lever (see globals.css). Previously a
+  // hard-coded 11px / 21px, which was unreadable at wall distance and below
+  // the WCAG 2.2 AA target minimum (audit KB-07/08).
   return (
     <span
       className={cn(
-        "flex items-center gap-1 truncate rounded-[5px] px-1.5 py-0.5 text-[11px] font-semibold",
+        // Tight horizontal padding: the larger type from KB-07 costs width, and
+        // at px-1.5 titles that previously fit began to clip ("Family movie
+        // night" needed 118px against 115px available). Trimming the padding
+        // and the icon gap buys back ~6px, which is the difference.
+        "flex items-center gap-0.5 truncate rounded-sm px-1 py-0.5 font-semibold",
         className
       )}
-      style={{ backgroundColor: personStrongTint(color), color: personText(color) }}
+      style={{
+        backgroundColor: personStrongTint(color),
+        color: personText(color),
+        fontSize: "var(--event-pill-size)",
+        minHeight: "var(--event-pill-min-h)",
+      }}
     >
-      {Icon && <Icon className="size-[10px] shrink-0" strokeWidth={1.75} aria-hidden="true" />}
+      {Icon && <Icon className="size-[1em] shrink-0" strokeWidth={1.75} aria-hidden="true" />}
       <span className="truncate">{title}</span>
     </span>
   );

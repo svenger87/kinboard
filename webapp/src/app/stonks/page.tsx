@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { LineChart } from "lucide-react";
 import { useTickers } from "@/hooks/use-tickers";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
@@ -28,17 +28,17 @@ export default function StonksPage() {
 
   if (isPending) {
     return (
-      <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-3">
+      <main id="main-content" className="p-4 md:p-8 max-w-2xl mx-auto space-y-3">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-32" />
         <Skeleton className="h-32" />
-      </div>
+      </main>
     );
   }
 
   if (tickers.length === 0) {
     return (
-      <div className="p-4 md:p-8 max-w-2xl mx-auto">
+      <main id="main-content" className="p-4 md:p-8 max-w-2xl mx-auto">
         <PageHeader title={t("title")} icon={LineChart} />
         {/* A failed fetch also lands here with an empty list — offering
             "add your first ticker" would be the wrong thing to do. */}
@@ -51,7 +51,7 @@ export default function StonksPage() {
             action={{ label: t("addFirst"), onClick: () => router.push("/settings/stonks") }}
           />
         )}
-      </div>
+      </main>
     );
   }
 
@@ -59,7 +59,7 @@ export default function StonksPage() {
   const driver = getDriver("yahoo-finance");
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+    <main id="main-content" className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader
         title={t("title")}
         icon={LineChart}
@@ -71,16 +71,15 @@ export default function StonksPage() {
       />
 
       {tickers.length > 1 && (
-        <Tabs value={active.id} onValueChange={setActiveId}>
-          {/* Scrollable: one trigger per ticker overflows a phone screen. */}
-          <TabsList className="w-full justify-start overflow-x-auto">
-            {tickers.map((tk) => (
-              <TabsTrigger key={tk.id} value={tk.id}>
-                {tk.nickname ?? tk.symbol}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <SegmentedControl value={active.id} onValueChange={setActiveId} className="w-full justify-start overflow-x-auto">
+{/* Scrollable: one trigger per ticker overflows a phone screen. */}
+          
+          {tickers.map((tk) => (
+            <SegmentedControlItem key={tk.id} value={tk.id}>
+              {tk.nickname ?? tk.symbol}
+            </SegmentedControlItem>
+          ))}
+        </SegmentedControl>
       )}
 
       {driver ? (
@@ -95,6 +94,6 @@ export default function StonksPage() {
       ) : (
         <Card className="p-6">{t("driverMissing")}</Card>
       )}
-    </div>
+    </main>
   );
 }

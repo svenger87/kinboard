@@ -16,6 +16,17 @@ const config: Config = {
   		}
   	},
   	extend: {
+  		// Two steps below text-xs. These exist because 76 hard-coded
+  		// `text-[Npx]` utilities were scattered across 36 files: px is absolute,
+  		// so the "larger text" accessibility setting (which scales the root
+  		// font size) provably did not move a single one of them, and the app's
+  		// smallest text stayed 9-11px however hard a user asked (audit KB-23).
+  		// rem fixes that, and gives the kiosk density step in globals.css one
+  		// place to raise the floor (KB-56).
+  		fontSize: {
+  			'3xs': ['0.6875rem', { lineHeight: '1rem' }],
+  			'2xs': ['0.75rem', { lineHeight: '1.05rem' }],
+  		},
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
@@ -84,6 +95,16 @@ const config: Config = {
   				grid: 'hsl(var(--energy-grid))',
   				consumption: 'hsl(var(--energy-consumption))'
   			},
+  			'warning-strong': 'hsl(var(--warning-strong))',
+  			'info-strong': 'hsl(var(--info-strong))',
+  			'success-strong': 'hsl(var(--success-strong))',
+  			state: {
+  				on: 'hsl(var(--state-on))',
+  				light: 'hsl(var(--state-light))',
+  				cool: 'hsl(var(--state-cool))',
+  				alert: 'hsl(var(--state-alert))',
+  				off: 'hsl(var(--state-off))'
+  			},
   			person: {
   				coral: '#E2664E',
   				amber: '#D98A2B',
@@ -97,16 +118,22 @@ const config: Config = {
   				clay: '#B07B53'
   			}
   		},
+  		// Every step derives from --radius. xl/2xl/3xl previously kept Tailwind's
+  		// fixed 12/16/24px, which happens to match the tokenised scale at the
+  		// current --radius of 0.75rem — so 137 `rounded-xl` and 41 `rounded-2xl`
+  		// usages looked consistent while being unable to follow the token
+  		// (audit KB-31). Values are unchanged today; they now track.
   		borderRadius: {
-  			lg: 'var(--radius)',
+  			sm: 'calc(var(--radius) - 4px)',
   			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
+  			lg: 'var(--radius)',
+  			xl: 'var(--radius)',
+  			'2xl': 'calc(var(--radius) + 4px)',
+  			'3xl': 'calc(var(--radius) + 12px)'
   		},
-  		boxShadow: {
-  			'elev-sm': '0 1px 2px rgba(40,50,30,.05), 0 1px 3px rgba(40,50,30,.07)',
-  			'elev-md': '0 2px 8px rgba(40,50,30,.06), 0 10px 28px rgba(40,50,30,.06)',
-  			'elev-lg': '0 6px 16px rgba(40,50,30,.09), 0 20px 50px rgba(40,50,30,.09)'
-  		},
+  		// boxShadow removed: these `shadow-elev-*` tokens duplicated the
+  		// `.elev-*` utilities in globals.css, hard-coded the Salbei shadow tint
+  		// instead of following --shadow-rgb, and had zero usages (audit KB-28).
   		fontFamily: {
   			sans: [
   				'var(--font-sans)',

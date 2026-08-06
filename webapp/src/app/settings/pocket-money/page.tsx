@@ -96,7 +96,7 @@ export default function PocketMoneySettingsPage() {
   return (
     <main
       id="main-content"
-      className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset"
+      className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset"
     >
       <div className="relative z-10 max-w-3xl mx-auto space-y-6">
         <PageHeader title={t("title")} icon={PiggyBank} backHref="/settings" />
@@ -576,7 +576,7 @@ function CreateAccountCard({
                 className="flex flex-col items-center gap-1 min-w-[64px]"
               >
                 <img src={src} alt="" width={40} height={40} />
-                <span className="text-[10px] text-muted-foreground text-center leading-tight">
+                <span className="text-3xs text-muted-foreground text-center leading-tight">
                   {stageLabel(pickedPreview.id, i + 1)}
                 </span>
               </div>

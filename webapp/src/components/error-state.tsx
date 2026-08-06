@@ -27,25 +27,28 @@ export function ErrorState({
   const resolvedTitle = title ?? t("errorTitle");
   const resolvedRetryLabel = retryLabel ?? t("retry");
   return (
+    // Deliberately the same container, spacing, icon treatment and title style
+    // as EmptyState. These are sibling states of the same surface and they used
+    // to look nothing alike: EmptyState had a dashed card, this had no
+    // container at all, a 48px icon behind a blurred glow and a smaller,
+    // differently-weighted title (audit KB-30). Only the accent colour and the
+    // presence of a retry distinguish them now.
     <div
       role="alert"
       className={cn(
-        "flex flex-col items-center justify-center py-16",
+        "flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-destructive/40 bg-destructive/[0.06] px-6 py-12 text-center",
         className
       )}
     >
-      <div className="relative mb-3">
-        <div className="absolute inset-0 blur-2xl bg-destructive/10 rounded-full scale-150" />
-        <Icon className="size-12 relative text-destructive/60" />
-      </div>
-      <p className="text-destructive font-medium">{resolvedTitle}</p>
+      <span className="icon-badge" style={{ background: "hsl(var(--destructive) / 0.12)", color: "hsl(var(--destructive))" }}>
+        <Icon className="size-6" strokeWidth={1.75} aria-hidden="true" />
+      </span>
+      <p className="font-display text-lg font-semibold text-destructive">{resolvedTitle}</p>
       {message && (
-        <p className="text-sm text-muted-foreground mt-1 text-center max-w-sm">
-          {message}
-        </p>
+        <p className="max-w-[34ch] text-sm text-muted-foreground">{message}</p>
       )}
       {onRetry && (
-        <Button variant="outline" onClick={onRetry} className="mt-4 gap-2">
+        <Button variant="outline" onClick={onRetry} className="mt-1 gap-2">
           <RefreshCw className="size-4" />
           {resolvedRetryLabel}
         </Button>

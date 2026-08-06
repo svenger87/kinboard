@@ -52,7 +52,12 @@ export function LightCard({ card, entity }: LightCardProps) {
   // Calculate icon color based on color temperature
   const iconColor = isOn && supportsColorTemp && displayColorTemp
     ? getColorTempColor(displayColorTemp, minKelvin, maxKelvin)
-    : isOn ? "#eab308" : undefined; // Default yellow-500 when on without color temp
+    // A light with no reported colour temperature falls back to the semantic
+    // "light is on" token rather than a hard-coded yellow-500 (audit KB-12).
+    // getColorTempColor still returns a real hex when HA reports one, so the
+    // alpha variants below use color-mix rather than hex concatenation — that
+    // works for both a hex and an hsl(var(--...)).
+    : isOn ? "hsl(var(--state-light))" : undefined;
 
   // Check if this is a grouped light (has entity_id array attribute)
   const isGroupedLight = Array.isArray(entity.attributes.entity_id);
@@ -100,10 +105,10 @@ export function LightCard({ card, entity }: LightCardProps) {
         aria-label={t("ariaLabel", { label, state: isOn ? t("stateOnAria") : t("stateOffAria") })}
         className={`rounded-2xl border bg-card elev-sm p-4 transition-all cursor-pointer ${
           isOn
-            ? "border-yellow-500/30"
+            ? "border-state-light/30"
             : "border-border hover:border-primary/30"
         } ${isUnavailable ? "opacity-50" : ""}`}
-        style={isOn && iconColor ? { backgroundColor: `${iconColor}15` } : undefined}
+        style={isOn && iconColor ? { backgroundColor: `color-mix(in srgb, ${iconColor}, transparent 92%)` } : undefined}
         onClick={() => setDetailOpen(true)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -115,14 +120,17 @@ export function LightCard({ card, entity }: LightCardProps) {
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <button
+              // Icon-only toggle: nothing inside it is text, so without this it
+              // reached assistive tech as an unnamed button (audit KB-18).
+              aria-label={tLight("toggleAria", { name: label })}
               onClick={handleToggle}
               disabled={isPending || isUnavailable}
               className={`p-2 rounded-lg transition-colors ${
-                isOn ? "bg-yellow-500/20 icon-badge" : "bg-muted text-muted-foreground"
-              } hover:bg-yellow-500/30 disabled:opacity-50`}
+                isOn ? "bg-state-light/20 icon-badge" : "bg-muted text-muted-foreground"
+              } hover:bg-state-light/30 disabled:opacity-50`}
               style={
                 isOn && iconColor
-                  ? { color: iconColor, boxShadow: `0 0 16px ${iconColor}66` }
+                  ? { color: iconColor, boxShadow: `0 0 16px color-mix(in srgb, ${iconColor}, transparent 60%)` }
                   : undefined
               }
             >
@@ -175,9 +183,9 @@ export function LightCard({ card, entity }: LightCardProps) {
           <div className="mt-3 flex flex-col gap-2" onClick={handleSliderClick} role="group" aria-label={tLight("colorTemp")}>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <div className="flex items-center gap-1">
-                <Sun className="size-3 text-orange-400" />
+                <Sun className="size-3 text-state-alert" />
                 <span>{tLight("colorTemp")}</span>
-                <Snowflake className="size-3 text-blue-400" />
+                <Snowflake className="size-3 text-state-cool" />
               </div>
               <span>{displayColorTemp}K</span>
             </div>

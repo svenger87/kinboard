@@ -120,6 +120,7 @@ import {
 import { ErrorState } from "@/components/error-state";
 import { FAB } from "@/components/fab";
 import { parseInstructions } from "@/lib/recipe-instructions";
+import { formatRecipeTime } from "@/lib/recipe-time";
 import type { MealPlanEntryWithRecipe, MealType, Recipe } from "@/types/database";
 
 // Meal type icon mapping
@@ -346,7 +347,7 @@ function MealSlot({
             <MealIcon className="size-3.5" />
             <Plus className="size-3.5 text-primary/60 group-hover:text-primary" />
           </div>
-          {hint && <span className="text-[11px]">{hint}?</span>}
+          {hint && <span className="text-2xs">{hint}?</span>}
         </button>
       ) : (
         <div className="flex flex-col gap-2">
@@ -382,6 +383,8 @@ function MealEntryCard({
   isDragging?: boolean;
 }) {
   const t = useTranslations("meals");
+  // formatRecipeTime's keys live in the "recipes" namespace.
+  const tRecipes = useTranslations("recipes");
   const [menuOpen, setMenuOpen] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const isLongPress = useRef(false);
@@ -442,51 +445,62 @@ function MealEntryCard({
     >
       <Card className="cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all">
           <CardContent className="p-2">
-        <div className="flex items-start gap-2">
+        {/* Grip and overflow menu are positioned, not in flow. In a 7-column
+            week grid a cell is ~127px wide; a 12px grip, a 24px menu button and
+            two 8px gaps took 52px of the ~85px of usable width, leaving the dish
+            name 33px — which is why it rendered as "Sp…" (audit KB-03). Taking
+            both out of flow gives the title the whole card; `pr-9` on the text
+            column keeps line 1 clear of the controls. */}
+        <div className="relative">
           <div
             {...attributes}
             {...listeners}
-            className="mt-1 text-muted-foreground/50 hover:text-muted-foreground cursor-grab"
+            // Hover-revealed on pointer devices, matching the overflow menu
+            // directly above it. Reserving permanent width for controls that are
+            // invisible until hover was the last thing keeping "Bolognese" — a
+            // single 74px word — wider than its 61px column (audit KB-03).
+            className="absolute right-0 top-6 z-10 text-muted-foreground/50 hover:text-muted-foreground cursor-grab opacity-60 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
           >
             <GripVertical className="size-3" />
           </div>
 
           <div
-            className="flex-1 min-w-0"
+            className="min-w-0 pr-6 sm:pr-0"
             onClick={handleClick}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
             onTouchMove={handleTouchMove}
           >
             {entry.recipe ? (
+              // Stacked, not side-by-side. A 7-column week grid leaves roughly
+              // 130px per cell; the old row put a 40px thumbnail and the menu
+              // button on the same line as the title, leaving ~33px for it —
+              // enough for "Sp…". Measured scrollWidth 74px vs clientWidth 33px,
+              // identical in de/en/fr, so it was structural rather than text
+              // expansion (audit KB-03). The dish name is the only thing anyone
+              // reads here at a distance, so it now gets the full width and the
+              // thumbnail is dropped from the week grid entirely.
               <>
-                <div className="flex items-start gap-2">
-                  {entry.recipe.image_url && (
-                    <img
-                      src={entry.recipe.image_url}
-                      alt={entry.recipe.title}
-                      className="size-10 rounded object-cover flex-shrink-0"
-                    />
+                <p className="text-base font-medium leading-tight line-clamp-2">
+                  {entry.recipe.title}
+                </p>
+                {/* Metadata wraps instead of squeezing: now that the title owns
+                    its own row, nothing here can steal width from it. */}
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                  {entry.recipe.total_time_minutes && (
+                    <span className="flex items-center gap-0.5">
+                      <Clock className="size-3 shrink-0" />
+                      {/* Was `${minutes}m`, which rendered an overnight dough as
+                          "1440m" (audit KB-14). */}
+                      {formatRecipeTime(tRecipes, entry.recipe.total_time_minutes)}
+                    </span>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-base font-medium line-clamp-1">
-                      {entry.recipe.title}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                      {entry.recipe.total_time_minutes && (
-                        <span className="flex items-center gap-0.5">
-                          <Clock className="size-3" />
-                          {entry.recipe.total_time_minutes}m
-                        </span>
-                      )}
-                      {entry.servings && (
-                        <span className="flex items-center gap-0.5">
-                          <Users className="size-3" />
-                          {entry.servings}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  {entry.servings && (
+                    <span className="flex items-center gap-0.5">
+                      <Users className="size-3 shrink-0" />
+                      {entry.servings}
+                    </span>
+                  )}
                 </div>
               </>
             ) : entry.note ? (
@@ -501,7 +515,7 @@ function MealEntryCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-6 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                className="absolute right-0 top-0 z-10 size-6 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                 aria-label={t("entryOptionsAria")}
               >
                 <MoreVertical className="size-3" />
@@ -969,7 +983,7 @@ export default function MealPlannerPage() {
 
   return (
     <TooltipProvider>
-      <main id="main-content" className="min-h-screen relative overflow-hidden">
+      <main id="main-content" className="min-h-page relative overflow-hidden">
         {/* Background */}
         <div className="page-gradient" />
 
@@ -984,7 +998,7 @@ export default function MealPlannerPage() {
               <>
                 <div className="hidden md:flex items-center border rounded-lg p-1">
                   <Button
-                    variant={viewMode === "grid" ? "secondary" : "ghost"}
+                    variant={viewMode === "grid" ? "outline" : "ghost"}
                     size="sm"
                     onClick={() => setViewMode("grid")}
                     className="h-8 px-3"
@@ -992,7 +1006,7 @@ export default function MealPlannerPage() {
                     <Grid3X3 className="size-4" />
                   </Button>
                   <Button
-                    variant={viewMode === "list" ? "secondary" : "ghost"}
+                    variant={viewMode === "list" ? "outline" : "ghost"}
                     size="sm"
                     onClick={() => setViewMode("list")}
                     className="h-8 px-3"
@@ -1259,7 +1273,7 @@ export default function MealPlannerPage() {
                             month: "short",
                           })}
                           {isToday && (
-                            <Badge variant="secondary" className="ml-2 text-[10px]">
+                            <Badge variant="secondary" className="ml-2 text-3xs">
                               {t("todayBadge")}
                             </Badge>
                           )}

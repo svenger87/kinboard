@@ -15,7 +15,8 @@
     "serverUnreachableTitle": "Kinboard-Server nicht erreichbar",
     "serverUnreachableBody": "Die App kann deine Familiendaten nicht laden. Prüfe, ob der Kinboard-Stack läuft und dieses Gerät ihn erreichen kann, und versuche es dann erneut.",
     "serverUnreachableRetry": "Erneut versuchen",
-    "serverUnreachableAutoRetry": "Wird automatisch erneut versucht …"
+    "serverUnreachableAutoRetry": "Wird automatisch erneut versucht …",
+    "loading": "Wird geladen…"
   },
   "components": {
     "back": "Zurück",
@@ -62,7 +63,8 @@
       "description": "Dieser Bereich ist geschützt",
       "incorrect": "Falscher PIN",
       "cancel": "Abbrechen",
-      "pinRateLimited": "Zu viele Versuche — warte eine Minute."
+      "pinRateLimited": "Zu viele Versuche — warte eine Minute.",
+      "digitAria": "Ziffer {position}"
     },
     "shortcuts": {
       "title": "Tastenkürzel",
@@ -493,7 +495,8 @@
     "giftIdeaPlaceholder": "Idee hinzufügen…",
     "addGiftIdea": "Idee hinzufügen",
     "giftIdeasEmpty": "Noch keine Ideen",
-    "removeGiftIdeaAria": "Idee entfernen"
+    "removeGiftIdeaAria": "Idee entfernen",
+    "monthOverview": "Monatsübersicht"
   },
   "todos": {
     "title": "Aufgaben",
@@ -966,7 +969,7 @@
     "deleteFamilyConfirm": "Endgültig löschen",
     "deleteFamilyFailed": "Die Familie konnte nicht gelöscht werden. Bitte versuche es erneut.",
     "dataCardTitle": "Daten & Sicherung",
-    "dataCardDescription": "Lade alles herunter, was eure Familie gespeichert hat — Termine, Rezepte, Listen, Notizen und mehr — als eine JSON-Datei. Zugangsdaten sind nie enthalten.",
+    "dataCardDescription": "Lade alles herunter, was eure Familie gespeichert hat — Termine, Rezepte, Listen, Notizen und mehr — als eine JSON-Datei. Zugangsdaten sind nie enthalten. Zum Wiederherstellen öffne Kinboard auf einem neuen Gerät und wähle „Aus Sicherung wiederherstellen“.",
     "exportButton": "Sicherung herunterladen",
     "exportFailed": "Export fehlgeschlagen. Bitte erneut versuchen.",
     "feedTitle": "Kalender-Feed (ICS)",
@@ -1311,7 +1314,9 @@
       "presenceHelpStep5Body": "In <bold>Einstellungen → Bildschirmschoner</bold> kannst du festlegen:",
       "presenceHelpStep5BulletMode": "<bold>Steuerungsmodus:</bold> Nur Bildschirmschoner oder Display aus (DPMS)",
       "presenceHelpStep5BulletDelay": "<bold>Verzögerung:</bold> Wartezeit nach letzter Erkennung (10s - 5min)",
-      "presenceHelpTip": "<bold>Tipp:</bold> Der Sensor meldet alle ~1 Sekunde seinen Status. Bei „Keine Verbindung“ in den Einstellungen prüfe, ob das Skript läuft und die richtige Geräte-ID verwendet."
+      "presenceHelpTip": "<bold>Tipp:</bold> Der Sensor meldet alle ~1 Sekunde seinen Status. Bei „Keine Verbindung“ in den Einstellungen prüfe, ob das Skript läuft und die richtige Geräte-ID verwendet.",
+      "kioskToggleAria": "Kiosk-Modus für {name}",
+      "presenceToggleAria": "Anwesenheitssensor für {name}"
     },
     "cameras": {
       "title": "Kameras",
@@ -2425,7 +2430,8 @@
     },
     "light": {
       "brightness": "Helligkeit",
-      "colorTemp": "Farbtemperatur"
+      "colorTemp": "Farbtemperatur",
+      "toggleAria": "{name} schalten"
     },
     "fab": {
       "loading": "Laden…",
@@ -2866,7 +2872,11 @@
       "iconClimate": "Klima",
       "iconGarden": "Garten",
       "iconEnergy": "Energie"
-    }
+    },
+    "unreachableTitle": "Home Assistant nicht erreichbar",
+    "unreachableBody": "Bis die Verbindung zurück ist, lässt sich hier nichts steuern.",
+    "unreachableRetry": "Erneut versuchen",
+    "unreachableSettings": "Verbindung prüfen"
   },
   "dashboard": {
     "ariaClock": "Uhr und Familienmitglieder",
@@ -2972,7 +2982,9 @@
     "pendingTodos": "offen",
     "wasteToday": "{count, plural, one {Abfuhr heute} other {Abfuhren heute}}",
     "daysUntil": "{count, plural, one {in # Tag} other {in # Tagen}}",
-    "emptyState": "Keine Termine oder Aufgaben für heute"
+    "emptyState": "Keine Termine oder Aufgaben für heute",
+    "loadFailed": "Heutige Termine nicht ladbar",
+    "loading": "Lade heute…"
   },
   "mealPlanWidget": {
     "loadingAria": "Mahlzeiten werden geladen",
@@ -3108,7 +3120,8 @@
     "moreCount": "+{count} weitere",
     "statusEvents": "{count, plural, one {# Termin} other {# Termine}}",
     "statusTasks": "{count, plural, one {# Aufgabe} other {# Aufgaben}}",
-    "statusNothing": "Alles erledigt"
+    "statusNothing": "Alles erledigt",
+    "loadFailed": "Familie konnte nicht geladen werden"
   },
   "tasksWidget": {
     "loadingAria": "Aufgaben werden geladen",
@@ -3282,7 +3295,8 @@
       "birthDateLabel": "Geburtsdatum",
       "roleParent": "Elternteil",
       "roleChild": "Kind",
-      "ageYears": "{count, plural, one {# Jahr} other {# Jahre}}"
+      "ageYears": "{count, plural, one {# Jahr} other {# Jahre}}",
+      "isChildAria": "{name} ist ein Kind"
     },
     "calendar": {
       "title": "Kalender hinzufügen",
@@ -3501,7 +3515,6 @@
     "nextAllowanceTomorrow": "{amount} Taschengeld kommt morgen",
     "nextAllowanceInDays": "{amount} Taschengeld in {days} Tagen ({date})",
     "nextAllowanceShort": "{amount} in {days} T",
-    "stagesSheetOpenHint": "Tippe für alle Stufen",
     "stagesSheetOpenAria": "Alle Entwicklungsstufen anzeigen",
     "stagesSheetTitle": "Entwicklungsstufen",
     "stagesSheetDescription": "Spare mehr, um die nächste Stufe zu erreichen.",
@@ -3511,5 +3524,24 @@
     "errorInsufficientFunds": "So viel ist nicht auf dem Konto.",
     "errorAlreadyDecided": "Diese Anfrage wurde bereits entschieden.",
     "errorGeneric": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+  },
+  "connectivity": {
+    "title": "Server nicht erreichbar",
+    "description": "Teile dieses Dashboards sind evtl. veraltet oder fehlen.",
+    "retry": "Erneut versuchen"
+  },
+  "personColor": {
+    "coral": "Koralle",
+    "amber": "Bernstein",
+    "citron": "Zitrone",
+    "forest": "Wald",
+    "teal": "Petrol",
+    "sky": "Himmel",
+    "indigo": "Indigo",
+    "lilac": "Flieder",
+    "berry": "Beere",
+    "clay": "Ton",
+    "custom": "Eigene Farbe",
+    "legend": "Farbe"
   }
 }

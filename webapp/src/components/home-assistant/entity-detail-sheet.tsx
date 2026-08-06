@@ -100,13 +100,13 @@ function getEntityColor(entityId: string, state: string, deviceClass?: string): 
       return "#3b82f6"; // blue
     case "power":
     case "energy":
-      return "#eab308"; // yellow
+      return "hsl(var(--state-light))";
     case "battery":
       return "#22c55e"; // green
   }
 
   // Color based on domain and state
-  if (domain === "light" && state === "on") return "#eab308";
+  if (domain === "light" && state === "on") return "hsl(var(--state-light))";
   if ((domain === "switch" || domain === "input_boolean") && state === "on") return "#22c55e";
 
   return "#6b7280"; // gray

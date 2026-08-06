@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Tooltip,
@@ -327,30 +327,28 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
             <div className="lg:col-span-2 bg-muted/30 rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-muted-foreground">{t("sectionMap")}</h3>
-                <Tabs value={selectedLayer} onValueChange={(v) => setSelectedLayer(v as MapLayer)}>
-                  <TabsList>
-                    <TabsTrigger value="precipitation" className="text-xs px-2">
-                      <Umbrella className="size-3 mr-1" />
-                      {t("layerPrecipitation")}
-                    </TabsTrigger>
-                    <TabsTrigger value="clouds" className="text-xs px-2">
-                      <Cloud className="size-3 mr-1" />
-                      {t("layerClouds")}
-                    </TabsTrigger>
-                    <TabsTrigger value="temperature" className="text-xs px-2">
-                      <Thermometer className="size-3 mr-1" />
-                      {t("layerTemperature")}
-                    </TabsTrigger>
-                    <TabsTrigger value="wind" className="text-xs px-2">
-                      <Wind className="size-3 mr-1" />
-                      {t("layerWind")}
-                    </TabsTrigger>
-                    <TabsTrigger value="pressure" className="text-xs px-2">
-                      <Gauge className="size-3 mr-1" />
-                      {t("layerPressure")}
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                <SegmentedControl value={selectedLayer} onValueChange={(v) => setSelectedLayer(v as MapLayer)}>
+                  <SegmentedControlItem value="precipitation" className="text-xs px-2">
+                    <Umbrella className="size-3 mr-1" />
+                    {t("layerPrecipitation")}
+                  </SegmentedControlItem>
+                  <SegmentedControlItem value="clouds" className="text-xs px-2">
+                    <Cloud className="size-3 mr-1" />
+                    {t("layerClouds")}
+                  </SegmentedControlItem>
+                  <SegmentedControlItem value="temperature" className="text-xs px-2">
+                    <Thermometer className="size-3 mr-1" />
+                    {t("layerTemperature")}
+                  </SegmentedControlItem>
+                  <SegmentedControlItem value="wind" className="text-xs px-2">
+                    <Wind className="size-3 mr-1" />
+                    {t("layerWind")}
+                  </SegmentedControlItem>
+                  <SegmentedControlItem value="pressure" className="text-xs px-2">
+                    <Gauge className="size-3 mr-1" />
+                    {t("layerPressure")}
+                  </SegmentedControlItem>
+                </SegmentedControl>
               </div>
 
               <div className="relative h-[300px] rounded-lg overflow-hidden">
@@ -468,7 +466,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                           />
                           {isToday && (
                             <div
-                              className="absolute top-1/2 -translate-y-1/2 size-2.5 rounded-full bg-white border-2 border-background shadow-sm"
+                              className="absolute top-1/2 -translate-y-1/2 size-2.5 rounded-full bg-white border-2 border-background elev-sm"
                               style={{
                                 left: `${((currentWeather.temp - globalMin) / tempRange) * 100}%`,
                                 marginLeft: "-5px",
@@ -733,11 +731,11 @@ function ClothingAdvisor({
         <div className="relative h-2 rounded-full overflow-hidden bg-gradient-to-r from-blue-500 via-green-400 via-50% via-yellow-400 via-75% to-red-500 opacity-30" />
         <div className="relative h-2 -mt-2 rounded-full overflow-hidden">
           <div
-            className="absolute top-0 -translate-x-1/2 size-3 -mt-0.5 rounded-full border-2 border-background shadow-lg transition-all duration-500"
+            className="absolute top-0 -translate-x-1/2 size-3 -mt-0.5 rounded-full border-2 border-background elev-md transition-all duration-500"
             style={{ left: `${comfort.position}%`, backgroundColor: comfort.color }}
           />
         </div>
-        <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground/50">
+        <div className="flex justify-between mt-1.5 text-3xs text-muted-foreground/50">
           <span>{t("comfortScaleCold")}</span>
           <span>{t("comfortScalePleasant")}</span>
           <span>{t("comfortScaleHot")}</span>
@@ -841,7 +839,7 @@ function MapLegend({ layer }: { layer: MapLayer }) {
       </div>
       <div className="flex justify-between mt-1">
         {legend.labels.filter((_, i) => i % 2 === 0 || legend.labels.length <= 8).map((label, i) => (
-          <span key={i} className="text-[10px] text-muted-foreground">{label}</span>
+          <span key={i} className="text-3xs text-muted-foreground">{label}</span>
         ))}
       </div>
     </div>

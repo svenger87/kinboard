@@ -646,7 +646,7 @@ export default function ShoppingPage() {
   if (isLoading) {
     return (
       <TooltipProvider>
-        <main id="main-content" className="min-h-screen relative overflow-hidden">
+        <main id="main-content" className="min-h-page relative overflow-hidden">
           <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
             <PageHeader
@@ -688,7 +688,7 @@ export default function ShoppingPage() {
   if (error) {
     return (
       <TooltipProvider>
-        <main id="main-content" className="min-h-screen relative overflow-hidden">
+        <main id="main-content" className="min-h-page relative overflow-hidden">
           <div className="page-gradient" />
           <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
             <PageHeader
@@ -717,13 +717,15 @@ export default function ShoppingPage() {
 
   return (
     <TooltipProvider>
-      <main id="main-content" className="min-h-screen relative overflow-hidden">
+      <main id="main-content" className="min-h-page relative overflow-hidden">
         {/* Background */}
         <div className="page-gradient" />
 
         {/* pb clears the fixed mobile nav — without it the last list row and the
             progress bar stay under it no matter how far you scroll. */}
-        <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
+        {/* flex column so the install promo can be ordered after the list on
+            handhelds without moving it in the DOM (audit KB-38). */}
+        <div className="relative z-10 flex flex-col p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
             icon={ShoppingCart}
             title={
@@ -744,7 +746,7 @@ export default function ShoppingPage() {
               <>
                 <OfflineIndicator className="mr-1" />
                 <Button
-                  variant={showChecked ? "outline" : "secondary"}
+                  variant="outline"
                   size="sm"
                   onClick={() => setShowChecked(!showChecked)}
                 >
@@ -804,8 +806,12 @@ export default function ShoppingPage() {
             className="mb-4 rounded-lg overflow-hidden"
           />
 
-          {/* Install prompt for standalone shopping PWA */}
-          <ShoppingInstallPrompt />
+          {/* Below the list on handhelds. This plus the add form pushed the
+              list past the first viewport, on the screen you opened to read the
+              list (audit KB-38). It stays available, just not ahead of it. */}
+          <div className="order-last md:order-none">
+            <ShoppingInstallPrompt />
+          </div>
 
           {/* Smart Add Form */}
           <motion.div
@@ -869,7 +875,7 @@ export default function ShoppingPage() {
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}
-                          className="absolute z-[100] w-full mt-1 bg-popover border rounded-lg shadow-lg overflow-hidden max-h-80 overflow-y-auto"
+                          className="absolute z-[100] w-full mt-1 bg-popover border rounded-lg elev-md overflow-hidden max-h-80 overflow-y-auto"
                         >
                           {catalogResults.map((result, index) => {
                             const cat = CATEGORIES[result.category || "sonstiges"];
@@ -1102,9 +1108,9 @@ export default function ShoppingPage() {
                                 style={{ backgroundColor: category.color }}
                                 aria-hidden="true"
                               />
-                              <h3 className="text-kiosk-label">
+                              <h2 className="text-kiosk-label">
                                 {tCategories(category.labelKey)}
-                              </h3>
+                              </h2>
                               <Badge variant="neutral" className="ml-auto">
                                 {categoryItems.filter((i) => !i.checked).length}/
                                 {categoryItems.length}

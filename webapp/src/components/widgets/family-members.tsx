@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Calendar, CheckSquare, GraduationCap, X } from "lucide-react";
+import { User, Calendar, CheckSquare, GraduationCap, X , AlertCircle} from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { PersonAvatar } from "@/components/person-avatar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -70,7 +70,7 @@ function FamilyMembersSkeleton() {
 
 export function FamilyMembers({ className = "" }: FamilyMembersProps) {
   const t = useTranslations("familyMembers");
-  const { data: people, isLoading: loadingPeople } = usePeople();
+  const { data: people, isLoading: loadingPeople, isError: peopleError } = usePeople();
   const { data: todos } = useTodos();
 
   // Only fetch upcoming events (today + next 7 days)
@@ -88,6 +88,20 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
 
   if (loadingPeople) {
     return <FamilyMembersSkeleton />;
+  }
+
+  // A failed fetch used to fall through to the "no family members yet" empty
+  // state below — the same failure-reads-as-truth problem as TodayStrip
+  // (audit KB-05). Say it failed instead.
+  if (peopleError) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-8" role="alert">
+        <div className="flex size-16 items-center justify-center rounded-full bg-destructive/10">
+          <AlertCircle className="size-8 text-destructive" strokeWidth={1.75} />
+        </div>
+        <p className="text-sm font-medium text-destructive">{t("loadFailed")}</p>
+      </div>
+    );
   }
 
   if (!people || people.length === 0) {
@@ -223,7 +237,7 @@ function PersonDetailsDialog({ person, todos, events, onClose }: PersonDetailsDi
           <DialogHeader>
             <DialogTitle className="flex items-center gap-4">
               <Avatar
-                className="size-14 ring-2 ring-white/20 shadow-lg"
+                className="size-14 ring-2 ring-white/20 elev-md"
                 style={{
                   border: `3px solid ${person.color}`,
                   backgroundColor: `${person.color}20`,
@@ -265,14 +279,14 @@ function PersonDetailsDialog({ person, todos, events, onClose }: PersonDetailsDi
               style={{ backgroundColor: `${person.color}15` }}
             >
               <p className="text-lg font-semibold" style={{ color: person.color }}>{events.length}</p>
-              <p className="text-[11px] text-muted-foreground">{t("statEvents")}</p>
+              <p className="text-2xs text-muted-foreground">{t("statEvents")}</p>
             </div>
             <div
               className="flex-1 rounded-xl px-3 py-2 text-center"
               style={{ backgroundColor: `${person.color}15` }}
             >
               <p className="text-lg font-semibold" style={{ color: person.color }}>{todos.length}</p>
-              <p className="text-[11px] text-muted-foreground">{t("statTodos")}</p>
+              <p className="text-2xs text-muted-foreground">{t("statTodos")}</p>
             </div>
           </div>
         </div>

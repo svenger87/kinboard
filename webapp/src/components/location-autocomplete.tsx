@@ -127,7 +127,7 @@ export function LocationAutocomplete({
 
       {/* Dropdown */}
       {isOpen && results.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg elev-md overflow-hidden">
           <ul className="py-1 max-h-60 overflow-auto">
             {results.map((location) => (
               <li key={location.place_id}>

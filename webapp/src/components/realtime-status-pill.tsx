@@ -28,7 +28,7 @@ export function RealtimeStatusPill() {
   return (
     <div
       role="status"
-      className="fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full border border-warning/40 bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-md"
+      className="fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full border border-warning/40 bg-card px-3 py-1.5 text-xs text-muted-foreground elev-md"
       style={{ bottom: "calc(var(--nav-spacing, 0px) + 0.75rem)" }}
     >
       <WifiOff className="size-3.5 text-warning" aria-hidden />

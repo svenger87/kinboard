@@ -57,9 +57,10 @@ export function DesktopNav() {
     >
       {/* Scroll fade indicators */}
       <div
-        className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 transition-opacity duration-200"
+        className="pointer-events-none absolute top-0 bottom-0 w-8 z-10 transition-opacity duration-200"
         aria-hidden="true"
         style={{
+          left: "var(--nav-home-pin)",
           opacity: canScrollLeft ? 1 : 0,
           background: "linear-gradient(to right, hsl(var(--card)), transparent)",
         }}
@@ -73,9 +74,49 @@ export function DesktopNav() {
         }}
       />
 
+      {/* Home is pinned outside the scroll container. Inside it, `scrollIntoView`
+          on route change centres the active item, which pushed Home off the left
+          edge on deeper routes — on a kiosk with no browser chrome and no back
+          button that left no way home (audit KB-22). MobileNav already treats
+          Home as fixed; this brings the wall in line. */}
+      {(() => {
+        const home = navItems.find((i) => i.href === "/");
+        if (!home) return null;
+        const HomeIcon = home.icon;
+        const isActive = pathname === "/";
+        return (
+          // Width is pinned to --nav-home-pin, the same token the scroller uses
+          // for its left padding, and overflow is clipped: the opaque block now
+          // covers the reserved strip exactly, leaving no gap for a scrolled
+          // item to peek through.
+          <div
+            className="absolute left-0 top-0 bottom-0 z-20 flex items-center overflow-hidden pl-4 pr-2 bg-card"
+            style={{ width: "var(--nav-home-pin)" }}
+          >
+            <Link
+              href="/"
+              aria-current={isActive ? "page" : undefined}
+              className={`group relative flex min-h-[44px] flex-shrink-0 items-center gap-2 rounded-full px-4 py-2 transition-colors duration-200 lg:min-h-[48px] lg:px-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+                isActive ? "bg-primary/[0.12] text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              <HomeIcon className="size-4 lg:size-5" strokeWidth={1.75} />
+              <span className="whitespace-nowrap text-sm font-medium lg:text-base">
+                {tNav(home.labelKey)}
+              </span>
+              {isActive && (
+                <div className="absolute -bottom-0.5 left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-full bg-primary" />
+              )}
+            </Link>
+            <div className="ml-auto h-6 w-px bg-border" aria-hidden="true" />
+          </div>
+        );
+      })()}
+
       <div
         ref={scrollRef}
-        className="flex items-center overflow-x-auto scrollbar-hide px-4 gap-2 overscroll-x-contain touch-pan-x"
+        className="flex items-center overflow-x-auto scrollbar-hide pr-4 gap-2 overscroll-x-contain touch-pan-x"
+        style={{ paddingLeft: "var(--nav-home-pin)" }}
         onKeyDown={(e) => {
           if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
             e.preventDefault();
@@ -87,9 +128,11 @@ export function DesktopNav() {
         }}
         onTouchMove={(e) => e.stopPropagation()}
       >
-        {navItems.map((item) => {
-          const isActive = pathname === item.href ||
-            (item.href !== "/" && pathname.startsWith(item.href));
+        {navItems.filter((item) => item.href !== "/").map((item) => {
+          // Home is rendered separately above, so the old `href !== "/"` guard
+          // here is now unreachable. Matching on `href + "/"` rather than a bare
+          // prefix also stops "/settings" claiming a hypothetical "/settings-x".
+          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
 
           return (
@@ -98,24 +141,28 @@ export function DesktopNav() {
               ref={isActive ? activeRef : undefined}
               href={item.href}
               aria-current={isActive ? "page" : undefined}
-              className={`group relative px-4 py-2 rounded-full transition-colors duration-200 flex items-center gap-2 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+              // 44px minimum, 48px on kiosk-width displays. These were 36px tall
+              // with 14px labels — the single largest cluster of undersized
+              // targets in the audit (3,840 hits), on the product's primary
+              // device, while MobileNav already enforced 44px (KB-22).
+              className={`group relative min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 rounded-full transition-colors duration-200 flex items-center gap-2 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
                 isActive
                   ? "bg-primary/[0.12] text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               }`}
             >
               <span className="relative">
-                <Icon className="size-4" strokeWidth={1.75} />
+                <Icon className="size-4 lg:size-5" strokeWidth={1.75} />
                 {badges[item.href] && !isActive && (
                   <span
-                    className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground px-1"
+                    className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-primary text-3xs font-bold text-primary-foreground px-1"
                     aria-label={tCommon("newEntriesAria", { count: badges[item.href] })}
                   >
                     {badges[item.href]}
                   </span>
                 )}
               </span>
-              <span className="text-sm font-medium whitespace-nowrap">{tNav(item.labelKey)}</span>
+              <span className="whitespace-nowrap text-sm font-medium lg:text-base">{tNav(item.labelKey)}</span>
               {isActive && (
                 <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-primary rounded-full" />
               )}
