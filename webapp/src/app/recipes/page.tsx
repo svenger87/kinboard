@@ -706,9 +706,9 @@ function RecipeCard({
 
             {/* Title + meta overlaid on image bottom */}
             <div className="absolute bottom-0 left-0 right-0 p-4">
-              <h3 className="font-semibold text-white line-clamp-2 leading-tight">
+              <h2 className="font-semibold text-white line-clamp-2 leading-tight">
                 {recipe.title}
-              </h3>
+              </h2>
               <div className="flex items-center gap-2.5 mt-2">
                 {recipe.total_time_minutes && (
                   <span className="flex items-center gap-1 text-xs text-white/85">
@@ -788,9 +788,9 @@ function RecipeListItem({
             {/* Content */}
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
+                <h2 className="font-semibold truncate group-hover:text-primary transition-colors">
                   {recipe.title}
-                </h3>
+                </h2>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={(e) => {

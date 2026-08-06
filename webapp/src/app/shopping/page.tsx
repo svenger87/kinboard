@@ -1108,9 +1108,9 @@ export default function ShoppingPage() {
                                 style={{ backgroundColor: category.color }}
                                 aria-hidden="true"
                               />
-                              <h3 className="text-kiosk-label">
+                              <h2 className="text-kiosk-label">
                                 {tCategories(category.labelKey)}
-                              </h3>
+                              </h2>
                               <Badge variant="neutral" className="ml-auto">
                                 {categoryItems.filter((i) => !i.checked).length}/
                                 {categoryItems.length}

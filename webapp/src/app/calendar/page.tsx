@@ -1057,9 +1057,9 @@ export default function CalendarPage() {
               <Card className="p-4 h-full">
                 <div className="mb-4">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-medium">
+                    <h2 className="font-medium">
                       {format(displayDate, "EEEE, d. MMMM", { locale: dateLocale })}
-                    </h3>
+                    </h2>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {!selectedDate && (
                         <Badge variant="secondary" className="text-xs">{t("todayBadge")}</Badge>
