@@ -451,8 +451,10 @@
       left: 0;
       width: 50%;
       height: 28px;
-      background: hsl(var(--card) / 0.95);
-      backdrop-filter: blur(4px);
+      /* Opaque rather than blurred: this strip exists only to mask the
+         browser's link-status tooltip, and blur is banned on kiosk surfaces
+         for ARM GPUs — a rule this file states four times (audit KB-29). */
+      background: hsl(var(--card));
       z-index: 40;
       pointer-events: none;
     }
@@ -595,6 +597,22 @@
 /* FAB positioning above bottom nav */
 .fab-above-nav {
   bottom: calc(var(--nav-spacing) + 1rem);
+}
+
+/* The FAB is fixed, so it floats over whatever ends up beneath it — on the
+   dashboard that was the Aufgaben card's corner and its "+N more" link, on a
+   phone the today-strip pill, and at 200% zoom the clock (audit KB-04). Pages
+   that render a FAB reserve a corner's worth of space at the end of their
+   scroll so nothing lands underneath it. */
+.has-fab > :last-child {
+  scroll-margin-bottom: 5rem;
+}
+.has-fab::after {
+  content: "";
+  display: block;
+  height: 4.5rem;
+  flex: 0 0 auto;
+  pointer-events: none;
 }
 
 /* Ambient gradient glow for dashboard */

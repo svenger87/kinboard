@@ -568,7 +568,7 @@ function HomeAssistantSettingsContent() {
 
         {/* Sticky resync footer — shown only when connected */}
         {isConnected && !needsReauth && (
-          <div className="sticky bottom-[var(--nav-spacing)] -mx-4 mt-2 border-t border-border bg-card/95 px-4 py-3 supports-[backdrop-filter]:bg-card/80 md:-mx-8 md:px-8">
+          <div className="sticky bottom-[var(--nav-spacing)] -mx-4 mt-2 border-t border-border bg-card px-4 py-3 md:-mx-8 md:px-8">
             <div className="mx-auto flex max-w-2xl justify-end">
               <Button variant="outline" onClick={handleResync} disabled={resyncing}>
                 <RefreshCw className={`size-4 mr-2 ${resyncing ? "animate-spin" : ""}`} />

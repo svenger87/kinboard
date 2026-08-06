@@ -62,7 +62,8 @@
       "description": "Dieser Bereich ist geschützt",
       "incorrect": "Falscher PIN",
       "cancel": "Abbrechen",
-      "pinRateLimited": "Zu viele Versuche — warte eine Minute."
+      "pinRateLimited": "Zu viele Versuche — warte eine Minute.",
+      "digitAria": "Ziffer {position}"
     },
     "shortcuts": {
       "title": "Tastenkürzel",
@@ -3519,5 +3520,19 @@
     "title": "Server nicht erreichbar",
     "description": "Teile dieses Dashboards sind evtl. veraltet oder fehlen.",
     "retry": "Erneut versuchen"
+  },
+  "personColor": {
+    "coral": "Koralle",
+    "amber": "Bernstein",
+    "citron": "Zitrone",
+    "forest": "Wald",
+    "teal": "Petrol",
+    "sky": "Himmel",
+    "indigo": "Indigo",
+    "lilac": "Flieder",
+    "berry": "Beere",
+    "clay": "Ton",
+    "custom": "Eigene Farbe",
+    "legend": "Farbe"
   }
 }

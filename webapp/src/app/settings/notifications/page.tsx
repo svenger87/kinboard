@@ -259,7 +259,7 @@ export default function NotificationSettingsPage() {
                   </div>
                 </div>
                 <Switch
-                  checked={prefs.shopping_collaborative}
+                  checked={isSubscribed && prefs.shopping_collaborative}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("shopping_collaborative", checked)
                   }
@@ -278,7 +278,7 @@ export default function NotificationSettingsPage() {
                   </div>
                 </div>
                 <Switch
-                  checked={prefs.shopping_reminders}
+                  checked={isSubscribed && prefs.shopping_reminders}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("shopping_reminders", checked)
                   }
@@ -312,7 +312,7 @@ export default function NotificationSettingsPage() {
                   </div>
                 </div>
                 <Switch
-                  checked={prefs.todo_collaborative}
+                  checked={isSubscribed && prefs.todo_collaborative}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("todo_collaborative", checked)
                   }
@@ -331,7 +331,7 @@ export default function NotificationSettingsPage() {
                   </div>
                 </div>
                 <Switch
-                  checked={prefs.todo_reminders}
+                  checked={isSubscribed && prefs.todo_reminders}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("todo_reminders", checked)
                   }
@@ -365,7 +365,7 @@ export default function NotificationSettingsPage() {
                   </div>
                 </div>
                 <Switch
-                  checked={prefs.calendar_reminders}
+                  checked={isSubscribed && prefs.calendar_reminders}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("calendar_reminders", checked)
                   }
@@ -423,7 +423,7 @@ export default function NotificationSettingsPage() {
                 </div>
               </div>
               <Switch
-                checked={prefs.birthday_reminders}
+                checked={isSubscribed && prefs.birthday_reminders}
                 onCheckedChange={(checked) =>
                   handlePreferenceChange("birthday_reminders", checked)
                 }
@@ -452,7 +452,7 @@ export default function NotificationSettingsPage() {
                 </div>
               </div>
               <Switch
-                checked={prefs.meal_prep_reminders}
+                checked={isSubscribed && prefs.meal_prep_reminders}
                 onCheckedChange={(checked) =>
                   handlePreferenceChange("meal_prep_reminders", checked)
                 }
@@ -485,7 +485,7 @@ export default function NotificationSettingsPage() {
                   </div>
                 </div>
                 <Switch
-                  checked={prefs.quiet_hours_enabled}
+                  checked={isSubscribed && prefs.quiet_hours_enabled}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("quiet_hours_enabled", checked)
                   }

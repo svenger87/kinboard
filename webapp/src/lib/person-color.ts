@@ -45,3 +45,13 @@ export const PERSON_COLORS: readonly PersonColor[] = [
   { key: "berry", hex: "#D667A0" },
   { key: "clay", hex: "#B07B53" },
 ] as const;
+
+/**
+ * The palette key for a stored hex, or null for a colour outside the palette.
+ * People are shown the colour's *name*; the hex is a storage detail and was
+ * being rendered verbatim on a family-facing screen (audit KB-16).
+ */
+export function personColorKey(hex: string): string | null {
+  const target = hex.trim().toLowerCase();
+  return PERSON_COLORS.find((c) => c.hex.toLowerCase() === target)?.key ?? null;
+}

@@ -37,7 +37,7 @@ export function LocaleSwitcher({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border bg-background/60 backdrop-blur p-1 text-xs",
+        "inline-flex items-center gap-1 rounded-full border bg-background/90 p-1 text-xs",
         className,
       )}
       role="group"

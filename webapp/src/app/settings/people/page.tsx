@@ -38,6 +38,7 @@ import { usePeople, useCreatePerson, useUpdatePerson, useDeletePerson } from "@/
 import { ImageCropper } from "@/components/image-cropper";
 import { PageHeader } from "@/components/page-header";
 import { personRoleLabel } from "@/lib/person-role";
+import { personColorKey } from "@/lib/person-color";
 
 // Preset colors for family members
 const PRESET_COLORS = [
@@ -72,6 +73,7 @@ const isUploadedAvatar = (avatar: string | null): boolean => {
 
 export default function PeopleSettingsPage() {
   const t = useTranslations("settings.people");
+  const tColor = useTranslations("personColor");
 
   // Fetch people from Supabase
   const { data: people = [], isLoading, error, refetch } = usePeople();
@@ -604,8 +606,15 @@ export default function PeopleSettingsPage() {
                         className="size-3 rounded-full"
                         style={{ backgroundColor: person.color }}
                       />
-                      <span className="text-xs text-muted-foreground uppercase">
-                        {person.color}
+                      <span className="text-xs text-muted-foreground">
+                        {/* The stored value is a hex string; showing it verbatim
+                            put a developer detail on a family-facing screen
+                            (audit KB-16). Names come from the curated palette;
+                            anything outside it reads as a custom colour. */}
+                        {(() => {
+                          const key = personColorKey(person.color);
+                          return key ? tColor(key) : tColor("custom");
+                        })()}
                       </span>
                     </div>
                   </div>

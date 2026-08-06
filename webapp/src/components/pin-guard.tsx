@@ -231,6 +231,10 @@ function PinEntryScreen({
                   type="password"
                   inputMode="numeric"
                   maxLength={1}
+                  // CodeInput labels each of its cells; these had no accessible
+                  // name at all, so a screen-reader user met four unlabelled
+                  // password fields (audit KB-62).
+                  aria-label={t("digitAria", { position: i + 1 })}
                   value={digit}
                   onChange={(e) => handleChange(i, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(i, e)}

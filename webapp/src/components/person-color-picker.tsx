@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import { PERSON_COLORS } from "@/lib/person-color";
 
 interface PersonColorPickerProps {
@@ -10,10 +11,11 @@ interface PersonColorPickerProps {
 }
 
 export function PersonColorPicker({ value, onChange, className }: PersonColorPickerProps) {
+  const t = useTranslations("personColor");
   return (
     <div
       role="radiogroup"
-      aria-label="Color"
+      aria-label={t("legend")}
       className={cn("flex flex-wrap items-center gap-2", className)}
     >
       {PERSON_COLORS.map(({ key, hex }) => {
@@ -24,7 +26,7 @@ export function PersonColorPicker({ value, onChange, className }: PersonColorPic
             type="button"
             role="radio"
             aria-checked={selected}
-            aria-label={key}
+            aria-label={t(key)}
             onClick={() => onChange(hex)}
             className={cn(
               "size-7 rounded-full transition-[box-shadow,transform] active:scale-95",

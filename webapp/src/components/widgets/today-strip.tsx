@@ -59,7 +59,8 @@ export function TodayStrip() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, delay: 0.4 }}
       className="scrollbar-hide flex w-full items-center [justify-content:safe_center] gap-3 overflow-x-auto px-1 py-1"
-      role="status"
+      // Not role="status": this is standing content, not an async status
+      // message, and announcing the whole strip on every event edit is noise.
       aria-label={t("ariaLabel")}
     >
       {/* "Nothing on today" is only true if we actually managed to ask. When the

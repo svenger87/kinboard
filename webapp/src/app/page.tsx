@@ -50,8 +50,11 @@ export default function DashboardPage() {
     // taller than its viewport, so pages that fit still scrolled (audit KB-21).
     <main id="main-content" className="relative overflow-hidden hide-status-bar">
       <div className="page-gradient pointer-events-none fixed inset-0 z-0" />
+      {/* `has-fab` reserves a corner's worth of space at the end of the column
+          so the floating lights button stops sitting on top of the last
+          widget's content (audit KB-04). */}
       <div
-        className="relative z-10 flex flex-col p-4 md:p-6 lg:p-8 safe-area-inset"
+        className="has-fab relative z-10 flex flex-col p-4 md:p-6 lg:p-8 safe-area-inset"
         style={{ minHeight: "calc(100vh - var(--nav-spacing))" }}
       >
         <h1 className="sr-only">{t("ariaWidgets")}</h1>

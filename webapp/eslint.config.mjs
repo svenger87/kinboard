@@ -34,6 +34,24 @@ const config = [
       // dynamic surfaces. Leaving on for static branding assets is also
       // not worth the partial-coverage tax.
       "@next/next/no-img-element": "off",
+      // Kiosk surfaces must not ask an ARM GPU to composite a blur. globals.css
+      // states this policy in four separate comments, and it had drifted anyway:
+      // every dialog and sheet carried backdrop-blur-xl, and MobileNav had a
+      // backdrop-blur-none override to undo it at one call site (audit KB-29).
+      // A comment is not enforcement; this is.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "JSXAttribute[name.name='className'] Literal[value=/\\b(backdrop-blur|blur-(2xl|3xl))\\b/]",
+          message:
+            "Blur is banned on kiosk surfaces (ARM GPU cost). Use elev-sm/md/lg for depth and an opaque background. See globals.css.",
+        },
+        {
+          selector: "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\b(backdrop-blur|blur-(2xl|3xl))\\b/]",
+          message:
+            "Blur is banned on kiosk surfaces (ARM GPU cost). Use elev-sm/md/lg for depth and an opaque background. See globals.css.",
+        },
+      ],
       ...REACT_19_TODO_RULES,
     },
   },

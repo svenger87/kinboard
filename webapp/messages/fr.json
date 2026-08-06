@@ -62,7 +62,8 @@
       "description": "Cette zone est protégée",
       "incorrect": "Code PIN incorrect",
       "cancel": "Annuler",
-      "pinRateLimited": "Trop de tentatives — attendez une minute."
+      "pinRateLimited": "Trop de tentatives — attendez une minute.",
+      "digitAria": "Chiffre {position}"
     },
     "shortcuts": {
       "title": "Raccourcis clavier",
@@ -3519,5 +3520,19 @@
     "title": "Serveur injoignable",
     "description": "Certaines parties du tableau de bord peuvent être obsolètes ou absentes.",
     "retry": "Réessayer"
+  },
+  "personColor": {
+    "coral": "Corail",
+    "amber": "Ambre",
+    "citron": "Citron",
+    "forest": "Forêt",
+    "teal": "Sarcelle",
+    "sky": "Ciel",
+    "indigo": "Indigo",
+    "lilac": "Lilas",
+    "berry": "Baie",
+    "clay": "Argile",
+    "custom": "Couleur personnalisée",
+    "legend": "Couleur"
   }
 }

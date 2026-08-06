@@ -742,7 +742,9 @@ export default function SettingsPage() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{item.label}</p>
-                      <p className="truncate text-xs text-muted-foreground">{item.description}</p>
+                      {/* `truncate` clipped these to one line; German runs ~30% longer than
+                          English and six of them were cut mid-sentence (audit KB-34). */}
+                      <p className="line-clamp-3 text-xs text-muted-foreground">{item.description}</p>
                     </div>
                     <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
                   </Link>
@@ -1013,18 +1015,25 @@ export default function SettingsPage() {
                 </div>
               )}
 
+              {/* Rotating the link revokes the calendar feed for every family
+                  member and every subscribed app. It used to look exactly like
+                  the benign "download a backup" button 12px above it — same
+                  variant, same width, no warning until after the click (audit
+                  KB-64). The consequence now precedes the control, and the
+                  control reads as destructive. Enabling for the first time is
+                  not destructive, so only the rotate case changes. */}
+              {(feedEnabled || feedUrl) && (
+                <p className="mt-3 text-xs text-muted-foreground">{t("feedHint")}</p>
+              )}
+
               <Button
-                variant="outline"
-                className="mt-3 w-full"
+                variant={feedEnabled || feedUrl ? "destructive" : "outline"}
+                className="mt-2 w-full"
                 onClick={handleFeedGenerate}
                 disabled={feedLoading || !family?.id}
               >
                 {feedEnabled || feedUrl ? t("feedRotate") : t("feedEnable")}
               </Button>
-
-              {(feedEnabled || feedUrl) && (
-                <p className="text-xs text-muted-foreground mt-2">{t("feedHint")}</p>
-              )}
             </div>
           </Card>
         </motion.div>
