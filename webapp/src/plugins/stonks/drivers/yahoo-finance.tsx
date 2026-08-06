@@ -7,7 +7,7 @@ import type { Ticker } from "@/types/database";
 import type { Timeframe } from "@/lib/stonks/types";
 import { useQuotes, useChart } from "@/hooks/use-stonks";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -101,15 +101,13 @@ function YahooFinanceCard({ ticker }: { ticker: Ticker }) {
       </Card>
 
       <Card className="p-4">
-        <Tabs value={timeframe} onValueChange={(v) => setTimeframe(v as Timeframe)} className="mb-4">
-          <TabsList>
-            {TIMEFRAMES.map((tf) => (
-              <TabsTrigger key={tf} value={tf}>
-                {tCommon(`timeframe.${tf}` as never)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <SegmentedControl value={timeframe} onValueChange={(v) => setTimeframe(v as Timeframe)} className="mb-4">
+          {TIMEFRAMES.map((tf) => (
+            <SegmentedControlItem key={tf} value={tf}>
+              {tCommon(`timeframe.${tf}` as never)}
+            </SegmentedControlItem>
+          ))}
+        </SegmentedControl>
         {chartLoading ? (
           <Skeleton className="h-[400px] w-full" />
         ) : candles.length > 0 ? (
