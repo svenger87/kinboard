@@ -1090,9 +1090,18 @@ export default function CalendarPage() {
                   {(() => {
                     const timedEvents = selectedDateEvents.filter((e) => !e.allDay);
                     const allDayEvents = selectedDateEvents.filter((e) => e.allDay);
-                    const TIMELINE_START = 6; // 6:00
-                    const TIMELINE_END = 22; // 22:00
-                    const TOTAL_HOURS = TIMELINE_END - TIMELINE_START;
+                    // A fixed 06:00-22:00 window meant any event outside it was
+                    // drawn against an axis that does not contain it — a 21:30
+                    // film night rendered as a bar below the last hour mark,
+                    // visually detached from any time (audit KB-10). The window
+                    // still defaults to 06:00-22:00, but widens to whatever the
+                    // day actually holds, clamped to the real day.
+                    const hourOf = (d: Date) => d.getHours() + d.getMinutes() / 60;
+                    const earliest = Math.min(...timedEvents.map((e) => hourOf(e.start)), 6);
+                    const latest = Math.max(...timedEvents.map((e) => hourOf(e.end)), 22);
+                    const TIMELINE_START = Math.max(0, Math.floor(earliest));
+                    const TIMELINE_END = Math.min(24, Math.ceil(latest));
+                    const TOTAL_HOURS = Math.max(1, TIMELINE_END - TIMELINE_START);
 
                     if (timedEvents.length > 0) {
                       return (

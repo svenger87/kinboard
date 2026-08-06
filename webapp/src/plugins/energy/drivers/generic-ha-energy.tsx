@@ -419,9 +419,13 @@ function EnergyCard() {
         <Card>
           <CardContent className="p-6">
             <h2 className="text-lg font-medium mb-4">{t("energyFlowHeading")}</h2>
-            <div className="flex flex-col gap-6 md:flex-row md:items-center">
-              {/* Diagram column */}
-              <div className="flex-1 min-w-0">
+            {/* The diagram used to share this card with a stat column that
+                repeated Solar yield, Autarky and Grid export — all three appear
+                again in the statistics section below, so on a wide display the
+                same numbers rendered twice while the diagram was squeezed into
+                half the width (audit KB-37). The diagram now owns the card. */}
+            <div className="flex flex-col gap-6">
+              <div className="min-w-0">
                 {/* Animated marching-dash SVG flow on ALL widths — the SVG
                     scales down on mobile (was a static chevron row before). */}
                 <EnergyFlow
@@ -434,36 +438,6 @@ function EnergyCard() {
                 />
               </div>
 
-              {/* Stat column — vertical on desktop, hidden on mobile (2×2 quick-stats bar covers it) */}
-              <div className="hidden md:flex md:flex-col gap-3 md:w-48 shrink-0">
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-energy-solar/10 border border-energy-solar/20">
-                  <Sun className="size-5 text-energy-solar shrink-0" strokeWidth={1.75} />
-                  <div>
-                    <p className="text-kiosk-primary text-energy-solar">
-                      {solarTotal.toFixed(1)}<span className="text-sm font-normal ml-1">kWh</span>
-                    </p>
-                    <p className="text-kiosk-label mt-1.5">{t("statSolarYield")}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-success/10 border border-success/20">
-                  <TrendingUp className="size-5 text-success shrink-0" strokeWidth={1.75} />
-                  <div>
-                    <p className="text-kiosk-primary text-success">
-                      {Math.max(0, Math.min(100, autarky)).toFixed(0)}<span className="text-sm font-normal">%</span>
-                    </p>
-                    <p className="text-kiosk-label mt-1.5">{t("statAutarky")}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-energy-grid/10 border border-energy-grid/20">
-                  <Zap className="size-5 text-energy-grid shrink-0" strokeWidth={1.75} />
-                  <div>
-                    <p className="text-kiosk-primary text-energy-grid">
-                      {gridExport.toFixed(1)}<span className="text-sm font-normal ml-1">kWh</span>
-                    </p>
-                    <p className="text-kiosk-label mt-1.5">{t("statGridExport")}</p>
-                  </div>
-                </div>
-              </div>
             </div>
           </CardContent>
         </Card>

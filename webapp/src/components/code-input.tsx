@@ -8,6 +8,9 @@ interface CodeInputProps {
   onChange: (v: string) => void;
   length?: number;
   onComplete?: () => void;
+  /** Marks every cell as invalid — the field itself should show the failure,
+      not just a message elsewhere on the form (audit KB-44). */
+  invalid?: boolean;
   className?: string;
 }
 
@@ -21,6 +24,7 @@ export function CodeInput({
   onChange,
   length = 6,
   onComplete,
+  invalid = false,
   className,
 }: CodeInputProps) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
@@ -96,6 +100,8 @@ export function CodeInput({
           autoComplete={i === 0 ? "one-time-code" : "off"}
           maxLength={1}
           aria-label={`Character ${i + 1}`}
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? "join-code-error" : undefined}
           onChange={(e) => handleChange(i, e.target.value)}
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}
@@ -105,6 +111,7 @@ export function CodeInput({
             "transition-colors focus-visible:outline-none focus-visible:border-primary",
             "focus-visible:ring-2 focus-visible:ring-primary/30",
             char ? "border-primary/40" : "border-border",
+            invalid && "border-destructive text-destructive",
           )}
         />
       ))}

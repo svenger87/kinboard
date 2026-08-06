@@ -224,7 +224,9 @@ export default function PocketMoneyPage() {
   const activePerson = people.find((p) => p.id === active.person_id);
 
   return (
-    <main id="main-content" className="p-6 max-w-3xl mx-auto space-y-6 safe-area-inset">
+    <main id="main-content" // Widens on a wall panel: with one account this left ~68% of a portrait
+      // display empty (audit KB-67).
+      className="mx-auto w-full max-w-3xl space-y-6 p-6 safe-area-inset lg:max-w-5xl">
       <PageHeader
         title={t("title")}
         icon={PiggyBank}

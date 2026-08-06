@@ -495,7 +495,8 @@
     "giftIdeaPlaceholder": "Ajouter une idée cadeau…",
     "addGiftIdea": "Ajouter une idée cadeau",
     "giftIdeasEmpty": "Aucune idée pour l'instant",
-    "removeGiftIdeaAria": "Supprimer l'idée cadeau"
+    "removeGiftIdeaAria": "Supprimer l'idée cadeau",
+    "monthOverview": "Aperçu mensuel"
   },
   "todos": {
     "title": "Tâches",
@@ -968,7 +969,7 @@
     "deleteFamilyConfirm": "Supprimer définitivement",
     "deleteFamilyFailed": "Impossible de supprimer la famille. Veuillez réessayer.",
     "dataCardTitle": "Données & sauvegarde",
-    "dataCardDescription": "Téléchargez tout ce que votre famille a enregistré — événements, recettes, listes, notes et plus — dans un fichier JSON. Les identifiants ne sont jamais inclus.",
+    "dataCardDescription": "Téléchargez tout ce que votre famille a enregistré — événements, recettes, listes, notes et plus — dans un seul fichier JSON. Les identifiants ne sont jamais inclus. Pour restaurer, ouvrez Kinboard sur un nouvel appareil et choisissez « Restaurer depuis une sauvegarde ».",
     "exportButton": "Télécharger la sauvegarde",
     "exportFailed": "Échec de l'export. Veuillez réessayer.",
     "feedTitle": "Flux de calendrier (ICS)",

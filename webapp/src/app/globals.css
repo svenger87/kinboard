@@ -595,8 +595,16 @@
 @keyframes marchDashReverse {
   to { stroke-dashoffset: 14; }
 }
+/* Runs only while `data-flowing` is set on the diagram. An always-on kitchen
+   display should not carry perpetual motion in the corner once the numbers have
+   settled (audit KB-54); prefers-reduced-motion still disables it outright. */
 .flow-dash {
   animation: marchDash 1s linear infinite;
+  animation-play-state: paused;
+}
+[data-flowing="true"] .flow-dash,
+[data-flowing="true"] .flow-dash-reverse {
+  animation-play-state: running;
 }
 
 /* Overflow-only marquee for long titles (see components/marquee-text.tsx).
@@ -619,6 +627,18 @@
 /* GPU hints removed - caused constant CPU overhead on ARM devices (RPI/Odroid) */
 .gpu-blur {
   /* Previously had will-change, transform, backface-visibility - removed for ARM compatibility */
+}
+
+/* No photo source configured means DEFAULT_PHOTOS is empty and there is
+   literally nothing to draw, so the canvas was flat black — a ~1100x850px void
+   in the middle of an otherwise well-composed screen, and the ordinary state
+   of a fresh self-hosted install (audit KB-19). A warm gradient built from the
+   month's accent reads as intentional instead of broken. */
+.screensaver-canvas-empty {
+  background:
+    radial-gradient(120% 80% at 50% 0%, hsl(var(--month-primary) / 0.22), transparent 70%),
+    radial-gradient(100% 70% at 50% 100%, hsl(var(--month-primary) / 0.10), transparent 65%),
+    hsl(var(--background));
 }
 
 /* Screensaver fade-in animations (CSS-only, no JS overhead) */

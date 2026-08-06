@@ -723,7 +723,9 @@ export default function ShoppingPage() {
 
         {/* pb clears the fixed mobile nav — without it the last list row and the
             progress bar stay under it no matter how far you scroll. */}
-        <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
+        {/* flex column so the install promo can be ordered after the list on
+            handhelds without moving it in the DOM (audit KB-38). */}
+        <div className="relative z-10 flex flex-col p-4 md:p-8 max-w-6xl mx-auto safe-area-inset">
           <PageHeader
             icon={ShoppingCart}
             title={
@@ -804,8 +806,12 @@ export default function ShoppingPage() {
             className="mb-4 rounded-lg overflow-hidden"
           />
 
-          {/* Install prompt for standalone shopping PWA */}
-          <ShoppingInstallPrompt />
+          {/* Below the list on handhelds. This plus the add form pushed the
+              list past the first viewport, on the screen you opened to read the
+              list (audit KB-38). It stays available, just not ahead of it. */}
+          <div className="order-last md:order-none">
+            <ShoppingInstallPrompt />
+          </div>
 
           {/* Smart Add Form */}
           <motion.div

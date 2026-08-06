@@ -495,7 +495,8 @@
     "giftIdeaPlaceholder": "Add a gift idea…",
     "addGiftIdea": "Add gift idea",
     "giftIdeasEmpty": "No ideas yet",
-    "removeGiftIdeaAria": "Remove gift idea"
+    "removeGiftIdeaAria": "Remove gift idea",
+    "monthOverview": "Month overview"
   },
   "todos": {
     "title": "Tasks",
@@ -968,7 +969,7 @@
     "deleteFamilyConfirm": "Delete forever",
     "deleteFamilyFailed": "Could not delete the family. Please try again.",
     "dataCardTitle": "Data & backup",
-    "dataCardDescription": "Download everything your family has stored — events, recipes, lists, notes and more — as one JSON file. Credentials are never included.",
+    "dataCardDescription": "Download everything your family has stored — events, recipes, lists, notes and more — as one JSON file. Credentials are never included. To restore one, open Kinboard on a new device and choose “Restore from a backup”.",
     "exportButton": "Download backup",
     "exportFailed": "Export failed. Please try again.",
     "feedTitle": "Calendar feed (ICS)",

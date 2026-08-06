@@ -495,7 +495,8 @@
     "giftIdeaPlaceholder": "Idee hinzufügen…",
     "addGiftIdea": "Idee hinzufügen",
     "giftIdeasEmpty": "Noch keine Ideen",
-    "removeGiftIdeaAria": "Idee entfernen"
+    "removeGiftIdeaAria": "Idee entfernen",
+    "monthOverview": "Monatsübersicht"
   },
   "todos": {
     "title": "Aufgaben",
@@ -968,7 +969,7 @@
     "deleteFamilyConfirm": "Endgültig löschen",
     "deleteFamilyFailed": "Die Familie konnte nicht gelöscht werden. Bitte versuche es erneut.",
     "dataCardTitle": "Daten & Sicherung",
-    "dataCardDescription": "Lade alles herunter, was eure Familie gespeichert hat — Termine, Rezepte, Listen, Notizen und mehr — als eine JSON-Datei. Zugangsdaten sind nie enthalten.",
+    "dataCardDescription": "Lade alles herunter, was eure Familie gespeichert hat — Termine, Rezepte, Listen, Notizen und mehr — als eine JSON-Datei. Zugangsdaten sind nie enthalten. Zum Wiederherstellen öffne Kinboard auf einem neuen Gerät und wähle „Aus Sicherung wiederherstellen“.",
     "exportButton": "Sicherung herunterladen",
     "exportFailed": "Export fehlgeschlagen. Bitte erneut versuchen.",
     "feedTitle": "Kalender-Feed (ICS)",
