@@ -16,6 +16,17 @@ const config: Config = {
   		}
   	},
   	extend: {
+  		// Two steps below text-xs. These exist because 76 hard-coded
+  		// `text-[Npx]` utilities were scattered across 36 files: px is absolute,
+  		// so the "larger text" accessibility setting (which scales the root
+  		// font size) provably did not move a single one of them, and the app's
+  		// smallest text stayed 9-11px however hard a user asked (audit KB-23).
+  		// rem fixes that, and gives the kiosk density step in globals.css one
+  		// place to raise the floor (KB-56).
+  		fontSize: {
+  			'3xs': ['0.6875rem', { lineHeight: '1rem' }],
+  			'2xs': ['0.75rem', { lineHeight: '1.05rem' }],
+  		},
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',

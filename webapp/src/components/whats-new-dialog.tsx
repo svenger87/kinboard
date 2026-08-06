@@ -155,7 +155,7 @@ export function WhatsNewDialog({ open, onOpenChange }: WhatsNewDialogProps) {
                         // Reached only on an instance running a
                         // pre-release; a stable install never receives
                         // these entries at all.
-                        <span className="ml-2 align-middle rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-warning-foreground">
+                        <span className="ml-2 align-middle rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-3xs font-medium uppercase tracking-wide text-warning-foreground">
                           {t("prereleaseBadge")}
                         </span>
                       )}

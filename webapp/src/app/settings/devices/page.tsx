@@ -274,7 +274,7 @@ export default function DevicesSettingsPage() {
                           {/* Device ID (shown when presence sensor is enabled) */}
                           {device.has_presence_sensor && (
                             <div className="flex items-center gap-1.5 mt-1">
-                              <code className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded font-mono">
+                              <code className="text-3xs text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded font-mono">
                                 {device.id.slice(0, 8)}...
                               </code>
                               <TooltipProvider>

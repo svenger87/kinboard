@@ -123,7 +123,7 @@ export function BirthdayYearRing({
               y={tick.labelPos.y}
               textAnchor="middle"
               dominantBaseline="central"
-              className={`text-[9px] font-medium ${
+              className={`text-3xs font-medium ${
                 i === currentMonth ? "fill-primary" : "fill-muted-foreground/60"
               }`}
             >
@@ -195,7 +195,7 @@ export function BirthdayYearRing({
                     y={dot.pos.y}
                     textAnchor="middle"
                     dominantBaseline="central"
-                    className="text-[11px] font-bold pointer-events-none"
+                    className="text-2xs font-bold pointer-events-none"
                     fill="#ffffff"
                   >
                     {(dot.name.trim()[0] ?? "?").toUpperCase()}
@@ -222,7 +222,7 @@ export function BirthdayYearRing({
                 x={center}
                 y={center + 6}
                 textAnchor="middle"
-                className="fill-primary text-[11px] font-medium"
+                className="fill-primary text-2xs font-medium"
               >
                 {t("centerTurns", { age: nextAge })}
               </text>
@@ -231,7 +231,7 @@ export function BirthdayYearRing({
               x={center}
               y={center + 24}
               textAnchor="middle"
-              className="fill-muted-foreground text-[10px] tabular-nums"
+              className="fill-muted-foreground text-3xs tabular-nums"
             >
               {t("centerInDays", { count: nextDaysUntil ?? 0 })}
             </text>
@@ -250,7 +250,7 @@ export function BirthdayYearRing({
               x={center}
               y={center + 10}
               textAnchor="middle"
-              className="fill-muted-foreground text-[10px]"
+              className="fill-muted-foreground text-3xs"
             >
               {t("centerLabel")}
             </text>

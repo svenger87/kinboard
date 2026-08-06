@@ -162,7 +162,7 @@ export function WeatherCard({ card, entity }: WeatherCardProps) {
                 </div>
                 <span className="text-xs font-medium">{Math.round(day.temperature)}°</span>
                 {day.templow !== undefined && (
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-3xs text-muted-foreground">
                     {Math.round(day.templow)}°
                   </span>
                 )}

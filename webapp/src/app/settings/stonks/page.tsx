@@ -101,7 +101,7 @@ export default function StonksSettingsPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{r.symbol}</span>
-                        <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+                        <Badge variant="outline" className="text-3xs py-0 px-1.5">
                           {r.assetType}
                         </Badge>
                         {r.exchange && (
@@ -146,7 +146,7 @@ export default function StonksSettingsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{tk.symbol}</span>
-                          <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+                          <Badge variant="outline" className="text-3xs py-0 px-1.5">
                             {tk.asset_type}
                           </Badge>
                           {tk.nickname && (

@@ -1119,7 +1119,7 @@ export default function CalendarPage() {
                               const top = ((hour - TIMELINE_START) / TOTAL_HOURS) * 100;
                               return (
                                 <div key={hour} className="absolute left-0 right-0" style={{ top: `${top}%` }}>
-                                  <span className="absolute -left-8 -translate-y-1/2 text-[10px] text-muted-foreground/50 tabular-nums w-6 text-right">
+                                  <span className="absolute -left-8 -translate-y-1/2 text-3xs text-muted-foreground/50 tabular-nums w-6 text-right">
                                     {hour}:00
                                   </span>
                                   <div className="h-px bg-border/20 w-full" />
@@ -1166,8 +1166,8 @@ export default function CalendarPage() {
                                     borderLeft: `3px solid ${event.color}`,
                                   }}
                                 >
-                                  <span className="text-[11px] font-medium truncate block leading-tight">{event.title}</span>
-                                  <span className="text-[9px] text-muted-foreground truncate block">
+                                  <span className="text-2xs font-medium truncate block leading-tight">{event.title}</span>
+                                  <span className="text-3xs text-muted-foreground truncate block">
                                     {formatTime(event.start)} – {formatTime(event.end)}
                                   </span>
                                 </button>

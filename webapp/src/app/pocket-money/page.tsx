@@ -268,7 +268,10 @@ export default function PocketMoneyPage() {
           <button
             type="button"
             onClick={() => setStagesSheetOpen(true)}
-            className="flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 hover:bg-white/[0.04] active:scale-[0.98] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50"
+            // A visible affordance rather than a 10px instruction telling a
+            // child that something is tappable (audit KB-59). The border makes
+            // the target legible on its own; the hint text is gone.
+            className="flex flex-col items-center gap-0.5 rounded-xl border border-border/70 px-4 py-2 transition hover:bg-white/[0.04] hover:border-border active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50"
             aria-label={t("stagesSheetOpenAria")}
           >
             <p className="text-xl font-bold flex items-center gap-2">
@@ -288,11 +291,11 @@ export default function PocketMoneyPage() {
             {(() => {
               const nextCents = nextTierThreshold(active.balance_cents);
               if (nextCents === null) {
-                return <p className="text-xs text-muted-foreground">{t("maxStageHint")}</p>;
+                return <p className="text-base font-medium text-muted-foreground">{t("maxStageHint")}</p>;
               }
               const nextTier = tierFromBalance(nextCents);
               return (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base font-medium text-muted-foreground">
                   {t("nextStageHint", {
                     stage: t(`species.${active.avatar_species}.tier${nextTier}` as never),
                     amount: formatCents(nextCents, active.currency),
@@ -300,7 +303,6 @@ export default function PocketMoneyPage() {
                 </p>
               );
             })()}
-            <p className="text-[10px] text-muted-foreground/70 mt-0.5">{t("stagesSheetOpenHint")}</p>
           </button>
         </div>
         <BalanceDisplay

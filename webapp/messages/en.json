@@ -3509,7 +3509,6 @@
     "nextAllowanceTomorrow": "{amount} pocket money arrives tomorrow",
     "nextAllowanceInDays": "{amount} pocket money in {days} days ({date})",
     "nextAllowanceShort": "{amount} in {days}d",
-    "stagesSheetOpenHint": "Tap to see all stages",
     "stagesSheetOpenAria": "Show all evolution stages",
     "stagesSheetTitle": "Evolution stages",
     "stagesSheetDescription": "Save more to grow into each next stage.",

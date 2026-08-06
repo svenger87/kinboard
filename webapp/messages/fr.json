@@ -3509,7 +3509,6 @@
     "nextAllowanceTomorrow": "{amount} d'argent de poche arrive demain",
     "nextAllowanceInDays": "{amount} d'argent de poche dans {days} jours ({date})",
     "nextAllowanceShort": "{amount} dans {days} j",
-    "stagesSheetOpenHint": "Appuyez pour voir tous les stades",
     "stagesSheetOpenAria": "Afficher tous les stades d'évolution",
     "stagesSheetTitle": "Stades d'évolution",
     "stagesSheetDescription": "Épargnez plus pour atteindre chaque stade suivant.",

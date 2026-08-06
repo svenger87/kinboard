@@ -339,10 +339,31 @@
   @media (min-width: 1280px), (min-height: 1400px) {
     .text-kiosk-label { font-size: 0.9375rem; }
   }
+
 }
 
 /* Custom Utilities */
 @layer utilities {
+  /* Kiosk density step (audit KB-56).
+     ---------------------------------
+     Deliberately in @layer utilities, not components: these OVERRIDE Tailwind's
+     own generated `text-xs`, and the components layer is emitted first, so a
+     copy living there lost the cascade and the step silently did nothing.
+
+     Type sizes were identical at 390px and 2560px, so the smallest labels were
+     sized for a phone held at arm's length and then hung on a wall. Rather than
+     rescale everything — which would destabilise every layout — this raises the
+     floor on the three smallest steps, which is where the illegibility actually
+     was: 9-12px badges, counts, weekday headers and week numbers.
+
+     The rule is: no load-bearing text below 13px on a wall display. */
+  @media (min-width: 1280px), (min-height: 1400px) {
+    .text-3xs { font-size: 0.8125rem; line-height: 1.15rem; }
+    .text-2xs { font-size: 0.875rem;  line-height: 1.25rem; }
+    .text-xs  { font-size: 0.8125rem; line-height: 1.15rem; }
+  }
+
+
   .text-balance {
     text-wrap: balance;
   }

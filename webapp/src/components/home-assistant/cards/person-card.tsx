@@ -128,7 +128,7 @@ export function PersonCard({ card, entity }: PersonCardProps) {
         {/* GPS Accuracy (if available) */}
         {gpsAccuracy !== undefined && gpsAccuracy > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-3xs text-muted-foreground">
               GPS ±{gpsAccuracy}m
             </span>
           </div>

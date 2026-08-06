@@ -172,9 +172,9 @@ export function GoalAddDialog({ accountId, open, onOpenChange, goal = null }: Pr
                           alt={r.name}
                           className="w-full h-20 object-cover rounded"
                         />
-                        <p className="text-[10px] mt-1 truncate">{r.name}</p>
+                        <p className="text-3xs mt-1 truncate">{r.name}</p>
                         {isWeb && (
-                          <span className="absolute top-1 right-1 rounded bg-black/60 text-white text-[9px] px-1 leading-tight">
+                          <span className="absolute top-1 right-1 rounded bg-black/60 text-white text-3xs px-1 leading-tight">
                             {t("imageSourceWebBadge")}
                           </span>
                         )}

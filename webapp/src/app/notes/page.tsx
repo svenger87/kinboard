@@ -322,7 +322,7 @@ export default function NotesPage() {
                   />
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/30">
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-muted-foreground hidden sm:block">
+                      <span className="text-2xs text-muted-foreground hidden sm:block">
                         {t("saveHint")}
                       </span>
                       {people && people.length > 0 && (

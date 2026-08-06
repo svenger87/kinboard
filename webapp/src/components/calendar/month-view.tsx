@@ -119,7 +119,7 @@ export function MonthView({
       <CardContent className="p-2 sm:p-4">
       {/* Weekday Headers */}
       <div className="grid grid-cols-[1.5rem_repeat(7,1fr)] sm:grid-cols-[2rem_repeat(7,1fr)]">
-        <div className="text-center text-[9px] sm:text-[10px] font-medium py-2 text-muted-foreground/40">
+        <div className="text-center text-3xs sm:text-3xs font-medium py-2 text-muted-foreground/40">
           {t("monthView.weekHeader")}
         </div>
         {weekdayLabels.map((day, idx) => (
@@ -148,7 +148,7 @@ export function MonthView({
               className="grid grid-cols-[1.5rem_repeat(7,1fr)] sm:grid-cols-[2rem_repeat(7,1fr)] border-b border-border/20"
             >
               {/* Week number */}
-              <div className="flex items-start justify-center pt-1 sm:pt-1.5 text-[9px] sm:text-[10px] font-medium text-muted-foreground/40 border-r border-border/20">
+              <div className="flex items-start justify-center pt-1 sm:pt-1.5 text-3xs sm:text-3xs font-medium text-muted-foreground/40 border-r border-border/20">
                 {getISOWeek(weekStart)}
               </div>
 
@@ -202,14 +202,14 @@ export function MonthView({
                     <div className="relative z-10 flex items-center gap-0.5 mb-0.5">
                       <span
                         className={`
-                          inline-flex items-center justify-center size-5 sm:size-6 rounded-full text-[10px] sm:text-xs font-medium tabular-nums shrink-0
+                          inline-flex items-center justify-center size-5 sm:size-6 rounded-full text-3xs sm:text-xs font-medium tabular-nums shrink-0
                           ${isDayToday ? "bg-primary text-primary-foreground font-bold" : ""}
                         `}
                       >
                         {format(day, "d")}
                       </span>
                       {holidayEvent && (
-                        <span className="hidden sm:inline text-[8px] text-muted-foreground truncate leading-none">
+                        <span className="hidden sm:inline text-3xs text-muted-foreground truncate leading-none">
                           {holidayEvent.title}
                         </span>
                       )}
@@ -280,7 +280,7 @@ export function MonthView({
                             />
                           ))}
                           {dayEvents.length > 4 && (
-                            <span className="text-[7px] text-muted-foreground">
+                            <span className="text-3xs text-muted-foreground">
                               +{dayEvents.length - 4}
                             </span>
                           )}

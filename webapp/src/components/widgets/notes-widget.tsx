@@ -290,7 +290,7 @@ export function NotesWidget({
                       <p className={`text-sm leading-relaxed whitespace-pre-line ${isExpanded ? "" : "line-clamp-2"}`}>
                         {note.content}
                       </p>
-                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">
+                      <p className="text-2xs text-muted-foreground/60 mt-0.5">
                         {formatDistanceToNow(new Date(note.created_at), {
                           addSuffix: true,
                           locale: dateLocale,

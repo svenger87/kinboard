@@ -630,7 +630,7 @@ export default function SchedulePage() {
                             {day}
                           </span>
                           {isToday && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5">{t("todayBadge")}</Badge>
+                            <Badge variant="secondary" className="text-3xs px-1.5">{t("todayBadge")}</Badge>
                           )}
                         </div>
                       </div>
@@ -653,7 +653,7 @@ export default function SchedulePage() {
                             >
                               <div className="text-xs text-muted-foreground w-10 shrink-0 text-center">
                                 <div className="font-medium tabular-nums">{period}.</div>
-                                <div className="text-[10px] tabular-nums">{slot.start}</div>
+                                <div className="text-3xs tabular-nums">{slot.start}</div>
                               </div>
                               <div
                                 className="flex-1 flex items-center gap-2 p-2.5 rounded-lg"
@@ -668,7 +668,7 @@ export default function SchedulePage() {
                                 </span>
                                 {isCurrentPeriod && (
                                   <Badge
-                                    className="ml-auto text-[10px] px-1.5 py-0"
+                                    className="ml-auto text-3xs px-1.5 py-0"
                                     style={{ backgroundColor: color }}
                                   >
                                     {t("nowBadge")}
@@ -723,7 +723,7 @@ export default function SchedulePage() {
                           <tr key={period} className="border-b border-border/30 last:border-0">
                             <td className="p-3 text-xs text-muted-foreground align-top">
                               <div className="font-medium tabular-nums">{period}.</div>
-                              <div className="text-[10px] tabular-nums">{periodTime}</div>
+                              <div className="text-3xs tabular-nums">{periodTime}</div>
                             </td>
                             {Array.from({ length: 5 }, (_, dayIndex) => {
                               const slot = grid[dayIndex]?.[period];
@@ -769,13 +769,13 @@ export default function SchedulePage() {
                                         </span>
                                       </div>
                                       {slot.room && (
-                                        <div className="text-[10px] text-muted-foreground">
+                                        <div className="text-3xs text-muted-foreground">
                                           {t("roomLabel", { room: slot.room })}
                                         </div>
                                       )}
                                       {isCurrentPeriod && (
                                         <Badge
-                                          className="mt-1 text-[10px] px-1.5 py-0"
+                                          className="mt-1 text-3xs px-1.5 py-0"
                                           style={{ backgroundColor: getSubjectColor(slot.subject) }}
                                         >
                                           {t("nowBadge")}
@@ -950,7 +950,7 @@ export default function SchedulePage() {
                           transition={{ duration: 0.6, delay: 0.4 + i * 0.03 }}
                         />
                         <span
-                          className="absolute inset-y-0 flex items-center text-[10px] font-medium px-2"
+                          className="absolute inset-y-0 flex items-center text-3xs font-medium px-2"
                           style={{ color: personText(color) }}
                         >
                           {stat.count}×

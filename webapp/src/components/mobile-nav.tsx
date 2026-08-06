@@ -71,14 +71,14 @@ export function MobileNav() {
                 <Icon size={23} strokeWidth={1.75} />
                 {badge && !tab.active && (
                   <span
-                    className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
+                    className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-3xs font-bold text-primary-foreground"
                     aria-label={tCommon("newEntriesAria", { count: badge })}
                   >
                     {badge}
                   </span>
                 )}
               </span>
-              <span className={`text-[10px] ${tab.active ? "font-semibold" : "font-medium"}`}>
+              <span className={`text-3xs ${tab.active ? "font-semibold" : "font-medium"}`}>
                 {tNav(tab.labelKey)}
               </span>
             </Link>
@@ -94,7 +94,7 @@ export function MobileNav() {
           className={tabClass(moreActive)}
         >
           <MoreHorizontal size={23} strokeWidth={1.75} />
-          <span className={`text-[10px] ${moreActive ? "font-semibold" : "font-medium"}`}>
+          <span className={`text-3xs ${moreActive ? "font-semibold" : "font-medium"}`}>
             {tNav("more")}
           </span>
         </button>
@@ -137,7 +137,7 @@ export function MobileNav() {
                       {tNav(item.labelKey)}
                     </span>
                     {badge && (
-                      <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground tabular-nums">
+                      <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-2xs font-bold text-primary-foreground tabular-nums">
                         {badge}
                       </span>
                     )}

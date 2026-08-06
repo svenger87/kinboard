@@ -177,7 +177,7 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
             >
               {/* Day name */}
               <span
-                className={`text-[10px] font-medium uppercase tracking-wider ${
+                className={`text-3xs font-medium uppercase tracking-wider ${
                   day.isToday ? "text-primary" : "text-muted-foreground"
                 }`}
               >
@@ -196,7 +196,7 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
               >
                 {day.dayNumber}
                 {day.hasBirthday && (
-                  <span className="absolute -top-0.5 -right-0.5 text-[10px]">
+                  <span className="absolute -top-0.5 -right-0.5 text-3xs">
                     🎂
                   </span>
                 )}
@@ -229,7 +229,7 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
                     )}
                   </>
                 ) : (
-                  <span className="text-[8px] text-muted-foreground/40">—</span>
+                  <span className="text-3xs text-muted-foreground/40">—</span>
                 )}
               </div>
             </motion.div>
@@ -238,7 +238,7 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-center gap-4 mt-3 text-[10px] text-muted-foreground">
+        <div className="flex items-center justify-center gap-4 mt-3 text-3xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <div className="size-1.5 rounded-full bg-primary" />
             {t("legendEvents")}
