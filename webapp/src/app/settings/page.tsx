@@ -737,7 +737,7 @@ export default function SettingsPage() {
                     href={item.href}
                     className="flex min-h-[56px] items-center gap-3 rounded-xl border border-border bg-card px-4 elev-sm transition-colors hover:bg-accent/50"
                   >
-                    <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-primary/10 text-primary">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
                       <item.icon className="size-5" strokeWidth={1.75} />
                     </span>
                     <div className="min-w-0 flex-1">

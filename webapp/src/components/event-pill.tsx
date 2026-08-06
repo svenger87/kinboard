@@ -53,7 +53,7 @@ export function EventPill({
   return (
     <span
       className={cn(
-        "flex items-center gap-1 truncate rounded-[5px] px-1.5 py-0.5 font-semibold",
+        "flex items-center gap-1 truncate rounded-sm px-1.5 py-0.5 font-semibold",
         className
       )}
       style={{

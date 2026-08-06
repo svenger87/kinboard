@@ -418,7 +418,7 @@ export default function RecipesPage() {
                   {/* View Mode Toggle */}
                   <div className="flex border rounded-lg">
                     <Button
-                      variant={viewMode === "grid" ? "secondary" : "ghost"}
+                      variant={viewMode === "grid" ? "outline" : "ghost"}
                       size="icon"
                       className="size-9 rounded-r-none"
                       onClick={() => setViewMode("grid")}
@@ -428,7 +428,7 @@ export default function RecipesPage() {
                       <Grid3X3 className="size-4" />
                     </Button>
                     <Button
-                      variant={viewMode === "list" ? "secondary" : "ghost"}
+                      variant={viewMode === "list" ? "outline" : "ghost"}
                       size="icon"
                       className="size-9 rounded-l-none"
                       onClick={() => setViewMode("list")}

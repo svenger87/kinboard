@@ -179,7 +179,7 @@ export function ScheduleWidget({
       // the row height it also left a ~500x230px hole beside it (audit KB-06).
       // A compact card states the same thing and lets the grid pack around it.
       <Card className={`accent-border-top ${className}`}>
-        <CardContent className="flex items-center gap-3 p-[18px]">
+        <CardContent className="flex items-center gap-3 p-4">
           <span className="icon-badge shrink-0">
             <GraduationCap className="size-5" strokeWidth={1.75} />
           </span>

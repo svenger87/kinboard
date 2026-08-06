@@ -298,7 +298,7 @@ export default function NewsSettingsPage() {
                         autoFocus
                       />
                       <Button
-                        variant="secondary"
+                        variant="outline"
                         onClick={() => void runTest()}
                         disabled={testing || !url.trim()}
                       >

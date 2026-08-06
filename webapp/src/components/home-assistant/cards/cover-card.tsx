@@ -38,8 +38,8 @@ export function CoverCard({ card, entity }: CoverCardProps) {
   const supportsPosition = currentPosition !== undefined;
 
   const getStateColor = () => {
-    if (isOpen) return "text-blue-500";
-    if (isMoving) return "text-yellow-500";
+    if (isOpen) return "text-state-cool";
+    if (isMoving) return "text-state-light";
     return "text-muted-foreground";
   };
 
@@ -71,9 +71,9 @@ export function CoverCard({ card, entity }: CoverCardProps) {
     <div
       className={`rounded-2xl border bg-card elev-sm p-4 transition-all ${
         isOpen
-          ? "bg-blue-500/10 border-blue-500/30"
+          ? "bg-state-cool/10 border-state-cool/30"
           : isMoving
-          ? "bg-yellow-500/10 border-yellow-500/30"
+          ? "bg-state-light/10 border-state-light/30"
           : "bg-card hover:border-primary/30"
       } ${isUnavailable ? "opacity-50" : ""}`}
     >
@@ -82,9 +82,9 @@ export function CoverCard({ card, entity }: CoverCardProps) {
         <div
           className={`p-2 rounded-lg ${
             isOpen
-              ? "bg-blue-500/20 text-blue-500"
+              ? "bg-state-cool/20 text-state-cool"
               : isMoving
-              ? "bg-yellow-500/20 text-yellow-500"
+              ? "bg-state-light/20 text-state-light"
               : "bg-muted text-muted-foreground"
           }`}
         >

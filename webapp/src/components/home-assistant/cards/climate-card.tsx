@@ -37,9 +37,9 @@ export function ClimateCard({ card, entity }: ClimateCardProps) {
   const isCooling = hvacAction === "cooling";
 
   const getStatusColor = () => {
-    if (isHeating) return "text-orange-500";
-    if (isCooling) return "text-blue-500";
-    if (!isOff) return "text-green-500";
+    if (isHeating) return "text-state-alert";
+    if (isCooling) return "text-state-cool";
+    if (!isOff) return "text-state-on";
     return "text-muted-foreground";
   };
 
@@ -57,9 +57,9 @@ export function ClimateCard({ card, entity }: ClimateCardProps) {
     <div
       className={`rounded-2xl border bg-card elev-sm p-4 transition-all ${
         isHeating
-          ? "bg-orange-500/10 border-orange-500/30"
+          ? "bg-state-alert/10 border-state-alert/30"
           : isCooling
-          ? "bg-blue-500/10 border-blue-500/30"
+          ? "bg-state-cool/10 border-state-cool/30"
           : "bg-card hover:border-primary/30"
       } ${isUnavailable ? "opacity-50" : ""}`}
     >
@@ -68,9 +68,9 @@ export function ClimateCard({ card, entity }: ClimateCardProps) {
         <div
           className={`p-2 rounded-lg ${
             isHeating
-              ? "bg-orange-500/20 text-orange-500"
+              ? "bg-state-alert/20 text-state-alert"
               : isCooling
-              ? "bg-blue-500/20 text-blue-500"
+              ? "bg-state-cool/20 text-state-cool"
               : "bg-muted text-muted-foreground"
           }`}
         >
