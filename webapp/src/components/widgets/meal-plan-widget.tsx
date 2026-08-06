@@ -45,7 +45,7 @@ function MealPlanWidgetSkeleton() {
   const t = useTranslations("mealPlanWidget");
   return (
     <Card aria-label={t("loadingAria")} aria-busy="true">
-      <CardContent className="flex flex-col gap-2 p-[18px]">
+      <CardContent className="flex flex-col gap-2 p-4">
         <div className="flex items-center gap-2">
           <Skeleton className="size-5 rounded" />
           <Skeleton className="h-5 w-28" />
@@ -106,7 +106,7 @@ export function MealPlanWidget({ className = "" }: MealPlanWidgetProps) {
   if (isError) {
     return (
       <Card className={`accent-border-top h-full ${className}`}>
-        <CardContent className="p-[18px]">
+        <CardContent className="p-4">
           <div className="mb-4 flex items-center gap-3">
             <span className="icon-badge">
               <Utensils className="size-5" strokeWidth={1.75} aria-hidden="true" />

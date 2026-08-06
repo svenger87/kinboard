@@ -132,7 +132,7 @@ function getBinarySensorColor(
   // Motion/presence sensors
   if (["motion", "occupancy", "presence"].includes(deviceClass || "")) {
     return isOn
-      ? { bg: "#3b82f620", text: "#3b82f6" } // Blue when detected
+      ? { bg: "hsl(var(--state-cool) / 0.12)", text: "hsl(var(--state-cool))" } // detected
       : { bg: "#6b728020", text: "#6b7280" }; // Gray when clear
   }
 
@@ -263,7 +263,7 @@ export function BinarySensorDisplayItem({
     <div
       className={`rounded-xl border p-3 transition-all ${
         isUnavailable ? "opacity-50" : ""
-      } ${isSafetyAlert ? "border-red-500 animate-pulse" : "bg-card"}`}
+      } ${isSafetyAlert ? "border-state-alert animate-pulse" : "bg-card"}`}
       style={
         isSafetyAlert ? { backgroundColor: colors.bg } : undefined
       }

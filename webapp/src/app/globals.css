@@ -39,6 +39,27 @@
        for headroom on custom colours. */
     --person-text-mix: #000000;
     --person-text-amount: 38%;
+
+    /* Device / entity state (audit KB-12).
+       The Home Assistant card family reached for raw Tailwind palette classes —
+       text-green-500, bg-yellow-500 and friends, ~100 usages — which do not
+       follow light/dark, the monthly accent or the neutral palettes. The
+       measured consequences included a 30px stat at 1.27:1 in light mode.
+       These are the semantic replacements; they are the only colours a device
+       card should reach for. */
+    --state-on: 150 43% 38%;          /* device is active */
+    --state-light: 42 82% 42%;        /* a light that is emitting */
+    --state-cool: 210 63% 48%;        /* climate cooling, water */
+    --state-alert: 8 57% 52%;         /* alarm, fault */
+    --state-off: 35 9% 39%;           /* inactive but reachable */
+
+    /* Status colours used as TEXT on a light surface. --warning and --info are
+       tuned as fills paired with a dark foreground; as text on a near-white
+       card --warning measures 2.14:1 (audit KB-12). These are their text-safe
+       companions — same hue, enough darkness to clear 4.5:1. */
+    --warning-strong: 33 75% 33%;
+    --info-strong: 210 70% 38%;
+    --success-strong: 150 45% 30%;
     --accent: 38 46% 91%;
     --accent-foreground: 33 15% 12%;
     --destructive: 8 57% 52%;
@@ -142,6 +163,16 @@
        28% ships for headroom. */
     --person-text-mix: #ffffff;
     --person-text-amount: 28%;
+
+    --state-on: 155 41% 55%;
+    --state-light: 45 85% 60%;
+    --state-cool: 210 68% 62%;
+    --state-alert: 10 72% 60%;
+    --state-off: 38 12% 61%;
+
+    --warning-strong: 37 72% 62%;
+    --info-strong: 210 70% 68%;
+    --success-strong: 155 45% 60%;
     --accent: 36 13% 15%;
     --accent-foreground: 38 42% 91%;
     --destructive: 10 72% 60%;
@@ -308,7 +339,6 @@
   }
 
   /* Cards and interactive containers */
-  .glass:focus-visible,
   [role="listitem"]:focus-visible {
     @apply ring-2 ring-month-primary ring-offset-2 ring-offset-background;
   }
@@ -379,15 +409,10 @@
   /* .text-kiosk-label lives in @layer components (below), NOT here — see the
      note there for why its cascade position matters. */
 
-  /* Glass morphism effect - enhanced for wall-mounted display */
-  /* Glass morphism - no backdrop-blur for ARM GPU compatibility */
-  .glass {
-    @apply bg-white/[0.10] border border-white/[0.08] shadow-lg shadow-black/20;
-  }
-
-  .glass-subtle {
-    @apply bg-white/[0.07] border border-white/[0.05];
-  }
+  /* .glass / .glass-subtle removed: zero component uses, and they
+     hard-coded white overlays and black shadows that are invisible in
+     light mode and ignore the warm --shadow-rgb system (audit KB-46).
+     Depth comes from .elev-* only. */
 
   /* Noise texture overlay to prevent gradient banding */
   .noise-overlay::after {

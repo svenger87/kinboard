@@ -42,17 +42,17 @@ export function LockCard({ card, entity }: LockCardProps) {
   const isTransitioning = isLocking || isUnlocking;
 
   const getStateColor = () => {
-    if (isLocked) return "text-green-500";
-    if (isUnlocked) return "text-yellow-500";
-    if (isJammed) return "text-red-500";
-    if (isTransitioning) return "text-blue-500";
+    if (isLocked) return "text-state-on";
+    if (isUnlocked) return "text-state-light";
+    if (isJammed) return "text-state-alert";
+    if (isTransitioning) return "text-state-cool";
     return "text-muted-foreground";
   };
 
   const getBgColor = () => {
-    if (isLocked) return "bg-green-500/10 border-green-500/30";
-    if (isUnlocked) return "bg-yellow-500/10 border-yellow-500/30";
-    if (isJammed) return "bg-red-500/10 border-red-500/30";
+    if (isLocked) return "bg-state-on/10 border-state-on/30";
+    if (isUnlocked) return "bg-state-light/10 border-state-light/30";
+    if (isJammed) return "bg-state-alert/10 border-state-alert/30";
     return "bg-card hover:border-primary/30";
   };
 
@@ -77,11 +77,11 @@ export function LockCard({ card, entity }: LockCardProps) {
         <div
           className={`p-2 rounded-lg ${
             isLocked
-              ? "bg-green-500/20 text-green-500"
+              ? "bg-state-on/20 text-state-on"
               : isUnlocked
-              ? "bg-yellow-500/20 text-yellow-500"
+              ? "bg-state-light/20 text-state-light"
               : isJammed
-              ? "bg-red-500/20 text-red-500"
+              ? "bg-state-alert/20 text-state-alert"
               : "bg-muted text-muted-foreground"
           }`}
         >

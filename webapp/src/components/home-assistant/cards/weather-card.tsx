@@ -83,11 +83,11 @@ export function WeatherCard({ card, entity }: WeatherCardProps) {
 
   // Get icon color based on condition
   const getIconColor = () => {
-    if (condition.includes("sunny") || condition === "clear-night") return "text-yellow-500";
-    if (condition.includes("rain") || condition.includes("pouring")) return "text-blue-500";
-    if (condition.includes("snow")) return "text-cyan-300";
-    if (condition.includes("lightning")) return "text-yellow-400";
-    return "text-gray-400";
+    if (condition.includes("sunny") || condition === "clear-night") return "text-state-light";
+    if (condition.includes("rain") || condition.includes("pouring")) return "text-state-cool";
+    if (condition.includes("snow")) return "text-state-cool";
+    if (condition.includes("lightning")) return "text-state-light";
+    return "text-state-off";
   };
 
   return (

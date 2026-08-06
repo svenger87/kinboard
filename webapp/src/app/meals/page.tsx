@@ -998,7 +998,7 @@ export default function MealPlannerPage() {
               <>
                 <div className="hidden md:flex items-center border rounded-lg p-1">
                   <Button
-                    variant={viewMode === "grid" ? "secondary" : "ghost"}
+                    variant={viewMode === "grid" ? "outline" : "ghost"}
                     size="sm"
                     onClick={() => setViewMode("grid")}
                     className="h-8 px-3"
@@ -1006,7 +1006,7 @@ export default function MealPlannerPage() {
                     <Grid3X3 className="size-4" />
                   </Button>
                   <Button
-                    variant={viewMode === "list" ? "secondary" : "ghost"}
+                    variant={viewMode === "list" ? "outline" : "ghost"}
                     size="sm"
                     onClick={() => setViewMode("list")}
                     className="h-8 px-3"

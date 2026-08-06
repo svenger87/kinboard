@@ -744,7 +744,7 @@ export default function ShoppingPage() {
               <>
                 <OfflineIndicator className="mr-1" />
                 <Button
-                  variant={showChecked ? "outline" : "secondary"}
+                  variant="outline"
                   size="sm"
                   onClick={() => setShowChecked(!showChecked)}
                 >
@@ -869,7 +869,7 @@ export default function ShoppingPage() {
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}
-                          className="absolute z-[100] w-full mt-1 bg-popover border rounded-lg shadow-lg overflow-hidden max-h-80 overflow-y-auto"
+                          className="absolute z-[100] w-full mt-1 bg-popover border rounded-lg elev-md overflow-hidden max-h-80 overflow-y-auto"
                         >
                           {catalogResults.map((result, index) => {
                             const cat = CATEGORIES[result.category || "sonstiges"];

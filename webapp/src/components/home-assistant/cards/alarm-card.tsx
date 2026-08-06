@@ -47,17 +47,17 @@ export function AlarmCard({ card, entity }: AlarmCardProps) {
   const isPending_ = currentState === "pending" || currentState === "arming" || currentState === "disarming";
 
   const getStateColor = () => {
-    if (isTriggered) return "text-red-500";
-    if (isArmed) return "text-green-500";
-    if (isDisarmed) return "text-yellow-500";
-    if (isPending_) return "text-blue-500";
+    if (isTriggered) return "text-state-alert";
+    if (isArmed) return "text-state-on";
+    if (isDisarmed) return "text-state-light";
+    if (isPending_) return "text-state-cool";
     return "text-muted-foreground";
   };
 
   const getBgColor = () => {
-    if (isTriggered) return "bg-red-500/10 border-red-500/30";
-    if (isArmed) return "bg-green-500/10 border-green-500/30";
-    if (isDisarmed) return "bg-yellow-500/10 border-yellow-500/30";
+    if (isTriggered) return "bg-state-alert/10 border-state-alert/30";
+    if (isArmed) return "bg-state-on/10 border-state-on/30";
+    if (isDisarmed) return "bg-state-light/10 border-state-light/30";
     return "bg-card hover:border-primary/30";
   };
 
@@ -98,11 +98,11 @@ export function AlarmCard({ card, entity }: AlarmCardProps) {
         <div
           className={`p-2 rounded-lg ${
             isTriggered
-              ? "bg-red-500/20 text-red-500"
+              ? "bg-state-alert/20 text-state-alert"
               : isArmed
-              ? "bg-green-500/20 text-green-500"
+              ? "bg-state-on/20 text-state-on"
               : isDisarmed
-              ? "bg-yellow-500/20 text-yellow-500"
+              ? "bg-state-light/20 text-state-light"
               : "bg-muted text-muted-foreground"
           }`}
         >

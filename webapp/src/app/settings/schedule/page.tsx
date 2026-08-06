@@ -956,7 +956,7 @@ export default function ScheduleSettingsPage() {
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <button
-                                    className="w-full p-2 rounded-lg text-left transition-all hover:scale-[1.02] hover:shadow-md"
+                                    className="w-full p-2 rounded-lg text-left transition-all hover:scale-[1.02] hover:elev-md"
                                     style={{
                                       backgroundColor: `${color}20`,
                                       borderLeft: `3px solid ${color}`,

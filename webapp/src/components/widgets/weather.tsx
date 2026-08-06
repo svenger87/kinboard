@@ -106,7 +106,7 @@ function WeatherNotConfigured() {
           <p className="text-xs text-muted-foreground mt-1 max-w-xs">
             {t("notConfiguredDescription")}
           </p>
-          <Button variant="secondary" size="sm" asChild className="mt-3">
+          <Button variant="outline" size="sm" asChild className="mt-3">
             <Link href="/settings/weather">{t("notConfiguredAction")}</Link>
           </Button>
         </div>

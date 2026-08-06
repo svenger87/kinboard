@@ -35,7 +35,7 @@ export function WidgetCard({
   );
 
   const inner = (
-    <CardContent className="flex flex-col gap-4 p-[18px]">
+    <CardContent className="flex flex-col gap-4 p-4">
       {header}
       {children}
     </CardContent>

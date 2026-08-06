@@ -417,7 +417,7 @@ export default function JoinPage() {
               onClick={() => setMode("join")}
               className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
                 mode === "join"
-                  ? "bg-background shadow-sm text-foreground"
+                  ? "bg-background elev-sm text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -427,7 +427,7 @@ export default function JoinPage() {
               onClick={() => setMode("create")}
               className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
                 mode === "create"
-                  ? "bg-background shadow-sm text-foreground"
+                  ? "bg-background elev-sm text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >

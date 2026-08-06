@@ -50,15 +50,15 @@ export function PersonCard({ card, entity }: PersonCardProps) {
   };
 
   const getStateColor = () => {
-    if (location === "home") return "text-green-500";
+    if (location === "home") return "text-state-on";
     if (isUnknown) return "text-muted-foreground";
-    return "text-blue-500";
+    return "text-state-cool";
   };
 
   const getBgColor = () => {
-    if (location === "home") return "bg-green-500/10 border-green-500/30";
+    if (location === "home") return "bg-state-on/10 border-state-on/30";
     if (isUnknown) return "bg-card hover:border-primary/30";
-    return "bg-blue-500/10 border-blue-500/30";
+    return "bg-state-cool/10 border-state-cool/30";
   };
 
   return (
@@ -72,10 +72,10 @@ export function PersonCard({ card, entity }: PersonCardProps) {
         <div
           className={`p-2 rounded-lg ${
             location === "home"
-              ? "bg-green-500/20 text-green-500"
+              ? "bg-state-on/20 text-state-on"
               : isUnknown
               ? "bg-muted text-muted-foreground"
-              : "bg-blue-500/20 text-blue-500"
+              : "bg-state-cool/20 text-state-cool"
           }`}
         >
           {entityPicture ? (
@@ -117,7 +117,7 @@ export function PersonCard({ card, entity }: PersonCardProps) {
             <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full ${
-                  batteryLevel > 20 ? "bg-green-500" : "bg-red-500"
+                  batteryLevel > 20 ? "bg-state-on" : "bg-state-alert"
                 }`}
                 style={{ width: `${batteryLevel}%` }}
               />
