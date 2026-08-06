@@ -7,6 +7,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Security
+- **The live-updates service is around 75 releases newer.** It had been pinned to a build from early 2024, still carrying settings from a hosting platform Kinboard never ran on. Nothing changes in the app; it applies its own database updates on first start, so give it a minute longer than usual to come up.
+
+### Security
 - **The service that answers the app's data requests is two major versions newer.** It sits between your browser and the database and had been pinned to a build from 2023. Nothing about how Kinboard talks to it changes. Two leftover settings that copied the signing secret into the database session — where any function could have read it — are gone; nothing was using them.
 
 ### Fixed
