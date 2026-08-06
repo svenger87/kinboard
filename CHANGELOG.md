@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Upgrading could silently do nothing if you run the pre-built image.** The upgrade command in the release notes left out the file that actually points at the published image, so Docker quietly rebuilt the app from whatever source happened to be on disk — usually the version you were already on. It looked like a clean upgrade, every container came up healthy, and only the version number in Settings disagreed. The instructions now name both files, `start.sh up` warns when it is about to rebuild while a newer image sits unused, and Troubleshooting covers the symptom. Thanks to @edlucky1 for chasing this down across several attempts ([#106](https://github.com/svenger87/kinboard/issues/106)).
+
 ## [1.6.8] - 2026-08-05
 
 ### Security

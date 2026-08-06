@@ -272,7 +272,8 @@ The recommended path is the **Diun + webhook overlay** (`docker-compose.diun.yml
 
 1. `git pull --ff-only origin main` — picks up new `docker-compose.yml`, `kong.yml`, migrations, `init.sql`, `seed-demo.sql`
 2. `./setup.sh --non-interactive` — re-substitutes Kong placeholders if a new release shipped new keys/routes
-3. `docker compose pull --ignore-buildable` — pulls the new GHCR image(s); skips the locally-built webhook image
+3. `docker compose -f docker-compose.yml -f docker-compose.image.yml pull --ignore-buildable` — pulls the new GHCR image(s); skips the locally-built webhook image.
+   **Name both files.** `docker compose` only auto-loads `docker-compose.yml` and `docker-compose.override.yml`; the published image lives in `docker-compose.image.yml`. Leave it out and compose silently falls back to `build:` and rebuilds from whatever source is on disk — which looks like a successful upgrade that changes nothing. `./start.sh up` adds the overlay for you.
 4. `docker compose up -d` (with webhook + diun excluded — see below) — recreates only services whose image changed; the webapp's entrypoint re-applies all `migration_*.sql` on boot (idempotent)
 5. `docker restart kinboard-kong` — only when `kong.yml`'s mtime moved during the run
 
