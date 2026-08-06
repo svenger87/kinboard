@@ -235,7 +235,11 @@ export function Weather({ className = "" }: WeatherProps) {
                           <span className="text-muted-foreground"> {day.tempMin}°</span>
                         </div>
                         {showRain && (
-                          <span className={`flex items-center gap-0.5 text-[10px] ${isHighRain ? "text-blue-400" : "text-blue-400/50"}`}>
+                          <span // Was text-blue-400/50 — a raw palette colour at half opacity, which
+                          // measured 2.61:1 in dark and 1.53:1 in light, the lowest-contrast
+                          // element on the dashboard (audit KB-47). The semantic token
+                          // follows light/dark, and full opacity carries the contrast.
+                          className={`flex items-center gap-0.5 text-xs ${isHighRain ? "text-weather-rain font-semibold" : "text-weather-rain/80"}`}>
                             <Droplets className="size-2.5" />
                             {day.precipProbability}%
                           </span>

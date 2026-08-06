@@ -384,7 +384,7 @@ export default function TodosPage() {
 
   return (
     <TooltipProvider>
-      <main id="main-content" className="min-h-screen relative overflow-hidden">
+      <main id="main-content" className="min-h-page relative overflow-hidden">
         {/* Background */}
         <div className="fixed inset-0 bg-gradient-to-b from-background via-background to-month-primary/5 pointer-events-none" />
 

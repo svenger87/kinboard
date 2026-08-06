@@ -118,7 +118,7 @@ function HomeAssistantSettingsContent() {
   // Show loading state
   if (loadingSettings || loadingDashboards) {
     return (
-      <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+      <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
         <div className="relative z-10 max-w-2xl mx-auto flex flex-col gap-6">
           <PageHeader
             icon={Home}
@@ -264,7 +264,7 @@ function HomeAssistantSettingsContent() {
   };
 
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto flex flex-col gap-6">
         <PageHeader
           icon={Home}
@@ -568,7 +568,7 @@ function HomeAssistantSettingsContent() {
 
         {/* Sticky resync footer — shown only when connected */}
         {isConnected && !needsReauth && (
-          <div className="sticky bottom-[var(--nav-spacing)] -mx-4 mt-2 border-t border-border bg-card/95 px-4 py-3 supports-[backdrop-filter]:bg-card/80 md:-mx-8 md:px-8">
+          <div className="sticky bottom-[var(--nav-spacing)] -mx-4 mt-2 border-t border-border bg-card px-4 py-3 md:-mx-8 md:px-8">
             <div className="mx-auto flex max-w-2xl justify-end">
               <Button variant="outline" onClick={handleResync} disabled={resyncing}>
                 <RefreshCw className={`size-4 mr-2 ${resyncing ? "animate-spin" : ""}`} />
@@ -611,7 +611,7 @@ export default function HomeAssistantSettingsPage() {
 function HomeAssistantSettingsFallback() {
   const t = useTranslations("settings.homeassistant");
   return (
-    <main id="main-content" className="min-h-screen p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 max-w-2xl mx-auto flex flex-col gap-6">
         <PageHeader
           icon={Home}

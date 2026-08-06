@@ -5,7 +5,9 @@
 @layer base {
   :root {
     --mobile-nav-height: 5rem;
-    --desktop-nav-height: 4rem;
+    /* 44px items + py-3 = 68px. Must track DesktopNav's real height or the
+       fixed bar overlaps page content (raised from 4rem with KB-22). */
+    --desktop-nav-height: 4.25rem;
     --nav-spacing: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
 
     /* Default neutral palette = Sand / Papier. Salbei is opt-in (.palette-salbei). */
@@ -24,6 +26,9 @@
     --secondary-foreground: 33 15% 12%;
     --muted: 38 46% 91%;
     --muted-foreground: 35 9% 39%;
+    /* Section labels. Deliberately darker than --muted-foreground: labels name
+       the value beside them and must stay readable at 1-2m (audit KB-48). */
+    --label-foreground: 35 12% 30%;
     --accent: 38 46% 91%;
     --accent-foreground: 33 15% 12%;
     --destructive: 8 57% 52%;
@@ -80,12 +85,31 @@
     --chart-3: 33 70% 51%;
     --chart-4: 210 63% 56%;
     --chart-5: 272 42% 52%;
+
+    /* Calendar month-grid event chips. One lever for the grid's density.
+       Chips only render at >=640px (phones get dots instead), so these values
+       never squeeze a phone. 11px was unreadable at wall distance and the 21px
+       chip height sat below WCAG 2.2 AA 2.5.8's 24px minimum (audit KB-07/08). */
+    --event-pill-size: 0.8125rem;   /* 13px */
+    --event-pill-min-h: 1.5rem;     /* 24px — the AA floor */
+  }
+
+  @media (min-width: 1024px) {
+    :root { --event-pill-size: 0.875rem; --event-pill-min-h: 1.75rem; }
+  }
+  @media (min-width: 1440px) {
+    :root { --event-pill-size: 1rem; --event-pill-min-h: 2rem; }
   }
 
   @media (min-width: 768px) {
     :root {
       --nav-spacing: var(--desktop-nav-height);
     }
+  }
+
+  /* Nav items step up to 48px at lg, so the bar grows with them. */
+  @media (min-width: 1024px) {
+    :root { --desktop-nav-height: 4.5rem; }
   }
 
   .dark {
@@ -103,6 +127,7 @@
     --secondary-foreground: 38 42% 91%;
     --muted: 36 13% 15%;
     --muted-foreground: 38 12% 61%;
+    --label-foreground: 38 16% 72%;
     --accent: 36 13% 15%;
     --accent-foreground: 38 42% 91%;
     --destructive: 10 72% 60%;
@@ -188,7 +213,7 @@
     --card:75 50% 98%; --card-foreground:90 17% 14%;
     --popover:75 50% 98%; --popover-foreground:90 17% 14%;
     --secondary:77 24% 89%; --secondary-foreground:90 17% 14%;
-    --muted:77 24% 89%; --muted-foreground:82 10% 36%;
+    --muted:77 24% 89%; --muted-foreground:82 10% 36%; --label-foreground:82 13% 27%;
     --accent:77 24% 89%; --accent-foreground:90 17% 14%;
     --border:77 19% 85%; --input:77 19% 85%; --priority-low:82 10% 36%;
     --shadow-rgb:40 50 30;
@@ -198,7 +223,7 @@
     --card:84 18% 11%; --card-foreground:77 33% 92%;
     --popover:84 18% 11%; --popover-foreground:77 33% 92%;
     --secondary:77 22% 13%; --secondary-foreground:77 33% 92%;
-    --muted:77 22% 13%; --muted-foreground:75 11% 58%;
+    --muted:77 22% 13%; --muted-foreground:75 11% 58%; --label-foreground:75 15% 70%;
     --accent:77 22% 13%; --accent-foreground:77 33% 92%;
     --border:79 17% 18%; --input:79 17% 18%; --priority-low:75 11% 58%;
   }
@@ -208,7 +233,7 @@
     --card:40 33% 98%; --card-foreground:30 12% 13%;
     --popover:40 33% 98%; --popover-foreground:30 12% 13%;
     --secondary:36 16% 88%; --secondary-foreground:30 12% 13%;
-    --muted:36 16% 88%; --muted-foreground:32 7% 37%;
+    --muted:36 16% 88%; --muted-foreground:32 7% 37%; --label-foreground:32 10% 28%;
     --accent:36 16% 88%; --accent-foreground:30 12% 13%;
     --border:37 18% 86%; --input:37 18% 86%; --priority-low:32 7% 37%;
     --shadow-rgb:50 45 40;
@@ -218,7 +243,7 @@
     --card:38 14% 11%; --card-foreground:37 30% 92%;
     --popover:38 14% 11%; --popover-foreground:37 30% 92%;
     --secondary:36 14% 15%; --secondary-foreground:37 30% 92%;
-    --muted:36 14% 15%; --muted-foreground:36 10% 60%;
+    --muted:36 14% 15%; --muted-foreground:36 10% 60%; --label-foreground:36 14% 71%;
     --accent:36 14% 15%; --accent-foreground:37 30% 92%;
     --border:36 11% 18%; --input:36 11% 18%; --priority-low:36 10% 60%;
   }
@@ -275,6 +300,33 @@
   }
 }
 
+/* Section labels — deliberately in @layer components, not utilities.
+   ------------------------------------------------------------------
+   This utility sets `color`. When it lived in @layer utilities it was emitted
+   AFTER Tailwind's generated utilities, so its colour beat any text-colour
+   class composed alongside it, regardless of class order. That silently
+   overrode `text-primary-foreground/80` on the /schedule pack-list header,
+   rendering the subtitle mid-grey on an orange fill (audit KB-58).
+
+   The components layer is emitted BEFORE utilities, so `text-primary-foreground`
+   and friends now win naturally, while call sites that specify nothing still
+   get the sensible default. Size raised 11px -> 13px, and 15px on kiosk-width
+   displays, because at 11px this was the least legible text in the product
+   despite carrying "kiosk" in its name (KB-48). It is rem-based, so it also
+   responds to the text-scale accessibility setting. */
+@layer components {
+  .text-kiosk-label {
+    @apply text-[0.8125rem] uppercase tracking-wide font-medium;
+    font-family: var(--font-mono), monospace;
+    color: hsl(var(--label-foreground));
+  }
+  /* Wall displays are not always wide: a 1080x1920 portrait panel is a kiosk
+     but is narrower than a laptop. Key the step on either dimension. */
+  @media (min-width: 1280px), (min-height: 1400px) {
+    .text-kiosk-label { font-size: 0.9375rem; }
+  }
+}
+
 /* Custom Utilities */
 @layer utilities {
   .text-balance {
@@ -288,7 +340,9 @@
   .text-kiosk-hero      { @apply font-display font-light leading-none tracking-tight; font-size: clamp(96px, 14vw, 160px); font-variant-numeric: tabular-nums; }
   .text-kiosk-primary   { @apply text-3xl font-semibold tabular-nums leading-none; }
   .text-kiosk-secondary { @apply text-xl font-medium leading-tight; }
-  .text-kiosk-label     { @apply text-[0.6875rem] uppercase tracking-wider font-medium text-muted-foreground; font-family: var(--font-mono), monospace; }
+
+  /* .text-kiosk-label lives in @layer components (below), NOT here — see the
+     note there for why its cascade position matters. */
 
   /* Glass morphism effect - enhanced for wall-mounted display */
   /* Glass morphism - no backdrop-blur for ARM GPU compatibility */
@@ -345,10 +399,27 @@
     display: none !important;
   }
 
+  /* Page roots: viewport height minus the fixed nav. `min-h-screen` (100vh)
+     plus PageShell's padding-bottom made every page exactly one nav-height
+     taller than its viewport, so pages that fit still scrolled (audit KB-21). */
+  .min-h-page { min-height: calc(100vh - var(--nav-spacing)); }
+
   /* Portrait display optimization */
   @media (orientation: portrait) and (min-height: 1200px) {
     .portrait-optimized {
       @apply text-lg;
+    }
+  }
+
+  /* Dashboard hero cap — see the comment in src/app/page.tsx.
+     Only bites on short, wide viewports (the landscape wall and desktop), where
+     `flex-1` otherwise let the clock block absorb the height the widget grid
+     needed. Portrait panels and phones keep the original centred composition. */
+  @media (orientation: landscape) and (min-width: 1024px) {
+    .hero-block {
+      flex: 0 1 auto;
+      max-height: 38vh;
+      justify-content: center;
     }
   }
 
@@ -380,8 +451,10 @@
       left: 0;
       width: 50%;
       height: 28px;
-      background: hsl(var(--card) / 0.95);
-      backdrop-filter: blur(4px);
+      /* Opaque rather than blurred: this strip exists only to mask the
+         browser's link-status tooltip, and blur is banned on kiosk surfaces
+         for ARM GPUs — a rule this file states four times (audit KB-29). */
+      background: hsl(var(--card));
       z-index: 40;
       pointer-events: none;
     }
@@ -524,6 +597,22 @@
 /* FAB positioning above bottom nav */
 .fab-above-nav {
   bottom: calc(var(--nav-spacing) + 1rem);
+}
+
+/* The FAB is fixed, so it floats over whatever ends up beneath it — on the
+   dashboard that was the Aufgaben card's corner and its "+N more" link, on a
+   phone the today-strip pill, and at 200% zoom the clock (audit KB-04). Pages
+   that render a FAB reserve a corner's worth of space at the end of their
+   scroll so nothing lands underneath it. */
+.has-fab > :last-child {
+  scroll-margin-bottom: 5rem;
+}
+.has-fab::after {
+  content: "";
+  display: block;
+  height: 4.5rem;
+  flex: 0 0 auto;
+  pointer-events: none;
 }
 
 /* Ambient gradient glow for dashboard */

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { format, startOfDay, endOfDay, isAfter } from "date-fns";
 import { useTranslations } from "next-intl";
+import { AlertCircle } from "lucide-react";
 import { useEvents, usePeople } from "@/hooks";
 import { TodayStripPill } from "@/components/today-strip-pill";
 import { useTimeFormat } from "@/hooks/use-time-format";
@@ -23,7 +24,7 @@ export function TodayStrip() {
   const startISO = useMemo(() => startOfDay(today).toISOString(), [today]);
   const endISO = useMemo(() => endOfDay(today).toISOString(), [today]);
 
-  const { data: events } = useEvents(startISO, endISO);
+  const { data: events, isError, isLoading } = useEvents(startISO, endISO);
   const { data: people } = usePeople();
 
   // Filter to only today's non-waste events that haven't ended
@@ -58,10 +59,24 @@ export function TodayStrip() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, delay: 0.4 }}
       className="scrollbar-hide flex w-full items-center [justify-content:safe_center] gap-3 overflow-x-auto px-1 py-1"
-      role="status"
+      // Not role="status": this is standing content, not an async status
+      // message, and announcing the whole strip on every event edit is noise.
       aria-label={t("ariaLabel")}
     >
-      {timedToday.length > 0 ? (
+      {/* "Nothing on today" is only true if we actually managed to ask. When the
+          backend was failing, this rendered its confident empty copy on the wall
+          and a family reading it would believe the day was clear (audit KB-05).
+          Error and loading now say what they are instead. */}
+      {isError ? (
+        <span className="mx-auto flex items-center gap-2 text-sm font-medium text-destructive">
+          <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
+          {t("loadFailed")}
+        </span>
+      ) : isLoading ? (
+        <span className="mx-auto text-sm italic text-muted-foreground/70">
+          {t("loading")}
+        </span>
+      ) : timedToday.length > 0 ? (
         timedToday.map((e) => (
           <TodayStripPill
             key={e.id}

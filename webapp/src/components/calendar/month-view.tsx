@@ -165,14 +165,21 @@ export function MonthView({
                 const overflowCount = dayEvents.length - MAX_EVENTS_PER_CELL;
 
                 return (
-                  <motion.button
+                  // The cell is a plain container, not a button. It used to be
+                  // a <button> with the event chips (role="button") rendered
+                  // inside it — nested interactive controls, which axe flags as
+                  // serious and which makes a tap's target ambiguous (audit
+                  // KB-08). Day selection now lives in a sibling button layered
+                  // behind the content, so chips and the day control are peers.
+                  // Taller at lg/xl so the bigger chips have somewhere to go —
+                  // the portrait wall had ~770px of unused height below the grid.
+                  <motion.div
                     key={day.toISOString()}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: (weekIndex * 7 + dayIndex) * 0.003 }}
-                    onClick={() => onSelectDate(day)}
                     className={`
-                      relative min-h-[3.5rem] sm:min-h-[5rem] p-0.5 sm:p-1 text-left transition-all overflow-hidden
+                      relative min-h-[3.5rem] sm:min-h-[5rem] lg:min-h-[6.5rem] xl:min-h-[8rem] p-0.5 sm:p-1 text-left transition-all overflow-hidden
                       ${dayIndex > 0 ? "border-l border-border/20" : ""}
                       ${isCurrentMonth ? "" : "opacity-40 [&_span]:border-dashed"}
                       ${isDayToday ? "ring-2 ring-inset ring-primary bg-primary/[0.06]" : ""}
@@ -181,8 +188,18 @@ export function MonthView({
                       ${dayIndex >= 5 && !isDayToday && !isSelected ? "bg-muted/30" : ""}
                     `}
                   >
+                    {/* Day-selection target, behind the content. Chips sit above
+                        it in the stacking order and stop propagation already. */}
+                    <button
+                      type="button"
+                      onClick={() => onSelectDate(day)}
+                      aria-label={format(day, "PPPP", { locale: dateLocale })}
+                      aria-pressed={isSelected ? true : undefined}
+                      className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    />
+
                     {/* Day Number */}
-                    <div className="flex items-center gap-0.5 mb-0.5">
+                    <div className="relative z-10 flex items-center gap-0.5 mb-0.5">
                       <span
                         className={`
                           inline-flex items-center justify-center size-5 sm:size-6 rounded-full text-[10px] sm:text-xs font-medium tabular-nums shrink-0
@@ -198,8 +215,9 @@ export function MonthView({
                       )}
                     </div>
 
-                    {/* Events - inline in cell */}
-                    <div className="flex flex-col gap-px">
+                    {/* Events - inline in cell. z-10 keeps chips above the
+                        day-selection button that now sits behind the content. */}
+                    <div className="relative z-10 flex flex-col gap-px">
                       {/* Desktop: show event chips */}
                       <div className="hidden sm:flex sm:flex-col sm:gap-px">
                         {visibleEvents.map((event) => {
@@ -245,7 +263,7 @@ export function MonthView({
                           );
                         })}
                         {overflowCount > 0 && (
-                          <div className="text-[11px] text-muted-foreground/70 pl-1.5 font-medium">
+                          <div className="pl-1.5 font-medium text-muted-foreground" style={{ fontSize: "var(--event-pill-size)" }}>
                             {t("monthView.moreCount", { count: overflowCount })}
                           </div>
                         )}
@@ -269,7 +287,7 @@ export function MonthView({
                         </div>
                       )}
                     </div>
-                  </motion.button>
+                  </motion.div>
                 );
               })}
             </div>

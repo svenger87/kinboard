@@ -35,7 +35,7 @@ export function ErrorState({
       )}
     >
       <div className="relative mb-3">
-        <div className="absolute inset-0 blur-2xl bg-destructive/10 rounded-full scale-150" />
+        <div className="absolute inset-0 rounded-full bg-destructive/10 scale-125" />
         <Icon className="size-12 relative text-destructive/60" />
       </div>
       <p className="text-destructive font-medium">{resolvedTitle}</p>

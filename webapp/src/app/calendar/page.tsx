@@ -581,7 +581,7 @@ export default function CalendarPage() {
 
   return (
     <TooltipProvider>
-      <main id="main-content" className="min-h-screen relative overflow-hidden">
+      <main id="main-content" className="min-h-page relative overflow-hidden">
         {/* Background */}
         <div className="page-gradient" />
 

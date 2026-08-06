@@ -28,17 +28,17 @@ export default function StonksPage() {
 
   if (isPending) {
     return (
-      <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-3">
+      <main id="main-content" className="p-4 md:p-8 max-w-2xl mx-auto space-y-3">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-32" />
         <Skeleton className="h-32" />
-      </div>
+      </main>
     );
   }
 
   if (tickers.length === 0) {
     return (
-      <div className="p-4 md:p-8 max-w-2xl mx-auto">
+      <main id="main-content" className="p-4 md:p-8 max-w-2xl mx-auto">
         <PageHeader title={t("title")} icon={LineChart} />
         {/* A failed fetch also lands here with an empty list — offering
             "add your first ticker" would be the wrong thing to do. */}
@@ -51,7 +51,7 @@ export default function StonksPage() {
             action={{ label: t("addFirst"), onClick: () => router.push("/settings/stonks") }}
           />
         )}
-      </div>
+      </main>
     );
   }
 
@@ -59,7 +59,7 @@ export default function StonksPage() {
   const driver = getDriver("yahoo-finance");
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+    <main id="main-content" className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader
         title={t("title")}
         icon={LineChart}
@@ -95,6 +95,6 @@ export default function StonksPage() {
       ) : (
         <Card className="p-6">{t("driverMissing")}</Card>
       )}
-    </div>
+    </main>
   );
 }

@@ -198,24 +198,24 @@ export default function PocketMoneyPage() {
 
   if (isPending) {
     return (
-      <div className="p-8 max-w-2xl mx-auto space-y-3">
+      <main id="main-content" className="p-8 max-w-2xl mx-auto space-y-3">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-32" />
         <Skeleton className="h-32" />
-      </div>
+      </main>
     );
   }
 
   if (accounts.length === 0) {
     return (
-      <div className="p-8 max-w-2xl mx-auto space-y-6">
+      <main id="main-content" className="p-8 max-w-2xl mx-auto space-y-6">
         <PageHeader title={t("title")} icon={PiggyBank} />
         <EmptyState
           icon={PiggyBank}
           title={t("noAccountsYet")}
           action={{ label: t("goToSettings"), onClick: () => router.push("/settings/pocket-money") }}
         />
-      </div>
+      </main>
     );
   }
 
@@ -224,7 +224,7 @@ export default function PocketMoneyPage() {
   const activePerson = people.find((p) => p.id === active.person_id);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6 safe-area-inset">
+    <main id="main-content" className="p-6 max-w-3xl mx-auto space-y-6 safe-area-inset">
       <PageHeader
         title={t("title")}
         icon={PiggyBank}
@@ -468,6 +468,6 @@ export default function PocketMoneyPage() {
         bestTier={bestTier}
         currency={active.currency}
       />
-    </div>
+    </main>
   );
 }

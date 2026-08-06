@@ -62,7 +62,8 @@
       "description": "This area is protected",
       "incorrect": "Wrong PIN",
       "cancel": "Cancel",
-      "pinRateLimited": "Too many attempts — wait a minute."
+      "pinRateLimited": "Too many attempts — wait a minute.",
+      "digitAria": "Digit {position}"
     },
     "shortcuts": {
       "title": "Keyboard shortcuts",
@@ -2972,7 +2973,9 @@
     "pendingTodos": "open",
     "wasteToday": "{count, plural, one {pickup today} other {pickups today}}",
     "daysUntil": "{count, plural, one {in # day} other {in # days}}",
-    "emptyState": "No events or tasks for today"
+    "emptyState": "No events or tasks for today",
+    "loadFailed": "Couldn't load today's schedule",
+    "loading": "Loading today…"
   },
   "mealPlanWidget": {
     "loadingAria": "Loading meals",
@@ -3108,7 +3111,8 @@
     "moreCount": "+{count} more",
     "statusEvents": "{count, plural, one {# event} other {# events}}",
     "statusTasks": "{count, plural, one {# task} other {# tasks}}",
-    "statusNothing": "All clear"
+    "statusNothing": "All clear",
+    "loadFailed": "Couldn't load your family"
   },
   "tasksWidget": {
     "loadingAria": "Loading tasks",
@@ -3511,5 +3515,24 @@
     "errorInsufficientFunds": "There isn't enough in the account for that.",
     "errorAlreadyDecided": "That request was already decided.",
     "errorGeneric": "That didn't work. Please try again."
+  },
+  "connectivity": {
+    "title": "Can't reach the server",
+    "description": "Some of this dashboard may be out of date or missing.",
+    "retry": "Try again"
+  },
+  "personColor": {
+    "coral": "Coral",
+    "amber": "Amber",
+    "citron": "Citron",
+    "forest": "Forest",
+    "teal": "Teal",
+    "sky": "Sky",
+    "indigo": "Indigo",
+    "lilac": "Lilac",
+    "berry": "Berry",
+    "clay": "Clay",
+    "custom": "Custom colour",
+    "legend": "Colour"
   }
 }

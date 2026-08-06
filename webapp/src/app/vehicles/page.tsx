@@ -28,17 +28,17 @@ export default function VehiclesPage() {
 
   if (isPending) {
     return (
-      <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-3">
+      <main id="main-content" className="p-4 md:p-8 max-w-2xl mx-auto space-y-3">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-32" />
         <Skeleton className="h-32" />
-      </div>
+      </main>
     );
   }
 
   if (vehicles.length === 0) {
     return (
-      <div className="p-4 md:p-8 max-w-2xl mx-auto">
+      <main id="main-content" className="p-4 md:p-8 max-w-2xl mx-auto">
         <PageHeader title={t("title")} icon={Car} />
         {/* A failed fetch also lands here with an empty list — offering
             "add your first vehicle" would be the wrong thing to do. */}
@@ -51,7 +51,7 @@ export default function VehiclesPage() {
             action={{ label: t("addFirstVehicle"), onClick: () => router.push("/settings/vehicles/new") }}
           />
         )}
-      </div>
+      </main>
     );
   }
 
@@ -59,7 +59,7 @@ export default function VehiclesPage() {
   const driver = getDriver(active.vendor);
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+    <main id="main-content" className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
       <PageHeader
         title={t("title")}
         icon={Car}
@@ -97,6 +97,6 @@ export default function VehiclesPage() {
           {t("unknownVendor", { vendor: active.vendor })}
         </Card>
       )}
-    </div>
+    </main>
   );
 }
