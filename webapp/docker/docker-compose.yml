@@ -262,7 +262,7 @@ services:
   # ===================
   rest:
     logging: *default-logging
-    image: postgrest/postgrest:v12.0.1
+    image: postgrest/postgrest:v14.16
     container_name: ${PROJECT_NAME:-kinboard}-rest
     restart: unless-stopped
     depends_on:
@@ -275,9 +275,13 @@ services:
       PGRST_DB_SCHEMAS: public,storage,graphql_public
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET}
-      PGRST_DB_USE_LEGACY_GUCS: false
-      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
-      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
+      # Dropped with the v14 bump:
+      #   PGRST_DB_USE_LEGACY_GUCS  — the option was removed in v12.0.0, so it
+      #     has been inert since before this pin. JSON GUCs are the only mode.
+      #   PGRST_APP_SETTINGS_*      — copies the signing secret into a session
+      #     GUC that any function could read, and nothing in this database
+      #     reads app.settings.* at all. Supabase still ships these lines; we
+      #     don't need them.
     command: "postgrest"
     networks:
       - kinboard
