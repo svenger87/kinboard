@@ -756,3 +756,79 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.notification_preferences;
 -- No demo data is created on first init. Self-hosters create their first
 -- family from the in-app /join wizard. Apply seed-demo.sql separately if
 -- you want a populated demo dataset for development.
+
+-- ---------------------------------------------------------------------------
+-- Hand ownership of everything above to `postgres`.
+--
+-- The image's entrypoint runs this file through /docker-entrypoint-initdb.d
+-- as its bootstrap superuser, `supabase_admin`, so every table created here is
+-- owned by supabase_admin. The webapp then applies migration*.sql as
+-- `postgres`, which is deliberately NOT a superuser in the supabase image — so
+-- the first `ALTER TABLE` in migration.sql fails with:
+--
+--     ERROR: must be owner of table calendars
+--
+-- and the entrypoint refuses to start rather than run on a half-migrated
+-- schema. The result is a boot loop that only affects FRESH installs; an
+-- existing database is unaffected, because its tables were created by
+-- migration.sql itself and are already owned by postgres. That asymmetry is
+-- why this survived until the image was bumped and CI booted a clean stack.
+--
+-- Idempotent: re-running finds nothing left to change.
+DO $$
+DECLARE
+    obj record;
+BEGIN
+    -- Tables, partitions, views, materialised views, sequences.
+    FOR obj IN
+        SELECT c.relname, c.relkind
+          FROM pg_class c
+         WHERE c.relnamespace = 'public'::regnamespace
+           AND c.relkind IN ('r', 'p', 'v', 'm', 'S')
+           AND pg_get_userbyid(c.relowner) <> 'postgres'
+    LOOP
+        EXECUTE format(
+            'ALTER %s public.%I OWNER TO postgres',
+            CASE obj.relkind
+                WHEN 'r' THEN 'TABLE'
+                WHEN 'p' THEN 'TABLE'
+                WHEN 'v' THEN 'VIEW'
+                WHEN 'm' THEN 'MATERIALIZED VIEW'
+                WHEN 'S' THEN 'SEQUENCE'
+            END,
+            obj.relname
+        );
+    END LOOP;
+
+    -- Functions, procedures and aggregates. migration_server_notifications.sql
+    -- does CREATE OR REPLACE on trigger functions this file already defined,
+    -- and that needs ownership just as ALTER TABLE does.
+    FOR obj IN
+        SELECT p.oid::regprocedure::text AS signature, p.prokind
+          FROM pg_proc p
+         WHERE p.pronamespace = 'public'::regnamespace
+           AND pg_get_userbyid(p.proowner) <> 'postgres'
+    LOOP
+        EXECUTE format(
+            'ALTER %s %s OWNER TO postgres',
+            CASE obj.prokind
+                WHEN 'p' THEN 'PROCEDURE'
+                WHEN 'a' THEN 'AGGREGATE'
+                ELSE 'FUNCTION'
+            END,
+            obj.signature
+        );
+    END LOOP;
+
+    -- Standalone types: enums, domains, composites. A table's row type follows
+    -- its table automatically, so those are already handled above.
+    FOR obj IN
+        SELECT t.oid::regtype::text AS type_name
+          FROM pg_type t
+         WHERE t.typnamespace = 'public'::regnamespace
+           AND pg_get_userbyid(t.typowner) <> 'postgres'
+           AND t.typtype IN ('e', 'd', 'r')
+    LOOP
+        EXECUTE format('ALTER TYPE %s OWNER TO postgres', obj.type_name);
+    END LOOP;
+END $$;
