@@ -9,6 +9,12 @@
        fixed bar overlaps page content (raised from 4rem with KB-22). */
     --desktop-nav-height: 4.25rem;
     --nav-spacing: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
+    /* Width of DesktopNav's pinned Home block. The scroller reserves exactly
+       this much padding, so scrolled-away items can never surface in a gutter
+       between the two. Both sides must read the same value — when they were
+       independent (auto-width block vs. a hardcoded 10.5rem pad) a 27px slot
+       opened up and "Stundenplan" showed through it as a bare "an". */
+    --nav-home-pin: 8.5rem;
 
     /* Default neutral palette = Sand / Papier. Salbei is opt-in (.palette-salbei). */
     --background: 38 37% 88%;
@@ -140,7 +146,7 @@
 
   /* Nav items step up to 48px at lg, so the bar grows with them. */
   @media (min-width: 1024px) {
-    :root { --desktop-nav-height: 4.5rem; }
+    :root { --desktop-nav-height: 4.5rem; --nav-home-pin: 10.5rem; }
   }
 
   .dark {
