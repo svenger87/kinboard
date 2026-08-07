@@ -43,9 +43,33 @@ function readSession(): string | null {
  * Once unlocked, the session persists (via sessionStorage) so navigating to a
  * sub-page and returning does not re-prompt.
  */
+/**
+ * Shown when the PIN status request fails. Deliberately NOT the settings:
+ * an unreachable backend is not permission to enter. Offers only the way out.
+ */
+function PinStatusUnavailable({ cancelHref }: { cancelHref: string }) {
+  const t = useTranslations("components.pin");
+  const router = useRouter();
+  return (
+    <div className="flex min-h-page items-center justify-center p-6">
+      <Card className="flex max-w-sm flex-col items-center gap-4 p-8 text-center">
+        <span className="icon-badge" style={{ background: "hsl(var(--destructive) / 0.12)", color: "hsl(var(--destructive))" }}>
+          <Lock className="size-6" strokeWidth={1.75} aria-hidden="true" />
+        </span>
+        <p className="font-display text-lg font-semibold">{t("statusUnavailableTitle")}</p>
+        <p className="text-sm text-muted-foreground">{t("statusUnavailableBody")}</p>
+        <Button variant="outline" className="mt-1 gap-2" onClick={() => router.push(cancelHref)}>
+          <ArrowLeft className="size-4" />
+          {t("cancel")}
+        </Button>
+      </Card>
+    </div>
+  );
+}
+
 export function PinGuard({ children, cancelHref = "/" }: PinGuardProps) {
   const { family } = useFamilyStore();
-  const { data: status, isLoading } = useQuery({
+  const { data: status, isError } = useQuery({
     queryKey: ["pin-status", family?.id],
     queryFn: async (): Promise<{ set: boolean }> => {
       const res = await fetch(`/api/pin?family_id=${family!.id}`);
@@ -54,6 +78,14 @@ export function PinGuard({ children, cancelHref = "/" }: PinGuardProps) {
     },
     enabled: !!family?.id,
   });
+  // Whether a PIN exists is only KNOWN once the request has answered. Treating
+  // "not known yet" as "no PIN" opens the settings: with `enabled: !!family?.id`
+  // a disabled query reports isLoading === false in TanStack v5 (isLoading =
+  // isPending && isFetching), so before the family store hydrates — and on any
+  // request error — the old `!isLoading && !pinIsSet` test passed straight
+  // through and rendered Settings with no prompt at all. This guard now fails
+  // closed: it opens only on a positive answer that no PIN is set.
+  const statusKnown = status !== undefined;
   const pinIsSet = !!status?.set;
 
   // Optimistic initial state from sessionStorage; reconciled against actual
@@ -65,7 +97,7 @@ export function PinGuard({ children, cancelHref = "/" }: PinGuardProps) {
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (!statusKnown) return;
     if (!pinIsSet) {
       setUnlocked(false);
       return;
@@ -73,10 +105,10 @@ export function PinGuard({ children, cancelHref = "/" }: PinGuardProps) {
     if (readSession() !== UNLOCKED_MARKER) {
       setUnlocked(false);
     }
-  }, [isLoading, pinIsSet]);
+  }, [statusKnown, pinIsSet]);
 
-  // No PIN set — pass through
-  if (!isLoading && !pinIsSet) {
+  // Pass through only on a positive answer that no PIN is configured.
+  if (statusKnown && !pinIsSet) {
     return <>{children}</>;
   }
 
@@ -84,8 +116,10 @@ export function PinGuard({ children, cancelHref = "/" }: PinGuardProps) {
     return <>{children}</>;
   }
 
-  if (isLoading) {
-    return null;
+  // Not known yet, or the status request failed: show nothing rather than the
+  // settings. An error is not permission.
+  if (!statusKnown) {
+    return isError ? <PinStatusUnavailable cancelHref={cancelHref} /> : null;
   }
 
   return (
