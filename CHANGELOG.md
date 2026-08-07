@@ -72,6 +72,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [1.6.10] - 2026-08-06
 
 ### Security
+- **Settings could open without the PIN.** The lock checked whether a PIN existed, but treated "I don't know yet" the same as "there isn't one" — so before the app had finished loading which family it belongs to, or if that check failed, Settings opened straight through with no prompt. Reaching Settings from a link elsewhere in the app was the usual way to hit it. The lock now stays shut unless it has positively established that no PIN is set, and shows a locked message rather than the settings if it cannot find out.
 - **The service that answers the app's data requests is two major versions newer.** It sits between your browser and the database and had been pinned to a build from 2023. Nothing about how Kinboard talks to it changes. Two leftover settings that copied the signing secret into the database session — where any function could have read it — are gone; nothing was using them.
 - **The live-updates service is around 75 releases newer.** It had been pinned to a build from early 2024, still carrying settings from a hosting platform Kinboard never ran on. Nothing changes in the app; it applies its own database updates on first start, so give it a minute longer than usual to come up.
 
