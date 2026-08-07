@@ -22,7 +22,6 @@ import {
   Info,
   Monitor,
   Coins,
-  Check,
   ArrowLeft,
 } from "lucide-react";
 import { DEFAULT_KWH_PRICE, parsePrice } from "@/lib/tariff";
@@ -1649,14 +1648,6 @@ export function TeslaConfigForm({
         </Card>
       </motion.div>
 
-      {/* Saved indicator — parent controls actual persistence */}
-      <div className="flex justify-end">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Check className="size-4" />
-          {/* No translation key yet — vehicles.* namespace added in a later task */}
-          Saved automatically.
-        </div>
-      </div>
     </div>
   );
 }

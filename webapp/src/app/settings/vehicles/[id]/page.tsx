@@ -4,7 +4,7 @@ import { use, useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { Car, Save } from "lucide-react";
+import { Car, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useVehicle, useSaveVehicle, useDeleteVehicle } from "@/hooks/use-vehicles";
 import { useVehicleImageUpload } from "@/hooks/use-vehicle-image-upload";
@@ -38,7 +38,7 @@ export default function EditVehiclePage({
   const tCommon = useTranslations("common");
   const router = useRouter();
   const { data: vehicle, isPending } = useVehicle(id);
-  const { mutateAsync: save } = useSaveVehicle();
+  const { mutateAsync: save, isPending: isSaving } = useSaveVehicle();
   const { mutateAsync: del } = useDeleteVehicle();
 
   const [nickname, setNickname] = useState("");
@@ -99,8 +99,15 @@ export default function EditVehiclePage({
 
   async function handleSave() {
     if (!vehicle) return;
-    await save({ id: vehicle.id, nickname, color: color || undefined, config: config as Json, image_url: imageUrl });
-    toast.success(t("saved"));
+    // A rejected save used to throw out of here unhandled: the success toast
+    // never fired and nothing else did either, so a failed save was silent and
+    // looked identical to no interaction at all.
+    try {
+      await save({ id: vehicle.id, nickname, color: color || undefined, config: config as Json, image_url: imageUrl });
+      toast.success(t("saved"));
+    } catch {
+      toast.error(t("saveError"));
+    }
   }
 
   async function handleDelete() {
@@ -144,9 +151,9 @@ export default function EditVehiclePage({
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              <Button size="sm" onClick={handleSave}>
-                <Save className="size-4 mr-2" />
-                {t("save")}
+              <Button size="sm" className="min-h-[44px]" onClick={handleSave} disabled={isSaving}>
+                {isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
+                {isSaving ? t("saving") : t("save")}
               </Button>
             </div>
           }
@@ -243,9 +250,9 @@ export default function EditVehiclePage({
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            <Button onClick={handleSave}>
-              <Save className="size-4 mr-2" />
-              {t("save")}
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
+              {isSaving ? t("saving") : t("save")}
             </Button>
           </div>
         </div>
