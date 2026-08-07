@@ -51,6 +51,25 @@ const config = [
           message:
             "Blur is banned on kiosk surfaces (ARM GPU cost). Use elev-sm/md/lg for depth and an opaque background. See globals.css.",
         },
+        // A near-opaque surface (90-99%) is the fingerprint of a blur that was
+        // removed while its alpha was left behind. bg-background/98 with no
+        // backdrop-blur is worse than either: the page bleeds through every
+        // modal as a sharp, undiffused ghost instead of frosted glass. This
+        // shipped in 1.7.0-rc.1 and hit every dialog and sheet in the app.
+        // Either commit to opaque, or pick an alpha low enough to read as
+        // deliberate. Nothing in 90-99.
+        {
+          selector:
+            "JSXAttribute[name.name='className'] Literal[value=/\\bbg-(background|card|popover)\\/9[0-9]\\b/]",
+          message:
+            "Near-opaque surface (bg-*/90-99). Blur is banned, so alpha here renders as an undiffused ghost of the page. Use a fully opaque background.",
+        },
+        {
+          selector:
+            "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\bbg-(background|card|popover)\\/9[0-9]\\b/]",
+          message:
+            "Near-opaque surface (bg-*/90-99). Blur is banned, so alpha here renders as an undiffused ghost of the page. Use a fully opaque background.",
+        },
         // One elevation API. Tailwind's shadow-* draws a hard black shadow;
         // .elev-* is tinted by the active neutral palette via --shadow-rgb.
         // Both existed side by side for the same job (audit KB-28). Colour-

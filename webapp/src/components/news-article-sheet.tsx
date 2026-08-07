@@ -84,7 +84,7 @@ export function NewsArticleSheet({
         className={`w-full sm:max-w-2xl p-0 overflow-y-auto ${elevated ? "!z-[110]" : ""}`}
       >
         <div className="flex flex-col h-full">
-          <SheetHeader className="px-6 py-4 border-b sticky top-0 bg-background/98 z-10">
+          <SheetHeader className="px-6 py-4 border-b sticky top-0 bg-background z-10">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <SheetTitle className="text-base text-left line-clamp-2">
