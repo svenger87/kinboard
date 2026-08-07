@@ -97,14 +97,24 @@ function getBinarySensorIcon(
   }
 }
 
-// Get color based on device class and state
+// Get color based on device class and state.
+//
+// The motion/presence branch was already on the semantic tokens and its
+// siblings were not — one function, two colour systems. The rest now match:
+// alert for a triggered safety sensor, light for a door left open, on for a
+// safe/closed state, off for inactive-but-reachable. Fixed hexes ignored
+// light/dark, the monthly accent and the alternate palettes.
 function getBinarySensorColor(
   deviceClass: string | undefined,
   state: string
 ): { bg: string; text: string } {
   const isOn = state === "on";
+  const tint = (token: string) => ({
+    bg: `hsl(var(--${token}) / 0.12)`,
+    text: `hsl(var(--${token}))`,
+  });
 
-  // Safety-related sensors - red when triggered
+  // Safety-related sensors - solid alert when triggered, so it reads across a room
   if (
     [
       "smoke",
@@ -118,28 +128,22 @@ function getBinarySensorColor(
     ].includes(deviceClass || "")
   ) {
     return isOn
-      ? { bg: "#ef4444", text: "#ffffff" } // Red background when triggered
-      : { bg: "#22c55e20", text: "#22c55e" }; // Green when safe
+      ? { bg: "hsl(var(--state-alert))", text: "hsl(var(--destructive-foreground))" }
+      : tint("state-on");
   }
 
   // Door/window sensors
   if (["door", "window", "garage_door", "lock"].includes(deviceClass || "")) {
-    return isOn
-      ? { bg: "#f59e0b20", text: "#f59e0b" } // Orange when open
-      : { bg: "#22c55e20", text: "#22c55e" }; // Green when closed
+    return isOn ? tint("state-light") : tint("state-on");
   }
 
   // Motion/presence sensors
   if (["motion", "occupancy", "presence"].includes(deviceClass || "")) {
-    return isOn
-      ? { bg: "hsl(var(--state-cool) / 0.12)", text: "hsl(var(--state-cool))" } // detected
-      : { bg: "#6b728020", text: "#6b7280" }; // Gray when clear
+    return isOn ? tint("state-cool") : tint("state-off");
   }
 
   // Default
-  return isOn
-    ? { bg: "#8b5cf620", text: "#8b5cf6" } // Purple when on
-    : { bg: "#6b728020", text: "#6b7280" }; // Gray when off
+  return isOn ? tint("primary") : tint("state-off");
 }
 
 // Get translation key for state label based on device class.
@@ -225,7 +229,7 @@ export function BinarySensorDisplayItem({
 
   const Icon = getBinarySensorIcon(deviceClass, entity.state);
   const colors = isUnavailable
-    ? { bg: "#6b728020", text: "#6b7280" }
+    ? { bg: "hsl(var(--muted))", text: "hsl(var(--muted-foreground))" }
     : getBinarySensorColor(deviceClass, entity.state);
 
   const stateLabel = isUnavailable
