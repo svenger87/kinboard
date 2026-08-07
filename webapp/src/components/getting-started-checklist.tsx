@@ -30,7 +30,15 @@ export function GettingStartedChecklist() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setCollapsed(localStorage.getItem(COLLAPSED_KEY) === "true");
+    const stored = localStorage.getItem(COLLAPSED_KEY);
+    // On a wall display the checklist is not actionable — every step leads to
+    // a setup page you would fill in from a phone — yet expanded it took the
+    // most valuable block on the dashboard, above the clock and the family
+    // (audit KB-13). Kiosk devices therefore start collapsed. An explicit
+    // choice on this device still wins, in either direction, because the
+    // collapse state is per-device and someone may genuinely want it open.
+    const isKiosk = document.documentElement.hasAttribute("data-kiosk");
+    setCollapsed(stored === null ? isKiosk : stored === "true");
     setReady(true);
   }, []);
 

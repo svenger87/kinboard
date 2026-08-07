@@ -64,7 +64,9 @@
       "incorrect": "Falscher PIN",
       "cancel": "Abbrechen",
       "pinRateLimited": "Zu viele Versuche — warte eine Minute.",
-      "digitAria": "Ziffer {position}"
+      "digitAria": "Ziffer {position}",
+      "statusUnavailableTitle": "Einstellungen nicht verfügbar",
+      "statusUnavailableBody": "Kinboard konnte nicht prüfen, ob eine PIN gesetzt ist. Die Einstellungen bleiben deshalb gesperrt. Prüfe die Verbindung und versuche es erneut."
     },
     "shortcuts": {
       "title": "Tastenkürzel",
