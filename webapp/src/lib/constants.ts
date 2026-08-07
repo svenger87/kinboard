@@ -41,6 +41,24 @@ export const NO_NAV_PATHS = ["/join", "/einkaufen", "/setup"] as const;
  * The trailing-slash check prevents accidental matches on paths that
  * share a prefix but aren't children (e.g. "/joiner" wouldn't match "/join").
  */
+/**
+ * Routes where the screensaver must not take over. It is a superset of
+ * NO_NAV_PATHS — those two lists are deliberately separate, because adding a
+ * path here must not also strip its navigation.
+ *
+ * `/settings` is here because the PIN prompt lives under it: standing at the
+ * pad without touching the screen let the idle timer run out and the
+ * screensaver covered the prompt mid-entry, which reads as the prompt timing
+ * out on you. Settings is an actively-used surface anyway.
+ */
+export const SCREENSAVER_SKIP_PATHS = [...NO_NAV_PATHS, "/settings"] as const;
+
+export function isScreensaverSkipPath(pathname: string): boolean {
+  return SCREENSAVER_SKIP_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+}
+
 export function isNoNavPath(pathname: string): boolean {
   return NO_NAV_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + "/"),
