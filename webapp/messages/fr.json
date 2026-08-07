@@ -64,7 +64,9 @@
       "incorrect": "Code PIN incorrect",
       "cancel": "Annuler",
       "pinRateLimited": "Trop de tentatives — attendez une minute.",
-      "digitAria": "Chiffre {position}"
+      "digitAria": "Chiffre {position}",
+      "statusUnavailableTitle": "Réglages indisponibles",
+      "statusUnavailableBody": "Kinboard n’a pas pu vérifier si un code PIN est défini. Les réglages restent donc verrouillés. Vérifiez la connexion et réessayez."
     },
     "shortcuts": {
       "title": "Raccourcis clavier",
