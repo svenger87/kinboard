@@ -3102,7 +3102,9 @@
           "state": "Status"
         }
       }
-    }
+    },
+    "saving": "Wird gespeichert…",
+    "saveError": "Konnte nicht gespeichert werden. Bitte erneut versuchen."
   },
   "familyMembers": {
     "emptyState": "Noch keine Familienmitglieder",
