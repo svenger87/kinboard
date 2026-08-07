@@ -5,7 +5,7 @@ This page documents the **maintainer's actual fielded build**: the components, v
 If you only want the software setup on the same hardware, jump to [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C). This page is the hardware side.
 
 ![Kitchen wall installation](images/kitchen-wall-mounted.jpg)
-*The kiosk in its current home: portrait orientation, oak frame, single power cable to a Schuko outlet below. The room thermostat to the left isn't part of the build. The small black protrusion above the frame is the LD2410 presence sensor in a printed enclosure.*
+*The kiosk in its current home: portrait orientation, oak frame, showing the screensaver — a photo canvas with the clock, weather, the next appointments and birthdays, and live solar, battery and vehicle readings overlaid. Power runs through a single cable to an outlet below, out of frame.*
 
 ## Bill of materials
 
