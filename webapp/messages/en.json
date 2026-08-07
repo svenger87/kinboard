@@ -64,7 +64,9 @@
       "incorrect": "Wrong PIN",
       "cancel": "Cancel",
       "pinRateLimited": "Too many attempts — wait a minute.",
-      "digitAria": "Digit {position}"
+      "digitAria": "Digit {position}",
+      "statusUnavailableTitle": "Settings unavailable",
+      "statusUnavailableBody": "Kinboard could not check whether a PIN is set, so Settings stays locked. Check the connection and try again."
     },
     "shortcuts": {
       "title": "Keyboard shortcuts",
