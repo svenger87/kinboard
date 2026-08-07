@@ -3102,7 +3102,9 @@
           "state": "État"
         }
       }
-    }
+    },
+    "saving": "Enregistrement…",
+    "saveError": "Enregistrement impossible. Veuillez réessayer."
   },
   "familyMembers": {
     "emptyState": "Pas encore de membres de la famille",
