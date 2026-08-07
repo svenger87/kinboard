@@ -30,8 +30,15 @@ const SheetOverlay = React.forwardRef<
 ))
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
 
+// The panel is FULLY OPAQUE on purpose. It used to be a 95%-opacity background with
+// backdrop-blur-xl — frosted glass, where the blur diffused whatever sat behind
+// it. When the blur was removed (blur is banned on a wall display, see the
+// eslint rule) the alpha was left behind at 98%, which is strictly worse than
+// either: a sharp, undiffused ghost of the page bleeds through every modal in
+// the app. If you are tempted to add alpha back here, add the blur back too or
+// leave it alone.
 const sheetVariants = cva(
-  "fixed z-50 gap-4 border-border bg-background/98 p-6 elev-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out",
+  "fixed z-50 gap-4 border-border bg-background p-6 elev-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out",
   {
     variants: {
       side: {

@@ -385,7 +385,7 @@ export default function RecipeDetailPage() {
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-transparent" />
 
               <Link href="/recipes" aria-label={t("detail.backToRecipes")}>
-                <span className="absolute left-4 top-4 flex size-11 items-center justify-center rounded-xl bg-card/90 text-foreground transition-colors hover:bg-card">
+                <span className="absolute left-4 top-4 flex size-11 items-center justify-center rounded-xl bg-card text-foreground transition-colors hover:bg-card">
                   <ArrowLeft className="size-5" strokeWidth={1.75} />
                 </span>
               </Link>
@@ -399,7 +399,7 @@ export default function RecipeDetailPage() {
                     is_favorite: !recipe.is_favorite,
                   })
                 }
-                className="absolute right-4 top-4 flex size-11 items-center justify-center rounded-xl bg-card/90 text-foreground transition-colors hover:bg-card"
+                className="absolute right-4 top-4 flex size-11 items-center justify-center rounded-xl bg-card text-foreground transition-colors hover:bg-card"
               >
                 <Heart
                   className={`size-5 ${recipe.is_favorite ? "fill-destructive text-destructive" : ""}`}
