@@ -15,13 +15,14 @@ import { AuthGuard } from "@/components/auth-guard";
 import { PWAProvider } from "@/components/pwa-provider";
 import { KioskProvider } from "@/components/kiosk-provider";
 import { ThemeSettingsProvider } from "@/components/theme-settings-provider";
+import { usePathname } from "next/navigation";
 import { ShellChrome } from "@/components/shell-chrome";
 import { RealtimeStatusPill } from "@/components/realtime-status-pill";
 import { WhatsNewNotice } from "@/components/whats-new-notice";
 import { PageShell } from "@/components/page-shell";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
-import { isNoNavPath } from "@/lib/constants";
+import { isScreensaverSkipPath } from "@/lib/constants";
 
 // Helper functions for cookie migration
 function getCookie(name: string): string | null {
@@ -97,12 +98,12 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
     presenceTimeout: presenceTimeoutMs,
   });
 
-  // Check if current path should skip screensaver
-  const [skipScreensaver, setSkipScreensaver] = useState(false);
-  useEffect(() => {
-    const path = window.location.pathname;
-    setSkipScreensaver(isNoNavPath(path));
-  }, []);
+  // Which routes skip the screensaver. This read window.location.pathname once
+  // in a mount-only effect, so it never updated on a client-side navigation —
+  // whatever route happened to load first decided it for the whole session.
+  // usePathname re-renders on every navigation, which is the point.
+  const screensaverPathname = usePathname();
+  const skipScreensaver = isScreensaverSkipPath(screensaverPathname);
 
   // The screensaver is a wall-display feature: a full-bleed photo canvas
   // with an overlaid clock and widgets, laid out for a landscape panel.
