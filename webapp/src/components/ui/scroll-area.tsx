@@ -14,7 +14,11 @@ const ScrollArea = React.forwardRef<
     className={cn("relative overflow-hidden", className)}
     {...props}
   >
-    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
+    {/* overscroll-contain stops a swipe that reaches the end of a horizontal
+        strip from chaining into whatever scrolls behind it — on the weather
+        modal that was the dialog's own vertical scroll, so a sideways flick
+        through the hourly forecast also dragged the modal body. */}
+    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit] overscroll-contain">
       {children}
     </ScrollAreaPrimitive.Viewport>
     <ScrollBar />
