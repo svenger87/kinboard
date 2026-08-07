@@ -126,6 +126,8 @@ cd webapp/docker
 ./start.sh restart    # rebuilds the webapp image + recreates webapp + cron
 ```
 
+**Trying a release candidate** — set `KINBOARD_TAG=next` in `webapp/docker/.env` and bring the stack up again. That follows the pre-release channel; remove the line (or set `latest`) to go back to stable. Release candidates are announced on the [Releases](https://github.com/svenger87/kinboard/releases) page and are where feedback is most useful. See [Self-hosting → Pre-release channel](https://github.com/svenger87/kinboard/wiki/Self-hosting#pre-release-channel).
+
 **Hands-off auto-update** — an optional Diun + webhook overlay watches GHCR for new `kinboard-webapp` images and runs the full upgrade path (pull, migrate, restart) automatically when one lands. Replaces the deprecated Watchtower overlay. See [Self-hosting → Auto-updates](https://github.com/svenger87/kinboard/wiki/Self-hosting#auto-updates) for setup.
 
 For production self-hosting (Traefik + custom domain + backups + updates), see [Self-hosting](https://github.com/svenger87/kinboard/wiki/Self-hosting).
@@ -135,6 +137,8 @@ For production self-hosting (Traefik + custom domain + backups + updates), see [
 ## Screenshots
 
 A few highlights from the [demo data set](docs/wiki/screenshots/). See the [wiki](docs/wiki/) for the per-feature pages.
+
+> These were captured before the 1.7.0 interface work (larger type and navigation for wall displays, opaque dialogs, themed device colours). They still show the app faithfully, but the current build looks a little different — [the live demo](https://demo.kinboard.app) is always the newest thing.
 
 ### On your phone
 
@@ -227,11 +231,12 @@ The wiki is the source of truth for everything beyond this README:
 
 ## Status & roadmap
 
-**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest: [v1.5.0](https://github.com/svenger87/kinboard/releases/tag/v1.5.0) (2026-07-11).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Diun + the self-update webhook; data resets hourly). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
+**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest stable: [v1.6.10](https://github.com/svenger87/kinboard/releases/tag/v1.6.10) (2026-08-06).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Diun + the self-update webhook; data resets hourly). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
 
 **Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](https://github.com/svenger87/kinboard/wiki/Security-and-Threat-Model) and [`SECURITY.md`](SECURITY.md).
 
 ### Recently shipped
+- [x] **Custom RSS feeds, pocket-money corrections, safer image search** (v1.6.0) — News sources accepts any RSS or Atom feed alongside the built-in publishers; pocket-money goals can finally be renamed, re-targeted and deleted; the saving avatar reflects the current balance rather than lifetime earnings, and daily interest stopped discarding its sub-cent remainder; shopping-list image search moved off scraped search pages that could return unrelated or adult results
 - [x] **Restore from backup, meal-plan digest, notification fixes** (v1.5.0) — the join screen can rebuild a whole family from a Kinboard export file; an optional evening push lists tomorrow's planned meals; settings writes now go through the app server instead of straight from the browser to the database; Undo works on the shopping kiosk, offline included
 - [x] **Security hardening, backup & export, undo** (v1.4.0) — integration credentials and the settings PIN moved to server-only storage; Settings → Data & backup can export everything to JSON or publish a secret ICS feed of your calendar; deleted items get an Undo toast; birthday reminders now actually send a push; the webapp container reports health for automated monitoring
 - [x] **Redesign completion, French, join-code expiry** (v1.3.0) — the flat sage-linen visual refresh reaches nearly every page; Kinboard ships a French interface alongside English and German (community-contributed, #9); Settings can rotate the family join code and set it to expire
