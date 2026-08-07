@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-08-07
+
 ### Changed
 - **The public demo now shows pocket money too.** Neither child had an account, so the evolving avatar, the saving goal and the allowance countdown were invisible to anyone trying the demo. Both children now have one, at different avatar stages.
 - **The public demo now shows the school timetable and pack list.** Nobody in the demo family was marked as a child, so the timetable screen greeted every visitor with "no child set up" — even though five full weeks of lessons were sitting in the demo data the whole time. Two of the children are now marked as such, the pack list knows what to remind you to bring for each subject, and the demo opens on the finished dashboard rather than the setup checklist. The demo also carries about fifty birthdays instead of ten, which is closer to what a real household accumulates, and its family members now use Kinboard's own colour palette instead of stand-in colours.
@@ -649,7 +651,8 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.6.10...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/svenger87/kinboard/compare/v1.6.10...v1.7.0
 [1.6.10]: https://github.com/svenger87/kinboard/compare/v1.6.9...v1.6.10
 [1.6.9]: https://github.com/svenger87/kinboard/compare/v1.6.8...v1.6.9
 [1.6.8]: https://github.com/svenger87/kinboard/compare/v1.6.7...v1.6.8
