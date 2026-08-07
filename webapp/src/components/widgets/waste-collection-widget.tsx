@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Trash2, Recycle, Newspaper, Leaf, Package, ChevronRight } from "lucide-react";
 import { format, isToday, isTomorrow, addDays, endOfDay, differenceInCalendarDays } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
+import { personText, personTint } from "@/lib/person-color";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -220,7 +221,7 @@ export function WasteCollectionWidget({
                 style={isUrgent ? { borderLeft: `4px solid ${event.wasteType.color}` } : undefined}
                 aria-label={t("itemAria", { label: wasteLabels[event.wasteType.id], when: formatDayLabel(event.date, event.daysUntil) })}
               >
-                <span className="shrink-0 rounded-lg p-2" style={{ backgroundColor: `${event.wasteType.color}22`, color: event.wasteType.color }}>
+                <span className="shrink-0 rounded-lg p-2" style={{ backgroundColor: personTint(event.wasteType.color, 84), color: personText(event.wasteType.color) }}>
                   <Icon className="size-4" strokeWidth={1.75} />
                 </span>
                 <div className="min-w-0 flex-1">

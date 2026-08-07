@@ -3,6 +3,7 @@
 import { minutesOfDayAt } from "@/lib/weather-time";
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { personText, personTint } from "@/lib/person-color";
 import { useTranslations } from "next-intl";
 import {
   Sun,
@@ -749,9 +750,15 @@ function ClothingAdvisor({
             <div
               key={i}
               className="flex items-center gap-2 px-3 py-2 rounded-lg"
-              style={{ backgroundColor: `${tip.color}12`, borderLeft: `3px solid ${tip.color}` }}
+              // The tip colours are a 7-step temperature ramp (blue cold ->
+              // red hot), so they stay hues rather than becoming semantic
+              // tokens — the ladder carries meaning four tokens cannot. But
+              // used raw they were unreadable: the pale steps measured
+              // 1.24-1.88:1 on a light card. personText keeps the hue and
+              // pushes it away from whichever background is active.
+              style={{ backgroundColor: personTint(tip.color), borderLeft: `3px solid ${personText(tip.color)}` }}
             >
-              <TipIcon className="size-4 shrink-0" style={{ color: tip.color }} />
+              <TipIcon className="size-4 shrink-0" style={{ color: personText(tip.color) }} />
               <span className="text-sm">{clothingLabels[tip.textKey]}</span>
             </div>
           );
