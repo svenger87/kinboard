@@ -47,36 +47,46 @@ function getSensorIcon(deviceClass: string | undefined) {
   }
 }
 
-// Get color based on device class and value
+// Get color based on device class and value.
+//
+// These were fixed Tailwind hexes (blue, green, amber …) so they ignored
+// light/dark, the monthly accent and the alternate neutral palettes — the same
+// defect the audit fixed on the Home Assistant cards, which this file is a
+// sibling of and was missed by that pass. The semantic tokens carry the meaning
+// (cool / on / light / alert) and adapt like everything else.
 function getSensorColor(
   deviceClass: string | undefined,
   state: string
 ): string {
   const value = parseFloat(state);
+  const cool = "hsl(var(--state-cool))";
+  const ok = "hsl(var(--state-on))";
+  const warm = "hsl(var(--state-light))";
+  const alert = "hsl(var(--state-alert))";
 
   switch (deviceClass) {
     case "temperature":
-      if (value < 15) return "#60a5fa"; // Blue (cold)
-      if (value < 22) return "#22c55e"; // Green (comfortable)
-      if (value < 28) return "#f59e0b"; // Orange (warm)
-      return "#ef4444"; // Red (hot)
+      if (value < 15) return cool;
+      if (value < 22) return ok;
+      if (value < 28) return warm;
+      return alert;
 
     case "humidity":
-      if (value < 30) return "#f59e0b"; // Orange (too dry)
-      if (value < 60) return "#22c55e"; // Green (comfortable)
-      return "#60a5fa"; // Blue (humid)
+      if (value < 30) return warm; // too dry
+      if (value < 60) return ok;
+      return cool; // humid
 
     case "battery":
-      if (value < 20) return "#ef4444"; // Red (low)
-      if (value < 50) return "#f59e0b"; // Orange (medium)
-      return "#22c55e"; // Green (good)
+      if (value < 20) return alert;
+      if (value < 50) return warm;
+      return ok;
 
     case "power":
     case "energy":
-      return "#f59e0b"; // Orange
+      return warm;
 
     default:
-      return "#8b5cf6"; // Purple (default)
+      return "hsl(var(--muted-foreground))";
   }
 }
 
@@ -106,7 +116,7 @@ export function SensorDisplayItem({ roomEntity, entity }: SensorDisplayItemProps
 
   const Icon = getSensorIcon(deviceClass);
   const color = isUnavailable
-    ? "#6b7280" // Gray for unavailable
+    ? "hsl(var(--state-off))" // unreachable but known
     : getSensorColor(deviceClass, entity.state);
 
   const formattedValue = isUnavailable

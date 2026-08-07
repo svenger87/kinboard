@@ -31,6 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import Link from "next/link";
+import { personText, personTint } from "@/lib/person-color";
 import { useTranslations } from "next-intl";
 import { useSchedules, usePeople } from "@/hooks";
 
@@ -253,9 +254,16 @@ export function ScheduleWidget({
                           : "opacity-50 hover:opacity-80"
                       }`}
                       style={{
+                        // Raw colour as text on a tint of itself measured
+                        // 2.1-3.4:1 in dark mode; personText/personTint flip
+                        // with the theme. The border is non-text (3:1) so it
+                        // keeps the identity colour unmodified.
                         borderColor: child.color || personColor,
-                        color: child.color || personColor,
-                        backgroundColor: child.id === personId ? `${child.color || personColor}15` : "transparent",
+                        color: personText(child.color || personColor),
+                        backgroundColor:
+                          child.id === personId
+                            ? personTint(child.color || personColor)
+                            : "transparent",
                       }}
                       aria-label={t("childSelectAria", { name: child.name })}
                       aria-pressed={child.id === personId}
