@@ -82,7 +82,12 @@ export function useUpdatePocketMoneyAccount() {
       const r = await fetch(`/api/pocket-money/accounts/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(update),
+        // The route requires family_id in the body and 400s without it. Every
+        // other call in this file passes it — create, delete and the
+        // transaction POST — and this one did not, so *every* edit on
+        // /settings/pocket-money (interest rate, allowance, interval) failed
+        // silently, as did the avatar-stage tracking on every page load.
+        body: JSON.stringify({ ...update, family_id: family?.id }),
       });
       if (!r.ok) throw new Error(`update: ${r.status}`);
       return ((await r.json()) as { account: PocketMoneyAccount }).account;
