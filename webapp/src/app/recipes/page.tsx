@@ -686,7 +686,7 @@ function RecipeCard({
                 e.stopPropagation();
                 onToggleFavorite();
               }}
-              className="absolute top-3 right-3 flex size-11 items-center justify-center rounded-full border border-border bg-card/90 text-foreground transition-colors hover:bg-card"
+              className="absolute top-3 right-3 flex size-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-card"
             >
               <Heart
                 className={`size-4 ${recipe.is_favorite ? "fill-destructive text-destructive" : ""}`}
