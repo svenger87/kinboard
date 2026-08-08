@@ -400,6 +400,9 @@ components:
         next_family_event:
           type: [object, "null"]
           properties:
+            state:
+              type: string
+              description: What a sensor displays — the event title. Every field in this object carries a `state` so a consumer can read them uniformly.
             id: { type: string, format: uuid }
             title: { type: string }
             start_at: { type: string, format: date-time }
