@@ -272,16 +272,63 @@ Adapted from §3.6 of the plan, plus what this RFC adds:
 
 ---
 
-## 11. Open questions
+## 11. Decisions taken
 
-1. **Does the HA component live in this repo or its own?** The plan says “own
-   repository or clearly separated directory”. HACS convention favours its own
-   repo; a single repo keeps the contract and its consumer in one commit.
-   *Leaning: separate repo, because HACS and the brands submission expect it.*
-2. **How much history does `domain_events` keep?** Long enough for a Bridge that
+### 11.1 The HA component ships from its own repository
+
+**`svenger87/kinboard-homeassistant`**, containing `custom_components/kinboard/`,
+`hacs.json` and the `home-assistant/brands` submission.
+
+The deciding factor is **release cadence**, measured rather than assumed: this
+repository cut **31 releases in the 30 days to 2026-08-08** — 15 stable, 16
+prerelease. HACS presents GitHub releases as available versions, so shipping the
+component from here would show every HACS user roughly one integration update
+per day for a component that changed on a handful of those days. Users learn to
+ignore update badges, which is the worst possible habit for the component
+holding their integration token.
+
+The two sides want opposite rhythms. This repository is deliberately tuned for
+fast releases — `docker.yml` publishes `next` on every prerelease tag and
+Diun-following instances auto-update. An HA integration wants infrequent,
+semver-meaningful releases that mean “something changed for you”.
+
+Supporting reasons:
+
+- **The official-integration path** (§3.1 of the plan) copies the component into
+  `home-assistant/core`. A standalone Python package with its own hassfest and
+  pytest CI extracts cleanly; one embedded in a Next.js monorepo does not.
+- **Toolchain separation.** CI here is Node-shaped. Adding Python CI means more
+  conditional path filtering, and `docker.yml` already carries a warning that a
+  paths filter on a combined `branches` + `tags` trigger can wrongly skip the
+  release build.
+
+**The counter-argument, and why it does not win.** Two repositories can drift
+apart on the contract in §5. But co-location does not actually solve that,
+because there will be **three** consumers of this API — the HA component, the
+Bridge, and later Cloud. The Bridge cannot live in both repositories. The
+contract must stand alone regardless, which is why `/api/integration/v1` carries
+its version in the path. Co-locating one consumer would undercut that and make
+the three asymmetric.
+
+Drift is instead handled by the mechanism Phase 1 already requires:
+
+1. The OpenAPI spec is published as a release artifact from this repository.
+2. The component's CI validates against a pinned spec version, so drift fails a
+   build rather than a household.
+3. `manifest.json` declares a minimum Kinboard version; the config flow checks it
+   and fails legibly, which §10 already demands.
+4. **This RFC stays here** as the source of truth for the frozen names.
+
+Note the clean split this produces: `webapp/src/app/api/homeassistant/` is
+*Kinboard consuming HA* and stays put; the new repository is *HA consuming
+Kinboard*. Opposite directions, opposite release rhythms.
+
+## 12. Open questions
+
+1. **How much history does `domain_events` keep?** Long enough for a Bridge that
    was offline for a week to catch up, short enough not to grow forever.
-3. **Do we emit events for imported calendar data?** A CalDAV sync pulling 200
+2. **Do we emit events for imported calendar data?** A CalDAV sync pulling 200
    events should probably not produce 200 `kinboard_family_event_created`
    events. Suggest suppressing events where `source = 'sync'`.
-4. **Rate limits per token or per family?** Per family is friendlier; per token
+3. **Rate limits per token or per family?** Per family is friendlier; per token
    is what protects the database.
