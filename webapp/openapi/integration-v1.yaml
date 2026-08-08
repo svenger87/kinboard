@@ -1,0 +1,376 @@
+openapi: 3.1.0
+
+# The Kinboard Integration API, version 1.
+#
+# This file is the contract, not documentation of it. RFC-001 §11.1 decided
+# that the Home Assistant component ships from its own repository, and the
+# counter-argument to that — the two drifting apart — is answered here rather
+# than by co-location: the component pins a version of this spec and its CI
+# validates against it, so drift fails a build instead of a household.
+#
+# The same applies to the Bridge, which will be a third consumer and cannot
+# live in either repository. That is why the version is in the URL path.
+#
+# `e2e/openapi-contract.spec.ts` checks this file against the code on every
+# run: every documented path must exist as a route, every route must be
+# documented, and every scope and service name must match the server's own
+# lists. A spec nobody checks is a spec that is wrong.
+
+info:
+  title: Kinboard Integration API
+  version: "1.0.0"
+  description: |
+    Machine-to-machine access to a Kinboard household.
+
+    Authentication is a bearer token created in **Settings → Integrations**.
+    Tokens carry explicit scopes; no scope implies another, and every failure
+    to authorise answers `401` — including "valid token, wrong scope", so a
+    caller probing an endpoint cannot learn that its token is real.
+  license:
+    name: MIT
+
+servers:
+  - url: "{kinboard_url}/api/integration/v1"
+    variables:
+      kinboard_url:
+        default: "http://kinboard.local:3000"
+        description: The address of the Kinboard instance.
+
+security:
+  - integrationToken: []
+
+tags:
+  - name: identity
+  - name: state
+  - name: events
+  - name: services
+
+paths:
+  /info:
+    get:
+      tags: [identity]
+      summary: Identify the instance and the token
+      description: |
+        The first call a client makes. Answers what a setup screen must know
+        before it can say anything useful: whether this is a new enough
+        Kinboard, which family the token joined, and what it may do.
+
+        `scopes` is returned rather than merely enforced so a config flow can
+        say up front that a token cannot create tasks, instead of accepting the
+        setup and failing weeks later on a rejection nobody can interpret.
+
+        `cursor` is the current head of the event log — a client connecting for
+        the first time should start there rather than replaying the retained
+        history.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: Instance and token identity
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [version, family_id, scopes, cursor]
+                properties:
+                  version: { type: string, example: "1.9.0" }
+                  family_id: { type: string, format: uuid }
+                  family_name: { type: [string, "null"] }
+                  token_name: { type: string }
+                  scopes:
+                    type: array
+                    items: { $ref: "#/components/schemas/Scope" }
+                  cursor:
+                    type: integer
+                    description: Highest event id currently stored for this family.
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /family/summary:
+    get:
+      tags: [state]
+      summary: Everything the sensors need, in one call
+      description: |
+        One endpoint rather than one per sensor. Clients poll on a fixed
+        interval and a self-hosted Kinboard is frequently a Raspberry Pi
+        sharing a disk with Postgres; eight requests where one would do is
+        eight times the load for data read at the same moment anyway.
+
+        `display_mode` and `attention_required` are placeholders until the
+        Heute-Motor exists. They are present and null/false rather than absent,
+        so an entity built on them does not appear later and break automations
+        written in the meantime.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: The family's current state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [summary, generated_at, today]
+                properties:
+                  summary: { $ref: "#/components/schemas/FamilySummary" }
+                  generated_at: { type: string, format: date-time }
+                  today: { type: string, format: date }
+                  tomorrow: { type: string, format: date }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /events:
+    get:
+      tags: [events]
+      summary: Domain events after a cursor
+      description: |
+        The outbox consumer contract. Store the last id processed and ask for
+        everything above it; on reconnect, resume from there, so a restart of
+        either system loses nothing.
+
+        The returned `cursor` is the highest id **in this page**, not the
+        current head. With a truncated page, returning the head would silently
+        skip everything in between — and skipped events are invisible, because
+        the consumer never sees them.
+
+        Events are produced by database triggers, so an action taken in the
+        Kinboard UI emits one just as an API call does.
+      x-required-scope: events:read
+      parameters:
+        - name: after
+          in: query
+          required: false
+          schema: { type: integer, minimum: 0 }
+          description: Return events with an id greater than this. Omit to start at the oldest retained event.
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 100 }
+      responses:
+        "200":
+          description: A page of events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events, cursor, has_more]
+                properties:
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/DomainEvent" }
+                  cursor: { type: integer }
+                  has_more:
+                    type: boolean
+                    description: True when the page was truncated — fetch again immediately rather than waiting for the next poll.
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /services/{service}:
+    post:
+      tags: [services]
+      summary: Invoke a service
+      description: |
+        Writes. Every call requires an `Idempotency-Key`, because automations
+        retry and a retried "add milk" must not add milk twice.
+
+        Repeating a key with the **same** arguments returns the original
+        response with an `idempotent-replay` header. Repeating it with
+        **different** arguments answers `409`: two operations sharing one key
+        is a client bug, and returning the first response would silently
+        discard the second request.
+
+        Services named in this contract but not yet implemented answer `501`,
+        not `404`, so the difference between a typo and an unbuilt feature is
+        visible.
+      parameters:
+        - name: service
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/ServiceName" }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255, pattern: "^[A-Za-z0-9._:-]+$" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Arguments for the named service. Key order is not significant.
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404":
+          description: No such service.
+        "409":
+          description: The Idempotency-Key was already used with different arguments.
+        "501":
+          description: A service in this contract that this version does not implement yet.
+
+components:
+  securitySchemes:
+    integrationToken:
+      type: http
+      scheme: bearer
+      description: A token from Settings → Integrations. Shown once; stored only as a hash.
+
+  responses:
+    Unauthenticated:
+      description: |
+        No token, an unknown/revoked/expired token, or a token without the
+        required scope. Deliberately one answer for all four — distinguishing
+        them would tell a caller probing an endpoint that its token is real.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    InvalidRequest:
+      description: The request was understood but its arguments were not usable.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Scope:
+      type: string
+      enum:
+        - family:read
+        - events:read
+        - shopping:write
+        - tasks:write
+        - notes:write
+        - announcements:write
+
+    ServiceName:
+      type: string
+      enum:
+        - add_shopping_item
+        - create_task
+        - create_note
+        - show_announcement
+        - activate_context
+        - dismiss_attention
+        - add_pocket_money
+        - refresh_integration
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable. May be reworded at any time — do not branch on it.
+        code:
+          type: string
+          description: Stable and machine-readable. Branch on this.
+          enum:
+            - not_authenticated
+            - forbidden
+            - not_found
+            - invalid_request
+            - conflict
+            - rate_limited
+            - upstream_unavailable
+            - internal_error
+            - not_implemented
+        correlationId:
+          type: string
+          description: Also sent as the `x-correlation-id` header, and printed on every log line for this request.
+
+    DomainEvent:
+      type: object
+      required: [id, event_type, payload_version, payload, source, occurred_at]
+      properties:
+        id: { type: integer, description: Monotonic. This is the cursor. }
+        event_type: { $ref: "#/components/schemas/EventType" }
+        payload_version: { type: integer, default: 1 }
+        payload: { type: object }
+        actor_id:
+          type: [string, "null"]
+          format: uuid
+          description: Null when the acting person is not known — an event with an unknown actor is still useful.
+        source:
+          type: string
+          description: "`app` for a person acting, `sync` for an importer, `system` for cron."
+        occurred_at: { type: string, format: date-time }
+
+    EventType:
+      type: string
+      enum:
+        - kinboard_task_completed
+        - kinboard_shopping_item_added
+        - kinboard_family_event_created
+        - kinboard_announcement_acknowledged
+        - kinboard_saving_goal_reached
+        - kinboard_device_joined
+        - kinboard_context_changed
+
+    FamilySummary:
+      type: object
+      required:
+        - next_family_event
+        - events_today
+        - shopping_items
+        - meal_today
+        - tasks_due
+        - school_tomorrow
+        - birthdays_upcoming
+        - display_mode
+        - attention_required
+      properties:
+        next_family_event:
+          type: [object, "null"]
+          properties:
+            id: { type: string, format: uuid }
+            title: { type: string }
+            start_at: { type: string, format: date-time }
+            location: { type: [string, "null"] }
+            person_id: { type: [string, "null"], format: uuid }
+            minutes_remaining: { type: integer }
+        events_today:
+          type: object
+          properties:
+            state: { type: integer }
+            events:
+              type: array
+              items:
+                type: object
+                properties:
+                  title: { type: string }
+                  start_at: { type: string, format: date-time }
+        shopping_items:
+          type: integer
+          description: Open (unchecked) items.
+        meal_today:
+          type: object
+          properties:
+            state: { type: [string, "null"] }
+            meal: { type: [string, "null"] }
+            recipe_id: { type: [string, "null"], format: uuid }
+        tasks_due:
+          type: object
+          properties:
+            state: { type: integer }
+            open: { type: integer }
+            overdue: { type: integer }
+        school_tomorrow:
+          type: object
+          properties:
+            state: { type: integer }
+            children: { type: array, items: { type: string } }
+            first_lesson: { type: [string, "null"] }
+        birthdays_upcoming:
+          type: object
+          properties:
+            state: { type: [integer, "null"] }
+            name: { type: [string, "null"] }
+            days_remaining: { type: [integer, "null"] }
+        display_mode:
+          type: "null"
+          description: Reserved for the Heute-Motor (Phase 3).
+        attention_required:
+          type: boolean
+          description: Reserved for the Heute-Motor (Phase 3); always false for now.
