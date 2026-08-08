@@ -116,6 +116,52 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
+  /calendar/events:
+    get:
+      tags: [state]
+      summary: Calendar events in a range
+      description: |
+        Backs `calendar.kinboard_family`. Separate from `/family/summary`
+        because the two answer different questions: the summary is "what is
+        true right now", polled every half minute; a calendar entity is asked
+        for arbitrary windows — whatever the user is looking at, possibly next
+        month — and returning that on every summary poll would be absurd.
+
+        Selection is by **overlap**, not containment: an event that started
+        yesterday and ends tomorrow belongs in today's window. Filtering on
+        start alone would drop exactly the long events a calendar most needs
+        to show.
+
+        Both bounds are required. A default would be a guess, and the two
+        plausible guesses ("today", "everything") differ by orders of
+        magnitude in cost.
+      x-required-scope: family:read
+      parameters:
+        - name: start
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: end
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+          description: Must be after `start`, and no more than 370 days later.
+      responses:
+        "200":
+          description: Events overlapping the window, oldest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events]
+                properties:
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/CalendarEvent" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
   /events:
     get:
       tags: [events]
@@ -296,6 +342,19 @@ components:
         correlationId:
           type: string
           description: Also sent as the `x-correlation-id` header, and printed on every log line for this request.
+
+    CalendarEvent:
+      type: object
+      required: [id, title, start_at, end_at]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: [string, "null"] }
+        location: { type: [string, "null"] }
+        start_at: { type: string, format: date-time }
+        end_at: { type: string, format: date-time }
+        all_day: { type: [boolean, "null"] }
+        person_id: { type: [string, "null"], format: uuid }
 
     DomainEvent:
       type: object
