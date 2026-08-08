@@ -103,9 +103,20 @@ export function firstLessonOf(timeSlots: unknown): string | null {
   return sorted.length > 0 ? (sorted[0].subject ?? null) : null;
 }
 
-/** ISO weekday for a date: Monday = 1 … Sunday = 7, matching `schedules.day_of_week`. */
+/**
+ * Weekday in the range `schedules.day_of_week` actually allows.
+ *
+ * The column is constrained to 0..6 and the app writes 1=Monday..5=Friday, so
+ * Sunday is 0 — NOT 7. Returning 7 asked the database for a value its own
+ * CHECK constraint forbids: harmless today, because the timetable UI cannot
+ * create weekend lessons at all, but a query that can never match is a bug
+ * waiting for the day someone stores one.
+ *
+ * Found by seeding a Sunday lesson to test the sensor and having Postgres
+ * refuse the row: `schedules_day_of_week_check`.
+ */
 export function isoDayOfWeek(date: Date): number {
-  return date.getDay() === 0 ? 7 : date.getDay();
+  return date.getDay();
 }
 
 export async function GET(request: NextRequest) {
