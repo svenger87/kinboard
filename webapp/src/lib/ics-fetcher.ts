@@ -189,19 +189,66 @@ function expandToWindow(
       const end = ev.end;
       const endDate = end instanceof Date ? end : (end ? new Date(String(end)) : startDate);
 
+      const isAllDay = ev.datetype === "date";
+      const anchoredStart = isAllDay ? allDayAnchor(startDate) : startDate;
+      const anchoredEnd = isAllDay ? allDayEndAnchor(endDate, anchoredStart) : endDate;
+
       out.push({
         uid: ev.uid,
         title: extractString(ev.summary) ?? "(untitled)",
         description: extractString(ev.description) ?? null,
         location: extractString(ev.location) ?? null,
-        start_at: startDate.toISOString(),
-        end_at: endDate.toISOString(),
-        all_day: ev.datetype === "date",
+        start_at: anchoredStart.toISOString(),
+        end_at: anchoredEnd.toISOString(),
+        all_day: isAllDay,
       });
     }
   }
 
   return out;
+}
+
+/**
+ * Anchor an all-day event to 12:00 UTC on its own calendar date.
+ *
+ * A DATE-valued DTSTART ("20260807") has no timezone — it is a calendar day.
+ * node-ical resolves it against the *server's* zone, so on a Europe/Berlin box
+ * "20260807" arrives as 2026-08-06T22:00:00Z. Every renderer then formats that
+ * instant in the *viewer's* zone, so anyone west of the server sees the day
+ * before: an event on the 7th shows as the 6th, and with the exclusive DTEND it
+ * renders as a two-day 6–7 band (issue #145). It cancels out only when viewer
+ * and server share a zone, which is why it survived this long.
+ *
+ * node-ical builds the Date from local midnight, so its local Y/M/D components
+ * are the date as written in the file. Rebuilding at 12:00 UTC puts the instant
+ * far enough from both midnights that local-time rendering lands on the right
+ * day for every offset from UTC-12 to UTC+11:59 — the same trick birthday.ts
+ * uses with "T12:00:00".
+ *
+ * The remaining gap is UTC+12 and beyond (Kiribati, Samoa, Chatham). No single
+ * instant can represent one calendar date everywhere: the world spans 26 hours,
+ * so any anchor is wrong for someone. Closing that needs date-only columns
+ * rather than timestamptz, which is a schema change, not this.
+ */
+function allDayAnchor(local: Date): Date {
+  return new Date(Date.UTC(local.getFullYear(), local.getMonth(), local.getDate(), 12, 0, 0, 0));
+}
+
+/**
+ * DTEND on a DATE-valued event is *exclusive* — a single day on the 7th is
+ * written DTSTART:20260807 / DTEND:20260808. Stored verbatim that becomes a
+ * two-day event. Step back a day so end_at is the inclusive last day, which is
+ * what the calendar views assume when they test a day against start..end.
+ */
+function allDayEndAnchor(localExclusiveEnd: Date, startAnchor: Date): Date {
+  const end = new Date(Date.UTC(
+    localExclusiveEnd.getFullYear(),
+    localExclusiveEnd.getMonth(),
+    localExclusiveEnd.getDate() - 1,
+    12, 0, 0, 0,
+  ));
+  // A malformed feed can put DTEND on or before DTSTART; never invert the event.
+  return end < startAnchor ? startAnchor : end;
 }
 
 function mapInstance(instance: ical.EventInstance): IcsEvent | null {
@@ -214,13 +261,20 @@ function mapInstance(instance: ical.EventInstance): IcsEvent | null {
 
   const ev = instance.event;
 
+  // Recurring all-day instances need the same anchoring as single events —
+  // rrule expands them at the server's local midnight too.
+  const anchoredStart = instance.isFullDay ? allDayAnchor(start) : start;
+  const anchoredEnd = instance.isFullDay ? allDayEndAnchor(end, anchoredStart) : end;
+
   return {
-    uid: `${ev.uid}__${start.toISOString()}`,
+    // The uid keys on the instance's own start, so it must stay stable across
+    // the anchoring change or every recurrence looks new and re-inserts.
+    uid: `${ev.uid}__${anchoredStart.toISOString()}`,
     title: extractString(instance.summary) ?? extractString(ev.summary) ?? "(untitled)",
     description: extractString(ev.description) ?? null,
     location: extractString(ev.location) ?? null,
-    start_at: start.toISOString(),
-    end_at: end.toISOString(),
+    start_at: anchoredStart.toISOString(),
+    end_at: anchoredEnd.toISOString(),
     all_day: instance.isFullDay,
   };
 }
