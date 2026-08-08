@@ -9,6 +9,7 @@ import {
   isOnline,
   isMissing,
   formatReading,
+  convertPressure,
 } from "../src/plugins/vehicles/entity-read";
 
 /**
@@ -193,5 +194,50 @@ test.describe("isMissing", () => {
     }
     expect(isMissing("charging")).toBe(false);
     expect(isMissing("0")).toBe(false);
+  });
+});
+
+test.describe("convertPressure", () => {
+  test("the default leaves the sensor's unit alone", () => {
+    const psi = { value: 41.7, unit: "psi" };
+    expect(convertPressure(psi)).toEqual(psi);
+    expect(convertPressure(psi, "source")).toEqual(psi);
+  });
+
+  test("psi to bar, the conversion that used to be unconditional", () => {
+    const bar = convertPressure({ value: 41.7, unit: "psi" }, "bar");
+    expect(bar?.unit).toBe("bar");
+    expect(bar?.value).toBeCloseTo(2.875, 2);
+  });
+
+  test("bar to psi", () => {
+    const psi = convertPressure({ value: 2.9, unit: "bar" }, "psi");
+    expect(psi?.unit).toBe("psi");
+    expect(psi?.value).toBeCloseTo(42.06, 1);
+  });
+
+  test("kPa in both directions", () => {
+    expect(convertPressure({ value: 250, unit: "kPa" }, "bar")?.value).toBeCloseTo(2.5, 3);
+    expect(convertPressure({ value: 2.5, unit: "bar" }, "kPa")?.value).toBeCloseTo(250, 3);
+  });
+
+  test("mbar and hPa are understood as sources", () => {
+    expect(convertPressure({ value: 2500, unit: "mbar" }, "bar")?.value).toBeCloseTo(2.5, 3);
+    expect(convertPressure({ value: 2500, unit: "hPa" }, "bar")?.value).toBeCloseTo(2.5, 3);
+  });
+
+  test("matching units are not round-tripped", () => {
+    expect(convertPressure({ value: 2.9, unit: "bar" }, "bar")).toEqual({ value: 2.9, unit: "bar" });
+  });
+
+  test("an unconvertible unit is left as it is, not relabelled", () => {
+    // Showing an unconverted number under a converted label is the bug this
+    // whole module exists to stop.
+    expect(convertPressure({ value: 7, unit: "furlongs" }, "bar")).toEqual({ value: 7, unit: "furlongs" });
+    expect(convertPressure({ value: 7, unit: null }, "bar")).toEqual({ value: 7, unit: null });
+  });
+
+  test("no reading stays no reading", () => {
+    expect(convertPressure(null, "bar")).toBeNull();
   });
 });
