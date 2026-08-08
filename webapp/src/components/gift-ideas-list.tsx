@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ interface GiftIdeasListProps {
 
 export function GiftIdeasList({ birthdayId }: GiftIdeasListProps) {
   const t = useTranslations("birthdays");
+  const tCommon = useTranslations("common");
   const [newText, setNewText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -57,15 +59,21 @@ export function GiftIdeasList({ birthdayId }: GiftIdeasListProps) {
               }
               label={idea.text}
               meta={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 text-muted-foreground hover:text-destructive"
-                  aria-label={t("removeGiftIdeaAria")}
-                  onClick={() => void deleteIdea.mutate({ id: idea.id, birthday_id: birthdayId })}
+                <ConfirmDestructive
+                  title={tCommon("confirmDeleteGiftTitle")}
+                  description={tCommon("confirmDeleteGiftBody")}
+                  onConfirm={() => void deleteIdea.mutate({ id: idea.id, birthday_id: birthdayId })}
                 >
-                  <Trash2 className="size-3.5" />
-                </Button>
+                  {/* Was a 28px button that deleted on one tap, no undo. */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-11 text-muted-foreground hover:text-destructive"
+                    aria-label={t("removeGiftIdeaAria")}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </ConfirmDestructive>
               }
             />
           ))}
