@@ -3080,7 +3080,6 @@
     "frunkLabel": "Frunk",
     "locationLabel": "Standort",
     "tirePressureHeading": "Reifendruck",
-    "tirePressureUnit": "bar",
     "tireFL": "VL",
     "tireFR": "VR",
     "tireRL": "HL",
@@ -3132,23 +3131,57 @@
     "unknownVendor": "Unbekannter Fahrzeugtyp: {vendor}",
     "drivers": {
       "generic-ev": {
-        "haNotConnected": "Home Assistant ist nicht verbunden. Bitte zuerst in den Einstellungen konfigurieren.",
-        "notConfigured": "Keine Entitäten konfiguriert. Fahrzeug in den Einstellungen bearbeiten.",
-        "charging": "Laden",
+        "haNotConnected": "Home Assistant ist nicht verbunden. Richte es zuerst in den Einstellungen ein.",
+        "notConfigured": "Noch nichts eingerichtet. Bearbeite das Fahrzeug in den Einstellungen und wähle die Entitäten aus, die angezeigt werden sollen.",
+        "charging": "Lädt",
+        "notCharging": "Lädt nicht",
+        "batteryLabel": "Akku",
+        "rangeLabel": "Reichweite",
+        "tempInside": "Innen",
+        "tempOutside": "Außen",
+        "statusHeading": "Status",
+        "lockLabel": "Verriegelung",
+        "doorsLabel": "Türen",
+        "windowsLabel": "Fenster",
+        "trunkLabel": "Kofferraum",
+        "odometerLabel": "Kilometerstand",
+        "locationLabel": "Standort",
         "section": {
-          "entities": "Entitäts-IDs"
+          "entities": "Entitäten",
+          "entitiesHint": "Wähle die Home-Assistant-Entitäten für dieses Auto. Alles ist optional — die Karte zeigt, was du ausfüllst. Sobald die erste Entität gewählt ist, werden die Vorschläge auf dieses Auto eingegrenzt."
         },
         "field": {
-          "batteryLevel": "Ladestand",
-          "chargingState": "Ladezustand",
+          "batteryLevel": "Akkustand",
           "range": "Reichweite",
+          "chargingState": "Ladestatus",
+          "chargePower": "Ladeleistung",
+          "timeToFull": "Ladeende",
+          "chargeLimit": "Ladelimit",
+          "insideTemperature": "Innentemperatur",
+          "outsideTemperature": "Außentemperatur",
+          "locked": "Verriegelung",
+          "doors": "Türen",
+          "windows": "Fenster",
+          "trunk": "Kofferraum",
+          "odometer": "Kilometerstand",
           "location": "Standort",
-          "state": "Status"
+          "state": "Fahrzeugstatus"
         }
       }
     },
     "saving": "Wird gespeichert…",
-    "saveError": "Konnte nicht gespeichert werden. Bitte erneut versuchen."
+    "saveError": "Konnte nicht gespeichert werden. Bitte erneut versuchen.",
+    "state": {
+      "open": "Offen",
+      "closed": "Geschlossen",
+      "locked": "Verriegelt",
+      "unlocked": "Entriegelt",
+      "online": "Wach",
+      "asleep": "Schläft",
+      "unknown": "Unbekannt",
+      "home": "Zuhause",
+      "away": "Unterwegs"
+    }
   },
   "familyMembers": {
     "emptyState": "Noch keine Familienmitglieder",
