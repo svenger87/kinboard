@@ -1820,7 +1820,7 @@
       },
       "driverDescription": {
         "tesla": "Tesla natif via l'intégration Home Assistant Fleet.",
-        "generic-ev": "N'importe quelle voiture avec laquelle HA peut communiquer — VW, BMW, Polestar, adaptateurs OBD2, etc. Associez 5 ID d'entités."
+        "generic-ev": "Toute voiture accessible à Home Assistant — VW, BMW, Kia, Polestar, Volvo, dongles OBD2. Choisissez les entités à lire ; toutes sont optionnelles."
       },
       "image": "Image",
       "imageHint": "Optionnel. PNG, JPG ou WebP jusqu'à 5 Mo. Par défaut, un rendu Tesla générique ou une icône de véhicule si non défini.",
@@ -1905,7 +1905,10 @@
       "currencyLabel": "Devise",
       "currencyPlaceholder": "€",
       "saveButton": "Enregistrer",
-      "savingLabel": "Enregistrement…"
+      "savingLabel": "Enregistrement…",
+      "tirePressureUnitLabel": "Unité de pression des pneus",
+      "tirePressureUnitDescription": "Comment afficher la pression des pneus. Par défaut, l’unité de vos capteurs ; tout autre choix est converti.",
+      "tirePressureUnitSource": "Telle que rapportée par le capteur"
     },
     "schedule": {
       "title": "Emploi du temps scolaire",
