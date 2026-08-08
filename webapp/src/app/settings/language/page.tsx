@@ -72,7 +72,6 @@ export default function LanguageSettingsPage() {
           title={t("title")}
           subtitle={t("subtitle")}
           icon={Languages}
-          backHref="/settings"
         />
 
         <motion.div

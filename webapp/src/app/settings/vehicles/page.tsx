@@ -38,7 +38,6 @@ export default function VehiclesSettingsPage() {
           icon={Car}
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings"
           actions={
             <Button asChild>
               <Link href="/settings/vehicles/new">

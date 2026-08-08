@@ -36,6 +36,8 @@ export default function EditVehiclePage({
   const { id } = use(params);
   const t = useTranslations("settings.vehicles");
   const tCommon = useTranslations("common");
+  const tSettings = useTranslations("settings");
+  const tComponents = useTranslations("components");
   const router = useRouter();
   const { data: vehicle, isPending } = useVehicle(id);
   const { mutateAsync: save, isPending: isSaving } = useSaveVehicle();
@@ -125,6 +127,7 @@ export default function EditVehiclePage({
           icon={Car}
           title={vehicle.nickname}
           backHref="/settings/vehicles"
+          backLabel={tComponents("backTo", { target: tSettings("itemVehiclesLabel") })}
           actions={
             <div className="flex gap-2">
               <AlertDialog>

@@ -102,7 +102,6 @@ export default function NotificationSettingsPage() {
           icon={Bell}
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings"
           className="mb-8"
         />
 

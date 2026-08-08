@@ -107,7 +107,7 @@ export default function RecycleBinPage() {
   return (
     <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <PageHeader icon={Trash2} title={t("title")} subtitle={t("subtitle")} backHref="/settings" />
+        <PageHeader icon={Trash2} title={t("title")} subtitle={t("subtitle")} />
 
         <Card className="flex flex-col gap-3 p-6">
           <h2 className="font-medium">{t("retentionHeading")}</h2>

@@ -117,7 +117,6 @@ export default function BringSettingsPage() {
             icon={ShoppingCart}
             title={t("title")}
             subtitle={t("subtitle")}
-            backHref="/settings"
             className="mb-8"
           />
           <Card className="p-6">
@@ -139,7 +138,6 @@ export default function BringSettingsPage() {
             icon={ShoppingCart}
             title={t("title")}
             subtitle={t("subtitle")}
-            backHref="/settings"
             className="mb-8"
           />
 

@@ -16,6 +16,15 @@ interface PageHeaderProps {
   title: ReactNode;
   subtitle?: ReactNode;
   backHref?: string;
+  /**
+   * Names where `backHref` goes, for assistive tech and the tooltip.
+   *
+   * Settings sub-pages already carry a labelled "Settings" link in the layout,
+   * so the only ones that still render this button are the handful that go up
+   * one level instead of all the way out. Two identical unlabelled chevrons
+   * pointing at different places is the thing worth avoiding.
+   */
+  backLabel?: string;
   actions?: ReactNode;
   className?: string;
 }
@@ -26,6 +35,7 @@ export function PageHeader({
   title,
   subtitle,
   backHref,
+  backLabel,
   actions,
   className = "",
 }: PageHeaderProps) {
@@ -38,8 +48,8 @@ export function PageHeader({
     >
       <div className="flex items-center gap-3 min-w-0">
         {backHref && (
-          <Link href={backHref}>
-            <Button variant="ghost" size="icon" className="shrink-0" aria-label={t("back")}>
+          <Link href={backHref} title={backLabel}>
+            <Button variant="ghost" size="icon" className="shrink-0" aria-label={backLabel ?? t("back")}>
               <ChevronLeft className="size-5" />
             </Button>
           </Link>
