@@ -2288,7 +2288,41 @@
       }
     },
     "itemRecycleBinLabel": "Papierkorb",
-    "itemRecycleBinDescription": "Gelöschtes wiederherstellen"
+    "itemRecycleBinDescription": "Gelöschtes wiederherstellen",
+    "integrations": {
+      "title": "Integrationen",
+      "subtitle": "Tokens, mit denen Home Assistant und andere Programme mit Kinboard sprechen.",
+      "createHeading": "Neues Token",
+      "nameLabel": "Name",
+      "namePlaceholder": "Home Assistant",
+      "nameHint": "Nur für dich — damit du zwei Tokens später auseinanderhältst.",
+      "scopesLabel": "Was darf es?",
+      "scopesHint": "Gib nur frei, was das Programm wirklich braucht. Lesen und Schreiben sind getrennt, und keine Berechtigung schließt eine andere ein.",
+      "create": "Token erstellen",
+      "creating": "Wird erstellt…",
+      "secretHeading": "Kopiere dieses Token jetzt",
+      "secretWarning": "Nur dieses eine Mal wird es angezeigt. Kinboard speichert es nur als Hash und kann es nicht noch einmal zeigen — wenn es verloren geht, erstelle ein neues.",
+      "secretDismiss": "Ich habe es kopiert",
+      "copyAria": "Token kopieren",
+      "copyFailed": "Kopieren nicht möglich — markiere den Text und kopiere ihn von Hand.",
+      "existingHeading": "Vorhandene Tokens",
+      "empty": "Noch keine Tokens",
+      "emptyHint": "Erstelle oben eines und füge es in Home Assistant ein, wenn danach gefragt wird.",
+      "loadFailed": "Tokens konnten nicht geladen werden",
+      "retry": "Erneut versuchen",
+      "created": "Erstellt am {date}",
+      "lastUsed": "zuletzt genutzt am {date}",
+      "neverUsed": "nie genutzt",
+      "revoke": "Widerrufen",
+      "revokeAria": "Token {name} widerrufen",
+      "revokedBadge": "widerrufen",
+      "revoked": "Token widerrufen.",
+      "revokeFailed": "Token konnte nicht widerrufen werden.",
+      "revokeConfirmTitle": "Dieses Token widerrufen?",
+      "revokeConfirmBody": "{name} funktioniert sofort nicht mehr. Alles, was es nutzt — Home Assistant, eine Automation — verliert den Zugriff, bis du ein neues erstellst."
+    },
+    "itemIntegrationTokensLabel": "Integrations-Tokens",
+    "itemIntegrationTokensDescription": "Home Assistant und andere Programme mit Kinboard sprechen lassen"
   },
   "calendar": {
     "caldavToast": {

@@ -2288,7 +2288,41 @@
       }
     },
     "itemRecycleBinLabel": "Corbeille",
-    "itemRecycleBinDescription": "Restaurer des éléments supprimés"
+    "itemRecycleBinDescription": "Restaurer des éléments supprimés",
+    "integrations": {
+      "title": "Intégrations",
+      "subtitle": "Jetons permettant à Home Assistant et à d'autres programmes de dialoguer avec Kinboard.",
+      "createHeading": "Nouveau jeton",
+      "nameLabel": "Nom",
+      "namePlaceholder": "Home Assistant",
+      "nameHint": "Pour vous seulement — afin de distinguer deux jetons plus tard.",
+      "scopesLabel": "Que peut-il faire ?",
+      "scopesHint": "N'accordez que ce dont le programme a réellement besoin. Lecture et écriture sont distinctes, et aucune permission n'en implique une autre.",
+      "create": "Créer le jeton",
+      "creating": "Création…",
+      "secretHeading": "Copiez ce jeton maintenant",
+      "secretWarning": "C'est la seule fois qu'il s'affiche. Kinboard le stocke sous forme de hachage et ne peut plus l'afficher — si vous le perdez, créez-en un nouveau.",
+      "secretDismiss": "Je l'ai copié",
+      "copyAria": "Copier le jeton",
+      "copyFailed": "Copie impossible — sélectionnez le texte et copiez-le à la main.",
+      "existingHeading": "Jetons existants",
+      "empty": "Aucun jeton pour l'instant",
+      "emptyHint": "Créez-en un ci-dessus, puis collez-le dans Home Assistant lorsqu'il le demande.",
+      "loadFailed": "Impossible de charger les jetons",
+      "retry": "Réessayer",
+      "created": "Créé le {date}",
+      "lastUsed": "dernière utilisation le {date}",
+      "neverUsed": "jamais utilisé",
+      "revoke": "Révoquer",
+      "revokeAria": "Révoquer le jeton {name}",
+      "revokedBadge": "révoqué",
+      "revoked": "Jeton révoqué.",
+      "revokeFailed": "Impossible de révoquer le jeton.",
+      "revokeConfirmTitle": "Révoquer ce jeton ?",
+      "revokeConfirmBody": "{name} cessera immédiatement de fonctionner. Tout ce qui l'utilise — Home Assistant, une automatisation — perdra l'accès jusqu'à ce que vous en créiez un nouveau."
+    },
+    "itemIntegrationTokensLabel": "Jetons d'intégration",
+    "itemIntegrationTokensDescription": "Permettre à Home Assistant et à d'autres programmes de dialoguer avec Kinboard"
   },
   "calendar": {
     "caldavToast": {
