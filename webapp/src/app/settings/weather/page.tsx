@@ -138,7 +138,6 @@ export default function WeatherSettingsPage() {
           icon={Cloud}
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings"
           className="mb-8"
         />
 

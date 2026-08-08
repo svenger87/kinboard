@@ -151,7 +151,6 @@ export default function DevicesSettingsPage() {
           icon={Monitor}
           title={t("title")}
           subtitle={isLoading ? t("subtitleLoading") : t("subtitleCount", { online: onlineCount, total: totalCount })}
-          backHref="/settings"
           className="mb-8"
         />
 

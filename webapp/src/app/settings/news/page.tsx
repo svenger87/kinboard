@@ -199,7 +199,6 @@ export default function NewsSettingsPage() {
           icon={Newspaper}
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings"
         />
 
         <motion.div

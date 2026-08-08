@@ -101,7 +101,6 @@ export default function ScreensaverSettingsPage() {
           icon={Monitor}
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings"
           className="mb-8"
         />
 

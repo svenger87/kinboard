@@ -18,7 +18,6 @@ export default function CameraSettingsPage() {
           icon={Video}
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings"
         />
         <DriverConfigForm />
       </div>

@@ -679,7 +679,6 @@ export default function ScheduleSettingsPage() {
             icon={GraduationCap}
             title={t("title")}
             subtitle={<Skeleton className="h-4 w-32" />}
-            backHref="/settings"
             className="mb-8"
           />
           <Card className="p-4 mb-6">
@@ -702,7 +701,6 @@ export default function ScheduleSettingsPage() {
             icon={GraduationCap}
             title={t("title")}
             subtitle={t("subtitle")}
-            backHref="/settings"
             className="mb-8"
           />
           <Card className="p-8 text-center">
@@ -734,7 +732,6 @@ export default function ScheduleSettingsPage() {
             icon={GraduationCap}
             title={t("title")}
             subtitle={t("subtitle")}
-            backHref="/settings"
             className="mb-8"
           />
 
@@ -760,7 +757,6 @@ export default function ScheduleSettingsPage() {
           icon={GraduationCap}
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings"
           className="mb-8"
           actions={
             <>

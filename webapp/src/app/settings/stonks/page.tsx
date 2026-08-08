@@ -46,7 +46,6 @@ export default function StonksSettingsPage() {
           icon={LineChart}
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings"
         />
 
         <p className="text-sm text-muted-foreground">{t("intro")}</p>

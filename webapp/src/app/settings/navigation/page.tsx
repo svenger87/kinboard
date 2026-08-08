@@ -61,7 +61,6 @@ export default function NavigationSettingsPage() {
         <PageHeader
           title={t("title")}
           icon={ListOrdered}
-          backHref="/settings"
         />
 
         <p className="text-sm text-muted-foreground">{t("intro")}</p>
