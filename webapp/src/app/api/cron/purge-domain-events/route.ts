@@ -54,5 +54,28 @@ export async function POST(request: NextRequest) {
     console.log(`[purge-domain-events] purged ${purged} event(s)`);
   }
 
-  return NextResponse.json({ ok: true, purged });
+  // Idempotency records are swept by the same job rather than a second Ofelia
+  // entry: both are transient tables belonging to the Integration API, both
+  // are pure housekeeping, and one nightly job is one thing to notice when it
+  // stops running. Their retention differs (hours, not days) because a record
+  // exists to absorb a retry, and a retry happens within minutes — a key
+  // reused a week later returning a week-old response would be far more
+  // surprising than doing the work again.
+
+  const { data: keysData, error: keysError } = await (supabase as any).rpc(
+    "purge_integration_idempotency",
+    { p_keep_hours: 24 },
+  );
+
+  if (keysError) {
+    // Logged, not fatal: the events sweep above already succeeded, and
+    // failing the job would hide that.
+    await logApiError("purge-domain-events/idempotency", keysError);
+  }
+  const purgedKeys = typeof keysData === "number" ? keysData : 0;
+  if (purgedKeys > 0) {
+    console.log(`[purge-domain-events] purged ${purgedKeys} idempotency record(s)`);
+  }
+
+  return NextResponse.json({ ok: true, purged, purged_idempotency_keys: purgedKeys });
 }
