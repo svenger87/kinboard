@@ -16,7 +16,13 @@
     "serverUnreachableBody": "The app can't load your family data. Check that the Kinboard stack is running and that this device can reach it, then try again.",
     "serverUnreachableRetry": "Try again",
     "serverUnreachableAutoRetry": "Checking again automatically…",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "confirmDeleteSubjectTitle": "Delete this subject?",
+    "confirmDeleteSubjectBody": "It will disappear from the timetable, and anything on the pack list for it goes too. This cannot be undone.",
+    "confirmDeleteGiftTitle": "Delete this gift idea?",
+    "confirmDeleteGiftBody": "It will be removed from this birthday. This cannot be undone.",
+    "confirmDeleteDashboardTitle": "Delete this dashboard?",
+    "confirmDeleteDashboardBody": "Every card on it goes with it, and you would have to add them again one by one. This cannot be undone."
   },
   "components": {
     "back": "Back",
