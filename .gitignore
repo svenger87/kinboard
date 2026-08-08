@@ -30,12 +30,15 @@ id_*_*
 *.pub
 known_hosts
 
-# Backup archives (don't belong in source control)
+# Backup archives and database dumps (don't belong in source control).
+# No bare *.sql here — init.sql and every migration is tracked.
 *.tar.gz
 *.tar
 *.tgz
 *.zip
 *.bak
+*.pgdump
+*.sql.gz
 
 # Local deployment overrides
 docker-compose.override.yml
@@ -69,6 +72,18 @@ _backups/
 # accident — a tracked copy collides with each host's local one and aborts the
 # auto-update git pull. Runtime state does not belong in git.
 webapp/docker/data/
+
+# The ${DATA_DIR} bind mounts, for installs where DATA_DIR points at the repo
+# itself. Self-hosting tells NAS users to set DATA_DIR=/mnt/user/appdata/kinboard
+# — the same directory the repo is cloned into — so on those installs the live
+# PostgreSQL cluster, the uploaded recipe images and avatars, and any database
+# dumps all sit untracked in the working tree. `git add -A` then stages the
+# database, and `git clean -fd` deletes it. Anchored to the repo root with a
+# leading slash so a source directory of the same name elsewhere in the tree is
+# unaffected.
+/db/
+/storage/
+/backups/
 
 # Internal notes — pentest reports, host-specific diagnostics. These name
 # real instances and must never be published to the public repo.
