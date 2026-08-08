@@ -99,7 +99,7 @@ export default function PocketMoneySettingsPage() {
       className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset"
     >
       <div className="relative z-10 max-w-3xl mx-auto space-y-6">
-        <PageHeader title={t("title")} icon={PiggyBank} backHref="/settings" />
+        <PageHeader title={t("title")} icon={PiggyBank} />
 
         <p className="text-sm text-muted-foreground">{t("intro")}</p>
 

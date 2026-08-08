@@ -16,6 +16,8 @@ import { PageHeader } from "@/components/page-header";
 
 export default function NewVehiclePage() {
   const t = useTranslations("settings.vehicles");
+  const tSettings = useTranslations("settings");
+  const tComponents = useTranslations("components");
   const router = useRouter();
   const { mutateAsync: save } = useSaveVehicle();
   const [vendor, setVendor] = useState<string>(VEHICLE_DRIVERS[0]?.id ?? "");
@@ -48,6 +50,7 @@ export default function NewVehiclePage() {
           icon={Car}
           title={t("addVehicle")}
           backHref="/settings/vehicles"
+          backLabel={tComponents("backTo", { target: tSettings("itemVehiclesLabel") })}
         />
 
         <Card>

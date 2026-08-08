@@ -189,7 +189,8 @@
       "noFamilyOrDevice": "Famille ou appareil introuvable — reconnectez cet appareil et réessayez.",
       "permissionDenied": "Les notifications ont été refusées. Autorisez-les pour ce site dans les réglages de votre navigateur.",
       "vapidMissing": "Le serveur push n'est pas configuré. Renseignez les clés VAPID dans .env."
-    }
+    },
+    "backTo": "Retour à {target}"
   },
   "localeSwitcher": {
     "label": "Langue"

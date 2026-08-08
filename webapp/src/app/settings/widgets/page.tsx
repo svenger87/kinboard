@@ -85,7 +85,6 @@ export default function WidgetSettingsPage() {
           }
           title={t("title")}
           subtitle={t("subtitleCount", { count: enabledCount, total: WIDGET_CONFIGS.length })}
-          backHref="/settings"
           className="mb-2"
         />
 

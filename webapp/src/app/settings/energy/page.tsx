@@ -22,7 +22,6 @@ export default function EnergySettingsPage() {
           }
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings"
         />
         <DriverConfigForm />
       </div>

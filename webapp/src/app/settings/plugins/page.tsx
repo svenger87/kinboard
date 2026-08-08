@@ -39,7 +39,6 @@ export default function PluginsSettingsPage() {
         <PageHeader
           title={t("title")}
           icon={Puzzle}
-          backHref="/settings"
         />
 
         <Card className="p-6">

@@ -106,6 +106,8 @@ const emptyConnection = (): ConnectionForm => ({
 export default function CaldavSettingsPage() {
   const t = useTranslations("settings.caldav");
   const tCommon = useTranslations("common");
+  const tSettings = useTranslations("settings");
+  const tComponents = useTranslations("components");
   const locale = useLocale();
 
   const { data: allCalendars = [], isLoading } = useCalendars();
@@ -287,6 +289,7 @@ export default function CaldavSettingsPage() {
           title={t("title")}
           subtitle={t("subtitle")}
           backHref="/settings/calendar"
+          backLabel={tComponents("backTo", { target: tSettings("itemCalendarLabel") })}
           actions={
             <div className="flex items-center gap-2">
               {caldavCalendars.length > 0 && (

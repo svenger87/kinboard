@@ -286,7 +286,6 @@ export default function GoogleSettingsPage() {
               icon={Calendar}
               title={t("title")}
               subtitle={t("subtitle")}
-              backHref="/settings"
               className="mb-8"
             />
             <Skeleton className="h-24 w-full rounded-xl mb-6" />
@@ -305,7 +304,6 @@ export default function GoogleSettingsPage() {
             icon={Calendar}
             title={t("title")}
             subtitle={t("subtitle")}
-            backHref="/settings"
             className="mb-8"
           />
 
