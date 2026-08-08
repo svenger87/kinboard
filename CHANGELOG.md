@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Dialogs could render wider than the screen.** The entity picker was the visible case: on a phone its content came out 471px wide inside a 390px dialog, so the confirm button sat past the right edge with no way to reach it, and on the portrait kiosk — where the text scale is larger — it was worse. Dialog contents are laid out in a grid, and grid children refuse to shrink below their own content unless told to, which also stopped the scrolling parts inside them from scrolling. Every dialog in the app is fixed by the same change. While in there: the picker's filter chips now wrap instead of hiding "Binär" off the edge, and it no longer draws a second close button on top of the one the dialog already has.
+
 ### Added
 - **A recycle bin, under Settings.** Deleting something no longer throws it away — birthdays, notes, tasks, school subjects, meal plan entries, recipes, savings goals and family members all go to the bin first, and can be put back from **Settings → Recycle bin**. This started with a birthday a child deleted on the wall tablet, missed for weeks, and only recovered by digging through months-old database backups. Restoring brings back everything that belonged to the item, so a restored person still has their timetable and their pocket-money account. How long the bin keeps things is up to you — 7, 30 or 90 days, or forever — and each entry can also be deleted for good, deliberately. Calendar events are the one exception: they are owned by the calendar they sync from, so deleting one there is still the way. The bin sits behind the settings PIN like the rest of Settings.
 
