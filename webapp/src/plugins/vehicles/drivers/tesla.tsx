@@ -53,6 +53,7 @@ import { StatisticsCard, StatisticsGrid } from "@/components/home-assistant/stat
 import type { Vehicle } from "@/types/database";
 import type { HAEntity } from "@/types/home-assistant";
 import type { VehicleDriver } from "./types";
+import { minutesToFullCharge } from "@/plugins/vehicles/charge-eta";
 
 // ---------------------------------------------------------------------------
 // TeslaConfig — canonical definition lives here; re-exported from
@@ -316,7 +317,11 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
     teslaConfig?.charging_rate || teslaConfig?.charger_power
   );
   const chargeLimit = getVal(teslaConfig?.charge_limit);
-  const timeToFull = getVal(teslaConfig?.time_to_full_charge);
+  // Not getVal: this sensor is a completion timestamp on the Tesla
+  // integrations and a duration on TeslaMate. See charge-eta.ts.
+  const timeToFull = minutesToFullCharge(
+    teslaConfig?.time_to_full_charge ? entityMap.get(teslaConfig.time_to_full_charge) : undefined
+  );
   const chargeEnergyAdded = getVal(teslaConfig?.charge_energy_added);
   const insideTemp = getVal(teslaConfig?.inside_temperature);
   const outsideTemp = getVal(teslaConfig?.outside_temperature);
