@@ -11,6 +11,11 @@ name: E2E smoke
 on:
   push:
     branches: [main]
+    # The Usage stats workflow rewrites stats/ on main nightly. Booting the
+    # whole stack to smoke-test a JSON snapshot is pure waste. Safe as a
+    # paths filter here because this trigger has no tags: entry — see the
+    # note in docker.yml for why that distinction matters.
+    paths-ignore: ["stats/**"]
   pull_request:
     branches: [main]
 
