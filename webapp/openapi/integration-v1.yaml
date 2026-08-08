@@ -394,6 +394,9 @@ components:
         - tasks_due
         - school_tomorrow
         - birthdays_upcoming
+        - tasks_overdue
+        - meal_tomorrow
+        - pocket_money
         - display_mode
         - attention_required
       properties:
@@ -437,16 +440,42 @@ components:
             overdue: { type: integer }
         school_tomorrow:
           type: object
+          description: |
+            `state` is the children's names, not a count. A dashboard renders
+            the state and hides attributes, so the state has to be the human
+            answer — "0" does not tell anyone who has school.
           properties:
-            state: { type: integer }
+            state: { type: [string, "null"] }
             children: { type: array, items: { type: string } }
+            count: { type: integer }
             first_lesson: { type: [string, "null"] }
         birthdays_upcoming:
           type: object
+          description: "`state` is the person, with the day count alongside."
           properties:
-            state: { type: [integer, "null"] }
+            state: { type: [string, "null"] }
             name: { type: [string, "null"] }
             days_remaining: { type: [integer, "null"] }
+            date: { type: [string, "null"], format: date }
+        tasks_overdue:
+          type: integer
+          description: Its own value, not only an attribute of tasks_due, so "something is overdue" is a trivial automation.
+        meal_tomorrow:
+          type: object
+          properties:
+            state: { type: [string, "null"] }
+            meal: { type: [string, "null"] }
+            recipe_id: { type: [string, "null"], format: uuid }
+        pocket_money:
+          type: array
+          description: One entry per child with an account. Balances are in currency units, not cents.
+          items:
+            type: object
+            properties:
+              person_id: { type: string, format: uuid }
+              name: { type: string }
+              balance: { type: number }
+              currency: { type: string }
         display_mode:
           type: "null"
           description: Reserved for the Heute-Motor (Phase 3).

@@ -45,8 +45,17 @@ export interface FamilySummary {
   shopping_items: number;
   meal_today: { state: string | null; meal: string | null; recipe_id: string | null };
   tasks_due: { state: number; open: number; overdue: number };
-  school_tomorrow: { state: number; children: string[]; first_lesson: string | null };
-  birthdays_upcoming: { state: number | null; name: string | null; days_remaining: number | null };
+  /**
+   * `state` is the value a dashboard card shows, so it is the human answer,
+   * not the count. Home Assistant renders the state and hides attributes, and
+   * "0" is not an answer to "whose birthday is next" — which is exactly how
+   * this read on a real wall display.
+   */
+  school_tomorrow: { state: string | null; children: string[]; count: number; first_lesson: string | null };
+  birthdays_upcoming: { state: string | null; name: string | null; days_remaining: number | null; date: string | null };
+  tasks_overdue: number;
+  meal_tomorrow: { state: string | null; meal: string | null; recipe_id: string | null };
+  pocket_money: { person_id: string; name: string; balance: number; currency: string }[];
   /** Heute-Motor, Phase 3. Reported as null so the entity exists and reads "unknown". */
   display_mode: null;
   attention_required: false;
@@ -111,7 +120,8 @@ export async function GET(request: NextRequest) {
     const tomorrowDow = isoDayOfWeek(tomorrowDate);
 
     try {
-      const [calendars, shopping, todos, meals, schedules, birthdays, people] = await Promise.all([
+      const [calendars, shopping, todos, meals, schedules, birthdays, people, mealsTomorrow, purses] =
+        await Promise.all([
 
         (supabase as any).from("calendars").select("id").eq("family_id", familyId),
 
@@ -157,6 +167,18 @@ export async function GET(request: NextRequest) {
           .select("id, name")
           .eq("family_id", familyId)
           .is("deleted_at", null),
+
+        (supabase as any)
+          .from("meal_plan_entries")
+          .select("recipe_id, note, meal_plans!inner(family_id)")
+          .eq("meal_plans.family_id", familyId)
+          .eq("date", tomorrow)
+          .is("deleted_at", null),
+
+        (supabase as any)
+          .from("pocket_money_accounts")
+          .select("person_id, balance_cents, currency")
+          .eq("family_id", familyId),
       ]);
 
       // Calendar events need the family's calendar ids first — events are
@@ -214,11 +236,25 @@ export async function GET(request: NextRequest) {
       const withLessons = scheduleRows.filter((s) => firstLessonOf(s.time_slots) !== null);
 
       const nextBirthday = ((birthdays.data ?? []) as { name: string; date: string }[])
-        .map((b) => ({ name: b.name, days: daysUntilNextBirthday(b.date, now) }))
-        .filter((b): b is { name: string; days: number } => b.days !== null)
+        .map((b) => ({ name: b.name, days: daysUntilNextBirthday(b.date, now), date: b.date }))
+        .filter((b): b is { name: string; days: number; date: string } => b.days !== null)
         .sort((a, b) => a.days - b.days)[0];
 
       const mealRow = ((meals.data ?? []) as { recipe_id: string | null; note: string | null }[])[0];
+      const mealTomorrowRow = ((mealsTomorrow.data ?? []) as { recipe_id: string | null; note: string | null }[])[0];
+
+      const pocketMoney = ((purses.data ?? []) as {
+        person_id: string; balance_cents: number | null; currency: string | null;
+      }[]).map((a) => ({
+        person_id: a.person_id,
+        name: nameById.get(a.person_id) ?? "?",
+        // Cents in the database, currency units out: a sensor showing 501 for
+        // €5.01 is a sensor nobody trusts.
+        balance: Math.round((a.balance_cents ?? 0)) / 100,
+        currency: a.currency ?? "EUR",
+      }));
+
+      const childNames = withLessons.map((s) => nameById.get(s.person_id) ?? "?");
 
       const summary: FamilySummary = {
         next_family_event: nextEvent,
@@ -231,15 +267,26 @@ export async function GET(request: NextRequest) {
         },
         tasks_due: { state: openTodos.length, open: openTodos.length, overdue },
         school_tomorrow: {
-          state: withLessons.length,
-          children: withLessons.map((s) => nameById.get(s.person_id) ?? "?"),
+          // Who has school, not how many — the names are the answer.
+          state: childNames.length > 0 ? childNames.join(", ") : null,
+          children: childNames,
+          count: childNames.length,
           first_lesson: withLessons.length > 0 ? firstLessonOf(withLessons[0].time_slots) : null,
         },
         birthdays_upcoming: {
-          state: nextBirthday?.days ?? null,
+          // The person, not the day count. "0" told nobody it was Nora's.
+          state: nextBirthday?.name ?? null,
           name: nextBirthday?.name ?? null,
           days_remaining: nextBirthday?.days ?? null,
+          date: nextBirthday?.date ?? null,
         },
+        tasks_overdue: overdue,
+        meal_tomorrow: {
+          state: mealTomorrowRow?.note ?? (mealTomorrowRow?.recipe_id ? "recipe" : null),
+          meal: mealTomorrowRow?.note ?? null,
+          recipe_id: mealTomorrowRow?.recipe_id ?? null,
+        },
+        pocket_money: pocketMoney,
         display_mode: null,
         attention_required: false,
       };
