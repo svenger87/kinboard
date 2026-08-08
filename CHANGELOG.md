@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **All-day events from CalDAV and iCal feeds land on the right day.** A date-only event carries no time and no timezone, but it was being stored as a moment in time using the *server's* clock. Anyone whose device sat in a different timezone from the server saw it a day out — an event on the 7th showing as the 6th, and spanning two days because the end date is written as the morning after. It now sticks to the day it was written for. Existing events correct themselves on the next sync.
+
 ## [1.7.0] - 2026-08-07
 
 ### Changed
