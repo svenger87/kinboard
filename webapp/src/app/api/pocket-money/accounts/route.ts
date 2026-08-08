@@ -30,11 +30,28 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const { data, error } = await (supabase as any)
+
+  // An account whose owner is in the recycle bin has to be left out by hand.
+  // The row is still there — deleting a person cancels the cascade so a restore
+  // brings their balance back — and this route reads with the service role,
+  // which bypasses the policy that hides it everywhere else. Without this the
+  // page renders a card with a balance and no name on it.
+  const { data: binned } = await (supabase as any)
+    .from("people")
+    .select("id")
+    .eq("family_id", familyId)
+    .not("deleted_at", "is", null);
+  const binnedIds = ((binned ?? []) as { id: string }[]).map((p) => p.id);
+
+  let query = (supabase as any)
     .from("pocket_money_accounts")
     .select("*")
-    .eq("family_id", familyId)
-    .order("created_at", { ascending: true });
+    .eq("family_id", familyId);
+  if (binnedIds.length > 0) {
+    query = query.not("person_id", "in", `(${binnedIds.join(",")})`);
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: true });
 
   if (error) {
     console.error("[pocket-money] list error:", error);

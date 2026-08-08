@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Trash2, RotateCcw, Undo2 } from "lucide-react";
+import { Trash2, Undo2 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -96,6 +96,14 @@ export default function RecycleBinPage() {
   const fmt = (iso: string) =>
     new Date(iso).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
 
+  // Some of what the bin shows is a bare date rather than a name — a birthday's
+  // date, a meal plan entry's day — and reaching the page as "2014-08-26" next
+  // to a localised timestamp looks like a leaked database value.
+  const humanise = (value: string) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(value)
+      ? new Date(`${value}T12:00:00Z`).toLocaleDateString(locale, { dateStyle: "medium" })
+      : value;
+
   return (
     <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
       <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-col gap-6">
@@ -150,16 +158,16 @@ export default function RecycleBinPage() {
               >
                 <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
                   <div className="flex min-w-0 flex-1 flex-col">
-                    <p className="break-words font-medium">{item.title}</p>
+                    <p className="break-words font-medium">{humanise(item.title)}</p>
                     <p className="text-xs text-muted-foreground">
                       {t(`types.${item.table}` as never)} · {fmt(item.deleted_at)}
-                      {item.subtitle ? ` · ${item.subtitle}` : ""}
+                      {item.subtitle ? ` · ${humanise(item.subtitle)}` : ""}
                     </p>
                     {RESTORES_DEPENDENTS.includes(item.table) && (
                       // Restoring these brings their dependants back too, because
                       // the cascade was cancelled along with the delete. Saying so
                       // stops "will this come back empty?" being a reason not to.
-                      <p className="mt-0.5 text-xs text-muted-foreground/80">{t("restoresDependents")}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{t("restoresDependents")}</p>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center justify-end gap-2">
@@ -183,7 +191,7 @@ export default function RecycleBinPage() {
                         disabled={busy === item.id}
                         aria-label={t("purgeTitle")}
                       >
-                        <RotateCcw className="size-4 rotate-180" />
+                        <Trash2 className="size-4" />
                       </Button>
                     </ConfirmDestructive>
                   </div>

@@ -157,6 +157,43 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------------
+-- 3b. Hide what a binned person owns, without binning it separately
+-- ---------------------------------------------------------------------------
+--
+-- `pocket_money_accounts` and `schedules` are ON DELETE CASCADE children of
+-- `people`, and cancelling the person's delete cancels theirs — which is what
+-- makes a restore whole. But they carry no `deleted_at` of their own, so they
+-- stay readable, and the pocket-money page renders an account card with no name
+-- on it: the account is visible, its owner is not.
+--
+-- Rather than giving them their own soft delete, their policies test the
+-- owner's. They disappear while the person sits in the bin and come back the
+-- moment the person is restored, with no second thing to keep in step.
+DO $$
+DECLARE
+  t text;
+  pol text;
+  existing_qual text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['pocket_money_accounts', 'schedules'] LOOP
+    IF to_regclass('public.' || t) IS NULL THEN CONTINUE; END IF;
+
+    FOR pol, existing_qual IN
+      SELECT policyname, qual FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = t AND cmd = 'ALL'
+    LOOP
+      IF existing_qual IS NOT NULL AND existing_qual NOT LIKE '%people%deleted_at%' THEN
+        EXECUTE format(
+          'ALTER POLICY %I ON public.%I USING ((%s) AND NOT EXISTS ('
+          || 'SELECT 1 FROM public.people p WHERE p.id = public.%I.person_id '
+          || 'AND p.deleted_at IS NOT NULL))',
+          pol, t, existing_qual, t);
+      END IF;
+    END LOOP;
+  END LOOP;
+END $$;
+
+-- ---------------------------------------------------------------------------
 -- 4. Retention default
 -- ---------------------------------------------------------------------------
 -- How long the bin keeps things, in days. Configurable in Settings; the purge
