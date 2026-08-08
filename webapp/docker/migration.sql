@@ -313,30 +313,45 @@ END $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.push_subscriptions TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.notification_preferences TO anon, authenticated;
 
--- Storage bucket for recipe images
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'recipe-images',
-  'recipe-images',
-  true,
-  5242880,
-  ARRAY['image/jpeg', 'image/png', 'image/webp']
-) ON CONFLICT (id) DO NOTHING;
+-- Storage bucket for recipe images.
+--
+-- Guarded on the storage schema existing. The storage service creates it on
+-- its own first start, so on a brand-new stack the migrations can win the race
+-- and this whole block runs against a schema that is not there yet. It failed
+-- silently for as long as the migration runner discarded exit codes; now that
+-- it does not, the guard is what keeps a first boot from being reported as a
+-- broken schema. The next run, once storage is up, creates the bucket.
+DO $$
+BEGIN
+  IF to_regclass('storage.buckets') IS NULL OR to_regclass('storage.objects') IS NULL THEN
+    RAISE NOTICE 'storage schema not ready yet; skipping recipe-images bucket (created on a later run)';
+    RETURN;
+  END IF;
 
--- RLS: Anyone can read public recipe images
-DROP POLICY IF EXISTS "Public read recipe images" ON storage.objects;
-CREATE POLICY "Public read recipe images" ON storage.objects
-  FOR SELECT USING (bucket_id = 'recipe-images');
+  INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  VALUES (
+    'recipe-images',
+    'recipe-images',
+    true,
+    5242880,
+    ARRAY['image/jpeg', 'image/png', 'image/webp']
+  ) ON CONFLICT (id) DO NOTHING;
 
--- RLS: Anyone can upload recipe images (family scoping done via app)
-DROP POLICY IF EXISTS "Upload recipe images" ON storage.objects;
-CREATE POLICY "Upload recipe images" ON storage.objects
-  FOR INSERT WITH CHECK (bucket_id = 'recipe-images');
+  -- RLS: Anyone can read public recipe images
+  DROP POLICY IF EXISTS "Public read recipe images" ON storage.objects;
+  CREATE POLICY "Public read recipe images" ON storage.objects
+    FOR SELECT USING (bucket_id = 'recipe-images');
 
--- RLS: Anyone can delete their own recipe images
-DROP POLICY IF EXISTS "Delete recipe images" ON storage.objects;
-CREATE POLICY "Delete recipe images" ON storage.objects
-  FOR DELETE USING (bucket_id = 'recipe-images');
+  -- RLS: Anyone can upload recipe images (family scoping done via app)
+  DROP POLICY IF EXISTS "Upload recipe images" ON storage.objects;
+  CREATE POLICY "Upload recipe images" ON storage.objects
+    FOR INSERT WITH CHECK (bucket_id = 'recipe-images');
+
+  -- RLS: Anyone can delete their own recipe images
+  DROP POLICY IF EXISTS "Delete recipe images" ON storage.objects;
+  CREATE POLICY "Delete recipe images" ON storage.objects
+    FOR DELETE USING (bucket_id = 'recipe-images');
+END $$;
 
 -- Add recurring task support to todos
 ALTER TABLE public.todos
