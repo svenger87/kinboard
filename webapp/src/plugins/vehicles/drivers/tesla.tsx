@@ -53,7 +53,13 @@ import { StatisticsCard, StatisticsGrid } from "@/components/home-assistant/stat
 import type { Vehicle } from "@/types/database";
 import type { HAEntity } from "@/types/home-assistant";
 import type { VehicleDriver } from "./types";
-import { formatReading, READING_DIGITS } from "@/plugins/vehicles/entity-read";
+import {
+  formatReading,
+  READING_DIGITS,
+  convertPressure,
+  PRESSURE_UNITS,
+  type PressureUnit,
+} from "@/plugins/vehicles/entity-read";
 import { readVehicle, vehicleEntityIds } from "@/plugins/vehicles/readings";
 import { EntitySelector } from "@/plugins/vehicles/components/entity-selector";
 
@@ -89,6 +95,8 @@ export interface TeslaConfig {
   tire_pressure_fr?: string;        // sensor.xxx_tire_pressure_front_right
   tire_pressure_rl?: string;        // sensor.xxx_tire_pressure_rear_left
   tire_pressure_rr?: string;        // sensor.xxx_tire_pressure_rear_right
+  /** How to display tyre pressure. "source" keeps whatever the sensor reports. */
+  tire_pressure_unit?: PressureUnit;
 
   // Vehicle Info
   odometer?: string;                // sensor.xxx_odometer (km)
@@ -203,11 +211,18 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
       locale: intlLocale,
     });
 
-  // All four corners come from the same integration, so they share a unit —
-  // but it is read rather than assumed. It used to be printed as "bar" for
-  // everyone, with psi silently converted to match the label.
-  const tyreUnit =
-    r.tyres.fl?.unit ?? r.tyres.fr?.unit ?? r.tyres.rl?.unit ?? r.tyres.rr?.unit ?? null;
+  // All four corners come from the same integration, so they share a unit. It
+  // used to be printed as "bar" for everyone with psi silently converted to
+  // match; now the sensor's own unit is the default and the household can pick
+  // another, which is a real conversion rather than a relabel.
+  const tyrePreference = teslaConfig?.tire_pressure_unit ?? "source";
+  const tyres = {
+    fl: convertPressure(r.tyres.fl, tyrePreference),
+    fr: convertPressure(r.tyres.fr, tyrePreference),
+    rl: convertPressure(r.tyres.rl, tyrePreference),
+    rr: convertPressure(r.tyres.rr, tyrePreference),
+  };
+  const tyreUnit = tyres.fl?.unit ?? tyres.fr?.unit ?? tyres.rl?.unit ?? tyres.rr?.unit ?? null;
 
   const batteryColor =
     batteryLevel > 60
@@ -631,7 +646,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
                     {t("tireFL")}
                   </span>
                   <span className="text-sm font-semibold">
-                    {fmtBare(r.tyres.fl, READING_DIGITS.pressure)}
+                    {fmtBare(tyres.fl, READING_DIGITS.pressure)}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5 rounded-lg bg-muted/50">
@@ -639,7 +654,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
                     {t("tireFR")}
                   </span>
                   <span className="text-sm font-semibold">
-                    {fmtBare(r.tyres.fr, READING_DIGITS.pressure)}
+                    {fmtBare(tyres.fr, READING_DIGITS.pressure)}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5 rounded-lg bg-muted/50">
@@ -647,7 +662,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
                     {t("tireRL")}
                   </span>
                   <span className="text-sm font-semibold">
-                    {fmtBare(r.tyres.rl, READING_DIGITS.pressure)}
+                    {fmtBare(tyres.rl, READING_DIGITS.pressure)}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5 rounded-lg bg-muted/50">
@@ -655,7 +670,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
                     {t("tireRR")}
                   </span>
                   <span className="text-sm font-semibold">
-                    {fmtBare(r.tyres.rr, READING_DIGITS.pressure)}
+                    {fmtBare(tyres.rr, READING_DIGITS.pressure)}
                   </span>
                 </div>
               </div>
@@ -1362,6 +1377,28 @@ export function TeslaConfigForm({
                   entities={pressureSensors}
                   allEntities={allEntities}
                 />
+              </div>
+
+              <div className="pt-2">
+                <Label>{t("tirePressureUnitLabel")}</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {t("tirePressureUnitDescription")}
+                </p>
+                <Select
+                  value={editingConfig.tire_pressure_unit ?? "source"}
+                  onValueChange={(v) => updateField("tire_pressure_unit", v as PressureUnit)}
+                >
+                  <SelectTrigger className="w-full sm:w-64">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRESSURE_UNITS.map((u) => (
+                      <SelectItem key={u} value={u}>
+                        {u === "source" ? t("tirePressureUnitSource") : u}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
