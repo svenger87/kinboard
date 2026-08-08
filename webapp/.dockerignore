@@ -16,4 +16,27 @@ test-results
 docker/data
 docker/.env
 
+# Next.js env files. These are for `npm run dev` and must never reach a
+# build — Next inlines NEXT_PUBLIC_* at BUILD time, so whatever is in
+# .env.local is frozen into the client bundle no matter what the container
+# is given at runtime.
+#
+# This is not hypothetical. `./setup.sh` — the documented first step for a
+# self-hoster — copies .env.example to .env.local verbatim, including
+# NEXT_PUBLIC_SUPABASE_URL=http://localhost:8000. Building after that bakes
+# localhost:8000 into window.__ENV, which the browser-side supabase client
+# reads *ahead* of the correct runtime value. The container env is right,
+# the page renders, health checks and curl all pass, and every data request
+# dies on CORS against localhost:8000 — visible only as a frontend stuck
+# loading. That took production down on 2026-08-06.
+#
+# Measured on this file's own commit: 7 files in .next/ carried
+# localhost:8000 with .env.local present, 0 without it.
+#
+# CI never had the file (it is gitignored), which is why the published
+# image was always correct and only local builds broke. Excluding it here
+# makes that true for everyone rather than by accident.
+.env*
+!.env.example
+
 *.log
