@@ -16,8 +16,8 @@ import { WidgetCard } from "@/components/widget-card";
 import type { LucideIcon } from "lucide-react";
 import { useTimeFormat } from "@/hooks/use-time-format";
 
-// Waste bin types: keywords match against German calendar event titles
-// (a Phase 2d task to generalize), but display labels are resolved
+// Waste bin types: keywords match against calendar event titles, and display
+// labels are resolved
 // per-locale via t("wasteCollectionWidget.types.{id}").
 type WasteTypeId = "rest" | "bio" | "paper" | "recyclable" | "packaging";
 
@@ -30,51 +30,100 @@ const WASTE_TYPES: {
 }[] = [
   {
     id: "rest",
-    keywords: ["restabfall", "restmüll", "schwarze tonne", "graue tonne"],
+    keywords: [
+      // de
+      "restabfall", "restmüll", "restmuell", "schwarze tonne", "graue tonne", "hausmüll",
+      // en
+      "general waste", "residual waste", "household waste", "black bin", "grey bin", "gray bin", "landfill",
+      // fr
+      "ordures ménagères", "ordures menageres", "déchets résiduels", "bac gris", "bac noir",
+    ],
     icon: Trash2,
     color: "#6b7280",
     bgColor: "#6b728015",
   },
   {
     id: "bio",
-    keywords: ["bioabfall", "biotonne", "biomüll", "grüne tonne"],
+    keywords: [
+      // de
+      "bioabfall", "biotonne", "biomüll", "biomuell", "grüne tonne", "gruene tonne", "grünabfall",
+      // en
+      "food waste", "organic waste", "garden waste", "green bin", "brown bin", "compost", "caddy",
+      // fr
+      "déchets verts", "dechets verts", "biodéchets", "biodechets", "bac vert", "compost",
+    ],
     icon: Leaf,
     color: "#22c55e",
     bgColor: "#22c55e15",
   },
   {
     id: "paper",
-    keywords: ["papier", "pappe", "altpapier", "blaue tonne"],
+    keywords: [
+      // de
+      "papier", "pappe", "altpapier", "blaue tonne", "karton",
+      // en
+      "paper", "cardboard", "blue bin",
+      // fr
+      "papier", "carton", "bac bleu",
+    ],
     icon: Newspaper,
     color: "#3b82f6",
     bgColor: "#3b82f615",
   },
   {
     id: "recyclable",
-    keywords: ["wertstoff", "gelbe tonne", "gelber sack", "verpackung"],
+    keywords: [
+      // de
+      "wertstoff", "gelbe tonne", "gelber sack", "verpackung", "duale system",
+      // en
+      "recycling", "recyclables", "dry mixed", "yellow bin", "co-mingled", "commingled",
+      // fr
+      "recyclage", "emballages", "tri sélectif", "tri selectif", "bac jaune", "sac jaune",
+    ],
     icon: Recycle,
     color: "#eab308",
     bgColor: "#eab30815",
   },
   {
     id: "packaging",
-    keywords: ["leichtverpackung"],
+    keywords: [
+      // de
+      "leichtverpackung",
+      // en
+      "light packaging", "plastic packaging",
+      // fr
+      "emballages légers", "emballages legers",
+    ],
     icon: Package,
     color: "#f97316",
     bgColor: "#f9731615",
   },
 ];
 
-function detectWasteType(title: string) {
+/**
+ * Which bin, if any, a calendar entry is about.
+ *
+ * Every language's keywords are checked regardless of the interface locale,
+ * deliberately. A household in Germany may subscribe to an English-language
+ * council feed, and a household in the UK may run Kinboard in German; matching
+ * only the active locale would show an empty widget in both cases, silently.
+ * Before this, only German matched at all — an English calendar produced
+ * nothing, with no indication anything was wrong.
+ *
+ * Longest keyword first, so a specific match beats a general one: "light
+ * packaging" must not be decided by "packaging", and "garden waste" must not
+ * be swallowed by "waste".
+ */
+export function detectWasteType(title: string) {
   const lower = title.toLowerCase();
-  for (const wasteType of WASTE_TYPES) {
-    for (const keyword of wasteType.keywords) {
-      if (lower.includes(keyword)) {
-        return wasteType;
-      }
-    }
-  }
-  return null;
+  const matches = WASTE_TYPES.flatMap((wasteType) =>
+    wasteType.keywords
+      .filter((keyword) => lower.includes(keyword))
+      .map((keyword) => ({ wasteType, keyword })),
+  );
+  if (matches.length === 0) return null;
+  matches.sort((a, b) => b.keyword.length - a.keyword.length);
+  return matches[0].wasteType;
 }
 
 function WasteCollectionSkeleton() {
