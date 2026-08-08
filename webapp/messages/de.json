@@ -2249,7 +2249,42 @@
       "customColorTitle": "Eigene Farbe",
       "editAria": "{name} bearbeiten",
       "deleteAria": "{name} entfernen"
-    }
+    },
+    "recycleBin": {
+      "title": "Papierkorb",
+      "subtitle": "Gelöschtes wiederherstellen",
+      "retentionHeading": "Gelöschtes aufbewahren für",
+      "retentionBody": "So lange bleiben gelöschte Einträge hier, danach sind sie endgültig weg. Was schon im Papierkorb liegt und älter ist, wird bei der nächsten nächtlichen Aufräumrunde entfernt.",
+      "keepForever": "Für immer",
+      "days": "{count} Tage",
+      "retentionSaved": "Gespeichert",
+      "retentionFailed": "Aufbewahrungsdauer konnte nicht gespeichert werden",
+      "restore": "Wiederherstellen",
+      "restored": "Wiederhergestellt",
+      "restoreFailed": "Eintrag konnte nicht wiederhergestellt werden",
+      "purgeTitle": "Endgültig löschen?",
+      "purgeBody": "Der Eintrag ist danach endgültig weg und lässt sich nicht mehr zurückholen.",
+      "purged": "Endgültig gelöscht",
+      "purgeFailed": "Eintrag konnte nicht gelöscht werden",
+      "loadFailed": "Papierkorb konnte nicht geladen werden.",
+      "retry": "Erneut versuchen",
+      "emptyTitle": "Papierkorb ist leer",
+      "emptyBody": "Gelöschte Einträge landen hier, damit du sie zurückholen kannst.",
+      "restoresDependents": "Beim Wiederherstellen kommt alles zurück, was dazugehört hat.",
+      "types": {
+        "birthdays": "Geburtstag",
+        "birthday_gift_ideas": "Geschenkidee",
+        "notes": "Notiz",
+        "todos": "Aufgabe",
+        "subjects": "Schulfach",
+        "meal_plan_entries": "Essensplan-Eintrag",
+        "pocket_money_goals": "Taschengeld-Sparziel",
+        "recipes": "Rezept",
+        "people": "Person"
+      }
+    },
+    "itemRecycleBinLabel": "Papierkorb",
+    "itemRecycleBinDescription": "Gelöschtes wiederherstellen"
   },
   "calendar": {
     "caldavToast": {

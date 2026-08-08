@@ -81,6 +81,7 @@ Family logistics are scattered across calendars, chat threads, sticky notes, and
 | **Weather** — current + hourly + radar (OpenWeatherMap) | [OpenWeatherMap](https://github.com/svenger87/kinboard/wiki/OpenWeatherMap) |
 | **Web push notifications** — shopping items, task assignments, daily todo digest. **PWA install** required on iOS. | [Notifications](https://github.com/svenger87/kinboard/wiki/Notifications) |
 | **Multi-device + multi-person** — devices join a family with a 6-char code, per-person color coding everywhere | [People & devices](https://github.com/svenger87/kinboard/wiki/People-and-Devices) |
+| **Recycle bin** — deleted items are recoverable for a configurable window, because a wall display is touched by everyone in the house | [Recycle bin](https://github.com/svenger87/kinboard/wiki/Recycle-Bin) |
 | **Monthly themes** — colors shift through the year automatically | [Themes & locales](https://github.com/svenger87/kinboard/wiki/Themes) |
 | **i18n** — English, German, French — partial translations welcome | [Themes & locales](https://github.com/svenger87/kinboard/wiki/Themes) |
 
