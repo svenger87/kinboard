@@ -8,7 +8,7 @@ name: Docker image
 # Image: ghcr.io/svenger87/kinboard
 #
 # Tag scheme:
-#   - main branch → :main, :latest, :sha-<short>
+#   - main branch → :main, :sha-<short>          (no :latest -- see below)
 #   - v1.2.3 tag  → :v1.2.3, :1.2.3, :1.2, :1, :latest
 #   - PRs do NOT push (so forks can't backdoor an image)
 #
@@ -129,7 +129,16 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            # `latest` means "newest stable release", not "newest commit on
+            # main". It used to be attached to every main push, so a release-
+            # candidate version bump -- an ordinary push to main -- moved it:
+            # after v1.7.0 shipped, `latest` pointed at 1.7.1-rc.1 and every
+            # self-hoster on the stable channel was pulling a release
+            # candidate. It now comes only from a stable version tag.
+            # metadata-action's semver handling already excludes prereleases,
+            # so v1.7.1-rc.1 cannot claim it.
+            type=semver,pattern={{version}},enable=${{ !contains(github.ref, '-') }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
             # Pre-release channel. Any semver tag carrying a prerelease
             # identifier (v1.6.0-rc.1, v1.6.0-beta.2) also publishes a
             # moving `next` tag, so testers pin KINBOARD_TAG=next once and
@@ -204,7 +213,9 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            # Same rule as the build job: `latest` is the newest *stable*
+            # release, never the newest commit on main.
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
             # Pre-release channel. Any semver tag carrying a prerelease
             # identifier (v1.6.0-rc.1, v1.6.0-beta.2) also publishes a
             # moving `next` tag, so testers pin KINBOARD_TAG=next once and
