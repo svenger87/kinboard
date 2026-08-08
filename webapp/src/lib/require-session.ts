@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySession, type SessionContext } from "@/lib/session";
+import { apiError } from "@/lib/api-error";
 
 /**
  * The auth boundary for API routes. Not a second line of defence — the line.
@@ -38,10 +39,11 @@ export async function requireSession(request: NextRequest): Promise<SessionResul
   const session = await verifySession(token);
 
   if (!session) {
-    return {
-      ok: false,
-      response: NextResponse.json({ error: "not authenticated" }, { status: 401 }),
-    };
+    // The `error` string is unchanged, so every existing caller reading
+    // `.error` keeps working; `code` and `correlationId` are added beside it.
+    // This one call site covers every route behind the auth boundary, which
+    // is why it is the first adopter.
+    return { ok: false, response: await apiError("not authenticated", "not_authenticated") };
   }
 
   return { ok: true, session };
