@@ -2249,7 +2249,42 @@
       "customColorTitle": "Custom color",
       "editAria": "Edit {name}",
       "deleteAria": "Remove {name}"
-    }
+    },
+    "recycleBin": {
+      "title": "Recycle bin",
+      "subtitle": "Restore something that was deleted",
+      "retentionHeading": "Keep deleted items for",
+      "retentionBody": "Deleted items stay here for this long, then go for good. Anything already in the bin is removed on the next nightly clean-up once it is older than the window.",
+      "keepForever": "Forever",
+      "days": "{count} days",
+      "retentionSaved": "Saved",
+      "retentionFailed": "Could not save the retention window",
+      "restore": "Restore",
+      "restored": "Restored",
+      "restoreFailed": "Could not restore that item",
+      "purgeTitle": "Delete permanently?",
+      "purgeBody": "This removes the item for good. It cannot be restored afterwards.",
+      "purged": "Deleted permanently",
+      "purgeFailed": "Could not delete that item",
+      "loadFailed": "Could not load the recycle bin.",
+      "retry": "Try again",
+      "emptyTitle": "Nothing in the bin",
+      "emptyBody": "Deleted items show up here, so you can put them back.",
+      "restoresDependents": "Restoring this brings back everything that belonged to it.",
+      "types": {
+        "birthdays": "Birthday",
+        "birthday_gift_ideas": "Gift idea",
+        "notes": "Note",
+        "todos": "To-do",
+        "subjects": "School subject",
+        "meal_plan_entries": "Meal plan entry",
+        "pocket_money_goals": "Pocket money goal",
+        "recipes": "Recipe",
+        "people": "Person"
+      }
+    },
+    "itemRecycleBinLabel": "Recycle bin",
+    "itemRecycleBinDescription": "Restore deleted items"
   },
   "calendar": {
     "caldavToast": {

@@ -2249,7 +2249,42 @@
       "customColorTitle": "Couleur personnalisée",
       "editAria": "Modifier {name}",
       "deleteAria": "Retirer {name}"
-    }
+    },
+    "recycleBin": {
+      "title": "Corbeille",
+      "subtitle": "Restaurer un élément supprimé",
+      "retentionHeading": "Conserver les éléments supprimés pendant",
+      "retentionBody": "Les éléments supprimés restent ici pendant cette durée, puis disparaissent définitivement. Ceux déjà dans la corbeille et plus anciens sont retirés lors du prochain nettoyage nocturne.",
+      "keepForever": "Toujours",
+      "days": "{count} jours",
+      "retentionSaved": "Enregistré",
+      "retentionFailed": "Impossible d’enregistrer la durée de conservation",
+      "restore": "Restaurer",
+      "restored": "Restauré",
+      "restoreFailed": "Impossible de restaurer cet élément",
+      "purgeTitle": "Supprimer définitivement ?",
+      "purgeBody": "L’élément sera supprimé pour de bon et ne pourra plus être restauré.",
+      "purged": "Supprimé définitivement",
+      "purgeFailed": "Impossible de supprimer cet élément",
+      "loadFailed": "Impossible de charger la corbeille.",
+      "retry": "Réessayer",
+      "emptyTitle": "La corbeille est vide",
+      "emptyBody": "Les éléments supprimés apparaissent ici, pour que vous puissiez les récupérer.",
+      "restoresDependents": "La restauration ramène également tout ce qui y était rattaché.",
+      "types": {
+        "birthdays": "Anniversaire",
+        "birthday_gift_ideas": "Idée cadeau",
+        "notes": "Note",
+        "todos": "Tâche",
+        "subjects": "Matière scolaire",
+        "meal_plan_entries": "Entrée du menu",
+        "pocket_money_goals": "Objectif d’argent de poche",
+        "recipes": "Recette",
+        "people": "Personne"
+      }
+    },
+    "itemRecycleBinLabel": "Corbeille",
+    "itemRecycleBinDescription": "Restaurer des éléments supprimés"
   },
   "calendar": {
     "caldavToast": {

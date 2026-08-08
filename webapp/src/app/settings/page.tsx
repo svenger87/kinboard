@@ -426,6 +426,12 @@ export default function SettingsPage() {
           description: t("itemScheduleDescription"),
           href: "/settings/schedule",
         },
+        {
+          icon: Trash2,
+          label: t("itemRecycleBinLabel"),
+          description: t("itemRecycleBinDescription"),
+          href: "/settings/recycle-bin",
+        },
       ],
     },
     {

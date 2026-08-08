@@ -151,6 +151,11 @@ RUN echo '#!/bin/sh' > /usr/local/bin/pocket-money-process-allowance && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/process-allowance' >> /usr/local/bin/pocket-money-process-allowance && \
     chmod +x /usr/local/bin/pocket-money-process-allowance
 
+# Add recycle-bin purge cron script
+RUN echo '#!/bin/sh' > /usr/local/bin/purge-recycle-bin && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/purge-recycle-bin' >> /usr/local/bin/purge-recycle-bin && \
+    chmod +x /usr/local/bin/purge-recycle-bin
+
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
