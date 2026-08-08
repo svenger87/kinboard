@@ -156,6 +156,12 @@ RUN echo '#!/bin/sh' > /usr/local/bin/purge-recycle-bin && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/purge-recycle-bin' >> /usr/local/bin/purge-recycle-bin && \
     chmod +x /usr/local/bin/purge-recycle-bin
 
+# Trims the domain event outbox. A catch-up log, not an archive — see the
+# route's comment for why 30 days and why it is not per-family configurable.
+RUN echo '#!/bin/sh' > /usr/local/bin/purge-domain-events && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/purge-domain-events' >> /usr/local/bin/purge-domain-events && \
+    chmod +x /usr/local/bin/purge-domain-events
+
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
