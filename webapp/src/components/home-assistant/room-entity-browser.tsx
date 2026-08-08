@@ -9,7 +9,6 @@ import {
   Thermometer,
   DoorOpen,
   Check,
-  X,
   Home,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -239,13 +238,17 @@ export function RoomEntityBrowser({
   };
 
   return (
-    <div className="flex flex-col h-full max-h-[70vh]">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
+    // min-w-0 as well as the shared fix in DialogContent: this column holds
+    // two scroll containers, and neither can scroll while the column is
+    // sized by its own content.
+    <div className="flex flex-col h-full max-h-[70vh] min-w-0">
+      {/* Header.
+
+          No close button of its own: DialogContent already renders one in this
+          exact corner, so there were two Xs sitting on top of each other. The
+          padding keeps a long title clear of it. */}
+      <div className="flex items-center justify-between p-4 pr-14 border-b">
         <h2 className="text-lg font-semibold">{t("title")}</h2>
-        <Button variant="ghost" size="icon" onClick={onCancel} aria-label={t("closeAria")}>
-          <X className="size-5" />
-        </Button>
       </div>
 
       {/* Search */}
@@ -261,9 +264,17 @@ export function RoomEntityBrowser({
         </div>
       </div>
 
-      {/* Type filter tabs */}
-      <div className="px-4 py-2 border-b overflow-x-auto">
-        <SegmentedControl value={typeFilter} onValueChange={setTypeFilter} className="w-full justify-start">
+      {/* Type filter tabs.
+
+          They wrap rather than scroll: five German labels do not fit a phone in
+          one row, and the fifth ("Binär") ended up off the edge with nothing to
+          suggest it was there. A second row costs 40px and shows all of them. */}
+      <div className="px-4 py-2 border-b">
+        <SegmentedControl
+          value={typeFilter}
+          onValueChange={setTypeFilter}
+          className="h-auto w-full flex-wrap justify-start gap-1"
+        >
           {TYPE_FILTERS.map((filter) => (
             <SegmentedControlItem
               key={filter.value}

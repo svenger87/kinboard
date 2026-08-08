@@ -2760,7 +2760,6 @@
     },
     "roomEntityBrowser": {
       "title": "Entitäten auswählen",
-      "closeAria": "Schließen",
       "searchPlaceholder": "Suchen…",
       "filterAll": "Alle",
       "filterLights": "Lichter",
