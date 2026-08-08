@@ -65,17 +65,31 @@ export async function PATCH(
     }
 
     if ("due" in body) {
-      if (!def.dueColumn) {
-        return NextResponse.json(
-          { error: `the \`${list}\` list has no due date`, code: "invalid_request" },
-          { status: 400 },
-        );
-      }
       const due = itemDue(body.due);
-      if (!due.ok) {
-        return NextResponse.json({ error: "`due` must start with YYYY-MM-DD", code: "invalid_request" }, { status: 400 });
+      if (!def.dueColumn) {
+        // Clearing a date on a list that has none is a no-op, not an error.
+        // A generic client — a to-do platform, say — sends a uniform patch
+        // without knowing which lists carry a due date, and it is right to:
+        // an absent key means "leave it alone", so it must send the key to
+        // clear one. Rejecting that made every tick from Home Assistant fail
+        // with 400 while the tick itself was perfectly valid.
+        //
+        // A non-null date is still refused, because that is a caller asking
+        // for something this list cannot do.
+        if (due.ok && due.value === null) {
+          // fall through: nothing to set
+        } else {
+          return NextResponse.json(
+            { error: `the \`${list}\` list has no due date`, code: "invalid_request" },
+            { status: 400 },
+          );
+        }
+      } else {
+        if (!due.ok) {
+          return NextResponse.json({ error: "`due` must start with YYYY-MM-DD", code: "invalid_request" }, { status: 400 });
+        }
+        patch[def.dueColumn] = due.value;
       }
-      patch[def.dueColumn] = due.value;
     }
 
     if (Object.keys(patch).length === 0) {
