@@ -16,7 +16,13 @@
     "serverUnreachableBody": "Die App kann deine Familiendaten nicht laden. Prüfe, ob der Kinboard-Stack läuft und dieses Gerät ihn erreichen kann, und versuche es dann erneut.",
     "serverUnreachableRetry": "Erneut versuchen",
     "serverUnreachableAutoRetry": "Wird automatisch erneut versucht …",
-    "loading": "Wird geladen…"
+    "loading": "Wird geladen…",
+    "confirmDeleteSubjectTitle": "Dieses Fach löschen?",
+    "confirmDeleteSubjectBody": "Es verschwindet aus dem Stundenplan, und was auf der Packliste dafür steht, geht mit. Das lässt sich nicht rückgängig machen.",
+    "confirmDeleteGiftTitle": "Diese Geschenkidee löschen?",
+    "confirmDeleteGiftBody": "Sie wird von diesem Geburtstag entfernt. Das lässt sich nicht rückgängig machen.",
+    "confirmDeleteDashboardTitle": "Dieses Dashboard löschen?",
+    "confirmDeleteDashboardBody": "Alle Karten darauf verschwinden mit, und du müsstest sie einzeln wieder anlegen. Das lässt sich nicht rückgängig machen."
   },
   "components": {
     "back": "Zurück",

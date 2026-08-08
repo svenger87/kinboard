@@ -16,7 +16,13 @@
     "serverUnreachableBody": "L'application ne peut pas charger les données de votre famille. Vérifiez que le serveur Kinboard fonctionne et que cet appareil peut le joindre, puis réessayez.",
     "serverUnreachableRetry": "Réessayer",
     "serverUnreachableAutoRetry": "Nouvelle vérification automatique…",
-    "loading": "Chargement…"
+    "loading": "Chargement…",
+    "confirmDeleteSubjectTitle": "Supprimer cette matière ?",
+    "confirmDeleteSubjectBody": "Elle disparaîtra de l’emploi du temps, ainsi que ce qui lui est associé dans la liste à préparer. Cette action est irréversible.",
+    "confirmDeleteGiftTitle": "Supprimer cette idée de cadeau ?",
+    "confirmDeleteGiftBody": "Elle sera retirée de cet anniversaire. Cette action est irréversible.",
+    "confirmDeleteDashboardTitle": "Supprimer ce tableau de bord ?",
+    "confirmDeleteDashboardBody": "Toutes ses cartes disparaîtront avec lui et devraient être recréées une par une. Cette action est irréversible."
   },
   "components": {
     "back": "Retour",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 import { Plus, LayoutGrid, Zap, MoreHorizontal, Pencil, Trash2, GripVertical } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ export function DashboardSelector({
   const tCommon = useTranslations("common");
   const [showEditor, setShowEditor] = useState(false);
   const [editingDashboard, setEditingDashboard] = useState<Dashboard | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
   const handleCreate = async (name: string, icon?: string, type?: "custom" | "energy") => {
     await onCreateDashboard(name, icon, type);
@@ -125,7 +127,11 @@ export function DashboardSelector({
                 </DropdownMenuItem>
                 {dashboards.length > 1 && (
                   <DropdownMenuItem
-                    onClick={() => handleDelete(dashboard.id)}
+                    // Deleting a dashboard takes every card on it. The dialog
+                    // is rendered outside this menu and driven by state:
+                    // selecting an item closes the menu and unmounts whatever
+                    // is inside it, which would close the dialog too.
+                    onSelect={(e) => { e.preventDefault(); setPendingDelete(dashboard.id); }}
                     className="text-destructive"
                   >
                     <Trash2 className="size-4 mr-2" />
@@ -169,6 +175,13 @@ export function DashboardSelector({
           dashboardType={editingDashboard.type}
         />
       )}
+      <ConfirmDestructive
+        open={pendingDelete !== null}
+        onOpenChange={(o) => { if (!o) setPendingDelete(null); }}
+        title={tCommon("confirmDeleteDashboardTitle")}
+        description={tCommon("confirmDeleteDashboardBody")}
+        onConfirm={() => { if (pendingDelete) void handleDelete(pendingDelete); setPendingDelete(null); }}
+      />
     </>
   );
 }
