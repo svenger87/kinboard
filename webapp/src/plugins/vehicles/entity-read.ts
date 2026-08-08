@@ -177,3 +177,58 @@ export const READING_DIGITS = {
   voltage: 0,
   current: 0,
 } as const;
+
+/**
+ * Tyre pressure, in the unit the household wants to read it in.
+ *
+ * The driver used to convert psi to bar unconditionally, because the label
+ * "bar" was hardcoded next to it. Conversion is a preference, not a fact — a
+ * German owner wants bar, a US owner wants psi, and some integrations report
+ * kPa — so it is now a per-vehicle setting, defaulting to whatever the sensor
+ * itself reports.
+ */
+export const PRESSURE_UNITS = ["source", "bar", "psi", "kPa"] as const;
+export type PressureUnit = (typeof PRESSURE_UNITS)[number];
+
+/** Everything goes through bar; these are the factors from one bar. */
+const FROM_BAR: Record<Exclude<PressureUnit, "source">, number> = {
+  bar: 1,
+  psi: 14.5037738,
+  kPa: 100,
+};
+
+/** What one of the source unit is worth in bar. Unknown units are left alone. */
+function toBar(value: number, unit: string | null): number | null {
+  switch (unit?.trim().toLowerCase()) {
+    case "bar":
+      return value;
+    case "psi":
+      return value / FROM_BAR.psi;
+    case "kpa":
+      return value / FROM_BAR.kPa;
+    case "mbar":
+    case "hpa":
+      return value / 1000;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Convert a pressure reading to `target`, or return it untouched when the
+ * target is "source", the units already agree, or the sensor reports something
+ * this does not know how to convert — silently showing an unconverted number
+ * under a converted label is the bug this replaced.
+ */
+export function convertPressure(
+  reading: Reading | null,
+  target: PressureUnit = "source",
+): Reading | null {
+  if (!reading || target === "source") return reading;
+  if (reading.unit && reading.unit.trim().toLowerCase() === target.toLowerCase()) {
+    return reading;
+  }
+  const bar = toBar(reading.value, reading.unit);
+  if (bar == null) return reading;
+  return { value: bar * FROM_BAR[target], unit: target };
+}
