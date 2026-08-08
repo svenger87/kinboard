@@ -276,7 +276,9 @@ cd webapp/docker
 ./start.sh restart   # rebuilds webapp + restarts webapp + cron
 ```
 
-Schema changes ship as new files in `webapp/docker/migrations/` (idempotent — safe to re-apply). Run them:
+Schema changes ship as new files in `webapp/docker/migrations/` (idempotent — safe to re-apply). **You do not normally need to run them**: the webapp container applies every migration when it starts, so pulling a new image and restarting is enough, and it refuses to start rather than serve against a half-applied schema.
+
+The manual path is still there for when the container could not do it — no `POSTGRES_PASSWORD` in the webapp's environment, say:
 
 ```bash
 cd webapp/docker

@@ -158,7 +158,9 @@ The migration is `migration_zzz_soft_delete.sql`, named to sort **after** `migra
 
 ### Migrations
 
-`webapp/docker/init.sql` runs **once**, on first DB init. Every schema change since ships as a `webapp/docker/migration*.sql` file, and migrations apply automatically on every `start.sh up` — each file uses `IF NOT EXISTS` / `IF EXISTS` guards so re-applying is a no-op. After running, the script restarts the `rest` (PostgREST) container so the schema cache reloads. See `webapp/docker/migration*.sql` for the current, always-up-to-date list; `./start.sh migrate` re-applies them by hand if you ever need to (rarely — `up` already does it).
+`webapp/docker/init.sql` runs **once**, on first DB init. Every schema change since ships as a `webapp/docker/migration*.sql` file, and each uses `IF NOT EXISTS` / `IF EXISTS` guards so re-applying is a no-op.
+
+**The webapp container applies them, on every start**, from `webapp-entrypoint.sh` — one runner, deliberately. It works for deployments that never invoke `start.sh` (image-only, Watchtower, Diun), and it refuses to start the app if a migration fails rather than serving against a half-applied schema. It then issues `NOTIFY pgrst, 'reload schema'` so new columns are queryable without restarting PostgREST. `start.sh up` watches that log rather than applying anything itself: until 1.8.0 it applied the same files from the host *at the same time*, and the two runners collided (issue #152). See `webapp/docker/migration*.sql` for the current, always-up-to-date list; `./start.sh migrate` re-applies them by hand if you ever need to (rarely — `up` already does it).
 
 ### Typed access
 
