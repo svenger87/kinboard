@@ -187,7 +187,7 @@ Every screenshot has a light-mode variant with a `-light` suffix, and the phone-
 | Google Calendar | Two-way calendar sync | Optional |
 | CalDAV (Nextcloud, Radicale, Fastmail, iCloud, …) | Two-way calendar sync without Google | Optional |
 | Immich | Photo screensaver and gallery | Optional |
-| Home Assistant | Smart-home entities and energy | Optional |
+| Home Assistant | Smart-home entities and energy — **and, since 1.9.0, [the other way round](https://github.com/svenger87/kinboard-homeassistant): Kinboard's calendar, lists and family state as Home Assistant entities** | Optional |
 | Bring! | Shopping list sync (built-in list works without it) | Optional |
 | go2rtc | WebRTC camera streams | Optional |
 

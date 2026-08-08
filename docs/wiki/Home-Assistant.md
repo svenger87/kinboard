@@ -84,3 +84,93 @@ Settings → Home Assistant → **Disconnect**. All configured dashboards, rooms
 
 - [Cameras](Cameras) — cameras direct to go2rtc, bypassing HA
 - [Themes](Themes) — entity-state strings localize via `homeAutomation.entityState.*`
+
+---
+
+# The other direction: Kinboard in Home Assistant
+
+Everything above is Kinboard *reading* Home Assistant — lights, sensors and
+cameras on the kitchen display.
+
+Since **1.9.0** it also works the other way. A separate Home Assistant
+integration publishes what the family has on today as Home Assistant entities,
+so an automation can react to a birthday, an overdue task, or the shopping
+list, and can put something on that list in return.
+
+The integration lives in its own repository:
+**[svenger87/kinboard-homeassistant](https://github.com/svenger87/kinboard-homeassistant)**.
+
+## Create a token
+
+**Settings → Integrations → New token.** Name it (the name is only so you can
+tell two apart later), tick what it may do, and copy it — **it is shown once**.
+Kinboard stores only a fingerprint and cannot show it again.
+
+Nothing is granted by default and **no permission implies another**: a token
+that may add shopping items cannot create tasks, and a read-only token cannot
+write at all.
+
+| Scope | Needed for |
+|---|---|
+| `family:read` | every sensor and the calendar — the minimum |
+| `events:read` | Kinboard events on the Home Assistant bus |
+| `shopping:write` | the shopping to-do list |
+| `tasks:write` | the task to-do list |
+| `notes:write` | creating notes |
+
+A token can be revoked on its own, at any time, without disturbing the others.
+Revoking keeps the row so you can still see what it was and when it was last
+used — which is exactly what you want to know *after* revoking something.
+
+## What Home Assistant gets
+
+- **Sensors** — the next appointment, whose birthday is next, which children
+  have school tomorrow, what's for dinner today and tomorrow, open and overdue
+  tasks, shopping items, and each child's pocket money.
+- **A calendar** — `calendar.kinboard_family`, including events that merely
+  overlap the window being viewed, so a week's holiday appears on every day of
+  it.
+- **Two to-do lists** — the shopping list and tasks, both two-way. Tick an item
+  in Home Assistant and it ticks here.
+- **Events** on the Home Assistant bus, so an automation can trigger the moment
+  a task is completed or something is added to the shopping list.
+
+Deleting keeps each list's own meaning: a task removed from Home Assistant
+lands in the [recycle bin](Recycle-Bin) and can be restored, a shopping item is
+gone — the same as deleting either one inside Kinboard.
+
+## Why the events are trustworthy
+
+They are produced by **database triggers**, not by the API layer. Most of
+Kinboard's screens write straight to the database, so events raised in the API
+would have missed nearly everything a person actually does — ticking a task on
+the wall tablet included. A trigger sees every write, whatever made it.
+
+Delivery is resumable: the integration stores the id of the last event it
+processed and continues from there, so restarting either system loses nothing.
+
+## If setup fails
+
+The error names which of four things went wrong, because they need different
+fixes:
+
+| Message | Means |
+|---|---|
+| Could not reach Kinboard | wrong address, or Kinboard is down. Use the address **Home Assistant** can reach — not `localhost` |
+| Kinboard rejected this token | mistyped, revoked, or expired |
+| This Kinboard is older than 1.9.0 | upgrade Kinboard first |
+| This token cannot read family data | recreate it with at least `family:read` |
+
+Every API response also carries a short reference that appears on each log line
+for that request:
+
+```bash
+docker logs kinboard-webapp 2>&1 | grep <reference>
+```
+
+## For other clients
+
+The integration is one consumer of a documented API, not a special case. The
+contract is `webapp/openapi/integration-v1.yaml` in this repository, checked
+against the implementation on every CI run — so anything you build against it
+is building against the same promises.
