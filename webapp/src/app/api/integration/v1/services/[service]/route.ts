@@ -145,6 +145,10 @@ const NOT_YET_IMPLEMENTED = new Set([
   "refresh_integration",
 ]);
 
+/** Exposed so the OpenAPI contract test can check the spec against reality. */
+export const IMPLEMENTED_SERVICES = Object.keys(SERVICES);
+export const DEFERRED_SERVICES = [...NOT_YET_IMPLEMENTED];
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ service: string }> },
