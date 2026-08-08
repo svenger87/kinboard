@@ -384,7 +384,9 @@ export function PowerChart({
             tickLine={false}
             tickFormatter={(v) => `${v}`}
             width={yAxisWidth}
-            label={unitKw ? { value: "kW", position: "insideTopLeft", offset: -5, style: { fontSize: 11, fill: "currentColor", opacity: 0.6 } } : undefined}
+            // offset -5 pushed the label outside the plot area, so the "k" of "kW"
+                  // was clipped by the container and the axis read "W".
+                  label={unitKw ? { value: "kW", position: "insideTopLeft", offset: 4, style: { fontSize: 11, fill: "currentColor", opacity: 0.6 } } : undefined}
           />
 
           <Tooltip

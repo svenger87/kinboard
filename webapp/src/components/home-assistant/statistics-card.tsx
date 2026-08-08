@@ -57,7 +57,12 @@ export function StatisticsCard({
           maximumFractionDigits: 2,
         });
       case "percentage":
-        return `${val.toFixed(decimals)}%`;
+        // toFixed always emits a dot, so a German dashboard read "80.0%" next
+        // to a "9,08 kWh" in the same row.
+        return `${val.toLocaleString(intlLocale, {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        })}%`;
       default:
         return val.toLocaleString(intlLocale, {
           minimumFractionDigits: decimals,
