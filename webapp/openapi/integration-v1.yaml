@@ -83,6 +83,7 @@ paths:
                     type: integer
                     description: Highest event id currently stored for this family.
         "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
 
   /family/summary:
     get:
@@ -113,6 +114,7 @@ paths:
                   today: { type: string, format: date }
                   tomorrow: { type: string, format: date }
         "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
 
   /events:
     get:
@@ -159,6 +161,7 @@ paths:
                     description: True when the page was truncated — fetch again immediately rather than waiting for the next poll.
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
 
   /services/{service}:
     post:
@@ -204,6 +207,7 @@ paths:
                   id: { type: string, format: uuid }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
         "404":
           description: No such service.
         "409":
@@ -229,6 +233,19 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
     InvalidRequest:
       description: The request was understood but its arguments were not usable.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: |
+        Too many requests for this token. Budgets are per token and per method
+        class: reads and writes are counted separately, so an automation that
+        writes too often does not also blind a dashboard that only reads.
+
+        `Retry-After` gives the seconds to wait and is never zero.
+      headers:
+        Retry-After:
+          schema: { type: integer, minimum: 1 }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
