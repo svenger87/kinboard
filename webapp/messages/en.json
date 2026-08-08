@@ -2288,7 +2288,41 @@
       }
     },
     "itemRecycleBinLabel": "Recycle bin",
-    "itemRecycleBinDescription": "Restore deleted items"
+    "itemRecycleBinDescription": "Restore deleted items",
+    "integrations": {
+      "title": "Integrations",
+      "subtitle": "Tokens that let Home Assistant and other programs talk to Kinboard.",
+      "createHeading": "New token",
+      "nameLabel": "Name",
+      "namePlaceholder": "Home Assistant",
+      "nameHint": "Only for you — so you can tell two tokens apart later.",
+      "scopesLabel": "What may it do?",
+      "scopesHint": "Grant only what the program actually needs. Reading and writing are separate, and no permission implies another.",
+      "create": "Create token",
+      "creating": "Creating…",
+      "secretHeading": "Copy this token now",
+      "secretWarning": "This is the only time it is shown. Kinboard stores it hashed and cannot show it again — if you lose it, create a new one.",
+      "secretDismiss": "I have copied it",
+      "copyAria": "Copy the token",
+      "copyFailed": "Could not copy — select the text and copy it by hand.",
+      "existingHeading": "Existing tokens",
+      "empty": "No tokens yet",
+      "emptyHint": "Create one above, then paste it into Home Assistant when it asks.",
+      "loadFailed": "Could not load the tokens",
+      "retry": "Try again",
+      "created": "Created {date}",
+      "lastUsed": "last used {date}",
+      "neverUsed": "never used",
+      "revoke": "Revoke",
+      "revokeAria": "Revoke the token {name}",
+      "revokedBadge": "revoked",
+      "revoked": "Token revoked.",
+      "revokeFailed": "Could not revoke the token.",
+      "revokeConfirmTitle": "Revoke this token?",
+      "revokeConfirmBody": "{name} will stop working immediately. Anything using it — Home Assistant, an automation — will lose access until you create a new one."
+    },
+    "itemIntegrationTokensLabel": "Integration tokens",
+    "itemIntegrationTokensDescription": "Let Home Assistant and other programs talk to Kinboard"
   },
   "calendar": {
     "caldavToast": {

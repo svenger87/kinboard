@@ -152,6 +152,11 @@ test("a route that still takes family_id checks it against the session", () => {
     "calendar/test-ics/route.ts",
     // Searches the shared catalog and the web. No family-owned rows.
     "pocket-money/goal-image-search/route.ts",
+    // Manages integration tokens. The regex matches the `family_id` COLUMN in
+    // its queries, but the value only ever comes from session.session.familyId
+    // — the route never reads a family id out of the request, which is the
+    // property this test is protecting.
+    "integration-tokens/route.ts",
   ]);
 
   const missing: string[] = [];
