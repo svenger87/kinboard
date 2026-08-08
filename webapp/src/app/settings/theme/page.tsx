@@ -167,7 +167,6 @@ export default function ThemeSettingsPage() {
           icon={Palette}
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings"
           className="mb-8"
         />
 

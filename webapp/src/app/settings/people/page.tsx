@@ -399,7 +399,6 @@ export default function PeopleSettingsPage() {
             icon={Users}
             title={t("title")}
             subtitle={<Skeleton className="h-4 w-20" />}
-            backHref="/settings"
             className="mb-8"
           />
           <Card className="divide-y divide-border/50">
@@ -452,7 +451,6 @@ export default function PeopleSettingsPage() {
             icon={Users}
             title={t("title")}
             subtitle={t("subtitleCount", { count: people.length })}
-            backHref="/settings"
             className="mb-8"
             actions={
               <DialogTrigger asChild>

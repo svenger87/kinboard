@@ -136,7 +136,6 @@ export default function PhotoSettingsPage() {
             icon={Camera}
             title={t("title")}
             subtitle={t("subtitleLoading")}
-            backHref="/settings"
           />
           <Card>
             <div className="p-6">
@@ -301,7 +300,6 @@ export default function PhotoSettingsPage() {
           icon={Camera}
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings"
         />
 
         {!immichConnected && !unsplashConnected && (

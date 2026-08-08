@@ -124,7 +124,6 @@ function HomeAssistantSettingsContent() {
             icon={Home}
             title={t("title")}
             subtitle={t("subtitleLoading")}
-            backHref="/settings"
           />
           <Card>
             <div className="p-6">
@@ -270,7 +269,6 @@ function HomeAssistantSettingsContent() {
           icon={Home}
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings"
         />
 
         {!isConnected && (
@@ -617,7 +615,6 @@ function HomeAssistantSettingsFallback() {
           icon={Home}
           title={t("title")}
           subtitle={t("subtitleLoading")}
-          backHref="/settings"
         />
         <Card>
           <div className="p-6">

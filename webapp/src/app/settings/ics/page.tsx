@@ -244,7 +244,6 @@ export default function IcsSettingsPage() {
           icon={Rss}
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings"
           actions={
             <div className="flex items-center gap-2">
               {icsCalendars.length > 0 && (
