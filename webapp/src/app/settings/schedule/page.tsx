@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
@@ -355,6 +356,7 @@ const DEFAULT_PERIODS: PeriodConfig[] = [
 
 export default function ScheduleSettingsPage() {
   const t = useTranslations("settings.schedule");
+  const tCommon = useTranslations("common");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
 
@@ -827,15 +829,22 @@ export default function ScheduleSettingsPage() {
                       >
                         {subject.name}
                       </span>
-                      <button
-                        className="ml-1 p-0.5 rounded-full hover:bg-destructive/20"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteSubject(subject.id);
-                        }}
+                      <ConfirmDestructive
+                        title={tCommon("confirmDeleteSubjectTitle")}
+                        description={tCommon("confirmDeleteSubjectBody")}
+                        onConfirm={() => handleDeleteSubject(subject.id)}
                       >
-                        <X className="size-3 text-muted-foreground hover:text-destructive" />
-                      </button>
+                        {/* Was a 12px icon in a 2px box that deleted a subject
+                            and its timetable entries on a single tap. It asks
+                            first now, and the target is a real 44px. */}
+                        <button
+                          className="ml-1 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-destructive/20"
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={tCommon("confirmDeleteSubjectTitle")}
+                        >
+                          <X className="size-4 text-muted-foreground hover:text-destructive" />
+                        </button>
+                      </ConfirmDestructive>
                     </div>
                   );
                 })}
