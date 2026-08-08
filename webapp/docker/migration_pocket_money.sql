@@ -161,30 +161,49 @@ BEGIN
 END $$;
 
 -- Public bucket for kid-uploaded goal images. Idempotent.
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'goal-images',
-  'goal-images',
-  true,
-  5242880,
-  ARRAY['image/jpeg', 'image/png', 'image/webp']
-) ON CONFLICT (id) DO NOTHING;
+--
+-- Wrapped in a guard because the storage service creates its schema, and then
+-- grants on it, while the migrations are already running. On a first boot this
+-- block can arrive before either — and since the webapp refuses to start on a
+-- failed migration, an unguarded version means a brand-new install never comes
+-- up. The bucket is created on a later run, of which there is one on every
+-- container start.
+DO $$
+BEGIN
+  IF to_regclass('storage.buckets') IS NULL OR to_regclass('storage.objects') IS NULL THEN
+    RAISE NOTICE 'storage schema not ready yet; skipping goal-images bucket (created on a later run)';
+    RETURN;
+  END IF;
 
-DROP POLICY IF EXISTS "Public read goal images" ON storage.objects;
-CREATE POLICY "Public read goal images" ON storage.objects
-  FOR SELECT USING (bucket_id = 'goal-images');
+  INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  VALUES (
+    'goal-images',
+    'goal-images',
+    true,
+    5242880,
+    ARRAY['image/jpeg', 'image/png', 'image/webp']
+  ) ON CONFLICT (id) DO NOTHING;
 
-DROP POLICY IF EXISTS "Upload goal images" ON storage.objects;
-CREATE POLICY "Upload goal images" ON storage.objects
-  FOR INSERT WITH CHECK (bucket_id = 'goal-images');
+  DROP POLICY IF EXISTS "Public read goal images" ON storage.objects;
+  CREATE POLICY "Public read goal images" ON storage.objects
+    FOR SELECT USING (bucket_id = 'goal-images');
 
-DROP POLICY IF EXISTS "Update goal images" ON storage.objects;
-CREATE POLICY "Update goal images" ON storage.objects
-  FOR UPDATE USING (bucket_id = 'goal-images');
+  DROP POLICY IF EXISTS "Upload goal images" ON storage.objects;
+  CREATE POLICY "Upload goal images" ON storage.objects
+    FOR INSERT WITH CHECK (bucket_id = 'goal-images');
 
-DROP POLICY IF EXISTS "Delete goal images" ON storage.objects;
-CREATE POLICY "Delete goal images" ON storage.objects
-  FOR DELETE USING (bucket_id = 'goal-images');
+  DROP POLICY IF EXISTS "Update goal images" ON storage.objects;
+  CREATE POLICY "Update goal images" ON storage.objects
+    FOR UPDATE USING (bucket_id = 'goal-images');
+
+  DROP POLICY IF EXISTS "Delete goal images" ON storage.objects;
+  CREATE POLICY "Delete goal images" ON storage.objects
+    FOR DELETE USING (bucket_id = 'goal-images');
+EXCEPTION
+  WHEN insufficient_privilege THEN
+    RAISE NOTICE 'no rights on the storage tables yet; skipping goal-images bucket (created on a later run)';
+END $$;
+
 
 -- Drop the avatar_species CHECK constraint on stacks that ran an
 -- earlier version of this migration. The constraint hardcoded

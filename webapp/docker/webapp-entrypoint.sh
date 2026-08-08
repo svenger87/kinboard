@@ -7,13 +7,16 @@
 # what we need for Watchtower-driven updates: pulling a new webapp image
 # with new migrations baked in DOES apply them automatically.
 #
-# Two parallel paths apply migrations:
-#   1. Host-driven: webapp/docker/start.sh's run_migrations() loops the
-#      same files via `docker exec ... < migration.sql` from the host.
-#      That path remains supported for operators who run start.sh.
-#   2. Container-driven: this script. Watchtower-driven and fresh-image
-#      flows hit this path automatically.
-# Keep both paths in sync — they apply identical files in the same order.
+# THIS IS THE ONLY THING THAT APPLIES MIGRATIONS AUTOMATICALLY.
+#
+# start.sh used to apply the same files from the host during `up`, at the same
+# time as this ran. The two collided — one creating a table between the other's
+# IF NOT EXISTS check and its CREATE, and the storage service taking ownership
+# of its tables mid-run (issue #152). Since this path is the one that works
+# everywhere (image-only deployments, Watchtower updates, anything that never
+# invokes start.sh), it is the one that stayed. `./start.sh migrate` remains as
+# an explicit manual escape hatch; `start.sh up` now watches this log instead
+# of racing it.
 #
 # Env vars (passed by docker-compose.yml's webapp service):
 #   POSTGRES_HOST     defaults to "db" (the docker service name)
@@ -56,16 +59,64 @@ echo "[entrypoint] postgres reachable."
 # (IF NOT EXISTS / DO blocks with information_schema checks) keep
 # re-runs safe.
 MIGRATIONS_DIR="/app/migrations"
-if [ -d "$MIGRATIONS_DIR" ]; then
+
+# Wait for the storage service to have created its schema, because three
+# migrations create image buckets in it. They are guarded, so they skip rather
+# than fail if it is not there — which on a fresh install would mean recipe,
+# goal and vehicle image uploads are broken until the next container start.
+# Waiting here makes a first boot come up complete instead of nearly complete.
+#
+# Bounded, and not fatal: a stack running without the storage service is a
+# supported thing to do, and the guards cover it.
+echo "[entrypoint] waiting for the storage schema (max 60s)..."
+i=0
+until [ "$(psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+                -tAc "SELECT to_regclass('storage.buckets') IS NOT NULL" 2>/dev/null)" = "t" ]; do
+  i=$((i + 1))
+  if [ $i -gt 30 ]; then
+    echo "[entrypoint] storage schema not there after 60s; continuing (image buckets will be created on a later start)." >&2
+    break
+  fi
+  sleep 2
+done
+
+# On a first boot the Supabase services (storage, realtime, auth) are creating
+# their own schemas at the same time as this runs, and the two contend for
+# locks on the same catalog — Postgres resolves that by killing one of them:
+#
+#   ERROR:  deadlock detected
+#
+# It is transient and the next attempt wins, so the pass is retried rather than
+# treated as a broken schema. Without this the container exits, Docker restarts
+# it, and it eventually succeeds anyway — the same outcome by way of a
+# crash-loop and a log full of failures, which is indistinguishable from a
+# migration that is genuinely wrong.
+MIGRATION_ATTEMPTS="${MIGRATION_ATTEMPTS:-6}"
+
+apply_migrations() {
   for migration in "$MIGRATIONS_DIR"/migration*.sql; do
     [ -f "$migration" ] || continue
     name="$(basename "$migration")"
     echo "[entrypoint] applying $name"
     if ! psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
               -v ON_ERROR_STOP=1 -f "$migration"; then
-      echo "[entrypoint] FAILED: $name — refusing to start webapp with stale schema." >&2
+      echo "[entrypoint] FAILED: $name" >&2
+      return 1
+    fi
+  done
+  return 0
+}
+
+if [ -d "$MIGRATIONS_DIR" ]; then
+  attempt=1
+  until apply_migrations; do
+    if [ "$attempt" -ge "$MIGRATION_ATTEMPTS" ]; then
+      echo "[entrypoint] GIVING UP after $attempt attempts — refusing to start webapp with stale schema." >&2
       exit 1
     fi
+    echo "[entrypoint] migration attempt $attempt failed; retrying in 5s (the other services may still be initialising)" >&2
+    attempt=$((attempt + 1))
+    sleep 5
   done
   # Tell PostgREST to reload its schema cache so newly-added columns
   # become queryable without a separate restart.

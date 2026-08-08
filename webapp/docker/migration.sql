@@ -351,6 +351,13 @@ BEGIN
   DROP POLICY IF EXISTS "Delete recipe images" ON storage.objects;
   CREATE POLICY "Delete recipe images" ON storage.objects
     FOR DELETE USING (bucket_id = 'recipe-images');
+
+EXCEPTION
+  -- The storage service creates these tables and then grants on them, so
+  -- there is a window where they exist but this role cannot write to them.
+  -- Same first-boot race as the missing-schema case above, one step later.
+  WHEN insufficient_privilege THEN
+    RAISE NOTICE 'no rights on the storage tables yet; skipping recipe-images bucket (created on a later run)';
 END $$;
 
 -- Add recurring task support to todos
