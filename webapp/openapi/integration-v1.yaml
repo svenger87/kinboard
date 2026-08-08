@@ -209,6 +209,134 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
+  /lists/{list}:
+    get:
+      tags: [state]
+      summary: The items on a list
+      description: |
+        The shopping list and the task list as things a client can read, not
+        just count. A count is not a list, and Home Assistant has a native
+        to-do entity that wants the items.
+      x-required-scope: family:read
+      parameters:
+        - name: list
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/ListId" }
+      responses:
+        "200":
+          description: The list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [list, items]
+                properties:
+                  list: { $ref: "#/components/schemas/ListId" }
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/ListItem" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such list. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    post:
+      tags: [state]
+      summary: Add an item
+      description: |
+        Requires the list's own scope, so a token that may add shopping items
+        still cannot create tasks. An `Idempotency-Key` is required, as
+        everywhere that creates a row.
+      parameters:
+        - name: list
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/ListId" }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [summary]
+              properties:
+                summary: { type: string }
+                due:
+                  type: [string, "null"]
+                  description: Calendar day. Ignored by lists that have no due date.
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ListItem" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "409": { description: The Idempotency-Key was used with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /lists/{list}/{item}:
+    patch:
+      tags: [state]
+      summary: Tick, rename or re-date an item
+      description: |
+        No `Idempotency-Key`: this addresses one row by id, so repeating it is
+        already harmless — ticking a ticked item leaves it ticked. Requiring a
+        key for something idempotent by construction would be ceremony, and a
+        to-do list ticks items constantly.
+      parameters:
+        - name: list
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/ListId" }
+        - name: item
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                status: { type: string, enum: [needs_action, completed] }
+                summary: { type: string }
+                due: { type: [string, "null"] }
+      responses:
+        "200": { description: Updated }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such item in this family. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    delete:
+      tags: [state]
+      summary: Remove an item
+      description: |
+        Each list keeps its own delete semantics. A task goes to the recycle
+        bin, exactly as deleting it in Kinboard does, so it is recoverable. A
+        shopping item is removed for real, because the shopping list deletes on
+        a single tap by design and has Undo in the UI. Removing from Home
+        Assistant behaves the same way as removing in Kinboard rather than
+        inventing a third behaviour.
+      parameters:
+        - name: list
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/ListId" }
+        - name: item
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Removed }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
   /services/{service}:
     post:
       tags: [services]
@@ -306,6 +434,22 @@ components:
         - tasks:write
         - notes:write
         - announcements:write
+
+    ListId:
+      type: string
+      enum: [shopping, tasks]
+
+    ListItem:
+      type: object
+      required: [id, summary, status]
+      properties:
+        id: { type: string, format: uuid }
+        summary: { type: string }
+        status: { type: string, enum: [needs_action, completed] }
+        due:
+          type: [string, "null"]
+          format: date
+          description: Always null for lists without a due date.
 
     ServiceName:
       type: string
