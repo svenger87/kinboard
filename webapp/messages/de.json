@@ -1820,7 +1820,7 @@
       },
       "driverDescription": {
         "tesla": "Nativer Tesla-Zugang über die Home Assistant Fleet-Integration.",
-        "generic-ev": "Jedes Auto, mit dem HA kommunizieren kann – VW, BMW, Polestar, OBD2-Dongles usw. 5 Entitäts-IDs zuweisen."
+        "generic-ev": "Jedes Auto, mit dem Home Assistant sprechen kann — VW, BMW, Kia, Polestar, Volvo, OBD2-Dongles. Wähle die Entitäten aus, die gelesen werden sollen; alle sind optional."
       },
       "image": "Bild",
       "imageHint": "Optional. PNG, JPG oder WebP bis 5 MB. Ohne Bild wird ein generisches Tesla-Rendering oder ein Fahrzeugsymbol angezeigt.",
@@ -1905,7 +1905,10 @@
       "currencyLabel": "Währung",
       "currencyPlaceholder": "€",
       "saveButton": "Speichern",
-      "savingLabel": "Speichern..."
+      "savingLabel": "Speichern...",
+      "tirePressureUnitLabel": "Einheit für den Reifendruck",
+      "tirePressureUnitDescription": "Wie der Reifendruck angezeigt wird. Standard ist das, was die Sensoren melden; alles andere wird umgerechnet.",
+      "tirePressureUnitSource": "Wie vom Sensor gemeldet"
     },
     "schedule": {
       "title": "Stundenplan",

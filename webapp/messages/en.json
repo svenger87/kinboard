@@ -1820,7 +1820,7 @@
       },
       "driverDescription": {
         "tesla": "Native Tesla via Home Assistant Fleet integration.",
-        "generic-ev": "Any car HA can talk to — VW, BMW, Polestar, OBD2 dongles, etc. Map 5 entity IDs."
+        "generic-ev": "Any car Home Assistant can talk to — VW, BMW, Kia, Polestar, Volvo, OBD2 dongles. Pick the entities it should read; all of them are optional."
       },
       "image": "Image",
       "imageHint": "Optional. PNG, JPG, or WebP up to 5 MB. Falls back to a generic Tesla render or a vehicle icon if not set.",
@@ -1905,7 +1905,10 @@
       "currencyLabel": "Currency",
       "currencyPlaceholder": "€",
       "saveButton": "Save",
-      "savingLabel": "Saving…"
+      "savingLabel": "Saving…",
+      "tirePressureUnitLabel": "Tyre pressure unit",
+      "tirePressureUnitDescription": "How to show tyre pressure. The default keeps whatever your sensors report; anything else is converted.",
+      "tirePressureUnitSource": "As reported by the sensor"
     },
     "schedule": {
       "title": "School schedule",
