@@ -306,7 +306,13 @@ paths:
               properties:
                 status: { type: string, enum: [needs_action, completed] }
                 summary: { type: string }
-                due: { type: [string, "null"] }
+                due:
+                  type: [string, "null"]
+                  description: |
+                    A null clears the date, and is accepted even by lists that
+                    have none — a generic client sends a uniform patch without
+                    knowing which lists carry a due date. A non-null date on
+                    such a list is refused.
       responses:
         "200": { description: Updated }
         "400": { $ref: "#/components/responses/InvalidRequest" }
