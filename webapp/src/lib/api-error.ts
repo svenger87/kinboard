@@ -32,15 +32,18 @@ export { CORRELATION_HEADER } from "@/lib/correlation";
  * freely, never repurpose. The human `error` string may be reworded at any
  * time; the code may not.
  */
-export type ApiErrorCode =
-  | "not_authenticated"
-  | "forbidden"
-  | "not_found"
-  | "invalid_request"
-  | "conflict"
-  | "rate_limited"
-  | "upstream_unavailable"
-  | "internal_error";
+export const API_ERROR_CODES = [
+  "not_authenticated",
+  "forbidden",
+  "not_found",
+  "invalid_request",
+  "conflict",
+  "rate_limited",
+  "upstream_unavailable",
+  "internal_error",
+] as const;
+
+export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 
 const STATUS_FOR: Record<ApiErrorCode, number> = {
   not_authenticated: 401,
