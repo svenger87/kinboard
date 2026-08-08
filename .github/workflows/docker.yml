@@ -69,13 +69,8 @@ jobs:
           fi
           changed=$(git diff --name-only "$base" "${{ github.sha }}")
           echo "Changed files:"; echo "$changed"
-          # Build unless EVERY changed file is docs/markdown or a stats
-          # snapshot. stats/traffic.json is rewritten nightly by the Usage
-          # stats workflow and never enters the image — without it here the
-          # snapshot would republish :next every night, and instances that
-          # follow that tag (Diun watches it) would recreate their containers
-          # daily for a JSON file they never receive.
-          if echo "$changed" | grep -qvE '^(docs/|stats/|.*\.md$|LICENSE$)'; then
+          # Build unless EVERY changed file is docs/markdown.
+          if echo "$changed" | grep -qvE '^(docs/|.*\.md$|LICENSE$)'; then
             echo "build=true" >> "$GITHUB_OUTPUT"; echo "code changed → build"
           else
             echo "build=false" >> "$GITHUB_OUTPUT"; echo "docs-only → skip image build"
