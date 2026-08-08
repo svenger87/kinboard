@@ -37,6 +37,7 @@
 - [[Smart home & energy|Smart-Home]]
 - [[Screensaver]]
 - [[People & devices|People-and-Devices]]
+- [[Recycle bin|Recycle-Bin]]
 - [[Notifications]]
 - [[Themes]]
 

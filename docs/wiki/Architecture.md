@@ -142,6 +142,20 @@ The `families` table has no meaningful access policy beyond "join code matches" 
 
 Secrets are the one place Kinboard does enforce a real Postgres-level boundary: OAuth tokens, API keys, and the settings PIN live in `public.integration_secrets`, which has `anon`/`authenticated` privileges **revoked** (`REVOKE ALL ... FROM anon`) — only the service-role client can read it. That's a privilege grant, not RLS, but it's actually enforced. See [Security-and-Threat-Model → Integration credentials](Security-and-Threat-Model#integration-credentials).
 
+### Soft delete
+
+Nine tables — `birthdays`, `birthday_gift_ideas`, `notes`, `todos`, `subjects`, `meal_plan_entries`, `pocket_money_goals`, `recipes`, `people` — carry a `deleted_at timestamptz` and a `BEFORE DELETE` trigger that stamps it and returns `NULL`, cancelling the delete. `deleted_at IS NULL` is appended to each table's family-scope policy, so binned rows disappear from every read.
+
+This is done in the database rather than the application on purpose: deletes do not go through API routes at all. Seventeen files call PostgREST `.delete()` straight from the browser and reads are just as direct, so rewriting every call site would have been both the larger change and the one where a single miss leaves a hole. Two database-level changes cover all of them.
+
+Cancelling the delete also cancels its `ON DELETE CASCADE`, which is what makes a restore whole — a soft-deleted recipe keeps its ingredients, a soft-deleted person keeps their schedule and pocket-money account.
+
+Purging is the inverse and needs every trigger to stand down at once, cascades included, so it runs through `purge_deleted(table, id)` and `purge_expired()`. Both set `kinboard.hard_delete` for their transaction. A plain `DELETE` on a binned row does get through, but its cascaded children hit their own triggers with `deleted_at` still `NULL`, survive, and are left pointing at a parent that no longer exists — Postgres does not re-check the constraint once a cascade is suppressed, so nothing complains.
+
+`events` is deliberately out of scope: the syncers reconcile against the upstream calendar, and a soft-deleted event either returns on the next sync or fights it. `recipe_ingredients` and `recipe_tag_assignments` are out because editing a recipe deletes and re-inserts them, which would fill the bin on every save.
+
+The migration is `migration_zzz_soft_delete.sql`, named to sort **after** `migration_zz_row_level_security.sql` — that one recreates every family-scope policy on each boot, so anything amending those policies has to run last. Retention lives in `settings` under `recycle_bin`; the nightly `purge-recycle-bin` job enforces it. User-facing docs: [Recycle-Bin](Recycle-Bin).
+
 ### Migrations
 
 `webapp/docker/init.sql` runs **once**, on first DB init. Every schema change since ships as a `webapp/docker/migration*.sql` file, and migrations apply automatically on every `start.sh up` — each file uses `IF NOT EXISTS` / `IF EXISTS` guards so re-applying is a no-op. After running, the script restarts the `rest` (PostgREST) container so the schema cache reloads. See `webapp/docker/migration*.sql` for the current, always-up-to-date list; `./start.sh migrate` re-applies them by hand if you ever need to (rarely — `up` already does it).
@@ -192,6 +206,7 @@ Per-family settings live in the `public.settings` table as `(family_id, key, val
 | `schedule_periods` | `PeriodConfig[]` | `/settings/schedule` |
 | `schedule_pack_items` | `PackItemConfig[]` | `/settings/schedule` |
 | `notification_preferences` | per-device push prefs | `/settings/notifications` |
+| `recycle_bin` | `{ retentionDays: number }` — 0 keeps deleted items forever | `/settings/recycle-bin` |
 | `settings_pin` | *(secret, moved — no longer written under this key; see below)* | `/settings` (PIN gate) |
 
 The schema is intentionally not normalized into per-feature tables — settings shapes evolve faster than schema migrations are worth.
