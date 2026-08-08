@@ -79,6 +79,22 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
  */
 const CRON_PREFIX = "cron/";
 
+/**
+ * The auth boundaries a privileged route may sit behind.
+ *
+ * `requireSession` is the browser one — a person at a screen. `withIntegrationAuth`
+ * is the machine one added for the Integration API (RFC-001 §4): a token with
+ * explicit scopes, not a family member. They are different boundaries with
+ * different credentials, and a route must be behind exactly one of them.
+ *
+ * Adding to this list is how you widen what counts as authenticated, so it
+ * should stay short and each entry should be a function that *cannot* be
+ * called without actually authorising — `withIntegrationAuth` takes the
+ * handler as a callback for that reason, so a route cannot call it and then
+ * ignore the result.
+ */
+const AUTH_BOUNDARIES = ["requireSession", "withIntegrationAuth"];
+
 function routeFiles(root: string): string[] {
   const found: string[] = [];
   const walk = (dir: string) => {
@@ -111,7 +127,7 @@ test("every privileged API route requires a session", () => {
 
     const source = readFileSync(file, "utf8");
     if (!PRIVILEGED.some((needle) => source.includes(needle))) continue;
-    if (!source.includes("requireSession")) unguarded.push(rel);
+    if (!AUTH_BOUNDARIES.some((needle) => source.includes(needle))) unguarded.push(rel);
   }
 
   expect(unguarded).toEqual([]);
@@ -190,7 +206,7 @@ test("the allowlist is the only thing keeping those routes out of the scan", () 
       const source = readFileSync(join(ROOT, rel), "utf8");
       return (
         PRIVILEGED.some((needle) => source.includes(needle)) &&
-        !source.includes("requireSession")
+        !AUTH_BOUNDARIES.some((needle) => source.includes(needle))
       );
     });
 
