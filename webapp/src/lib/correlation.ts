@@ -2,8 +2,8 @@
  * Correlation ID primitives.
  *
  * Deliberately free of `next/headers`, `next/server` and anything Node-only:
- * middleware runs on the edge runtime and importing server-only code there
- * drags it into that bundle. Keeping the pure parts here means middleware and
+ * the proxy runs on the edge runtime and importing server-only code there
+ * drags it into that bundle. Keeping the pure parts here means the proxy and
  * the API error helper share one implementation instead of two that have to be
  * kept in step by hand.
  */

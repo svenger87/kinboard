@@ -62,8 +62,8 @@ export interface ApiErrorBody {
 /**
  * The current request's correlation ID.
  *
- * middleware.ts sets this header on every inbound request, so in normal
- * operation it is always present. The fallback covers the paths middleware
+ * proxy.ts sets this header on every inbound request, so in normal
+ * operation it is always present. The fallback covers the paths the proxy
  * does not run on — notably cron jobs and server-side calls made outside a
  * request — where an ID is still better than a blank field, because it at
  * least groups the log lines of one operation.
