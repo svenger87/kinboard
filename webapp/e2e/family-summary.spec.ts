@@ -94,13 +94,22 @@ test.describe("first lesson of a schedule", () => {
   });
 });
 
-test.describe("ISO day of week", () => {
-  test("Monday is 1 and Sunday is 7, matching schedules.day_of_week", () => {
-    // JS getDay() makes Sunday 0, which would silently look up the wrong
-    // timetable every Saturday night.
+test.describe("day of week", () => {
+  test("matches the range schedules.day_of_week allows", () => {
+    // The column is CHECK (day_of_week >= 0 AND <= 6) and the app writes
+    // 1=Monday..5=Friday. Sunday is 0, not 7 — asking for 7 is asking for a
+    // value the schema forbids, which can never match anything.
     expect(isoDayOfWeek(new Date(2026, 7, 10))).toBe(1); // Monday
     expect(isoDayOfWeek(new Date(2026, 7, 14))).toBe(5); // Friday
     expect(isoDayOfWeek(new Date(2026, 7, 15))).toBe(6); // Saturday
-    expect(isoDayOfWeek(new Date(2026, 7, 16))).toBe(7); // Sunday
+    expect(isoDayOfWeek(new Date(2026, 7, 16))).toBe(0); // Sunday
+  });
+
+  test("never returns a value outside the constraint", () => {
+    for (let d = 1; d <= 28; d++) {
+      const v = isoDayOfWeek(new Date(2026, 7, d));
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(6);
+    }
   });
 });
