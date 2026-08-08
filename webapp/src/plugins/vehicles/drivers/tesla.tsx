@@ -53,7 +53,9 @@ import { StatisticsCard, StatisticsGrid } from "@/components/home-assistant/stat
 import type { Vehicle } from "@/types/database";
 import type { HAEntity } from "@/types/home-assistant";
 import type { VehicleDriver } from "./types";
-import { minutesToFullCharge } from "@/plugins/vehicles/charge-eta";
+import { formatReading, READING_DIGITS } from "@/plugins/vehicles/entity-read";
+import { readVehicle, vehicleEntityIds } from "@/plugins/vehicles/readings";
+import { EntitySelector } from "@/plugins/vehicles/components/entity-selector";
 
 // ---------------------------------------------------------------------------
 // TeslaConfig — canonical definition lives here; re-exported from
@@ -102,105 +104,6 @@ export interface TeslaConfig {
   currency?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Internal EntitySelector — mirrors the inline component from the legacy
-// settings page; kept here so the Tesla driver is self-contained.
-// ---------------------------------------------------------------------------
-interface EntitySelectorProps {
-  label: string;
-  description: string;
-  value: string | undefined;
-  onChange: (value: string) => void;
-  entities: HAEntity[];
-  allEntities?: HAEntity[];
-  filterDomain?: string;
-  filterDeviceClass?: string;
-}
-
-function EntitySelector({
-  label,
-  description,
-  value,
-  onChange,
-  entities,
-  allEntities,
-}: EntitySelectorProps) {
-  const t = useTranslations("settings.tesla");
-  const [search, setSearch] = useState("");
-
-  const currentEntity = value
-    ? (entities.find((e) => e.entity_id === value) ||
-       allEntities?.find((e) => e.entity_id === value))
-    : undefined;
-
-  const entitiesWithCurrent =
-    currentEntity && !entities.find((e) => e.entity_id === value)
-      ? [currentEntity, ...entities]
-      : entities;
-
-  const filteredEntities = entitiesWithCurrent.filter((entity) => {
-    if (value && entity.entity_id === value) return true;
-    if (search) {
-      const q = search.toLowerCase();
-      return (
-        entity.name.toLowerCase().includes(q) ||
-        entity.entity_id.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
-
-  const handleChange = (newValue: string) => {
-    onChange(newValue === "__none__" ? "" : newValue);
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <Label>{label}</Label>
-      <Select value={value || "__none__"} onValueChange={handleChange}>
-        <SelectTrigger>
-          <SelectValue placeholder={t("entityPlaceholder")} />
-        </SelectTrigger>
-        <SelectContent>
-          <div className="flex items-center px-2 pb-2">
-            <Search className="size-4 mr-2 text-muted-foreground" />
-            <Input
-              placeholder={t("searchPlaceholder")}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-8"
-            />
-          </div>
-          <SelectItem value="__none__">{t("noneOption")}</SelectItem>
-          {filteredEntities
-            .filter((entity) => entity.entity_id)
-            .sort((a, b) => {
-              const aT = a.entity_id.toLowerCase().includes("tesla") ? 0 : 1;
-              const bT = b.entity_id.toLowerCase().includes("tesla") ? 0 : 1;
-              return aT - bT || a.name.localeCompare(b.name);
-            })
-            .slice(0, 100)
-            .map((entity) => (
-              <SelectItem key={entity.entity_id} value={entity.entity_id}>
-                <div className="flex flex-col">
-                  <span>{entity.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {entity.entity_id}
-                  </span>
-                </div>
-              </SelectItem>
-            ))}
-          {filteredEntities.length > 100 && (
-            <div className="px-2 py-1 text-xs text-muted-foreground">
-              {t("moreCount", { count: filteredEntities.length - 100 })}
-            </div>
-          )}
-        </SelectContent>
-      </Select>
-      <p className="text-xs text-muted-foreground">{description}</p>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // TeslaCard
@@ -257,34 +160,9 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
   const isConfigured =
     Object.keys(teslaConfig).length > 0 && !!teslaConfig.battery_level;
 
-  const entityIds = useMemo(() => {
-    if (!teslaConfig) return [];
-    return [
-      teslaConfig.battery_level,
-      teslaConfig.battery_range,
-      teslaConfig.charging_rate,
-      teslaConfig.charging_state,
-      teslaConfig.charge_limit,
-      teslaConfig.time_to_full_charge,
-      teslaConfig.charger_power,
-      teslaConfig.charge_energy_added,
-      teslaConfig.inside_temperature,
-      teslaConfig.outside_temperature,
-      teslaConfig.climate_state,
-      teslaConfig.locked,
-      teslaConfig.doors,
-      teslaConfig.windows,
-      teslaConfig.trunk,
-      teslaConfig.frunk,
-      teslaConfig.tire_pressure_fl,
-      teslaConfig.tire_pressure_fr,
-      teslaConfig.tire_pressure_rl,
-      teslaConfig.tire_pressure_rr,
-      teslaConfig.odometer,
-      teslaConfig.location,
-      teslaConfig.state,
-    ].filter((id): id is string => !!id);
-  }, [teslaConfig]);
+  // The list of ids and the reads below come from the same key list, so a new
+  // field cannot be rendered without also being fetched.
+  const entityIds = useMemo(() => vehicleEntityIds(teslaConfig), [teslaConfig]);
 
   const {
     data: entities = [],
@@ -297,68 +175,39 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
     [entities]
   );
 
-  const getVal = (id: string | undefined): number => {
-    if (!id) return 0;
-    const entity = entityMap.get(id);
-    if (!entity) return 0;
-    const value = parseFloat(entity.state);
-    return isNaN(value) ? 0 : value;
-  };
+  // Every read goes through the shared resolver: units come from the entities,
+  // "unknown" stays absent instead of becoming 0, and the charging test copes
+  // with enum sensors, binary sensors and other vendors' capitalisation.
+  const r = useMemo(() => readVehicle(teslaConfig, entityMap), [teslaConfig, entityMap]);
 
-  const getState = (id: string | undefined): string => {
-    if (!id) return "unknown";
-    const entity = entityMap.get(id);
-    return entity?.state || "unknown";
-  };
+  const batteryLevel = r.battery?.value ?? 0;
+  const timeToFull = r.minutesToFull;
+  const isCharging = r.charging;
+  const isLocked = r.locked === true;
+  const isOnline = r.online === true;
 
-  const batteryLevel = getVal(teslaConfig?.battery_level);
-  const batteryRange = getVal(teslaConfig?.battery_range);
-  const chargingRate = getVal(
-    teslaConfig?.charging_rate || teslaConfig?.charger_power
-  );
-  const chargeLimit = getVal(teslaConfig?.charge_limit);
-  // Not getVal: this sensor is a completion timestamp on the Tesla
-  // integrations and a duration on TeslaMate. See charge-eta.ts.
-  const timeToFull = minutesToFullCharge(
-    teslaConfig?.time_to_full_charge ? entityMap.get(teslaConfig.time_to_full_charge) : undefined
-  );
-  const chargeEnergyAdded = getVal(teslaConfig?.charge_energy_added);
-  const insideTemp = getVal(teslaConfig?.inside_temperature);
-  const outsideTemp = getVal(teslaConfig?.outside_temperature);
-  const odometer = getVal(teslaConfig?.odometer);
+  const locationState = r.locationState ?? "unknown";
+  const climateState = r.climateState ?? "unknown";
+  const vehicleState = r.vehicleState ?? "unknown";
+  const doorsState = r.doorsOpen == null ? "unknown" : r.doorsOpen ? "open" : "closed";
+  const windowsState = r.windowsOpen == null ? "unknown" : r.windowsOpen ? "open" : "closed";
+  const trunkState = r.trunkOpen == null ? "unknown" : r.trunkOpen ? "open" : "closed";
+  const frunkState = r.frunkOpen == null ? "unknown" : r.frunkOpen ? "open" : "closed";
 
-  const tireUnit = teslaConfig?.tire_pressure_fl
-    ? entityMap.get(teslaConfig.tire_pressure_fl)?.attributes
-        ?.unit_of_measurement
-    : undefined;
-  const isPsi = tireUnit === "psi" || tireUnit === "PSI";
-  const psiToBar = (psi: number) => psi * 0.0689476;
+  const fmt = (reading: Parameters<typeof formatReading>[0], digits: number) =>
+    formatReading(reading, { digits, locale: intlLocale });
+  /** The number alone, for grids that print the unit once in their heading. */
+  const fmtBare = (reading: Parameters<typeof formatReading>[0], digits: number) =>
+    formatReading(reading ? { value: reading.value, unit: null } : null, {
+      digits,
+      locale: intlLocale,
+    });
 
-  const tirePressureFL = isPsi
-    ? psiToBar(getVal(teslaConfig?.tire_pressure_fl))
-    : getVal(teslaConfig?.tire_pressure_fl);
-  const tirePressureFR = isPsi
-    ? psiToBar(getVal(teslaConfig?.tire_pressure_fr))
-    : getVal(teslaConfig?.tire_pressure_fr);
-  const tirePressureRL = isPsi
-    ? psiToBar(getVal(teslaConfig?.tire_pressure_rl))
-    : getVal(teslaConfig?.tire_pressure_rl);
-  const tirePressureRR = isPsi
-    ? psiToBar(getVal(teslaConfig?.tire_pressure_rr))
-    : getVal(teslaConfig?.tire_pressure_rr);
-
-  const lockState = getState(teslaConfig?.locked);
-  const doorsState = getState(teslaConfig?.doors);
-  const windowsState = getState(teslaConfig?.windows);
-  const trunkState = getState(teslaConfig?.trunk);
-  const frunkState = getState(teslaConfig?.frunk);
-  const vehicleState = getState(teslaConfig?.state);
-  const chargingState = getState(teslaConfig?.charging_state);
-  const locationState = getState(teslaConfig?.location);
-
-  const isCharging = chargingState === "charging" || chargingRate > 0;
-  const isLocked = lockState === "locked";
-  const isOnline = vehicleState === "on" || vehicleState === "online";
+  // All four corners come from the same integration, so they share a unit —
+  // but it is read rather than assumed. It used to be printed as "bar" for
+  // everyone, with psi silently converted to match the label.
+  const tyreUnit =
+    r.tyres.fl?.unit ?? r.tyres.fr?.unit ?? r.tyres.rl?.unit ?? r.tyres.rr?.unit ?? null;
 
   const batteryColor =
     batteryLevel > 60
@@ -584,7 +433,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
                     <div className="flex items-center gap-1.5 justify-center">
                       <Zap className="size-4 text-energy-grid" />
                       <span className="text-lg font-semibold text-energy-grid">
-                        {chargingRate.toFixed(1)} kW
+                        {fmt(r.power, READING_DIGITS.power)}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -608,8 +457,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
               </div>
               <div className="text-right">
                 <p className="text-3xl font-semibold">
-                  {Math.round(batteryRange)}
-                  <span className="text-sm text-muted-foreground ml-1">km</span>
+                  {fmt(r.range, READING_DIGITS.distance)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {t("rangeLabelFull")}
@@ -622,17 +470,17 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
                 className={`absolute inset-y-0 left-0 ${batteryBg} rounded-full transition-all duration-500`}
                 style={{ width: `${Math.min(100, batteryLevel)}%` }}
               />
-              {chargeLimit > 0 && (
+              {r.chargeLimit != null && r.chargeLimit.value > 0 && (
                 <div
                   className="absolute inset-y-0 w-0.5 bg-foreground/50"
-                  style={{ left: `${Math.min(100, chargeLimit)}%` }}
-                  title={t("chargeLimitLabel", { percent: chargeLimit })}
+                  style={{ left: `${Math.min(100, r.chargeLimit.value)}%` }}
+                  title={t("chargeLimitLabel", { percent: Math.round(r.chargeLimit.value) })}
                 />
               )}
             </div>
-            {chargeLimit > 0 && (
+            {r.chargeLimit != null && r.chargeLimit.value > 0 && (
               <p className="text-xs text-muted-foreground mt-1 text-right">
-                {t("chargeLimitLabel", { percent: Math.round(chargeLimit) })}
+                {t("chargeLimitLabel", { percent: Math.round(r.chargeLimit.value) })}
               </p>
             )}
           </div>
@@ -686,7 +534,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
             <div>
               <p className="text-xs text-muted-foreground">{t("tempInside")}</p>
               <p className="text-lg font-semibold text-energy-consumption">
-                {insideTemp.toFixed(1)}°C
+                {fmt(r.insideTemp, READING_DIGITS.temperature)}
               </p>
             </div>
           </div>
@@ -700,7 +548,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
                 {t("tempOutside")}
               </p>
               <p className="text-lg font-semibold text-energy-grid">
-                {outsideTemp.toFixed(1)}°C
+                {fmt(r.outsideTemp, READING_DIGITS.temperature)}
               </p>
             </div>
           </div>
@@ -771,9 +619,11 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
                 <h2 className="text-lg font-medium">
                   {t("tirePressureHeading")}
                 </h2>
-                <span className="text-xs text-muted-foreground ml-auto">
-                  {t("tirePressureUnit")}
-                </span>
+                {tyreUnit && (
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {tyreUnit}
+                  </span>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex justify-between p-2.5 rounded-lg bg-muted/50">
@@ -781,7 +631,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
                     {t("tireFL")}
                   </span>
                   <span className="text-sm font-semibold">
-                    {tirePressureFL.toFixed(1)}
+                    {fmtBare(r.tyres.fl, READING_DIGITS.pressure)}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5 rounded-lg bg-muted/50">
@@ -789,7 +639,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
                     {t("tireFR")}
                   </span>
                   <span className="text-sm font-semibold">
-                    {tirePressureFR.toFixed(1)}
+                    {fmtBare(r.tyres.fr, READING_DIGITS.pressure)}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5 rounded-lg bg-muted/50">
@@ -797,7 +647,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
                     {t("tireRL")}
                   </span>
                   <span className="text-sm font-semibold">
-                    {tirePressureRL.toFixed(1)}
+                    {fmtBare(r.tyres.rl, READING_DIGITS.pressure)}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5 rounded-lg bg-muted/50">
@@ -805,7 +655,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
                     {t("tireRR")}
                   </span>
                   <span className="text-sm font-semibold">
-                    {tirePressureRR.toFixed(1)}
+                    {fmtBare(r.tyres.rr, READING_DIGITS.pressure)}
                   </span>
                 </div>
               </div>
@@ -827,8 +677,8 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
           {teslaConfig?.odometer && (
             <StatisticsCard
               title={t("statOdometer")}
-              value={Math.round(odometer).toLocaleString(intlLocale)}
-              unit="km"
+              value={fmtBare(r.odometer, READING_DIGITS.distance)}
+              unit={r.odometer?.unit ?? undefined}
               icon={<Gauge className="size-4" />}
               color="default"
             />
@@ -836,8 +686,8 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
           {teslaConfig?.charge_energy_added && (
             <StatisticsCard
               title={t("statSessionEnergy")}
-              value={chargeEnergyAdded}
-              unit="kWh"
+              value={fmtBare(r.energyAdded, READING_DIGITS.energy)}
+              unit={r.energyAdded?.unit ?? undefined}
               icon={<Zap className="size-4" />}
               color="grid"
             />
@@ -845,7 +695,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
           {teslaConfig?.charge_energy_added && (
             <StatisticsCard
               title={t("statSessionCost")}
-              value={chargeEnergyAdded * (teslaConfig.cost_per_kwh ?? DEFAULT_KWH_PRICE)}
+              value={(r.energyAdded?.value ?? 0) * (teslaConfig.cost_per_kwh ?? DEFAULT_KWH_PRICE)}
               unit={teslaConfig.currency || "€"}
               format="currency"
               icon={<Battery className="size-4" />}
@@ -855,7 +705,7 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
           {teslaConfig?.charge_limit && (
             <StatisticsCard
               title={t("statChargeLimit")}
-              value={Math.round(chargeLimit)}
+              value={r.chargeLimit ? Math.round(r.chargeLimit.value) : 0}
               format="percentage"
               icon={<Battery className="size-4" />}
               color="battery"
@@ -955,20 +805,23 @@ export function TeslaCard({ vehicle }: { vehicle: Vehicle }) {
 // ---------------------------------------------------------------------------
 export function TeslaWidgetCard({ vehicle }: { vehicle: Vehicle }) {
   const t = useTranslations("tesla");
+  const locale = useLocale();
+  const intlLocale = getIntlLocale(locale);
   const config = vehicle.config as TeslaConfig;
   const { data: settings } = useHomeAssistantStatus();
   const haConnected = Boolean(settings?.url && settings?.access_token);
 
-  const entityIds = useMemo(() => {
-    if (!config) return [];
-    return [
-      config.battery_level,
-      config.battery_range,
-      config.charging_rate,
-      config.charger_power,
-      config.charging_state,
-    ].filter((id): id is string => !!id);
-  }, [config]);
+  const entityIds = useMemo(
+    () =>
+      [
+        config?.battery_level,
+        config?.battery_range,
+        config?.charging_rate,
+        config?.charger_power,
+        config?.charging_state,
+      ].filter((id): id is string => !!id),
+    [config],
+  );
 
   const { data: entities = [] } = useHomeAssistantEntityStates(
     entityIds,
@@ -980,24 +833,9 @@ export function TeslaWidgetCard({ vehicle }: { vehicle: Vehicle }) {
     [entities],
   );
 
-  const getVal = (id: string | undefined): number => {
-    if (!id) return 0;
-    const entity = entityMap.get(id);
-    if (!entity) return 0;
-    const value = parseFloat(entity.state);
-    return isNaN(value) ? 0 : value;
-  };
-
-  const getState = (id: string | undefined): string => {
-    if (!id) return "unknown";
-    return entityMap.get(id)?.state ?? "unknown";
-  };
-
-  const batteryLevel = getVal(config?.battery_level);
-  const batteryRange = getVal(config?.battery_range);
-  const chargingRate = getVal(config?.charging_rate || config?.charger_power);
-  const chargingState = getState(config?.charging_state);
-  const isCharging = chargingState === "charging" || chargingRate > 0;
+  const r = useMemo(() => readVehicle(config, entityMap), [config, entityMap]);
+  const batteryLevel = r.battery?.value ?? 0;
+  const isCharging = r.charging;
 
   const batteryColor =
     batteryLevel > 60
@@ -1046,13 +884,12 @@ export function TeslaWidgetCard({ vehicle }: { vehicle: Vehicle }) {
             <div className="flex items-center gap-1 text-energy-grid">
               <Zap className="size-4" />
               <span className="text-sm font-semibold">
-                {chargingRate.toFixed(1)} kW
+                {formatReading(r.power, { digits: READING_DIGITS.power, locale: intlLocale })}
               </span>
             </div>
           ) : (
             <p className="text-2xl font-semibold">
-              {Math.round(batteryRange)}
-              <span className="text-xs text-muted-foreground ml-1">km</span>
+              {formatReading(r.range, { digits: READING_DIGITS.distance, locale: intlLocale })}
             </p>
           )}
         </div>
@@ -1080,8 +917,33 @@ export function TeslaConfigForm({
   );
 
   const [editingConfig, setEditingConfig] = useState<TeslaConfig>(
+
     vehicle.config as TeslaConfig
   );
+
+  // Which entities belong to *this* car.
+  //
+  // This used to be `entity_id.includes("tesla")`, which is true of almost no
+  // real installation: Home Assistant names entities after the device, so a
+  // Model Y called "Model Y" produces `sensor.model_y_batteriestand` and not a
+  // "tesla" in sight. Every curated list below came back empty and the whole
+  // picker fell back to "show all entities".
+  //
+  // The prefix is inferred from whatever is already configured — the first
+  // entity the owner picked tells us what the rest are called — and "tesla" is
+  // kept as the opening guess for a car that has nothing configured yet.
+  const devicePrefix = useMemo(() => {
+    for (const id of vehicleEntityIds(editingConfig)) {
+      const [, object] = id.split(".", 2);
+      if (!object) continue;
+      // Two segments is enough to identify a device without matching half the
+      // house: "model_y" from "model_y_batteriestand".
+      const parts = object.split("_");
+      if (parts.length >= 2) return `${parts[0]}_${parts[1]}`;
+      if (parts[0]) return parts[0];
+    }
+    return null;
+  }, [editingConfig]);
 
   // Tracks whether the user has touched the form. Once dirty, server refetches
   // don't clobber in-progress edits.
@@ -1156,14 +1018,18 @@ export function TeslaConfigForm({
     );
   }
 
-  const isTesla = (e: HAEntity) =>
-    e.entity_id.toLowerCase().includes("tesla");
+
+  const isTesla = (e: HAEntity) => {
+    const id = e.entity_id.toLowerCase();
+    if (devicePrefix && id.includes(devicePrefix.toLowerCase())) return true;
+    return id.includes("tesla");
+  };
 
   const allEntities = entities;
 
   const batterySensors = entities.filter(
     (e) =>
-      (e.domain === "sensor" &&
+      ((e.domain === "sensor" || e.domain === "number" || e.domain === "input_number") &&
         (e.attributes.device_class === "battery" ||
           e.attributes.unit_of_measurement === "%" ||
           e.entity_id.includes("battery") ||
