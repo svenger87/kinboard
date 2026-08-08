@@ -83,7 +83,7 @@ The first build takes **~5–10 min** and peaks at **~4 GB RAM** during type-che
 ./start.sh logs     # tail logs from all services
 ./start.sh down     # stop everything
 ./start.sh restart  # rebuild webapp + restart  (Path B only — Path A skips the build)
-./start.sh migrate  # re-apply migrations (rarely needed; `up` already does it)
+./start.sh migrate  # re-apply migrations by hand (rarely needed; the webapp does it on start)
 ```
 
 > **Image-path users:** runtime overrides for `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are read from `webapp/docker/.env` at container start, so the same image works for any URL — no rebuild needed when you change `SITE_URL` later.
