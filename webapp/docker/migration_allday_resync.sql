@@ -10,9 +10,30 @@
 --
 -- Idempotent, and cheap: it costs one extra full sync per calendar, once.
 -- Events themselves are untouched here -- the sync rewrites them.
+--
+-- The column guards are load-bearing. Migrations apply in alphabetical order,
+-- and this file sorts before migration_caldav.sql and migration_calendars_ics.sql
+-- — the ones that add caldav_ctag and ics_etag. On a fresh install the columns
+-- do not exist yet when this runs, and the entrypoint refuses to start the
+-- webapp on a failed migration, so an unguarded UPDATE here means a brand-new
+-- deployment never boots. There is nothing to resync on a fresh install anyway.
+DO $$
+BEGIN
+  IF to_regclass('public.calendars') IS NULL THEN
+    RETURN;
+  END IF;
 
-UPDATE calendars
-SET caldav_ctag = NULL,
-    ics_etag    = NULL
-WHERE caldav_ctag IS NOT NULL
-   OR ics_etag IS NOT NULL;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'calendars' AND column_name = 'caldav_ctag'
+  ) THEN
+    UPDATE public.calendars SET caldav_ctag = NULL WHERE caldav_ctag IS NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'calendars' AND column_name = 'ics_etag'
+  ) THEN
+    UPDATE public.calendars SET ics_etag = NULL WHERE ics_etag IS NOT NULL;
+  END IF;
+END $$;
