@@ -26,6 +26,14 @@ export const dynamic = "force-dynamic";
 /** Shape returned for each sensor. `null` means "not applicable right now". */
 export interface FamilySummary {
   next_family_event: {
+    /**
+     * What a sensor displays. Every other field here carries one, and a
+     * consumer that reads `state` uniformly across the summary was left with
+     * `undefined` for this one — the Home Assistant sensor showed "unknown"
+     * while the event sat right beside it in the same payload. Found on the
+     * first real setup.
+     */
+    state: string;
     id: string;
     title: string;
     start_at: string;
@@ -180,6 +188,9 @@ export async function GET(request: NextRequest) {
         const upcoming = rows.find((e) => new Date(e.start_at) >= now);
         if (upcoming) {
           nextEvent = {
+            // The title is the sensible display value; the detail is in the
+            // attributes beside it.
+            state: upcoming.title,
             id: upcoming.id,
             title: upcoming.title,
             start_at: upcoming.start_at,
