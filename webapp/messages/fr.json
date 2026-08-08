@@ -3080,7 +3080,6 @@
     "frunkLabel": "Coffre avant",
     "locationLabel": "Emplacement",
     "tirePressureHeading": "Pression des pneus",
-    "tirePressureUnit": "bar",
     "tireFL": "AVG",
     "tireFR": "AVD",
     "tireRL": "ARG",
@@ -3132,23 +3131,57 @@
     "unknownVendor": "Type de véhicule inconnu : {vendor}",
     "drivers": {
       "generic-ev": {
-        "haNotConnected": "Home Assistant n'est pas connecté. Configurez-le d'abord dans les paramètres.",
-        "notConfigured": "Aucune entité configurée. Modifiez ce véhicule dans les paramètres pour ajouter des ID d'entités.",
-        "charging": "Charge en cours",
+        "haNotConnected": "Home Assistant n’est pas connecté. Configurez-le d’abord dans les réglages.",
+        "notConfigured": "Rien de configuré pour l’instant. Modifiez ce véhicule dans les réglages et choisissez les entités à afficher.",
+        "charging": "En charge",
+        "notCharging": "Pas en charge",
+        "batteryLabel": "Batterie",
+        "rangeLabel": "Autonomie",
+        "tempInside": "Intérieur",
+        "tempOutside": "Extérieur",
+        "statusHeading": "État",
+        "lockLabel": "Verrouillage",
+        "doorsLabel": "Portes",
+        "windowsLabel": "Fenêtres",
+        "trunkLabel": "Coffre",
+        "odometerLabel": "Compteur",
+        "locationLabel": "Position",
         "section": {
-          "entities": "ID d'entités"
+          "entities": "Entités",
+          "entitiesHint": "Choisissez les entités Home Assistant de cette voiture. Tout est optionnel — la carte affiche ce que vous renseignez. Les suggestions se limitent à cette voiture dès la première entité choisie."
         },
         "field": {
           "batteryLevel": "Niveau de batterie",
-          "chargingState": "État de charge",
           "range": "Autonomie",
-          "location": "Emplacement",
-          "state": "État"
+          "chargingState": "État de charge",
+          "chargePower": "Puissance de charge",
+          "timeToFull": "Fin de charge",
+          "chargeLimit": "Limite de charge",
+          "insideTemperature": "Température intérieure",
+          "outsideTemperature": "Température extérieure",
+          "locked": "Verrouillage",
+          "doors": "Portes",
+          "windows": "Fenêtres",
+          "trunk": "Coffre",
+          "odometer": "Compteur",
+          "location": "Position",
+          "state": "État du véhicule"
         }
       }
     },
     "saving": "Enregistrement…",
-    "saveError": "Enregistrement impossible. Veuillez réessayer."
+    "saveError": "Enregistrement impossible. Veuillez réessayer.",
+    "state": {
+      "open": "Ouvert",
+      "closed": "Fermé",
+      "locked": "Verrouillé",
+      "unlocked": "Déverrouillé",
+      "online": "Éveillé",
+      "asleep": "En veille",
+      "unknown": "Inconnu",
+      "home": "À la maison",
+      "away": "Absent"
+    }
   },
   "familyMembers": {
     "emptyState": "Pas encore de membres de la famille",

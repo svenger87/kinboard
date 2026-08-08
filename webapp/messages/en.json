@@ -3080,7 +3080,6 @@
     "frunkLabel": "Frunk",
     "locationLabel": "Location",
     "tirePressureHeading": "Tire pressure",
-    "tirePressureUnit": "bar",
     "tireFL": "FL",
     "tireFR": "FR",
     "tireRL": "RL",
@@ -3133,22 +3132,56 @@
     "drivers": {
       "generic-ev": {
         "haNotConnected": "Home Assistant is not connected. Configure it in settings first.",
-        "notConfigured": "No entities configured. Edit this vehicle in settings to add entity IDs.",
+        "notConfigured": "Nothing configured yet. Edit this vehicle in settings and pick the entities it should read.",
         "charging": "Charging",
+        "notCharging": "Not charging",
+        "batteryLabel": "Battery",
+        "rangeLabel": "Range",
+        "tempInside": "Inside",
+        "tempOutside": "Outside",
+        "statusHeading": "Status",
+        "lockLabel": "Lock",
+        "doorsLabel": "Doors",
+        "windowsLabel": "Windows",
+        "trunkLabel": "Boot",
+        "odometerLabel": "Odometer",
+        "locationLabel": "Location",
         "section": {
-          "entities": "Entity IDs"
+          "entities": "Entities",
+          "entitiesHint": "Pick the Home Assistant entities for this car. Everything is optional — the card shows what you fill in. Suggestions narrow to this car once the first entity is chosen."
         },
         "field": {
           "batteryLevel": "Battery level",
-          "chargingState": "Charging state",
           "range": "Range",
+          "chargingState": "Charging state",
+          "chargePower": "Charging power",
+          "timeToFull": "Charge complete at",
+          "chargeLimit": "Charge limit",
+          "insideTemperature": "Inside temperature",
+          "outsideTemperature": "Outside temperature",
+          "locked": "Lock",
+          "doors": "Doors",
+          "windows": "Windows",
+          "trunk": "Boot",
+          "odometer": "Odometer",
           "location": "Location",
-          "state": "State"
+          "state": "Vehicle state"
         }
       }
     },
     "saving": "Saving…",
-    "saveError": "Could not save. Please try again."
+    "saveError": "Could not save. Please try again.",
+    "state": {
+      "open": "Open",
+      "closed": "Closed",
+      "locked": "Locked",
+      "unlocked": "Unlocked",
+      "online": "Awake",
+      "asleep": "Asleep",
+      "unknown": "Unknown",
+      "home": "Home",
+      "away": "Away"
+    }
   },
   "familyMembers": {
     "emptyState": "No family members yet",
