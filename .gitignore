@@ -92,3 +92,7 @@ docs/internal/
 # Local planning scratch from the superpowers workflow — design plans and
 # specs. Working notes, not project docs; kept out of the public repo.
 docs/superpowers/
+
+# Generated at runtime by webapp/docker/test-upgrade.sh — the "after" half of
+# an upgrade run. Regenerated on every run; never edited by hand.
+webapp/docker/docker-compose.upgrade-target.yml
