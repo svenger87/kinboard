@@ -95,10 +95,10 @@ paths:
         sharing a disk with Postgres; eight requests where one would do is
         eight times the load for data read at the same moment anyway.
 
-        `display_mode` and `attention_required` are placeholders until the
-        Heute-Motor exists. They are present and null/false rather than absent,
-        so an entity built on them does not appear later and break automations
-        written in the meantime.
+        `display_mode` and `attention_required` are live as of the Heute-Motor.
+        They shipped earlier as null/false placeholders rather than being
+        absent, precisely so entities built on them kept working when the
+        engine arrived — which is what happened.
       x-required-scope: family:read
       responses:
         "200":
@@ -650,8 +650,22 @@ components:
               balance: { type: number }
               currency: { type: string }
         display_mode:
-          type: "null"
-          description: Reserved for the Heute-Motor (Phase 3).
+          type: string
+          enum: [morning, afternoon, evening, quiet]
+          description: |
+            Which part of the day the board considers itself in. Resolved by the
+            same function the engine and the dashboard use, so an automation
+            triggering on "evening" cannot disagree with a hint that says it is
+            evening. 09:00-14:00 is deliberately `quiet`: it is nobody's rush,
+            and a board that is always urgent becomes wallpaper.
         attention_required:
           type: boolean
-          description: Reserved for the Heute-Motor (Phase 3); always false for now.
+          description: |
+            Whether the Heute-Motor currently has something the family has not
+            dealt with. Snoozed items do not count until their snooze runs out.
+        attention:
+          type: object
+          description: What it is about, so a dashboard needs no second call.
+          properties:
+            count: { type: integer }
+            top: { type: [string, "null"] }
