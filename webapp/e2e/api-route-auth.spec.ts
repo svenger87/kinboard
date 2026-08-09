@@ -95,6 +95,27 @@ const CRON_PREFIX = "cron/";
  */
 const AUTH_BOUNDARIES = ["requireSession", "withIntegrationAuth"];
 
+/**
+ * The third boundary: the cron secret.
+ *
+ * `/api/cron/*` is checked separately below, on the assumption that a
+ * sessionless privileged route lives under that prefix. /api/attention/simulate
+ * broke the assumption — it is called on demand rather than on a schedule, so
+ * it does not belong under cron/, but it is gated on the same shared secret and
+ * is no less guarded for sitting elsewhere.
+ *
+ * Matched on the comparison rather than the mention: a route that merely names
+ * CRON_SECRET without checking it would otherwise pass by talking about the
+ * boundary instead of standing behind it.
+ */
+function behindCronSecret(source: string): boolean {
+  return source.includes("`Bearer ${CRON_SECRET}`");
+}
+
+function guarded(source: string): boolean {
+  return AUTH_BOUNDARIES.some((needle) => source.includes(needle)) || behindCronSecret(source);
+}
+
 function routeFiles(root: string): string[] {
   const found: string[] = [];
   const walk = (dir: string) => {
@@ -127,7 +148,7 @@ test("every privileged API route requires a session", () => {
 
     const source = readFileSync(file, "utf8");
     if (!PRIVILEGED.some((needle) => source.includes(needle))) continue;
-    if (!AUTH_BOUNDARIES.some((needle) => source.includes(needle))) unguarded.push(rel);
+    if (!guarded(source)) unguarded.push(rel);
   }
 
   expect(unguarded).toEqual([]);
@@ -209,10 +230,7 @@ test("the allowlist is the only thing keeping those routes out of the scan", () 
     .filter((rel) => !rel.startsWith(CRON_PREFIX))
     .filter((rel) => {
       const source = readFileSync(join(ROOT, rel), "utf8");
-      return (
-        PRIVILEGED.some((needle) => source.includes(needle)) &&
-        !AUTH_BOUNDARIES.some((needle) => source.includes(needle))
-      );
+      return PRIVILEGED.some((needle) => source.includes(needle)) && !guarded(source);
     });
 
   expect(flagged.sort()).toEqual(Object.keys(PUBLIC_BY_DESIGN).sort());
