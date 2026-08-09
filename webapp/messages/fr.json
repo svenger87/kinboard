@@ -2322,7 +2322,9 @@
       "revokeConfirmBody": "{name} cessera immédiatement de fonctionner. Tout ce qui l'utilise — Home Assistant, une automatisation — perdra l'accès jusqu'à ce que vous en créiez un nouveau."
     },
     "itemIntegrationTokensLabel": "Jetons d'intégration",
-    "itemIntegrationTokensDescription": "Permettre à Home Assistant et à d'autres programmes de dialoguer avec Kinboard"
+    "itemIntegrationTokensDescription": "Permettre à Home Assistant et à d'autres programmes de dialoguer avec Kinboard",
+    "diagnosticsBundleLabel": "Version chargée",
+    "diagnosticsBundleStale": "{version} — appuyez pour mettre à jour"
   },
   "calendar": {
     "caldavToast": {

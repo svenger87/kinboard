@@ -25,9 +25,9 @@ acls:
 ###
 keyauth_credentials:
   - consumer: DASHBOARD
-    key: REPLACE_WITH_SERVICE_ROLE_KEY
+    key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3ODYyNTAwMzUsImV4cCI6MjEwMTYxMDAzNX0.XKeQvyssTLjyueV1gf4aXAV9XRSiaRtwt692nV9rTN8
   - consumer: anon
-    key: REPLACE_WITH_ANON_KEY
+    key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg2MjUwMDM1LCJleHAiOjIxMDE2MTAwMzV9.KxHnks30dQvsZqPL2j9YAWhWmloUcKvGK8YvKfMKNQ8
 
 ###
 ### Services
@@ -48,7 +48,7 @@ services:
           origins:
             - http://localhost:3000
             - http://localhost:3001
-            - REPLACE_WITH_WEBAPP_ORIGIN  # webapp_origin
+            - http://localhost:3040  # webapp_origin
           methods:
             - GET
             - POST
@@ -95,7 +95,7 @@ services:
           origins:
             - http://localhost:3000
             - http://localhost:3001
-            - REPLACE_WITH_WEBAPP_ORIGIN  # webapp_origin
+            - http://localhost:3040  # webapp_origin
           methods:
             - GET
             - POST
@@ -143,7 +143,7 @@ services:
           origins:
             - http://localhost:3000
             - http://localhost:3001
-            - REPLACE_WITH_WEBAPP_ORIGIN  # webapp_origin
+            - http://localhost:3040  # webapp_origin
           methods:
             - GET
             - POST
@@ -191,7 +191,7 @@ services:
           origins:
             - http://localhost:3000
             - http://localhost:3001
-            - REPLACE_WITH_WEBAPP_ORIGIN  # webapp_origin
+            - http://localhost:3040  # webapp_origin
           methods:
             - GET
             - POST
@@ -262,7 +262,7 @@ services:
           origins:
             - http://localhost:3000
             - http://localhost:3001
-            - REPLACE_WITH_WEBAPP_ORIGIN  # webapp_origin
+            - http://localhost:3040  # webapp_origin
           methods:
             - GET
             - HEAD
@@ -293,7 +293,7 @@ services:
           origins:
             - http://localhost:3000
             - http://localhost:3001
-            - REPLACE_WITH_WEBAPP_ORIGIN  # webapp_origin
+            - http://localhost:3040  # webapp_origin
           methods:
             - GET
             - POST

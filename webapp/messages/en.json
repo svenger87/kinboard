@@ -2322,7 +2322,9 @@
       "revokeConfirmBody": "{name} will stop working immediately. Anything using it — Home Assistant, an automation — will lose access until you create a new one."
     },
     "itemIntegrationTokensLabel": "Integration tokens",
-    "itemIntegrationTokensDescription": "Let Home Assistant and other programs talk to Kinboard"
+    "itemIntegrationTokensDescription": "Let Home Assistant and other programs talk to Kinboard",
+    "diagnosticsBundleLabel": "Running bundle",
+    "diagnosticsBundleStale": "{version} — tap to update"
   },
   "calendar": {
     "caldavToast": {

@@ -63,6 +63,7 @@ import { useKeyboardShortcuts, useSwipeNavigation, useIsOnline, useDeleteDevice,
 } from "@/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVersionCheck } from "@/hooks/use-version-check";
+import { usePWA } from "@/hooks/use-pwa";
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
@@ -118,6 +119,13 @@ export default function SettingsPage() {
   const { data: version } = useVersionCheck();
   const realtimeStatus = useRealtimeStatusStore((s) => s.status);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+
+  // Baked into the bundle at build time (next.config.mjs), so it is whatever
+  // build this tab loaded — not what the server is serving now.
+  const bundleVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? "—";
+  const { updateServiceWorker } = usePWA();
+  const bundleIsStale =
+    !!version?.current && bundleVersion !== "—" && bundleVersion !== version.current;
   const { data: haStatus } = useHomeAssistantStatus();
   const haConnected = !!haStatus?.url && !!haStatus?.access_token;
   const { data: haConn } = useHomeAssistantConnectionCheck(haConnected);
@@ -1089,6 +1097,25 @@ export default function SettingsPage() {
                     {version?.current ?? "—"}
                   </span>,
                   statusDot("bg-muted-foreground/40")
+                )}
+                {/* What this tab is actually running, as opposed to what the
+                    server is. They differ when a page has been open across an
+                    update — the service worker waits for the user to accept it
+                    — and until now nothing said so, which made every "broken
+                    after updating" report impossible to check (issue #185). */}
+                {diagRow(
+                  t("diagnosticsBundleLabel"),
+                  bundleIsStale ? (
+                    <button
+                      onClick={updateServiceWorker}
+                      className="text-warning underline underline-offset-2"
+                    >
+                      {t("diagnosticsBundleStale", { version: bundleVersion })}
+                    </button>
+                  ) : (
+                    <span className="text-muted-foreground font-normal">{bundleVersion}</span>
+                  ),
+                  statusDot(bundleIsStale ? "bg-warning" : "bg-muted-foreground/40")
                 )}
                 {diagRow(
                   t("diagnosticsNetworkLabel"),

@@ -2322,7 +2322,9 @@
       "revokeConfirmBody": "{name} funktioniert sofort nicht mehr. Alles, was es nutzt — Home Assistant, eine Automation — verliert den Zugriff, bis du ein neues erstellst."
     },
     "itemIntegrationTokensLabel": "Integrations-Tokens",
-    "itemIntegrationTokensDescription": "Home Assistant und andere Programme mit Kinboard sprechen lassen"
+    "itemIntegrationTokensDescription": "Home Assistant und andere Programme mit Kinboard sprechen lassen",
+    "diagnosticsBundleLabel": "Geladene Version",
+    "diagnosticsBundleStale": "{version} — zum Aktualisieren tippen"
   },
   "calendar": {
     "caldavToast": {
