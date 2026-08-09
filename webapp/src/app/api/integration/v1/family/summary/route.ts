@@ -68,9 +68,17 @@ export interface FamilySummary {
   tasks_overdue: number;
   meal_tomorrow: { state: string | null; meal: string | null; recipe_id: string | null };
   pocket_money: { person_id: string; name: string; balance: number; currency: string }[];
-  /** Heute-Motor, Phase 3. Reported as null so the entity exists and reads "unknown". */
+  /** Heute-Motor, still reserved: reported as null so the entity exists and reads "unknown". */
   display_mode: null;
-  attention_required: false;
+  /**
+   * Whether the Heute-Motor currently has something the family has not dealt
+   * with. Hardcoded `false` until the engine existed, which made the binary
+   * sensor a switch that could never flip — worse than absent, because it
+   * looked like an answer.
+   */
+  attention_required: boolean;
+  /** What it is about, so a dashboard can show it without a second call. */
+  attention: { count: number; top: string | null };
 }
 
 /**
@@ -143,7 +151,7 @@ export async function GET(request: NextRequest) {
     const tomorrowDow = isoDayOfWeek(tomorrowDate);
 
     try {
-      const [calendars, shopping, todos, meals, schedules, birthdays, people, mealsTomorrow, purses] =
+      const [calendars, shopping, todos, meals, schedules, birthdays, people, mealsTomorrow, purses, attention] =
         await Promise.all([
 
         (supabase as any).from("calendars").select("id").eq("family_id", familyId),
@@ -202,6 +210,19 @@ export async function GET(request: NextRequest) {
           .from("pocket_money_accounts")
           .select("person_id, balance_cents, currency")
           .eq("family_id", familyId),
+
+        // Unresolved and not already dealt with. A snoozed item is not
+        // "attention required" until its snooze runs out, and the evaluator is
+        // what returns it to active — so `state` is the right filter here and
+        // a timestamp comparison would double-guess it.
+        (supabase as any)
+          .from("attention_items")
+          .select("title, priority")
+          .eq("family_id", familyId)
+          .is("resolved_at", null)
+          .eq("state", "active")
+          .order("priority", { ascending: true })
+          .limit(10),
       ]);
 
       // Calendar events need the family's calendar ids first — events are
@@ -347,6 +368,10 @@ export async function GET(request: NextRequest) {
 
       const childNames = withLessons.map((s) => nameById.get(s.person_id) ?? "?");
 
+      // Already ordered by priority in the query, so [0] is the one that
+      // matters most rather than merely the oldest.
+      const attentionItems = (attention.data ?? []) as { title: string; priority: number }[];
+
       const summary: FamilySummary = {
         next_family_event: nextEvent,
         events_today: { state: todaysEvents.length, events: todaysEvents.slice(0, 10) },
@@ -380,7 +405,11 @@ export async function GET(request: NextRequest) {
         },
         pocket_money: pocketMoney,
         display_mode: null,
-        attention_required: false,
+        attention_required: attentionItems.length > 0,
+        attention: {
+          count: attentionItems.length,
+          top: attentionItems[0]?.title ?? null,
+        },
       };
 
       return NextResponse.json({ summary, generated_at: now.toISOString(), today, tomorrow });
