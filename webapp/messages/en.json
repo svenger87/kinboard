@@ -2420,7 +2420,9 @@
           "description": "In the evening, says if tomorrow has nothing planned to eat."
         }
       }
-    }
+    },
+    "diagnosticsBundleLabel": "Running bundle",
+    "diagnosticsBundleStale": "{version} — tap to update"
   },
   "calendar": {
     "caldavToast": {
