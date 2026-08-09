@@ -231,28 +231,37 @@ export async function GET(request: NextRequest) {
         //
         // The window therefore reaches back before today for the start bound
         // and requires only that the event has not already ended.
+        // The window has to serve two questions at once, and narrowing it to
+        // today broke the second: "what is on today" wants everything
+        // overlapping the day, while "what is next" wants the first thing yet
+        // to start — which is usually tomorrow. Fetching only today's overlap
+        // left next_family_event empty whenever nothing further was due today.
+        const horizon = new Date(startOfToday.getTime() + 14 * 24 * 60 * 60 * 1000);
+
         const { data: events } = await (supabase as any)
           .from("events")
           .select("id, title, start_at, end_at, all_day, location, person_id")
           .in("calendar_id", calendarIds)
-          .lt("start_at", endOfToday.toISOString())
+          .lt("start_at", horizon.toISOString())
           .gte("end_at", startOfToday.toISOString())
           .order("start_at", { ascending: true })
-          .limit(100);
+          .limit(200);
 
         const rows = (events ?? []) as {
           id: string; title: string; start_at: string; end_at: string;
           all_day: boolean | null; location: string | null; person_id: string | null;
         }[];
 
-        todaysEvents = rows.map((e) => ({
+        todaysEvents = rows
+          .filter((e) => new Date(e.start_at) < endOfToday)
+          .map((e) => ({
           title: e.title,
           start_at: e.start_at,
           // So a consumer can tell "started last month, still running" from
           // "at 16:30 today" without re-deriving it.
           ongoing: new Date(e.start_at) < startOfToday,
           all_day: Boolean(e.all_day),
-        }));
+          }));
 
         // Still the next event to START. An all-day holiday that began in
         // July is genuinely "on today", but it is not what anybody means by
