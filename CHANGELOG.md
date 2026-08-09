@@ -35,6 +35,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **All-day events from CalDAV and iCal feeds land on the right day.** A date-only event carries no time and no timezone, but it was being stored as a moment in time using the *server's* clock. Anyone whose device sat in a different timezone from the server saw it a day out — an event on the 7th showing as the 6th, and spanning two days because the end date is written as the morning after. It now sticks to the day it was written for. Existing events correct themselves on the next sync.
 
 ### Security
+- **The browser can no longer be granted the one database privilege that ignores your family boundary.** Kinboard confines each family to its own rows with database policies, and every operation a browser can perform is filtered by them — except `TRUNCATE`, which empties a whole table and which no policy applies to. It was never reachable: the layer between the browser and the database only ever issues ordinary reads and writes, and never that statement. But the permission was there, granted by default by the underlying database image, and it had no legitimate use. It has been removed from every table, and stays removed as new ones are added. Nothing about normal use changes.
 - **`dompurify` updated to 3.4.13 and `nanoid` to 3.3.18.** Both reach the project through the build; the nanoid advisory is rated high.
 
 ## [1.7.0] - 2026-08-07
