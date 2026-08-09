@@ -22,7 +22,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$SCRIPT_DIR"
 
 RIG_PROJECT="kbfresh"
-RIG_DATA="/mnt/user/appdata/kinboard-fresh-data"
+# Overridable so the same rig runs on a CI runner, which has no
+# /mnt/user. The default stays the Unraid path this is developed on.
+RIG_DATA="${RIG_DATA:-/mnt/user/appdata/kinboard-fresh-data}"
 RIG_WEBAPP_PORT=3031
 RIG_POSTGRES_PORT=5462
 RIG_KONG_HTTP_PORT=8130
