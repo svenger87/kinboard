@@ -1,10 +1,24 @@
+import { createRequire } from 'node:module';
 import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
+// The version of the bundle the browser is actually running.
+//
+// Every version string in the UI came from /api/version-check — the server —
+// so a tab that has been open since before an update reports the NEW version
+// while running the OLD JavaScript. Bug reports after an update were therefore
+// unfalsifiable: issue #185 arrived stamped 1.9.0-rc.5 with no way for anyone,
+// reporter or maintainer, to tell which build drew the screen.
+//
+// Inlined at build time, so it travels with the bundle and goes stale exactly
+// when the bundle does. That is the point of it.
+const { version: appVersion } = createRequire(import.meta.url)('./package.json');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  env: { NEXT_PUBLIC_APP_VERSION: appVersion },
   // node-ical (used by /api/calendar/test-ics + /api/cron/sync-ics) has
   // transitive deps that evaluate BigInt-using code during Next's static
   // page-data collection step, causing `TypeError: s.BigInt is not a

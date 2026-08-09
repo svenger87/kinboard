@@ -2420,7 +2420,9 @@
           "description": "Le soir, signale que rien n'est prévu pour demain."
         }
       }
-    }
+    },
+    "diagnosticsBundleLabel": "Version chargée",
+    "diagnosticsBundleStale": "{version} — appuyez pour mettre à jour"
   },
   "calendar": {
     "caldavToast": {

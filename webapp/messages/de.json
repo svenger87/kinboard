@@ -2420,7 +2420,9 @@
           "description": "Abends: meldet, wenn für morgen nichts geplant ist."
         }
       }
-    }
+    },
+    "diagnosticsBundleLabel": "Geladene Version",
+    "diagnosticsBundleStale": "{version} — zum Aktualisieren tippen"
   },
   "calendar": {
     "caldavToast": {
