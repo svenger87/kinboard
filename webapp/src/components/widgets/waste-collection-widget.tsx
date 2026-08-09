@@ -19,112 +19,20 @@ import { useTimeFormat } from "@/hooks/use-time-format";
 // Waste bin types: keywords match against calendar event titles, and display
 // labels are resolved
 // per-locale via t("wasteCollectionWidget.types.{id}").
-type WasteTypeId = "rest" | "bio" | "paper" | "recyclable" | "packaging";
-
-const WASTE_TYPES: {
-  id: WasteTypeId;
-  keywords: string[];
-  icon: LucideIcon;
-  color: string;
-  bgColor: string;
-}[] = [
-  {
-    id: "rest",
-    keywords: [
-      // de
-      "restabfall", "restmüll", "restmuell", "schwarze tonne", "graue tonne", "hausmüll",
-      // en
-      "general waste", "residual waste", "household waste", "black bin", "grey bin", "gray bin", "landfill",
-      // fr
-      "ordures ménagères", "ordures menageres", "déchets résiduels", "bac gris", "bac noir",
-    ],
-    icon: Trash2,
-    color: "#6b7280",
-    bgColor: "#6b728015",
-  },
-  {
-    id: "bio",
-    keywords: [
-      // de
-      "bioabfall", "biotonne", "biomüll", "biomuell", "grüne tonne", "gruene tonne", "grünabfall",
-      // en
-      "food waste", "organic waste", "garden waste", "green bin", "brown bin", "compost", "caddy",
-      // fr
-      "déchets verts", "dechets verts", "biodéchets", "biodechets", "bac vert", "compost",
-    ],
-    icon: Leaf,
-    color: "#22c55e",
-    bgColor: "#22c55e15",
-  },
-  {
-    id: "paper",
-    keywords: [
-      // de
-      "papier", "pappe", "altpapier", "blaue tonne", "karton",
-      // en
-      "paper", "cardboard", "blue bin",
-      // fr
-      "papier", "carton", "bac bleu",
-    ],
-    icon: Newspaper,
-    color: "#3b82f6",
-    bgColor: "#3b82f615",
-  },
-  {
-    id: "recyclable",
-    keywords: [
-      // de
-      "wertstoff", "gelbe tonne", "gelber sack", "verpackung", "duale system",
-      // en
-      "recycling", "recyclables", "dry mixed", "yellow bin", "co-mingled", "commingled",
-      // fr
-      "recyclage", "emballages", "tri sélectif", "tri selectif", "bac jaune", "sac jaune",
-    ],
-    icon: Recycle,
-    color: "#eab308",
-    bgColor: "#eab30815",
-  },
-  {
-    id: "packaging",
-    keywords: [
-      // de
-      "leichtverpackung",
-      // en
-      "light packaging", "plastic packaging",
-      // fr
-      "emballages légers", "emballages legers",
-    ],
-    icon: Package,
-    color: "#f97316",
-    bgColor: "#f9731615",
-  },
-];
+import { WASTE_TYPES, detectWasteType, type WasteTypeId } from "@/lib/waste-types";
 
 /**
- * Which bin, if any, a calendar entry is about.
- *
- * Every language's keywords are checked regardless of the interface locale,
- * deliberately. A household in Germany may subscribe to an English-language
- * council feed, and a household in the UK may run Kinboard in German; matching
- * only the active locale would show an empty widget in both cases, silently.
- * Before this, only German matched at all — an English calendar produced
- * nothing, with no indication anything was wrong.
- *
- * Longest keyword first, so a specific match beats a general one: "light
- * packaging" must not be decided by "packaging", and "garden waste" must not
- * be swallowed by "waste".
+ * How each bin looks. The keywords that decide *which* bin an entry is now
+ * live in @/lib/waste-types, so the widget and the API cannot disagree about
+ * whether Thursday is paper day.
  */
-export function detectWasteType(title: string) {
-  const lower = title.toLowerCase();
-  const matches = WASTE_TYPES.flatMap((wasteType) =>
-    wasteType.keywords
-      .filter((keyword) => lower.includes(keyword))
-      .map((keyword) => ({ wasteType, keyword })),
-  );
-  if (matches.length === 0) return null;
-  matches.sort((a, b) => b.keyword.length - a.keyword.length);
-  return matches[0].wasteType;
-}
+const WASTE_PRESENTATION: Record<WasteTypeId, { icon: LucideIcon; color: string; bgColor: string }> = {
+  rest: { icon: Trash2, color: "#6b7280", bgColor: "#6b728015" },
+  bio: { icon: Leaf, color: "#22c55e", bgColor: "#22c55e15" },
+  paper: { icon: Newspaper, color: "#3b82f6", bgColor: "#3b82f615" },
+  recyclable: { icon: Recycle, color: "#eab308", bgColor: "#eab30815" },
+  packaging: { icon: Package, color: "#f97316", bgColor: "#f9731615" },
+};
 
 function WasteCollectionSkeleton() {
   const t = useTranslations("wasteCollectionWidget");
@@ -258,7 +166,8 @@ export function WasteCollectionWidget({
       >
         <div className="flex flex-col gap-2">
           {wasteEvents.map((event, index) => {
-            const Icon = event.wasteType.icon;
+            const presentation = WASTE_PRESENTATION[event.wasteType.id];
+            const Icon = presentation.icon;
             const isUrgent = event.daysUntil <= 1;
             return (
               <motion.div
@@ -267,10 +176,10 @@ export function WasteCollectionWidget({
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.06, duration: 0.22 }}
                 className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 elev-sm"
-                style={isUrgent ? { borderLeft: `4px solid ${event.wasteType.color}` } : undefined}
+                style={isUrgent ? { borderLeft: `4px solid ${presentation.color}` } : undefined}
                 aria-label={t("itemAria", { label: wasteLabels[event.wasteType.id], when: formatDayLabel(event.date, event.daysUntil) })}
               >
-                <span className="shrink-0 rounded-lg p-2" style={{ backgroundColor: personTint(event.wasteType.color, 84), color: personText(event.wasteType.color) }}>
+                <span className="shrink-0 rounded-lg p-2" style={{ backgroundColor: personTint(presentation.color, 84), color: personText(presentation.color) }}>
                   <Icon className="size-4" strokeWidth={1.75} />
                 </span>
                 <div className="min-w-0 flex-1">

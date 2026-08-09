@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { detectWasteType } from "../src/components/widgets/waste-collection-widget";
+import { detectWasteType } from "../src/lib/waste-types";
 
 /**
  * Which bin a calendar entry is about.
