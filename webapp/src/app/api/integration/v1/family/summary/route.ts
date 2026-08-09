@@ -94,6 +94,20 @@ export interface FamilySummary {
    * Home Assistant and the data was already here, sitting in a calendar
    * flagged is_waste_collection and reaching nothing outside the widget.
    */
+  /**
+   * Active saving goals, with progress. A child saving for a Lego set is
+   * exactly the sort of thing a family wants on a display, and the data was
+   * only reachable inside Kinboard.
+   */
+  saving_goals: {
+    person: string;
+    name: string;
+    target: number;
+    saved: number;
+    /** 0-100, rounded. The number a progress bar actually wants. */
+    percent: number;
+    currency: string;
+  }[];
   waste_collection: {
     /** The bin type, as a person would say it — the sensor's state. */
     state: string | null;
@@ -176,7 +190,7 @@ export async function GET(request: NextRequest) {
     const tomorrowDow = isoDayOfWeek(tomorrowDate);
 
     try {
-      const [calendars, shopping, todos, meals, schedules, birthdays, people, mealsTomorrow, purses, timezoneSetting, wasteCalendars, attention] =
+      const [calendars, shopping, todos, meals, schedules, birthdays, people, mealsTomorrow, purses, timezoneSetting, wasteCalendars, goals, attention] =
         await Promise.all([
 
         (supabase as any).from("calendars").select("id").eq("family_id", familyId),
@@ -255,6 +269,13 @@ export async function GET(request: NextRequest) {
           .select("id")
           .eq("family_id", familyId)
           .eq("is_waste_collection", true),
+
+        (supabase as any)
+          .from("pocket_money_goals")
+          .select("name, target_amount_cents, status, person_id")
+          .eq("family_id", familyId)
+          .eq("status", "active")
+          .is("deleted_at", null),
 
         (supabase as any)
           .from("attention_items")
@@ -420,6 +441,29 @@ export async function GET(request: NextRequest) {
       // matters most rather than merely the oldest.
       const attentionItems = (attention.data ?? []) as { title: string; priority: number }[];
 
+      // Progress is measured against the child's balance, not against a
+      // per-goal pot: Kinboard has one account per child and goals are targets
+      // on it, so "saved" is what they have, capped at the target so a child
+      // with more than they need reads 100% rather than 340%.
+      const balanceByPerson = new Map(pocketMoney.map((p) => [p.person_id, p]));
+      const savingGoals: FamilySummary["saving_goals"] = (
+        (goals.data ?? []) as {
+          name: string; target_amount_cents: number; person_id: string | null;
+        }[]
+      ).map((g) => {
+        const purse = g.person_id ? balanceByPerson.get(g.person_id) : undefined;
+        const target = g.target_amount_cents / 100;
+        const saved = Math.min(purse?.balance ?? 0, target);
+        return {
+          person: purse?.name ?? "?",
+          name: g.name,
+          target,
+          saved,
+          percent: target > 0 ? Math.round((saved / target) * 100) : 0,
+          currency: purse?.currency ?? "EUR",
+        };
+      });
+
       // -- the next bin ----------------------------------------------------
       const wasteCalendarIds = ((wasteCalendars.data ?? []) as { id: string }[]).map((c) => c.id);
       let waste: FamilySummary["waste_collection"] = {
@@ -508,6 +552,7 @@ export async function GET(request: NextRequest) {
           count: attentionItems.length,
           top: attentionItems[0]?.title ?? null,
         },
+        saving_goals: savingGoals,
         waste_collection: waste,
       };
 

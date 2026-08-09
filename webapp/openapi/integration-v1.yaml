@@ -669,6 +669,22 @@ components:
           properties:
             count: { type: integer }
             top: { type: [string, "null"] }
+        saving_goals:
+          type: array
+          description: |
+            Active goals with progress. Measured against the child's balance,
+            capped at the target — Kinboard keeps one account per child and
+            goals are targets on it, so a child with more than they need reads
+            100% rather than 340%.
+          items:
+            type: object
+            properties:
+              person: { type: string }
+              name: { type: string }
+              target: { type: number }
+              saved: { type: number }
+              percent: { type: integer }
+              currency: { type: string }
         waste_collection:
           type: object
           description: |
