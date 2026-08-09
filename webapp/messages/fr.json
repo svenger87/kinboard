@@ -3791,16 +3791,14 @@
         "detail": "{examples}"
       },
       "birthday-today": {
-        "title": "{name} fête son anniversaire aujourd'hui",
-        "detail": ""
+        "title": "{name} fête son anniversaire aujourd'hui"
       },
       "birthday-soon": {
         "title": "{name} fête son anniversaire dans {days} jours",
         "detail": "Il est temps d'acheter un cadeau."
       },
       "nothing-planned-for-dinner": {
-        "title": "Rien de prévu à manger demain",
-        "detail": ""
+        "title": "Rien de prévu à manger demain"
       },
       "shopping-before-the-weekend": {
         "title": "{count, plural, one {# article} other {# articles}} sur la liste de courses",
