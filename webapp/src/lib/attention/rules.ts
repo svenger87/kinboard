@@ -69,6 +69,12 @@ const leaveSoon: Rule = {
           detail: e.location
             ? `In ${minutes} minutes, at ${e.location}.`
             : `In ${minutes} minutes.`,
+          messageKey: e.location ? "leave-soon.at" : "leave-soon.plain",
+          params: {
+            what: e.personName ? `${e.personName}: ${e.title}` : e.title,
+            minutes,
+            ...(e.location ? { location: e.location } : {}),
+          },
           evidence: { eventId: e.id, startAt: e.startAt.toISOString(), minutes },
           priority: 10,
           subjectType: "event",
@@ -104,6 +110,10 @@ const packTheSchoolBag: Rule = {
       key: `pack-the-school-bag:${day}:${personId}`,
       title: `${name} needs to pack for tomorrow`,
       detail: [...needs].sort().join(", "),
+      // The list itself is data, not words — it is the family's own subject
+      // names and pack items, and translating them would be wrong.
+      messageKey: "pack-the-school-bag",
+      params: { name, items: [...needs].sort().join(", ") },
       evidence: { day, personId, needs: [...needs].sort() },
       priority: 30,
       subjectType: "person",
@@ -132,6 +142,8 @@ const schoolTomorrow: Rule = {
       {
         key: `school-tomorrow:${day}`,
         title: `School tomorrow: ${[...children.values()].sort().join(", ")}`,
+        messageKey: "school-tomorrow",
+        params: { children: [...children.values()].sort().join(", "), count: children.size },
         // The absence of this item is information too — no lessons tomorrow
         // means a holiday, which is why this asks the timetable rather than
         // checking whether tomorrow is a weekday.
@@ -159,6 +171,8 @@ const overdueTasks: Rule = {
         // overdue tasks is a wall of red that gets ignored wholesale.
         key: `overdue-tasks:${day}`,
         title: `${overdue.length} overdue ${overdue.length === 1 ? "task" : "tasks"}`,
+        messageKey: "overdue-tasks",
+        params: { count: overdue.length, examples: overdue.slice(0, 3).map((t) => t.title).join(", ") },
         detail: overdue
           .slice(0, 3)
           .map((t) => t.title)
@@ -181,6 +195,8 @@ const birthdayToday: Rule = {
       .map((b) => ({
         key: `birthday-today:${localDay(signals.now, signals.timeZone)}:${b.id}`,
         title: `${b.name} has a birthday today`,
+        messageKey: "birthday-today",
+        params: { name: b.name },
         evidence: { birthdayId: b.id, name: b.name },
         priority: 5,
         subjectType: "birthday",
@@ -204,6 +220,8 @@ const birthdaySoon: Rule = {
         key: `birthday-soon:${b.id}:${localDay(b.date, signals.timeZone)}`,
         title: `${b.name} has a birthday in ${ahead} days`,
         detail: "Time to sort a present.",
+        messageKey: "birthday-soon",
+        params: { name: b.name, days: ahead },
         evidence: { birthdayId: b.id, daysUntil: b.daysUntil },
         priority: 70,
         subjectType: "birthday",
@@ -231,6 +249,8 @@ const nothingPlannedForDinner: Rule = {
       {
         key: `nothing-planned-for-dinner:${day}`,
         title: "Nothing planned to eat tomorrow",
+        messageKey: "nothing-planned-for-dinner",
+        params: {},
         evidence: { day },
         priority: 80,
       },
@@ -251,6 +271,8 @@ const shoppingBeforeTheWeekend: Rule = {
         key: `shopping-before-the-weekend:${localDay(signals.now, signals.timeZone)}`,
         title: `${signals.shoppingItemCount} things on the shopping list`,
         detail: "The weekend is close — worth a trip today.",
+        messageKey: "shopping-before-the-weekend",
+        params: { count: signals.shoppingItemCount },
         evidence: { count: signals.shoppingItemCount },
         priority: 75,
       },
@@ -282,6 +304,8 @@ const takeAnUmbrella: Rule = {
         key: `take-an-umbrella:${localDay(signals.now, signals.timeZone)}`,
         title: "Rain likely today",
         detail: `${weather.precipitationChance}% chance, and somebody is out.`,
+        messageKey: "take-an-umbrella",
+        params: { chance: weather.precipitationChance },
         evidence: { precipitationChance: weather.precipitationChance },
         priority: 40,
       },
@@ -342,6 +366,8 @@ const lockUpBeforeBed: Rule = {
         key: `lock-up-before-bed:${localDay(signals.now, signals.timeZone)}`,
         title: `${open.length} still open`,
         detail: open.join(", "),
+        messageKey: "lock-up-before-bed",
+        params: { count: open.length, entities: open.join(", ") },
         evidence: { entities: open },
         priority: 20,
       },
