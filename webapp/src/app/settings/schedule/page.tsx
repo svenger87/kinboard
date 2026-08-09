@@ -157,22 +157,9 @@ import {
   useUpdateSetting,
 } from "@/hooks";
 import type { Subject, Json } from "@/types/database";
+import { DEFAULT_PACK_ITEMS, type PackItemConfig } from "@/lib/schedule-pack-items";
 
 // Pack items configuration type
-interface PackItemConfig {
-  subject: string;
-  items: string[];
-}
-
-const DEFAULT_PACK_ITEMS: PackItemConfig[] = [
-  { subject: "Sport", items: ["Sportkleidung", "Turnschuhe", "Trinkflasche"] },
-  { subject: "Schwimmen", items: ["Badeanzug/Badehose", "Handtuch", "Schwimmbrille", "Badekappe"] },
-  { subject: "Kunst", items: ["Malkittel", "Pinsel & Farben"] },
-  { subject: "Musik", items: ["Instrument", "Notenheft"] },
-  { subject: "Religion", items: ["Religionsheft"] },
-  { subject: "Werken", items: ["Arbeitskittel"] },
-  { subject: "Textilgestaltung", items: ["Nähzeug", "Stoffe"] },
-];
 
 // Period configuration type
 interface PeriodConfig {
