@@ -44,6 +44,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  isImmichConnected,
   useImmichStatus,
   useImmichAlbums,
   useSaveImmichSettings,
@@ -84,7 +85,7 @@ export default function PhotoSettingsPage() {
   const testImmichConnection = useTestImmichConnection();
   const disconnectImmichMutation = useDisconnectImmich();
 
-  const immichConnected = !!immichSettings?.url && !!immichSettings?.api_key;
+  const immichConnected = isImmichConnected(immichSettings);
   const { data: albums, isLoading: loadingAlbums, refetch: refetchAlbums } = useImmichAlbums(immichConnected);
 
   // ── Immich local state ──

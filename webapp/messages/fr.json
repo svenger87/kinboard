@@ -1075,7 +1075,11 @@
       "pocketMoneyLabel": "Argent de poche",
       "pocketMoneyDescription": "Solde et progression des objectifs d'épargne pour chaque compte enfant",
       "pocketMoneyPreview1": "🐉 12,50 € — Dragon Stade 2",
-      "pocketMoneyPreview2": "Les onglets basculent entre les enfants"
+      "pocketMoneyPreview2": "Les onglets basculent entre les enfants",
+      "photosLabel": "Photos",
+      "photosDescription": "Une image de votre photothèque, qui change au fil de la journée — touchez pour ouvrir l'album",
+      "photosPreview1": "Une photo de votre photothèque",
+      "photosPreview2": "Change toutes les 20 secondes"
     },
     "navigation": {
       "title": "Navigation",
@@ -3073,7 +3077,10 @@
       "stonksEmpty": "Ajoutez votre premier ticker pour le suivre sur le tableau de bord.",
       "pocketMoneyName": "Argent de poche",
       "pocketMoneyDisabled": "Comptes d'argent de poche virtuels pour les enfants. Activez le plugin pour l'utiliser.",
-      "pocketMoneyEmpty": "Configurez un compte pour commencer à suivre l'argent de poche."
+      "pocketMoneyEmpty": "Configurez un compte pour commencer à suivre l'argent de poche.",
+      "photosName": "Photos",
+      "photosDisabled": "Activez le plugin Photos pour afficher une image ici.",
+      "photosEmpty": "Connectez une source de photos et vos images apparaîtront ici."
     }
   },
   "energy": {

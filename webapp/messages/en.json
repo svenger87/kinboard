@@ -1075,7 +1075,11 @@
       "pocketMoneyLabel": "Pocket Money",
       "pocketMoneyDescription": "Balance and savings goal progress for each kid's account",
       "pocketMoneyPreview1": "🐉 €12.50 — Dragon Stage 2",
-      "pocketMoneyPreview2": "Tabs switch between kids"
+      "pocketMoneyPreview2": "Tabs switch between kids",
+      "photosLabel": "Photos",
+      "photosDescription": "One picture from your library, changing through the day — tap to open the album",
+      "photosPreview1": "A photo from your library",
+      "photosPreview2": "Changes every 20 seconds"
     },
     "navigation": {
       "title": "Navigation",
@@ -3073,7 +3077,10 @@
       "stonksEmpty": "Add your first ticker to track it on the dashboard.",
       "pocketMoneyName": "Pocket Money",
       "pocketMoneyDisabled": "Virtual pocket-money accounts for the kids. Enable the plugin to use it.",
-      "pocketMoneyEmpty": "Set up an account to start tracking pocket money."
+      "pocketMoneyEmpty": "Set up an account to start tracking pocket money.",
+      "photosName": "Photos",
+      "photosDisabled": "Turn the Photos plugin on to show a picture here.",
+      "photosEmpty": "Connect a photo source and your pictures appear here."
     }
   },
   "energy": {

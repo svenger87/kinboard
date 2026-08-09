@@ -9,6 +9,7 @@ import { ScheduleWidget } from "@/components/widgets/schedule-widget";
 import { BirthdayWidget } from "@/components/widgets/birthday-widget";
 import { VehiclesWidget } from "@/components/widgets/vehicles-widget";
 import { StonksWidget } from "@/components/widgets/stonks-widget";
+import { PhotosWidget } from "@/components/widgets/photos-widget";
 import { PocketMoneyWidget } from "@/components/widgets/pocket-money-widget";
 import { NotesWidget } from "@/components/widgets/notes-widget";
 import { TasksWidget } from "@/components/widgets/tasks-widget";
@@ -121,6 +122,7 @@ export default function DashboardPage() {
           {w.vehicles && <VehiclesWidget />}
           {w.stonks && <StonksWidget />}
           {w.pocketMoney && <PocketMoneyWidget />}
+          {w.photos && <PhotosWidget />}
         </section>
       </div>
     </main>

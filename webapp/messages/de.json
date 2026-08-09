@@ -1075,7 +1075,11 @@
       "pocketMoneyLabel": "Taschengeld",
       "pocketMoneyDescription": "Kontostand und Sparziel-Fortschritt für jedes Kinderkonto",
       "pocketMoneyPreview1": "🐉 12,50 € — Drache Stufe 2",
-      "pocketMoneyPreview2": "Tabs wechseln zwischen Kindern"
+      "pocketMoneyPreview2": "Tabs wechseln zwischen Kindern",
+      "photosLabel": "Fotos",
+      "photosDescription": "Ein Bild aus deiner Mediathek, das über den Tag wechselt — zum Öffnen des Albums antippen",
+      "photosPreview1": "Ein Foto aus deiner Mediathek",
+      "photosPreview2": "Wechselt alle 20 Sekunden"
     },
     "navigation": {
       "title": "Navigation",
@@ -3073,7 +3077,10 @@
       "stonksEmpty": "Füge dein erstes Wertpapier hinzu, um es auf dem Dashboard zu verfolgen.",
       "pocketMoneyName": "Taschengeld",
       "pocketMoneyDisabled": "Virtuelle Taschengeldkonten für die Kinder. Aktiviere das Plugin, um es zu nutzen.",
-      "pocketMoneyEmpty": "Lege ein Konto an, um das Taschengeld zu verfolgen."
+      "pocketMoneyEmpty": "Lege ein Konto an, um das Taschengeld zu verfolgen.",
+      "photosName": "Fotos",
+      "photosDisabled": "Aktiviere das Fotos-Plugin, um hier ein Bild zu zeigen.",
+      "photosEmpty": "Verbinde eine Fotoquelle, dann erscheinen deine Bilder hier."
     }
   },
   "energy": {

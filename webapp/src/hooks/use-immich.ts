@@ -127,12 +127,29 @@ export function useImmichPhotos(albumId?: string, limit = 10, random = false, is
   });
 }
 
+/**
+ * Is Immich set up, as far as the browser can tell?
+ *
+ * Deliberately only the URL. `16a1679` moved the API key into
+ * `integration_secrets`, where the server merges it in on its way out to
+ * Immich — the browser is never given it, and `/api/settings` returns the
+ * plain row. So `!!api_key` on the client cannot be true for any correctly
+ * configured installation, and every check written that way has silently
+ * meant "no" ever since.
+ *
+ * The URL is a sound proxy: it is only saved by the connect flow, which tests
+ * the credentials before saving them.
+ */
+export function isImmichConnected(settings?: { url?: string } | null): boolean {
+  return !!settings?.url;
+}
+
 // Hook to get photos from current month's Wallpaper album
 export function useImmichMonthlyPhotos() {
   const { family } = useFamilyStore();
   const { data: status } = useImmichStatus();
 
-  const isConnected = !!status?.url && !!status?.api_key;
+  const isConnected = isImmichConnected(status);
 
   const { data: albums } = useImmichAlbums(isConnected);
 

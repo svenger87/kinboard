@@ -60,7 +60,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useFamilyStore } from "@/stores/family-store";
-import { useKeyboardShortcuts, useSwipeNavigation, useIsOnline, useDeleteDevice, useIsPluginEnabled, useHomeAssistantStatus, useHomeAssistantConnectionCheck, useGoogleCalendarStatus, useBringSettings, useImmichStatus, useUnsplashStatus, useRegenerateJoinCode, useRenameFamily, useCalendars
+import { useKeyboardShortcuts, useSwipeNavigation, useIsOnline, useDeleteDevice, useIsPluginEnabled, useHomeAssistantStatus, useHomeAssistantConnectionCheck, useGoogleCalendarStatus, useBringSettings, useImmichStatus, isImmichConnected, useUnsplashStatus, useDlnaStatus, useIcloudStatus, useRegenerateJoinCode, useRenameFamily, useCalendars
 } from "@/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVersionCheck } from "@/hooks/use-version-check";
@@ -138,7 +138,19 @@ export default function SettingsPage() {
   const bringConnected = !!bringSettings?.credentials;
   const { data: immichStatus } = useImmichStatus();
   const { data: unsplashStatus } = useUnsplashStatus();
-  const photosConnected = (!!immichStatus?.url && !!immichStatus?.api_key) || !!unsplashStatus?.access_key;
+  const { data: dlnaSettings } = useDlnaStatus();
+  const { data: icloudSettings } = useIcloudStatus();
+  // "Photos are set up", from what the browser can actually see. The keys for
+  // Immich and Unsplash live in `integration_secrets` and are merged in
+  // server-side, so testing for them here is false on every correctly
+  // configured install. DLNA and iCloud are counted too: this row speaks for
+  // the Photos settings page, which has offered four sources since 1.9.0-rc.7
+  // while this line knew about two.
+  const photosConnected =
+    isImmichConnected(immichStatus) ||
+    !!unsplashStatus ||
+    !!dlnaSettings?.control_url ||
+    !!icloudSettings?.token;
   const [copied, setCopied] = useState(false);
   const queryClient = useQueryClient();
   const { data: pinStatus } = useQuery({
