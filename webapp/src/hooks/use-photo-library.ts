@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { usePhotoSourceSetting, type PhotoSourceId } from "./use-photo-source";
-import { useImmichPhotos } from "./use-immich";
+import { useImmichPhotos, useImmichStatus } from "./use-immich";
 import { useDlnaPhotos } from "./use-dlna";
 import { useIcloudPhotos } from "./use-icloud";
 import { useUnsplashMonthlyPhotos } from "./use-unsplash";
@@ -40,7 +40,14 @@ export function usePhotoLibrary(limit = 200, albumId?: string): {
 
   // Each source hook is gated on being the selected one, so browsing the
   // viewer does not wake up an Immich server that nobody asked about.
-  const immich = useImmichPhotos(albumId, limit, false, source === "immich");
+  // Selected *and* set up. A family whose source is Immich but who has not
+  // connected it — the state every fresh install is in, since Immich is the
+  // default — would otherwise have every page ask a server that is not there
+  // and be told 401 for it.
+  const { data: immichSettings } = useImmichStatus();
+  const immichConnected = !!immichSettings?.url && !!immichSettings?.api_key;
+
+  const immich = useImmichPhotos(albumId, limit, false, source === "immich" && immichConnected);
   const dlna = useDlnaPhotos(limit, false, source === "dlna", albumId);
   const icloud = useIcloudPhotos(limit, source === "icloud");
   const unsplash = useUnsplashMonthlyPhotos(source === "unsplash");

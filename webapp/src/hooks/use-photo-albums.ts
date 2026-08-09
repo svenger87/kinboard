@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { usePhotoSourceSetting } from "./use-photo-source";
-import { useImmichAlbums } from "./use-immich";
+import { useImmichAlbums, useImmichStatus } from "./use-immich";
 import { useDlnaContainers } from "./use-dlna";
 
 /**
@@ -35,7 +35,14 @@ export function usePhotoAlbums(objectId = "0"): {
 } {
   const { data: source, isLoading: sourceLoading } = usePhotoSourceSetting();
 
-  const immich = useImmichAlbums(source === "immich");
+  // Selected *and* set up. A family whose source is Immich but who has not
+  // connected it — the state every fresh install is in, since Immich is the
+  // default — would otherwise have every page ask a server that is not there
+  // and be told 401 for it.
+  const { data: immichSettings } = useImmichStatus();
+  const immichConnected = !!immichSettings?.url && !!immichSettings?.api_key;
+
+  const immich = useImmichAlbums(source === "immich" && immichConnected);
   const dlna = useDlnaContainers(objectId, source === "dlna");
 
   const albums = useMemo<PhotoAlbum[]>(() => {
