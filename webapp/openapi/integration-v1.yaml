@@ -567,6 +567,10 @@ components:
             minutes_remaining: { type: integer }
         events_today:
           type: object
+          description: |
+            Events that OVERLAP today, not only those starting today. A holiday
+            running 2 July to 12 August is on today; counting only starts
+            reported "0" to a family in the middle of the school holidays.
           properties:
             state: { type: integer }
             events:
@@ -576,6 +580,10 @@ components:
                 properties:
                   title: { type: string }
                   start_at: { type: string, format: date-time }
+                  ongoing:
+                    type: boolean
+                    description: Started before today and still running.
+                  all_day: { type: boolean }
         shopping_items:
           type: integer
           description: Open (unchecked) items.

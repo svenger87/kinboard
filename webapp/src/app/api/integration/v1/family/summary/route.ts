@@ -43,7 +43,10 @@ export interface FamilySummary {
     person: string | null;
     minutes_remaining: number;
   } | null;
-  events_today: { state: number; events: { title: string; start_at: string }[] };
+  events_today: {
+    state: number;
+    events: { title: string; start_at: string; ongoing: boolean; all_day: boolean }[];
+  };
   shopping_items: number;
   meal_today: { state: string | null; meal: string | null; recipe_id: string | null };
   tasks_due: { state: number; open: number; overdue: number };
@@ -212,28 +215,48 @@ export async function GET(request: NextRequest) {
       );
 
       let nextEvent: FamilySummary["next_family_event"] = null;
-      let todaysEvents: { title: string; start_at: string }[] = [];
+      let todaysEvents: FamilySummary["events_today"]["events"] = [];
 
       if (calendarIds.length > 0) {
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
+        // Anything that OVERLAPS today, not merely anything that starts in it.
+        //
+        // A holiday running from 2 July to 12 August is on today by any
+        // reasonable reading, and this reported none of them: it asked for
+        // events starting today, so a family in the middle of the school
+        // holidays saw "Events today: 0". The calendar entity was fixed for
+        // exactly this and the summary was not.
+        //
+        // The window therefore reaches back before today for the start bound
+        // and requires only that the event has not already ended.
         const { data: events } = await (supabase as any)
           .from("events")
-          .select("id, title, start_at, location, person_id")
+          .select("id, title, start_at, end_at, all_day, location, person_id")
           .in("calendar_id", calendarIds)
-          .gte("start_at", startOfToday.toISOString())
+          .lt("start_at", endOfToday.toISOString())
+          .gte("end_at", startOfToday.toISOString())
           .order("start_at", { ascending: true })
-          .limit(50);
+          .limit(100);
 
         const rows = (events ?? []) as {
-          id: string; title: string; start_at: string; location: string | null; person_id: string | null;
+          id: string; title: string; start_at: string; end_at: string;
+          all_day: boolean | null; location: string | null; person_id: string | null;
         }[];
 
-        todaysEvents = rows
-          .filter((e) => new Date(e.start_at) < endOfToday)
-          .map((e) => ({ title: e.title, start_at: e.start_at }));
+        todaysEvents = rows.map((e) => ({
+          title: e.title,
+          start_at: e.start_at,
+          // So a consumer can tell "started last month, still running" from
+          // "at 16:30 today" without re-deriving it.
+          ongoing: new Date(e.start_at) < startOfToday,
+          all_day: Boolean(e.all_day),
+        }));
 
+        // Still the next event to START. An all-day holiday that began in
+        // July is genuinely "on today", but it is not what anybody means by
+        // "next" — the sensor exists to answer "what is coming up".
         const upcoming = rows.find((e) => new Date(e.start_at) >= now);
         if (upcoming) {
           nextEvent = {
