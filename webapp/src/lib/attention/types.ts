@@ -95,6 +95,16 @@ export interface SignalWeather {
 export interface SignalHome {
   /** Entity id -> state, exactly as Home Assistant reports it. */
   states: Record<string, string>;
+  /**
+   * Entity id -> device_class.
+   *
+   * Carried because entity ids are written in the household's own language:
+   * matching `binary_sensor.door` finds nothing in a German house, where the
+   * same sensor is `binary_sensor.haustur`. device_class is Home Assistant's
+   * own language-independent answer to "what kind of thing is this", and it is
+   * the only way a shipped rule can work on an installation it has never seen.
+   */
+  deviceClasses: Record<string, string>;
 }
 
 /**
