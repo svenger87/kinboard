@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-import { browse, type DlnaItem } from "@/lib/dlna-client";
-import { readDlnaSettings } from "@/lib/dlna-settings";
+import { browse, reachableMediaUrl, type DlnaItem } from "@/lib/dlna-client";
+import { readDlnaSettings, signImageUrl } from "@/lib/dlna-settings";
 
 /** Fisher-Yates, so `random` genuinely shuffles rather than sorting by chance. */
 function shuffle<T>(items: T[]): T[] {
@@ -52,13 +52,20 @@ export async function GET(request: NextRequest) {
     const { items } = await browse(settings.control_url, objectId, { requestedCount });
 
     const ordered = random ? shuffle(items) : items;
+    // Signed, not host-pinned: a media server advertises whichever address it
+    // detected for itself, which is routinely not the one we reached it on.
+    const proxied = (target: string) =>
+      `/api/dlna/image?family_id=${encodeURIComponent(familyId)}` +
+      `&item=${encodeURIComponent(target)}` +
+      `&sig=${encodeURIComponent(signImageUrl(familyId, target))}`;
+
+    const control = settings.control_url;
     const photos = ordered.slice(0, limit).map((item: DlnaItem) => ({
       id: item.id,
       title: item.title,
-      // Proxied — see the note above.
-      url: `/api/dlna/image?family_id=${encodeURIComponent(familyId)}&item=${encodeURIComponent(item.url)}`,
+      url: proxied(reachableMediaUrl(item.url, control)),
       thumbnailUrl: item.thumbnailUrl
-        ? `/api/dlna/image?family_id=${encodeURIComponent(familyId)}&item=${encodeURIComponent(item.thumbnailUrl)}`
+        ? proxied(reachableMediaUrl(item.thumbnailUrl, control))
         : null,
       mimeType: item.mimeType,
       resolution: item.resolution,

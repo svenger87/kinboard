@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { assertDlnaUrl } from "@/lib/dlna-client";
-import { readDlnaSettings } from "@/lib/dlna-settings";
+import { readDlnaSettings, verifyImageUrl } from "@/lib/dlna-settings";
 
 /**
  * Proxy one image off the family's DLNA server.
  *
  * The `item` parameter is a full URL, which makes this shaped like an open
- * proxy — so it is pinned to the host of the configured server. A caller
- * cannot point it somewhere else: the family must have DLNA configured, and
- * the requested URL must live on that same origin. That check is the reason
- * this route exists rather than the client fetching the media server directly.
+ * proxy — so it carries a signature. Only a URL this family's own browse
+ * produced can be fetched back through here.
+ *
+ * An earlier version pinned the host to the configured server instead, and a
+ * real MiniDLNA broke it: media servers advertise whichever address they
+ * detected for themselves, which is routinely not the one you reached them on.
+ * The signature does not care how many addresses the server answers to.
  */
 export async function GET(request: NextRequest) {
   const auth = await requireSession(request);
@@ -19,9 +22,13 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const familyId = params.get("family_id");
   const item = params.get("item");
+  const signature = params.get("sig");
 
-  if (!familyId || !item) {
-    return NextResponse.json({ error: "family_id and item are required" }, { status: 400 });
+  if (!familyId || !item || !signature) {
+    return NextResponse.json(
+      { error: "family_id, item and sig are required" },
+      { status: 400 },
+    );
   }
   if (!familyMatchesSession(auth.session, familyId)) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
@@ -32,19 +39,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "DLNA is not configured" }, { status: 400 });
   }
 
-  let target: URL;
-  let control: URL;
-  try {
-    target = assertDlnaUrl(item);
-    control = assertDlnaUrl(settings.control_url);
-  } catch {
-    return NextResponse.json({ error: "bad url" }, { status: 400 });
+  if (!verifyImageUrl(familyId, item, signature)) {
+    return NextResponse.json({ error: "bad signature" }, { status: 403 });
   }
 
-  // Same host as the configured server, port included: a media server serves
-  // its images from the same box that answered the SOAP call.
-  if (target.host !== control.host) {
-    return NextResponse.json({ error: "not this family's media server" }, { status: 403 });
+  let target: URL;
+  try {
+    target = assertDlnaUrl(item);
+  } catch {
+    return NextResponse.json({ error: "bad url" }, { status: 400 });
   }
 
   try {

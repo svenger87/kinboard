@@ -489,6 +489,31 @@ export function browseEnvelope(
 </s:Envelope>`;
 }
 
+/**
+ * Point a media URL at the address we can actually reach.
+ *
+ * A media server fills its `<res>` URLs with whichever address it detected for
+ * itself at startup. That is frequently not the address the client used: a
+ * multi-homed NAS, a server behind NAT, or anything in Docker will happily
+ * hand out an address that is unroutable from here. Caught with a real
+ * MiniDLNA, which advertised its bridge IP while answering on another network.
+ *
+ * The host is rewritten to the one that just answered the browse; the port and
+ * path are kept, because media is often served from a different port than the
+ * control endpoint and that part the server does know.
+ */
+export function reachableMediaUrl(mediaUrl: string, controlUrl: string): string {
+  try {
+    const media = new URL(mediaUrl);
+    const control = new URL(controlUrl);
+    if (media.hostname === control.hostname) return mediaUrl;
+    media.hostname = control.hostname;
+    return media.toString();
+  } catch {
+    return mediaUrl;
+  }
+}
+
 /** Browse a container's direct children. `objectId` "0" is the root. */
 export async function browse(
   controlUrl: string,

@@ -5,6 +5,7 @@ import {
   extractBrowseResult,
   browseEnvelope,
   assertDlnaUrl,
+  reachableMediaUrl,
 } from "../src/lib/dlna-client";
 
 /**
@@ -252,5 +253,42 @@ test.describe("assertDlnaUrl", () => {
     for (const bad of ["file:///etc/passwd", "ftp://nas/x", "not a url"]) {
       expect(() => assertDlnaUrl(bad), bad).toThrow();
     }
+  });
+});
+
+test.describe("reachableMediaUrl", () => {
+  test("rewrites a host the client cannot reach", () => {
+    // Caught with a real MiniDLNA: it advertised its Docker bridge address
+    // while answering on a different network, so every image timed out.
+    expect(
+      reachableMediaUrl(
+        "http://172.17.0.8:8200/MediaItems/23.jpg",
+        "http://10.205.0.15:8200/ctl/ContentDir",
+      ),
+    ).toBe("http://10.205.0.15:8200/MediaItems/23.jpg");
+  });
+
+  test("keeps the media port, which is often not the control port", () => {
+    expect(
+      reachableMediaUrl("http://10.0.0.5:8300/img/1.jpg", "http://nas.local:8200/ctl"),
+    ).toBe("http://nas.local:8300/img/1.jpg");
+  });
+
+  test("keeps the query string", () => {
+    expect(
+      reachableMediaUrl(
+        "http://172.17.0.8:8200/Resized/23.jpg?width=160,height=160",
+        "http://10.205.0.15:8200/ctl",
+      ),
+    ).toContain("?width=160,height=160");
+  });
+
+  test("leaves a URL that already matches alone", () => {
+    const url = "http://nas.local:8200/MediaItems/1.jpg";
+    expect(reachableMediaUrl(url, "http://nas.local:8200/ctl")).toBe(url);
+  });
+
+  test("garbage in, garbage out — but not an exception", () => {
+    expect(reachableMediaUrl("not a url", "http://nas/ctl")).toBe("not a url");
   });
 });

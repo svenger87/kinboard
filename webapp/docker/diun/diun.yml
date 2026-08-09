@@ -36,7 +36,7 @@ notif:
       # which silently breaks the webhook's trigger-rule comparison.
       # The kong.yml family already uses this exact substitute-at-setup
       # pattern (REPLACE_WITH_ANON_KEY etc.), so this follows precedent.
-      X-Diun-Token: REPLACE_WITH_DIUN_WEBHOOK_SECRET
+      X-Diun-Token: 3f04f2d220d0a3ff34a635f4c9b242d5a92bf002eaaea6d9f65ba2c77caa7e1c
 
 providers:
   # Watch only containers explicitly opted-in via diun.enable=true label.
