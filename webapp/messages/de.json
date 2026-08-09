@@ -1075,7 +1075,11 @@
       "pocketMoneyLabel": "Taschengeld",
       "pocketMoneyDescription": "Kontostand und Sparziel-Fortschritt für jedes Kinderkonto",
       "pocketMoneyPreview1": "🐉 12,50 € — Drache Stufe 2",
-      "pocketMoneyPreview2": "Tabs wechseln zwischen Kindern"
+      "pocketMoneyPreview2": "Tabs wechseln zwischen Kindern",
+      "photosLabel": "Fotos",
+      "photosDescription": "Ein Bild aus deiner Mediathek, das über den Tag wechselt — zum Öffnen des Albums antippen",
+      "photosPreview1": "Ein Foto aus deiner Mediathek",
+      "photosPreview2": "Wechselt alle 20 Sekunden"
     },
     "navigation": {
       "title": "Navigation",
@@ -2118,14 +2122,16 @@
         "energy": "Energie",
         "cameras": "Kameras",
         "stonks": "Stonks",
-        "pocket-money": "Taschengeld"
+        "pocket-money": "Taschengeld",
+        "photos": "Fotos"
       },
       "description": {
         "vehicles": "Fahrzeuge im Haushalt über Home-Assistant-Entitäten verfolgen. Tesla- und Generic-EV-Treiber sind im Kern enthalten.",
         "energy": "Solar-, Batterie- und Netzfluss-Dashboard auf Basis von Home-Assistant-Entitäten.",
         "cameras": "Live-WebRTC-Streams deiner Überwachungskameras über go2rtc.",
         "stonks": "Aktien, ETFs, Krypto, Indizes und Forex in einer Watchlist mit Candlestick-Charts verfolgen. Daten von Yahoo Finance.",
-        "pocket-money": "Virtuelle Taschengeld-Konten für Kinder mit konfigurierbarem Taschengeld, täglicher Zinsgutschrift, Sparzielen und einem Avatar, der mit dem Ersparten wächst."
+        "pocket-money": "Virtuelle Taschengeld-Konten für Kinder mit konfigurierbarem Taschengeld, täglicher Zinsgutschrift, Sparzielen und einem Avatar, der mit dem Ersparten wächst.",
+        "photos": "Die Fotomediathek auf dem Board selbst durchsehen, nicht nur auf dem Ruhebildschirm. Nutzt die verbundene Quelle — Immich, einen DLNA-Medienserver oder ein geteiltes iCloud-Album."
       }
     },
     "stonks": {
@@ -3073,7 +3079,10 @@
       "stonksEmpty": "Füge dein erstes Wertpapier hinzu, um es auf dem Dashboard zu verfolgen.",
       "pocketMoneyName": "Taschengeld",
       "pocketMoneyDisabled": "Virtuelle Taschengeldkonten für die Kinder. Aktiviere das Plugin, um es zu nutzen.",
-      "pocketMoneyEmpty": "Lege ein Konto an, um das Taschengeld zu verfolgen."
+      "pocketMoneyEmpty": "Lege ein Konto an, um das Taschengeld zu verfolgen.",
+      "photosName": "Fotos",
+      "photosDisabled": "Aktiviere das Fotos-Plugin, um hier ein Bild zu zeigen.",
+      "photosEmpty": "Verbinde eine Fotoquelle, dann erscheinen deine Bilder hier."
     }
   },
   "energy": {

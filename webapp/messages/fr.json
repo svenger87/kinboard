@@ -1075,7 +1075,11 @@
       "pocketMoneyLabel": "Argent de poche",
       "pocketMoneyDescription": "Solde et progression des objectifs d'épargne pour chaque compte enfant",
       "pocketMoneyPreview1": "🐉 12,50 € — Dragon Stade 2",
-      "pocketMoneyPreview2": "Les onglets basculent entre les enfants"
+      "pocketMoneyPreview2": "Les onglets basculent entre les enfants",
+      "photosLabel": "Photos",
+      "photosDescription": "Une image de votre photothèque, qui change au fil de la journée — touchez pour ouvrir l'album",
+      "photosPreview1": "Une photo de votre photothèque",
+      "photosPreview2": "Change toutes les 20 secondes"
     },
     "navigation": {
       "title": "Navigation",
@@ -2118,14 +2122,16 @@
         "energy": "Énergie",
         "cameras": "Caméras",
         "stonks": "Actions",
-        "pocket-money": "Argent de poche"
+        "pocket-money": "Argent de poche",
+        "photos": "Photos"
       },
       "description": {
         "vehicles": "Suivez les voitures de votre foyer via les entités Home Assistant. Les pilotes Tesla et VE générique sont inclus.",
         "energy": "Tableau de bord solaire, batterie et réseau électrique piloté par les entités Home Assistant.",
         "cameras": "Flux WebRTC en direct de vos caméras de sécurité via go2rtc.",
         "stonks": "Suivez les actions, ETF, crypto, indices et devises sur une liste de suivi avec graphiques en chandelles. Alimenté par Yahoo Finance.",
-        "pocket-money": "Comptes d'argent de poche virtuels par enfant avec allocation configurable, intérêts courus quotidiennement, objectifs d'épargne et un avatar qui évolue à mesure que l'enfant économise."
+        "pocket-money": "Comptes d'argent de poche virtuels par enfant avec allocation configurable, intérêts courus quotidiennement, objectifs d'épargne et un avatar qui évolue à mesure que l'enfant économise.",
+        "photos": "Parcourez la photothèque sur le tableau lui-même, pas seulement sur l'écran de veille. Utilise la source que vous avez connectée — Immich, un serveur multimédia DLNA ou un album partagé iCloud."
       }
     },
     "stonks": {
@@ -3073,7 +3079,10 @@
       "stonksEmpty": "Ajoutez votre premier ticker pour le suivre sur le tableau de bord.",
       "pocketMoneyName": "Argent de poche",
       "pocketMoneyDisabled": "Comptes d'argent de poche virtuels pour les enfants. Activez le plugin pour l'utiliser.",
-      "pocketMoneyEmpty": "Configurez un compte pour commencer à suivre l'argent de poche."
+      "pocketMoneyEmpty": "Configurez un compte pour commencer à suivre l'argent de poche.",
+      "photosName": "Photos",
+      "photosDisabled": "Activez le plugin Photos pour afficher une image ici.",
+      "photosEmpty": "Connectez une source de photos et vos images apparaîtront ici."
     }
   },
   "energy": {

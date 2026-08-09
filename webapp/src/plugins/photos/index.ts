@@ -1,6 +1,7 @@
 import { Images } from "lucide-react";
 import type { SurfacePlugin } from "../types";
 import { usePhotoLibraryCount } from "@/hooks/use-photo-library-count";
+import { PhotosWidget } from "@/components/widgets/photos-widget";
 
 /**
  * The photo album viewer.
@@ -33,6 +34,7 @@ export const photosPlugin: SurfacePlugin = {
     if (ctx.ownDataLoading) return "loading";
     return (ctx.ownDataCount ?? 0) > 0;
   },
+  dashboardWidget: PhotosWidget,
   useOwnDataCount: usePhotoLibraryCount,
   i18nNamespace: "photosViewer",
 };

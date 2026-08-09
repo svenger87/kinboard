@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { usePhotoSourceSetting, type PhotoSourceId } from "./use-photo-source";
-import { useImmichPhotos, useImmichStatus } from "./use-immich";
+import { useImmichPhotos, useImmichStatus, isImmichConnected } from "./use-immich";
 import { useDlnaPhotos } from "./use-dlna";
 import { useIcloudPhotos } from "./use-icloud";
 import { useUnsplashMonthlyPhotos } from "./use-unsplash";
@@ -43,9 +43,10 @@ export function usePhotoLibrary(limit = 200, albumId?: string): {
   // Selected *and* set up. A family whose source is Immich but who has not
   // connected it — the state every fresh install is in, since Immich is the
   // default — would otherwise have every page ask a server that is not there
-  // and be told 401 for it.
+  // and be told 401 for it. What "set up" means is `isImmichConnected`, which
+  // is not the same as "the browser can see an API key": it never can.
   const { data: immichSettings } = useImmichStatus();
-  const immichConnected = !!immichSettings?.url && !!immichSettings?.api_key;
+  const immichConnected = isImmichConnected(immichSettings);
 
   const immich = useImmichPhotos(albumId, limit, false, source === "immich" && immichConnected);
   const dlna = useDlnaPhotos(limit, false, source === "dlna", albumId);

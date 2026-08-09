@@ -129,7 +129,12 @@ export {
   useSaveImmichSettings,
   useTestImmichConnection,
   useDisconnectImmich,
+  isImmichConnected,
 } from "./use-immich";
+
+// DLNA + iCloud photo sources
+export { useDlnaStatus } from "./use-dlna";
+export { useIcloudStatus } from "./use-icloud";
 
 // Unsplash Hooks
 export {
