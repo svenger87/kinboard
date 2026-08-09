@@ -3658,5 +3658,14 @@
     "clay": "Clay",
     "custom": "Custom colour",
     "legend": "Colour"
+  },
+  "attention": {
+    "ok": "OK",
+    "later": "Later",
+    "why": "Why?",
+    "dismiss": "Dismiss",
+    "rule": "Rule",
+    "disableRule": "Stop showing this hint",
+    "snoozed": "Later today"
   }
 }

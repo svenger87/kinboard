@@ -3658,5 +3658,14 @@
     "clay": "Ton",
     "custom": "Eigene Farbe",
     "legend": "Farbe"
+  },
+  "attention": {
+    "ok": "OK",
+    "later": "Später",
+    "why": "Warum?",
+    "dismiss": "Ausblenden",
+    "rule": "Regel",
+    "disableRule": "Diesen Hinweis nicht mehr zeigen",
+    "snoozed": "Später heute"
   }
 }
