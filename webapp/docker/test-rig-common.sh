@@ -15,6 +15,7 @@
 #   UX audit         kbaudit     3010      5442   8110   10.209.0.0/24
 #   upgrade paths    kbupg       3021      5452   8120   10.220.0.0/24
 #   fresh installs   kbfresh     3031      5462   8130   10.221.0.0/24
+#   backup/restore   kbbak       3041      5472   8140   10.222.0.0/24
 #
 # A caller sets its RIG_* block and then sources this file.
 
