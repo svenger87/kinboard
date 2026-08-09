@@ -270,10 +270,14 @@ export async function GET(request: NextRequest) {
           .eq("family_id", familyId)
           .eq("is_waste_collection", true),
 
+        // Goals hang off an ACCOUNT, not off a family or a person: there is
+        // no family_id or person_id column on pocket_money_goals. Filtering on
+        // either returned nothing at all rather than failing — the rows came
+        // back empty and looked like "this family has no goals".
         (supabase as any)
           .from("pocket_money_goals")
-          .select("name, target_amount_cents, status, person_id")
-          .eq("family_id", familyId)
+          .select("name, target_amount_cents, status, account_id, pocket_money_accounts!inner(family_id, person_id)")
+          .eq("pocket_money_accounts.family_id", familyId)
           .eq("status", "active")
           .is("deleted_at", null),
 
@@ -448,10 +452,13 @@ export async function GET(request: NextRequest) {
       const balanceByPerson = new Map(pocketMoney.map((p) => [p.person_id, p]));
       const savingGoals: FamilySummary["saving_goals"] = (
         (goals.data ?? []) as {
-          name: string; target_amount_cents: number; person_id: string | null;
+          name: string;
+          target_amount_cents: number;
+          pocket_money_accounts?: { person_id: string | null } | null;
         }[]
       ).map((g) => {
-        const purse = g.person_id ? balanceByPerson.get(g.person_id) : undefined;
+        const personId = g.pocket_money_accounts?.person_id ?? null;
+        const purse = personId ? balanceByPerson.get(personId) : undefined;
         const target = g.target_amount_cents / 100;
         const saved = Math.min(purse?.balance ?? 0, target);
         return {
