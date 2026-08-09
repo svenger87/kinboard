@@ -97,7 +97,7 @@ run_cycle() {
   printf '\n\033[1m-- backup/restore cycle %s/%s --\033[0m\n' "$n" "$ITERATIONS"
 
   rig_teardown
-  rm -rf "$RIG_DATA"
+  rig_destroy_data
 
   # -- 1. a stack to back up ------------------------------------------------
   if ! compose RIG_COMPOSE up -d >/dev/null 2>&1; then
@@ -145,7 +145,7 @@ run_cycle() {
 
   # -- 3. lose everything ---------------------------------------------------
   rig_teardown
-  rm -rf "$RIG_DATA"
+  rig_destroy_data
   step "destroyed the stack and its data directory"
 
   # -- 4. rebuild, then put the data back -----------------------------------
@@ -248,7 +248,7 @@ for i in $(seq 1 "$ITERATIONS"); do
   run_cycle "$i" || failed_cycles+=("$i")
 done
 rig_teardown
-rm -rf "$RIG_DATA"
+rig_destroy_data
 
 say "Result"
 step "elapsed: $(( (SECONDS-started)/60 ))m$(( (SECONDS-started)%60 ))s"

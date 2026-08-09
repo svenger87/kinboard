@@ -141,7 +141,7 @@ one_install() {
   printf '\n\033[1m-- fresh install %d/%d --\033[0m\n' "$n" "$ITERATIONS"
 
   rig_teardown
-  rm -rf "$RIG_DATA"
+  rig_destroy_data
   mkdir -p "$RIG_DATA"
 
   local t0 t1
