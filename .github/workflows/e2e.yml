@@ -145,7 +145,7 @@ jobs:
           FAMILY_CODE: DEMO01
           PLAYWRIGHT_BASE_URL: http://localhost:3001
           PLAYWRIGHT_DEVICE_NAME: "CI Smoke (GH Actions)"
-        run: npx playwright test e2e/smoke.spec.ts e2e/calendar-layout.spec.ts --project=desktop
+        run: npx playwright test e2e/smoke.spec.ts e2e/calendar-layout.spec.ts e2e/health-endpoint.spec.ts --project=desktop
 
       - name: Upload Playwright report
         if: always()

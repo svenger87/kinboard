@@ -95,10 +95,10 @@ paths:
         sharing a disk with Postgres; eight requests where one would do is
         eight times the load for data read at the same moment anyway.
 
-        `display_mode` and `attention_required` are placeholders until the
-        Heute-Motor exists. They are present and null/false rather than absent,
-        so an entity built on them does not appear later and break automations
-        written in the meantime.
+        `display_mode` and `attention_required` are live as of the Heute-Motor.
+        They shipped earlier as null/false placeholders rather than being
+        absent, precisely so entities built on them kept working when the
+        engine arrived — which is what happened.
       x-required-scope: family:read
       responses:
         "200":
@@ -561,9 +561,16 @@ components:
             start_at: { type: string, format: date-time }
             location: { type: [string, "null"] }
             person_id: { type: [string, "null"], format: uuid }
+            person:
+              type: [string, "null"]
+              description: The person's name, resolved. A consumer announcing "Enno has physio" cannot use the uuid, and resolving it per consumer means another call each.
             minutes_remaining: { type: integer }
         events_today:
           type: object
+          description: |
+            Events that OVERLAP today, not only those starting today. A holiday
+            running 2 July to 12 August is on today; counting only starts
+            reported "0" to a family in the middle of the school holidays.
           properties:
             state: { type: integer }
             events:
@@ -573,11 +580,20 @@ components:
                 properties:
                   title: { type: string }
                   start_at: { type: string, format: date-time }
+                  ongoing:
+                    type: boolean
+                    description: Started before today and still running.
+                  all_day: { type: boolean }
         shopping_items:
           type: integer
           description: Open (unchecked) items.
         meal_today:
           type: object
+          description: |
+            `state` is the dish. A planned meal is either a free-text note or a
+            recipe, and both resolve to a name here — the recipe case once
+            reported the literal string "recipe", which read as "Dinner: recipe"
+            on a wall display.
           properties:
             state: { type: [string, "null"] }
             meal: { type: [string, "null"] }
@@ -606,7 +622,14 @@ components:
             state: { type: [string, "null"] }
             name: { type: [string, "null"] }
             days_remaining: { type: [integer, "null"] }
-            date: { type: [string, "null"], format: date }
+            date:
+              type: [string, "null"]
+              format: date
+              description: The day the birthday NEXT falls on. This used to carry the year of birth, so a sensor said "in 10 days" beside a date six years past.
+            born_on:
+              type: [string, "null"]
+              format: date
+              description: The original date, year of birth included.
         tasks_overdue:
           type: integer
           description: Its own value, not only an attribute of tasks_due, so "something is overdue" is a trivial automation.
@@ -627,8 +650,22 @@ components:
               balance: { type: number }
               currency: { type: string }
         display_mode:
-          type: "null"
-          description: Reserved for the Heute-Motor (Phase 3).
+          type: string
+          enum: [morning, afternoon, evening, quiet]
+          description: |
+            Which part of the day the board considers itself in. Resolved by the
+            same function the engine and the dashboard use, so an automation
+            triggering on "evening" cannot disagree with a hint that says it is
+            evening. 09:00-14:00 is deliberately `quiet`: it is nobody's rush,
+            and a board that is always urgent becomes wallpaper.
         attention_required:
           type: boolean
-          description: Reserved for the Heute-Motor (Phase 3); always false for now.
+          description: |
+            Whether the Heute-Motor currently has something the family has not
+            dealt with. Snoozed items do not count until their snooze runs out.
+        attention:
+          type: object
+          description: What it is about, so a dashboard needs no second call.
+          properties:
+            count: { type: integer }
+            top: { type: [string, "null"] }

@@ -18,6 +18,7 @@ import { MealPlanWidget } from "@/components/widgets/meal-plan-widget";
 import { WeekOverviewWidget } from "@/components/widgets/week-overview-widget";
 import { TodayStrip } from "@/components/widgets/today-strip";
 import { FloatingLightsFab } from "@/components/floating-lights-fab";
+import { AttentionWidget } from "@/components/widgets/attention-widget";
 import { GettingStartedChecklist } from "@/components/getting-started-checklist";
 import { ConnectivityBanner } from "@/components/connectivity-banner";
 import { ShoppingInstallPrompt } from "@/components/shopping-install-prompt";
@@ -101,6 +102,12 @@ export default function DashboardPage() {
             `items-start` keeps them top-aligned, so the grid packs instead. */}
         <section className="relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 2xl:grid-cols-5 min-[2000px]:grid-cols-6 auto-rows-min items-start gap-4 md:gap-6 w-[min(96vw,2200px)] mx-auto" aria-label={t("ariaWidgets")}>
           <FloatingLightsFab />
+          {/* First, and across the whole width: this is what the family has to
+              act on, and it renders nothing at all when there is nothing — so
+              it costs no space on a quiet day and cannot become wallpaper.
+              Deliberately not behind a visibility toggle: individual hints are
+              switched off from themselves, which is the finer control. */}
+          <AttentionWidget />
           {w.weather && <Weather />}
           {w.upcomingEvents && <UpcomingEvents maxEvents={3} />}
           {w.schedule && <ScheduleWidget />}

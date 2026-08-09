@@ -1,0 +1,132 @@
+name: Rigs
+
+# The four rigs that build an image and boot a whole stack.
+#
+# Deliberately NOT on push. Each one pulls the Supabase image set, builds the
+# webapp, and brings up eleven containers — minutes per run, and the fresh
+# install rig repeats that twenty times when asked to. Running them on every
+# commit would make every commit slow, and the failures they catch are races
+# and disaster-recovery paths, which do not appear and disappear commit to
+# commit.
+#
+# So: weekly, and on demand. Weekly is chosen over nightly because the things
+# these guard — a migration race, a backup that will not restore, an upgrade
+# path from a two-versions-old release — are broken by *changes*, and a week is
+# short enough to place the blame on a small range of them. Before cutting a
+# release, run it by hand.
+
+on:
+  workflow_dispatch:
+    inputs:
+      rig:
+        description: Which rig to run
+        type: choice
+        default: all
+        options: [all, fresh-install, upgrade, backup-restore, integration-api]
+      iterations:
+        description: Iterations for the repeating rigs (fresh install, backup/restore)
+        type: string
+        default: "3"
+  schedule:
+    # Mondays, 04:47 UTC. Off the hour on purpose: the hour and half-hour are
+    # when every scheduled workflow on GitHub starts at once and queues.
+    - cron: "47 4 * * 1"
+
+# A second run of a heavy matrix while the first is still going gains nothing
+# and competes for runners.
+concurrency:
+  group: rigs-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # The matrix is built here rather than filtered in the job below, because the
+  # `matrix` context is not available to a job-level `if` — a condition there
+  # comparing against matrix.rig silently never matches. Choosing the list up
+  # front also means a dispatch for one rig starts one runner, not four that
+  # immediately skip.
+  select:
+    runs-on: ubuntu-latest
+    outputs:
+      rigs: ${{ steps.pick.outputs.rigs }}
+    steps:
+      - id: pick
+        run: |
+          want="${{ github.event.inputs.rig || 'all' }}"
+          if [ "$want" = "all" ]; then
+            echo 'rigs=["fresh-install","upgrade","backup-restore","integration-api"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "rigs=[\"$want\"]" >> "$GITHUB_OUTPUT"
+          fi
+
+  rig:
+    name: ${{ matrix.rig }}
+    needs: select
+    runs-on: ubuntu-latest
+    # The fresh-install rig at 20 iterations is a little over an hour on this
+    # hardware; the default of 3 is far under. Generous rather than tight,
+    # because a rig killed by a timeout looks exactly like a rig that hung.
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        rig: ${{ fromJSON(needs.select.outputs.rigs) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # A hosted runner ships with several gigabytes of Android SDK, .NET and
+      # Haskell toolchains that nothing here uses. Booting the Supabase stack
+      # plus a Next build needs the room more than they do.
+      - name: Reclaim disk
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+                      /usr/local/share/boost /usr/share/swift || true
+          docker image prune -af >/dev/null 2>&1 || true
+          df -h / | tail -1
+
+      - name: Run ${{ matrix.rig }}
+        working-directory: webapp/docker
+        env:
+          # No /mnt/user on a runner. Everything the rigs write goes under the
+          # runner's own temp directory, which is discarded with the VM.
+          RIG_DATA: ${{ runner.temp }}/rig-${{ matrix.rig }}
+          ITERATIONS: ${{ github.event.inputs.iterations || '3' }}
+        run: |
+          set -o pipefail
+          case "${{ matrix.rig }}" in
+            fresh-install)   ./test-fresh-install.sh "$ITERATIONS" ;;
+            backup-restore)  ./test-backup-restore.sh "$ITERATIONS" ;;
+            # Takes the versions to upgrade *from*; its own defaults are the
+            # two most recent, which is what a real user is most likely on.
+            upgrade)         ./test-upgrade.sh ;;
+            integration-api) ./test-integration-api.sh ;;
+          esac
+
+      # A rig that fails has already printed why, but the stack's own logs are
+      # what say whether it was the app or the environment underneath it.
+      - name: Stack logs on failure
+        if: failure()
+        working-directory: webapp/docker
+        run: |
+          for p in kbfresh kbupg kbbak; do
+            if docker ps -a --filter "name=${p}-" --format '{{.Names}}' | grep -q .; then
+              echo "===== $p ====="
+              docker ps -a --filter "name=${p}-" --format '  {{.Names}}\t{{.Status}}'
+              docker logs "${p}-webapp" 2>&1 | tail -80 || true
+            fi
+          done
+
+      # `docker compose down -v` inside the rig covers the normal path; this
+      # covers the one where the rig died before reaching it. The runner is
+      # thrown away regardless — this only keeps a failing job's own later
+      # steps from tripping over a half-up stack.
+      - name: Tear down
+        if: always()
+        working-directory: webapp/docker
+        run: |
+          for p in kbfresh kbupg kbbak; do
+            docker compose -p "$p" down -v --remove-orphans >/dev/null 2>&1 || true
+          done
+          docker ps -a --format '{{.Names}}' | grep -E '^(kbfresh|kbupg|kbbak)-' \
+            | xargs -r docker rm -f >/dev/null 2>&1 || true

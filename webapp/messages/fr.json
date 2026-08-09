@@ -3709,6 +3709,15 @@
     "custom": "Couleur personnalisée",
     "legend": "Couleur"
   },
+  "attention": {
+    "ok": "OK",
+    "later": "Plus tard",
+    "why": "Pourquoi ?",
+    "dismiss": "Masquer",
+    "rule": "Règle",
+    "disableRule": "Ne plus afficher ce conseil",
+    "snoozed": "Plus tard"
+  },
   "photosViewer": {
     "title": "Photos",
     "description": "Parcourir les photos de la famille",

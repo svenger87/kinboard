@@ -6,6 +6,7 @@ import { useState, useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { useRealtimeSync, useIdleTimeout } from "@/hooks";
+import { useReturnToDashboard } from "@/hooks/use-return-to-dashboard";
 import { useIsHandheld } from "@/hooks/use-is-handheld";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { usePresence } from "@/hooks/use-presence";
@@ -102,6 +103,10 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   // in a mount-only effect, so it never updated on a client-side navigation —
   // whatever route happened to load first decided it for the whole session.
   // usePathname re-renders on every navigation, which is the point.
+  // A wall panel left on a sub-page finds its own way home. Kiosk only: a
+  // phone is somebody's own screen, and pulling it back mid-read is hostile.
+  useReturnToDashboard({ enabled: device?.is_kiosk ?? false });
+
   const screensaverPathname = usePathname();
   const skipScreensaver = isScreensaverSkipPath(screensaverPathname);
 
