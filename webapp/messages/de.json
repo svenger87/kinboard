@@ -2322,7 +2322,55 @@
       "revokeConfirmBody": "{name} funktioniert sofort nicht mehr. Alles, was es nutzt — Home Assistant, eine Automation — verliert den Zugriff, bis du ein neues erstellst."
     },
     "itemIntegrationTokensLabel": "Integrations-Tokens",
-    "itemIntegrationTokensDescription": "Home Assistant und andere Programme mit Kinboard sprechen lassen"
+    "itemIntegrationTokensDescription": "Home Assistant und andere Programme mit Kinboard sprechen lassen",
+    "itemHintsLabel": "Hinweise",
+    "itemHintsDescription": "Welche Hinweise das Board geben darf",
+    "hints": {
+      "title": "Hinweise",
+      "description": "Das Board zeigt diese von selbst. Schalte ab, was du nicht sehen möchtest.",
+      "rules": {
+        "birthday-today": {
+          "title": "Geburtstag heute",
+          "description": "Nennt gleich morgens, wer heute Geburtstag hat."
+        },
+        "leave-soon": {
+          "title": "Gleich los",
+          "description": "Meldet sich, wenn der nächste Termin naht."
+        },
+        "lock-up-before-bed": {
+          "title": "Vor dem Schlafengehen abschließen",
+          "description": "Spät abends: nennt Türen oder Fenster, die laut Home Assistant offen sind."
+        },
+        "pack-the-school-bag": {
+          "title": "Schultasche packen",
+          "description": "Am Abend vorher: was der Unterricht morgen braucht — Sportzeug, Schwimmsachen."
+        },
+        "take-an-umbrella": {
+          "title": "Regenschirm mitnehmen",
+          "description": "Weist auf Regen hin, wenn jemand aus dem Haus muss."
+        },
+        "overdue-tasks": {
+          "title": "Überfällige Aufgaben",
+          "description": "Meldet Aufgaben, deren Fälligkeit vorbei ist."
+        },
+        "school-tomorrow": {
+          "title": "Morgen Schule",
+          "description": "Sagt abends, welche Kinder morgen Unterricht haben."
+        },
+        "birthday-soon": {
+          "title": "Geburtstag steht an",
+          "description": "Früh genug, um ein Geschenk zu besorgen."
+        },
+        "shopping-before-the-weekend": {
+          "title": "Einkaufen vor dem Wochenende",
+          "description": "Freitags: erinnert an die Liste, solange die Läden offen sind."
+        },
+        "nothing-planned-for-dinner": {
+          "title": "Kein Essen geplant",
+          "description": "Abends: meldet, wenn für morgen nichts geplant ist."
+        }
+      }
+    }
   },
   "calendar": {
     "caldavToast": {

@@ -2322,7 +2322,55 @@
       "revokeConfirmBody": "{name} cessera immédiatement de fonctionner. Tout ce qui l'utilise — Home Assistant, une automatisation — perdra l'accès jusqu'à ce que vous en créiez un nouveau."
     },
     "itemIntegrationTokensLabel": "Jetons d'intégration",
-    "itemIntegrationTokensDescription": "Permettre à Home Assistant et à d'autres programmes de dialoguer avec Kinboard"
+    "itemIntegrationTokensDescription": "Permettre à Home Assistant et à d'autres programmes de dialoguer avec Kinboard",
+    "itemHintsLabel": "Conseils",
+    "itemHintsDescription": "Les rappels que le tableau peut donner",
+    "hints": {
+      "title": "Conseils",
+      "description": "Le tableau les affiche de lui-même. Désactivez ce que vous ne voulez pas voir.",
+      "rules": {
+        "birthday-today": {
+          "title": "Anniversaire aujourd'hui",
+          "description": "Indique dès le matin qui fête son anniversaire."
+        },
+        "leave-soon": {
+          "title": "Il est temps de partir",
+          "description": "Prévient quand le prochain rendez-vous approche."
+        },
+        "lock-up-before-bed": {
+          "title": "Fermer avant d'aller dormir",
+          "description": "Tard le soir, signale une porte ou fenêtre encore ouverte."
+        },
+        "pack-the-school-bag": {
+          "title": "Préparer le cartable",
+          "description": "La veille au soir, ce qu'il faut pour les cours du lendemain."
+        },
+        "take-an-umbrella": {
+          "title": "Prendre un parapluie",
+          "description": "Signale la pluie quand quelqu'un doit sortir."
+        },
+        "overdue-tasks": {
+          "title": "Tâches en retard",
+          "description": "Signale les tâches dont l'échéance est passée."
+        },
+        "school-tomorrow": {
+          "title": "École demain",
+          "description": "Le soir, indique quels enfants ont cours demain."
+        },
+        "birthday-soon": {
+          "title": "Anniversaire bientôt",
+          "description": "Assez tôt pour acheter un cadeau."
+        },
+        "shopping-before-the-weekend": {
+          "title": "Courses avant le week-end",
+          "description": "Le vendredi, rappelle la liste pendant que les magasins sont ouverts."
+        },
+        "nothing-planned-for-dinner": {
+          "title": "Aucun repas prévu",
+          "description": "Le soir, signale que rien n'est prévu pour demain."
+        }
+      }
+    }
   },
   "calendar": {
     "caldavToast": {
