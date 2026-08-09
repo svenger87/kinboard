@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { createAdminClient } from "@/lib/supabase/server";
 import { todayKey, toLocalDateKey } from "@/lib/local-date";
+import { resolveDayContext } from "@/lib/attention/engine";
 import { logApiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
@@ -68,8 +69,16 @@ export interface FamilySummary {
   tasks_overdue: number;
   meal_tomorrow: { state: string | null; meal: string | null; recipe_id: string | null };
   pocket_money: { person_id: string; name: string; balance: number; currency: string }[];
-  /** Heute-Motor, still reserved: reported as null so the entity exists and reads "unknown". */
-  display_mode: null;
+  /**
+   * Which part of the day the board considers itself in — morning, afternoon,
+   * evening or quiet. Reported as null until the Heute-Motor existed, which
+   * left the sensor permanently "unknown" and useless to automate on.
+   *
+   * The same function the engine and the browser use, so an automation
+   * triggering on "evening" and a hint that says it is evening cannot
+   * disagree.
+   */
+  display_mode: string;
   /**
    * Whether the Heute-Motor currently has something the family has not dealt
    * with. Hardcoded `false` until the engine existed, which made the binary
@@ -151,7 +160,7 @@ export async function GET(request: NextRequest) {
     const tomorrowDow = isoDayOfWeek(tomorrowDate);
 
     try {
-      const [calendars, shopping, todos, meals, schedules, birthdays, people, mealsTomorrow, purses, attention] =
+      const [calendars, shopping, todos, meals, schedules, birthdays, people, mealsTomorrow, purses, timezoneSetting, attention] =
         await Promise.all([
 
         (supabase as any).from("calendars").select("id").eq("family_id", familyId),
@@ -215,6 +224,13 @@ export async function GET(request: NextRequest) {
         // "attention required" until its snooze runs out, and the evaluator is
         // what returns it to active — so `state` is the right filter here and
         // a timestamp comparison would double-guess it.
+        (supabase as any)
+          .from("settings")
+          .select("value")
+          .eq("family_id", familyId)
+          .eq("key", "timezone")
+          .maybeSingle(),
+
         (supabase as any)
           .from("attention_items")
           .select("title, priority")
@@ -368,6 +384,13 @@ export async function GET(request: NextRequest) {
 
       const childNames = withLessons.map((s) => nameById.get(s.person_id) ?? "?");
 
+      // Same default as the Heute-Motor's own adapter, so the two cannot
+      // resolve different parts of the day for the same instant.
+      const familyTimeZone =
+        typeof timezoneSetting.data?.value === "string"
+          ? timezoneSetting.data.value
+          : "Europe/Berlin";
+
       // Already ordered by priority in the query, so [0] is the one that
       // matters most rather than merely the oldest.
       const attentionItems = (attention.data ?? []) as { title: string; priority: number }[];
@@ -404,7 +427,7 @@ export async function GET(request: NextRequest) {
           recipe_id: mealTomorrowRow?.recipe_id ?? null,
         },
         pocket_money: pocketMoney,
-        display_mode: null,
+        display_mode: resolveDayContext(now, familyTimeZone),
         attention_required: attentionItems.length > 0,
         attention: {
           count: attentionItems.length,
