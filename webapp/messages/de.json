@@ -353,7 +353,8 @@
     "news": "Nachrichten",
     "stonks": "Stonks",
     "pocketMoney": "Taschengeld",
-    "more": "Mehr"
+    "more": "Mehr",
+    "photos": "Fotos"
   },
   "cameras": {
     "title": "Kameras",
@@ -3707,5 +3708,19 @@
     "clay": "Ton",
     "custom": "Eigene Farbe",
     "legend": "Farbe"
+  },
+  "photosViewer": {
+    "title": "Fotos",
+    "description": "Die Familien-Fotos durchsehen",
+    "subtitle": "{count} Fotos",
+    "loading": "Fotos werden geladen…",
+    "emptyTitle": "Noch keine Fotos",
+    "emptyBody": "Verbinde eine Fotoquelle — dann erscheinen sie hier und im Bildschirmschoner.",
+    "emptyAction": "Quelle auswählen",
+    "photoAria": "Foto {index}",
+    "close": "Schließen",
+    "previous": "Vorheriges Foto",
+    "next": "Nächstes Foto",
+    "position": "{current} von {total}"
   }
 }

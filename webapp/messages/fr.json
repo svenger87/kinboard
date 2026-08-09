@@ -353,7 +353,8 @@
     "news": "Actualités",
     "stonks": "Actions",
     "pocketMoney": "Argent de poche",
-    "more": "Plus"
+    "more": "Plus",
+    "photos": "Photos"
   },
   "cameras": {
     "title": "Caméras",
@@ -3707,5 +3708,19 @@
     "clay": "Argile",
     "custom": "Couleur personnalisée",
     "legend": "Couleur"
+  },
+  "photosViewer": {
+    "title": "Photos",
+    "description": "Parcourir les photos de la famille",
+    "subtitle": "{count} photos",
+    "loading": "Chargement des photos…",
+    "emptyTitle": "Pas encore de photos",
+    "emptyBody": "Connectez une source et elles apparaîtront ici — et sur l’écran de veille.",
+    "emptyAction": "Choisir une source",
+    "photoAria": "Photo {index}",
+    "close": "Fermer",
+    "previous": "Photo précédente",
+    "next": "Photo suivante",
+    "position": "{current} sur {total}"
   }
 }

@@ -353,7 +353,8 @@
     "news": "News",
     "stonks": "Stonks",
     "pocketMoney": "Pocket Money",
-    "more": "More"
+    "more": "More",
+    "photos": "Photos"
   },
   "cameras": {
     "title": "Cameras",
@@ -3707,5 +3708,19 @@
     "clay": "Clay",
     "custom": "Custom colour",
     "legend": "Colour"
+  },
+  "photosViewer": {
+    "title": "Photos",
+    "description": "Browse the family photo library",
+    "subtitle": "{count} photos",
+    "loading": "Loading photos…",
+    "emptyTitle": "No photos yet",
+    "emptyBody": "Connect a photo source and they show up here — and on the screensaver.",
+    "emptyAction": "Choose a source",
+    "photoAria": "Photo {index}",
+    "close": "Close",
+    "previous": "Previous photo",
+    "next": "Next photo",
+    "position": "{current} of {total}"
   }
 }
