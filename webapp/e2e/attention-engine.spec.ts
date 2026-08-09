@@ -188,6 +188,58 @@ test.describe("a family without Home Assistant still gets value", () => {
   });
 });
 
+test.describe("shipped rules cannot assume the household's language", () => {
+  test("open doors are found by device class, not by English entity ids", () => {
+    // Measured against a real installation: matching ids beginning
+    // `binary_sensor.door` found ZERO of 944 entities, because the house is
+    // named in German — haustur, fenster, terrassentur.
+    const input = signals({
+      now: at("2026-08-10T22:00:00+02:00"),
+      home: {
+        states: {
+          "binary_sensor.haustur": "on",
+          "binary_sensor.terrassenfenster": "off",
+          "binary_sensor.bewegung_flur": "on",
+        },
+        deviceClasses: {
+          "binary_sensor.haustur": "door",
+          "binary_sensor.terrassenfenster": "window",
+          "binary_sensor.bewegung_flur": "motion",
+        },
+      },
+    });
+
+    const item = evaluate(input, RULES).find((i) => i.ruleId === "lock-up-before-bed");
+    expect(item, "a German-named open door was not found").toBeTruthy();
+    // The motion sensor is on too, and is not a thing you can close.
+    expect(item!.evidence).toEqual({ entities: ["binary_sensor.haustur"] });
+  });
+
+  test("a family can exclude entities without losing the rule", () => {
+    const input = signals({
+      now: at("2026-08-10T22:00:00+02:00"),
+      home: {
+        states: { "binary_sensor.model_y_fahrertur_vorne": "on", "binary_sensor.haustur": "on" },
+        deviceClasses: {
+          "binary_sensor.model_y_fahrertur_vorne": "door",
+          "binary_sensor.haustur": "door",
+        },
+      },
+    });
+
+    const items = evaluate(input, RULES, {
+      ruleState: {
+        "lock-up-before-bed": {
+          enabled: true,
+          config: { excludePrefixes: ["binary_sensor.model_y"] },
+        },
+      },
+    });
+    const item = items.find((i) => i.ruleId === "lock-up-before-bed");
+    expect(item!.evidence).toEqual({ entities: ["binary_sensor.haustur"] });
+  });
+});
+
 test.describe("one bad rule does not take the board down", () => {
   test("a rule that throws is skipped, the rest still run", () => {
     const exploding = {

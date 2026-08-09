@@ -5,6 +5,7 @@ import {
   packItemsForSubject,
   type PackItemConfig,
 } from "@/lib/schedule-pack-items";
+import { fetchHome, fetchWeather } from "./external-signals";
 import type {
   SignalBirthday,
   SignalEvent,
@@ -49,19 +50,23 @@ export async function collectSignals(
   const now = options.now ?? new Date();
   const timeZone = options.timeZone ?? (await familyTimeZone(familyId)) ?? "Europe/Berlin";
 
-  const [events, todos, lessons, meals, birthdays, shoppingItemCount] = await Promise.all([
+  const [events, todos, lessons, meals, birthdays, shoppingItemCount, weather, home] = await Promise.all([
     fetchEvents(familyId, now).catch(() => [] as SignalEvent[]),
     fetchTodos(familyId).catch(() => [] as SignalTodo[]),
     fetchLessons(familyId).catch(() => [] as SignalLesson[]),
     fetchMeals(familyId, now).catch(() => [] as SignalMeal[]),
     fetchBirthdays(familyId, now, timeZone).catch(() => [] as SignalBirthday[]),
     fetchShoppingCount(familyId).catch(() => 0),
+    // Both already swallow their own failures; the catch is belt-and-braces
+    // so a change in there can never take the whole board down.
+    fetchWeather(familyId).catch(() => undefined),
+    fetchHome(familyId).catch(() => undefined),
   ]);
 
-  // weather and home are deliberately absent for now. The rules that use them
-  // degrade to silence, which is why they can be added later without touching
-  // anything here — see take-an-umbrella and lock-up-before-bed.
-  return { now, timeZone, events, todos, lessons, meals, birthdays, shoppingItemCount };
+  // weather and home stay optional: a household with neither configured loses
+  // nothing, because eight of the ten shipped rules use neither and the other
+  // two degrade to silence.
+  return { now, timeZone, events, todos, lessons, meals, birthdays, shoppingItemCount, weather, home };
 }
 
 async function familyTimeZone(familyId: string): Promise<string | null> {

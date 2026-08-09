@@ -294,21 +294,45 @@ const lockUpBeforeBed: Rule = {
   id: "lock-up-before-bed",
   title: "Lock up before bed",
   description:
-    "Late in the evening, mentions a door or window that Home Assistant still reports open.",
+    "Late in the evening, mentions a door or window Home Assistant still reports open.",
   contexts: ["evening", "quiet"],
-  defaultConfig: { afterHour: 21, entityPrefixes: ["binary_sensor.door", "binary_sensor.window"] },
+  defaultConfig: {
+    afterHour: 21,
+    // Home Assistant's own device classes, not entity-id prefixes.
+    //
+    // The first version matched ids beginning `binary_sensor.door`. Measured
+    // against a real installation that found ZERO entities out of 944: the
+    // house is named in German, so its sensors are `haustur`, `fenster`,
+    // `terrassentur`. A shipped rule cannot assume the language a household
+    // names its things in, and device_class is Home Assistant's own answer to
+    // "what kind of thing is this".
+    deviceClasses: ["door", "window", "opening", "garage_door"],
+    // Cars report door and window classes too, and "the Model Y's passenger
+    // door is open" is worth knowing at 22:00 — but a family that disagrees
+    // needs a way to say so without turning the whole rule off.
+    excludePrefixes: [] as string[],
+  },
   evaluate(signals, { config }) {
     const home = signals.home;
     if (!home) return [];
 
     if (localMinutes(signals.now, signals.timeZone) < num(config, "afterHour", 21) * 60) return [];
 
-    const prefixes = Array.isArray(config.entityPrefixes)
-      ? (config.entityPrefixes as string[])
-      : ["binary_sensor.door", "binary_sensor.window"];
+    const wanted = new Set(
+      Array.isArray(config.deviceClasses)
+        ? (config.deviceClasses as string[])
+        : ["door", "window", "opening", "garage_door"]
+    );
+    const excluded = Array.isArray(config.excludePrefixes)
+      ? (config.excludePrefixes as string[])
+      : [];
 
     const open = Object.entries(home.states)
-      .filter(([id, state]) => prefixes.some((p) => id.startsWith(p)) && state === "on")
+      .filter(([id, state]) => {
+        if (state !== "on") return false;
+        if (excluded.some((p) => id.startsWith(p))) return false;
+        return wanted.has(home.deviceClasses[id] ?? "");
+      })
       .map(([id]) => id)
       .sort();
 
