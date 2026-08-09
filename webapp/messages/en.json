@@ -2372,7 +2372,55 @@
       "revokeConfirmBody": "{name} will stop working immediately. Anything using it — Home Assistant, an automation — will lose access until you create a new one."
     },
     "itemIntegrationTokensLabel": "Integration tokens",
-    "itemIntegrationTokensDescription": "Let Home Assistant and other programs talk to Kinboard"
+    "itemIntegrationTokensDescription": "Let Home Assistant and other programs talk to Kinboard",
+    "itemHintsLabel": "Hints",
+    "itemHintsDescription": "Which reminders the board may give",
+    "hints": {
+      "title": "Hints",
+      "description": "The board raises these on its own. Turn off anything you would rather not be told.",
+      "rules": {
+        "birthday-today": {
+          "title": "Birthday today",
+          "description": "Names whose birthday it is, first thing."
+        },
+        "leave-soon": {
+          "title": "Time to leave",
+          "description": "Says when the next appointment is close enough to start moving."
+        },
+        "lock-up-before-bed": {
+          "title": "Lock up before bed",
+          "description": "Late in the evening, mentions a door or window Home Assistant still reports open."
+        },
+        "pack-the-school-bag": {
+          "title": "Pack the school bag",
+          "description": "The evening before, lists what tomorrow's lessons need — sports kit, swimming things."
+        },
+        "take-an-umbrella": {
+          "title": "Take an umbrella",
+          "description": "Mentions rain when somebody is due out of the house."
+        },
+        "overdue-tasks": {
+          "title": "Overdue tasks",
+          "description": "Raises tasks whose due date has passed."
+        },
+        "school-tomorrow": {
+          "title": "School tomorrow",
+          "description": "In the evening, says which children have school in the morning."
+        },
+        "birthday-soon": {
+          "title": "Birthday coming up",
+          "description": "Gives enough warning to buy a present."
+        },
+        "shopping-before-the-weekend": {
+          "title": "Shopping list before the weekend",
+          "description": "On Friday evening, mentions the list while the shops are still open."
+        },
+        "nothing-planned-for-dinner": {
+          "title": "No dinner planned",
+          "description": "In the evening, says if tomorrow has nothing planned to eat."
+        }
+      }
+    }
   },
   "calendar": {
     "caldavToast": {
