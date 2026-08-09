@@ -39,6 +39,8 @@ export interface FamilySummary {
     start_at: string;
     location: string | null;
     person_id: string | null;
+    /** Resolved name, so a consumer does not have to look the id up itself. */
+    person: string | null;
     minutes_remaining: number;
   } | null;
   events_today: { state: number; events: { title: string; start_at: string }[] };
@@ -52,7 +54,14 @@ export interface FamilySummary {
    * this read on a real wall display.
    */
   school_tomorrow: { state: string | null; children: string[]; count: number; first_lesson: string | null };
-  birthdays_upcoming: { state: string | null; name: string | null; days_remaining: number | null; date: string | null };
+  birthdays_upcoming: {
+    state: string | null;
+    name: string | null;
+    days_remaining: number | null;
+    /** The day it NEXT falls on. `born_on` is the original date. */
+    date: string | null;
+    born_on: string | null;
+  };
   tasks_overdue: number;
   meal_tomorrow: { state: string | null; meal: string | null; recipe_id: string | null };
   pocket_money: { person_id: string; name: string; balance: number; currency: string }[];
@@ -156,7 +165,7 @@ export async function GET(request: NextRequest) {
 
         (supabase as any)
           .from("meal_plan_entries")
-          .select("recipe_id, note, meal_type, meal_plans!inner(family_id)")
+          .select("recipe_id, note, meal_type, recipes(title), meal_plans!inner(family_id)")
           .eq("meal_plans.family_id", familyId)
           .eq("date", today)
           .is("deleted_at", null),
@@ -181,7 +190,7 @@ export async function GET(request: NextRequest) {
 
         (supabase as any)
           .from("meal_plan_entries")
-          .select("recipe_id, note, meal_plans!inner(family_id)")
+          .select("recipe_id, note, recipes(title), meal_plans!inner(family_id)")
           .eq("meal_plans.family_id", familyId)
           .eq("date", tomorrow)
           .is("deleted_at", null),
@@ -195,6 +204,13 @@ export async function GET(request: NextRequest) {
       // Calendar events need the family's calendar ids first — events are
       // scoped by calendar, not directly by family.
       const calendarIds = (calendars.data ?? []).map((c: { id: string }) => c.id);
+      // Declared before the events block, which now resolves a person's name
+      // from it. Left where it was, this would be read before initialisation —
+      // a ReferenceError on every request rather than a type error at build.
+      const nameById = new Map(
+        ((people.data ?? []) as { id: string; name: string }[]).map((p) => [p.id, p.name]),
+      );
+
       let nextEvent: FamilySummary["next_family_event"] = null;
       let todaysEvents: { title: string; start_at: string }[] = [];
 
@@ -229,6 +245,10 @@ export async function GET(request: NextRequest) {
             start_at: upcoming.start_at,
             location: upcoming.location,
             person_id: upcoming.person_id,
+            // The name as well as the id. An automation announcing "Enno has
+            // physio" cannot do anything with 54c04d4b-… , and every consumer
+            // resolving it themselves means every consumer needs another call.
+            person: upcoming.person_id ? nameById.get(upcoming.person_id) ?? null : null,
             minutes_remaining: Math.max(
               0,
               Math.round((new Date(upcoming.start_at).getTime() - now.getTime()) / 60_000),
@@ -240,19 +260,47 @@ export async function GET(request: NextRequest) {
       const openTodos = (todos.data ?? []) as { id: string; due_date: string | null }[];
       const overdue = openTodos.filter((t) => t.due_date !== null && t.due_date < today).length;
 
-      const nameById = new Map(
-        ((people.data ?? []) as { id: string; name: string }[]).map((p) => [p.id, p.name]),
-      );
       const scheduleRows = (schedules.data ?? []) as { person_id: string; time_slots: unknown }[];
       const withLessons = scheduleRows.filter((s) => firstLessonOf(s.time_slots) !== null);
 
       const nextBirthday = ((birthdays.data ?? []) as { name: string; date: string }[])
-        .map((b) => ({ name: b.name, days: daysUntilNextBirthday(b.date, now), date: b.date }))
-        .filter((b): b is { name: string; days: number; date: string } => b.days !== null)
+        .map((b) => {
+          const days = daysUntilNextBirthday(b.date, now);
+          // The stored date carries the year of BIRTH. Reporting it as the
+          // birthday's date meant a sensor saying "in 10 days" alongside
+          // "2020-08-19" — two answers to the same question, one of them six
+          // years out, and the wrong one is the one a calendar card would use.
+          const next =
+            days === null
+              ? null
+              : new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
+          return {
+            name: b.name,
+            days,
+            date: next ? toLocalDateKey(next) : null,
+            born_on: b.date,
+          };
+        })
+        .filter((b): b is { name: string; days: number; date: string; born_on: string } => b.days !== null)
         .sort((a, b) => a.days - b.days)[0];
 
-      const mealRow = ((meals.data ?? []) as { recipe_id: string | null; note: string | null }[])[0];
-      const mealTomorrowRow = ((mealsTomorrow.data ?? []) as { recipe_id: string | null; note: string | null }[])[0];
+      type MealRow = {
+        recipe_id: string | null;
+        note: string | null;
+        recipes?: { title: string | null } | null;
+      };
+      const mealRow = ((meals.data ?? []) as MealRow[])[0];
+      const mealTomorrowRow = ((mealsTomorrow.data ?? []) as MealRow[])[0];
+
+      // What is for dinner, as a person would say it.
+      //
+      // A planned meal is either a free-text note or a recipe. The recipe case
+      // used to report the literal string "recipe" as the state — the word,
+      // not the dish — because nothing ever joined to the recipes table. On a
+      // wall display that read "Dinner: recipe", which is worse than blank:
+      // blank at least says nothing rather than saying something wrong.
+      const mealName = (row: MealRow | undefined): string | null =>
+        row?.note ?? row?.recipes?.title ?? null;
 
       const pocketMoney = ((purses.data ?? []) as {
         person_id: string; balance_cents: number | null; currency: string | null;
@@ -272,8 +320,8 @@ export async function GET(request: NextRequest) {
         events_today: { state: todaysEvents.length, events: todaysEvents.slice(0, 10) },
         shopping_items: shopping.count ?? 0,
         meal_today: {
-          state: mealRow?.note ?? (mealRow?.recipe_id ? "recipe" : null),
-          meal: mealRow?.note ?? null,
+          state: mealName(mealRow),
+          meal: mealName(mealRow),
           recipe_id: mealRow?.recipe_id ?? null,
         },
         tasks_due: { state: openTodos.length, open: openTodos.length, overdue },
@@ -290,11 +338,12 @@ export async function GET(request: NextRequest) {
           name: nextBirthday?.name ?? null,
           days_remaining: nextBirthday?.days ?? null,
           date: nextBirthday?.date ?? null,
+          born_on: nextBirthday?.born_on ?? null,
         },
         tasks_overdue: overdue,
         meal_tomorrow: {
-          state: mealTomorrowRow?.note ?? (mealTomorrowRow?.recipe_id ? "recipe" : null),
-          meal: mealTomorrowRow?.note ?? null,
+          state: mealName(mealTomorrowRow),
+          meal: mealName(mealTomorrowRow),
           recipe_id: mealTomorrowRow?.recipe_id ?? null,
         },
         pocket_money: pocketMoney,
