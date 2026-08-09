@@ -177,7 +177,7 @@ test_path() {
   say "UPGRADE PATH:  $from  ->  HEAD"
 
   teardown
-  rm -rf "$RIG_DATA"
+  rig_destroy_data
   mkdir -p "$RIG_DATA"
 
   step "booting published image ghcr.io/svenger87/kinboard:$from"

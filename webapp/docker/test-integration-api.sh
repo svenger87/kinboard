@@ -58,7 +58,7 @@ say "Booting the disposable stack"
 rig_require_free_ports || exit 1
 rig_prepare_env
 compose INSTALL_COMPOSE build webapp >/dev/null 2>&1 || { fail "build"; exit 1; }
-rig_teardown; rm -rf "$RIG_DATA"; mkdir -p "$RIG_DATA"
+rig_teardown; rig_destroy_data; mkdir -p "$RIG_DATA"
 ( cd "$SCRIPT_DIR" && COMPOSE_FILES="-f docker-compose.yml" ./start.sh up >/dev/null 2>&1 ) \
   || { fail "start.sh up"; exit 1; }
 rig_wait_healthy "integration api rig" 60 || exit 1
@@ -166,7 +166,7 @@ chk "reads keep working while writes are throttled" \
 if [ "${KEEP_UP:-0}" = "1" ]; then
   say "KEEP_UP=1 — stack left at $BASE_URL"
 else
-  say "Tearing down"; rig_teardown; rm -rf "$RIG_DATA"
+  say "Tearing down"; rig_teardown; rig_destroy_data
 fi
 
 say "Result"
