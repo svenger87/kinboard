@@ -4,6 +4,7 @@ import { sendPushToMultiple, isVapidConfigured, DatabaseSubscription } from "@/l
 import { formatEventTime } from "@/lib/notifications/format";
 import { getPushTranslator } from "@/lib/notifications/messages";
 import { getFamilyLocale } from "@/lib/family-locale";
+import { recordHeartbeat } from "@/lib/heartbeat";
 import type { PushSubscription, NotificationPreferences } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -161,6 +162,16 @@ export async function POST(request: NextRequest) {
   if (!authHeader || authHeader !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // This job runs every 30 seconds, which is what makes it the useful
+  // heartbeat: the daily jobs would leave /api/health unable to tell "the
+  // worker is down" from "it is not 08:00 yet".
+  //
+  // After the secret check, so an unauthenticated caller cannot fake a healthy
+  // worker. Before the work, so a worker that is running but failing still
+  // reports as alive — "not running" and "running and erroring" have different
+  // fixes and should not look identical from outside.
+  await recordHeartbeat();
 
   const supabase = createAdminClient();
 
