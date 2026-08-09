@@ -124,8 +124,26 @@ export interface ProposedItem {
    * acknowledgement the family already made.
    */
   key: string;
+  /**
+   * English, and the fallback.
+   *
+   * Kept because Home Assistant and the summary endpoint need *a* string, and
+   * because an item raised before a translation existed must still say
+   * something rather than showing a key.
+   */
   title: string;
   detail?: string;
+  /**
+   * What the item means, for anything that can choose its own words.
+   *
+   * The locale is per device in Kinboard — a cookie, not a family setting — so
+   * a household can have a German wall tablet and an English phone. Rendering
+   * the wording server-side would pick one language for both. The rule
+   * therefore states the message and its values, and the surface that displays
+   * it decides how to say it.
+   */
+  messageKey?: string;
+  params?: Record<string, string | number>;
   /** The inputs behind it, so "why am I seeing this?" needs no re-run. */
   evidence?: Record<string, unknown>;
   priority?: number;

@@ -113,6 +113,8 @@ export async function runAttentionForFamily(
         evidence: item.evidence ?? {},
         priority: item.priority,
         context: item.context,
+        message_key: item.messageKey ?? null,
+        params: item.params ?? {},
         last_seen_at: nowIso,
         ...(wokeUp ? { state: "active", snoozed_until: null } : {}),
       })
@@ -135,6 +137,8 @@ export async function runAttentionForFamily(
         evidence: item.evidence ?? {},
         priority: item.priority,
         context: item.context,
+        message_key: item.messageKey ?? null,
+        params: item.params ?? {},
         subject_type: item.subjectType ?? null,
         subject_id: item.subjectId ?? null,
         state: "active",

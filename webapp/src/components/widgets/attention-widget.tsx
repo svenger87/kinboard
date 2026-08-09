@@ -49,6 +49,24 @@ export function AttentionWidget() {
   const setRuleEnabled = useSetRuleEnabled();
   const [explaining, setExplaining] = useState<string | null>(null);
   const t = useTranslations("attention");
+  const hints = useTranslations("attention.hints");
+
+  /**
+   * Say the hint in this device's language.
+   *
+   * Falls back to the stored English when a row predates the message key, or
+   * when a rule ships a key no translation has caught up with yet. A hint that
+   * reads a little wrong is far better than one that renders as
+   * `attention.hints.something.title` on a kitchen wall.
+   */
+  const say = (item: AttentionItem, part: "title" | "detail"): string => {
+    const fallback = (part === "title" ? item.title : item.detail) ?? "";
+    if (!item.message_key) return fallback;
+    const key = `${item.message_key}.${part}`;
+    if (!hints.has(key)) return fallback;
+    const said = hints(key, item.params ?? {});
+    return said || fallback;
+  };
 
   // Acknowledged, snoozed and dismissed items stay in the table — the
   // evaluator needs them to know it has already been answered — but they are
@@ -68,9 +86,11 @@ export function AttentionWidget() {
               <div className="flex items-start gap-3">
                 <AlertCircle className="mt-0.5 size-5 shrink-0 text-amber-600" aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium leading-tight">{item.title}</p>
-                  {item.detail && (
-                    <p className="text-muted-foreground mt-0.5 text-sm">{item.detail}</p>
+                  <p className="font-medium leading-tight">{say(item, "title")}</p>
+                  {say(item, "detail") && (
+                    <p className="text-muted-foreground mt-0.5 text-sm">
+                      {say(item, "detail")}
+                    </p>
                   )}
                 </div>
               </div>
