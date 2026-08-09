@@ -121,6 +121,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useSchedules, usePeople, useSubjects, useSetting, useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
 import type { Person, Subject } from "@/types/database";
+import { DEFAULT_PACK_ITEMS, type PackItemConfig } from "@/lib/schedule-pack-items";
 
 interface TimeSlot {
   period: number;
@@ -153,20 +154,6 @@ const ICON_MAP: Record<string, LucideIcon> = {
 const DEFAULT_COLOR = "#6b7280";
 
 // Pack items type and defaults
-interface PackItemConfig {
-  subject: string;
-  items: string[];
-}
-
-const DEFAULT_PACK_ITEMS: PackItemConfig[] = [
-  { subject: "Sport", items: ["Sportkleidung", "Turnschuhe", "Trinkflasche"] },
-  { subject: "Schwimmen", items: ["Badeanzug/Badehose", "Handtuch", "Schwimmbrille", "Badekappe"] },
-  { subject: "Kunst", items: ["Malkittel", "Pinsel & Farben"] },
-  { subject: "Musik", items: ["Instrument", "Notenheft"] },
-  { subject: "Religion", items: ["Religionsheft"] },
-  { subject: "Werken", items: ["Arbeitskittel"] },
-  { subject: "Textilgestaltung", items: ["Nähzeug", "Stoffe"] },
-];
 
 // Safely parse time_slots JSON from database into typed array
 function parseTimeSlots(slots: unknown): TimeSlot[] {
