@@ -31,6 +31,19 @@ test.describe("parseAlbumToken", () => {
     // against Apple's servers.
     expect(parseAlbumToken("https://photos.app.goo.gl/abcdef")).toBeNull();
     expect(parseAlbumToken("https://evil.example.com/photos/B0x5CjqPFhOZ1B")).toBeNull();
+
+    // A hostname that merely *ends with* the string "icloud.com" is a domain
+    // anyone can register. Checking the suffix as text rather than as a label
+    // boundary is the whole bug.
+    expect(parseAlbumToken("https://evilicloud.com/photos/B0x5CjqPFhOZ1B")).toBeNull();
+    expect(parseAlbumToken("https://noticloud.com/photos/B0x5CjqPFhOZ1B")).toBeNull();
+    expect(parseAlbumToken("https://icloud.com.attacker.net/photos/B0x5CjqPFhOZ1B")).toBeNull();
+
+    // …while the real ones keep working, including the bare apex.
+    expect(parseAlbumToken("https://icloud.com/sharedalbum/#B0x5CjqPFhOZ1B")).toBe("B0x5CjqPFhOZ1B");
+    expect(parseAlbumToken("https://p23-sharedstreams.icloud.com/photos/B0x5CjqPFhOZ1B")).toBe(
+      "B0x5CjqPFhOZ1B",
+    );
   });
 
   test("refuses empty and malformed input", () => {

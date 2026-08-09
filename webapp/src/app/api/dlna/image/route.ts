@@ -10,10 +10,15 @@ import { readDlnaSettings, verifyImageUrl } from "@/lib/dlna-settings";
  * proxy — so it carries a signature. Only a URL this family's own browse
  * produced can be fetched back through here.
  *
- * An earlier version pinned the host to the configured server instead, and a
- * real MiniDLNA broke it: media servers advertise whichever address they
- * detected for themselves, which is routinely not the one you reached them on.
- * The signature does not care how many addresses the server answers to.
+ * It also pins the host to the configured server. An earlier attempt at that
+ * alone was broken by a real MiniDLNA — media servers advertise whichever
+ * address they detected for themselves, routinely not the one you reached them
+ * on — but `reachableMediaUrl` now rewrites every media URL to the host that
+ * answered the browse before it is signed, so by this point the two always
+ * agree. Signature and host together mean a signed URL cannot be replayed
+ * against anything but the server this family configured: without the pin, a
+ * member who can set that address could point the server at, say, a cloud
+ * metadata endpoint and have Kinboard fetch it for them.
  */
 export async function GET(request: NextRequest) {
   const auth = await requireSession(request);
@@ -46,6 +51,12 @@ export async function GET(request: NextRequest) {
   let target: URL;
   try {
     target = assertDlnaUrl(item);
+    // The allowlist is one entry long and it comes from the family's own
+    // settings, not from this request.
+    const server = new URL(settings.control_url);
+    if (target.hostname !== server.hostname) {
+      return NextResponse.json({ error: "bad url" }, { status: 400 });
+    }
   } catch {
     return NextResponse.json({ error: "bad url" }, { status: 400 });
   }

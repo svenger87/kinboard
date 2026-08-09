@@ -76,7 +76,10 @@ export function parseAlbumToken(input: string): string | null {
 
   try {
     const url = new URL(raw);
-    if (!url.hostname.endsWith("icloud.com")) return null;
+    // Suffix, not substring: `endsWith("icloud.com")` is also true of
+    // `evilicloud.com`, which is a domain anyone can register.
+    const host = url.hostname.toLowerCase();
+    if (host !== "icloud.com" && !host.endsWith(".icloud.com")) return null;
     // #token on the classic link, or the last path segment on the share link.
     const fromHash = url.hash.replace(/^#/, "");
     if (/^[A-Z][0-9A-Za-z]{9,}$/.test(fromHash)) return fromHash;
