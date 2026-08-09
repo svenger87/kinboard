@@ -54,7 +54,13 @@ export function useUnsplashStatus() {
 }
 
 // Hook to get monthly photos from Unsplash
-export function useUnsplashMonthlyPhotos() {
+/**
+ * `enabled` exists so callers that pick between photo sources can leave this
+ * one alone. Asking Unsplash on a board configured for Immich is a request
+ * that can only fail, and on an instance with no Unsplash key it fails as a
+ * 401 the browser prints to the console whatever this hook does with it.
+ */
+export function useUnsplashMonthlyPhotos(enabled = true) {
   const { family } = useFamilyStore();
 
   return useQuery({
@@ -78,7 +84,7 @@ export function useUnsplashMonthlyPhotos() {
         return [];
       }
     },
-    enabled: !!family?.id,
+    enabled: enabled && !!family?.id,
     retry: false,
     staleTime: 60 * 60 * 1000, // 1 hour
     refetchInterval: 60 * 60 * 1000, // 1 hour
