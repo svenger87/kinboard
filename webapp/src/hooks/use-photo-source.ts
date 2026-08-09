@@ -6,6 +6,10 @@ import { useFamilyStore } from "@/stores/family-store";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useImmichMonthlyPhotos } from "./use-immich";
 import { useUnsplashMonthlyPhotos } from "./use-unsplash";
+import { useDlnaPhotos } from "./use-dlna";
+
+/** Which library the screensaver draws from. */
+export type PhotoSourceId = "immich" | "unsplash" | "dlna";
 
 export interface ScreensaverPhoto {
   id: string;
@@ -23,7 +27,7 @@ export interface ScreensaverPhoto {
 export function usePhotoSourceSetting() {
   const family = useFamilyStore((s) => s.family);
 
-  return useQuery<"immich" | "unsplash">({
+  return useQuery<PhotoSourceId>({
     queryKey: ["photo-source", family?.id],
     queryFn: async () => {
       const res = await fetch(`/api/settings?family_id=${family!.id}&key=${SETTINGS_KEYS.photoSource}`);
@@ -40,13 +44,28 @@ export function usePhotoSourceSetting() {
 export function usePhotoSource(): {
   photos: ScreensaverPhoto[];
   isLoading: boolean;
-  source: "immich" | "unsplash" | undefined;
+  source: PhotoSourceId | undefined;
 } {
   const { data: source, isLoading: isSourceLoading } = usePhotoSourceSetting();
   const { data: immichPhotos = [], isLoading: isImmichLoading } = useImmichMonthlyPhotos();
   const { data: unsplashPhotos = [], isLoading: isUnsplashLoading } = useUnsplashMonthlyPhotos();
+  // Shuffled server-side and capped: a slideshow wants variety, not the first
+  // 60 files in whatever order the NAS lists them.
+  const { data: dlnaPhotos = [], isLoading: isDlnaLoading } = useDlnaPhotos(
+    60,
+    true,
+    source === "dlna",
+  );
 
   const photos = useMemo<ScreensaverPhoto[]>(() => {
+    if (source === "dlna") {
+      return dlnaPhotos.map((photo) => ({
+        id: photo.id,
+        url: photo.url,
+        metadata: { description: photo.title },
+      }));
+    }
+
     if (source === "unsplash") {
       return unsplashPhotos.map((photo) => ({
         id: photo.id,
@@ -66,11 +85,15 @@ export function usePhotoSource(): {
       id: photo.id,
       url: photo.url,
     }));
-  }, [source, immichPhotos, unsplashPhotos]);
+  }, [source, immichPhotos, unsplashPhotos, dlnaPhotos]);
 
   const isLoading =
     isSourceLoading ||
-    (source === "immich" ? isImmichLoading : isUnsplashLoading);
+    (source === "dlna"
+      ? isDlnaLoading
+      : source === "unsplash"
+        ? isUnsplashLoading
+        : isImmichLoading);
 
   return { photos, isLoading, source };
 }

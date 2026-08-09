@@ -20,6 +20,7 @@ export const SETTINGS_KEYS = {
   homeAssistant: "home_assistant",
   googleCalendar: "google_calendar",
   immich: "immich",
+  dlna: "dlna",
   cameras: "cameras",
   unsplash: "unsplash",
   locale: "locale",
