@@ -2122,14 +2122,16 @@
         "energy": "Energy",
         "cameras": "Cameras",
         "stonks": "Stonks",
-        "pocket-money": "Pocket Money"
+        "pocket-money": "Pocket Money",
+        "photos": "Photos"
       },
       "description": {
         "vehicles": "Track cars in your household via Home Assistant entities. Tesla and Generic-EV drivers ship in core.",
         "energy": "Solar, battery, and grid energy dashboard powered by Home Assistant entities.",
         "cameras": "Live WebRTC streams from your security cameras via go2rtc.",
         "stonks": "Track stocks, ETFs, crypto, indices, and forex on a watchlist with candle charts. Powered by Yahoo Finance.",
-        "pocket-money": "Per-kid virtual pocket-money accounts with configurable allowance, daily interest accrual, saving goals, and an avatar that evolves as the kid saves."
+        "pocket-money": "Per-kid virtual pocket-money accounts with configurable allowance, daily interest accrual, saving goals, and an avatar that evolves as the kid saves.",
+        "photos": "Browse the photo library on the board itself, not only on the idle screen. Uses whichever source you have connected — Immich, a DLNA media server, or an iCloud Shared Album."
       }
     },
     "stonks": {

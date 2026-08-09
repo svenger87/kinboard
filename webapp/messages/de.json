@@ -2122,14 +2122,16 @@
         "energy": "Energie",
         "cameras": "Kameras",
         "stonks": "Stonks",
-        "pocket-money": "Taschengeld"
+        "pocket-money": "Taschengeld",
+        "photos": "Fotos"
       },
       "description": {
         "vehicles": "Fahrzeuge im Haushalt über Home-Assistant-Entitäten verfolgen. Tesla- und Generic-EV-Treiber sind im Kern enthalten.",
         "energy": "Solar-, Batterie- und Netzfluss-Dashboard auf Basis von Home-Assistant-Entitäten.",
         "cameras": "Live-WebRTC-Streams deiner Überwachungskameras über go2rtc.",
         "stonks": "Aktien, ETFs, Krypto, Indizes und Forex in einer Watchlist mit Candlestick-Charts verfolgen. Daten von Yahoo Finance.",
-        "pocket-money": "Virtuelle Taschengeld-Konten für Kinder mit konfigurierbarem Taschengeld, täglicher Zinsgutschrift, Sparzielen und einem Avatar, der mit dem Ersparten wächst."
+        "pocket-money": "Virtuelle Taschengeld-Konten für Kinder mit konfigurierbarem Taschengeld, täglicher Zinsgutschrift, Sparzielen und einem Avatar, der mit dem Ersparten wächst.",
+        "photos": "Die Fotomediathek auf dem Board selbst durchsehen, nicht nur auf dem Ruhebildschirm. Nutzt die verbundene Quelle — Immich, einen DLNA-Medienserver oder ein geteiltes iCloud-Album."
       }
     },
     "stonks": {
