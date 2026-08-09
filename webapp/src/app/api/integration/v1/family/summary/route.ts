@@ -3,6 +3,7 @@ import { withIntegrationAuth } from "@/lib/integration-route";
 import { createAdminClient } from "@/lib/supabase/server";
 import { todayKey, toLocalDateKey } from "@/lib/local-date";
 import { resolveDayContext } from "@/lib/attention/engine";
+import { detectWasteType } from "@/lib/waste-types";
 import { logApiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
@@ -88,6 +89,21 @@ export interface FamilySummary {
   attention_required: boolean;
   /** What it is about, so a dashboard can show it without a second call. */
   attention: { count: number; top: string | null };
+  /**
+   * The next bin collection. Bin day is among the most-automated things in
+   * Home Assistant and the data was already here, sitting in a calendar
+   * flagged is_waste_collection and reaching nothing outside the widget.
+   */
+  waste_collection: {
+    /** The bin type, as a person would say it — the sensor's state. */
+    state: string | null;
+    /** Stable id: rest | bio | paper | recyclable | packaging. */
+    type: string | null;
+    date: string | null;
+    days_until: number | null;
+    /** The next few, so one automation can look further than tomorrow. */
+    upcoming: { title: string; type: string | null; date: string }[];
+  };
 }
 
 /**
@@ -160,7 +176,7 @@ export async function GET(request: NextRequest) {
     const tomorrowDow = isoDayOfWeek(tomorrowDate);
 
     try {
-      const [calendars, shopping, todos, meals, schedules, birthdays, people, mealsTomorrow, purses, timezoneSetting, attention] =
+      const [calendars, shopping, todos, meals, schedules, birthdays, people, mealsTomorrow, purses, timezoneSetting, wasteCalendars, attention] =
         await Promise.all([
 
         (supabase as any).from("calendars").select("id").eq("family_id", familyId),
@@ -230,6 +246,15 @@ export async function GET(request: NextRequest) {
           .eq("family_id", familyId)
           .eq("key", "timezone")
           .maybeSingle(),
+
+        // Bin collections live in an ordinary calendar flagged
+        // is_waste_collection, so they are events like any other and need the
+        // same family-through-calendar join.
+        (supabase as any)
+          .from("calendars")
+          .select("id")
+          .eq("family_id", familyId)
+          .eq("is_waste_collection", true),
 
         (supabase as any)
           .from("attention_items")
@@ -395,6 +420,56 @@ export async function GET(request: NextRequest) {
       // matters most rather than merely the oldest.
       const attentionItems = (attention.data ?? []) as { title: string; priority: number }[];
 
+      // -- the next bin ----------------------------------------------------
+      const wasteCalendarIds = ((wasteCalendars.data ?? []) as { id: string }[]).map((c) => c.id);
+      let waste: FamilySummary["waste_collection"] = {
+        state: null,
+        type: null,
+        date: null,
+        days_until: null,
+        upcoming: [],
+      };
+
+      if (wasteCalendarIds.length > 0) {
+        // From the start of today, not from `now`: a collection at 06:00 is
+        // still today's collection at 09:00, and a household that has not yet
+        // put the bin out should not be told the next one is next week.
+        const { data: wasteRows } = await (supabase as any)
+          .from("events")
+          .select("title, start_at")
+          .in("calendar_id", wasteCalendarIds)
+          .gte("start_at", new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString())
+          .order("start_at", { ascending: true })
+          .limit(10);
+
+        const rows = (wasteRows ?? []) as { title: string; start_at: string }[];
+        const upcoming = rows.map((row) => ({
+          title: row.title,
+          // The same matcher the widget uses, so the board and the sensor
+          // cannot disagree about whether Thursday is paper day.
+          type: detectWasteType(row.title)?.id ?? null,
+          date: toLocalDateKey(new Date(row.start_at)),
+        }));
+
+        const next = upcoming[0];
+        if (next) {
+          const days = Math.round(
+            (new Date(`${next.date}T12:00:00`).getTime() -
+              new Date(`${today}T12:00:00`).getTime()) /
+              86_400_000,
+          );
+          waste = {
+            // The bin, not a count — the same reasoning as every other state
+            // here. "Waste collection: 1" tells nobody which bin to put out.
+            state: next.title,
+            type: next.type,
+            date: next.date,
+            days_until: days,
+            upcoming: upcoming.slice(0, 5),
+          };
+        }
+      }
+
       const summary: FamilySummary = {
         next_family_event: nextEvent,
         events_today: { state: todaysEvents.length, events: todaysEvents.slice(0, 10) },
@@ -433,6 +508,7 @@ export async function GET(request: NextRequest) {
           count: attentionItems.length,
           top: attentionItems[0]?.title ?? null,
         },
+        waste_collection: waste,
       };
 
       return NextResponse.json({ summary, generated_at: now.toISOString(), today, tomorrow });

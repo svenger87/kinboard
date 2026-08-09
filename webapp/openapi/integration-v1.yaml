@@ -669,3 +669,27 @@ components:
           properties:
             count: { type: integer }
             top: { type: [string, "null"] }
+        waste_collection:
+          type: object
+          description: |
+            The next bin collection, from a calendar flagged
+            `is_waste_collection`. `state` is which bin, because that is what
+            somebody in the hall at 22:00 needs; `days_until` is what an
+            automation triggers on. Bin types are matched by the same
+            multilingual keyword table the dashboard widget uses, so the two
+            cannot disagree.
+          properties:
+            state: { type: [string, "null"] }
+            type:
+              type: [string, "null"]
+              enum: [rest, bio, paper, recyclable, packaging, null]
+            date: { type: [string, "null"], format: date }
+            days_until: { type: [integer, "null"] }
+            upcoming:
+              type: array
+              items:
+                type: object
+                properties:
+                  title: { type: string }
+                  type: { type: [string, "null"] }
+                  date: { type: string, format: date }
