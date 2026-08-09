@@ -3723,6 +3723,8 @@
     "next": "Next photo",
     "position": "{current} of {total}",
     "allAlbums": "All albums",
-    "albumCount": "{count} items"
+    "albumCount": "{count} items",
+    "emptyAlbumTitle": "Nothing in this album",
+    "emptyAlbumBody": "This folder has no photos in it. Kinboard doesn’t look inside subfolders — open one of those instead."
   }
 }

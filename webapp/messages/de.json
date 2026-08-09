@@ -3723,6 +3723,8 @@
     "next": "Nächstes Foto",
     "position": "{current} von {total}",
     "allAlbums": "Alle Alben",
-    "albumCount": "{count} Einträge"
+    "albumCount": "{count} Einträge",
+    "emptyAlbumTitle": "Nichts in diesem Album",
+    "emptyAlbumBody": "In diesem Ordner sind keine Fotos. Kinboard schaut nicht in Unterordner — öffne stattdessen einen davon."
   }
 }

@@ -93,7 +93,21 @@ export default function PhotosPage() {
           </div>
         )}
 
-        {isEmpty && albums.length === 0 && (
+        {/* Two different empty states. Inside an album, "no photos here" is the
+            truth; the top-level one invites you to connect a source, and saying
+            that while a source is plainly connected reads as a broken app. */}
+        {isEmpty && albums.length === 0 && path.length > 0 && (
+          <Card className="flex flex-col items-center gap-3 p-10 text-center">
+            <FolderOpen className="size-10 text-muted-foreground" />
+            <p className="font-medium">{t("emptyAlbumTitle")}</p>
+            <p className="text-sm text-muted-foreground">{t("emptyAlbumBody")}</p>
+            <Button variant="outline" className="min-h-[44px]" onClick={() => setPath([])}>
+              {t("allAlbums")}
+            </Button>
+          </Card>
+        )}
+
+        {isEmpty && albums.length === 0 && path.length === 0 && (
           <Card className="flex flex-col items-center gap-4 p-10 text-center">
             <Images className="size-10 text-muted-foreground" />
             <div>
