@@ -127,6 +127,150 @@ const SERVICES: Record<string, ServiceDef> = {
       return { status: 201, response: { id: data.id } };
     },
   },
+
+  /**
+   * Money, so it follows the app's own deposit path rather than inventing a
+   * second one: insert a transaction AND move the balance, and bump
+   * lifetime_saved_cents only for genuine earnings, because that field drives
+   * the child's avatar tier. A service that only wrote the transaction would
+   * leave the balance stale and the avatar wrong, and nothing would complain.
+   */
+  add_pocket_money: {
+    scope: "tasks:write",
+    handle: async ({ familyId, body }) => {
+      const person = text(body.person, 200);
+      const amount = typeof body.amount === "number" ? body.amount : null;
+      if (!person || amount === null || !Number.isFinite(amount) || amount === 0) {
+        return {
+          status: 400,
+          response: {
+            error: "`person` and a non-zero `amount` are required",
+            code: "invalid_request",
+          },
+        };
+      }
+      // Currency units in, cents stored. An automation saying `amount: 2.50`
+      // means €2.50; making callers send 250 would guarantee somebody one day
+      // credits a child two hundred and fifty euros.
+      const cents = Math.round(amount * 100);
+
+      const supabase = createAdminClient();
+      const { data: people } = await (supabase as any)
+        .from("people")
+        .select("id, name")
+        .eq("family_id", familyId)
+        .is("deleted_at", null);
+
+      const match = ((people ?? []) as { id: string; name: string }[]).find(
+        (candidate) => candidate.name.toLowerCase() === person.toLowerCase()
+      );
+      if (!match) {
+        return { status: 404, response: { error: `No person called ${person}`, code: "not_found" } };
+      }
+
+      const { data: account } = await (supabase as any)
+        .from("pocket_money_accounts")
+        .select("id, balance_cents, lifetime_saved_cents")
+        .eq("family_id", familyId)
+        .eq("person_id", match.id)
+        .maybeSingle();
+      if (!account) {
+        return {
+          status: 404,
+          response: { error: `${match.name} has no pocket money account`, code: "not_found" },
+        };
+      }
+
+      const newBalance = account.balance_cents + cents;
+      if (newBalance < 0) {
+        return { status: 400, response: { error: "insufficient_funds", code: "invalid_request" } };
+      }
+
+      const type = cents > 0 ? "manual_deposit" : "withdrawal";
+      const { error: txnError } = await (supabase as any)
+        .from("pocket_money_transactions")
+        .insert({
+          account_id: account.id,
+          amount_cents: cents,
+          type,
+          note: text(body.note, 200) ?? "Home Assistant",
+        });
+      if (txnError) {
+        return { status: 500, response: { error: "Could not record the transaction" } };
+      }
+
+      const update: Record<string, number> = { balance_cents: newBalance };
+      if (cents > 0) {
+        update.lifetime_saved_cents = (account.lifetime_saved_cents ?? 0) + cents;
+      }
+      await (supabase as any)
+        .from("pocket_money_accounts")
+        .update(update)
+        .eq("id", account.id);
+
+      return {
+        status: 201,
+        response: { person: match.name, amount, balance: newBalance / 100 },
+      };
+    },
+  },
+
+  /**
+   * Silence one of the Heute-Motor's hints from an automation.
+   *
+   * Acknowledges rather than resolves, exactly as the button on the board
+   * does: whether the situation is still true is the evaluator's judgement,
+   * not the caller's.
+   */
+  dismiss_attention: {
+    scope: "tasks:write",
+    handle: async ({ familyId, body }) => {
+      const supabase = createAdminClient();
+      const key = text(body.key, 200);
+      const ruleId = text(body.rule_id, 100);
+
+      if (!key && !ruleId) {
+        return {
+          status: 400,
+          response: { error: "`key` or `rule_id` is required", code: "invalid_request" },
+        };
+      }
+
+      let query = (supabase as any)
+        .from("attention_items")
+        .update({ state: "acknowledged", acted_at: new Date().toISOString() })
+        .eq("family_id", familyId)
+        .is("resolved_at", null)
+        .eq("state", "active");
+
+      query = key ? query.eq("item_key", key) : query.eq("rule_id", ruleId);
+
+      const { data, error } = await query.select("item_key");
+      if (error) {
+        return { status: 500, response: { error: "Could not dismiss" } };
+      }
+      return {
+        status: 200,
+        response: { dismissed: (data ?? []).length, keys: (data ?? []).map((r: { item_key: string }) => r.item_key) },
+      };
+    },
+  },
+
+  /**
+   * Re-evaluate now instead of waiting for the next five-minute tick.
+   *
+   * For the case where an automation has just changed something the board
+   * reasons about — added a task, moved an appointment — and the family is
+   * standing in front of the display.
+   */
+  refresh_integration: {
+    scope: "family:read",
+    handle: async ({ familyId }) => {
+      const { runAttentionForFamily } = await import("@/lib/attention/runner");
+      const result = await runAttentionForFamily(familyId);
+      return { status: 200, response: { ...result } };
+    },
+  },
 };
 
 /**
@@ -138,11 +282,12 @@ const SERVICES: Record<string, ServiceDef> = {
  * published contract would send them looking for a typo that isn't there.
  */
 const NOT_YET_IMPLEMENTED = new Set([
+  // Announcements do not exist in Kinboard yet, and activate_context needs a
+  // manual override of the day context that nothing can currently store.
+  // Both stay listed and answer 501 rather than 404, so a caller can tell a
+  // typo from a feature that has not shipped.
   "show_announcement",
   "activate_context",
-  "dismiss_attention",
-  "add_pocket_money",
-  "refresh_integration",
 ]);
 
 /** Exposed so the OpenAPI contract test can check the spec against reality. */

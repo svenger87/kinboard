@@ -39,7 +39,9 @@ cd "$SCRIPT_DIR"
 ITERATIONS="${1:-20}"
 
 RIG_PROJECT="kbfresh"
-RIG_DATA="/mnt/user/appdata/kinboard-fresh-data"
+# Overridable so the same rig runs on a CI runner, which has no
+# /mnt/user. The default stays the Unraid path this is developed on.
+RIG_DATA="${RIG_DATA:-/mnt/user/appdata/kinboard-fresh-data}"
 RIG_WEBAPP_PORT=3031
 RIG_POSTGRES_PORT=5462
 RIG_KONG_HTTP_PORT=8130
@@ -139,7 +141,7 @@ one_install() {
   printf '\n\033[1m-- fresh install %d/%d --\033[0m\n' "$n" "$ITERATIONS"
 
   rig_teardown
-  rm -rf "$RIG_DATA"
+  rig_destroy_data
   mkdir -p "$RIG_DATA"
 
   local t0 t1

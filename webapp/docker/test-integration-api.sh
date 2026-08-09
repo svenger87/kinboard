@@ -22,7 +22,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$SCRIPT_DIR"
 
 RIG_PROJECT="kbfresh"
-RIG_DATA="/mnt/user/appdata/kinboard-fresh-data"
+# Overridable so the same rig runs on a CI runner, which has no
+# /mnt/user. The default stays the Unraid path this is developed on.
+RIG_DATA="${RIG_DATA:-/mnt/user/appdata/kinboard-fresh-data}"
 RIG_WEBAPP_PORT=3031
 RIG_POSTGRES_PORT=5462
 RIG_KONG_HTTP_PORT=8130
@@ -56,7 +58,7 @@ say "Booting the disposable stack"
 rig_require_free_ports || exit 1
 rig_prepare_env
 compose INSTALL_COMPOSE build webapp >/dev/null 2>&1 || { fail "build"; exit 1; }
-rig_teardown; rm -rf "$RIG_DATA"; mkdir -p "$RIG_DATA"
+rig_teardown; rig_destroy_data; mkdir -p "$RIG_DATA"
 ( cd "$SCRIPT_DIR" && COMPOSE_FILES="-f docker-compose.yml" ./start.sh up >/dev/null 2>&1 ) \
   || { fail "start.sh up"; exit 1; }
 rig_wait_healthy "integration api rig" 60 || exit 1
@@ -164,7 +166,7 @@ chk "reads keep working while writes are throttled" \
 if [ "${KEEP_UP:-0}" = "1" ]; then
   say "KEEP_UP=1 — stack left at $BASE_URL"
 else
-  say "Tearing down"; rig_teardown; rm -rf "$RIG_DATA"
+  say "Tearing down"; rig_teardown; rig_destroy_data
 fi
 
 say "Result"

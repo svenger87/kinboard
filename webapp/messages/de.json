@@ -353,7 +353,8 @@
     "news": "Nachrichten",
     "stonks": "Stonks",
     "pocketMoney": "Taschengeld",
-    "more": "Mehr"
+    "more": "Mehr",
+    "photos": "Fotos"
   },
   "cameras": {
     "title": "Kameras",
@@ -1710,7 +1711,56 @@
       "unsplashInfo1": "Hochwertige Fotos von Unsplash werden im Bildschirmschoner angezeigt",
       "unsplashInfo2": "Die Suchbegriffe bestimmen das monatliche Thema",
       "unsplashInfo3": "Fotos werden stündlich aktualisiert",
-      "unsplashInfo4": "Fotografen werden im Bildschirmschoner angezeigt"
+      "unsplashInfo4": "Fotografen werden im Bildschirmschoner angezeigt",
+      "dlna": {
+        "heading": "DLNA-Medienserver",
+        "subtitle": "Ein NAS oder Medienserver in deinem Netzwerk",
+        "statusConnected": "Verbunden",
+        "defaultName": "DLNA-Server",
+        "urlLabel": "Geräte-Beschreibungs-URL",
+        "urlHelp": "Kinboard kann Server nicht selbst finden — es läuft in einem Container, der den Suchverkehr nie sieht. Trage die Adresse stattdessen ein: MiniDLNA und die meisten NAS nutzen http://<ip>:8200/rootDesc.xml, Jellyfin http://<ip>:8096/dlna/<id>/description.xml, Plex http://<ip>:32469/DeviceDescription.xml.",
+        "connectButton": "Verbinden",
+        "connecting": "Wird geprüft…",
+        "connectFailed": "Server nicht erreichbar",
+        "connected": "Mit {name} verbunden",
+        "disconnectButton": "Trennen",
+        "disconnectTitle": "Diesen Server trennen?",
+        "disconnectBody": "Der Bildschirmschoner zeigt dann keine Fotos mehr von dort. Auf dem Server wird nichts verändert.",
+        "disconnected": "Getrennt",
+        "currentFolder": "Zeigt Fotos aus „{folder}“",
+        "currentFolderRoot": "Zeigt Fotos aus dem Server-Stammverzeichnis",
+        "folderHeading": "Ordner auswählen",
+        "rootCrumb": "Server-Stamm",
+        "photosHere": "{count} Fotos in diesem Ordner",
+        "useFolder": "Diesen Ordner verwenden",
+        "folderInUse": "Ausgewählt",
+        "folderChosen": "Zeigt jetzt „{folder}“",
+        "noSubfolders": "Hier gibt es keine Unterordner."
+      },
+      "sourceDlnaLabel": "DLNA-Server",
+      "sourceDlnaSuffix": "NAS in deinem Netzwerk",
+      "icloud": {
+        "heading": "iCloud geteiltes Album",
+        "subtitle": "Ein geteiltes Album von einem iPhone oder iPad",
+        "statusConnected": "Verbunden",
+        "defaultName": "Geteiltes Album",
+        "linkLabel": "Öffentlicher Album-Link",
+        "linkHelp": "Auf dem iPhone: Album in Fotos öffnen, auf das Personen-Symbol tippen und „Öffentliche Website“ aktivieren. Den angezeigten Link hier einfügen. Apple-ID und Passwort sind nicht nötig, und später hinzugefügte Fotos erscheinen automatisch.",
+        "connectButton": "Verbinden",
+        "connecting": "Wird geprüft…",
+        "errorNotIcloud": "Das sieht nicht nach einem iCloud-Link für geteilte Alben aus.",
+        "errorUnreachable": "Album konnte nicht gelesen werden. Prüfe, ob „Öffentliche Website“ noch aktiv ist.",
+        "connected": "Mit „{album}“ verbunden — {count} Fotos",
+        "photoCount": "{count} Fotos in diesem Album",
+        "disconnectButton": "Trennen",
+        "disconnectTitle": "Dieses Album trennen?",
+        "disconnectBody": "Der Bildschirmschoner zeigt dann keine Fotos mehr daraus. In iCloud wird nichts verändert.",
+        "disconnected": "Getrennt",
+        "previewHeading": "Vorschau",
+        "previewNote": "Apples Bild-Links laufen nach etwa einer Stunde ab, deshalb holt Kinboard laufend neue."
+      },
+      "sourceIcloudLabel": "iCloud geteiltes Album",
+      "sourceIcloudSuffix": "von deinem iPhone"
     },
     "google": {
       "title": "Google Kalender",
@@ -2323,6 +2373,54 @@
     },
     "itemIntegrationTokensLabel": "Integrations-Tokens",
     "itemIntegrationTokensDescription": "Home Assistant und andere Programme mit Kinboard sprechen lassen",
+    "itemHintsLabel": "Hinweise",
+    "itemHintsDescription": "Welche Hinweise das Board geben darf",
+    "hints": {
+      "title": "Hinweise",
+      "description": "Das Board zeigt diese von selbst. Schalte ab, was du nicht sehen möchtest.",
+      "rules": {
+        "birthday-today": {
+          "title": "Geburtstag heute",
+          "description": "Nennt gleich morgens, wer heute Geburtstag hat."
+        },
+        "leave-soon": {
+          "title": "Gleich los",
+          "description": "Meldet sich, wenn der nächste Termin naht."
+        },
+        "lock-up-before-bed": {
+          "title": "Vor dem Schlafengehen abschließen",
+          "description": "Spät abends: nennt Türen oder Fenster, die laut Home Assistant offen sind."
+        },
+        "pack-the-school-bag": {
+          "title": "Schultasche packen",
+          "description": "Am Abend vorher: was der Unterricht morgen braucht — Sportzeug, Schwimmsachen."
+        },
+        "take-an-umbrella": {
+          "title": "Regenschirm mitnehmen",
+          "description": "Weist auf Regen hin, wenn jemand aus dem Haus muss."
+        },
+        "overdue-tasks": {
+          "title": "Überfällige Aufgaben",
+          "description": "Meldet Aufgaben, deren Fälligkeit vorbei ist."
+        },
+        "school-tomorrow": {
+          "title": "Morgen Schule",
+          "description": "Sagt abends, welche Kinder morgen Unterricht haben."
+        },
+        "birthday-soon": {
+          "title": "Geburtstag steht an",
+          "description": "Früh genug, um ein Geschenk zu besorgen."
+        },
+        "shopping-before-the-weekend": {
+          "title": "Einkaufen vor dem Wochenende",
+          "description": "Freitags: erinnert an die Liste, solange die Läden offen sind."
+        },
+        "nothing-planned-for-dinner": {
+          "title": "Kein Essen geplant",
+          "description": "Abends: meldet, wenn für morgen nichts geplant ist."
+        }
+      }
+    },
     "diagnosticsBundleLabel": "Geladene Version",
     "diagnosticsBundleStale": "{version} — zum Aktualisieren tippen"
   },
@@ -3660,5 +3758,32 @@
     "clay": "Ton",
     "custom": "Eigene Farbe",
     "legend": "Farbe"
+  },
+  "attention": {
+    "ok": "OK",
+    "later": "Später",
+    "why": "Warum?",
+    "dismiss": "Ausblenden",
+    "rule": "Regel",
+    "disableRule": "Diesen Hinweis nicht mehr zeigen",
+    "snoozed": "Später heute"
+  },
+  "photosViewer": {
+    "title": "Fotos",
+    "description": "Die Familien-Fotos durchsehen",
+    "subtitle": "{count} Fotos",
+    "loading": "Fotos werden geladen…",
+    "emptyTitle": "Noch keine Fotos",
+    "emptyBody": "Verbinde eine Fotoquelle — dann erscheinen sie hier und im Bildschirmschoner.",
+    "emptyAction": "Quelle auswählen",
+    "photoAria": "Foto {index}",
+    "close": "Schließen",
+    "previous": "Vorheriges Foto",
+    "next": "Nächstes Foto",
+    "position": "{current} von {total}",
+    "allAlbums": "Alle Alben",
+    "albumCount": "{count} Einträge",
+    "emptyAlbumTitle": "Nichts in diesem Album",
+    "emptyAlbumBody": "In diesem Ordner sind keine Fotos. Kinboard schaut nicht in Unterordner — öffne stattdessen einen davon."
   }
 }

@@ -266,6 +266,53 @@ Storage objects can be `tar`'d safely while the stack is up — they're write-on
 
 Per-family settings live in `public.settings` (JSONB) and come along with the `pg_dump`.
 
+### Restoring one
+
+Bring the stack up **first**, then restore the data into it:
+
+```bash
+# 1. a clean, fully started stack — empty, but with the current schema
+cd webapp/docker
+./start.sh up
+# wait until http://localhost:3000 answers
+
+# 2. put the data back
+docker exec -i kinboard-db pg_restore -U supabase_admin -d postgres \
+  --data-only --disable-triggers -n public < /backups/kinboard-2026-08-09.pgdump
+```
+
+Three things about that are load-bearing, and each of them fails quietly if you
+get it wrong.
+
+**Start the stack before restoring, not after.** Kinboard's schema arrives in
+two halves: the baseline is mounted into the database image and runs when the
+data directory is first created, and every migration on top of it is applied by
+the *webapp* container as it starts. Restore into a database that has only had
+the first half and you are writing into a schema that predates soft delete and
+device sessions — `pg_restore` reports `column "deleted_at" does not exist` and
+drops those tables on the floor.
+
+**`--data-only`.** The schema already exists by the time you restore, because
+the steps above created it. A full schema-and-data restore collides with it,
+and the `COPY` steps fail alongside the `CREATE` statements — leaving a
+database that looks restored, reports hundreds of "already exists" errors you
+might reasonably dismiss, and contains no rows.
+
+**`--disable-triggers`.** Otherwise the data has to arrive in foreign-key
+order, which it does not. This needs superuser, which is the other reason for
+`-U supabase_admin`.
+
+A good restore prints nothing and exits 0. Check that, then check the data:
+
+```bash
+docker exec kinboard-db psql -U postgres -d postgres \
+  -c "SELECT count(*) FROM families;" -c "SELECT count(*) FROM events;"
+```
+
+`webapp/docker/test-backup-restore.sh` runs this whole cycle — seed, dump,
+destroy, rebuild, restore, compare every table's row count — against the
+current schema, so the procedure above is verified rather than remembered.
+
 ## Updates
 
 Pull the new code, re-run lint, restart the stack:

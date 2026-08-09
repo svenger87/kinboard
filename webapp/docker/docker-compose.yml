@@ -396,6 +396,67 @@ services:
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
     container_name: ${PROJECT_NAME:-kinboard}-webapp
     restart: unless-stopped
+    # The scheduled jobs live here, on the container they run inside, rather
+    # than in a config file listing a container by name.
+    #
+    # ofelia.ini hardcoded `container = kinboard-webapp`, which is the
+    # production container's name. A test rig brought up its own cron
+    # container, which read that file and dutifully executed every job —
+    # calendar syncs, notifications, pocket-money interest — inside
+    # PRODUCTION. Found while wondering why a heartbeat written by the rig's
+    # cron never appeared in the rig's database: it was being written to the
+    # wrong instance entirely.
+    #
+    # As labels the jobs cannot name the wrong container, because they are
+    # attached to the right one.
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.google-sync.schedule: "@every 15m"
+      ofelia.job-exec.google-sync.command: "/usr/local/bin/google-sync"
+      ofelia.job-exec.google-sync.no-overlap: "true"
+      ofelia.job-exec.todo-reminders.schedule: "0 0 8 * * *"
+      ofelia.job-exec.todo-reminders.command: "/usr/local/bin/todo-reminders"
+      ofelia.job-exec.todo-reminders.no-overlap: "true"
+      # The Heute-Motor. Every five minutes: the rules that care about minutes
+      # cross their threshold once and stay true afterwards, so a finer
+      # interval buys a more precise countdown and nothing else — and coarser
+      # would let a morning reminder arrive after the school run.
+      ofelia.job-exec.evaluate-attention.schedule: "@every 5m"
+      ofelia.job-exec.evaluate-attention.command: "/usr/local/bin/evaluate-attention"
+      ofelia.job-exec.evaluate-attention.no-overlap: "true"
+      ofelia.job-exec.process-notifications.schedule: "@every 30s"
+      ofelia.job-exec.process-notifications.command: "/usr/local/bin/process-notifications"
+      ofelia.job-exec.process-notifications.no-overlap: "true"
+      ofelia.job-exec.schedule-event-reminders.schedule: "@every 5m"
+      ofelia.job-exec.schedule-event-reminders.command: "/usr/local/bin/schedule-event-reminders"
+      ofelia.job-exec.schedule-event-reminders.no-overlap: "true"
+      ofelia.job-exec.birthday-reminders.schedule: "0 0 7 * * *"
+      ofelia.job-exec.birthday-reminders.command: "/usr/local/bin/birthday-reminders"
+      ofelia.job-exec.birthday-reminders.no-overlap: "true"
+      ofelia.job-exec.meal-prep-reminders.schedule: "0 0 18 * * *"
+      ofelia.job-exec.meal-prep-reminders.command: "/usr/local/bin/meal-prep-reminders"
+      ofelia.job-exec.meal-prep-reminders.no-overlap: "true"
+      ofelia.job-exec.sync-ics.schedule: "@every 30m"
+      ofelia.job-exec.sync-ics.command: "/usr/local/bin/sync-ics"
+      ofelia.job-exec.sync-ics.no-overlap: "true"
+      ofelia.job-exec.sync-caldav.schedule: "0 15,45 * * * *"
+      ofelia.job-exec.sync-caldav.command: "/usr/local/bin/sync-caldav"
+      ofelia.job-exec.sync-caldav.no-overlap: "true"
+      ofelia.job-exec.pocket-money-accrue-interest.schedule: "0 30 0 * * *"
+      ofelia.job-exec.pocket-money-accrue-interest.command: "/usr/local/bin/pocket-money-accrue-interest"
+      ofelia.job-exec.pocket-money-accrue-interest.no-overlap: "true"
+      ofelia.job-exec.pocket-money-commit-interest.schedule: "0 0 * * * *"
+      ofelia.job-exec.pocket-money-commit-interest.command: "/usr/local/bin/pocket-money-commit-interest"
+      ofelia.job-exec.pocket-money-commit-interest.no-overlap: "true"
+      ofelia.job-exec.pocket-money-process-allowance.schedule: "0 0 * * * *"
+      ofelia.job-exec.pocket-money-process-allowance.command: "/usr/local/bin/pocket-money-process-allowance"
+      ofelia.job-exec.pocket-money-process-allowance.no-overlap: "true"
+      ofelia.job-exec.purge-recycle-bin.schedule: "0 30 3 * * *"
+      ofelia.job-exec.purge-recycle-bin.command: "/usr/local/bin/purge-recycle-bin"
+      ofelia.job-exec.purge-recycle-bin.no-overlap: "true"
+      ofelia.job-exec.purge-domain-events.schedule: "0 45 3 * * *"
+      ofelia.job-exec.purge-domain-events.command: "/usr/local/bin/purge-domain-events"
+      ofelia.job-exec.purge-domain-events.no-overlap: "true"
     depends_on:
       db:
         condition: service_healthy
@@ -478,9 +539,16 @@ services:
     restart: unless-stopped
     depends_on:
       - webapp
-    command: daemon --config=/etc/ofelia/config.ini
+    # Jobs come from the webapp container's labels, and the scheduler is
+    # filtered to the webapp container of THIS deployment.
+    #
+    # The filter is the important half. Label mode on its own would still find
+    # every labelled Kinboard webapp on the host, so a rig's scheduler would
+    # drive production's container — which is precisely the bug being replaced
+    # here. PROJECT_NAME is the same variable container_name uses, so the
+    # scheduler and its target cannot drift apart.
+    command: daemon --docker --docker-filter "name=${PROJECT_NAME:-kinboard}-webapp"
     volumes:
-      - ./ofelia.ini:/etc/ofelia/config.ini:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - CRON_SECRET=${CRON_SECRET}

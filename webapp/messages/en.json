@@ -353,7 +353,8 @@
     "news": "News",
     "stonks": "Stonks",
     "pocketMoney": "Pocket Money",
-    "more": "More"
+    "more": "More",
+    "photos": "Photos"
   },
   "cameras": {
     "title": "Cameras",
@@ -1710,7 +1711,56 @@
       "unsplashInfo1": "High-quality photos from Unsplash appear on the screensaver",
       "unsplashInfo2": "Search terms determine the monthly theme",
       "unsplashInfo3": "Photos refresh hourly",
-      "unsplashInfo4": "Photographers are credited on the screensaver"
+      "unsplashInfo4": "Photographers are credited on the screensaver",
+      "dlna": {
+        "heading": "DLNA media server",
+        "subtitle": "A NAS or media server on your network",
+        "statusConnected": "Connected",
+        "defaultName": "DLNA server",
+        "urlLabel": "Device description URL",
+        "urlHelp": "Kinboard cannot find servers on its own — it runs in a container that never sees the discovery traffic. Paste the address instead: MiniDLNA and most NAS boxes use http://<ip>:8200/rootDesc.xml, Jellyfin http://<ip>:8096/dlna/<id>/description.xml, Plex http://<ip>:32469/DeviceDescription.xml.",
+        "connectButton": "Connect",
+        "connecting": "Checking…",
+        "connectFailed": "Could not reach that server",
+        "connected": "Connected to {name}",
+        "disconnectButton": "Disconnect",
+        "disconnectTitle": "Disconnect this server?",
+        "disconnectBody": "The screensaver stops showing photos from it. Nothing on the server is touched.",
+        "disconnected": "Disconnected",
+        "currentFolder": "Showing photos from “{folder}”",
+        "currentFolderRoot": "Showing photos from the server root",
+        "folderHeading": "Choose a folder",
+        "rootCrumb": "Server root",
+        "photosHere": "{count} photos in this folder",
+        "useFolder": "Use this folder",
+        "folderInUse": "In use",
+        "folderChosen": "Now showing “{folder}”",
+        "noSubfolders": "No subfolders here."
+      },
+      "sourceDlnaLabel": "DLNA server",
+      "sourceDlnaSuffix": "NAS on your network",
+      "icloud": {
+        "heading": "iCloud Shared Album",
+        "subtitle": "A shared album from an iPhone or iPad",
+        "statusConnected": "Connected",
+        "defaultName": "Shared album",
+        "linkLabel": "Public album link",
+        "linkHelp": "On your iPhone: open the album in Photos, tap the people icon, and turn on “Public Website”. Copy the link it shows and paste it here. No Apple ID or password is needed, and photos you add later appear automatically.",
+        "connectButton": "Connect",
+        "connecting": "Checking…",
+        "errorNotIcloud": "That doesn’t look like an iCloud shared album link.",
+        "errorUnreachable": "Could not read that album. Check that “Public Website” is still switched on.",
+        "connected": "Connected to “{album}” — {count} photos",
+        "photoCount": "{count} photos in this album",
+        "disconnectButton": "Disconnect",
+        "disconnectTitle": "Disconnect this album?",
+        "disconnectBody": "The screensaver stops showing its photos. Nothing in iCloud is changed.",
+        "disconnected": "Disconnected",
+        "previewHeading": "Preview",
+        "previewNote": "Apple’s image links expire after about an hour, so Kinboard fetches fresh ones as it goes."
+      },
+      "sourceIcloudLabel": "iCloud Shared Album",
+      "sourceIcloudSuffix": "from your iPhone"
     },
     "google": {
       "title": "Google Calendar",
@@ -2323,6 +2373,54 @@
     },
     "itemIntegrationTokensLabel": "Integration tokens",
     "itemIntegrationTokensDescription": "Let Home Assistant and other programs talk to Kinboard",
+    "itemHintsLabel": "Hints",
+    "itemHintsDescription": "Which reminders the board may give",
+    "hints": {
+      "title": "Hints",
+      "description": "The board raises these on its own. Turn off anything you would rather not be told.",
+      "rules": {
+        "birthday-today": {
+          "title": "Birthday today",
+          "description": "Names whose birthday it is, first thing."
+        },
+        "leave-soon": {
+          "title": "Time to leave",
+          "description": "Says when the next appointment is close enough to start moving."
+        },
+        "lock-up-before-bed": {
+          "title": "Lock up before bed",
+          "description": "Late in the evening, mentions a door or window Home Assistant still reports open."
+        },
+        "pack-the-school-bag": {
+          "title": "Pack the school bag",
+          "description": "The evening before, lists what tomorrow's lessons need — sports kit, swimming things."
+        },
+        "take-an-umbrella": {
+          "title": "Take an umbrella",
+          "description": "Mentions rain when somebody is due out of the house."
+        },
+        "overdue-tasks": {
+          "title": "Overdue tasks",
+          "description": "Raises tasks whose due date has passed."
+        },
+        "school-tomorrow": {
+          "title": "School tomorrow",
+          "description": "In the evening, says which children have school in the morning."
+        },
+        "birthday-soon": {
+          "title": "Birthday coming up",
+          "description": "Gives enough warning to buy a present."
+        },
+        "shopping-before-the-weekend": {
+          "title": "Shopping list before the weekend",
+          "description": "On Friday evening, mentions the list while the shops are still open."
+        },
+        "nothing-planned-for-dinner": {
+          "title": "No dinner planned",
+          "description": "In the evening, says if tomorrow has nothing planned to eat."
+        }
+      }
+    },
     "diagnosticsBundleLabel": "Running bundle",
     "diagnosticsBundleStale": "{version} — tap to update"
   },
@@ -3660,5 +3758,32 @@
     "clay": "Clay",
     "custom": "Custom colour",
     "legend": "Colour"
+  },
+  "attention": {
+    "ok": "OK",
+    "later": "Later",
+    "why": "Why?",
+    "dismiss": "Dismiss",
+    "rule": "Rule",
+    "disableRule": "Stop showing this hint",
+    "snoozed": "Later today"
+  },
+  "photosViewer": {
+    "title": "Photos",
+    "description": "Browse the family photo library",
+    "subtitle": "{count} photos",
+    "loading": "Loading photos…",
+    "emptyTitle": "No photos yet",
+    "emptyBody": "Connect a photo source and they show up here — and on the screensaver.",
+    "emptyAction": "Choose a source",
+    "photoAria": "Photo {index}",
+    "close": "Close",
+    "previous": "Previous photo",
+    "next": "Next photo",
+    "position": "{current} of {total}",
+    "allAlbums": "All albums",
+    "albumCount": "{count} items",
+    "emptyAlbumTitle": "Nothing in this album",
+    "emptyAlbumBody": "This folder has no photos in it. Kinboard doesn’t look inside subfolders — open one of those instead."
   }
 }

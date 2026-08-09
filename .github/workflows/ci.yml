@@ -257,19 +257,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # The five that need a running instance, and why — kept as an explicit
+      # The six that need a running instance, and why — kept as an explicit
       # list because it has to be read, not inferred:
       #   smoke, secrets, setup  - take Playwright's page/request fixture
       #   restore                - drives /api/export and /api/import over HTTP.
       #                            Its test.skip() guard runs *after* the first
       #                            request, so with no server it fails rather
       #                            than skipping.
+      #   health-endpoint        - asserts what /api/health reports about the
+      #                            database, realtime and the worker, which
+      #                            only means anything against a live stack.
       #   visual-audit           - a manual screenshot tool that throws at
       #                            import unless FAMILY_CODE is set
       # e2e.yml boots the stack and covers those. Everything else is pure
       # functions and source assertions, and runs here in seconds.
       - name: Run the stack-free specs
-        run: npx playwright test $(ls e2e/*.spec.ts | grep -vE '/(smoke|secrets|setup|restore|visual-audit)\.spec\.ts$' | tr '\n' ' ')
+        run: npx playwright test $(ls e2e/*.spec.ts | grep -vE '/(smoke|secrets|setup|restore|health-endpoint|visual-audit)\.spec\.ts$' | tr '\n' ' ')
 
   build:
     name: Production build

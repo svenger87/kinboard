@@ -113,6 +113,10 @@ RUN echo '#!/bin/sh' > /usr/local/bin/process-notifications && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/process-notifications' >> /usr/local/bin/process-notifications && \
     chmod +x /usr/local/bin/process-notifications
 
+RUN echo '#!/bin/sh' > /usr/local/bin/evaluate-attention && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/evaluate-attention' >> /usr/local/bin/evaluate-attention && \
+    chmod +x /usr/local/bin/evaluate-attention
+
 # Add event-reminder scheduler cron script
 RUN echo '#!/bin/sh' > /usr/local/bin/schedule-event-reminders && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/schedule-event-reminders' >> /usr/local/bin/schedule-event-reminders && \

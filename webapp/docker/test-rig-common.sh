@@ -15,6 +15,7 @@
 #   UX audit         kbaudit     3010      5442   8110   10.209.0.0/24
 #   upgrade paths    kbupg       3021      5452   8120   10.220.0.0/24
 #   fresh installs   kbfresh     3031      5462   8130   10.221.0.0/24
+#   backup/restore   kbbak       3041      5472   8140   10.222.0.0/24
 #
 # A caller sets its RIG_* block and then sources this file.
 
@@ -51,6 +52,39 @@ psql_rig() {
 # network in the project is reachable from here.
 rig_teardown() {
   compose BASE_COMPOSE down -v --remove-orphans >/dev/null 2>&1 || true
+}
+
+# Delete the rig's data directory, and be sure it went.
+#
+# Postgres and storage write as root inside their containers, so on any host
+# where the rig is not run as root a plain `rm -rf` fails on those files. It
+# fails *quietly* — the exit status was never checked — and the next boot then
+# reuses the old cluster. On a GitHub runner that turned "destroy everything
+# and restore the backup" into "restore the backup on top of the data that was
+# already there", which surfaced as a wall of duplicate-key errors from
+# pg_restore and looked like a bug in the restore rather than in the teardown.
+#
+# So: try the cheap way, fall back to a root container for what is left, and
+# then assert the directory really is empty rather than assuming it.
+rig_destroy_data() {
+  [ -n "${RIG_DATA:-}" ] || return 0
+  [ -e "$RIG_DATA" ] || return 0
+
+  rm -rf "$RIG_DATA" 2>/dev/null
+
+  if [ -e "$RIG_DATA" ]; then
+    # Same uid as the files, no sudo needed, works the same everywhere.
+    docker run --rm -v "$RIG_DATA":/target alpine:3 \
+      sh -c 'rm -rf /target/* /target/.[!.]* /target/..?* 2>/dev/null; true' >/dev/null 2>&1
+    rm -rf "$RIG_DATA" 2>/dev/null
+  fi
+
+  if [ -e "$RIG_DATA" ] && [ -n "$(ls -A "$RIG_DATA" 2>/dev/null)" ]; then
+    fail "could not empty $RIG_DATA — a stale cluster would be reused"
+    ls -la "$RIG_DATA" | head -5 | sed 's/^/     /'
+    return 1
+  fi
+  return 0
 }
 
 rig_wait_healthy() {

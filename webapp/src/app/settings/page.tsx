@@ -22,6 +22,7 @@ import {
   KeyRound,
   Languages,
   LayoutGrid,
+  Lightbulb,
   LineChart,
   ListOrdered,
   Lock,
@@ -451,6 +452,12 @@ export default function SettingsPage() {
           label: t("itemWidgetsLabel"),
           description: t("itemWidgetsDescription"),
           href: "/settings/widgets",
+        },
+        {
+          icon: Lightbulb,
+          label: t("itemHintsLabel"),
+          description: t("itemHintsDescription"),
+          href: "/settings/hints",
         },
         {
           icon: ListOrdered,

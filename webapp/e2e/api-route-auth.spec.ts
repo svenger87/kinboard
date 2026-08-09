@@ -60,6 +60,24 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "session/join/route.ts": "issues the session; validates the join code itself",
   "session/create/route.ts": "issues the first session for a new family",
 
+  // The quick-rejoin pair, for the same circular reason as the two above: they
+  // run on /join, before a session can exist.
+  //
+  // `recognize` reads devices with the service role because RLS — correctly —
+  // will not let an anonymous caller near a table that joins to families and
+  // their join codes. It answers with the family's *name* and the device's
+  // *name* only: enough to render "Sign back in", useless for fishing. Rate
+  // limited, because a fingerprint is guessable and this turns a guess into a
+  // household name.
+  //
+  // `resume` issues the session for a device it recognises. Its trust model is
+  // written out in the route: the device's own random hardware id is proof, a
+  // browser fingerprint is a guess, and accepting the latter is the deliberate
+  // trade that makes recovering a wiped tablet possible. Rate limited harder,
+  // because it hands out credentials.
+  "session/recognize/route.ts": "runs before a session exists; returns names only, no join code",
+  "session/resume/route.ts": "issues the session it is asked for; requiring one would be circular",
+
   // Restore-from-backup on a fresh install: the browser has no session yet and
   // cannot get one, because the family it would belong to is what this route
   // creates. It reads nothing and writes only into a brand-new family with
@@ -95,6 +113,27 @@ const CRON_PREFIX = "cron/";
  */
 const AUTH_BOUNDARIES = ["requireSession", "withIntegrationAuth"];
 
+/**
+ * The third boundary: the cron secret.
+ *
+ * `/api/cron/*` is checked separately below, on the assumption that a
+ * sessionless privileged route lives under that prefix. /api/attention/simulate
+ * broke the assumption — it is called on demand rather than on a schedule, so
+ * it does not belong under cron/, but it is gated on the same shared secret and
+ * is no less guarded for sitting elsewhere.
+ *
+ * Matched on the comparison rather than the mention: a route that merely names
+ * CRON_SECRET without checking it would otherwise pass by talking about the
+ * boundary instead of standing behind it.
+ */
+function behindCronSecret(source: string): boolean {
+  return source.includes("`Bearer ${CRON_SECRET}`");
+}
+
+function guarded(source: string): boolean {
+  return AUTH_BOUNDARIES.some((needle) => source.includes(needle)) || behindCronSecret(source);
+}
+
 function routeFiles(root: string): string[] {
   const found: string[] = [];
   const walk = (dir: string) => {
@@ -127,7 +166,7 @@ test("every privileged API route requires a session", () => {
 
     const source = readFileSync(file, "utf8");
     if (!PRIVILEGED.some((needle) => source.includes(needle))) continue;
-    if (!AUTH_BOUNDARIES.some((needle) => source.includes(needle))) unguarded.push(rel);
+    if (!guarded(source)) unguarded.push(rel);
   }
 
   expect(unguarded).toEqual([]);
@@ -209,10 +248,7 @@ test("the allowlist is the only thing keeping those routes out of the scan", () 
     .filter((rel) => !rel.startsWith(CRON_PREFIX))
     .filter((rel) => {
       const source = readFileSync(join(ROOT, rel), "utf8");
-      return (
-        PRIVILEGED.some((needle) => source.includes(needle)) &&
-        !AUTH_BOUNDARIES.some((needle) => source.includes(needle))
-      );
+      return PRIVILEGED.some((needle) => source.includes(needle)) && !guarded(source);
     });
 
   expect(flagged.sort()).toEqual(Object.keys(PUBLIC_BY_DESIGN).sort());
