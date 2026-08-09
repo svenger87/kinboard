@@ -41,7 +41,9 @@ fi
 
 # Isolated from prod (kinboard: 3002/5433/8101) and kbaudit (3010/5442/8110).
 RIG_PROJECT="kbupg"
-RIG_DATA="/mnt/user/appdata/kinboard-upgrade-data"
+# Overridable so the same rig runs on a CI runner, which has no
+# /mnt/user. The default stays the Unraid path this is developed on.
+RIG_DATA="${RIG_DATA:-/mnt/user/appdata/kinboard-upgrade-data}"
 RIG_WEBAPP_PORT=3021
 RIG_POSTGRES_PORT=5452
 RIG_KONG_HTTP_PORT=8120

@@ -39,7 +39,9 @@ cd "$SCRIPT_DIR" || exit 1
 ITERATIONS="${1:-1}"
 
 RIG_PROJECT="kbbak"
-RIG_DATA="/mnt/user/appdata/kinboard-backup-data"
+# Overridable so the same rig runs on a CI runner, which has no
+# /mnt/user. The default stays the Unraid path this is developed on.
+RIG_DATA="${RIG_DATA:-/mnt/user/appdata/kinboard-backup-data}"
 RIG_WEBAPP_PORT=3041
 RIG_POSTGRES_PORT=5472
 RIG_KONG_HTTP_PORT=8140
