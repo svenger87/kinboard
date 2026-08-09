@@ -6,7 +6,10 @@ import {
   browseEnvelope,
   assertDlnaUrl,
   reachableMediaUrl,
+  browseItemMetadata,
 } from "../src/lib/dlna-client";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * DIDL-Lite in the shapes real servers emit it. The differences between them
@@ -290,5 +293,91 @@ test.describe("reachableMediaUrl", () => {
 
   test("garbage in, garbage out — but not an exception", () => {
     expect(reachableMediaUrl("not a url", "http://nas/ctl")).toBe("not a url");
+  });
+});
+
+
+test.describe("browseItemMetadata", () => {
+  /**
+   * The image proxy is built on this call: the browser sends an object id and
+   * the server is asked where that object lives. If it ever came back with an
+   * address the request supplied instead, the proxy would be forgeable again —
+   * so these check that the question is asked of the media server and the
+   * answer comes from its reply.
+   */
+  const METADATA = readFileSync(
+    join(__dirname, "fixtures/dlna/browse-metadata.xml"),
+    "utf8",
+  );
+
+  async function withFetch(
+    handler: (url: string, init: RequestInit) => Response,
+    run: () => Promise<void>,
+  ) {
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) =>
+      handler(String(input), init ?? {})) as typeof fetch;
+    try {
+      await run();
+    } finally {
+      globalThis.fetch = original;
+    }
+  }
+
+  test("asks the server to describe one object, and returns what it says", async () => {
+    let askedUrl = "";
+    let body = "";
+
+    await withFetch(
+      (url, init) => {
+        askedUrl = url;
+        body = String(init.body ?? "");
+        return new Response(METADATA, { status: 200 });
+      },
+      async () => {
+        const item = await browseItemMetadata("http://nas.local:8200/ctl/ContentDir", "64$0$0");
+
+        expect(askedUrl).toBe("http://nas.local:8200/ctl/ContentDir");
+        expect(body).toContain("<BrowseFlag>BrowseMetadata</BrowseFlag>");
+        expect(body).toContain("<ObjectID>64$0$0</ObjectID>");
+
+        expect(item?.id).toBe("64$0$0");
+        expect(item?.title).toBe("kinder");
+        // Straight out of the server's own answer — which is the property the
+        // image proxy rests on. (This capture publishes only JPEG_SM and
+        // JPEG_TN renditions, so the "largest non-thumbnail" rule has nothing
+        // to pick and falls back to the first; that choice is parseDidl's and
+        // is tested above.)
+        expect(item?.url).toBe("http://172.17.0.8:8200/MediaItems/23.jpg");
+        expect(item?.mimeType).toBe("image/jpeg");
+      },
+    );
+  });
+
+  test("returns null when the id names nothing describable", async () => {
+    const empty = METADATA.replace(/&lt;item id=[\s\S]*&lt;\/item&gt;/, "");
+    await withFetch(
+      () => new Response(empty, { status: 200 }),
+      async () => {
+        expect(await browseItemMetadata("http://nas.local:8200/ctl", "nope")).toBeNull();
+      },
+    );
+  });
+
+  test("refuses a control URL that is not http", async () => {
+    await expect(browseItemMetadata("file:///etc/passwd", "1")).rejects.toThrow(
+      /unsupported scheme/,
+    );
+  });
+
+  test("reports a server that answers with an error", async () => {
+    await withFetch(
+      () => new Response("nope", { status: 500 }),
+      async () => {
+        await expect(
+          browseItemMetadata("http://nas.local:8200/ctl", "64$0$0"),
+        ).rejects.toThrow(/metadata returned 500/);
+      },
+    );
   });
 });

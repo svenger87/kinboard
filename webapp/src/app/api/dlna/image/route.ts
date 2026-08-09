@@ -1,24 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-import { assertDlnaUrl } from "@/lib/dlna-client";
-import { readDlnaSettings, verifyImageUrl } from "@/lib/dlna-settings";
+import { assertDlnaUrl, browseItemMetadata, reachableMediaUrl } from "@/lib/dlna-client";
+import { readDlnaSettings } from "@/lib/dlna-settings";
 
 /**
  * Proxy one image off the family's DLNA server.
  *
- * The `item` parameter is a full URL, which makes this shaped like an open
- * proxy — so it carries a signature. Only a URL this family's own browse
- * produced can be fetched back through here.
+ * The browser names the photo by its **object id** — the identifier the media
+ * server itself gave it — and never by URL. This route then asks that server
+ * to describe the object, and fetches whatever address comes back.
  *
- * It also pins the host to the configured server. An earlier attempt at that
- * alone was broken by a real MiniDLNA — media servers advertise whichever
- * address they detected for themselves, routinely not the one you reached them
- * on — but `reachableMediaUrl` now rewrites every media URL to the host that
- * answered the browse before it is signed, so by this point the two always
- * agree. Signature and host together mean a signed URL cannot be replayed
- * against anything but the server this family configured: without the pin, a
- * member who can set that address could point the server at, say, a cloud
- * metadata endpoint and have Kinboard fetch it for them.
+ * That ordering is the point. An earlier version took the full URL as a query
+ * parameter and defended it: a session, a family check, an HMAC over the URL,
+ * and finally a host pinned to the configured server. All of it worked, and all
+ * of it was arguing about an address that had still arrived from outside. Here
+ * the address is only ever something this family's own server said in reply to
+ * a question about its own catalogue, so there is nothing to forge and nothing
+ * to sign.
+ *
+ * Images are proxied rather than linked because a DLNA server speaks plain
+ * HTTP, and a wall display served over HTTPS will silently refuse to load an
+ * HTTP image.
  */
 export async function GET(request: NextRequest) {
   const auth = await requireSession(request);
@@ -26,12 +28,14 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
   const familyId = params.get("family_id");
-  const item = params.get("item");
-  const signature = params.get("sig");
+  const objectId = params.get("object_id");
+  // Servers publish a smaller rendition for some photos; the grid asks for it
+  // by name rather than by URL, for the same reason as everything else here.
+  const wantThumbnail = params.get("thumb") === "1";
 
-  if (!familyId || !item || !signature) {
+  if (!familyId || !objectId) {
     return NextResponse.json(
-      { error: "family_id, item and sig are required" },
+      { error: "family_id and object_id are required" },
       { status: 400 },
     );
   }
@@ -44,24 +48,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "DLNA is not configured" }, { status: 400 });
   }
 
-  if (!verifyImageUrl(familyId, item, signature)) {
-    return NextResponse.json({ error: "bad signature" }, { status: 403 });
-  }
-
-  let target: URL;
   try {
-    target = assertDlnaUrl(item);
-    // The allowlist is one entry long and it comes from the family's own
-    // settings, not from this request.
-    const server = new URL(settings.control_url);
-    if (target.hostname !== server.hostname) {
-      return NextResponse.json({ error: "bad url" }, { status: 400 });
+    const item = await browseItemMetadata(settings.control_url, objectId);
+    if (!item) {
+      return NextResponse.json({ error: "no such item" }, { status: 404 });
     }
-  } catch {
-    return NextResponse.json({ error: "bad url" }, { status: 400 });
-  }
 
-  try {
+    const chosen = wantThumbnail ? (item.thumbnailUrl ?? item.url) : item.url;
+    if (!chosen) {
+      return NextResponse.json({ error: "no such item" }, { status: 404 });
+    }
+
+    // Still normalised: a server that advertises an address it is not
+    // reachable on describes its objects with that same address.
+    const target = assertDlnaUrl(reachableMediaUrl(chosen, settings.control_url));
+
     const upstream = await fetch(target.toString(), { signal: AbortSignal.timeout(20_000) });
     if (!upstream.ok || !upstream.body) {
       return NextResponse.json({ error: "upstream error" }, { status: 502 });

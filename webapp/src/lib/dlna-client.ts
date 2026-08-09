@@ -514,6 +514,40 @@ export function reachableMediaUrl(mediaUrl: string, controlUrl: string): string 
   }
 }
 
+/**
+ * One object's own metadata, rather than its children.
+ *
+ * This is how the image proxy finds out where a photo lives. It could have
+ * been handed the URL by the browser instead — it used to be — but then the
+ * address the server fetches comes from the request, which is an open proxy
+ * wearing a signature. Asking the media server to describe the object by its
+ * own id means the URL is only ever something this family's configured server
+ * said, and there is nothing to forge.
+ *
+ * Returns null when the id names something that is not an item, or the server
+ * declines to describe it.
+ */
+export async function browseItemMetadata(
+  controlUrl: string,
+  objectId: string,
+): Promise<DlnaItem | null> {
+  assertDlnaUrl(controlUrl);
+  const res = await fetchWithTimeout(controlUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": 'text/xml; charset="utf-8"',
+      SOAPACTION: `"${CONTENT_DIRECTORY}#Browse"`,
+    },
+    body: browseEnvelope(objectId, "BrowseMetadata", 0, 1),
+  });
+  if (!res.ok) {
+    throw new Error(`dlna: metadata returned ${res.status}`);
+  }
+  const { didl } = extractBrowseResult(await res.text());
+  const { items } = parseDidl(didl);
+  return items[0] ?? null;
+}
+
 /** Browse a container's direct children. `objectId` "0" is the root. */
 export async function browse(
   controlUrl: string,
