@@ -80,11 +80,17 @@ export function useDlnaContainers(objectId = "0", enabled = true) {
   });
 }
 
-export function useDlnaPhotos(limit = 50, random = false, enabled = true) {
+export function useDlnaPhotos(
+  limit = 50,
+  random = false,
+  enabled = true,
+  /** Browse this container instead of the one saved in settings. */
+  objectId?: string,
+) {
   const { family } = useFamilyStore();
 
   return useQuery({
-    queryKey: ["dlna-photos", family?.id, limit, random],
+    queryKey: ["dlna-photos", family?.id, limit, random, objectId],
     queryFn: async (): Promise<DlnaPhoto[]> => {
       if (!family?.id) return [];
       const params = new URLSearchParams({
@@ -92,6 +98,7 @@ export function useDlnaPhotos(limit = 50, random = false, enabled = true) {
         limit: String(limit),
         random: String(random),
       });
+      if (objectId) params.append("object_id", objectId);
       const r = await fetch(`/api/dlna/photos?${params}`);
       if (!r.ok) return [];
       const data = (await r.json()) as { photos?: DlnaPhoto[] };

@@ -29,7 +29,7 @@ export interface LibraryPhoto {
   date: string | null;
 }
 
-export function usePhotoLibrary(limit = 200): {
+export function usePhotoLibrary(limit = 200, albumId?: string): {
   photos: LibraryPhoto[];
   isLoading: boolean;
   source: PhotoSourceId | undefined;
@@ -40,8 +40,8 @@ export function usePhotoLibrary(limit = 200): {
 
   // Each source hook is gated on being the selected one, so browsing the
   // viewer does not wake up an Immich server that nobody asked about.
-  const immich = useImmichPhotos(undefined, limit, false, source === "immich");
-  const dlna = useDlnaPhotos(limit, false, source === "dlna");
+  const immich = useImmichPhotos(albumId, limit, false, source === "immich");
+  const dlna = useDlnaPhotos(limit, false, source === "dlna", albumId);
   const icloud = useIcloudPhotos(limit, source === "icloud");
   const unsplash = useUnsplashMonthlyPhotos();
 

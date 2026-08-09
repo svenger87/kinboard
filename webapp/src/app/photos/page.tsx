@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Images, X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Images, X, ChevronLeft, ChevronRight, Loader2, FolderOpen } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { usePhotoLibrary } from "@/hooks/use-photo-library";
+import { usePhotoAlbums } from "@/hooks/use-photo-albums";
 import { useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
 
 /**
@@ -28,7 +29,13 @@ export default function PhotosPage() {
 
   const t = useTranslations("photosViewer");
   const locale = useLocale();
-  const { photos, isLoading, isEmpty } = usePhotoLibrary(200);
+  // Where in the album tree we are. Empty means "the top": Immich albums, or
+  // a DLNA server's root folders. A source with no albums skips this entirely.
+  const [path, setPath] = useState<{ id: string; title: string }[]>([]);
+  const here = path.length > 0 ? path[path.length - 1] : null;
+
+  const { albums, isLoading: albumsLoading, browsable } = usePhotoAlbums(here?.id ?? "0");
+  const { photos, isLoading, isEmpty } = usePhotoLibrary(200, here?.id);
 
   // Index of the photo open full-screen, or null for the grid.
   const [openAt, setOpenAt] = useState<number | null>(null);
@@ -86,7 +93,7 @@ export default function PhotosPage() {
           </div>
         )}
 
-        {isEmpty && (
+        {isEmpty && albums.length === 0 && (
           <Card className="flex flex-col items-center gap-4 p-10 text-center">
             <Images className="size-10 text-muted-foreground" />
             <div>
@@ -97,6 +104,57 @@ export default function PhotosPage() {
               <Button className="min-h-[44px]">{t("emptyAction")}</Button>
             </Link>
           </Card>
+        )}
+
+        {/* Breadcrumb — only once there is somewhere to go back to. */}
+        {path.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 text-sm">
+            <button
+              onClick={() => setPath([])}
+              className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              {t("allAlbums")}
+            </button>
+            {path.map((crumb, i) => (
+              <span key={crumb.id} className="flex items-center gap-1">
+                <ChevronRight className="size-3 text-muted-foreground" />
+                <button
+                  onClick={() => setPath(path.slice(0, i + 1))}
+                  className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  {crumb.title}
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Albums, when the source has them. Shown alongside the photos rather
+            than instead of them: a DLNA folder routinely holds both. */}
+        {!albumsLoading && (browsable || path.length > 0) && albums.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            {albums.map((album) => (
+              <button
+                key={album.id}
+                onClick={() => {
+                  setPath([...path, { id: album.id, title: album.title }]);
+                  setOpenAt(null);
+                }}
+                className="flex min-h-[44px] items-center gap-3 rounded-xl bg-card p-4 text-left transition-colors hover:bg-accent"
+              >
+                <FolderOpen className="size-5 shrink-0 text-month-primary" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{album.title}</span>
+                  {album.count != null && (
+                    <span className="block text-xs text-muted-foreground">
+                      {t("albumCount", { count: album.count })}
+                    </span>
+                  )}
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+              </button>
+            ))}
+          </div>
         )}
 
         {!isLoading && photos.length > 0 && (

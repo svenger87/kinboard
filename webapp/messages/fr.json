@@ -3721,6 +3721,8 @@
     "close": "Fermer",
     "previous": "Photo précédente",
     "next": "Photo suivante",
-    "position": "{current} sur {total}"
+    "position": "{current} sur {total}",
+    "allAlbums": "Tous les albums",
+    "albumCount": "{count} éléments"
   }
 }
