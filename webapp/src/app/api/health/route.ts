@@ -45,31 +45,38 @@ async function probeDb(): Promise<boolean> {
 // genuinely stopped rather than hiccuped.
 export const WORKER_STALE_AFTER_MS = 5 * 60 * 1000;
 
-// Realtime holds logical replication slots for as long as it is connected, so
-// the database can answer for it. That costs one cheap query and needs no
-// network path from here to the realtime container — which matters, because a
-// probe that depends on its own connectivity reports its own failures as the
-// subject's.
+// Realtime's own health endpoint, on the internal network. Overridable for
+// deployments that do not use the bundled compose stack; an empty value turns
+// the probe off rather than reporting a permanent failure.
+const REALTIME_HEALTH_URL =
+  process.env.REALTIME_HEALTH_URL ?? "http://realtime:4000/api/tenants/realtime-dev/health";
+
+/**
+ * Is realtime running?
+ *
+ * The first attempt at this asked the database for realtime's logical
+ * replication slots, on the reasoning that it holds them while connected. That
+ * is wrong: a slot appears when a *client subscribes* to postgres_changes, not
+ * when realtime starts. A healthy instance that nobody is looking at has none,
+ * so it reported degraded forever — caught only by running it on a fresh
+ * install, where realtime was healthy and the slot count was zero.
+ *
+ * Any HTTP response proves the process is up and serving. The endpoint wants a
+ * bearer token which is deliberately not sent: a 401 or 403 answers the
+ * liveness question exactly as well as a 200, and a health probe that needs a
+ * secret is one more thing to misconfigure. Only a transport failure —
+ * refused, unresolvable, timed out — means down.
+ */
 async function probeRealtime(): Promise<boolean | null> {
+  if (!REALTIME_HEALTH_URL) return null;
   try {
-    const supabase = createAdminClient();
-    // Cast for the same reason integration-store.ts does: database.types.ts is
-    // generated from the schema and does not know objects added by a docker
-    // migration.
-    const query = (supabase as any)
-      .from("realtime_slot_health")
-      .select("active_slots")
-      .maybeSingle();
-    const timeout = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error("realtime probe timeout")), DB_PROBE_TIMEOUT_MS);
+    await fetch(REALTIME_HEALTH_URL, {
+      signal: AbortSignal.timeout(DB_PROBE_TIMEOUT_MS),
+      cache: "no-store",
     });
-    const { data, error } = await Promise.race([query, timeout]);
-    // A missing view means an instance that has not applied the migration yet.
-    // "I cannot tell" is not "it is broken", and must not page anybody.
-    if (error || !data) return null;
-    return Number(data.active_slots) > 0;
+    return true;
   } catch {
-    return null;
+    return false;
   }
 }
 

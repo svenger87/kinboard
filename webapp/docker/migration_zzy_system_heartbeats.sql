@@ -22,23 +22,12 @@ REVOKE ALL ON system_heartbeats FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE ON system_heartbeats TO service_role;
 
 
--- Realtime's own liveness, answered by the database rather than by a network
--- call to the realtime container. Realtime holds these logical replication
--- slots for exactly as long as it is connected, so `active` is a direct
--- reading of "is it attached right now".
+-- An earlier version of this migration also created a `realtime_slot_health`
+-- view, on the theory that realtime's logical replication slots showed whether
+-- it was connected. They do not: a slot appears when a client subscribes to
+-- postgres_changes, not when realtime starts, so a healthy instance nobody was
+-- looking at reported as broken. /api/health asks realtime directly instead.
 --
--- Asking over HTTP instead would mean the webapp's own connectivity became
--- part of the answer, and a probe that fails for its own reasons reports them
--- as the subject's.
---
--- A plain (non-invoker) view runs with its owner's privileges, which is what
--- lets service_role read pg_replication_slots through it without being granted
--- that right directly.
-CREATE OR REPLACE VIEW realtime_slot_health AS
-  SELECT count(*)::int AS active_slots
-  FROM pg_replication_slots
-  WHERE slot_name LIKE 'supabase_realtime%'
-    AND active;
-
-REVOKE ALL ON realtime_slot_health FROM anon, authenticated;
-GRANT SELECT ON realtime_slot_health TO service_role;
+-- Dropped rather than left in place, because a view that looks like a health
+-- signal and is not one is worse than no view at all.
+DROP VIEW IF EXISTS realtime_slot_health;

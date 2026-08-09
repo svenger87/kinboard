@@ -17,19 +17,27 @@ export const HEARTBEAT_WORKER = "worker";
 /**
  * Record that the worker ran.
  *
- * Failures are swallowed on purpose. This is observability, and a cron job
- * that did its real work must not be reported as failed because a bookkeeping
- * write did not land — that would turn a healthy run into a red alert and,
- * worse, could make an orchestrator retry work that already happened.
+ * Failures are never rethrown. This is observability, and a cron job that did
+ * its real work must not be reported as failed because a bookkeeping write did
+ * not land — that would turn a healthy run into a red alert and, worse, could
+ * make an orchestrator retry work that already happened.
+ *
+ * They are logged, though. The first version was silent, and when the write
+ * genuinely did not land there was nothing at all to go on: /api/health simply
+ * reported the worker as unknown forever, with no clue why.
  */
 export async function recordHeartbeat(job: string = HEARTBEAT_WORKER): Promise<void> {
   try {
     const supabase = createAdminClient();
-    await (supabase as any)
+    const { error } = await (supabase as any)
       .from("system_heartbeats")
       .upsert({ job, last_run_at: new Date().toISOString() }, { onConflict: "job" });
-  } catch {
-    // Intentionally ignored — see above.
+    if (error) console.warn("[heartbeat] rejected for", job, error);
+  } catch (err) {
+    // Intentionally not rethrown — see above. Logged, though: a heartbeat that
+    // never lands makes /api/health report the worker as unknown forever, and
+    // silence would leave nothing to diagnose that with.
+    console.warn("[heartbeat] could not record", job, err);
   }
 }
 
