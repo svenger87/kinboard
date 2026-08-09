@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { collectSignals, resetSignalCaches, type CollectOptions } from "./signals";
-import { evaluate, type EvaluatedItem, type FamilyRuleState } from "./engine";
+import { evaluate, resolveDayContext, type EvaluatedItem, type FamilyRuleState } from "./engine";
 import { RULES } from "./rules";
 
 /**
@@ -160,8 +160,58 @@ export async function runAttentionForFamily(
     result.resolved = goneKeys.length;
   }
 
+  await emitContextChange(familyId, signals.now, signals.timeZone);
+
   result.active = proposed.length;
   return result;
+}
+
+/**
+ * Fire kinboard_context_changed when the part of the day turns over.
+ *
+ * Every other domain event comes from a database trigger, because every other
+ * event is a row changing. This one is a *time* passing — there is no row to
+ * attach a trigger to, and the evaluator is the only thing that runs on a
+ * clock and knows the answer.
+ *
+ * The previous context is read back from the event log rather than stored
+ * somewhere new. The log already holds exactly this fact, and a second copy is
+ * a second thing to keep in step.
+ *
+ * Failures are swallowed: an event that did not fire is worth less than the
+ * evaluation that did, and a family should not lose their board because an
+ * automation hint could not be published.
+ */
+async function emitContextChange(
+  familyId: string,
+  now: Date,
+  timeZone: string
+): Promise<void> {
+  try {
+    const supabase = createAdminClient();
+    const context = resolveDayContext(now, timeZone);
+
+    const { data: last } = await (supabase as any)
+      .from("domain_events")
+      .select("payload")
+      .eq("family_id", familyId)
+      .eq("event_type", "kinboard_context_changed")
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const previous = last?.payload?.context ?? null;
+    if (previous === context) return;
+
+    await (supabase as any).from("domain_events").insert({
+      family_id: familyId,
+      event_type: "kinboard_context_changed",
+      payload: { context, previous },
+      source: "heute-motor",
+    });
+  } catch {
+    // Deliberately ignored — see above.
+  }
 }
 
 /** Every family on the instance. One failing must not stop the others. */
