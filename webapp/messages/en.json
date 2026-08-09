@@ -1737,7 +1737,29 @@
         "noSubfolders": "No subfolders here."
       },
       "sourceDlnaLabel": "DLNA server",
-      "sourceDlnaSuffix": "NAS on your network"
+      "sourceDlnaSuffix": "NAS on your network",
+      "icloud": {
+        "heading": "iCloud Shared Album",
+        "subtitle": "A shared album from an iPhone or iPad",
+        "statusConnected": "Connected",
+        "defaultName": "Shared album",
+        "linkLabel": "Public album link",
+        "linkHelp": "On your iPhone: open the album in Photos, tap the people icon, and turn on “Public Website”. Copy the link it shows and paste it here. No Apple ID or password is needed, and photos you add later appear automatically.",
+        "connectButton": "Connect",
+        "connecting": "Checking…",
+        "errorNotIcloud": "That doesn’t look like an iCloud shared album link.",
+        "errorUnreachable": "Could not read that album. Check that “Public Website” is still switched on.",
+        "connected": "Connected to “{album}” — {count} photos",
+        "photoCount": "{count} photos in this album",
+        "disconnectButton": "Disconnect",
+        "disconnectTitle": "Disconnect this album?",
+        "disconnectBody": "The screensaver stops showing its photos. Nothing in iCloud is changed.",
+        "disconnected": "Disconnected",
+        "previewHeading": "Preview",
+        "previewNote": "Apple’s image links expire after about an hour, so Kinboard fetches fresh ones as it goes."
+      },
+      "sourceIcloudLabel": "iCloud Shared Album",
+      "sourceIcloudSuffix": "from your iPhone"
     },
     "google": {
       "title": "Google Calendar",

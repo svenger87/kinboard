@@ -1737,7 +1737,29 @@
         "noSubfolders": "Hier gibt es keine Unterordner."
       },
       "sourceDlnaLabel": "DLNA-Server",
-      "sourceDlnaSuffix": "NAS in deinem Netzwerk"
+      "sourceDlnaSuffix": "NAS in deinem Netzwerk",
+      "icloud": {
+        "heading": "iCloud geteiltes Album",
+        "subtitle": "Ein geteiltes Album von einem iPhone oder iPad",
+        "statusConnected": "Verbunden",
+        "defaultName": "Geteiltes Album",
+        "linkLabel": "Öffentlicher Album-Link",
+        "linkHelp": "Auf dem iPhone: Album in Fotos öffnen, auf das Personen-Symbol tippen und „Öffentliche Website“ aktivieren. Den angezeigten Link hier einfügen. Apple-ID und Passwort sind nicht nötig, und später hinzugefügte Fotos erscheinen automatisch.",
+        "connectButton": "Verbinden",
+        "connecting": "Wird geprüft…",
+        "errorNotIcloud": "Das sieht nicht nach einem iCloud-Link für geteilte Alben aus.",
+        "errorUnreachable": "Album konnte nicht gelesen werden. Prüfe, ob „Öffentliche Website“ noch aktiv ist.",
+        "connected": "Mit „{album}“ verbunden — {count} Fotos",
+        "photoCount": "{count} Fotos in diesem Album",
+        "disconnectButton": "Trennen",
+        "disconnectTitle": "Dieses Album trennen?",
+        "disconnectBody": "Der Bildschirmschoner zeigt dann keine Fotos mehr daraus. In iCloud wird nichts verändert.",
+        "disconnected": "Getrennt",
+        "previewHeading": "Vorschau",
+        "previewNote": "Apples Bild-Links laufen nach etwa einer Stunde ab, deshalb holt Kinboard laufend neue."
+      },
+      "sourceIcloudLabel": "iCloud geteiltes Album",
+      "sourceIcloudSuffix": "von deinem iPhone"
     },
     "google": {
       "title": "Google Kalender",

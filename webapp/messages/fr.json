@@ -1737,7 +1737,29 @@
         "noSubfolders": "Aucun sous-dossier ici."
       },
       "sourceDlnaLabel": "Serveur DLNA",
-      "sourceDlnaSuffix": "NAS de votre réseau"
+      "sourceDlnaSuffix": "NAS de votre réseau",
+      "icloud": {
+        "heading": "Album partagé iCloud",
+        "subtitle": "Un album partagé depuis un iPhone ou un iPad",
+        "statusConnected": "Connecté",
+        "defaultName": "Album partagé",
+        "linkLabel": "Lien public de l’album",
+        "linkHelp": "Sur votre iPhone : ouvrez l’album dans Photos, touchez l’icône des personnes et activez « Site web public ». Collez ici le lien affiché. Aucun identifiant Apple n’est nécessaire, et les photos ajoutées plus tard apparaissent automatiquement.",
+        "connectButton": "Connecter",
+        "connecting": "Vérification…",
+        "errorNotIcloud": "Cela ne ressemble pas à un lien d’album partagé iCloud.",
+        "errorUnreachable": "Impossible de lire cet album. Vérifiez que « Site web public » est toujours activé.",
+        "connected": "Connecté à « {album} » — {count} photos",
+        "photoCount": "{count} photos dans cet album",
+        "disconnectButton": "Déconnecter",
+        "disconnectTitle": "Déconnecter cet album ?",
+        "disconnectBody": "L’écran de veille cessera d’afficher ses photos. Rien n’est modifié dans iCloud.",
+        "disconnected": "Déconnecté",
+        "previewHeading": "Aperçu",
+        "previewNote": "Les liens d’images d’Apple expirent après environ une heure ; Kinboard en récupère de nouveaux au fil de l’eau."
+      },
+      "sourceIcloudLabel": "Album partagé iCloud",
+      "sourceIcloudSuffix": "depuis votre iPhone"
     },
     "google": {
       "title": "Google Agenda",

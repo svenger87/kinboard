@@ -7,9 +7,10 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useImmichMonthlyPhotos } from "./use-immich";
 import { useUnsplashMonthlyPhotos } from "./use-unsplash";
 import { useDlnaPhotos } from "./use-dlna";
+import { useIcloudPhotos } from "./use-icloud";
 
 /** Which library the screensaver draws from. */
-export type PhotoSourceId = "immich" | "unsplash" | "dlna";
+export type PhotoSourceId = "immich" | "unsplash" | "dlna" | "icloud";
 
 export interface ScreensaverPhoto {
   id: string;
@@ -56,8 +57,20 @@ export function usePhotoSource(): {
     true,
     source === "dlna",
   );
+  const { data: icloudPhotos = [], isLoading: isIcloudLoading } = useIcloudPhotos(
+    100,
+    source === "icloud",
+  );
 
   const photos = useMemo<ScreensaverPhoto[]>(() => {
+    if (source === "icloud") {
+      return icloudPhotos.map((photo) => ({
+        id: photo.id,
+        url: photo.url,
+        metadata: { description: photo.caption },
+      }));
+    }
+
     if (source === "dlna") {
       return dlnaPhotos.map((photo) => ({
         id: photo.id,
@@ -85,15 +98,17 @@ export function usePhotoSource(): {
       id: photo.id,
       url: photo.url,
     }));
-  }, [source, immichPhotos, unsplashPhotos, dlnaPhotos]);
+  }, [source, immichPhotos, unsplashPhotos, dlnaPhotos, icloudPhotos]);
 
   const isLoading =
     isSourceLoading ||
-    (source === "dlna"
-      ? isDlnaLoading
-      : source === "unsplash"
-        ? isUnsplashLoading
-        : isImmichLoading);
+    (source === "icloud"
+      ? isIcloudLoading
+      : source === "dlna"
+        ? isDlnaLoading
+        : source === "unsplash"
+          ? isUnsplashLoading
+          : isImmichLoading);
 
   return { photos, isLoading, source };
 }

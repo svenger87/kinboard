@@ -21,6 +21,7 @@ export const SETTINGS_KEYS = {
   googleCalendar: "google_calendar",
   immich: "immich",
   dlna: "dlna",
+  icloud: "icloud",
   cameras: "cameras",
   unsplash: "unsplash",
   locale: "locale",
