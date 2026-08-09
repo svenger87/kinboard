@@ -37,6 +37,9 @@ export interface AttentionItem {
   item_key: string;
   title: string;
   detail: string | null;
+  /** Translation key, or null for rows raised before this existed. */
+  message_key: string | null;
+  params: Record<string, string | number>;
   evidence: Record<string, unknown>;
   priority: number;
   context: string | null;
