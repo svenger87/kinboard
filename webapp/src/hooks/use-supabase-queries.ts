@@ -191,42 +191,66 @@ export function useRegisterDevice() {
   });
 }
 
-// Restore existing device session by hardware ID
+/**
+ * Sign this device back in by itself, if it can prove who it is.
+ *
+ * The AuthGuard runs this on any page with no family in the store, so a wall
+ * display that has been power-cycled comes back to the dashboard rather than to
+ * the join screen. Like the rest of the device lookups it used to read
+ * `devices` straight from PostgREST, which RLS has refused since 1.6.0 — the
+ * restore silently stopped working and left a 401 on every anonymous page.
+ *
+ * It goes through the same routes the join screen uses, with one deliberate
+ * difference: **the fingerprint is not sent.** Recognition by fingerprint is a
+ * guess, and it is only fair to act on a guess when a person is there to
+ * confirm it — which is what the "Sign back in" button is. Restoring without
+ * being asked has to be certain, so this path accepts nothing but the device's
+ * own hardware id.
+ */
 export function useRestoreDeviceSession() {
   const supabase = createClient();
   const { setFamily, setDevice, setPeople } = useFamilyStore();
 
   return useMutation({
     mutationFn: async () => {
-      // Get persistent device ID and fingerprint
       const hardwareId = await getDeviceId();
-      const fingerprint = getDeviceFingerprint();
 
-      // Find device by hardware_id
-       
-      const { data: device } = await (supabase as any)
-        .from("devices")
-        .select("*, families(*)")
-        .eq("hardware_id", hardwareId)
-        .maybeSingle();
+      const recognised = await fetch("/api/session/recognize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ hardware_id: hardwareId }),
+      });
+      if (!recognised.ok) return null;
 
-      if (!device) {
-        return null; // No existing device found
-      }
+      const { devices } = (await recognised.json()) as {
+        devices: { device: { id: string }; match: "hardware" | "fingerprint" }[];
+      };
+      const known = devices.find((d) => d.match === "hardware");
+      if (!known) return null;
 
-      const family = device.families as Family;
+      const resumed = await fetch("/api/session/resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ device_id: known.device.id, hardware_id: hardwareId }),
+      });
+      if (!resumed.ok) return null;
 
-      // Update last_seen and fingerprint (keep fingerprint fresh)
-       
-      await (supabase as any)
-        .from("devices")
-        .update({
-          last_seen: new Date().toISOString(),
-          fingerprint: fingerprint,
-        })
-        .eq("id", device.id);
+      const { family, device, token, expiresAt } = (await resumed.json()) as {
+        family: Family;
+        device: Device;
+        token: string | null;
+        expiresAt: number | null;
+      };
 
-      // Fetch family members
+      // Adopt the session before reading anything through it — see the same
+      // note in useQuickRejoin.
+      if (token && expiresAt) primeFamilyToken(token, expiresAt);
+      else invalidateFamilyToken();
+
+      await persistDeviceId(hardwareId);
+
        
       const { data: people } = await (supabase as any)
         .from("people")
@@ -234,17 +258,7 @@ export function useRestoreDeviceSession() {
         .eq("family_id", family.id)
         .order("created_at");
 
-      // Persist device ID to all storage locations
-      await persistDeviceId(hardwareId);
-
-      // Remove the joined family data from device object
-      const { families: _, ...deviceWithoutFamily } = device;
-
-      return {
-        family,
-        device: { ...deviceWithoutFamily, fingerprint } as Device,
-        people: (people || []) as Person[],
-      };
+      return { family, device, people: (people || []) as Person[] };
     },
     onSuccess: (result) => {
       if (result) {

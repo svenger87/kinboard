@@ -74,7 +74,16 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ photos });
   } catch (e) {
+    // Not a transport error, deliberately. A NAS that has spun down or gone
+    // off the network is an ordinary state in a house, and this endpoint is
+    // asked on every page load — the nav decides whether to show Photos by
+    // whether there are any. Answering 502 made a sleeping server print an
+    // error in the console of every screen in the house.
+    //
+    // "No photos, and here is why" is the honest answer. Reachability is
+    // diagnosed on the settings page, by /api/dlna/test, where somebody is
+    // actually looking; the log line below is for the server's own record.
     console.error("[dlna] photos failed:", e);
-    return NextResponse.json({ error: "browse failed" }, { status: 502 });
+    return NextResponse.json({ photos: [], unreachable: true });
   }
 }

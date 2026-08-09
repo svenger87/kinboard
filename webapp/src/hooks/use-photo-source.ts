@@ -49,7 +49,11 @@ export function usePhotoSource(): {
 } {
   const { data: source, isLoading: isSourceLoading } = usePhotoSourceSetting();
   const { data: immichPhotos = [], isLoading: isImmichLoading } = useImmichMonthlyPhotos();
-  const { data: unsplashPhotos = [], isLoading: isUnsplashLoading } = useUnsplashMonthlyPhotos();
+  // Gated like the two below it: nothing here falls back to Unsplash, so a
+  // board set to Immich or a NAS was asking Unsplash for photos it would never
+  // show — and on an instance with no Unsplash key, being told 401 for it.
+  const { data: unsplashPhotos = [], isLoading: isUnsplashLoading } =
+    useUnsplashMonthlyPhotos(source === "unsplash");
   // Shuffled server-side and capped: a slideshow wants variety, not the first
   // 60 files in whatever order the NAS lists them.
   const { data: dlnaPhotos = [], isLoading: isDlnaLoading } = useDlnaPhotos(

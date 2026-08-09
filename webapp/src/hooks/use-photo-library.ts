@@ -43,7 +43,7 @@ export function usePhotoLibrary(limit = 200, albumId?: string): {
   const immich = useImmichPhotos(albumId, limit, false, source === "immich");
   const dlna = useDlnaPhotos(limit, false, source === "dlna", albumId);
   const icloud = useIcloudPhotos(limit, source === "icloud");
-  const unsplash = useUnsplashMonthlyPhotos();
+  const unsplash = useUnsplashMonthlyPhotos(source === "unsplash");
 
   const photos = useMemo<LibraryPhoto[]>(() => {
     switch (source) {
