@@ -60,6 +60,24 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "session/join/route.ts": "issues the session; validates the join code itself",
   "session/create/route.ts": "issues the first session for a new family",
 
+  // The quick-rejoin pair, for the same circular reason as the two above: they
+  // run on /join, before a session can exist.
+  //
+  // `recognize` reads devices with the service role because RLS — correctly —
+  // will not let an anonymous caller near a table that joins to families and
+  // their join codes. It answers with the family's *name* and the device's
+  // *name* only: enough to render "Sign back in", useless for fishing. Rate
+  // limited, because a fingerprint is guessable and this turns a guess into a
+  // household name.
+  //
+  // `resume` issues the session for a device it recognises. Its trust model is
+  // written out in the route: the device's own random hardware id is proof, a
+  // browser fingerprint is a guess, and accepting the latter is the deliberate
+  // trade that makes recovering a wiped tablet possible. Rate limited harder,
+  // because it hands out credentials.
+  "session/recognize/route.ts": "runs before a session exists; returns names only, no join code",
+  "session/resume/route.ts": "issues the session it is asked for; requiring one would be circular",
+
   // Restore-from-backup on a fresh install: the browser has no session yet and
   // cannot get one, because the family it would belong to is what this route
   // creates. It reads nothing and writes only into a brand-new family with

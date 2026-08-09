@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { DlnaSection } from "./dlna-section";
+import { IcloudSection } from "./icloud-section";
 import { useTranslations, useLocale } from "next-intl";
 import { getIntlLocale } from "@/i18n/intl-locale";
 import { format } from "date-fns";
@@ -12,6 +14,8 @@ import {
   RefreshCw,
   AlertCircle,
   Server,
+  HardDrive,
+  Cloud,
   Key,
   Loader2,
   Image as ImageIcon,
@@ -71,7 +75,8 @@ export default function PhotoSettingsPage() {
   // ── Photo source toggle ──
   const { data: photoSourceRaw, isLoading: loadingSource } = useSetting<{ source: string } | null>("photo_source", null);
   const updateSetting = useUpdateSetting();
-  const photoSource: "immich" | "unsplash" = (photoSourceRaw?.source as "immich" | "unsplash") || "immich";
+  const photoSource: "immich" | "unsplash" | "dlna" | "icloud" =
+    (photoSourceRaw?.source as "immich" | "unsplash" | "dlna" | "icloud") || "immich";
 
   // ── Immich hooks ──
   const { data: immichSettings, isLoading: loadingImmich } = useImmichStatus();
@@ -333,6 +338,22 @@ export default function PhotoSettingsPage() {
                   </Label>
                 </div>
                 <div className="flex items-center space-x-3">
+                  <RadioGroupItem value="dlna" id="source-dlna" />
+                  <Label htmlFor="source-dlna" className="flex items-center gap-2 cursor-pointer">
+                    <HardDrive className="size-4" />
+                    {t("sourceDlnaLabel")}
+                    <span className="text-xs text-muted-foreground">{t("sourceDlnaSuffix")}</span>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <RadioGroupItem value="icloud" id="source-icloud" />
+                  <Label htmlFor="source-icloud" className="flex items-center gap-2 cursor-pointer">
+                    <Cloud className="size-4" />
+                    {t("sourceIcloudLabel")}
+                    <span className="text-xs text-muted-foreground">{t("sourceIcloudSuffix")}</span>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-3">
                   <RadioGroupItem value="unsplash" id="source-unsplash" />
                   <Label htmlFor="source-unsplash" className="flex items-center gap-2 cursor-pointer">
                     <ImageIcon className="size-4" />
@@ -538,6 +559,12 @@ export default function PhotoSettingsPage() {
             )}
           </>
         )}
+
+        {/* ═══════════════ DLNA SECTION ═══════════════ */}
+        {photoSource === "dlna" && <DlnaSection />}
+
+        {/* ═══════════════ ICLOUD SECTION ═══════════════ */}
+        {photoSource === "icloud" && <IcloudSection />}
 
         {/* ═══════════════ UNSPLASH SECTION ═══════════════ */}
         {photoSource === "unsplash" && (

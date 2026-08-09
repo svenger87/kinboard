@@ -353,7 +353,8 @@
     "news": "Actualités",
     "stonks": "Actions",
     "pocketMoney": "Argent de poche",
-    "more": "Plus"
+    "more": "Plus",
+    "photos": "Photos"
   },
   "cameras": {
     "title": "Caméras",
@@ -1710,7 +1711,56 @@
       "unsplashInfo1": "Des photos de haute qualité d'Unsplash apparaissent sur l'économiseur d'écran",
       "unsplashInfo2": "Les termes de recherche déterminent le thème mensuel",
       "unsplashInfo3": "Les photos sont actualisées toutes les heures",
-      "unsplashInfo4": "Les photographes sont crédités sur l'économiseur d'écran"
+      "unsplashInfo4": "Les photographes sont crédités sur l'économiseur d'écran",
+      "dlna": {
+        "heading": "Serveur multimédia DLNA",
+        "subtitle": "Un NAS ou un serveur multimédia de votre réseau",
+        "statusConnected": "Connecté",
+        "defaultName": "Serveur DLNA",
+        "urlLabel": "URL de description de l’appareil",
+        "urlHelp": "Kinboard ne peut pas trouver les serveurs tout seul — il tourne dans un conteneur qui ne voit jamais le trafic de découverte. Saisissez l’adresse : MiniDLNA et la plupart des NAS utilisent http://<ip>:8200/rootDesc.xml, Jellyfin http://<ip>:8096/dlna/<id>/description.xml, Plex http://<ip>:32469/DeviceDescription.xml.",
+        "connectButton": "Connecter",
+        "connecting": "Vérification…",
+        "connectFailed": "Serveur injoignable",
+        "connected": "Connecté à {name}",
+        "disconnectButton": "Déconnecter",
+        "disconnectTitle": "Déconnecter ce serveur ?",
+        "disconnectBody": "L’écran de veille cessera d’afficher ses photos. Rien n’est modifié sur le serveur.",
+        "disconnected": "Déconnecté",
+        "currentFolder": "Photos du dossier « {folder} »",
+        "currentFolderRoot": "Photos de la racine du serveur",
+        "folderHeading": "Choisir un dossier",
+        "rootCrumb": "Racine du serveur",
+        "photosHere": "{count} photos dans ce dossier",
+        "useFolder": "Utiliser ce dossier",
+        "folderInUse": "Sélectionné",
+        "folderChosen": "Affiche « {folder} »",
+        "noSubfolders": "Aucun sous-dossier ici."
+      },
+      "sourceDlnaLabel": "Serveur DLNA",
+      "sourceDlnaSuffix": "NAS de votre réseau",
+      "icloud": {
+        "heading": "Album partagé iCloud",
+        "subtitle": "Un album partagé depuis un iPhone ou un iPad",
+        "statusConnected": "Connecté",
+        "defaultName": "Album partagé",
+        "linkLabel": "Lien public de l’album",
+        "linkHelp": "Sur votre iPhone : ouvrez l’album dans Photos, touchez l’icône des personnes et activez « Site web public ». Collez ici le lien affiché. Aucun identifiant Apple n’est nécessaire, et les photos ajoutées plus tard apparaissent automatiquement.",
+        "connectButton": "Connecter",
+        "connecting": "Vérification…",
+        "errorNotIcloud": "Cela ne ressemble pas à un lien d’album partagé iCloud.",
+        "errorUnreachable": "Impossible de lire cet album. Vérifiez que « Site web public » est toujours activé.",
+        "connected": "Connecté à « {album} » — {count} photos",
+        "photoCount": "{count} photos dans cet album",
+        "disconnectButton": "Déconnecter",
+        "disconnectTitle": "Déconnecter cet album ?",
+        "disconnectBody": "L’écran de veille cessera d’afficher ses photos. Rien n’est modifié dans iCloud.",
+        "disconnected": "Déconnecté",
+        "previewHeading": "Aperçu",
+        "previewNote": "Les liens d’images d’Apple expirent après environ une heure ; Kinboard en récupère de nouveaux au fil de l’eau."
+      },
+      "sourceIcloudLabel": "Album partagé iCloud",
+      "sourceIcloudSuffix": "depuis votre iPhone"
     },
     "google": {
       "title": "Google Agenda",
@@ -3715,5 +3765,23 @@
     "rule": "Règle",
     "disableRule": "Ne plus afficher ce conseil",
     "snoozed": "Plus tard"
+  },
+  "photosViewer": {
+    "title": "Photos",
+    "description": "Parcourir les photos de la famille",
+    "subtitle": "{count} photos",
+    "loading": "Chargement des photos…",
+    "emptyTitle": "Pas encore de photos",
+    "emptyBody": "Connectez une source et elles apparaîtront ici — et sur l’écran de veille.",
+    "emptyAction": "Choisir une source",
+    "photoAria": "Photo {index}",
+    "close": "Fermer",
+    "previous": "Photo précédente",
+    "next": "Photo suivante",
+    "position": "{current} sur {total}",
+    "allAlbums": "Tous les albums",
+    "albumCount": "{count} éléments",
+    "emptyAlbumTitle": "Rien dans cet album",
+    "emptyAlbumBody": "Ce dossier ne contient aucune photo. Kinboard ne regarde pas dans les sous-dossiers — ouvrez-en un directement."
   }
 }

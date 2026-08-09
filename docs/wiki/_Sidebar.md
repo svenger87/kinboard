@@ -31,6 +31,7 @@
 - [[Recipes & meal planning|Recipes]]
 - [[Tasks & todos|Tasks]]
 - [[Notes]]
+- [[Photos]]
 - [[News]]
 - [[Birthdays]]
 - [[School schedule|Schedule]]
