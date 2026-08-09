@@ -417,6 +417,13 @@ services:
       ofelia.job-exec.todo-reminders.schedule: "0 0 8 * * *"
       ofelia.job-exec.todo-reminders.command: "/usr/local/bin/todo-reminders"
       ofelia.job-exec.todo-reminders.no-overlap: "true"
+      # The Heute-Motor. Every five minutes: the rules that care about minutes
+      # cross their threshold once and stay true afterwards, so a finer
+      # interval buys a more precise countdown and nothing else — and coarser
+      # would let a morning reminder arrive after the school run.
+      ofelia.job-exec.evaluate-attention.schedule: "@every 5m"
+      ofelia.job-exec.evaluate-attention.command: "/usr/local/bin/evaluate-attention"
+      ofelia.job-exec.evaluate-attention.no-overlap: "true"
       ofelia.job-exec.process-notifications.schedule: "@every 30s"
       ofelia.job-exec.process-notifications.command: "/usr/local/bin/process-notifications"
       ofelia.job-exec.process-notifications.no-overlap: "true"
