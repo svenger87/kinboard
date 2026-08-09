@@ -561,6 +561,9 @@ components:
             start_at: { type: string, format: date-time }
             location: { type: [string, "null"] }
             person_id: { type: [string, "null"], format: uuid }
+            person:
+              type: [string, "null"]
+              description: The person's name, resolved. A consumer announcing "Enno has physio" cannot use the uuid, and resolving it per consumer means another call each.
             minutes_remaining: { type: integer }
         events_today:
           type: object
@@ -578,6 +581,11 @@ components:
           description: Open (unchecked) items.
         meal_today:
           type: object
+          description: |
+            `state` is the dish. A planned meal is either a free-text note or a
+            recipe, and both resolve to a name here — the recipe case once
+            reported the literal string "recipe", which read as "Dinner: recipe"
+            on a wall display.
           properties:
             state: { type: [string, "null"] }
             meal: { type: [string, "null"] }
@@ -606,7 +614,14 @@ components:
             state: { type: [string, "null"] }
             name: { type: [string, "null"] }
             days_remaining: { type: [integer, "null"] }
-            date: { type: [string, "null"], format: date }
+            date:
+              type: [string, "null"]
+              format: date
+              description: The day the birthday NEXT falls on. This used to carry the year of birth, so a sensor said "in 10 days" beside a date six years past.
+            born_on:
+              type: [string, "null"]
+              format: date
+              description: The original date, year of birth included.
         tasks_overdue:
           type: integer
           description: Its own value, not only an attribute of tasks_due, so "something is overdue" is a trivial automation.
