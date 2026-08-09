@@ -6,6 +6,11 @@ import { useFamilyStore } from "@/stores/family-store";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useImmichMonthlyPhotos } from "./use-immich";
 import { useUnsplashMonthlyPhotos } from "./use-unsplash";
+import { useDlnaPhotos } from "./use-dlna";
+import { useIcloudPhotos } from "./use-icloud";
+
+/** Which library the screensaver draws from. */
+export type PhotoSourceId = "immich" | "unsplash" | "dlna" | "icloud";
 
 export interface ScreensaverPhoto {
   id: string;
@@ -23,7 +28,7 @@ export interface ScreensaverPhoto {
 export function usePhotoSourceSetting() {
   const family = useFamilyStore((s) => s.family);
 
-  return useQuery<"immich" | "unsplash">({
+  return useQuery<PhotoSourceId>({
     queryKey: ["photo-source", family?.id],
     queryFn: async () => {
       const res = await fetch(`/api/settings?family_id=${family!.id}&key=${SETTINGS_KEYS.photoSource}`);
@@ -40,13 +45,44 @@ export function usePhotoSourceSetting() {
 export function usePhotoSource(): {
   photos: ScreensaverPhoto[];
   isLoading: boolean;
-  source: "immich" | "unsplash" | undefined;
+  source: PhotoSourceId | undefined;
 } {
   const { data: source, isLoading: isSourceLoading } = usePhotoSourceSetting();
   const { data: immichPhotos = [], isLoading: isImmichLoading } = useImmichMonthlyPhotos();
-  const { data: unsplashPhotos = [], isLoading: isUnsplashLoading } = useUnsplashMonthlyPhotos();
+  // Gated like the two below it: nothing here falls back to Unsplash, so a
+  // board set to Immich or a NAS was asking Unsplash for photos it would never
+  // show — and on an instance with no Unsplash key, being told 401 for it.
+  const { data: unsplashPhotos = [], isLoading: isUnsplashLoading } =
+    useUnsplashMonthlyPhotos(source === "unsplash");
+  // Shuffled server-side and capped: a slideshow wants variety, not the first
+  // 60 files in whatever order the NAS lists them.
+  const { data: dlnaPhotos = [], isLoading: isDlnaLoading } = useDlnaPhotos(
+    60,
+    true,
+    source === "dlna",
+  );
+  const { data: icloudPhotos = [], isLoading: isIcloudLoading } = useIcloudPhotos(
+    100,
+    source === "icloud",
+  );
 
   const photos = useMemo<ScreensaverPhoto[]>(() => {
+    if (source === "icloud") {
+      return icloudPhotos.map((photo) => ({
+        id: photo.id,
+        url: photo.url,
+        metadata: { description: photo.caption },
+      }));
+    }
+
+    if (source === "dlna") {
+      return dlnaPhotos.map((photo) => ({
+        id: photo.id,
+        url: photo.url,
+        metadata: { description: photo.title },
+      }));
+    }
+
     if (source === "unsplash") {
       return unsplashPhotos.map((photo) => ({
         id: photo.id,
@@ -66,11 +102,17 @@ export function usePhotoSource(): {
       id: photo.id,
       url: photo.url,
     }));
-  }, [source, immichPhotos, unsplashPhotos]);
+  }, [source, immichPhotos, unsplashPhotos, dlnaPhotos, icloudPhotos]);
 
   const isLoading =
     isSourceLoading ||
-    (source === "immich" ? isImmichLoading : isUnsplashLoading);
+    (source === "icloud"
+      ? isIcloudLoading
+      : source === "dlna"
+        ? isDlnaLoading
+        : source === "unsplash"
+          ? isUnsplashLoading
+          : isImmichLoading);
 
   return { photos, isLoading, source };
 }

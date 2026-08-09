@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { invalidateFamilyToken } from "@/lib/supabase/family-token";
+import { invalidateFamilyToken, primeFamilyToken } from "@/lib/supabase/family-token";
 import { useFamilyStore } from "@/stores/family-store";
 import { getDeviceId, persistDeviceId, getDeviceFingerprint } from "@/lib/device-id";
 import type {
@@ -191,42 +191,66 @@ export function useRegisterDevice() {
   });
 }
 
-// Restore existing device session by hardware ID
+/**
+ * Sign this device back in by itself, if it can prove who it is.
+ *
+ * The AuthGuard runs this on any page with no family in the store, so a wall
+ * display that has been power-cycled comes back to the dashboard rather than to
+ * the join screen. Like the rest of the device lookups it used to read
+ * `devices` straight from PostgREST, which RLS has refused since 1.6.0 — the
+ * restore silently stopped working and left a 401 on every anonymous page.
+ *
+ * It goes through the same routes the join screen uses, with one deliberate
+ * difference: **the fingerprint is not sent.** Recognition by fingerprint is a
+ * guess, and it is only fair to act on a guess when a person is there to
+ * confirm it — which is what the "Sign back in" button is. Restoring without
+ * being asked has to be certain, so this path accepts nothing but the device's
+ * own hardware id.
+ */
 export function useRestoreDeviceSession() {
   const supabase = createClient();
   const { setFamily, setDevice, setPeople } = useFamilyStore();
 
   return useMutation({
     mutationFn: async () => {
-      // Get persistent device ID and fingerprint
       const hardwareId = await getDeviceId();
-      const fingerprint = getDeviceFingerprint();
 
-      // Find device by hardware_id
-       
-      const { data: device } = await (supabase as any)
-        .from("devices")
-        .select("*, families(*)")
-        .eq("hardware_id", hardwareId)
-        .maybeSingle();
+      const recognised = await fetch("/api/session/recognize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ hardware_id: hardwareId }),
+      });
+      if (!recognised.ok) return null;
 
-      if (!device) {
-        return null; // No existing device found
-      }
+      const { devices } = (await recognised.json()) as {
+        devices: { device: { id: string }; match: "hardware" | "fingerprint" }[];
+      };
+      const known = devices.find((d) => d.match === "hardware");
+      if (!known) return null;
 
-      const family = device.families as Family;
+      const resumed = await fetch("/api/session/resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ device_id: known.device.id, hardware_id: hardwareId }),
+      });
+      if (!resumed.ok) return null;
 
-      // Update last_seen and fingerprint (keep fingerprint fresh)
-       
-      await (supabase as any)
-        .from("devices")
-        .update({
-          last_seen: new Date().toISOString(),
-          fingerprint: fingerprint,
-        })
-        .eq("id", device.id);
+      const { family, device, token, expiresAt } = (await resumed.json()) as {
+        family: Family;
+        device: Device;
+        token: string | null;
+        expiresAt: number | null;
+      };
 
-      // Fetch family members
+      // Adopt the session before reading anything through it — see the same
+      // note in useQuickRejoin.
+      if (token && expiresAt) primeFamilyToken(token, expiresAt);
+      else invalidateFamilyToken();
+
+      await persistDeviceId(hardwareId);
+
        
       const { data: people } = await (supabase as any)
         .from("people")
@@ -234,17 +258,7 @@ export function useRestoreDeviceSession() {
         .eq("family_id", family.id)
         .order("created_at");
 
-      // Persist device ID to all storage locations
-      await persistDeviceId(hardwareId);
-
-      // Remove the joined family data from device object
-      const { families: _, ...deviceWithoutFamily } = device;
-
-      return {
-        family,
-        device: { ...deviceWithoutFamily, fingerprint } as Device,
-        people: (people || []) as Person[],
-      };
+      return { family, device, people: (people || []) as Person[] };
     },
     onSuccess: (result) => {
       if (result) {
@@ -464,139 +478,115 @@ export function useUpdateDeviceLastSeen() {
   });
 }
 
-// Find devices by fingerprint (for fallback recognition on join page)
+/**
+ * Ask the server whether this device is one a family already has.
+ *
+ * Used to be a PostgREST query with the anon key. Row-level security has
+ * refused it since 1.6.0 — see /api/session/recognize, which does the lookup
+ * with the service role and answers with only what an unauthenticated caller
+ * may be told: the family's name and the device's name.
+ */
 export function useFindDeviceByFingerprint() {
-  const supabase = createClient();
-
   return useMutation({
     mutationFn: async (fingerprint: string) => {
-      if (!fingerprint) return null;
+      const hardwareId = await getDeviceId();
+      if (!fingerprint && !hardwareId) return null;
 
-      // Match against both the current fingerprint column AND the
-      // fingerprint_history array. The latter accumulates every
-      // fingerprint a device has presented successfully — so a
-      // browser/OS update that changes today's hash doesn't break
-      // recognition once the new hash has been recorded once.
-      // PostgREST's array-contains operator is `cs` (contains set);
-      // `or=(fingerprint.eq.X,fingerprint_history.cs.{X})` matches
-      // either condition.
+      const response = await fetch("/api/session/recognize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hardware_id: hardwareId, fingerprint }),
+      });
+      if (!response.ok) return null;
 
-      const { data: devices } = await (supabase as any)
-        .from("devices")
-        .select(`
-          id,
-          name,
-          hardware_id,
-          fingerprint,
-          fingerprint_history,
-          last_seen,
-          families!inner(id, name, join_code)
-        `)
-        .or(`fingerprint.eq.${fingerprint},fingerprint_history.cs.{${fingerprint}}`)
-        .order("last_seen", { ascending: false })
-        .limit(5);
+      const { devices } = (await response.json()) as {
+        devices: {
+          device: { id: string; name: string; last_seen: string | null };
+          family: { name: string };
+          match: "hardware" | "fingerprint";
+        }[];
+      };
 
-      // For each match, append the current fingerprint to the device's
-      // history if it's not already there. This is fire-and-forget —
-      // the user's recognition doesn't block on the write.
-      if (devices && devices.length > 0) {
-
-        for (const d of devices as any[]) {
-          const history: string[] = Array.isArray(d.fingerprint_history)
-            ? d.fingerprint_history
-            : [];
-          if (!history.includes(fingerprint)) {
-
-            (supabase as any)
-              .from("devices")
-              .update({ fingerprint_history: [...history, fingerprint] })
-              .eq("id", d.id)
-              .then(() => undefined, () => undefined);
-          }
-        }
-      }
-
-      if (!devices || devices.length === 0) {
-        return null;
-      }
-
-      // Return array of matching devices with their families
-       
-      return devices.map((d: any) => ({
+      return devices.map((entry) => ({
         device: {
-          id: d.id,
-          name: d.name,
-          hardware_id: d.hardware_id,
-          fingerprint: d.fingerprint,
-          last_seen: d.last_seen,
+          id: entry.device.id,
+          name: entry.device.name,
+          last_seen: entry.device.last_seen ?? "",
         },
-        family: d.families as { id: string; name: string; join_code: string },
+        // The family id is deliberately not in the response — nothing on the
+        // join screen needs it, and it is one less thing to hand out before
+        // anyone has authenticated.
+        family: { id: "", name: entry.family.name },
       }));
     },
   });
 }
 
-// Quick rejoin using fingerprint match (restores session without join code)
+/**
+ * Sign a recognised device back in.
+ *
+ * This used to update `devices` through PostgREST and then fill the client
+ * store — which meant that even before RLS blocked it, a "rejoined" device had
+ * no session cookie and no family token, so the next request it made was
+ * unauthenticated. /api/session/resume issues a real session, the same one
+ * joining with a code does.
+ */
 export function useQuickRejoin() {
-  const supabase = createClient();
   const { setFamily, setDevice, setPeople } = useFamilyStore();
 
   return useMutation({
     mutationFn: async ({ deviceId }: { deviceId: string }) => {
-      // Get current hardware ID and fingerprint
       const hardwareId = await getDeviceId();
       const fingerprint = getDeviceFingerprint();
 
-      // Fetch device with family
-       
-      const { data: device } = await (supabase as any)
-        .from("devices")
-        .select("*, families(*)")
-        .eq("id", deviceId)
-        .single();
-
-      if (!device) {
-        throw new Error("Device not found");
+      const response = await fetch("/api/session/resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          device_id: deviceId,
+          hardware_id: hardwareId,
+          fingerprint,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error("could not sign this device back in");
       }
 
-      const family = device.families as Family;
+      const { family, device, token, expiresAt } = (await response.json()) as {
+        family: { id: string; name: string };
+        device: { id: string; name: string };
+        token: string | null;
+        expiresAt: number | null;
+      };
 
-      // Update device with new hardware_id and fingerprint (storage was cleared)
-       
-      await (supabase as any)
-        .from("devices")
-        .update({
-          hardware_id: hardwareId,
-          fingerprint: fingerprint,
-          last_seen: new Date().toISOString(),
-        })
-        .eq("id", deviceId);
+      // A session exists now. Until the client knows that, every query still
+      // rides the "no session" answer cached while this page was anonymous and
+      // goes out unauthenticated — which RLS answers, correctly and silently,
+      // with nothing at all. The route already minted the token, so adopt it;
+      // fall back to invalidating if minting failed there.
+      if (token && expiresAt) primeFamilyToken(token, expiresAt);
+      else invalidateFamilyToken();
 
-      // Persist new hardware ID to all storage
+      // The hardware id the server just recorded is now this device's, so keep
+      // it where the next visit will find it.
       await persistDeviceId(hardwareId);
 
-      // Fetch family members
+      setFamily(family as Family);
+      setDevice(device as never);
+
+      // People are family-scoped and the session now exists, so this reads
+      // through the normal authenticated path rather than needing the route to
+      // return them.
+      const supabase = createClient();
        
       const { data: people } = await (supabase as any)
         .from("people")
         .select("*")
         .eq("family_id", family.id)
         .order("created_at");
+      setPeople((people ?? []) as never);
 
-      const { families: _, ...deviceWithoutFamily } = device;
-
-      return {
-        family,
-        device: { ...deviceWithoutFamily, hardware_id: hardwareId, fingerprint } as Device,
-        people: (people || []) as Person[],
-      };
-    },
-    onSuccess: (result) => {
-      if (result) {
-        setFamily(result.family);
-        setDevice(result.device);
-        setPeople(result.people);
-      }
+      return { family, device };
     },
   });
 }

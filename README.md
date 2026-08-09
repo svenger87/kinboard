@@ -77,6 +77,7 @@ Family logistics are scattered across calendars, chat threads, sticky notes, and
 | **Energy dashboard** — solar / battery / grid live flow + charts | [Smart home → Energy](https://github.com/svenger87/kinboard/wiki/Smart-Home#energy) |
 | **Cameras** — live WebRTC streams (via go2rtc) | [Cameras](https://github.com/svenger87/kinboard/wiki/Cameras) |
 | **Pocket money** — per-kid virtual accounts with parent-configurable APR, allowance cron, saving goals + parent-approval queue, evolving avatar (5 species × 8 stages) | [Pocket Money](https://github.com/svenger87/kinboard/wiki/Pocket-Money) |
+| **Photos** — browse the family library by album, full-screen viewer; sources: Immich, a DLNA server on your NAS, an iCloud Shared Album, or Unsplash | [Photos](https://github.com/svenger87/kinboard/wiki/Photos) |
 | **Photo screensaver** — Immich monthly album or Unsplash fallback, presence-aware blanking | [Screensaver](https://github.com/svenger87/kinboard/wiki/Screensaver) |
 | **Weather** — current + hourly + radar (OpenWeatherMap) | [OpenWeatherMap](https://github.com/svenger87/kinboard/wiki/OpenWeatherMap) |
 | **Web push notifications** — shopping items, task assignments, daily todo digest. **PWA install** required on iOS. | [Notifications](https://github.com/svenger87/kinboard/wiki/Notifications) |

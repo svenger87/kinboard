@@ -113,6 +113,25 @@ export function invalidateFamilyToken(): void {
   noSessionUntil = 0;
 }
 
+/**
+ * Adopt a token the server has just handed us.
+ *
+ * The join and resume routes mint one as part of signing a device in, and it
+ * is the same token /api/session/token would return a moment later. Taking it
+ * directly saves that round trip, and — more to the point — closes the window
+ * where a query fires between the session existing and the client knowing it
+ * does, which under RLS reads as "this family has nothing in it".
+ *
+ * `inFlight` is dropped too: a token request started while the page was still
+ * anonymous is about to resolve to null, and whoever is awaiting it would
+ * otherwise get that answer despite the session now being real.
+ */
+export function primeFamilyToken(token: string, expiresAt: number): void {
+  cached = { token, expiresAt };
+  inFlight = null;
+  noSessionUntil = 0;
+}
+
 /** Forget everything. For sign-out. */
 export function clearFamilyToken(): void {
   cached = null;
