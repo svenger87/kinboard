@@ -56,7 +56,9 @@ function mapCondition(weatherMain: string, lang: string): string {
   return CONDITION_LABELS[lang]?.[weatherMain] ?? CONDITION_LABELS.de[weatherMain] ?? weatherMain;
 }
 
-function getDayName(date: Date, locale: string = "de-DE"): string {
+// No default locale: every caller passes one, and a default of "de-DE" meant a
+// missing parameter silently produced German day names for everybody.
+function getDayName(date: Date, locale: string): string {
   return date.toLocaleDateString(locale, { weekday: "short", timeZone: "UTC" });
 }
 
@@ -64,7 +66,9 @@ function getDayName(date: Date, locale: string = "de-DE"): string {
 // formatting, so forecast day names and hourly times follow the app
 // language instead of always being formatted as German.
 function bcp47ForLang(lang: string): string {
-  return LOCALES.find((l) => l.code === lang)?.bcp47 ?? "de-DE";
+  // Fall back to English rather than German: an unrecognised code is a bug
+  // or a new locale, and neither is a reason to answer in German.
+  return LOCALES.find((l) => l.code === lang)?.bcp47 ?? "en-GB";
 }
 
 export async function GET(request: NextRequest) {
@@ -72,8 +76,8 @@ export async function GET(request: NextRequest) {
   const lat = searchParams.get("lat");
   const lon = searchParams.get("lon");
   const city = searchParams.get("city");
-  const rawLang = searchParams.get("lang") || "de";
-  const lang = ["de", "en", "fr"].includes(rawLang) ? rawLang : "de";
+  const rawLang = searchParams.get("lang") || "en";
+  const lang = ["de", "en", "fr"].includes(rawLang) ? rawLang : "en";
   const units = toUnitSystem(searchParams.get("units"));
 
   if (!OPENWEATHERMAP_API_KEY) {

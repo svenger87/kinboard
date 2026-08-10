@@ -24,6 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Trash2 } from "lucide-react";
 import { EventPill } from "@/components/event-pill";
 import { useTimeFormat } from "@/hooks/use-time-format";
+import { useWeekStart } from "@/hooks/use-week-start";
 import {
   Tooltip,
   TooltipContent,
@@ -72,18 +73,19 @@ export function MonthView({
   onSelectEvent,
 }: MonthViewProps) {
   const { formatTime } = useTimeFormat();
+  const { weekStartsOn } = useWeekStart();
   const t = useTranslations("calendar");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn });
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn });
 
   // Localized weekday abbreviations (Mo, Tu, …) starting from Monday
   const weekdayLabels = useMemo(() => {
-    const monday = startOfWeek(currentDate, { weekStartsOn: 1 });
+    const monday = startOfWeek(currentDate, { weekStartsOn });
     return Array.from({ length: 7 }, (_, i) => {
       const day = new Date(monday);
       day.setDate(monday.getDate() + i);
@@ -93,7 +95,7 @@ export function MonthView({
 
   const weeks = eachWeekOfInterval(
     { start: calendarStart, end: calendarEnd },
-    { weekStartsOn: 1 }
+    { weekStartsOn }
   );
 
   // Get all events for a specific day, sorted by type then time
@@ -139,7 +141,7 @@ export function MonthView({
         {weeks.map((weekStart, weekIndex) => {
           const weekDays = eachDayOfInterval({
             start: weekStart,
-            end: endOfWeek(weekStart, { weekStartsOn: 1 }),
+            end: endOfWeek(weekStart, { weekStartsOn }),
           });
 
           return (

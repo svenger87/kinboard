@@ -118,6 +118,7 @@ import {
 import { matchPersonForEvent } from "@/lib/calendar-person-matcher";
 import { getHolidays, type CountryCode } from "@/lib/holidays";
 import { useTimeFormat } from "@/hooks/use-time-format";
+import { useWeekStart } from "@/hooks/use-week-start";
 
 // Types
 interface CalendarEvent {
@@ -178,7 +179,8 @@ function CalendarSkeleton({ view = "month" }: { view?: "month" | "week" }) {
 }
 
 export default function CalendarPage() {
-  const { formatTime } = useTimeFormat();
+  const { formatTime, formatHourLabel } = useTimeFormat();
+  const { weekStartsOn } = useWeekStart();
   // Enable keyboard shortcuts and swipe navigation
   useKeyboardShortcuts();
   useSwipeNavigation();
@@ -261,13 +263,13 @@ export default function CalendarPage() {
       // previous month was drawn as a blank Monday in this month's grid,
       // and clicking it opened an empty day panel.
       return {
-        start: startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 }).toISOString(),
-        end: endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 }).toISOString(),
+        start: startOfWeek(startOfMonth(currentDate), { weekStartsOn }).toISOString(),
+        end: endOfWeek(endOfMonth(currentDate), { weekStartsOn }).toISOString(),
       };
     } else {
       return {
-        start: startOfWeek(currentDate, { weekStartsOn: 1 }).toISOString(),
-        end: endOfWeek(currentDate, { weekStartsOn: 1 }).toISOString(),
+        start: startOfWeek(currentDate, { weekStartsOn }).toISOString(),
+        end: endOfWeek(currentDate, { weekStartsOn }).toISOString(),
       };
     }
   }, [currentDate, view]);
@@ -573,8 +575,8 @@ export default function CalendarPage() {
     if (view === "month") {
       return format(currentDate, "MMMM yyyy", { locale: dateLocale });
     } else {
-      const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+      const weekStart = startOfWeek(currentDate, { weekStartsOn });
+      const weekEnd = endOfWeek(currentDate, { weekStartsOn });
       return `${format(weekStart, "d. MMM", { locale: dateLocale })} - ${format(weekEnd, "d. MMM yyyy", { locale: dateLocale })}`;
     }
   };
@@ -1127,7 +1129,7 @@ export default function CalendarPage() {
                               return (
                                 <div key={hour} className="absolute left-0 right-0" style={{ top: `${top}%` }}>
                                   <span className="absolute -left-8 -translate-y-1/2 text-3xs text-muted-foreground/50 tabular-nums w-6 text-right">
-                                    {hour}:00
+                                    {formatHourLabel(hour)}
                                   </span>
                                   <div className="h-px bg-border/20 w-full" />
                                 </div>

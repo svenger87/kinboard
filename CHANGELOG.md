@@ -6,6 +6,18 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **The 12-hour clock setting is respected everywhere.** Three places kept showing 24-hour time however the switch was set: the screensaver, which never asked; the calendar's day timeline and its week gutter, which wrote the hour out by hand; and the dashboard clock for up to a minute after a cold start, because it drew once with the default and then waited for the next minute to tick before correcting itself. That last one is why it looked right again after leaving the page and coming back.
+
+### Added
+- **The week can start on Sunday.** Every calendar view began the week on Monday, which is right in Germany and France and wrong for a household in the US, where a calendar whose first column is Monday reads as broken every day of the year. **Settings → Language** now has "Week starts on", and it follows the interface language unless you say otherwise — Sunday for English, Monday for German and French. Existing English families will see their calendar change, which is the point.
+- **Pocket money is no longer euros-only.** Accounts always carried a currency and it was always "EUR", with nothing in the interface to change it. **Settings → Pocket money** now has a currency picker that applies to every account in the household. It changes the label, not the amount: balances are not converted, because inventing an exchange rate for a child's savings would be worse than a wrong symbol.
+
+### Fixed
+- **Date pickers spoke German to everyone.** The picker behind every date field defaulted to German weekday and month names and a Monday-first grid, and no screen overrode it — so an English or French household picked dates from a German calendar. It follows the interface language and the new week-start setting now.
+- **Weather, image search and the shopping catalogue no longer answer in German when asked in nothing.** Each fell back to German when a request arrived without a language, and the forecast's day names had a German default buried in a helper. They fall back to English. The push-notification test message was German too, with a German clock, whoever pressed the button.
+- **The 12-hour clock setting is respected everywhere.** Three places kept showing 24-hour time however the switch was set: the screensaver, which never asked; the calendar's day timeline and its week gutter, which wrote the hour out by hand; and the dashboard clock for up to a minute after a cold start, because it drew once with the default and then waited for the next minute to tick before correcting itself. That last one is why it looked right again after leaving the page and coming back.
+
 ### Added
 - **A photo on the dashboard.** One picture from your library, changing every twenty seconds, opening the album when you tap it. Photos only ever appeared on the idle screen before — which on a kitchen wall is exactly when nobody is looking at it. Off by default; switch it on under **Settings → Widgets**.
 

@@ -24,6 +24,7 @@ import { personStrongTint, personText } from "@/lib/person-color";
 import { layoutDayEvents, visibleHourRange } from "@/lib/calendar-layout";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTimeFormat } from "@/hooks/use-time-format";
+import { useWeekStart } from "@/hooks/use-week-start";
 import {
   Tooltip,
   TooltipContent,
@@ -61,14 +62,15 @@ export function WeekView({
   onSelectDate,
   onSelectEvent,
 }: WeekViewProps) {
-  const { formatTime } = useTimeFormat();
+  const { formatTime, formatHourLabel, use24Hour } = useTimeFormat();
+  const { weekStartsOn } = useWeekStart();
   const t = useTranslations("calendar");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
 
   // Get days of the week
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+  const weekStart = startOfWeek(currentDate, { weekStartsOn });
+  const weekEnd = endOfWeek(currentDate, { weekStartsOn });
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
   // Check if event is multi-day
@@ -257,8 +259,11 @@ export function WeekView({
                 style={{ height: HOUR_HEIGHT }}
               >
                 <span className="absolute -top-2 right-1 sm:right-2 text-3xs sm:text-xs">
-                  {hour.toString().padStart(2, "0")}
-                  <span className="hidden sm:inline">:00</span>
+                  {/* On a narrow screen the gutter shows the hour alone; the
+                      12-hour form keeps its AM/PM, because "2" above "2" is
+                      not a time of day. */}
+                  {use24Hour ? hour.toString().padStart(2, "0") : formatHourLabel(hour)}
+                  {use24Hour && <span className="hidden sm:inline">:00</span>}
                 </span>
               </div>
             ))}
