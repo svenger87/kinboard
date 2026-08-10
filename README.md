@@ -195,6 +195,55 @@ Every screenshot has a light-mode variant with a `-light` suffix, and the phone-
 | Bring! | Shopping list sync (built-in list works without it) | Optional |
 | go2rtc | WebRTC camera streams | Optional |
 
+### Kinboard *in* Home Assistant
+
+Most dashboards read Home Assistant. Kinboard also **feeds it** — the family's
+day becomes entities you can automate on, in an installation that already runs
+your house.
+
+Install from HACS as a custom repository
+([svenger87/kinboard-homeassistant](https://github.com/svenger87/kinboard-homeassistant)),
+paste a token from **Settings → Integrations**, and you get:
+
+| | |
+|---|---|
+| **20 entities** | next appointment (with the person's name and start time), what's on today, whose birthday is next, which children have school tomorrow, what's for dinner, open and overdue tasks, pocket money per child, saving-goal progress, and **the next bin collection** |
+| **Two real to-do lists** | shopping and tasks as `todo` entities — tick one in Home Assistant and it ticks in Kinboard, add one in Kinboard and it appears there. The To-do card, voice assistants and `todo.*` services all work with no glue |
+| **A calendar** | `calendar.kinboard_family_calendar`, including events that merely overlap the day you're looking at |
+| **Services** | add a shopping item, create a task, write a note, credit pocket money, dismiss a hint, force a refresh |
+| **Events** | a task ticked, a shopping item added, an appointment created, a device joined, a saving goal reached, the day's context changing |
+
+The events come from **database triggers**, not the API layer — so a task ticked
+on the kitchen tablet fires one exactly as an automation does. Delivery is
+resumable: a restart of either system loses nothing.
+
+```yaml
+# The night before: tell everyone what tomorrow's lessons need.
+- alias: "Pack the school bag"
+  triggers:
+    - trigger: time
+      at: "19:30:00"
+  conditions:
+    - condition: template
+      value_template: "{{ states('sensor.kinboard_school_tomorrow') not in ['unknown','unavailable',''] }}"
+  actions:
+    - action: notify.notify
+      data:
+        message: >-
+          {{ states('sensor.kinboard_school_tomorrow') }} has school tomorrow —
+          first lesson {{ state_attr('sensor.kinboard_school_tomorrow','first_lesson') }}.
+```
+
+Eleven more, ready to paste, in
+[`examples/`](https://github.com/svenger87/kinboard-homeassistant/tree/main/examples) —
+each one loaded into a real Home Assistant by CI on every run, with every
+entity, service and event checked against the integration, so an example cannot
+quietly rot.
+
+Permissions are per-token and nothing is implied: a token that may add shopping
+items cannot create tasks, and a read-only token cannot write at all.
+
+
 Niche integrations (Tesla Fleet, Zendure SolarFlow batteries, etc.) ship as opt-in plugins. See the [Plugin development guide](https://github.com/svenger87/kinboard/wiki/Plugin-Development) to write your own.
 
 ---
