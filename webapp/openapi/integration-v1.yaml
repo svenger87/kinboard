@@ -487,6 +487,7 @@ components:
             - conflict
             - rate_limited
             - upstream_unavailable
+            - unavailable
             - internal_error
             - not_implemented
         correlationId:

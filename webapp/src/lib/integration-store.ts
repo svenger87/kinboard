@@ -34,6 +34,21 @@ export interface StoredToken {
  * unknown, revoked or expired is decided by `evaluateToken`, and all three
  * answer the caller identically.
  */
+/**
+ * Thrown when the token cannot be *checked*, as distinct from being wrong.
+ *
+ * These are not the same answer and must never be given the same one. "No such
+ * token" is a permanent verdict a client should act on; "the database did not
+ * respond" is a temporary condition it should retry through.
+ */
+export class TokenLookupUnavailable extends Error {
+  constructor(cause?: unknown) {
+    super("Could not verify the token");
+    this.name = "TokenLookupUnavailable";
+    this.cause = cause;
+  }
+}
+
 export async function findTokenByHash(hash: string): Promise<StoredToken | null> {
   const supabase = createAdminClient();
 
@@ -43,7 +58,14 @@ export async function findTokenByHash(hash: string): Promise<StoredToken | null>
     .eq("token_hash", hash)
     .maybeSingle();
 
-  if (error || !data) return null;
+  // `if (error || !data) return null` collapsed these two, and the collapse had
+  // teeth: during a Kinboard restart the lookup errors for a few seconds, the
+  // caller was told 401, and Home Assistant — correctly believing a 401 — put
+  // the integration into "reauthentication required" and STOPPED POLLING until
+  // a human intervened. A database hiccup permanently disabled the
+  // integration, and nothing in the logs said why.
+  if (error) throw new TokenLookupUnavailable(error);
+  if (!data) return null;
   return data as StoredToken;
 }
 
