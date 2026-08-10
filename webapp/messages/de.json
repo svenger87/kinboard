@@ -3841,6 +3841,8 @@
     "allAlbums": "Alle Alben",
     "albumCount": "{count} Einträge",
     "emptyAlbumTitle": "Nichts in diesem Album",
-    "emptyAlbumBody": "In diesem Ordner sind keine Fotos. Kinboard schaut nicht in Unterordner — öffne stattdessen einen davon."
+    "emptyAlbumBody": "In diesem Ordner sind keine Fotos. Kinboard schaut nicht in Unterordner — öffne stattdessen einen davon.",
+    "screensaverOnlyTitle": "Unsplash ist für den Ruhebildschirm",
+    "screensaverOnlyBody": "Unsplash liefert eine kuratierte Auswahl, die monatlich wechselt — es gibt kein Album von dir zum Durchblättern, und bei jedem Öffnen dieser Seite eine Seite Fotos anzufordern würde das gemeinsame Limit aufbrauchen. Verbinde Immich, einen DLNA-Server oder ein geteiltes iCloud-Album, um deine eigenen Fotos zu sehen."
   }
 }

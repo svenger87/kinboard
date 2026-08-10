@@ -3841,6 +3841,8 @@
     "allAlbums": "All albums",
     "albumCount": "{count} items",
     "emptyAlbumTitle": "Nothing in this album",
-    "emptyAlbumBody": "This folder has no photos in it. Kinboard doesn’t look inside subfolders — open one of those instead."
+    "emptyAlbumBody": "This folder has no photos in it. Kinboard doesn’t look inside subfolders — open one of those instead.",
+    "screensaverOnlyTitle": "Unsplash is for the idle screen",
+    "screensaverOnlyBody": "Unsplash hands out a curated set that rotates monthly — there is no album of yours to walk through, and asking it for a page of photographs every time this screen opens would exhaust the shared rate limit. Connect Immich, a DLNA server or an iCloud Shared Album to browse your own."
   }
 }

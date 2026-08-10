@@ -3841,6 +3841,8 @@
     "allAlbums": "Tous les albums",
     "albumCount": "{count} éléments",
     "emptyAlbumTitle": "Rien dans cet album",
-    "emptyAlbumBody": "Ce dossier ne contient aucune photo. Kinboard ne regarde pas dans les sous-dossiers — ouvrez-en un directement."
+    "emptyAlbumBody": "Ce dossier ne contient aucune photo. Kinboard ne regarde pas dans les sous-dossiers — ouvrez-en un directement.",
+    "screensaverOnlyTitle": "Unsplash est pour l'écran de veille",
+    "screensaverOnlyBody": "Unsplash propose une sélection qui change chaque mois — il n'y a pas d'album à vous pour le parcourir, et demander une page de photos à chaque ouverture de cet écran épuiserait la limite partagée. Connectez Immich, un serveur DLNA ou un album partagé iCloud pour parcourir les vôtres."
   }
 }
