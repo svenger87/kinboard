@@ -77,8 +77,8 @@ Family logistics are scattered across calendars, chat threads, sticky notes, and
 | **Energy dashboard** — solar / battery / grid live flow + charts | [Smart home → Energy](https://github.com/svenger87/kinboard/wiki/Smart-Home#energy) |
 | **Cameras** — live WebRTC streams (via go2rtc) | [Cameras](https://github.com/svenger87/kinboard/wiki/Cameras) |
 | **Pocket money** — per-kid virtual accounts with parent-configurable APR, allowance cron, saving goals + parent-approval queue, evolving avatar (5 species × 8 stages) | [Pocket Money](https://github.com/svenger87/kinboard/wiki/Pocket-Money) |
-| **Photos** — browse the family library by album, full-screen viewer; sources: Immich, a DLNA server on your NAS, an iCloud Shared Album, or Unsplash | [Photos](https://github.com/svenger87/kinboard/wiki/Photos) |
-| **Photo screensaver** — Immich monthly album or Unsplash fallback, presence-aware blanking | [Screensaver](https://github.com/svenger87/kinboard/wiki/Screensaver) |
+| **Photos** — album grid, full-screen viewer and a dashboard widget; sources: Immich, a DLNA server on your NAS, or an iCloud Shared Album — no account needed for the last two | [Photos](https://github.com/svenger87/kinboard/wiki/Photos) |
+| **Photo screensaver** — the same library as the Photos page (Immich monthly album, DLNA, iCloud) or Unsplash as a no-setup fallback, presence-aware blanking | [Screensaver](https://github.com/svenger87/kinboard/wiki/Screensaver) |
 | **Weather** — current + hourly + radar (OpenWeatherMap) | [OpenWeatherMap](https://github.com/svenger87/kinboard/wiki/OpenWeatherMap) |
 | **Web push notifications** — shopping items, task assignments, daily todo digest. **PWA install** required on iOS. | [Notifications](https://github.com/svenger87/kinboard/wiki/Notifications) |
 | **Multi-device + multi-person** — devices join a family with a 6-char code, per-person color coding everywhere | [People & devices](https://github.com/svenger87/kinboard/wiki/People-and-Devices) |
@@ -187,7 +187,10 @@ Every screenshot has a light-mode variant with a `-light` suffix, and the phone-
 | OpenWeatherMap | Weather forecasts + radar | Optional, free tier OK |
 | Google Calendar | Two-way calendar sync | Optional |
 | CalDAV (Nextcloud, Radicale, Fastmail, iCloud, …) | Two-way calendar sync without Google | Optional |
-| Immich | Photo screensaver and gallery | Optional |
+| Immich | Photos: screensaver, album viewer and dashboard widget | Optional |
+| DLNA media server (MiniDLNA, Jellyfin, Plex, Synology, QNAP) | The same photos off a NAS you already run — no account, no API key | Optional |
+| iCloud Shared Album | The same, from a public album link on an iPhone — no Apple ID | Optional |
+| Unsplash | Curated stock photos for the screensaver when you have no library of your own | Optional, free tier OK |
 | Home Assistant | Smart-home entities and energy — **and, since 1.9.0, [the other way round](https://github.com/svenger87/kinboard-homeassistant): Kinboard's calendar, lists and family state as Home Assistant entities** | Optional |
 | Bring! | Shopping list sync (built-in list works without it) | Optional |
 | go2rtc | WebRTC camera streams | Optional |
@@ -238,6 +241,7 @@ The wiki is the source of truth for everything beyond this README:
 **Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](https://github.com/svenger87/kinboard/wiki/Security-and-Threat-Model) and [`SECURITY.md`](SECURITY.md).
 
 ### Recently shipped
+- [x] **Settings lock, demo completeness, theme-aware sensors** (v1.7.0) — the settings PIN could be bypassed while it was still loading and the prompt could vanish mid-entry; both are closed. Pocket-money settings save again, the getting-started checklist no longer takes over a wall display, and pale sensor and forecast colours are readable in every theme
 - [x] **Custom RSS feeds, pocket-money corrections, safer image search** (v1.6.0) — News sources accepts any RSS or Atom feed alongside the built-in publishers; pocket-money goals can finally be renamed, re-targeted and deleted; the saving avatar reflects the current balance rather than lifetime earnings, and daily interest stopped discarding its sub-cent remainder; shopping-list image search moved off scraped search pages that could return unrelated or adult results
 - [x] **Restore from backup, meal-plan digest, notification fixes** (v1.5.0) — the join screen can rebuild a whole family from a Kinboard export file; an optional evening push lists tomorrow's planned meals; settings writes now go through the app server instead of straight from the browser to the database; Undo works on the shopping kiosk, offline included
 - [x] **Security hardening, backup & export, undo** (v1.4.0) — integration credentials and the settings PIN moved to server-only storage; Settings → Data & backup can export everything to JSON or publish a secret ICS feed of your calendar; deleted items get an Undo toast; birthday reminders now actually send a push; the webapp container reports health for automated monitoring

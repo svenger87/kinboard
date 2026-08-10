@@ -1,5 +1,9 @@
 # Immich photos
 
+Immich is one of four [photo sources](Photos). Connecting it lights up the
+[screensaver](Screensaver), the [Photos page](Photos) and the dashboard photo
+widget together — there is no second thing to configure.
+
 Pull screensaver and gallery photos from your self-hosted [Immich](https://immich.app/) instance.
 
 ## What it does

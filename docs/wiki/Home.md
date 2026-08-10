@@ -28,7 +28,7 @@ See [Notifications](Notifications) for the push setup and [Shopping](Shopping) f
 
 ## Pick the integrations you actually use
 
-Kinboard's integrations are all opt-in and configured per-family in the in-app `/settings` UI — see the [README's integrations table](https://github.com/svenger87/kinboard#integrations) for the full list, or jump straight to a page: [Google-Calendar](Google-Calendar), [Home-Assistant](Home-Assistant), [Immich](Immich), [Bring](Bring), [OpenWeatherMap](OpenWeatherMap), [Cameras](Cameras).
+Kinboard's integrations are all opt-in and configured per-family in the in-app `/settings` UI — see the [README's integrations table](https://github.com/svenger87/kinboard#integrations) for the full list, or jump straight to a page: [Google-Calendar](Google-Calendar), [Home-Assistant](Home-Assistant), [Photos](Photos) (Immich, a DLNA server, or an iCloud Shared Album), [Bring](Bring), [OpenWeatherMap](OpenWeatherMap), [Cameras](Cameras).
 
 ## Kiosk setups
 
