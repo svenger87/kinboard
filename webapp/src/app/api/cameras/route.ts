@@ -191,7 +191,15 @@ export async function GET(request: NextRequest) {
         // Log the reason — this is the only place it exists — but keep it
         // off the wire: the text can quote the URL, credentials and all.
         const detail = await response.text().catch(() => "");
-        console.error(`Camera ${cameraId}: go2rtc returned ${response.status}`, detail);
+        // Values as fields, not interpolated into the first argument:
+        // console.error treats that one as a format string, and cameraId
+        // comes off the query string, so a "%s" in it would consume the
+        // detail that follows.
+        console.error("go2rtc snapshot failed", {
+          cameraId,
+          status: response.status,
+          detail,
+        });
         return NextResponse.json(
           { error: "Streaming bridge could not reach the camera" },
           { status: 502 },
@@ -207,7 +215,8 @@ export async function GET(request: NextRequest) {
       // broken image and the log doesn't mention at all.
       if (frame.byteLength === 0) {
         console.error(
-          `Camera ${cameraId}: go2rtc returned an empty frame — camera unreachable, or the stream path is wrong`,
+          "go2rtc returned an empty frame — camera unreachable, or the stream path is wrong",
+          { cameraId },
         );
         return NextResponse.json(
           { error: "Streaming bridge could not reach the camera" },
