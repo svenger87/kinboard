@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     limit,
     familyId,
     mode: "product",
-    locale: searchParams.get("locale") ?? "de",
+    locale: searchParams.get("locale") ?? "en",
   });
 
   return NextResponse.json({

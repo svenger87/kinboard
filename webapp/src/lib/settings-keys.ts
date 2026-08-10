@@ -25,4 +25,6 @@ export const SETTINGS_KEYS = {
   cameras: "cameras",
   unsplash: "unsplash",
   locale: "locale",
+  weekStart: "week_start",
+  currency: "currency",
 } as const;

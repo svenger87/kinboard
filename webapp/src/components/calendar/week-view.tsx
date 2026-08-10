@@ -24,6 +24,7 @@ import { personStrongTint, personText } from "@/lib/person-color";
 import { layoutDayEvents, visibleHourRange } from "@/lib/calendar-layout";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTimeFormat } from "@/hooks/use-time-format";
+import { useWeekStart } from "@/hooks/use-week-start";
 import {
   Tooltip,
   TooltipContent,
@@ -62,13 +63,14 @@ export function WeekView({
   onSelectEvent,
 }: WeekViewProps) {
   const { formatTime, formatHourLabel, use24Hour } = useTimeFormat();
+  const { weekStartsOn } = useWeekStart();
   const t = useTranslations("calendar");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
 
   // Get days of the week
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+  const weekStart = startOfWeek(currentDate, { weekStartsOn });
+  const weekEnd = endOfWeek(currentDate, { weekStartsOn });
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
   // Check if event is multi-day

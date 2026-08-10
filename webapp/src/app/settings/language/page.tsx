@@ -17,6 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSetting, useUpdateSetting } from "@/hooks";
+import { DEFAULT_WEEK_START, type WeekStartPreference } from "@/hooks/use-week-start";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { COUNTRIES, DEFAULT_COUNTRY, type CountryCode } from "@/lib/holidays";
 import { LOCALES } from "@/i18n/locales";
 import { postLocale } from "@/lib/locale-client";
@@ -50,6 +52,26 @@ export default function LanguageSettingsPage() {
       console.error(e);
     } finally {
       setPending(null);
+    }
+  }
+
+  const { data: savedWeekStart } = useSetting<WeekStartPreference>(
+    SETTINGS_KEYS.weekStart,
+    DEFAULT_WEEK_START,
+  );
+  const weekStart: WeekStartPreference = savedWeekStart ?? DEFAULT_WEEK_START;
+  const updateWeekStart = useUpdateSetting<WeekStartPreference>();
+  const [weekStartSaving, setWeekStartSaving] = useState(false);
+
+  async function pickWeekStart(value: WeekStartPreference) {
+    if (value === weekStart || weekStartSaving) return;
+    setWeekStartSaving(true);
+    try {
+      await updateWeekStart.mutateAsync({ key: SETTINGS_KEYS.weekStart, value });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setWeekStartSaving(false);
     }
   }
 
@@ -125,6 +147,35 @@ export default function LanguageSettingsPage() {
                       {t(`country_${code}`)}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+          >
+            <Card className="p-6">
+              <div className="mb-4">
+                <p className="font-medium text-sm">{t("weekStartLabel")}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {t("weekStartDescription")}
+                </p>
+              </div>
+              <Select
+                value={weekStart}
+                onValueChange={(v) => pickWeekStart(v as WeekStartPreference)}
+                disabled={weekStartSaving}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="locale">{t("weekStart_locale")}</SelectItem>
+                  <SelectItem value="monday">{t("weekStart_monday")}</SelectItem>
+                  <SelectItem value="sunday">{t("weekStart_sunday")}</SelectItem>
                 </SelectContent>
               </Select>
             </Card>

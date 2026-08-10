@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
   const lat = searchParams.get("lat");
   const lon = searchParams.get("lon");
   const city = searchParams.get("city");
-  const rawLang = searchParams.get("lang") || "de";
-  const lang = ["de", "en", "fr"].includes(rawLang) ? rawLang : "de";
+  const rawLang = searchParams.get("lang") || "en";
+  const lang = ["de", "en", "fr"].includes(rawLang) ? rawLang : "en";
   const units = toUnitSystem(searchParams.get("units"));
 
   if (!OPENWEATHERMAP_API_KEY) {

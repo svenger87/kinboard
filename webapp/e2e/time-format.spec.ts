@@ -114,3 +114,73 @@ test.describe("the 12/24-hour setting", () => {
     expect(source).toContain("[updateInterval, use24Hour]");
   });
 });
+
+/**
+ * The same class of defect as the clock, one category out: a convention chosen
+ * at author-time that is right in Germany and wrong elsewhere. Each of these
+ * was live until the fix that added this block.
+ */
+test.describe("locale conventions", () => {
+  test("the week does not start on a hardcoded Monday", () => {
+    const offenders: string[] = [];
+
+    for (const file of uiSources()) {
+      const rel = file.replace(`${SRC}/`, "");
+      // The hook is where the choice legitimately resolves to a number.
+      if (rel === "hooks/use-week-start.ts") continue;
+      const source = readFileSync(file, "utf8");
+      for (const [i, line] of source.split("\n").entries()) {
+        if (/weekStartsOn:\s*[0-6]\b/.test(line) || /weekStartsOn\s*=\s*[0-6]\b/.test(line)) {
+          offenders.push(`${rel}:${i + 1}  ${line.trim().slice(0, 70)}`);
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      `Hardcoded week start — use useWeekStart():\n  ${offenders.join("\n  ")}`,
+    ).toEqual([]);
+  });
+
+  test("no UI file hardcodes German as a locale", () => {
+    // `locale = de` on the date-picker meant every picker in the app showed
+    // German weekday names, whatever language the household reads.
+    const offenders: string[] = [];
+
+    for (const file of uiSources()) {
+      const rel = file.replace(`${SRC}/`, "");
+      const source = readFileSync(file, "utf8");
+      for (const [i, line] of source.split("\n").entries()) {
+        if (/\blocale\s*[=:]\s*(de\b|"de(-DE)?")/.test(line) && !line.trim().startsWith("//")) {
+          offenders.push(`${rel}:${i + 1}  ${line.trim().slice(0, 70)}`);
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      `German pinned as a locale default:\n  ${offenders.join("\n  ")}`,
+    ).toEqual([]);
+  });
+
+  test("server routes do not fall back to German", () => {
+    // A missing `lang` parameter used to answer in German — for weather, the
+    // forecast, image search and the Bring catalogue.
+    const routes = walk(join(SRC, "app", "api"));
+    const offenders: string[] = [];
+
+    for (const file of routes) {
+      const source = readFileSync(file, "utf8");
+      for (const [i, line] of source.split("\n").entries()) {
+        if (/(\|\||\?\?)\s*"de(-DE)?"/.test(line)) {
+          offenders.push(`${file.replace(`${SRC}/`, "")}:${i + 1}  ${line.trim().slice(0, 70)}`);
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      `Server route defaulting to German:\n  ${offenders.join("\n  ")}`,
+    ).toEqual([]);
+  });
+});
