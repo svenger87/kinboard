@@ -30,7 +30,7 @@ export function PhotosWidget() {
   const enabled = useIsPluginEnabled("photos");
   // A handful is plenty to rotate through, and asking for the whole library to
   // show one picture would make every dashboard load pay for the viewer.
-  const { photos, isLoading } = usePhotoLibrary(12);
+  const { photos, isLoading, screensaverOnly } = usePhotoLibrary(12);
   const [activeIdx, setActiveIdx] = useState(0);
 
   useEffect(() => {
@@ -50,6 +50,21 @@ export function PhotosWidget() {
         description={t("photosDisabled")}
         ctaLabel={t("enableCta")}
         ctaHref="/settings/plugins"
+      />
+    );
+  }
+
+  // Unsplash feeds the idle screen and cannot be browsed — say so rather than
+  // asking them to connect the source they have already connected.
+  if (screensaverOnly) {
+    return (
+      <PluginDiscoverCard
+        pluginId="photos"
+        icon={Images}
+        title={tp("screensaverOnlyTitle")}
+        description={tp("screensaverOnlyBody")}
+        ctaLabel={t("addCta")}
+        ctaHref="/settings/photos"
       />
     );
   }

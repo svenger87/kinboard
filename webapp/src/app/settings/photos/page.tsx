@@ -45,6 +45,8 @@ import {
 } from "@/components/ui/dialog";
 import {
   isImmichConnected,
+  useDlnaStatus,
+  useIcloudStatus,
   useImmichStatus,
   useImmichAlbums,
   useSaveImmichSettings,
@@ -101,7 +103,14 @@ export default function PhotoSettingsPage() {
   const testUnsplashConnection = useTestUnsplashConnection();
   const disconnectUnsplashMutation = useDisconnectUnsplash();
 
-  const unsplashConnected = !!unsplashSettings?.access_key;
+  // Unsplash keeps its access key in `integration_secrets`, merged in
+  // server-side — the browser never sees it, so the row existing is the
+  // strongest signal available here.
+  const unsplashConnected = !!unsplashSettings;
+  const { data: dlnaSettings } = useDlnaStatus();
+  const { data: icloudSettings } = useIcloudStatus();
+  const dlnaConnected = !!dlnaSettings?.control_url;
+  const icloudConnected = !!icloudSettings?.token;
 
   // ── Unsplash local state ──
   const [unsplashKey, setUnsplashKey] = useState("");
@@ -308,7 +317,9 @@ export default function PhotoSettingsPage() {
           subtitle={t("subtitle")}
         />
 
-        {!immichConnected && !unsplashConnected && (
+        {/* "Nothing is set up yet" has to mean all four, or a family who
+            connected a NAS is told they have no photo source. */}
+        {!immichConnected && !unsplashConnected && !dlnaConnected && !icloudConnected && (
           <IntegrationConfigHint
             title={t("notConfiguredTitle")}
             description={t("notConfiguredDescription")}

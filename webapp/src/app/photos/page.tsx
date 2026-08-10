@@ -35,7 +35,7 @@ export default function PhotosPage() {
   const here = path.length > 0 ? path[path.length - 1] : null;
 
   const { albums, isLoading: albumsLoading, browsable } = usePhotoAlbums(here?.id ?? "0");
-  const { photos, isLoading, isEmpty } = usePhotoLibrary(200, here?.id);
+  const { photos, isLoading, isEmpty, screensaverOnly } = usePhotoLibrary(200, here?.id);
 
   // Index of the photo open full-screen, or null for the grid.
   const [openAt, setOpenAt] = useState<number | null>(null);
@@ -107,7 +107,20 @@ export default function PhotosPage() {
           </Card>
         )}
 
-        {isEmpty && albums.length === 0 && path.length === 0 && (
+        {screensaverOnly && (
+          <Card className="flex flex-col items-center gap-4 p-10 text-center">
+            <Images className="size-10 text-muted-foreground" />
+            <div>
+              <p className="font-medium">{t("screensaverOnlyTitle")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t("screensaverOnlyBody")}</p>
+            </div>
+            <Link href="/settings/photos">
+              <Button className="min-h-[44px]">{t("emptyAction")}</Button>
+            </Link>
+          </Card>
+        )}
+
+        {!screensaverOnly && isEmpty && albums.length === 0 && path.length === 0 && (
           <Card className="flex flex-col items-center gap-4 p-10 text-center">
             <Images className="size-10 text-muted-foreground" />
             <div>
@@ -211,8 +224,15 @@ export default function PhotosPage() {
             role="dialog"
             aria-modal="true"
             aria-label={open.title ?? t("title")}
+            // Tapping the dark surround closes, which is what people try first
+            // on a touch panel. The image and the controls stop the event, so
+            // only the backdrop itself counts.
+            onClick={() => setOpenAt(null)}
           >
-            <div className="flex items-center justify-between gap-3 p-4">
+            {/* `safe-area-inset` because a wall tablet running full-screen puts
+                a status bar over the top of the viewport, and the close button
+                is the one control that must never be under it. */}
+            <div className="safe-area-inset flex items-center justify-between gap-3 p-4">
               <div className="min-w-0 text-white">
                 {open.title && <p className="truncate font-medium">{open.title}</p>}
                 {formatDate(open.date) && (
@@ -222,9 +242,14 @@ export default function PhotosPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setOpenAt(null)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenAt(null);
+                }}
                 aria-label={t("close")}
-                className="min-h-[44px] min-w-[44px] text-white hover:bg-white/10"
+                // A bordered surface rather than a bare glyph: over a bright
+                // photo a ghost button is a white X on white.
+                className="min-h-[44px] min-w-[44px] shrink-0 rounded-full border border-white/25 bg-black/50 text-white hover:bg-black/70"
               >
                 <X className="size-6" />
               </Button>
@@ -234,7 +259,10 @@ export default function PhotosPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => step(-1)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  step(-1);
+                }}
                 aria-label={t("previous")}
                 className="absolute left-2 min-h-[44px] min-w-[44px] text-white hover:bg-white/10"
               >
@@ -247,13 +275,17 @@ export default function PhotosPage() {
                 animate={{ opacity: 1 }}
                 src={open.url}
                 alt={open.title ?? ""}
+                onClick={(e) => e.stopPropagation()}
                 className="max-h-full max-w-full rounded-lg object-contain"
               />
 
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => step(1)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  step(1);
+                }}
                 aria-label={t("next")}
                 className="absolute right-2 min-h-[44px] min-w-[44px] text-white hover:bg-white/10"
               >
