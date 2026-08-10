@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-import { fetchSnapshot, isRtspUrl, withRtspCredentials } from "@/lib/go2rtc";
+import {
+  clampSnapshotWidth,
+  fetchSnapshot,
+  isRtspUrl,
+  withRtspCredentials,
+} from "@/lib/go2rtc";
 import { createHash } from "crypto";
 import type { CameraSettings, CameraConfig } from "@/types/home-assistant";
 
@@ -110,6 +115,11 @@ export async function GET(request: NextRequest) {
   const familyId = searchParams.get("family_id");
   const cameraId = searchParams.get("camera_id");
   const type = searchParams.get("type") || "snapshot"; // snapshot or stream
+  // Optional, and only meaningful for a camera go2rtc is decoding for us: a
+  // tile does not need a 4K frame. Clamped rather than trusted — it arrives
+  // in the query string. Ignored for a camera with its own snapshot URL,
+  // where the picture comes from the camera at whatever size it sends.
+  const width = clampSnapshotWidth(searchParams.get("w"));
 
   if (!familyId || !cameraId) {
     return NextResponse.json(
@@ -176,7 +186,7 @@ export async function GET(request: NextRequest) {
     // goes in the Snapshot URL field and is fetched directly, below.
     if (isRtspUrl(url)) {
       try {
-        response = await fetchSnapshot(withRtspCredentials(url, camera.auth), signal);
+        response = await fetchSnapshot(withRtspCredentials(url, camera.auth), signal, width);
       } catch (err) {
         // Not the camera — go2rtc itself is unreachable. Distinct from a
         // camera that won't answer, and a distinct thing to go and fix.

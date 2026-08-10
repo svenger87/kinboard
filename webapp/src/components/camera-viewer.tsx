@@ -42,6 +42,20 @@ function ScanlineOverlay() {
   );
 }
 
+// How wide a frame to ask go2rtc for, by where it is being drawn.
+//
+// A camera's own resolution used to come through untouched, which for a 4K
+// camera is ~700 KB of JPEG every 5 seconds per tile, painted into a box a
+// few hundred pixels wide. These are generous enough for a hi-dpi panel and
+// still an order of magnitude less data — the same 4K camera returns ~44 KB
+// at 640. The full-screen dialog is capped near 1024 CSS pixels, so 1600
+// covers it on a 2x display.
+//
+// Only cameras go2rtc decodes for us are affected. One with its own snapshot
+// URL is fetched from the camera at whatever size the camera sends.
+const SNAPSHOT_WIDTH_TILE = 640;
+const SNAPSHOT_WIDTH_FULLSCREEN = 1600;
+
 // "LIVE" pill — red dot + label, shown only when a stream is actively rendering.
 function LivePill({ label }: { label: string }) {
   return (
@@ -95,9 +109,14 @@ export function CameraViewer({
   // be an rtsp:// URL. The browser cannot open one, so it buys nothing, and
   // it would put the camera's password into the DOM to fail with. Null
   // instead, and the tile waits the moment out.
-  const getStreamUrl = useCallback((type: "snapshot" | "stream" = "snapshot") => {
+  const getStreamUrl = useCallback((
+    type: "snapshot" | "stream" = "snapshot",
+    width?: number,
+  ) => {
     if (family?.id) {
-      return `/api/cameras?family_id=${family.id}&camera_id=${cameraId}&type=${type}&t=${Date.now()}`;
+      return `/api/cameras?family_id=${family.id}&camera_id=${cameraId}&type=${type}`
+        + (width ? `&w=${width}` : "")
+        + `&t=${Date.now()}`;
     }
     const direct = type === "snapshot" ? (snapshot_url || stream_url) : stream_url;
     return /^rtsps?:\/\//i.test(direct ?? "") ? null : direct;
@@ -367,7 +386,12 @@ export function CameraViewer({
         // connection above comes up with real video.
         return (
           <AutoRefreshSnapshot
-            getUrl={() => getStreamUrl("snapshot")}
+            getUrl={() =>
+              getStreamUrl(
+                "snapshot",
+                isFullscreen ? SNAPSHOT_WIDTH_FULLSCREEN : SNAPSHOT_WIDTH_TILE,
+              )
+            }
             alt={name}
             containerClass={containerClass}
             isFullscreen={isFullscreen}

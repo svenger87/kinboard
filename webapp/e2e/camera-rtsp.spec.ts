@@ -1,7 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { isRtspUrl, withRtspCredentials, snapshotUrl, webrtcUrl } from "../src/lib/go2rtc";
+import {
+  clampSnapshotWidth,
+  isRtspUrl,
+  withRtspCredentials,
+  snapshotUrl,
+  webrtcUrl,
+} from "../src/lib/go2rtc";
 
 /**
  * The camera form has offered "RTSP" as a stream type since the first
@@ -72,6 +78,36 @@ test("the source is encoded into the go2rtc query, not concatenated", () => {
   const rtc = new URL(webrtcUrl(src));
   expect(rtc.searchParams.get("src")).toBe(src);
   expect(rtc.pathname).toBe("/api/webrtc");
+});
+
+/**
+ * A 4K camera's full frame is ~700 KB of JPEG, sent every 5 seconds per tile
+ * per viewer, to be drawn into a box a few hundred pixels wide. Measured on
+ * a real Amcrest at 3840x2160: 696 KB unscaled, 44 KB at width=640, for the
+ * same server-side decode cost. That is the whole reason this parameter
+ * exists — the saving is transfer and browser decode, not go2rtc's work.
+ */
+test("a width is passed to go2rtc, and omitted when not asked for", () => {
+  const src = "rtsp://10.0.0.5:554/live";
+
+  expect(new URL(snapshotUrl(src, 640)).searchParams.get("width")).toBe("640");
+  // No width means "whatever the camera sends" — unchanged behaviour.
+  expect(new URL(snapshotUrl(src)).searchParams.has("width")).toBe(false);
+});
+
+test("the width is clamped rather than trusted", () => {
+  // It arrives in a query string, so a caller can ask for anything.
+  expect(clampSnapshotWidth("640")).toBe(640);
+  expect(clampSnapshotWidth("999999")).toBe(3840);
+  expect(clampSnapshotWidth("1")).toBe(64);
+  expect(clampSnapshotWidth("640.7")).toBe(640);
+
+  // Absent or nonsense means "don't scale", not "scale to zero".
+  expect(clampSnapshotWidth(null)).toBeUndefined();
+  expect(clampSnapshotWidth("")).toBeUndefined();
+  expect(clampSnapshotWidth("wide")).toBeUndefined();
+  expect(clampSnapshotWidth("-100")).toBeUndefined();
+  expect(clampSnapshotWidth("0")).toBeUndefined();
 });
 
 /**

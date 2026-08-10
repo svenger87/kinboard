@@ -59,12 +59,40 @@ export function withRtspCredentials(
 }
 
 /**
+ * Widest snapshot we will ask go2rtc for, and the floor. A camera's own
+ * resolution is the real cap — go2rtc does not upscale — so these only exist
+ * to stop a caller asking for something absurd, since the width arrives in a
+ * query string.
+ */
+const MIN_SNAPSHOT_WIDTH = 64;
+const MAX_SNAPSHOT_WIDTH = 3840;
+
+/** Clamp to something sane, or undefined for "whatever the camera sends". */
+export function clampSnapshotWidth(width: unknown): number | undefined {
+  const n = typeof width === "string" ? Number.parseInt(width, 10) : Number(width);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return Math.min(MAX_SNAPSHOT_WIDTH, Math.max(MIN_SNAPSHOT_WIDTH, Math.trunc(n)));
+}
+
+/**
  * A single JPEG of the current frame. go2rtc connects to the camera on the
  * first call and holds the stream open, so the second call is fast; the
  * caller's polling interval sets how often we ask.
+ *
+ * `width` asks go2rtc to scale the frame down before encoding, and it matters
+ * more than it looks. A 4K camera's full frame is ~700 KB of JPEG, sent every
+ * 5 seconds per tile per viewer, to be drawn into a box a few hundred pixels
+ * wide. Asking for 640 makes it ~44 KB — the same picture, 16x less of it.
+ * The server-side cost is unchanged: decoding the 4K frame is the expensive
+ * part and happens either way. What this saves is the transfer and the
+ * browser's own decode, which is what the wall display actually feels.
  */
-export function snapshotUrl(src: string): string {
-  return `${baseUrl()}/api/frame.jpeg?src=${encodeURIComponent(src)}`;
+export function snapshotUrl(src: string, width?: number): string {
+  const w = clampSnapshotWidth(width);
+  return (
+    `${baseUrl()}/api/frame.jpeg?src=${encodeURIComponent(src)}` +
+    (w ? `&width=${w}` : "")
+  );
 }
 
 /** WebRTC signalling endpoint. Takes an SDP offer, answers with an SDP answer. */
@@ -72,6 +100,10 @@ export function webrtcUrl(src: string): string {
   return `${baseUrl()}/api/webrtc?src=${encodeURIComponent(src)}`;
 }
 
-export function fetchSnapshot(src: string, signal?: AbortSignal): Promise<Response> {
-  return fetch(snapshotUrl(src), { signal });
+export function fetchSnapshot(
+  src: string,
+  signal?: AbortSignal,
+  width?: number,
+): Promise<Response> {
+  return fetch(snapshotUrl(src, width), { signal });
 }

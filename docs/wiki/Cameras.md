@@ -48,7 +48,7 @@ Credentials can go either in the URL, as above, or in the **Authentication** fie
 
 What you see depends on whether WebRTC can connect:
 
-- The tile starts on a still image refreshed every 5 seconds (2 seconds full-screen), which works everywhere.
+- The tile starts on a still image refreshed every 5 seconds (2 seconds full-screen), which works everywhere. It is requested at the size it will be drawn rather than the camera's own — a 4K camera sends about 44 KB for a tile instead of 700 KB, which matters on a wall display refreshing several of them forever.
 - If a WebRTC connection comes up, live video replaces it. That needs `WEBRTC_LAN_IP` set and UDP 8555 reachable — see the WebRTC section below.
 
 So a camera with no WebRTC path still shows a picture rather than a black rectangle, and one with a working path shows live video.
@@ -157,6 +157,7 @@ If the device isn't present, ffmpeg silently falls back to software encode and t
 | **Multiple cameras lock up after a few hours** | Some cameras only allow one RTSP session. Use go2rtc named streams (config in `go2rtc.yaml`) so go2rtc dedupes the underlying connection. |
 | **RTSP tile says "Snapshot could not be loaded"** | The camera isn't answering go2rtc. Check the webapp log: it distinguishes "empty frame" (go2rtc reached, camera didn't answer — wrong path, wrong port, camera off) from "bridge unavailable" (the go2rtc container isn't running or `GO2RTC_URL` is wrong). Note that go2rtc reports an unreachable camera as an empty 200 rather than an error, so its own log may look untroubled. Before 1.9.0 this message appeared for *every* RTSP camera regardless of the URL — if you are on an older version, that is what you are seeing. |
 | **RTSP shows a refreshing still, never live video** | WebRTC never connected. That is the designed fallback, not a fault — but if you want video, set `WEBRTC_LAN_IP` to the host's LAN IP and open UDP 8555. The browser console logs the ICE connection state. |
+| **One camera's tile is slower than the others** | Almost always resolution, not a fault. A 4K frame takes roughly three times as long to decode as a 1440p one, every refresh. Kinboard asks go2rtc to scale tiles down, which cuts the transfer sharply but not the decode. If it still lags, point that camera at its sub-stream (`subtype=1` on Amcrest/Dahua, `/Streaming/Channels/102` on Hikvision) — ample for a tile — or give it a named `go2rtc.yaml` entry with `#hardware=vaapi` so the GPU does the decoding. |
 
 ## Related
 
