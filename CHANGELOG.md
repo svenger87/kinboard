@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **One typeface across the interface.** Small labels — the caption under the clock, the headings on birthdays, energy, todos, shopping, the setup steps — were set in a monospace face while everything around them used the body font, which made the same screen look assembled from two different products. They use the body font now. The monospace face stays where it earns its keep: things you type, read out or copy, such as the join code, the settings PIN, device identifiers, calendar URLs, API tokens and keyboard keys.
+
 ### Fixed
 - **The 12-hour clock setting is respected everywhere.** Three places kept showing 24-hour time however the switch was set: the screensaver, which never asked; the calendar's day timeline and its week gutter, which wrote the hour out by hand; and the dashboard clock for up to a minute after a cold start, because it drew once with the default and then waited for the next minute to tick before correcting itself. That last one is why it looked right again after leaving the page and coming back.
 

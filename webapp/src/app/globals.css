@@ -366,8 +366,17 @@
    responds to the text-scale accessibility setting. */
 @layer components {
   .text-kiosk-label {
+    /* Deliberately the body face, not the mono one.
+       This carried `font-family: var(--font-mono)` from the Salbei/Leinen
+       redesign onwards, which put Space Mono on every small label in the
+       product — the clock's caption, birthdays, energy, todos, shopping, the
+       setup wizard, twenty-one places in all. Uppercase and letter-spaced is
+       what makes a label read as a label; a second typeface on top of that
+       just makes the page look assembled from two products.
+       Space Mono stays where it earns its keep: things you type, read out or
+       copy — join codes, PINs, device ids, tokens, URLs, keyboard keys — which
+       set `font-mono` explicitly at their call sites and are untouched. */
     @apply text-[0.8125rem] uppercase tracking-wide font-medium;
-    font-family: var(--font-mono), monospace;
     color: hsl(var(--label-foreground));
   }
   /* Wall displays are not always wide: a 1080x1920 portrait panel is a kiosk
