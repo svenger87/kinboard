@@ -196,6 +196,12 @@ test("a route that still takes family_id checks it against the session", () => {
     // — the route never reads a family id out of the request, which is the
     // property this test is protecting.
     "integration-tokens/route.ts",
+    // WebRTC signalling. Same shape: the request names a camera_id, and the
+    // family it is looked up against comes from the session. Deliberately
+    // given no family_id parameter — this route resolves a camera to an RTSP
+    // URL with the camera's password in it, so "whose cameras" is not a
+    // question the caller gets to answer.
+    "cameras/webrtc/route.ts",
   ]);
 
   const missing: string[] = [];

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { fetchSnapshot, isRtspUrl, withRtspCredentials } from "@/lib/go2rtc";
 import { createHash } from "crypto";
 import type { CameraSettings, CameraConfig } from "@/types/home-assistant";
 
@@ -167,6 +168,61 @@ export async function GET(request: NextRequest) {
     // accumulated faster than they retired. `fetchWithDigestAuth` has
     // taken a signal all along; nothing ever passed one.
     const signal = AbortSignal.timeout(10_000);
+
+    // An rtsp:// URL is not something fetch() can open — it threw here, and
+    // the tile said "Snapshot could not be loaded" for every correctly
+    // configured RTSP camera. go2rtc speaks RTSP and hands back a JPEG.
+    // Cameras that also publish an HTTP still image are unaffected: that URL
+    // goes in the Snapshot URL field and is fetched directly, below.
+    if (isRtspUrl(url)) {
+      try {
+        response = await fetchSnapshot(withRtspCredentials(url, camera.auth), signal);
+      } catch (err) {
+        // Not the camera — go2rtc itself is unreachable. Distinct from a
+        // camera that won't answer, and a distinct thing to go and fix.
+        console.error("go2rtc unreachable (check GO2RTC_URL / the go2rtc service):", err);
+        return NextResponse.json(
+          { error: "Streaming bridge unavailable" },
+          { status: 502 },
+        );
+      }
+
+      if (!response.ok) {
+        // Log the reason — this is the only place it exists — but keep it
+        // off the wire: the text can quote the URL, credentials and all.
+        const detail = await response.text().catch(() => "");
+        console.error(`Camera ${cameraId}: go2rtc returned ${response.status}`, detail);
+        return NextResponse.json(
+          { error: "Streaming bridge could not reach the camera" },
+          { status: 502 },
+        );
+      }
+
+      const frame = await response.arrayBuffer();
+
+      // A camera that doesn't answer does NOT come back as an error status.
+      // go2rtc returns 200 with an empty body and no content-type — measured
+      // at ~5s against an unroutable address. Passing that straight through
+      // would be a 200 carrying nothing, which the browser reports as a
+      // broken image and the log doesn't mention at all.
+      if (frame.byteLength === 0) {
+        console.error(
+          `Camera ${cameraId}: go2rtc returned an empty frame — camera unreachable, or the stream path is wrong`,
+        );
+        return NextResponse.json(
+          { error: "Streaming bridge could not reach the camera" },
+          { status: 502 },
+        );
+      }
+
+      return new NextResponse(frame, {
+        status: 200,
+        headers: {
+          "Content-Type": response.headers.get("content-type") || "image/jpeg",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      });
+    }
 
     if (camera.auth) {
       if (camera.auth.type === "digest") {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import {
   Video,
@@ -64,6 +64,9 @@ export function CameraViewer({
   const [error, setError] = useState<string | null>(null);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+  // An RTSP camera starts on the snapshot and upgrades to live video if the
+  // WebRTC connection comes up. See `signalingUrl` below for why both.
+  const [rtspLive, setRtspLive] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -88,13 +91,40 @@ export function CameraViewer({
   //   2. Avoids leaking internal IPs / hostnames to the browser
   //      console + DNS.
   // Direct-URL fallback stays for the brief window before family
-  // hydrates, so the page doesn't break.
+  // hydrates, so the page doesn't break — except where that fallback would
+  // be an rtsp:// URL. The browser cannot open one, so it buys nothing, and
+  // it would put the camera's password into the DOM to fail with. Null
+  // instead, and the tile waits the moment out.
   const getStreamUrl = useCallback((type: "snapshot" | "stream" = "snapshot") => {
     if (family?.id) {
       return `/api/cameras?family_id=${family.id}&camera_id=${cameraId}&type=${type}&t=${Date.now()}`;
     }
-    return type === "snapshot" ? (snapshot_url || stream_url) : stream_url;
+    const direct = type === "snapshot" ? (snapshot_url || stream_url) : stream_url;
+    return /^rtsps?:\/\//i.test(direct ?? "") ? null : direct;
   }, [family?.id, cameraId, snapshot_url, stream_url]);
+
+  // Where to send the SDP offer, or null for a camera that isn't played over
+  // WebRTC at all.
+  //
+  // A `webrtc` camera points at whatever signalling server its owner
+  // configured, and keeps doing so. An `rtsp` camera goes through our own
+  // proxy, which looks the camera up by id and hands go2rtc the URL — so the
+  // RTSP credentials stay on the server, and the browser never learns the
+  // address of the camera. It needs the family loaded first, so this is null
+  // for the moment before that hydrates and the effect re-runs when it does.
+  //
+  // RTSP does not switch to video and stay there: WebRTC needs ICE to
+  // complete, which needs WEBRTC_LAN_IP set and UDP 8555 open, and plenty of
+  // installations have neither. So the snapshot renders immediately and video
+  // replaces it only once the connection is actually up — a camera that can't
+  // do WebRTC still shows a picture rather than a black rectangle.
+  const signalingUrl = useMemo(() => {
+    if (stream_type === "webrtc") return stream_url;
+    if (stream_type === "rtsp" && family?.id) {
+      return `/api/cameras/webrtc?camera_id=${encodeURIComponent(cameraId)}`;
+    }
+    return null;
+  }, [stream_type, stream_url, family?.id, cameraId]);
 
   // Cleanup WebRTC connection
   const cleanupWebRTC = useCallback(() => {
@@ -106,10 +136,15 @@ export function CameraViewer({
 
   // Initialize WebRTC connection
   const initWebRTC = useCallback(async () => {
-    if (stream_type !== "webrtc" || !videoRef.current) return;
+    if (!signalingUrl) return;
+
+    // An RTSP camera has no <video> element until the connection is up, so
+    // "is it mounted yet" cannot be the precondition it used to be; the track
+    // is parked in streamRef and attached by setVideoRef when it mounts.
+    const isFallbackCapable = stream_type === "rtsp";
 
     try {
-      setIsLoading(true);
+      if (!isFallbackCapable) setIsLoading(true);
       setError(null);
       cleanupWebRTC();
 
@@ -132,10 +167,17 @@ export function CameraViewer({
       pc.oniceconnectionstatechange = () => {
         console.log("[WebRTC] ICE connection state:", pc.iceConnectionState);
         if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
-          setError(t("errorConnectionLost"));
+          // For RTSP that is not an error the household needs to see — it
+          // means "no live video here", and the snapshot takes over.
+          if (isFallbackCapable) {
+            setRtspLive(false);
+          } else {
+            setError(t("errorConnectionLost"));
+          }
         }
         if (pc.iceConnectionState === "connected") {
           setIsLoading(false);
+          if (isFallbackCapable) setRtspLive(true);
         }
       };
 
@@ -152,10 +194,10 @@ export function CameraViewer({
         throw new Error("No SDP available");
       }
 
-      console.log("[WebRTC] Sending offer to:", stream_url);
+      console.log("[WebRTC] Sending offer to:", signalingUrl);
 
       // Send offer to signaling server (go2rtc expects JSON format)
-      const response = await fetch(stream_url, {
+      const response = await fetch(signalingUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -186,10 +228,14 @@ export function CameraViewer({
       console.log("[WebRTC] Remote description set, waiting for ICE connection");
     } catch (err) {
       console.error("WebRTC error:", err);
-      setError(err instanceof Error ? err.message : t("errorWebRTC"));
-      setIsLoading(false);
+      if (isFallbackCapable) {
+        setRtspLive(false);
+      } else {
+        setError(err instanceof Error ? err.message : t("errorWebRTC"));
+        setIsLoading(false);
+      }
     }
-  }, [stream_type, stream_url, cleanupWebRTC, t]);
+  }, [stream_type, signalingUrl, cleanupWebRTC, t]);
 
   // Handle video loaded
   const handleVideoLoaded = () => {
@@ -209,13 +255,24 @@ export function CameraViewer({
     setError(message);
   };
 
+  // A <video> that fails on an RTSP camera drops back to the snapshot rather
+  // than replacing a working picture with an error.
+  const handleVideoError = () => {
+    if (stream_type === "rtsp") {
+      setRtspLive(false);
+    } else {
+      handleError(t("errorVideoLoad"));
+    }
+  };
+
   // Initialize stream based on type
   useEffect(() => {
     if (!autoPlay) return;
 
-    if (stream_type === "webrtc") {
+    if (signalingUrl) {
       initWebRTC();
-    } else {
+    }
+    if (stream_type !== "webrtc") {
       setIsLoading(true);
       setError(null);
     }
@@ -223,7 +280,11 @@ export function CameraViewer({
     return () => {
       cleanupWebRTC();
     };
-  }, [stream_type, autoPlay, initWebRTC, cleanupWebRTC]);
+  }, [stream_type, signalingUrl, autoPlay, initWebRTC, cleanupWebRTC]);
+
+  // True when a <video> element is carrying the picture, as opposed to the
+  // polled still image.
+  const showsLiveVideo = stream_type === "webrtc" || rtspLive;
 
 
   // Render stream based on type
@@ -239,9 +300,10 @@ export function CameraViewer({
           <span className="text-sm font-medium text-white/80">{name}</span>
           <span className="text-xs text-white/50 text-center px-4">{error}</span>
           <Button variant="outline" size="sm" className="mt-1" onClick={() => {
-            if (stream_type === "webrtc") {
+            if (signalingUrl) {
               initWebRTC();
-            } else {
+            }
+            if (stream_type !== "webrtc") {
               setIsLoading(true);
               setError(null);
               // Force re-render of image
@@ -289,7 +351,7 @@ export function CameraViewer({
             )}
             <img
               ref={imgRef}
-              src={getStreamUrl("stream")}
+              src={getStreamUrl("stream") ?? undefined}
               alt={name}
               className="size-full object-contain"
               onLoad={handleImageLoaded}
@@ -300,7 +362,9 @@ export function CameraViewer({
         );
 
       case "rtsp":
-        // RTSP can't be played directly in browser - use auto-refreshing snapshot
+        // The browser can't open rtsp:// — the frames come from go2rtc as
+        // JPEGs through /api/cameras. Shown until (and unless) the WebRTC
+        // connection above comes up with real video.
         return (
           <AutoRefreshSnapshot
             getUrl={() => getStreamUrl("snapshot")}
@@ -325,7 +389,7 @@ export function CameraViewer({
       >
         {/* Camera Preview */}
         <div className="relative">
-          {stream_type === "webrtc" ? (
+          {showsLiveVideo ? (
             <div className="w-full aspect-video bg-black relative">
               {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -341,7 +405,7 @@ export function CameraViewer({
                   muted={isMuted}
                   className="size-full object-contain"
                   onLoadedData={handleVideoLoaded}
-                  onError={() => handleError(t("errorVideoLoad"))}
+                  onError={handleVideoError}
                 />
               )}
               {/* Placeholder when fullscreen is open */}
@@ -386,7 +450,7 @@ export function CameraViewer({
                 <DialogTitle>{name}</DialogTitle>
               </div>
               <div className="flex items-center gap-2">
-                {stream_type === "webrtc" && (
+                {showsLiveVideo && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -403,9 +467,10 @@ export function CameraViewer({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    if (stream_type === "webrtc") {
+                    if (signalingUrl) {
                       initWebRTC();
-                    } else {
+                    }
+                    if (stream_type !== "webrtc") {
                       setIsLoading(true);
                       setError(null);
                     }
@@ -420,7 +485,7 @@ export function CameraViewer({
 
           <div className="p-4 pt-2">
             <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-              {stream_type === "webrtc" ? (
+              {showsLiveVideo ? (
                 <>
                   {isLoading && (
                     <div className="absolute inset-0 flex items-center justify-center z-10">
@@ -435,7 +500,7 @@ export function CameraViewer({
                     muted={isMuted}
                     className="size-full object-contain"
                     onLoadedData={handleVideoLoaded}
-                    onError={() => handleError(t("errorVideoLoad"))}
+                    onError={handleVideoError}
                   />
                 </>
               ) : (
@@ -458,7 +523,7 @@ function AutoRefreshSnapshot({
   onLoad,
   onError,
 }: {
-  getUrl: () => string;
+  getUrl: () => string | null;
   alt: string;
   containerClass: string;
   isFullscreen: boolean;
@@ -470,6 +535,10 @@ function AutoRefreshSnapshot({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Re-read immediately as well as on the interval: getUrl changes identity
+    // when the family hydrates, and until then it can have nothing to give.
+    setImageUrl(getUrl());
+
     // Refresh rate: 2s in fullscreen, 5s in thumbnail
     const interval = isFullscreen ? 2000 : 5000;
 
@@ -487,19 +556,24 @@ function AutoRefreshSnapshot({
           <Loader2 className="size-8 animate-spin text-white/50" />
         </div>
       )}
-      <img
-        src={imageUrl}
-        alt={alt}
-        className="size-full object-contain"
-        onLoad={() => {
-          setIsLoading(false);
-          onLoad();
-        }}
-        onError={() => {
-          setIsLoading(false);
-          onError();
-        }}
-      />
+      {/* No <img> at all rather than one with an empty src, which browsers
+          treat as "reload this page's URL as an image" and report as a
+          broken picture. */}
+      {imageUrl && (
+        <img
+          src={imageUrl}
+          alt={alt}
+          className="size-full object-contain"
+          onLoad={() => {
+            setIsLoading(false);
+            onLoad();
+          }}
+          onError={() => {
+            setIsLoading(false);
+            onError();
+          }}
+        />
+      )}
       {!isFullscreen && <ScanlineOverlay />}
       <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/70 text-white text-xs flex items-center gap-1">
         <RefreshCw className="size-3" />

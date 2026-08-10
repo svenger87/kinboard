@@ -40,7 +40,18 @@ Open Settings → Cameras → **+ Camera**. For each camera:
 rtsp://user:pass@192.168.1.100:554/stream1
 ```
 
-go2rtc transcodes this to WebRTC for browser display. The streaming bridge uses the credentials from the URL.
+Paste the URL and that is the whole setup — Kinboard hands it to go2rtc, which connects to the camera and returns frames. You do not need an entry in `go2rtc.yaml` for this; that file is for the named streams described under WebRTC below.
+
+Credentials can go either in the URL, as above, or in the **Authentication** fields, in which case Kinboard puts them into the URL before passing it on. If the URL already carries them, the fields are left alone — so a password containing `@` or `%` that you have already percent-encoded is not re-encoded.
+
+**Snapshot URL is optional for RTSP.** It used to be effectively required, because an empty one fell back to the RTSP URL and nothing could open it. Leave it blank unless your camera publishes an HTTP still image you would rather use.
+
+What you see depends on whether WebRTC can connect:
+
+- The tile starts on a still image refreshed every 5 seconds (2 seconds full-screen), which works everywhere.
+- If a WebRTC connection comes up, live video replaces it. That needs `WEBRTC_LAN_IP` set and UDP 8555 reachable — see the WebRTC section below.
+
+So a camera with no WebRTC path still shows a picture rather than a black rectangle, and one with a working path shows live video.
 
 For Hikvision cameras the path is usually `/Streaming/Channels/101` (main) or `/Streaming/Channels/102` (sub). Use the sub-stream for tile thumbnails to save bandwidth.
 
@@ -52,7 +63,9 @@ For Amcrest/Dahua: `/cam/realmonitor?channel=1&subtype=0`.
 http://192.168.1.100:8080/webrtc?src=mycamera
 ```
 
-Used when your go2rtc instance is already configured with named camera entries (in `webapp/docker/go2rtc.yaml`). Stream URL points at the go2rtc API.
+Used when your go2rtc instance is already configured with named camera entries (in `webapp/docker/go2rtc.yaml`). Stream URL points at the go2rtc API. Within the bundled stack that is `/api/cameras/webrtc?src=<name>`, which proxies to go2rtc over the Docker network.
+
+Most people do not need this: an RTSP camera reaches WebRTC on its own now. Named streams are still worth it when several viewers watch one camera that only allows a single RTSP session, or when you want ffmpeg options such as hardware transcoding on a specific stream.
 
 The shipped go2rtc.yaml has placeholder entries you customize for your hardware:
 
@@ -98,6 +111,14 @@ For UDP WebRTC (lower latency, the preferred path), the go2rtc container exposes
 
 Set `WEBRTC_LAN_IP` and `WEBRTC_PUBLIC_HOST` in `.env` so go2rtc announces correct ICE candidates to clients on the LAN vs WAN.
 
+## The go2rtc console is on loopback
+
+go2rtc has its own web console on port 1984. The bundled compose publishes it as `127.0.0.1:1984`, reachable from the Docker host and nowhere else.
+
+That is because `GET /api/streams` lists every source go2rtc is holding, and it masks only the values it substituted from environment variables into its own config. A camera you added in Kinboard's settings is passed to go2rtc at runtime instead, so it appears there in full — `rtsp://user:pass@…`, password and all. On an all-interfaces binding, anyone on your LAN could read it.
+
+To reach the console from another machine, set `GO2RTC_HTTP_BIND=0.0.0.0` in `.env` and understand what that publishes. Kinboard itself is unaffected either way: it talks to go2rtc as `http://go2rtc:1984` over the Docker network and never uses the published port.
+
 ## Performance — hardware-accelerated transcode
 
 go2rtc passes RTSP through to WebRTC unchanged when the camera + browser already speak the same codec (typical H.264 IP cam → modern Chromium = zero transcode, low CPU). If your camera streams **HEVC / H.265** (common on 4K cams) and the browser needs H.264, go2rtc re-encodes — and software re-encode of a 4K HEVC stream will saturate a CPU core fast.
@@ -134,6 +155,8 @@ If the device isn't present, ffmpeg silently falls back to software encode and t
 | **HEVC/H.265 stream returns 200 over HTTP but the page tile stays black** | VAAPI hardware-encoder isn't reachable inside the container. `docker exec kinboard-go2rtc ls /dev/dri` should list `renderD128`; if not, the override file isn't loaded — check `docker-compose.override.yml` exists alongside `docker-compose.yml`. |
 | **Auth dialog pops in browser** | Stream URL credentials weren't recognized; check digest vs basic. The `/api/cameras` proxy should handle both — verify `auth.type` matches your camera. |
 | **Multiple cameras lock up after a few hours** | Some cameras only allow one RTSP session. Use go2rtc named streams (config in `go2rtc.yaml`) so go2rtc dedupes the underlying connection. |
+| **RTSP tile says "Snapshot could not be loaded"** | The camera isn't answering go2rtc. Check the webapp log: it distinguishes "empty frame" (go2rtc reached, camera didn't answer — wrong path, wrong port, camera off) from "bridge unavailable" (the go2rtc container isn't running or `GO2RTC_URL` is wrong). Note that go2rtc reports an unreachable camera as an empty 200 rather than an error, so its own log may look untroubled. Before 1.9.0 this message appeared for *every* RTSP camera regardless of the URL — if you are on an older version, that is what you are seeing. |
+| **RTSP shows a refreshing still, never live video** | WebRTC never connected. That is the designed fallback, not a fault — but if you want video, set `WEBRTC_LAN_IP` to the host's LAN IP and open UDP 8555. The browser console logs the ICE connection state. |
 
 ## Related
 
