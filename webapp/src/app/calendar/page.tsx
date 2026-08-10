@@ -178,7 +178,7 @@ function CalendarSkeleton({ view = "month" }: { view?: "month" | "week" }) {
 }
 
 export default function CalendarPage() {
-  const { formatTime } = useTimeFormat();
+  const { formatTime, formatHourLabel } = useTimeFormat();
   // Enable keyboard shortcuts and swipe navigation
   useKeyboardShortcuts();
   useSwipeNavigation();
@@ -1127,7 +1127,7 @@ export default function CalendarPage() {
                               return (
                                 <div key={hour} className="absolute left-0 right-0" style={{ top: `${top}%` }}>
                                   <span className="absolute -left-8 -translate-y-1/2 text-3xs text-muted-foreground/50 tabular-nums w-6 text-right">
-                                    {hour}:00
+                                    {formatHourLabel(hour)}
                                   </span>
                                   <div className="h-px bg-border/20 w-full" />
                                 </div>

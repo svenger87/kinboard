@@ -44,5 +44,24 @@ export function useTimeFormat() {
     [timePattern, locale],
   );
 
-  return { use24Hour, timePattern, formatTime };
+  /**
+   * An hour-of-day label for a timeline gutter: "14:00" or "2 PM".
+   *
+   * The calendar's day timeline and week gutter printed `${hour}:00` directly,
+   * so they stayed 24-hour however the switch was set (issue #198). Minutes are
+   * always zero here, so the 12-hour form drops them — a gutter reading
+   * "2:00 PM" every row is noise.
+   */
+  const formatHourLabel = useCallback(
+    (hour: number) => {
+      const at = new Date();
+      at.setHours(hour, 0, 0, 0);
+      return use24Hour
+        ? `${hour.toString().padStart(2, "0")}:00`
+        : format(at, "h a", { locale: getDateFnsLocale(locale) });
+    },
+    [use24Hour, locale],
+  );
+
+  return { use24Hour, timePattern, formatTime, formatHourLabel };
 }

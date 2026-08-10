@@ -67,6 +67,18 @@ export function useClock(
       }
     };
 
+    // Draw once, immediately, before waiting for the next boundary.
+    //
+    // `use24Hour` arrives from a settings query that resolves after first
+    // paint, and this effect re-runs when it flips. Without this call the
+    // clock kept the format it was first rendered with until the next minute
+    // ticked — up to a minute of 24-hour time on a 12-hour household, every
+    // cold start, which is exactly what issue #198 describes. `prevValues` is
+    // cleared so the tick isn't suppressed as "nothing changed": the digits
+    // are the same, the format is not.
+    prevValues.current = { hours: "", minutes: "", seconds: "" };
+    tick();
+
     // Calculate time to next boundary for accurate sync
     const msToNextBoundary = showSeconds
       ? 1000 - (Date.now() % 1000)  // Sync to next second

@@ -130,7 +130,7 @@ function screensaverWeatherIcon(condition: string) {
 }
 
 export function Screensaver({ photos }: ScreensaverProps) {
-  const { formatTime } = useTimeFormat();
+  const { formatTime, use24Hour } = useTimeFormat();
   const t = useTranslations("components.screensaver");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
@@ -145,7 +145,9 @@ export function Screensaver({ photos }: ScreensaverProps) {
   const photoRotationMs = photoRotationInterval * 1000;
 
   // Update clock every 60 seconds - screensaver only shows hours:minutes, not seconds
-  const { hours, minutes, date } = useClock(60000);
+  // Without the second argument this defaulted to 24-hour, so the screensaver
+  // ignored the household's setting entirely (issue #198).
+  const { hours, minutes, date } = useClock(60000, use24Hour);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(-1); // -1 means not initialized
   // The shuffled running order and how far through it we are. Refs, because
   // advancing the bag must not re-render — the rotation effect already

@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **The 12-hour clock setting is respected everywhere.** Three places kept showing 24-hour time however the switch was set: the screensaver, which never asked; the calendar's day timeline and its week gutter, which wrote the hour out by hand; and the dashboard clock for up to a minute after a cold start, because it drew once with the default and then waited for the next minute to tick before correcting itself. That last one is why it looked right again after leaving the page and coming back.
+
 ### Added
 - **A photo on the dashboard.** One picture from your library, changing every twenty seconds, opening the album when you tap it. Photos only ever appeared on the idle screen before — which on a kitchen wall is exactly when nobody is looking at it. Off by default; switch it on under **Settings → Widgets**.
 
