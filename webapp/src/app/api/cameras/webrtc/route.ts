@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { getMergedSetting } from "@/lib/integration-secrets";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { requireSession } from "@/lib/require-session";
 import { webrtcUrl, withRtspCredentials } from "@/lib/go2rtc";
 import type { CameraSettings, CameraConfig } from "@/types/home-assistant";
@@ -53,18 +54,12 @@ const WAN_STREAM_MAP: Record<string, string> = {
  * a caller cannot ask about somebody else's.
  */
 async function loadCamera(familyId: string, cameraId: string): Promise<CameraConfig | null> {
-  const supabase = createAdminClient();
+  // Merged, for the same reason as /api/cameras: the RTSP password is a
+  // registered secret and the raw settings row stops carrying it after the
+  // first save.
+  const settings = await getMergedSetting<CameraSettings>(familyId, SETTINGS_KEYS.cameras);
+  if (!settings) return null;
 
-  const { data: settingsRow } = await (supabase as any)
-    .from("settings")
-    .select("value")
-    .eq("family_id", familyId)
-    .eq("key", "cameras")
-    .single();
-
-  if (!settingsRow?.value) return null;
-
-  const settings = settingsRow.value as CameraSettings;
   return settings.cameras?.find((c: CameraConfig) => c.id === cameraId) ?? null;
 }
 

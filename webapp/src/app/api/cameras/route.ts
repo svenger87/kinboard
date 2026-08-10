@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { getMergedSetting } from "@/lib/integration-secrets";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import {
   clampSnapshotWidth,
@@ -132,24 +133,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
-  // Get camera settings from Supabase
-  const supabase = createAdminClient();
-   
-  const { data: settingsRow } = await (supabase as any)
-    .from("settings")
-    .select("value")
-    .eq("family_id", familyId)
-    .eq("key", "cameras")
-    .single();
+  // The MERGED value, not the raw `settings` row. A camera's password is a
+  // registered secret: once it has been through a settings save it lives in
+  // integration_secrets and the row here carries everything except the one
+  // field this route cannot work without. Reading the row directly worked
+  // only for as long as the password happened to still be inline, and the
+  // symptom when it stopped was go2rtc answering "wrong user/pass" — which
+  // reads as a wrong password rather than a missing one.
+  const cameraSettings = await getMergedSetting<CameraSettings>(
+    familyId,
+    SETTINGS_KEYS.cameras,
+  );
 
-  if (!settingsRow?.value) {
+  if (!cameraSettings) {
     return NextResponse.json(
       { error: "No cameras configured" },
       { status: 404 }
     );
   }
 
-  const cameraSettings = settingsRow.value as CameraSettings;
   const camera = cameraSettings.cameras?.find((c: CameraConfig) => c.id === cameraId);
 
   if (!camera) {
