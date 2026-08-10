@@ -496,7 +496,9 @@ export function Screensaver({ photos }: ScreensaverProps) {
       if (diffMins < 1) return t("newsJustNow");
       if (diffMins < 60) return t("newsMinutes", { minutes: diffMins });
       if (diffHours < 24) return t("newsHours", { hours: diffHours });
-      return format(date, locale === "de" ? "dd.MM." : "MMM d", { locale: dateLocale });
+      // `P` is date-fns' localised short date, so French reads as French
+      // instead of falling into the English branch of a de/else ternary.
+      return format(date, "P", { locale: dateLocale });
     } catch {
       return "";
     }

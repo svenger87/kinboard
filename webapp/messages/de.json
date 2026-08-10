@@ -2055,7 +2055,12 @@
       "country_us": "Vereinigte Staaten",
       "country_uk": "Vereinigtes Königreich",
       "country_nl": "Niederlande",
-      "country_fr": "Frankreich"
+      "country_fr": "Frankreich",
+      "weekStartLabel": "Woche beginnt am",
+      "weekStartDescription": "Mit welchem Tag die Wochen- und Monatsansicht des Kalenders anfängt. „Der Sprache folgen“ heißt Sonntag für Englisch, Montag für Deutsch und Französisch.",
+      "weekStart_locale": "Der Sprache folgen",
+      "weekStart_monday": "Montag",
+      "weekStart_sunday": "Sonntag"
     },
     "ics": {
       "title": "iCalendar-Feeds",
@@ -2201,7 +2206,9 @@
       "delete": "Löschen",
       "errorInsufficientFunds": "So viel ist nicht mehr auf dem Konto — das Geld wurde seit der Anfrage ausgegeben.",
       "errorAlreadyDecided": "Diese Anfrage wurde bereits beantwortet.",
-      "errorGeneric": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      "errorGeneric": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
+      "currencyLabel": "Währung",
+      "currencyDescription": "Gilt für alle Taschengeld-Konten im Haushalt. Ändert die Bezeichnung, nicht den Betrag — Guthaben werden nicht umgerechnet."
     },
     "news": {
       "title": "Nachrichtenquellen",

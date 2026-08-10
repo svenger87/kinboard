@@ -2055,7 +2055,12 @@
       "country_us": "États-Unis",
       "country_uk": "Royaume-Uni",
       "country_nl": "Pays-Bas",
-      "country_fr": "France"
+      "country_fr": "France",
+      "weekStartLabel": "La semaine commence le",
+      "weekStartDescription": "Le jour par lequel commencent les vues semaine et mois du calendrier. « Suivre la langue » signifie dimanche pour l'anglais, lundi pour l'allemand et le français.",
+      "weekStart_locale": "Suivre la langue",
+      "weekStart_monday": "Lundi",
+      "weekStart_sunday": "Dimanche"
     },
     "ics": {
       "title": "Flux iCalendar",
@@ -2201,7 +2206,9 @@
       "delete": "Supprimer",
       "errorInsufficientFunds": "Il n'y a plus assez sur le compte — l'argent a été dépensé depuis la demande.",
       "errorAlreadyDecided": "Quelqu'un a déjà répondu à cette demande.",
-      "errorGeneric": "Cela n'a pas fonctionné. Merci de réessayer."
+      "errorGeneric": "Cela n'a pas fonctionné. Merci de réessayer.",
+      "currencyLabel": "Devise",
+      "currencyDescription": "S'applique à tous les comptes d'argent de poche du foyer. Change l'intitulé, pas le montant — les soldes ne sont pas convertis."
     },
     "news": {
       "title": "Sources d'actualités",

@@ -2055,7 +2055,12 @@
       "country_us": "United States",
       "country_uk": "United Kingdom",
       "country_nl": "Netherlands",
-      "country_fr": "France"
+      "country_fr": "France",
+      "weekStartLabel": "Week starts on",
+      "weekStartDescription": "Which day the calendar's week and month grids begin with. Following the language means Sunday for English, Monday for German and French.",
+      "weekStart_locale": "Follow the language",
+      "weekStart_monday": "Monday",
+      "weekStart_sunday": "Sunday"
     },
     "ics": {
       "title": "iCalendar feeds",
@@ -2201,7 +2206,9 @@
       "delete": "Delete",
       "errorInsufficientFunds": "There isn't enough in the account any more — the money was spent since the request was made.",
       "errorAlreadyDecided": "Someone already answered that request.",
-      "errorGeneric": "That didn't work. Please try again."
+      "errorGeneric": "That didn't work. Please try again.",
+      "currencyLabel": "Currency",
+      "currencyDescription": "Applies to every pocket-money account in the household. This changes the label, not the amount — balances are not converted."
     },
     "news": {
       "title": "News sources",

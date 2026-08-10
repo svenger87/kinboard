@@ -20,6 +20,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/page-header";
 import {
+  useCurrency,
+  CURRENCIES,
+  useUpdateSetting,
   usePocketMoneyAccounts,
   useCreatePocketMoneyAccount,
   useUpdatePocketMoneyAccount,
@@ -36,6 +39,14 @@ import { formatCents } from "@/lib/pocket-money/format";
 import { BalanceForecast } from "@/components/pocket-money/balance-forecast";
 import { AmountDialog } from "@/components/pocket-money/amount-dialog";
 import { toast } from "sonner";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Locale-aware short weekday names indexed 0=Sun..6=Sat. Built once
 // per locale via Intl.DateTimeFormat off a known Sunday so we don't
@@ -80,6 +91,34 @@ export default function PocketMoneySettingsPage() {
   const del = useDeletePocketMoneyAccount();
   const txn = useCreatePocketMoneyTransaction();
 
+  const { currency } = useCurrency();
+  const updateCurrency = useUpdateSetting<string>();
+  const [currencySaving, setCurrencySaving] = useState(false);
+
+  /**
+   * Changing the currency **re-labels**; it does not convert. A balance of 500
+   * is five of whatever unit the household counts in — the ledger is theirs,
+   * and inventing an exchange rate for a child's pocket money would be worse
+   * than a wrong symbol. Every account moves together, because one household
+   * keeps one set of books.
+   */
+  async function pickCurrency(next: string) {
+    if (next === currency || currencySaving) return;
+    setCurrencySaving(true);
+    try {
+      await updateCurrency.mutateAsync({ key: SETTINGS_KEYS.currency, value: next });
+      await Promise.all(
+        accounts
+          .filter((a) => a.currency !== next)
+          .map((a) => update.mutateAsync({ id: a.id, update: { currency: next } })),
+      );
+    } catch {
+      toast.error(t("errorGeneric"));
+    } finally {
+      setCurrencySaving(false);
+    }
+  }
+
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [depositTarget, setDepositTarget] = useState<string | null>(null);
   const [withdrawTarget, setWithdrawTarget] = useState<string | null>(null);
@@ -102,6 +141,27 @@ export default function PocketMoneySettingsPage() {
         <PageHeader title={t("title")} icon={PiggyBank} />
 
         <p className="text-sm text-muted-foreground">{t("intro")}</p>
+
+        <Card className="p-4">
+          <div className="mb-3">
+            <p className="font-medium text-sm">{t("currencyLabel")}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {t("currencyDescription")}
+            </p>
+          </div>
+          <Select value={currency} onValueChange={pickCurrency} disabled={currencySaving}>
+            <SelectTrigger className="w-full sm:w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CURRENCIES.map((code) => (
+                <SelectItem key={code} value={code}>
+                  {code}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Card>
 
         {accounts.length > 0 && (
           <Card className="p-4">
@@ -345,7 +405,7 @@ export default function PocketMoneySettingsPage() {
             kid={kid}
             onCreate={(species) =>
               create
-                .mutateAsync({ person_id: kid.id, avatar_species: species })
+                .mutateAsync({ person_id: kid.id, avatar_species: species, currency })
                 .catch(() => toast.error(t("errorGeneric")))
             }
             isPending={create.isPending}

@@ -172,8 +172,11 @@ export async function POST(request: NextRequest) {
         }
 
         const result = await sendPushToMultiple(subscriptions as DatabaseSubscription[], {
-          title: "Test-Benachrichtigung",
-          body: `Server-side push funktioniert! (${new Date().toLocaleTimeString("de-DE")})`,
+          // English and locale-neutral: this is a diagnostic sent to whoever
+          // pressed the button, and it used to arrive in German with a German
+          // clock regardless of who they were.
+          title: "Kinboard test notification",
+          body: `Server-side push is working (${new Date().toISOString().slice(11, 19)} UTC)`,
           tag: "debug-test",
           url: "/settings/notifications",
         });

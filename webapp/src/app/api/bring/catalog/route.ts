@@ -35,7 +35,10 @@ export interface BringCatalogItem {
 
 export async function GET(request: NextRequest) {
   try {
-    const locale = request.nextUrl.searchParams.get("locale") || "de-DE";
+    // Bring publishes one catalogue per locale. The caller passes the
+    // household's; the fallback used to be de-DE, which handed German article
+    // names to anybody whose request lost the parameter.
+    const locale = request.nextUrl.searchParams.get("locale") || "en-US";
     const catalogUrl = `${BRING_WEB_URL}/locale/catalog.${locale}.json`;
 
     console.log("Fetching Bring catalog from:", catalogUrl);

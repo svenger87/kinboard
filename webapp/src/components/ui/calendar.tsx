@@ -7,10 +7,16 @@ import {
   ChevronRightIcon,
 } from "lucide-react"
 import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
-import { de } from "react-day-picker/locale"
+import { de, enUS, fr } from "react-day-picker/locale"
+import { useLocale } from "next-intl"
+
+import { useWeekStart } from "@/hooks/use-week-start"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
+
+/** react-day-picker's own locale objects, keyed by Kinboard's interface languages. */
+const RDP_LOCALES = { de, en: enUS, fr } as const
 
 function Calendar({
   className,
@@ -20,19 +26,30 @@ function Calendar({
   buttonVariant = "ghost",
   formatters,
   components,
-  locale = de,
-  weekStartsOn = 1,
+  locale,
+  weekStartsOn,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"]
 }) {
   const defaultClassNames = getDefaultClassNames()
 
+  // These two used to default to `de` and Monday, and no caller overrode
+  // either — so every date picker in the app showed German weekday names and a
+  // Monday-first grid to a household reading English. They follow the
+  // interface language and the household's week-start setting now; an explicit
+  // prop still wins.
+  const appLocale = useLocale()
+  const { weekStartsOn: householdWeekStart } = useWeekStart()
+  const resolvedLocale =
+    locale ?? RDP_LOCALES[appLocale as keyof typeof RDP_LOCALES] ?? enUS
+  const resolvedWeekStart = weekStartsOn ?? householdWeekStart
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      locale={locale}
-      weekStartsOn={weekStartsOn}
+      locale={resolvedLocale}
+      weekStartsOn={resolvedWeekStart}
       className={cn(
         "bg-background group/calendar p-3 [--cell-size:2rem] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
