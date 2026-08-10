@@ -108,6 +108,7 @@ Source: `webapp/src/lib/device-id.ts` (fingerprint computation), `webapp/src/app
 - [ ] `setup.sh` was run with no manual edits to the generated secrets
 - [ ] `webapp/docker/.env` is mode 600 (`chmod 600`)
 - [ ] Backups encrypt the `pg_dump` output
+- [ ] `GO2RTC_HTTP_BIND` left at `127.0.0.1` if you use cameras — go2rtc's `/api/streams` lists the sources it holds, and a camera added through Kinboard's settings appears there as a full `rtsp://user:pass@…` URL (see [Cameras](Cameras))
 - [ ] No real production data lives in development checkouts (`webapp/.env.local` should be empty or have non-prod values)
 - [ ] If multiple families share a host, each runs in its own Compose project (`PROJECT_NAME` differs)
 

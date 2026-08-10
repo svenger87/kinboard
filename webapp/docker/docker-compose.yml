@@ -564,7 +564,14 @@ services:
     container_name: ${PROJECT_NAME:-kinboard}-go2rtc
     restart: unless-stopped
     ports:
-      - "${GO2RTC_HTTP_PORT:-1984}:1984"   # HTTP API
+      # HTTP API + web console, bound to loopback. go2rtc's /api/streams
+      # lists every source it is holding, and it masks only the values it
+      # substituted from this file's environment variables — a camera added
+      # at runtime is echoed back with its password in the URL. The webapp
+      # reaches go2rtc as http://go2rtc:1984 over the Docker network and does
+      # not use this mapping at all; set GO2RTC_HTTP_BIND=0.0.0.0 if you want
+      # the console from another machine and are content with that.
+      - "${GO2RTC_HTTP_BIND:-127.0.0.1}:${GO2RTC_HTTP_PORT:-1984}:1984"
       - "${GO2RTC_WEBRTC_PORT:-8555}:8555/udp"  # WebRTC UDP
     environment:
       - TZ=${TZ:-UTC}
