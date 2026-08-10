@@ -3,7 +3,9 @@ import { createAdminClient } from "@/lib/supabase/server";
 import {
   SECRET_FIELDS,
   applySentinels,
+  getMergedSetting,
   getStoredSecrets,
+  resolveSentinels,
   splitSecrets,
   upsertSecrets,
   deleteSecrets,
@@ -99,7 +101,15 @@ export async function PUT(request: NextRequest) {
 
   let valueToStore = value;
   if (SECRET_FIELDS[key]) {
-    const { publicValue, secretValue } = splitSecrets(key, value);
+    // What the client is sending back has sentinels where its secrets are —
+    // it has never been given the real ones. Put them back before splitting,
+    // or the split drops the path and the sentinel isn't worth storing, and
+    // the secret ceases to exist. See resolveSentinels.
+    const previous = await getMergedSetting<unknown>(family_id, key);
+    const { publicValue, secretValue } = splitSecrets(
+      key,
+      resolveSentinels(key, value, previous)
+    );
     valueToStore = publicValue;
     if (secretValue) {
       try {

@@ -205,6 +205,56 @@ export function applySentinels(
   return out;
 }
 
+/**
+ * Turn the sentinels a client is handing back into the real values again.
+ *
+ * `applySentinels` masks a secret on the way out, so every settings page
+ * holds `__secret_stored__` where a password should be and sends it back
+ * untouched when the user saves something else on the same page. Without
+ * this step `splitSecrets` then deletes that path from the public value and
+ * declines to store the sentinel — correct in isolation, and between the two
+ * of them the real secret is gone. Silently: no error, nothing in the log,
+ * and the settings page still shows a filled-in password field, because a
+ * sentinel is what it would show either way.
+ *
+ * The comment on `applySentinels` reasoned that this was survivable because
+ * a raw value left in `settings` lasts "until the next boot migration sweeps
+ * it out". No such sweep exists. So for the installations that shape
+ * describes — anything configured before credentials moved to
+ * `integration_secrets`, where the password is still sitting inline in
+ * `settings` — the first save on that page destroyed it.
+ *
+ * `previous` is the merged value (`getMergedSetting`), which is the real
+ * secret whether it is already in `integration_secrets` or still inline in
+ * `settings`. That second case is what makes this a migration as well as a
+ * fix: the value gets written to `integration_secrets` where it belongs.
+ *
+ * A path is only dropped when nothing is known at it, which stays the
+ * "unset, reconnect required" outcome for a genuinely absent secret.
+ */
+export function resolveSentinels(
+  key: string,
+  value: unknown,
+  previous: unknown
+): unknown {
+  const paths = SECRET_FIELDS[key];
+  if (!paths || value === null || value === undefined) return value;
+
+  // Explicitly unknown: the guard above narrows `value` to `{}`, and
+  // deletePath returns unknown, so an inferred type will not hold both.
+  let out: unknown = value;
+  for (const path of paths.flatMap((p) => expandPaths(value, p))) {
+    if (getPath(value, path) !== SECRET_SENTINEL) continue;
+
+    const real = getPath(previous, path);
+    const hasReal =
+      real !== undefined && real !== null && real !== "" && real !== SECRET_SENTINEL;
+
+    out = hasReal ? setPath(out, path, real) : deletePath(out, path);
+  }
+  return out;
+}
+
 /** Merge real stored secrets back into a public value (server-side use). */
 export function mergeSecrets(key: string, value: unknown, secrets: unknown): unknown {
   const paths = SECRET_FIELDS[key];
