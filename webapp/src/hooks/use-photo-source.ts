@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useFamilyStore } from "@/stores/family-store";
+import { useSetting } from "./use-supabase-queries";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useImmichMonthlyPhotos } from "./use-immich";
 import { useUnsplashMonthlyPhotos } from "./use-unsplash";
@@ -25,21 +24,29 @@ export interface ScreensaverPhoto {
   };
 }
 
-export function usePhotoSourceSetting() {
-  const family = useFamilyStore((s) => s.family);
+/**
+ * Which source the screensaver, the viewer and the Photos nav entry read.
+ *
+ * Deliberately through `useSetting`, so this shares the one cache entry every
+ * other setting uses — `["settings", familyId, "photo_source"]`, which is
+ * exactly what `useUpdateSetting` invalidates after a write.
+ *
+ * It used to keep its own `["photo-source"]` entry with a 30-second stale
+ * time, and nothing invalidated it. Changing the source in Settings therefore
+ * moved the radio button and wrote the row, while the screensaver and the
+ * viewer carried on showing the source they had read at mount: the setting was
+ * honoured once and then ignored. A second cache entry for a row that already
+ * has one can only ever drift from it.
+ */
+export function usePhotoSourceSetting(): { data: PhotoSourceId; isLoading: boolean } {
+  const { data, isLoading } = useSetting<{ source?: PhotoSourceId } | null>(
+    SETTINGS_KEYS.photoSource,
+    null,
+  );
 
-  return useQuery<PhotoSourceId>({
-    queryKey: ["photo-source", family?.id],
-    queryFn: async () => {
-      const res = await fetch(`/api/settings?family_id=${family!.id}&key=${SETTINGS_KEYS.photoSource}`);
-      if (res.status === 404) return "immich";
-      if (!res.ok) throw new Error("Failed to fetch photo source setting");
-      const data = await res.json();
-      return data.value?.source || "immich";
-    },
-    enabled: !!family?.id,
-    staleTime: 30000,
-  });
+  // Immich is the default for a family that has never chosen, which is what
+  // the screensaver assumed before any of these sources existed.
+  return { data: data?.source ?? "immich", isLoading };
 }
 
 export function usePhotoSource(): {

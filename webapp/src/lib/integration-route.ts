@@ -27,7 +27,7 @@ import {
   type IntegrationContext,
   type IntegrationScope,
 } from "@/lib/integration-auth";
-import { findTokenByHash, touchToken } from "@/lib/integration-store";
+import { findTokenByHash, touchToken, TokenLookupUnavailable } from "@/lib/integration-store";
 import { hitLimit } from "@/lib/rate-limit";
 import { apiError } from "@/lib/api-error";
 
@@ -65,10 +65,25 @@ export async function withIntegrationAuth(
 ): Promise<NextResponse> {
   let matched: Awaited<ReturnType<typeof findTokenByHash>> = null;
 
-  const auth = await requireIntegrationAuth(request, scope, async (hash) => {
-    matched = await findTokenByHash(hash);
-    return matched;
-  });
+  let auth: Awaited<ReturnType<typeof requireIntegrationAuth>>;
+  try {
+    auth = await requireIntegrationAuth(request, scope, async (hash) => {
+      matched = await findTokenByHash(hash);
+      return matched;
+    });
+  } catch (err) {
+    if (err instanceof TokenLookupUnavailable) {
+      // 503, never 401. A client told 401 is entitled to conclude its
+      // credential is wrong and stop using it — Home Assistant does exactly
+      // that, and a few seconds of database unavailability during a restart
+      // disabled the integration until somebody re-entered a token that had
+      // been valid the whole time.
+      return apiError("could not verify the token — try again", "unavailable", {
+        headers: { "retry-after": "5" },
+      });
+    }
+    throw err;
+  }
 
   if (!auth.ok) return auth.response;
 

@@ -5,7 +5,6 @@ import { usePhotoSourceSetting, type PhotoSourceId } from "./use-photo-source";
 import { useImmichPhotos, useImmichStatus, isImmichConnected } from "./use-immich";
 import { useDlnaPhotos } from "./use-dlna";
 import { useIcloudPhotos } from "./use-icloud";
-import { useUnsplashMonthlyPhotos } from "./use-unsplash";
 
 /**
  * The configured photo library, for browsing rather than for a slideshow.
@@ -29,12 +28,27 @@ export interface LibraryPhoto {
   date: string | null;
 }
 
+/**
+ * Unsplash is a screensaver source and not a library.
+ *
+ * It has no album to walk and no notion of "your photos" — it hands out a
+ * curated set that rotates monthly. Browsing it would mean asking Unsplash for
+ * a page of images every time somebody opens the viewer, against a demo-tier
+ * rate limit shared by the whole instance, to show a stranger's photographs in
+ * a screen headed "your photos". So the viewer declines, and says why.
+ */
+export function isBrowsableSource(source: PhotoSourceId | undefined): boolean {
+  return source !== "unsplash";
+}
+
 export function usePhotoLibrary(limit = 200, albumId?: string): {
   photos: LibraryPhoto[];
   isLoading: boolean;
   source: PhotoSourceId | undefined;
   /** True when the source is configured but has nothing to show. */
   isEmpty: boolean;
+  /** The chosen source feeds the idle screen and cannot be browsed. */
+  screensaverOnly: boolean;
 } {
   const { data: source, isLoading: sourceLoading } = usePhotoSourceSetting();
 
@@ -51,7 +65,6 @@ export function usePhotoLibrary(limit = 200, albumId?: string): {
   const immich = useImmichPhotos(albumId, limit, false, source === "immich" && immichConnected);
   const dlna = useDlnaPhotos(limit, false, source === "dlna", albumId);
   const icloud = useIcloudPhotos(limit, source === "icloud");
-  const unsplash = useUnsplashMonthlyPhotos(source === "unsplash");
 
   const photos = useMemo<LibraryPhoto[]>(() => {
     switch (source) {
@@ -74,13 +87,8 @@ export function usePhotoLibrary(limit = 200, albumId?: string): {
           date: p.dateCreated,
         }));
       case "unsplash":
-        return (unsplash.data ?? []).map((p) => ({
-          id: p.id,
-          url: p.url,
-          thumbnailUrl: p.url,
-          title: p.description ?? p.photographer ?? null,
-          date: null,
-        }));
+        // Nothing, on purpose — see `screensaverOnly` below.
+        return [];
       default:
         return (immich.data ?? []).map((p) => ({
           id: p.id,
@@ -90,7 +98,7 @@ export function usePhotoLibrary(limit = 200, albumId?: string): {
           date: null,
         }));
     }
-  }, [source, immich.data, dlna.data, icloud.data, unsplash.data]);
+  }, [source, immich.data, dlna.data, icloud.data]);
 
   const isLoading =
     sourceLoading ||
@@ -99,8 +107,14 @@ export function usePhotoLibrary(limit = 200, albumId?: string): {
       : source === "icloud"
         ? icloud.isLoading
         : source === "unsplash"
-          ? unsplash.isLoading
+          ? false
           : immich.isLoading);
 
-  return { photos, isLoading, source, isEmpty: !isLoading && photos.length === 0 };
+  return {
+    photos,
+    isLoading,
+    source,
+    isEmpty: !isLoading && photos.length === 0,
+    screensaverOnly: !isBrowsableSource(source),
+  };
 }

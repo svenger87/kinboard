@@ -40,6 +40,10 @@ export const API_ERROR_CODES = [
   "conflict",
   "rate_limited",
   "upstream_unavailable",
+  // Kinboard itself cannot answer right now — distinct from
+  // not_authenticated, which is a verdict on the caller's credential. A client
+  // told 401 may reasonably stop using its token; one told 503 retries.
+  "unavailable",
   "internal_error",
 ] as const;
 
@@ -53,6 +57,7 @@ const STATUS_FOR: Record<ApiErrorCode, number> = {
   conflict: 409,
   rate_limited: 429,
   upstream_unavailable: 502,
+  unavailable: 503,
   internal_error: 500,
 };
 
