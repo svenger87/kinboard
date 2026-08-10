@@ -89,9 +89,17 @@ Effect: a device that has presented multiple fingerprints across its lifetime (e
 
 The fingerprint is intentionally low-entropy and stable — the opposite of tracking-grade fingerprinting (no canvas hashing, no audio context, no font enumeration, no WebGL renderer strings). It's enough to disambiguate the handful of devices in a household, but not so sensitive that a routine browser update breaks recognition for everyone in the family.
 
-**Privacy notes:** at family scale, fingerprint collisions (e.g. two identical phones with the same language/timezone) are handled, not prevented — both matching rows are returned, and the rejoin card lets the user pick the right one. The fingerprint is also not a tracking identifier: every lookup is scoped `family_id + fingerprint`, never global, so it can't be used to identify a device across families.
+**Where the lookup runs.** Server-side, in `/api/session/recognize`, using the service role. It cannot run in the browser: `devices` joins to `families`, and families hold join codes, so a row-level-security policy permissive enough to let an anonymous caller read devices would let anyone enumerate households. The route decides what an unauthenticated caller is allowed to be told, and answers with the family's **name** and the device's **name** — never the join code, never the family id, never the other devices. It is rate-limited per IP, because a fingerprint is a guessable thing and this turns a guess into a household name.
 
-Source: `webapp/src/lib/device-id.ts` (fingerprint computation), `webapp/src/hooks/use-supabase-queries.ts` (`useFindDeviceByFingerprint`), `webapp/docker/migration_fingerprint_history.sql` (schema for the history array).
+**One device, not a list.** The route returns at most one match, the most recently seen. A browser that has joined several times leaves a row behind each time, and offering five identical "Sign back in" cards for one tablet is noise — but the real reason is collisions: where two households' devices happen to look alike, a list would put a stranger's family name on the screen.
+
+**Resuming is a separate step, and it verifies the claim.** `/api/session/resume` issues the session, and a device id alone is not enough for it — those travel in responses. The device's own `hardware_id` is proof: only that device has it. A fingerprint is a guess, and accepting one is the deliberate trade that lets a wiped tablet come back without hunting for the code; it is the same trade the join code makes, on the same assumption of a trusted home network. Rate-limited harder than recognition, because it hands out credentials.
+
+**The automatic restore accepts proof only.** A device with no session in its store is signed back in silently — it is how a wall display returns to the dashboard after a power cut — and that path sends **no fingerprint**. Acting on a guess is only fair when a person is there to confirm it, which is what the "Sign back in" button is.
+
+**Privacy notes:** the fingerprint is not a tracking identifier: every lookup is scoped to a family, never global, so it can't be used to identify a device across families.
+
+Source: `webapp/src/lib/device-id.ts` (fingerprint computation), `webapp/src/app/api/session/recognize/route.ts` (the lookup, and what it will say), `webapp/src/app/api/session/resume/route.ts` (issuing the session, and the trust model written out), `webapp/docker/migration_fingerprint_history.sql` (schema for the history array).
 
 ## Trusted-LAN-but-still-paranoid checklist
 

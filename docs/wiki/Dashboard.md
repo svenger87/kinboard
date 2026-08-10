@@ -47,6 +47,7 @@ The main dashboard area. Widgets are toggle-able per family in **Settings → Wi
 | **Tasks** | Open todos, sorted by priority + due date. See [Tasks](Tasks). |
 | **Notes** | Latest 3 family notes + "+ new note" pinned to bottom. See [Notes](Notes). |
 | **Vehicles** | Battery, range, and charging status for every configured car, rotating through multiple vehicles every 8 seconds. Ships via the [Vehicles](Vehicles) plugin (Tesla + Generic EV drivers). |
+| **Photos** | One picture from the family library, changing every 20 seconds; tap to open the album. Uses whichever source is configured in Settings → Photos, and says so rather than sitting empty when none is. Ships via the [Photos](Photos) plugin. |
 
 Each widget independently toggleable in **Settings → Widgets**. The toggle has a live mini-preview so you can see what each looks like before enabling.
 

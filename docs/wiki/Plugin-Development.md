@@ -73,7 +73,17 @@ export const PLUGINS: readonly SurfacePlugin[] = [
 ];
 ```
 
-Array order is nav order and `/settings/plugins` order. This is the **only** registration step — the settings-landing page lists every entry automatically, and `useVisibleNavItems` gates each one via its predicate.
+Array order is nav order and `/settings/plugins` order.
+
+**This is not the only list.** `registry.ts` makes the plugin exist; three other hand-kept lists decide whether anyone can see it, and a plugin that skips them ships broken in ways nothing fails on:
+
+| Also add | Where | What breaks without it |
+| --- | --- | --- |
+| `{ href, icon, labelKey }` matching your `navItem` | `webapp/src/lib/constants.ts` (`NAV_ITEMS`) | **The nav entry never appears.** `useVisibleNavItems` *filters* `NAV_ITEMS` — it does not append plugin entries — so an href that isn't in that array can never be shown, whatever your predicate returns |
+| `settings.plugins.label.<id>` and `settings.plugins.description.<id>`, in `en`/`de`/`fr` | `webapp/messages/*.json` | `/settings/plugins` lists a switch **named `label.<id>`** — next-intl renders a missing key as the key |
+| A `WidgetVisibility` key, a `WIDGET_CONFIGS` row with its copy, and the render line | `webapp/src/types/widgets.ts`, `webapp/src/app/settings/widgets/page.tsx`, `webapp/src/app/page.tsx` | A `dashboardWidget` nobody can switch on |
+
+All four are checked by `webapp/e2e/plugin-registry-i18n.spec.ts`, which reads the same registry the app does — so a plugin added tomorrow is covered without touching that test. Every one of these was a real defect in the Photos plugin before the test existed.
 
 ### 3. The page — `webapp/src/app/<id>/page.tsx`
 
@@ -130,7 +140,7 @@ Add a **new plugin** (not a driver) when the surface concept itself is different
 
 ## Registered plugins
 
-`registry.ts` currently registers five surface plugins: **Vehicles**, **Energy**, **Cameras**, **Stonks**, and **Pocket Money**. Energy and Cameras predated the plugin system and were migrated onto the contract once it stabilized — the abstraction is validated across five concrete surfaces. See [Plugin-Directory](Plugin-Directory) for what each one does.
+`registry.ts` currently registers six surface plugins: **Vehicles**, **Energy**, **Cameras**, **Stonks**, **Pocket Money**, and **Photos**. Energy and Cameras predated the plugin system and were migrated onto the contract once it stabilized; Photos was the first written against it from scratch — the abstraction is validated across six concrete surfaces. See [Plugin-Directory](Plugin-Directory) for what each one does.
 
 ---
 

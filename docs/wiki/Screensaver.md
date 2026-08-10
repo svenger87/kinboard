@@ -6,7 +6,7 @@ When the kiosk is idle, Kinboard switches to a fullscreen screensaver — a slow
 
 Top → bottom:
 
-1. **Background photo** — fades between images from the configured photo source ([Immich](Immich) or Unsplash)
+1. **Background photo** — fades between images from the configured photo source ([Immich](Immich), a DLNA server, an iCloud Shared Album or Unsplash — see [Photos](Photos))
 2. **Clock + date** (bottom-left) — large, low-contrast white-on-photo
 3. **Photo credit** (bottom-center) — photographer name + location, small text
 4. **Birthdays today** — if anyone has a birthday today
@@ -20,7 +20,17 @@ Tapping anywhere dismisses the screensaver and returns to the dashboard.
 
 ## Photo sources
 
-Two configurable sources, picked in [Settings → Photos](Immich):
+Four configurable sources, picked in **Settings → Photos**. The same choice
+feeds the screensaver, the [Photos page](Photos) and the dashboard photo
+widget, so a library is connected once — see [Photos](Photos) for setting each
+one up.
+
+| Source | Needs | Also browsable |
+| --- | --- | --- |
+| [Immich](Immich) | Server URL + API key | Yes, by album |
+| DLNA media server | The server's description URL | Yes, by folder |
+| iCloud Shared Album | The album's public link | Yes |
+| Unsplash | Nothing | No — screensaver only |
 
 ### Immich
 
@@ -30,9 +40,22 @@ The "monthly album" mode pairs nicely with a Smart Album in Immich that filters 
 
 See [Immich](Immich) for the connection setup.
 
+### DLNA media server
+
+A NAS already sharing photos over DLNA needs no account and no API key — paste
+the server's description URL and pick a folder. Kinboard cannot discover the
+server by itself, because discovery is a multicast broadcast its container
+never receives. Full setup in [Photos → DLNA media server](Photos#dlna-media-server).
+
+### iCloud Shared Album
+
+Turn on **Public Website** for an album on the iPhone and paste the link. No
+Apple ID, no password, and photos added later appear on their own. Full setup
+in [Photos → iCloud Shared Album](Photos#icloud-shared-album).
+
 ### Unsplash
 
-If you don't have Immich (or don't want to share family photos with the wall display), Unsplash is the fallback. Per-month "search terms" generate a curated stream:
+If you don't have Immich (or don't want to share family photos with the wall display), Unsplash is the fallback. It feeds the screensaver only — it cannot be browsed on the Photos page, because it is a curated set that rotates monthly rather than an album of yours, and paging through it would burn a rate limit shared by the whole instance. Per-month "search terms" generate a curated stream:
 
 | Month | Default search terms |
 |---|---|

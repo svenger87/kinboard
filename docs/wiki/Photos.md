@@ -1,25 +1,35 @@
 # Photos
 
-Kinboard shows your photos in two places: the **Photos page**, where you browse
-them on purpose, and the **screensaver**, which shows them when the display goes
-idle. Both read the same source, so you connect a library once.
+Kinboard shows your photos in three places: the **Photos page**, where you
+browse them on purpose; the **dashboard widget**, one picture at a time while
+the board is in use; and the **[screensaver](Screensaver)**, when the display
+goes idle. All three read the same source, so you connect a library once.
 
 ## Choosing a source
 
 **Settings → Photos.** Pick one:
 
-| Source | What it needs | Follows changes? |
-| --- | --- | --- |
-| **Immich** | Your own Immich server's URL and an API key | Yes |
-| **DLNA media server** | The server's description URL — no account | Yes |
-| **iCloud Shared Album** | The album's public link — no Apple ID | Yes |
-| **Unsplash** | Nothing; curated stock photos that rotate monthly | n/a |
+| Source | What it needs | Browse on the Photos page | Feeds the screensaver |
+| --- | --- | --- | --- |
+| **Immich** | Your own Immich server's URL and an API key | Yes, by album | Yes |
+| **DLNA media server** | The server's description URL — no account | Yes, by folder | Yes |
+| **iCloud Shared Album** | The album's public link — no Apple ID | Yes, single album | Yes |
+| **Unsplash** | Nothing; curated stock photos that rotate monthly | **No** — see below | Yes |
 
 Google Photos is **not** available, and cannot be. Google removed the
 `photoslibrary.readonly` scope on 31 March 2025 — third-party apps can no
 longer read your library at all, only media they uploaded themselves. The
 Picker API that replaced it lets you hand an app a one-off selection, which
 would make an import rather than a photo source that stays current.
+
+### Why Unsplash cannot be browsed
+
+Unsplash is a screensaver source. It hands out a curated set that rotates
+monthly, so there is no album of yours to walk through — and opening a grid of
+them would ask Unsplash for a page of photographs every time somebody opened
+the screen, against a rate limit shared by the whole instance. The Photos page
+says so rather than showing an empty grid, and the Photos entry stays out of
+the navigation until a real library is connected.
 
 ## DLNA media server
 
@@ -43,7 +53,9 @@ at a time and shows how many photos are in the folder you are looking at.
 
 Images are fetched through Kinboard rather than linked directly. A DLNA server
 speaks plain HTTP, and a wall display served over HTTPS will silently refuse to
-load an HTTP image.
+load an HTTP image. Kinboard asks your server where each photo lives by the
+identifier the server itself gave it, so no address from outside is ever
+fetched — see [Security and threat model](Security-and-Threat-Model).
 
 ## iCloud Shared Album
 
@@ -64,15 +76,27 @@ it goes; nothing is cached and nothing is copied off iCloud.
 ## The Photos page
 
 A grid of everything in the current album, newest first. Tap one to open it
-full-screen; arrow keys or swipe to move between them, Escape or the close
-button to come back.
+full-screen; arrow keys or swipe to move between them. Close it with the button
+in the corner, the Escape key, or by tapping the dark surround.
 
 Where a source has albums — Immich's albums, a DLNA server's folders — they
 appear above the photos, and a breadcrumb walks back out. An iCloud shared
 album is a single album, so the page opens straight into the photos.
 
-The Photos entry stays out of the navigation until a source is connected and
-has something in it.
+**The Photos entry appears in the navigation once there is a library behind
+it** — a source connected, with something in it. A nav button that opens an
+empty screen is worse than no button, so it waits.
+
+## The dashboard widget
+
+One picture from the library, changing every twenty seconds, opening the album
+when you tap it. Off by default: switch it on in **Settings → Widgets**.
+
+Deliberately a single photo rather than a strip of thumbnails — at the size a
+widget gets on a four-column grid, four photos are four unrecognisable squares,
+and the point of a photo on the wall is that you can tell who is in it. A photo
+that fails to load — an expired iCloud link, a NAS that has gone to sleep —
+moves to the next one rather than leaving a broken image on the wall.
 
 ## Troubleshooting
 
@@ -93,4 +117,15 @@ or point the server at a flatter directory.
 **An iCloud album shows nothing** — re-check Public Website on the phone, then
 reconnect. A link copied from a *private* shared album will never work.
 
-See also: [Screensaver](Screensaver), [Immich](Immich).
+**The Photos entry is missing from the navigation** — it appears only once the
+configured source returns at least one photo. If the source is Unsplash, that
+is by design (above). Otherwise the library is coming back empty: open
+**Settings → Photos** and confirm the connection, and for Immich that an album
+is selected.
+
+**A NAS that sleeps** — an unreachable DLNA server is treated as "no photos
+right now" rather than an error, so a display does not fill its log with
+failures every time the disks spin down. Settings → Photos is where reachability
+is reported, because that is where somebody is looking.
+
+See also: [Screensaver](Screensaver), [Immich](Immich), [Dashboard](Dashboard).
