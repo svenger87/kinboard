@@ -12,6 +12,7 @@ import {
   Zap,
   Car,
   Video,
+  Images,
   LineChart,
   Newspaper,
   Settings,
@@ -85,6 +86,7 @@ export const NAV_ITEMS = [
   { href: "/stonks", icon: LineChart, labelKey: "stonks" },
   { href: "/pocket-money", icon: PiggyBank, labelKey: "pocketMoney" },
   { href: "/cameras", icon: Video, labelKey: "cameras" },
+  { href: "/photos", icon: Images, labelKey: "photos" },
   { href: "/news", icon: Newspaper, labelKey: "news" },
   { href: "/settings", icon: Settings, labelKey: "settings" },
 ] as const;

@@ -70,6 +70,29 @@ function widgetMessageKeys(): { key: string; keys: string[] }[] {
   return out;
 }
 
+
+/** Each plugin's declared nav item: href and the label key it asks for. */
+function pluginNavItems(): { id: string; href: string; labelKey: string }[] {
+  const out: { id: string; href: string; labelKey: string }[] = [];
+
+  for (const dir of readdirSync(join(SRC, "plugins"), { withFileTypes: true })) {
+    if (!dir.isDirectory()) continue;
+    let source: string;
+    try {
+      source = readFileSync(join(SRC, "plugins", dir.name, "index.ts"), "utf8");
+    } catch {
+      continue;
+    }
+    const id = source.match(/\bid:\s*"([^"]+)"/)?.[1];
+    const nav = source.match(/navItem:\s*\{([\s\S]*?)\}/)?.[1];
+    if (!id || !nav) continue;
+    const href = nav.match(/href:\s*"([^"]+)"/)?.[1];
+    const labelKey = nav.match(/labelKey:\s*"([^"]+)"/)?.[1];
+    if (href && labelKey) out.push({ id, href, labelKey });
+  }
+  return out;
+}
+
 test.describe("plugin and widget copy", () => {
   test("the registry is not empty, so an empty pass cannot look green", () => {
     expect(registeredPluginIds().length).toBeGreaterThanOrEqual(5);
@@ -141,5 +164,30 @@ test.describe("plugin and widget copy", () => {
 
     expect(unreachable, `These plugins ship a dashboard widget with no switch: ${unreachable.join(", ")}`)
       .toEqual([]);
+  });
+
+  test("a plugin's nav entry is one the navigation can actually render", () => {
+    // `useVisibleNavItems` *filters* NAV_ITEMS — it does not append plugin
+    // entries — so a plugin that declares a navItem whose href is missing from
+    // that list has an entry which can never appear, however its visibility
+    // predicate answers. Photos shipped exactly that way in 1.9.0-rc.7: the
+    // page existed, the plugin declared it, and the bottom bar never showed it.
+    const constants = readFileSync(join(SRC, "lib", "constants.ts"), "utf8");
+    const missing: string[] = [];
+
+    for (const { id, href, labelKey } of pluginNavItems()) {
+      if (!constants.includes(`href: "${href}"`)) {
+        missing.push(`${id}: ${href} is not in NAV_ITEMS`);
+        continue;
+      }
+      for (const locale of LOCALES) {
+        const value = lookup(bundles[locale], `nav.${labelKey}`);
+        if (typeof value !== "string" || value.trim() === "") {
+          missing.push(`${id}: ${locale} nav.${labelKey} is missing`);
+        }
+      }
+    }
+
+    expect(missing, `Nav entries that cannot appear:\n  ${missing.join("\n  ")}`).toEqual([]);
   });
 });
