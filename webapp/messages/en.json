@@ -3786,15 +3786,15 @@
     "hints": {
       "leave-soon": {
         "title": "{what}",
-        "detail": "In {minutes} minutes."
-      },
-      "leave-soon.at": {
-        "title": "{what}",
-        "detail": "In {minutes} minutes, at {location}."
-      },
-      "leave-soon.plain": {
-        "title": "{what}",
-        "detail": "In {minutes} minutes."
+        "detail": "In {minutes} minutes.",
+        "at": {
+          "title": "{what}",
+          "detail": "In {minutes} minutes, at {location}."
+        },
+        "plain": {
+          "title": "{what}",
+          "detail": "In {minutes} minutes."
+        }
       },
       "pack-the-school-bag": {
         "title": "{name} needs to pack for tomorrow",
