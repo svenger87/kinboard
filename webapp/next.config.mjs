@@ -17,6 +17,16 @@ const { version: appVersion } = createRequire(import.meta.url)('./package.json')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Next 16 blocks cross-origin requests to /_next dev resources, so opening
+  // the dev server from any host other than localhost (a phone, the wall
+  // display, another machine on the LAN) loads the shell then hangs on
+  // "Loading…" with no failed request to explain it. Env-driven so no
+  // machine's address is baked into the repo. Dev-only: a production build
+  // ignores it.
+  allowedDevOrigins: (process.env.NEXT_DEV_ORIGINS ?? "")
+    .split(",")
+    .map((h) => h.trim())
+    .filter(Boolean),
   output: 'standalone',
   env: { NEXT_PUBLIC_APP_VERSION: appVersion },
   // node-ical (used by /api/calendar/test-ics + /api/cron/sync-ics) has
