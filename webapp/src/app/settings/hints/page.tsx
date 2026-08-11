@@ -32,10 +32,26 @@ export default function HintsSettingsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader icon={Lightbulb} title={t("title")} subtitle={t("description")} backHref="/settings" />
+    // The same shell every other settings page uses. Without it this page had
+    // no top padding, so the floating back button sat on top of the title and
+    // cut off the subtitle behind it; the cards ran the full width of a
+    // desktop panel instead of the centred column, and the last rule row
+    // disappeared under the navigation bar. 25 of the 28 settings pages
+    // already open exactly like this — the page was simply missing it.
+    <main
+      id="main-content"
+      className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset"
+    >
+      <div className="relative z-10 max-w-2xl mx-auto space-y-6">
+        <PageHeader
+          icon={Lightbulb}
+          title={t("title")}
+          subtitle={t("description")}
+          backHref="/settings"
+          className="mb-8"
+        />
 
-      <Card className="divide-y">
+        <Card className="divide-y">
         {RULES.map((rule) => {
           const isOn = !disabled.has(rule.id);
           return (
@@ -66,7 +82,8 @@ export default function HintsSettingsPage() {
             </div>
           );
         })}
-      </Card>
-    </div>
+        </Card>
+      </div>
+    </main>
   );
 }

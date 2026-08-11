@@ -473,12 +473,28 @@ export default function ScheduleSettingsPage() {
       starts_on: holidayForm.startsOn,
       ends_on: holidayForm.endsOn,
     };
-    if (editingHoliday) {
-      await updateHoliday.mutateAsync({ id: editingHoliday.id, ...payload });
-    } else {
-      await createHoliday.mutateAsync(payload);
+    // Every other handler on this page reports a failed write; this one did
+    // not, and a refused insert therefore looked exactly like a button that
+    // does nothing — which is how it was reported. The dialog also has to stay
+    // open on failure, so the typing is not thrown away.
+    try {
+      if (editingHoliday) {
+        await updateHoliday.mutateAsync({ id: editingHoliday.id, ...payload });
+      } else {
+        await createHoliday.mutateAsync(payload);
+      }
+      setHolidayDialogOpen(false);
+    } catch {
+      toast.error(t("toastHolidaySaveFailed"));
     }
-    setHolidayDialogOpen(false);
+  };
+
+  const handleDeleteHoliday = async (id: string) => {
+    try {
+      await deleteHoliday.mutateAsync(id);
+    } catch {
+      toast.error(t("toastHolidayDeleteFailed"));
+    }
   };
 
   const [editingPackItem, setEditingPackItem] = useState<PackItemConfig | null>(null);
@@ -946,7 +962,7 @@ export default function ScheduleSettingsPage() {
                         variant="ghost"
                         size="icon"
                         className="size-7 text-destructive hover:text-destructive"
-                        onClick={() => deleteHoliday.mutate(holiday.id)}
+                        onClick={() => handleDeleteHoliday(holiday.id)}
                         aria-label={t("deleteHolidayAria", { name: holiday.name })}
                       >
                         <X className="size-3.5" />

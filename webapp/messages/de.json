@@ -2054,7 +2054,9 @@
       "holidayStartLabel": "Erster Tag",
       "holidayEndLabel": "Letzter Tag",
       "holidayRangeInvalid": "Der letzte Tag kann nicht vor dem ersten liegen.",
-      "holidayInclusiveHint": "Beide Tage zählen dazu. Für einen einzelnen freien Tag zweimal dasselbe Datum wählen."
+      "holidayInclusiveHint": "Beide Tage zählen dazu. Für einen einzelnen freien Tag zweimal dasselbe Datum wählen.",
+      "toastHolidaySaveFailed": "Ferienzeitraum konnte nicht gespeichert werden",
+      "toastHolidayDeleteFailed": "Ferienzeitraum konnte nicht gelöscht werden"
     },
     "itemLanguageLabel": "Sprache",
     "itemLanguageDescription": "Oberfläche zwischen Englisch und Deutsch wechseln",
