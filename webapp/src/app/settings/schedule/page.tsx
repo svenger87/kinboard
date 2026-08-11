@@ -116,9 +116,17 @@ import {
   RefreshCw,
   Backpack,
   Pencil,
+  CalendarOff,
   type LucideIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import {
+  useSchoolHolidays,
+  useCreateSchoolHoliday,
+  useUpdateSchoolHoliday,
+  useDeleteSchoolHoliday,
+  type SchoolHoliday,
+} from "@/hooks/use-supabase-queries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -341,6 +349,12 @@ const DEFAULT_PERIODS: PeriodConfig[] = [
   { num: 8, start: "14:50", end: "15:35" },
 ];
 
+/** "11.08.2026 – 21.08.2026", in the viewer's locale. */
+function formatHolidayRange(startsOn: string, endsOn: string): string {
+  const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString();
+  return startsOn === endsOn ? fmt(startsOn) : `${fmt(startsOn)} – ${fmt(endsOn)}`;
+}
+
 export default function ScheduleSettingsPage() {
   const t = useTranslations("settings.schedule");
   const tCommon = useTranslations("common");
@@ -418,6 +432,55 @@ export default function ScheduleSettingsPage() {
 
   // Pack items dialog state
   const [packDialogOpen, setPackDialogOpen] = useState(false);
+
+  // School holidays. Kept on this page rather than with the calendar because
+  // it is the same question as the timetable — when is there school — and the
+  // reminders it silences are the ones the timetable drives.
+  const { data: schoolHolidays = [] } = useSchoolHolidays();
+  const createHoliday = useCreateSchoolHoliday();
+  const updateHoliday = useUpdateSchoolHoliday();
+  const deleteHoliday = useDeleteSchoolHoliday();
+  const [holidayDialogOpen, setHolidayDialogOpen] = useState(false);
+  const [editingHoliday, setEditingHoliday] = useState<SchoolHoliday | null>(null);
+  const [holidayForm, setHolidayForm] = useState({ name: "", startsOn: "", endsOn: "" });
+
+  // Both ends inclusive, so a single-day closure is start === end and stays
+  // valid. Only the reversed case is rejected, which is also what the table's
+  // CHECK enforces — the form says so before the database has to.
+  const holidayRangeValid =
+    !!holidayForm.startsOn && !!holidayForm.endsOn && holidayForm.endsOn >= holidayForm.startsOn;
+
+  const openAddHolidayDialog = () => {
+    setEditingHoliday(null);
+    setHolidayForm({ name: "", startsOn: "", endsOn: "" });
+    setHolidayDialogOpen(true);
+  };
+
+  const openEditHolidayDialog = (holiday: SchoolHoliday) => {
+    setEditingHoliday(holiday);
+    setHolidayForm({
+      name: holiday.name,
+      startsOn: holiday.starts_on,
+      endsOn: holiday.ends_on,
+    });
+    setHolidayDialogOpen(true);
+  };
+
+  const handleSaveHoliday = async () => {
+    if (!holidayForm.name.trim() || !holidayRangeValid) return;
+    const payload = {
+      name: holidayForm.name.trim(),
+      starts_on: holidayForm.startsOn,
+      ends_on: holidayForm.endsOn,
+    };
+    if (editingHoliday) {
+      await updateHoliday.mutateAsync({ id: editingHoliday.id, ...payload });
+    } else {
+      await createHoliday.mutateAsync(payload);
+    }
+    setHolidayDialogOpen(false);
+  };
+
   const [editingPackItem, setEditingPackItem] = useState<PackItemConfig | null>(null);
   const [packForm, setPackForm] = useState({ subject: "", items: "" });
 
@@ -831,6 +894,66 @@ export default function ScheduleSettingsPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </Card>
+          {/*
+            School holidays.
+
+            The timetable is per weekday, so it cannot say "no school for six
+            weeks" — which is why the pack-the-bag reminder used to run all
+            summer. These ranges are what silence it, and they sit next to the
+            timetable because they answer the same question.
+          */}
+          <Card className="p-4 mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <CalendarOff className="size-4 text-muted-foreground" />
+                <h2 className="font-semibold">{t("holidaysHeading")}</h2>
+              </div>
+              <Button variant="outline" size="sm" onClick={openAddHolidayDialog}>
+                <Plus className="size-4 mr-1" />
+                {t("addHolidayButton")}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">{t("holidaysExplainer")}</p>
+            {schoolHolidays.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("holidaysEmpty")}</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {schoolHolidays.map((holiday) => (
+                  <div
+                    key={holiday.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30 group"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{holiday.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatHolidayRange(holiday.starts_on, holiday.ends_on)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 text-muted-foreground hover:text-foreground"
+                        onClick={() => openEditHolidayDialog(holiday)}
+                        aria-label={t("editHolidayAria", { name: holiday.name })}
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 text-destructive hover:text-destructive"
+                        onClick={() => deleteHoliday.mutate(holiday.id)}
+                        aria-label={t("deleteHolidayAria", { name: holiday.name })}
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </Card>
@@ -1256,6 +1379,64 @@ export default function ScheduleSettingsPage() {
       </Dialog>
 
       {/* Pack Item Dialog */}
+      <Dialog open={holidayDialogOpen} onOpenChange={setHolidayDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>
+              {editingHoliday ? t("holidayDialogTitleEdit") : t("holidayDialogTitleNew")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 pt-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="holiday-name">{t("holidayNameLabel")}</Label>
+              <Input
+                id="holiday-name"
+                placeholder={t("holidayNamePlaceholder")}
+                value={holidayForm.name}
+                onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-3">
+              <div className="flex flex-col gap-2 flex-1">
+                <Label htmlFor="holiday-start">{t("holidayStartLabel")}</Label>
+                <Input
+                  id="holiday-start"
+                  type="date"
+                  value={holidayForm.startsOn}
+                  onChange={(e) => setHolidayForm({ ...holidayForm, startsOn: e.target.value })}
+                />
+              </div>
+              <div className="flex flex-col gap-2 flex-1">
+                <Label htmlFor="holiday-end">{t("holidayEndLabel")}</Label>
+                <Input
+                  id="holiday-end"
+                  type="date"
+                  value={holidayForm.endsOn}
+                  onChange={(e) => setHolidayForm({ ...holidayForm, endsOn: e.target.value })}
+                />
+              </div>
+            </div>
+            {/* Said before saving rather than surfacing the CHECK as an error. */}
+            {holidayForm.startsOn && holidayForm.endsOn && !holidayRangeValid && (
+              <p className="text-xs text-destructive">{t("holidayRangeInvalid")}</p>
+            )}
+            <p className="text-xs text-muted-foreground">{t("holidayInclusiveHint")}</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHolidayDialogOpen(false)}>
+              {t("cancelButton")}
+            </Button>
+            <Button
+              onClick={handleSaveHoliday}
+              disabled={!holidayForm.name.trim() || !holidayRangeValid}
+            >
+              {editingHoliday ? t("saveSubmitButton") : t("addSubmitButton")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={packDialogOpen} onOpenChange={setPackDialogOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>

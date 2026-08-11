@@ -355,6 +355,37 @@ export interface Database {
         };
         Relationships: [];
       };
+      school_holidays: {
+        Row: {
+          id: string;
+          family_id: string;
+          name: string;
+          /** Inclusive local calendar days, `YYYY-MM-DD`. */
+          starts_on: string;
+          ends_on: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          name: string;
+          starts_on: string;
+          ends_on: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          name?: string;
+          starts_on?: string;
+          ends_on?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       subjects: {
         Row: {
           id: string;
