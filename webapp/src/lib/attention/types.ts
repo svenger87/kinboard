@@ -26,6 +26,20 @@ export interface Signals {
   events: SignalEvent[];
   todos: SignalTodo[];
   lessons: SignalLesson[];
+
+  /**
+   * School holiday periods, as inclusive local calendar days.
+   *
+   * The timetable in `lessons` is per weekday and cannot express a break, so
+   * without this the school rules fire every evening through the summer —
+   * Monday still has sport on the timetable whether or not anybody is going.
+   *
+   * Deliberately `YYYY-MM-DD` strings rather than Date: every rule already
+   * reduces the day it cares about to exactly that via `localDay`, so the
+   * comparison stays a string comparison and no rule has to do timezone
+   * arithmetic to answer "is this a school day".
+   */
+  schoolBreaks: SignalSchoolBreak[];
   meals: SignalMeal[];
   birthdays: SignalBirthday[];
   shoppingItemCount: number;
@@ -69,6 +83,30 @@ export interface SignalLesson {
   subject: string;
   /** Things the child has to bring for this lesson, if the family tracks them. */
   packList: string[];
+}
+
+export interface SignalSchoolBreak {
+  /** The family's own word for it — "Sommerferien", "half term". */
+  name: string;
+  /** Inclusive local calendar days, `YYYY-MM-DD`. */
+  startsOn: string;
+  endsOn: string;
+  /** Where it came from, so a rule's evidence can say which. */
+  source: "manual" | "calendar";
+}
+
+/**
+ * Is `day` (a local `YYYY-MM-DD`, as `localDay` produces) inside a break?
+ *
+ * ISO dates compare correctly as strings, which is the whole reason the range
+ * is stored this way — a rule can answer this without a Date, a timezone or a
+ * library.
+ */
+export function isSchoolBreakOn(
+  breaks: SignalSchoolBreak[],
+  day: string
+): SignalSchoolBreak | null {
+  return breaks.find((b) => day >= b.startsOn && day <= b.endsOn) ?? null;
 }
 
 export interface SignalMeal {

@@ -54,6 +54,7 @@ function signals(overrides: Partial<Signals> = {}): Signals {
     events: [],
     todos: [],
     lessons: [],
+    schoolBreaks: [],
     meals: [],
     birthdays: [],
     shoppingItemCount: 0,

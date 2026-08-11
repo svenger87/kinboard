@@ -1,4 +1,5 @@
 import type { ProposedItem, Rule, Signals } from "./types";
+import { isSchoolBreakOn } from "./types";
 import { localMinutes } from "./engine";
 
 /**
@@ -105,6 +106,14 @@ const packTheSchoolBag: Rule = {
     const dow = localDayOfWeek(target, signals.timeZone);
     const day = localDay(target, signals.timeZone);
 
+    // Nothing to pack for a day nobody is going in. The timetable is per
+    // weekday and cannot express a break, so without this the hint arrives
+    // every evening of the summer holidays — Monday still has sport on it.
+    // Checked against the *target* day rather than today, so the evening of
+    // the last school day before a break stays quiet while the evening before
+    // term restarts still asks.
+    if (isSchoolBreakOn(signals.schoolBreaks, day)) return [];
+
     const byPerson = new Map<string, { name: string; needs: Set<string> }>();
     for (const lesson of signals.lessons) {
       if (lesson.dayOfWeek !== dow || lesson.packList.length === 0) continue;
@@ -147,6 +156,10 @@ const schoolTomorrow: Rule = {
     const tomorrow = new Date(signals.now.getTime() + DAY_MS);
     const dow = localDayOfWeek(tomorrow, signals.timeZone);
     const day = localDay(tomorrow, signals.timeZone);
+
+    // A break beats the timetable: there is no school tomorrow however the
+    // weekday reads.
+    if (isSchoolBreakOn(signals.schoolBreaks, day)) return [];
 
     const children = new Map<string, string>();
     for (const lesson of signals.lessons) {
