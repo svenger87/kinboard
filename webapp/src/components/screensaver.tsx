@@ -868,9 +868,32 @@ export function Screensaver({ photos }: ScreensaverProps) {
         elevated
       />
 
+      {/*
+        Bottom cluster: the clock and the events/birthdays block.
+
+        On a landscape desktop panel these sit in opposite corners and never
+        meet, so each keeps its own absolute position and the wrapper below
+        dissolves (`display: contents`).
+
+        Everywhere else — portrait wall panels, and landscape under `lg` — they
+        stack, and they used to do it by each anchoring itself to the bottom
+        edge with a hand-picked offset: the clock at `bottom-32` (128px) and
+        the block at `bottom-56` (224px), i.e. 96px reserved for a clock that
+        actually renders 108px tall. It overlapped the last event card by 12px,
+        and the reserved figure was a guess that any change to the date string,
+        the locale or the font size would invalidate again.
+
+        One flow container with a real gap cannot be off by 12px, so the
+        spacing stops being a number anybody has to maintain. `flex-col-reverse`
+        keeps the events above the clock without moving either block in the
+        source — DOM order is what the landscape layout reads.
+      */}
+      <div
+        className="absolute inset-x-4 bottom-12 flex flex-col-reverse gap-6 safe-area-inset landscape:lg:contents"
+      >
       {/* Clock overlay - bottom left (compact for mobile & portrait) */}
       <div
-        className="absolute bottom-32 landscape:lg:bottom-12 left-4 landscape:lg:left-12 safe-area-inset screensaver-slide-up"
+        className="landscape:lg:absolute landscape:lg:bottom-12 landscape:lg:left-12 safe-area-inset screensaver-slide-up"
         style={{ animationDelay: "0.5s", ...burnInStyle }}
       >
         <div className="flex items-baseline">
@@ -891,7 +914,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
 
       {/* Right side - Events and Birthdays (above clock for portrait/mobile, right side for landscape desktop) */}
       <div
-        className="absolute bottom-56 left-4 right-4 landscape:lg:bottom-12 landscape:lg:left-auto landscape:lg:right-12 max-w-sm flex flex-col gap-4 landscape:lg:gap-6 safe-area-inset screensaver-slide-right"
+        className="max-w-sm landscape:lg:absolute landscape:lg:bottom-12 landscape:lg:right-12 flex flex-col gap-4 landscape:lg:gap-6 safe-area-inset screensaver-slide-right"
         style={{ animationDelay: "0.7s", ...burnInStyle }}
       >
         {/* Upcoming Events */}
@@ -1012,6 +1035,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
           </div>
         )}
       </div>
+      </div>
+      {/* end bottom cluster */}
 
       {/* Photo metadata / attribution */}
       {currentPhotoMetadata?.photographer && (
