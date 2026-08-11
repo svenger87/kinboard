@@ -288,7 +288,6 @@ export default function CaldavSettingsPage() {
           icon={Server}
           title={t("title")}
           subtitle={t("subtitle")}
-          backHref="/settings/calendar"
           backLabel={tComponents("backTo", { target: tSettings("itemCalendarLabel") })}
           actions={
             <div className="flex items-center gap-2">

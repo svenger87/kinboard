@@ -90,3 +90,27 @@ export const NAV_ITEMS = [
   { href: "/news", icon: Newspaper, labelKey: "news" },
   { href: "/settings", icon: Settings, labelKey: "settings" },
 ] as const;
+
+/**
+ * Settings pages that live under another settings page.
+ *
+ * The routes are flat — `/settings/caldav`, not `/settings/calendar/caldav` —
+ * so the parent cannot be derived from the URL, and the back control in
+ * `settings/layout.tsx` sent every sub-page to the settings root. Reaching
+ * CalDAV means going Settings -> Calendar -> CalDAV, and coming back landed
+ * two levels up, so the way back in had to be walked again.
+ *
+ * Declared rather than inferred, because the nesting is a fact about the
+ * navigation and not about the paths. `/settings/calendar` is the only page
+ * with children today; it links to all three of these.
+ */
+export const SETTINGS_PARENT_PATHS: Record<string, string> = {
+  "/settings/caldav": "/settings/calendar",
+  "/settings/ics": "/settings/calendar",
+  "/settings/google": "/settings/calendar",
+};
+
+/** Where the back control on a settings sub-page should go. */
+export function settingsBackHref(pathname: string): string {
+  return SETTINGS_PARENT_PATHS[pathname] ?? "/settings";
+}
