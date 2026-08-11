@@ -2054,7 +2054,9 @@
       "holidayStartLabel": "First day",
       "holidayEndLabel": "Last day",
       "holidayRangeInvalid": "The last day cannot be before the first.",
-      "holidayInclusiveHint": "Both days are included. For a single day off, use the same date twice."
+      "holidayInclusiveHint": "Both days are included. For a single day off, use the same date twice.",
+      "toastHolidaySaveFailed": "Holiday period could not be saved",
+      "toastHolidayDeleteFailed": "Holiday period could not be deleted"
     },
     "itemLanguageLabel": "Language",
     "itemLanguageDescription": "Switch the interface between English and German",

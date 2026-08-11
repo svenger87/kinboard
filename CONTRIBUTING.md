@@ -54,6 +54,20 @@ The repo follows a few conventions worth knowing about:
 - **Date formatting.** Use `date-fns` with `de | enUS` locales rather than hardcoded month/day names.
 - **Server vs. client state.** Server state goes through TanStack Query (`webapp/src/hooks/`). UI state goes through Zustand (`webapp/src/stores/`).
 - **Database changes.** Schema changes ship as new `webapp/docker/migration*.sql` files (idempotent — guarded with `IF NOT EXISTS` / type checks). `init.sql` is reserved for fresh installs and runs once. `start.sh up` applies migrations on every boot.
+- **Settings pages share one frame.** A page under `webapp/src/app/settings/<name>/page.tsx` opens with the shell every other one uses:
+
+  ```tsx
+  <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    <div className="relative z-10 max-w-2xl mx-auto">
+      <PageHeader icon={Icon} title={t("title")} subtitle={t("subtitle")} className="mb-8" />
+  ```
+
+  The `pt-16` is not decoration: `settings/layout.tsx` renders a *floating* back button over the top-left corner of every sub-page, and a page without that padding puts its own heading underneath it. Widen `max-w-2xl` if the content needs it; keep the rest.
+
+- **Never pass `backHref="/settings"` to `PageHeader` on a settings sub-page.** The layout already renders that control for you, so passing it again gives the page two back buttons pointing at the same place. (A `backHref` to a *different* parent, as `settings/caldav` does, is a separate case and fine.)
+
+- **A new table the browser reads needs an explicit `GRANT`.** `ALTER DEFAULT PRIVILEGES` in this database grants new tables to `service_role`, `authenticator` and the supabase admin roles — and to nobody else. Without `GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.<table> TO anon, authenticated;` in the same migration, the table is invisible to the app however correct its RLS policy is, and the symptom is a form that silently does nothing. This has now been hit twice; see the header of `migration_zy_schema_hardening.sql`.
+
 - **Conventional Commits.** Commit messages follow the [Conventional Commits](https://www.conventionalcommits.org/) format: `feat(scope): …`, `fix(scope): …`, `docs(scope): …`, `ci(scope): …`, `refactor(scope): …`, `test(scope): …`, `chore(scope): …`. The scope (`weather`, `realtime`, `settings`, …) is optional but encouraged. This keeps the commit log scannable and unblocks future automation (`release-please` etc.).
 
 ## Changelog

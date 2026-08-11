@@ -54,3 +54,31 @@ BEGIN
       ON public.school_holidays (family_id, starts_on, ends_on);
   END IF;
 END $$;
+
+-- GRANTS
+--
+-- The browser talks to PostgREST directly as `anon` (with a family-scoped
+-- JWT), so a table with no grant to that role is invisible to the app however
+-- correct its RLS policy is. Postgres grants nothing on a new table by
+-- default, and the failure is quiet in the worst way: the insert is refused at
+-- the privilege layer, PostgREST returns the error, and a UI that does not
+-- surface it simply appears to do nothing.
+--
+-- This was missed first time round because a development database that has
+-- picked up ALTER DEFAULT PRIVILEGES grants them anyway — so the feature
+-- worked locally and was dead on a correctly configured install. The grant is
+-- explicit here for that reason.
+--
+-- RLS is still what scopes rows to one family; the grant only says the role
+-- may reach the table at all. Both layers are required.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.school_holidays TO anon;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.school_holidays TO authenticated;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    GRANT ALL ON TABLE public.school_holidays TO service_role;
+  END IF;
+END $$;

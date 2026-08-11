@@ -2054,7 +2054,9 @@
       "holidayStartLabel": "Premier jour",
       "holidayEndLabel": "Dernier jour",
       "holidayRangeInvalid": "Le dernier jour ne peut pas précéder le premier.",
-      "holidayInclusiveHint": "Les deux jours sont inclus. Pour un seul jour, indiquez deux fois la même date."
+      "holidayInclusiveHint": "Les deux jours sont inclus. Pour un seul jour, indiquez deux fois la même date.",
+      "toastHolidaySaveFailed": "La période de vacances n'a pas pu être enregistrée",
+      "toastHolidayDeleteFailed": "La période de vacances n'a pas pu être supprimée"
     },
     "itemLanguageLabel": "Langue",
     "itemLanguageDescription": "Changer la langue de l'interface entre l'anglais et l'allemand",
