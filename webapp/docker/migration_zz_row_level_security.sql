@@ -111,7 +111,7 @@ DECLARE
     'people', 'pocket_money_accounts', 'push_subscriptions', 'recipe_tags',
     'recipes', 'scheduled_notifications', 'schedules', 'settings',
     'shopping_items', 'subjects', 'tickers', 'todos', 'vehicles',
-    'device_sessions'
+    'device_sessions', 'school_holidays'
   ];
 BEGIN
   FOREACH t IN ARRAY direct_tables LOOP

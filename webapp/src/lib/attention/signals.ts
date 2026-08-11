@@ -11,6 +11,7 @@ import type {
   SignalEvent,
   SignalLesson,
   SignalMeal,
+  SignalSchoolBreak,
   SignalTodo,
   Signals,
 } from "./types";
@@ -50,10 +51,13 @@ export async function collectSignals(
   const now = options.now ?? new Date();
   const timeZone = options.timeZone ?? (await familyTimeZone(familyId)) ?? "Europe/Berlin";
 
-  const [events, todos, lessons, meals, birthdays, shoppingItemCount, weather, home] = await Promise.all([
+  const [events, todos, lessons, schoolBreaks, meals, birthdays, shoppingItemCount, weather, home] = await Promise.all([
     fetchEvents(familyId, now).catch(() => [] as SignalEvent[]),
     fetchTodos(familyId).catch(() => [] as SignalTodo[]),
     fetchLessons(familyId).catch(() => [] as SignalLesson[]),
+    // Degrades to "term time" on failure, which is the safe direction: a
+    // missed reminder is worse than one during the holidays.
+    fetchSchoolBreaks(familyId, now, timeZone).catch(() => [] as SignalSchoolBreak[]),
     fetchMeals(familyId, now).catch(() => [] as SignalMeal[]),
     fetchBirthdays(familyId, now, timeZone).catch(() => [] as SignalBirthday[]),
     fetchShoppingCount(familyId).catch(() => 0),
@@ -66,7 +70,7 @@ export async function collectSignals(
   // weather and home stay optional: a household with neither configured loses
   // nothing, because eight of the ten shipped rules use neither and the other
   // two degrade to silence.
-  return { now, timeZone, events, todos, lessons, meals, birthdays, shoppingItemCount, weather, home };
+  return { now, timeZone, events, todos, lessons, schoolBreaks, meals, birthdays, shoppingItemCount, weather, home };
 }
 
 async function familyTimeZone(familyId: string): Promise<string | null> {
@@ -154,6 +158,91 @@ async function fetchTodos(familyId: string): Promise<SignalTodo[]> {
       personName: row.person_id ? people.get(String(row.person_id)) ?? null : null,
     })
   );
+}
+
+/**
+ * School holiday periods, from the two places a family can express them.
+ *
+ * 1. `school_holidays` — typed in by hand. The primary path, because it works
+ *    in any country and needs no feed to exist for the family's own school.
+ * 2. Events on a calendar flagged `is_holidays` — the ICS path, for anyone
+ *    whose authority publishes a feed. That flag has existed on calendars
+ *    since ICS support shipped and nothing has ever read it; this is its
+ *    first consumer.
+ *
+ * Both reduce to the same inclusive `YYYY-MM-DD` range, so a rule cannot tell
+ * them apart and does not have to.
+ */
+async function fetchSchoolBreaks(
+  familyId: string,
+  now: Date,
+  timeZone: string
+): Promise<SignalSchoolBreak[]> {
+  const supabase = createAdminClient();
+
+  // A window either side of today: enough for "is tomorrow a school day" and
+  // for the morning branch looking back at today, without loading a decade of
+  // history on every evaluation.
+  const from = localDayString(new Date(now.getTime() - 7 * DAY_MS), timeZone);
+  const to = localDayString(new Date(now.getTime() + 30 * DAY_MS), timeZone);
+
+  const [{ data: manual }, { data: calendarEvents }] = await Promise.all([
+    (supabase as any)
+      .from("school_holidays")
+      .select("name, starts_on, ends_on")
+      .eq("family_id", familyId)
+      .lte("starts_on", to)
+      .gte("ends_on", from),
+    (supabase as any)
+      .from("events")
+      .select("title, start_at, end_at, all_day, calendars!inner(family_id, is_holidays)")
+      .eq("calendars.family_id", familyId)
+      .eq("calendars.is_holidays", true)
+      .lte("start_at", `${to}T23:59:59Z`)
+      .gte("end_at", `${from}T00:00:00Z`),
+  ]);
+
+  const breaks: SignalSchoolBreak[] = [];
+
+  for (const row of manual ?? []) {
+    if (!row?.starts_on || !row?.ends_on) continue;
+    breaks.push({
+      name: String(row.name ?? ""),
+      startsOn: String(row.starts_on),
+      endsOn: String(row.ends_on),
+      source: "manual",
+    });
+  }
+
+  for (const row of calendarEvents ?? []) {
+    if (!row?.start_at || !row?.end_at) continue;
+    const start = new Date(row.start_at);
+    // An all-day range ends at midnight on the morning *after* the last day —
+    // the iCalendar convention, and the one every ICS feed follows. Taking
+    // that date as-is would extend every holiday by a day, so step back to the
+    // last day the children are actually off.
+    const rawEnd = new Date(row.end_at);
+    const end = row.all_day ? new Date(rawEnd.getTime() - DAY_MS) : rawEnd;
+    if (end.getTime() < start.getTime()) continue;
+    breaks.push({
+      name: String(row.title ?? ""),
+      startsOn: localDayString(start, timeZone),
+      endsOn: localDayString(end, timeZone),
+      source: "calendar",
+    });
+  }
+
+  return breaks;
+}
+
+/** Local `YYYY-MM-DD`, matching what the rules' own `localDay` produces. */
+function localDayString(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(instant);
 }
 
 /**
