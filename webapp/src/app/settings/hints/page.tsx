@@ -47,7 +47,6 @@ export default function HintsSettingsPage() {
           icon={Lightbulb}
           title={t("title")}
           subtitle={t("description")}
-          backHref="/settings"
           className="mb-8"
         />
 

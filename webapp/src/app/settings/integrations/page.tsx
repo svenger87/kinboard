@@ -108,7 +108,15 @@ export default function IntegrationsPage() {
     iso ? new Date(iso).toLocaleDateString(locale, { dateStyle: "medium" }) : "—";
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-6">
+    // The shared settings shell. This page used its own wrapper, which had no
+    // clearance for the floating back button the settings layout renders, and
+    // no safe-area padding on a tablet. The wider max-w-3xl column is kept —
+    // it holds a table of tokens — but the frame is the common one.
+    <main
+      id="main-content"
+      className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset"
+    >
+      <div className="relative z-10 mx-auto w-full max-w-3xl">
       <PageHeader icon={KeyRound} title={t("title")} subtitle={t("subtitle")} className="mb-8" />
 
       {/* Shown once. Deliberately not a toast: a toast disappears on its own,
@@ -236,6 +244,7 @@ export default function IntegrationsPage() {
           );
         })}
       </div>
-    </div>
+      </div>
+    </main>
   );
 }
