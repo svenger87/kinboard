@@ -88,12 +88,22 @@ const packTheSchoolBag: Rule = {
   id: "pack-the-school-bag",
   title: "Pack the school bag",
   description:
-    "The evening before, lists what tomorrow's lessons need — sports kit, swimming things.",
-  contexts: ["evening"],
-  evaluate(signals) {
-    const tomorrow = new Date(signals.now.getTime() + DAY_MS);
-    const dow = localDayOfWeek(tomorrow, signals.timeZone);
-    const day = localDay(tomorrow, signals.timeZone);
+    "The evening before, lists what tomorrow's lessons need — sports kit, swimming things. Asks again in the morning if nobody answered it.",
+  // Evening *and* morning. Evening alone meant the hint appeared at 18:00 and
+  // was resolved at 22:00 when the context ended — so a bag that had not been
+  // packed by ten o'clock was never mentioned again, and the board said nothing
+  // at breakfast either. That is precisely when it still matters.
+  contexts: ["evening", "morning"],
+  evaluate(signals, { dayContext }) {
+    // Which school day is being packed for: tomorrow in the evening, today in
+    // the morning rush. It is the same bag on both sides of the night, so `day`
+    // — and therefore the item key — has to come out identical. Computing
+    // "tomorrow" in the morning would key the item on the day *after* the
+    // school day and quietly raise a second one.
+    const target =
+      dayContext === "morning" ? signals.now : new Date(signals.now.getTime() + DAY_MS);
+    const dow = localDayOfWeek(target, signals.timeZone);
+    const day = localDay(target, signals.timeZone);
 
     const byPerson = new Map<string, { name: string; needs: Set<string> }>();
     for (const lesson of signals.lessons) {
@@ -106,16 +116,22 @@ const packTheSchoolBag: Rule = {
       byPerson.set(lesson.personId, entry);
     }
 
+    const forToday = dayContext === "morning";
+
     return [...byPerson.entries()].map(([personId, { name, needs }]) => ({
       key: `pack-the-school-bag:${day}:${personId}`,
-      title: `${name} needs to pack for tomorrow`,
+      title: forToday
+        ? `${name} still needs to pack for today`
+        : `${name} needs to pack for tomorrow`,
       detail: [...needs].sort().join(", "),
       // The list itself is data, not words — it is the family's own subject
       // names and pack items, and translating them would be wrong.
-      messageKey: "pack-the-school-bag",
+      messageKey: forToday ? "pack-the-school-bag-today" : "pack-the-school-bag",
       params: { name, items: [...needs].sort().join(", ") },
       evidence: { day, personId, needs: [...needs].sort() },
-      priority: 30,
+      // Dearer in the morning: the same task, with the school run rather than a
+      // whole evening left to do it in.
+      priority: forToday ? 20 : 30,
       subjectType: "person",
       subjectId: personId,
     }));

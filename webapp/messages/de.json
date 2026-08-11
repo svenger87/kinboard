@@ -3800,6 +3800,10 @@
         "title": "{name} muss für morgen packen",
         "detail": "{items}"
       },
+      "pack-the-school-bag-today": {
+        "title": "{name} muss noch für heute packen",
+        "detail": "{items}"
+      },
       "school-tomorrow": {
         "title": "Morgen Schule: {children}",
         "detail": "{count, plural, one {# Kind hat} other {# Kinder haben}} Unterricht."

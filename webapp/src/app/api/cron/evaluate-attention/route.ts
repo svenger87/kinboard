@@ -41,9 +41,10 @@ export async function POST(request: NextRequest) {
         raised: acc.raised + r.raised,
         resolved: acc.resolved + r.resolved,
         unsnoozed: acc.unsnoozed + r.unsnoozed,
+        suppressed: acc.suppressed + r.suppressed,
         active: acc.active + r.active,
       }),
-      { raised: 0, resolved: 0, unsnoozed: 0, active: 0 }
+      { raised: 0, resolved: 0, unsnoozed: 0, suppressed: 0, active: 0 }
     );
     return NextResponse.json({ families: results.length, ...total });
   } catch (err) {

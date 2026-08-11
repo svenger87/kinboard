@@ -17,12 +17,24 @@ import { RULES } from "./rules";
  * far simpler and would throw away every acknowledgement once a minute.
  */
 
+/**
+ * How far back to look for an answer before raising an item again.
+ *
+ * Long enough to cover the gap between any two contexts — the widest is the
+ * night, 22:00 to 05:30 — and short enough that the same key next week is a
+ * genuinely new question. Most keys carry their own day, so this is a backstop
+ * rather than the main defence.
+ */
+const ANSWERED_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+
 export interface RunResult {
   familyId: string;
   raised: number;
   refreshed: number;
   resolved: number;
   unsnoozed: number;
+  /** True again, but already answered earlier — deliberately not re-raised. */
+  suppressed: number;
   active: number;
 }
 
@@ -87,6 +99,7 @@ export async function runAttentionForFamily(
     refreshed: 0,
     resolved: 0,
     unsnoozed: 0,
+    suppressed: 0,
     active: 0,
   };
   const nowIso = now.toISOString();
@@ -125,7 +138,36 @@ export async function runAttentionForFamily(
   }
 
   // -- newly true ----------------------------------------------------------
-  const fresh = proposed.filter((i) => !existing.has(i.key));
+  //
+  // "Newly" has to mean newly to the family, not merely newly to this run. A
+  // rule that speaks only in certain contexts goes quiet at the boundary, its
+  // items are resolved, and the next context raises them again from scratch —
+  // so an item somebody acknowledged at seven in the evening would reappear at
+  // half past five the next morning as though nobody had ever answered it. The
+  // acknowledgement lives on the resolved row, so look there before raising.
+  //
+  // Only acknowledged and dismissed count as answered. Snoozed means "later",
+  // and later is exactly what the next context is.
+  const candidates = proposed.filter((i) => !existing.has(i.key));
+  let fresh = candidates;
+  if (candidates.length > 0) {
+    const { data: answeredRows } = await (supabase as any)
+      .from("attention_items")
+      .select("item_key")
+      .eq("family_id", familyId)
+      .in(
+        "item_key",
+        candidates.map((i) => i.key)
+      )
+      .in("state", ["acknowledged", "dismissed"])
+      .not("resolved_at", "is", null)
+      .gte("resolved_at", new Date(now.getTime() - ANSWERED_LOOKBACK_MS).toISOString());
+
+    const answered = new Set(((answeredRows ?? []) as { item_key: string }[]).map((r) => r.item_key));
+    fresh = candidates.filter((i) => !answered.has(i.key));
+    result.suppressed = candidates.length - fresh.length;
+  }
+
   if (fresh.length > 0) {
     await (supabase as any).from("attention_items").insert(
       fresh.map((item) => ({
