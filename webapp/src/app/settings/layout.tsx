@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { settingsBackHref } from "@/lib/constants";
 import { useTranslations } from "next-intl";
 import { PinGuard } from "@/components/pin-guard";
 
@@ -31,7 +32,7 @@ export default function SettingsLayout({
           style={{ paddingTop: 'env(safe-area-inset-top, 0)', paddingLeft: 'env(safe-area-inset-left, 0)' }}
         >
           <Link
-            href="/settings"
+            href={settingsBackHref(pathname)}
             // The label is `hidden sm:inline`, so below 640px this link is an
             // icon alone. Without an explicit name it reached assistive tech as
             // an unnamed link on all 18 settings sub-pages — and it is the only
