@@ -225,6 +225,23 @@ jobs:
           fi
           echo "Changelog check passed."
 
+  changelog-format:
+    name: Changelog format
+    runs-on: ubuntu-latest
+    # Not PR-only: unlike the job above this needs no base..head diff, and a
+    # repeated heading can also arrive on main through a direct push (a
+    # release bump, a hand-edit). Checking both is what keeps it from
+    # drifting back.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # No `npm ci` and no corepack: the script imports only node:fs/url/path,
+      # so it runs against a bare checkout.
+      - name: Check CHANGELOG section structure
+        run: node scripts/check-changelog-sections.mjs
+
   specs:
     name: Specs
     runs-on: ubuntu-latest
