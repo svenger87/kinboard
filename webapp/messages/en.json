@@ -3800,6 +3800,10 @@
         "title": "{name} needs to pack for tomorrow",
         "detail": "{items}"
       },
+      "pack-the-school-bag-today": {
+        "title": "{name} still needs to pack for today",
+        "detail": "{items}"
+      },
       "school-tomorrow": {
         "title": "School tomorrow: {children}",
         "detail": "{count, plural, one {# child has} other {# children have}} lessons."
