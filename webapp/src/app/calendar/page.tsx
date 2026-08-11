@@ -116,6 +116,7 @@ import {
   type EventWithCalendar,
 } from "@/hooks";
 import { matchPersonForEvent } from "@/lib/calendar-person-matcher";
+import { layoutDayEvents } from "@/lib/calendar-layout";
 import { getHolidays, type CountryCode } from "@/lib/holidays";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { useWeekStart } from "@/hooks/use-week-start";
@@ -1152,8 +1153,21 @@ export default function CalendarPage() {
                               }
                               return null;
                             })()}
-                            {/* Event blocks */}
-                            {timedEvents.map((event) => {
+                            {/*
+                              Event blocks.
+
+                              Every block used to be `left-1 right-0`, so two
+                              events at the same hour were drawn at the same
+                              place and the titles piled up illegibly — three
+                              overlapping events on a 1080x1920 portrait panel
+                              rendered as one unreadable band. The week view has
+                              always shared the column between overlapping
+                              events; the day timeline simply never called the
+                              same helper. It does now, so a cluster splits the
+                              width and an event still widens into free space to
+                              its right.
+                            */}
+                            {layoutDayEvents(timedEvents).map(({ event, left, width }) => {
                               const startHour = event.start.getHours() + event.start.getMinutes() / 60;
                               const endHour = event.end.getHours() + event.end.getMinutes() / 60;
                               const clampedStart = Math.max(startHour, TIMELINE_START);
@@ -1166,10 +1180,15 @@ export default function CalendarPage() {
                                 <button
                                   key={event.id}
                                   onClick={() => openEventDetail(event)}
-                                  className={`absolute left-1 right-0 rounded-md px-2 py-0.5 overflow-hidden text-left transition-all hover:brightness-125 focus-visible:ring-2 focus-visible:ring-ring ${isOngoing ? "ring-1 ring-primary/60" : ""}`}
+                                  className={`absolute rounded-md px-2 py-0.5 overflow-hidden text-left transition-all hover:brightness-125 focus-visible:ring-2 focus-visible:ring-ring ${isOngoing ? "ring-1 ring-primary/60" : ""}`}
                                   style={{
                                     top: `${top}%`,
                                     height: `${height}%`,
+                                    // The 4px keeps the gutter the old `left-1`
+                                    // gave a single event, now measured from
+                                    // whichever column the event landed in.
+                                    left: `calc(${left * 100}% + 4px)`,
+                                    width: `calc(${width * 100}% - 4px)`,
                                     minHeight: "18px",
                                     backgroundColor: `${event.color}25`,
                                     borderLeft: `3px solid ${event.color}`,
