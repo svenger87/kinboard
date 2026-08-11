@@ -19,7 +19,28 @@ import type { Signals } from "../src/lib/attention/types";
 
 const LOCALES = ["en", "de", "fr"] as const;
 
-function messages(locale: string): Record<string, { title?: string; detail?: string }> {
+type HintEntry = { title?: string; detail?: string };
+type HintNode = { [key: string]: HintNode | string | undefined };
+
+/**
+ * Resolve a message key the way next-intl does: a dot means nesting.
+ *
+ * `messageKey` values such as `leave-soon.at` are paths, not literal keys. A
+ * flat `"leave-soon.at"` entry cannot be reached at runtime — next-intl throws
+ * INVALID_KEY on it — so indexing the table once with the whole key asserted
+ * exactly the shape the app rejects, and this suite passed while the hint fell
+ * back to stored English on every wall display.
+ */
+function entryFor(table: HintNode, key: string): HintEntry | undefined {
+  let node: HintNode | string | undefined = table;
+  for (const part of key.split(".")) {
+    if (node == null || typeof node === "string") return undefined;
+    node = node[part];
+  }
+  return node != null && typeof node !== "string" ? (node as HintEntry) : undefined;
+}
+
+function messages(locale: string): HintNode {
   const raw = JSON.parse(
     readFileSync(join(process.cwd(), "messages", `${locale}.json`), "utf8"),
   );
@@ -66,7 +87,7 @@ for (const locale of LOCALES) {
       }
     }
     expect(keys.size).toBeGreaterThan(0);
-    const missing = [...keys].filter((k) => !table[k]?.title);
+    const missing = [...keys].filter((k) => !entryFor(table, k)?.title);
     expect(missing, `${locale} is missing: ${missing.join(", ")}`).toEqual([]);
   });
 }
@@ -91,10 +112,10 @@ test("the params a rule sends are the ones its message interpolates", () => {
   expect(produced.length).toBeGreaterThan(0);
   for (const item of produced) {
     if (!item.messageKey) continue;
-    const entry = en[item.messageKey];
+    const entry = entryFor(en, item.messageKey);
     expect(entry, `no en message for ${item.messageKey}`).toBeTruthy();
 
-    const text = `${entry.title ?? ""} ${entry.detail ?? ""}`;
+    const text = `${entry?.title ?? ""} ${entry?.detail ?? ""}`;
     const placeholders = [...text.matchAll(/\{(\w+)[,}]/g)].map((m) => m[1]);
     for (const name of placeholders) {
       expect(
