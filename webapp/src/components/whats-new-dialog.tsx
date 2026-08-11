@@ -155,7 +155,16 @@ export function WhatsNewDialog({ open, onOpenChange }: WhatsNewDialogProps) {
                         // Reached only on an instance running a
                         // pre-release; a stable install never receives
                         // these entries at all.
-                        <span className="ml-2 align-middle rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-3xs font-medium uppercase tracking-wide text-warning-foreground">
+                        //
+                        // The text is --warning-strong, not
+                        // --warning-foreground: the latter is meant for text
+                        // on a *solid* --warning fill, and this fill is a 10%
+                        // tint, so in dark mode it rendered at 10% lightness
+                        // on a dark card and was all but invisible.
+                        // --warning-strong is the text-safe companion the
+                        // palette already carries for exactly this (audit
+                        // KB-12), and what this badge pattern uses elsewhere.
+                        <span className="ml-2 align-middle rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-3xs font-medium uppercase tracking-wide text-warning-strong">
                           {t("prereleaseBadge")}
                         </span>
                       )}
