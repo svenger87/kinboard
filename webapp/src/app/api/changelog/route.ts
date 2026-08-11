@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { readCurrentVersion, isPrereleaseVersion } from "@/lib/app-version";
+import {
+  readCurrentVersion,
+  isPrereleaseVersion,
+  compareVersionsDesc,
+} from "@/lib/app-version";
 
 // Module-level cache: every container instance hits the GitHub API at
 // most once per 6h, same posture as /api/version-check.
@@ -67,9 +71,20 @@ export async function GET() {
   const onPrereleaseChannel = isPrereleaseVersion(await readCurrentVersion());
 
   const releases = await fetchReleases();
-  const visible = (releases ?? []).filter(
-    (r) => onPrereleaseChannel || !r.prerelease,
-  );
+  const visible = (releases ?? [])
+    .filter((r) => onPrereleaseChannel || !r.prerelease)
+    // GitHub's order is not version order — it answered with v1.9.0-rc.9 above
+    // v1.9.0-rc.13 — so "What's new" opened on a release candidate four builds
+    // out of date. Sorted here rather than in the dialog so every consumer of
+    // the endpoint gets the same answer, and so the cached payload is already
+    // in the order it will be shown in.
+    .sort((a, b) => {
+      const byVersion = compareVersionsDesc(a.tag_name, b.tag_name);
+      if (byVersion !== 0) return byVersion;
+      // Identical versions should not happen; if they do, newest published
+      // wins so the order is still deterministic rather than input-dependent.
+      return (b.published_at ?? "").localeCompare(a.published_at ?? "");
+    });
   const data: ChangelogResult = {
     releases: visible.map((r) => ({
       tag: r.tag_name,
