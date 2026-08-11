@@ -51,6 +51,7 @@ export const queryKeys = {
   todos: (familyId: string) => ["todos", familyId] as const,
   shoppingItems: (familyId: string) => ["shopping", familyId] as const,
   subjects: (familyId: string) => ["subjects", familyId] as const,
+  schoolHolidays: (familyId: string) => ["school-holidays", familyId] as const,
   schedules: (familyId: string) => ["schedules", familyId] as const,
   schedulesByPerson: (familyId: string, personId: string) =>
     ["schedules", familyId, personId] as const,
@@ -1698,6 +1699,117 @@ export function useUpdateSubject() {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.subjects(requireFamilyId(family)),
+      });
+    },
+  });
+}
+
+
+// ===================
+// School holidays
+// ===================
+
+/**
+ * School holiday periods, as inclusive local calendar days.
+ *
+ * The attention engine reads these server-side to keep the school reminders
+ * quiet during a break; this is the household's way of putting them in. Dates
+ * are plain `YYYY-MM-DD` strings end to end — the column is DATE, the rules
+ * compare strings, and introducing a Date here would only add a timezone the
+ * rest of the feature deliberately does without.
+ */
+export interface SchoolHoliday {
+  id: string;
+  family_id: string;
+  name: string;
+  starts_on: string;
+  ends_on: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useSchoolHolidays() {
+  const supabase = createClient();
+  const { family } = useFamilyStore();
+
+  return useQuery({
+    queryKey: queryKeys.schoolHolidays(family?.id ?? ""),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("school_holidays")
+        .select("*")
+        .eq("family_id", requireFamilyId(family))
+        .order("starts_on");
+
+      if (error) throw error;
+      return data as SchoolHoliday[];
+    },
+    enabled: !!family?.id,
+  });
+}
+
+export function useCreateSchoolHoliday() {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async (holiday: { name: string; starts_on: string; ends_on: string }) => {
+      const { data, error } = await (supabase as any)
+        .from("school_holidays")
+        .insert({ ...holiday, family_id: requireFamilyId(family) })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as SchoolHoliday;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schoolHolidays(requireFamilyId(family)),
+      });
+    },
+  });
+}
+
+export function useUpdateSchoolHoliday() {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<SchoolHoliday> & { id: string }) => {
+      const { data, error } = await (supabase as any)
+        .from("school_holidays")
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as SchoolHoliday;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schoolHolidays(requireFamilyId(family)),
+      });
+    },
+  });
+}
+
+export function useDeleteSchoolHoliday() {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("school_holidays").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schoolHolidays(requireFamilyId(family)),
       });
     },
   });
