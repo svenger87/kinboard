@@ -512,7 +512,27 @@
   }
 
   .safe-area-inset {
-    padding-top: env(safe-area-inset-top, 0);
+    /*
+      NOT applied to <main>: the page shell carries its own `pt-16 md:pt-20`,
+      which is clearance for the floating back button `settings/layout.tsx`
+      draws over the top-left corner of every settings sub-page.
+
+      This declaration is unconditional, and on a device with no notch
+      `env(safe-area-inset-top)` resolves to 0 — so it did not add an inset,
+      it replaced the shell's padding with nothing. Measured on a 390px
+      viewport: main's computed padding-top was 0px, and the page heading and
+      its icon sat underneath the back button. Desktop escaped it only because
+      `md:pt-20` happens to sort after this rule in the utilities layer, which
+      is why it looked fine on the wall display and broken on a phone.
+
+      Left and right already avoid this by flooring with `max(1rem, …)`. Top
+      cannot floor at a constant, because the elements sharing this class want
+      different clearances — so the shell keeps its own and everything else
+      keeps the inset.
+    */
+    &:not(main) {
+      padding-top: env(safe-area-inset-top, 0);
+    }
     /* padding-bottom handled centrally by PageShell via --nav-spacing */
     padding-left: max(1rem, env(safe-area-inset-left, 0));
     padding-right: max(1rem, env(safe-area-inset-right, 0));
