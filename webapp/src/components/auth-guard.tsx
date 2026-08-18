@@ -289,8 +289,14 @@ export function AuthGuard({ children }: AuthGuardProps) {
             </div>
           </section>
 
-          {/* Widget grid — same columns the real one uses, so nothing jumps */}
-          <section className="mt-auto grid w-[min(96vw,2200px)] grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-4 portrait:lg:grid-cols-2">
+          {/* Widget grid — same columns *and the same width* as the real one, so
+              nothing jumps. It carried `w-[min(96vw,2200px)]`, which measures the
+              window while this wrapper measures `100vw - 32px`; below 800px the
+              skeleton therefore ran out under the right-hand padding. Once the
+              real grid stopped doing that, the two disagreed and the cards
+              visibly shifted the moment loading finished — the jump this
+              skeleton exists to prevent. */}
+          <section className="mt-auto grid w-full max-w-[2200px] grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-4 portrait:lg:grid-cols-2">
             {[0, 1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-48 rounded-2xl" />
             ))}

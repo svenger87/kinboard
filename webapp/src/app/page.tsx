@@ -100,8 +100,21 @@ export default function DashboardPage() {
             one into a visible hole — most obviously the unconfigured Stundenplan
             widget, which left a ~500x230px void beside it (KB-06). Cards now
             take their natural height, `auto-rows-min` sizes rows to content and
-            `items-start` keeps them top-aligned, so the grid packs instead. */}
-        <section className="relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 2xl:grid-cols-5 min-[2000px]:grid-cols-6 auto-rows-min items-start gap-4 md:gap-6 w-[min(96vw,2200px)] mx-auto" aria-label={t("ariaWidgets")}>
+            `items-start` keeps them top-aligned, so the grid packs instead.
+
+            Width is `w-full max-w-[2200px]`, not `w-[min(96vw,2200px)]`. The
+            viewport unit measured the window while this grid sits inside a
+            wrapper that already has `p-4`, so it asked for 96vw against a
+            content box of `100vw - 32px`. Anything narrower than 800px made
+            96vw the larger of the two, `mx-auto` cannot centre a child wider
+            than its container, and the grid pinned left and ran under the
+            right-hand padding — every card flush to the screen edge and clipped
+            by main's `overflow-hidden`. Measured at 390px: cards sat 16px from
+            the left and 0px from the right. It fits on a wide panel, which is
+            why only phones showed it. `w-full` inherits the padding the wrapper
+            already applies, and the 2200px cap it was given for a big kiosk is
+            unchanged. */}
+        <section className="relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 2xl:grid-cols-5 min-[2000px]:grid-cols-6 auto-rows-min items-start gap-4 md:gap-6 w-full max-w-[2200px] mx-auto" aria-label={t("ariaWidgets")}>
           <FloatingLightsFab />
           {/* First, and across the whole width: this is what the family has to
               act on, and it renders nothing at all when there is nothing — so
