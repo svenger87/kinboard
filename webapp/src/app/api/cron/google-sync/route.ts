@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { google } from "googleapis";
+import { google, type calendar_v3 } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
 import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
+import {
+  orphanedEventIds,
+  prunableCalendars,
+  type CalendarFetch,
+} from "@/lib/google-sync-prune";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -154,22 +159,38 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
     const timeMax = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
 
     const googleEventIds = new Set<string>();
+    /** Per calendar, what the feed contained and whether we read all of it. */
+    const fetches: CalendarFetch[] = [];
     let created = 0;
     let updated = 0;
     let deleted = 0;
 
     for (const googleCalendarId of enabledCalendars) {
       try {
-        // Fetch events including deleted ones to detect removals
-        const { data } = await calendar.events.list({
-          calendarId: googleCalendarId,
-          timeMin,
-          timeMax,
-          singleEvents: true,
-          orderBy: "startTime",
-          maxResults: 2500,
-          showDeleted: true,
-        });
+        // Every page, not just the first. `maxResults` caps a page at 2500 and
+        // the old call ignored `nextPageToken`, so a calendar bigger than one
+        // page was silently truncated. That was survivable while nothing acted
+        // on the omissions; now that a missing event means "deleted upstream",
+        // a truncated page would read as a mass deletion. Pagination is part of
+        // the fix, not a tidy-up.
+        const items: calendar_v3.Schema$Event[] = [];
+        let pageToken: string | undefined = undefined;
+        do {
+          // Annotated because `pageToken` is both an input to this call and
+          // read back off its result, which TypeScript cannot infer through.
+          const res: { data: calendar_v3.Schema$Events } = await calendar.events.list({
+            calendarId: googleCalendarId,
+            timeMin,
+            timeMax,
+            singleEvents: true,
+            orderBy: "startTime",
+            maxResults: 2500,
+            showDeleted: true,
+            pageToken,
+          });
+          items.push(...(res.data.items ?? []));
+          pageToken = res.data.nextPageToken ?? undefined;
+        } while (pageToken);
 
         const { data: calInfo } = await calendar.calendarList.get({
           calendarId: googleCalendarId,
@@ -209,7 +230,9 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
             .eq("id", localCalendar.id);
         }
 
-        for (const event of data.items || []) {
+        const seenInCalendar = new Set<string>();
+
+        for (const event of items) {
           if (!event.id) continue;
 
           // Handle cancelled/deleted events
@@ -271,6 +294,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
           }
 
           googleEventIds.add(event.id);
+          seenInCalendar.add(event.id);
 
           let personId = event.extendedProperties?.private?.person_id || undefined;
           if (!personId) {
@@ -342,8 +366,52 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
             }
           }
         }
+        // Reached only if every page was read and every row processed. A
+        // calendar that threw falls through to the catch and is never
+        // recorded, so it cannot be reconciled below.
+        fetches.push({ calendarId: localCalendar.id, seen: seenInCalendar, complete: true });
       } catch (calError) {
         console.error(`[google-sync-cron] Error syncing calendar ${googleCalendarId} for family ${familyId}:`, calError);
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // Reconcile: an event the feed no longer mentions was deleted on Google.
+    //
+    // The cancelled-tombstone branch above only catches deletions Google still
+    // remembers. A full list mostly just omits what was deleted, so without
+    // this pass an event removed upstream stayed on the board for ever —
+    // measured on a live instance as 435 local against 434 returned.
+    //
+    // Bounded to the window that was actually queried. Events outside
+    // timeMin..timeMax were never fetched, so their absence says nothing.
+    // ---------------------------------------------------------------------
+    for (const fetch of prunableCalendars(fetches)) {
+      const { data: localEvents } = await (supabase as any)
+        .from("events")
+        .select("id, google_event_id")
+        .eq("calendar_id", fetch.calendarId)
+        .not("google_event_id", "is", null)
+        .gte("start_at", timeMin)
+        .lte("start_at", timeMax);
+
+      const orphans = orphanedEventIds(localEvents ?? [], fetch.seen);
+      if (orphans.length === 0) continue;
+
+      // Deleted in chunks: the ids travel in the URL, and a calendar that lost
+      // a whole year of events at once would otherwise build a request long
+      // enough to be rejected.
+      for (let i = 0; i < orphans.length; i += 100) {
+        const chunk = orphans.slice(i, i + 100);
+        const { error: pruneError } = await (supabase as any)
+          .from("events")
+          .delete()
+          .in("id", chunk);
+        if (pruneError) {
+          console.error(`[google-sync-cron] Error pruning events for family ${familyId}:`, pruneError);
+          break;
+        }
+        deleted += chunk.length;
       }
     }
 
