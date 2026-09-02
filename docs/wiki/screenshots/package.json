@@ -12,7 +12,7 @@
     "capture": "playwright test --config=playwright/playwright.config.ts"
   },
   "dependencies": {
-    "@faker-js/faker": "^9.0.0",
+    "@faker-js/faker": "^10.5.0",
     "pg": "^8.13.0",
     "sharp": "^0.35.0"
   },
