@@ -1067,6 +1067,39 @@ export interface Database {
         };
         Relationships: [];
       };
+      media_players: {
+        Row: {
+          id: string;
+          family_id: string;
+          position: number;
+          driver: "home_assistant";
+          nickname: string;
+          config: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          position?: number;
+          driver: "home_assistant";
+          nickname: string;
+          config?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          position?: number;
+          driver?: "home_assistant";
+          nickname?: string;
+          config?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       tickers: {
         Row: {
           id: string;
@@ -1374,21 +1407,11 @@ export type VehicleInsert = Database["public"]["Tables"]["vehicles"]["Insert"];
 export type VehicleUpdate = Database["public"]["Tables"]["vehicles"]["Update"];
 
 // Media player types
-export interface MediaPlayer {
-  id: string;
-  family_id: string;
-  position: number;
-  driver: "home_assistant";
-  nickname: string;
-  config: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
-
-export type MediaPlayerInsert = Omit<
-  MediaPlayer,
-  "id" | "created_at" | "updated_at"
->;
+export type MediaPlayer = Database["public"]["Tables"]["media_players"]["Row"];
+export type MediaPlayerInsert =
+  Database["public"]["Tables"]["media_players"]["Insert"];
+export type MediaPlayerUpdate =
+  Database["public"]["Tables"]["media_players"]["Update"];
 
 // Stonks / ticker types
 export type Ticker = Database["public"]["Tables"]["tickers"]["Row"];
