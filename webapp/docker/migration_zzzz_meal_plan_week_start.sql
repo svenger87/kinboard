@@ -21,17 +21,38 @@
 -- land in two Sunday-keyed weeks. Plan rows left holding nothing afterwards are
 -- removed, but only if they were empty of everything, `notes` included.
 --
--- EFFECTIVE WEEK START
+-- WHICH FAMILIES, AND WHY ONLY THESE
 --
--- The setting is `settings.key = 'week_start'`, holding "monday", "sunday" or
--- "locale". "locale", which is also the default when the row is absent, means
--- "follow the interface language": English implies Sunday, German and French
--- Monday. That mapping is `weekStartForLocale` in src/hooks/use-week-start.ts
--- and is reproduced here; the interface language is `settings.key = 'locale'`,
--- defaulting to 'en' (src/i18n/locales.ts). A family with no rows at all is
--- therefore an English, Sunday-start family and IS migrated — which is the
--- point, since that is precisely the household that has been looking at a
--- Monday calendar.
+-- Only families whose `settings.key = 'week_start'` row explicitly says
+-- "sunday". Nothing is inferred.
+--
+-- The setting also accepts "locale", which is the default when the row is
+-- absent and means "follow the interface language" — English implies Sunday,
+-- German and French Monday. The first version of this migration resolved that
+-- here, reading `settings.key = 'locale'` and defaulting to 'en'. That was
+-- wrong twice over.
+--
+-- It read a source the app does not use. `useWeekStart` takes its locale from
+-- next-intl's `useLocale()`, which resolves from the locale cookie or the
+-- browser's Accept-Language header — per device, never the settings table. The
+-- settings locale row is written only when someone picks a language explicitly,
+-- and is read only by the server-side notification routes
+-- (src/lib/family-locale.ts). So a German household that had never opened that
+-- setting has no row, would have been read as English, and would have had all
+-- of its meal plans re-keyed to Sunday while the app went on computing Monday.
+-- Measured on the production box before this was caught: 1 family, 34 plans,
+-- no week_start row and no locale row — every one of them in scope.
+--
+-- And it was unnecessary. Entries are fetched by the dates on screen rather
+-- than by meal_plan_id, so a week renders correctly however its rows happen to
+-- be keyed. This migration is therefore tidying, not repair: it keeps
+-- week_start meaning what it says for households that have stated a preference.
+-- Rewriting a household's rows on a guess, to fix nothing they can see, is not
+-- a trade worth making.
+--
+-- A family that switches to Sunday later is not migrated by anything, and does
+-- not need to be: new plans are keyed the new way, old rows keep the old key,
+-- and every week still renders from its dates.
 --
 -- Idempotent: it only ever moves an entry to the plan for its own week, so a
 -- second run finds every entry already there and changes nothing. Migrations in
@@ -41,18 +62,12 @@
 BEGIN;
 
 CREATE TEMP TABLE _sunday_families ON COMMIT DROP AS
-SELECT f.id AS family_id
-FROM families f
-LEFT JOIN settings ws ON ws.family_id = f.id AND ws.key = 'week_start'
-LEFT JOIN settings loc ON loc.family_id = f.id AND loc.key = 'locale'
-WHERE
-  -- `value` is jsonb; #>>'{}' unwraps a bare JSON string to text.
-  CASE
-    WHEN (ws.value #>> '{}') = 'sunday' THEN true
-    WHEN (ws.value #>> '{}') = 'monday' THEN false
-    -- 'locale', or no row at all
-    ELSE COALESCE(loc.value #>> '{}', 'en') LIKE 'en%'
-  END;
+SELECT ws.family_id
+FROM settings ws
+-- `value` is jsonb; #>>'{}' unwraps a bare JSON string to text. Only an
+-- explicit "sunday" qualifies: "monday", "locale" and an absent row are all
+-- left alone, for the reasons above.
+WHERE ws.key = 'week_start' AND (ws.value #>> '{}') = 'sunday';
 
 -- The Sunday on or before a date. EXTRACT(DOW) is 0 for Sunday, so this is a
 -- no-op on a Sunday and steps back up to six days otherwise.
