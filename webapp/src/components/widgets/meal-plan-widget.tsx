@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WidgetCard } from "@/components/widget-card";
 import Link from "next/link";
-import { useMealPlan, getWeekStart } from "@/hooks";
+import { useMealPlan, getWeekStart, useWeekStart } from "@/hooks";
 import type { MealType } from "@/types/database";
 
 interface MealPlanWidgetProps {
@@ -83,7 +83,8 @@ export function MealPlanWidget({ className = "" }: MealPlanWidgetProps) {
   }, []);
 
   const today = useMemo(() => toLocalDateString(now), [now]);
-  const weekStart = useMemo(() => getWeekStart(now), [now]);
+  const { weekStartsOn } = useWeekStart();
+  const weekStart = useMemo(() => getWeekStart(now, weekStartsOn), [now, weekStartsOn]);
 
   const { data, isLoading, isError } = useMealPlan(weekStart);
 
