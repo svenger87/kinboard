@@ -1373,6 +1373,23 @@ export type Vehicle = Database["public"]["Tables"]["vehicles"]["Row"];
 export type VehicleInsert = Database["public"]["Tables"]["vehicles"]["Insert"];
 export type VehicleUpdate = Database["public"]["Tables"]["vehicles"]["Update"];
 
+// Media player types
+export interface MediaPlayer {
+  id: string;
+  family_id: string;
+  position: number;
+  driver: "home_assistant";
+  nickname: string;
+  config: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export type MediaPlayerInsert = Omit<
+  MediaPlayer,
+  "id" | "created_at" | "updated_at"
+>;
+
 // Stonks / ticker types
 export type Ticker = Database["public"]["Tables"]["tickers"]["Row"];
 export type TickerInsert = Database["public"]["Tables"]["tickers"]["Insert"];
