@@ -14,7 +14,7 @@ export interface WidgetVisibility {
   pocketMoney: boolean;
   photos: boolean;
   timers: boolean;
-  mediaPlayer: boolean;
+  media: boolean;
 }
 
 // Defaults are curated for kiosk glanceability — 6 widgets fill a 4-col landscape grid
@@ -44,7 +44,7 @@ export const DEFAULT_WIDGET_VISIBILITY: WidgetVisibility = {
   // so defaulting off would mean nobody finds it.
   timers: true,
   // Opt-in: shows nothing until a household has configured a media player.
-  mediaPlayer: false,
+  media: false,
 };
 
 // Read-side migration: legacy widget_visibility blobs persisted before

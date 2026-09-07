@@ -358,7 +358,8 @@
     "stonks": "Actions",
     "pocketMoney": "Argent de poche",
     "more": "Plus",
-    "photos": "Photos"
+    "photos": "Photos",
+    "media": "Média"
   },
   "cameras": {
     "title": "Caméras",
@@ -1087,7 +1088,11 @@
       "timersLabel": "Minuteurs",
       "timersDescription": "Des minuteurs de cuisine avec des réglages en un geste — tout le monde sur cet écran voit le compte à rebours",
       "timersPreview1": "Encore 04:12",
-      "timersPreview2": "Touchez un réglage pour le lancer"
+      "timersPreview2": "Touchez un réglage pour le lancer",
+      "mediaLabel": "Média",
+      "mediaDescription": "Ce qui joue en ce moment, avec les commandes de lecture",
+      "mediaPreview1": "🎵 En cours de lecture — Titre du morceau",
+      "mediaPreview2": "Des onglets permettent de basculer entre les appareils en lecture"
     },
     "navigation": {
       "title": "Navigation",
@@ -2152,7 +2157,8 @@
         "cameras": "Caméras",
         "stonks": "Actions",
         "pocket-money": "Argent de poche",
-        "photos": "Photos"
+        "photos": "Photos",
+        "media": "Média"
       },
       "description": {
         "vehicles": "Suivez les voitures de votre foyer via les entités Home Assistant. Les pilotes Tesla et VE générique sont inclus.",
@@ -2160,7 +2166,8 @@
         "cameras": "Flux WebRTC en direct de vos caméras de sécurité via go2rtc.",
         "stonks": "Suivez les actions, ETF, crypto, indices et devises sur une liste de suivi avec graphiques en chandelles. Alimenté par Yahoo Finance.",
         "pocket-money": "Comptes d'argent de poche virtuels par enfant avec allocation configurable, intérêts courus quotidiennement, objectifs d'épargne et un avatar qui évolue à mesure que l'enfant économise.",
-        "photos": "Parcourez la photothèque sur le tableau lui-même, pas seulement sur l'écran de veille. Utilise la source que vous avez connectée — Immich, un serveur multimédia DLNA ou un album partagé iCloud."
+        "photos": "Parcourez la photothèque sur le tableau lui-même, pas seulement sur l'écran de veille. Utilise la source que vous avez connectée — Immich, un serveur multimédia DLNA ou un album partagé iCloud.",
+        "media": "Contrôlez depuis le tableau les enceintes et écrans que Home Assistant connaît déjà."
       }
     },
     "stonks": {
