@@ -54,6 +54,22 @@ const DialogContent = React.forwardRef<
         // on a phone the picker's confirm button sat 66px past the right
         // edge with no way to reach it. Letting grid items shrink is what
         // makes the scroll containers inside them actually scroll.
+        // A dialog can never be taller than the screen it is on.
+        //
+        // Radix centres this box with `top-1/2` and a -50% translate, so a
+        // dialog whose content exceeds the viewport grows past *both* edges at
+        // once — and the page behind it is scroll-locked, so the parts that
+        // went off-screen cannot be reached at all. Most dialogs here set no
+        // height and were fine only because their content happened to be
+        // short; a long recipe, a list of twenty devices or a rotated phone
+        // is all it takes. `max-h` plus `overflow-y-auto` makes the default
+        // safe, and `cn` is tailwind-merge, so any dialog that sets its own
+        // `max-h-[80vh]` or `overflow-hidden flex flex-col` still wins.
+        //
+        // `dvh`, not `vh`: on a phone the browser's chrome makes `vh` taller
+        // than what you can actually see, which would put the bottom of a
+        // full-height dialog back under the URL bar.
+        "max-h-[calc(100dvh-2rem)] overflow-y-auto",
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg [&>*]:min-w-0 translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 elev-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-2xl",
         className
       )}

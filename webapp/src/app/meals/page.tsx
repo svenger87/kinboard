@@ -1353,9 +1353,25 @@ export default function MealPlannerPage() {
           </motion.div>
         </div>
 
-        {/* Add Meal Dialog */}
+        {/*
+          Add Meal Dialog.
+
+          `overflow-hidden flex flex-col` is what makes `max-h-[80vh]` safe, and
+          the recipe list below is `flex-1 min-h-0` rather than a fixed 300px.
+          Without both, this was the dashboard hero bug (#231) in a dialog: the
+          contents are sized in px — header, search box, a 300px list, footer,
+          about 480px in all — while the clamp is in vh. Below roughly a 620px
+          viewport the clamp lands under the content, and with overflow visible
+          the surplus was painted outside the dialog with no way to scroll to
+          it. `min-h-0` is required because a flex child's default `min-height:
+          auto` refuses to shrink below its content, which quietly re-creates
+          the overflow the clamp was meant to prevent.
+
+          The recipe detail dialog below has had this shape all along; this one
+          was simply never given it.
+        */}
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle>{t("addDialogTitle")}</DialogTitle>
               <DialogDescription>
@@ -1368,7 +1384,7 @@ export default function MealPlannerPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="py-4">
+            <div className="flex min-h-0 flex-1 flex-col py-4">
               {/* Search recipes */}
               <div className="relative mb-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -1392,7 +1408,7 @@ export default function MealPlannerPage() {
               </div>
 
               {/* Recipe list */}
-              <ScrollArea className="h-[300px] pr-4">
+              <ScrollArea className="min-h-0 flex-1 pr-4 sm:max-h-[300px]">
                 {isRecipesLoading ? (
                   <div className="flex flex-col gap-2">
                     {[1, 2, 3].map((i) => (

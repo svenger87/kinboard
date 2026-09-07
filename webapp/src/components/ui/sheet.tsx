@@ -42,12 +42,23 @@ const sheetVariants = cva(
   {
     variants: {
       side: {
-        top: "inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+        // Every side gets a ceiling and something to scroll with.
+        //
+        // A top or bottom sheet is pinned to its edge and grows away from it,
+        // so content taller than the screen runs off the opposite edge, where
+        // the scroll-locked page behind it cannot reach. Left and right are
+        // already `h-full`, which clips instead of running off — same result,
+        // the bottom of a long sheet is simply not there. Sheets that already
+        // set their own `max-h` or `overflow` keep it: `cn` is tailwind-merge.
+        //
+        // `dvh` rather than `vh` so a phone's URL bar does not push the far
+        // edge out of sight.
+        top: "inset-x-0 top-0 max-h-[calc(100dvh-2rem)] overflow-y-auto border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
         bottom:
-          "inset-x-0 bottom-0 border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-        left: "inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
+          "inset-x-0 bottom-0 max-h-[calc(100dvh-2rem)] overflow-y-auto border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+        left: "inset-y-0 left-0 h-full w-3/4 overflow-y-auto border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
         right:
-          "inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
+          "inset-y-0 right-0 h-full w-3/4 overflow-y-auto border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
       },
     },
     defaultVariants: {
