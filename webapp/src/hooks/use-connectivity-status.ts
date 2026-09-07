@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useSyncExternalStore } from "react";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 /**
  * Counts data queries currently in an error state.
@@ -14,23 +14,39 @@ import { useQueryClient } from "@tanstack/react-query";
  *
  * Deliberately counts only settled errors, so a single flaky request or a
  * realtime reconnect does not raise a banner. The caller decides the threshold.
+ *
+ * `useSyncExternalStore`, not `useState` + `useEffect`. The query cache notifies
+ * its subscribers *synchronously*, and one of the things that notifies it is a
+ * component mounting an observer — which happens during that component's
+ * render. Calling `setCount` from the subscription therefore set state on
+ * whoever owns this hook in the middle of somebody else's render:
+ *
+ *   Cannot update a component (`ConnectivityBanner`) while rendering a
+ *   different component (`ScheduleWidget`).
+ *
+ * That is what `useSyncExternalStore` exists for: React drives the read itself
+ * and schedules the update rather than being told about it mid-render.
  */
+function countErroredQueries(queryClient: QueryClient): number {
+  return queryClient
+    .getQueryCache()
+    .getAll()
+    .filter((q) => q.state.status === "error" && q.getObserversCount() > 0).length;
+}
+
 export function useErroredQueryCount(): number {
   const queryClient = useQueryClient();
-  const [count, setCount] = useState(0);
 
-  useEffect(() => {
-    const cache = queryClient.getQueryCache();
-    const read = () => {
-      const n = cache
-        .getAll()
-        .filter((q) => q.state.status === "error" && q.getObserversCount() > 0).length;
-      setCount(n);
-    };
-    read();
-    const unsubscribe = cache.subscribe(read);
-    return () => unsubscribe();
-  }, [queryClient]);
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => queryClient.getQueryCache().subscribe(onStoreChange),
+    [queryClient],
+  );
 
-  return count;
+  const getSnapshot = useCallback(() => countErroredQueries(queryClient), [queryClient]);
+
+  // The server renders no query cache, and a banner that flashed on hydration
+  // and vanished would be worse than one that arrives a tick late.
+  const getServerSnapshot = useCallback(() => 0, []);
+
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
