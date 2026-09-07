@@ -60,13 +60,24 @@ jobs:
         id: pw-cache
         with:
           path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ hashFiles('webapp/package-lock.json') }}
+          # The suffix is part of the key because the cache is keyed only on the
+          # lockfile, and adding a browser does not change the lockfile. Without
+          # it, a cache saved when only Chromium was installed would be restored
+          # for ever and WebKit re-downloaded on every run.
+          key: pw-${{ runner.os }}-chromium-webkit-${{ hashFiles('webapp/package-lock.json') }}
 
-      - name: Install Playwright Chromium
-        # --with-deps installs the system libs (libnss3, libgbm, etc.) the
-        # browser needs at runtime; only Chromium since the smoke suite
-        # only targets desktop project (Chromium-based).
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        # --with-deps installs the system libs each browser needs at runtime —
+        # libnss3/libgbm for Chromium, and nine more (libwoff1, libhyphen0,
+        # libmanette, gstreamer plugins…) for WebKit.
+        #
+        # WebKit is here because both Playwright viewports are Chromium, so a
+        # rule Chromium honours and WebKit ignores passes everything. That is
+        # not hypothetical: `min-height: min-content` fixed the dashboard hero
+        # overlap in Chromium and did nothing in WebKit, so rc.20 shipped
+        # "fixed" and was still broken on every Mac and iPad until a user
+        # reported it from Safari.
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Generate stack secrets non-interactively
         working-directory: ${{ github.workspace }}
@@ -145,7 +156,27 @@ jobs:
           FAMILY_CODE: DEMO01
           PLAYWRIGHT_BASE_URL: http://localhost:3001
           PLAYWRIGHT_DEVICE_NAME: "CI Smoke (GH Actions)"
-        run: npx playwright test e2e/smoke.spec.ts e2e/calendar-layout.spec.ts e2e/health-endpoint.spec.ts --project=desktop
+        run: npx playwright test e2e/smoke.spec.ts e2e/calendar-layout.spec.ts e2e/health-endpoint.spec.ts e2e/home-hero-layout.spec.ts --project=desktop
+
+      # A separate step so a WebKit-only failure reads as one at a glance rather
+      # than as "the smoke suite is flaky". Most of the suite reads source files
+      # and would be paid for twice for nothing, so only what renders runs here.
+      #
+      # Deliberately NOT the smoke suite yet. Smoke asserts an empty console,
+      # and WebKit reports a failed fetch as an uncaught page error where
+      # Chromium stays quiet — so `/calendar` fails there on a 401 from the
+      # meal_plans upsert that Chromium passes over. Same request, same status,
+      # different reporting: preflight is 200 with the right
+      # Access-Control-Allow-Origin, so it is not CORS. Adding smoke here would
+      # wire CI to a pre-existing condition rather than to WebKit differences,
+      # and the honest fix is to work out why /calendar upserts a meal plan
+      # without a token at all.
+      - name: Run layout specs under WebKit
+        env:
+          FAMILY_CODE: DEMO01
+          PLAYWRIGHT_BASE_URL: http://localhost:3001
+          PLAYWRIGHT_DEVICE_NAME: "CI WebKit (GH Actions)"
+        run: npx playwright test e2e/home-hero-layout.spec.ts --project=webkit
 
       - name: Upload Playwright report
         if: always()
