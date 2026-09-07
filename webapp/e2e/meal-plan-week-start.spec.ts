@@ -114,6 +114,18 @@ test.describe("nothing can be stranded by the key", () => {
 
 test.describe("the migration", () => {
   const sql = readFileSync("docker/migration_zzzz_meal_plan_week_start.sql", "utf8");
+  /*
+    The statements alone, with `--` comments dropped.
+
+    Most of this file is the reasoning behind it, and that prose necessarily
+    names the things it is explaining it no longer does. Asserting against the
+    whole file makes the explanation fail the test — which already happened once
+    to the #198 guard in time-format.spec.ts.
+  */
+  const statements = sql
+    .split("\n")
+    .map((line) => line.replace(/--.*$/, ""))
+    .join("\n");
 
   test("it re-partitions by each entry's own date", () => {
     // Not a rename: one Monday week's entries can land in two Sunday weeks.
@@ -129,11 +141,27 @@ test.describe("the migration", () => {
     );
   });
 
-  test("it treats an absent setting as the default, not as Monday", () => {
-    // DEFAULT_WEEK_START is "locale", and English implies Sunday — so a family
-    // that never opened the setting is exactly the one that has been looking at
-    // the wrong calendar. Skipping it would leave the report unfixed.
-    expect(sql).toMatch(/COALESCE\(loc\.value #>> '\{\}', 'en'\) LIKE 'en%'/);
+  test("it only touches families that have explicitly chosen Sunday", () => {
+    /*
+      It must not infer the week start from the locale.
+
+      `useWeekStart` reads next-intl's `useLocale()`, which comes from the
+      locale cookie or Accept-Language — per device, never the settings table.
+      The settings locale row is written only on an explicit language choice and
+      read only by the notification routes. An earlier version resolved
+      "locale" here and defaulted to 'en', which put a German household with no
+      rows — the shape of the production box, 1 family and 34 plans — fully in
+      scope for a re-key it never asked for.
+
+      It is safe to skip them because entries are fetched by date, so a week
+      renders correctly however its rows are keyed. Tidying, not repair.
+    */
+    expect(
+      statements,
+      "the migration infers a week start from the locale again; the app does not " +
+        "take its locale from the settings table, so this guesses",
+    ).not.toMatch(/'locale'/);
+    expect(statements).toMatch(/ws\.key = 'week_start' AND \(ws\.value #>> '\{\}'\) = 'sunday'/);
   });
 
   test("it does not throw away a household's notes", () => {
