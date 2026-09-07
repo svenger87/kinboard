@@ -162,15 +162,27 @@ jobs:
       # than as "the smoke suite is flaky". Most of the suite reads source files
       # and would be paid for twice for nothing, so only what renders runs here.
       #
-      # Deliberately NOT the smoke suite yet. Smoke asserts an empty console,
-      # and WebKit reports a failed fetch as an uncaught page error where
-      # Chromium stays quiet — so `/calendar` fails there on a 401 from the
-      # meal_plans upsert that Chromium passes over. Same request, same status,
-      # different reporting: preflight is 200 with the right
-      # Access-Control-Allow-Origin, so it is not CORS. Adding smoke here would
-      # wire CI to a pre-existing condition rather than to WebKit differences,
-      # and the honest fix is to work out why /calendar upserts a meal plan
-      # without a token at all.
+      # Deliberately NOT the smoke suite. Smoke asserts an empty console, and
+      # WebKit intermittently reports
+      #
+      #   [pageerror] …/rest/v1/meal_plans?on_conflict=… due to access control checks
+      #
+      # on /calendar. That message names CORS and is not about CORS. The
+      # dashboard starts a meal_plans upsert; smoke navigates to /calendar while
+      # it is still in flight; WebKit reports a cancelled cross-origin request
+      # that way, and Chromium says nothing. Established by measurement: no HTTP
+      # response ≥400 is ever recorded, /calendar loaded on its own makes no
+      # meal_plans request at all and never errors, waiting 8s on the dashboard
+      # before navigating makes it disappear, and the preflight returns 200 with
+      # POST, Prefer and the right Access-Control-Allow-Origin.
+      #
+      # It also cannot happen in production: NEXT_PUBLIC_SUPABASE_URL there is
+      # the app's own origin, so there is no cross-origin request to cancel. It
+      # is an artefact of the split origin dev and CI use (app on one port,
+      # Kong on another).
+      #
+      # So running smoke here would buy a flaky check measuring our own
+      # navigation timing rather than a difference between engines.
       - name: Run layout specs under WebKit
         env:
           FAMILY_CODE: DEMO01
