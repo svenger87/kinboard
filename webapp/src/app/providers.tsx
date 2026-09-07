@@ -13,6 +13,7 @@ import { usePresence } from "@/hooks/use-presence";
 import { useFamilyStore } from "@/stores/family-store";
 import { Screensaver } from "@/components/screensaver";
 import { AuthGuard } from "@/components/auth-guard";
+import { clearUnlock, isSettingsPath } from "@/lib/pin-session";
 import { PWAProvider } from "@/components/pwa-provider";
 import { KioskProvider } from "@/components/kiosk-provider";
 import { ThemeSettingsProvider } from "@/components/theme-settings-provider";
@@ -74,6 +75,27 @@ function RealtimeProvider({ children }: { children: ReactNode }) {
 function StorageMigration({ children }: { children: ReactNode }) {
   useMigrateStorage();
   return <>{children}</>;
+}
+
+/*
+  Ends a settings unlock the moment the board leaves Settings.
+
+  This cannot live in `PinGuard`: the guard is rendered by the settings layout,
+  so it has already unmounted by the time the path changes and never observes
+  the transition. Clearing from its unmount cleanup would work in production and
+  misfire in development, where StrictMode mounts, unmounts and remounts — the
+  unlock would be dropped immediately after being granted.
+
+  This component is mounted for the life of the app, so it sees the path both
+  before and after. It runs on every route change and does nothing on the ones
+  that stay inside Settings, so moving between sub-pages does not re-prompt.
+*/
+function SettingsUnlockReaper() {
+  const pathname = usePathname();
+  useEffect(() => {
+    if (!isSettingsPath(pathname)) clearUnlock();
+  }, [pathname]);
+  return null;
 }
 
 // Global screensaver - activates on idle on any page (except join/shopping)
@@ -167,6 +189,7 @@ export function Providers({ children }: { children: ReactNode }) {
       >
         <Toaster position="bottom-right" richColors />
         <WhatsNewNotice />
+        <SettingsUnlockReaper />
         <StorageMigration>
           <AuthGuard>
             <ThemeSettingsProvider>

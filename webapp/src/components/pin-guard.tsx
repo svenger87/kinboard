@@ -9,18 +9,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useFamilyStore } from "@/stores/family-store";
 import { useRouter } from "next/navigation";
+import { isUnlocked, grantUnlock } from "@/lib/pin-session";
 
 const PIN_LENGTH = 4;
 
-// sessionStorage key. Value is a literal marker, not the PIN itself — the
-// PIN is never sent to the browser (verified server-side via /api/pin).
-// A side effect: changing the PIN on one device no longer invalidates an
-// already-unlocked session on another tab/device; that's an accepted
-// tradeoff of not shipping the PIN client-side. Sessions are still scoped
-// to sessionStorage (cleared on tab close) and re-verified on every mount
-// via the /api/pin status query below.
-const SESSION_KEY = "kinboard_settings_unlock";
-const UNLOCKED_MARKER = "unlocked";
 
 interface PinGuardProps {
   children: React.ReactNode;
@@ -28,21 +20,6 @@ interface PinGuardProps {
   cancelHref?: string;
 }
 
-function readSession(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return sessionStorage.getItem(SESSION_KEY);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Wraps content behind a 4-digit PIN entry screen.
- * If no PIN is configured, children render immediately.
- * Once unlocked, the session persists (via sessionStorage) so navigating to a
- * sub-page and returning does not re-prompt.
- */
 /**
  * Shown when the PIN status request fails. Deliberately NOT the settings:
  * an unreachable backend is not permission to enter. Offers only the way out.
@@ -67,6 +44,13 @@ function PinStatusUnavailable({ cancelHref }: { cancelHref: string }) {
   );
 }
 
+/**
+ * Wraps content behind a 4-digit PIN entry screen.
+ *
+ * If no PIN is configured, children render immediately. An unlock lasts for the
+ * settings visit and lapses when you leave or go idle — see lib/pin-session.ts
+ * for why, and for what it used to do instead.
+ */
 export function PinGuard({ children, cancelHref = "/" }: PinGuardProps) {
   const { family } = useFamilyStore();
   const { data: status, isError } = useQuery({
@@ -88,9 +72,9 @@ export function PinGuard({ children, cancelHref = "/" }: PinGuardProps) {
   const statusKnown = status !== undefined;
   const pinIsSet = !!status?.set;
 
-  // Optimistic initial state from sessionStorage; reconciled against actual
+  // Optimistic initial state from the stored unlock; reconciled against actual
   // PIN status once it loads (a PIN that was removed elsewhere clears it).
-  const [unlocked, setUnlocked] = useState<boolean>(() => readSession() === UNLOCKED_MARKER);
+  const [unlocked, setUnlocked] = useState<boolean>(() => isUnlocked(family?.id));
   const [digits, setDigits] = useState<string[]>(Array(PIN_LENGTH).fill(""));
   const [error, setError] = useState<"wrong" | "rateLimited" | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -102,10 +86,27 @@ export function PinGuard({ children, cancelHref = "/" }: PinGuardProps) {
       setUnlocked(false);
       return;
     }
-    if (readSession() !== UNLOCKED_MARKER) {
+    if (!isUnlocked(family?.id)) {
       setUnlocked(false);
     }
-  }, [statusKnown, pinIsSet]);
+  }, [statusKnown, pinIsSet, family?.id]);
+
+  /*
+    The unlock lapses on its own while the screen is open.
+
+    Leaving Settings is handled by `SettingsUnlockReaper` in providers.tsx,
+    but a board can be left
+    *on* a settings page just as easily as away from one — which is the case a
+    navigation hook never sees. Re-checking on a timer closes it, and the check
+    is cheap because it only reads one sessionStorage key.
+  */
+  useEffect(() => {
+    if (!unlocked) return;
+    const id = setInterval(() => {
+      if (!isUnlocked(family?.id)) setUnlocked(false);
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [unlocked, family?.id]);
 
   // Pass through only on a positive answer that no PIN is configured.
   if (statusKnown && !pinIsSet) {
@@ -131,7 +132,7 @@ export function PinGuard({ children, cancelHref = "/" }: PinGuardProps) {
       inputRefs={inputRefs}
       familyId={family!.id}
       onSuccess={() => {
-        try { sessionStorage.setItem(SESSION_KEY, UNLOCKED_MARKER); } catch { /* noop */ }
+        grantUnlock(family!.id);
         setUnlocked(true);
       }}
       onCancel={() => router.push(cancelHref)}
