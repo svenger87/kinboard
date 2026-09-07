@@ -490,30 +490,37 @@
     }
   }
 
-  /* Dashboard hero cap — see the comment in src/app/page.tsx.
-     Only bites on short, wide viewports (the landscape wall and desktop), where
-     `flex-1` otherwise let the clock block absorb the height the widget grid
-     needed. Portrait panels and phones keep the original centred composition.
+  /* Dashboard hero: takes its natural height, and neither grows nor shrinks.
+     See the comment in src/app/page.tsx.
 
-     `min-height: min-content` is what stops the cap cutting into the block it
-     is capping. The hero needs ~384-411px (clock, the family row, the Today
-     strip and their margins), so `max-height: 38vh` only clears it above a
-     1080px-tall viewport — which the wall panel is and no desktop browser is,
-     since window chrome takes its cut. Below that the block was clamped
-     shorter than its own content, and with `justify-content: center` and no
-     overflow the surplus spilled out of the bottom edge. The widget grid is
-     laid out from the clamped edge and carries the same `z-[1]`, so it won
-     on DOM order and painted over the Today strip: measured 28px of overlap
-     at 1920x937, 35px at 1600x900, 60px at 1366x768, 73px at 1440x700.
+     `flex-1` let the clock block absorb all the spare height, which on a
+     1920x1080 panel took 47% of the screen and pushed the second widget row
+     off the bottom (audit KB-01). That is what needs preventing, and
+     `flex: 0 0 auto` prevents it directly: the block cannot grow.
 
-     The floor cannot cost anything, because the cap only ever bound in the
-     cases where it was clipping — at 2560x1440 the hero's natural 460px is
-     already under 38vh and the cap is inert. */
+     It must not shrink either, and that is the part two attempts got wrong.
+     `max-height: 38vh` was sized against the wall panel, where the hero's
+     ~460px of clock, family row and Today strip fits by a pixel. Every desktop
+     browser is shorter than the panel it emulates, so the cap landed under the
+     content and — with `justify-content: center` and no overflow — the surplus
+     spilled out and the widget grid painted over it (#231).
+
+     The first fix added `min-height: min-content` as a floor. That works in
+     Chromium and does nothing whatsoever in WebKit, which does not honour an
+     intrinsic `min-height` against a `max-height` on this flex item. Measured
+     in both engines on the same page: WebKit was byte-identical to having no
+     fix at all — 52px of overlap at 1440x810, which is a MacBook Air with
+     Safari's chrome, 54px at 1280x800, 35px at 1440x900. It shipped because it
+     was only ever checked in Chromium.
+
+     So there is no cap now. Nothing is sized in viewport units, nothing relies
+     on intrinsic sizing, and there is no second rule to disagree with the
+     first. The hero is as tall as its contents; the grid starts below them.
+     Verified identical in Chromium and WebKit at 1280x800, 1440x810, 1440x900,
+     1512x860 and 1920x1080. */
   @media (orientation: landscape) and (min-width: 1024px) {
     .hero-block {
-      flex: 0 1 auto;
-      max-height: 38vh;
-      min-height: min-content;
+      flex: 0 0 auto;
       justify-content: center;
     }
   }
