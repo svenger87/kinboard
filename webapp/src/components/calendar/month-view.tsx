@@ -17,6 +17,7 @@ import {
   endOfDay,
   differenceInDays,
   getISOWeek,
+  isWeekend,
 } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
@@ -83,15 +84,26 @@ export function MonthView({
   const calendarStart = startOfWeek(monthStart, { weekStartsOn });
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn });
 
-  // Localized weekday abbreviations (Mo, Tu, …) starting from Monday
+  /*
+    Localized weekday abbreviations for the header row.
+
+    Each label carries its own `isWeekend`, because which *columns* are the
+    weekend moves with the week start and their position does not: on a Sunday
+    start, columns 5 and 6 are Friday and Saturday.
+
+    `weekStartsOn` belongs in the dependency list. It arrives from a setting,
+    so it changes after the first render — without it the labels kept the order
+    they were built with until `currentDate` happened to change, and the header
+    read Monday-first over Sunday-first columns.
+  */
   const weekdayLabels = useMemo(() => {
-    const monday = startOfWeek(currentDate, { weekStartsOn });
+    const firstDay = startOfWeek(currentDate, { weekStartsOn });
     return Array.from({ length: 7 }, (_, i) => {
-      const day = new Date(monday);
-      day.setDate(monday.getDate() + i);
-      return format(day, "EEEEEE", { locale: dateLocale });
+      const day = new Date(firstDay);
+      day.setDate(firstDay.getDate() + i);
+      return { label: format(day, "EEEEEE", { locale: dateLocale }), weekend: isWeekend(day) };
     });
-  }, [currentDate, dateLocale]);
+  }, [currentDate, dateLocale, weekStartsOn]);
 
   const weeks = eachWeekOfInterval(
     { start: calendarStart, end: calendarEnd },
@@ -124,14 +136,14 @@ export function MonthView({
         <div className="text-center text-3xs sm:text-3xs font-medium py-2 text-muted-foreground/40">
           {t("monthView.weekHeader")}
         </div>
-        {weekdayLabels.map((day, idx) => (
+        {weekdayLabels.map(({ label, weekend }, idx) => (
           <div
             key={idx}
             className={`text-center text-xs sm:text-sm font-medium py-2 ${
-              idx >= 5 ? "text-muted-foreground/60" : "text-muted-foreground"
+              weekend ? "text-muted-foreground/60" : "text-muted-foreground"
             }`}
           >
-            {day}
+            {label}
           </div>
         ))}
       </div>
@@ -187,7 +199,7 @@ export function MonthView({
                       ${isDayToday ? "ring-2 ring-inset ring-primary bg-primary/[0.06]" : ""}
                       ${isSelected && !isDayToday ? "ring-2 ring-inset ring-primary/50 bg-primary/5" : ""}
                       ${!isSelected && !isDayToday ? "hover:bg-accent/50" : ""}
-                      ${dayIndex >= 5 && !isDayToday && !isSelected ? "bg-muted/30" : ""}
+                      ${isWeekend(day) && !isDayToday && !isSelected ? "bg-muted/30" : ""}
                     `}
                   >
                     {/* Day-selection target, behind the content. Chips sit above

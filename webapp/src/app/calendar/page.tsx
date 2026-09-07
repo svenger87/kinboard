@@ -180,7 +180,7 @@ function CalendarSkeleton({ view = "month" }: { view?: "month" | "week" }) {
 }
 
 export default function CalendarPage() {
-  const { formatTime, formatHourLabel } = useTimeFormat();
+  const { formatTime, formatHourLabel, use24Hour } = useTimeFormat();
   const { weekStartsOn } = useWeekStart();
   // Enable keyboard shortcuts and swipe navigation
   useKeyboardShortcuts();
@@ -1122,14 +1122,27 @@ export default function CalendarPage() {
                               ))}
                             </div>
                           )}
-                          {/* Timeline bar */}
-                          <div className="relative h-[180px] ml-8">
+                          {/*
+                            Timeline bar.
+
+                            The gutter is sized for the label it actually has to
+                            hold. "14" fits the 24px box this was built with;
+                            "2 PM" does not, so on a 12-hour clock every label
+                            wrapped at its space and the two lines collided with
+                            the row below — issue #229. text-3xs is 11px here and
+                            13px above 1280px (see globals.css), so the 12-hour
+                            gutter is sized for the larger of the two, and
+                            `whitespace-nowrap` means a label that still does not
+                            fit overflows visibly rather than quietly wrapping.
+                            The 24-hour gutter is left exactly as it was.
+                          */}
+                          <div className={`relative h-[180px] ${use24Hour ? "ml-8" : "ml-12"}`}>
                             {/* Hour labels and grid lines */}
                             {[6, 8, 10, 12, 14, 16, 18, 20].map((hour) => {
                               const top = ((hour - TIMELINE_START) / TOTAL_HOURS) * 100;
                               return (
                                 <div key={hour} className="absolute left-0 right-0" style={{ top: `${top}%` }}>
-                                  <span className="absolute -left-8 -translate-y-1/2 text-3xs text-muted-foreground/50 tabular-nums w-6 text-right">
+                                  <span className={`absolute -translate-y-1/2 text-3xs text-muted-foreground/50 tabular-nums text-right whitespace-nowrap ${use24Hour ? "-left-8 w-6" : "-left-12 w-11"}`}>
                                     {formatHourLabel(hour)}
                                   </span>
                                   <div className="h-px bg-border/20 w-full" />
