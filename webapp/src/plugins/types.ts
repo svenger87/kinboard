@@ -56,7 +56,10 @@ export interface SurfacePlugin {
     descriptionKey: string;
   };
 
-  /** Optional dashboard widget. Wired up in Task 10. */
+  /** Optional dashboard widget. Declared here for the manifest's sake;
+   *  `src/app/page.tsx` imports and gates it directly (by the matching
+   *  `WidgetVisibility` flag), the same as every other dashboard widget —
+   *  it is not read back out of `PLUGINS` at render time. */
   dashboardWidget?: ComponentType<object>;
 
   /** Predicate evaluated by `useVisibleNavItems`. */
