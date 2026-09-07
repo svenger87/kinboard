@@ -11,6 +11,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { useTranslations, useLocale } from "next-intl";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import { getIntlLocale } from "@/i18n/intl-locale";
 import { cn } from "@/lib/utils";
 import type { EntityHistory } from "@/types/home-assistant";
@@ -31,6 +32,7 @@ export function BatteryChart({
   const t = useTranslations("homeAutomation.charts");
   const locale = useLocale();
   const intlLocale = getIntlLocale(locale);
+  const { formatTime } = useTimeFormat();
 
   // Process data
   const chartData = useMemo(() => {
@@ -64,11 +66,21 @@ export function BatteryChart({
       .sort((a, b) => a.timestamp - b.timestamp);
   }, [history, period]);
 
-  // Format X-axis
+  /*
+    Times follow the household's 24-hour setting, not the interface language.
+
+    These formatted with `toLocaleTimeString` against the interface locale,
+    which takes the clock from the language — so an English install was pinned
+    to 12-hour and a German one to 24-hour, whatever the switch under
+    Settings → Design said. Same class as
+    issue #227: a time drawn somewhere that never asked the setting. Where a
+    label carries a date as well, the date keeps its locale formatting and only
+    the time comes from `formatTime`.
+  */
   const formatXAxis = (timestamp: number) => {
     const date = new Date(timestamp);
     if (period === "today") {
-      return date.toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit" });
+      return formatTime(date);
     }
     return date.toLocaleDateString(intlLocale, { weekday: "short", day: "2-digit" });
   };
@@ -82,8 +94,8 @@ export function BatteryChart({
     if (!active || !payload?.[0] || !label) return null;
     const date = new Date(label);
     const timeStr = period === "today"
-      ? date.toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit" })
-      : date.toLocaleDateString(intlLocale, { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      ? formatTime(date)
+      : `${date.toLocaleDateString(intlLocale, { weekday: "short", day: "2-digit", month: "2-digit" })} ${formatTime(date)}`;
 
     return (
       <div className="bg-popover border rounded-lg px-3 py-2 elev-md">

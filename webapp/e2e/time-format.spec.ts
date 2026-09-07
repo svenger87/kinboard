@@ -48,6 +48,34 @@ function uiSources(): string[] {
   return walk(SRC).filter((f) => !f.includes(`${join("app", "api")}`));
 }
 
+/**
+ * The source with its comments blanked out.
+ *
+ * The scan below is line-based, so prose that *names* the pattern it is
+ * hunting reads as an offence. That is not hypothetical: explaining why the
+ * weather routes send `HH:mm` (issue #227) tripped this guard three times in
+ * the files that were fixing the very problem it protects.
+ *
+ * Lines are blanked rather than removed so the reported line numbers still
+ * point at the real file.
+ */
+function withoutComments(source: string): string[] {
+  let inBlock = false;
+  return source.split("\n").map((line) => {
+    let out = "";
+    for (let i = 0; i < line.length; i++) {
+      if (inBlock) {
+        if (line.startsWith("*/", i)) { inBlock = false; i++; }
+        continue;
+      }
+      if (line.startsWith("/*", i)) { inBlock = true; i++; continue; }
+      if (line.startsWith("//", i)) break;
+      out += line[i];
+    }
+    return out;
+  });
+}
+
 test.describe("the 12/24-hour setting", () => {
   test("no UI file hardcodes a 24-hour pattern", () => {
     // `HH` in a date-fns pattern is 24-hour and cannot be anything else.
@@ -58,7 +86,7 @@ test.describe("the 12/24-hour setting", () => {
       if (file.endsWith(join("hooks", "use-time-format.ts"))) continue; // defines both patterns
       const rel = file.replace(`${SRC}/`, "");
       if (FIXED_BY_DESIGN[rel]) continue;
-      for (const [i, line] of source.split("\n").entries()) {
+      for (const [i, line] of withoutComments(source).entries()) {
         if (/["'`]HH:mm/.test(line) || /hour12:\s*false/.test(line)) {
           offenders.push(`${file.replace(SRC, "src")}:${i + 1}  ${line.trim().slice(0, 70)}`);
         }

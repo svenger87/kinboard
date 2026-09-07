@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { format } from "date-fns";
+import { format, type Locale } from "date-fns";
 import { useLocale } from "next-intl";
 import { useSetting } from "./use-supabase-queries";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
@@ -22,6 +22,41 @@ import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "./use-theme-settings
  * would re-run that DOM work in each of them. Same TanStack Query key, so
  * this costs no extra request.
  */
+/**
+ * A wall clock that arrived as text, re-rendered for a 12- or 24-hour setting.
+ *
+ * Sunrise, sunset and the hourly forecast are worked out on the server, in the
+ * weather location's zone — which OpenWeatherMap gives as an offset in seconds
+ * and never as an IANA name, so the only way to read that clock is to shift the
+ * instant and read its UTC fields (see lib/weather-time.ts). That has to happen
+ * server-side, and the server does not know whether this household wants
+ * 12-hour times, so those routes send "HH:mm" and this renders it (issue #227).
+ *
+ * `formatTime` is not usable for these: it builds a Date and reads the
+ * *browser's* fields, which would put the sun up in the viewer's zone rather
+ * than the forecast's — the exact bug lib/weather-time.ts exists to prevent.
+ * Here the hours and minutes are already the right ones and only their
+ * presentation is in question, so they are placed on an arbitrary date and
+ * never read back as an instant.
+ *
+ * Anything that is not "HH:mm" is passed through untouched rather than becoming
+ * "Invalid Date" on the dashboard: a time that looks wrong beats a widget that
+ * looks broken.
+ */
+export function renderWallClock(
+  hhmm: string,
+  use24Hour: boolean,
+  dateLocale?: Locale,
+): string {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!m) return hhmm;
+  const hours = Number(m[1]);
+  const minutes = Number(m[2]);
+  if (hours > 23 || minutes > 59) return hhmm;
+  if (use24Hour) return `${String(hours).padStart(2, "0")}:${m[2]}`;
+  return format(new Date(2000, 0, 1, hours, minutes, 0, 0), "h:mm a", { locale: dateLocale });
+}
+
 export function useTimeFormat() {
   const { data: settings } = useSetting<ThemeSettings>(
     SETTINGS_KEYS.theme,
@@ -63,5 +98,10 @@ export function useTimeFormat() {
     [use24Hour, locale],
   );
 
-  return { use24Hour, timePattern, formatTime, formatHourLabel };
+  const formatWallClock = useCallback(
+    (hhmm: string) => renderWallClock(hhmm, use24Hour, getDateFnsLocale(locale)),
+    [use24Hour, locale],
+  );
+
+  return { use24Hour, timePattern, formatTime, formatHourLabel, formatWallClock };
 }

@@ -193,12 +193,20 @@ export async function GET(request: NextRequest) {
     const hourlyForecast = data.list.slice(0, 8).map(item => {
       const date = atLocation(item.dt, tzOffset);
       return {
-        // UTC formatting of the shifted instant — the location's clock.
-        time: date.toLocaleTimeString(bcp47ForLang(lang), {
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: "UTC",
-        }),
+        /*
+          The location's wall clock as "HH:mm" — UTC fields of the shifted
+          instant, which is what `atLocation` produces.
+
+          Deliberately not formatted for a locale here. It was
+          `toLocaleTimeString(bcp47ForLang(lang), …)`, which put the whole strip
+          on a 12-hour clock for every English household and a 24-hour one for
+          every German household — following the interface language rather than
+          the "24-hour format" switch, which it never consulted. The server
+          cannot consult it: the setting is per-family and read through the
+          browser's session. So this sends an unambiguous 24-hour string and the
+          client renders it with `formatWallClock`.
+        */
+        time: date.toISOString().slice(11, 16),
         temp: Math.round(item.main.temp),
         condition: mapCondition(item.weather[0].main, lang),
         conditionMain: item.weather[0].main,

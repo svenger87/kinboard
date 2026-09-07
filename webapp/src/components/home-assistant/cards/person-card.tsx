@@ -2,6 +2,7 @@
 
 import { User, MapPin, Clock, Battery } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import { getIntlLocale } from "@/i18n/intl-locale";
 import type { HAEntity, DashboardCard } from "@/types/home-assistant";
 
@@ -14,6 +15,7 @@ export function PersonCard({ card, entity }: PersonCardProps) {
   const t = useTranslations("homeAutomation.cards.person");
   const locale = useLocale();
   const intlLocale = getIntlLocale(locale);
+  const { formatTime } = useTimeFormat();
   const label = card.display_name || entity.name;
   const isUnavailable = entity.state === "unavailable";
   const isUnknown = entity.state === "unknown" || entity.state === "not_home";
@@ -29,12 +31,7 @@ export function PersonCard({ card, entity }: PersonCardProps) {
 
   // Format last changed time
   const lastChanged = entity.last_changed;
-  const lastSeenTime = lastChanged
-    ? new Date(lastChanged).toLocaleTimeString(intlLocale, {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null;
+  const lastSeenTime = lastChanged ? formatTime(new Date(lastChanged)) : null;
   const lastSeenDate = lastChanged
     ? new Date(lastChanged).toLocaleDateString(intlLocale, {
         day: "2-digit",

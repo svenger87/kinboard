@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import { useLocale } from "next-intl";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import { getIntlLocale } from "@/i18n/intl-locale";
 import { cn } from "@/lib/utils";
 import type { EntityHistory } from "@/types/home-assistant";
@@ -28,6 +29,7 @@ export function MiniChart({
   const gradientId = `miniGradient-${color.replace(/[^a-zA-Z0-9]/g, "")}`;
   const locale = useLocale();
   const intlLocale = getIntlLocale(locale);
+  const { formatTime } = useTimeFormat();
 
   // Transform history data for chart
   const chartData = useMemo(() => {
@@ -47,10 +49,7 @@ export function MiniChart({
     if (!active || !payload || payload.length === 0) return null;
 
     const data = payload[0].payload;
-    const time = new Date(data.timestamp).toLocaleTimeString(intlLocale, {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const time = formatTime(new Date(data.timestamp));
 
     return (
       <div className="bg-popover border rounded px-2 py-1 text-xs shadow">
