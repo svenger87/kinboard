@@ -493,11 +493,27 @@
   /* Dashboard hero cap — see the comment in src/app/page.tsx.
      Only bites on short, wide viewports (the landscape wall and desktop), where
      `flex-1` otherwise let the clock block absorb the height the widget grid
-     needed. Portrait panels and phones keep the original centred composition. */
+     needed. Portrait panels and phones keep the original centred composition.
+
+     `min-height: min-content` is what stops the cap cutting into the block it
+     is capping. The hero needs ~384-411px (clock, the family row, the Today
+     strip and their margins), so `max-height: 38vh` only clears it above a
+     1080px-tall viewport — which the wall panel is and no desktop browser is,
+     since window chrome takes its cut. Below that the block was clamped
+     shorter than its own content, and with `justify-content: center` and no
+     overflow the surplus spilled out of the bottom edge. The widget grid is
+     laid out from the clamped edge and carries the same `z-[1]`, so it won
+     on DOM order and painted over the Today strip: measured 28px of overlap
+     at 1920x937, 35px at 1600x900, 60px at 1366x768, 73px at 1440x700.
+
+     The floor cannot cost anything, because the cap only ever bound in the
+     cases where it was clipping — at 2560x1440 the hero's natural 460px is
+     already under 38vh and the cap is inert. */
   @media (orientation: landscape) and (min-width: 1024px) {
     .hero-block {
       flex: 0 1 auto;
       max-height: 38vh;
+      min-height: min-content;
       justify-content: center;
     }
   }
