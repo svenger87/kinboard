@@ -29,6 +29,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useWeather, useWeatherForecast, useWeatherUnits } from "@/hooks";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import { WeatherModal } from "./weather-modal";
 import { WidgetCard } from "@/components/widget-card";
 
@@ -140,6 +141,9 @@ export function Weather({ className = "" }: WeatherProps) {
   const { data: weatherData, isLoading, error } = useWeather();
   const { labels: unitLabels } = useWeatherUnits();
   const { data: forecast } = useWeatherForecast();
+  // Sunrise and sunset arrive as "HH:mm" at the weather location — the server
+  // works them out there and cannot know this household's clock setting.
+  const { formatWallClock } = useTimeFormat();
 
   if (isLoading) {
     return <WeatherSkeleton />;
@@ -262,7 +266,7 @@ export function Weather({ className = "" }: WeatherProps) {
                 <TooltipTrigger asChild>
                   <span className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-help">
                     <Sunrise className="size-3.5 text-weather-sunrise" />
-                    {weatherData.sunrise}
+                    {formatWallClock(weatherData.sunrise)}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -273,7 +277,7 @@ export function Weather({ className = "" }: WeatherProps) {
                 <TooltipTrigger asChild>
                   <span className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-help">
                     <Sunset className="size-3.5 text-weather-sunset" />
-                    {weatherData.sunset}
+                    {formatWallClock(weatherData.sunset)}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>

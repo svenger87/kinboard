@@ -38,6 +38,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { displayTempToCelsius, displayWindToKmh, type UnitSystem } from "@/lib/weather-units";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import {
   useWeather,
   useWeatherUnits,
@@ -222,6 +223,9 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
   const { labels: unitLabels, system } = useWeatherUnits();
   const { data: forecast } = useWeatherForecast();
   const { data: mapConfig, isLoading: mapLoading } = useWeatherMapConfig();
+  // The hourly strip's times are the forecast location's wall clock, sent as
+  // "HH:mm" because the server cannot know this household's clock setting.
+  const { formatWallClock } = useTimeFormat();
 
   const [selectedLayer, setSelectedLayer] = useState<MapLayer>("precipitation");
   const [showMap, setShowMap] = useState(false);
@@ -384,7 +388,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                         key={index}
                         className="flex flex-col items-center gap-1.5 min-w-[60px] p-2 rounded-lg bg-background/50"
                       >
-                        <span className="text-xs text-muted-foreground">{hour.time}</span>
+                        <span className="text-xs text-muted-foreground">{formatWallClock(hour.time)}</span>
                         <HourIcon className="size-5 text-primary" strokeWidth={1.5} />
                         <span className="font-medium text-sm">{hour.temp}°</span>
                         {hour.precipProbability > 0 && (
@@ -512,6 +516,9 @@ function SunArc({
   timezoneOffset?: number;
 }) {
   const t = useTranslations("weather");
+  // The arc's arithmetic stays on the raw "HH:mm" the server sent; only the two
+  // labels under it are re-rendered for the household's clock setting.
+  const { formatWallClock } = useTimeFormat();
   const parseTime = (time: string) => {
     const [h, m] = time.split(":").map(Number);
     return h * 60 + m;
@@ -596,14 +603,14 @@ function SunArc({
       <div className="flex items-center gap-6 mt-1">
         <div className="flex items-center gap-1.5">
           <Sunrise className="size-4 text-weather-sunrise" />
-          <span className="text-xs text-muted-foreground">{sunrise}</span>
+          <span className="text-xs text-muted-foreground">{formatWallClock(sunrise)}</span>
         </div>
         <span className="text-xs text-muted-foreground/50">
           {t("daylightLabel", { hours: Math.floor(dayLength / 60), minutes: dayLength % 60 })}
         </span>
         <div className="flex items-center gap-1.5">
           <Sunset className="size-4 text-weather-sunset" />
-          <span className="text-xs text-muted-foreground">{sunset}</span>
+          <span className="text-xs text-muted-foreground">{formatWallClock(sunset)}</span>
         </div>
       </div>
     </div>
