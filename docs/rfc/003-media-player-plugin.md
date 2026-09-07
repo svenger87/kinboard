@@ -13,13 +13,54 @@
 ## 1. What this is for
 
 A wall panel in a kitchen should be able to show what is playing and do
-something about it. Today Kinboard knows nothing about media: `media_player`
-appears in the Home Assistant entity types and in the generic entity sheet, and
-that is all.
+something about it.
+
+### Correction: what already exists
+
+An earlier draft of this section said Kinboard "knows nothing about media". That
+was wrong, and it was wrong in a way worth recording, because it was written
+after searching for a media *plugin* and finding none — while the functionality
+sat under Home Assistant all along. It surfaced during implementation, when a
+reviewer mentioned one of these by name in passing.
+
+Two things are already here:
+
+- **`useMediaPlayerControl`** (`src/hooks/use-home-assistant.ts`) — play, pause,
+  stop, next, previous, setVolume, mute, selectSource. That is the same command
+  surface this RFC's driver layer needs.
+- **`MediaPlayerCard`** (`src/components/home-assistant/cards/media-player-card.tsx`,
+  227 lines) — artwork, transport, a volume `Slider`, a source picker,
+  dispatched by entity domain from `entity-card.tsx`.
+
+Both belong to the **Home Assistant dashboard**: they take that dashboard's card
+config and a raw HA entity, and they render inside its grid. They are not a
+media surface of their own — there is no page, no dashboard widget, no concept
+of a configured player that outlives an entity, and nothing that could ever
+speak UPnP.
+
+### How this RFC relates to them
 
 This adds a media player as a **surface plugin**, in the shape `vehicles`
 already proves: a driver interface, several drivers behind it, a page, a
 settings screen and an optional dashboard widget.
+
+**The two layers stay separate, deliberately.** `useMediaCommand` in the plugin
+does not delegate to `useMediaPlayerControl`, even though their command lists
+overlap almost exactly today. The plugin's layer is driver-agnostic on purpose:
+M2 adds UPnP and Frontier Silicon drivers that cannot route through a hook built
+on Home Assistant's `callService`, so collapsing them now buys tidiness in M1
+and has to be undone in M2.
+
+The honest cost is that a household with Home Assistant has two code paths
+controlling the same speaker until M2 lands, and a reviewer meeting this fresh
+will reasonably call it duplication. If M2 is ever abandoned, the right move is
+to delete the plugin's command layer and delegate — not to keep both.
+
+`MediaPlayerCard` and the plugin's `PlayerCard` are separate components for the
+same reason — different data source, different surface — but the plugin's card
+reuses the existing one's `Slider`, icon set and visual idiom. Two media cards
+in one app that look like they came from different products would be a worse
+outcome than either duplication.
 
 ### Decisions taken
 
