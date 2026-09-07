@@ -3915,6 +3915,9 @@
     "pickEntity": "Choose a device",
     "nickname": "Name",
     "remove": "Remove",
-    "commandFailed": "That did not go through"
+    "commandFailed": "That did not go through",
+    "removeDialogTitle": "Remove player?",
+    "confirmRemove": "Remove \"{name}\"? This cannot be undone.",
+    "removeFailed": "Could not remove the player. Please try again."
   }
 }

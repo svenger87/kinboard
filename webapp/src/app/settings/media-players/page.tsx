@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { Music } from "lucide-react";
 import { useHomeAssistantEntities } from "@/hooks/use-home-assistant";
 import {
@@ -13,9 +14,21 @@ import { entityIdOf } from "@/hooks/use-media-player-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function MediaPlayersSettingsPage() {
   const t = useTranslations("media");
+  const tCommon = useTranslations("common");
   const { data: players = [] } = useMediaPlayers();
   const { data: entities = [] } = useHomeAssistantEntities("media_player");
   const save = useSaveMediaPlayer();
@@ -40,13 +53,42 @@ export default function MediaPlayersSettingsPage() {
                 className="flex items-center justify-between rounded-xl border border-border bg-background/50 px-4 py-3"
               >
                 <span>{p.nickname}</span>
-                <Button
-                  variant="ghost"
-                  className="min-h-[44px] text-destructive"
-                  onClick={() => remove.mutate(p.id)}
-                >
-                  {t("remove")}
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="min-h-[44px] text-destructive"
+                    >
+                      {t("remove")}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t("removeDialogTitle")}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {t("confirmRemove", { name: p.nickname })}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        disabled={remove.isPending}
+                        onClick={async () => {
+                          try {
+                            await remove.mutateAsync(p.id);
+                          } catch {
+                            // The dialog closes either way, so without this a
+                            // failed DELETE looked exactly like a successful one.
+                            toast.error(t("removeFailed"));
+                          }
+                        }}
+                      >
+                        {tCommon("delete")}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </li>
             ))}
           </ul>

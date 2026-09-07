@@ -3915,6 +3915,9 @@
     "pickEntity": "Choisir un appareil",
     "nickname": "Nom",
     "remove": "Supprimer",
-    "commandFailed": "Cela n’est pas passé"
+    "commandFailed": "Cela n’est pas passé",
+    "removeDialogTitle": "Supprimer l’appareil ?",
+    "confirmRemove": "Supprimer « {name} » ? Cette action est irréversible.",
+    "removeFailed": "Impossible de supprimer l’appareil. Veuillez réessayer."
   }
 }

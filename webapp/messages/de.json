@@ -3915,6 +3915,9 @@
     "pickEntity": "Gerät auswählen",
     "nickname": "Name",
     "remove": "Entfernen",
-    "commandFailed": "Das hat nicht funktioniert"
+    "commandFailed": "Das hat nicht funktioniert",
+    "removeDialogTitle": "Gerät entfernen?",
+    "confirmRemove": "„{name}“ entfernen? Das kann nicht rückgängig gemacht werden.",
+    "removeFailed": "Das Gerät konnte nicht entfernt werden. Bitte versuche es erneut."
   }
 }
