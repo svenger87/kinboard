@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { joinFamilyViaUI } from "./helpers";
+import { establishSession } from "./session";
 
 /**
  * The dashboard hero and the widget grid must not occupy the same pixels.
@@ -30,7 +30,7 @@ test.describe("the dashboard hero", () => {
   test.skip(!FAMILY_CODE, "needs FAMILY_CODE to reach the dashboard");
 
   test("does not overlap the widget grid", async ({ page }) => {
-    await joinFamilyViaUI(page, FAMILY_CODE, DEVICE_NAME);
+    await establishSession(page, FAMILY_CODE, DEVICE_NAME);
     await page.goto("/");
     await page.waitForSelector(".hero-block", { timeout: 20_000 });
     // The clock and the Today strip settle after their data arrives; measuring
