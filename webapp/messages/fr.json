@@ -3887,5 +3887,27 @@
     "dismiss": "Ignorer",
     "stop": "Arrêter",
     "startFailed": "Impossible de lancer ce minuteur"
+  },
+  "media": {
+    "title": "Média",
+    "navLabel": "Média",
+    "settingsTitle": "Lecteurs multimédias",
+    "settingsDescription": "Enceintes et écrans que vous pouvez contrôler depuis le tableau",
+    "nothingPlaying": "Rien en cours de lecture",
+    "unavailable": "Inaccessible",
+    "playPause": "Lecture ou pause",
+    "next": "Piste suivante",
+    "previous": "Piste précédente",
+    "volume": "Volume",
+    "mute": "Couper le son",
+    "unmute": "Rétablir le son",
+    "source": "Source",
+    "addPlayer": "Ajouter un appareil",
+    "noPlayers": "Aucun appareil pour l’instant",
+    "noPlayersHint": "Connectez Home Assistant, puis ajoutez une enceinte ou un écran qu’il connaît.",
+    "pickEntity": "Choisir un appareil",
+    "nickname": "Nom",
+    "remove": "Supprimer",
+    "commandFailed": "Cela n’est pas passé"
   }
 }

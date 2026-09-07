@@ -3887,5 +3887,27 @@
     "dismiss": "Verstanden",
     "stop": "Stoppen",
     "startFailed": "Timer konnte nicht gestartet werden"
+  },
+  "media": {
+    "title": "Medien",
+    "navLabel": "Medien",
+    "settingsTitle": "Mediengeräte",
+    "settingsDescription": "Lautsprecher und Bildschirme, die du vom Board aus steuern kannst",
+    "nothingPlaying": "Nichts spielt gerade",
+    "unavailable": "Nicht erreichbar",
+    "playPause": "Wiedergabe starten oder pausieren",
+    "next": "Nächster Titel",
+    "previous": "Vorheriger Titel",
+    "volume": "Lautstärke",
+    "mute": "Stummschalten",
+    "unmute": "Stummschaltung aufheben",
+    "source": "Quelle",
+    "addPlayer": "Gerät hinzufügen",
+    "noPlayers": "Noch keine Geräte",
+    "noPlayersHint": "Verbinde Home Assistant und füge dann einen Lautsprecher oder Bildschirm hinzu, den es kennt.",
+    "pickEntity": "Gerät auswählen",
+    "nickname": "Name",
+    "remove": "Entfernen",
+    "commandFailed": "Das hat nicht funktioniert"
   }
 }

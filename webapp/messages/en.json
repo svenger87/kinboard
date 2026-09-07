@@ -3887,5 +3887,27 @@
     "dismiss": "Dismiss",
     "stop": "Stop",
     "startFailed": "Could not start that timer"
+  },
+  "media": {
+    "title": "Media",
+    "navLabel": "Media",
+    "settingsTitle": "Media players",
+    "settingsDescription": "Speakers and screens you can control from the board",
+    "nothingPlaying": "Nothing playing",
+    "unavailable": "Not reachable",
+    "playPause": "Play or pause",
+    "next": "Next track",
+    "previous": "Previous track",
+    "volume": "Volume",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "source": "Source",
+    "addPlayer": "Add a player",
+    "noPlayers": "No players yet",
+    "noPlayersHint": "Connect Home Assistant, then add a speaker or screen it knows about.",
+    "pickEntity": "Choose a device",
+    "nickname": "Name",
+    "remove": "Remove",
+    "commandFailed": "That did not go through"
   }
 }
