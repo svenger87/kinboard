@@ -58,8 +58,10 @@ export async function GET(
 
   const supabase = createAdminClient();
 
-  // RLS is disabled on this project (see family-scope.ts) — this is the only
-  // thing stopping a caller who knows another family's player id from using
+  // This route runs on the service-role client, which bypasses RLS by
+  // design (see family-scope.ts) — so even though RLS is enabled on
+  // media_players, it does nothing here. This check is the only thing
+  // stopping a caller who knows another family's player id from using
   // *this* family's Home Assistant token to fetch it.
   if (!(await rowInFamily(supabase, "media_players", id, familyId))) {
     // Same 404 for "not yours" as for "doesn't exist" — see rowInFamily.
