@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { requireFamilyId } from "./use-supabase-queries";
+import { useWeekStart } from "./use-week-start";
+import type { WeekStartsOn } from "./use-week-start";
 import type {
   MealPlan,
   MealPlanEntry,
@@ -25,13 +27,24 @@ export const mealPlanQueryKeys = {
 // three places in this file were bypassing it with toISOString().
 const toLocalDateString = toLocalDateKey;
 
-// Helper to get the Monday of a given week
-export function getWeekStart(date: Date): string {
+/**
+ * The first day of the week containing `date`, as `YYYY-MM-DD`.
+ *
+ * `weekStartsOn` is required rather than defaulted, deliberately. This is both
+ * the planner's display window and the key of the `meal_plans` row, and it used
+ * to hardcode Monday — so a household that had chosen a Sunday start still got
+ * a Monday-to-Sunday grid (issue #228). A default here would let a caller keep
+ * the old behaviour by saying nothing, which is exactly how the setting came to
+ * be missed in three call sites.
+ *
+ * Comes from `useWeekStart()`: 0 is Sunday, 1 is Monday.
+ */
+export function getWeekStart(date: Date, weekStartsOn: WeekStartsOn): string {
   const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
-  d.setDate(diff);
   d.setHours(0, 0, 0, 0);
+  // How many days we are past the start of the week, 0-6.
+  const offset = (d.getDay() - weekStartsOn + 7) % 7;
+  d.setDate(d.getDate() - offset);
   return toLocalDateString(d);
 }
 
@@ -112,16 +125,37 @@ export function useMealPlan(weekStart: string) {
 
       if (error) throw error;
 
-      // Fetch entries with recipes
+      /*
+        Entries are fetched by the dates on screen, not by `meal_plan_id`.
+
+        The plan row's `week_start` follows the household's "week starts on"
+        setting, and that setting can be changed at any time. Keyed by plan row,
+        flipping it from Monday to Sunday would have hidden every entry already
+        written: the visible Sunday-to-Saturday week spans two Monday-keyed
+        plans, and a query for one of them returns neither in full. Six days of
+        a family's meals would silently vanish from the grid while sitting
+        perfectly intact in the table.
+
+        Asking for the seven dates the grid is about to draw cannot go wrong
+        that way, whatever the rows are keyed by. `meal_plans!inner` scopes it
+        to this family — `meal_plan_entries` carries no `family_id` of its own,
+        so the join is what keeps one household out of another's week, and RLS
+        still applies underneath.
+      */
+      const weekDates = getWeekDates(weekStart);
+
       const { data: entries, error: entriesError } = await supabaseAny
         .from("meal_plan_entries")
         .select(
           `
           *,
-          recipe:recipes(id, title, image_url, total_time_minutes, servings)
+          recipe:recipes(id, title, image_url, total_time_minutes, servings),
+          meal_plan:meal_plans!inner(family_id)
         `
         )
-        .eq("meal_plan_id", mealPlan.id)
+        .eq("meal_plan.family_id", requireFamilyId(family))
+        .gte("date", weekDates[0])
+        .lte("date", weekDates[6])
         .order("date")
         .order("meal_type");
 
@@ -247,6 +281,9 @@ export function useRescheduleMealPlanEntry() {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
+  // Dragging a meal into another week has to land in the week the household
+  // actually sees, so the destination plan is keyed the same way the grid is.
+  const { weekStartsOn } = useWeekStart();
 
   return useMutation({
     mutationFn: async ({
@@ -264,7 +301,7 @@ export function useRescheduleMealPlanEntry() {
       const supabaseAny = supabase as any;
 
       // Get the new week start for the target date
-      const newWeekStart = getWeekStart(new Date(newDate));
+      const newWeekStart = getWeekStart(new Date(newDate), weekStartsOn);
 
       // Check if moving to a different week
       if (newWeekStart !== currentWeekStart) {
@@ -325,7 +362,7 @@ export function useRescheduleMealPlanEntry() {
         queryKey: mealPlanQueryKeys.week(requireFamilyId(family), variables.currentWeekStart),
       });
       // Invalidate target week if different
-      const newWeekStart = getWeekStart(new Date(variables.newDate));
+      const newWeekStart = getWeekStart(new Date(variables.newDate), weekStartsOn);
       if (newWeekStart !== variables.currentWeekStart) {
         queryClient.invalidateQueries({
           queryKey: mealPlanQueryKeys.week(requireFamilyId(family), newWeekStart),
@@ -382,17 +419,15 @@ export function useGenerateShoppingFromMealPlan() {
        
       const supabaseAny = supabase as any;
 
-      // Get meal plan
-      const { data: mealPlan } = await supabaseAny
-        .from("meal_plans")
-        .select("id")
-        .eq("family_id", requireFamilyId(family))
-        .eq("week_start", weekStart)
-        .maybeSingle();
+      /*
+        Bounded by the week's dates, for the same reason `useMealPlan` is: the
+        plan row's key follows the "week starts on" setting, so a week on screen
+        need not be one plan row. Reading this by `meal_plan_id` would have
+        shopped for part of a week — and silently, since a short list looks like
+        a light week rather than a bug.
+      */
+      const weekDates = getWeekDates(weekStart);
 
-      if (!mealPlan) throw new Error("Meal plan not found");
-
-      // Get entries with recipes and ingredients
       let query = supabaseAny
         .from("meal_plan_entries")
         .select(
@@ -403,10 +438,13 @@ export function useGenerateShoppingFromMealPlan() {
             id,
             servings,
             ingredients:recipe_ingredients(*)
-          )
+          ),
+          meal_plan:meal_plans!inner(family_id)
         `
         )
-        .eq("meal_plan_id", mealPlan.id)
+        .eq("meal_plan.family_id", requireFamilyId(family))
+        .gte("date", weekDates[0])
+        .lte("date", weekDates[6])
         .not("recipe_id", "is", null);
 
       if (selectedEntryIds && selectedEntryIds.length > 0) {

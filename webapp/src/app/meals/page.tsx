@@ -106,6 +106,7 @@ import {
   useGenerateShoppingFromMealPlan,
   usePostponeMeal,
   getWeekStart,
+  useWeekStart,
   getWeekDates,
   formatDate,
   MEAL_TYPES,
@@ -660,7 +661,11 @@ export default function MealPlannerPage() {
   const [entryPendingDelete, setEntryPendingDelete] = useState<MealPlanEntryWithRecipe | null>(null);
 
   // Calculate week start
-  const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate]);
+  const { weekStartsOn } = useWeekStart();
+  const weekStart = useMemo(
+    () => getWeekStart(currentDate, weekStartsOn),
+    [currentDate, weekStartsOn],
+  );
   const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart]);
 
   // Data fetching
@@ -741,7 +746,7 @@ export default function MealPlannerPage() {
   }, [weekDates, intlLocale]);
 
   // Check if showing current week
-  const currentWeekStart = getWeekStart(new Date());
+  const currentWeekStart = getWeekStart(new Date(), weekStartsOn);
   const isCurrentWeek = currentWeekStart === weekStart;
 
   // Get today's date string

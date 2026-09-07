@@ -62,6 +62,7 @@ import {
   useAddRecipeToShoppingList,
   useAddMealPlanEntry,
   getWeekStart,
+  useWeekStart,
   useKeyboardShortcuts,
   useSwipeNavigation,
   recipeQueryKeys,
@@ -123,6 +124,8 @@ export default function RecipeDetailPage() {
   const instructions: RecipeInstruction[] = parseInstructions(recipe?.instructions);
 
   // Format time
+  // The meal a recipe is added to must land in the week the planner shows.
+  const { weekStartsOn } = useWeekStart();
   const formatTime = (m: number | null) => formatRecipeTime(t, m);
 
   // Format quantity
@@ -197,7 +200,7 @@ export default function RecipeDetailPage() {
   const handleAddToMealPlan = async () => {
     try {
       await addMealPlanEntry.mutateAsync({
-        weekStart: getWeekStart(new Date(`${mealPlanDate}T12:00:00`)),
+        weekStart: getWeekStart(new Date(`${mealPlanDate}T12:00:00`), weekStartsOn),
         entry: {
           date: mealPlanDate,
           meal_type: mealPlanType,
