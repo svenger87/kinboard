@@ -16,6 +16,7 @@ import {
   startOfDay,
   endOfDay,
   isWithinInterval,
+  isWeekend,
 } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
@@ -280,7 +281,14 @@ export function WeekView({
             return (
               <div
                 key={day.toISOString()}
-                className="relative border-l border-border/20"
+                /* Saturday and Sunday are tinted here as they are in the month
+                   grid, which had the shading and this view did not — the same
+                   week looked like two different calendars depending on which
+                   tab you were on. Keyed off the date, never the column index:
+                   on a Sunday start the weekend is columns 6 and 7. */
+                className={`relative border-l border-border/20 ${
+                  isWeekend(day) && !isDayToday ? "bg-muted/30" : ""
+                }`}
                 style={{ height: hours.length * HOUR_HEIGHT }}
               >
                 {/* Hour lines */}
