@@ -6,6 +6,11 @@ import { familyIdFrom } from "@/lib/family-scope";
 
 export const dynamic = "force-dynamic";
 
+// Mirrors the DB CHECK constraint in migration_media_players.sql. Kept in
+// sync by hand — Postgres has no ADD CONSTRAINT IF NOT EXISTS for CHECKs, so
+// a new driver already means editing that migration; add it here too.
+const VALID_DRIVERS = new Set(["home_assistant"]);
+
 // GET /api/media-players?family_id=X
 export async function GET(request: NextRequest) {
   const auth = await requireSession(request);
@@ -51,6 +56,9 @@ export async function POST(request: NextRequest) {
       { error: "nickname and driver are required" },
       { status: 400 },
     );
+  }
+  if (!VALID_DRIVERS.has(body.driver)) {
+    return NextResponse.json({ error: `unknown driver: ${body.driver}` }, { status: 400 });
   }
 
   const supabase = createAdminClient();
