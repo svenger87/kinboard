@@ -27,6 +27,7 @@ import {
   ListOrdered,
   Lock,
   Monitor,
+  Music,
   Newspaper,
   Palette,
   Pencil,
@@ -114,6 +115,7 @@ export default function SettingsPage() {
   useSwipeNavigation();
   const t = useTranslations("settings");
   const tCommon = useTranslations("common");
+  const tMedia = useTranslations("media");
   const { family, device, clearSession } = useFamilyStore();
   const deleteDevice = useDeleteDevice();
   const isOnline = useIsOnline();
@@ -169,6 +171,7 @@ export default function SettingsPage() {
   const camerasPluginEnabled = useIsPluginEnabled("cameras");
   const stonksPluginEnabled = useIsPluginEnabled("stonks");
   const pocketMoneyPluginEnabled = useIsPluginEnabled("pocket-money");
+  const mediaPluginEnabled = useIsPluginEnabled("media");
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", ""]);
   const pinInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -583,6 +586,12 @@ export default function SettingsPage() {
           label: t("itemPocketMoneyLabel"),
           description: t("itemPocketMoneyDescription"),
           href: "/settings/pocket-money",
+        }] : []),
+        ...(mediaPluginEnabled ? [{
+          icon: Music,
+          label: tMedia("settingsTitle"),
+          description: tMedia("settingsDescription"),
+          href: "/settings/media-players",
         }] : []),
       ],
     },
