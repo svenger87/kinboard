@@ -9,7 +9,7 @@
  * see src/app/join/page.tsx and src/components/code-input.tsx.
  */
 
-import { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 // Locale-tolerant (EN/DE) — the suite doesn't pin a Playwright locale, and
 // next-intl negotiates from the browser/OS. Anchored where a substring
@@ -48,12 +48,34 @@ export async function joinFamilyViaUI(
   const rejoinButton = page.getByRole("button", { name: REJOIN_RE });
   const joinCta = page.getByRole("button", { name: JOIN_CTA_RE });
 
-  await Promise.race([
-    rejoinButton.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {}),
-    joinCta.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {}),
-  ]);
+  /*
+    Poll for whichever button actually appears, rather than racing two waits and
+    then taking one `isVisible` snapshot.
 
-  if (await rejoinButton.isVisible().catch(() => false)) {
+    `Promise.race` settles on the FIRST promise to finish — including a caught
+    timeout — so the snapshot could be taken while the screen was still deciding
+    which of the two it is. Landing on the wrong branch means clicking a button
+    that never appears, and Playwright waits for it until the whole test times
+    out. Observed as `locator.click: Test timeout of 60000ms exceeded` in a spec
+    that has nothing to do with joining.
+
+    Which button appears is not knowable in advance: the fingerprint match
+    described above means a repeat run against the same stack gets Rejoin where
+    a fresh one gets Join.
+  */
+  let screen: "rejoin" | "join" | null = null;
+  await expect
+    .poll(
+      async () => {
+        if (await rejoinButton.isVisible().catch(() => false)) return (screen = "rejoin");
+        if (await joinCta.isVisible().catch(() => false)) return (screen = "join");
+        return null;
+      },
+      { timeout: 20_000, message: "neither the join nor the rejoin button appeared" },
+    )
+    .not.toBeNull();
+
+  if (screen === "rejoin") {
     await rejoinButton.click();
   } else {
     await joinCta.click();

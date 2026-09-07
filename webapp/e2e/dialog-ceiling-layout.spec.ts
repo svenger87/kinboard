@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { joinFamilyViaUI } from "./helpers";
+import { establishSession } from "./session";
 
 /**
  * A dialog must stay on the screen, and everything in it must be reachable.
@@ -30,13 +30,48 @@ const DEVICE_NAME = process.env.PLAYWRIGHT_DEVICE_NAME ?? "Dialog Ceiling Test";
 /** Short enough that the shortcuts list cannot fit — the case under test. */
 const SHORT = { width: 1000, height: 400 };
 
+/**
+ * Open the dialog and wait until it has stopped moving.
+ *
+ * Two fixed waits used to stand where these loops are, and both were wrong on a
+ * loaded CI runner. The keypress went to a page whose `window` keydown listener
+ * had not been attached yet — the dashboard was still hydrating — and the
+ * measurement was taken while Radix was still animating the dialog in. It
+ * enters with `slide-in-from-top-[48%]`, so mid-flight it genuinely *is* above
+ * the viewport, and a test that measures then reports the exact failure it is
+ * meant to detect. It failed once in CI and passed on retry, which is the worst
+ * way for a layout guard to behave: it teaches people that a red WebKit run
+ * means nothing.
+ *
+ * So: press until the dialog exists, then wait for its box to stop changing
+ * rather than for a duration.
+ */
 async function openShortcutsDialog(page: import("@playwright/test").Page) {
   await page.goto("/");
   await page.waitForSelector(".hero-block", { timeout: 20_000 });
-  await page.waitForTimeout(1500);
-  await page.keyboard.press("?");
-  await page.waitForSelector('[role="dialog"]', { timeout: 10_000 });
-  await page.waitForTimeout(600);
+
+  const dialog = page.locator('[role="dialog"]');
+  // The listener is attached in an effect, so a press can land before anything
+  // is listening. Retrying is the only honest way to wait for that.
+  await expect(async () => {
+    await page.keyboard.press("?");
+    await expect(dialog).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
+
+  // Settled = the same bounding box on two consecutive animation frames.
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[role="dialog"]');
+      if (!el) return false;
+      const w = window as unknown as { __lastBox?: string };
+      const box = JSON.stringify(el.getBoundingClientRect());
+      const settled = w.__lastBox === box;
+      w.__lastBox = box;
+      return settled;
+    },
+    undefined,
+    { polling: "raf", timeout: 10_000 },
+  );
 }
 
 const measure = () => {
@@ -62,7 +97,7 @@ test.describe("a dialog on a short screen", () => {
   test.use({ viewport: SHORT });
 
   test("stays within the screen and scrolls what does not fit", async ({ page }) => {
-    await joinFamilyViaUI(page, FAMILY_CODE, DEVICE_NAME);
+    await establishSession(page, FAMILY_CODE, DEVICE_NAME);
     await openShortcutsDialog(page);
 
     const m = await page.evaluate(measure);
@@ -98,7 +133,7 @@ test.describe("a dialog on a short screen", () => {
     // Declaring `overflow-y: auto` is not the same as it working — a flex or
     // grid child with the default `min-height: auto` refuses to shrink, and the
     // scrollbar never appears.
-    await joinFamilyViaUI(page, FAMILY_CODE, DEVICE_NAME);
+    await establishSession(page, FAMILY_CODE, DEVICE_NAME);
     await openShortcutsDialog(page);
 
     const scrolled = await page.evaluate(() => {
@@ -121,7 +156,7 @@ test.describe("a dialog on a tall screen", () => {
   test("is its natural size, not stretched to the ceiling", async ({ page }) => {
     // The ceiling must only bite when it is needed. If it started sizing every
     // dialog, every short dialog would suddenly be full-height.
-    await joinFamilyViaUI(page, FAMILY_CODE, DEVICE_NAME);
+    await establishSession(page, FAMILY_CODE, DEVICE_NAME);
     await openShortcutsDialog(page);
 
     const m = await page.evaluate(measure);
