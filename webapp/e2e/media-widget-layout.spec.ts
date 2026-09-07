@@ -151,6 +151,21 @@ test.describe("the media widget", () => {
     await expect(page.getByRole("region", { name: "Media" })).toHaveCount(0);
   });
 
+  // The positive control for the test above: without it, deleting the
+  // `{w.media && <MediaPlayerWidget />}` line from page.tsx (the exact gap
+  // this task found — the widget declared, never mounted) leaves both tests
+  // green, because "absent" alone can't distinguish "correctly hidden" from
+  // "never wired up at all".
+  test("is present when something is playing", async ({ page }) => {
+    await establishSession(page, FAMILY_CODE, DEVICE_NAME);
+    await page.route((u) => u.pathname === "/api/homeassistant/states", (r) =>
+      r.fulfill({ json: entity("playing", 16385) }),
+    );
+    await page.goto("/");
+    await page.waitForTimeout(3000);
+    await expect(page.getByRole("region", { name: "Media" })).toHaveCount(1);
+  });
+
   test("draws only the controls the device claims", async ({ page }) => {
     await establishSession(page, FAMILY_CODE, DEVICE_NAME);
     // PLAY|PAUSE only: transport, but no next, no volume, no sources.
@@ -162,6 +177,12 @@ test.describe("the media widget", () => {
 
     await expect(page.getByRole("button", { name: "Play or pause" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Next track" })).toHaveCount(0);
-    await expect(page.getByRole("slider", { name: "Volume" })).toHaveCount(0);
+    // Not `getByRole("slider", ...)`: player-card.tsx puts the accessible
+    // name on the wrapping `role="group"` div, not on the Radix thumb itself
+    // (a bare Slider carries no accessible name of its own, and nothing here
+    // passes Radix the prop that would give the thumb one) — so a slider
+    // query named "Volume" matches zero elements whether or not the control
+    // renders, and the assertion below would never fail either way.
+    await expect(page.getByRole("group", { name: "Volume" })).toHaveCount(0);
   });
 });
