@@ -61,4 +61,59 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ---------------------------------------------------------------------------
+-- Reconcile the two stores. RFC-007 §3, in three ordered steps.
+--
+-- One-way: the blob and catalogue_items.room are both left exactly as they
+-- are. A migration that is wrong about a household's data needs somewhere to
+-- have been wrong from.
+--
+-- Every extraction is guarded with jsonb_typeof: COALESCE catches a missing
+-- key but not a JSON null, and a scalar where an array is expected aborts the
+-- statement for every family on the install — which stops the webapp
+-- container starting at all, because its entrypoint exits 1.
+-- ---------------------------------------------------------------------------
+
+-- 1. Blob rooms first: only they carry icon, colour and order.
+INSERT INTO public.rooms (family_id, name, icon, color, position)
+SELECT
+  s.family_id,
+  trim(r.value ->> 'name'),
+  NULLIF(r.value ->> 'icon', ''),
+  NULLIF(r.value ->> 'color', ''),
+  CASE WHEN COALESCE(r.value ->> 'position', '') ~ '^-?[0-9]+$'
+       THEN (r.value ->> 'position')::int ELSE 0 END
+FROM public.settings s
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(s.value -> 'rooms_config' -> 'rooms') = 'array'
+       THEN s.value -> 'rooms_config' -> 'rooms' ELSE '[]'::jsonb END) AS r(value)
+WHERE s.key = 'home_assistant'
+  AND NULLIF(trim(COALESCE(r.value ->> 'name', '')), '') IS NOT NULL
+  AND char_length(trim(r.value ->> 'name')) <= 80
+ON CONFLICT DO NOTHING;
+
+-- 2. Rooms that exist only as catalogue text, appended after the blob's.
+INSERT INTO public.rooms (family_id, name, position)
+SELECT DISTINCT ON (c.family_id, lower(trim(c.room)))
+  c.family_id,
+  trim(c.room),
+  COALESCE((SELECT MAX(position) + 1 FROM public.rooms r2 WHERE r2.family_id = c.family_id), 0)
+FROM public.catalogue_items c
+WHERE NULLIF(trim(COALESCE(c.room, '')), '') IS NOT NULL
+  AND char_length(trim(c.room)) <= 80
+  AND NOT EXISTS (
+    SELECT 1 FROM public.rooms r
+    WHERE r.family_id = c.family_id AND lower(trim(r.name)) = lower(trim(c.room))
+  )
+ON CONFLICT DO NOTHING;
+
+-- 3. Resolve every device's room text to a room_id, case-insensitively.
+UPDATE public.catalogue_items c
+SET room_id = r.id
+FROM public.rooms r
+WHERE c.room_id IS NULL
+  AND c.room IS NOT NULL
+  AND r.family_id = c.family_id
+  AND lower(trim(r.name)) = lower(trim(c.room));
+
 NOTIFY pgrst, 'reload schema';
