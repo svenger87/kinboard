@@ -144,6 +144,32 @@ test.describe("reconciling rooms", () => {
     expect(links(clean)).toEqual(["light.ok|Bad"]);
   });
 
+  test("a blob room with an empty-string name is skipped, and does not take the batch down", () => {
+    // The shape a missing "name" key doesn't cover: "" passes the length
+    // filter (char_length(trim('')) is 0, not NULL) so only the NULLIF
+    // filter catches it. Without that filter this reaches the INSERT and
+    // trips rooms.rooms_name_check, aborting the whole statement — every
+    // family migrated in the same pass, not just this one.
+    const poisoned = makeFamily();
+    seedBlob(poisoned, {
+      rooms_config: { rooms: [{ id: "r1", name: "", icon: "book", position: 0, created_at: "2026-01-01", entities: [] }] },
+    });
+    const clean = makeFamily();
+    seedBlob(clean, {
+      rooms_config: { rooms: [{ id: "r1", name: "Flur", icon: "book", position: 0, created_at: "2026-01-01", entities: [] }] },
+    });
+    seedDevice(clean, "light.a", "Flur");
+    seedDevice(clean, "light.b", "Bad");
+    applyMigration();
+    expect(rooms(poisoned)).toEqual([]);
+    // Not just "no error" — the clean family must still get every one of its
+    // rows: the blob room, the text-only room appended after it, and both
+    // devices resolved through the FK. That completeness is the property
+    // whose absence stops the webapp container starting for everybody.
+    expect(rooms(clean)).toEqual(["Flur|book|-|0", "Bad|-|-|1"]);
+    expect(links(clean)).toEqual(["light.a|Flur", "light.b|Bad"]);
+  });
+
   test("a non-array rooms_config does not take the batch down either", () => {
     const poisoned = makeFamily();
     seedBlob(poisoned, { rooms_config: { rooms: {} } });
