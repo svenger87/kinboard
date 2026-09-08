@@ -174,15 +174,43 @@ export function useTakeoverMessage(): Message | null {
  * is the other half of that fix; this half is what makes "read" mean
  * "consumed" rather than "remembered for as long as the tab is open".
  */
+/*
+  Consumed once per document, not once per component.
+
+  Both `MessageTakeover` and `MessagesWidget` call `useBoardMessage`, so both
+  ran their own copy of this effect, in the same passive-effect flush. Whichever
+  went first stripped `?message=` from the URL — and the second then read
+  nothing. The takeover raised the deep-linked message; the widget, seeing no
+  requested id, did not know to hide it; and the same message rendered in both
+  places at once, which is precisely the bug `useBoardMessage` was consolidated
+  to eliminate, reintroduced by the stripping that fixed a different one.
+
+  Module scope makes the answer the same for every caller in the document,
+  which is what "consumed" should have meant. A second notification tap
+  navigates the existing window and sw.js turns that into a real document load,
+  so this resets exactly when it should.
+*/
+let consumedRequestedId: string | null | undefined;
+
+function consumeRequestedMessageId(): string | null {
+  if (consumedRequestedId !== undefined) return consumedRequestedId;
+  // Never cache the server's answer — there is no URL to read there, and the
+  // first browser render would inherit the null.
+  if (typeof window === "undefined") return null;
+
+  const url = new URL(window.location.href);
+  consumedRequestedId = url.searchParams.get("message");
+  if (consumedRequestedId) {
+    url.searchParams.delete("message");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  }
+  return consumedRequestedId;
+}
+
 function useRequestedMessageId(): string | null {
   const [id, setId] = useState<string | null>(null);
   useEffect(() => {
-    const url = new URL(window.location.href);
-    const requested = url.searchParams.get("message");
-    if (!requested) return;
-    setId(requested);
-    url.searchParams.delete("message");
-    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    setId(consumeRequestedMessageId());
   }, []);
   return id;
 }

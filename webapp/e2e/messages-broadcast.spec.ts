@@ -184,6 +184,58 @@ test.describe("a message reaches the other screens", () => {
     }
   });
 
+  test("a deep-linked message past its minute renders on exactly one surface", async ({
+    browser,
+  }, testInfo) => {
+    /*
+      The double-render this feature has now produced twice, by two different
+      routes: first because the takeover and the widget each decided for
+      themselves what was on the board, and then again because each ran its own
+      copy of the effect that reads and strips `?message=`, so whichever
+      flushed first consumed the parameter and the other never saw it — the
+      takeover raised the message and the widget did not know to hide it.
+
+      Both earlier fixes were reasoned about and believed. This is the assertion
+      that would have caught either one.
+
+      It has to wait out the takeover window, because the state it needs is a
+      message that is past its minute and still unacknowledged, and nothing in
+      the API can manufacture that. Desktop only: a minute is worth paying once
+      for a bug that has come back, not twice for the same coverage.
+    */
+    test.skip(testInfo.project.name !== "desktop", "one engine is enough for a data-shape bug");
+    test.setTimeout(180_000);
+
+    const body = `probe-onesurface-${testInfo.project.name}-${Date.now()}`;
+
+    const sender = await screenFor(browser, `Messages OneSurface Sender ${testInfo.project.name}`);
+    const viewer = await screenFor(browser, `Messages OneSurface Viewer ${testInfo.project.name}`);
+
+    try {
+      const id = await sendMessage(sender.page, body);
+
+      // Outlast the 60s takeover window, so the message is one the widget
+      // would show and the deep link has to be what raises it.
+      await viewer.page.waitForTimeout(63_000);
+
+      await viewer.page.goto(`/?message=${id}`, { waitUntil: "domcontentloaded" });
+      await viewer.page.waitForSelector(".hero-block", { timeout: 20_000 });
+      await expect(viewer.page.getByText(body).first()).toBeVisible({ timeout: 20_000 });
+      // Let both surfaces settle before counting; the bug is that they disagree.
+      await viewer.page.waitForTimeout(2500);
+
+      await expect(
+        viewer.page.locator("[data-message-takeover]").filter({ hasText: body }),
+      ).toHaveCount(1);
+      await expect(
+        viewer.page.locator("[data-message-row]").filter({ hasText: body }),
+      ).toHaveCount(0);
+    } finally {
+      await sender.context.close();
+      await viewer.context.close();
+    }
+  });
+
   test("a fresh message still takes the board on a screen already sitting on a deep link", async ({
     browser,
   }, testInfo) => {
