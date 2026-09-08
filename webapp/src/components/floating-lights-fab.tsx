@@ -7,23 +7,7 @@ import {
   Lightbulb,
   Loader2,
   PowerOff,
-  Home,
-  BedDouble,
-  Sofa,
-  Utensils,
-  Bath,
-  Car,
-  TreeDeciduous,
-  Briefcase,
-  Baby,
-  Tv,
   DoorOpen,
-  Warehouse,
-  Lamp,
-  Armchair,
-  WashingMachine,
-  Coffee,
-  Book,
   LayoutGrid,
   Settings,
   Power,
@@ -48,6 +32,7 @@ import {
 } from "@/hooks";
 import { useRooms } from "@/hooks/use-rooms-table";
 import { useCatalogue } from "@/hooks/use-catalogue";
+import { iconFor } from "@/components/home-assistant/room-icon";
 import { LightControlItem } from "./light-control-item";
 import { SwitchControlItem } from "./switch-control-item";
 import { SensorDisplayItem } from "./sensor-display-item";
@@ -58,33 +43,6 @@ import type { Room, CatalogueItem } from "@/types/database";
 /** A catalogue row known to have an entity — the shape every domain group
  * below actually needs, narrowed once instead of asserted at each use. */
 type CatalogueItemWithEntity = CatalogueItem & { entity_id: string };
-
-// Icon map for room icons
-const ICON_MAP: Record<RoomIcon, typeof Home> = {
-  home: Home,
-  "bed-double": BedDouble,
-  sofa: Sofa,
-  utensils: Utensils,
-  bath: Bath,
-  car: Car,
-  tree: TreeDeciduous,
-  briefcase: Briefcase,
-  baby: Baby,
-  tv: Tv,
-  "door-open": DoorOpen,
-  warehouse: Warehouse,
-  lamp: Lamp,
-  armchair: Armchair,
-  "washing-machine": WashingMachine,
-  coffee: Coffee,
-  book: Book,
-};
-
-/** A room's icon, tolerant of a null or unrecognised value from the row —
- * mirrors `iconFor` in the rooms settings page, which owns the same table. */
-function iconFor(icon: string | null): typeof Home {
-  return (icon && ICON_MAP[icon as RoomIcon]) || Home;
-}
 
 // Room tab component
 const RoomTab = React.memo(function RoomTab({

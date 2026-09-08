@@ -11,22 +11,6 @@ import {
   Trash2,
   Edit,
   Home,
-  BedDouble,
-  Sofa,
-  Utensils,
-  Bath,
-  Car,
-  TreeDeciduous,
-  Briefcase,
-  Baby,
-  Tv,
-  DoorOpen,
-  Warehouse,
-  Lamp,
-  Armchair,
-  WashingMachine,
-  Coffee,
-  Book,
   Boxes,
   X,
 } from "lucide-react";
@@ -60,27 +44,7 @@ import {
 } from "@/hooks/use-rooms-table";
 import type { Room } from "@/types/database";
 import type { RoomIcon } from "@/types/home-assistant";
-
-// Icon map for room icons
-const ICON_MAP: Record<RoomIcon, typeof Home> = {
-  home: Home,
-  "bed-double": BedDouble,
-  sofa: Sofa,
-  utensils: Utensils,
-  bath: Bath,
-  car: Car,
-  tree: TreeDeciduous,
-  briefcase: Briefcase,
-  baby: Baby,
-  tv: Tv,
-  "door-open": DoorOpen,
-  warehouse: Warehouse,
-  lamp: Lamp,
-  armchair: Armchair,
-  "washing-machine": WashingMachine,
-  coffee: Coffee,
-  book: Book,
-};
+import { ICON_MAP, iconFor } from "@/components/home-assistant/room-icon";
 
 // Room icon options for picker — labels come from translations via ICON_LABEL_KEYS
 const ROOM_ICONS: readonly RoomIcon[] = [
@@ -123,11 +87,6 @@ const ICON_LABEL_KEYS: Record<RoomIcon, string> = {
   coffee: "iconLabel_coffee",
   book: "iconLabel_book",
 };
-
-/** A room's icon, tolerant of a null or unrecognised value from the row. */
-function iconFor(icon: string | null): typeof Home {
-  return (icon && ICON_MAP[icon as RoomIcon]) || Home;
-}
 
 // Room editor dialog
 function RoomEditorDialog({
