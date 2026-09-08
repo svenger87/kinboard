@@ -85,6 +85,13 @@ export async function POST(request: NextRequest) {
 
   // Queue the announcement. A failure here must not fail the timer itself —
   // the panel still counts down and still rings; only the phone push is lost.
+  //
+  // `title` is written in English because `scheduled_notifications.title` is
+  // `NOT NULL` and nothing has resolved the recipient's locale yet at insert
+  // time — it's a sensible fallback if it's ever read directly, not what
+  // gets sent. The send side (process-notifications' `case "timer"`) renders
+  // the real, locale-aware push through `getPushTranslator`, and needs the
+  // label on its own rather than baked into a sentence, so it goes in `data`.
   const dueAt = new Date(Date.parse(timer.started_at) + timer.duration_seconds * 1000);
   const { error: notifyError } = await supabase.from("scheduled_notifications").insert({
     family_id: familyId,
@@ -92,6 +99,7 @@ export async function POST(request: NextRequest) {
     scheduled_for: dueAt.toISOString(),
     title: timer.label ? `${timer.label} is ready` : "Timer finished",
     body: null,
+    data: timer.label ? { label: timer.label } : null,
     related_entity_type: "timer",
     related_entity_id: timer.id,
   });

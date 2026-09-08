@@ -211,7 +211,11 @@
     "birthdayBody": "Anniversaire dans {count, plural, one {# jour} other {# jours}}",
     "birthdayToday": "C'est l'anniversaire aujourd'hui !",
     "birthdaysMany": "{count} anniversaires à venir",
-    "mealPrepTitle": "Repas de demain"
+    "mealPrepTitle": "Repas de demain",
+    "timerReadyTitle": "{label} est prêt",
+    "timerFinishedTitle": "Minuteur terminé",
+    "timerBody": "Le minuteur de cuisine est terminé",
+    "timersManyTitle": "{count} minuteurs sont terminés"
   },
   "join": {
     "title": "Kinboard",

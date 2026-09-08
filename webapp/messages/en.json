@@ -211,7 +211,11 @@
     "birthdayBody": "Birthday in {count, plural, one {# day} other {# days}}",
     "birthdayToday": "Birthday is today!",
     "birthdaysMany": "{count} upcoming birthdays",
-    "mealPrepTitle": "Tomorrow's meals"
+    "mealPrepTitle": "Tomorrow's meals",
+    "timerReadyTitle": "{label} is ready",
+    "timerFinishedTitle": "Timer finished",
+    "timerBody": "The kitchen timer is done",
+    "timersManyTitle": "{count} timers are up"
   },
   "join": {
     "title": "Kinboard",
