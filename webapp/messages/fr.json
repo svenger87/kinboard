@@ -3109,8 +3109,8 @@
     "unreachableSettings": "Vérifier la connexion"
   },
   "catalogue": {
-    "title": "Appareils",
-    "description": "Les choses de votre maison que le tableau peut afficher. Donnez à chacune un nom que vous utiliseriez vraiment, une pièce et, si vous le souhaitez, une photo.",
+    "title": "Les objets de la maison",
+    "description": "Les lampes, serrures et appareils que le tableau peut afficher. Donnez à chacun un nom que vous utilisez vraiment, une pièce, et une image si vous voulez.",
     "addDevice": "Ajouter un appareil",
     "search": "Rechercher parmi vos appareils",
     "empty": "Rien ici pour l'instant",
