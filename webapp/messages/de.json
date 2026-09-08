@@ -3129,7 +3129,9 @@
     "removeConfirm": "Dieses Gerät vom Board entfernen? Es bleibt in Home Assistant erhalten.",
     "duplicate": "Das steht schon auf der Liste",
     "saveFailed": "Konnte nicht gespeichert werden",
-    "unavailable": "Nicht erreichbar"
+    "unavailable": "Nicht erreichbar",
+    "importRooms": "Räume aus Home Assistant übernehmen",
+    "importedRooms": "{count} Geräte platziert"
   },
   "dashboard": {
     "ariaClock": "Uhr und Familienmitglieder",

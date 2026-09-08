@@ -3129,7 +3129,9 @@
     "removeConfirm": "Retirer cet appareil du tableau ? Il restera dans Home Assistant.",
     "duplicate": "Celui-ci est déjà dans la liste",
     "saveFailed": "Impossible d'enregistrer",
-    "unavailable": "Injoignable"
+    "unavailable": "Injoignable",
+    "importRooms": "Compléter les pièces depuis Home Assistant",
+    "importedRooms": "{count} appareils placés"
   },
   "dashboard": {
     "ariaClock": "Horloge et membres de la famille",

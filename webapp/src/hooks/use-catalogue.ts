@@ -106,6 +106,31 @@ export function useUpdateCatalogueItem() {
   });
 }
 
+/**
+ * Offer to fill in `room` for catalogue rows that don't have one yet, from
+ * Home Assistant's areas — RFC-006 §3.3. A button someone presses, not a
+ * sync: never called automatically, and the route itself never touches a
+ * room that is already set.
+ */
+export function useImportCatalogueRooms() {
+  const qc = useQueryClient();
+  const { family } = useFamilyStore();
+  return useMutation({
+    mutationFn: async (): Promise<{ updated: number; rooms: string[] }> => {
+      const r = await fetch("/api/catalogue/import-rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ family_id: family!.id }),
+      });
+      if (!r.ok) throw new Error(`catalogue import-rooms: ${r.status}`);
+      return r.json();
+    },
+    onSuccess: (result) => {
+      if (result.updated > 0) void qc.invalidateQueries({ queryKey: [KEY, family?.id] });
+    },
+  });
+}
+
 export function useDeleteCatalogueItem() {
   const qc = useQueryClient();
   const { family } = useFamilyStore();

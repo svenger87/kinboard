@@ -3129,7 +3129,9 @@
     "removeConfirm": "Remove this device from the board? It stays in Home Assistant.",
     "duplicate": "That one is already on the list",
     "saveFailed": "Could not save that",
-    "unavailable": "Not reachable"
+    "unavailable": "Not reachable",
+    "importRooms": "Fill in rooms from Home Assistant",
+    "importedRooms": "Placed {count} devices"
   },
   "dashboard": {
     "ariaClock": "Clock and family members",

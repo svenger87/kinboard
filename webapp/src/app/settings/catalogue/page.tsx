@@ -16,6 +16,7 @@ import {
   Loader2,
   ImageIcon,
   WifiOff,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,7 @@ import {
   useAddCatalogueItem,
   useUpdateCatalogueItem,
   useDeleteCatalogueItem,
+  useImportCatalogueRooms,
   CatalogueDuplicateError,
 } from "@/hooks/use-catalogue";
 import {
@@ -298,6 +300,16 @@ export default function CataloguePage() {
   const addItem = useAddCatalogueItem();
   const updateItem = useUpdateCatalogueItem();
   const deleteItem = useDeleteCatalogueItem();
+  const importRooms = useImportCatalogueRooms();
+
+  async function handleImportRooms() {
+    try {
+      const result = await importRooms.mutateAsync();
+      toast.success(t("importedRooms", { count: result.updated }));
+    } catch {
+      toast.error(t("saveFailed"));
+    }
+  }
 
   // Add-device picker
   const [addOpen, setAddOpen] = useState(false);
@@ -396,10 +408,26 @@ export default function CataloguePage() {
           title={t("title")}
           subtitle={t("description")}
           actions={
-            <Button onClick={() => setAddOpen(true)}>
-              <Plus className="mr-2 size-4" />
-              {t("addDevice")}
-            </Button>
+            <div className="flex items-center gap-2">
+              {isConnected && (
+                <Button
+                  variant="outline"
+                  disabled={importRooms.isPending}
+                  onClick={() => void handleImportRooms()}
+                >
+                  {importRooms.isPending ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 size-4" />
+                  )}
+                  {t("importRooms")}
+                </Button>
+              )}
+              <Button onClick={() => setAddOpen(true)}>
+                <Plus className="mr-2 size-4" />
+                {t("addDevice")}
+              </Button>
+            </div>
           }
         />
 
