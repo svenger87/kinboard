@@ -1086,7 +1086,7 @@
       "photosPreview2": "Wechselt alle 20 Sekunden",
       "timersLabel": "Timer",
       "timersDescription": "Küchentimer mit Presets — ein Tipp genügt, und jeder an diesem Bildschirm sieht, was gerade runterzählt",
-      "timersPreview1": "Noch 04:12 — Nudeln",
+      "timersPreview1": "Noch 04:12",
       "timersPreview2": "Zum Starten ein Preset antippen"
     },
     "navigation": {
@@ -3882,12 +3882,7 @@
   },
   "timers": {
     "title": "Timer",
-    "start": "Timer starten",
     "preset": "{minutes} Min.",
-    "custom": "Eigene Zeit",
-    "customMinutes": "Minuten",
-    "labelPlaceholder": "Wofür? (optional)",
-    "running": "Noch {remaining}",
     "finished": "Zeit abgelaufen",
     "dismiss": "Verstanden",
     "stop": "Stoppen",

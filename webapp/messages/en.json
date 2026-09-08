@@ -1086,7 +1086,7 @@
       "photosPreview2": "Changes every 20 seconds",
       "timersLabel": "Timers",
       "timersDescription": "Kitchen timers with one-tap presets — everyone on this screen can see what's counting down",
-      "timersPreview1": "04:12 left — Pasta",
+      "timersPreview1": "04:12 left",
       "timersPreview2": "Tap a preset to start one"
     },
     "navigation": {
@@ -3882,12 +3882,7 @@
   },
   "timers": {
     "title": "Timers",
-    "start": "Start a timer",
     "preset": "{minutes} min",
-    "custom": "Custom",
-    "customMinutes": "Minutes",
-    "labelPlaceholder": "What for? (optional)",
-    "running": "{remaining} left",
     "finished": "Time's up",
     "dismiss": "Dismiss",
     "stop": "Stop",

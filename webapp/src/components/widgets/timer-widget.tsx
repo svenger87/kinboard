@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { Timer as TimerIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WidgetCard } from "@/components/widget-card";
@@ -24,6 +25,18 @@ export function TimerWidget() {
   const [offsetMs, setOffsetMs] = useState(0);
   const [now, setNow] = useState(() => new Date());
   const rung = useRef<Set<string>>(new Set());
+
+  // A preset tap that fails otherwise does nothing visible: the button just
+  // sits there, no row appears, no error either. Same shape as the other
+  // widgets' mutation failures (e.g. shopping-widget's toggle) — catch it and
+  // say so.
+  const handlePreset = async (minutes: number) => {
+    try {
+      await start.mutateAsync({ duration_seconds: minutes * 60 });
+    } catch {
+      toast.error(t("startFailed"));
+    }
+  };
 
   /*
     Measure the clock offset once. `started_at` comes from the server and `now`
@@ -120,7 +133,7 @@ export function TimerWidget() {
               key={minutes}
               variant="outline"
               className="min-h-[44px]"
-              onClick={() => start.mutate({ duration_seconds: minutes * 60 })}
+              onClick={() => void handlePreset(minutes)}
             >
               {t("preset", { minutes })}
             </Button>
