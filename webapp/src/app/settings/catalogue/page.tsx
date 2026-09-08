@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -288,7 +288,7 @@ export default function CataloguePage() {
   const { family } = useFamilyStore();
 
   const { data: catalogue, isLoading } = useCatalogue();
-  const { data: rooms } = useRooms();
+  const { data: rooms, isLoading: roomsLoading } = useRooms();
   const { data: haStatus } = useHomeAssistantStatus();
   const isConnected = Boolean(haStatus?.url && haStatus?.access_token);
 
@@ -376,6 +376,14 @@ export default function CataloguePage() {
     setEditImage(item.image_url);
   }
 
+  // A `room_id` the currently loaded rooms no longer contain — the FK is
+  // `ON DELETE SET NULL` so a live edit shouldn't produce one, but resolving
+  // it once here keeps what the picker displays and what Save actually
+  // sends in agreement, rather than showing "No room" while quietly still
+  // holding the stale id.
+  const resolvedEditRoomId =
+    editRoomId !== null && rooms.some((r) => r.id === editRoomId) ? editRoomId : null;
+
   async function saveEdit() {
     if (!editing || !editName.trim()) return;
     try {
@@ -386,7 +394,7 @@ export default function CataloguePage() {
         // RFC-007 §3 keeps it exactly as the migration left it, unread,
         // as what a household recovers from if the migration guessed
         // wrong. Only `room_id` is written by this screen now.
-        room_id: editRoomId,
+        room_id: resolvedEditRoomId,
         // Empty string, not undefined: the update route only touches a
         // field when the key is present, and an empty string clears it the
         // same way `null` would (see route.ts's trim-then-null fallback).
@@ -487,6 +495,28 @@ export default function CataloguePage() {
                 : undefined
             }
           />
+        ) : roomsLoading ? (
+          // The catalogue is known and non-empty, but which room each item
+          // belongs to is not yet — grouping now would file every roomed
+          // device under "No room" until the rooms query lands, the same
+          // wrong-while-loading state as the picker claiming there are no
+          // rooms. Devices still render (nothing about them is unknown),
+          // just flat and without committing to a heading; each row's own
+          // room text is a skeleton bar instead of a guess.
+          <div className="flex flex-col gap-2">
+            {catalogue.map((item) => (
+              <DeviceRow
+                key={item.id}
+                item={item}
+                roomLabel={<Skeleton className="h-3 w-20" />}
+                state={item.entity_id ? stateByEntityId.get(item.entity_id) : undefined}
+                t={t}
+                tCommon={tCommon}
+                onEdit={() => openEdit(item)}
+                onDelete={() => handleDelete(item.id)}
+              />
+            ))}
+          </div>
         ) : (
           <div className="flex flex-col gap-6">
             {rooms.map((room) => {
@@ -590,7 +620,13 @@ export default function CataloguePage() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="catalogue-room">{t("roomPicker")}</Label>
-              {rooms.length === 0 ? (
+              {roomsLoading ? (
+                // "No rooms yet" is a claim about the household's data, not
+                // about the query's state — rendering it before the query
+                // has resolved would tell a household with rooms that it
+                // has none, for exactly as long as the request takes.
+                <Skeleton className="h-9 w-full rounded-md" />
+              ) : rooms.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {t("noRoomsYet")}{" "}
                   <Link href="/settings/homeassistant/rooms" className="underline underline-offset-2">
@@ -599,7 +635,7 @@ export default function CataloguePage() {
                 </p>
               ) : (
                 <Select
-                  value={editRoomId ?? "none"}
+                  value={resolvedEditRoomId ?? "none"}
                   onValueChange={(value) => setEditRoomId(value === "none" ? null : value)}
                 >
                   <SelectTrigger id="catalogue-room">
@@ -655,9 +691,12 @@ function DeviceRow({
    * The heading of the group this row is rendered under — resolved from
    * `room_id` by the caller, never from the legacy `room` text. Passed in
    * rather than looked up again here so there is exactly one place on this
-   * page that decides a device's room.
+   * page that decides a device's room. A skeleton, not text, while the
+   * caller doesn't know the answer yet (rooms still loading) — showing
+   * "No room" before that is known is the same lie as the picker's, just
+   * one row lower.
    */
-  roomLabel: string;
+  roomLabel: ReactNode;
   state: HAEntity | undefined;
   t: ReturnType<typeof useTranslations>;
   tCommon: ReturnType<typeof useTranslations>;
@@ -677,7 +716,10 @@ function DeviceRow({
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{item.name}</p>
-        <p className="truncate text-xs text-muted-foreground">{roomLabel}</p>
+        {/* A `<div>`, not `<p>`: `roomLabel` is a skeleton (a `<div>`) while
+            rooms are still loading, and a block element can't nest inside
+            a paragraph without an invalid-HTML console error. */}
+        <div className="truncate text-xs text-muted-foreground">{roomLabel}</div>
       </div>
       {item.kind === "ha_entity" && (
         <Badge variant={state ? "secondary" : "neutral"} className="shrink-0">
