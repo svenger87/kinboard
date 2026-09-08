@@ -34,6 +34,7 @@ import Link from "next/link";
 import { personText, personTint } from "@/lib/person-color";
 import { useTranslations } from "next-intl";
 import { useSchedules, usePeople } from "@/hooks";
+import { useTimeFormat } from "@/hooks/use-time-format";
 
 interface TimeSlot {
   period: number;
@@ -148,6 +149,10 @@ export function ScheduleWidget({
   personId: propPersonId,
   className = "",
 }: ScheduleWidgetProps) {
+  // Period times are stored as "HH:MM" and were printed raw, so they stayed
+  // 24-hour whatever Settings → Design said (issue #244). Same renderer the
+  // weather widget uses for sunrise and sunset.
+  const { formatWallClock } = useTimeFormat();
   const t = useTranslations("scheduleWidget");
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
@@ -345,7 +350,7 @@ export function ScheduleWidget({
                 <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Clock className="size-3" />
-                    {currentSlot.start} - {currentSlot.end}
+                    {formatWallClock(currentSlot.start)} - {formatWallClock(currentSlot.end)}
                   </span>
                   {currentSlot.room && <span>{t("roomLabel", { room: currentSlot.room })}</span>}
                   <span className="ml-auto tabular-nums">
@@ -374,7 +379,7 @@ export function ScheduleWidget({
                       return <NextIcon className="size-4" style={{ color: getSubjectColor(nextPeriod.subject) }} />;
                     })()}
                     <span className="font-medium">{nextPeriod.subject}</span>
-                    <span className="text-muted-foreground">{t("atTime", { time: nextPeriod.start })}</span>
+                    <span className="text-muted-foreground">{t("atTime", { time: formatWallClock(nextPeriod.start) })}</span>
                   </div>
                 </div>
               )}
@@ -400,7 +405,7 @@ export function ScheduleWidget({
                 <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Clock className="size-3" />
-                    {nextPeriod.start}
+                    {formatWallClock(nextPeriod.start)}
                   </span>
                   {nextPeriod.room && <span>{t("roomLabel", { room: nextPeriod.room })}</span>}
                 </div>
