@@ -25,8 +25,14 @@ function psql(sql: string): string {
 }
 
 function applyMigration(): void {
+  // -v ON_ERROR_STOP=1: without it, psql rolls a failed statement back and
+  // still exits 0, so "clean no-op" and "loud rollback that wrote nothing"
+  // are indistinguishable to a test that only reads rows back afterwards.
+  // With it, a duplicate-key error becomes a non-zero exit, which
+  // execFileSync throws on — the way a real second migration pass failing
+  // would actually surface.
   execFileSync("bash", ["-c",
-    "docker exec -i kbfresh-db psql -U postgres -d postgres -q < webapp/docker/migration_catalogue_items.sql"],
+    "docker exec -i kbfresh-db psql -v ON_ERROR_STOP=1 -U postgres -d postgres -q < webapp/docker/migration_catalogue_items.sql"],
     { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8" });
 }
 
