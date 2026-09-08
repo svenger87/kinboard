@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "child_process";
+import { acquireWholeDatabase, releaseWholeDatabase } from "./whole-database";
 
 /**
  * Reconciling rooms out of the settings blob. RFC-007 §3.
@@ -22,6 +23,15 @@ function applyMigration(): void {
     { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8" });
 }
 
+/*
+  This spec applies a migration that rewrites every family on the install, and
+  asserts against a database it assumes nobody else is touching. Another spec
+  doing the same thing at the same time breaks both — see ./whole-database.ts
+  for the two failure shapes and why no Playwright setting covers it.
+*/
+test.beforeEach(acquireWholeDatabase);
+test.afterEach(releaseWholeDatabase);
+
 const families: string[] = [];
 function makeFamily(): string {
   const id = psql(
@@ -30,8 +40,15 @@ function makeFamily(): string {
   families.push(id);
   return id;
 }
-test.afterAll(() => {
-  for (const id of families) psql(`DELETE FROM families WHERE id = '${id}';`);
+// Under the lock as well: these deletes are what pulled a family out from
+// under the other spec's migration mid-statement.
+test.afterAll(async () => {
+  await acquireWholeDatabase();
+  try {
+    for (const id of families) psql(`DELETE FROM families WHERE id = '${id}';`);
+  } finally {
+    releaseWholeDatabase();
+  }
 });
 
 function seedBlob(familyId: string, blob: object): void {

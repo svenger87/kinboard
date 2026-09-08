@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "child_process";
+import { acquireWholeDatabase, releaseWholeDatabase } from "./whole-database";
 
 /**
  * The blob-to-table migration, against the real database.
@@ -59,9 +60,22 @@ function rows(familyId: string): string[] {
   return out ? out.split("\n") : [];
 }
 
+/*
+  Same reason as rooms-migration.spec.ts: this file's `applyMigration()` walks
+  every family in the database, including the throwaway families that spec is
+  in the middle of seeding. See ./whole-database.ts.
+*/
+test.beforeEach(acquireWholeDatabase);
+test.afterEach(releaseWholeDatabase);
+
 const families: string[] = [];
-test.afterAll(() => {
-  for (const id of families) psql(`DELETE FROM families WHERE id = '${id}';`);
+test.afterAll(async () => {
+  await acquireWholeDatabase();
+  try {
+    for (const id of families) psql(`DELETE FROM families WHERE id = '${id}';`);
+  } finally {
+    releaseWholeDatabase();
+  }
 });
 
 function freshFamily(blob: object): string {
