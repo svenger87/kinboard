@@ -3110,7 +3110,7 @@
   },
   "catalogue": {
     "title": "Dinge im Haus",
-    "description": "Lampen, Schlösser und Geräte, die das Board zeigen kann. Gib jedem einen Namen, den ihr wirklich benutzt, einen Raum und wenn du magst ein Bild.",
+    "description": "Lampen, Schlösser und Geräte, die das Board zeigen kann. Gib jedem einen Namen, den du wirklich benutzt, einen Raum und wenn du magst ein Bild.",
     "addDevice": "Gerät hinzufügen",
     "search": "Deine Geräte durchsuchen",
     "empty": "Hier ist noch nichts",
