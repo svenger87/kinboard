@@ -3123,6 +3123,7 @@
     "unreachableTitle": "Home Assistant is unreachable",
     "unreachableBody": "Nothing here can be controlled until the connection is back.",
     "unreachableRetry": "Try again",
+    "roomsUnavailable": "Rooms couldn't be loaded right now.",
     "unreachableSettings": "Check connection"
   },
   "catalogue": {

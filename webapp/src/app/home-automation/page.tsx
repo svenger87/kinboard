@@ -153,6 +153,7 @@ export default function HausautomationPage() {
     data: rooms,
     isLoading: roomsLoading,
     isError: roomsError,
+    refetch: refetchRooms,
   } = useRooms();
   const {
     data: catalogue,
@@ -542,6 +543,29 @@ export default function HausautomationPage() {
         ) : roomsUnknown ? (
           <div className="flex flex-col gap-3">
             {roomsLoading && <Skeleton className="h-5 w-32 rounded-md" />}
+            {/*
+              The devices are all here and all true; only the grouping is
+              missing, so this is a banner above them rather than a takeover.
+              It needs the retry its two neighbours have precisely because
+              this screen is the wall panel: nothing refocuses a window that
+              is never touched, so without a button a transient /api/rooms
+              500 leaves the whole house as one flat list until somebody
+              walks over and reloads the browser.
+            */}
+            {roomsError && (
+              <div
+                role="alert"
+                className="flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3"
+              >
+                <AlertTriangle className="size-5 shrink-0 text-destructive" strokeWidth={1.75} aria-hidden="true" />
+                <p className="min-w-0 flex-1 font-display text-base font-semibold">
+                  {t("roomsUnavailable")}
+                </p>
+                <Button variant="outline" onClick={() => void refetchRooms()}>
+                  {t("unreachableRetry")}
+                </Button>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {catalogue.map(renderTile)}
             </div>

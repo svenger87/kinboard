@@ -3123,6 +3123,7 @@
     "unreachableTitle": "Home Assistant injoignable",
     "unreachableBody": "Rien n'est contrôlable ici tant que la connexion n'est pas rétablie.",
     "unreachableRetry": "Réessayer",
+    "roomsUnavailable": "Impossible de charger les pièces pour le moment.",
     "unreachableSettings": "Vérifier la connexion"
   },
   "catalogue": {
