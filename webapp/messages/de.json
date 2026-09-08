@@ -2618,6 +2618,7 @@
   "homeAutomation": {
     "title": "Hausautomation",
     "subtitleDashboard": "Home Assistant Dashboard",
+    "subtitleRooms": "Dein Zuhause, Raum für Raum",
     "subtitleLoading": "Laden…",
     "settingsAria": "Einstellungen",
     "refreshAria": "Aktualisieren",
@@ -2625,6 +2626,8 @@
     "notConnectedTitle": "Nicht verbunden",
     "notConnectedDescription": "Verbinde zuerst deine Home Assistant Instanz in den Einstellungen.",
     "notConnectedAction": "Zu den Einstellungen",
+    "settingsUnavailableTitle": "Deine Home-Assistant-Einstellungen konnten nicht geladen werden",
+    "settingsUnavailableBody": "Bei uns ist etwas schiefgelaufen, deshalb wissen wir gerade nicht, ob Home Assistant verbunden ist. An deiner Einrichtung hat sich nichts geändert.",
     "unroomed": "Ohne Raum",
     "noDevices": "Noch keine Geräte",
     "noDevicesHint": "Trag auf der Geräteseite ein, was bei dir im Haus steht — dann taucht es hier auf.",

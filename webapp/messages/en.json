@@ -2618,6 +2618,7 @@
   "homeAutomation": {
     "title": "Home automation",
     "subtitleDashboard": "Home Assistant dashboard",
+    "subtitleRooms": "Your house, room by room",
     "subtitleLoading": "Loading…",
     "settingsAria": "Settings",
     "refreshAria": "Refresh",
@@ -2625,6 +2626,8 @@
     "notConnectedTitle": "Not connected",
     "notConnectedDescription": "Connect your Home Assistant instance in settings first.",
     "notConnectedAction": "Go to settings",
+    "settingsUnavailableTitle": "We could not load your Home Assistant settings",
+    "settingsUnavailableBody": "Something went wrong on our side, so we cannot tell whether Home Assistant is connected. Your setup has not changed.",
     "unroomed": "No room",
     "noDevices": "No devices yet",
     "noDevicesHint": "Add what is in your house on the devices screen, and it shows up here.",

@@ -91,6 +91,28 @@ const DETAIL_DOMAINS = new Set(["media_player", "climate", "vacuum"]);
 /** States that mean "Home Assistant has no reading for this right now". */
 const NO_READING = new Set(["unavailable", "unknown", ""]);
 
+/**
+ * Is there a reading we can act against?
+ *
+ * `undefined` (the entity is not in the poll at all) and every member of
+ * `NO_READING` mean the same thing: Home Assistant is not telling us what
+ * this device is doing. A control offered in that state is a trap. The
+ * service call still returns 200 — Home Assistant accepts a call for an
+ * entity it cannot reach — so nothing throws, nothing reverts, and the
+ * optimistic guess sits on the tile for its full timeout. A wall panel that
+ * says "Locked" for twenty seconds about a door whose lock has a dead
+ * battery, then silently flips back, is exactly the lie the brief calls
+ * worse than a slow update.
+ *
+ * One function, four call sites — the toggle, the lock pair, the cover pair
+ * and the detail sheet. It is a helper rather than a repeated predicate
+ * because the repeated predicate is how the lock and cover tiles came to be
+ * missing half of it while the toggle three lines above them had it.
+ */
+function hasReading(state: string | undefined): boolean {
+  return state !== undefined && !NO_READING.has(state);
+}
+
 const COVER_STATES = new Set(["open", "opening", "closed", "closing"]);
 const LOCK_STATES = new Set(["locked", "unlocked", "locking", "unlocking", "jammed"]);
 const MEDIA_STATES = new Set(["playing", "paused", "idle", "off", "standby", "buffering"]);
@@ -121,7 +143,12 @@ export default function HausautomationPage() {
   const tHvac = useTranslations("homeAutomation.hvacMode");
   const tDetail = useTranslations("homeAutomation.entityDetail");
 
-  const { data: settings, isLoading: loadingSettings } = useHomeAssistantStatus();
+  const {
+    data: settings,
+    isLoading: loadingSettings,
+    isError: settingsError,
+    refetch: refetchSettings,
+  } = useHomeAssistantStatus();
   const {
     data: rooms,
     isLoading: roomsLoading,
@@ -139,6 +166,12 @@ export default function HausautomationPage() {
    * used; kept because it is the only thing that distinguishes "nobody has
    * set Home Assistant up" from "it is set up and currently down", and those
    * two have different next actions for the household.
+   *
+   * It is false in a third case too — the settings query failed — which is
+   * why `settingsError` is read separately below. Falsy here means "we cannot
+   * drive anything", which is true either way; it does *not* license the page
+   * to tell somebody they have not connected Home Assistant when the honest
+   * answer is that we could not find out.
    */
   const isConnected = !!settings?.url && !!settings?.access_token;
 
@@ -260,8 +293,7 @@ export default function HausautomationPage() {
   const detailActionsDisabled =
     !isConnected ||
     statesError ||
-    !detailEntity ||
-    NO_READING.has(detailEntity.state) ||
+    !hasReading(detailEntity?.state) ||
     mediaPending ||
     vacuumPending;
 
@@ -366,7 +398,7 @@ export default function HausautomationPage() {
         <PageHeader
           icon={Home}
           title={t("title")}
-          subtitle={t("subtitleDashboard")}
+          subtitle={t("subtitleRooms")}
           actions={
             <>
               {fetchingStates && (
@@ -394,12 +426,38 @@ export default function HausautomationPage() {
         />
 
         {/*
+          We could not read the settings at all.
+
+          Distinct from the two banners below, and it has to be: `isConnected`
+          is falsy here as well, so without this the page would tell a
+          household with a working Home Assistant that they had never
+          connected one and should go and set it up. Nothing about their setup
+          changed; we just cannot see it. The retry reloads the settings, not
+          the entity states.
+        */}
+        {settingsError && (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3"
+          >
+            <AlertTriangle className="size-5 shrink-0 text-destructive" strokeWidth={1.75} aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-base font-semibold">{t("settingsUnavailableTitle")}</p>
+              <p className="text-sm text-muted-foreground">{t("settingsUnavailableBody")}</p>
+            </div>
+            <Button variant="outline" onClick={() => void refetchSettings()}>
+              {t("unreachableRetry")}
+            </Button>
+          </div>
+        )}
+
+        {/*
           Not configured. A banner, not a full-page takeover: the rooms, the
           names and the pictures are ours, they are still true, and a wall
           panel that shows the house with the states greyed out is far more
           use than a page of nothing behind a "go to settings" button.
         */}
-        {!loadingSettings && !isConnected && (
+        {!loadingSettings && !settingsError && !isConnected && (
           <div
             role="status"
             className="flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-border bg-card/60 px-4 py-3"
@@ -724,6 +782,12 @@ function DeviceTile({
   const entityId = item.entity_id;
   const domain = entityId ? domainOf(entityId) : null;
   const isDetail = domain !== null && DETAIL_DOMAINS.has(domain);
+  /**
+   * Every control on this tile is gated on the same thing: Home Assistant is
+   * reachable *and* is currently reporting a state for this device. The
+   * second half is not optional — see `hasReading`.
+   */
+  const canDrive = !controlsDisabled && hasReading(state);
 
   const picture = (
     <div className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-muted">
@@ -782,7 +846,7 @@ function DeviceTile({
         <div className="flex items-center justify-end">
           <Switch
             checked={state === "on"}
-            disabled={controlsDisabled || state === undefined}
+            disabled={!canDrive}
             onCheckedChange={() => onToggle(entityId, state)}
             aria-label={item.name}
           />
@@ -795,7 +859,7 @@ function DeviceTile({
             variant="outline"
             size="sm"
             className="flex-1"
-            disabled={controlsDisabled}
+            disabled={!canDrive}
             onClick={() => onLock(entityId)}
           >
             <Lock className="mr-1.5 size-3.5" aria-hidden="true" />
@@ -805,7 +869,7 @@ function DeviceTile({
             variant="outline"
             size="sm"
             className="flex-1"
-            disabled={controlsDisabled}
+            disabled={!canDrive}
             onClick={() => onUnlock(entityId)}
           >
             <LockOpen className="mr-1.5 size-3.5" aria-hidden="true" />
@@ -820,7 +884,7 @@ function DeviceTile({
             variant="outline"
             size="sm"
             className="flex-1"
-            disabled={controlsDisabled}
+            disabled={!canDrive}
             onClick={() => onOpen(entityId)}
           >
             <ArrowUp className="mr-1.5 size-3.5" aria-hidden="true" />
@@ -830,7 +894,7 @@ function DeviceTile({
             variant="outline"
             size="sm"
             className="flex-1"
-            disabled={controlsDisabled}
+            disabled={!canDrive}
             onClick={() => onClose(entityId)}
           >
             <ArrowDown className="mr-1.5 size-3.5" aria-hidden="true" />
