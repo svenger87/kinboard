@@ -20,7 +20,7 @@ import {
   useMessages,
   useSendMessage,
   useAcknowledgeMessage,
-  useTakeoverMessage,
+  useBoardMessage,
 } from "@/hooks/use-messages";
 
 const MAX_BODY = 200;
@@ -29,19 +29,23 @@ export function MessagesWidget() {
   const t = useTranslations("messages");
   const { device } = useFamilyStore();
   const { data: messages = [] } = useMessages();
-  const takeover = useTakeoverMessage();
+  const boardMessage = useBoardMessage();
   const send = useSendMessage();
   const acknowledge = useAcknowledgeMessage();
 
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
 
-  // The one currently holding the board is not also a row down here. It is
-  // still the same message, and showing it twice for its first minute would
-  // read as two. Your own message has no takeover, so it appears here at once
-  // — which is the whole difference between sending and being told.
+  // Whatever `useBoardMessage()` has put on the takeover panel is not also a
+  // row down here — that includes a message raised by `?message=<id>` whose
+  // minute has already passed, not just a fresh takeover, which is what this
+  // filter missed before (it only knew about `useTakeoverMessage()`) and
+  // let a deep-linked message render twice. It is still the same message,
+  // and showing it twice would read as two. Your own message has no
+  // takeover, so it appears here at once — the whole difference between
+  // sending and being told.
   const myDeviceId = device?.id ?? null;
-  const waiting = messages.filter((m) => m.id !== takeover?.id);
+  const waiting = messages.filter((m) => m.id !== boardMessage?.id);
 
   const submit = async () => {
     const body = draft.trim();

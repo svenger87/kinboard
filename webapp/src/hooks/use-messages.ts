@@ -155,3 +155,56 @@ export function useTakeoverMessage(): Message | null {
 
   return candidates.find((m) => messageState(m, serverNow) === "takeover") ?? null;
 }
+
+/**
+ * Read `?message=<id>` once, on mount, from the URL itself.
+ *
+ * Deliberately not `useSearchParams`: that pulls the dashboard into a Suspense
+ * boundary requirement at build time, and this needs one value once. A
+ * notification click navigates an existing window (sw.js), which remounts the
+ * page, so once is enough.
+ */
+function useRequestedMessageId(): string | null {
+  const [id, setId] = useState<string | null>(null);
+  useEffect(() => {
+    setId(new URLSearchParams(window.location.search).get("message"));
+  }, []);
+  return id;
+}
+
+/**
+ * The one decision of what is currently entitled to the board — everything
+ * else (the takeover panel, the widget's row list) renders or filters off of
+ * this rather than each working it out independently. Two components each
+ * guessing was the bug: the takeover fell back to `?message=<id>` and the
+ * widget did not, so a deep link to a message whose minute had passed showed
+ * up in both places at once.
+ *
+ * A deep-linked id wins outright, even past its minute and even already
+ * acknowledged — RFC-005 §3.3. It is not in `useMessages()`'s list either
+ * way (that endpoint only returns unacknowledged rows), so an id that isn't
+ * found there is fetched by itself; the caller reads `acknowledged_at` on the
+ * result to tell an active message from one somebody already dealt with.
+ * With no deep link, this is just `useTakeoverMessage()`.
+ */
+export function useBoardMessage(): Message | null {
+  const { family } = useFamilyStore();
+  const requestedId = useRequestedMessageId();
+  const { data: messages = EMPTY_MESSAGES } = useMessages();
+  const takeoverMessage = useTakeoverMessage();
+
+  const inList = requestedId ? (messages.find((m) => m.id === requestedId) ?? null) : null;
+
+  const { data: fetched = null } = useQuery({
+    queryKey: [KEY, "byId", requestedId],
+    enabled: Boolean(requestedId) && !inList,
+    queryFn: async (): Promise<Message> => {
+      const r = await fetch(`/api/messages/${requestedId}?family_id=${family!.id}`);
+      if (!r.ok) throw new Error(`message: ${r.status}`);
+      return ((await r.json()) as { message: Message }).message;
+    },
+  });
+
+  if (requestedId) return inList ?? fetched;
+  return takeoverMessage;
+}
