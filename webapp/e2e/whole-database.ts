@@ -82,18 +82,37 @@ const OWNER_FILE = join(LOCK_DIR, "owner");
 const POLL_MS = 25;
 
 /**
- * How often the holder says it is still alive, and how old a lock may be
- * before it is wreckage.
+ * Three numbers that are not independent:
  *
- * STALE_MS is deliberately well under the 60s Playwright test timeout: a lock
- * left by a killed worker has to be recoverable *within* the test that trips
- * over it, or every crash costs a red test on the next run. Five heartbeats
- * of headroom covers an event loop blocked by a slow `docker exec`.
+ *     STALE_MS (20s)  <  ACQUIRE_TIMEOUT_MS (30s)  <  test timeout (60s)
+ *
+ * Read the ordering before tuning any one of them.
+ *
+ *   - **Staleness under the acquire timeout.** A waiter has to still be
+ *     waiting when the lock it is waiting on becomes stealable. Push STALE_MS
+ *     above ACQUIRE_TIMEOUT_MS and every waiter gives up before a crash-left
+ *     lock could ever be recovered — which is the wedge this whole mechanism
+ *     exists to prevent, restored.
+ *   - **Acquire timeout under the test timeout.** The wait has to end as a
+ *     failed assertion inside the test, not as Playwright abandoning a
+ *     timed-out hook: an abandoned hook's promise keeps running in the worker,
+ *     which is how the first version of this file went on to steal the lock
+ *     after its own test had already been failed, and then exited holding it.
+ *     `playwright.config.ts` sets the 60s.
+ *   - So a crash-left lock costs one waiter ~20s and no red test.
+ *
+ * What makes 20s safe is not the heartbeat: it is that a held window is short.
+ * Sampled across three runs of 50 tests, the longest any worker held this was
+ * 3.5s, against 20s of headroom. The heartbeat cannot be the argument, because
+ * `setInterval` does not fire during synchronous work and every migration test
+ * body is synchronous over `execFileSync` — sampling the lock's mtime through
+ * those same runs showed it advance five times in total. It is kept for the
+ * paths that *do* yield, the `afterAll` teardown in particular, where it is
+ * the only thing that would stop a slow batch of deletes being mistaken for
+ * wreckage. It is a backstop, not the invariant.
  */
 const HEARTBEAT_MS = 4_000;
 const STALE_MS = 20_000;
-
-/** Give up here — inside the test timeout, so the failure is the test's. */
 const ACQUIRE_TIMEOUT_MS = 30_000;
 
 export class WholeDatabaseLockTimeout extends Error {
@@ -238,6 +257,20 @@ export async function acquireWholeDatabase(): Promise<void> {
   const token = `${process.pid}-${randomUUID()}`;
 
   for (;;) {
+    // First thing, every pass. With the check further down instead, the two
+    // `continue`s that handled "it vanished" and "the steal did not take"
+    // jumped straight over it, and one of them over the sleep as well — so a
+    // lock this process is not allowed to remove spun the loop at full CPU
+    // for ever and never threw. That is not hypothetical: `/tmp` is sticky, so
+    // a directory left there by one `sudo npx playwright test`, or by any
+    // other uid on a shared box, refuses `rename` on every pass. Measured
+    // against a root-owned lock, the old loop burned 98% CPU and had to be
+    // killed; this one throws at 30.0s having used 2%. There is exactly one
+    // sleep in this loop, at the bottom, and nothing skips it.
+    if (Date.now() - started > ACQUIRE_TIMEOUT_MS) {
+      throw new WholeDatabaseLockTimeout(Date.now() - started);
+    }
+
     let created = false;
     try {
       mkdirSync(LOCK_DIR);
@@ -268,21 +301,21 @@ export async function acquireWholeDatabase(): Promise<void> {
     try {
       age = Date.now() - statSync(LOCK_DIR).mtimeMs;
     } catch {
-      continue; // Released while we looked. Try to take it immediately.
-    }
-    if (age > STALE_MS) {
-      if (stealAndClaim(seen, token)) {
-          ownerToken = token;
-        startHeartbeat();
-        installExitHook();
-        return;
-      }
-      continue;
+      // Released while we were looking at it. Fall through to the sleep and
+      // try to take it next pass — 25ms later, rather than immediately, which
+      // is what turned this branch into a spin.
     }
 
-    if (Date.now() - started > ACQUIRE_TIMEOUT_MS) {
-      throw new WholeDatabaseLockTimeout(Date.now() - started);
+    if (age !== null && age > STALE_MS && stealAndClaim(seen, token)) {
+      ownerToken = token;
+      startHeartbeat();
+      installExitHook();
+      return;
     }
+
+    // The only sleep, and the only way round. A steal that did not take —
+    // somebody beat us to it, or we are not allowed to remove this directory
+    // at all — waits like any other contention rather than retrying flat out.
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }
 }
