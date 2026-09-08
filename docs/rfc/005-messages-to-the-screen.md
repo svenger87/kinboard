@@ -165,8 +165,10 @@ Arriving at the dashboard with `?message=<id>` raises that message's takeover
 even if its minute has passed, and even if it has since been acknowledged — the
 person tapped a notification about it, and showing them the dashboard with no
 explanation would be worse than showing them a message somebody already handled.
-An acknowledged message opened this way says who acknowledged it and offers only
-"Close".
+An acknowledged message opened this way says so and offers only "Close" — not
+who acknowledged it. Kinboard has no per-person login, so the only name it could
+show is a device's, and "seen by Kitchen Panel" tells a person nothing they came
+to find out. That somebody has dealt with it is the whole answer.
 
 ---
 
@@ -314,8 +316,8 @@ single page, and it is the whole feature:
 
 1. Send a message from context A. It must appear on context B and **not** on A.
 2. Acknowledge it on B. It must clear on both.
-3. Open A at `/?message=<id>` for an acknowledged message: it says who
-   acknowledged it rather than showing a "Got it" button.
+3. Open A at `/?message=<id>` for an acknowledged message: it says the message
+   has already been seen and offers "Close" rather than a "Got it" button.
 
 **Every assertion proven to fail.** Not one representative of them. On this
 project a browser guard shipped whose "prove it fails" step exercised a
