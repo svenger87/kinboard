@@ -111,7 +111,14 @@ SELECT
   trim(r.value ->> 'name'),
   NULLIF(r.value ->> 'icon', ''),
   NULLIF(r.value ->> 'color', ''),
-  CASE WHEN COALESCE(r.value ->> 'position', '') ~ '^-?[0-9]+$'
+  -- Nine digits, not "one or more": the cast is to int4, so a longer run of
+  -- digits is still a number the regex accepts and the cast then refuses. A
+  -- `position` of 99999999999999 in one household's blob raised `out of range
+  -- for type integer`, which aborts this transaction, makes apply_migrations
+  -- return 1, and stops the webapp container starting for *every* household
+  -- on the install. Nine digits is comfortably inside int4 and far past any
+  -- position a room list could hold.
+  CASE WHEN COALESCE(r.value ->> 'position', '') ~ '^-?[0-9]{1,9}$'
        THEN (r.value ->> 'position')::int ELSE 0 END
 FROM public.settings s
 JOIN public.families f ON f.id = s.family_id AND f.rooms_reconciled_at IS NULL
