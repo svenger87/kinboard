@@ -217,6 +217,7 @@ export interface Database {
           builtin_key: string | null;
           name: string;
           room: string | null;
+          room_id: string | null;
           image_url: string | null;
           position: number;
           created_at: string;
@@ -230,6 +231,7 @@ export interface Database {
           builtin_key?: string | null;
           name: string;
           room?: string | null;
+          room_id?: string | null;
           image_url?: string | null;
           position?: number;
           created_at?: string;
@@ -243,7 +245,41 @@ export interface Database {
           builtin_key?: string | null;
           name?: string;
           room?: string | null;
+          room_id?: string | null;
           image_url?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      rooms: {
+        Row: {
+          id: string;
+          family_id: string;
+          name: string;
+          icon: string | null;
+          color: string | null;
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          name: string;
+          icon?: string | null;
+          color?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          name?: string;
+          icon?: string | null;
+          color?: string | null;
           position?: number;
           created_at?: string;
           updated_at?: string;
@@ -1447,6 +1483,8 @@ export type Person = Database["public"]["Tables"]["people"]["Row"];
 export type Calendar = Database["public"]["Tables"]["calendars"]["Row"];
 export type CatalogueItem = Database["public"]["Tables"]["catalogue_items"]["Row"];
 export type CatalogueItemInsert = Database["public"]["Tables"]["catalogue_items"]["Insert"];
+export type Room = Database["public"]["Tables"]["rooms"]["Row"];
+export type RoomInsert = Database["public"]["Tables"]["rooms"]["Insert"];
 export type Event = Database["public"]["Tables"]["events"]["Row"];
 export type Todo = Database["public"]["Tables"]["todos"]["Row"];
 export type ShoppingItem = Database["public"]["Tables"]["shopping_items"]["Row"];

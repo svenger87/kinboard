@@ -110,7 +110,7 @@ DECLARE
     'messages', 'notes', 'notification_logs', 'notification_preferences',
     'oauth_credentials',
     'people', 'pocket_money_accounts', 'push_subscriptions', 'recipe_tags',
-    'recipes', 'scheduled_notifications', 'schedules', 'settings',
+    'recipes', 'rooms', 'scheduled_notifications', 'schedules', 'settings',
     'shopping_items', 'subjects', 'tickers', 'timers', 'todos', 'vehicles',
     'device_sessions', 'school_holidays'
   ];
