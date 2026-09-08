@@ -69,4 +69,63 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ---------------------------------------------------------------------------
+-- Fold the two existing copies of this list out of settings.home_assistant.
+--
+-- RoomConfig.entities[] and Dashboard.cards[] are both "an entity, a name, an
+-- order", written twice and kept in step by hand. This is one-way: the blob is
+-- left exactly as it is (RFC-006 §3.2), because a household whose data this
+-- gets wrong needs somewhere to get it back from.
+--
+-- ON CONFLICT DO NOTHING is required rather than defensive — every migration
+-- here is applied twice by design, and the second pass must be a no-op.
+-- ---------------------------------------------------------------------------
+
+-- Rooms first: the rooms page is where a household names things deliberately,
+-- so its name is the one that survives a collision with a dashboard card.
+INSERT INTO public.catalogue_items (family_id, kind, entity_id, name, room, position)
+SELECT
+  s.family_id,
+  'ha_entity',
+  e.value ->> 'entity_id',
+  COALESCE(
+    NULLIF(e.value ->> 'display_name', ''),
+    -- No name given: make the entity id's own suffix readable —
+    -- light.under_cupboard becomes "Under cupboard". Sentence case, not
+    -- initcap: initcap capitalises every word ("Under Cupboard"), and this
+    -- app writes sentence case everywhere else.
+    upper(left(replace(split_part(e.value ->> 'entity_id', '.', 2), '_', ' '), 1))
+      || substr(replace(split_part(e.value ->> 'entity_id', '.', 2), '_', ' '), 2)
+  ),
+  r.value ->> 'name',
+  COALESCE((e.value ->> 'position')::int, 0)
+FROM public.settings s
+CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.value -> 'rooms_config' -> 'rooms', '[]'::jsonb)) AS r(value)
+CROSS JOIN LATERAL jsonb_array_elements(COALESCE(r.value -> 'entities', '[]'::jsonb)) AS e(value)
+WHERE s.key = 'home_assistant'
+  AND e.value ->> 'entity_id' IS NOT NULL
+ON CONFLICT DO NOTHING;
+
+-- Then dashboard cards, appended after whatever the rooms wrote for that
+-- family. Both sequences start at 0, so interleaving would scramble both.
+INSERT INTO public.catalogue_items (family_id, kind, entity_id, name, room, position)
+SELECT
+  s.family_id,
+  'ha_entity',
+  c.value ->> 'entity_id',
+  COALESCE(
+    NULLIF(c.value ->> 'display_name', ''),
+    upper(left(replace(split_part(c.value ->> 'entity_id', '.', 2), '_', ' '), 1))
+      || substr(replace(split_part(c.value ->> 'entity_id', '.', 2), '_', ' '), 2)
+  ),
+  NULL,
+  COALESCE((SELECT MAX(position) + 1 FROM public.catalogue_items ci WHERE ci.family_id = s.family_id), 0)
+    + COALESCE((c.value ->> 'position')::int, 0)
+FROM public.settings s
+CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.value -> 'dashboards', '[]'::jsonb)) AS d(value)
+CROSS JOIN LATERAL jsonb_array_elements(COALESCE(d.value -> 'cards', '[]'::jsonb)) AS c(value)
+WHERE s.key = 'home_assistant'
+  AND c.value ->> 'entity_id' IS NOT NULL
+ON CONFLICT DO NOTHING;
+
 NOTIFY pgrst, 'reload schema';
