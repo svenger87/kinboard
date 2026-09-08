@@ -3937,6 +3937,8 @@
     "waiting": "Wartet darauf, dass jemand sie sieht",
     "sendFailed": "Konnte nicht gesendet werden",
     "remaining": "Noch {count} Zeichen",
-    "empty": "Nichts auszurichten"
+    "empty": "Nichts auszurichten",
+    "close": "Schließen",
+    "alreadySeen": "Das hat schon jemand gesehen"
   }
 }

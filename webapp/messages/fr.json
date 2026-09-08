@@ -3937,6 +3937,8 @@
     "waiting": "En attente que quelqu'un le voie",
     "sendFailed": "Envoi impossible",
     "remaining": "{count} caractères restants",
-    "empty": "Rien à transmettre"
+    "empty": "Rien à transmettre",
+    "close": "Fermer",
+    "alreadySeen": "Quelqu'un l'a déjà vu"
   }
 }

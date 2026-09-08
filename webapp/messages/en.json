@@ -3937,6 +3937,8 @@
     "waiting": "Waiting for someone to see this",
     "sendFailed": "Could not send that",
     "remaining": "{count} characters left",
-    "empty": "Nothing to pass on"
+    "empty": "Nothing to pass on",
+    "close": "Close",
+    "alreadySeen": "Somebody has already seen this"
   }
 }
