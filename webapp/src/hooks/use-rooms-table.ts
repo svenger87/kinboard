@@ -7,6 +7,24 @@ import type { Room } from "@/types/database";
 const KEY = "rooms";
 
 /**
+ * Bounds every room mutation's `fetch`, the way `caldav-client.ts`,
+ * `ics-fetcher.ts` and the HA states route bound theirs with
+ * `AbortSignal.timeout(...)`. Those use 10-30s because they're talking to a
+ * LAN device or a third-party server that can genuinely be slow. A room
+ * mutation is a same-origin round trip to this app's own `/api/rooms`
+ * route and Postgres — a healthy request finishes in well under a second —
+ * so 5s is chosen deliberately shorter than the external-service numbers:
+ * generous enough to absorb a slow dev-server compile or a momentary DB
+ * hiccup, but short enough that a genuine hang (the server accepted the
+ * connection and never answered) doesn't leave the reorder drag lock
+ * (`isSavingOrder` in the rooms page) held until somebody reloads a wall
+ * panel. Without this, `Promise.all` over the PATCHes never settles,
+ * `persistOrder`'s `finally` never runs, and dragging stays disabled
+ * forever — worse than the race the lock exists to prevent.
+ */
+const ROOM_REQUEST_TIMEOUT_MS = 5_000;
+
+/**
  * A stable empty array.
  *
  * `useQuery`'s `data` is undefined until it resolves, and a `= []` default in
@@ -66,6 +84,7 @@ export function useCreateRoomRow() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ family_id: family!.id, ...body }),
+        signal: AbortSignal.timeout(ROOM_REQUEST_TIMEOUT_MS),
       });
       if (!r.ok) {
         if (r.status === 409) throw new RoomDuplicateError();
@@ -95,6 +114,7 @@ export function useUpdateRoomRow() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ family_id: family!.id, ...patch }),
+        signal: AbortSignal.timeout(ROOM_REQUEST_TIMEOUT_MS),
       });
       if (!r.ok) {
         // A rename can collide with an existing room exactly the way an add
@@ -118,6 +138,7 @@ export function useDeleteRoomRow() {
     mutationFn: async (id: string): Promise<void> => {
       const r = await fetch(`/api/rooms/${id}?family_id=${family!.id}`, {
         method: "DELETE",
+        signal: AbortSignal.timeout(ROOM_REQUEST_TIMEOUT_MS),
       });
       if (!r.ok) throw new Error(`rooms delete: ${r.status}`);
     },
