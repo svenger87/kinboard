@@ -106,13 +106,31 @@ export function useTakeoverMessage(): Message | null {
     RFC-005 §2 is explicit that a null sender shows everywhere. So the
     exclusion applies only when this screen actually knows which device it is.
   */
-  const candidates = messages.filter((m) => !device?.id || m.sender_device_id !== device.id);
+  const myDeviceId = device?.id ?? null;
+  const candidates = messages.filter(
+    (m) => myDeviceId === null || m.sender_device_id !== myDeviceId,
+  );
   // Only a takeover is on a clock. "waiting" ends when somebody taps, which is
   // an event and not a tick, so scoping the interval to `!== "done"` would keep
   // a wall display ticking once a second for as long as any message sits
   // unacknowledged — which is exactly the state this feature is designed to
   // leave it in. `useRingingTimer` scopes its tick the same way, to "running".
   const hasPending = candidates.some((m) => messageState(m, serverNow) === "takeover");
+
+  /*
+    New data means the frozen clock is about to be asked a question it cannot
+    answer. The tick only runs during a takeover, so between them `now` can be
+    hours old — and a message that surfaces already older than a minute (the
+    poll catching one a dropped realtime message lost) would be measured
+    against that stale reading as though it came from the future, and flash as
+    a takeover for one frame. Nobody should be interrupted by a message that
+    was over before the screen heard about it. Re-read the clock when the set
+    changes; TanStack keeps the array identity stable when the data has not,
+    so this does not fire on every refetch.
+  */
+  useEffect(() => {
+    setNow(new Date());
+  }, [messages]);
 
   useEffect(() => {
     if (!hasPending) return;
