@@ -14,6 +14,7 @@ import { PocketMoneyWidget } from "@/components/widgets/pocket-money-widget";
 import { TimerWidget } from "@/components/widgets/timer-widget";
 import { MediaPlayerWidget } from "@/components/widgets/media-player-widget";
 import { MessagesWidget } from "@/components/widgets/messages-widget";
+import { MessageTakeover } from "@/components/message-takeover";
 import { NotesWidget } from "@/components/widgets/notes-widget";
 import { TasksWidget } from "@/components/widgets/tasks-widget";
 import { ShoppingWidget } from "@/components/widgets/shopping-widget";
@@ -129,6 +130,11 @@ export default function DashboardPage() {
             why only phones showed it. `w-full` inherits the padding the wrapper
             already applies, and the 2200px cap it was given for a big kiosk is
             unchanged. */}
+        {/* Above the grid, not inside it, and gated on the same visibility flag
+            as the widget: a screen with messages switched off is not one of
+            the screens being talked to (RFC-005 §6). */}
+        {w.messages && <MessageTakeover />}
+
         <section className="relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 2xl:grid-cols-5 min-[2000px]:grid-cols-6 auto-rows-min items-start gap-4 md:gap-6 w-full max-w-[2200px] mx-auto" aria-label={t("ariaWidgets")}>
           <FloatingLightsFab />
           {/* First, and across the whole width: this is what the family has to

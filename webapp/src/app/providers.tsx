@@ -11,6 +11,7 @@ import { useIsHandheld } from "@/hooks/use-is-handheld";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { usePresence } from "@/hooks/use-presence";
 import { useRingingTimer } from "@/hooks/use-timers";
+import { useTakeoverMessage } from "@/hooks/use-messages";
 import { useFamilyStore } from "@/stores/family-store";
 import { Screensaver } from "@/components/screensaver";
 import { AuthGuard } from "@/components/auth-guard";
@@ -151,9 +152,16 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   // walk away, and have the alarm ring behind a photo slideshow nobody sees.
   // A ringing timer holds the screensaver off until it's dismissed.
   const ringingTimer = useRingingTimer();
+  // The screensaver is right about idleness and wrong about what idleness
+  // means while somebody is being told something. A message arrives precisely
+  // when nobody is standing at the board, so without this it is delivered
+  // underneath a photo slideshow — which is how the timer alarm shipped until
+  // the whole-branch review caught it.
+  const takeoverMessage = useTakeoverMessage();
 
   // Hide nav bars during screensaver to save GPU (backdrop-blur is expensive on ARM)
-  const showScreensaver = isIdle && !skipScreensaver && !suppressForViewport && !ringingTimer;
+  const showScreensaver =
+    isIdle && !skipScreensaver && !suppressForViewport && !ringingTimer && !takeoverMessage;
   useEffect(() => {
     if (showScreensaver) {
       document.documentElement.setAttribute("data-screensaver", "true");

@@ -10,6 +10,10 @@ import { useServerClockOffset } from "./use-server-clock";
 
 const KEY = "messages";
 
+// See the comment in `useTakeoverMessage` for why this needs to be a single
+// stable reference rather than an inline `[]` default.
+const EMPTY_MESSAGES: Message[] = [];
+
 /**
  * Take the row out of the cache ourselves rather than trusting a refetch to
  * come back with a list that no longer has it.
@@ -92,7 +96,18 @@ export function useAcknowledgeMessage() {
  * still demanding attention.
  */
 export function useTakeoverMessage(): Message | null {
-  const { data: messages = [] } = useMessages();
+  // Not `= []`: an inline default is a fresh array literal on every render
+  // that `data` is undefined, and the effect below keys off `messages`'
+  // identity to know when new data has actually arrived. On a route with no
+  // family yet — this hook now also runs inside `ScreensaverProvider`, which
+  // is mounted on every route including the pre-auth `/join` screen — the
+  // query is permanently `enabled: false`, `data` never leaves `undefined`,
+  // and a fresh `[]` each render made that effect fire every render, forever:
+  // an unthrottled `setState` loop that pegs the tab at 100% CPU and — caught
+  // here — starved `/join` badly enough that its own button never painted.
+  // `EMPTY_MESSAGES` gives "no data yet" one stable identity so the effect
+  // sees no change and does not fire.
+  const { data: messages = EMPTY_MESSAGES } = useMessages();
   const { device } = useFamilyStore();
   const [now, setNow] = useState(() => new Date());
   const serverNow = applyOffset(now, useServerClockOffset());
