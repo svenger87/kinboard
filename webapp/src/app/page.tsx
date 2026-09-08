@@ -11,6 +11,7 @@ import { VehiclesWidget } from "@/components/widgets/vehicles-widget";
 import { StonksWidget } from "@/components/widgets/stonks-widget";
 import { PhotosWidget } from "@/components/widgets/photos-widget";
 import { PocketMoneyWidget } from "@/components/widgets/pocket-money-widget";
+import { TimerWidget } from "@/components/widgets/timer-widget";
 import { NotesWidget } from "@/components/widgets/notes-widget";
 import { TasksWidget } from "@/components/widgets/tasks-widget";
 import { ShoppingWidget } from "@/components/widgets/shopping-widget";
@@ -136,6 +137,7 @@ export default function DashboardPage() {
           {w.stonks && <StonksWidget />}
           {w.pocketMoney && <PocketMoneyWidget />}
           {w.photos && <PhotosWidget />}
+          {w.timers && <TimerWidget />}
         </section>
       </div>
     </main>

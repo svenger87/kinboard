@@ -1079,7 +1079,11 @@
       "photosLabel": "Photos",
       "photosDescription": "One picture from your library, changing through the day — tap to open the album",
       "photosPreview1": "A photo from your library",
-      "photosPreview2": "Changes every 20 seconds"
+      "photosPreview2": "Changes every 20 seconds",
+      "timersLabel": "Timers",
+      "timersDescription": "Kitchen timers with one-tap presets — everyone on this screen can see what's counting down",
+      "timersPreview1": "04:12 left — Pasta",
+      "timersPreview2": "Tap a preset to start one"
     },
     "navigation": {
       "title": "Navigation",
@@ -3871,5 +3875,18 @@
     "emptyAlbumBody": "This folder has no photos in it. Kinboard doesn’t look inside subfolders — open one of those instead.",
     "screensaverOnlyTitle": "Unsplash is for the idle screen",
     "screensaverOnlyBody": "Unsplash hands out a curated set that rotates monthly — there is no album of yours to walk through, and asking it for a page of photographs every time this screen opens would exhaust the shared rate limit. Connect Immich, a DLNA server or an iCloud Shared Album to browse your own."
+  },
+  "timers": {
+    "title": "Timers",
+    "start": "Start a timer",
+    "preset": "{minutes} min",
+    "custom": "Custom",
+    "customMinutes": "Minutes",
+    "labelPlaceholder": "What for? (optional)",
+    "running": "{remaining} left",
+    "finished": "Time's up",
+    "dismiss": "Dismiss",
+    "stop": "Stop",
+    "startFailed": "Could not start that timer"
   }
 }

@@ -18,6 +18,7 @@ import {
   TrendingUp,
   PiggyBank,
   Images,
+  Timer,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -51,6 +52,7 @@ const WIDGET_CONFIGS: WidgetConfig[] = [
   { key: "stonks", labelKey: "stonksLabel", descriptionKey: "stonksDescription", previewKeys: ["stonksPreview1", "stonksPreview2"], icon: TrendingUp },
   { key: "pocketMoney", labelKey: "pocketMoneyLabel", descriptionKey: "pocketMoneyDescription", previewKeys: ["pocketMoneyPreview1", "pocketMoneyPreview2"], icon: PiggyBank },
   { key: "photos", labelKey: "photosLabel", descriptionKey: "photosDescription", previewKeys: ["photosPreview1", "photosPreview2"], icon: Images },
+  { key: "timers", labelKey: "timersLabel", descriptionKey: "timersDescription", previewKeys: ["timersPreview1", "timersPreview2"], icon: Timer },
 ];
 
 export default function WidgetSettingsPage() {

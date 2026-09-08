@@ -1079,7 +1079,11 @@
       "photosLabel": "Photos",
       "photosDescription": "Une image de votre photothèque, qui change au fil de la journée — touchez pour ouvrir l'album",
       "photosPreview1": "Une photo de votre photothèque",
-      "photosPreview2": "Change toutes les 20 secondes"
+      "photosPreview2": "Change toutes les 20 secondes",
+      "timersLabel": "Minuteurs",
+      "timersDescription": "Des minuteurs de cuisine avec des réglages en un geste — tout le monde sur cet écran voit le compte à rebours",
+      "timersPreview1": "Encore 04:12 — Pâtes",
+      "timersPreview2": "Touchez un réglage pour le lancer"
     },
     "navigation": {
       "title": "Navigation",
@@ -3871,5 +3875,18 @@
     "emptyAlbumBody": "Ce dossier ne contient aucune photo. Kinboard ne regarde pas dans les sous-dossiers — ouvrez-en un directement.",
     "screensaverOnlyTitle": "Unsplash est pour l'écran de veille",
     "screensaverOnlyBody": "Unsplash propose une sélection qui change chaque mois — il n'y a pas d'album à vous pour le parcourir, et demander une page de photos à chaque ouverture de cet écran épuiserait la limite partagée. Connectez Immich, un serveur DLNA ou un album partagé iCloud pour parcourir les vôtres."
+  },
+  "timers": {
+    "title": "Minuteurs",
+    "start": "Lancer un minuteur",
+    "preset": "{minutes} min",
+    "custom": "Personnalisé",
+    "customMinutes": "Minutes",
+    "labelPlaceholder": "Pour quoi ? (facultatif)",
+    "running": "Encore {remaining}",
+    "finished": "Temps écoulé",
+    "dismiss": "Ignorer",
+    "stop": "Arrêter",
+    "startFailed": "Impossible de lancer ce minuteur"
   }
 }
