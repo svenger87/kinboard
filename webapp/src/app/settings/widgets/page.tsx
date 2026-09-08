@@ -66,17 +66,26 @@ export default function WidgetSettingsPage() {
   );
   const updateSetting = useUpdateSetting<WidgetVisibility>();
 
+  // Same merge as the dashboard's read (see page.tsx): `visibility` only
+  // falls back to `DEFAULT_WIDGET_VISIBILITY` wholesale when there's no saved
+  // row at all. A family that saved this settings page before a widget
+  // existed has a blob with no key for it, so reading that key straight off
+  // the blob is `undefined` regardless of the widget's real default — and,
+  // for `toggleWidget`, toggling `!undefined` off does nothing observable
+  // because it just writes `true` again. Merging defaults under the saved
+  // blob fixes both: a key the blob has never heard of takes its default,
+  // and an explicit `false` a family chose survives. General fix — every
+  // widget added from here on hits this the same way.
+  const merged: WidgetVisibility = { ...DEFAULT_WIDGET_VISIBILITY, ...(visibility ?? {}) };
+
   const toggleWidget = (key: keyof WidgetVisibility) => {
-    const current = visibility ?? DEFAULT_WIDGET_VISIBILITY;
     updateSetting.mutate({
       key: "widget_visibility",
-      value: { ...current, [key]: !current[key] },
+      value: { ...merged, [key]: !merged[key] },
     });
   };
 
-  const enabledCount = visibility
-    ? Object.values(visibility).filter(Boolean).length
-    : WIDGET_CONFIGS.length;
+  const enabledCount = Object.values(merged).filter(Boolean).length;
 
   return (
     <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
@@ -99,7 +108,7 @@ export default function WidgetSettingsPage() {
         {/* Widget Cards */}
         <div className="flex flex-col gap-3">
           {WIDGET_CONFIGS.map((widget, index) => {
-            const enabled = visibility?.[widget.key] ?? true;
+            const enabled = merged[widget.key];
             const Icon = widget.icon;
             const label = t(widget.labelKey);
 
