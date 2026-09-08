@@ -215,7 +215,9 @@
     "timerReadyTitle": "{label} ist fertig",
     "timerFinishedTitle": "Timer abgelaufen",
     "timerBody": "Der Küchentimer ist fertig",
-    "timersManyTitle": "{count} Timer sind abgelaufen"
+    "timersManyTitle": "{count} Timer sind abgelaufen",
+    "messageTitle": "Nachricht von zu Hause",
+    "messagesManyTitle": "{count} Nachrichten von zu Hause"
   },
   "join": {
     "title": "Kinboard",

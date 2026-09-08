@@ -42,6 +42,7 @@ const SCOPE: Record<string, { column: "family_id" } | { via: "account" }> = {
   timers: { column: "family_id" },
   vehicles: { column: "family_id" },
   media_players: { column: "family_id" },
+  messages: { column: "family_id" },
   push_subscriptions: { column: "family_id" },
   // These hang off an account rather than carrying a family of their own,
   // so ownership is one hop away.

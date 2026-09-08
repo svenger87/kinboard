@@ -215,7 +215,9 @@
     "timerReadyTitle": "{label} is ready",
     "timerFinishedTitle": "Timer finished",
     "timerBody": "The kitchen timer is done",
-    "timersManyTitle": "{count} timers are up"
+    "timersManyTitle": "{count} timers are up",
+    "messageTitle": "A message at home",
+    "messagesManyTitle": "{count} messages at home"
   },
   "join": {
     "title": "Kinboard",
