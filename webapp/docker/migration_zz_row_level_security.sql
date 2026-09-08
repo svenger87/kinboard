@@ -107,7 +107,8 @@ DECLARE
   direct_tables TEXT[] := ARRAY[
     'birthday_gift_ideas', 'birthdays', 'calendars', 'devices',
     'integration_secrets', 'item_catalog', 'meal_plans', 'media_players',
-    'notes', 'notification_logs', 'notification_preferences', 'oauth_credentials',
+    'messages', 'notes', 'notification_logs', 'notification_preferences',
+    'oauth_credentials',
     'people', 'pocket_money_accounts', 'push_subscriptions', 'recipe_tags',
     'recipes', 'scheduled_notifications', 'schedules', 'settings',
     'shopping_items', 'subjects', 'tickers', 'timers', 'todos', 'vehicles',

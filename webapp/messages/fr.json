@@ -215,7 +215,9 @@
     "timerReadyTitle": "{label} est prêt",
     "timerFinishedTitle": "Minuteur terminé",
     "timerBody": "Le minuteur de cuisine est terminé",
-    "timersManyTitle": "{count} minuteurs sont terminés"
+    "timersManyTitle": "{count} minuteurs sont terminés",
+    "messageTitle": "Un message à la maison",
+    "messagesManyTitle": "{count} messages à la maison"
   },
   "join": {
     "title": "Kinboard",
@@ -1092,7 +1094,11 @@
       "mediaLabel": "Média",
       "mediaDescription": "Ce qui joue en ce moment, avec les commandes de lecture",
       "mediaPreview1": "🎵 En cours de lecture — Titre du morceau",
-      "mediaPreview2": "Des onglets permettent de basculer entre les appareils en lecture"
+      "mediaPreview2": "Des onglets permettent de basculer entre les appareils en lecture",
+      "messagesLabel": "Messages",
+      "messagesDescription": "Dites quelque chose à la maison depuis n'importe où — le message s'affiche sur tous les autres écrans jusqu'à ce que quelqu'un confirme l'avoir vu",
+      "messagesPreview1": "De retour à 18 h",
+      "messagesPreview2": "En attente que quelqu'un le voie"
     },
     "navigation": {
       "title": "Navigation",
@@ -3919,5 +3925,20 @@
     "removeDialogTitle": "Supprimer l’appareil ?",
     "confirmRemove": "Supprimer « {name} » ? Cette action est irréversible.",
     "removeFailed": "Impossible de supprimer l’appareil. Veuillez réessayer."
+  },
+  "messages": {
+    "title": "Messages",
+    "compose": "Dire quelque chose",
+    "placeholder": "De retour à 18 h",
+    "send": "Envoyer",
+    "cancel": "Annuler",
+    "gotIt": "Vu",
+    "withdraw": "Retirer",
+    "waiting": "En attente que quelqu'un le voie",
+    "sendFailed": "Envoi impossible",
+    "remaining": "{count} caractères restants",
+    "empty": "Rien à transmettre",
+    "close": "Fermer",
+    "alreadySeen": "Quelqu'un l'a déjà vu"
   }
 }

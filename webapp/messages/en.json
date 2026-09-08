@@ -215,7 +215,9 @@
     "timerReadyTitle": "{label} is ready",
     "timerFinishedTitle": "Timer finished",
     "timerBody": "The kitchen timer is done",
-    "timersManyTitle": "{count} timers are up"
+    "timersManyTitle": "{count} timers are up",
+    "messageTitle": "A message at home",
+    "messagesManyTitle": "{count} messages at home"
   },
   "join": {
     "title": "Kinboard",
@@ -1092,7 +1094,11 @@
       "mediaLabel": "Media",
       "mediaDescription": "What's playing right now, with playback controls",
       "mediaPreview1": "🎵 Now Playing — Track Name",
-      "mediaPreview2": "Tabs switch between playing devices"
+      "mediaPreview2": "Tabs switch between playing devices",
+      "messagesLabel": "Messages",
+      "messagesDescription": "Say something to the house from anywhere — it shows on every other screen until somebody says they have seen it",
+      "messagesPreview1": "Back by 6",
+      "messagesPreview2": "Waiting for someone to see this"
     },
     "navigation": {
       "title": "Navigation",
@@ -3919,5 +3925,20 @@
     "removeDialogTitle": "Remove player?",
     "confirmRemove": "Remove \"{name}\"? This cannot be undone.",
     "removeFailed": "Could not remove the player. Please try again."
+  },
+  "messages": {
+    "title": "Messages",
+    "compose": "Say something",
+    "placeholder": "Back by 6",
+    "send": "Send",
+    "cancel": "Cancel",
+    "gotIt": "Got it",
+    "withdraw": "Withdraw",
+    "waiting": "Waiting for someone to see this",
+    "sendFailed": "Could not send that",
+    "remaining": "{count} characters left",
+    "empty": "Nothing to pass on",
+    "close": "Close",
+    "alreadySeen": "Somebody has already seen this"
   }
 }

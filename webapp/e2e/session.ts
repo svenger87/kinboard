@@ -28,16 +28,25 @@ import type { Page } from "@playwright/test";
  *
  * So the session is established once and the cookies re-applied. Each test
  * still gets a clean context; it just does not re-authenticate to get one.
+ *
+ * Keyed by device name, not one shared slot: a spec that opens two contexts
+ * to check a broadcast — one screen sends, the other must not be the one
+ * that sent it — needs those contexts to be two different devices. A single
+ * cache replayed regardless of the name asked for would hand both contexts
+ * the first join's cookies, making them the same device, and the guard would
+ * pass just as happily against a build that broadcast to everybody.
  */
-let cachedCookies: Awaited<ReturnType<Page["context"]>["cookies"]> extends never
-  ? never
-  : Parameters<ReturnType<Page["context"]>["addCookies"]>[0] | null = null;
+const cachedCookiesByDevice = new Map<
+  string,
+  Parameters<ReturnType<Page["context"]>["addCookies"]>[0]
+>();
 
 export async function establishSession(
   page: Page,
   familyCode: string,
   deviceName: string,
 ): Promise<void> {
+  const cachedCookies = cachedCookiesByDevice.get(deviceName);
   if (cachedCookies) {
     await page.context().addCookies(cachedCookies);
     return;
@@ -85,5 +94,5 @@ export async function establishSession(
 
   if (failure) throw new Error(`establishSession: ${failure}`);
 
-  cachedCookies = await page.context().cookies();
+  cachedCookiesByDevice.set(deviceName, await page.context().cookies());
 }
