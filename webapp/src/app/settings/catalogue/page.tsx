@@ -288,7 +288,13 @@ export default function CataloguePage() {
   const { family } = useFamilyStore();
 
   const { data: catalogue, isLoading } = useCatalogue();
-  const { data: rooms, isLoading: roomsLoading } = useRooms();
+  const { data: rooms, isLoading: roomsLoading, isError: roomsError } = useRooms();
+  // "Not yet known" and "known to have failed" both have to be kept apart
+  // from "known to be empty" — collapsing either into empty is how a
+  // household gets told to go make rooms it already has, or how a device
+  // gets filed under "No room" (or has its real room silently cleared)
+  // before/without the answer actually being known.
+  const roomsUnknown = roomsLoading || roomsError;
   const { data: haStatus } = useHomeAssistantStatus();
   const isConnected = Boolean(haStatus?.url && haStatus?.access_token);
 
@@ -381,8 +387,20 @@ export default function CataloguePage() {
   // it once here keeps what the picker displays and what Save actually
   // sends in agreement, rather than showing "No room" while quietly still
   // holding the stale id.
-  const resolvedEditRoomId =
-    editRoomId !== null && rooms.some((r) => r.id === editRoomId) ? editRoomId : null;
+  //
+  // The membership check only runs once `rooms` is a real, known answer.
+  // While it's loading or errored, `rooms` is the same empty array a truly
+  // room-less family would have — checking membership against it then
+  // would read every real room_id as dangling and silently null it out.
+  // Passing `editRoomId` straight through here means a Save fired during
+  // that window (the button is also disabled for it, belt and braces per
+  // the incident this fixes) resends the item's own unmodified id instead
+  // of clearing it.
+  const resolvedEditRoomId = roomsUnknown
+    ? editRoomId
+    : editRoomId !== null && rooms.some((r) => r.id === editRoomId)
+      ? editRoomId
+      : null;
 
   async function saveEdit() {
     if (!editing || !editName.trim()) return;
@@ -495,20 +513,22 @@ export default function CataloguePage() {
                 : undefined
             }
           />
-        ) : roomsLoading ? (
+        ) : roomsUnknown ? (
           // The catalogue is known and non-empty, but which room each item
-          // belongs to is not yet — grouping now would file every roomed
-          // device under "No room" until the rooms query lands, the same
-          // wrong-while-loading state as the picker claiming there are no
-          // rooms. Devices still render (nothing about them is unknown),
-          // just flat and without committing to a heading; each row's own
-          // room text is a skeleton bar instead of a guess.
+          // belongs to is not (still loading, or the rooms query failed) —
+          // grouping now would file every roomed device under "No room"
+          // until it is, the same wrong-while-loading (or wrong-while-
+          // errored) state as the picker claiming there are no rooms.
+          // Devices still render (nothing about them is unknown), just flat
+          // and without committing to a heading; each row's own room text
+          // says exactly what's true — "still finding out" while loading,
+          // "couldn't find out" on error — rather than guessing "No room".
           <div className="flex flex-col gap-2">
             {catalogue.map((item) => (
               <DeviceRow
                 key={item.id}
                 item={item}
-                roomLabel={<Skeleton className="h-3 w-20" />}
+                roomLabel={roomsLoading ? <Skeleton className="h-3 w-20" /> : t("roomsUnavailable")}
                 state={item.entity_id ? stateByEntityId.get(item.entity_id) : undefined}
                 t={t}
                 tCommon={tCommon}
@@ -626,6 +646,13 @@ export default function CataloguePage() {
                 // has resolved would tell a household with rooms that it
                 // has none, for exactly as long as the request takes.
                 <Skeleton className="h-9 w-full rounded-md" />
+              ) : roomsError ? (
+                // A failed request is not evidence the household has no
+                // rooms — it's evidence we don't know. Say that, rather
+                // than "no rooms yet" (which invites leaving to go create
+                // ones that already exist) or silently falling back to an
+                // empty picker.
+                <p className="text-sm text-muted-foreground">{t("roomsUnavailable")}</p>
               ) : rooms.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {t("noRoomsYet")}{" "}
@@ -666,7 +693,14 @@ export default function CataloguePage() {
             <Button variant="outline" onClick={() => setEditing(null)}>
               {tCommon("cancel")}
             </Button>
-            <Button disabled={!editName.trim() || updateItem.isPending} onClick={() => void saveEdit()}>
+            {/* Also disabled while the room list is unknown (loading or
+                errored) — not because Save writes the wrong thing in that
+                window (resolvedEditRoomId already guards that), but so the
+                window where it even could isn't reachable at all. */}
+            <Button
+              disabled={!editName.trim() || updateItem.isPending || roomsUnknown}
+              onClick={() => void saveEdit()}
+            >
               {updateItem.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
               {tCommon("save")}
             </Button>

@@ -3132,7 +3132,8 @@
     "importedRoomsNone": "Rien à remplir pour l'instant",
     "roomPicker": "Pièce",
     "noRoomsYet": "Vous n'avez pas encore créé de pièces.",
-    "noRoomsLink": "Créer des pièces"
+    "noRoomsLink": "Créer des pièces",
+    "roomsUnavailable": "Impossible de charger les pièces pour le moment."
   },
   "dashboard": {
     "ariaClock": "Horloge et membres de la famille",

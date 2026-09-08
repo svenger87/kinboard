@@ -3132,7 +3132,8 @@
     "importedRoomsNone": "No rooms to fill in right now",
     "roomPicker": "Room",
     "noRoomsYet": "You have not set up any rooms yet.",
-    "noRoomsLink": "Set up rooms"
+    "noRoomsLink": "Set up rooms",
+    "roomsUnavailable": "Rooms couldn't be loaded right now."
   },
   "dashboard": {
     "ariaClock": "Clock and family members",

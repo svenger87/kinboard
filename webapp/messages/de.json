@@ -3132,7 +3132,8 @@
     "importedRoomsNone": "Gerade nichts zum Ausfüllen",
     "roomPicker": "Raum",
     "noRoomsYet": "Du hast noch keine Räume angelegt.",
-    "noRoomsLink": "Räume anlegen"
+    "noRoomsLink": "Räume anlegen",
+    "roomsUnavailable": "Räume konnten gerade nicht geladen werden."
   },
   "dashboard": {
     "ariaClock": "Uhr und Familienmitglieder",
