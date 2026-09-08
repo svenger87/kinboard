@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import {
@@ -24,6 +25,13 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +62,7 @@ import {
   useImportCatalogueRooms,
   CatalogueDuplicateError,
 } from "@/hooks/use-catalogue";
+import { useRooms } from "@/hooks/use-rooms-table";
 import {
   useHomeAssistantEntities,
   useHomeAssistantEntityStates,
@@ -279,6 +288,7 @@ export default function CataloguePage() {
   const { family } = useFamilyStore();
 
   const { data: catalogue, isLoading } = useCatalogue();
+  const { data: rooms } = useRooms();
   const { data: haStatus } = useHomeAssistantStatus();
   const isConnected = Boolean(haStatus?.url && haStatus?.access_token);
 
@@ -356,13 +366,13 @@ export default function CataloguePage() {
   // Edit dialog
   const [editing, setEditing] = useState<CatalogueItem | null>(null);
   const [editName, setEditName] = useState("");
-  const [editRoom, setEditRoom] = useState("");
+  const [editRoomId, setEditRoomId] = useState<string | null>(null);
   const [editImage, setEditImage] = useState<string | null>(null);
 
   function openEdit(item: CatalogueItem) {
     setEditing(item);
     setEditName(item.name);
-    setEditRoom(item.room ?? "");
+    setEditRoomId(item.room_id);
     setEditImage(item.image_url);
   }
 
@@ -372,7 +382,11 @@ export default function CataloguePage() {
       await updateItem.mutateAsync({
         id: editing.id,
         name: editName.trim(),
-        room: editRoom.trim(),
+        // The legacy free-text `room` is deliberately not sent here —
+        // RFC-007 §3 keeps it exactly as the migration left it, unread,
+        // as what a household recovers from if the migration guessed
+        // wrong. Only `room_id` is written by this screen now.
+        room_id: editRoomId,
         // Empty string, not undefined: the update route only touches a
         // field when the key is present, and an empty string clears it the
         // same way `null` would (see route.ts's trim-then-null fallback).
@@ -565,19 +579,32 @@ export default function CataloguePage() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="catalogue-room">{t("room")}</Label>
-              <Input
-                id="catalogue-room"
-                list="catalogue-rooms"
-                value={editRoom}
-                onChange={(e) => setEditRoom(e.target.value)}
-                placeholder={t("roomNone")}
-              />
-              <datalist id="catalogue-rooms">
-                {roomsInOrder.map((r) => (
-                  <option key={r} value={r} />
-                ))}
-              </datalist>
+              <Label htmlFor="catalogue-room">{t("roomPicker")}</Label>
+              {rooms.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("noRoomsYet")}{" "}
+                  <Link href="/settings/homeassistant/rooms" className="underline underline-offset-2">
+                    {t("noRoomsLink")}
+                  </Link>
+                </p>
+              ) : (
+                <Select
+                  value={editRoomId ?? "none"}
+                  onValueChange={(value) => setEditRoomId(value === "none" ? null : value)}
+                >
+                  <SelectTrigger id="catalogue-room">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{t("roomNone")}</SelectItem>
+                    {rooms.map((room) => (
+                      <SelectItem key={room.id} value={room.id}>
+                        {room.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>{t("image")}</Label>

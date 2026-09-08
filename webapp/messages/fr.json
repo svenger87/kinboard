@@ -3129,7 +3129,10 @@
     "unavailable": "Injoignable",
     "importRooms": "Compléter les pièces depuis Home Assistant",
     "importedRooms": "{count, plural, one {# appareil placé} other {# appareils placés}}",
-    "importedRoomsNone": "Rien à remplir pour l'instant"
+    "importedRoomsNone": "Rien à remplir pour l'instant",
+    "roomPicker": "Pièce",
+    "noRoomsYet": "Vous n'avez pas encore créé de pièces.",
+    "noRoomsLink": "Créer des pièces"
   },
   "dashboard": {
     "ariaClock": "Horloge et membres de la famille",

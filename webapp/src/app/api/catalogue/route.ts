@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { familyIdFrom } from "@/lib/family-scope";
+import { familyIdFrom, rowInFamily } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import type { CatalogueItemInsert } from "@/types/database";
 
@@ -15,6 +15,7 @@ type CataloguePostBody = {
   builtin_key?: string | null;
   name?: string;
   room?: string | null;
+  room_id?: string | null;
   image_url?: string | null;
 };
 
@@ -112,7 +113,21 @@ export async function POST(request: NextRequest) {
   const imageUrl =
     typeof payload.image_url === "string" && payload.image_url.trim() ? payload.image_url.trim() : null;
 
+  if (payload.room_id !== undefined && payload.room_id !== null && typeof payload.room_id !== "string") {
+    return NextResponse.json({ error: "room_id must be a string or null" }, { status: 400 });
+  }
+
   const supabase = createAdminClient();
+
+  let roomId: string | null = null;
+  if (payload.room_id) {
+    if (!(await rowInFamily(supabase, "rooms", payload.room_id, familyId))) {
+      // Same 404 as an unowned catalogue item — a room id from another
+      // family doesn't get to learn it was real by getting a 400 instead.
+      return NextResponse.json({ error: "not found" }, { status: 404 });
+    }
+    roomId = payload.room_id;
+  }
 
   // New rows go to the end of the position list. Read max(position) for the
   // family; default to -1 so the first insert lands at 0.
@@ -133,6 +148,7 @@ export async function POST(request: NextRequest) {
     builtin_key: kind === "builtin" ? builtinKey : null,
     name,
     room,
+    room_id: roomId,
     image_url: imageUrl,
     position: nextPosition,
   };

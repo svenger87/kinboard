@@ -3129,7 +3129,10 @@
     "unavailable": "Not reachable",
     "importRooms": "Fill in rooms from Home Assistant",
     "importedRooms": "{count, plural, one {Placed # device} other {Placed # devices}}",
-    "importedRoomsNone": "No rooms to fill in right now"
+    "importedRoomsNone": "No rooms to fill in right now",
+    "roomPicker": "Room",
+    "noRoomsYet": "You have not set up any rooms yet.",
+    "noRoomsLink": "Set up rooms"
   },
   "dashboard": {
     "ariaClock": "Clock and family members",

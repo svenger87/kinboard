@@ -63,6 +63,7 @@ export function useAddCatalogueItem() {
       builtin_key?: string;
       name: string;
       room?: string;
+      room_id?: string | null;
       image_url?: string;
     }): Promise<CatalogueItem> => {
       const r = await fetch("/api/catalogue", {
@@ -91,6 +92,7 @@ export function useUpdateCatalogueItem() {
       id: string;
       name?: string;
       room?: string;
+      room_id?: string | null;
       image_url?: string;
       position?: number;
     }): Promise<CatalogueItem> => {
