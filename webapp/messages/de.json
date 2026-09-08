@@ -923,6 +923,8 @@
     "itemPeopleDescription": "Personen und Farben verwalten",
     "itemDevicesLabel": "Geräte",
     "itemDevicesFallback": "Dieses Gerät",
+    "itemCatalogueLabel": "Dinge im Haus",
+    "itemCatalogueDescription": "Lichter, Schlösser und Geräte",
     "itemScheduleLabel": "Stundenplan",
     "itemScheduleDescription": "Schulstunden der Kinder",
     "itemGoogleLabel": "Google Kalender",

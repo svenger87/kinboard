@@ -923,6 +923,8 @@
     "itemPeopleDescription": "Gérer les personnes et les couleurs",
     "itemDevicesLabel": "Appareils",
     "itemDevicesFallback": "Cet appareil",
+    "itemCatalogueLabel": "Les objets de la maison",
+    "itemCatalogueDescription": "Lumières, serrures et appareils",
     "itemScheduleLabel": "Emploi du temps scolaire",
     "itemScheduleDescription": "Cours des enfants",
     "itemGoogleLabel": "Google Agenda",

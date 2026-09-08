@@ -7,6 +7,7 @@ import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import {
   Activity,
   Bell,
+  Boxes,
   Calendar,
   Camera,
   Car,
@@ -444,6 +445,12 @@ export default function SettingsPage() {
           label: t("itemDevicesLabel"),
           description: device?.name || t("itemDevicesFallback"),
           href: "/settings/devices",
+        },
+        {
+          icon: Boxes,
+          label: t("itemCatalogueLabel"),
+          description: t("itemCatalogueDescription"),
+          href: "/settings/catalogue",
         },
         {
           icon: GraduationCap,

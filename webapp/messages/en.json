@@ -923,6 +923,8 @@
     "itemPeopleDescription": "Manage people and colors",
     "itemDevicesLabel": "Devices",
     "itemDevicesFallback": "This device",
+    "itemCatalogueLabel": "Things in your house",
+    "itemCatalogueDescription": "Lights, locks and appliances",
     "itemScheduleLabel": "School schedule",
     "itemScheduleDescription": "Children's school periods",
     "itemGoogleLabel": "Google Calendar",
