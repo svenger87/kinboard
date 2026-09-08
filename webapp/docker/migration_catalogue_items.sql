@@ -83,19 +83,37 @@ END $$;
 
 -- Rooms first: the rooms page is where a household names things deliberately,
 -- so its name is the one that survives a collision with a dashboard card.
+--
+-- The name must satisfy catalogue_items' CHECK (char_length(name) BETWEEN 1
+-- AND 120): a household's display_name was never length-limited in the old
+-- blob, and an entity_id with no dot has no suffix to derive a name from.
+-- Either previously produced a name the constraint rejects, which aborts
+-- this INSERT ... SELECT entirely — for every family in the same pass, not
+-- just the one with the bad row. left(..., 120) clamps the length; the
+-- three-deep COALESCE falls through display_name, then the derived suffix
+-- (NULLIF'd so an entity_id with no dot, which derives an empty string,
+-- doesn't win), then the raw entity_id itself, which the WHERE clause below
+-- guarantees is non-empty.
 INSERT INTO public.catalogue_items (family_id, kind, entity_id, name, room, position)
 SELECT
   s.family_id,
   'ha_entity',
   e.value ->> 'entity_id',
-  COALESCE(
-    NULLIF(e.value ->> 'display_name', ''),
-    -- No name given: make the entity id's own suffix readable —
-    -- light.under_cupboard becomes "Under cupboard". Sentence case, not
-    -- initcap: initcap capitalises every word ("Under Cupboard"), and this
-    -- app writes sentence case everywhere else.
-    upper(left(replace(split_part(e.value ->> 'entity_id', '.', 2), '_', ' '), 1))
-      || substr(replace(split_part(e.value ->> 'entity_id', '.', 2), '_', ' '), 2)
+  left(
+    COALESCE(
+      NULLIF(trim(e.value ->> 'display_name'), ''),
+      -- No name given: make the entity id's own suffix readable —
+      -- light.under_cupboard becomes "Under cupboard". Sentence case, not
+      -- initcap: initcap capitalises every word ("Under Cupboard"), and this
+      -- app writes sentence case everywhere else.
+      NULLIF(
+        upper(left(replace(split_part(e.value ->> 'entity_id', '.', 2), '_', ' '), 1))
+          || substr(replace(split_part(e.value ->> 'entity_id', '.', 2), '_', ' '), 2),
+        ''
+      ),
+      e.value ->> 'entity_id'
+    ),
+    120
   ),
   r.value ->> 'name',
   COALESCE((e.value ->> 'position')::int, 0)
@@ -103,20 +121,32 @@ FROM public.settings s
 CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.value -> 'rooms_config' -> 'rooms', '[]'::jsonb)) AS r(value)
 CROSS JOIN LATERAL jsonb_array_elements(COALESCE(r.value -> 'entities', '[]'::jsonb)) AS e(value)
 WHERE s.key = 'home_assistant'
-  AND e.value ->> 'entity_id' IS NOT NULL
+  AND NULLIF(trim(e.value ->> 'entity_id'), '') IS NOT NULL
+-- Also tolerates a duplicate entity_id produced within this very statement —
+-- the same entity twice in one room, or repeated across two rooms of the
+-- same family — silently keeping whichever of the two Postgres happens to
+-- insert first; that ordering is not guaranteed.
 ON CONFLICT DO NOTHING;
 
 -- Then dashboard cards, appended after whatever the rooms wrote for that
 -- family. Both sequences start at 0, so interleaving would scramble both.
+-- Same name-length and empty-suffix guards as the rooms insert above.
 INSERT INTO public.catalogue_items (family_id, kind, entity_id, name, room, position)
 SELECT
   s.family_id,
   'ha_entity',
   c.value ->> 'entity_id',
-  COALESCE(
-    NULLIF(c.value ->> 'display_name', ''),
-    upper(left(replace(split_part(c.value ->> 'entity_id', '.', 2), '_', ' '), 1))
-      || substr(replace(split_part(c.value ->> 'entity_id', '.', 2), '_', ' '), 2)
+  left(
+    COALESCE(
+      NULLIF(trim(c.value ->> 'display_name'), ''),
+      NULLIF(
+        upper(left(replace(split_part(c.value ->> 'entity_id', '.', 2), '_', ' '), 1))
+          || substr(replace(split_part(c.value ->> 'entity_id', '.', 2), '_', ' '), 2),
+        ''
+      ),
+      c.value ->> 'entity_id'
+    ),
+    120
   ),
   NULL,
   COALESCE((SELECT MAX(position) + 1 FROM public.catalogue_items ci WHERE ci.family_id = s.family_id), 0)
@@ -125,7 +155,7 @@ FROM public.settings s
 CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.value -> 'dashboards', '[]'::jsonb)) AS d(value)
 CROSS JOIN LATERAL jsonb_array_elements(COALESCE(d.value -> 'cards', '[]'::jsonb)) AS c(value)
 WHERE s.key = 'home_assistant'
-  AND c.value ->> 'entity_id' IS NOT NULL
+  AND NULLIF(trim(c.value ->> 'entity_id'), '') IS NOT NULL
 ON CONFLICT DO NOTHING;
 
 NOTIFY pgrst, 'reload schema';

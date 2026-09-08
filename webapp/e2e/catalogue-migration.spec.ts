@@ -201,4 +201,83 @@ test.describe("the blob migration", () => {
     );
     expect(stillThere).toBe("light.ceiling");
   });
+
+  test("a display_name over 120 characters is clamped to fit the column, not rejected", () => {
+    // The old blob never enforced a length on display_name. Without the
+    // clamp this violates catalogue_items' CHECK (char_length(name) BETWEEN
+    // 1 AND 120) and aborts the whole INSERT ... SELECT.
+    const id = freshFamily({
+      rooms_config: {
+        rooms: [{
+          id: "room_1", name: "Attic", icon: "home", position: 0, created_at: "2026-01-01",
+          entities: [{ entity_id: "light.long_name", display_name: "L".repeat(200), position: 0 }],
+        }],
+        show_unassigned: true,
+      },
+    });
+    const length = psql(
+      `SELECT char_length(name) FROM catalogue_items WHERE family_id = '${id}' AND entity_id = 'light.long_name';`,
+    );
+    // The length, not just that a row exists: a silent truncation to the
+    // wrong length would pass a mere "a row exists" check.
+    expect(length).toBe("120");
+  });
+
+  test("an entity_id with no dot still gets a non-empty name", () => {
+    // split_part(entity_id, '.', 2) on an id with no dot returns '' — with no
+    // fallback past that, the derived name is empty, which also violates the
+    // NOT NULL / length-1 CHECK and aborts the insert.
+    const id = freshFamily({
+      rooms_config: {
+        rooms: [{
+          id: "room_1", name: "Garage", icon: "home", position: 0, created_at: "2026-01-01",
+          entities: [{ entity_id: "nodothere", position: 0 }],
+        }],
+        show_unassigned: true,
+      },
+    });
+    // No display_name and no dot to derive a suffix from: falls all the way
+    // through to the raw entity_id, which the WHERE clause guarantees is
+    // non-empty.
+    expect(rows(id)).toEqual(["nodothere|nodothere|Garage|0"]);
+  });
+
+  test("a poisoned blob in one family does not stop a clean family's rows from being written", () => {
+    // The property that matters: a single INSERT ... SELECT scans every
+    // family's settings row in one statement, so one household's bad data
+    // used to write zero rows for every other household migrated in the
+    // same pass — and the container refuses to start until it's hand-fixed.
+    // Both blobs are seeded before the one applyMigration() call below, so
+    // they are genuinely processed together, not migrated one after another.
+    const poisoned = makeFamily();
+    families.push(poisoned);
+    const clean = makeFamily();
+    families.push(clean);
+
+    seedBlob(poisoned, {
+      rooms_config: {
+        rooms: [{
+          id: "room_1", name: "Poisoned", icon: "home", position: 0, created_at: "2026-01-01",
+          entities: [
+            { entity_id: "light.also_long", display_name: "X".repeat(200), position: 0 },
+            { entity_id: "nodothere", position: 1 },
+          ],
+        }],
+        show_unassigned: true,
+      },
+    });
+    seedBlob(clean, {
+      rooms_config: {
+        rooms: [{
+          id: "room_1", name: "Clean", icon: "home", position: 0, created_at: "2026-01-01",
+          entities: [{ entity_id: "light.ceiling", display_name: "Ceiling", position: 0 }],
+        }],
+        show_unassigned: true,
+      },
+    });
+
+    applyMigration();
+
+    expect(rows(clean)).toEqual(["light.ceiling|Ceiling|Clean|0"]);
+  });
 });
