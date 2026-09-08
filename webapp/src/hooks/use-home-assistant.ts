@@ -262,7 +262,11 @@ export function useHomeAssistantEntities(domain?: string, isConnected?: boolean)
 }
 
 // Hook to fetch specific entities by ID
-export function useHomeAssistantEntityStates(entityIds: string[], isConnected?: boolean) {
+export function useHomeAssistantEntityStates(
+  entityIds: string[],
+  isConnected?: boolean,
+  refetchIntervalMs?: number,
+) {
   const { family } = useFamilyStore();
 
   return useQuery({
@@ -300,7 +304,10 @@ export function useHomeAssistantEntityStates(entityIds: string[], isConnected?: 
     enabled: !!family?.id && entityIds.length > 0 && isConnected !== false,
     retry: false,
     staleTime: 15000,
-    refetchInterval: isConnected ? 30000 : false, // 30 seconds - reduced for performance
+    // An explicit rate (RFC-003 §2.3) wins; otherwise keep the existing
+    // default so every caller that doesn't pass one behaves exactly as
+    // before this parameter existed.
+    refetchInterval: refetchIntervalMs ?? (isConnected ? 30000 : false), // 30 seconds - reduced for performance
   });
 }
 

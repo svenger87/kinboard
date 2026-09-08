@@ -12,6 +12,7 @@ import { StonksWidget } from "@/components/widgets/stonks-widget";
 import { PhotosWidget } from "@/components/widgets/photos-widget";
 import { PocketMoneyWidget } from "@/components/widgets/pocket-money-widget";
 import { TimerWidget } from "@/components/widgets/timer-widget";
+import { MediaPlayerWidget } from "@/components/widgets/media-player-widget";
 import { NotesWidget } from "@/components/widgets/notes-widget";
 import { TasksWidget } from "@/components/widgets/tasks-widget";
 import { ShoppingWidget } from "@/components/widgets/shopping-widget";
@@ -150,6 +151,10 @@ export default function DashboardPage() {
           {w.pocketMoney && <PocketMoneyWidget />}
           {w.photos && <PhotosWidget />}
           {w.timers && <TimerWidget />}
+          {/* Absent whenever nothing plays — the component itself returns
+              null in that case (RFC-003 §7) — so the flag only decides
+              whether it is allowed to appear at all. */}
+          {w.media && <MediaPlayerWidget />}
         </section>
       </div>
     </main>

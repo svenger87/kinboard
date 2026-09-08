@@ -17,6 +17,7 @@ import {
   Newspaper,
   Settings,
   PiggyBank,
+  Music,
 } from "lucide-react";
 
 /**
@@ -87,6 +88,7 @@ export const NAV_ITEMS = [
   { href: "/pocket-money", icon: PiggyBank, labelKey: "pocketMoney" },
   { href: "/cameras", icon: Video, labelKey: "cameras" },
   { href: "/photos", icon: Images, labelKey: "photos" },
+  { href: "/media", icon: Music, labelKey: "media" },
   { href: "/news", icon: Newspaper, labelKey: "news" },
   { href: "/settings", icon: Settings, labelKey: "settings" },
 ] as const;

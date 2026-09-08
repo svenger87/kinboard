@@ -358,7 +358,8 @@
     "stonks": "Stonks",
     "pocketMoney": "Taschengeld",
     "more": "Mehr",
-    "photos": "Fotos"
+    "photos": "Fotos",
+    "media": "Medien"
   },
   "cameras": {
     "title": "Kameras",
@@ -1087,7 +1088,11 @@
       "timersLabel": "Timer",
       "timersDescription": "Küchentimer mit Presets — ein Tipp genügt, und jeder an diesem Bildschirm sieht, was gerade runterzählt",
       "timersPreview1": "Noch 04:12",
-      "timersPreview2": "Zum Starten ein Preset antippen"
+      "timersPreview2": "Zum Starten ein Preset antippen",
+      "mediaLabel": "Medien",
+      "mediaDescription": "Was gerade läuft, mit Wiedergabesteuerung",
+      "mediaPreview1": "🎵 Läuft gerade — Titelname",
+      "mediaPreview2": "Tabs wechseln zwischen spielenden Geräten"
     },
     "navigation": {
       "title": "Navigation",
@@ -2152,7 +2157,8 @@
         "cameras": "Kameras",
         "stonks": "Stonks",
         "pocket-money": "Taschengeld",
-        "photos": "Fotos"
+        "photos": "Fotos",
+        "media": "Medien"
       },
       "description": {
         "vehicles": "Fahrzeuge im Haushalt über Home-Assistant-Entitäten verfolgen. Tesla- und Generic-EV-Treiber sind im Kern enthalten.",
@@ -2160,7 +2166,8 @@
         "cameras": "Live-WebRTC-Streams deiner Überwachungskameras über go2rtc.",
         "stonks": "Aktien, ETFs, Krypto, Indizes und Forex in einer Watchlist mit Candlestick-Charts verfolgen. Daten von Yahoo Finance.",
         "pocket-money": "Virtuelle Taschengeld-Konten für Kinder mit konfigurierbarem Taschengeld, täglicher Zinsgutschrift, Sparzielen und einem Avatar, der mit dem Ersparten wächst.",
-        "photos": "Die Fotomediathek auf dem Board selbst durchsehen, nicht nur auf dem Ruhebildschirm. Nutzt die verbundene Quelle — Immich, einen DLNA-Medienserver oder ein geteiltes iCloud-Album."
+        "photos": "Die Fotomediathek auf dem Board selbst durchsehen, nicht nur auf dem Ruhebildschirm. Nutzt die verbundene Quelle — Immich, einen DLNA-Medienserver oder ein geteiltes iCloud-Album.",
+        "media": "Steuere Lautsprecher und Bildschirme, die Home Assistant bereits kennt, direkt vom Board aus."
       }
     },
     "stonks": {
@@ -3887,5 +3894,30 @@
     "dismiss": "Verstanden",
     "stop": "Stoppen",
     "startFailed": "Timer konnte nicht gestartet werden"
+  },
+  "media": {
+    "title": "Medien",
+    "navLabel": "Medien",
+    "settingsTitle": "Mediengeräte",
+    "settingsDescription": "Lautsprecher und Bildschirme, die du vom Board aus steuern kannst",
+    "nothingPlaying": "Nichts spielt gerade",
+    "unavailable": "Nicht erreichbar",
+    "playPause": "Wiedergabe starten oder pausieren",
+    "next": "Nächster Titel",
+    "previous": "Vorheriger Titel",
+    "volume": "Lautstärke",
+    "mute": "Stummschalten",
+    "unmute": "Stummschaltung aufheben",
+    "source": "Quelle",
+    "addPlayer": "Gerät hinzufügen",
+    "noPlayers": "Noch keine Geräte",
+    "noPlayersHint": "Verbinde Home Assistant und füge dann einen Lautsprecher oder Bildschirm hinzu, den es kennt.",
+    "pickEntity": "Gerät auswählen",
+    "nickname": "Name",
+    "remove": "Entfernen",
+    "commandFailed": "Das hat nicht funktioniert",
+    "removeDialogTitle": "Gerät entfernen?",
+    "confirmRemove": "„{name}“ entfernen? Das kann nicht rückgängig gemacht werden.",
+    "removeFailed": "Das Gerät konnte nicht entfernt werden. Bitte versuche es erneut."
   }
 }

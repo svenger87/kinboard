@@ -3,21 +3,36 @@ import { NextRequest } from "next/server";
 /**
  * Confirm a row belongs to the family making the request.
  *
- * Kinboard runs with Row-Level Security disabled — the Security & Threat
- * Model page says so plainly, and names the consequence: "the device-cookie
- * + join-code model is the actual, load-bearing security boundary — it's
- * enforced entirely in application code (every API route filters by
- * `family_id`), not by Postgres. There is no database-level backstop if a
- * route ever forgot to filter."
+ * Row-Level Security IS enabled on this project — see
+ * `migration_zz_row_level_security.sql` — but this file is not made
+ * redundant by that. These routes run on the service-role client, and
+ * `service_role` has BYPASSRLS by design (that's what lets a Next.js API
+ * route establish the family server-side in the first place). RLS protects
+ * the direct-PostgREST path a browser can hit with the public anon key; it
+ * does nothing for a route that already holds the admin client and forgets
+ * to filter by `family_id` itself.
  *
- * Several routes had forgotten. They take an id from the path, use the
- * service-role client, and update whatever row matches — so any caller who
- * knew or guessed a UUID could edit another family's pocket-money account,
- * approve their own withdrawal request, or reorder their tickers. On a
- * single-family LAN that is theoretical; on the public demo it is not, and
- * the model does not distinguish.
+ * Several routes had forgotten exactly that. They take an id from the path,
+ * use the service-role client, and update whatever row matches — so any
+ * caller who knew or guessed a UUID could edit another family's
+ * pocket-money account, approve their own withdrawal request, or reorder
+ * their tickers. On a single-family LAN that is theoretical; on the public
+ * demo it is not, and the model does not distinguish.
  *
- * This is the missing filter, in one place so it reads the same everywhere.
+ * This is the missing filter, in one place so it reads the same everywhere
+ * — defence in depth alongside RLS, not a substitute for it.
+ *
+ * The trap this file cannot save you from: being listed in `SCOPE` below
+ * does nothing on its own to close the direct-PostgREST path. A table only
+ * gets RLS (and therefore a policy) by being added to the `direct_tables`
+ * array in `migration_zz_row_level_security.sql`. `media_players` shipped
+ * in this SCOPE map without ever being added to that array — RLS stayed
+ * disabled on the table, and the anon key could read and delete any
+ * family's rows through Kong, undetected because this file's guard only
+ * runs on the routes that call `rowInFamily`, not on direct PostgREST
+ * access. Adding a table here and forgetting the migration array is the
+ * same mistake as forgetting to filter at all: it just fails somewhere
+ * this file can't see.
  */
 
 /** How each table reaches a family. */
@@ -26,6 +41,7 @@ const SCOPE: Record<string, { column: "family_id" } | { via: "account" }> = {
   tickers: { column: "family_id" },
   timers: { column: "family_id" },
   vehicles: { column: "family_id" },
+  media_players: { column: "family_id" },
   push_subscriptions: { column: "family_id" },
   // These hang off an account rather than carrying a family of their own,
   // so ownership is one hop away.

@@ -156,7 +156,7 @@ jobs:
           FAMILY_CODE: DEMO01
           PLAYWRIGHT_BASE_URL: http://localhost:3001
           PLAYWRIGHT_DEVICE_NAME: "CI Smoke (GH Actions)"
-        run: npx playwright test e2e/smoke.spec.ts e2e/calendar-layout.spec.ts e2e/realtime-publication.spec.ts e2e/health-endpoint.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts --project=desktop
+        run: npx playwright test e2e/smoke.spec.ts e2e/calendar-layout.spec.ts e2e/realtime-publication.spec.ts e2e/health-endpoint.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/media-widget-layout.spec.ts --project=desktop
 
       # A separate step so a WebKit-only failure reads as one at a glance rather
       # than as "the smoke suite is flaky". Most of the suite reads source files
@@ -188,7 +188,7 @@ jobs:
           FAMILY_CODE: DEMO01
           PLAYWRIGHT_BASE_URL: http://localhost:3001
           PLAYWRIGHT_DEVICE_NAME: "CI WebKit (GH Actions)"
-        run: npx playwright test e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts --project=webkit
+        run: npx playwright test e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/media-widget-layout.spec.ts --project=webkit
 
       - name: Upload Playwright report
         if: always()

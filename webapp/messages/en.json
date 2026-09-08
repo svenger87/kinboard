@@ -358,7 +358,8 @@
     "stonks": "Stonks",
     "pocketMoney": "Pocket Money",
     "more": "More",
-    "photos": "Photos"
+    "photos": "Photos",
+    "media": "Media"
   },
   "cameras": {
     "title": "Cameras",
@@ -1087,7 +1088,11 @@
       "timersLabel": "Timers",
       "timersDescription": "Kitchen timers with one-tap presets — everyone on this screen can see what's counting down",
       "timersPreview1": "04:12 left",
-      "timersPreview2": "Tap a preset to start one"
+      "timersPreview2": "Tap a preset to start one",
+      "mediaLabel": "Media",
+      "mediaDescription": "What's playing right now, with playback controls",
+      "mediaPreview1": "🎵 Now Playing — Track Name",
+      "mediaPreview2": "Tabs switch between playing devices"
     },
     "navigation": {
       "title": "Navigation",
@@ -2152,7 +2157,8 @@
         "cameras": "Cameras",
         "stonks": "Stonks",
         "pocket-money": "Pocket Money",
-        "photos": "Photos"
+        "photos": "Photos",
+        "media": "Media"
       },
       "description": {
         "vehicles": "Track cars in your household via Home Assistant entities. Tesla and Generic-EV drivers ship in core.",
@@ -2160,7 +2166,8 @@
         "cameras": "Live WebRTC streams from your security cameras via go2rtc.",
         "stonks": "Track stocks, ETFs, crypto, indices, and forex on a watchlist with candle charts. Powered by Yahoo Finance.",
         "pocket-money": "Per-kid virtual pocket-money accounts with configurable allowance, daily interest accrual, saving goals, and an avatar that evolves as the kid saves.",
-        "photos": "Browse the photo library on the board itself, not only on the idle screen. Uses whichever source you have connected — Immich, a DLNA media server, or an iCloud Shared Album."
+        "photos": "Browse the photo library on the board itself, not only on the idle screen. Uses whichever source you have connected — Immich, a DLNA media server, or an iCloud Shared Album.",
+        "media": "Control speakers and screens Home Assistant already knows about, right from the board."
       }
     },
     "stonks": {
@@ -3887,5 +3894,30 @@
     "dismiss": "Dismiss",
     "stop": "Stop",
     "startFailed": "Could not start that timer"
+  },
+  "media": {
+    "title": "Media",
+    "navLabel": "Media",
+    "settingsTitle": "Media players",
+    "settingsDescription": "Speakers and screens you can control from the board",
+    "nothingPlaying": "Nothing playing",
+    "unavailable": "Not reachable",
+    "playPause": "Play or pause",
+    "next": "Next track",
+    "previous": "Previous track",
+    "volume": "Volume",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "source": "Source",
+    "addPlayer": "Add a player",
+    "noPlayers": "No players yet",
+    "noPlayersHint": "Connect Home Assistant, then add a speaker or screen it knows about.",
+    "pickEntity": "Choose a device",
+    "nickname": "Name",
+    "remove": "Remove",
+    "commandFailed": "That did not go through",
+    "removeDialogTitle": "Remove player?",
+    "confirmRemove": "Remove \"{name}\"? This cannot be undone.",
+    "removeFailed": "Could not remove the player. Please try again."
   }
 }
