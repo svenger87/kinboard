@@ -124,9 +124,13 @@ already exists, so this is a `.neq()`, not a schema change.
 **The sender comes from the session, not the request body.** `SessionContext`
 already carries `deviceId` alongside `familyId`, so the route reads it from
 there. Taking it from the body would let a caller name somebody else's device as
-the sender and silently exclude that person from every message. On an older
-session where `deviceId` is null there is nothing to exclude, so the push goes
-to the whole family — including, harmlessly, the sender.
+the sender and silently exclude that person from every message.
+
+`deviceId` is typed nullable, so the route handles null by pushing to the whole
+family — including, harmlessly, the sender. That branch is defensive rather than
+reachable: `verifySession` rejects a session row whose `device_id` is null, so
+no live session arrives without one. It stays because the type allows null and a
+null there must never come to mean "push to nobody".
 
 ### 3.2 Sent immediately
 
