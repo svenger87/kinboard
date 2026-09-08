@@ -29,15 +29,21 @@ test.describe("the timer widget", () => {
     await expect(page.getByRole("button", { name: "3 min" })).toBeVisible();
   });
 
-  test("a started timer counts down, and a finished one stays until dismissed", async ({ page }) => {
+  test("a started timer counts down, and a finished one stays until dismissed", async ({ page }, testInfo) => {
     await establishSession(page, FAMILY_CODE, DEVICE_NAME);
     await page.goto("/");
     await page.waitForSelector(".hero-block", { timeout: 20_000 });
     await page.waitForTimeout(2500);
 
+    // Every projection of this spec shares one family, so the desktop and
+    // WebKit runs see each other's timers on the same board — which is the
+    // product working as intended, and fatal to a locator that assumes one.
+    // The label carries the project and the clock so each run owns its row.
+    const label = `probe-${testInfo.project.name}-${Date.now()}`;
+
     // Start the shortest thing we can and let it elapse: a 3-minute preset is
     // too slow for a test, so drive the API directly with a 2-second duration.
-    await page.evaluate(async () => {
+    await page.evaluate(async (timerLabel) => {
       const raw = decodeURIComponent(
         document.cookie.split("; ").find((c) => c.startsWith("family-calendar-storage="))!.split("=")[1],
       );
@@ -45,17 +51,30 @@ test.describe("the timer widget", () => {
       await fetch("/api/timers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ family_id: familyId, label: "probe", duration_seconds: 2 }),
+        body: JSON.stringify({ family_id: familyId, label: timerLabel, duration_seconds: 2 }),
       });
-    });
+    }, label);
 
-    await expect(page.getByText("probe")).toBeVisible({ timeout: 10_000 });
+    // Reload rather than waiting for the row to arrive over realtime. Realtime
+    // works, but this stack subscribes to every table on one channel and its
+    // server drops messages once a channel exceeds its per-second budget —
+    // "MessagePerSecondRateLimitReached", which two boards driving each other
+    // is enough to hit. A guard that fails when the message budget is tight is
+    // measuring the socket, not the timer.
+    await page.reload();
+    await page.waitForSelector(".hero-block", { timeout: 20_000 });
+
+    await expect(page.getByText(label)).toBeVisible({ timeout: 10_000 });
+    // Everything after this is scoped to that one row: "Time's up" belongs to
+    // whichever timer ended, and the dashboard's install prompt has a close
+    // button with the same accessible name as the dismiss control.
+    const row = page.getByText(label).locator("..");
     // It rings, and then it waits.
-    await expect(page.getByText("Time's up")).toBeVisible({ timeout: 15_000 });
+    await expect(row.getByText("Time's up")).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(3000);
-    await expect(page.getByText("Time's up")).toBeVisible();
+    await expect(row.getByText("Time's up")).toBeVisible();
 
-    await page.getByRole("button", { name: "Dismiss" }).click();
-    await expect(page.getByText("probe")).toHaveCount(0, { timeout: 10_000 });
+    await row.getByRole("button", { name: "Dismiss" }).click();
+    await expect(page.getByText(label)).toHaveCount(0, { timeout: 10_000 });
   });
 });
