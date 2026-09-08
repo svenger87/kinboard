@@ -45,6 +45,7 @@ const SCOPE: Record<string, { column: "family_id" } | { via: "account" }> = {
   messages: { column: "family_id" },
   push_subscriptions: { column: "family_id" },
   catalogue_items: { column: "family_id" },
+  rooms: { column: "family_id" },
   // These hang off an account rather than carrying a family of their own,
   // so ownership is one hop away.
   pocket_money_goals: { via: "account" },
