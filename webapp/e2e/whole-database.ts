@@ -115,10 +115,67 @@ const HEARTBEAT_MS = 4_000;
 const STALE_MS = 20_000;
 const ACQUIRE_TIMEOUT_MS = 30_000;
 
+/**
+ * Marker recording that some process recently spent the whole budget waiting.
+ * While it is fresh, an acquire gets a short budget instead of the full one.
+ *
+ * `acquireWholeDatabase` runs in `beforeEach`, not `beforeAll`, so a lock this
+ * process can never remove — root-owned in sticky `/tmp`, say — costs the full
+ * budget *per test*. Across the two migration specs that is 22 tests, times
+ * three attempts under CI's `retries: 2`: over half an hour against the 25
+ * minute `timeout-minutes` in `.github/workflows/e2e.yml`. The run would then
+ * be reported as "exceeded the maximum execution time", and the message saying
+ * which directory to remove would never be read.
+ *
+ * This has to be a file rather than a module-level flag, because Playwright
+ * starts a fresh worker process after a failing test — measured: with a flag,
+ * ten tests against an unremovable lock still took 319s, one full budget each,
+ * because every one of them ran in a new process. The `afterAll` in the same
+ * worker as the last failure was the only acquire that saw it.
+ *
+ * A window rather than a latch keeps it recoverable: once the lock is gone, the
+ * next acquire takes it in single-digit milliseconds — comfortably inside the
+ * short budget — and removes this marker on the way past. If nothing removes
+ * it, it stops counting on its own.
+ */
+const GAVE_UP_FILE = `${LOCK_DIR}.gaveup`;
+const GAVE_UP_WINDOW_MS = 120_000;
+const RETRY_BUDGET_MS = 1_000;
+
+/** True while a recent full-budget timeout is still worth believing. */
+function recentlyGaveUp(): boolean {
+  try {
+    return Date.now() - statSync(GAVE_UP_FILE).mtimeMs < GAVE_UP_WINDOW_MS;
+  } catch {
+    return false;
+  }
+}
+
+function markGaveUp(): void {
+  try {
+    writeFileSync(GAVE_UP_FILE, String(Date.now()), "utf8");
+  } catch {
+    // Another uid owns it, or /tmp is read-only. Either way the only cost is
+    // that the next test waits the full budget, which is what it did before.
+  }
+}
+
+function clearGaveUp(): void {
+  try {
+    rmSync(GAVE_UP_FILE, { force: true });
+  } catch {
+    // Same: an unremovable marker goes stale on its own in GAVE_UP_WINDOW_MS.
+  }
+}
+
 export class WholeDatabaseLockTimeout extends Error {
-  constructor(waitedMs: number) {
+  constructor(waitedMs: number, shortened = false) {
     super(
       `whole-database lock at ${LOCK_DIR} was still held after ${Math.round(waitedMs / 1000)}s. ` +
+        (shortened
+          ? `An earlier test in this worker already waited the full ${Math.round(ACQUIRE_TIMEOUT_MS / 1000)}s ` +
+            `for it, so this one gave up early rather than spend that again on every remaining test. `
+          : "") +
         `Another migration spec may genuinely be running; a previous run killed mid-test may also ` +
         `have left the directory behind. If nothing else is running, remove it: rm -rf ${LOCK_DIR}`,
     );
@@ -255,6 +312,8 @@ function stopHeartbeat(): void {
 export async function acquireWholeDatabase(): Promise<void> {
   const started = Date.now();
   const token = `${process.pid}-${randomUUID()}`;
+  const shortened = recentlyGaveUp();
+  const budget = shortened ? RETRY_BUDGET_MS : ACQUIRE_TIMEOUT_MS;
 
   for (;;) {
     // First thing, every pass. With the check further down instead, the two
@@ -267,8 +326,9 @@ export async function acquireWholeDatabase(): Promise<void> {
     // against a root-owned lock, the old loop burned 98% CPU and had to be
     // killed; this one throws at 30.0s having used 2%. There is exactly one
     // sleep in this loop, at the bottom, and nothing skips it.
-    if (Date.now() - started > ACQUIRE_TIMEOUT_MS) {
-      throw new WholeDatabaseLockTimeout(Date.now() - started);
+    if (Date.now() - started > budget) {
+      if (!shortened) markGaveUp();
+      throw new WholeDatabaseLockTimeout(Date.now() - started, shortened);
     }
 
     let created = false;
@@ -290,6 +350,7 @@ export async function acquireWholeDatabase(): Promise<void> {
         throw error;
       }
       ownerToken = token;
+      clearGaveUp();
       startHeartbeat();
       installExitHook();
       return;
@@ -308,6 +369,7 @@ export async function acquireWholeDatabase(): Promise<void> {
 
     if (age !== null && age > STALE_MS && stealAndClaim(seen, token)) {
       ownerToken = token;
+      clearGaveUp();
       startHeartbeat();
       installExitHook();
       return;
