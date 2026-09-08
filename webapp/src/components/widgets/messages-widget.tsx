@@ -40,11 +40,14 @@ export function MessagesWidget() {
   // still the same message, and showing it twice for its first minute would
   // read as two. Your own message has no takeover, so it appears here at once
   // — which is the whole difference between sending and being told.
+  const myDeviceId = device?.id ?? null;
   const waiting = messages.filter((m) => m.id !== takeover?.id);
 
   const submit = async () => {
     const body = draft.trim();
-    if (!body) return;
+    // The guard lives here rather than only on the button, so the Enter key
+    // cannot fire a second send while the first is still in flight.
+    if (!body || send.isPending) return;
     try {
       await send.mutateAsync(body);
       setDraft("");
@@ -62,7 +65,13 @@ export function MessagesWidget() {
           // your own would mean the feature could be satisfied without anybody
           // in the house having seen anything — and it is also the only way a
           // one-device household can ever end a message. RFC-005 §5.
-          const mine = message.sender_device_id === (device?.id ?? null);
+          // Not `=== (device?.id ?? null)`: that makes two unrelated nulls
+          // equal. A message whose sender device has been deleted has a null
+          // sender, and a screen whose store has not hydrated has no device id
+          // — and the row would then offer Withdraw to somebody who did not
+          // send it, hiding the acknowledgement from everyone. Same trap as in
+          // use-messages.ts, which carries the longer note.
+          const mine = myDeviceId !== null && message.sender_device_id === myDeviceId;
           return (
             <div
               key={message.id}
