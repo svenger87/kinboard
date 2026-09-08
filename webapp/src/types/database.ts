@@ -503,6 +503,36 @@ export interface Database {
         };
         Relationships: [];
       };
+      messages: {
+        Row: {
+          id: string;
+          family_id: string;
+          body: string;
+          sender_device_id: string | null;
+          acknowledged_at: string | null;
+          acknowledged_by_device_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          body: string;
+          sender_device_id?: string | null;
+          acknowledged_at?: string | null;
+          acknowledged_by_device_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          body?: string;
+          sender_device_id?: string | null;
+          acknowledged_at?: string | null;
+          acknowledged_by_device_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       notes: {
         Row: {
           id: string;
@@ -1380,6 +1410,8 @@ export type Subject = Database["public"]["Tables"]["subjects"]["Row"];
 export type Schedule = Database["public"]["Tables"]["schedules"]["Row"];
 export type Birthday = Database["public"]["Tables"]["birthdays"]["Row"];
 export type BirthdayGiftIdea = Database["public"]["Tables"]["birthday_gift_ideas"]["Row"];
+export type Message = Database["public"]["Tables"]["messages"]["Row"];
+export type MessageInsert = Database["public"]["Tables"]["messages"]["Insert"];
 export type Note = Database["public"]["Tables"]["notes"]["Row"];
 
 // Recipe types
