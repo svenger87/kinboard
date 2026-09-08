@@ -15,6 +15,7 @@ export interface WidgetVisibility {
   photos: boolean;
   timers: boolean;
   media: boolean;
+  messages: boolean;
 }
 
 // Defaults are curated for kiosk glanceability — 6 widgets fill a 4-col landscape grid
@@ -45,6 +46,9 @@ export const DEFAULT_WIDGET_VISIBILITY: WidgetVisibility = {
   timers: true,
   // Opt-in: shows nothing until a household has configured a media player.
   media: false,
+  // On by default, same reasoning as timers — and the widget switch is the
+  // feature switch: RFC-005 §6.
+  messages: true,
 };
 
 // Read-side migration: legacy widget_visibility blobs persisted before

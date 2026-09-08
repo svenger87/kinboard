@@ -1094,7 +1094,11 @@
       "mediaLabel": "Medien",
       "mediaDescription": "Was gerade läuft, mit Wiedergabesteuerung",
       "mediaPreview1": "🎵 Läuft gerade — Titelname",
-      "mediaPreview2": "Tabs wechseln zwischen spielenden Geräten"
+      "mediaPreview2": "Tabs wechseln zwischen spielenden Geräten",
+      "messagesLabel": "Nachrichten",
+      "messagesDescription": "Sag von unterwegs etwas nach Hause — es erscheint auf allen anderen Bildschirmen, bis jemand bestätigt, dass er es gesehen hat",
+      "messagesPreview1": "Bin um 6 zurück",
+      "messagesPreview2": "Wartet darauf, dass jemand sie sieht"
     },
     "navigation": {
       "title": "Navigation",
@@ -3921,5 +3925,18 @@
     "removeDialogTitle": "Gerät entfernen?",
     "confirmRemove": "„{name}“ entfernen? Das kann nicht rückgängig gemacht werden.",
     "removeFailed": "Das Gerät konnte nicht entfernt werden. Bitte versuche es erneut."
+  },
+  "messages": {
+    "title": "Nachrichten",
+    "compose": "Etwas sagen",
+    "placeholder": "Bin um 6 zurück",
+    "send": "Senden",
+    "cancel": "Abbrechen",
+    "gotIt": "Gesehen",
+    "withdraw": "Zurückziehen",
+    "waiting": "Wartet darauf, dass jemand sie sieht",
+    "sendFailed": "Konnte nicht gesendet werden",
+    "remaining": "Noch {count} Zeichen",
+    "empty": "Nichts auszurichten"
   }
 }

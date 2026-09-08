@@ -20,6 +20,7 @@ import {
   Images,
   Timer,
   Music,
+  MessageSquare,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -55,6 +56,7 @@ const WIDGET_CONFIGS: WidgetConfig[] = [
   { key: "photos", labelKey: "photosLabel", descriptionKey: "photosDescription", previewKeys: ["photosPreview1", "photosPreview2"], icon: Images },
   { key: "timers", labelKey: "timersLabel", descriptionKey: "timersDescription", previewKeys: ["timersPreview1", "timersPreview2"], icon: Timer },
   { key: "media", labelKey: "mediaLabel", descriptionKey: "mediaDescription", previewKeys: ["mediaPreview1", "mediaPreview2"], icon: Music },
+  { key: "messages", labelKey: "messagesLabel", descriptionKey: "messagesDescription", previewKeys: ["messagesPreview1", "messagesPreview2"], icon: MessageSquare },
 ];
 
 export default function WidgetSettingsPage() {
