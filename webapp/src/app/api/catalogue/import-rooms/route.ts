@@ -33,6 +33,10 @@ function parseAreas(text: string): Map<string, string> {
     if (!areaName || !entityList) continue;
     for (const entityId of entityList.split(",")) {
       const id = entityId.trim();
+      // If an entity is (mis)assigned to two Home Assistant areas, whichever
+      // area's line appears later in the template output silently wins here
+      // — harmless, since a room already set is never overwritten below, and
+      // there is no ordering from HA worth preferring over another.
       if (id) byEntity.set(id, areaName);
     }
   }

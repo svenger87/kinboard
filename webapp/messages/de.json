@@ -3133,7 +3133,8 @@
     "saveFailed": "Konnte nicht gespeichert werden",
     "unavailable": "Nicht erreichbar",
     "importRooms": "Räume aus Home Assistant übernehmen",
-    "importedRooms": "{count, plural, one {# Gerät platziert} other {# Geräte platziert}}"
+    "importedRooms": "{count, plural, one {# Gerät platziert} other {# Geräte platziert}}",
+    "importedRoomsNone": "Gerade nichts zum Ausfüllen"
   },
   "dashboard": {
     "ariaClock": "Uhr und Familienmitglieder",

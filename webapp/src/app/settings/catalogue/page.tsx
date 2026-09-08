@@ -305,7 +305,17 @@ export default function CataloguePage() {
   async function handleImportRooms() {
     try {
       const result = await importRooms.mutateAsync();
-      toast.success(t("importedRooms", { count: result.updated }));
+      // A timeout, an unreachable host or a token missing the template scope
+      // all come back as `{ updated: 0 }` with HTTP 200 (route.ts swallows
+      // them so a household's rooms are never touched on failure) — the same
+      // shape as genuinely having nothing left to fill in. Announcing that as
+      // "Placed 0 devices" reads as success when it may be neither; say
+      // nothing happened instead of claiming it did.
+      if (result.updated > 0) {
+        toast.success(t("importedRooms", { count: result.updated }));
+      } else {
+        toast(t("importedRoomsNone"));
+      }
     } catch {
       toast.error(t("saveFailed"));
     }
