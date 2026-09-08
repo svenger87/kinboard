@@ -70,15 +70,33 @@ DO $$ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------------
--- Fold the two existing copies of this list out of settings.home_assistant.
+-- Fold the three existing copies of this list out of settings.home_assistant.
 --
--- RoomConfig.entities[] and Dashboard.cards[] are both "an entity, a name, an
--- order", written twice and kept in step by hand. This is one-way: the blob is
--- left exactly as it is (RFC-006 §3.2), because a household whose data this
--- gets wrong needs somewhere to get it back from.
+-- RoomConfig.entities[], Dashboard.cards[] and the pre-multi-dashboard
+-- dashboard_cards[] are all "an entity, a name, an order", written
+-- independently and kept in step by hand. This is one-way: the blob is left
+-- exactly as it is (RFC-006 §3.2), because a household whose data this gets
+-- wrong needs somewhere to get it back from.
 --
 -- ON CONFLICT DO NOTHING is required rather than defensive — every migration
 -- here is applied twice by design, and the second pass must be a no-op.
+--
+-- Every jsonb_array_elements() below is fed through a "is this actually a
+-- JSON array?" guard rather than a bare COALESCE. COALESCE(x, '[]'::jsonb)
+-- only substitutes when the key is *missing* — a household whose blob has
+-- "dashboards": null (valid JSON, not SQL NULL) still hands
+-- jsonb_array_elements a scalar, which raises "cannot extract elements from
+-- a scalar" and aborts this INSERT ... SELECT for every family scanned in
+-- the same statement, not just the one with the bad value. jsonb_typeof()
+-- of a missing key (SQL NULL) is also SQL NULL, so the same CASE covers both
+-- "absent" and "present but not an array" with one check.
+--
+-- (e.value ->> 'position')::int has the same install-wide blast radius for a
+-- different reason: a float ("1.5") or a non-numeric string in that field
+-- raises a cast error, not a type error, but the effect on the statement is
+-- identical. A regexp check that only casts when the text is a plain
+-- (optionally signed) integer, falling back to 0 otherwise, is safe against
+-- both.
 -- ---------------------------------------------------------------------------
 
 -- Rooms first: the rooms page is where a household names things deliberately,
@@ -116,10 +134,23 @@ SELECT
     120
   ),
   r.value ->> 'name',
-  COALESCE((e.value ->> 'position')::int, 0)
+  CASE WHEN (e.value ->> 'position') ~ '^-?[0-9]+$'
+    THEN (e.value ->> 'position')::int
+    ELSE 0
+  END
 FROM public.settings s
-CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.value -> 'rooms_config' -> 'rooms', '[]'::jsonb)) AS r(value)
-CROSS JOIN LATERAL jsonb_array_elements(COALESCE(r.value -> 'entities', '[]'::jsonb)) AS e(value)
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(s.value -> 'rooms_config' -> 'rooms') = 'array'
+    THEN s.value -> 'rooms_config' -> 'rooms'
+    ELSE '[]'::jsonb
+  END
+) AS r(value)
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(r.value -> 'entities') = 'array'
+    THEN r.value -> 'entities'
+    ELSE '[]'::jsonb
+  END
+) AS e(value)
 WHERE s.key = 'home_assistant'
   AND NULLIF(trim(e.value ->> 'entity_id'), '') IS NOT NULL
 -- Also tolerates a duplicate entity_id produced within this very statement —
@@ -130,7 +161,8 @@ ON CONFLICT DO NOTHING;
 
 -- Then dashboard cards, appended after whatever the rooms wrote for that
 -- family. Both sequences start at 0, so interleaving would scramble both.
--- Same name-length and empty-suffix guards as the rooms insert above.
+-- Same name-length, empty-suffix and array-typed-value guards as the rooms
+-- insert above.
 INSERT INTO public.catalogue_items (family_id, kind, entity_id, name, room, position)
 SELECT
   s.family_id,
@@ -150,10 +182,66 @@ SELECT
   ),
   NULL,
   COALESCE((SELECT MAX(position) + 1 FROM public.catalogue_items ci WHERE ci.family_id = s.family_id), 0)
-    + COALESCE((c.value ->> 'position')::int, 0)
+    + CASE WHEN (c.value ->> 'position') ~ '^-?[0-9]+$'
+        THEN (c.value ->> 'position')::int
+        ELSE 0
+      END
 FROM public.settings s
-CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.value -> 'dashboards', '[]'::jsonb)) AS d(value)
-CROSS JOIN LATERAL jsonb_array_elements(COALESCE(d.value -> 'cards', '[]'::jsonb)) AS c(value)
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(s.value -> 'dashboards') = 'array'
+    THEN s.value -> 'dashboards'
+    ELSE '[]'::jsonb
+  END
+) AS d(value)
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(d.value -> 'cards') = 'array'
+    THEN d.value -> 'cards'
+    ELSE '[]'::jsonb
+  END
+) AS c(value)
+WHERE s.key = 'home_assistant'
+  AND NULLIF(trim(c.value ->> 'entity_id'), '') IS NOT NULL
+ON CONFLICT DO NOTHING;
+
+-- Then the pre-multi-dashboard shape: `dashboard_cards`, a flat card array
+-- that predates `dashboards`. use-home-assistant.ts folds it into
+-- `dashboards` in memory when a household happens to read their settings,
+-- but only persists that if they save something afterwards — so a blob
+-- that still carries `dashboard_cards` and never picked up `dashboards`
+-- would otherwise migrate its rooms and silently drop every one of these
+-- cards. Same precedence as the dashboards insert (rooms already won, and
+-- ON CONFLICT DO NOTHING skips anything either earlier insert already
+-- wrote), same appended position, same name derivation, same guards.
+INSERT INTO public.catalogue_items (family_id, kind, entity_id, name, room, position)
+SELECT
+  s.family_id,
+  'ha_entity',
+  c.value ->> 'entity_id',
+  left(
+    COALESCE(
+      NULLIF(trim(c.value ->> 'display_name'), ''),
+      NULLIF(
+        upper(left(replace(split_part(c.value ->> 'entity_id', '.', 2), '_', ' '), 1))
+          || substr(replace(split_part(c.value ->> 'entity_id', '.', 2), '_', ' '), 2),
+        ''
+      ),
+      c.value ->> 'entity_id'
+    ),
+    120
+  ),
+  NULL,
+  COALESCE((SELECT MAX(position) + 1 FROM public.catalogue_items ci WHERE ci.family_id = s.family_id), 0)
+    + CASE WHEN (c.value ->> 'position') ~ '^-?[0-9]+$'
+        THEN (c.value ->> 'position')::int
+        ELSE 0
+      END
+FROM public.settings s
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(s.value -> 'dashboard_cards') = 'array'
+    THEN s.value -> 'dashboard_cards'
+    ELSE '[]'::jsonb
+  END
+) AS c(value)
 WHERE s.key = 'home_assistant'
   AND NULLIF(trim(c.value ->> 'entity_id'), '') IS NOT NULL
 ON CONFLICT DO NOTHING;

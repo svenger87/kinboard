@@ -280,4 +280,96 @@ test.describe("the blob migration", () => {
 
     expect(rows(clean)).toEqual(["light.ceiling|Ceiling|Clean|0"]);
   });
+
+  test("a null dashboards and a non-array rooms do not stop a clean family's rows from being written", () => {
+    // "dashboards": null is valid JSON but not SQL NULL, so
+    // COALESCE(x, '[]'::jsonb) does not catch it — jsonb_array_elements
+    // receives a scalar and raises "cannot extract elements from a scalar".
+    // Same failure shape for rooms_config.rooms holding an object instead of
+    // an array. Either one aborts the whole INSERT ... SELECT, which scans
+    // every family in one statement — so a single household on this shape
+    // used to take the migration, and therefore the webapp container, down
+    // for everyone on the install.
+    const nullDashboards = makeFamily();
+    families.push(nullDashboards);
+    const nonArrayRooms = makeFamily();
+    families.push(nonArrayRooms);
+    const clean = makeFamily();
+    families.push(clean);
+
+    seedBlob(nullDashboards, {
+      rooms_config: {
+        rooms: [{
+          id: "room_1", name: "Poisoned", icon: "home", position: 0, created_at: "2026-01-01",
+          entities: [{ entity_id: "light.also_poisoned", display_name: "Also poisoned", position: 0 }],
+        }],
+        show_unassigned: true,
+      },
+      dashboards: null,
+    });
+    seedBlob(nonArrayRooms, {
+      rooms_config: { rooms: { not: "an array" }, show_unassigned: true },
+    });
+    seedBlob(clean, {
+      rooms_config: {
+        rooms: [{
+          id: "room_1", name: "Clean", icon: "home", position: 0, created_at: "2026-01-01",
+          entities: [{ entity_id: "light.ceiling2", display_name: "Ceiling", position: 0 }],
+        }],
+        show_unassigned: true,
+      },
+    });
+
+    applyMigration();
+
+    // The poisoned families' own rooms rows still land — the guard turns the
+    // bad value into an empty array for the *cards*/*dashboards* step, it
+    // doesn't drop the family's other, valid data.
+    expect(rows(nullDashboards)).toEqual(["light.also_poisoned|Also poisoned|Poisoned|0"]);
+    expect(rows(nonArrayRooms)).toEqual([]);
+    expect(rows(clean)).toEqual(["light.ceiling2|Ceiling|Clean|0"]);
+  });
+
+  test("a non-integer position does not stop a clean family's rows from being written", () => {
+    // (e.value ->> 'position')::int raises on a float ("1.5") or a
+    // non-numeric string ("first") — a cast error, but the same
+    // whole-statement, every-family blast radius as the array-shape bugs
+    // above, because it happens inside the same INSERT ... SELECT.
+    const poisoned = makeFamily();
+    families.push(poisoned);
+    const clean = makeFamily();
+    families.push(clean);
+
+    seedBlob(poisoned, {
+      rooms_config: {
+        rooms: [{
+          id: "room_1", name: "Poisoned", icon: "home", position: 0, created_at: "2026-01-01",
+          entities: [
+            { entity_id: "light.float_pos", display_name: "Float position", position: 1.5 },
+            { entity_id: "light.string_pos", display_name: "String position", position: "first" },
+          ],
+        }],
+        show_unassigned: true,
+      },
+    });
+    seedBlob(clean, {
+      rooms_config: {
+        rooms: [{
+          id: "room_1", name: "Clean", icon: "home", position: 0, created_at: "2026-01-01",
+          entities: [{ entity_id: "light.ceiling3", display_name: "Ceiling", position: 0 }],
+        }],
+        show_unassigned: true,
+      },
+    });
+
+    applyMigration();
+
+    // Both poisoned rows still land, falling back to position 0 rather than
+    // being dropped or aborting the statement.
+    expect(rows(poisoned)).toEqual([
+      "light.float_pos|Float position|Poisoned|0",
+      "light.string_pos|String position|Poisoned|0",
+    ]);
+    expect(rows(clean)).toEqual(["light.ceiling3|Ceiling|Clean|0"]);
+  });
 });
