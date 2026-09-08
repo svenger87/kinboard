@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import { useFamilyStore } from "@/stores/family-store";
 import type { Timer } from "@/types/database";
 import { timerState } from "@/lib/timer-math";
+import { applyOffset } from "@/lib/server-clock";
+import { useServerClockOffset } from "./use-server-clock";
 
 const KEY = "timers";
 
@@ -62,15 +64,19 @@ export function useTimers() {
 export function useRingingTimer(): boolean {
   const { data: timers = [] } = useTimers();
   const [now, setNow] = useState(() => new Date());
+  // The same clock the widget rings on. Reading the browser's own clock here
+  // would let the two disagree by the panel's skew, and the alarm would spend
+  // that long underneath the screensaver this is supposed to hold off.
+  const serverNow = applyOffset(now, useServerClockOffset());
 
-  const hasPending = timers.some((x) => timerState(x, now) === "running");
+  const hasPending = timers.some((x) => timerState(x, serverNow) === "running");
   useEffect(() => {
     if (!hasPending) return;
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, [hasPending]);
 
-  return timers.some((x) => timerState(x, now) === "finished");
+  return timers.some((x) => timerState(x, serverNow) === "finished");
 }
 
 export function useStartTimer() {

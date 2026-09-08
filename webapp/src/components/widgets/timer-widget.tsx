@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { WidgetCard } from "@/components/widget-card";
 import { useTimers, useStartTimer, useDismissTimer } from "@/hooks/use-timers";
 import { remainingSeconds, timerState } from "@/lib/timer-math";
-import { offsetFromDateHeader, applyOffset } from "@/lib/server-clock";
+import { applyOffset } from "@/lib/server-clock";
+import { useServerClockOffset } from "@/hooks/use-server-clock";
 import { unlockTone, playTone } from "@/lib/timer-tone";
 
 const PRESETS = [3, 5, 10, 15];
@@ -22,7 +23,7 @@ export function TimerWidget() {
   const start = useStartTimer();
   const dismiss = useDismissTimer();
 
-  const [offsetMs, setOffsetMs] = useState(0);
+  const offsetMs = useServerClockOffset();
   const [now, setNow] = useState(() => new Date());
   const rung = useRef<Set<string>>(new Set());
 
@@ -38,25 +39,6 @@ export function TimerWidget() {
     }
   };
 
-  /*
-    Measure the clock offset once. `started_at` comes from the server and `now`
-    from this browser, so a panel two minutes fast would end its timers two
-    minutes early. Any response will do — every one carries a Date header —
-    so this costs a HEAD request, not an endpoint.
-  */
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/health", { method: "HEAD" })
-      .then((res) => {
-        const measured = offsetFromDateHeader(res.headers.get("date"), new Date());
-        if (!cancelled && measured !== null) setOffsetMs(measured);
-      })
-      .catch(() => {
-        // Unmeasured: fall back to the browser's own clock, which is right on
-        // most devices and only slightly wrong on the rest.
-      });
-    return () => { cancelled = true; };
-  }, []);
 
   // One clock for every ring. Only runs while something is counting.
   const hasRunning = timers.some((x) => timerState(x, applyOffset(now, offsetMs)) === "running");
