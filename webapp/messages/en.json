@@ -2617,7 +2617,6 @@
   },
   "homeAutomation": {
     "title": "Home automation",
-    "subtitleDashboard": "Home Assistant dashboard",
     "subtitleRooms": "Your house, room by room",
     "subtitleLoading": "Loading…",
     "settingsAria": "Settings",
