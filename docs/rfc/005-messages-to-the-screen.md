@@ -121,6 +121,13 @@ broadcasts one change to one channel, not a message per recipient.
 family where `device_id <> sender_device_id`. `push_subscriptions.device_id`
 already exists, so this is a `.neq()`, not a schema change.
 
+**The sender comes from the session, not the request body.** `SessionContext`
+already carries `deviceId` alongside `familyId`, so the route reads it from
+there. Taking it from the body would let a caller name somebody else's device as
+the sender and silently exclude that person from every message. On an older
+session where `deviceId` is null there is nothing to exclude, so the push goes
+to the whole family — including, harmlessly, the sender.
+
 ### 3.2 Sent immediately
 
 `sendPushToMultiple` in `src/lib/push-sender.ts` already takes a list of
@@ -134,6 +141,14 @@ lost. Log it and return 200 — the same rule the timer's queued push follows.
 If VAPID is not configured at all (`isVapidConfigured()` is false), there is
 nothing to send and that is not an error either. A household that has never set
 up push still gets messages on its screens.
+
+**Quiet hours do not apply.** Every other push in Kinboard is a reminder the
+system decided to raise, and silencing those between 22:00 and 07:00 is right. A
+message is a person deciding, at that moment, to tell the house something — and
+the messages that get sent at 23:00 are the ones that matter most. The route
+does not read `notification_preferences` at all; there is no per-type switch for
+this and quiet hours are not consulted. A household that finds this wrong can
+turn the widget off, which turns the feature off (§6).
 
 ### 3.3 The notification opens the message
 
@@ -207,8 +222,9 @@ inventing one would be inventing a conflict.
 ## 5. Acknowledgement
 
 `PATCH /api/messages/[id]` sets `acknowledged_at` and
-`acknowledged_by_device_id`, guarded with `.is("acknowledged_at", null)` so the
-first write wins. Two people tapping "Got it" on two panels within the same
+`acknowledged_by_device_id` — the latter from the session's `deviceId`, for the
+same reason the sender is (§3.1) — guarded with `.is("acknowledged_at", null)`
+so the first write wins. Two people tapping "Got it" on two panels within the same
 second is a normal thing to happen in a house, and the second tap must not
 overwrite who actually saw it first. The route returns the row either way; the
 second tapper sees the same acknowledged message, not an error.
