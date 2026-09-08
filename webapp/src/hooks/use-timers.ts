@@ -35,6 +35,17 @@ export function useTimers() {
       if (!r.ok) throw new Error(`timers: ${r.status}`);
       return ((await r.json()) as { timers: Timer[] }).timers;
     },
+    /*
+      A backstop for dropped realtime messages, not the primary update path —
+      the realtime subscription is. This stack puts ~22 tables on one channel,
+      and its own e2e coverage documents that channel shedding load under
+      contention ("MessagePerSecondRateLimitReached"). Miss the message that a
+      timer was dismissed and a kiosk — which fires no focus or visibility
+      events to fall back on — shows an alarm nobody can silence from the
+      table's own screen. 10s while the family actually has timers running or
+      finished; 30s otherwise, so an idle board isn't polling for nothing.
+    */
+    refetchInterval: (query) => ((query.state.data?.length ?? 0) > 0 ? 10_000 : 30_000),
   });
 }
 
