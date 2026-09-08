@@ -42,8 +42,12 @@ function familyIdOn(page: Page): Promise<string> {
 /** Everything this test made, so the `finally` can put the family back. */
 type Seeded = { rooms: string[]; items: string[] };
 
-async function addRoom(page: Page, seeded: Seeded, name: string): Promise<string> {
-  const familyId = await familyIdOn(page);
+async function addRoom(
+  page: Page,
+  familyId: string,
+  seeded: Seeded,
+  name: string,
+): Promise<string> {
   const result = await page.evaluate(
     async ({ familyId, name }) => {
       const res = await fetch("/api/rooms", {
@@ -71,12 +75,12 @@ async function addRoom(page: Page, seeded: Seeded, name: string): Promise<string
  */
 async function addDevice(
   page: Page,
+  familyId: string,
   seeded: Seeded,
   name: string,
   entityId: string,
   roomId: string | null,
 ): Promise<string> {
-  const familyId = await familyIdOn(page);
   const result = await page.evaluate(
     async ({ familyId, name, entityId, roomId }) => {
       const res = await fetch("/api/catalogue", {
@@ -106,25 +110,49 @@ async function addDevice(
  * Devices first: the FK is ON DELETE SET NULL, so deleting a room while its
  * devices are still there does not fail — it quietly leaves them behind in
  * the "No room" group, where the *next* run's unroomed assertion would find
- * them. Best-effort by design; a failed cleanup must not turn a passing guard
- * red, and the leftovers are named `probe-` for the sweep in the task notes.
+ * them.
+ *
+ * `familyId` and the ids are passed in rather than re-read from the page,
+ * because the case cleanup exists for is the case where the page is in
+ * trouble. An earlier version derived the family id from the store cookie
+ * here, gave up when that read failed, and swallowed every response — so a
+ * test that failed by crashing its page left its rooms and catalogue items
+ * behind, silently, for ever.
+ *
+ * Still swallowed, so a cleanup failure never masks the real one, but never
+ * silent: whatever could not be deleted is named on stderr, with the ids, so
+ * drift on a shared database is visible.
  */
-async function cleanUp(page: Page, seeded: Seeded): Promise<void> {
-  const familyId = await familyIdOn(page).catch(() => null);
-  if (!familyId) return;
-  await page
-    .evaluate(
+async function cleanUp(page: Page, familyId: string, seeded: Seeded): Promise<void> {
+  const left = () =>
+    `family=${familyId} rooms=${seeded.rooms.join(",") || "-"} ` +
+    `catalogue_items=${seeded.items.join(",") || "-"}`;
+  try {
+    const failures = await page.evaluate(
       async ({ familyId, items, rooms }) => {
+        const failed: string[] = [];
         for (const id of items) {
-          await fetch(`/api/catalogue/${id}?family_id=${familyId}`, { method: "DELETE" });
+          const res = await fetch(`/api/catalogue/${id}?family_id=${familyId}`, {
+            method: "DELETE",
+          });
+          if (!res.ok) failed.push(`catalogue_items ${id}: HTTP ${res.status}`);
         }
         for (const id of rooms) {
-          await fetch(`/api/rooms/${id}?family_id=${familyId}`, { method: "DELETE" });
+          const res = await fetch(`/api/rooms/${id}?family_id=${familyId}`, { method: "DELETE" });
+          if (!res.ok) failed.push(`rooms ${id}: HTTP ${res.status}`);
         }
+        return failed;
       },
       { familyId, items: seeded.items, rooms: seeded.rooms },
-    )
-    .catch(() => {});
+    );
+    if (failures.length > 0) {
+      console.warn(`[automation-layout] cleanup left rows behind — ${failures.join("; ")}`);
+    }
+  } catch (error) {
+    console.warn(
+      `[automation-layout] cleanup could not run (${(error as Error).message}); left behind ${left()}`,
+    );
+  }
 }
 
 /**
@@ -173,9 +201,12 @@ test.describe("the automation page, room by room", () => {
     const seeded: Seeded = { rooms: [], items: [] };
 
     await openAutomation(page, baseURL, testInfo);
+    // Read once, while the page is certainly healthy: the `finally` must not
+    // depend on being able to read anything back out of it.
+    const familyId = await familyIdOn(page);
     try {
-      const roomId = await addRoom(page, seeded, roomName);
-      await addDevice(page, seeded, deviceName, `light.probe_${Date.now()}`, roomId);
+      const roomId = await addRoom(page, familyId, seeded, roomName);
+      await addDevice(page, familyId, seeded, deviceName, `light.probe_${Date.now()}`, roomId);
 
       await page.reload({ waitUntil: "domcontentloaded" });
 
@@ -187,7 +218,7 @@ test.describe("the automation page, room by room", () => {
       await expect(room).toBeVisible({ timeout: 20_000 });
       await expect(room.getByText(deviceName, { exact: true })).toBeVisible();
     } finally {
-      await cleanUp(page, seeded);
+      await cleanUp(page, familyId, seeded);
     }
   });
 
@@ -202,12 +233,13 @@ test.describe("the automation page, room by room", () => {
     const seeded: Seeded = { rooms: [], items: [] };
 
     await openAutomation(page, baseURL, testInfo);
+    const familyId = await familyIdOn(page);
     try {
       // A room with something in it as well, so "last" is a claim about
       // ordering and not a page that only has one group on it.
-      const roomId = await addRoom(page, seeded, roomName);
-      await addDevice(page, seeded, roomedName, `light.probe_in_${Date.now()}`, roomId);
-      await addDevice(page, seeded, looseName, `light.probe_loose_${Date.now()}`, null);
+      const roomId = await addRoom(page, familyId, seeded, roomName);
+      await addDevice(page, familyId, seeded, roomedName, `light.probe_in_${Date.now()}`, roomId);
+      await addDevice(page, familyId, seeded, looseName, `light.probe_loose_${Date.now()}`, null);
 
       await page.reload({ waitUntil: "domcontentloaded" });
 
@@ -222,7 +254,7 @@ test.describe("the automation page, room by room", () => {
         groups(page).last().getByRole("heading", { level: 2, name: "No room", exact: true }),
       ).toBeVisible();
     } finally {
-      await cleanUp(page, seeded);
+      await cleanUp(page, familyId, seeded);
     }
   });
 
@@ -290,8 +322,8 @@ test.describe("the automation page, room by room", () => {
     if ("error" in created) throw new Error(`create family: ${created.error}`);
 
     try {
-      const roomId = await addRoom(page, seeded, roomName);
-      await addDevice(page, seeded, deviceName, `light.probe_nc_${Date.now()}`, roomId);
+      const roomId = await addRoom(page, created.id, seeded, roomName);
+      await addDevice(page, created.id, seeded, deviceName, `light.probe_nc_${Date.now()}`, roomId);
 
       await page.goto("/home-automation", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { level: 1, name: "Home automation" })).toBeVisible({
@@ -315,18 +347,33 @@ test.describe("the automation page, room by room", () => {
         timeout: 20_000,
       });
     } finally {
-      await page
-        .evaluate(
+      // Deleting the family cascades the room, the device and the catalogue
+      // row. Swallowed so it cannot mask a real failure, but never silent —
+      // a family left behind here is a family left behind for ever.
+      try {
+        const status = await page.evaluate(
           async ({ familyId, familyName }) => {
-            await fetch("/api/family", {
+            const res = await fetch("/api/family", {
               method: "DELETE",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ family_id: familyId, confirm_name: familyName }),
             });
+            return res.status;
           },
           { familyId: created.id, familyName },
-        )
-        .catch(() => {});
+        );
+        if (status !== 200) {
+          console.warn(
+            `[automation-layout] could not delete throwaway family ${created.id} ` +
+              `(${familyName}): HTTP ${status}`,
+          );
+        }
+      } catch (error) {
+        console.warn(
+          `[automation-layout] could not delete throwaway family ${created.id} ` +
+            `(${familyName}): ${(error as Error).message}`,
+        );
+      }
     }
   });
 });
