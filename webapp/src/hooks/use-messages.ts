@@ -97,8 +97,22 @@ export function useTakeoverMessage(): Message | null {
   const [now, setNow] = useState(() => new Date());
   const serverNow = applyOffset(now, useServerClockOffset());
 
-  const candidates = messages.filter((m) => m.sender_device_id !== (device?.id ?? null));
-  const hasPending = candidates.some((m) => messageState(m, serverNow) !== "done");
+  /*
+    Not `m.sender_device_id !== (device?.id ?? null)`. Coalescing both sides to
+    one sentinel makes two different nulls equal: a message whose sender device
+    has since been deleted has a null sender, and a viewer whose store has not
+    hydrated has no device id — and the comparison then reads that message as
+    "mine" and hides it from precisely the screen least able to know better.
+    RFC-005 §2 is explicit that a null sender shows everywhere. So the
+    exclusion applies only when this screen actually knows which device it is.
+  */
+  const candidates = messages.filter((m) => !device?.id || m.sender_device_id !== device.id);
+  // Only a takeover is on a clock. "waiting" ends when somebody taps, which is
+  // an event and not a tick, so scoping the interval to `!== "done"` would keep
+  // a wall display ticking once a second for as long as any message sits
+  // unacknowledged — which is exactly the state this feature is designed to
+  // leave it in. `useRingingTimer` scopes its tick the same way, to "running".
+  const hasPending = candidates.some((m) => messageState(m, serverNow) === "takeover");
 
   useEffect(() => {
     if (!hasPending) return;
