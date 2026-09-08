@@ -68,11 +68,41 @@ END $$;
 -- are. A migration that is wrong about a household's data needs somewhere to
 -- have been wrong from.
 --
+-- ONCE PER FAMILY, NOT ONCE PER CONTAINER START. Every migration in this
+-- project is applied by the webapp entrypoint on every boot, and both legacy
+-- stores it reads from are deliberately never cleared: the blob's
+-- rooms_config stays, and the catalogue screen writes only room_id, leaving
+-- catalogue_items.room intact as the recovery copy. So re-deriving rooms from
+-- them on each start would undo the household's own later edits — a device
+-- whose room was cleared gets it back, a room that was deleted comes back
+-- with a new id and its devices re-linked. That is exactly the failure the
+-- blob's entities[] are ignored to avoid; the room text reintroduces it
+-- through the other door.
+--
+-- The guard is a durable per-family marker, families.rooms_reconciled_at, and
+-- not "does this family have rooms yet": a household that deliberately
+-- deletes every room it has would have them all recreated on the next start,
+-- which is the same bug in miniature. A family with nothing to migrate is
+-- stamped too, so it is never reconsidered.
+--
+-- All three steps are gated, step 1 included: rooms_config is a frozen legacy
+-- blob that nothing writes any more and nothing deletes, so an ungated step 1
+-- would resurrect a deleted blob room on every boot just as surely as step 2
+-- resurrects a deleted text room.
+--
 -- Every extraction is guarded with jsonb_typeof: COALESCE catches a missing
 -- key but not a JSON null, and a scalar where an array is expected aborts the
 -- statement for every family on the install — which stops the webapp
 -- container starting at all, because its entrypoint exits 1.
 -- ---------------------------------------------------------------------------
+
+ALTER TABLE public.families
+  ADD COLUMN IF NOT EXISTS rooms_reconciled_at TIMESTAMPTZ;
+
+-- One transaction: the stamp has to land with the work it records, or a
+-- restart between the two would either re-run the reconciliation (stamp lost)
+-- or skip a family that was never reconciled (work lost).
+BEGIN;
 
 -- 1. Blob rooms first: only they carry icon, colour and order.
 INSERT INTO public.rooms (family_id, name, icon, color, position)
@@ -84,6 +114,7 @@ SELECT
   CASE WHEN COALESCE(r.value ->> 'position', '') ~ '^-?[0-9]+$'
        THEN (r.value ->> 'position')::int ELSE 0 END
 FROM public.settings s
+JOIN public.families f ON f.id = s.family_id AND f.rooms_reconciled_at IS NULL
 CROSS JOIN LATERAL jsonb_array_elements(
   CASE WHEN jsonb_typeof(s.value -> 'rooms_config' -> 'rooms') = 'array'
        THEN s.value -> 'rooms_config' -> 'rooms' ELSE '[]'::jsonb END) AS r(value)
@@ -99,6 +130,7 @@ SELECT DISTINCT ON (c.family_id, lower(trim(c.room)))
   trim(c.room),
   COALESCE((SELECT MAX(position) + 1 FROM public.rooms r2 WHERE r2.family_id = c.family_id), 0)
 FROM public.catalogue_items c
+JOIN public.families f ON f.id = c.family_id AND f.rooms_reconciled_at IS NULL
 WHERE NULLIF(trim(COALESCE(c.room, '')), '') IS NOT NULL
   AND char_length(trim(c.room)) <= 80
   AND NOT EXISTS (
@@ -110,10 +142,21 @@ ON CONFLICT DO NOTHING;
 -- 3. Resolve every device's room text to a room_id, case-insensitively.
 UPDATE public.catalogue_items c
 SET room_id = r.id
-FROM public.rooms r
+FROM public.rooms r, public.families f
 WHERE c.room_id IS NULL
   AND c.room IS NOT NULL
   AND r.family_id = c.family_id
+  AND f.id = c.family_id
+  AND f.rooms_reconciled_at IS NULL
   AND lower(trim(r.name)) = lower(trim(c.room));
+
+-- 4. Stamp everything the three steps above were allowed to touch, including
+--    the families that had nothing to migrate. Same predicate, same
+--    transaction, so the set is exactly the one just reconciled.
+UPDATE public.families
+SET rooms_reconciled_at = NOW()
+WHERE rooms_reconciled_at IS NULL;
+
+COMMIT;
 
 NOTIFY pgrst, 'reload schema';

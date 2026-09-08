@@ -18,6 +18,11 @@ export interface Database {
           setup_completed: boolean;
           created_at: string;
           updated_at: string;
+          // When migration_rooms.sql reconciled this family's rooms out of the
+          // legacy stores. Null means it hasn't yet; set means never again,
+          // however many times the migration is re-applied. Nothing in the app
+          // reads or writes it — the migration owns it.
+          rooms_reconciled_at: string | null;
         };
         Insert: {
           id?: string;
@@ -27,6 +32,7 @@ export interface Database {
           setup_completed?: boolean;
           created_at?: string;
           updated_at?: string;
+          rooms_reconciled_at?: string | null;
         };
         Update: {
           id?: string;
@@ -36,6 +42,7 @@ export interface Database {
           setup_completed?: boolean;
           created_at?: string;
           updated_at?: string;
+          rooms_reconciled_at?: string | null;
         };
         Relationships: [];
       };

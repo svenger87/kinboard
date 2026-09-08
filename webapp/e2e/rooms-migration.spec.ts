@@ -208,6 +208,56 @@ test.describe("reconciling rooms", () => {
     expect([rooms(id), links(id)]).toEqual(first);
   });
 
+  test("a household's own edits survive the next application", () => {
+    // "Applying it twice changes nothing" only says anything about a database
+    // nobody touched in between, and that is not how this migration runs: the
+    // webapp entrypoint applies it on every container start, and both legacy
+    // stores it reads from are deliberately never cleared. So the case that
+    // matters is seed, apply, make the edits a household makes, apply again.
+    const id = makeFamily();
+    seedBlob(id, {
+      rooms_config: { rooms: [{ id: "r1", name: "Wohnzimmer", icon: "lamp", position: 0, created_at: "2026-01-01", entities: [] }] },
+    });
+    seedDevice(id, "light.a", "Wohnzimmer");
+    seedDevice(id, "light.b", "Küche");
+    seedDevice(id, "light.c", "Wohnzimmer");
+    applyMigration();
+    expect(rooms(id)).toEqual(["Wohnzimmer|lamp|-|0", "Küche|-|-|1"]);
+    expect(links(id)).toEqual(["light.a|Wohnzimmer", "light.b|Küche", "light.c|Wohnzimmer"]);
+
+    // The two edits, exactly as the app makes them: the catalogue screen
+    // clears a device's room by writing room_id and nothing else, and
+    // deleting a room lets the FK's SET NULL clear its devices. Neither
+    // touches catalogue_items.room — that text stays as the recovery copy,
+    // which is precisely what an ungated step 2 and 3 would read again.
+    psql(`UPDATE catalogue_items SET room_id = NULL WHERE family_id='${id}' AND entity_id='light.c';`);
+    psql(`DELETE FROM rooms WHERE family_id='${id}' AND name='Küche';`);
+
+    applyMigration();
+
+    // Küche is not resurrected, light.b is not re-linked to a new one, and
+    // light.c does not get its room back from the text it still carries.
+    expect(rooms(id)).toEqual(["Wohnzimmer|lamp|-|0"]);
+    expect(links(id)).toEqual(["light.a|Wohnzimmer", "light.b|-", "light.c|-"]);
+  });
+
+  test("a deleted blob room is not recreated either", () => {
+    // Step 1 needs the same guard as steps 2 and 3, for the same reason:
+    // rooms_config is a frozen legacy blob that nothing writes and nothing
+    // deletes, so re-reading it every boot resurrects a room the household
+    // deleted just as surely as the catalogue text does.
+    const id = makeFamily();
+    seedBlob(id, {
+      rooms_config: { rooms: [{ id: "r1", name: "Flur", icon: "book", color: "#67f264", position: 0, created_at: "2026-01-01", entities: [] }] },
+    });
+    applyMigration();
+    expect(rooms(id)).toEqual(["Flur|book|#67f264|0"]);
+
+    psql(`DELETE FROM rooms WHERE family_id='${id}' AND name='Flur';`);
+    applyMigration();
+    expect(rooms(id)).toEqual([]);
+  });
+
   test("the blob and the room text are both left exactly as they were", () => {
     const id = makeFamily();
     seedBlob(id, {

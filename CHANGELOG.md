@@ -36,7 +36,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **Operators: restart the realtime container after deploying this.** It adds a table to the realtime publication, and Home Assistant's realtime service only reads that publication when it starts — so live updates for rooms will not arrive until it is restarted. `docker compose restart realtime`.
+- **Operators: restart the realtime and rest containers after deploying this.** It adds a table to the realtime publication, and Home Assistant's realtime service only reads that publication when it starts — so live updates for rooms will not arrive until it is restarted. It also adds a column to the families table, and PostgREST holds its own copy of the schema; the migration asks it to reload, but a restart is what makes certain it picked the change up rather than serving from a cache that predates it. `docker compose restart realtime rest`.
 - **One typeface across the interface.** Small labels — the caption under the clock, the headings on birthdays, energy, todos, shopping, the setup steps — were set in a monospace face while everything around them used the body font, which made the same screen look assembled from two different products. They use the body font now. The monospace face stays where it earns its keep: things you type, read out or copy, such as the join code, the settings PIN, device identifiers, calendar URLs, API tokens and keyboard keys.
 
 ### Fixed

@@ -94,8 +94,15 @@ household's data needs somewhere to have been wrong *from*.
 
 ## 3. Reconciling two stores that already disagree
 
-The migration runs once, in this order, and it is the only part of this RFC that
-can lose something a person typed.
+The migration runs once **per family**, in this order, and it is the only part of
+this RFC that can lose something a person typed. Once per family, not once per
+install: the webapp entrypoint applies every migration on every container start,
+and neither legacy store is ever cleared, so re-deriving rooms from them would
+undo a household's later edits — a device whose room was cleared would get it
+back, a deleted room would return with a new id. `families.rooms_reconciled_at`
+is stamped in the same transaction as the three steps below, and a family that
+carries it is skipped from then on. A family with nothing to migrate is stamped
+too, so it is never reconsidered.
 
 1. **Blob rooms first**, because only they carry icon, colour and order:
    every `rooms_config.rooms[]` entry becomes a `rooms` row, keeping `name`,
