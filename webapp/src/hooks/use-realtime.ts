@@ -37,7 +37,8 @@ type TableName =
   | "notification_preferences"
   | "birthday_gift_ideas"
   | "timers"
-  | "messages";
+  | "messages"
+  | "catalogue_items";
 
 const ALL_TABLES: TableName[] = [
   "people",
@@ -60,6 +61,7 @@ const ALL_TABLES: TableName[] = [
   "birthday_gift_ideas",
   "timers",
   "messages",
+  "catalogue_items",
 ];
 
 interface UseRealtimeOptions {
@@ -186,6 +188,11 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
         case "messages":
           queryClient.invalidateQueries({
             queryKey: ["messages", family.id],
+          });
+          break;
+        case "catalogue_items":
+          queryClient.invalidateQueries({
+            queryKey: ["catalogue", family.id],
           });
           break;
         case "birthday_gift_ideas": {

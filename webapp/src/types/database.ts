@@ -208,6 +208,48 @@ export interface Database {
         };
         Relationships: [];
       };
+      catalogue_items: {
+        Row: {
+          id: string;
+          family_id: string;
+          kind: "ha_entity" | "builtin";
+          entity_id: string | null;
+          builtin_key: string | null;
+          name: string;
+          room: string | null;
+          image_url: string | null;
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          kind: "ha_entity" | "builtin";
+          entity_id?: string | null;
+          builtin_key?: string | null;
+          name: string;
+          room?: string | null;
+          image_url?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          kind?: "ha_entity" | "builtin";
+          entity_id?: string | null;
+          builtin_key?: string | null;
+          name?: string;
+          room?: string | null;
+          image_url?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       events: {
         Row: {
           id: string;
@@ -1403,6 +1445,8 @@ export type Family = Database["public"]["Tables"]["families"]["Row"];
 export type Device = Database["public"]["Tables"]["devices"]["Row"];
 export type Person = Database["public"]["Tables"]["people"]["Row"];
 export type Calendar = Database["public"]["Tables"]["calendars"]["Row"];
+export type CatalogueItem = Database["public"]["Tables"]["catalogue_items"]["Row"];
+export type CatalogueItemInsert = Database["public"]["Tables"]["catalogue_items"]["Insert"];
 export type Event = Database["public"]["Tables"]["events"]["Row"];
 export type Todo = Database["public"]["Tables"]["todos"]["Row"];
 export type ShoppingItem = Database["public"]["Tables"]["shopping_items"]["Row"];

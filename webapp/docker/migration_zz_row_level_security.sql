@@ -105,7 +105,7 @@ DO $$
 DECLARE
   t TEXT;
   direct_tables TEXT[] := ARRAY[
-    'birthday_gift_ideas', 'birthdays', 'calendars', 'devices',
+    'birthday_gift_ideas', 'birthdays', 'calendars', 'catalogue_items', 'devices',
     'integration_secrets', 'item_catalog', 'meal_plans', 'media_players',
     'messages', 'notes', 'notification_logs', 'notification_preferences',
     'oauth_credentials',
