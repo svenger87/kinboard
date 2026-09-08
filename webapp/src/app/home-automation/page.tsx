@@ -17,6 +17,10 @@ import {
   LockOpen,
   ArrowUp,
   ArrowDown,
+  SkipBack,
+  SkipForward,
+  Play,
+  Pause,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,6 +42,8 @@ import {
   useToggleEntity,
   useLockControl,
   useCoverControl,
+  useMediaPlayerControl,
+  useVacuumCommand,
   useKeyboardShortcuts,
   useSwipeNavigation,
 } from "@/hooks";
@@ -88,6 +94,8 @@ const NO_READING = new Set(["unavailable", "unknown", ""]);
 const COVER_STATES = new Set(["open", "opening", "closed", "closing"]);
 const LOCK_STATES = new Set(["locked", "unlocked", "locking", "unlocking", "jammed"]);
 const MEDIA_STATES = new Set(["playing", "paused", "idle", "off", "standby", "buffering"]);
+const VACUUM_STATES = new Set(["cleaning", "docked", "paused", "idle", "returning", "error", "charging"]);
+const HVAC_MODES = new Set(["auto", "heat", "cool", "heat_cool", "dry", "fan_only", "off"]);
 
 /** A catalogue row narrowed to one that actually has an entity behind it. */
 type WithEntity = CatalogueItem & { entity_id: string };
@@ -109,6 +117,8 @@ export default function HausautomationPage() {
   const tCover = useTranslations("homeAutomation.coverState");
   const tLock = useTranslations("homeAutomation.lockState");
   const tMedia = useTranslations("homeAutomation.mediaPlayerState");
+  const tVacuum = useTranslations("homeAutomation.vacuumStatus");
+  const tHvac = useTranslations("homeAutomation.hvacMode");
   const tDetail = useTranslations("homeAutomation.entityDetail");
 
   const { data: settings, isLoading: loadingSettings } = useHomeAssistantStatus();
@@ -209,10 +219,22 @@ export default function HausautomationPage() {
   const { toggle } = useToggleEntity();
   const { lock, unlock } = useLockControl();
   const { open: openCover, close: closeCover } = useCoverControl();
+  const { play, pause: pauseMedia, previous, next, isPending: mediaPending } = useMediaPlayerControl();
+  const { start, pause: pauseVacuum, returnToBase, isPending: vacuumPending } = useVacuumCommand();
 
+  /**
+   * Drive one control.
+   *
+   * `expected` is the state the tile should show while we wait for the poll
+   * to agree — or `null` for an action whose result is not a state we can
+   * name in advance. "Next track" is the honest example: the player stays
+   * `playing` either way, so guessing a state would be inventing one. Those
+   * still get the failure toast; they simply have nothing to be optimistic
+   * about.
+   */
   const run = useCallback(
-    async (entityId: string, expected: string, call: () => Promise<void>) => {
-      expectState(entityId, expected);
+    async (entityId: string, expected: string | null, call: () => Promise<void>) => {
+      if (expected !== null) expectState(entityId, expected);
       try {
         await call();
       } catch {
@@ -227,6 +249,21 @@ export default function HausautomationPage() {
   const [detailFor, setDetailFor] = useState<CatalogueItem | null>(null);
   const detailEntity =
     detailFor && hasEntity(detailFor) ? stateByEntity.get(detailFor.entity_id) : undefined;
+  const detailEntityId = detailFor && hasEntity(detailFor) ? detailFor.entity_id : null;
+  const detailDomain = detailEntityId ? domainOf(detailEntityId) : null;
+  /**
+   * The same rule the tiles use, plus the sheet's own in-flight calls: an
+   * action is offered only when Home Assistant is configured, answering, and
+   * currently reporting a state for this entity — pressing a button that
+   * cannot reach anything is worse than one that is visibly out of reach.
+   */
+  const detailActionsDisabled =
+    !isConnected ||
+    statesError ||
+    !detailEntity ||
+    NO_READING.has(detailEntity.state) ||
+    mediaPending ||
+    vacuumPending;
 
   /**
    * The state a tile shows: the guess if we are holding one, otherwise the
@@ -252,12 +289,14 @@ export default function HausautomationPage() {
       if (domain === "cover" && COVER_STATES.has(state)) return tCover(state);
       if (domain === "lock" && LOCK_STATES.has(state)) return tLock(state);
       if (domain === "media_player" && MEDIA_STATES.has(state)) return tMedia(state);
+      if (domain === "vacuum" && VACUUM_STATES.has(state)) return tVacuum(state);
+      if (domain === "climate" && HVAC_MODES.has(state)) return tHvac(state);
       if (state === "on") return tState("on");
       if (state === "off") return tState("off");
       const unit = entity?.attributes?.unit_of_measurement;
       return unit ? `${state} ${unit}` : state;
     },
-    [t, tState, tCover, tLock, tMedia]
+    [t, tState, tCover, tLock, tMedia, tVacuum, tHvac]
   );
 
   /**
@@ -474,10 +513,15 @@ export default function HausautomationPage() {
       </div>
 
       {/*
-        The detail sheet for media players, thermostats and vacuums. It shows
-        what the entity currently reports rather than offering a single
-        guessed action — the brief's point being that one tap cannot mean
-        play, pause, next and volume at once.
+        The detail sheet for media players, thermostats and vacuums.
+
+        These three route here rather than to a tile control because one tap
+        cannot mean play, pause, next and volume at once — the point is to let
+        the household pick which action they meant, not to withhold the
+        actions. So the sheet names them. `climate` is the exception: there is
+        no thermostat hook to call and inventing a temperature UI is a feature
+        this screen was not asked for, so it says so rather than showing an
+        empty actions block that reads as broken.
       */}
       <Sheet open={detailFor !== null} onOpenChange={(open) => !open && setDetailFor(null)}>
         <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-xl">
@@ -485,28 +529,128 @@ export default function HausautomationPage() {
             <SheetTitle>{detailFor?.name}</SheetTitle>
             <SheetDescription>{detailFor?.entity_id}</SheetDescription>
           </SheetHeader>
-          {detailEntity ? (
+          {detailEntityId && (
             <div className="mt-4 flex flex-col gap-4 text-sm">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">{tDetail("currentStateLabel")}</span>
                 <span className="font-medium">
-                  {labelFor(detailEntity.entity_id, displayState(detailEntity.entity_id), detailEntity)}
+                  {labelFor(detailEntityId, displayState(detailEntityId), detailEntity)}
                 </span>
               </div>
-              <div className="flex flex-col gap-2">
-                <p className="font-medium">{tDetail("attributesHeading")}</p>
-                {Object.entries(detailEntity.attributes ?? {}).map(([key, value]) => (
-                  <div key={key} className="flex items-start justify-between gap-3">
-                    <span className="text-muted-foreground">{key}</span>
-                    <span className="text-right break-all">
-                      {Array.isArray(value) ? value.join(", ") : String(value)}
-                    </span>
+              {detailDomain === "climate" ? (
+                <p className="text-muted-foreground">{tDetail("climateReadOnly")}</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <p className="font-medium">{tDetail("actionsHeading")}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {detailDomain === "media_player" && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={detailActionsDisabled}
+                          onClick={() =>
+                            void run(detailEntityId, null, () => previous(detailEntityId))
+                          }
+                        >
+                          <SkipBack className="mr-1.5 size-3.5" aria-hidden="true" />
+                          {tDetail("mediaPrevious")}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={detailActionsDisabled}
+                          onClick={() =>
+                            void run(detailEntityId, "playing", () => play(detailEntityId))
+                          }
+                        >
+                          <Play className="mr-1.5 size-3.5" aria-hidden="true" />
+                          {tDetail("mediaPlay")}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={detailActionsDisabled}
+                          onClick={() =>
+                            void run(detailEntityId, "paused", () => pauseMedia(detailEntityId))
+                          }
+                        >
+                          <Pause className="mr-1.5 size-3.5" aria-hidden="true" />
+                          {tDetail("mediaPause")}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={detailActionsDisabled}
+                          onClick={() =>
+                            void run(detailEntityId, null, () => next(detailEntityId))
+                          }
+                        >
+                          <SkipForward className="mr-1.5 size-3.5" aria-hidden="true" />
+                          {tDetail("mediaNext")}
+                        </Button>
+                      </>
+                    )}
+                    {detailDomain === "vacuum" && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={detailActionsDisabled}
+                          onClick={() =>
+                            void run(detailEntityId, "cleaning", () => start(detailEntityId))
+                          }
+                        >
+                          <Play className="mr-1.5 size-3.5" aria-hidden="true" />
+                          {tDetail("vacuumStart")}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={detailActionsDisabled}
+                          onClick={() =>
+                            void run(detailEntityId, "paused", () => pauseVacuum(detailEntityId))
+                          }
+                        >
+                          <Pause className="mr-1.5 size-3.5" aria-hidden="true" />
+                          {tDetail("vacuumPause")}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={detailActionsDisabled}
+                          onClick={() =>
+                            void run(detailEntityId, "returning", () => returnToBase(detailEntityId))
+                          }
+                        >
+                          <Home className="mr-1.5 size-3.5" aria-hidden="true" />
+                          {tDetail("vacuumReturn")}
+                        </Button>
+                      </>
+                    )}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
+
+              {/* No state came back at all — Home Assistant is unconfigured or
+                  down. Say that where the attributes would have been, rather
+                  than closing the sheet or leaving a blank panel. */}
+              {detailEntity ? (
+                <div className="flex flex-col gap-2">
+                  <p className="font-medium">{tDetail("attributesHeading")}</p>
+                  {Object.entries(detailEntity.attributes ?? {}).map(([key, value]) => (
+                    <div key={key} className="flex items-start justify-between gap-3">
+                      <span className="text-muted-foreground">{key}</span>
+                      <span className="text-right break-all">
+                        {Array.isArray(value) ? value.join(", ") : String(value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">{tDetail("unavailableNotice")}</p>
+              )}
             </div>
-          ) : (
-            <p className="mt-4 text-sm text-muted-foreground">{tDetail("unavailableNotice")}</p>
           )}
         </SheetContent>
       </Sheet>
