@@ -1103,6 +1103,42 @@ export interface Database {
         };
         Relationships: [];
       };
+      timers: {
+        Row: {
+          id: string;
+          family_id: string;
+          label: string | null;
+          duration_seconds: number;
+          started_at: string;
+          finished_at: string | null;
+          dismissed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          label?: string | null;
+          duration_seconds: number;
+          started_at?: string;
+          finished_at?: string | null;
+          dismissed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          label?: string | null;
+          duration_seconds?: number;
+          started_at?: string;
+          finished_at?: string | null;
+          dismissed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       pocket_money_accounts: {
         Row: {
           id: string;
@@ -1341,6 +1377,10 @@ export type VehicleUpdate = Database["public"]["Tables"]["vehicles"]["Update"];
 export type Ticker = Database["public"]["Tables"]["tickers"]["Row"];
 export type TickerInsert = Database["public"]["Tables"]["tickers"]["Insert"];
 export type TickerUpdate = Database["public"]["Tables"]["tickers"]["Update"];
+
+// Kitchen timer types
+export type Timer = Database["public"]["Tables"]["timers"]["Row"];
+export type TimerInsert = Database["public"]["Tables"]["timers"]["Insert"];
 
 // Pocket Money (Piggy) types
 export type PocketMoneyAccount = Database["public"]["Tables"]["pocket_money_accounts"]["Row"];

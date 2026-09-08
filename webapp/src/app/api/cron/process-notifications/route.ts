@@ -531,6 +531,39 @@ function buildNotificationPayload(
       };
     }
 
+    case "timer": {
+      // Enqueued by /api/timers' POST, one row per timer. `data.label` is only
+      // present when the timer has one (see that route) — the title written
+      // at insert time is an English fallback for a NOT NULL column, not what
+      // gets sent; this renders the real, locale-aware push.
+      if (notifications.length === 1) {
+        const n = notifications[0];
+        const label = n.data?.label as string | undefined;
+        return {
+          title: label ? t("timerReadyTitle", { label }) : t("timerFinishedTitle"),
+          body: t("timerBody"),
+          // Its own tag: a timer ringing must not replace an unrelated push
+          // (or be replaced by one) just because both used a shared tag.
+          tag: `timer-${n.related_entity_id ?? n.id}`,
+          url: "/",
+        };
+      }
+      // Several timers due in the same 30-second tick — the cron interval,
+      // not something a household is likely to do on purpose, but two
+      // presets tapped a few seconds apart can still land together.
+      const labels = notifications.map(
+        (n) => (n.data?.label as string | undefined) || t("timerFinishedTitle"),
+      );
+      return {
+        title: t("timersManyTitle", { count: notifications.length }),
+        body: labels.length <= 3
+          ? labels.join(", ")
+          : `${labels.slice(0, 3).join(", ")} ${t("moreSuffix", { count: labels.length - 3 })}`,
+        tag: "timer-alerts",
+        url: "/",
+      };
+    }
+
     default: {
       const title = notifications[0].title;
       const body = notifications.map((n) => n.body).filter(Boolean).join(", ");

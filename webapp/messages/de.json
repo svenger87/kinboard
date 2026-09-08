@@ -211,7 +211,11 @@
     "birthdayBody": "Geburtstag in {count, plural, one {# Tag} other {# Tagen}}",
     "birthdayToday": "Geburtstag ist heute!",
     "birthdaysMany": "{count} anstehende Geburtstage",
-    "mealPrepTitle": "Morgen auf dem Plan"
+    "mealPrepTitle": "Morgen auf dem Plan",
+    "timerReadyTitle": "{label} ist fertig",
+    "timerFinishedTitle": "Timer abgelaufen",
+    "timerBody": "Der Küchentimer ist fertig",
+    "timersManyTitle": "{count} Timer sind abgelaufen"
   },
   "join": {
     "title": "Kinboard",
@@ -1079,7 +1083,11 @@
       "photosLabel": "Fotos",
       "photosDescription": "Ein Bild aus deiner Mediathek, das über den Tag wechselt — zum Öffnen des Albums antippen",
       "photosPreview1": "Ein Foto aus deiner Mediathek",
-      "photosPreview2": "Wechselt alle 20 Sekunden"
+      "photosPreview2": "Wechselt alle 20 Sekunden",
+      "timersLabel": "Timer",
+      "timersDescription": "Küchentimer mit Presets — ein Tipp genügt, und jeder an diesem Bildschirm sieht, was gerade runterzählt",
+      "timersPreview1": "Noch 04:12",
+      "timersPreview2": "Zum Starten ein Preset antippen"
     },
     "navigation": {
       "title": "Navigation",
@@ -3871,5 +3879,13 @@
     "emptyAlbumBody": "In diesem Ordner sind keine Fotos. Kinboard schaut nicht in Unterordner — öffne stattdessen einen davon.",
     "screensaverOnlyTitle": "Unsplash ist für den Ruhebildschirm",
     "screensaverOnlyBody": "Unsplash liefert eine kuratierte Auswahl, die monatlich wechselt — es gibt kein Album von dir zum Durchblättern, und bei jedem Öffnen dieser Seite eine Seite Fotos anzufordern würde das gemeinsame Limit aufbrauchen. Verbinde Immich, einen DLNA-Server oder ein geteiltes iCloud-Album, um deine eigenen Fotos zu sehen."
+  },
+  "timers": {
+    "title": "Timer",
+    "preset": "{minutes} Min.",
+    "finished": "Zeit abgelaufen",
+    "dismiss": "Verstanden",
+    "stop": "Stoppen",
+    "startFailed": "Timer konnte nicht gestartet werden"
   }
 }

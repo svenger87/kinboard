@@ -11,6 +11,7 @@ import { VehiclesWidget } from "@/components/widgets/vehicles-widget";
 import { StonksWidget } from "@/components/widgets/stonks-widget";
 import { PhotosWidget } from "@/components/widgets/photos-widget";
 import { PocketMoneyWidget } from "@/components/widgets/pocket-money-widget";
+import { TimerWidget } from "@/components/widgets/timer-widget";
 import { NotesWidget } from "@/components/widgets/notes-widget";
 import { TasksWidget } from "@/components/widgets/tasks-widget";
 import { ShoppingWidget } from "@/components/widgets/shopping-widget";
@@ -37,7 +38,19 @@ export default function DashboardPage() {
     "widget_visibility",
     DEFAULT_WIDGET_VISIBILITY
   );
-  const w = widgets ? migrateLegacyWidgetVisibility(widgets) : DEFAULT_WIDGET_VISIBILITY;
+  // Merge the stored blob over the defaults rather than trusting it as-is.
+  // `useSetting` only falls back to `DEFAULT_WIDGET_VISIBILITY` when a family
+  // has *no* widget_visibility row at all — any family that has ever saved
+  // one has a blob shaped like the widget list on the day they saved it, with
+  // no key for anything added since. Read verbatim, a widget added after that
+  // save reads as `undefined` (falsy) forever, no matter what its default
+  // says, which defeats defaulting a new widget on. A key the blob has never
+  // heard of takes its default here; a widget someone deliberately switched
+  // off (an explicit `false`) survives the merge unchanged. General fix —
+  // every widget added from here on hits this the same way.
+  const w = widgets
+    ? { ...DEFAULT_WIDGET_VISIBILITY, ...migrateLegacyWidgetVisibility(widgets) }
+    : DEFAULT_WIDGET_VISIBILITY;
 
   // Enable keyboard shortcuts for navigation
   useKeyboardShortcuts();
@@ -136,6 +149,7 @@ export default function DashboardPage() {
           {w.stonks && <StonksWidget />}
           {w.pocketMoney && <PocketMoneyWidget />}
           {w.photos && <PhotosWidget />}
+          {w.timers && <TimerWidget />}
         </section>
       </div>
     </main>
