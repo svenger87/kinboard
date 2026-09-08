@@ -407,22 +407,30 @@ export default function CataloguePage() {
     }
   }
 
-  const roomsInOrder = useMemo(() => {
-    const rooms = new Set<string>();
-    for (const item of catalogue) if (item.room) rooms.add(item.room);
-    return Array.from(rooms).sort((a, b) => a.localeCompare(b));
-  }, [catalogue]);
-
+  /**
+   * Grouped by `room_id`, never by the legacy free-text `room` — that field
+   * stays in the database unread, which only means something if this screen
+   * actually doesn't read it. `rooms` is already ordered by position then
+   * name (`useRooms()`), so iterating it directly gives the right heading
+   * order for free.
+   *
+   * A `room_id` pointing at a room that no longer exists (shouldn't happen —
+   * the FK is `ON DELETE SET NULL` — but asserted defensively) falls into
+   * the same "no room" bucket as a null one, rather than vanishing.
+   */
   const grouped = useMemo(() => {
-    const map = new Map<string, CatalogueItem[]>();
-    for (const room of roomsInOrder) map.set(room, []);
+    const byRoom = new Map<string, CatalogueItem[]>();
+    for (const room of rooms) byRoom.set(room.id, []);
     const unroomed: CatalogueItem[] = [];
     for (const item of catalogue) {
-      if (item.room) map.get(item.room)!.push(item);
-      else unroomed.push(item);
+      if (item.room_id && byRoom.has(item.room_id)) {
+        byRoom.get(item.room_id)!.push(item);
+      } else {
+        unroomed.push(item);
+      }
     }
-    return { map, unroomed };
-  }, [catalogue, roomsInOrder]);
+    return { byRoom, unroomed };
+  }, [catalogue, rooms]);
 
   return (
     <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
@@ -481,17 +489,18 @@ export default function CataloguePage() {
           />
         ) : (
           <div className="flex flex-col gap-6">
-            {roomsInOrder.map((room) => {
-              const items = grouped.map.get(room) ?? [];
+            {rooms.map((room) => {
+              const items = grouped.byRoom.get(room.id) ?? [];
               if (items.length === 0) return null;
               return (
-                <div key={room} className="flex flex-col gap-2">
-                  <h2 className="px-1 text-sm font-medium text-muted-foreground">{room}</h2>
+                <div key={room.id} className="flex flex-col gap-2">
+                  <h2 className="px-1 text-sm font-medium text-muted-foreground">{room.name}</h2>
                   <div className="flex flex-col gap-2">
                     {items.map((item) => (
                       <DeviceRow
                         key={item.id}
                         item={item}
+                        roomLabel={room.name}
                         state={item.entity_id ? stateByEntityId.get(item.entity_id) : undefined}
                         t={t}
                         tCommon={tCommon}
@@ -511,6 +520,7 @@ export default function CataloguePage() {
                     <DeviceRow
                       key={item.id}
                       item={item}
+                      roomLabel={t("roomNone")}
                       state={item.entity_id ? stateByEntityId.get(item.entity_id) : undefined}
                       t={t}
                       tCommon={tCommon}
@@ -633,6 +643,7 @@ export default function CataloguePage() {
 
 function DeviceRow({
   item,
+  roomLabel,
   state,
   t,
   tCommon,
@@ -640,6 +651,13 @@ function DeviceRow({
   onDelete,
 }: {
   item: CatalogueItem;
+  /**
+   * The heading of the group this row is rendered under — resolved from
+   * `room_id` by the caller, never from the legacy `room` text. Passed in
+   * rather than looked up again here so there is exactly one place on this
+   * page that decides a device's room.
+   */
+  roomLabel: string;
   state: HAEntity | undefined;
   t: ReturnType<typeof useTranslations>;
   tCommon: ReturnType<typeof useTranslations>;
@@ -659,7 +677,7 @@ function DeviceRow({
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{item.name}</p>
-        <p className="truncate text-xs text-muted-foreground">{item.room || t("roomNone")}</p>
+        <p className="truncate text-xs text-muted-foreground">{roomLabel}</p>
       </div>
       {item.kind === "ha_entity" && (
         <Badge variant={state ? "secondary" : "neutral"} className="shrink-0">
