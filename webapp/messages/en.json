@@ -3131,7 +3131,7 @@
     "saveFailed": "Could not save that",
     "unavailable": "Not reachable",
     "importRooms": "Fill in rooms from Home Assistant",
-    "importedRooms": "Placed {count} devices"
+    "importedRooms": "{count, plural, one {Placed # device} other {Placed # devices}}"
   },
   "dashboard": {
     "ariaClock": "Clock and family members",

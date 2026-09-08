@@ -3131,7 +3131,7 @@
     "saveFailed": "Impossible d'enregistrer",
     "unavailable": "Injoignable",
     "importRooms": "Compléter les pièces depuis Home Assistant",
-    "importedRooms": "{count} appareils placés"
+    "importedRooms": "{count, plural, one {# appareil placé} other {# appareils placés}}"
   },
   "dashboard": {
     "ariaClock": "Horloge et membres de la famille",
