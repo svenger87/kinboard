@@ -157,17 +157,32 @@ export function useTakeoverMessage(): Message | null {
 }
 
 /**
- * Read `?message=<id>` once, on mount, from the URL itself.
+ * Read `?message=<id>` once, on mount, from the URL itself — then strip it.
  *
  * Deliberately not `useSearchParams`: that pulls the dashboard into a Suspense
  * boundary requirement at build time, and this needs one value once. A
  * notification click navigates an existing window (sw.js), which remounts the
  * page, so once is enough.
+ *
+ * The parameter is removed with `history.replaceState` right after it's read,
+ * not just held in component state. Reading it once already stops a second
+ * *notification* from resurrecting it — but not a reload, or any later
+ * navigation that lands back on `/?message=<id>` from history — and a screen
+ * parked on a stale link was finding 1: it never raised another takeover for
+ * the rest of its life, because nothing ever cleared what it was pinned to.
+ * `useBoardMessage` below also stops trusting this over a live takeover, which
+ * is the other half of that fix; this half is what makes "read" mean
+ * "consumed" rather than "remembered for as long as the tab is open".
  */
 function useRequestedMessageId(): string | null {
   const [id, setId] = useState<string | null>(null);
   useEffect(() => {
-    setId(new URLSearchParams(window.location.search).get("message"));
+    const url = new URL(window.location.href);
+    const requested = url.searchParams.get("message");
+    if (!requested) return;
+    setId(requested);
+    url.searchParams.delete("message");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
   }, []);
   return id;
 }
@@ -180,12 +195,21 @@ function useRequestedMessageId(): string | null {
  * widget did not, so a deep link to a message whose minute had passed showed
  * up in both places at once.
  *
- * A deep-linked id wins outright, even past its minute and even already
- * acknowledged — RFC-005 §3.3. It is not in `useMessages()`'s list either
- * way (that endpoint only returns unacknowledged rows), so an id that isn't
- * found there is fetched by itself; the caller reads `acknowledged_at` on the
- * result to tell an active message from one somebody already dealt with.
- * With no deep link, this is just `useTakeoverMessage()`.
+ * A live takeover outranks a requested id. `?message=<id>` answers "what did
+ * that notification mean" — it is right that it can raise a message past its
+ * minute, or one already acknowledged, that would otherwise show nothing at
+ * all. But a message still inside its minute is somebody being told something
+ * *now*, and a screen parked on an old deep link must not sit on it forever:
+ * that was finding 1, reproduced live — a fresh message inside its window
+ * never took the board on a screen still showing `?message=<stale>`, because
+ * the deep link won unconditionally and never let go. Preferring the takeover
+ * here, with the URL-stripping above, is what stops it winning twice.
+ *
+ * It is not in `useMessages()`'s list either way (that endpoint only returns
+ * unacknowledged rows), so a deep-linked id that isn't found there is fetched
+ * by itself; the caller reads `acknowledged_at` on the result to tell an
+ * active message from one somebody already dealt with. With no deep link and
+ * no live takeover, this is null.
  */
 export function useBoardMessage(): Message | null {
   const { family } = useFamilyStore();
@@ -197,7 +221,7 @@ export function useBoardMessage(): Message | null {
 
   const { data: fetched = null } = useQuery({
     queryKey: [KEY, "byId", requestedId],
-    enabled: Boolean(requestedId) && !inList,
+    enabled: Boolean(requestedId) && !inList && Boolean(family?.id),
     queryFn: async (): Promise<Message> => {
       const r = await fetch(`/api/messages/${requestedId}?family_id=${family!.id}`);
       if (!r.ok) throw new Error(`message: ${r.status}`);
@@ -205,6 +229,7 @@ export function useBoardMessage(): Message | null {
     },
   });
 
+  if (takeoverMessage) return takeoverMessage;
   if (requestedId) return inList ?? fetched;
-  return takeoverMessage;
+  return null;
 }

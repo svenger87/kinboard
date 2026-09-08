@@ -42,7 +42,7 @@ END $$;
 -- exactly how `timers` shipped working on one machine and dead everywhere else.
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables
-    WHERE pubname='supabase_realtime' AND tablename='messages') THEN
+    WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='messages') THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
   END IF;
 END $$;

@@ -85,9 +85,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error?.message ?? "could not send" }, { status: 500 });
   }
 
-  await pushToEveryoneElse(supabase, familyId, senderDeviceId, message.id, body);
+  await withPushTimeout(pushToEveryoneElse(supabase, familyId, senderDeviceId, message.id, body));
 
   return NextResponse.json({ message });
+}
+
+// A blackholed push endpoint — a household behind a filtering firewall is the
+// realistic case — can leave `sendPushToMultiple` (via `pushToEveryoneElse`)
+// waiting on a socket for minutes; nothing in `push-sender.ts` sets one of its
+// own, and that file is shared with the cron processor, so it is not touched
+// here. Racing the push phase against a timer caps how long this response can
+// be held open by it. The row is already written and every other screen
+// already has it over realtime by this point, so a push that hasn't finished
+// in time is merely late, not lost — the in-flight sends keep running, they
+// just stop blocking the reply. What must not happen is the sender's dialog
+// sitting open with their own words still in the draft box because the one
+// device that knows what they typed is waiting on a phone that will never ACK.
+const PUSH_TIMEOUT_MS = 5_000;
+
+function withPushTimeout(push: Promise<void>): Promise<void> {
+  return Promise.race([push, new Promise<void>((resolve) => setTimeout(resolve, PUSH_TIMEOUT_MS))]);
 }
 
 /**
