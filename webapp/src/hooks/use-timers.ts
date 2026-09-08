@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
 import type { Timer } from "@/types/database";
+import { timerState } from "@/lib/timer-math";
 
 const KEY = "timers";
 
@@ -34,6 +36,30 @@ export function useTimers() {
       return ((await r.json()) as { timers: Timer[] }).timers;
     },
   });
+}
+
+/**
+ * True while any not-yet-dismissed timer has passed its end.
+ *
+ * Exists so `ScreensaverProvider` can hold the screensaver off during an
+ * alarm — see the call site in providers.tsx. It needs its own clock: unlike
+ * the widget, nothing else re-renders this hook's caller on a tick, so it
+ * runs a 1-second interval of its own, active only while there is a timer
+ * that has not yet ended (mirrors `hasRunning` in timer-widget.tsx), and
+ * cleaned up once there isn't.
+ */
+export function useRingingTimer(): boolean {
+  const { data: timers = [] } = useTimers();
+  const [now, setNow] = useState(() => new Date());
+
+  const hasPending = timers.some((x) => timerState(x, now) === "running");
+  useEffect(() => {
+    if (!hasPending) return;
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, [hasPending]);
+
+  return timers.some((x) => timerState(x, now) === "finished");
 }
 
 export function useStartTimer() {

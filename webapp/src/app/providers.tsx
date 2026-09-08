@@ -10,6 +10,7 @@ import { useReturnToDashboard } from "@/hooks/use-return-to-dashboard";
 import { useIsHandheld } from "@/hooks/use-is-handheld";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { usePresence } from "@/hooks/use-presence";
+import { useRingingTimer } from "@/hooks/use-timers";
 import { useFamilyStore } from "@/stores/family-store";
 import { Screensaver } from "@/components/screensaver";
 import { AuthGuard } from "@/components/auth-guard";
@@ -144,8 +145,15 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   const isHandheld = useIsHandheld();
   const suppressForViewport = isHandheld && !(device?.is_kiosk ?? false);
 
+  // The idle timer is right about idleness and wrong about what idleness
+  // means while an alarm is going: every preset (3-15 min) outlasts the
+  // default 120s screensaver timeout, so the ordinary case was tap a preset,
+  // walk away, and have the alarm ring behind a photo slideshow nobody sees.
+  // A ringing timer holds the screensaver off until it's dismissed.
+  const ringingTimer = useRingingTimer();
+
   // Hide nav bars during screensaver to save GPU (backdrop-blur is expensive on ARM)
-  const showScreensaver = isIdle && !skipScreensaver && !suppressForViewport;
+  const showScreensaver = isIdle && !skipScreensaver && !suppressForViewport && !ringingTimer;
   useEffect(() => {
     if (showScreensaver) {
       document.documentElement.setAttribute("data-screensaver", "true");
