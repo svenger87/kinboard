@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { useTranslations } from "next-intl";
@@ -393,19 +393,64 @@ export default function RoomsSettingsPage() {
     }
   };
 
-  // Persist the final drop order, not every intermediate swap — one
-  // PATCH per room whose position actually moved.
-  const persistOrder = (next: Room[]) => {
-    next.forEach((room, index) => {
-      if (room.position !== index) {
-        updateRoom.mutate(
-          { id: room.id, position: index },
-          {
-            onError: () => toast.error(t("toastReorderFailed")),
-          },
-        );
-      }
-    });
+  // Blocks a second drag from starting while a reorder batch is still
+  // saving. Chosen over "make the in-flight batch authoritative": two
+  // batches racing PATCHes for overlapping rooms has no correct merge
+  // (whichever response lands last wins, regardless of which drag the
+  // household actually meant last), and a wall panel losing the ability to
+  // grab a card for the ~200-500ms a batch takes is a far smaller cost than
+  // that. `dragListener={false}` on every item is what actually enforces
+  // it below — this flag also gates the revert logic in persistOrder.
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+
+  // Snapshot of orderIds from just before the current drag gesture, so a
+  // failed save can restore exactly that — not whatever `roomsQuery.data`
+  // happens to contain, which the id-set-only resync effect above won't
+  // have refreshed for a pure reorder anyway. Set on every drag start;
+  // consumed and cleared in persistOrder.
+  const dragStartIdsRef = useRef<string[] | null>(null);
+  const handleDragStart = () => {
+    dragStartIdsRef.current = orderIds;
+  };
+
+  // Persist the final drop order, not every intermediate swap — one PATCH
+  // per room whose position actually moved, sent as a batch.
+  //
+  // What failure looked like before this existed: `updateRoom.mutate(...)`
+  // fired per room with only an `onError` toast — nothing reverted
+  // `orderIds`, and the id-set-only resync effect above never runs for a
+  // pure reorder (the set of ids is unchanged), so a card that failed to
+  // save its new position just sat there showing an order the server never
+  // agreed to, until some unrelated add or delete happened to resync it.
+  // On a wall panel nobody is watching for a toast, that's a silent lie
+  // about the plan's real order. So: if any PATCH in the batch fails, the
+  // whole local order snaps back to its pre-drag snapshot immediately, and
+  // then an explicit refetch pulls in the query's real truth — which may
+  // differ from the snapshot if part of the batch actually landed before
+  // the failure. Do not "simplify" this back to a bare per-item toast.
+  const persistOrder = async (next: Room[]) => {
+    const previousIds = dragStartIdsRef.current;
+    dragStartIdsRef.current = null;
+    if (!previousIds) return;
+
+    const moves = next
+      .map((room, index) => ({ id: room.id, position: index, moved: room.position !== index }))
+      .filter((m) => m.moved);
+    if (moves.length === 0) return;
+
+    setIsSavingOrder(true);
+    try {
+      await Promise.all(
+        moves.map((m) => updateRoom.mutateAsync({ id: m.id, position: m.position })),
+      );
+    } catch {
+      toast.error(t("toastReorderFailed"));
+      setOrderIds(previousIds);
+      const fresh = await roomsQuery.refetch();
+      if (fresh.data) setOrderIds(fresh.data.map((r) => r.id));
+    } finally {
+      setIsSavingOrder(false);
+    }
   };
 
   const handleReorder = (next: Room[]) => {
@@ -483,8 +528,14 @@ export default function RoomsSettingsPage() {
                 <Reorder.Item
                   key={room.id}
                   value={room}
-                  onDragEnd={() => persistOrder(order)}
-                  className="cursor-grab active:cursor-grabbing"
+                  dragListener={!isSavingOrder}
+                  onDragStart={handleDragStart}
+                  onDragEnd={() => void persistOrder(order)}
+                  className={
+                    isSavingOrder
+                      ? "cursor-wait opacity-80"
+                      : "cursor-grab active:cursor-grabbing"
+                  }
                 >
                   <RoomCard
                     room={room}

@@ -96,7 +96,15 @@ export function useUpdateRoomRow() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ family_id: family!.id, ...patch }),
       });
-      if (!r.ok) throw new Error(`rooms update: ${r.status}`);
+      if (!r.ok) {
+        // A rename can collide with an existing room exactly the way an add
+        // can — `PATCH /api/rooms/[id]` returns the same 409 as POST does —
+        // so it gets the same mapping. A 400/500/network failure must NOT
+        // become this: telling somebody their name is taken when the real
+        // problem is the backend being down is a worse lie than a vague one.
+        if (r.status === 409) throw new RoomDuplicateError();
+        throw new Error(`rooms update: ${r.status}`);
+      }
       return ((await r.json()) as { room: Room }).room;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY, family?.id] }),
