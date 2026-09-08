@@ -166,6 +166,7 @@ import {
 } from "@/hooks";
 import type { Subject, Json } from "@/types/database";
 import { DEFAULT_PACK_ITEMS, type PackItemConfig } from "@/lib/schedule-pack-items";
+import { useTimeFormat } from "@/hooks/use-time-format";
 
 // Pack items configuration type
 
@@ -382,7 +383,36 @@ export default function ScheduleSettingsPage() {
     DEFAULT_PERIODS
   );
   const updateSetting = useUpdateSetting<PeriodConfig[]>();
-  const periods = savedPeriods || DEFAULT_PERIODS;
+  /*
+    Period times are stored as "HH:MM" wall-clock strings and were printed
+    straight into the page, so they stayed 24-hour however the switch under
+    Settings → Design was set (issue #244). `formatWallClock` is the same
+    renderer the weather widget's sunrise and sunset use — a stored clock time,
+    re-rendered for the household's preference, never re-interpreted as an
+    instant in some zone.
+
+    The `<input type="time">` fields in the period editor are deliberately NOT
+    routed through it: a native time input takes and returns "HH:MM" and asks
+    the browser to display it in the user's own convention, which is why the
+    editor was already correct in the report.
+  */
+  const { formatWallClock } = useTimeFormat();
+  /*
+    Displayed in clock order, whatever order they were added in.
+
+    Periods are stored as a plain array and a household can add a 07:45 slot
+    after a 17:00 one; shown in insertion order that reads as a mistake in the
+    data rather than in the list (issue #245). Sorted on read as well as on
+    save, so schedules created before this keep their numbering and still read
+    correctly.
+
+    Sorting by `start` and not by `num`: `num` is an identity that survives
+    deletions and therefore has gaps and no chronological meaning.
+  */
+  const periods = useMemo(
+    () => [...(savedPeriods || DEFAULT_PERIODS)].sort((a, b) => a.start.localeCompare(b.start)),
+    [savedPeriods],
+  );
 
   // Filter to only children
   const children = useMemo(
@@ -624,10 +654,23 @@ export default function ScheduleSettingsPage() {
     setPeriodsDialogOpen(true);
   };
 
+  /*
+    `num` is an identity, not a position.
+
+    Every assigned lesson is a TimeSlot carrying `period: <num>`, so a number
+    that moves takes somebody's Tuesday with it. A new period therefore takes
+    one past the highest ever used — never the array length, and never a number
+    freed by a deletion, because a reused number silently adopts the slots that
+    belonged to the period it replaced (issue #246: a subject reappeared in a
+    block nobody had assigned it to).
+
+    The last period by clock time seeds the new one's times, which is not
+    necessarily the last in the array now that the list is stored unsorted.
+  */
   const handleAddPeriod = () => {
-    const lastPeriod = editingPeriods[editingPeriods.length - 1];
-    const newNum = lastPeriod ? lastPeriod.num + 1 : 1;
-    const newStart = lastPeriod ? addMinutes(lastPeriod.end, 5) : "08:00";
+    const latest = [...editingPeriods].sort((a, b) => a.start.localeCompare(b.start)).pop();
+    const newNum = editingPeriods.reduce((max, p) => Math.max(max, p.num), 0) + 1;
+    const newStart = latest ? addMinutes(latest.end, 5) : "08:00";
     const newEnd = addMinutes(newStart, 45);
     setEditingPeriods([...editingPeriods, { num: newNum, start: newStart, end: newEnd }]);
   };
@@ -638,17 +681,31 @@ export default function ScheduleSettingsPage() {
     setEditingPeriods(updated);
   };
 
+  /*
+    Removing a period must not renumber the ones that remain.
+
+    It used to: `updated.map((p, i) => ({ ...p, num: i + 1 }))`. Deleting the
+    17:00 block therefore renamed period 6 to 5, and every lesson stored as
+    `period: 5` — the bus, in the report — was suddenly drawn against a
+    different time (issue #246). Nothing warned, because the slots were still
+    perfectly valid rows pointing at a number that had changed meaning.
+
+    Now the survivors keep their numbers and the gap simply stays a gap.
+  */
   const handleRemovePeriod = (index: number) => {
-    const updated = editingPeriods.filter((_, i) => i !== index);
-    const renumbered = updated.map((p, i) => ({ ...p, num: i + 1 }));
-    setEditingPeriods(renumbered);
+    setEditingPeriods(editingPeriods.filter((_, i) => i !== index));
   };
 
   const handleSavePeriods = async () => {
     try {
+      /*
+        Sorted here rather than while editing: re-sorting live would move a row
+        out from under the cursor as soon as somebody typed an hour that
+        reordered it. The list settles when they press save.
+      */
       await updateSetting.mutateAsync({
         key: "schedule_periods",
-        value: editingPeriods,
+        value: [...editingPeriods].sort((a, b) => a.start.localeCompare(b.start)),
       });
       setPeriodsDialogOpen(false);
     } catch {
@@ -1070,8 +1127,8 @@ export default function ScheduleSettingsPage() {
                     <tr key={period.num} className="border-t border-border/30">
                       <td className="p-2 text-xs text-muted-foreground">
                         <div className="font-medium">{period.num}.</div>
-                        <div>{period.start}</div>
-                        <div>{period.end}</div>
+                        <div>{formatWallClock(period.start)}</div>
+                        <div>{formatWallClock(period.end)}</div>
                       </td>
                       {Array.from({ length: 5 }, (_, dayIndex) => {
                         const slot = getSlotForPeriod(dayIndex + 1, period.num);
@@ -1125,7 +1182,7 @@ export default function ScheduleSettingsPage() {
                                         <span className="text-muted-foreground">
                                           {t("popoverTimeLabel")}
                                         </span>{" "}
-                                        {slot.start} - {slot.end}
+                                        {formatWallClock(slot.start)} - {formatWallClock(slot.end)}
                                       </p>
                                       {slot.room && (
                                         <p>

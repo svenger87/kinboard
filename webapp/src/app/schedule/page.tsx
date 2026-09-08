@@ -122,6 +122,7 @@ import { useTranslations } from "next-intl";
 import { useSchedules, usePeople, useSubjects, useSetting, useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
 import type { Person, Subject } from "@/types/database";
 import { DEFAULT_PACK_ITEMS, type PackItemConfig } from "@/lib/schedule-pack-items";
+import { useTimeFormat } from "@/hooks/use-time-format";
 
 interface TimeSlot {
   period: number;
@@ -167,6 +168,10 @@ function getIconByName(iconName: string | null): LucideIcon {
 }
 
 export default function SchedulePage() {
+  // Period times are stored as "HH:MM" and were printed raw, so they stayed
+  // 24-hour whatever Settings → Design said (issue #244). Same renderer the
+  // weather widget uses for sunrise and sunset.
+  const { formatWallClock } = useTimeFormat();
   useKeyboardShortcuts();
   useSwipeNavigation();
 
@@ -509,7 +514,7 @@ export default function SchedulePage() {
                         </Badge>
                         {firstSlot && (
                           <span className="text-sm text-muted-foreground">
-                            {t("firstLessonAt", { time: firstSlot.start })}
+                            {t("firstLessonAt", { time: formatWallClock(firstSlot.start) })}
                           </span>
                         )}
                       </div>
@@ -529,7 +534,7 @@ export default function SchedulePage() {
                           {currentLesson.subject}
                         </div>
                         <span className="text-xs text-muted-foreground">
-                          {t("periodWithTime", { period: currentLesson.period, start: currentLesson.start, end: currentLesson.end })}
+                          {t("periodWithTime", { period: currentLesson.period, start: formatWallClock(currentLesson.start), end: formatWallClock(currentLesson.end) })}
                         </span>
                         {nextLesson && (
                           <span className="text-xs text-muted-foreground hidden sm:inline">
@@ -545,7 +550,7 @@ export default function SchedulePage() {
                         <span className="text-base text-muted-foreground">
                           {t.rich("nextPeriod", {
                             subject: nextLesson.subject,
-                            time: nextLesson.start,
+                            time: formatWallClock(nextLesson.start),
                             bold: (chunks) => (
                               <span className="font-medium text-foreground">{chunks}</span>
                             ),
@@ -640,7 +645,7 @@ export default function SchedulePage() {
                             >
                               <div className="text-xs text-muted-foreground w-10 shrink-0 text-center">
                                 <div className="font-medium tabular-nums">{period}.</div>
-                                <div className="text-3xs tabular-nums">{slot.start}</div>
+                                <div className="text-3xs tabular-nums">{formatWallClock(slot.start)}</div>
                               </div>
                               <div
                                 className="flex-1 flex items-center gap-2 p-2.5 rounded-lg"
@@ -701,7 +706,7 @@ export default function SchedulePage() {
                         for (let d = 0; d < 5; d++) {
                           const slot = grid[d]?.[period];
                           if (slot) {
-                            periodTime = `${slot.start}`;
+                            periodTime = formatWallClock(slot.start);
                             break;
                           }
                         }
@@ -879,7 +884,7 @@ export default function SchedulePage() {
                         style={{ borderLeft: `3px solid ${color}` }}
                       >
                         <span className="text-xs font-bold tabular-nums" style={{ color: personText(color) }}>
-                          {slot.start}
+                          {formatWallClock(slot.start)}
                         </span>
                         <SubjectIcon className="size-4 shrink-0" strokeWidth={1.75} style={{ color: personText(color) }} />
                         <span className="flex-1 text-sm font-semibold">{slot.subject}</span>
