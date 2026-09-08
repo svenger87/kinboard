@@ -21,7 +21,10 @@ export function unlockTone(): void {
       if (!Ctor) return;
       ctx = new Ctor();
     }
-    if (ctx.state === "suspended") void ctx.resume();
+    // `resume()` rejects outright on a device with no audio hardware. Left
+    // unhandled that becomes an unhandled rejection in the logs for something
+    // nobody can act on — the tone just stays off, which is already allowed for.
+    if (ctx.state === "suspended") ctx.resume().catch(() => undefined);
   } catch {
     // An AudioContext we cannot create is one we cannot use. The visual alarm
     // still fires; there is nothing to report to the user about this.
