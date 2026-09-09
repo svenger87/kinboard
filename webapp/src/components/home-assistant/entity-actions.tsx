@@ -26,7 +26,7 @@
  * domain.
  */
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
@@ -47,6 +47,7 @@ import {
   fanPowerButtons, optionList, supportsBrightness, supportsColorTemp, supportsFeature,
 } from "@/lib/ha-features";
 import { classifyEntityState } from "@/lib/ha-entity-display";
+import { OPTIMISTIC_SETTLE_MS } from "@/lib/home-assistant-optimism";
 import type { HAEntity } from "@/types/home-assistant";
 
 // ── Small shared pieces ───────────────────────────────────────────────────
@@ -162,28 +163,68 @@ function OptionRow({
  *    `20.0 + 0.5` and the room ends up half a degree warmer instead of one and
  *    a half.
  *
- * A *successful* pending value survives until the source actually moves — not
- * until the call returns — so the control does not snap back to a stale
- * reading in the gap between the release and the next poll.
+ * A pending value has exactly **three** ways to end — the same three
+ * `page.tsx`'s tiles have. Fewer than three is a way of being confidently
+ * wrong for as long as the panel is on:
  *
- * A **rejected** one is dropped immediately, and that asymmetry is the point.
- * Waiting for the source to move cannot work when the call failed: the light
- * stayed at 20%, so the next poll returns 20% again, the source never moves,
- * and the slider sits at the 80% nobody achieved — for as long as the panel is
- * on, with the toast that explained it long gone. Being one poll behind is a
- * different thing from being confidently wrong. `page.tsx`'s tiles drop their
- * optimistic state on failure for exactly this reason; sliders behave the same
- * way so a household does not learn two rules.
+ * - **The source moves.** The usual case, and the reason a *successful* value
+ *   is not dropped the moment the call returns: the control would snap back to
+ *   a one-poll-old reading in the gap before Home Assistant catches up.
+ * - **The call fails.** Waiting for the source cannot work here — the light
+ *   stayed at 20%, so the poll returns 20% again and the source never moves.
+ *   The thumb would sit at the 80% nobody achieved, with the toast that
+ *   explained it long gone.
+ * - **`OPTIMISTIC_SETTLE_MS` elapses.** The one that is easy to forget: Home
+ *   Assistant *accepted* the call and returned 200, and the device did
+ *   nothing. A Zigbee bulb that has drifted out of radio range fails exactly
+ *   this way — the call resolves true, the reading never moves, and without
+ *   the timeout the slider reads 80% for a bulb that is still dim. On a
+ *   stepper each tap then compounds off that fiction, so three taps at an
+ *   unreachable thermostat leave the panel reading 21.5° against a device
+ *   sitting at 20.0°, permanently.
+ *
+ * Being one poll behind is a different thing from being confidently wrong.
  */
 function usePendingNumber<T extends number | undefined>(source: T) {
-  const [pending, setPending] = useState<number | null>(null);
+  const [pending, setPendingState] = useState<number | null>(null);
   const [seen, setSeen] = useState<T>(source);
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Adjusting state during render rather than in an effect: this is a
-  // derivation, and an effect would render the stale value once first.
+  /**
+   * Set the pending value, or drop it with `null`.
+   *
+   * Setting one re-arms the settle from scratch, so a household still moving
+   * the thumb is not cut off by a timer armed for an earlier position.
+   */
+  const setPending = useCallback((value: number | null) => {
+    if (settle.current) clearTimeout(settle.current);
+    settle.current = null;
+    setPendingState(value);
+    if (value === null) return;
+    settle.current = setTimeout(() => {
+      settle.current = null;
+      setPendingState(null);
+    }, OPTIMISTIC_SETTLE_MS);
+  }, []);
+
+  // Nothing should keep firing after the sheet is closed.
+  useEffect(
+    () => () => {
+      if (settle.current) clearTimeout(settle.current);
+    },
+    [],
+  );
+
+  /*
+    Adjusting state during render rather than in an effect: this is a
+    derivation, and an effect would render the stale value once first. The
+    timer is deliberately left running — its callback sets `null` on a value
+    that is already `null`, which React bails out of, and touching the ref
+    during render would be a side effect in the one place it does not belong.
+  */
   if (source !== seen) {
     setSeen(source);
-    setPending(null);
+    setPendingState(null);
   }
 
   const shown = (pending ?? source) as T extends undefined ? number | undefined : number;

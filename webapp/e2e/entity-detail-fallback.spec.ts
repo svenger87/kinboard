@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { codeOnly } from "./source-helpers";
 import {
@@ -27,6 +27,7 @@ import {
   supportsColorTemp,
   supportsFeature,
 } from "../src/lib/ha-features";
+import { OPTIMISTIC_SETTLE_MS, POLL_MS } from "../src/lib/home-assistant-optimism";
 
 /**
  * The detail sheet against a domain nobody has heard of — RFC-008 §5.
@@ -770,5 +771,87 @@ test.describe("a call Home Assistant refused", () => {
       readFileSync(join(__dirname, "../src/app/home-automation/page.tsx"), "utf8"),
     );
     expect(page).toMatch(/catch \{\s*\n\s*forget\(entityId\);\s*\n\s*toast\.error/);
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────
+   Fix round 4 — the third exit: a 200 that does nothing.
+
+   A pending value ends three ways: the source moves, the call fails, or the
+   settle elapses. The third is the one that is easy to forget, because it is
+   the only one where *nothing happens at all* — Home Assistant accepted the
+   call, returned 200, and a Zigbee bulb out of radio range never lit. The
+   reading therefore never moves, and a control that waits for it reads 80%
+   for a lamp that is still dim, for as long as the panel is on.
+
+   Read the honesty note above the round-3 block: the behavioural check needs
+   a rendered sheet and cannot ship yet. What follows splits into two kinds,
+   and the difference matters —
+
+   - the constant checks are **real**: one definition, derived from `POLL_MS`,
+     imported by both surfaces. A second copy of the number, or a settle
+     shorter than a poll, goes red here whatever the code around it looks like.
+   - the source checks are **text**, and a refactor that keeps the text and
+     breaks the behaviour would pass them. They are worth having as a tripwire
+     and they are not worth mistaking for the browser test.
+   ──────────────────────────────────────────────────────────────────────── */
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return sourceFiles(path);
+    return /\.tsx?$/.test(entry.name) ? [path] : [];
+  });
+}
+
+test.describe("the optimistic settle — one rule, two surfaces", () => {
+  test("the settle outlasts a poll, and is derived from it", () => {
+    // A settle shorter than the poll would snap a control back before the
+    // truth could possibly arrive, turning every merely-slow device into a
+    // flicker.
+    expect(OPTIMISTIC_SETTLE_MS).toBeGreaterThan(POLL_MS);
+    expect(OPTIMISTIC_SETTLE_MS).toBe(POLL_MS + 5_000);
+    // It also has to fit inside a household's patience.
+    expect(OPTIMISTIC_SETTLE_MS).toBeLessThanOrEqual(30_000);
+  });
+
+  test("there is exactly one definition of each, and it is the shared one", () => {
+    /*
+      This is the guard with teeth. The tiles and the sheet must not be able to
+      drift apart by someone copying the number into a second file — which is
+      how the two surfaces came to disagree about the third exit in the first
+      place.
+    */
+    const definitions = sourceFiles(join(__dirname, "../src"))
+      .map((path) => [path, readFileSync(path, "utf8")] as const)
+      .filter(([, source]) => /^\s*(export\s+)?const\s+OPTIMISTIC_SETTLE_MS\s*=/m.test(source))
+      .map(([path]) => path.replace(/.*\/src\//, "src/"));
+
+    expect(definitions).toEqual(["src/lib/home-assistant-optimism.ts"]);
+  });
+
+  test("both surfaces import it rather than defining their own", () => {
+    for (const path of [
+      "../src/app/home-automation/page.tsx",
+      "../src/components/home-assistant/entity-actions.tsx",
+    ]) {
+      const source = readFileSync(join(__dirname, path), "utf8");
+      expect(source, path).toContain('from "@/lib/home-assistant-optimism"');
+      expect(source, path).not.toMatch(/const\s+OPTIMISTIC_SETTLE_MS\s*=/);
+    }
+  });
+
+  test("the pending value arms it, re-arms it, and does not outlive the sheet", () => {
+    // Text, not behaviour — see the note above.
+    const start = actionsSource.indexOf("function usePendingNumber<");
+    const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
+
+    expect(body).toContain("OPTIMISTIC_SETTLE_MS");
+    expect(body).toMatch(/setTimeout\(\(\) => \{[\s\S]*?setPendingState\(null\);[\s\S]*?\}, OPTIMISTIC_SETTLE_MS\)/);
+    // Re-arming: a household still moving the thumb must not be cut off by a
+    // timer armed for an earlier position.
+    expect(body).toMatch(/if \(settle\.current\) clearTimeout\(settle\.current\);\s*\n\s*settle\.current = null;\s*\n\s*setPendingState\(value\);/);
+    // Nothing keeps firing after the sheet closes.
+    expect(body).toMatch(/useEffect\(\s*\n?\s*\(\) => \(\) => \{\s*\n\s*if \(settle\.current\) clearTimeout\(settle\.current\);/);
   });
 });

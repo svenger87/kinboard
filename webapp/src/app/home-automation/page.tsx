@@ -52,31 +52,14 @@ import { useCatalogue } from "@/hooks/use-catalogue";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { iconFor } from "@/components/home-assistant/room-icon";
+/*
+  The optimistic-settle rule now lives in `lib/home-assistant-optimism.ts`:
+  the detail sheet's sliders and steppers need the same three exits the tiles
+  have, and two copies of the number would drift.
+*/
+import { OPTIMISTIC_SETTLE_MS, POLL_MS } from "@/lib/home-assistant-optimism";
 import type { CatalogueItem, Room } from "@/types/database";
 import type { HAEntity } from "@/types/home-assistant";
-
-/**
- * How often the entity states are re-read while this page is open.
- *
- * Matches the `autoRefreshNote` copy in the footer, which has said "every 15
- * seconds" since long before this rewrite. It is also what bounds the
- * optimistic settle below: a tile must never be able to sit on a guessed
- * state for longer than it takes the truth to arrive.
- */
-const POLL_MS = 15_000;
-
-/**
- * How long a tile may show a state we asked for but have not seen confirmed.
- *
- * `useCallService` invalidates the entity-state query on success, so the
- * usual reconciliation is immediate. This timeout is for the case that is
- * easy to forget: the service call returned 200, and the device did nothing.
- * Without it the tile would show "on" forever for a bulb that never lit —
- * exactly the wall-panel lie the brief calls worse than a slow update. One
- * poll interval plus headroom, so a merely-slow device still reconciles
- * normally rather than snapping back.
- */
-const OPTIMISTIC_SETTLE_MS = POLL_MS + 5_000;
 
 /** Domains whose tile is a plain on/off switch. */
 const TOGGLE_DOMAINS = new Set(["light", "switch", "input_boolean", "fan"]);
