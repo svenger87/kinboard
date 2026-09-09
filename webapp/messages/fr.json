@@ -2928,6 +2928,40 @@
       "armVacationButton": "Armer : vacances",
       "armCustomBypassButton": "Armer : personnalisé",
       "neverActivated": "Jamais activée",
+      "confirm": {
+        "unlock": {
+          "title": "Déverrouiller {name} ?",
+          "body": "La porte reste déverrouillée jusqu'à ce que quelqu'un la referme à clé, et n'importe qui devant peut entrer."
+        },
+        "openLatch": {
+          "title": "Ouvrir le pêne de {name} ?",
+          "body": "Le pêne se rétracte et la porte peut être poussée de l'extérieur. Reverrouiller ne le remet pas en place — il faut que quelqu'un soit là pour refermer la porte."
+        },
+        "disarm": {
+          "title": "Désarmer {name} ?",
+          "body": "L'alarme cesse de surveiller la maison jusqu'à ce que quelqu'un la réarme."
+        },
+        "soundSiren": {
+          "title": "Déclencher {name} ?",
+          "body": "Cela s'entend bien au-delà de la maison, et certaines sirènes ne peuvent plus être arrêtées d'ici.",
+          "action": "Déclencher"
+        },
+        "press": {
+          "title": "Appuyer sur {name} ?",
+          "body": "Cet écran ne peut pas savoir ce que fait ce bouton — il ouvre peut-être le garage, redémarre quelque chose ou déverrouille une voiture. N'appuyez dessus que si vous le savez.",
+          "action": "Appuyer"
+        },
+        "install": {
+          "title": "Installer la mise à jour de {name} ?",
+          "body": "L'appareil peut rester hors ligne plusieurs minutes pendant la mise à jour, et cela ne peut être ni arrêté ni annulé d'ici.",
+          "action": "Installer"
+        },
+        "startMowing": {
+          "title": "Démarrer {name} ?",
+          "body": "Les lames se mettent à tourner. Vérifiez d'abord qu'aucun enfant ni animal ne se trouve dans le jardin.",
+          "action": "Démarrer la tonte"
+        }
+      },
       "attributes": {
         "brightness": "Luminosité",
         "color_temp": "Température de couleur",

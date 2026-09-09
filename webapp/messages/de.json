@@ -2928,6 +2928,40 @@
       "armVacationButton": "Scharf: Urlaub",
       "armCustomBypassButton": "Scharf: mit Ausnahmen",
       "neverActivated": "Noch nicht aktiviert",
+      "confirm": {
+        "unlock": {
+          "title": "{name} aufschließen?",
+          "body": "Die Tür bleibt offen, bis sie jemand wieder abschließt — und wer davorsteht, kommt herein."
+        },
+        "openLatch": {
+          "title": "Bei {name} die Falle öffnen?",
+          "body": "Damit wird die Falle zurückgezogen und die Tür lässt sich von außen aufdrücken. Wieder abschließen macht das nicht rückgängig — jemand muss vor Ort sein und die Tür zuziehen."
+        },
+        "disarm": {
+          "title": "{name} deaktivieren?",
+          "body": "Die Alarmanlage passt nicht mehr auf das Haus auf, bis sie jemand wieder scharf schaltet."
+        },
+        "soundSiren": {
+          "title": "{name} auslösen?",
+          "body": "Das hört man weit über das Grundstück hinaus, und manche Sirenen lassen sich von hier aus nicht wieder ausschalten.",
+          "action": "Auslösen"
+        },
+        "press": {
+          "title": "{name} drücken?",
+          "body": "Dieser Bildschirm kann nicht erkennen, was dieser Knopf tut — vielleicht öffnet er das Garagentor, startet etwas neu oder schließt ein Auto auf. Drücke ihn nur, wenn du es weißt.",
+          "action": "Drücken"
+        },
+        "install": {
+          "title": "Update für {name} installieren?",
+          "body": "Das Gerät kann dabei einige Minuten offline sein, und von hier aus lässt sich das weder anhalten noch rückgängig machen.",
+          "action": "Installieren"
+        },
+        "startMowing": {
+          "title": "{name} starten?",
+          "body": "Die Messer fangen an zu laufen. Schau vorher nach, ob Kinder oder Tiere im Garten sind.",
+          "action": "Mähen starten"
+        }
+      },
       "attributes": {
         "brightness": "Helligkeit",
         "color_temp": "Farbtemperatur",

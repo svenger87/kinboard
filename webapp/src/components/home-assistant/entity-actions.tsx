@@ -20,13 +20,17 @@
  *    for itself and wraps its own {@link ActionsSection}: the emptiness is only
  *    knowable where the gating is.
  *
- * Confirmations for the dangerous rows of RFC-008 §6 (`lock.unlock`,
- * `lock.open`, `alarm_disarm`) are deliberately *not* here — they arrive as one
- * shared dialog across all seven actions in a later step, not as a one-off per
- * domain.
+ * 3. **Every action states which service it calls**, as the first argument to
+ *    `run()` — the descriptor `useCallService` would take anyway. That is not
+ *    bookkeeping: it is what lets one gate consult `DANGEROUS_ACTIONS`
+ *    (RFC-008 §6) and put a confirmation in front of the calls a wall panel
+ *    should not fire on one tap. Nobody opts in to the confirmation, so nobody
+ *    can forget to.
  */
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode,
+} from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
@@ -34,6 +38,7 @@ import {
   Minus, Plus, ChevronUp, ChevronDown, Home, MapPin, Shuffle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDestructive } from "@/components/confirm-destructive";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -47,8 +52,9 @@ import {
   fanPowerButtons, optionList, supportsBrightness, supportsColorTemp, supportsFeature,
 } from "@/lib/ha-features";
 import { classifyEntityState } from "@/lib/ha-entity-display";
+import { dangerousAction, type DangerousAction } from "@/lib/ha-dangerous-actions";
 import { OPTIMISTIC_SETTLE_MS } from "@/lib/home-assistant-optimism";
-import type { HAEntity } from "@/types/home-assistant";
+import type { HAEntity, HAServiceCall } from "@/types/home-assistant";
 
 // ── Small shared pieces ───────────────────────────────────────────────────
 
@@ -61,31 +67,142 @@ function text(value: unknown): string | undefined {
 }
 
 /**
- * Run a service call, say so when it fails, and tell the caller which it was.
+ * What a control is about to do: the service call itself, and — for the
+ * actions a convenience hook already wraps — how to actually make it.
  *
- * Every control here is fire-and-forget from a tap, so without this the
- * rejection from a call Home Assistant refused would be an unhandled promise
- * and the household would see the button do nothing at all.
- *
- * The boolean is what a control with an optimistic value needs: the same shape
- * `page.tsx`'s own `run()` uses for the tiles, where a failed call calls
- * `forget(entityId)` and drops the guess. A slider that kept its guess after a
- * failure would be a wall panel stating something confidently about a device
- * that never moved.
+ * The descriptor is mandatory even when `via` does the work, because it is the
+ * only thing that identifies the action. `unlock(id)` says nothing a lookup can
+ * use; `{ domain: "lock", service: "unlock" }` says everything.
  */
+type RunAction = (call: HAServiceCall, via?: () => Promise<unknown>) => Promise<boolean>;
+
+/**
+ * The runner every control in this file uses, supplied by {@link DangerousActionGate}.
+ *
+ * Context rather than a plain hook so there is exactly one confirmation dialog
+ * per sheet, mounted by the dispatcher, rather than one per control — and so
+ * that a control physically cannot call a service without going past it.
+ */
+const RunActionContext = createContext<{ run: RunAction; isPending: boolean } | null>(null);
+
 function useRunAction() {
+  const ctx = useContext(RunActionContext);
+  if (!ctx) {
+    throw new Error("A detail-sheet control must be rendered inside <EntityActions>.");
+  }
+  return ctx;
+}
+
+/**
+ * One confirmation step in front of every service `DANGEROUS_ACTIONS` names.
+ *
+ * The gate wraps whatever the dispatcher chose to render and hands it `run`.
+ * A control passes the service it wants; the gate looks that service up in the
+ * table (RFC-008 §6) and either fires it or asks first, naming the entity.
+ * Nothing about the call changes on the way through: the same hook runs it, a
+ * refusal still raises the same toast, and the boolean an optimistic control
+ * reads still means "the device took it".
+ *
+ * Dismissal resolves `false` — the same answer a refused call gives — so a
+ * control holding an optimistic guess drops it rather than sitting on a value
+ * nobody agreed to. And **nothing is sent**: the promise the control is waiting
+ * on never reaches `via`.
+ *
+ * The dialog is `ConfirmDestructive`, the same component behind the recycle
+ * bin's permanent delete and the family delete, so the confirm button is the
+ * destructive-coloured one on the far side of the footer and Radix puts focus
+ * on Cancel — a stray thumb lands on the harmless half.
+ */
+function DangerousActionGate({
+  entity,
+  displayName,
+  children,
+}: {
+  entity: HAEntity;
+  displayName?: string;
+  children: ReactNode;
+}) {
   const t = useTranslations("homeAutomation");
-  return useCallback(
-    async (run: () => Promise<unknown>): Promise<boolean> => {
+  const { mutateAsync: callService, isPending } = useCallService();
+
+  /*
+    The question on screen, and the promise the control is still waiting on.
+
+    Held in a ref as well as in state because the two dialog handlers need the
+    record itself, and because whichever of them runs first has to be able to
+    take it — Radix closes the dialog after `onConfirm`, which fires
+    `onOpenChange(false)` immediately afterwards, and a dismissal handler that
+    could not tell those apart would resolve the same promise twice and report
+    a confirmed action as cancelled.
+  */
+  const asked = useRef<{
+    action: DangerousAction;
+    call: HAServiceCall;
+    via?: () => Promise<unknown>;
+    settle: (fired: boolean) => void;
+  } | null>(null);
+  const [pending, setPending] = useState<DangerousAction | null>(null);
+
+  /** Run it for real, say so when Home Assistant refuses, report which it was. */
+  const fire = useCallback(
+    async (call: HAServiceCall, via?: () => Promise<unknown>): Promise<boolean> => {
       try {
-        await run();
+        await (via ? via() : callService(call));
         return true;
       } catch {
         toast.error(t("controlFailed"));
         return false;
       }
     },
-    [t],
+    [callService, t],
+  );
+
+  const run = useCallback<RunAction>(
+    (call, via) => {
+      const action = dangerousAction(call.domain, call.service);
+      if (!action) return fire(call, via);
+      return new Promise<boolean>((settle) => {
+        asked.current = { action, call, via, settle };
+        setPending(action);
+      });
+    },
+    [fire],
+  );
+
+  /** Take the pending question, so only one of the two handlers can answer it. */
+  const take = useCallback(() => {
+    const record = asked.current;
+    asked.current = null;
+    setPending(null);
+    return record;
+  }, []);
+
+  // A sheet closed with the question still up leaves a control awaiting an
+  // answer that can no longer come. Nothing was sent, so the answer is `false`.
+  useEffect(() => () => asked.current?.settle(false), []);
+
+  const name = displayName || entity.name || entity.entity_id;
+
+  return (
+    <RunActionContext.Provider value={{ run, isPending }}>
+      {children}
+      {pending && (
+        <ConfirmDestructive
+          open
+          onOpenChange={(open) => {
+            if (open) return;
+            take()?.settle(false);
+          }}
+          title={t(`entityDetail.confirm.${pending.copy}.title`, { name })}
+          description={t(`entityDetail.confirm.${pending.copy}.body`, { name })}
+          confirmLabel={t(pending.confirmLabelKey)}
+          onConfirm={() => {
+            const record = take();
+            if (record) void fire(record.call, record.via).then(record.settle);
+          }}
+        />
+      )}
+    </RunActionContext.Provider>
   );
 }
 
@@ -348,9 +465,8 @@ interface DomainProps {
 
 function LightActions({ entity }: DomainProps) {
   const tAttr = useTranslations("homeAutomation.entityDetail.attributes");
-  const run = useRunAction();
+  const { run, isPending: servicePending } = useRunAction();
   const { turnOn, turnOff, setBrightness, setColorTemp, isPending } = useLightControl();
-  const { mutateAsync: callService, isPending: servicePending } = useCallService();
   const busy = isPending || servicePending;
 
   const id = entity.entity_id;
@@ -371,8 +487,12 @@ function LightActions({ entity }: DomainProps) {
     <ActionsSection busy={busy}>
       <OnOffRow
         isOn={isOn}
-        onTurnOn={() => run(() => turnOn(id))}
-        onTurnOff={() => run(() => turnOff(id))}
+        onTurnOn={() =>
+          run({ domain: "light", service: "turn_on", entity_id: id }, () => turnOn(id))
+        }
+        onTurnOff={() =>
+          run({ domain: "light", service: "turn_off", entity_id: id }, () => turnOff(id))
+        }
         disabled={busy}
       />
       {supportsBrightness(attrs) && (
@@ -381,7 +501,11 @@ function LightActions({ entity }: DomainProps) {
           value={brightnessPercent}
           format={(percent) => `${Math.round(percent)}%`}
           step={5}
-          onCommit={(percent) => run(() => setBrightness(id, Math.round((percent / 100) * 255)))}
+          onCommit={(percent) =>
+            run({ domain: "light", service: "turn_on", entity_id: id }, () =>
+              setBrightness(id, Math.round((percent / 100) * 255)),
+            )
+          }
           disabled={busy}
         />
       )}
@@ -393,7 +517,9 @@ function LightActions({ entity }: DomainProps) {
           min={minKelvin}
           max={maxKelvin}
           step={50}
-          onCommit={(next) => run(() => setColorTemp(id, next))}
+          onCommit={(next) =>
+            run({ domain: "light", service: "turn_on", entity_id: id }, () => setColorTemp(id, next))
+          }
           disabled={busy}
         />
       )}
@@ -404,14 +530,12 @@ function LightActions({ entity }: DomainProps) {
           current={text(attrs.effect)}
           disabled={busy}
           onSelect={(effect) =>
-            run(() =>
-              callService({
-                domain: "light",
-                service: "turn_on",
-                entity_id: id,
-                service_data: { effect },
-              }),
-            )
+            run({
+              domain: "light",
+              service: "turn_on",
+              entity_id: id,
+              service_data: { effect },
+            })
           }
         />
       )}
@@ -424,9 +548,8 @@ function LightActions({ entity }: DomainProps) {
 function FanActions({ entity }: DomainProps) {
   const t = useTranslations("homeAutomation.entityDetail");
   const tAttr = useTranslations("homeAutomation.entityDetail.attributes");
-  const run = useRunAction();
+  const { run, isPending: servicePending } = useRunAction();
   const { turnOn, turnOff, setSpeed, setOscillating, setPresetMode, isPending } = useFanControl();
-  const { mutateAsync: callService, isPending: servicePending } = useCallService();
   const busy = isPending || servicePending;
 
   const id = entity.entity_id;
@@ -467,8 +590,10 @@ function FanActions({ entity }: DomainProps) {
     <ActionsSection busy={busy}>
       <OnOffRow
         isOn={isOn}
-        onTurnOn={() => run(() => turnOn(id))}
-        onTurnOff={() => run(() => turnOff(id))}
+        onTurnOn={() => run({ domain: "fan", service: "turn_on", entity_id: id }, () => turnOn(id))}
+        onTurnOff={() =>
+          run({ domain: "fan", service: "turn_off", entity_id: id }, () => turnOff(id))
+        }
         disabled={busy}
         showOn={canTurnOn}
         showOff={canTurnOff}
@@ -479,7 +604,9 @@ function FanActions({ entity }: DomainProps) {
           value={percentage}
           format={(next) => `${Math.round(next)}%`}
           step={step}
-          onCommit={(next) => run(() => setSpeed(id, Math.floor(next)))}
+          onCommit={(next) =>
+            run({ domain: "fan", service: "set_percentage", entity_id: id }, () => setSpeed(id, Math.floor(next)))
+          }
           disabled={busy}
         />
       )}
@@ -489,13 +616,17 @@ function FanActions({ entity }: DomainProps) {
           options={presets}
           current={text(attrs.preset_mode)}
           disabled={busy}
-          onSelect={(preset) => run(() => setPresetMode(id, preset))}
+          onSelect={(preset) =>
+            run({ domain: "fan", service: "set_preset_mode", entity_id: id }, () => setPresetMode(id, preset))
+          }
         />
       )}
       {canOscillate && (
         <Button
           variant={oscillating ? "default" : "outline"}
-          onClick={() => run(() => setOscillating(id, !oscillating))}
+          onClick={() =>
+            run({ domain: "fan", service: "oscillate", entity_id: id }, () => setOscillating(id, !oscillating))
+          }
           disabled={busy}
         >
           {t("oscillate")}
@@ -511,14 +642,12 @@ function FanActions({ entity }: DomainProps) {
             option === "forward" ? t("directionForward") : t("directionReverse")
           }
           onSelect={(next) =>
-            run(() =>
-              callService({
-                domain: "fan",
-                service: "set_direction",
-                entity_id: id,
-                service_data: { direction: next },
-              }),
-            )
+            run({
+              domain: "fan",
+              service: "set_direction",
+              entity_id: id,
+              service_data: { direction: next },
+            })
           }
         />
       )}
@@ -532,9 +661,8 @@ function CoverActions({ entity }: DomainProps) {
   const t = useTranslations("homeAutomation.entityDetail");
   const tHome = useTranslations("homeAutomation");
   const tAttr = useTranslations("homeAutomation.entityDetail.attributes");
-  const run = useRunAction();
+  const { run, isPending: servicePending } = useRunAction();
   const { open, close, stop, setPosition, isPending } = useCoverControl();
-  const { mutateAsync: callService, isPending: servicePending } = useCallService();
   const busy = isPending || servicePending;
 
   const id = entity.entity_id;
@@ -556,26 +684,47 @@ function CoverActions({ entity }: DomainProps) {
   if (!canOpen && !canClose && !canStop && !canSetPosition && !anyTilt) return null;
 
   const tiltService = (service: string) =>
-    run(() => callService({ domain: "cover", service, entity_id: id }));
+    run({ domain: "cover", service, entity_id: id });
 
   return (
     <ActionsSection busy={busy}>
       {(canOpen || canClose || canStop) && (
         <div className="flex gap-2">
           {canOpen && (
-            <Button className="flex-1" variant="outline" onClick={() => run(() => open(id))} disabled={busy}>
+            <Button
+              className="flex-1"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                run({ domain: "cover", service: "open_cover", entity_id: id }, () => open(id))
+              }
+            >
               <ChevronUp />
               {tHome("open")}
             </Button>
           )}
           {canStop && (
-            <Button className="flex-1" variant="outline" onClick={() => run(() => stop(id))} disabled={busy}>
+            <Button
+              className="flex-1"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                run({ domain: "cover", service: "stop_cover", entity_id: id }, () => stop(id))
+              }
+            >
               <Square />
               {t("stopButton")}
             </Button>
           )}
           {canClose && (
-            <Button className="flex-1" variant="outline" onClick={() => run(() => close(id))} disabled={busy}>
+            <Button
+              className="flex-1"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                run({ domain: "cover", service: "close_cover", entity_id: id }, () => close(id))
+              }
+            >
               <ChevronDown />
               {tHome("close")}
             </Button>
@@ -588,7 +737,9 @@ function CoverActions({ entity }: DomainProps) {
           value={position}
           format={(next) => `${Math.round(next)}%`}
           step={5}
-          onCommit={(next) => run(() => setPosition(id, next))}
+          onCommit={(next) =>
+            run({ domain: "cover", service: "set_cover_position", entity_id: id }, () => setPosition(id, next))
+          }
           disabled={busy}
         />
       )}
@@ -618,14 +769,12 @@ function CoverActions({ entity }: DomainProps) {
           format={(next) => `${Math.round(next)}%`}
           step={5}
           onCommit={(next) =>
-            run(() =>
-              callService({
-                domain: "cover",
-                service: "set_cover_tilt_position",
-                entity_id: id,
-                service_data: { tilt_position: next },
-              }),
-            )
+            run({
+              domain: "cover",
+              service: "set_cover_tilt_position",
+              entity_id: id,
+              service_data: { tilt_position: next },
+            })
           }
           disabled={busy}
         />
@@ -639,16 +788,21 @@ function CoverActions({ entity }: DomainProps) {
 function LockActions({ entity }: DomainProps) {
   const t = useTranslations("homeAutomation.entityDetail");
   const tHome = useTranslations("homeAutomation");
-  const run = useRunAction();
+  const { run, isPending: servicePending } = useRunAction();
   const { lock, unlock, isPending } = useLockControl();
-  const { mutateAsync: callService, isPending: servicePending } = useCallService();
   const busy = isPending || servicePending;
 
   const id = entity.entity_id;
   const isLocked = entity.state === "locked";
-  // RFC-008 §6 flags `unlock` and `open` for a confirmation step. That dialog
-  // is shared across all seven dangerous actions and arrives with them; the
-  // services themselves are plain here on purpose.
+  /*
+    Locking is one tap; unlocking and the latch are not.
+
+    Both are in DANGEROUS_ACTIONS, so the confirmation comes from stating the
+    service, not from anything written here — which is the point: nothing on
+    this button distinguishes it from `lock.lock` above, and it still asks.
+    `lock.lock` is deliberately absent from that table, because confirming your
+    way to a locked door every time is friction with no safety benefit.
+  */
   const canOpenLatch = supportsFeature(entity.attributes, LOCK_FEATURE.OPEN);
 
   return (
@@ -657,7 +811,7 @@ function LockActions({ entity }: DomainProps) {
         <Button
           className="flex-1"
           variant={isLocked ? "default" : "outline"}
-          onClick={() => run(() => lock(id))}
+          onClick={() => run({ domain: "lock", service: "lock", entity_id: id }, () => lock(id))}
           disabled={busy}
         >
           {tHome("lock")}
@@ -665,7 +819,9 @@ function LockActions({ entity }: DomainProps) {
         <Button
           className="flex-1"
           variant={!isLocked ? "default" : "outline"}
-          onClick={() => run(() => unlock(id))}
+          onClick={() =>
+            run({ domain: "lock", service: "unlock", entity_id: id }, () => unlock(id))
+          }
           disabled={busy}
         >
           {tHome("unlock")}
@@ -674,7 +830,7 @@ function LockActions({ entity }: DomainProps) {
       {canOpenLatch && (
         <Button
           variant="outline"
-          onClick={() => run(() => callService({ domain: "lock", service: "open", entity_id: id }))}
+          onClick={() => run({ domain: "lock", service: "open", entity_id: id })}
           disabled={busy}
         >
           {t("openLatch")}
@@ -691,11 +847,10 @@ const REPEAT_MODES = ["off", "all", "one"] as const;
 function MediaPlayerActions({ entity }: DomainProps) {
   const t = useTranslations("homeAutomation.entityDetail");
   const tAttr = useTranslations("homeAutomation.entityDetail.attributes");
-  const run = useRunAction();
+  const { run, isPending: servicePending } = useRunAction();
   const {
     play, pause, stop, next, previous, setVolume, mute, selectSource, isPending,
   } = useMediaPlayerControl();
-  const { mutateAsync: callService, isPending: servicePending } = useCallService();
   const busy = isPending || servicePending;
 
   const id = entity.entity_id;
@@ -736,10 +891,10 @@ function MediaPlayerActions({ entity }: DomainProps) {
       <OnOffRow
         isOn={entity.state !== "off"}
         onTurnOn={() =>
-          run(() => callService({ domain: "media_player", service: "turn_on", entity_id: id }))
+          run({ domain: "media_player", service: "turn_on", entity_id: id })
         }
         onTurnOff={() =>
-          run(() => callService({ domain: "media_player", service: "turn_off", entity_id: id }))
+          run({ domain: "media_player", service: "turn_off", entity_id: id })
         }
         disabled={busy}
         showOn={canTurnOn}
@@ -748,31 +903,66 @@ function MediaPlayerActions({ entity }: DomainProps) {
       {transport && (
         <div className="flex gap-2">
           {canPrevious && (
-            <Button className="flex-1" variant="outline" onClick={() => run(() => previous(id))} disabled={busy}>
+            <Button
+              className="flex-1"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                run({ domain: "media_player", service: "media_previous_track", entity_id: id }, () => previous(id))
+              }
+            >
               <SkipBack />
               <span className="sr-only">{t("mediaPrevious")}</span>
             </Button>
           )}
           {canPlay && (
-            <Button className="flex-1" variant="outline" onClick={() => run(() => play(id))} disabled={busy}>
+            <Button
+              className="flex-1"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                run({ domain: "media_player", service: "media_play", entity_id: id }, () => play(id))
+              }
+            >
               <Play />
               <span className="sr-only">{t("mediaPlay")}</span>
             </Button>
           )}
           {canPause && (
-            <Button className="flex-1" variant="outline" onClick={() => run(() => pause(id))} disabled={busy}>
+            <Button
+              className="flex-1"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                run({ domain: "media_player", service: "media_pause", entity_id: id }, () => pause(id))
+              }
+            >
               <Pause />
               <span className="sr-only">{t("mediaPause")}</span>
             </Button>
           )}
           {canStop && (
-            <Button className="flex-1" variant="outline" onClick={() => run(() => stop(id))} disabled={busy}>
+            <Button
+              className="flex-1"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                run({ domain: "media_player", service: "media_stop", entity_id: id }, () => stop(id))
+              }
+            >
               <Square />
               <span className="sr-only">{t("stopButton")}</span>
             </Button>
           )}
           {canNext && (
-            <Button className="flex-1" variant="outline" onClick={() => run(() => next(id))} disabled={busy}>
+            <Button
+              className="flex-1"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                run({ domain: "media_player", service: "media_next_track", entity_id: id }, () => next(id))
+              }
+            >
               <SkipForward />
               <span className="sr-only">{t("mediaNext")}</span>
             </Button>
@@ -785,14 +975,18 @@ function MediaPlayerActions({ entity }: DomainProps) {
           value={volumePercent}
           format={(percent) => `${Math.round(percent)}%`}
           step={1}
-          onCommit={(percent) => run(() => setVolume(id, percent / 100))}
+          onCommit={(percent) =>
+            run({ domain: "media_player", service: "volume_set", entity_id: id }, () => setVolume(id, percent / 100))
+          }
           disabled={busy}
         />
       )}
       {canMute && (
         <Button
           variant={muted ? "default" : "outline"}
-          onClick={() => run(() => mute(id, !muted))}
+          onClick={() =>
+            run({ domain: "media_player", service: "volume_mute", entity_id: id }, () => mute(id, !muted))
+          }
           disabled={busy}
         >
           {muted ? <VolumeX /> : <Volume2 />}
@@ -805,7 +999,9 @@ function MediaPlayerActions({ entity }: DomainProps) {
           options={sources}
           current={text(attrs.source)}
           disabled={busy}
-          onSelect={(source) => run(() => selectSource(id, source))}
+          onSelect={(source) =>
+            run({ domain: "media_player", service: "select_source", entity_id: id }, () => selectSource(id, source))
+          }
         />
       )}
       {canSoundMode && (
@@ -815,14 +1011,12 @@ function MediaPlayerActions({ entity }: DomainProps) {
           current={text(attrs.sound_mode)}
           disabled={busy}
           onSelect={(soundMode) =>
-            run(() =>
-              callService({
-                domain: "media_player",
-                service: "select_sound_mode",
-                entity_id: id,
-                service_data: { sound_mode: soundMode },
-              }),
-            )
+            run({
+              domain: "media_player",
+              service: "select_sound_mode",
+              entity_id: id,
+              service_data: { sound_mode: soundMode },
+            })
           }
         />
       )}
@@ -830,14 +1024,12 @@ function MediaPlayerActions({ entity }: DomainProps) {
         <Button
           variant={shuffling ? "default" : "outline"}
           onClick={() =>
-            run(() =>
-              callService({
-                domain: "media_player",
-                service: "shuffle_set",
-                entity_id: id,
-                service_data: { shuffle: !shuffling },
-              }),
-            )
+            run({
+              domain: "media_player",
+              service: "shuffle_set",
+              entity_id: id,
+              service_data: { shuffle: !shuffling },
+            })
           }
           disabled={busy}
         >
@@ -855,14 +1047,12 @@ function MediaPlayerActions({ entity }: DomainProps) {
             mode === "all" ? t("repeatAll") : mode === "one" ? t("repeatOne") : t("repeatOff")
           }
           onSelect={(repeat) =>
-            run(() =>
-              callService({
-                domain: "media_player",
-                service: "repeat_set",
-                entity_id: id,
-                service_data: { repeat },
-              }),
-            )
+            run({
+              domain: "media_player",
+              service: "repeat_set",
+              entity_id: id,
+              service_data: { repeat },
+            })
           }
         />
       )}
@@ -879,14 +1069,13 @@ const HVAC_MODE_KEYS: readonly string[] = [
 function ClimateActions({ entity }: DomainProps) {
   const tAttr = useTranslations("homeAutomation.entityDetail.attributes");
   const tHvacMode = useTranslations("homeAutomation.hvacMode");
-  const run = useRunAction();
-  const { mutateAsync: callService, isPending: busy } = useCallService();
+  const { run, isPending: busy } = useRunAction();
 
   const id = entity.entity_id;
   const attrs = entity.attributes;
 
   const call = (service: string, service_data?: Record<string, unknown>) =>
-    run(() => callService({ domain: "climate", service, entity_id: id, service_data }));
+    run({ domain: "climate", service, entity_id: id, service_data });
 
   const modes = optionList(attrs.hvac_modes);
   const canTargetTemp = supportsFeature(attrs, CLIMATE_FEATURE.TARGET_TEMPERATURE);
@@ -1065,9 +1254,8 @@ function ClimateActions({ entity }: DomainProps) {
 function VacuumActions({ entity }: DomainProps) {
   const t = useTranslations("homeAutomation.entityDetail");
   const tAttr = useTranslations("homeAutomation.entityDetail.attributes");
-  const run = useRunAction();
+  const { run, isPending: servicePending } = useRunAction();
   const { start, pause, stop, returnToBase, setFanSpeed, isPending } = useVacuumCommand();
-  const { mutateAsync: callService, isPending: servicePending } = useCallService();
   const busy = isPending || servicePending;
 
   const id = entity.entity_id;
@@ -1091,19 +1279,40 @@ function VacuumActions({ entity }: DomainProps) {
       {(canStart || canPause || canStop) && (
         <div className="flex gap-2">
           {canStart && (
-            <Button className="flex-1" variant="outline" onClick={() => run(() => start(id))} disabled={busy}>
+            <Button
+              className="flex-1"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                run({ domain: "vacuum", service: "start", entity_id: id }, () => start(id))
+              }
+            >
               <Play />
               {t("vacuumStart")}
             </Button>
           )}
           {canPause && (
-            <Button className="flex-1" variant="outline" onClick={() => run(() => pause(id))} disabled={busy}>
+            <Button
+              className="flex-1"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                run({ domain: "vacuum", service: "pause", entity_id: id }, () => pause(id))
+              }
+            >
               <Pause />
               {t("vacuumPause")}
             </Button>
           )}
           {canStop && (
-            <Button className="flex-1" variant="outline" onClick={() => run(() => stop(id))} disabled={busy}>
+            <Button
+              className="flex-1"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                run({ domain: "vacuum", service: "stop", entity_id: id }, () => stop(id))
+              }
+            >
               <Square />
               {t("stopButton")}
             </Button>
@@ -1113,7 +1322,14 @@ function VacuumActions({ entity }: DomainProps) {
       {(canReturn || canLocate || canCleanSpot) && (
         <div className="flex gap-2">
           {canReturn && (
-            <Button className="flex-1" variant="outline" onClick={() => run(() => returnToBase(id))} disabled={busy}>
+            <Button
+              className="flex-1"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                run({ domain: "vacuum", service: "return_to_base", entity_id: id }, () => returnToBase(id))
+              }
+            >
               <Home />
               {t("vacuumReturn")}
             </Button>
@@ -1122,7 +1338,7 @@ function VacuumActions({ entity }: DomainProps) {
             <Button
               className="flex-1"
               variant="outline"
-              onClick={() => run(() => callService({ domain: "vacuum", service: "locate", entity_id: id }))}
+              onClick={() => run({ domain: "vacuum", service: "locate", entity_id: id })}
               disabled={busy}
             >
               <MapPin />
@@ -1133,7 +1349,7 @@ function VacuumActions({ entity }: DomainProps) {
             <Button
               className="flex-1"
               variant="outline"
-              onClick={() => run(() => callService({ domain: "vacuum", service: "clean_spot", entity_id: id }))}
+              onClick={() => run({ domain: "vacuum", service: "clean_spot", entity_id: id })}
               disabled={busy}
             >
               {t("cleanSpot")}
@@ -1147,7 +1363,9 @@ function VacuumActions({ entity }: DomainProps) {
           options={speeds}
           current={text(attrs.fan_speed)}
           disabled={busy}
-          onSelect={(speed) => run(() => setFanSpeed(id, speed))}
+          onSelect={(speed) =>
+            run({ domain: "vacuum", service: "set_fan_speed", entity_id: id }, () => setFanSpeed(id, speed))
+          }
         />
       )}
     </ActionsSection>
@@ -1158,16 +1376,17 @@ function VacuumActions({ entity }: DomainProps) {
 
 function AlarmActions({ entity }: DomainProps) {
   const t = useTranslations("homeAutomation.entityDetail");
-  const run = useRunAction();
+  const { run, isPending: servicePending } = useRunAction();
   const { disarm, armHome, armAway, armNight, isPending } = useAlarmControl();
-  const { mutateAsync: callService, isPending: servicePending } = useCallService();
   const busy = isPending || servicePending;
 
   const id = entity.entity_id;
   const attrs = entity.attributes;
 
   // `alarm_disarm` has no feature bit in Home Assistant — a panel that can be
-  // armed can always be disarmed, so it is offered unconditionally.
+  // armed can always be disarmed, so it is offered unconditionally. What it is
+  // not offered without is the RFC-008 §6 confirmation, which comes from the
+  // table rather than from this component.
   const canArmHome = supportsFeature(attrs, ALARM_FEATURE.ARM_HOME);
   const canArmAway = supportsFeature(attrs, ALARM_FEATURE.ARM_AWAY);
   const canArmNight = supportsFeature(attrs, ALARM_FEATURE.ARM_NIGHT);
@@ -1180,7 +1399,9 @@ function AlarmActions({ entity }: DomainProps) {
     <ActionsSection busy={busy}>
       <Button
         variant={armed ? "outline" : "default"}
-        onClick={() => run(() => disarm(id))}
+        onClick={() =>
+          run({ domain: "alarm_control_panel", service: "alarm_disarm", entity_id: id }, () => disarm(id))
+        }
         disabled={busy}
       >
         {t("disarmButton")}
@@ -1191,7 +1412,9 @@ function AlarmActions({ entity }: DomainProps) {
             <Button
               size="sm"
               variant={entity.state === "armed_home" ? "default" : "outline"}
-              onClick={() => run(() => armHome(id))}
+              onClick={() =>
+                run({ domain: "alarm_control_panel", service: "alarm_arm_home", entity_id: id }, () => armHome(id))
+              }
               disabled={busy}
             >
               {t("armHomeButton")}
@@ -1201,7 +1424,9 @@ function AlarmActions({ entity }: DomainProps) {
             <Button
               size="sm"
               variant={entity.state === "armed_away" ? "default" : "outline"}
-              onClick={() => run(() => armAway(id))}
+              onClick={() =>
+                run({ domain: "alarm_control_panel", service: "alarm_arm_away", entity_id: id }, () => armAway(id))
+              }
               disabled={busy}
             >
               {t("armAwayButton")}
@@ -1211,7 +1436,9 @@ function AlarmActions({ entity }: DomainProps) {
             <Button
               size="sm"
               variant={entity.state === "armed_night" ? "default" : "outline"}
-              onClick={() => run(() => armNight(id))}
+              onClick={() =>
+                run({ domain: "alarm_control_panel", service: "alarm_arm_night", entity_id: id }, () => armNight(id))
+              }
               disabled={busy}
             >
               {t("armNightButton")}
@@ -1222,13 +1449,11 @@ function AlarmActions({ entity }: DomainProps) {
               size="sm"
               variant={entity.state === "armed_vacation" ? "default" : "outline"}
               onClick={() =>
-                run(() =>
-                  callService({
-                    domain: "alarm_control_panel",
-                    service: "alarm_arm_vacation",
-                    entity_id: id,
-                  }),
-                )
+                run({
+                  domain: "alarm_control_panel",
+                  service: "alarm_arm_vacation",
+                  entity_id: id,
+                })
               }
               disabled={busy}
             >
@@ -1240,13 +1465,11 @@ function AlarmActions({ entity }: DomainProps) {
               size="sm"
               variant={entity.state === "armed_custom_bypass" ? "default" : "outline"}
               onClick={() =>
-                run(() =>
-                  callService({
-                    domain: "alarm_control_panel",
-                    service: "alarm_arm_custom_bypass",
-                    entity_id: id,
-                  }),
-                )
+                run({
+                  domain: "alarm_control_panel",
+                  service: "alarm_arm_custom_bypass",
+                  entity_id: id,
+                })
               }
               disabled={busy}
             >
@@ -1263,13 +1486,12 @@ function AlarmActions({ entity }: DomainProps) {
 
 function HumidifierActions({ entity }: DomainProps) {
   const tAttr = useTranslations("homeAutomation.entityDetail.attributes");
-  const run = useRunAction();
-  const { mutateAsync: callService, isPending: busy } = useCallService();
+  const { run, isPending: busy } = useRunAction();
 
   const id = entity.entity_id;
   const attrs = entity.attributes;
   const call = (service: string, service_data?: Record<string, unknown>) =>
-    run(() => callService({ domain: "humidifier", service, entity_id: id, service_data }));
+    run({ domain: "humidifier", service, entity_id: id, service_data });
 
   const modes = optionList(attrs.available_modes);
   const canModes = supportsFeature(attrs, HUMIDIFIER_FEATURE.MODES) && modes.length > 0;
@@ -1312,15 +1534,21 @@ function HumidifierActions({ entity }: DomainProps) {
 
 function ToggleActions({ entity }: DomainProps) {
   const t = useTranslations("homeAutomation.entityDetail");
-  const run = useRunAction();
+  const { run } = useRunAction();
   const { toggle, isPending: busy } = useToggleEntity();
+  const domain = entity.entity_id.split(".")[0];
   const isOn = entity.state === "on";
 
   return (
     <ActionsSection busy={busy}>
       <Button
         variant={isOn ? "default" : "outline"}
-        onClick={() => run(() => toggle(entity.entity_id, entity.state))}
+        onClick={() =>
+          run(
+            { domain, service: isOn ? "turn_off" : "turn_on", entity_id: entity.entity_id },
+            () => toggle(entity.entity_id, entity.state),
+          )
+        }
         disabled={busy}
       >
         {isOn ? t("turnOffButton") : t("turnOnButton")}
@@ -1331,8 +1559,7 @@ function ToggleActions({ entity }: DomainProps) {
 
 function SceneActions({ entity }: DomainProps) {
   const t = useTranslations("homeAutomation.entityDetail");
-  const run = useRunAction();
-  const { mutateAsync: callService, isPending: busy } = useCallService();
+  const { run, isPending: busy } = useRunAction();
   const domain = entity.entity_id.split(".")[0];
   const isRunning = domain === "script" && entity.state === "on";
 
@@ -1342,7 +1569,7 @@ function SceneActions({ entity }: DomainProps) {
         <Button
           className="flex-1"
           onClick={() =>
-            run(() => callService({ domain, service: "turn_on", entity_id: entity.entity_id }))
+            run({ domain, service: "turn_on", entity_id: entity.entity_id })
           }
           disabled={busy}
         >
@@ -1353,7 +1580,7 @@ function SceneActions({ entity }: DomainProps) {
             className="flex-1"
             variant="outline"
             onClick={() =>
-              run(() => callService({ domain, service: "turn_off", entity_id: entity.entity_id }))
+              run({ domain, service: "turn_off", entity_id: entity.entity_id })
             }
             disabled={busy}
           >
@@ -1367,9 +1594,8 @@ function SceneActions({ entity }: DomainProps) {
 
 function AutomationActions({ entity }: DomainProps) {
   const t = useTranslations("homeAutomation.entityDetail");
-  const run = useRunAction();
+  const { run, isPending: servicePending } = useRunAction();
   const { toggle, isPending } = useToggleEntity();
-  const { mutateAsync: callService, isPending: servicePending } = useCallService();
   const busy = isPending || servicePending;
   const isOn = entity.state === "on";
 
@@ -1380,16 +1606,14 @@ function AutomationActions({ entity }: DomainProps) {
           className="flex-1"
           variant="outline"
           onClick={() =>
-            run(() =>
-              callService({
-                domain: "automation",
-                service: "trigger",
-                entity_id: entity.entity_id,
-                // HA's own default, said out loud: without it a household
-                // pressing "Trigger" would silently get a *conditional* run.
-                service_data: { skip_condition: true },
-              }),
-            )
+            run({
+              domain: "automation",
+              service: "trigger",
+              entity_id: entity.entity_id,
+              // HA's own default, said out loud: without it a household
+              // pressing "Trigger" would silently get a *conditional* run.
+              service_data: { skip_condition: true },
+            })
           }
           disabled={busy}
         >
@@ -1398,7 +1622,12 @@ function AutomationActions({ entity }: DomainProps) {
         <Button
           className="flex-1"
           variant={isOn ? "default" : "outline"}
-          onClick={() => run(() => toggle(entity.entity_id, entity.state))}
+          onClick={() =>
+            run(
+              { domain: "automation", service: isOn ? "turn_off" : "turn_on", entity_id: entity.entity_id },
+              () => toggle(entity.entity_id, entity.state),
+            )
+          }
           disabled={busy}
         >
           {isOn ? t("disableButton") : t("enableButton")}
@@ -1412,8 +1641,7 @@ function AutomationActions({ entity }: DomainProps) {
 
 function FallbackActions({ entity }: DomainProps) {
   const t = useTranslations("homeAutomation.entityDetail");
-  const run = useRunAction();
-  const { mutateAsync: callService, isPending: busy } = useCallService();
+  const { run, isPending: busy } = useRunAction();
 
   /*
     RFC-008 §5.3 — the domain is one nobody here has heard of.
@@ -1435,13 +1663,11 @@ function FallbackActions({ entity }: DomainProps) {
       <Button
         variant={isOn ? "default" : "outline"}
         onClick={() =>
-          run(() =>
-            callService({
-              domain: "homeassistant",
-              service: isOn ? "turn_off" : "turn_on",
-              entity_id: entity.entity_id,
-            }),
-          )
+          run({
+            domain: "homeassistant",
+            service: isOn ? "turn_off" : "turn_on",
+            entity_id: entity.entity_id,
+          })
         }
         disabled={busy}
       >
@@ -1467,8 +1693,12 @@ function UnavailableNotice() {
  *
  * Returns `null` — no separator, no heading — for a read-only domain and for
  * any entity whose gates all came back false.
+ *
+ * Whatever it does render goes inside {@link DangerousActionGate}, which is
+ * where the confirmations of RFC-008 §6 live: one dialog, consulted by service
+ * name, in front of every control the domain components put on screen.
  */
-export function EntityActions({ entity }: DomainProps) {
+export function EntityActions({ entity, displayName }: DomainProps & { displayName?: string }) {
   const domain = entity.entity_id.split(".")[0];
 
   /*
@@ -1493,6 +1723,22 @@ export function EntityActions({ entity }: DomainProps) {
     return <UnavailableNotice />;
   }
 
+  const controls = domainControls(domain, entity);
+  if (controls === null) return null;
+  return (
+    <DangerousActionGate entity={entity} displayName={displayName}>
+      {controls}
+    </DangerousActionGate>
+  );
+}
+
+/**
+ * The domain's own controls, before the gate wraps them.
+ *
+ * Split out so `EntityActions` can return `null` for a read-only domain
+ * without mounting a confirmation dialog that has nothing to confirm.
+ */
+function domainControls(domain: string, entity: HAEntity): ReactNode {
   switch (domain) {
     case "light":
       return <LightActions entity={entity} />;

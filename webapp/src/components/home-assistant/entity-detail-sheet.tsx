@@ -570,7 +570,7 @@ export function EntityDetailSheet({
               at all (no separator, no heading) for a read-only domain, or for
               a device whose every feature gate came back false.
             */}
-            <EntityActions entity={entity} />
+            <EntityActions entity={entity} displayName={label} />
 
             {/* History Chart */}
             {showHistory && (

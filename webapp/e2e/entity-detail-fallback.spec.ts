@@ -28,6 +28,7 @@ import {
   supportsFeature,
 } from "../src/lib/ha-features";
 import { OPTIMISTIC_SETTLE_MS, POLL_MS } from "../src/lib/home-assistant-optimism";
+import { DANGEROUS_ACTIONS } from "../src/lib/ha-dangerous-actions";
 
 /**
  * The detail sheet against a domain nobody has heard of — RFC-008 §5.
@@ -399,8 +400,12 @@ test.describe("the services each domain calls", () => {
     expect(matrix).toContain("**`alarm_disarm` has no bit** — always present");
     const start = actionsSource.indexOf("function AlarmActions(");
     const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
-    // The disarm button is not inside a gate expression.
-    expect(body).toMatch(/onClick=\{\(\) => run\(\(\) => disarm\(id\)\)\}/);
+    // The disarm button is not inside a `supportsFeature` expression. It does
+    // go through the §6 confirmation, which is a different kind of gate: a
+    // household is asked, not refused.
+    expect(body).toMatch(
+      /onClick=\{\(\) =>\s*\n\s*run\(\{ domain: "alarm_control_panel", service: "alarm_disarm", entity_id: id \}, \(\) => disarm\(id\)\)\s*\n\s*\}/,
+    );
   });
 });
 
@@ -739,7 +744,11 @@ test.describe("a scene nobody has activated — RFC-008 R1", () => {
 
 test.describe("a call Home Assistant refused", () => {
   test("the runner reports the failure rather than swallowing it", () => {
-    const start = actionsSource.indexOf("function useRunAction(");
+    // The runner moved into DangerousActionGate when the confirmations landed,
+    // so that one place decides both "ask first?" and "did it take?". Its
+    // contract did not move: a refusal is a toast and a `false`, never a
+    // silent no-op.
+    const start = actionsSource.indexOf("function DangerousActionGate(");
     const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
     expect(body).toContain("Promise<boolean>");
     expect(body).toContain("return true");
@@ -853,5 +862,208 @@ test.describe("the optimistic settle — one rule, two surfaces", () => {
     expect(body).toMatch(/if \(settle\.current\) clearTimeout\(settle\.current\);\s*\n\s*settle\.current = null;\s*\n\s*setPendingState\(value\);/);
     // Nothing keeps firing after the sheet closes.
     expect(body).toMatch(/useEffect\(\s*\n?\s*\(\) => \(\) => \{\s*\n\s*if \(settle\.current\) clearTimeout\(settle\.current\);/);
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────
+   RFC-008 §6 — the actions that ask first.
+
+   Same caveat as the two rounds above, and for the same reason. The honest
+   check is a rendered sheet with `POST /api/homeassistant/services`
+   intercepted and counted: unlock asks and sends nothing when dismissed, one
+   call when confirmed; the latch asks a different question; disarm names the
+   panel; `lock.lock` does not ask at all; an unavailable entity offers
+   nothing to ask about. All five were run against a scratch route in Chromium
+   and WebKit — but the scratch route cannot ship, so they land with the
+   caller. No weaker behavioural test is committed in its place.
+
+   What is committed is the structure those five depend on, and it is worth
+   more than it looks: the mechanism's whole claim is that a dangerous action
+   *cannot* skip the confirmation by forgetting to write one, and that claim
+   is a property of the source — one table, one runner, and no way to call a
+   service that goes round either.
+   ──────────────────────────────────────────────────────────────────────── */
+
+test.describe("dangerous actions ask first — RFC-008 §6", () => {
+  test("the table is exactly the seven rows the matrix flags", () => {
+    // Read off §6's own recommendation column. A row missing here is a door
+    // that opens on one tap; a row invented here is friction §6 refused.
+    for (const key of [
+      "lock.unlock",
+      "lock.open",
+      "alarm_control_panel.alarm_disarm",
+      "siren.turn_on",
+      "button.press",
+      "input_button.press",
+      "update.install",
+      "lawn_mower.start_mowing",
+    ]) {
+      expect(Object.keys(DANGEROUS_ACTIONS), key).toContain(key);
+    }
+    // `input_button.press` shares `button.press`'s copy, so §6's seven
+    // recommendations are eight keys and no more.
+    expect(Object.keys(DANGEROUS_ACTIONS)).toHaveLength(8);
+
+    /*
+      And the rows §6 argues *against*, which are as much of the decision.
+
+      `vacuum.start` and `cover.open_cover` on a garage move real machinery,
+      but visibly, slowly and reversibly from the same screen. `lock.lock`
+      is the one a household meets every day: confirming your way to a locked
+      door is friction with no safety benefit. `alarm_trigger` is not here
+      because it is not offered anywhere at all.
+    */
+    for (const key of [
+      "lock.lock",
+      "vacuum.start",
+      "cover.open_cover",
+      "alarm_control_panel.alarm_arm_away",
+      "alarm_control_panel.alarm_trigger",
+    ]) {
+      expect(Object.keys(DANGEROUS_ACTIONS), key).not.toContain(key);
+    }
+  });
+
+  test("every action states its service, so none can route round the table", () => {
+    /*
+      This is the mechanism. `run()` takes the service call as its first
+      argument — the descriptor `useCallService` would take anyway — and looks
+      it up in `DANGEROUS_ACTIONS` before firing anything. An author does not
+      opt in to a confirmation; they say which service they are calling,
+      because that is the only way to call one, and the table decides.
+
+      So the two things worth guarding are that the old bare-thunk form is
+      gone, and that no control has its own `callService` to slip past `run`
+      with. The eighth dangerous action is then unforgettable by construction:
+      writing it means writing its descriptor, and its row is already there.
+    */
+    expect(actionsSource, "no control calls a service without declaring it")
+      .not.toMatch(/\brun\(\(\) =>/);
+
+    // One `useCallService` in the file, inside the gate. A component holding
+    // its own would be a way round.
+    expect(actionsSource.match(/useCallService\(\)/g) ?? []).toHaveLength(1);
+    const gateStart = actionsSource.indexOf("function DangerousActionGate(");
+    const gate = actionsSource.slice(gateStart, actionsSource.indexOf("\nfunction ", gateStart + 1));
+    expect(gate).toContain("useCallService()");
+    expect(gate).toContain("dangerousAction(call.domain, call.service)");
+  });
+
+  test("dismissing sends nothing, and says so to a control holding a guess", () => {
+    const gateStart = actionsSource.indexOf("function DangerousActionGate(");
+    const gate = actionsSource.slice(gateStart, actionsSource.indexOf("\nfunction ", gateStart + 1));
+    /*
+      A question raised is a promise not yet settled: `fire` is unreachable
+      until `onConfirm` takes the record. Dismissal — Cancel, Escape, the
+      overlay, or the sheet closing underneath it — settles `false`, the same
+      answer a refused call gives, so an optimistic control drops its guess
+      instead of sitting on a value nobody agreed to.
+    */
+    expect(gate).toMatch(/if \(!action\) return fire\(call, via\);\s*\n\s*return new Promise<boolean>/);
+    expect(gate).toMatch(/onOpenChange=\{\(open\) => \{[\s\S]*?take\(\)\?\.settle\(false\);/);
+    expect(gate).toContain("useEffect(() => () => asked.current?.settle(false), [])");
+    // Confirming is the only path to `fire`, and it takes the record first so
+    // the close that follows cannot settle the same promise twice.
+    expect(gate).toMatch(/const record = take\(\);\s*\n\s*if \(record\) void fire\(record\.call, record\.via\)\.then\(record\.settle\)/);
+  });
+
+  test("it is the repo's destructive dialog, not a new one", () => {
+    // The recycle bin's permanent delete and the family delete already settle
+    // what a confirmation looks like here: Radix's alertdialog, Cancel taking
+    // focus on open, and the confirm button destructive-coloured on the far
+    // side of the footer. A wall panel is exactly the place not to invent a
+    // second pattern with the confirm button under the thumb.
+    expect(actionsSource).toContain('import { ConfirmDestructive } from "@/components/confirm-destructive"');
+    const confirmSource = codeOnly(
+      readFileSync(join(__dirname, "../src/components/confirm-destructive.tsx"), "utf8"),
+    );
+    expect(confirmSource).toContain("<AlertDialogCancel>{t(\"cancel\")}</AlertDialogCancel>");
+    expect(confirmSource).toContain("bg-destructive");
+  });
+
+  test("the three implemented rows declare the key the table is filed under", () => {
+    /*
+      The descriptor is what the lookup sees, so a typo in it is a
+      confirmation that silently never appears — the one failure mode this
+      shape has. These are the three §4.5 puts in this branch.
+    */
+    for (const [component, declaration] of [
+      ["LockActions", '{ domain: "lock", service: "unlock", entity_id: id }'],
+      ["LockActions", '{ domain: "lock", service: "open", entity_id: id }'],
+      [
+        "AlarmActions",
+        '{ domain: "alarm_control_panel", service: "alarm_disarm", entity_id: id }',
+      ],
+    ] as const) {
+      const start = actionsSource.indexOf(`function ${component}(`);
+      const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
+      expect(body, `${component} declares ${declaration}`).toContain(declaration);
+    }
+    // And locking declares its own service, which is deliberately not in the
+    // table — the button beside unlock, with nothing to distinguish it but
+    // the service name.
+    const lockStart = actionsSource.indexOf("function LockActions(");
+    const lockBody = actionsSource.slice(lockStart, actionsSource.indexOf("\nfunction ", lockStart + 1));
+    expect(lockBody).toContain('{ domain: "lock", service: "lock", entity_id: id }');
+  });
+
+  test("the prompt can name the entity, because the sheet hands the name down", () => {
+    // "Unlock Front door?", not "Are you sure?" — a household has several
+    // locks and this sheet is a modal over a room full of tiles.
+    const sheet = codeOnly(
+      readFileSync(
+        join(__dirname, "../src/components/home-assistant/entity-detail-sheet.tsx"),
+        "utf8",
+      ),
+    );
+    expect(sheet).toContain("<EntityActions entity={entity} displayName={label} />");
+    const gateStart = actionsSource.indexOf("function DangerousActionGate(");
+    const gate = actionsSource.slice(gateStart, actionsSource.indexOf("\nfunction ", gateStart + 1));
+    expect(gate).toContain("const name = displayName || entity.name || entity.entity_id;");
+    expect(gate).toContain("{ name }");
+  });
+
+  test("every row's wording exists in all three locales, and names the entity", () => {
+    const rows = Object.values(DANGEROUS_ACTIONS);
+    for (const locale of ["en", "de", "fr"]) {
+      const ha = JSON.parse(
+        readFileSync(join(__dirname, "..", "messages", `${locale}.json`), "utf8"),
+      ).homeAutomation;
+      for (const { copy, confirmLabelKey } of rows) {
+        const block = ha.entityDetail.confirm?.[copy];
+        expect(block, `${locale}.confirm.${copy}`).toBeTruthy();
+        for (const part of ["title", "body"] as const) {
+          expect(typeof block[part], `${locale}.confirm.${copy}.${part}`).toBe("string");
+          expect(block[part], `${locale}.confirm.${copy}.${part}`).not.toBe("");
+        }
+        // The whole point of the prompt: it quotes the entity.
+        expect(block.title, `${locale}.confirm.${copy}.title`).toContain("{name}");
+
+        // The confirm button reuses the label its own control already carries
+        // where one exists, rather than growing a synonym beside it.
+        const label = confirmLabelKey
+          .split(".")
+          .reduce<Record<string, unknown> | undefined>(
+            (node, part) => node?.[part] as Record<string, unknown> | undefined,
+            ha,
+          );
+        expect(typeof label, `${locale}.${confirmLabelKey}`).toBe("string");
+        expect(label, `${locale}.${confirmLabelKey}`).not.toBe("");
+      }
+    }
+  });
+
+  test("the latch is not asked the way unlocking is", () => {
+    // RFC-008 §6's reason: on many locks a thrown latch cannot be retracted
+    // remotely, so locking again does not undo it. A prompt that repeated the
+    // unlock wording would be telling a household the opposite.
+    for (const locale of ["en", "de", "fr"]) {
+      const confirm = JSON.parse(
+        readFileSync(join(__dirname, "..", "messages", `${locale}.json`), "utf8"),
+      ).homeAutomation.entityDetail.confirm;
+      expect(confirm.openLatch.title, locale).not.toBe(confirm.unlock.title);
+      expect(confirm.openLatch.body, locale).not.toBe(confirm.unlock.body);
+    }
+    expect(matrix).toContain("locking again does not retract a thrown latch");
   });
 });
