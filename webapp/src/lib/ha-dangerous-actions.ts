@@ -83,6 +83,16 @@ export const DANGEROUS_ACTIONS: Readonly<Record<string, DangerousAction>> = {
     copy: "soundSiren",
     confirmLabelKey: "entityDetail.confirm.soundSiren.action",
   },
+  // `toggle` on a siren that is off *is* turning it on, and the resolver maps
+  // `homeassistant.toggle` onto the entity's own domain the same way it maps
+  // `turn_on`. Nothing emits it today — the fallback picks `turn_on` or
+  // `turn_off` from the state — but a row costs one line and the alternative
+  // is a siren sounding on one tap because a later caller reached for the
+  // service that happens not to be listed.
+  "siren.toggle": {
+    copy: "soundSiren",
+    confirmLabelKey: "entityDetail.confirm.soundSiren.action",
+  },
   // The `button` domain carries no semantics whatsoever — `device_class`
   // offers only `identify`, `restart` and `update`, so the entity behind it
   // may be "Open garage", "Restart Home Assistant" or "Unlock car" and the

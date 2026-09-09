@@ -900,9 +900,31 @@ test.describe("dangerous actions ask first — RFC-008 §6", () => {
     ]) {
       expect(Object.keys(DANGEROUS_ACTIONS), key).toContain(key);
     }
-    // `input_button.press` shares `button.press`'s copy, so §6's seven
-    // recommendations are eight keys and no more.
-    expect(Object.keys(DANGEROUS_ACTIONS)).toHaveLength(8);
+    /*
+      Every other row must be an *alias* of one of those — a second service
+      name for an action §6 already argued about, sharing its copy. That is
+      what lets `siren.toggle` sit beside `siren.turn_on` (toggling a siren
+      that is off is turning it on) without this guard degrading into "any
+      row is fine". A row with copy nobody argued for is friction §6 refused,
+      and still fails here.
+    */
+    const recommended = new Set([
+      "lock.unlock",
+      "lock.open",
+      "alarm_control_panel.alarm_disarm",
+      "siren.turn_on",
+      "button.press",
+      "input_button.press",
+      "update.install",
+      "lawn_mower.start_mowing",
+    ]);
+    const argued = new Set(
+      [...recommended].map((key) => DANGEROUS_ACTIONS[key as keyof typeof DANGEROUS_ACTIONS].copy),
+    );
+    for (const [key, row] of Object.entries(DANGEROUS_ACTIONS)) {
+      if (recommended.has(key)) continue;
+      expect(argued, `${key} is not an alias of anything §6 argued for`).toContain(row.copy);
+    }
 
     /*
       And the rows §6 argues *against*, which are as much of the decision.
