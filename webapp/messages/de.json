@@ -2927,6 +2927,7 @@
       "armNightButton": "Scharf: Nacht",
       "armVacationButton": "Scharf: Urlaub",
       "armCustomBypassButton": "Scharf: mit Ausnahmen",
+      "neverActivated": "Noch nicht aktiviert",
       "attributes": {
         "brightness": "Helligkeit",
         "color_temp": "Farbtemperatur",

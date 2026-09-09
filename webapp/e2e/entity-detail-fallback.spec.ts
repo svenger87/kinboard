@@ -591,3 +591,132 @@ test.describe("a binary sensor says what it is reporting", () => {
     expect(sheet).toContain('useTranslations("homeAutomation.binarySensorState")');
   });
 });
+
+/* ────────────────────────────────────────────────────────────────────────
+   Fix round 2 — four bugs that only a rendered, driven sheet showed.
+
+   A note on what these can and cannot hold. The first one is a *drag*
+   failure: a fully-controlled Radix slider with no `onValueChange` never
+   fires `onValueCommit`, because `handleSlideEnd` compares the value against
+   the one captured at slide start and both reads come from the same unchanged
+   prop. Only the keyboard path works, so `slider.press("ArrowRight")` passes
+   against completely inert drag and is worse than no guard at all.
+
+   The honest guard is a real pointer drag against a rendered sheet, and it was
+   run — eight sliders, Chromium and WebKit, with the service POST intercepted
+   — but it cannot be committed yet: nothing in the app renders this sheet
+   until RFC-008's `page.tsx` step, and a scratch route to hold it up is not
+   something to leave in the tree. What is committed instead is the structural
+   claim the drag depends on. When the sheet gets a caller, the drag belongs in
+   the spec beside it.
+   ──────────────────────────────────────────────────────────────────────── */
+
+test.describe("controls the household drags and taps", () => {
+  test("the slider is not the controlled-with-no-onValueChange trap", () => {
+    const start = actionsSource.indexOf("function CommitSlider(");
+    expect(start).toBeGreaterThan(-1);
+    const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
+
+    // `value` without `onValueChange` is inert to pointer and touch: the thumb
+    // does not move and no service call is sent. Every other slider in this
+    // repo pairs them (cover-card, light-control, fan-card, media-player-card)
+    // or goes uncontrolled with a `key` (settings/pocket-money).
+    expect(body).toContain("value={[clamped]}");
+    expect(body).toContain("onValueChange={(next) => setPending(next[0])}");
+    expect(body).toContain("onValueCommit=");
+    // …and the local state that makes the drag observable at all.
+    expect(body).toContain("usePendingNumber(value)");
+  });
+
+  test("every slider in the sheet goes through it", () => {
+    // A domain that reached for the Radix primitive directly would bypass the
+    // fix and be inert again, silently.
+    expect(actionsSource).not.toMatch(/<Slider\b(?![\s\S]{0,400}onValueChange)/);
+    const sliders = actionsSource.match(/<CommitSlider/g) ?? [];
+    // brightness, colour temp, fan speed, cover position, cover tilt, volume,
+    // climate humidity, humidifier humidity.
+    expect(sliders.length).toBe(8);
+  });
+
+  test("the climate stepper steps from a pending value, not from the entity", () => {
+    /*
+      `set_temperature` returns before HA reports the new setpoint and `busy`
+      clears with the POST, so three quick taps of `+` on a 20.0° thermostat
+      each read `attrs.temperature` as 20.0 and all sent 20.5 — the room ends
+      up half a degree warmer instead of one and a half.
+    */
+    const start = actionsSource.indexOf("function ClimateActions(");
+    const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
+
+    expect(body).toContain("usePendingNumber(num(attrs.temperature))");
+    expect(body).toContain("usePendingNumber(num(attrs.target_temp_low))");
+    expect(body).toContain("usePendingNumber(num(attrs.target_temp_high))");
+    // Each tap records what it asked for before the call goes out.
+    expect(body).toMatch(/setTarget\(next\);\s*\n\s*call\("set_temperature"/);
+    expect(body).toMatch(/setLow\(next\);\s*\n\s*call\("set_temperature"/);
+    expect(body).toMatch(/setHigh\(next\);\s*\n\s*call\("set_temperature"/);
+    // The old shape — computing straight off the attribute inside the call.
+    expect(body).not.toContain("clampTemp(target + direction * step) }");
+  });
+
+  test("a fan's percentage step is not rounded to an integer", () => {
+    const start = actionsSource.indexOf("function FanActions(");
+    const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
+
+    // 100/3 rounded to 33 caps the slider at 99, so a fan running flat out
+    // read "99%". Radix takes the fraction; the commit floors it, which is
+    // what `fan.set_percentage`'s own `vol.Coerce(int)` does on arrival —
+    // 66.67 must reach HA as 66 (speed 2), not 67 (speed 3).
+    expect(body).not.toContain("Math.round(rawStep)");
+    expect(body).toContain("rawStep && rawStep > 0 ? rawStep : 1");
+    expect(body).toContain("setSpeed(id, Math.floor(next))");
+  });
+});
+
+test.describe("a scene nobody has activated — RFC-008 R1", () => {
+  test("the shape reader still calls unknown a non-reading; the exception is at the caller", () => {
+    // The rule itself is unchanged — `scene` is an exception to it, not a
+    // counter-example to it.
+    expect(classifyEntityState("unknown").kind).toBe("unavailable");
+  });
+
+  test("the dispatcher lets a resting-unknown scene keep its Activate button", () => {
+    /*
+      A scene's state is the timestamp it was last activated and HA does not
+      restore it, so after a restart every scene in the house reports
+      `unknown`. Gating on that greys out Activate on a working scene until
+      somebody triggers it from somewhere else.
+    */
+    const start = actionsSource.indexOf("export function EntityActions(");
+    const body = actionsSource.slice(start);
+    expect(body).toContain('const restingUnknown = domain === "scene" && entity.state !== "unavailable"');
+    expect(body).toContain('if (!restingUnknown && classifyEntityState(entity.state).kind === "unavailable")');
+    // `unavailable` is still unreachable, for scene as for anything else.
+    expect(body).toContain("<UnavailableNotice />");
+  });
+
+  test("and the sheet does not call it unreachable either", () => {
+    const sheet = codeOnly(
+      readFileSync(
+        join(__dirname, "../src/components/home-assistant/entity-detail-sheet.tsx"),
+        "utf8",
+      ),
+    );
+    expect(sheet).toContain('domain === "scene"');
+    expect(sheet).toContain('entity.state !== "unavailable"');
+    expect(sheet).toContain('t("neverActivated")');
+    // A screen that says "Not reachable" beside a working Activate button is
+    // contradicting itself, which is what shipped before this.
+    expect(sheet).toMatch(/sceneNeverActivated\s*\n?\s*\?\s*t\("neverActivated"\)/);
+  });
+
+  test("its wording exists in all three locales", () => {
+    for (const locale of ["en", "de", "fr"]) {
+      const detail = JSON.parse(
+        readFileSync(join(__dirname, "..", "messages", `${locale}.json`), "utf8"),
+      ).homeAutomation.entityDetail;
+      expect(typeof detail.neverActivated, `${locale}.neverActivated`).toBe("string");
+      expect(detail.neverActivated, locale).not.toBe("");
+    }
+  });
+});

@@ -346,10 +346,27 @@ export function EntityDetailSheet({
     }
   })();
 
-  // `unavailable` outranks every domain vocabulary: a lock we cannot reach is
-  // not "Locked", it is unreachable.
-  const stateText =
-    stateShape.kind === "unavailable" ? shapeStateText : (domainStateText ?? shapeStateText);
+  /*
+    RFC-008 R1 — the one domain in phase one whose resting state is `unknown`.
+
+    A scene's state is the timestamp it was last activated, and Home Assistant
+    does not restore it: after a restart every scene in the house reports
+    `unknown`. Saying "Not reachable" about a scene that works perfectly, next
+    to an Activate button that also works, is a screen contradicting itself.
+    `unavailable` is still unreachable, here as everywhere.
+  */
+  const sceneNeverActivated =
+    domain === "scene" &&
+    stateShape.kind === "unavailable" &&
+    entity.state !== "unavailable";
+
+  // Otherwise `unavailable` outranks every domain vocabulary: a lock we cannot
+  // reach is not "Locked", it is unreachable.
+  const stateText = sceneNeverActivated
+    ? t("neverActivated")
+    : stateShape.kind === "unavailable"
+      ? shapeStateText
+      : (domainStateText ?? shapeStateText);
 
   /*
     A second line under the reading, for the three domains where the state

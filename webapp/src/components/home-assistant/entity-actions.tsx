@@ -26,7 +26,7 @@
  * domain.
  */
 
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
@@ -130,32 +130,82 @@ function OptionRow({
   );
 }
 
-/** A labelled 0–100 style slider that only fires on release. */
+/**
+ * A reading the household is about to change, held locally until the real one
+ * catches up.
+ *
+ * Two failures this exists to prevent, both invisible without a live device:
+ *
+ * 1. **A fully-controlled Radix slider with no `onValueChange` is inert.**
+ *    `handleSlideEnd` compares the current value against the one captured at
+ *    slide start; with no local state both reads come from the same unchanged
+ *    prop, `hasChanged` stays false, and `onValueCommit` never fires. The thumb
+ *    does not move and no service call is sent. Only the keyboard path works,
+ *    because that commits directly — so a keyboard-driven test passes against
+ *    completely broken drag. `settings/pocket-money/page.tsx` carries the same
+ *    warning in its own words.
+ * 2. **A stepper that reads its base from the entity compounds off stale
+ *    state.** `climate.set_temperature` returns long before Home Assistant
+ *    reports the new setpoint, so three quick taps of `+` all compute
+ *    `20.0 + 0.5` and the room ends up half a degree warmer instead of one and
+ *    a half.
+ *
+ * The pending value survives until the source actually moves — not until the
+ * call returns — so the control does not snap back to a stale reading in the
+ * gap between the release and the next poll. A call Home Assistant rejects
+ * therefore leaves the thumb where the household put it, with
+ * `homeAutomation.controlFailed` explaining why; that is the same trade-off the
+ * uncontrolled sliders elsewhere in this repo already make.
+ */
+function usePendingNumber<T extends number | undefined>(source: T) {
+  const [pending, setPending] = useState<number | null>(null);
+  const [seen, setSeen] = useState<T>(source);
+
+  // Adjusting state during render rather than in an effect: this is a
+  // derivation, and an effect would render the stale value once first.
+  if (source !== seen) {
+    setSeen(source);
+    setPending(null);
+  }
+
+  const shown = (pending ?? source) as T extends undefined ? number | undefined : number;
+  return [shown, setPending] as const;
+}
+
+/** A labelled slider that reads live under the thumb and commits on release. */
 function CommitSlider({
-  label, value, display, min = 0, max = 100, step = 1, onCommit, disabled,
+  label, value, format, min = 0, max = 100, step = 1, onCommit, disabled,
 }: {
   label: string;
   value: number;
-  display: string;
+  format: (value: number) => string;
   min?: number;
   max?: number;
   step?: number;
   onCommit: (value: number) => void;
   disabled?: boolean;
 }) {
+  const [shown, setPending] = usePendingNumber(value);
+  const clamped = Math.min(Math.max(shown, min), max);
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium">{display}</span>
+        <span className="font-medium">{format(clamped)}</span>
       </div>
       <Slider
-        value={[Math.min(Math.max(value, min), max)]}
+        value={[clamped]}
         min={min}
         max={max}
         step={step}
-        onValueCommit={(next) => onCommit(next[0])}
+        onValueChange={(next) => setPending(next[0])}
+        onValueCommit={(next) => {
+          setPending(next[0]);
+          onCommit(next[0]);
+        }}
         disabled={disabled}
+        className="cursor-pointer"
       />
     </div>
   );
@@ -264,7 +314,7 @@ function LightActions({ entity }: DomainProps) {
         <CommitSlider
           label={tAttr("brightness")}
           value={brightnessPercent}
-          display={`${brightnessPercent}%`}
+          format={(percent) => `${Math.round(percent)}%`}
           step={5}
           onCommit={(percent) => run(() => setBrightness(id, Math.round((percent / 100) * 255)))}
           disabled={busy}
@@ -274,7 +324,7 @@ function LightActions({ entity }: DomainProps) {
         <CommitSlider
           label={tAttr("color_temp")}
           value={kelvin}
-          display={`${kelvin} K`}
+          format={(next) => `${Math.round(next)} K`}
           min={minKelvin}
           max={maxKelvin}
           step={50}
@@ -328,8 +378,17 @@ function FanActions({ entity }: DomainProps) {
   const canPreset = supportsFeature(attrs, FAN_FEATURE.PRESET_MODE) && presets.length > 0;
 
   const percentage = num(attrs.percentage) ?? 0;
+  /*
+    `percentage_step` is not an integer on a stepped fan: three speeds report
+    33.333…, and rounding that to 33 caps the slider at 99, so a fan running
+    flat out read "99%". Radix takes a fractional step happily. The commit
+    floors instead, which is exactly what `fan.set_percentage`'s own
+    `vol.Coerce(int)` does to the number on arrival — 66.67 has to reach Home
+    Assistant as 66 (speed 2), not as the 67 that rounding would make it
+    (speed 3).
+  */
   const rawStep = num(attrs.percentage_step);
-  const step = rawStep && rawStep >= 1 ? Math.round(rawStep) : 1;
+  const step = rawStep && rawStep > 0 ? rawStep : 1;
   const oscillating = attrs.oscillating === true;
   const direction = text(attrs.direction);
 
@@ -353,9 +412,9 @@ function FanActions({ entity }: DomainProps) {
         <CommitSlider
           label={tAttr("percentage")}
           value={percentage}
-          display={`${Math.round(percentage)}%`}
+          format={(next) => `${Math.round(next)}%`}
           step={step}
-          onCommit={(next) => run(() => setSpeed(id, next))}
+          onCommit={(next) => run(() => setSpeed(id, Math.floor(next)))}
           disabled={busy}
         />
       )}
@@ -462,7 +521,7 @@ function CoverActions({ entity }: DomainProps) {
         <CommitSlider
           label={tAttr("current_position")}
           value={position}
-          display={`${Math.round(position)}%`}
+          format={(next) => `${Math.round(next)}%`}
           step={5}
           onCommit={(next) => run(() => setPosition(id, next))}
           disabled={busy}
@@ -491,7 +550,7 @@ function CoverActions({ entity }: DomainProps) {
         <CommitSlider
           label={tAttr("current_tilt_position")}
           value={tilt}
-          display={`${Math.round(tilt)}%`}
+          format={(next) => `${Math.round(next)}%`}
           step={5}
           onCommit={(next) =>
             run(() =>
@@ -659,7 +718,7 @@ function MediaPlayerActions({ entity }: DomainProps) {
         <CommitSlider
           label={tAttr("volume_level")}
           value={volumePercent}
-          display={`${volumePercent}%`}
+          format={(percent) => `${Math.round(percent)}%`}
           step={1}
           onCommit={(percent) => run(() => setVolume(id, percent / 100))}
           disabled={busy}
@@ -784,9 +843,19 @@ function ClimateActions({ entity }: DomainProps) {
   const step = num(attrs.target_temp_step) ?? 0.5;
   const minTemp = num(attrs.min_temp) ?? 7;
   const maxTemp = num(attrs.max_temp) ?? 35;
-  const target = num(attrs.temperature);
-  const low = num(attrs.target_temp_low);
-  const high = num(attrs.target_temp_high);
+  /*
+    Stepped from a *pending* value, not from the entity.
+
+    `climate.set_temperature` returns as soon as Home Assistant accepts it,
+    long before the device reports the new setpoint back, and `busy` clears
+    with the POST. Reading `attrs.temperature` on each tap therefore made three
+    quick taps of `+` on a 20.0° thermostat send `20.5` three times: the
+    display sat at 20°, and the room ended up half a degree warmer instead of
+    one and a half.
+  */
+  const [target, setTarget] = usePendingNumber(num(attrs.temperature));
+  const [low, setLow] = usePendingNumber(num(attrs.target_temp_low));
+  const [high, setHigh] = usePendingNumber(num(attrs.target_temp_high));
 
   const clampTemp = (value: number) =>
     Math.round(Math.min(Math.max(value, minTemp), maxTemp) * 100) / 100;
@@ -831,9 +900,11 @@ function ClimateActions({ entity }: DomainProps) {
           label={tAttr("temperature")}
           display={`${target}${unit}`}
           disabled={busy}
-          onStep={(direction) =>
-            call("set_temperature", { temperature: clampTemp(target + direction * step) })
-          }
+          onStep={(direction) => {
+            const next = clampTemp(target + direction * step);
+            setTarget(next);
+            call("set_temperature", { temperature: next });
+          }}
         />
       )}
       {canTargetRange && low !== undefined && high !== undefined && (
@@ -842,23 +913,21 @@ function ClimateActions({ entity }: DomainProps) {
             label={tAttr("target_temp_low")}
             display={`${low}${unit}`}
             disabled={busy}
-            onStep={(direction) =>
-              call("set_temperature", {
-                target_temp_low: clampTemp(low + direction * step),
-                target_temp_high: high,
-              })
-            }
+            onStep={(direction) => {
+              const next = clampTemp(low + direction * step);
+              setLow(next);
+              call("set_temperature", { target_temp_low: next, target_temp_high: high });
+            }}
           />
           <Stepper
             label={tAttr("target_temp_high")}
             display={`${high}${unit}`}
             disabled={busy}
-            onStep={(direction) =>
-              call("set_temperature", {
-                target_temp_low: low,
-                target_temp_high: clampTemp(high + direction * step),
-              })
-            }
+            onStep={(direction) => {
+              const next = clampTemp(high + direction * step);
+              setHigh(next);
+              call("set_temperature", { target_temp_low: low, target_temp_high: next });
+            }}
           />
         </>
       )}
@@ -866,7 +935,7 @@ function ClimateActions({ entity }: DomainProps) {
         <CommitSlider
           label={tAttr("humidity")}
           value={humidity}
-          display={`${Math.round(humidity)}%`}
+          format={(next) => `${Math.round(next)}%`}
           min={minHumidity}
           max={maxHumidity}
           onCommit={(next) => call("set_humidity", { humidity: next })}
@@ -1144,7 +1213,7 @@ function HumidifierActions({ entity }: DomainProps) {
       <CommitSlider
         label={tAttr("humidity")}
         value={humidity}
-        display={`${Math.round(humidity)}%`}
+        format={(next) => `${Math.round(next)}%`}
         min={minHumidity}
         max={maxHumidity}
         onCommit={(next) => call("set_humidity", { humidity: next })}
@@ -1326,11 +1395,25 @@ function UnavailableNotice() {
 export function EntityActions({ entity }: DomainProps) {
   const domain = entity.entity_id.split(".")[0];
 
-  // Task 2's reading gate, unchanged: `unavailable`, `unknown` and an empty
-  // state all mean there is nothing to drive. RFC-008 R1 carves out the
-  // domains whose *resting* state is `unknown` (`button`, `event`, `date`…),
-  // and every one of them is in the later phase.
-  if (classifyEntityState(entity.state).kind === "unavailable") {
+  /*
+    The reading gate, with RFC-008 R1's one phase-one exception.
+
+    `unavailable`, `unknown` and an empty state normally all mean there is
+    nothing here to drive. R1 carves out the domains whose *resting* state is
+    legitimately `unknown`, and `scene` is one of them and is in phase one: a
+    scene's state is the timestamp it was last activated, Home Assistant does
+    not restore it, so after a restart every scene in the house reports
+    `unknown`. Gating on that greys out Activate on a perfectly working scene
+    until somebody triggers it from somewhere else — which is precisely the
+    failure R1 exists to describe.
+
+    `unavailable` still disables everything, for `scene` as for anything else:
+    that one really does mean unreachable. The rest of R1's list (`button`,
+    `event`, `image`, the date/time family) belongs to the later phase with
+    those domains.
+  */
+  const restingUnknown = domain === "scene" && entity.state !== "unavailable";
+  if (!restingUnknown && classifyEntityState(entity.state).kind === "unavailable") {
     return <UnavailableNotice />;
   }
 

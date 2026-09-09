@@ -2927,6 +2927,7 @@
       "armNightButton": "Armer : nuit",
       "armVacationButton": "Armer : vacances",
       "armCustomBypassButton": "Armer : personnalisé",
+      "neverActivated": "Jamais activée",
       "attributes": {
         "brightness": "Luminosité",
         "color_temp": "Température de couleur",
