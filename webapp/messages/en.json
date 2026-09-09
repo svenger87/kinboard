@@ -2893,6 +2893,7 @@
       "history24hHeading": "History (24h)",
       "noHistoryData": "No history data available",
       "attributesHeading": "Attributes",
+      "showDetails": "Show details",
       "turnOnButton": "Turn on",
       "turnOffButton": "Turn off",
       "activateButton": "Activate",

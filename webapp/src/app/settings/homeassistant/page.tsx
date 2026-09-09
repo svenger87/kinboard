@@ -55,6 +55,7 @@ import { PageHeader } from "@/components/page-header";
 import { IntegrationConfigHint } from "@/components/integration-config-hint";
 import { IntegrationStatusBanner } from "@/components/integration-status-banner";
 import Link from "next/link";
+import { humanizeDomain } from "@/lib/ha-entity-display";
 import type { DashboardCard, HAEntity } from "@/types/home-assistant";
 
 function HomeAssistantSettingsContent() {
@@ -258,7 +259,10 @@ function HomeAssistantSettingsContent() {
     try {
       return tDomains(domain);
     } catch {
-      return domain;
+      // `domainLabels` names 21 domains out of the hundreds Home Assistant
+      // has. One nobody translated is still a word: `air_quality` reads as
+      // "Air quality", not as a raw id (RFC-008 §5).
+      return humanizeDomain(domain);
     }
   };
 

@@ -2893,6 +2893,7 @@
       "history24hHeading": "Verlauf (24h)",
       "noHistoryData": "Keine Verlaufsdaten verfügbar",
       "attributesHeading": "Attribute",
+      "showDetails": "Details anzeigen",
       "turnOnButton": "Einschalten",
       "turnOffButton": "Ausschalten",
       "activateButton": "Aktivieren",
