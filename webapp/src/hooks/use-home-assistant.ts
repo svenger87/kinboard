@@ -53,8 +53,25 @@ export function useHomeAssistantStatus() {
 
         return settings;
       } catch (error) {
+        // Deliberately rethrown, for the same reason as the entity-states
+        // query below (see the long note at its own `catch`): swallowing this
+        // made "we could not read your settings" indistinguishable from "you
+        // have not set Home Assistant up". `isError` stayed false, `data`
+        // came back null, and every caller read `settings?.url` as falsy —
+        // so a 500 from /api/settings told a household with a perfectly good
+        // Home Assistant that they had never connected one, and asked them to
+        // go and do it.
+        //
+        // Nothing downstream regresses: every caller already reads `data`
+        // optionally (`settings?.url`, `!!settings?.access_token`, or a
+        // truthiness check), and `undefined` on error reads exactly as `null`
+        // did. The `isPending`/`isLoading` callers are unaffected too — the
+        // query leaves the pending status either way, it just lands on
+        // `error` instead of `success`. What changes is only that `isError`
+        // becomes readable by a screen that wants to say something truer.
+        // `retry: false` below already stops this from becoming a retry storm.
         console.warn("[HomeAssistant] Status fetch error:", error);
-        return null;
+        throw error instanceof Error ? error : new Error("Failed to fetch Home Assistant status");
       }
     },
     enabled: !!family?.id,

@@ -6,11 +6,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Image search for shopping-list item photos.
+ * Image search, shared across callers.
  *
- * `mode: "product"` puts Open Food Facts first — on a shopping list the
- * useful result is a photo of the actual packet, not a stock photo of
- * milk in a glass.
+ * `mode` defaults to `"product"`, which puts Open Food Facts first — on a
+ * shopping list the useful result is a photo of the actual packet, not a
+ * stock photo of milk in a glass. That is the shopping list's behavior,
+ * unchanged. Callers searching for something that isn't groceries (e.g. the
+ * device catalogue) pass `mode=general`.
  *
  * The Bing and DuckDuckGo HTML scrapers that used to live here are gone.
  * They rotted silently upstream and started serving results unrelated to
@@ -36,6 +38,12 @@ export async function GET(request: NextRequest) {
     ? Math.min(Math.max(parsedLimit, 1), 30)
     : 12;
 
+  const modeParam = searchParams.get("mode");
+  // Defaults to "product" so the shopping list, the only caller today, is
+  // unchanged. Devices pass "general": Open Food Facts carries groceries, and
+  // a washing machine is not one.
+  const mode = modeParam === "general" ? "general" : "product";
+
   if (!query || query.trim().length < 2) {
     return NextResponse.json(
       { error: "Query must be at least 2 characters" },
@@ -55,7 +63,7 @@ export async function GET(request: NextRequest) {
   const results = await searchSafeImages(query, {
     limit,
     familyId,
-    mode: "product",
+    mode,
     locale: searchParams.get("locale") ?? "en",
   });
 

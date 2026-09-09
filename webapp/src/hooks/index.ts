@@ -396,26 +396,6 @@ export type {
 export { useSetupState, useMarkSetupCompleted } from "./use-setup-state";
 export type { SetupState } from "./use-setup-state";
 
-// Room Management Hooks
-export {
-  useRoomsConfig,
-  useRoom,
-  useCreateRoom,
-  useUpdateRoom,
-  useDeleteRoom,
-  useReorderRooms,
-  useAddEntityToRoom,
-  useRemoveEntityFromRoom,
-  useMoveEntityToRoom,
-  useReorderRoomEntities,
-  useUpdateRoomsSettings,
-  useAllRoomEntityIds,
-  useRoomEntityIds,
-  useRoomEntitiesWithStates,
-  useEntityRoom,
-  useUnassignedEntities,
-} from "./use-rooms";
-
 // Vehicle Hooks
 export {
   useVehicles,

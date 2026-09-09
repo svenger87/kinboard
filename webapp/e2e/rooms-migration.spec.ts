@@ -1,0 +1,278 @@
+import { test, expect } from "@playwright/test";
+import { execFileSync } from "child_process";
+import {
+  acquireWholeDatabase,
+  releaseWholeDatabase,
+  dbContainer,
+  SKIP_WITHOUT_DATABASE,
+} from "./whole-database";
+
+/**
+ * Reconciling rooms out of the settings blob. RFC-007 §3.
+ *
+ * The cases here decide whether a household's rooms survive. Each is one
+ * seeded blob plus a set of catalogue rows, and the rows it must produce.
+ */
+
+function psql(sql: string): string {
+  return execFileSync(
+    "docker",
+    ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-tA", "-q", "-c", sql],
+    { encoding: "utf8" },
+  ).trim();
+}
+
+function applyMigration(): void {
+  execFileSync("bash", ["-c",
+    `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migration_rooms.sql`],
+    { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8" });
+}
+
+/*
+  This spec applies a migration that rewrites every family on the install, and
+  asserts against a database it assumes nobody else is touching. Another spec
+  doing the same thing at the same time breaks both — see ./whole-database.ts
+  for the two failure shapes and why no Playwright setting covers it.
+*/
+test.skip(SKIP_WITHOUT_DATABASE, "no database container reachable, and no FAMILY_CODE promising a stack");
+
+test.beforeEach(acquireWholeDatabase);
+test.afterEach(releaseWholeDatabase);
+
+const families: string[] = [];
+function makeFamily(): string {
+  const id = psql(
+    `INSERT INTO families (name, join_code) VALUES ('rooms-test', 'RM' || upper(substr(md5(random()::text), 1, 8))) RETURNING id;`,
+  );
+  families.push(id);
+  return id;
+}
+// Under the lock as well: these deletes are what pulled a family out from
+// under the other spec's migration mid-statement.
+test.afterAll(async () => {
+  await acquireWholeDatabase();
+  try {
+    for (const id of families) psql(`DELETE FROM families WHERE id = '${id}';`);
+  } finally {
+    releaseWholeDatabase();
+  }
+});
+
+function seedBlob(familyId: string, blob: object): void {
+  const json = JSON.stringify(blob).replace(/'/g, "''");
+  psql(`INSERT INTO settings (family_id, key, value) VALUES ('${familyId}','home_assistant','${json}'::jsonb)
+        ON CONFLICT (family_id, key) DO UPDATE SET value = EXCLUDED.value;`);
+}
+
+function seedDevice(familyId: string, entityId: string, room: string | null): void {
+  const roomSql = room === null ? "NULL" : `'${room.replace(/'/g, "''")}'`;
+  psql(`INSERT INTO catalogue_items (family_id, kind, entity_id, name, room)
+        VALUES ('${familyId}','ha_entity','${entityId}','${entityId}',${roomSql});`);
+}
+
+/** room name | icon | colour | position, in order. */
+function rooms(familyId: string): string[] {
+  const out = psql(
+    `SELECT name || '|' || COALESCE(icon,'-') || '|' || COALESCE(color,'-') || '|' || position
+     FROM rooms WHERE family_id='${familyId}' ORDER BY position, name;`,
+  );
+  return out ? out.split("\n") : [];
+}
+
+/** entity | the NAME of the room it points at, resolved through the FK. */
+function links(familyId: string): string[] {
+  const out = psql(
+    `SELECT c.entity_id || '|' || COALESCE(r.name,'-')
+     FROM catalogue_items c LEFT JOIN rooms r ON r.id = c.room_id
+     WHERE c.family_id='${familyId}' ORDER BY c.entity_id;`,
+  );
+  return out ? out.split("\n") : [];
+}
+
+test.describe("reconciling rooms", () => {
+  test("a blob room keeps its icon, colour and order", () => {
+    const id = makeFamily();
+    seedBlob(id, {
+      rooms_config: {
+        rooms: [
+          { id: "r1", name: "Flur", icon: "book", color: "#67f264", position: 0, created_at: "2026-01-01", entities: [] },
+          { id: "r2", name: "Wohnzimmer", icon: "lamp", position: 1, created_at: "2026-01-01", entities: [] },
+        ],
+      },
+    });
+    applyMigration();
+    expect(rooms(id)).toEqual(["Flur|book|#67f264|0", "Wohnzimmer|lamp|-|1"]);
+  });
+
+  test("a room that exists only as catalogue text becomes a room, after the blob's", () => {
+    const id = makeFamily();
+    seedBlob(id, {
+      rooms_config: { rooms: [{ id: "r1", name: "Flur", icon: "book", position: 0, created_at: "2026-01-01", entities: [] }] },
+    });
+    seedDevice(id, "sensor.carport", "Carport");
+    applyMigration();
+    // The blob's room keeps position 0; the text-only one lands after it.
+    expect(rooms(id)).toEqual(["Flur|book|-|0", "Carport|-|-|1"]);
+  });
+
+  test("the same name in both, differing in case, is one room", () => {
+    const id = makeFamily();
+    seedBlob(id, {
+      rooms_config: { rooms: [{ id: "r1", name: "Flur", icon: "book", position: 0, created_at: "2026-01-01", entities: [] }] },
+    });
+    seedDevice(id, "light.a", "flur");
+    seedDevice(id, "light.b", "  FLUR  ");
+    applyMigration();
+    expect(rooms(id)).toEqual(["Flur|book|-|0"]);
+    // Both devices resolve to that one room, under the blob's spelling.
+    expect(links(id)).toEqual(["light.a|Flur", "light.b|Flur"]);
+  });
+
+  test("every device's room text resolves to a room_id", () => {
+    const id = makeFamily();
+    seedDevice(id, "light.a", "Küche");
+    seedDevice(id, "light.b", "Küche");
+    seedDevice(id, "sensor.c", null);
+    applyMigration();
+    expect(rooms(id)).toEqual(["Küche|-|-|0"]);
+    expect(links(id)).toEqual(["light.a|Küche", "light.b|Küche", "sensor.c|-"]);
+  });
+
+  test("the blob's entity lists are ignored", () => {
+    // RFC-007 §3: membership already lives on the catalogue row. Reading these
+    // again would re-add a device the household has since removed.
+    const id = makeFamily();
+    seedBlob(id, {
+      rooms_config: {
+        rooms: [{ id: "r1", name: "Flur", icon: "book", position: 0, created_at: "2026-01-01",
+                  entities: [{ entity_id: "light.removed", display_name: "Gone", position: 0 }] }],
+      },
+    });
+    applyMigration();
+    expect(rooms(id)).toEqual(["Flur|book|-|0"]);
+    // No catalogue row was invented for it.
+    expect(links(id)).toEqual([]);
+  });
+
+  test("a blob room with no name is skipped, and does not take the batch down", () => {
+    const poisoned = makeFamily();
+    seedBlob(poisoned, {
+      rooms_config: { rooms: [{ id: "r1", icon: "book", position: 0, created_at: "2026-01-01", entities: [] }] },
+    });
+    const clean = makeFamily();
+    seedDevice(clean, "light.ok", "Bad");
+    applyMigration();
+    expect(rooms(poisoned)).toEqual([]);
+    // The property whose absence takes the container down.
+    expect(rooms(clean)).toEqual(["Bad|-|-|0"]);
+    expect(links(clean)).toEqual(["light.ok|Bad"]);
+  });
+
+  test("a blob room with an empty-string name is skipped, and does not take the batch down", () => {
+    // The shape a missing "name" key doesn't cover: "" passes the length
+    // filter (char_length(trim('')) is 0, not NULL) so only the NULLIF
+    // filter catches it. Without that filter this reaches the INSERT and
+    // trips rooms.rooms_name_check, aborting the whole statement — every
+    // family migrated in the same pass, not just this one.
+    const poisoned = makeFamily();
+    seedBlob(poisoned, {
+      rooms_config: { rooms: [{ id: "r1", name: "", icon: "book", position: 0, created_at: "2026-01-01", entities: [] }] },
+    });
+    const clean = makeFamily();
+    seedBlob(clean, {
+      rooms_config: { rooms: [{ id: "r1", name: "Flur", icon: "book", position: 0, created_at: "2026-01-01", entities: [] }] },
+    });
+    seedDevice(clean, "light.a", "Flur");
+    seedDevice(clean, "light.b", "Bad");
+    applyMigration();
+    expect(rooms(poisoned)).toEqual([]);
+    // Not just "no error" — the clean family must still get every one of its
+    // rows: the blob room, the text-only room appended after it, and both
+    // devices resolved through the FK. That completeness is the property
+    // whose absence stops the webapp container starting for everybody.
+    expect(rooms(clean)).toEqual(["Flur|book|-|0", "Bad|-|-|1"]);
+    expect(links(clean)).toEqual(["light.a|Flur", "light.b|Bad"]);
+  });
+
+  test("a non-array rooms_config does not take the batch down either", () => {
+    const poisoned = makeFamily();
+    seedBlob(poisoned, { rooms_config: { rooms: {} } });
+    const clean = makeFamily();
+    seedDevice(clean, "light.ok2", "Fine");
+    applyMigration();
+    expect(rooms(clean)).toEqual(["Fine|-|-|0"]);
+  });
+
+  test("applying it twice changes nothing", () => {
+    const id = makeFamily();
+    seedBlob(id, {
+      rooms_config: { rooms: [{ id: "r1", name: "Flur", icon: "book", position: 0, created_at: "2026-01-01", entities: [] }] },
+    });
+    seedDevice(id, "light.a", "Flur");
+    applyMigration();
+    const first = [rooms(id), links(id)];
+    applyMigration();
+    expect([rooms(id), links(id)]).toEqual(first);
+  });
+
+  test("a household's own edits survive the next application", () => {
+    // "Applying it twice changes nothing" only says anything about a database
+    // nobody touched in between, and that is not how this migration runs: the
+    // webapp entrypoint applies it on every container start, and both legacy
+    // stores it reads from are deliberately never cleared. So the case that
+    // matters is seed, apply, make the edits a household makes, apply again.
+    const id = makeFamily();
+    seedBlob(id, {
+      rooms_config: { rooms: [{ id: "r1", name: "Wohnzimmer", icon: "lamp", position: 0, created_at: "2026-01-01", entities: [] }] },
+    });
+    seedDevice(id, "light.a", "Wohnzimmer");
+    seedDevice(id, "light.b", "Küche");
+    seedDevice(id, "light.c", "Wohnzimmer");
+    applyMigration();
+    expect(rooms(id)).toEqual(["Wohnzimmer|lamp|-|0", "Küche|-|-|1"]);
+    expect(links(id)).toEqual(["light.a|Wohnzimmer", "light.b|Küche", "light.c|Wohnzimmer"]);
+
+    // The two edits, exactly as the app makes them: the catalogue screen
+    // clears a device's room by writing room_id and nothing else, and
+    // deleting a room lets the FK's SET NULL clear its devices. Neither
+    // touches catalogue_items.room — that text stays as the recovery copy,
+    // which is precisely what an ungated step 2 and 3 would read again.
+    psql(`UPDATE catalogue_items SET room_id = NULL WHERE family_id='${id}' AND entity_id='light.c';`);
+    psql(`DELETE FROM rooms WHERE family_id='${id}' AND name='Küche';`);
+
+    applyMigration();
+
+    // Küche is not resurrected, light.b is not re-linked to a new one, and
+    // light.c does not get its room back from the text it still carries.
+    expect(rooms(id)).toEqual(["Wohnzimmer|lamp|-|0"]);
+    expect(links(id)).toEqual(["light.a|Wohnzimmer", "light.b|-", "light.c|-"]);
+  });
+
+  test("a deleted blob room is not recreated either", () => {
+    // Step 1 needs the same guard as steps 2 and 3, for the same reason:
+    // rooms_config is a frozen legacy blob that nothing writes and nothing
+    // deletes, so re-reading it every boot resurrects a room the household
+    // deleted just as surely as the catalogue text does.
+    const id = makeFamily();
+    seedBlob(id, {
+      rooms_config: { rooms: [{ id: "r1", name: "Flur", icon: "book", color: "#67f264", position: 0, created_at: "2026-01-01", entities: [] }] },
+    });
+    applyMigration();
+    expect(rooms(id)).toEqual(["Flur|book|#67f264|0"]);
+
+    psql(`DELETE FROM rooms WHERE family_id='${id}' AND name='Flur';`);
+    applyMigration();
+    expect(rooms(id)).toEqual([]);
+  });
+
+  test("the blob and the room text are both left exactly as they were", () => {
+    const id = makeFamily();
+    seedBlob(id, {
+      rooms_config: { rooms: [{ id: "r1", name: "Flur", icon: "book", position: 0, created_at: "2026-01-01", entities: [] }] },
+    });
+    seedDevice(id, "light.a", "Flur");
+    applyMigration();
+    expect(psql(`SELECT value #>> '{rooms_config,rooms,0,name}' FROM settings WHERE family_id='${id}' AND key='home_assistant';`)).toBe("Flur");
+    expect(psql(`SELECT room FROM catalogue_items WHERE family_id='${id}' AND entity_id='light.a';`)).toBe("Flur");
+  });
+});

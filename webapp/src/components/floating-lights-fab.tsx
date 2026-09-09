@@ -7,23 +7,7 @@ import {
   Lightbulb,
   Loader2,
   PowerOff,
-  Home,
-  BedDouble,
-  Sofa,
-  Utensils,
-  Bath,
-  Car,
-  TreeDeciduous,
-  Briefcase,
-  Baby,
-  Tv,
   DoorOpen,
-  Warehouse,
-  Lamp,
-  Armchair,
-  WashingMachine,
-  Coffee,
-  Book,
   LayoutGrid,
   Settings,
   Power,
@@ -45,36 +29,20 @@ import {
   useHomeAssistantEntityStates,
   useLightControl,
   useCallService,
-  useRoomsConfig,
-  useRoomEntitiesWithStates,
-  useAllRoomEntityIds,
 } from "@/hooks";
+import { useRooms } from "@/hooks/use-rooms-table";
+import { useCatalogue } from "@/hooks/use-catalogue";
+import { iconFor } from "@/components/home-assistant/room-icon";
 import { LightControlItem } from "./light-control-item";
 import { SwitchControlItem } from "./switch-control-item";
 import { SensorDisplayItem } from "./sensor-display-item";
 import { BinarySensorDisplayItem } from "./binary-sensor-display-item";
-import type { DashboardCard, HAEntity, RoomConfig, RoomIcon, RoomEntity } from "@/types/home-assistant";
+import type { DashboardCard, HAEntity, RoomEntity, RoomIcon } from "@/types/home-assistant";
+import type { Room, CatalogueItem } from "@/types/database";
 
-// Icon map for room icons
-const ICON_MAP: Record<RoomIcon, typeof Home> = {
-  home: Home,
-  "bed-double": BedDouble,
-  sofa: Sofa,
-  utensils: Utensils,
-  bath: Bath,
-  car: Car,
-  tree: TreeDeciduous,
-  briefcase: Briefcase,
-  baby: Baby,
-  tv: Tv,
-  "door-open": DoorOpen,
-  warehouse: Warehouse,
-  lamp: Lamp,
-  armchair: Armchair,
-  "washing-machine": WashingMachine,
-  coffee: Coffee,
-  book: Book,
-};
+/** A catalogue row known to have an entity — the shape every domain group
+ * below actually needs, narrowed once instead of asserted at each use. */
+type CatalogueItemWithEntity = CatalogueItem & { entity_id: string };
 
 // Room tab component
 const RoomTab = React.memo(function RoomTab({
@@ -83,12 +51,12 @@ const RoomTab = React.memo(function RoomTab({
   onClick,
   lightsOn,
 }: {
-  room: RoomConfig | { id: "all"; name: string; icon: RoomIcon };
+  room: Room | { id: "all"; name: string; icon: RoomIcon };
   isActive: boolean;
   onClick: () => void;
   lightsOn: number;
 }) {
-  const Icon = ICON_MAP[room.icon] || Home;
+  const Icon = iconFor(room.icon);
 
   return (
     <button
@@ -110,43 +78,72 @@ const RoomTab = React.memo(function RoomTab({
   );
 });
 
-// Room content section showing entities by type
+// Room content section showing entities by type. `items` is the catalogue's
+// membership for this room (RFC-007 §4) — the FAB no longer owns any
+// membership list of its own.
 const RoomContent = React.memo(function RoomContent({
-  roomId,
+  items,
+  entityMap,
+  isLoading,
   onAllOff,
   isAllOffPending,
 }: {
-  roomId: string | "all";
+  items: CatalogueItem[];
+  entityMap: Map<string, HAEntity>;
+  isLoading: boolean;
   onAllOff: (entityIds: string[]) => void;
   isAllOffPending: boolean;
 }) {
   const t = useTranslations("homeAutomation.fab");
-  const { entities, isLoading, lightsOn, switchesOn } = useRoomEntitiesWithStates(
-    roomId === "all" ? undefined : roomId
+
+  // Membership is every catalogue item assigned to this room that has an
+  // entity to control — independent of whether a state for it came back,
+  // so a room with devices HA hasn't reported on yet still counts as
+  // non-empty rather than showing the "no devices" prompt.
+  const memberItems = useMemo(
+    () => items.filter((item): item is CatalogueItemWithEntity => !!item.entity_id),
+    [items]
   );
 
   // Group entities by domain in a single pass
-  const { lights, switches, sensors, binarySensors, lightEntityIds } = useMemo(() => {
-    const l: typeof entities = [];
-    const sw: typeof entities = [];
-    const se: typeof entities = [];
-    const bs: typeof entities = [];
-    const onIds: string[] = [];
-    for (const e of entities) {
-      const domain = e.state?.domain;
-      if (domain === "light") {
-        l.push(e);
-        if (e.state?.state === "on") onIds.push(e.entity_id);
-      } else if (domain === "switch" || domain === "input_boolean") {
-        sw.push(e);
-      } else if (domain === "sensor") {
-        se.push(e);
-      } else if (domain === "binary_sensor") {
-        bs.push(e);
+  const { lights, switches, sensors, binarySensors, lightEntityIds, lightsOn, switchesOn } =
+    useMemo(() => {
+      const l: Array<{ item: CatalogueItemWithEntity; entity: HAEntity }> = [];
+      const sw: typeof l = [];
+      const se: typeof l = [];
+      const bs: typeof l = [];
+      const onIds: string[] = [];
+      let lOn = 0;
+      let swOn = 0;
+      for (const item of memberItems) {
+        const entity = entityMap.get(item.entity_id);
+        if (!entity) continue;
+        const domain = entity.domain;
+        if (domain === "light") {
+          l.push({ item, entity });
+          if (entity.state === "on") {
+            onIds.push(item.entity_id);
+            lOn++;
+          }
+        } else if (domain === "switch" || domain === "input_boolean") {
+          sw.push({ item, entity });
+          if (entity.state === "on") swOn++;
+        } else if (domain === "sensor") {
+          se.push({ item, entity });
+        } else if (domain === "binary_sensor") {
+          bs.push({ item, entity });
+        }
       }
-    }
-    return { lights: l, switches: sw, sensors: se, binarySensors: bs, lightEntityIds: onIds };
-  }, [entities]);
+      return {
+        lights: l,
+        switches: sw,
+        sensors: se,
+        binarySensors: bs,
+        lightEntityIds: onIds,
+        lightsOn: lOn,
+        switchesOn: swOn,
+      };
+    }, [memberItems, entityMap]);
 
   if (isLoading) {
     return (
@@ -157,7 +154,7 @@ const RoomContent = React.memo(function RoomContent({
     );
   }
 
-  if (entities.length === 0) {
+  if (memberItems.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         <LayoutGrid className="size-12 mx-auto mb-4 opacity-30" />
@@ -208,24 +205,17 @@ const RoomContent = React.memo(function RoomContent({
             )}
           </div>
           <div className="flex flex-col gap-2">
-            {lights.map((entity) => {
-              if (!entity.state) return null;
+            {lights.map(({ item, entity }) => {
               // Create a fake DashboardCard for compatibility
               const card: DashboardCard = {
-                id: entity.entity_id,
-                entity_id: entity.entity_id,
-                display_name: entity.display_name,
+                id: item.id,
+                entity_id: item.entity_id,
+                display_name: item.name,
                 card_type: "light",
-                position: entity.position,
+                position: item.position,
                 size: "medium",
               };
-              return (
-                <LightControlItem
-                  key={entity.entity_id}
-                  card={card}
-                  entity={entity.state}
-                />
-              );
+              return <LightControlItem key={item.entity_id} card={card} entity={entity} />;
             })}
           </div>
         </div>
@@ -244,14 +234,14 @@ const RoomContent = React.memo(function RoomContent({
             )}
           </div>
           <div className="flex flex-col gap-2">
-            {switches.map((entity) => {
-              if (!entity.state) return null;
+            {switches.map(({ item, entity }) => {
+              const roomEntity: RoomEntity = {
+                entity_id: item.entity_id,
+                display_name: item.name,
+                position: item.position,
+              };
               return (
-                <SwitchControlItem
-                  key={entity.entity_id}
-                  roomEntity={entity}
-                  entity={entity.state}
-                />
+                <SwitchControlItem key={item.entity_id} roomEntity={roomEntity} entity={entity} />
               );
             })}
           </div>
@@ -266,14 +256,14 @@ const RoomContent = React.memo(function RoomContent({
             <span>{t("sectionSensors")}</span>
           </div>
           <div className="flex flex-col gap-2">
-            {sensors.map((entity) => {
-              if (!entity.state) return null;
+            {sensors.map(({ item, entity }) => {
+              const roomEntity: RoomEntity = {
+                entity_id: item.entity_id,
+                display_name: item.name,
+                position: item.position,
+              };
               return (
-                <SensorDisplayItem
-                  key={entity.entity_id}
-                  roomEntity={entity}
-                  entity={entity.state}
-                />
+                <SensorDisplayItem key={item.entity_id} roomEntity={roomEntity} entity={entity} />
               );
             })}
           </div>
@@ -288,13 +278,17 @@ const RoomContent = React.memo(function RoomContent({
             <span>{t("sectionStatus")}</span>
           </div>
           <div className="flex flex-col gap-2">
-            {binarySensors.map((entity) => {
-              if (!entity.state) return null;
+            {binarySensors.map(({ item, entity }) => {
+              const roomEntity: RoomEntity = {
+                entity_id: item.entity_id,
+                display_name: item.name,
+                position: item.position,
+              };
               return (
                 <BinarySensorDisplayItem
-                  key={entity.entity_id}
-                  roomEntity={entity}
-                  entity={entity.state}
+                  key={item.entity_id}
+                  roomEntity={roomEntity}
+                  entity={entity}
                 />
               );
             })}
@@ -359,9 +353,25 @@ export function FloatingLightsFab() {
   const { data: haStatus } = useHomeAssistantStatus();
   const isConnected = !!haStatus?.url;
 
-  // Get rooms configuration
-  const roomsConfig = useRoomsConfig();
-  const hasRooms = roomsConfig.rooms.length > 0;
+  // Rooms, from the table — not the settings blob (RFC-007 §4).
+  const { data: rooms, isLoading: isRoomsLoading } = useRooms();
+  const hasRooms = rooms.length > 0;
+
+  // Membership, from the catalogue's room_id — not a list the FAB owns.
+  // Only `room_id` counts here: the legacy free-text `room` column a device
+  // may carry from the devices screen is not membership until a later task
+  // teaches that screen to write `room_id` too.
+  const { data: catalogueItems, isLoading: isCatalogueLoading } = useCatalogue();
+  const itemsByRoomId = useMemo(() => {
+    const map = new Map<string, CatalogueItem[]>();
+    for (const item of catalogueItems) {
+      if (!item.entity_id || !item.room_id) continue;
+      const list = map.get(item.room_id);
+      if (list) list.push(item);
+      else map.set(item.room_id, [item]);
+    }
+    return map;
+  }, [catalogueItems]);
 
   // Get all dashboards (for legacy fallback)
   const { data: dashboards = [] } = useDashboards();
@@ -382,7 +392,13 @@ export function FloatingLightsFab() {
   }, [dashboards]);
 
   // Get all room entity IDs for state fetching
-  const allRoomEntityIds = useAllRoomEntityIds();
+  const allRoomEntityIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const list of itemsByRoomId.values()) {
+      for (const item of list) ids.add(item.entity_id!);
+    }
+    return Array.from(ids);
+  }, [itemsByRoomId]);
 
   // Combine entity IDs (rooms + dashboard lights)
   const allEntityIds = useMemo(() => {
@@ -392,10 +408,11 @@ export function FloatingLightsFab() {
   }, [allRoomEntityIds, lightCards]);
 
   // Fetch entity states for all entities
-  const { data: entityStates = [], isLoading } = useHomeAssistantEntityStates(
+  const { data: entityStates = [], isLoading: isStatesLoading } = useHomeAssistantEntityStates(
     allEntityIds,
     isConnected && allEntityIds.length > 0
   );
+  const isLoading = isRoomsLoading || isCatalogueLoading || isStatesLoading;
 
   // Create entity map
   const entityMap = useMemo(() => {
@@ -430,13 +447,14 @@ export function FloatingLightsFab() {
   // Count lights on per room
   const roomLightsOnCount = useMemo(() => {
     const counts: Record<string, number> = { all: totalLightsOn };
-    for (const room of roomsConfig.rooms) {
-      counts[room.id] = room.entities
-        .map((e) => entityMap.get(e.entity_id))
+    for (const room of rooms) {
+      const items = itemsByRoomId.get(room.id) ?? [];
+      counts[room.id] = items
+        .map((item) => entityMap.get(item.entity_id!))
         .filter((e) => e?.domain === "light" && e?.state === "on").length;
     }
     return counts;
-  }, [roomsConfig.rooms, entityMap, totalLightsOn]);
+  }, [rooms, itemsByRoomId, entityMap, totalLightsOn]);
 
   // Don't render if HA not connected or no lights/rooms configured
   if (!isConnected || (lightCards.length === 0 && !hasRooms)) {
@@ -522,17 +540,15 @@ export function FloatingLightsFab() {
                     />
 
                     {/* Room tabs */}
-                    {roomsConfig.rooms
-                      .sort((a, b) => a.position - b.position)
-                      .map((room) => (
-                        <RoomTab
-                          key={room.id}
-                          room={room}
-                          isActive={activeRoomId === room.id}
-                          onClick={() => setActiveRoomId(room.id)}
-                          lightsOn={roomLightsOnCount[room.id] || 0}
-                        />
-                      ))}
+                    {rooms.map((room) => (
+                      <RoomTab
+                        key={room.id}
+                        room={room}
+                        isActive={activeRoomId === room.id}
+                        onClick={() => setActiveRoomId(room.id)}
+                        lightsOn={roomLightsOnCount[room.id] || 0}
+                      />
+                    ))}
                   </div>
                   <ScrollBar orientation="horizontal" />
                 </ScrollArea>
@@ -559,8 +575,8 @@ export function FloatingLightsFab() {
                       {activeRoomId === "all" ? (
                         // Show all rooms content
                         <div className="flex flex-col gap-6">
-                          {roomsConfig.rooms.map((room) => {
-                            const Icon = ICON_MAP[room.icon] || Home;
+                          {rooms.map((room) => {
+                            const Icon = iconFor(room.icon);
                             return (
                               <div key={room.id}>
                                 <div
@@ -571,7 +587,7 @@ export function FloatingLightsFab() {
                                     className="p-1.5 rounded"
                                     style={{
                                       backgroundColor: room.color ? `${room.color}20` : undefined,
-                                      color: room.color,
+                                      color: room.color ?? undefined,
                                     }}
                                   >
                                     <Icon className="size-4" />
@@ -579,7 +595,9 @@ export function FloatingLightsFab() {
                                   <span className="font-medium">{room.name}</span>
                                 </div>
                                 <RoomContent
-                                  roomId={room.id}
+                                  items={itemsByRoomId.get(room.id) ?? []}
+                                  entityMap={entityMap}
+                                  isLoading={false}
                                   onAllOff={handleAllOff}
                                   isAllOffPending={isPending}
                                 />
@@ -589,7 +607,9 @@ export function FloatingLightsFab() {
                         </div>
                       ) : (
                         <RoomContent
-                          roomId={activeRoomId}
+                          items={itemsByRoomId.get(activeRoomId) ?? []}
+                          entityMap={entityMap}
+                          isLoading={false}
                           onAllOff={handleAllOff}
                           isAllOffPending={isPending}
                         />

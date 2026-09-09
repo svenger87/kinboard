@@ -1,41 +1,23 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
+  ArrowRight,
   Plus,
   Trash2,
   Edit,
   Home,
-  BedDouble,
-  Sofa,
-  Utensils,
-  Bath,
-  Car,
-  TreeDeciduous,
-  Briefcase,
-  Baby,
-  Tv,
-  DoorOpen,
-  Warehouse,
-  Lamp,
-  Armchair,
-  WashingMachine,
-  Coffee,
-  Book,
+  Boxes,
   X,
-  Lightbulb,
-  Power,
-  Thermometer,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -54,42 +36,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  useRoomsConfig,
-  useCreateRoom,
-  useUpdateRoom,
-  useDeleteRoom,
-  useReorderRooms,
-  useAddEntityToRoom,
-  useRemoveEntityFromRoom,
-  useUpdateRoomsSettings,
-  useHomeAssistantStatus,
-  useHomeAssistantEntityStates,
-} from "@/hooks";
-import { RoomEntityBrowser } from "@/components/home-assistant/room-entity-browser";
-import type { RoomConfig, RoomIcon, RoomEntity } from "@/types/home-assistant";
+  useRooms,
+  useCreateRoomRow,
+  useUpdateRoomRow,
+  useDeleteRoomRow,
+  RoomDuplicateError,
+} from "@/hooks/use-rooms-table";
+import type { Room } from "@/types/database";
+import type { RoomIcon } from "@/types/home-assistant";
+import { ICON_MAP, iconFor } from "@/components/home-assistant/room-icon";
 
-// Icon map for room icons
-const ICON_MAP: Record<RoomIcon, typeof Home> = {
-  home: Home,
-  "bed-double": BedDouble,
-  sofa: Sofa,
-  utensils: Utensils,
-  bath: Bath,
-  car: Car,
-  tree: TreeDeciduous,
-  briefcase: Briefcase,
-  baby: Baby,
-  tv: Tv,
-  "door-open": DoorOpen,
-  warehouse: Warehouse,
-  lamp: Lamp,
-  armchair: Armchair,
-  "washing-machine": WashingMachine,
-  coffee: Coffee,
-  book: Book,
-};
-
-// Room icon options for picker — labels come from translations via iconLabelKey()
+// Room icon options for picker — labels come from translations via ICON_LABEL_KEYS
 const ROOM_ICONS: readonly RoomIcon[] = [
   "home",
   "bed-double",
@@ -138,14 +95,14 @@ function RoomEditorDialog({
   onClose,
   onSave,
 }: {
-  room?: RoomConfig;
+  room?: Room;
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: { name: string; icon: RoomIcon; color?: string }) => void;
 }) {
   const t = useTranslations("settings.homeassistantRooms");
   const [name, setName] = useState(room?.name || "");
-  const [icon, setIcon] = useState<RoomIcon>(room?.icon || "home");
+  const [icon, setIcon] = useState<RoomIcon>((room?.icon as RoomIcon) || "home");
   const [color, setColor] = useState(room?.color || "");
 
   const handleSave = () => {
@@ -244,113 +201,34 @@ function RoomEditorDialog({
   );
 }
 
-// Entity list item in room
-function RoomEntityItem({
-  roomEntity,
-  entityState,
-  onRemove,
-}: {
-  roomEntity: RoomEntity;
-  entityState?: { name: string; state: string; domain: string };
-  onRemove: () => void;
-}) {
-  const t = useTranslations("settings.homeassistantRooms");
-  const getIcon = () => {
-    switch (entityState?.domain) {
-      case "light":
-        return <Lightbulb className="size-4" />;
-      case "switch":
-      case "input_boolean":
-        return <Power className="size-4" />;
-      case "sensor":
-        return <Thermometer className="size-4" />;
-      case "binary_sensor":
-        return <DoorOpen className="size-4" />;
-      default:
-        return <Home className="size-4" />;
-    }
-  };
-
-  const displayName = roomEntity.display_name || entityState?.name || roomEntity.entity_id;
-
-  return (
-    <div className="flex items-center gap-3 p-2 rounded-lg bg-card border">
-      <div className="p-1.5 rounded bg-muted text-muted-foreground">
-        {getIcon()}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">
-          {displayName}
-        </p>
-        <p className="text-xs text-muted-foreground truncate">
-          {roomEntity.entity_id}
-        </p>
-      </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onRemove}
-        className="shrink-0 text-muted-foreground hover:text-destructive"
-        aria-label={t("removeAria", { name: displayName })}
-      >
-        <X className="size-4" />
-      </Button>
-    </div>
-  );
-}
-
 // Room card component
 function RoomCard({
   room,
   onEdit,
   onDelete,
-  onAddEntities,
-  onRemoveEntity,
 }: {
-  room: RoomConfig;
+  room: Room;
   onEdit: () => void;
   onDelete: () => void;
-  onAddEntities: () => void;
-  onRemoveEntity: (entityId: string) => void;
 }) {
   const t = useTranslations("settings.homeassistantRooms");
   const tCommon = useTranslations("common");
-  const Icon = ICON_MAP[room.icon] || Home;
-  const entityIds = room.entities.map((e) => e.entity_id);
-  const { data: haStatus } = useHomeAssistantStatus();
-  const isConnected = !!haStatus?.url;
-
-  const { data: entityStates = [] } = useHomeAssistantEntityStates(
-    entityIds,
-    isConnected
-  );
-
-  const stateMap = useMemo(
-    () => new Map(entityStates.map((e) => [e.entity_id, e])),
-    [entityStates]
-  );
+  const Icon = iconFor(room.icon);
 
   return (
-    <motion.div
-      layout
-      className="bg-card rounded-xl border overflow-hidden"
-    >
-      {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b">
+    <motion.div layout className="bg-card rounded-xl border overflow-hidden">
+      <div className="flex items-center gap-3 p-4">
         <div
           className="p-2 rounded-lg"
           style={{
             backgroundColor: room.color ? `${room.color}20` : undefined,
-            color: room.color,
+            color: room.color ?? undefined,
           }}
         >
           <Icon className="size-5" />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold truncate">{room.name}</h3>
-          <p className="text-xs text-muted-foreground">
-            {t("entityCount", { count: room.entities.length })}
-          </p>
         </div>
         <div className="flex gap-1">
           <Button variant="ghost" size="icon" onClick={onEdit} aria-label={t("editAria")}>
@@ -370,7 +248,7 @@ function RoomCard({
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
-                <AlertDialogDescription>{t("deleteConfirm")}</AlertDialogDescription>
+                <AlertDialogDescription>{t("deleteKeepsDevices")}</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
@@ -385,75 +263,54 @@ function RoomCard({
           </AlertDialog>
         </div>
       </div>
-
-      {/* Entities */}
-      <div className="p-4 flex flex-col gap-2">
-        {room.entities.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            {t("noEntities")}
-          </p>
-        ) : (
-          room.entities.map((entity) => {
-            const state = stateMap.get(entity.entity_id);
-            return (
-              <RoomEntityItem
-                key={entity.entity_id}
-                roomEntity={entity}
-                entityState={
-                  state
-                    ? {
-                        name: state.name,
-                        state: state.state,
-                        domain: state.domain,
-                      }
-                    : undefined
-                }
-                onRemove={() => onRemoveEntity(entity.entity_id)}
-              />
-            );
-          })
-        )}
-
-        <Button
-          variant="outline"
-          className="w-full mt-2"
-          onClick={onAddEntities}
-        >
-          <Plus className="size-4 mr-2" />
-          {t("addEntitiesButton")}
-        </Button>
-      </div>
     </motion.div>
   );
 }
 
 export default function RoomsSettingsPage() {
   const t = useTranslations("settings.homeassistantRooms");
-  const roomsConfig = useRoomsConfig();
-  const createRoom = useCreateRoom();
-  const updateRoom = useUpdateRoom();
-  const deleteRoom = useDeleteRoom();
-  const reorderRooms = useReorderRooms();
-  const addEntityToRoom = useAddEntityToRoom();
-  const removeEntityFromRoom = useRemoveEntityFromRoom();
-  const updateRoomsSettings = useUpdateRoomsSettings();
+  const roomsQuery = useRooms();
+  const createRoom = useCreateRoomRow();
+  const updateRoom = useUpdateRoomRow();
+  const deleteRoom = useDeleteRoomRow();
 
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editingRoom, setEditingRoom] = useState<RoomConfig | undefined>();
-  const [browserOpen, setBrowserOpen] = useState(false);
-  const [browserRoomId, setBrowserRoomId] = useState<string | null>(null);
+  const [editingRoom, setEditingRoom] = useState<Room | undefined>();
 
-  // Get all assigned entity IDs for exclusion
-  const assignedEntityIds = roomsConfig.rooms.flatMap((r) =>
-    r.entities.map((e) => e.entity_id)
+  // Local working copy of the *order* (ids only) so dragging feels
+  // immediate; resynced from the server whenever the set of rooms changes
+  // (add/delete/refetch), same approach as settings/navigation — an
+  // in-progress drag is otherwise preserved rather than clobbered by a
+  // stray refetch. Deliberately not a copy of the Room objects themselves:
+  // a rename or recolour doesn't change the id set, so a local copy of the
+  // rows would never pick up the edit — the card would keep showing the
+  // pre-save name after a successful PATCH. Rooms are looked up by id from
+  // `roomsQuery.data` at render time instead, so every field stays live.
+  const [orderIds, setOrderIds] = useState<string[]>(() =>
+    roomsQuery.data.map((r) => r.id),
   );
+  useEffect(() => {
+    const nextIds = roomsQuery.data.map((r) => r.id);
+    const nextSet = new Set(nextIds);
+    const currentSet = new Set(orderIds);
+    const same =
+      nextSet.size === currentSet.size &&
+      [...nextSet].every((id) => currentSet.has(id));
+    if (!same) setOrderIds(nextIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomsQuery.data]);
+
+  const roomsById = new Map(roomsQuery.data.map((r) => [r.id, r]));
+  const order = orderIds
+    .map((id) => roomsById.get(id))
+    .filter((r): r is Room => r !== undefined);
 
   const handleCreateRoom = () => {
     setEditingRoom(undefined);
     setEditorOpen(true);
   };
 
-  const handleEditRoom = (room: RoomConfig) => {
+  const handleEditRoom = (room: Room) => {
     setEditingRoom(room);
     setEditorOpen(true);
   };
@@ -466,19 +323,24 @@ export default function RoomsSettingsPage() {
     try {
       if (editingRoom) {
         await updateRoom.mutateAsync({
-          roomId: editingRoom.id,
-          updates: data,
+          id: editingRoom.id,
+          name: data.name,
+          icon: data.icon,
+          color: data.color ?? null,
         });
       } else {
         await createRoom.mutateAsync({
           name: data.name,
           icon: data.icon,
-          color: data.color,
-          entities: [],
+          color: data.color ?? null,
         });
       }
-    } catch {
-      toast.error(t("toastSaveFailed"));
+    } catch (err) {
+      if (err instanceof RoomDuplicateError) {
+        toast.error(t("duplicateName"));
+      } else {
+        toast.error(t("toastSaveFailed"));
+      }
     }
   };
 
@@ -490,43 +352,68 @@ export default function RoomsSettingsPage() {
     }
   };
 
-  const handleAddEntities = (roomId: string) => {
-    setBrowserRoomId(roomId);
-    setBrowserOpen(true);
+  // Blocks a second drag from starting while a reorder batch is still
+  // saving. Chosen over "make the in-flight batch authoritative": two
+  // batches racing PATCHes for overlapping rooms has no correct merge
+  // (whichever response lands last wins, regardless of which drag the
+  // household actually meant last), and a wall panel losing the ability to
+  // grab a card for the ~200-500ms a batch takes is a far smaller cost than
+  // that. `dragListener={false}` on every item is what actually enforces
+  // it below — this flag also gates the revert logic in persistOrder.
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+
+  // Snapshot of orderIds from just before the current drag gesture, so a
+  // failed save can restore exactly that — not whatever `roomsQuery.data`
+  // happens to contain, which the id-set-only resync effect above won't
+  // have refreshed for a pure reorder anyway. Set on every drag start;
+  // consumed and cleared in persistOrder.
+  const dragStartIdsRef = useRef<string[] | null>(null);
+  const handleDragStart = () => {
+    dragStartIdsRef.current = orderIds;
   };
 
-  const handleEntitiesSelected = async (entityIds: string[]) => {
-    if (!browserRoomId) return;
+  // Persist the final drop order, not every intermediate swap — one PATCH
+  // per room whose position actually moved, sent as a batch.
+  //
+  // What failure looked like before this existed: `updateRoom.mutate(...)`
+  // fired per room with only an `onError` toast — nothing reverted
+  // `orderIds`, and the id-set-only resync effect above never runs for a
+  // pure reorder (the set of ids is unchanged), so a card that failed to
+  // save its new position just sat there showing an order the server never
+  // agreed to, until some unrelated add or delete happened to resync it.
+  // On a wall panel nobody is watching for a toast, that's a silent lie
+  // about the plan's real order. So: if any PATCH in the batch fails, the
+  // whole local order snaps back to its pre-drag snapshot immediately, and
+  // then an explicit refetch pulls in the query's real truth — which may
+  // differ from the snapshot if part of the batch actually landed before
+  // the failure. Do not "simplify" this back to a bare per-item toast.
+  const persistOrder = async (next: Room[]) => {
+    const previousIds = dragStartIdsRef.current;
+    dragStartIdsRef.current = null;
+    if (!previousIds) return;
 
+    const moves = next
+      .map((room, index) => ({ id: room.id, position: index, moved: room.position !== index }))
+      .filter((m) => m.moved);
+    if (moves.length === 0) return;
+
+    setIsSavingOrder(true);
     try {
-      for (const entityId of entityIds) {
-        await addEntityToRoom.mutateAsync({
-          roomId: browserRoomId,
-          entityId,
-        });
-      }
-    } catch {
-      toast.error(t("toastAddEntitiesFailed"));
-    }
-
-    setBrowserOpen(false);
-    setBrowserRoomId(null);
-  };
-
-  const handleRemoveEntity = async (roomId: string, entityId: string) => {
-    try {
-      await removeEntityFromRoom.mutateAsync({ roomId, entityId });
-    } catch {
-      toast.error(t("toastRemoveEntityFailed"));
-    }
-  };
-
-  const handleReorder = async (newOrder: RoomConfig[]) => {
-    try {
-      await reorderRooms.mutateAsync(newOrder.map((r) => r.id));
+      await Promise.all(
+        moves.map((m) => updateRoom.mutateAsync({ id: m.id, position: m.position })),
+      );
     } catch {
       toast.error(t("toastReorderFailed"));
+      setOrderIds(previousIds);
+      const fresh = await roomsQuery.refetch();
+      if (fresh.data) setOrderIds(fresh.data.map((r) => r.id));
+    } finally {
+      setIsSavingOrder(false);
     }
+  };
+
+  const handleReorder = (next: Room[]) => {
+    setOrderIds(next.map((r) => r.id));
   };
 
   return (
@@ -553,29 +440,31 @@ export default function RoomsSettingsPage() {
       </header>
 
       <div className="py-4 flex flex-col gap-6 max-w-2xl mx-auto">
-        {/* Global settings */}
-        <div className="bg-card rounded-xl border p-4 flex flex-col gap-4">
-          <h2 className="font-semibold">{t("settingsHeading")}</h2>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>{t("showUnassignedLabel")}</Label>
-              <p className="text-xs text-muted-foreground">
-                {t("showUnassignedDescription")}
+        {/* Devices moved to the catalogue — the entire mitigation for a
+            household that used to assign devices from this page, so it
+            leads the page rather than trailing at the bottom. */}
+        <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 flex flex-col gap-3">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+              <Boxes className="size-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-semibold">{t("devicesMovedTitle")}</h2>
+              <p className="text-sm text-muted-foreground">
+                {t("devicesMovedBody")}
               </p>
             </div>
-            <Switch
-              aria-label={t("showUnassignedDescription")}
-              checked={roomsConfig.show_unassigned}
-              onCheckedChange={(checked) =>
-                updateRoomsSettings.mutate({ show_unassigned: checked })
-              }
-            />
           </div>
+          <Button asChild variant="default" className="w-full sm:w-auto sm:self-end">
+            <Link href="/settings/catalogue">
+              {t("devicesMovedLink")}
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
         </div>
 
         {/* Room list */}
-        {roomsConfig.rooms.length === 0 ? (
+        {order.length === 0 ? (
           <div className="text-center py-12">
             <Home className="size-12 mx-auto mb-4 text-muted-foreground/30" />
             <p className="text-muted-foreground mb-4">
@@ -589,25 +478,28 @@ export default function RoomsSettingsPage() {
         ) : (
           <Reorder.Group
             axis="y"
-            values={roomsConfig.rooms}
+            values={order}
             onReorder={handleReorder}
             className="flex flex-col gap-4"
           >
             <AnimatePresence mode="popLayout">
-              {roomsConfig.rooms.map((room) => (
+              {order.map((room) => (
                 <Reorder.Item
                   key={room.id}
                   value={room}
-                  className="cursor-grab active:cursor-grabbing"
+                  dragListener={!isSavingOrder}
+                  onDragStart={handleDragStart}
+                  onDragEnd={() => void persistOrder(order)}
+                  className={
+                    isSavingOrder
+                      ? "cursor-wait opacity-80"
+                      : "cursor-grab active:cursor-grabbing"
+                  }
                 >
                   <RoomCard
                     room={room}
                     onEdit={() => handleEditRoom(room)}
                     onDelete={() => handleDeleteRoom(room.id)}
-                    onAddEntities={() => handleAddEntities(room.id)}
-                    onRemoveEntity={(entityId) =>
-                      handleRemoveEntity(room.id, entityId)
-                    }
                   />
                 </Reorder.Item>
               ))}
@@ -623,18 +515,6 @@ export default function RoomsSettingsPage() {
         onClose={() => setEditorOpen(false)}
         onSave={handleSaveRoom}
       />
-
-      {/* Entity browser dialog */}
-      <Dialog open={browserOpen} onOpenChange={setBrowserOpen}>
-        <DialogContent className="max-w-lg p-0">
-          <RoomEntityBrowser
-            onSelect={handleEntitiesSelected}
-            onCancel={() => setBrowserOpen(false)}
-            excludeEntityIds={assignedEntityIds}
-            multiSelect
-          />
-        </DialogContent>
-      </Dialog>
     </main>
   );
 }
