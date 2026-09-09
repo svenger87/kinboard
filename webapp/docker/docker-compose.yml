@@ -145,6 +145,14 @@ services:
       KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
       KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
       KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      # nginx ships `worker_processes auto`, which resolves through
+      # sysconf(_SC_NPROCESSORS_ONLN) — the *host's* core count, not the
+      # container's allocation. On a 56-core host Kong started 56 workers at
+      # ~58 MB each: 3.2 GB, 79% of the whole stack, filling a 4 GB cgroup and
+      # OOM-killing ofelia. Kinboard's traffic is a handful of households, so
+      # two workers is not a compromise. Raise KONG_WORKERS if you are proxying
+      # something else through the same gateway. (#252)
+      KONG_NGINX_WORKER_PROCESSES: ${KONG_WORKERS:-2}
     volumes:
       - ./kong.yml:/home/kong/kong.yml:ro
     networks:

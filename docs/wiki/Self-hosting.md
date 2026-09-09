@@ -73,6 +73,7 @@ All driven from `webapp/docker/.env`. The shipped `.env.example` has comments ex
 | `DATA_DIR` | `./data` | Bind path root for db + storage volumes |
 | `WEBAPP_PORT` | `3001` | Host port the webapp listens on |
 | `KONG_HTTP_PORT` | `8100` | Host port for the Supabase API gateway |
+| `KONG_WORKERS` | `2` | nginx worker processes in Kong — nginx would otherwise start one per host CPU |
 | `NETWORK_SUBNET` | `10.200.0.0/24` | Internal Docker network subnet (change if it collides) |
 | `TZ` | `UTC` | Timezone passed to go2rtc |
 | `DOMAIN` | `kinboard.example.com` | Public domain — only consumed by the Traefik overlay |
