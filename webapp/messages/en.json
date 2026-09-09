@@ -2863,6 +2863,12 @@
       "error": "Error",
       "charging": "Charging"
     },
+    "humidifierAction": {
+      "humidifying": "Humidifying",
+      "drying": "Drying",
+      "idle": "Idle",
+      "off": "Off"
+    },
     "charts": {
       "noData": "No data",
       "noDataLong": "No data available",
@@ -2889,16 +2895,73 @@
       "vacuumStart": "Start",
       "vacuumPause": "Pause",
       "vacuumReturn": "Send home",
-      "climateReadOnly": "Set the temperature on the thermostat itself for now.",
       "history24hHeading": "History (24h)",
       "noHistoryData": "No history data available",
       "attributesHeading": "Attributes",
+      "showDetails": "Show details",
       "turnOnButton": "Turn on",
       "turnOffButton": "Turn off",
       "activateButton": "Activate",
       "triggerButton": "Trigger",
       "enableButton": "Enable",
       "disableButton": "Disable",
+      "stopButton": "Stop",
+      "openLatch": "Open latch",
+      "locate": "Find it",
+      "cleanSpot": "Clean here",
+      "mute": "Mute",
+      "shuffle": "Shuffle",
+      "oscillate": "Swing",
+      "directionForward": "Forwards",
+      "directionReverse": "Backwards",
+      "repeatOff": "No repeat",
+      "repeatAll": "Repeat all",
+      "repeatOne": "Repeat one",
+      "openTilt": "Tilt open",
+      "closeTilt": "Tilt closed",
+      "stopTilt": "Stop tilting",
+      "disarmButton": "Disarm",
+      "armHomeButton": "Arm at home",
+      "armAwayButton": "Arm away",
+      "armNightButton": "Arm for the night",
+      "armVacationButton": "Arm for a holiday",
+      "armCustomBypassButton": "Arm with bypass",
+      "neverActivated": "Not activated yet",
+      "noValueYet": "No value yet",
+      "confirm": {
+        "unlock": {
+          "title": "Unlock {name}?",
+          "body": "The door stays unlocked until somebody locks it again, and anyone standing outside can walk in."
+        },
+        "openLatch": {
+          "title": "Open the latch on {name}?",
+          "body": "This pulls the latch back so the door can be pushed open from outside. Locking again does not put it back — somebody has to be there to shut the door."
+        },
+        "disarm": {
+          "title": "Disarm {name}?",
+          "body": "The alarm stops watching the house until somebody arms it again."
+        },
+        "soundSiren": {
+          "title": "Sound {name}?",
+          "body": "It will be heard well beyond the house, and some sirens cannot be switched off again from here.",
+          "action": "Sound it"
+        },
+        "press": {
+          "title": "Press {name}?",
+          "body": "This screen cannot tell what this button does — it might open the garage, restart something, or unlock a car. Press it only if you know.",
+          "action": "Press"
+        },
+        "install": {
+          "title": "Install the update for {name}?",
+          "body": "The device can be offline for several minutes while it updates, and this cannot be stopped or undone from here.",
+          "action": "Install"
+        },
+        "startMowing": {
+          "title": "Start {name}?",
+          "body": "The blades start turning. Check the garden is clear of children and pets first.",
+          "action": "Start mowing"
+        }
+      },
       "attributes": {
         "brightness": "Brightness",
         "color_temp": "Color temperature",
@@ -2912,7 +2975,7 @@
         "current_temperature": "Current temperature",
         "hvac_modes": "HVAC modes",
         "preset_mode": "Preset",
-        "current_position": "Position",
+        "current_position": "Current position",
         "percentage": "Speed",
         "preset_modes": "Presets",
         "battery_level": "Battery level",
@@ -2920,7 +2983,40 @@
         "fan_speed_list": "Suction levels",
         "volume_level": "Volume",
         "source": "Source",
-        "source_list": "Sources"
+        "source_list": "Sources",
+        "color_temp_kelvin": "Color temperature",
+        "effect": "Effect",
+        "effect_list": "Effects",
+        "target_temp_low": "Lower target",
+        "target_temp_high": "Upper target",
+        "min_temp": "Lowest temperature",
+        "max_temp": "Highest temperature",
+        "target_temp_step": "Temperature step",
+        "fan_mode": "Fan mode",
+        "fan_modes": "Fan modes",
+        "swing_mode": "Swing",
+        "swing_modes": "Swing modes",
+        "swing_horizontal_mode": "Horizontal swing",
+        "current_humidity": "Current humidity",
+        "humidity": "Target humidity",
+        "min_humidity": "Lowest humidity",
+        "max_humidity": "Highest humidity",
+        "mode": "Mode",
+        "available_modes": "Modes",
+        "current_tilt_position": "Tilt position",
+        "percentage_step": "Speed step",
+        "oscillating": "Swinging",
+        "direction": "Direction",
+        "changed_by": "Last changed by",
+        "code_format": "Code format",
+        "code_arm_required": "Code needed to arm",
+        "fan_speed": "Suction",
+        "is_volume_muted": "Muted",
+        "sound_mode": "Sound mode",
+        "shuffle": "Shuffle",
+        "repeat": "Repeat",
+        "media_title": "Title",
+        "media_artist": "Artist"
       },
       "deviceClasses": {
         "battery": "Battery",

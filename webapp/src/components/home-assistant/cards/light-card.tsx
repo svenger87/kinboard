@@ -206,7 +206,7 @@ export function LightCard({ card, entity }: LightCardProps) {
       <EntityDetailSheet
         open={detailOpen}
         onOpenChange={setDetailOpen}
-        card={card}
+        displayName={card.display_name}
         entity={entity}
       />
     </>

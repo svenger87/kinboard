@@ -151,7 +151,7 @@ export function SensorCard({ card, entity }: SensorCardProps) {
       <EntityDetailSheet
         open={detailOpen}
         onOpenChange={setDetailOpen}
-        card={card}
+        displayName={card.display_name}
         entity={entity}
       />
     </>

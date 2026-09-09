@@ -2863,6 +2863,12 @@
       "error": "Erreur",
       "charging": "Charge"
     },
+    "humidifierAction": {
+      "humidifying": "Humidifie",
+      "drying": "Déshumidifie",
+      "idle": "Inactif",
+      "off": "Arrêt"
+    },
     "charts": {
       "noData": "Aucune donnée",
       "noDataLong": "Aucune donnée disponible",
@@ -2889,16 +2895,73 @@
       "vacuumStart": "Démarrer",
       "vacuumPause": "Pause",
       "vacuumReturn": "Renvoyer à la base",
-      "climateReadOnly": "Pour l'instant, réglez la température directement sur le thermostat.",
       "history24hHeading": "Historique (24h)",
       "noHistoryData": "Aucune donnée historique disponible",
       "attributesHeading": "Attributs",
+      "showDetails": "Afficher les détails",
       "turnOnButton": "Allumer",
       "turnOffButton": "Éteindre",
       "activateButton": "Activer",
       "triggerButton": "Déclencher",
       "enableButton": "Activer",
       "disableButton": "Désactiver",
+      "stopButton": "Arrêter",
+      "openLatch": "Ouvrir le pêne",
+      "locate": "Localiser",
+      "cleanSpot": "Nettoyer ici",
+      "mute": "Muet",
+      "shuffle": "Lecture aléatoire",
+      "oscillate": "Oscillation",
+      "directionForward": "Avant",
+      "directionReverse": "Arrière",
+      "repeatOff": "Sans répétition",
+      "repeatAll": "Tout répéter",
+      "repeatOne": "Répéter le titre",
+      "openTilt": "Ouvrir l’inclinaison",
+      "closeTilt": "Fermer l’inclinaison",
+      "stopTilt": "Arrêter l’inclinaison",
+      "disarmButton": "Désarmer",
+      "armHomeButton": "Armer : à la maison",
+      "armAwayButton": "Armer : absent",
+      "armNightButton": "Armer : nuit",
+      "armVacationButton": "Armer : vacances",
+      "armCustomBypassButton": "Armer : personnalisé",
+      "neverActivated": "Jamais activée",
+      "noValueYet": "Pas encore de valeur",
+      "confirm": {
+        "unlock": {
+          "title": "Déverrouiller {name} ?",
+          "body": "La porte reste déverrouillée jusqu'à ce que quelqu'un la referme à clé, et n'importe qui devant peut entrer."
+        },
+        "openLatch": {
+          "title": "Ouvrir le pêne de {name} ?",
+          "body": "Le pêne se rétracte et la porte peut être poussée de l'extérieur. Reverrouiller ne le remet pas en place — il faut que quelqu'un soit là pour refermer la porte."
+        },
+        "disarm": {
+          "title": "Désarmer {name} ?",
+          "body": "L'alarme cesse de surveiller la maison jusqu'à ce que quelqu'un la réarme."
+        },
+        "soundSiren": {
+          "title": "Déclencher {name} ?",
+          "body": "Cela s'entend bien au-delà de la maison, et certaines sirènes ne peuvent plus être arrêtées d'ici.",
+          "action": "Déclencher"
+        },
+        "press": {
+          "title": "Appuyer sur {name} ?",
+          "body": "Cet écran ne peut pas savoir ce que fait ce bouton — il ouvre peut-être le garage, redémarre quelque chose ou déverrouille une voiture. N'appuyez dessus que si vous le savez.",
+          "action": "Appuyer"
+        },
+        "install": {
+          "title": "Installer la mise à jour de {name} ?",
+          "body": "L'appareil peut rester hors ligne plusieurs minutes pendant la mise à jour, et cela ne peut être ni arrêté ni annulé d'ici.",
+          "action": "Installer"
+        },
+        "startMowing": {
+          "title": "Démarrer {name} ?",
+          "body": "Les lames se mettent à tourner. Vérifiez d'abord qu'aucun enfant ni animal ne se trouve dans le jardin.",
+          "action": "Démarrer la tonte"
+        }
+      },
       "attributes": {
         "brightness": "Luminosité",
         "color_temp": "Température de couleur",
@@ -2912,7 +2975,7 @@
         "current_temperature": "Température actuelle",
         "hvac_modes": "Modes HVAC",
         "preset_mode": "Préréglage",
-        "current_position": "Position",
+        "current_position": "Position actuelle",
         "percentage": "Vitesse",
         "preset_modes": "Préréglages",
         "battery_level": "Niveau de batterie",
@@ -2920,7 +2983,40 @@
         "fan_speed_list": "Niveaux d'aspiration",
         "volume_level": "Volume",
         "source": "Source",
-        "source_list": "Sources"
+        "source_list": "Sources",
+        "color_temp_kelvin": "Température de couleur",
+        "effect": "Effet",
+        "effect_list": "Effets",
+        "target_temp_low": "Cible basse",
+        "target_temp_high": "Cible haute",
+        "min_temp": "Température minimale",
+        "max_temp": "Température maximale",
+        "target_temp_step": "Pas de température",
+        "fan_mode": "Mode ventilation",
+        "fan_modes": "Modes de ventilation",
+        "swing_mode": "Oscillation",
+        "swing_modes": "Modes d’oscillation",
+        "swing_horizontal_mode": "Oscillation horizontale",
+        "current_humidity": "Humidité actuelle",
+        "humidity": "Humidité cible",
+        "min_humidity": "Humidité minimale",
+        "max_humidity": "Humidité maximale",
+        "mode": "Mode",
+        "available_modes": "Modes",
+        "current_tilt_position": "Inclinaison",
+        "percentage_step": "Pas de vitesse",
+        "oscillating": "Oscille",
+        "direction": "Sens de rotation",
+        "changed_by": "Modifié par",
+        "code_format": "Format du code",
+        "code_arm_required": "Code requis pour armer",
+        "fan_speed": "Aspiration",
+        "is_volume_muted": "Son coupé",
+        "sound_mode": "Mode audio",
+        "shuffle": "Lecture aléatoire",
+        "repeat": "Répétition",
+        "media_title": "Titre",
+        "media_artist": "Artiste"
       },
       "deviceClasses": {
         "battery": "Batterie",

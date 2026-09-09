@@ -25,6 +25,7 @@ import {
 import type { HAEntity, RoomEntity } from "@/types/home-assistant";
 import { formatDistanceToNow } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
+import { binarySensorStateKey } from "@/lib/ha-entity-display";
 import { useTranslations, useLocale } from "next-intl";
 
 interface BinarySensorDisplayItemProps {
@@ -146,74 +147,6 @@ function getBinarySensorColor(
   return isOn ? tint("primary") : tint("state-off");
 }
 
-// Get translation key for state label based on device class.
-// Returned key is a child of "homeAutomation.binarySensorState".
-function getStateLabelKey(deviceClass: string | undefined, state: string): string {
-  const isOn = state === "on";
-
-  switch (deviceClass) {
-    case "door":
-    case "garage_door":
-    case "window":
-      return isOn ? "doorOpen" : "doorClosed";
-
-    case "motion":
-      return isOn ? "motionOn" : "motionOff";
-
-    case "occupancy":
-    case "presence":
-      return isOn ? "presenceOn" : "presenceOff";
-
-    case "moisture":
-    case "water":
-      return isOn ? "moistureOn" : "moistureOff";
-
-    case "smoke":
-      return isOn ? "smokeOn" : "smokeOff";
-
-    case "gas":
-      return isOn ? "gasOn" : "gasOff";
-
-    case "carbon_monoxide":
-      return isOn ? "coOn" : "coOff";
-
-    case "lock":
-      return isOn ? "lockOn" : "lockOff";
-
-    case "heat":
-      return isOn ? "heatOn" : "heatOff";
-
-    case "cold":
-      return isOn ? "coldOn" : "coldOff";
-
-    case "plug":
-    case "power":
-      return isOn ? "plugOn" : "plugOff";
-
-    case "light":
-      return isOn ? "lightOn" : "lightOff";
-
-    case "sound":
-      return isOn ? "soundOn" : "soundOff";
-
-    case "vibration":
-      return isOn ? "vibrationOn" : "vibrationOff";
-
-    case "battery":
-      return isOn ? "batteryOn" : "batteryOff";
-
-    case "safety":
-    case "problem":
-      return isOn ? "problemOn" : "problemOff";
-
-    case "tamper":
-      return isOn ? "tamperOn" : "tamperOff";
-
-    default:
-      return isOn ? "on" : "off";
-  }
-}
-
 export function BinarySensorDisplayItem({
   roomEntity,
   entity,
@@ -234,7 +167,7 @@ export function BinarySensorDisplayItem({
 
   const stateLabel = isUnavailable
     ? tState("unavailable")
-    : tBinary(getStateLabelKey(deviceClass, entity.state));
+    : tBinary(binarySensorStateKey(deviceClass, entity.state));
 
   // Format time since last change
   let timeSince = "";

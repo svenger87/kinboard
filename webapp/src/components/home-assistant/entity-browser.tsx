@@ -26,6 +26,7 @@ import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmente
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTranslations } from "next-intl";
 import { useHomeAssistantEntities, useAddDashboardCard } from "@/hooks";
+import { humanizeDomain } from "@/lib/ha-entity-display";
 import type { HAEntity, DashboardCard } from "@/types/home-assistant";
 
 type DomainLabelKey =
@@ -295,7 +296,9 @@ export function EntityBrowser({ onClose, existingEntityIds, onAddEntity }: Entit
               <div key={domain}>
                 <h3 className="text-sm font-medium text-muted-foreground mb-2">
                   {t("domainHeading", {
-                    label: DOMAIN_LABEL_KEYS.includes(domain) ? tDomain(domain as DomainLabelKey) : domain,
+                    label: DOMAIN_LABEL_KEYS.includes(domain)
+                      ? tDomain(domain as DomainLabelKey)
+                      : humanizeDomain(domain),
                     count: domainEntities.length,
                   })}
                 </h3>

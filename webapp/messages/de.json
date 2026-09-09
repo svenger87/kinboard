@@ -2863,6 +2863,12 @@
       "error": "Fehler",
       "charging": "Lädt"
     },
+    "humidifierAction": {
+      "humidifying": "Befeuchtet",
+      "drying": "Trocknet",
+      "idle": "Bereit",
+      "off": "Aus"
+    },
     "charts": {
       "noData": "Keine Daten",
       "noDataLong": "Keine Daten vorhanden",
@@ -2889,16 +2895,73 @@
       "vacuumStart": "Starten",
       "vacuumPause": "Pause",
       "vacuumReturn": "Zur Station schicken",
-      "climateReadOnly": "Die Temperatur stellst du vorerst direkt am Thermostat ein.",
       "history24hHeading": "Verlauf (24h)",
       "noHistoryData": "Keine Verlaufsdaten verfügbar",
       "attributesHeading": "Attribute",
+      "showDetails": "Details anzeigen",
       "turnOnButton": "Einschalten",
       "turnOffButton": "Ausschalten",
       "activateButton": "Aktivieren",
       "triggerButton": "Auslösen",
       "enableButton": "Aktivieren",
       "disableButton": "Deaktivieren",
+      "stopButton": "Stopp",
+      "openLatch": "Falle öffnen",
+      "locate": "Finden",
+      "cleanSpot": "Hier saugen",
+      "mute": "Stumm",
+      "shuffle": "Zufallswiedergabe",
+      "oscillate": "Schwenken",
+      "directionForward": "Vorwärts",
+      "directionReverse": "Rückwärts",
+      "repeatOff": "Keine Wiederholung",
+      "repeatAll": "Alle wiederholen",
+      "repeatOne": "Titel wiederholen",
+      "openTilt": "Lamellen öffnen",
+      "closeTilt": "Lamellen schließen",
+      "stopTilt": "Lamellen stoppen",
+      "disarmButton": "Unscharf schalten",
+      "armHomeButton": "Scharf: zu Hause",
+      "armAwayButton": "Scharf: abwesend",
+      "armNightButton": "Scharf: Nacht",
+      "armVacationButton": "Scharf: Urlaub",
+      "armCustomBypassButton": "Scharf: mit Ausnahmen",
+      "neverActivated": "Noch nicht aktiviert",
+      "noValueYet": "Noch kein Wert",
+      "confirm": {
+        "unlock": {
+          "title": "{name} aufschließen?",
+          "body": "Die Tür bleibt offen, bis sie jemand wieder abschließt — und wer davorsteht, kommt herein."
+        },
+        "openLatch": {
+          "title": "Bei {name} die Falle öffnen?",
+          "body": "Damit wird die Falle zurückgezogen und die Tür lässt sich von außen aufdrücken. Wieder abschließen macht das nicht rückgängig — jemand muss vor Ort sein und die Tür zuziehen."
+        },
+        "disarm": {
+          "title": "{name} deaktivieren?",
+          "body": "Die Alarmanlage passt nicht mehr auf das Haus auf, bis sie jemand wieder scharf schaltet."
+        },
+        "soundSiren": {
+          "title": "{name} auslösen?",
+          "body": "Das hört man weit über das Grundstück hinaus, und manche Sirenen lassen sich von hier aus nicht wieder ausschalten.",
+          "action": "Auslösen"
+        },
+        "press": {
+          "title": "{name} drücken?",
+          "body": "Dieser Bildschirm kann nicht erkennen, was dieser Knopf tut — vielleicht öffnet er das Garagentor, startet etwas neu oder schließt ein Auto auf. Drücke ihn nur, wenn du es weißt.",
+          "action": "Drücken"
+        },
+        "install": {
+          "title": "Update für {name} installieren?",
+          "body": "Das Gerät kann dabei einige Minuten offline sein, und von hier aus lässt sich das weder anhalten noch rückgängig machen.",
+          "action": "Installieren"
+        },
+        "startMowing": {
+          "title": "{name} starten?",
+          "body": "Die Messer fangen an zu laufen. Schau vorher nach, ob Kinder oder Tiere im Garten sind.",
+          "action": "Mähen starten"
+        }
+      },
       "attributes": {
         "brightness": "Helligkeit",
         "color_temp": "Farbtemperatur",
@@ -2912,7 +2975,7 @@
         "current_temperature": "Aktuelle Temperatur",
         "hvac_modes": "HVAC Modi",
         "preset_mode": "Voreinstellung",
-        "current_position": "Position",
+        "current_position": "Aktuelle Position",
         "percentage": "Stufe",
         "preset_modes": "Voreinstellungen",
         "battery_level": "Akkustand",
@@ -2920,7 +2983,40 @@
         "fan_speed_list": "Saugstufen",
         "volume_level": "Lautstärke",
         "source": "Quelle",
-        "source_list": "Quellen"
+        "source_list": "Quellen",
+        "color_temp_kelvin": "Farbtemperatur",
+        "effect": "Effekt",
+        "effect_list": "Effekte",
+        "target_temp_low": "Untere Zieltemperatur",
+        "target_temp_high": "Obere Zieltemperatur",
+        "min_temp": "Mindesttemperatur",
+        "max_temp": "Höchsttemperatur",
+        "target_temp_step": "Temperaturschritt",
+        "fan_mode": "Lüfterstufe",
+        "fan_modes": "Lüfterstufen",
+        "swing_mode": "Schwenken",
+        "swing_modes": "Schwenkmodi",
+        "swing_horizontal_mode": "Schwenken waagerecht",
+        "current_humidity": "Aktuelle Luftfeuchtigkeit",
+        "humidity": "Ziel-Luftfeuchtigkeit",
+        "min_humidity": "Mindest-Luftfeuchtigkeit",
+        "max_humidity": "Maximale Luftfeuchtigkeit",
+        "mode": "Modus",
+        "available_modes": "Modi",
+        "current_tilt_position": "Lamellenstellung",
+        "percentage_step": "Stufenweite",
+        "oscillating": "Schwenkt",
+        "direction": "Richtung",
+        "changed_by": "Zuletzt geändert von",
+        "code_format": "Codeformat",
+        "code_arm_required": "Code zum Scharfschalten nötig",
+        "fan_speed": "Saugstufe",
+        "is_volume_muted": "Stummgeschaltet",
+        "sound_mode": "Klangmodus",
+        "shuffle": "Zufallswiedergabe",
+        "repeat": "Wiederholung",
+        "media_title": "Titel",
+        "media_artist": "Interpret"
       },
       "deviceClasses": {
         "battery": "Batterie",
