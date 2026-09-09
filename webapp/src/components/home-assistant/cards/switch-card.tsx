@@ -75,7 +75,7 @@ export function SwitchCard({ card, entity }: SwitchCardProps) {
       <EntityDetailSheet
         open={detailOpen}
         onOpenChange={setDetailOpen}
-        card={card}
+        displayName={card.display_name}
         entity={entity}
       />
     </>

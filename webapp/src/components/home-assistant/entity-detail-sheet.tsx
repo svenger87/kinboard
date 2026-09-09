@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +26,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { getIntlLocale } from "@/i18n/intl-locale";
 import { useEntityHistory, useToggleEntity, useLightControl, useCallService } from "@/hooks";
 import { MiniChart } from "./mini-chart";
-import type { HAEntity, DashboardCard } from "@/types/home-assistant";
+import type { HAEntity } from "@/types/home-assistant";
 
 type AttributeKey =
   | "brightness" | "color_temp" | "supported_color_modes" | "current_power_w"
@@ -57,7 +57,8 @@ const DEVICE_CLASS_KEYS: readonly string[] = [
 interface EntityDetailModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  card: DashboardCard;
+  displayName?: string;
+  imageUrl?: string;
   entity: HAEntity;
 }
 
@@ -127,7 +128,8 @@ const IMPORTANT_ATTRIBUTES: Record<string, string[]> = {
 export function EntityDetailSheet({
   open,
   onOpenChange,
-  card,
+  displayName,
+  imageUrl,
   entity,
 }: EntityDetailModalProps) {
   const t = useTranslations("homeAutomation.entityDetail");
@@ -135,6 +137,7 @@ export function EntityDetailSheet({
   const tDC = useTranslations("homeAutomation.entityDetail.deviceClasses");
   const locale = useLocale();
   const intlLocale = getIntlLocale(locale);
+  const [imageFailed, setImageFailed] = useState(false);
 
   // Format attribute value (locale-aware)
   const formatAttributeValue = (value: unknown): string => {
@@ -147,7 +150,7 @@ export function EntityDetailSheet({
   };
 
   const domain = entity.entity_id.split(".")[0];
-  const label = card.display_name || entity.name;
+  const label = displayName || entity.name;
   const deviceClass = entity.attributes.device_class;
   const unit = entity.attributes.unit_of_measurement;
   const color = getEntityColor(entity.entity_id, entity.state, deviceClass);
@@ -341,12 +344,23 @@ export function EntityDetailSheet({
       <DialogContent className="sm:max-w-md max-h-[85vh] p-0">
         <DialogHeader className="p-6 pb-0">
           <div className="flex items-center gap-3">
-            <div
-              className="p-3 rounded-xl"
-              style={{ backgroundColor: `${color}20`, color }}
-            >
-              {getEntityIcon(entity.entity_id, deviceClass)}
-            </div>
+            {imageUrl && !imageFailed ? (
+              <div className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-muted">
+                <img
+                  src={imageUrl}
+                  alt=""
+                  className="size-full object-cover"
+                  onError={() => setImageFailed(true)}
+                />
+              </div>
+            ) : (
+              <div
+                className="p-3 rounded-xl"
+                style={{ backgroundColor: `${color}20`, color }}
+              >
+                {getEntityIcon(entity.entity_id, deviceClass)}
+              </div>
+            )}
             <div>
               <DialogTitle className="text-left">{label}</DialogTitle>
               <p className="text-sm text-muted-foreground">{entity.entity_id}</p>
