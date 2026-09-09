@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Power,
@@ -24,8 +23,9 @@ import {
 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { getIntlLocale } from "@/i18n/intl-locale";
-import { useEntityHistory, useToggleEntity, useLightControl, useCallService } from "@/hooks";
+import { useEntityHistory } from "@/hooks";
 import { MiniChart } from "./mini-chart";
+import { EntityActions } from "./entity-actions";
 import {
   classifyAttributeValue,
   classifyEntityHistory,
@@ -35,24 +35,30 @@ import {
 } from "@/lib/ha-entity-display";
 import type { HAEntity } from "@/types/home-assistant";
 
-type AttributeKey =
-  | "brightness" | "color_temp" | "supported_color_modes" | "current_power_w"
-  | "today_energy_kwh" | "unit_of_measurement" | "device_class" | "state_class"
-  | "temperature" | "current_temperature" | "hvac_modes" | "preset_mode"
-  | "current_position" | "percentage" | "preset_modes" | "battery_level"
-  | "status" | "fan_speed_list" | "volume_level" | "source" | "source_list";
-
 type DeviceClassKey =
   | "battery" | "temperature" | "humidity" | "power" | "energy" | "voltage"
   | "current" | "pressure" | "illuminance" | "motion" | "door" | "window"
   | "occupancy" | "plug" | "outlet" | "switch";
 
+/**
+ * Attribute keys that have a hand-written label in `entityDetail.attributes`.
+ * Anything else falls back to {@link humanizeAttributeKey}, which is honest
+ * but English-shaped.
+ */
 const ATTRIBUTE_KEYS: readonly string[] = [
-  "brightness", "color_temp", "supported_color_modes", "current_power_w",
-  "today_energy_kwh", "unit_of_measurement", "device_class", "state_class",
-  "temperature", "current_temperature", "hvac_modes", "preset_mode",
-  "current_position", "percentage", "preset_modes", "battery_level",
-  "status", "fan_speed_list", "volume_level", "source", "source_list",
+  "brightness", "color_temp", "color_temp_kelvin", "supported_color_modes",
+  "effect", "effect_list", "current_power_w", "today_energy_kwh",
+  "unit_of_measurement", "device_class", "state_class", "temperature",
+  "current_temperature", "target_temp_low", "target_temp_high", "min_temp",
+  "max_temp", "target_temp_step", "hvac_modes", "preset_mode", "preset_modes",
+  "fan_mode", "fan_modes", "swing_mode", "swing_modes",
+  "swing_horizontal_mode", "current_humidity", "humidity", "min_humidity",
+  "max_humidity", "mode", "available_modes", "current_position",
+  "current_tilt_position", "percentage", "percentage_step", "oscillating",
+  "direction", "changed_by", "code_format", "code_arm_required",
+  "battery_level", "status", "fan_speed", "fan_speed_list", "volume_level",
+  "is_volume_muted", "source", "source_list", "sound_mode", "shuffle",
+  "repeat", "media_title", "media_artist",
 ];
 
 const DEVICE_CLASS_KEYS: readonly string[] = [
@@ -120,16 +126,42 @@ function getEntityColor(entityId: string, state: string, deviceClass?: string): 
   return "#6b7280"; // gray
 }
 
-// Attributes to show for different entity types
+/*
+  Attributes worth surfacing, per domain — RFC-008 §4.1's "attributes worth
+  surfacing" column, in the order it lists them.
+
+  Curated order is authored, not alphabetical: a thermostat's current
+  temperature belongs above its swing modes however the two happen to sort. A
+  domain with no list here falls through to §5.2 — every attribute the entity
+  carries, minus plumbing, sorted by the label the household actually reads.
+*/
 const IMPORTANT_ATTRIBUTES: Record<string, string[]> = {
-  light: ["brightness", "color_temp", "supported_color_modes"],
+  light: ["brightness", "color_temp_kelvin", "supported_color_modes", "effect", "effect_list"],
   switch: ["current_power_w", "today_energy_kwh"],
   sensor: ["unit_of_measurement", "device_class", "state_class"],
-  climate: ["temperature", "current_temperature", "hvac_modes", "preset_mode"],
-  cover: ["current_position", "device_class"],
-  fan: ["percentage", "preset_modes"],
-  vacuum: ["battery_level", "status", "fan_speed_list"],
-  media_player: ["volume_level", "source", "source_list"],
+  binary_sensor: ["device_class"],
+  fan: [
+    "percentage", "percentage_step", "preset_mode", "preset_modes", "oscillating",
+    "direction",
+  ],
+  cover: ["current_position", "current_tilt_position", "device_class"],
+  lock: ["changed_by", "code_format"],
+  media_player: [
+    "media_title", "media_artist", "volume_level", "is_volume_muted", "source",
+    "source_list", "sound_mode", "shuffle", "repeat",
+  ],
+  climate: [
+    "current_temperature", "temperature", "target_temp_low", "target_temp_high",
+    "min_temp", "max_temp", "target_temp_step", "hvac_modes", "preset_mode",
+    "preset_modes", "fan_mode", "fan_modes", "swing_mode", "swing_modes",
+    "current_humidity", "humidity",
+  ],
+  vacuum: ["battery_level", "fan_speed", "fan_speed_list", "status"],
+  alarm_control_panel: ["code_format", "code_arm_required", "changed_by"],
+  humidifier: [
+    "current_humidity", "humidity", "mode", "available_modes", "min_humidity",
+    "max_humidity",
+  ],
 };
 
 /*
@@ -144,6 +176,44 @@ const HEADER_DEVICE_CLASSES: readonly string[] = [
   "temperature", "humidity", "power", "energy", "battery",
 ];
 
+/*
+  The enum states each domain has words for — RFC-008 R5.
+
+  `heat_cool`, `armed_custom_bypass` and `docked` are identifiers, not words,
+  and the shape-based reading of §5.1 would print them verbatim because all it
+  can see is a string it does not recognise. These lists say which strings a
+  namespace can translate; a value outside its list falls through to the shape
+  reading rather than throwing a missing-key error, which is how a vendor's
+  extra state stays readable.
+*/
+const HVAC_MODE_KEYS: readonly string[] = [
+  "auto", "heat", "cool", "heat_cool", "dry", "fan_only", "off",
+];
+const HVAC_ACTION_KEYS: readonly string[] = ["heating", "cooling", "drying", "idle", "off"];
+const LOCK_STATE_KEYS: readonly string[] = [
+  "locked", "unlocked", "locking", "unlocking", "jammed",
+];
+const COVER_STATE_KEYS: readonly string[] = ["open", "opening", "closed", "closing"];
+const MEDIA_PLAYER_STATE_KEYS: readonly string[] = [
+  "playing", "paused", "idle", "off", "standby", "buffering",
+];
+const VACUUM_STATUS_KEYS: readonly string[] = [
+  "cleaning", "docked", "paused", "idle", "returning", "error", "charging",
+];
+const ALARM_STATE_KEYS: readonly string[] = [
+  "disarmed", "armed_home", "armed_away", "armed_night", "armed_vacation",
+  "armed_custom_bypass", "pending", "arming", "disarming", "triggered",
+];
+const HUMIDIFIER_ACTION_KEYS: readonly string[] = ["humidifying", "drying", "idle", "off"];
+
+function numberAttribute(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function stringAttribute(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
 export function EntityDetailSheet({
   open,
   onOpenChange,
@@ -156,6 +226,14 @@ export function EntityDetailSheet({
   const tDC = useTranslations("homeAutomation.entityDetail.deviceClasses");
   const tState = useTranslations("homeAutomation.entityState");
   const tHomeAutomation = useTranslations("homeAutomation");
+  const tHvacMode = useTranslations("homeAutomation.hvacMode");
+  const tHvacAction = useTranslations("homeAutomation.hvacAction");
+  const tLockState = useTranslations("homeAutomation.lockState");
+  const tCoverState = useTranslations("homeAutomation.coverState");
+  const tMediaPlayerState = useTranslations("homeAutomation.mediaPlayerState");
+  const tVacuumStatus = useTranslations("homeAutomation.vacuumStatus");
+  const tAlarmState = useTranslations("homeAutomation.alarmState");
+  const tHumidifierAction = useTranslations("homeAutomation.humidifierAction");
   const locale = useLocale();
   const intlLocale = getIntlLocale(locale);
 
@@ -195,7 +273,7 @@ export function EntityDetailSheet({
   const stateShape = classifyEntityState(entity.state);
   const showsUnitWithState = stateShape.kind === "number" && !!unit;
 
-  const stateText = (() => {
+  const shapeStateText = (() => {
     switch (stateShape.kind) {
       case "unavailable":
         return tHomeAutomation("unavailable");
@@ -219,6 +297,82 @@ export function EntityDetailSheet({
     }
   })();
 
+  /*
+    RFC-008 R5 — the domains that have their own vocabulary.
+
+    The shape reading above is right for a domain nobody wrote a case for and
+    wrong here: a lock is not "Off", and a thermostat reporting `heat_cool`
+    must never say so out loud. Each of these namespaces was already complete
+    in all three locales; what was missing was the sheet asking for them.
+  */
+  const domainStateText = (() => {
+    switch (domain) {
+      case "climate": {
+        // The *action* when the thermostat is doing something ("Heating"),
+        // and the configured mode when it is not — RFC-008 §4.1.
+        const action = stringAttribute(entity.attributes.hvac_action);
+        if (action && HVAC_ACTION_KEYS.includes(action)) return tHvacAction(action);
+        return HVAC_MODE_KEYS.includes(entity.state) ? tHvacMode(entity.state) : null;
+      }
+      case "lock":
+        return LOCK_STATE_KEYS.includes(entity.state) ? tLockState(entity.state) : null;
+      case "cover":
+        return COVER_STATE_KEYS.includes(entity.state) ? tCoverState(entity.state) : null;
+      case "media_player":
+        return MEDIA_PLAYER_STATE_KEYS.includes(entity.state)
+          ? tMediaPlayerState(entity.state)
+          : null;
+      case "vacuum":
+        return VACUUM_STATUS_KEYS.includes(entity.state) ? tVacuumStatus(entity.state) : null;
+      case "alarm_control_panel":
+        return ALARM_STATE_KEYS.includes(entity.state) ? tAlarmState(entity.state) : null;
+      default:
+        return null;
+    }
+  })();
+
+  // `unavailable` outranks every domain vocabulary: a lock we cannot reach is
+  // not "Locked", it is unreachable.
+  const stateText =
+    stateShape.kind === "unavailable" ? shapeStateText : (domainStateText ?? shapeStateText);
+
+  /*
+    A second line under the reading, for the three domains where the state
+    alone is not the interesting part: a thermostat's temperatures, a
+    humidifier's `action` (its own state is only on/off), and what a speaker is
+    actually playing.
+  */
+  const stateDetail = (() => {
+    switch (domain) {
+      case "climate": {
+        const current = numberAttribute(entity.attributes.current_temperature);
+        const target = numberAttribute(entity.attributes.temperature);
+        const parts: string[] = [];
+        if (current !== undefined) {
+          parts.push(`${tAttr("current_temperature")} ${current.toLocaleString(intlLocale)}°`);
+        }
+        if (target !== undefined) {
+          parts.push(`${tAttr("temperature")} ${target.toLocaleString(intlLocale)}°`);
+        }
+        return parts.length > 0 ? parts.join(" · ") : null;
+      }
+      case "humidifier": {
+        const action = stringAttribute(entity.attributes.action);
+        return action && HUMIDIFIER_ACTION_KEYS.includes(action)
+          ? tHumidifierAction(action)
+          : null;
+      }
+      case "media_player": {
+        const title = stringAttribute(entity.attributes.media_title);
+        const artist = stringAttribute(entity.attributes.media_artist);
+        if (!title) return null;
+        return artist ? `${title} — ${artist}` : title;
+      }
+      default:
+        return null;
+    }
+  })();
+
   // Fetch 24h history
   const startTime = useMemo(() => {
     const date = new Date();
@@ -233,62 +387,88 @@ export function EntityDetailSheet({
     { enabled: open }
   );
 
-  // Control hooks
-  const { toggle, isPending: togglePending } = useToggleEntity();
-  const { turnOn, turnOff, setBrightness, isPending: lightPending } = useLightControl();
-  const { mutateAsync: callService, isPending: servicePending } = useCallService();
-
-  const isPending = togglePending || lightPending || servicePending;
-  const isOn = stateShape.kind === "toggle" && stateShape.on;
   const isUnavailable = stateShape.kind === "unavailable";
 
   /*
-    Curated attributes for the eight domains that have a list; everything the
-    entity carries for the ones that do not (RFC-008 §5.2), minus plumbing.
-    Showing all of them is the one place the thin sheet beat this one: for an
+    Curated attributes for the domains that have a list; everything the entity
+    carries for the ones that do not (RFC-008 §5.2), minus plumbing. Showing
+    all of them is the one place the thin sheet beat this one: for an
     unfamiliar entity the attributes are frequently the only thing on screen
     that says what it is.
   */
   const curatedKeys = IMPORTANT_ATTRIBUTES[domain];
   const attributeKeys = curatedKeys
     ? curatedKeys.filter((key) => entity.attributes[key] !== undefined)
-    : Object.keys(entity.attributes)
-        .filter((key) => {
-          if (entity.attributes[key] === undefined) return false;
-          if (isPlumbingAttribute(key)) return false;
-          // Already spent: the unit sits beside the state, and the device
-          // class chose the header icon.
-          if (key === "unit_of_measurement" && showsUnitWithState) return false;
-          if (
-            key === "device_class" &&
-            typeof deviceClass === "string" &&
-            HEADER_DEVICE_CLASSES.includes(deviceClass)
-          ) {
-            return false;
-          }
-          return true;
-        })
-        // HA hands attributes over in whatever order the integration built
-        // them; alphabetical at least puts the same entity in the same order
-        // twice running.
-        .sort((a, b) => a.localeCompare(b));
+    : Object.keys(entity.attributes).filter((key) => {
+        if (entity.attributes[key] === undefined) return false;
+        if (isPlumbingAttribute(key)) return false;
+        // Already spent: the unit sits beside the state, and the device
+        // class chose the header icon.
+        if (key === "unit_of_measurement" && showsUnitWithState) return false;
+        if (
+          key === "device_class" &&
+          typeof deviceClass === "string" &&
+          HEADER_DEVICE_CLASSES.includes(deviceClass)
+        ) {
+          return false;
+        }
+        return true;
+      });
+
+  /*
+    Attribute *values* that are HA identifiers rather than words — R5 again.
+
+    The state card and the mode buttons both render `heat_cool` as "Heat/Cool",
+    and then the attributes list printed the raw `hvac_modes` array underneath
+    them: the same leak, one row further down. Everything else in these lists
+    (`preset_modes`, `source_list`, `effect_list`) is author-defined text that
+    is already human, and is left exactly as its author wrote it.
+  */
+  const translateAttributeValue = (key: string, rawValue: unknown): string | null => {
+    if (
+      key === "device_class" &&
+      typeof rawValue === "string" &&
+      DEVICE_CLASS_KEYS.includes(rawValue)
+    ) {
+      return tDC(rawValue as DeviceClassKey);
+    }
+    if (key === "hvac_modes" && Array.isArray(rawValue)) {
+      return rawValue
+        .map((mode) =>
+          typeof mode === "string" && HVAC_MODE_KEYS.includes(mode)
+            ? tHvacMode(mode)
+            : String(mode),
+        )
+        .join(", ");
+    }
+    if (key === "repeat" && rawValue === "off") return t("repeatOff");
+    if (key === "repeat" && rawValue === "all") return t("repeatAll");
+    if (key === "repeat" && rawValue === "one") return t("repeatOne");
+    if (key === "direction" && rawValue === "forward") return t("directionForward");
+    if (key === "direction" && rawValue === "reverse") return t("directionReverse");
+    return null;
+  };
 
   const displayAttributes = attributeKeys.map((key) => {
     const rawValue = entity.attributes[key];
     const shape = classifyAttributeValue(rawValue);
-    const label = ATTRIBUTE_KEYS.includes(key)
-      ? tAttr(key as AttributeKey)
-      : humanizeAttributeKey(key);
-    // `device_class` is an identifier, not a word. Translate the ones we have
-    // words for; the rest are still more use to the reader than nothing.
-    const translated =
-      key === "device_class" &&
-      typeof rawValue === "string" &&
-      DEVICE_CLASS_KEYS.includes(rawValue)
-        ? tDC(rawValue as DeviceClassKey)
-        : null;
-    return { key, label, shape, translated };
+    const label = ATTRIBUTE_KEYS.includes(key) ? tAttr(key) : humanizeAttributeKey(key);
+    return { key, label, shape, translated: translateAttributeValue(key, rawValue) };
   });
+
+  /*
+    Sorted by the label, not by the key.
+
+    HA hands attributes over in whatever order the integration built them, so
+    *some* order is needed to put the same entity in the same order twice
+    running — but sorting by `current_position` while the reader sees "Current
+    position" is a sort nobody can see, and in German the two orders are barely
+    related. Curated domains keep their authored order instead: that one is
+    deliberate.
+  */
+  if (!curatedKeys) {
+    displayAttributes.sort((a, b) => a.label.localeCompare(b.label, intlLocale));
+  }
 
   /*
     RFC-008 R3. Omitted entirely rather than shown empty: an entity whose
@@ -298,174 +478,6 @@ export function EntityDetailSheet({
   */
   const historyKind = classifyEntityHistory(domain, entity.state, entity.attributes);
   const showHistory = historyKind !== "none";
-
-  // Light brightness control
-  const brightness = entity.attributes.brightness || 0;
-  const brightnessPercent = Math.round((brightness / 255) * 100);
-  const supportsBrightness =
-    domain === "light" &&
-    (entity.attributes.supported_color_modes as string[] | undefined)?.some(
-      (mode) => mode !== "onoff"
-    );
-
-  const handleBrightnessCommit = async (value: number[]) => {
-    const percent = value[0];
-    const haValue = Math.round((percent / 100) * 255);
-    await setBrightness(entity.entity_id, haValue);
-  };
-
-  // Render actions based on entity type
-  const renderActions = () => {
-    if (isUnavailable) {
-      return (
-        <p className="text-sm text-muted-foreground text-center py-4">
-          {t("unavailableNotice")}
-        </p>
-      );
-    }
-
-    switch (domain) {
-      case "light":
-        return (
-          <div className="flex flex-col gap-4">
-            <div className="flex gap-2">
-              <Button
-                className="flex-1"
-                variant={isOn ? "default" : "outline"}
-                onClick={() => turnOn(entity.entity_id)}
-                disabled={isPending}
-              >
-                {isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-                {t("turnOnButton")}
-              </Button>
-              <Button
-                className="flex-1"
-                variant={!isOn ? "default" : "outline"}
-                onClick={() => turnOff(entity.entity_id)}
-                disabled={isPending}
-              >
-                {t("turnOffButton")}
-              </Button>
-            </div>
-            {supportsBrightness && (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>{tAttr("brightness")}</span>
-                  <span>{brightnessPercent}%</span>
-                </div>
-                <Slider
-                  value={[brightnessPercent]}
-                  min={0}
-                  max={100}
-                  step={5}
-                  onValueCommit={handleBrightnessCommit}
-                  disabled={isPending}
-                />
-              </div>
-            )}
-          </div>
-        );
-
-      case "switch":
-      case "input_boolean":
-        return (
-          <div className="flex gap-2">
-            <Button
-              className="flex-1"
-              variant={isOn ? "default" : "outline"}
-              onClick={() => toggle(entity.entity_id, entity.state)}
-              disabled={isPending}
-            >
-              {isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-              {isOn ? t("turnOffButton") : t("turnOnButton")}
-            </Button>
-          </div>
-        );
-
-      case "scene":
-      case "script":
-        return (
-          <Button
-            className="w-full"
-            onClick={() =>
-              callService({
-                domain,
-                service: "turn_on",
-                entity_id: entity.entity_id,
-              })
-            }
-            disabled={isPending}
-          >
-            {isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-            {t("activateButton")}
-          </Button>
-        );
-
-      case "automation":
-        return (
-          <div className="flex gap-2">
-            <Button
-              className="flex-1"
-              variant="outline"
-              onClick={() =>
-                callService({
-                  domain: "automation",
-                  service: "trigger",
-                  entity_id: entity.entity_id,
-                })
-              }
-              disabled={isPending}
-            >
-              {isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-              {t("triggerButton")}
-            </Button>
-            <Button
-              className="flex-1"
-              variant={isOn ? "default" : "outline"}
-              onClick={() => toggle(entity.entity_id, entity.state)}
-              disabled={isPending}
-            >
-              {isOn ? t("disableButton") : t("enableButton")}
-            </Button>
-          </div>
-        );
-
-      case "sensor":
-      case "binary_sensor":
-        return null; // Sensors don't have actions
-
-      default:
-        /*
-          RFC-008 §5.3 — the domain is one nobody here has heard of.
-
-          `supported_features` is a bitmask whose meaning comes from that
-          domain's own IntFlag, so reading bits without knowing the enum ships
-          buttons that do something else entirely. `homeassistant.turn_on` /
-          `turn_off` is the one pair Home Assistant guarantees for anything
-          with on/off semantics — the same pair `group` uses across mixed
-          members — and an entity that is neither on nor off has no such
-          semantics, so it gets nothing rather than a button that fails.
-        */
-        if (stateShape.kind !== "toggle") return null;
-        return (
-          <Button
-            className="w-full"
-            variant={isOn ? "default" : "outline"}
-            onClick={() =>
-              callService({
-                domain: "homeassistant",
-                service: isOn ? "turn_off" : "turn_on",
-                entity_id: entity.entity_id,
-              })
-            }
-            disabled={isPending}
-          >
-            {isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-            {isOn ? t("turnOffButton") : t("turnOnButton")}
-          </Button>
-        );
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -512,22 +524,21 @@ export function EntityDetailSheet({
                   )}
                 </span>
               </div>
+              {stateDetail && (
+                <p className="text-sm text-muted-foreground mt-1 text-right">{stateDetail}</p>
+              )}
               <p className="text-xs text-muted-foreground mt-2">
                 {t("lastUpdatedLabel")}{" "}
                 {new Date(entity.last_changed).toLocaleString(intlLocale)}
               </p>
             </div>
 
-            {/* Actions */}
-            {renderActions() && (
-              <>
-                <Separator />
-                <div>
-                  <h3 className="text-sm font-medium mb-3">{t("actionsHeading")}</h3>
-                  {renderActions()}
-                </div>
-              </>
-            )}
+            {/*
+              Actions — RFC-008 §4.1, one component per domain. Renders nothing
+              at all (no separator, no heading) for a read-only domain, or for
+              a device whose every feature gate came back false.
+            */}
+            <EntityActions entity={entity} />
 
             {/* History Chart */}
             {showHistory && (

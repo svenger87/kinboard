@@ -10,6 +10,21 @@ import {
   humanizeDomain,
   isPlumbingAttribute,
 } from "../src/lib/ha-entity-display";
+import {
+  ALARM_FEATURE,
+  CLIMATE_FEATURE,
+  COVER_FEATURE,
+  FAN_FEATURE,
+  HUMIDIFIER_FEATURE,
+  LIGHT_FEATURE,
+  LOCK_FEATURE,
+  MEDIA_PLAYER_FEATURE,
+  VACUUM_FEATURE,
+  optionList,
+  supportsBrightness,
+  supportsColorTemp,
+  supportsFeature,
+} from "../src/lib/ha-features";
 
 /**
  * The detail sheet against a domain nobody has heard of — RFC-008 §5.
@@ -162,13 +177,21 @@ test("the sheet omits the history section rather than drawing a flat zero line",
 });
 
 test("the fallback action is homeassistant.turn_on/off, and nothing bit-gated", () => {
+  /*
+    The per-domain controls moved to `entity-actions.tsx` when RFC-008 §4.1
+    landed — the sheet dispatches, the components decide. The fallback moved
+    with them, so this reads `FallbackActions` rather than the sheet's own
+    `default:`; the claim is unchanged.
+  */
   const source = codeOnly(
     readFileSync(
-      join(__dirname, "../src/components/home-assistant/entity-detail-sheet.tsx"),
+      join(__dirname, "../src/components/home-assistant/entity-actions.tsx"),
       "utf8",
     ),
   );
-  const fallback = source.slice(source.indexOf("      default:"));
+  const start = source.indexOf("function FallbackActions(");
+  expect(start).toBeGreaterThan(-1);
+  const fallback = source.slice(start, source.indexOf("\nfunction ", start + 1));
 
   // The one service pair HA guarantees for anything with on/off semantics.
   expect(fallback).toContain('domain: "homeassistant"');
@@ -177,4 +200,282 @@ test("the fallback action is homeassistant.turn_on/off, and nothing bit-gated", 
   // `supported_features` is an IntFlag whose meaning belongs to the domain, so
   // a bit test here would offer buttons that do something else entirely.
   expect(fallback).not.toContain("supported_features");
+});
+
+/* ────────────────────────────────────────────────────────────────────────
+   Per-domain controls — RFC-008 §4.1 (phase one of §4.5).
+
+   The failure this whole document exists to prevent is a button that looks
+   like it works and silently does nothing: a wrong service name, or a bit
+   read from the wrong domain's IntFlag. Both are invisible at review — the
+   code compiles, the button renders, the POST returns 200 for an entity
+   Home Assistant simply cannot do that to.
+
+   So these check the two things a running stack cannot: that every feature
+   bit still matches the number the matrix took from `home-assistant/core`,
+   and that the source names the services the matrix names and none of the
+   ones it excludes.
+   ──────────────────────────────────────────────────────────────────────── */
+
+const actionsSource = codeOnly(
+  readFileSync(join(__dirname, "../src/components/home-assistant/entity-actions.tsx"), "utf8"),
+);
+
+/** The matrix itself, whitespace around `=` normalised (`EFFECT = 4` → `EFFECT=4`). */
+const matrix = readFileSync(
+  join(__dirname, "../../docs/rfc/008-entity-detail-coverage.md"),
+  "utf8",
+).replace(/\s*=\s*/g, "=");
+
+test.describe("supported_features, bit by bit", () => {
+  test("every constant is the number RFC-008 §4.1 read off home-assistant/core", () => {
+    const tables: [string, Record<string, number>][] = [
+      ["light", LIGHT_FEATURE],
+      ["fan", FAN_FEATURE],
+      ["cover", COVER_FEATURE],
+      ["lock", LOCK_FEATURE],
+      ["media_player", MEDIA_PLAYER_FEATURE],
+      ["climate", CLIMATE_FEATURE],
+      ["vacuum", VACUUM_FEATURE],
+      ["alarm_control_panel", ALARM_FEATURE],
+      ["humidifier", HUMIDIFIER_FEATURE],
+    ];
+
+    for (const [domain, table] of tables) {
+      for (const [name, bit] of Object.entries(table)) {
+        // Every bit is a single bit — a two-bit "flag" is a typo that would
+        // pass `& bit` for two unrelated features.
+        expect(Number.isInteger(Math.log2(bit)), `${domain}.${name}=${bit}`).toBe(true);
+        // …and the matrix still says that number for that name.
+        expect(matrix, `${domain}.${name}`).toContain(`${name}=${bit}`);
+      }
+    }
+  });
+
+  test("the same number means different things in different domains", () => {
+    // 4 is EFFECT on a light, DIRECTION on a fan, SET_POSITION on a cover,
+    // VOLUME_SET on a speaker, TARGET_HUMIDITY on a thermostat and PAUSE on a
+    // vacuum. This is why the fallback case never tests a bit.
+    expect(LIGHT_FEATURE.EFFECT).toBe(4);
+    expect(FAN_FEATURE.DIRECTION).toBe(4);
+    expect(COVER_FEATURE.SET_POSITION).toBe(4);
+    expect(MEDIA_PLAYER_FEATURE.VOLUME_SET).toBe(4);
+    expect(CLIMATE_FEATURE.TARGET_HUMIDITY).toBe(4);
+    expect(VACUUM_FEATURE.PAUSE).toBe(4);
+  });
+
+  test("a missing supported_features is zero, not permission", () => {
+    expect(supportsFeature(undefined, COVER_FEATURE.SET_POSITION)).toBe(false);
+    expect(supportsFeature({}, COVER_FEATURE.SET_POSITION)).toBe(false);
+    // HA sends it as a number; a string that happens to look like one is not
+    // a bitmask and must not be treated as one.
+    expect(supportsFeature({ supported_features: "15" }, COVER_FEATURE.SET_POSITION)).toBe(false);
+    expect(supportsFeature({ supported_features: 15 }, COVER_FEATURE.SET_POSITION)).toBe(true);
+    // 11 = OPEN|CLOSE|STOP — a garage door that cannot be told a percentage.
+    expect(supportsFeature({ supported_features: 11 }, COVER_FEATURE.SET_POSITION)).toBe(false);
+    expect(supportsFeature({ supported_features: 11 }, COVER_FEATURE.STOP)).toBe(true);
+  });
+
+  test("a speaker that cannot skip has no skip bit set", () => {
+    // 16389 = PLAY|PAUSE|VOLUME_SET. The two the sheet must not offer:
+    const radio = { supported_features: 16389 };
+    expect(supportsFeature(radio, MEDIA_PLAYER_FEATURE.NEXT_TRACK)).toBe(false);
+    expect(supportsFeature(radio, MEDIA_PLAYER_FEATURE.PREVIOUS_TRACK)).toBe(false);
+    expect(supportsFeature(radio, MEDIA_PLAYER_FEATURE.PLAY)).toBe(true);
+  });
+
+  test("light brightness is not a bit — RFC-008 R2", () => {
+    expect(supportsBrightness({ supported_color_modes: ["onoff"] })).toBe(false);
+    expect(supportsBrightness({ supported_color_modes: [] })).toBe(false);
+    expect(supportsBrightness({})).toBe(false);
+    expect(supportsBrightness({ supported_color_modes: ["brightness"] })).toBe(true);
+    expect(supportsBrightness({ supported_color_modes: ["color_temp", "hs"] })).toBe(true);
+
+    expect(supportsColorTemp({ supported_color_modes: ["color_temp", "hs"] })).toBe(true);
+    expect(supportsColorTemp({ supported_color_modes: ["hs"] })).toBe(false);
+    expect(supportsColorTemp({})).toBe(false);
+  });
+
+  test("an option list an integration built badly is no picker, not a crash", () => {
+    expect(optionList(["eco", "boost"])).toEqual(["eco", "boost"]);
+    expect(optionList(undefined)).toEqual([]);
+    expect(optionList("eco")).toEqual([]);
+    expect(optionList([{ name: "eco" }, "boost", "", null])).toEqual(["boost"]);
+  });
+});
+
+test.describe("the services each domain calls", () => {
+  test("every service name is the one RFC-008 §4.1 names", () => {
+    /*
+      Read straight off the matrix's Actions column. A name that is only in
+      one of the two places is exactly the bug: `set_cover_tilt_position`
+      typed as `set_tilt_position` compiles, renders and returns 200.
+    */
+    const services = [
+      // light
+      "turn_on", "turn_off",
+      // cover — the tilt trio the hooks do not wrap
+      "open_cover_tilt", "close_cover_tilt", "stop_cover_tilt", "set_cover_tilt_position",
+      // lock's latch
+      "open",
+      // media_player
+      "select_sound_mode", "shuffle_set", "repeat_set",
+      // climate — no hook exists for any of these
+      "set_hvac_mode", "set_temperature", "set_humidity", "set_fan_mode",
+      "set_preset_mode", "set_swing_mode", "set_swing_horizontal_mode",
+      // vacuum
+      "locate", "clean_spot",
+      // alarm
+      "alarm_arm_vacation", "alarm_arm_custom_bypass",
+      // humidifier
+      "set_mode",
+      // fan
+      "set_direction",
+      // automation
+      "trigger",
+    ];
+    for (const service of services) {
+      expect(actionsSource, service).toContain(`"${service}"`);
+      expect(matrix, service).toContain(service);
+    }
+  });
+
+  test("the deliberately excluded services are nowhere in the sheet", () => {
+    /*
+      RFC-008 §4.1 and §8. `alarm_trigger` is a panic button any passer-by can
+      press; the media ones are a file picker's worth of UI that RFC-003 owns;
+      the deprecated vacuum pair does nothing on a `StateVacuumEntity`.
+    */
+    for (const service of [
+      "alarm_trigger", "browse_media", "play_media", "media_seek", "search_media",
+      "join", "unjoin", "send_command", "learn_command",
+    ]) {
+      expect(actionsSource, service).not.toContain(`"${service}"`);
+    }
+  });
+
+  test("each domain's controls are gated on that domain's own flag table", () => {
+    // A component reaching for another domain's constants is the mistake the
+    // separate tables exist to make visible.
+    const pairs: [string, string][] = [
+      ["LightActions", "LIGHT_FEATURE"],
+      ["FanActions", "FAN_FEATURE"],
+      ["CoverActions", "COVER_FEATURE"],
+      ["LockActions", "LOCK_FEATURE"],
+      ["MediaPlayerActions", "MEDIA_PLAYER_FEATURE"],
+      ["ClimateActions", "CLIMATE_FEATURE"],
+      ["VacuumActions", "VACUUM_FEATURE"],
+      ["AlarmActions", "ALARM_FEATURE"],
+      ["HumidifierActions", "HUMIDIFIER_FEATURE"],
+    ];
+    const all = pairs.map(([, table]) => table);
+    for (const [component, table] of pairs) {
+      const start = actionsSource.indexOf(`function ${component}(`);
+      expect(start, component).toBeGreaterThan(-1);
+      const end = actionsSource.indexOf("\nfunction ", start + 1);
+      const body = actionsSource.slice(start, end === -1 ? undefined : end);
+      expect(body, `${component} gates on ${table}`).toContain(table);
+      for (const other of all) {
+        if (other === table) continue;
+        expect(body, `${component} must not read ${other}`).not.toContain(other);
+      }
+    }
+  });
+
+  test("climate's mode buttons come from hvac_modes, not from a bit", () => {
+    const start = actionsSource.indexOf("function ClimateActions(");
+    const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
+    expect(body).toContain("optionList(attrs.hvac_modes)");
+    // There is no HVAC_MODE bit in ClimateEntityFeature, and inventing one
+    // would hide the mode buttons on every thermostat.
+    expect(Object.keys(CLIMATE_FEATURE)).not.toContain("HVAC_MODE");
+  });
+
+  test("alarm_disarm has no bit, so it is never gated", () => {
+    expect(Object.keys(ALARM_FEATURE)).not.toContain("DISARM");
+    expect(matrix).toContain("**`alarm_disarm` has no bit** — always present");
+    const start = actionsSource.indexOf("function AlarmActions(");
+    const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
+    // The disarm button is not inside a gate expression.
+    expect(body).toMatch(/onClick=\{\(\) => run\(\(\) => disarm\(id\)\)\}/);
+  });
+});
+
+test.describe("the state a household reads — RFC-008 R5", () => {
+  test("the domains with their own vocabulary use it, not the shape fallback", () => {
+    const sheet = codeOnly(
+      readFileSync(
+        join(__dirname, "../src/components/home-assistant/entity-detail-sheet.tsx"),
+        "utf8",
+      ),
+    );
+    for (const namespace of [
+      "homeAutomation.hvacMode",
+      "homeAutomation.hvacAction",
+      "homeAutomation.lockState",
+      "homeAutomation.coverState",
+      "homeAutomation.mediaPlayerState",
+      "homeAutomation.vacuumStatus",
+      "homeAutomation.alarmState",
+      "homeAutomation.humidifierAction",
+    ]) {
+      expect(sheet, namespace).toContain(`useTranslations("${namespace}")`);
+    }
+    // `heat_cool` renders as a word or not at all — never as the identifier.
+    expect(sheet).toContain("HVAC_ACTION_KEYS.includes(action)");
+    expect(sheet).toContain("HVAC_MODE_KEYS.includes(entity.state)");
+  });
+
+  test("every enum state the matrix names has a word in all three locales", () => {
+    const expected: Record<string, string[]> = {
+      hvacMode: ["auto", "heat", "cool", "heat_cool", "dry", "fan_only", "off"],
+      hvacAction: ["heating", "cooling", "drying", "idle", "off"],
+      lockState: ["locked", "unlocked", "locking", "unlocking", "jammed"],
+      coverState: ["open", "opening", "closed", "closing"],
+      mediaPlayerState: ["playing", "paused", "idle", "off", "standby", "buffering"],
+      vacuumStatus: ["cleaning", "docked", "paused", "idle", "returning", "error"],
+      alarmState: [
+        "disarmed", "armed_home", "armed_away", "armed_night", "armed_vacation",
+        "armed_custom_bypass", "pending", "arming", "disarming", "triggered",
+      ],
+      humidifierAction: ["humidifying", "drying", "idle", "off"],
+    };
+
+    for (const locale of ["en", "de", "fr"]) {
+      const ha = JSON.parse(
+        readFileSync(join(__dirname, "..", "messages", `${locale}.json`), "utf8"),
+      ).homeAutomation;
+      for (const [namespace, keys] of Object.entries(expected)) {
+        for (const key of keys) {
+          const word = ha[namespace]?.[key];
+          expect(typeof word, `${locale}.${namespace}.${key}`).toBe("string");
+          expect(word, `${locale}.${namespace}.${key}`).not.toBe("");
+          // The word must not be the identifier with the underscore left in.
+          expect(word, `${locale}.${namespace}.${key}`).not.toBe(key);
+        }
+      }
+    }
+  });
+
+  test("every attribute the curated lists name has a label in all three locales", () => {
+    const sheet = readFileSync(
+      join(__dirname, "../src/components/home-assistant/entity-detail-sheet.tsx"),
+      "utf8",
+    );
+    const block = sheet.slice(
+      sheet.indexOf("const ATTRIBUTE_KEYS"),
+      sheet.indexOf("const DEVICE_CLASS_KEYS"),
+    );
+    const keys = [...block.matchAll(/"([a-z0-9_]+)"/g)].map((m) => m[1]);
+    expect(keys.length).toBeGreaterThan(40);
+
+    for (const locale of ["en", "de", "fr"]) {
+      const attributes = JSON.parse(
+        readFileSync(join(__dirname, "..", "messages", `${locale}.json`), "utf8"),
+      ).homeAutomation.entityDetail.attributes;
+      for (const key of keys) {
+        expect(typeof attributes[key], `${locale}.attributes.${key}`).toBe("string");
+      }
+    }
+  });
 });
