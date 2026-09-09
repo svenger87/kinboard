@@ -1,6 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "child_process";
-import { acquireWholeDatabase, releaseWholeDatabase } from "./whole-database";
+import {
+  acquireWholeDatabase,
+  releaseWholeDatabase,
+  dbContainer,
+  SKIP_WITHOUT_DATABASE,
+} from "./whole-database";
 
 /**
  * The blob-to-table migration, against the real database.
@@ -20,7 +25,7 @@ function psql(sql: string): string {
     // on stdout after any RETURNING statement even with -tA, corrupting
     // makeFamily()'s single-line UUID. -q silences psql's own status
     // messages; it does not touch the SQL under test.
-    ["exec", "-i", "kbfresh-db", "psql", "-U", "postgres", "-d", "postgres", "-tA", "-q", "-c", sql],
+    ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-tA", "-q", "-c", sql],
     { encoding: "utf8" },
   ).trim();
 }
@@ -33,7 +38,7 @@ function applyMigration(): void {
   // execFileSync throws on — the way a real second migration pass failing
   // would actually surface.
   execFileSync("bash", ["-c",
-    "docker exec -i kbfresh-db psql -v ON_ERROR_STOP=1 -U postgres -d postgres -q < webapp/docker/migration_catalogue_items.sql"],
+    `docker exec -i ${dbContainer()} psql -v ON_ERROR_STOP=1 -U postgres -d postgres -q < webapp/docker/migration_catalogue_items.sql`],
     { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8" });
 }
 
@@ -65,6 +70,8 @@ function rows(familyId: string): string[] {
   every family in the database, including the throwaway families that spec is
   in the middle of seeding. See ./whole-database.ts.
 */
+test.skip(SKIP_WITHOUT_DATABASE, "no database container reachable, and no FAMILY_CODE promising a stack");
+
 test.beforeEach(acquireWholeDatabase);
 test.afterEach(releaseWholeDatabase);
 

@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -166,6 +167,58 @@ function clearGaveUp(): void {
   } catch {
     // Same: an unremovable marker goes stale on its own in GAVE_UP_WINDOW_MS.
   }
+}
+
+/**
+ * The database container, resolved rather than hardcoded.
+ *
+ * These specs used to name `kbfresh-db`, which is the compose project on the
+ * dev box and exists nowhere else. In CI the same stack boots as
+ * `kinboard-db`, so every migration case failed there — 24 of them in the
+ * smoke job, and the same set again in the stack-free job, which has no
+ * database at all. Both read as a broken migration; neither was one.
+ *
+ * Set `KINBOARD_DB_CONTAINER` to override. Otherwise the candidates are tried
+ * once, at import, and the first that answers `SELECT 1` wins.
+ */
+const DB_CANDIDATES = ["kbfresh-db", "kinboard-db"];
+
+function probe(name: string): boolean {
+  try {
+    execFileSync("docker", ["exec", "-i", name, "psql", "-U", "postgres", "-d", "postgres", "-tAc", "SELECT 1"], {
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export const DB_CONTAINER: string | null = (() => {
+  const named = process.env.KINBOARD_DB_CONTAINER;
+  if (named) return probe(named) ? named : null;
+  return DB_CANDIDATES.find(probe) ?? null;
+})();
+
+/**
+ * Skip only where there is genuinely no database.
+ *
+ * Both CI jobs that boot a stack set `FAMILY_CODE`, so if that is set and no
+ * container answered, something is wrong with the job rather than with the
+ * environment — and a spec that quietly skips there is worse than one that
+ * fails, because the migration would ship unguarded. Fail loudly instead.
+ */
+export const SKIP_WITHOUT_DATABASE = DB_CONTAINER === null && !process.env.FAMILY_CODE;
+
+export function dbContainer(): string {
+  if (DB_CONTAINER === null) {
+    throw new Error(
+      `no database container answered (tried ${DB_CANDIDATES.join(", ")}), but FAMILY_CODE is set, ` +
+        `so this job promised a running stack. Set KINBOARD_DB_CONTAINER if the compose project was renamed.`,
+    );
+  }
+  return DB_CONTAINER;
 }
 
 export class WholeDatabaseLockTimeout extends Error {

@@ -1,6 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "child_process";
-import { acquireWholeDatabase, releaseWholeDatabase } from "./whole-database";
+import {
+  acquireWholeDatabase,
+  releaseWholeDatabase,
+  dbContainer,
+  SKIP_WITHOUT_DATABASE,
+} from "./whole-database";
 
 /**
  * Reconciling rooms out of the settings blob. RFC-007 §3.
@@ -12,14 +17,14 @@ import { acquireWholeDatabase, releaseWholeDatabase } from "./whole-database";
 function psql(sql: string): string {
   return execFileSync(
     "docker",
-    ["exec", "-i", "kbfresh-db", "psql", "-U", "postgres", "-d", "postgres", "-tA", "-q", "-c", sql],
+    ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-tA", "-q", "-c", sql],
     { encoding: "utf8" },
   ).trim();
 }
 
 function applyMigration(): void {
   execFileSync("bash", ["-c",
-    "docker exec -i kbfresh-db psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migration_rooms.sql"],
+    `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migration_rooms.sql`],
     { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8" });
 }
 
@@ -29,6 +34,8 @@ function applyMigration(): void {
   doing the same thing at the same time breaks both — see ./whole-database.ts
   for the two failure shapes and why no Playwright setting covers it.
 */
+test.skip(SKIP_WITHOUT_DATABASE, "no database container reachable, and no FAMILY_CODE promising a stack");
+
 test.beforeEach(acquireWholeDatabase);
 test.afterEach(releaseWholeDatabase);
 
