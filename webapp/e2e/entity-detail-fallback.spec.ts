@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { codeOnly } from "./source-helpers";
 import {
   classifyAttributeValue,
+  classifyEntityHistory,
   classifyEntityState,
   humanizeAttributeKey,
   humanizeDomain,
@@ -103,6 +104,61 @@ test.describe("attributes", () => {
     expect(humanizeDomain("air_quality")).toBe("Air quality");
     expect(humanizeDomain("siren")).toBe("Siren");
   });
+});
+
+test.describe("24h history, RFC-008 R3 — honest only for a number", () => {
+  test("a numeric sensor is an area chart; an enum/text sensor gets no section at all", () => {
+    expect(classifyEntityHistory("sensor", "21.5", { unit_of_measurement: "°C" })).toBe("area");
+    // `state_class` says "this is a measurement" even before the state is read.
+    expect(classifyEntityHistory("sensor", "unknown", { state_class: "measurement" })).toBe(
+      "area",
+    );
+    // A washing-machine `device_class: enum` sensor — the state is a word,
+    // not a number, and there is no state_class either.
+    expect(classifyEntityHistory("sensor", "rinsing", { device_class: "enum" })).toBe("none");
+  });
+
+  test("climate and vacuum get no section — today's flat zero line is not honest", () => {
+    // This is the regression the task exists to fix: `heat_cool` and
+    // `docked` used to parseFloat to NaN, fall back to 0, and draw a line
+    // indistinguishable from a real all-day-zero reading.
+    expect(classifyEntityHistory("climate", "heat_cool")).toBe("none");
+    expect(classifyEntityHistory("vacuum", "docked")).toBe("none");
+  });
+
+  test("a binary_sensor is a band, whichever way it reads", () => {
+    expect(classifyEntityHistory("binary_sensor", "on")).toBe("band");
+    expect(classifyEntityHistory("binary_sensor", "off")).toBe("band");
+  });
+
+  test("cover and valve are area only once they report a position", () => {
+    expect(classifyEntityHistory("cover", "open", { current_position: 80 })).toBe("area");
+    expect(classifyEntityHistory("cover", "open")).toBe("band");
+    // 0 is a reported position, not a missing one.
+    expect(classifyEntityHistory("valve", "closed", { current_position: 0 })).toBe("area");
+    expect(classifyEntityHistory("valve", "closed")).toBe("band");
+  });
+
+  test("a domain the matrix has never heard of falls back to §5.4: number or nothing", () => {
+    expect(classifyEntityHistory("nonstandard_domain", "42")).toBe("area");
+    expect(classifyEntityHistory("nonstandard_domain", "on")).toBe("none");
+    expect(classifyEntityHistory("nonstandard_domain", "some text")).toBe("none");
+  });
+});
+
+test("the sheet omits the history section rather than drawing a flat zero line", () => {
+  const source = codeOnly(
+    readFileSync(
+      join(__dirname, "../src/components/home-assistant/entity-detail-sheet.tsx"),
+      "utf8",
+    ),
+  );
+
+  // The old hard-coded allowlist is gone — RFC-008 R3's per-domain
+  // classification replaces it rather than sitting alongside it.
+  expect(source).not.toContain("DOMAINS_WITH_OWN_HISTORY");
+  expect(source).toContain("classifyEntityHistory(domain, entity.state, entity.attributes)");
+  expect(source).toMatch(/showHistory\s*=\s*historyKind\s*!==\s*"none"/);
 });
 
 test("the fallback action is homeassistant.turn_on/off, and nothing bit-gated", () => {

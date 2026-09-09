@@ -28,6 +28,7 @@ import { useEntityHistory, useToggleEntity, useLightControl, useCallService } fr
 import { MiniChart } from "./mini-chart";
 import {
   classifyAttributeValue,
+  classifyEntityHistory,
   classifyEntityState,
   humanizeAttributeKey,
   isPlumbingAttribute,
@@ -141,22 +142,6 @@ const IMPORTANT_ATTRIBUTES: Record<string, string[]> = {
 */
 const HEADER_DEVICE_CLASSES: readonly string[] = [
   "temperature", "humidity", "power", "energy", "battery",
-];
-
-/*
-  Domains whose 24h section is not this file's decision.
-
-  RFC-008 R3 classifies history per domain — an area chart for numbers, a step
-  band for on/off, nothing at all for enums — and that work owns these. Until
-  it lands they keep the chart they have today. Everything else takes the
-  fallback rule: chart only when the state is a number, because
-  `/api/homeassistant/history` maps a non-numeric state through `parseFloat`
-  and falls back to 0, and `MiniChart` then draws a flat line at zero that
-  looks exactly like a reading.
-*/
-const DOMAINS_WITH_OWN_HISTORY: readonly string[] = [
-  "light", "switch", "input_boolean", "sensor", "binary_sensor", "climate",
-  "cover", "fan", "vacuum", "media_player", "scene", "script", "automation",
 ];
 
 export function EntityDetailSheet({
@@ -306,12 +291,13 @@ export function EntityDetailSheet({
   });
 
   /*
-    RFC-008 §5.4 / R3. Omitted entirely rather than shown empty: an entity
-    whose history is fine and simply is not numeric should not be told it has
-    "no history data".
+    RFC-008 R3. Omitted entirely rather than shown empty: an entity whose
+    history is fine and simply is not a number or on/off should not be told
+    it has "no history data" — a `climate` entity's `heat_cool` history would
+    otherwise draw a flat line at zero that reads exactly like a reading.
   */
-  const showHistory =
-    stateShape.kind === "number" || DOMAINS_WITH_OWN_HISTORY.includes(domain);
+  const historyKind = classifyEntityHistory(domain, entity.state, entity.attributes);
+  const showHistory = historyKind !== "none";
 
   // Light brightness control
   const brightness = entity.attributes.brightness || 0;

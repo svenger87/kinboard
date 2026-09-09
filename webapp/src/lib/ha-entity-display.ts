@@ -165,3 +165,87 @@ export function humanizeAttributeKey(key: string): string {
 export function humanizeDomain(domain: string): string {
   return humanizeAttributeKey(domain);
 }
+
+/**
+ * What the 24h history section should draw, per RFC-008 R3.
+ *
+ * `/api/homeassistant/history` maps every sample through `parseFloat` and,
+ * on `NaN`, falls back to `state === "on" ? 1 : 0` — right for a numeric
+ * sensor, and a flat line at zero for everything else that looks exactly
+ * like a reading (a `climate` history of `heat_cool`, a vacuum's `docked`).
+ * That route is not this function's to fix (other callers depend on it); the
+ * fix is choosing, per domain, whether the resulting series is honest:
+ *
+ * - `"area"` — a continuous numeric series worth a chart.
+ * - `"band"` — a binary/low-cardinality series where a step timeline is
+ *   meaningful (the on/off 1-and-0 the route already emits).
+ * - `"none"` — no meaningful chart. The caller omits the section entirely
+ *   rather than draw the zero line.
+ */
+export type HistoryKind = "area" | "band" | "none";
+
+/**
+ * Domains whose §4 verdict is `band` outright — no attribute or state check
+ * needed beyond the domain name.
+ */
+const BAND_DOMAINS: readonly string[] = [
+  "binary_sensor", "switch", "light", "input_boolean", "fan", "lock",
+  "humidifier", "siren", "remote", "schedule",
+];
+
+/** Domains whose §4 verdict is `area` outright. */
+const AREA_DOMAINS: readonly string[] = [
+  "number", "input_number", "counter", "air_quality",
+];
+
+/**
+ * Domains whose §4 verdict is `none` outright — controllable but with a
+ * state that is an enum, a timestamp, or otherwise not a series (§4.1–§4.3).
+ * `sensor` is handled separately below; it is the one domain the matrix
+ * cannot decide from the name alone.
+ */
+const NONE_DOMAINS: readonly string[] = [
+  "media_player", "climate", "vacuum", "water_heater", "lawn_mower",
+  "alarm_control_panel", "scene", "script", "automation", "button",
+  "input_button", "select", "input_select", "timer", "date", "time",
+  "datetime", "input_datetime", "text", "input_text", "update", "person",
+  "device_tracker", "weather", "sun", "calendar", "event", "image", "zone",
+  "camera",
+];
+
+/** Classify what the 24h history section should draw. See {@link HistoryKind}. */
+export function classifyEntityHistory(
+  domain: string,
+  state: string | undefined | null,
+  attributes: Record<string, unknown> = {},
+): HistoryKind {
+  if (BAND_DOMAINS.includes(domain)) return "band";
+  if (AREA_DOMAINS.includes(domain)) return "area";
+  if (NONE_DOMAINS.includes(domain)) return "none";
+
+  // `cover`/`valve` share one shape: positioned covers/valves are a
+  // continuous 0–100 series, unpositioned ones are on/off.
+  if (domain === "cover" || domain === "valve") {
+    return attributes.current_position !== undefined ? "area" : "band";
+  }
+
+  if (domain === "sensor") {
+    // §4.3 — the one domain a name alone cannot decide: chart it when
+    // `state_class` says it is a measurement, or when the state itself
+    // parses as a number (an `enum` or text sensor does neither).
+    if (attributes.state_class != null) return "area";
+    return classifyEntityState(state).kind === "number" ? "area" : "none";
+  }
+
+  if (domain === "group") {
+    // §4.2 — "band when on/off"; a group of mixed non-toggle members has no
+    // series worth drawing.
+    return classifyEntityState(state).kind === "toggle" ? "band" : "none";
+  }
+
+  // A domain the matrix has never heard of (including the ones §4.4
+  // deliberately excludes from the sheet's own actions, e.g. `todo`). §5.4:
+  // chart only when the state itself parses as a number — reuse the same
+  // judgement the shape-based fallback already makes.
+  return classifyEntityState(state).kind === "number" ? "area" : "none";
+}
