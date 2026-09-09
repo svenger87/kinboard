@@ -18,6 +18,16 @@
  * because that is the only way to call anything, and the table decides. The
  * dialog is one component, mounted once by the dispatcher.
  *
+ * **What that does and does not guarantee.** For a service named here, the
+ * confirmation cannot be forgotten: it arrives from the lookup, and the author
+ * of the control does nothing to get it. For a service *not* named here — a
+ * `lock.lock_all` somebody adds next year — `dangerousAction` returns
+ * `undefined` and the call fires unconfirmed. The omission is not eliminated;
+ * it is moved, from an invisible missing wrapper in a 1700-line component to
+ * one missing line in this file, whose whole subject is that question. Judge a
+ * new dangerous control against this list; do not assume the mechanism has
+ * already thought about it.
+ *
  * **Rows for actions that do not exist yet.** `siren`, `button`,
  * `input_button`, `update` and `lawn_mower` are not implemented in this branch
  * — RFC-008 §4.5 puts them in the long tail. Their rows are here anyway, with
@@ -87,7 +97,33 @@ export const DANGEROUS_ACTIONS: Readonly<Record<string, DangerousAction>> = {
   },
 };
 
-/** The confirmation this service needs, or `undefined` if it needs none. */
-export function dangerousAction(domain: string, service: string): DangerousAction | undefined {
-  return DANGEROUS_ACTIONS[`${domain}.${service}`];
+/**
+ * The confirmation this call needs, or `undefined` if it needs none.
+ *
+ * Two lookups, because a service call does not always name the domain it ends
+ * up in. `homeassistant.turn_on` is Home Assistant's own generic pair — the one
+ * thing that works across any entity with on/off semantics, and therefore what
+ * RFC-008 §5.3's fallback offers for a domain nobody wrote a case for. Home
+ * Assistant forwards it to the entity's own domain, so
+ * `homeassistant.turn_on` on `siren.garden` *is* `siren.turn_on`, row four of
+ * this table — and a lookup that only read the literal descriptor would sail
+ * straight past it and sound the siren on one tap. That was live: a `siren` has
+ * no case of its own yet, so every siren in the house took the fallback.
+ *
+ * So the entity's own domain is tried as well. Nothing is lost by it: every
+ * descriptor in the sheet either already names the entity's domain, in which
+ * case the second lookup repeats the first, or names the generic pair, in which
+ * case the second lookup is the only one that can be right.
+ */
+export function dangerousAction(call: {
+  domain: string;
+  service: string;
+  entity_id?: string;
+}): DangerousAction | undefined {
+  const declared = DANGEROUS_ACTIONS[`${call.domain}.${call.service}`];
+  if (declared) return declared;
+
+  const target = call.entity_id?.split(".")[0];
+  if (!target || target === call.domain) return undefined;
+  return DANGEROUS_ACTIONS[`${target}.${call.service}`];
 }

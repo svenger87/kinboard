@@ -28,7 +28,7 @@ import {
   supportsFeature,
 } from "../src/lib/ha-features";
 import { OPTIMISTIC_SETTLE_MS, POLL_MS } from "../src/lib/home-assistant-optimism";
-import { DANGEROUS_ACTIONS } from "../src/lib/ha-dangerous-actions";
+import { DANGEROUS_ACTIONS, dangerousAction } from "../src/lib/ha-dangerous-actions";
 
 /**
  * The detail sheet against a domain nobody has heard of — RFC-008 §5.
@@ -404,7 +404,7 @@ test.describe("the services each domain calls", () => {
     // go through the §6 confirmation, which is a different kind of gate: a
     // household is asked, not refused.
     expect(body).toMatch(
-      /onClick=\{\(\) =>\s*\n\s*run\(\{ domain: "alarm_control_panel", service: "alarm_disarm", entity_id: id \}, \(\) => disarm\(id\)\)\s*\n\s*\}/,
+      /onClick=\{\(\) =>\s*\n\s*run\(\{ domain: "alarm_control_panel", service: "alarm_disarm", entity_id: id \}\)\s*\n\s*\}/,
     );
   });
 });
@@ -946,7 +946,7 @@ test.describe("dangerous actions ask first — RFC-008 §6", () => {
     const gateStart = actionsSource.indexOf("function DangerousActionGate(");
     const gate = actionsSource.slice(gateStart, actionsSource.indexOf("\nfunction ", gateStart + 1));
     expect(gate).toContain("useCallService()");
-    expect(gate).toContain("dangerousAction(call.domain, call.service)");
+    expect(gate).toContain("dangerousAction(call)");
   });
 
   test("dismissing sends nothing, and says so to a control holding a guess", () => {
@@ -988,11 +988,11 @@ test.describe("dangerous actions ask first — RFC-008 §6", () => {
       shape has. These are the three §4.5 puts in this branch.
     */
     for (const [component, declaration] of [
-      ["LockActions", '{ domain: "lock", service: "unlock", entity_id: id }'],
-      ["LockActions", '{ domain: "lock", service: "open", entity_id: id }'],
+      ["LockActions", 'run({ domain: "lock", service: "unlock", entity_id: id })'],
+      ["LockActions", 'run({ domain: "lock", service: "open", entity_id: id })'],
       [
         "AlarmActions",
-        '{ domain: "alarm_control_panel", service: "alarm_disarm", entity_id: id }',
+        'run({ domain: "alarm_control_panel", service: "alarm_disarm", entity_id: id })',
       ],
     ] as const) {
       const start = actionsSource.indexOf(`function ${component}(`);
@@ -1065,5 +1065,121 @@ test.describe("dangerous actions ask first — RFC-008 §6", () => {
       expect(confirm.openLatch.body, locale).not.toBe(confirm.unlock.body);
     }
     expect(matrix).toContain("locking again does not retract a thrown latch");
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────
+   Fix round 1 — two holes in the §6 gate, both found by review.
+
+   The first was live and reachable: RFC-008 §4.5 leaves `siren` to the long
+   tail, so a siren in the house takes §5.3's fallback, whose descriptor names
+   `homeassistant.turn_on` rather than `siren.turn_on`. The row was registered;
+   the lookup could not see it. One tap sounded the siren.
+
+   The second was latent: a §6 row that announced one service from its
+   descriptor and sent another through a convenience hook. Nothing pinned the
+   hook, so `useLockControl.unlock` retargeted at `lock.open` would have shown
+   "Unlock Front door?" over the unlock wording and thrown the latch. The fix
+   is to remove the second statement rather than guard it — those rows send the
+   descriptor the dialog quoted.
+   ──────────────────────────────────────────────────────────────────────── */
+
+test.describe("the lookup, and the one call it makes", () => {
+  test("the generic pair resolves to the entity's own domain", () => {
+    /*
+      `homeassistant.turn_on` is what Home Assistant guarantees across any
+      entity with on/off semantics, and what §5.3's fallback offers a domain
+      nobody wrote a case for. HA forwards it to the entity's domain, so on a
+      `siren` it *is* `siren.turn_on` — row four of the table, registered
+      precisely so this could not happen.
+    */
+    expect(
+      dangerousAction({
+        domain: "homeassistant",
+        service: "turn_on",
+        entity_id: "siren.garden",
+      }),
+      "a siren reached through the generic pair still asks",
+    ).toBe(DANGEROUS_ACTIONS["siren.turn_on"]);
+
+    // The other pre-registered domains the fallback can reach the same way.
+    expect(
+      dangerousAction({ domain: "homeassistant", service: "install", entity_id: "update.core" }),
+    ).toBe(DANGEROUS_ACTIONS["update.install"]);
+
+    // And it does not invent danger where there is none: a light switched on
+    // through the same pair is still a light.
+    expect(
+      dangerousAction({ domain: "homeassistant", service: "turn_on", entity_id: "light.hall" }),
+    ).toBeUndefined();
+    expect(
+      dangerousAction({ domain: "homeassistant", service: "turn_off", entity_id: "siren.garden" }),
+    ).toBeUndefined();
+  });
+
+  test("a literal descriptor still wins, and a missing entity id is not a crash", () => {
+    expect(dangerousAction({ domain: "lock", service: "unlock", entity_id: "lock.front" })).toBe(
+      DANGEROUS_ACTIONS["lock.unlock"],
+    );
+    expect(dangerousAction({ domain: "lock", service: "lock", entity_id: "lock.front" })).toBeUndefined();
+    // `entity_id` is optional on HAServiceCall; a call without one falls back
+    // to the literal lookup rather than throwing on `split`.
+    expect(dangerousAction({ domain: "lock", service: "unlock" })).toBe(
+      DANGEROUS_ACTIONS["lock.unlock"],
+    );
+    expect(dangerousAction({ domain: "homeassistant", service: "turn_on" })).toBeUndefined();
+  });
+
+  test("a §6 row sends the descriptor it was confirmed as, with no hook behind it", () => {
+    /*
+      Two statements of one service is a drift a source test can only pin on
+      one side: the descriptor is checkable, the hook it delegates to is not.
+      Drift one way and the panel confirms "Unlock" and throws the latch;
+      drift the other and it fires unconfirmed. So the rows §6 names do not
+      delegate at all — `run` makes the call from the object the dialog
+      quoted, and there is nothing left to disagree with.
+
+      The harmless rows keep their hooks. This walks every `run({…})` in the
+      file, brace-balanced so a `service_data` object does not end the scan
+      early, and asserts that the dangerous ones take no second argument.
+    */
+    const seen: string[] = [];
+    for (let i = actionsSource.indexOf("run({"); i !== -1; i = actionsSource.indexOf("run({", i + 1)) {
+      let depth = 0;
+      let end = i + 3;
+      for (; end < actionsSource.length; end++) {
+        if (actionsSource[end] === "{") depth += 1;
+        else if (actionsSource[end] === "}") {
+          depth -= 1;
+          if (depth === 0) break;
+        }
+      }
+      const descriptor = actionsSource.slice(i + 4, end + 1);
+      const domain = descriptor.match(/domain:\s*"([a-z_]+)"/)?.[1];
+      const service = descriptor.match(/service:\s*"([a-z_]+)"/)?.[1];
+      if (!domain || !service) continue;
+      const key = `${domain}.${service}`;
+      if (!(key in DANGEROUS_ACTIONS)) continue;
+      seen.push(key);
+      const after = actionsSource.slice(end + 1).trimStart();
+      expect(after[0], `${key} must send its own descriptor, not delegate`).toBe(")");
+    }
+    // The scan found something — an assertion that silently matched nothing
+    // would pass against a file with no confirmations left in it at all.
+    expect(seen.sort()).toEqual(["alarm_control_panel.alarm_disarm", "lock.open", "lock.unlock"]);
+  });
+
+  test("the fallback is the branch a siren actually takes today", () => {
+    // Not hypothetical: §4.5 leaves `siren` to the long tail, so the
+    // dispatcher has no case for it and every siren in the house lands on
+    // FallbackActions with the generic pair.
+    const start = actionsSource.indexOf("export function EntityActions(");
+    const dispatcher = actionsSource.slice(start);
+    expect(dispatcher).not.toContain('case "siren"');
+    expect(dispatcher).toContain("<FallbackActions entity={entity} />");
+    const fbStart = actionsSource.indexOf("function FallbackActions(");
+    const fb = actionsSource.slice(fbStart, actionsSource.indexOf("\nfunction ", fbStart + 1));
+    expect(fb).toContain('domain: "homeassistant"');
+    expect(fb).toContain('service: isOn ? "turn_off" : "turn_on"');
   });
 });

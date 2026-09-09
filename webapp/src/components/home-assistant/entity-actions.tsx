@@ -24,8 +24,15 @@
  *    `run()` — the descriptor `useCallService` would take anyway. That is not
  *    bookkeeping: it is what lets one gate consult `DANGEROUS_ACTIONS`
  *    (RFC-008 §6) and put a confirmation in front of the calls a wall panel
- *    should not fire on one tap. Nobody opts in to the confirmation, so nobody
- *    can forget to.
+ *    should not fire on one tap. For a service that table already names, the
+ *    confirmation cannot be forgotten — it arrives from the lookup, and the
+ *    author of the control does nothing to get it. For a service it does not
+ *    name, nothing happens; see the note there before adding a control that
+ *    could hurt somebody.
+ * 4. **A row of §6 sends the descriptor itself**, with no convenience hook
+ *    behind it, so the call that was confirmed and the call that goes out are
+ *    the same object. The hooks stay for everything harmless; two statements
+ *    of one service is a drift a test can only pin on one side.
  */
 
 import {
@@ -159,7 +166,7 @@ function DangerousActionGate({
 
   const run = useCallback<RunAction>(
     (call, via) => {
-      const action = dangerousAction(call.domain, call.service);
+      const action = dangerousAction(call);
       if (!action) return fire(call, via);
       return new Promise<boolean>((settle) => {
         asked.current = { action, call, via, settle };
@@ -789,7 +796,7 @@ function LockActions({ entity }: DomainProps) {
   const t = useTranslations("homeAutomation.entityDetail");
   const tHome = useTranslations("homeAutomation");
   const { run, isPending: servicePending } = useRunAction();
-  const { lock, unlock, isPending } = useLockControl();
+  const { lock, isPending } = useLockControl();
   const busy = isPending || servicePending;
 
   const id = entity.entity_id;
@@ -802,6 +809,12 @@ function LockActions({ entity }: DomainProps) {
     this button distinguishes it from `lock.lock` above, and it still asks.
     `lock.lock` is deliberately absent from that table, because confirming your
     way to a locked door every time is friction with no safety benefit.
+
+    Which is also why unlocking no longer goes through `useLockControl.unlock`
+    while locking still does. The dialog quotes the descriptor and `run` sends
+    the descriptor, so the two cannot disagree. Routed through the hook they
+    could: retarget `unlock` at `lock.open` and the panel would say "Unlock
+    Front door?", show the unlock wording, and throw the latch.
   */
   const canOpenLatch = supportsFeature(entity.attributes, LOCK_FEATURE.OPEN);
 
@@ -820,7 +833,7 @@ function LockActions({ entity }: DomainProps) {
           className="flex-1"
           variant={!isLocked ? "default" : "outline"}
           onClick={() =>
-            run({ domain: "lock", service: "unlock", entity_id: id }, () => unlock(id))
+            run({ domain: "lock", service: "unlock", entity_id: id })
           }
           disabled={busy}
         >
@@ -1377,7 +1390,7 @@ function VacuumActions({ entity }: DomainProps) {
 function AlarmActions({ entity }: DomainProps) {
   const t = useTranslations("homeAutomation.entityDetail");
   const { run, isPending: servicePending } = useRunAction();
-  const { disarm, armHome, armAway, armNight, isPending } = useAlarmControl();
+  const { armHome, armAway, armNight, isPending } = useAlarmControl();
   const busy = isPending || servicePending;
 
   const id = entity.entity_id;
@@ -1386,7 +1399,11 @@ function AlarmActions({ entity }: DomainProps) {
   // `alarm_disarm` has no feature bit in Home Assistant — a panel that can be
   // armed can always be disarmed, so it is offered unconditionally. What it is
   // not offered without is the RFC-008 §6 confirmation, which comes from the
-  // table rather than from this component.
+  // table rather than from this component. Like unlocking, it sends the
+  // descriptor rather than `useAlarmControl.disarm`, so what was confirmed and
+  // what goes out are one object. `disarm(id)` sent exactly this: the hook's
+  // `code` argument is optional and the sheet never passed one (§4.5 — the
+  // alarm code was offered and declined).
   const canArmHome = supportsFeature(attrs, ALARM_FEATURE.ARM_HOME);
   const canArmAway = supportsFeature(attrs, ALARM_FEATURE.ARM_AWAY);
   const canArmNight = supportsFeature(attrs, ALARM_FEATURE.ARM_NIGHT);
@@ -1400,7 +1417,7 @@ function AlarmActions({ entity }: DomainProps) {
       <Button
         variant={armed ? "outline" : "default"}
         onClick={() =>
-          run({ domain: "alarm_control_panel", service: "alarm_disarm", entity_id: id }, () => disarm(id))
+          run({ domain: "alarm_control_panel", service: "alarm_disarm", entity_id: id })
         }
         disabled={busy}
       >
@@ -1653,6 +1670,14 @@ function FallbackActions({ entity }: DomainProps) {
     the same pair `group` uses across mixed members — and an entity that is
     neither on nor off has no such semantics, so it gets nothing rather than a
     button that fails.
+
+    This is also the branch most §6 domains take today: `siren`, `lawn_mower`
+    and the rest have no case of their own until the long-tail branch, so a
+    siren in the house arrives here. The descriptor says `homeassistant`, and
+    Home Assistant forwards it to `siren.turn_on` — which is why
+    `dangerousAction` resolves the entity's own domain as well as the literal
+    one. Nothing here opts into that; it happens in the gate, so any future
+    caller of the generic pair inherits it.
   */
   const shape = classifyEntityState(entity.state);
   if (shape.kind !== "toggle") return null;
