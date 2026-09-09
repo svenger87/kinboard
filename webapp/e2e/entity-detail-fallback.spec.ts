@@ -11,6 +11,7 @@ import {
   humanizeDomain,
   isPlumbingAttribute,
   isRestingUnknown,
+  restingUnknownCopyKey,
 } from "../src/lib/ha-entity-display";
 import {
   ALARM_FEATURE,
@@ -228,6 +229,29 @@ test("the fallback action is homeassistant.turn_on/off, and nothing bit-gated", 
 
 const actionsSource = codeOnly(
   readFileSync(join(__dirname, "../src/components/home-assistant/entity-actions.tsx"), "utf8"),
+);
+
+/*
+  The §6 mechanism, which lives in its own module because the room screen's
+  tiles need the same one — the sheet's Unlock asked first and the tile's Unlock
+  did not, so the confirmation only guarded the longer route.
+*/
+const gateSource = codeOnly(
+  readFileSync(
+    join(__dirname, "../src/components/home-assistant/dangerous-action-gate.tsx"),
+    "utf8",
+  ),
+);
+
+const pageSource = codeOnly(
+  readFileSync(join(__dirname, "../src/app/home-automation/page.tsx"), "utf8"),
+);
+
+const sheetSource = codeOnly(
+  readFileSync(
+    join(__dirname, "../src/components/home-assistant/entity-detail-sheet.tsx"),
+    "utf8",
+  ),
 );
 
 /** The matrix itself, whitespace around `=` normalised (`EFFECT = 4` → `EFFECT=4`). */
@@ -700,27 +724,54 @@ test.describe("a scene nobody has activated — RFC-008 R1", () => {
     }
   });
 
-  test("the two reading gates share one list rather than each keeping a copy", () => {
+  test("every gate shares one list rather than keeping its own copy", () => {
     /*
       The guard with teeth, and the same shape as the settle constants below.
-      There are two gates — the tiles' `hasReading` and the sheet's dispatcher
-      — and the way they come to disagree is somebody writing the exception out
-      a second time. A second definition anywhere under `src/` reddens this,
-      including in a file nobody has written yet.
+
+      There are *three* gates, not two, and the third is why this test now walks
+      the tree instead of naming files. The tiles' `hasReading` and the sheet's
+      dispatcher decide whether a control is offered; the sheet's state card
+      decides what the reading is *called*, and it kept its own
+      `domain === "scene"` for a round while a guard that looked at two named
+      files passed. Left there, phase two adding `button` would have enabled the
+      Press button under a card reading "Not reachable" — one entity described
+      two ways — with both guards green.
+
+      So: one definition of the list, and nobody anywhere in `src/` hand-rolling
+      the check. Both claims are made against every file, including ones nobody
+      has written yet.
     */
-    const definitions = sourceFiles(join(__dirname, "../src"))
-      .map((path) => [path, readFileSync(path, "utf8")] as const)
+    const files = sourceFiles(join(__dirname, "../src")).map(
+      (path) => [path.replace(/.*\/src\//, "src/"), readFileSync(path, "utf8")] as const,
+    );
+
+    const definitions = files
       .filter(([, source]) => /^\s*(export\s+)?const\s+RESTING_UNKNOWN_DOMAINS\b[^=\n]*=/m.test(source))
-      .map(([path]) => path.replace(/.*\/src\//, "src/"));
+      .map(([path]) => path);
     expect(definitions).toEqual(["src/lib/ha-entity-display.ts"]);
 
+    /*
+      A hand-rolled copy is a comparison against one of R1's domains sitting
+      beside the `unavailable` escape that makes it a *resting*-unknown check.
+      `ha-entity-display.ts` owns the real one and is exempt; anything else
+      matching this is a fourth gate.
+    */
+    const handRolled = files.filter(([path, source]) => {
+      if (path === "src/lib/ha-entity-display.ts") return false;
+      const domain = /===\s*"(button|input_button|event|image|scene|date|time|datetime|input_datetime)"/;
+      return domain.test(source) && /!==\s*"unavailable"/.test(source);
+    });
+    expect(handRolled.map(([path]) => path)).toEqual([]);
+
+    // And the three gates read the shared one.
     for (const path of [
-      "../src/app/home-automation/page.tsx",
-      "../src/components/home-assistant/entity-actions.tsx",
+      "src/app/home-automation/page.tsx",
+      "src/components/home-assistant/entity-actions.tsx",
+      "src/components/home-assistant/entity-detail-sheet.tsx",
     ]) {
-      const source = readFileSync(join(__dirname, path), "utf8");
-      expect(source, path).toContain("isRestingUnknown");
-      expect(source, path).not.toMatch(/domain === "scene" && /);
+      const source = files.find(([p]) => p === path);
+      expect(source, path).toBeDefined();
+      expect(source![1], path).toContain("isRestingUnknown");
     }
   });
 
@@ -733,19 +784,23 @@ test.describe("a scene nobody has activated — RFC-008 R1", () => {
     expect(body).toContain("<UnavailableNotice />");
   });
 
-  test("and the sheet does not call it unreachable either", () => {
-    const sheet = codeOnly(
-      readFileSync(
-        join(__dirname, "../src/components/home-assistant/entity-detail-sheet.tsx"),
-        "utf8",
-      ),
-    );
-    expect(sheet).toContain('domain === "scene"');
-    expect(sheet).toContain('entity.state !== "unavailable"');
-    expect(sheet).toContain('t("neverActivated")');
-    // A screen that says "Not reachable" beside a working Activate button is
-    // contradicting itself, which is what shipped before this.
-    expect(sheet).toMatch(/sceneNeverActivated\s*\n?\s*\?\s*t\("neverActivated"\)/);
+  test("the wording is one decision, not one per surface", () => {
+    /*
+      A scene reading "Not activated yet" in its sheet and "Not reachable" on
+      the tile that opened it is the same defect as the gates disagreeing, one
+      layer up: after a Home Assistant restart that was every scene in the
+      house. `restingUnknownCopyKey` is the single answer both ask for.
+    */
+    expect(restingUnknownCopyKey("scene")).toBe("neverActivated");
+    for (const domain of ["button", "input_button", "event", "image", "date"]) {
+      // Not `neverActivated` — a doorbell has not been "activated", it has not
+      // been pressed, and until §9's per-domain copy lands the general wording
+      // is the honest one. Never "Not reachable", which is true of none of them.
+      expect(restingUnknownCopyKey(domain), domain).toBe("noValueYet");
+    }
+    // Both surfaces ask for it rather than writing a key of their own.
+    expect(pageSource).toContain("restingUnknownCopyKey(domain)");
+    expect(sheetSource).toContain("restingUnknownCopyKey(domain)");
   });
 
   test("its wording exists in all three locales", () => {
@@ -753,8 +808,10 @@ test.describe("a scene nobody has activated — RFC-008 R1", () => {
       const detail = JSON.parse(
         readFileSync(join(__dirname, "..", "messages", `${locale}.json`), "utf8"),
       ).homeAutomation.entityDetail;
-      expect(typeof detail.neverActivated, `${locale}.neverActivated`).toBe("string");
-      expect(detail.neverActivated, locale).not.toBe("");
+      for (const key of ["neverActivated", "noValueYet"]) {
+        expect(typeof detail[key], `${locale}.${key}`).toBe("string");
+        expect(detail[key], `${locale}.${key}`).not.toBe("");
+      }
     }
   });
 });
@@ -775,14 +832,21 @@ test.describe("a scene nobody has activated — RFC-008 R1", () => {
 
 test.describe("a call Home Assistant refused", () => {
   test("and so do the two surfaces together", () => {
-    // `page.tsx`'s tiles drop their optimistic state on failure. The sliders
-    // match it deliberately: a household should not learn one rule for tiles
-    // and another for sliders, so if that shape changes this should be
-    // revisited rather than silently diverge.
-    const page = codeOnly(
-      readFileSync(join(__dirname, "../src/app/home-automation/page.tsx"), "utf8"),
-    );
-    expect(page).toMatch(/catch \{\s*\n\s*forget\(entityId\);\s*\n\s*toast\.error/);
+    /*
+      `page.tsx`'s tiles drop their optimistic guess on failure. The sliders
+      match it deliberately: a household should not learn one rule for tiles
+      and another for sliders, so if that shape changes this should be revisited
+      rather than silently diverge.
+
+      Since the tiles started going through the §6 runner, "failure" reaches
+      them as the same `false` a dismissal gives — nothing was sent in that
+      case, so a guess kept would be a state nobody agreed to — and the toast
+      belongs to the runner, so the page must no longer raise a second one.
+    */
+    expect(pageSource).toMatch(/const fired = await runGuarded\(call, via, displayName\);\s*\n\s*if \(!fired\) forget\(entityId\);/);
+    expect(pageSource, "the page raises its own duplicate failure toast")
+      .not.toContain('toast.error(t("controlFailed"))');
+    expect(gateSource).toContain('toast.error(t("controlFailed"))');
   });
 });
 
@@ -971,18 +1035,44 @@ test.describe("dangerous actions ask first — RFC-008 §6", () => {
     expect(actionsSource, "no control calls a service without declaring it")
       .not.toMatch(/\brun\(\(\) =>/);
 
-    // One `useCallService` in the file, inside the gate. A component holding
-    // its own would be a way round.
-    expect(actionsSource.match(/useCallService\(\)/g) ?? []).toHaveLength(1);
-    const gateStart = actionsSource.indexOf("function DangerousActionGate(");
-    const gate = actionsSource.slice(gateStart, actionsSource.indexOf("\nfunction ", gateStart + 1));
-    expect(gate).toContain("useCallService()");
-    expect(gate).toContain("dangerousAction(call)");
+    /*
+      `useCallService` lives in the gate module and nowhere else these two
+      surfaces can reach: a component holding its own would be a way round the
+      table. Both the sheet's controls and the room screen's tiles are checked,
+      because the tiles were exactly that hole until they were routed through.
+    */
+    expect(actionsSource.match(/useCallService/g) ?? [], "entity-actions").toHaveLength(0);
+    expect(pageSource.match(/useCallService/g) ?? [], "page.tsx").toHaveLength(0);
+    expect(gateSource.match(/useCallService\(\)/g) ?? []).toHaveLength(1);
+    expect(gateSource).toContain("dangerousAction(call)");
+  });
+
+  test("the room screen's tiles go through the same gate, not round it", () => {
+    /*
+      §6 chose seven confirmations. Before this the sheet's Unlock asked and the
+      tile's Unlock — the same service, one layer out and half an inch to the
+      left — called `useLockControl.unlock` directly, so a child on the wall
+      panel opened the front door on one tap. A confirmation that only guards
+      the longer route is not one.
+
+      Watched for real in `automation-layout` ("the tile's Unlock asks too").
+      What that cannot see is whether some *other* tile control still has a way
+      round, so this pins the shape: one runner for the page, no convenience
+      hook for a §6 row, and no bare thunk anywhere.
+    */
+    expect(pageSource).toContain("useDangerousActionRunner()");
+    expect(pageSource).toContain("{confirmDialog}");
+    // `run` states the service. The §6 row sends the descriptor itself; the
+    // harmless ones may still delegate to their hook.
+    expect(pageSource).toMatch(/service: "unlock", entity_id: entityId \},\s*\n\s*item\.name\s*\n\s*\)/);
+    expect(pageSource, "unlock still delegates to a hook").not.toContain("unlock(entityId)");
+    for (const service of ["lock", "unlock", "open_cover", "close_cover"]) {
+      expect(pageSource, service).toContain(`service: "${service}"`);
+    }
   });
 
   test("a question nobody can answer any more still settles the control", () => {
-    const gateStart = actionsSource.indexOf("function DangerousActionGate(");
-    const gate = actionsSource.slice(gateStart, actionsSource.indexOf("\nfunction ", gateStart + 1));
+    const gate = gateSource;
     /*
       "Dismissal sends nothing" is watched for real in `automation-layout`:
       Cancel, then a second's grace, then zero intercepted POSTs. What that
@@ -1004,7 +1094,7 @@ test.describe("dangerous actions ask first — RFC-008 §6", () => {
     // focus on open, and the confirm button destructive-coloured on the far
     // side of the footer. A wall panel is exactly the place not to invent a
     // second pattern with the confirm button under the thumb.
-    expect(actionsSource).toContain('import { ConfirmDestructive } from "@/components/confirm-destructive"');
+    expect(gateSource).toContain('import { ConfirmDestructive } from "@/components/confirm-destructive"');
     const confirmSource = codeOnly(
       readFileSync(join(__dirname, "../src/components/confirm-destructive.tsx"), "utf8"),
     );

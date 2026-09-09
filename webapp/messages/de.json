@@ -2927,6 +2927,7 @@
       "armVacationButton": "Scharf: Urlaub",
       "armCustomBypassButton": "Scharf: mit Ausnahmen",
       "neverActivated": "Noch nicht aktiviert",
+      "noValueYet": "Noch kein Wert",
       "confirm": {
         "unlock": {
           "title": "{name} aufschließen?",

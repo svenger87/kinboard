@@ -2927,6 +2927,7 @@
       "armVacationButton": "Armer : vacances",
       "armCustomBypassButton": "Armer : personnalisé",
       "neverActivated": "Jamais activée",
+      "noValueYet": "Pas encore de valeur",
       "confirm": {
         "unlock": {
           "title": "Déverrouiller {name} ?",

@@ -871,24 +871,53 @@ async function stubbedHouse(
  *
  * Once, on WebKit with both browser projects running in parallel on this box,
  * the reloaded document came back as the raw gzip stream: the page snapshot was
- * compressed bytes rendered as text, with no app on it at all and no request
- * ever reaching the server a second time. That is a transport-level failure
- * between Playwright and WebKit, unrelated to anything these tests assert, and
- * a fresh navigation clears it. Retried rather than waited out, because there
- * is nothing to wait for — the document that arrived is never going to become
- * HTML.
+ * compressed bytes rendered as text, with no app on it at all. Application code
+ * cannot make a browser paint gzip bytes as text — that needs `Content-Encoding`
+ * to be mishandled below the app, and `serviceWorkers: "block"` rules out the
+ * one product-side candidate — so it is a harness artefact, and a fresh
+ * navigation clears it. Retried rather than waited out, because there is nothing
+ * to wait for: the document that arrived is never going to become HTML.
+ *
+ * **Retried only on that condition.** A blanket retry on "the heading did not
+ * appear" would paper over a product bug that broke the first render one time in
+ * three, and do it with CI green. A Next.js document always carries its own
+ * `/_next/` bundle tags; a gzip stream painted as text carries no `<script>` at
+ * all. So if the document is ours, the failure is ours, and it is rethrown on
+ * the first attempt.
  */
 async function reloadUntilRendered(page: Page): Promise<void> {
   const heading = page.getByRole("heading", { level: 1, name: "Home automation" });
   for (let attempt = 0; ; attempt++) {
     await page.reload({ waitUntil: "domcontentloaded" });
     try {
-      await expect(heading).toBeVisible({ timeout: attempt < 2 ? 15_000 : 30_000 });
+      await expect(heading).toBeVisible({ timeout: 30_000 });
       return;
     } catch (error) {
-      if (attempt >= 2) throw error;
+      const ourDocument = await page
+        .evaluate(() => document.querySelector('script[src*="/_next/"]') !== null)
+        .catch(() => true);
+      if (ourDocument || attempt >= 2) throw error;
+      console.warn(
+        "[automation-layout] the reloaded document was not HTML; navigating again",
+      );
     }
   }
+}
+
+/**
+ * One device's card, found without a role query.
+ *
+ * `tileIn` scopes through `getByRole("heading", …)` to name the room, and role
+ * queries respect `aria-hidden` — which Radix stamps on everything outside an
+ * open dialog. So while a confirmation is on screen `tileIn` resolves to
+ * nothing, and an assertion about what the tile says *at that moment* fails with
+ * "element(s) not found" about a tile that is on screen and correct. Device
+ * names carry the project and a timestamp, so page-wide scoping is unambiguous.
+ */
+function tileAnywhere(page: Page, deviceName: string): Locator {
+  return page.locator(
+    `xpath=//p[normalize-space(.)="${deviceName}"]/ancestor::div[contains(@class,"rounded-2xl")][1]`,
+  );
 }
 
 /** Open one tile's detail sheet and return the dialog. */
@@ -975,6 +1004,8 @@ test.describe("the detail sheet a tile opens", () => {
     const lampEntity = `light.probe_sheet_${suffix}`;
     const lampName = `probe-lamp-${Date.now()}`;
     const bikeName = `probe-bike-${Date.now()}`;
+    const sceneEntity = `scene.probe_movie_${suffix}`;
+    const sceneName = `probe-scene-${Date.now()}`;
     const day = Array.from({ length: 12 }, (_, i) => ({
       timestamp: new Date(Date.now() - (12 - i) * 3_600_000).toISOString(),
       state: i % 2,
@@ -993,6 +1024,13 @@ test.describe("the detail sheet a tile opens", () => {
             brightness: 51,
           }),
         },
+        /*
+          RFC-008 R1. A scene's state is the timestamp it was last activated and
+          Home Assistant does not restore it, so after every restart this is what
+          every scene in the house looks like. It is not unreachable; nobody has
+          run it yet.
+        */
+        { label: sceneName, entity: stubEntity(sceneEntity, "unknown") },
       ],
       { history: day },
     );
@@ -1041,6 +1079,21 @@ test.describe("the detail sheet a tile opens", () => {
       await expect(
         tileIn(room, bikeName).getByRole("button", { name: bikeName, exact: true }),
       ).toHaveCount(0);
+
+      /*
+        The tile and the sheet must say the same thing about the same scene.
+        They did not: the tile called it "Not reachable" and the sheet, one tap
+        away, "Not activated yet".
+      */
+      const scene = tileIn(room, sceneName);
+      await expect(scene.getByText("Not activated yet", { exact: true })).toBeVisible();
+      await expect(scene.getByText("Not reachable", { exact: true })).toHaveCount(0);
+      const sceneSheet = await openSheet(page, room, sceneName);
+      await expect(sceneSheet.getByText("Not activated yet", { exact: true })).toBeVisible();
+      // And the control is live, which is the whole point of the exception.
+      await expect(sceneSheet.getByRole("button", { name: "Activate", exact: true })).toBeEnabled();
+      await page.keyboard.press("Escape");
+      await expect(sceneSheet).toBeHidden();
 
       const sheet = await openSheet(page, room, lampName);
 
@@ -1230,6 +1283,36 @@ test.describe("the detail sheet a tile opens", () => {
       // Held first: a merely-slow device must still be able to reconcile
       // normally, so the value is not dropped the moment the call returns.
       await expect(thumb).toHaveAttribute("aria-valuenow", "100");
+      const draggedAt = Date.now();
+
+      /*
+        Still holding most of the way through the first settle — a settle
+        shorter than a poll would snap every merely-slow device back before the
+        truth could arrive.
+      */
+      await page.waitForTimeout(12_000);
+      await expect(thumb).toHaveAttribute("aria-valuenow", "100");
+
+      /*
+        Now nudge it, and the settle must start again from here.
+
+        Deliberately the keyboard for *this* step: the claim is about the timer,
+        not about the gesture, and the drag above has already settled that a
+        pointer commits. What it is guarding is a household that keeps adjusting
+        — without a re-arm, the timer armed at the first release fires on
+        schedule and snaps the thumb back under their finger, twelve seconds
+        into a fresh adjustment they made eight seconds ago.
+      */
+      await thumb.press("ArrowLeft");
+      await expect(thumb).toHaveAttribute("aria-valuenow", "95");
+      await expect
+        .poll(() => house.serviceCalls.length, { timeout: 10_000, message: "service calls" })
+        .toBe(2);
+
+      // Past the moment the *first* settle would have fired, and still holding
+      // what the second gesture asked for.
+      await page.waitForTimeout(Math.max(0, draggedAt + 25_000 - Date.now()));
+      await expect(thumb).toHaveAttribute("aria-valuenow", "95");
 
       // Then let go of, without the reading ever having moved.
       await expect(thumb).toHaveAttribute("aria-valuenow", "20", { timeout: 40_000 });
@@ -1238,8 +1321,104 @@ test.describe("the detail sheet a tile opens", () => {
       // "it went back" is the settle and not a lost connection.
       expect(house.stateRequests()).toBeGreaterThan(pollsBefore);
       expect(house.states.get(lampEntity)!.attributes.brightness).toBe(51);
-      // Nothing was sent twice on the way.
-      expect(house.serviceCalls.length).toBe(1);
+      // The drag and the nudge, and nothing else.
+      expect(house.serviceCalls.length).toBe(2);
+    } finally {
+      await deleteThrowawayFamily(page, house.familyId, house.familyName);
+    }
+  });
+
+  test("the tile's Unlock asks too, and its guess does not outlive the truth", async ({
+    page,
+    baseURL,
+  }, testInfo) => {
+    /*
+      Two claims about the same tile, because they are the same mistake seen
+      twice: the room screen behaving as though the detail sheet were the only
+      surface that drives anything.
+
+      **It asks.** §6 chose seven confirmations and the sheet's Unlock has one.
+      The tile's Unlock is the same service one layer out and half an inch to the
+      left, and it called `lock.unlock` straight through — so a child on the wall
+      panel opened the front door on one tap while the identical action inside
+      asked first. A confirmation that only guards the longer route is not one.
+
+      **Its guess ends when the truth moves.** A tile flips optimistically and
+      waits for the poll to agree. "Agree" was equality with the guess, which
+      cannot see a device that moved and came back inside one poll interval —
+      unlock from the tile, lock again from the sheet, and Home Assistant reports
+      `locked` exactly as it did before. The tile then reads "Unlocked" about a
+      shut door until the settle expires. The stub below reproduces that by
+      moving `last_changed` while leaving the state alone, which is precisely
+      what a device that went away and came back looks like on the wire.
+    */
+    const suffix = `${testInfo.project.name.replace(/[^a-z0-9]/gi, "")}_${Date.now()}`.toLowerCase();
+    const lockEntity = `lock.probe_tile_${suffix}`;
+    const lockName = `probe-lock-${Date.now()}`;
+
+    const house = await stubbedHouse(page, baseURL, testInfo, [
+      { label: lockName, entity: stubEntity(lockEntity, "locked") },
+    ]);
+
+    try {
+      const tile = tileAnywhere(page, lockName);
+      await expect(tile.getByText("Locked", { exact: true })).toBeVisible({ timeout: 20_000 });
+
+      // The tile's own Unlock, not the sheet's — the sheet is not open.
+      await tile.getByRole("button", { name: "Unlock", exact: true }).click();
+      const dialog = page.getByRole("alertdialog");
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByText(`Unlock ${lockName}?`)).toBeVisible();
+
+      /*
+        And the tile has not answered the question on the household's behalf.
+
+        The optimistic flip happens the moment a control is tapped, which for a
+        confirmed action put "Unlocked" on the tile under a dialog still asking
+        whether to unlock — a wall panel stating an outcome nobody has agreed to,
+        for as long as somebody stands there thinking about it. Caught in a
+        screenshot of this exact moment.
+      */
+      await expect(tile.getByText("Locked", { exact: true })).toBeVisible();
+      await expect(tile.getByText("Unlocked", { exact: true })).toHaveCount(0);
+
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await expect(dialog).toBeHidden();
+      await page.waitForTimeout(1_000);
+      expect(house.serviceCalls, "the tile sent something on dismissal").toEqual([]);
+      // And the tile did not flip to a state nobody agreed to.
+      await expect(tile.getByText("Locked", { exact: true })).toBeVisible();
+
+      /*
+        Ask again and answer it — but first make the next reading the one the
+        equality rule cannot see: the same state it already had, with the
+        timestamp moved. `useCallService` invalidates the states query on
+        success, so that reading arrives seconds after the confirm rather than
+        at the next poll, and well inside the settle.
+      */
+      await tile.getByRole("button", { name: "Unlock", exact: true }).click();
+      await expect(dialog).toBeVisible();
+      house.states.set(lockEntity, {
+        ...house.states.get(lockEntity)!,
+        last_changed: new Date().toISOString(),
+      });
+      await dialog.getByRole("button", { name: "Unlock", exact: true }).click();
+
+      await expect
+        .poll(() => house.serviceCalls.length, { timeout: 10_000, message: "service calls" })
+        .toBe(1);
+      expect(house.serviceCalls[0]).toMatchObject({
+        domain: "lock",
+        service: "unlock",
+        entity_id: lockEntity,
+      });
+
+      /*
+        Ten seconds is under the settle and under a poll interval, so nothing but
+        the reconciliation can put "Locked" back on this tile.
+      */
+      await expect(tile.getByText("Locked", { exact: true })).toBeVisible({ timeout: 10_000 });
+      await expect(tile.getByText("Unlocked", { exact: true })).toHaveCount(0);
     } finally {
       await deleteThrowawayFamily(page, house.familyId, house.familyName);
     }

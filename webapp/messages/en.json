@@ -2927,6 +2927,7 @@
       "armVacationButton": "Arm for a holiday",
       "armCustomBypassButton": "Arm with bypass",
       "neverActivated": "Not activated yet",
+      "noValueYet": "No value yet",
       "confirm": {
         "unlock": {
           "title": "Unlock {name}?",

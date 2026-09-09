@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import {
   Home,
@@ -40,7 +39,9 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { iconFor } from "@/components/home-assistant/room-icon";
 import { EntityDetailSheet } from "@/components/home-assistant/entity-detail-sheet";
-import { isRestingUnknown } from "@/lib/ha-entity-display";
+import { useDangerousActionRunner } from "@/components/home-assistant/dangerous-action-gate";
+import { isRestingUnknown, restingUnknownCopyKey } from "@/lib/ha-entity-display";
+import { dangerousAction } from "@/lib/ha-dangerous-actions";
 /*
   The optimistic-settle rule now lives in `lib/home-assistant-optimism.ts`:
   the detail sheet's sliders and steppers need the same three exits the tiles
@@ -48,7 +49,7 @@ import { isRestingUnknown } from "@/lib/ha-entity-display";
 */
 import { OPTIMISTIC_SETTLE_MS, POLL_MS } from "@/lib/home-assistant-optimism";
 import type { CatalogueItem, Room } from "@/types/database";
-import type { HAEntity } from "@/types/home-assistant";
+import type { HAEntity, HAServiceCall } from "@/types/home-assistant";
 
 /** Domains whose tile is a plain on/off switch. */
 const TOGGLE_DOMAINS = new Set(["light", "switch", "input_boolean", "fan"]);
@@ -142,6 +143,7 @@ export default function HausautomationPage() {
   const tMedia = useTranslations("homeAutomation.mediaPlayerState");
   const tVacuum = useTranslations("homeAutomation.vacuumStatus");
   const tHvac = useTranslations("homeAutomation.hvacMode");
+  const tDetail = useTranslations("homeAutomation.entityDetail");
 
   const {
     data: settings,
@@ -203,10 +205,31 @@ export default function HausautomationPage() {
   );
 
   // ── Optimism ────────────────────────────────────────────────────────────
-  // A tile flips the moment it is tapped, then reconciles: the entry clears
-  // when a poll comes back agreeing with it, when the call fails, or when
-  // OPTIMISTIC_SETTLE_MS passes without either.
-  const [optimistic, setOptimistic] = useState<Record<string, string>>({});
+  /**
+   * A tile flips the moment it is tapped, then reconciles.
+   *
+   * Three exits, the same three the detail sheet's `usePendingNumber` has: the
+   * source moves, the call fails, or `OPTIMISTIC_SETTLE_MS` passes without
+   * either. Fewer than three is a way of being confidently wrong for as long as
+   * the panel is on.
+   *
+   * `seen` is what the poll said when the guess was made, and it is what makes
+   * the first exit correct. "Clear when the poll agrees with the guess" is not
+   * the same rule and is subtly weaker: tap Unlock on a tile, then Lock from
+   * that entity's own detail sheet. Home Assistant unlocks and re-locks inside
+   * one poll interval, so the next reading is `locked` — equal to neither the
+   * guess nor, under an equality rule, anything that clears it. The tile then
+   * says "Unlocked" for the full timeout about a door that is shut.
+   *
+   * Which is why `seen` carries `last_changed` and not only the state. Home
+   * Assistant moves that timestamp on every state change, so a device that went
+   * away and came back is distinguishable from one that never moved — and "the
+   * device never moved" is precisely the case the settle exists for. Comparing
+   * states alone cannot tell those two apart.
+   */
+  const [optimistic, setOptimistic] = useState<
+    Record<string, { expected: string; seen: { state?: string; changedAt?: string } }>
+  >({});
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const forget = useCallback((entityId: string) => {
@@ -224,19 +247,24 @@ export default function HausautomationPage() {
   }, []);
 
   const expectState = useCallback(
-    (entityId: string, expected: string) => {
-      setOptimistic((prev) => ({ ...prev, [entityId]: expected }));
+    (entityId: string, expected: string, seen: { state?: string; changedAt?: string }) => {
+      setOptimistic((prev) => ({ ...prev, [entityId]: { expected, seen } }));
       if (timers.current[entityId]) clearTimeout(timers.current[entityId]);
       timers.current[entityId] = setTimeout(() => forget(entityId), OPTIMISTIC_SETTLE_MS);
     },
     [forget]
   );
 
-  // Reconcile against the poll: an entity that now reads what we asked for
-  // no longer needs a guess in front of it.
+  // Reconcile against the poll: an entity whose reading has moved at all — to
+  // what we asked for, to something else, or away and back again — no longer
+  // needs a guess in front of it.
   useEffect(() => {
     const settled = entities
-      .filter((e) => optimistic[e.entity_id] === e.state)
+      .filter((e) => {
+        const guess = optimistic[e.entity_id];
+        if (guess === undefined) return false;
+        return e.state !== guess.seen.state || e.last_changed !== guess.seen.changedAt;
+      })
       .map((e) => e.entity_id);
     if (settled.length === 0) return;
     settled.forEach(forget);
@@ -251,30 +279,68 @@ export default function HausautomationPage() {
   }, []);
 
   const { toggle } = useToggleEntity();
-  const { lock, unlock } = useLockControl();
+  const { lock } = useLockControl();
   const { open: openCover, close: closeCover } = useCoverControl();
+
+
+  /**
+   * The §6 confirmation, on the tiles as well as in the sheet.
+   *
+   * One runner for the whole page rather than one per tile: the dialog is a
+   * modal and only one question can be on screen anyway. Before this, the
+   * sheet's Unlock asked and the tile's Unlock — the same service, half an inch
+   * to the left — did not, so the confirmation only guarded the longer route.
+   * `run` below goes through it, which is why no control on this page calls a
+   * hook directly any more.
+   */
+  const { run: runGuarded, dialog: confirmDialog } = useDangerousActionRunner();
 
   /**
    * Drive one control.
    *
    * `expected` is the state the tile should show while we wait for the poll
    * to agree — or `null` for an action whose result is not a state we can
-   * name in advance. "Next track" is the honest example: the player stays
-   * `playing` either way, so guessing a state would be inventing one. Those
-   * still get the failure toast; they simply have nothing to be optimistic
-   * about.
+   * name in advance.
+   *
+   * `call` is the service descriptor, not a thunk: it is what the §6 lookup
+   * reads, and stating it is the only way to call anything. `via` is the
+   * convenience hook where one exists — except for a service §6 names, which
+   * sends the descriptor itself so that the call confirmed and the call sent
+   * are one object.
+   *
+   * A refusal *and* a dismissal both come back `false`, and both drop the
+   * guess: nothing was sent in the second case, so keeping it would be showing
+   * a state nobody agreed to. The failure toast belongs to the runner, so there
+   * is not a second one here.
+   *
+   * **A question on screen is not a decision.** For an action §6 confirms, the
+   * guess waits for the answer. Flipping the tile the moment the button is
+   * pressed would put "Unlocked" under a dialog still asking whether to unlock
+   * — the panel answering on the household's behalf, and reading wrong for as
+   * long as they think about it. Everything else keeps the immediate flip,
+   * because there is nothing to wait for.
+   *
+   * `seen` is still read *before* the call, not after: it is the reading the
+   * guess is being measured against, and by the time a confirmed call returns
+   * the poll may already have moved.
    */
   const run = useCallback(
-    async (entityId: string, expected: string | null, call: () => Promise<void>) => {
-      if (expected !== null) expectState(entityId, expected);
-      try {
-        await call();
-      } catch {
-        forget(entityId);
-        toast.error(t("controlFailed"));
-      }
+    async (
+      entityId: string,
+      expected: string | null,
+      call: HAServiceCall,
+      displayName: string,
+      via?: () => Promise<void>
+    ) => {
+      const polled = stateByEntity.get(entityId);
+      const seen = { state: polled?.state, changedAt: polled?.last_changed };
+      const asksFirst = dangerousAction(call) !== undefined;
+      if (expected !== null && !asksFirst) expectState(entityId, expected, seen);
+      const fired = await runGuarded(call, via, displayName);
+      if (!fired) forget(entityId);
+      else if (expected !== null && asksFirst) expectState(entityId, expected, seen);
     },
-    [expectState, forget, t]
+    [expectState, forget, runGuarded, stateByEntity]
   );
 
   /**
@@ -285,7 +351,7 @@ export default function HausautomationPage() {
   const displayState = useCallback(
     (entityId: string): string | undefined => {
       const guess = optimistic[entityId];
-      if (guess !== undefined) return guess;
+      if (guess !== undefined) return guess.expected;
       const entity = stateByEntity.get(entityId);
       if (!entity || NO_READING.has(entity.state)) return undefined;
       return entity.state;
@@ -296,8 +362,24 @@ export default function HausautomationPage() {
   /** Human wording for a raw Home Assistant state, per domain. */
   const labelFor = useCallback(
     (entityId: string, state: string | undefined, entity: HAEntity | undefined): string => {
-      if (state === undefined) return t("unavailable");
       const domain = domainOf(entityId);
+      if (state === undefined) {
+        /*
+          RFC-008 R1, on the tile as well as in the sheet. `displayState` has
+          already folded `unknown` into "no reading", which for a scene after a
+          Home Assistant restart — every scene in the house — is not "we cannot
+          reach it" but "nobody has run it yet". Saying "Not reachable" here
+          while the sheet one tap away says "Not activated yet" is the same
+          entity described two ways on one screen.
+
+          `entity === undefined` means the poll does not carry it at all, which
+          really is out of reach; `isRestingUnknown` also refuses `unavailable`.
+        */
+        if (entity && isRestingUnknown(domain, entity.state)) {
+          return tDetail(restingUnknownCopyKey(domain));
+        }
+        return t("unavailable");
+      }
       if (domain === "cover" && COVER_STATES.has(state)) return tCover(state);
       if (domain === "lock" && LOCK_STATES.has(state)) return tLock(state);
       if (domain === "media_player" && MEDIA_STATES.has(state)) return tMedia(state);
@@ -308,7 +390,7 @@ export default function HausautomationPage() {
       const unit = entity?.attributes?.unit_of_measurement;
       return unit ? `${state} ${unit}` : state;
     },
-    [t, tState, tCover, tLock, tMedia, tVacuum, tHvac]
+    [t, tDetail, tState, tCover, tLock, tMedia, tVacuum, tHvac]
   );
 
   /**
@@ -383,7 +465,7 @@ export default function HausautomationPage() {
       };
     }
     const guess = optimistic[detailFor.entity_id];
-    return guess === undefined ? polled : { ...polled, state: guess };
+    return guess === undefined ? polled : { ...polled, state: guess.expected };
   }, [detailFor, stateByEntity, optimistic]);
 
   const renderTile = (item: CatalogueItem) => (
@@ -401,13 +483,61 @@ export default function HausautomationPage() {
           : undefined
       }
       controlsDisabled={!isConnected || statesError}
+      /*
+        Every control states the service it calls, exactly as the sheet's
+        controls do, because that descriptor is what the §6 lookup reads. The
+        convenience hook comes second where one exists — except for `unlock`,
+        which §6 names: that one sends the descriptor itself, so the call that
+        was confirmed and the call that goes out are one object.
+      */
       onToggle={(entityId, current) =>
-        void run(entityId, current === "on" ? "off" : "on", () => toggle(entityId, current ?? "off"))
+        void run(
+          entityId,
+          current === "on" ? "off" : "on",
+          {
+            domain: domainOf(entityId),
+            service: current === "on" ? "turn_off" : "turn_on",
+            entity_id: entityId,
+          },
+          item.name,
+          () => toggle(entityId, current ?? "off")
+        )
       }
-      onLock={(entityId) => void run(entityId, "locked", () => lock(entityId))}
-      onUnlock={(entityId) => void run(entityId, "unlocked", () => unlock(entityId))}
-      onOpen={(entityId) => void run(entityId, "open", () => openCover(entityId))}
-      onClose={(entityId) => void run(entityId, "closed", () => closeCover(entityId))}
+      onLock={(entityId) =>
+        void run(
+          entityId,
+          "locked",
+          { domain: "lock", service: "lock", entity_id: entityId },
+          item.name,
+          () => lock(entityId)
+        )
+      }
+      onUnlock={(entityId) =>
+        void run(
+          entityId,
+          "unlocked",
+          { domain: "lock", service: "unlock", entity_id: entityId },
+          item.name
+        )
+      }
+      onOpen={(entityId) =>
+        void run(
+          entityId,
+          "open",
+          { domain: "cover", service: "open_cover", entity_id: entityId },
+          item.name,
+          () => openCover(entityId)
+        )
+      }
+      onClose={(entityId) =>
+        void run(
+          entityId,
+          "closed",
+          { domain: "cover", service: "close_cover", entity_id: entityId },
+          item.name,
+          () => closeCover(entityId)
+        )
+      }
       onDetail={hasEntity(item) ? () => setDetailFor(item) : undefined}
       t={t}
     />
@@ -632,6 +762,12 @@ export default function HausautomationPage() {
         Mounted only while a row is chosen, so the sheet's history query — keyed
         on the entity — never runs for a sheet nobody has opened.
       */}
+      {/*
+        The §6 question, for whichever tile control raised it. One dialog for
+        the whole page — see `useDangerousActionRunner` above.
+      */}
+      {confirmDialog}
+
       {detailFor && detailEntity && (
         <EntityDetailSheet
           open

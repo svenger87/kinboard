@@ -30,6 +30,8 @@ import {
   classifyAttributeValue,
   classifyEntityHistory,
   classifyEntityState,
+  isRestingUnknown,
+  restingUnknownCopyKey,
   binarySensorStateKey,
   humanizeAttributeKey,
   isPlumbingAttribute,
@@ -347,23 +349,27 @@ export function EntityDetailSheet({
   })();
 
   /*
-    RFC-008 R1 — the one domain in phase one whose resting state is `unknown`.
+    RFC-008 R1 — the domains whose resting state is `unknown`.
 
     A scene's state is the timestamp it was last activated, and Home Assistant
     does not restore it: after a restart every scene in the house reports
     `unknown`. Saying "Not reachable" about a scene that works perfectly, next
     to an Activate button that also works, is a screen contradicting itself.
     `unavailable` is still unreachable, here as everywhere.
+
+    The condition is `isRestingUnknown`, the same list the two *action* gates
+    read, rather than a third hand-rolled `domain === "scene"`. Three copies is
+    how the state card comes to say "Not reachable" over a working Press button
+    when phase two adds `button` — the card and the control disagreeing about
+    one entity, which is the failure this block was written to stop.
   */
-  const sceneNeverActivated =
-    domain === "scene" &&
-    stateShape.kind === "unavailable" &&
-    entity.state !== "unavailable";
+  const restingUnknown =
+    stateShape.kind === "unavailable" && isRestingUnknown(domain, entity.state);
 
   // Otherwise `unavailable` outranks every domain vocabulary: a lock we cannot
   // reach is not "Locked", it is unreachable.
-  const stateText = sceneNeverActivated
-    ? t("neverActivated")
+  const stateText = restingUnknown
+    ? t(restingUnknownCopyKey(domain))
     : stateShape.kind === "unavailable"
       ? shapeStateText
       : (domainStateText ?? shapeStateText);

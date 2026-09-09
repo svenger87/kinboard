@@ -357,3 +357,23 @@ const RESTING_UNKNOWN_DOMAINS: readonly string[] = [
 export function isRestingUnknown(domain: string, state: string | undefined | null): boolean {
   return RESTING_UNKNOWN_DOMAINS.includes(domain) && state !== "unavailable";
 }
+
+/**
+ * Which `entityDetail` key says "nothing has happened yet" for this domain.
+ *
+ * The condition is {@link isRestingUnknown}; this is the wording, and it is
+ * separate because the two have different lifetimes. The condition is one list
+ * that every gate reads. The wording is per domain and grows as RFC-008 §9's
+ * copy lands: `scene` has had `neverActivated` since the sheet learned about
+ * R1, and `button`, `event` and `image` will want "Not pressed yet", "Nothing
+ * yet" and so on when their controls arrive. Until then `noValueYet` is the
+ * honest general answer — it says the entity has nothing to report, which is
+ * true of all of them, rather than "Not reachable", which is true of none.
+ *
+ * One function rather than a conditional at each caller: the tile and the sheet
+ * must not be able to describe the same scene two different ways, which is what
+ * they did before this existed.
+ */
+export function restingUnknownCopyKey(domain: string): string {
+  return domain === "scene" ? "neverActivated" : "noValueYet";
+}
