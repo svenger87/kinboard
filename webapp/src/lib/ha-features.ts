@@ -163,3 +163,32 @@ export function optionList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string" && item.length > 0);
 }
+
+/**
+ * Whether a fan offers a power button, and which halves of it.
+ *
+ * `FanEntityFeature.TURN_ON = 32` and `TURN_OFF = 16` only arrived in Home
+ * Assistant 2024.8. An integration written before that migration — and there
+ * are plenty still running — sets **neither**, while `fan.turn_on` and
+ * `fan.turn_off` have always existed as services for it. Gating strictly on the
+ * bits therefore hands the household a fan with a speed slider, a preset
+ * picker, and no way to switch it off, which reads as a bug in Kinboard rather
+ * than as an honest report of what the fan can do.
+ *
+ * So: **neither bit set means "old, assume both"**, and both bits set means
+ * both. Exactly one bit is the case that is *not* loosened — an entity that
+ * says it can turn off but not on is making a specific claim, and is believed.
+ *
+ * This is deliberately more permissive than RFC-008 §4.1's Gate column, which
+ * describes current Home Assistant rather than the fleet. Do not "fix" it back
+ * to a plain `supportsFeature` pair.
+ */
+export function fanPowerButtons(attributes: Record<string, unknown> | undefined): {
+  on: boolean;
+  off: boolean;
+} {
+  const on = supportsFeature(attributes, FAN_FEATURE.TURN_ON);
+  const off = supportsFeature(attributes, FAN_FEATURE.TURN_OFF);
+  if (!on && !off) return { on: true, off: true };
+  return { on, off };
+}

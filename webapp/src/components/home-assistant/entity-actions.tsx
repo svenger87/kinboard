@@ -44,7 +44,7 @@ import {
 import {
   ALARM_FEATURE, CLIMATE_FEATURE, COVER_FEATURE, FAN_FEATURE, HUMIDIFIER_FEATURE,
   LIGHT_FEATURE, LOCK_FEATURE, MEDIA_PLAYER_FEATURE, VACUUM_FEATURE,
-  optionList, supportsBrightness, supportsColorTemp, supportsFeature,
+  fanPowerButtons, optionList, supportsBrightness, supportsColorTemp, supportsFeature,
 } from "@/lib/ha-features";
 import { classifyEntityState } from "@/lib/ha-entity-display";
 import type { HAEntity } from "@/types/home-assistant";
@@ -318,8 +318,9 @@ function FanActions({ entity }: DomainProps) {
   const attrs = entity.attributes;
   const isOn = entity.state === "on";
 
-  const canTurnOn = supportsFeature(attrs, FAN_FEATURE.TURN_ON);
-  const canTurnOff = supportsFeature(attrs, FAN_FEATURE.TURN_OFF);
+  // Not a plain bit test — see `fanPowerButtons`. A fan predating HA 2024.8
+  // sets neither TURN_ON nor TURN_OFF and can still be switched off.
+  const { on: canTurnOn, off: canTurnOff } = fanPowerButtons(attrs);
   const canSetSpeed = supportsFeature(attrs, FAN_FEATURE.SET_SPEED);
   const canOscillate = supportsFeature(attrs, FAN_FEATURE.OSCILLATE);
   const canSetDirection = supportsFeature(attrs, FAN_FEATURE.DIRECTION);

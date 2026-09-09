@@ -30,6 +30,7 @@ import {
   classifyAttributeValue,
   classifyEntityHistory,
   classifyEntityState,
+  binarySensorStateKey,
   humanizeAttributeKey,
   isPlumbingAttribute,
 } from "@/lib/ha-entity-display";
@@ -234,6 +235,7 @@ export function EntityDetailSheet({
   const tVacuumStatus = useTranslations("homeAutomation.vacuumStatus");
   const tAlarmState = useTranslations("homeAutomation.alarmState");
   const tHumidifierAction = useTranslations("homeAutomation.humidifierAction");
+  const tBinarySensorState = useTranslations("homeAutomation.binarySensorState");
   const locale = useLocale();
   const intlLocale = getIntlLocale(locale);
 
@@ -326,6 +328,19 @@ export function EntityDetailSheet({
         return VACUUM_STATUS_KEYS.includes(entity.state) ? tVacuumStatus(entity.state) : null;
       case "alarm_control_panel":
         return ALARM_STATE_KEYS.includes(entity.state) ? tAlarmState(entity.state) : null;
+      case "binary_sensor":
+        /*
+          A motion sensor reading "Off" is the same defect as a thermostat
+          reading `heat_cool`: HA's vocabulary, not the household's. The pair
+          comes from `device_class` — Open/Closed for a door, Motion/No motion
+          for a PIR — and a class `binarySensorState` has no words for falls
+          back to its own plain on/off, which is what the shape reading would
+          have said anyway. Shared with the room screen's tile so the two
+          cannot drift apart.
+        */
+        return entity.state === "on" || entity.state === "off"
+          ? tBinarySensorState(binarySensorStateKey(deviceClass, entity.state))
+          : null;
       default:
         return null;
     }
@@ -481,7 +496,7 @@ export function EntityDetailSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[85vh] p-0">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] p-0">
         <DialogHeader className="p-6 pb-0">
           <div className="flex items-center gap-3">
             {imageUrl && !imageFailed ? (

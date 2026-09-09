@@ -249,3 +249,70 @@ export function classifyEntityHistory(
   // judgement the shape-based fallback already makes.
   return classifyEntityState(state).kind === "number" ? "area" : "none";
 }
+
+/**
+ * Which `binarySensorState` key says what this binary sensor is reporting.
+ *
+ * RFC-008 R5 and §4.3. `on`/`off` is HA's own vocabulary, not the
+ * household's: a door sensor is Open or Closed, a smoke detector is "Smoke!"
+ * or "No smoke", and a `battery` sensor reading "On" is telling somebody their
+ * battery is *low* in the least helpful way available. The 17 device classes
+ * below are the ones `homeAutomation.binarySensorState` has words for; a class
+ * outside the list falls back to plain `on`/`off`, which is still correct —
+ * just not specific.
+ *
+ * Several classes deliberately share a pair: `window` and `garage_door` read
+ * the same as `door`, `occupancy` as `presence`, `water` as `moisture`,
+ * `power` as `plug`, and `safety` as `problem`.
+ */
+export function binarySensorStateKey(
+  deviceClass: string | undefined,
+  state: string,
+): string {
+  const isOn = state === "on";
+
+  switch (deviceClass) {
+    case "door":
+    case "garage_door":
+    case "window":
+      return isOn ? "doorOpen" : "doorClosed";
+    case "motion":
+      return isOn ? "motionOn" : "motionOff";
+    case "occupancy":
+    case "presence":
+      return isOn ? "presenceOn" : "presenceOff";
+    case "moisture":
+    case "water":
+      return isOn ? "moistureOn" : "moistureOff";
+    case "smoke":
+      return isOn ? "smokeOn" : "smokeOff";
+    case "gas":
+      return isOn ? "gasOn" : "gasOff";
+    case "carbon_monoxide":
+      return isOn ? "coOn" : "coOff";
+    case "lock":
+      return isOn ? "lockOn" : "lockOff";
+    case "heat":
+      return isOn ? "heatOn" : "heatOff";
+    case "cold":
+      return isOn ? "coldOn" : "coldOff";
+    case "plug":
+    case "power":
+      return isOn ? "plugOn" : "plugOff";
+    case "light":
+      return isOn ? "lightOn" : "lightOff";
+    case "sound":
+      return isOn ? "soundOn" : "soundOff";
+    case "vibration":
+      return isOn ? "vibrationOn" : "vibrationOff";
+    case "battery":
+      return isOn ? "batteryOn" : "batteryOff";
+    case "safety":
+    case "problem":
+      return isOn ? "problemOn" : "problemOff";
+    case "tamper":
+      return isOn ? "tamperOn" : "tamperOff";
+    default:
+      return isOn ? "on" : "off";
+  }
+}

@@ -6,6 +6,7 @@ import {
   classifyAttributeValue,
   classifyEntityHistory,
   classifyEntityState,
+  binarySensorStateKey,
   humanizeAttributeKey,
   humanizeDomain,
   isPlumbingAttribute,
@@ -20,6 +21,7 @@ import {
   LOCK_FEATURE,
   MEDIA_PLAYER_FEATURE,
   VACUUM_FEATURE,
+  fanPowerButtons,
   optionList,
   supportsBrightness,
   supportsColorTemp,
@@ -477,5 +479,115 @@ test.describe("the state a household reads — RFC-008 R5", () => {
         expect(typeof attributes[key], `${locale}.attributes.${key}`).toBe("string");
       }
     }
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────
+   Fix round 1 — the two gates that are deliberately not a plain bit test.
+   ──────────────────────────────────────────────────────────────────────── */
+
+test.describe("a fan's power button", () => {
+  test("neither bit set means the fan predates the flags, not that it cannot be switched", () => {
+    /*
+      `FanEntityFeature.TURN_ON = 32` / `TURN_OFF = 16` arrived in HA 2024.8.
+      An integration written before that sets neither and still answers
+      `fan.turn_on` / `fan.turn_off`, so a strict bit test leaves the household
+      a fan with a speed slider and no way to stop it.
+    */
+    expect(fanPowerButtons({})).toEqual({ on: true, off: true });
+    expect(fanPowerButtons(undefined)).toEqual({ on: true, off: true });
+    // 11 = SET_SPEED | OSCILLATE | PRESET_MODE — a real pre-2024.8 shape.
+    expect(fanPowerButtons({ supported_features: 11 })).toEqual({ on: true, off: true });
+  });
+
+  test("exactly one bit is a specific claim, and is believed", () => {
+    expect(fanPowerButtons({ supported_features: FAN_FEATURE.TURN_OFF })).toEqual({
+      on: false,
+      off: true,
+    });
+    expect(fanPowerButtons({ supported_features: FAN_FEATURE.TURN_ON })).toEqual({
+      on: true,
+      off: false,
+    });
+    // …including alongside other flags: 16|1 = TURN_OFF | SET_SPEED.
+    expect(fanPowerButtons({ supported_features: 17 })).toEqual({ on: false, off: true });
+  });
+
+  test("both bits set is the modern case and offers both", () => {
+    expect(fanPowerButtons({ supported_features: 63 })).toEqual({ on: true, off: true });
+  });
+
+  test("the fan component uses that rule, not a bare bit test", () => {
+    // Someone reading `supportsFeature(attrs, FAN_FEATURE.TURN_ON)` here would
+    // "fix" the legacy path straight back out again.
+    const start = actionsSource.indexOf("function FanActions(");
+    const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
+    expect(body).toContain("fanPowerButtons(attrs)");
+    expect(body).not.toContain("FAN_FEATURE.TURN_ON");
+    expect(body).not.toContain("FAN_FEATURE.TURN_OFF");
+  });
+});
+
+test.describe("a binary sensor says what it is reporting", () => {
+  test("the pair comes from device_class, with the documented aliases", () => {
+    expect(binarySensorStateKey("motion", "on")).toBe("motionOn");
+    expect(binarySensorStateKey("motion", "off")).toBe("motionOff");
+    expect(binarySensorStateKey("door", "on")).toBe("doorOpen");
+    // window and garage_door read as a door; occupancy as presence; water as
+    // moisture; power as plug; safety as problem.
+    expect(binarySensorStateKey("window", "off")).toBe("doorClosed");
+    expect(binarySensorStateKey("garage_door", "on")).toBe("doorOpen");
+    expect(binarySensorStateKey("occupancy", "on")).toBe("presenceOn");
+    expect(binarySensorStateKey("water", "on")).toBe("moistureOn");
+    expect(binarySensorStateKey("power", "off")).toBe("plugOff");
+    expect(binarySensorStateKey("safety", "on")).toBe("problemOn");
+    // A `battery` sensor reading "On" is telling somebody their battery is low
+    // in the least helpful way available.
+    expect(binarySensorStateKey("battery", "on")).toBe("batteryOn");
+  });
+
+  test("a device class nobody wrote words for still reads as on/off", () => {
+    expect(binarySensorStateKey(undefined, "on")).toBe("on");
+    expect(binarySensorStateKey("some_custom_class", "off")).toBe("off");
+  });
+
+  test("every key it can return exists in all three locales", () => {
+    const classes = [
+      undefined, "door", "garage_door", "window", "motion", "occupancy", "presence",
+      "moisture", "water", "smoke", "gas", "carbon_monoxide", "lock", "heat", "cold",
+      "plug", "power", "light", "sound", "vibration", "battery", "safety", "problem",
+      "tamper", "an_invented_class",
+    ];
+    const keys = new Set(
+      classes.flatMap((c) => [binarySensorStateKey(c, "on"), binarySensorStateKey(c, "off")]),
+    );
+    for (const locale of ["en", "de", "fr"]) {
+      const table = JSON.parse(
+        readFileSync(join(__dirname, "..", "messages", `${locale}.json`), "utf8"),
+      ).homeAutomation.binarySensorState;
+      for (const key of keys) {
+        expect(typeof table[key], `${locale}.binarySensorState.${key}`).toBe("string");
+      }
+    }
+  });
+
+  test("the sheet and the room tile share one mapping", () => {
+    // Two copies of a 17-branch device-class switch drift, and the drift is
+    // invisible: both screens keep rendering *a* word.
+    const sheet = codeOnly(
+      readFileSync(
+        join(__dirname, "../src/components/home-assistant/entity-detail-sheet.tsx"),
+        "utf8",
+      ),
+    );
+    const tile = codeOnly(
+      readFileSync(join(__dirname, "../src/components/binary-sensor-display-item.tsx"), "utf8"),
+    );
+    for (const source of [sheet, tile]) {
+      expect(source).toContain("binarySensorStateKey(deviceClass, entity.state)");
+      // …and neither keeps a private copy of the switch.
+      expect(source).not.toContain('"doorOpen"');
+    }
+    expect(sheet).toContain('useTranslations("homeAutomation.binarySensorState")');
   });
 });
