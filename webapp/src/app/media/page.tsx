@@ -17,24 +17,30 @@ export default function MediaPage() {
   const states = useMediaPlayerStates(players);
 
   return (
-    <main id="main-content" className="min-h-page p-4 md:p-6 lg:p-8">
-      <PageHeader icon={Music} title={t("title")} className="mb-4" />
-      {players.length === 0 ? (
-        <Card className="p-6">
-          <p className="font-medium">{t("noPlayers")}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{t("noPlayersHint")}</p>
-          <Link href="/settings/media-players" className="mt-3 inline-block text-sm underline">
-            {t("addPlayer")}
-          </Link>
-        </Card>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {family &&
-            players.map((p) => (
-              <PlayerCard key={p.id} player={p} state={states[p.id]} familyId={family.id} />
-            ))}
-        </div>
-      )}
+    <main
+      id="main-content"
+      className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset"
+    >
+      <div className="page-gradient" />
+      <div className="relative z-10 max-w-6xl mx-auto flex flex-col gap-6">
+        <PageHeader icon={Music} title={t("title")} />
+        {players.length === 0 ? (
+          <Card className="p-6">
+            <p className="font-medium">{t("noPlayers")}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t("noPlayersHint")}</p>
+            <Link href="/settings/media-players" className="mt-3 inline-block text-sm underline">
+              {t("addPlayer")}
+            </Link>
+          </Card>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {family &&
+              players.map((p) => (
+                <PlayerCard key={p.id} player={p} state={states[p.id]} familyId={family.id} />
+              ))}
+          </div>
+        )}
+      </div>
     </main>
   );
 }
