@@ -2895,7 +2895,6 @@
       "vacuumStart": "Start",
       "vacuumPause": "Pause",
       "vacuumReturn": "Send home",
-      "climateReadOnly": "Set the temperature on the thermostat itself for now.",
       "history24hHeading": "History (24h)",
       "noHistoryData": "No history data available",
       "attributesHeading": "Attributes",

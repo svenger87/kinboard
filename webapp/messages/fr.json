@@ -2895,7 +2895,6 @@
       "vacuumStart": "Démarrer",
       "vacuumPause": "Pause",
       "vacuumReturn": "Renvoyer à la base",
-      "climateReadOnly": "Pour l'instant, réglez la température directement sur le thermostat.",
       "history24hHeading": "Historique (24h)",
       "noHistoryData": "Aucune donnée historique disponible",
       "attributesHeading": "Attributs",

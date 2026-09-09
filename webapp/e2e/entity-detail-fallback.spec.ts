@@ -10,6 +10,7 @@ import {
   humanizeAttributeKey,
   humanizeDomain,
   isPlumbingAttribute,
+  isRestingUnknown,
 } from "../src/lib/ha-entity-display";
 import {
   ALARM_FEATURE,
@@ -41,10 +42,14 @@ import { DANGEROUS_ACTIONS, dangerousAction } from "../src/lib/ha-dangerous-acti
  * support", it is a screen that looks broken.
  *
  * These assert on the shape rules rather than on a rendered page because the
- * sheet has no caller yet (RFC-008 lands it on every tile in a later step),
- * and because the rules are where the mistakes are: a timestamp that
- * `parseFloat`s to its year, an object stringified into a table row, a
- * `supported_features` bit read without knowing the domain's flag enum.
+ * rules are where the mistakes are: a timestamp that `parseFloat`s to its
+ * year, an object stringified into a table row, a `supported_features` bit
+ * read without knowing the domain's flag enum. This file needs no stack, which
+ * is why CI's source-reading job picks it up.
+ *
+ * What a rendered page settles instead lives in `automation-layout.spec.ts`,
+ * where a tile opens the sheet for real: the pointer drag, the two ways a
+ * pending value must stop being shown, and the confirmations of §6.
  */
 
 test.describe("state, by the shape of the value", () => {
@@ -601,39 +606,19 @@ test.describe("a binary sensor says what it is reporting", () => {
 /* ────────────────────────────────────────────────────────────────────────
    Fix round 2 — four bugs that only a rendered, driven sheet showed.
 
-   A note on what these can and cannot hold. The first one is a *drag*
-   failure: a fully-controlled Radix slider with no `onValueChange` never
-   fires `onValueCommit`, because `handleSlideEnd` compares the value against
-   the one captured at slide start and both reads come from the same unchanged
-   prop. Only the keyboard path works, so `slider.press("ArrowRight")` passes
-   against completely inert drag and is worse than no guard at all.
+   The first of them, a slider inert to every pointer that ever touched it, is
+   now guarded where it belongs: "a real pointer drag on a slider sends the
+   value it was dragged to", in `automation-layout.spec.ts`, which opens the
+   sheet from a tile and watches the intercepted POST. The source-text version
+   that used to stand here has been deleted rather than kept beside it — two
+   guards for one claim is how the weaker one survives a refactor that breaks
+   the behaviour and keeps the text.
 
-   The honest guard is a real pointer drag against a rendered sheet, and it was
-   run — eight sliders, Chromium and WebKit, with the service POST intercepted
-   — but it cannot be committed yet: nothing in the app renders this sheet
-   until RFC-008's `page.tsx` step, and a scratch route to hold it up is not
-   something to leave in the tree. What is committed instead is the structural
-   claim the drag depends on. When the sheet gets a caller, the drag belongs in
-   the spec beside it.
+   What remains here is the *breadth* claim the drag cannot make: one drag
+   exercises one slider, and there are eight.
    ──────────────────────────────────────────────────────────────────────── */
 
 test.describe("controls the household drags and taps", () => {
-  test("the slider is not the controlled-with-no-onValueChange trap", () => {
-    const start = actionsSource.indexOf("function CommitSlider(");
-    expect(start).toBeGreaterThan(-1);
-    const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
-
-    // `value` without `onValueChange` is inert to pointer and touch: the thumb
-    // does not move and no service call is sent. Every other slider in this
-    // repo pairs them (cover-card, light-control, fan-card, media-player-card)
-    // or goes uncontrolled with a `key` (settings/pocket-money).
-    expect(body).toContain("value={[clamped]}");
-    expect(body).toContain("onValueChange={(next) => setPending(next[0])}");
-    expect(body).toContain("onValueCommit=");
-    // …and the local state that makes the drag observable at all.
-    expect(body).toContain("usePendingNumber(value)");
-  });
-
   test("every slider in the sheet goes through it", () => {
     // A domain that reached for the Radix primitive directly would bypass the
     // fix and be inert again, silently.
@@ -690,16 +675,59 @@ test.describe("a scene nobody has activated — RFC-008 R1", () => {
     expect(classifyEntityState("unknown").kind).toBe("unavailable");
   });
 
-  test("the dispatcher lets a resting-unknown scene keep its Activate button", () => {
+  test("every domain R1 names rests at unknown; nothing else does", () => {
     /*
       A scene's state is the timestamp it was last activated and HA does not
       restore it, so after a restart every scene in the house reports
-      `unknown`. Gating on that greys out Activate on a working scene until
-      somebody triggers it from somewhere else.
+      `unknown`. A `button` nobody has pressed has never had a state at all,
+      and greying it out disables the only control that could give it one —
+      permanently. Not a call on source text: the predicate itself.
     */
+    for (const domain of [
+      "button", "input_button", "event", "image", "scene",
+      "date", "time", "datetime", "input_datetime",
+    ]) {
+      expect(isRestingUnknown(domain, "unknown"), domain).toBe(true);
+      expect(isRestingUnknown(domain, undefined), domain).toBe(true);
+      expect(isRestingUnknown(domain, ""), domain).toBe(true);
+      // `unavailable` is exempt from nothing: that one really does mean the
+      // thing cannot be reached.
+      expect(isRestingUnknown(domain, "unavailable"), domain).toBe(false);
+    }
+    // A device at `unknown` is a device we cannot see, and still is.
+    for (const domain of ["light", "lock", "cover", "sensor", "climate", "peculiar_domain"]) {
+      expect(isRestingUnknown(domain, "unknown"), domain).toBe(false);
+    }
+  });
+
+  test("the two reading gates share one list rather than each keeping a copy", () => {
+    /*
+      The guard with teeth, and the same shape as the settle constants below.
+      There are two gates — the tiles' `hasReading` and the sheet's dispatcher
+      — and the way they come to disagree is somebody writing the exception out
+      a second time. A second definition anywhere under `src/` reddens this,
+      including in a file nobody has written yet.
+    */
+    const definitions = sourceFiles(join(__dirname, "../src"))
+      .map((path) => [path, readFileSync(path, "utf8")] as const)
+      .filter(([, source]) => /^\s*(export\s+)?const\s+RESTING_UNKNOWN_DOMAINS\b[^=\n]*=/m.test(source))
+      .map(([path]) => path.replace(/.*\/src\//, "src/"));
+    expect(definitions).toEqual(["src/lib/ha-entity-display.ts"]);
+
+    for (const path of [
+      "../src/app/home-automation/page.tsx",
+      "../src/components/home-assistant/entity-actions.tsx",
+    ]) {
+      const source = readFileSync(join(__dirname, path), "utf8");
+      expect(source, path).toContain("isRestingUnknown");
+      expect(source, path).not.toMatch(/domain === "scene" && /);
+    }
+  });
+
+  test("the dispatcher consults it before the reading gate", () => {
     const start = actionsSource.indexOf("export function EntityActions(");
     const body = actionsSource.slice(start);
-    expect(body).toContain('const restingUnknown = domain === "scene" && entity.state !== "unavailable"');
+    expect(body).toContain("const restingUnknown = isRestingUnknown(domain, entity.state)");
     expect(body).toContain('if (!restingUnknown && classifyEntityState(entity.state).kind === "unavailable")');
     // `unavailable` is still unreachable, for scene as for anything else.
     expect(body).toContain("<UnavailableNotice />");
@@ -734,43 +762,18 @@ test.describe("a scene nobody has activated — RFC-008 R1", () => {
 /* ────────────────────────────────────────────────────────────────────────
    Fix round 3 — a refused call must not leave the panel confidently wrong.
 
-   Same caveat as the drag guard above: the honest check is a rendered sheet
-   whose states poll keeps returning the old reading while the set call fails,
-   and it was run — both engines, poll and service call both intercepted and
-   counted — but it needs the scratch route to stand up and so cannot be
-   committed until the sheet has a caller. These hold the structure it depends
-   on. No weaker behavioural test is committed in its place.
+   The honest check is now committed and behavioural: "a refused call puts the
+   thumb back on the reading", in `automation-layout.spec.ts` — the poll stubbed
+   to keep returning the old brightness, the service call answered 502, the
+   toast observed and the thumb back on the reading inside a third of the
+   settle. The two source-text guards that stood here (the runner's contract
+   and `CommitSlider`'s revert) are deleted with it rather than kept alongside.
+
+   What is left is the claim about the *other* surface, which that test does not
+   touch.
    ──────────────────────────────────────────────────────────────────────── */
 
 test.describe("a call Home Assistant refused", () => {
-  test("the runner reports the failure rather than swallowing it", () => {
-    // The runner moved into DangerousActionGate when the confirmations landed,
-    // so that one place decides both "ask first?" and "did it take?". Its
-    // contract did not move: a refusal is a toast and a `false`, never a
-    // silent no-op.
-    const start = actionsSource.indexOf("function DangerousActionGate(");
-    const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
-    expect(body).toContain("Promise<boolean>");
-    expect(body).toContain("return true");
-    expect(body).toContain('toast.error(t("controlFailed"))');
-    expect(body).toContain("return false");
-  });
-
-  test("the slider goes back to the reading", () => {
-    /*
-      Not "wait for the source to move": the light stayed at 20%, so the poll
-      returns 20% again and the source never moves. The thumb would sit at the
-      80% nobody achieved for as long as the panel is on, with the toast that
-      explained it long gone — a wall panel stating something confidently
-      about a device that never moved, which is the same defect as the lock
-      this branch already fixed and worse, because nothing ever corrects it.
-    */
-    const start = actionsSource.indexOf("function CommitSlider(");
-    const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
-    expect(body).toContain("onCommit: (value: number) => Promise<boolean>");
-    expect(body).toMatch(/onCommit\(next\[0\]\)\.then\(\(ok\) => \{\s*\n\s*if \(!ok\) setPending\(null\);/);
-  });
-
   test("and so do the two surfaces together", () => {
     // `page.tsx`'s tiles drop their optimistic state on failure. The sliders
     // match it deliberately: a household should not learn one rule for tiles
@@ -793,16 +796,22 @@ test.describe("a call Home Assistant refused", () => {
    reading therefore never moves, and a control that waits for it reads 80%
    for a lamp that is still dim, for as long as the panel is on.
 
-   Read the honesty note above the round-3 block: the behavioural check needs
-   a rendered sheet and cannot ship yet. What follows splits into two kinds,
-   and the difference matters —
+   The behavioural check is committed: "a 200 that does nothing does not strand
+   the thumb", in `automation-layout.spec.ts` — the service call answered 200,
+   the poll stubbed to keep reporting the unchanged brightness, the thumb held
+   first (a merely-slow device must still reconcile) and then let go of at the
+   settle. The text assertions on the hook body that stood in for it — that it
+   arms the timer and re-arms it — are deleted with its arrival.
+
+   What is left here is of two kinds, and both hold something that test does
+   not:
 
    - the constant checks are **real**: one definition, derived from `POLL_MS`,
      imported by both surfaces. A second copy of the number, or a settle
      shorter than a poll, goes red here whatever the code around it looks like.
-   - the source checks are **text**, and a refactor that keeps the text and
-     breaks the behaviour would pass them. They are worth having as a tripwire
-     and they are not worth mistaking for the browser test.
+   - the unmount check is still **text**. Nothing observes a timer firing into
+     a closed sheet, because there is nothing to observe: the failure is a
+     `setState` on an unmounted tree, which React swallows.
    ──────────────────────────────────────────────────────────────────────── */
 
 function sourceFiles(dir: string): string[] {
@@ -850,17 +859,17 @@ test.describe("the optimistic settle — one rule, two surfaces", () => {
     }
   });
 
-  test("the pending value arms it, re-arms it, and does not outlive the sheet", () => {
-    // Text, not behaviour — see the note above.
+  test("the pending value's timer does not outlive the sheet", () => {
+    /*
+      Text, not behaviour — and the only one of the three claims this test used
+      to make that the browser test above does not. Arming and re-arming are
+      settled there, by a thumb that goes back on its own without the reading
+      moving; this is the tripwire for the cleanup, whose failure a household
+      never sees and a test cannot watch.
+    */
     const start = actionsSource.indexOf("function usePendingNumber<");
     const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
 
-    expect(body).toContain("OPTIMISTIC_SETTLE_MS");
-    expect(body).toMatch(/setTimeout\(\(\) => \{[\s\S]*?setPendingState\(null\);[\s\S]*?\}, OPTIMISTIC_SETTLE_MS\)/);
-    // Re-arming: a household still moving the thumb must not be cut off by a
-    // timer armed for an earlier position.
-    expect(body).toMatch(/if \(settle\.current\) clearTimeout\(settle\.current\);\s*\n\s*settle\.current = null;\s*\n\s*setPendingState\(value\);/);
-    // Nothing keeps firing after the sheet closes.
     expect(body).toMatch(/useEffect\(\s*\n?\s*\(\) => \(\) => \{\s*\n\s*if \(settle\.current\) clearTimeout\(settle\.current\);/);
   });
 });
@@ -868,20 +877,20 @@ test.describe("the optimistic settle — one rule, two surfaces", () => {
 /* ────────────────────────────────────────────────────────────────────────
    RFC-008 §6 — the actions that ask first.
 
-   Same caveat as the two rounds above, and for the same reason. The honest
-   check is a rendered sheet with `POST /api/homeassistant/services`
-   intercepted and counted: unlock asks and sends nothing when dismissed, one
-   call when confirmed; the latch asks a different question; disarm names the
-   panel; `lock.lock` does not ask at all; an unavailable entity offers
-   nothing to ask about. All five were run against a scratch route in Chromium
-   and WebKit — but the scratch route cannot ship, so they land with the
-   caller. No weaker behavioural test is committed in its place.
+   The behavioural half is committed: "unlocking asks first and locking does
+   not", in `automation-layout.spec.ts` — the sheet opened from a real lock
+   tile, `POST /api/homeassistant/services` intercepted and counted, zero calls
+   after Cancel, exactly one after confirming, and `lock.lock` firing on one tap
+   with no dialog at all. The prompt naming the entity is settled there too, by
+   a dialog that quotes the household's own name for the door — so the source
+   guard that used to pin the `displayName` hand-down is deleted rather than
+   kept beside it.
 
-   What is committed is the structure those five depend on, and it is worth
+   What is left here is the structure that test cannot reach, and it is worth
    more than it looks: the mechanism's whole claim is that a dangerous action
-   *cannot* skip the confirmation by forgetting to write one, and that claim
-   is a property of the source — one table, one runner, and no way to call a
-   service that goes round either.
+   *cannot* skip the confirmation by forgetting to write one, and that claim is
+   a property of the source — one table, one runner, and no way to call a
+   service that goes round either. One rendered lock proves one row.
    ──────────────────────────────────────────────────────────────────────── */
 
 test.describe("dangerous actions ask first — RFC-008 §6", () => {
@@ -971,21 +980,21 @@ test.describe("dangerous actions ask first — RFC-008 §6", () => {
     expect(gate).toContain("dangerousAction(call)");
   });
 
-  test("dismissing sends nothing, and says so to a control holding a guess", () => {
+  test("a question nobody can answer any more still settles the control", () => {
     const gateStart = actionsSource.indexOf("function DangerousActionGate(");
     const gate = actionsSource.slice(gateStart, actionsSource.indexOf("\nfunction ", gateStart + 1));
     /*
-      A question raised is a promise not yet settled: `fire` is unreachable
-      until `onConfirm` takes the record. Dismissal — Cancel, Escape, the
-      overlay, or the sheet closing underneath it — settles `false`, the same
-      answer a refused call gives, so an optimistic control drops its guess
-      instead of sitting on a value nobody agreed to.
+      "Dismissal sends nothing" is watched for real in `automation-layout`:
+      Cancel, then a second's grace, then zero intercepted POSTs. What that
+      cannot see is the *promise*. A control that asked is awaiting an answer,
+      and one arrives from three places — the dialog dismissed, the sheet closed
+      underneath it, and confirming, which must take the record first so the
+      close that follows cannot settle the same promise twice. A control left
+      awaiting forever holds its optimistic guess forever, which is silent.
     */
     expect(gate).toMatch(/if \(!action\) return fire\(call, via\);\s*\n\s*return new Promise<boolean>/);
     expect(gate).toMatch(/onOpenChange=\{\(open\) => \{[\s\S]*?take\(\)\?\.settle\(false\);/);
     expect(gate).toContain("useEffect(() => () => asked.current?.settle(false), [])");
-    // Confirming is the only path to `fire`, and it takes the record first so
-    // the close that follows cannot settle the same promise twice.
     expect(gate).toMatch(/const record = take\(\);\s*\n\s*if \(record\) void fire\(record\.call, record\.via\)\.then\(record\.settle\)/);
   });
 
@@ -1027,22 +1036,6 @@ test.describe("dangerous actions ask first — RFC-008 §6", () => {
     const lockStart = actionsSource.indexOf("function LockActions(");
     const lockBody = actionsSource.slice(lockStart, actionsSource.indexOf("\nfunction ", lockStart + 1));
     expect(lockBody).toContain('{ domain: "lock", service: "lock", entity_id: id }');
-  });
-
-  test("the prompt can name the entity, because the sheet hands the name down", () => {
-    // "Unlock Front door?", not "Are you sure?" — a household has several
-    // locks and this sheet is a modal over a room full of tiles.
-    const sheet = codeOnly(
-      readFileSync(
-        join(__dirname, "../src/components/home-assistant/entity-detail-sheet.tsx"),
-        "utf8",
-      ),
-    );
-    expect(sheet).toContain("<EntityActions entity={entity} displayName={label} />");
-    const gateStart = actionsSource.indexOf("function DangerousActionGate(");
-    const gate = actionsSource.slice(gateStart, actionsSource.indexOf("\nfunction ", gateStart + 1));
-    expect(gate).toContain("const name = displayName || entity.name || entity.entity_id;");
-    expect(gate).toContain("{ name }");
   });
 
   test("every row's wording exists in all three locales, and names the entity", () => {

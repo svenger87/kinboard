@@ -17,10 +17,6 @@ import {
   LockOpen,
   ArrowUp,
   ArrowDown,
-  SkipBack,
-  SkipForward,
-  Play,
-  Pause,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -30,20 +26,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
   useHomeAssistantStatus,
   useHomeAssistantEntityStates,
   useToggleEntity,
   useLockControl,
   useCoverControl,
-  useMediaPlayerControl,
-  useVacuumCommand,
   useKeyboardShortcuts,
   useSwipeNavigation,
 } from "@/hooks";
@@ -52,6 +39,8 @@ import { useCatalogue } from "@/hooks/use-catalogue";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { iconFor } from "@/components/home-assistant/room-icon";
+import { EntityDetailSheet } from "@/components/home-assistant/entity-detail-sheet";
+import { isRestingUnknown } from "@/lib/ha-entity-display";
 /*
   The optimistic-settle rule now lives in `lib/home-assistant-optimism.ts`:
   the detail sheet's sliders and steppers need the same three exits the tiles
@@ -65,11 +54,34 @@ import type { HAEntity } from "@/types/home-assistant";
 const TOGGLE_DOMAINS = new Set(["light", "switch", "input_boolean", "fan"]);
 
 /**
- * Domains with too many meaningful actions for one tap to be unambiguous —
- * a tap opens the detail sheet instead of guessing between play/pause,
- * heat/cool or start/dock.
+ * Domains with too many meaningful actions for one tap to be unambiguous, so
+ * the tile carries no inline control at all and the detail sheet is the whole
+ * interaction: there is no honest guess between play and pause, heat and cool,
+ * or start and dock.
+ *
+ * **This is not the set of tappable tiles.** It used to be — before RFC-008
+ * these three were the only rows a household could open — and reading it that
+ * way now is the trap this comment exists for. Every catalogue row with an
+ * `entity_id` opens {@link EntityDetailSheet}; a `sensor` has no inline control
+ * either and is deliberately not listed here, because for a sensor that is not
+ * a decision anybody took, it is just a domain with nothing to drive.
  */
-const DETAIL_DOMAINS = new Set(["media_player", "climate", "vacuum"]);
+const SHEET_ONLY_DOMAINS = new Set(["media_player", "climate", "vacuum"]);
+
+/**
+ * Which control, if any, this tile carries beside its name.
+ *
+ * `null` means the sheet is the whole interaction. {@link SHEET_ONLY_DOMAINS}
+ * is consulted first so that the three rich domains stay control-free even if
+ * one of them is later added to a control set above — their tiles are quiet by
+ * decision, not by omission.
+ */
+function inlineControlFor(domain: string | null): "toggle" | "lock" | "cover" | null {
+  if (domain === null || SHEET_ONLY_DOMAINS.has(domain)) return null;
+  if (TOGGLE_DOMAINS.has(domain)) return "toggle";
+  if (domain === "lock" || domain === "cover") return domain;
+  return null;
+}
 
 /** States that mean "Home Assistant has no reading for this right now". */
 const NO_READING = new Set(["unavailable", "unknown", ""]);
@@ -87,12 +99,18 @@ const NO_READING = new Set(["unavailable", "unknown", ""]);
  * battery, then silently flips back, is exactly the lie the brief calls
  * worse than a slow update.
  *
- * One function, four call sites — the toggle, the lock pair, the cover pair
- * and the detail sheet. It is a helper rather than a repeated predicate
- * because the repeated predicate is how the lock and cover tiles came to be
- * missing half of it while the toggle three lines above them had it.
+ * One function, three call sites — the toggle, the lock pair and the cover
+ * pair. It is a helper rather than a repeated predicate because the repeated
+ * predicate is how the lock and cover tiles came to be missing half of it
+ * while the toggle three lines above them had it.
+ *
+ * RFC-008 R1: the domains whose resting state is legitimately `unknown` are
+ * exempt, and the list of them is shared with the detail sheet's own gate
+ * rather than written out twice — see {@link isRestingUnknown}. `unavailable`
+ * is exempt from nothing.
  */
-function hasReading(state: string | undefined): boolean {
+function hasReading(domain: string | null, state: string | undefined): boolean {
+  if (domain !== null && isRestingUnknown(domain, state)) return true;
   return state !== undefined && !NO_READING.has(state);
 }
 
@@ -124,7 +142,6 @@ export default function HausautomationPage() {
   const tMedia = useTranslations("homeAutomation.mediaPlayerState");
   const tVacuum = useTranslations("homeAutomation.vacuumStatus");
   const tHvac = useTranslations("homeAutomation.hvacMode");
-  const tDetail = useTranslations("homeAutomation.entityDetail");
 
   const {
     data: settings,
@@ -236,8 +253,6 @@ export default function HausautomationPage() {
   const { toggle } = useToggleEntity();
   const { lock, unlock } = useLockControl();
   const { open: openCover, close: closeCover } = useCoverControl();
-  const { play, pause: pauseMedia, previous, next, isPending: mediaPending } = useMediaPlayerControl();
-  const { start, pause: pauseVacuum, returnToBase, isPending: vacuumPending } = useVacuumCommand();
 
   /**
    * Drive one control.
@@ -261,25 +276,6 @@ export default function HausautomationPage() {
     },
     [expectState, forget, t]
   );
-
-  // ── Detail sheet ────────────────────────────────────────────────────────
-  const [detailFor, setDetailFor] = useState<CatalogueItem | null>(null);
-  const detailEntity =
-    detailFor && hasEntity(detailFor) ? stateByEntity.get(detailFor.entity_id) : undefined;
-  const detailEntityId = detailFor && hasEntity(detailFor) ? detailFor.entity_id : null;
-  const detailDomain = detailEntityId ? domainOf(detailEntityId) : null;
-  /**
-   * The same rule the tiles use, plus the sheet's own in-flight calls: an
-   * action is offered only when Home Assistant is configured, answering, and
-   * currently reporting a state for this entity — pressing a button that
-   * cannot reach anything is worse than one that is visibly out of reach.
-   */
-  const detailActionsDisabled =
-    !isConnected ||
-    statesError ||
-    !hasReading(detailEntity?.state) ||
-    mediaPending ||
-    vacuumPending;
 
   /**
    * The state a tile shows: the guess if we are holding one, otherwise the
@@ -345,6 +341,51 @@ export default function HausautomationPage() {
    */
   const roomsUnknown = roomsLoading || roomsError;
 
+  // ── Detail sheet ────────────────────────────────────────────────────────
+  /**
+   * The catalogue row whose sheet is open, or `null`.
+   *
+   * The *row*, not the entity: the sheet is headed with the household's own
+   * name for the thing and their own photograph of it, and both of those live
+   * in the catalogue rather than in Home Assistant. A row with no `entity_id`
+   * can never get here — it is a bike or a lawnmower, and there is nothing to
+   * open.
+   */
+  const [detailFor, setDetailFor] = useState<WithEntity | null>(null);
+
+  /**
+   * The entity the sheet reads, with this page's optimistic guess in front of
+   * it.
+   *
+   * Two things it must not do. It must not disagree with the tile that opened
+   * it: flip a lamp on and tap it within the settle, and a sheet reading the
+   * raw poll would say "Off" underneath a tile saying "On" about the same lamp
+   * on the same screen. And it must not refuse to open — an entity Home
+   * Assistant has never reported (nothing configured, the instance down, an
+   * `entity_id` nobody fixed after renaming it) still has a name and a picture
+   * worth showing, so it opens as `unavailable`, which is the honest reading
+   * and the one the sheet's own gate answers by offering no controls at all.
+   */
+  const detailEntity = useMemo((): HAEntity | null => {
+    if (!detailFor) return null;
+    const polled = stateByEntity.get(detailFor.entity_id);
+    if (!polled) {
+      return {
+        entity_id: detailFor.entity_id,
+        domain: domainOf(detailFor.entity_id),
+        name: detailFor.name,
+        state: "unavailable",
+        attributes: {},
+        // Empty, not `now`: we have never had a reading for this entity, so
+        // there is no moment it last changed. The sheet omits the line rather
+        // than dating our own ignorance to this second.
+        last_changed: "",
+      };
+    }
+    const guess = optimistic[detailFor.entity_id];
+    return guess === undefined ? polled : { ...polled, state: guess };
+  }, [detailFor, stateByEntity, optimistic]);
+
   const renderTile = (item: CatalogueItem) => (
     <DeviceTile
       key={item.id}
@@ -367,7 +408,7 @@ export default function HausautomationPage() {
       onUnlock={(entityId) => void run(entityId, "unlocked", () => unlock(entityId))}
       onOpen={(entityId) => void run(entityId, "open", () => openCover(entityId))}
       onClose={(entityId) => void run(entityId, "closed", () => closeCover(entityId))}
-      onDetail={() => setDetailFor(item)}
+      onDetail={hasEntity(item) ? () => setDetailFor(item) : undefined}
       t={t}
     />
   );
@@ -578,147 +619,30 @@ export default function HausautomationPage() {
       </div>
 
       {/*
-        The detail sheet for media players, thermostats and vacuums.
+        The detail sheet, opened by any tile with an entity behind it.
 
-        These three route here rather than to a tile control because one tap
-        cannot mean play, pause, next and volume at once — the point is to let
-        the household pick which action they meant, not to withhold the
-        actions. So the sheet names them. `climate` is the exception: there is
-        no thermostat hook to call and inventing a temperature UI is a feature
-        this screen was not asked for, so it says so rather than showing an
-        empty actions block that reads as broken.
+        This replaces the sheet that used to live inline here — a state line, a
+        handful of hard-coded media and vacuum buttons and a raw dump of
+        `Object.entries(attributes)`, reachable from three domains. RFC-008
+        §4.5: every entity-backed tile opens the same rich sheet, which brings
+        its own per-domain controls, an honest 24h history and the confirmations
+        of §6. The household's name and photograph come from the catalogue row;
+        everything else comes from the entity.
+
+        Mounted only while a row is chosen, so the sheet's history query — keyed
+        on the entity — never runs for a sheet nobody has opened.
       */}
-      <Sheet open={detailFor !== null} onOpenChange={(open) => !open && setDetailFor(null)}>
-        <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-xl">
-          <SheetHeader>
-            <SheetTitle>{detailFor?.name}</SheetTitle>
-            <SheetDescription>{detailFor?.entity_id}</SheetDescription>
-          </SheetHeader>
-          {detailEntityId && (
-            <div className="mt-4 flex flex-col gap-4 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">{tDetail("currentStateLabel")}</span>
-                <span className="font-medium">
-                  {labelFor(detailEntityId, displayState(detailEntityId), detailEntity)}
-                </span>
-              </div>
-              {detailDomain === "climate" ? (
-                <p className="text-muted-foreground">{tDetail("climateReadOnly")}</p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <p className="font-medium">{tDetail("actionsHeading")}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {detailDomain === "media_player" && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={detailActionsDisabled}
-                          onClick={() =>
-                            void run(detailEntityId, null, () => previous(detailEntityId))
-                          }
-                        >
-                          <SkipBack className="mr-1.5 size-3.5" aria-hidden="true" />
-                          {tDetail("mediaPrevious")}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={detailActionsDisabled}
-                          onClick={() =>
-                            void run(detailEntityId, "playing", () => play(detailEntityId))
-                          }
-                        >
-                          <Play className="mr-1.5 size-3.5" aria-hidden="true" />
-                          {tDetail("mediaPlay")}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={detailActionsDisabled}
-                          onClick={() =>
-                            void run(detailEntityId, "paused", () => pauseMedia(detailEntityId))
-                          }
-                        >
-                          <Pause className="mr-1.5 size-3.5" aria-hidden="true" />
-                          {tDetail("mediaPause")}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={detailActionsDisabled}
-                          onClick={() =>
-                            void run(detailEntityId, null, () => next(detailEntityId))
-                          }
-                        >
-                          <SkipForward className="mr-1.5 size-3.5" aria-hidden="true" />
-                          {tDetail("mediaNext")}
-                        </Button>
-                      </>
-                    )}
-                    {detailDomain === "vacuum" && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={detailActionsDisabled}
-                          onClick={() =>
-                            void run(detailEntityId, "cleaning", () => start(detailEntityId))
-                          }
-                        >
-                          <Play className="mr-1.5 size-3.5" aria-hidden="true" />
-                          {tDetail("vacuumStart")}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={detailActionsDisabled}
-                          onClick={() =>
-                            void run(detailEntityId, "paused", () => pauseVacuum(detailEntityId))
-                          }
-                        >
-                          <Pause className="mr-1.5 size-3.5" aria-hidden="true" />
-                          {tDetail("vacuumPause")}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={detailActionsDisabled}
-                          onClick={() =>
-                            void run(detailEntityId, "returning", () => returnToBase(detailEntityId))
-                          }
-                        >
-                          <Home className="mr-1.5 size-3.5" aria-hidden="true" />
-                          {tDetail("vacuumReturn")}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* No state came back at all — Home Assistant is unconfigured or
-                  down. Say that where the attributes would have been, rather
-                  than closing the sheet or leaving a blank panel. */}
-              {detailEntity ? (
-                <div className="flex flex-col gap-2">
-                  <p className="font-medium">{tDetail("attributesHeading")}</p>
-                  {Object.entries(detailEntity.attributes ?? {}).map(([key, value]) => (
-                    <div key={key} className="flex items-start justify-between gap-3">
-                      <span className="text-muted-foreground">{key}</span>
-                      <span className="text-right break-all">
-                        {Array.isArray(value) ? value.join(", ") : String(value)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground">{tDetail("unavailableNotice")}</p>
-              )}
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
+      {detailFor && detailEntity && (
+        <EntityDetailSheet
+          open
+          onOpenChange={(open) => {
+            if (!open) setDetailFor(null);
+          }}
+          entity={detailEntity}
+          displayName={detailFor.name}
+          imageUrl={detailFor.image_url ?? undefined}
+        />
+      )}
     </main>
   );
 }
@@ -783,18 +707,19 @@ function DeviceTile({
   onUnlock: (entityId: string) => void;
   onOpen: (entityId: string) => void;
   onClose: (entityId: string) => void;
-  onDetail: () => void;
+  /** Absent for a catalogue row with no entity behind it — there is nothing to open. */
+  onDetail?: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
   const entityId = item.entity_id;
   const domain = entityId ? domainOf(entityId) : null;
-  const isDetail = domain !== null && DETAIL_DOMAINS.has(domain);
+  const inlineControl = inlineControlFor(domain);
   /**
    * Every control on this tile is gated on the same thing: Home Assistant is
    * reachable *and* is currently reporting a state for this device. The
    * second half is not optional — see `hasReading`.
    */
-  const canDrive = !controlsDisabled && hasReading(state);
+  const canDrive = !controlsDisabled && hasReading(domain, state);
 
   const picture = (
     <div className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-muted">
@@ -826,13 +751,24 @@ function DeviceTile({
           </p>
         )}
       </div>
-      {isDetail && <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+      {onDetail && <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
     </div>
   );
 
-  if (isDetail) {
-    return (
-      <Card className="p-3">
+  return (
+    <Card className="flex flex-col gap-3 p-3">
+      {/*
+        The name, the picture and the reading open the detail sheet; the
+        controls below stay on the tile.
+
+        A button rather than a click handler on the Card, and the controls as
+        its *siblings* rather than inside it: a `<button>` inside a `<button>`
+        is invalid HTML and the inner one stops working in some engines, which
+        is how "the light switch does nothing on the wall panel" gets reported.
+        A row with no entity behind it is not a smart device at all and gets no
+        button — it keeps its picture and its name and opens nothing.
+      */}
+      {onDetail ? (
         <button
           type="button"
           onClick={onDetail}
@@ -841,15 +777,11 @@ function DeviceTile({
         >
           {body}
         </button>
-      </Card>
-    );
-  }
+      ) : (
+        body
+      )}
 
-  return (
-    <Card className="flex flex-col gap-3 p-3">
-      {body}
-
-      {entityId && domain !== null && TOGGLE_DOMAINS.has(domain) && (
+      {entityId && inlineControl === "toggle" && (
         <div className="flex items-center justify-end">
           <Switch
             checked={state === "on"}
@@ -860,7 +792,7 @@ function DeviceTile({
         </div>
       )}
 
-      {entityId && domain === "lock" && (
+      {entityId && inlineControl === "lock" && (
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -885,7 +817,7 @@ function DeviceTile({
         </div>
       )}
 
-      {entityId && domain === "cover" && (
+      {entityId && inlineControl === "cover" && (
         <div className="flex items-center gap-2">
           <Button
             variant="outline"

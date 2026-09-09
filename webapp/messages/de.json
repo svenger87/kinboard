@@ -2895,7 +2895,6 @@
       "vacuumStart": "Starten",
       "vacuumPause": "Pause",
       "vacuumReturn": "Zur Station schicken",
-      "climateReadOnly": "Die Temperatur stellst du vorerst direkt am Thermostat ein.",
       "history24hHeading": "Verlauf (24h)",
       "noHistoryData": "Keine Verlaufsdaten verfügbar",
       "attributesHeading": "Attribute",

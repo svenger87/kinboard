@@ -421,6 +421,10 @@ export function EntityDetailSheet({
 
   const isUnavailable = stateShape.kind === "unavailable";
 
+  /** `null` when the caller had no `last_changed` to give — see the header. */
+  const lastChangedAt = Date.parse(entity.last_changed);
+  const lastChanged = Number.isNaN(lastChangedAt) ? null : new Date(lastChangedAt);
+
   /*
     Curated attributes for the domains that have a list; everything the entity
     carries for the ones that do not (RFC-008 §5.2), minus plumbing. Showing
@@ -559,10 +563,18 @@ export function EntityDetailSheet({
               {stateDetail && (
                 <p className="text-sm text-muted-foreground mt-1 text-right">{stateDetail}</p>
               )}
-              <p className="text-xs text-muted-foreground mt-2">
-                {t("lastUpdatedLabel")}{" "}
-                {new Date(entity.last_changed).toLocaleString(intlLocale)}
-              </p>
+              {/*
+                Omitted rather than guessed. A caller that has never had a
+                reading for this entity — the automation page opening a tile
+                whose entity Home Assistant has never reported — has no moment
+                to name, and "Last updated: <this second>" under "Not reachable"
+                would be dating our own ignorance.
+              */}
+              {lastChanged && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {t("lastUpdatedLabel")} {lastChanged.toLocaleString(intlLocale)}
+                </p>
+              )}
             </div>
 
             {/*

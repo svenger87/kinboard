@@ -316,3 +316,44 @@ export function binarySensorStateKey(
       return isOn ? "on" : "off";
   }
 }
+
+/**
+ * RFC-008 R1 — the domains whose *resting* state is legitimately `unknown`.
+ *
+ * The reading gate (`unavailable` / `unknown` / `""` / not in the poll at all)
+ * is right for a device and wrong for these: a `button` nobody has pressed, an
+ * `event` nobody has fired, an `image` with no frame yet, a `scene` after a
+ * Home Assistant restart and a `date`/`time`/`datetime` with no value set all
+ * report `unknown` while working perfectly. Greying them out says "not
+ * reachable" about something that is merely *new*, and on a `button` it greys
+ * out the only control the entity has — permanently, since the only way to
+ * give it a state is to press the button that the gate has just disabled.
+ *
+ * `unavailable` is **not** an exception, here or anywhere: that one really does
+ * mean Home Assistant cannot reach the thing.
+ *
+ * One list, because there are two gates — the tiles' `hasReading` in
+ * `app/home-automation/page.tsx` and the sheet's dispatcher in
+ * `entity-actions.tsx` — and two copies of an exception list is how one of them
+ * comes to be missing `image` while the other has it.
+ *
+ * R1 also names `number` and `text`. They are deliberately absent: their
+ * controls are a later phase, and a helper with no value yet is a case nobody
+ * has looked at on a real instance. Adding them here is one line when somebody
+ * has.
+ */
+const RESTING_UNKNOWN_DOMAINS: readonly string[] = [
+  "button", "input_button", "event", "image", "scene",
+  "date", "time", "datetime", "input_datetime",
+];
+
+/**
+ * Is this entity resting at `unknown` rather than out of reach?
+ *
+ * True only for {@link RESTING_UNKNOWN_DOMAINS} and only while the state is not
+ * `unavailable`. Callers use it to *skip* the reading gate, never to claim the
+ * entity has a reading — it has not; it has nothing to report yet.
+ */
+export function isRestingUnknown(domain: string, state: string | undefined | null): boolean {
+  return RESTING_UNKNOWN_DOMAINS.includes(domain) && state !== "unavailable";
+}

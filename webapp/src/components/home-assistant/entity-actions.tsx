@@ -58,7 +58,7 @@ import {
   LIGHT_FEATURE, LOCK_FEATURE, MEDIA_PLAYER_FEATURE, VACUUM_FEATURE,
   fanPowerButtons, optionList, supportsBrightness, supportsColorTemp, supportsFeature,
 } from "@/lib/ha-features";
-import { classifyEntityState } from "@/lib/ha-entity-display";
+import { classifyEntityState, isRestingUnknown } from "@/lib/ha-entity-display";
 import { dangerousAction, type DangerousAction } from "@/lib/ha-dangerous-actions";
 import { OPTIMISTIC_SETTLE_MS } from "@/lib/home-assistant-optimism";
 import type { HAEntity, HAServiceCall } from "@/types/home-assistant";
@@ -1727,23 +1727,24 @@ export function EntityActions({ entity, displayName }: DomainProps & { displayNa
   const domain = entity.entity_id.split(".")[0];
 
   /*
-    The reading gate, with RFC-008 R1's one phase-one exception.
+    The reading gate, with RFC-008 R1's exceptions.
 
     `unavailable`, `unknown` and an empty state normally all mean there is
     nothing here to drive. R1 carves out the domains whose *resting* state is
-    legitimately `unknown`, and `scene` is one of them and is in phase one: a
-    scene's state is the timestamp it was last activated, Home Assistant does
-    not restore it, so after a restart every scene in the house reports
-    `unknown`. Gating on that greys out Activate on a perfectly working scene
-    until somebody triggers it from somewhere else — which is precisely the
-    failure R1 exists to describe.
+    legitimately `unknown` — a scene's state is the timestamp it was last
+    activated and Home Assistant does not restore it, so after a restart every
+    scene in the house reports `unknown`. Gating on that greys out Activate on
+    a perfectly working scene until somebody triggers it from somewhere else,
+    which is precisely the failure R1 exists to describe.
 
-    `unavailable` still disables everything, for `scene` as for anything else:
-    that one really does mean unreachable. The rest of R1's list (`button`,
-    `event`, `image`, the date/time family) belongs to the later phase with
-    those domains.
+    `unavailable` still disables everything, for these domains as for anything
+    else: that one really does mean unreachable.
+
+    The list lives in `ha-entity-display.ts` because the tiles' own gate in
+    `app/home-automation/page.tsx` needs the same one, and the two must not be
+    able to disagree about which domains are on it.
   */
-  const restingUnknown = domain === "scene" && entity.state !== "unavailable";
+  const restingUnknown = isRestingUnknown(domain, entity.state);
   if (!restingUnknown && classifyEntityState(entity.state).kind === "unavailable") {
     return <UnavailableNotice />;
   }
