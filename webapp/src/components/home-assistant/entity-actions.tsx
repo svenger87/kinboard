@@ -60,17 +60,29 @@ function text(value: unknown): string | undefined {
 }
 
 /**
- * Run a service call and say so when it fails.
+ * Run a service call, say so when it fails, and tell the caller which it was.
  *
  * Every control here is fire-and-forget from a tap, so without this the
  * rejection from a call Home Assistant refused would be an unhandled promise
  * and the household would see the button do nothing at all.
+ *
+ * The boolean is what a control with an optimistic value needs: the same shape
+ * `page.tsx`'s own `run()` uses for the tiles, where a failed call calls
+ * `forget(entityId)` and drops the guess. A slider that kept its guess after a
+ * failure would be a wall panel stating something confidently about a device
+ * that never moved.
  */
 function useRunAction() {
   const t = useTranslations("homeAutomation");
   return useCallback(
-    (run: () => Promise<unknown>) => {
-      void run().catch(() => toast.error(t("controlFailed")));
+    async (run: () => Promise<unknown>): Promise<boolean> => {
+      try {
+        await run();
+        return true;
+      } catch {
+        toast.error(t("controlFailed"));
+        return false;
+      }
     },
     [t],
   );
@@ -150,12 +162,18 @@ function OptionRow({
  *    `20.0 + 0.5` and the room ends up half a degree warmer instead of one and
  *    a half.
  *
- * The pending value survives until the source actually moves — not until the
- * call returns — so the control does not snap back to a stale reading in the
- * gap between the release and the next poll. A call Home Assistant rejects
- * therefore leaves the thumb where the household put it, with
- * `homeAutomation.controlFailed` explaining why; that is the same trade-off the
- * uncontrolled sliders elsewhere in this repo already make.
+ * A *successful* pending value survives until the source actually moves — not
+ * until the call returns — so the control does not snap back to a stale
+ * reading in the gap between the release and the next poll.
+ *
+ * A **rejected** one is dropped immediately, and that asymmetry is the point.
+ * Waiting for the source to move cannot work when the call failed: the light
+ * stayed at 20%, so the next poll returns 20% again, the source never moves,
+ * and the slider sits at the 80% nobody achieved — for as long as the panel is
+ * on, with the toast that explained it long gone. Being one poll behind is a
+ * different thing from being confidently wrong. `page.tsx`'s tiles drop their
+ * optimistic state on failure for exactly this reason; sliders behave the same
+ * way so a household does not learn two rules.
  */
 function usePendingNumber<T extends number | undefined>(source: T) {
   const [pending, setPending] = useState<number | null>(null);
@@ -182,7 +200,8 @@ function CommitSlider({
   min?: number;
   max?: number;
   step?: number;
-  onCommit: (value: number) => void;
+  /** Resolves false when Home Assistant refused the call. */
+  onCommit: (value: number) => Promise<boolean>;
   disabled?: boolean;
 }) {
   const [shown, setPending] = usePendingNumber(value);
@@ -202,7 +221,12 @@ function CommitSlider({
         onValueChange={(next) => setPending(next[0])}
         onValueCommit={(next) => {
           setPending(next[0]);
-          onCommit(next[0]);
+          // Back to the last known reading if the call was refused: that is
+          // the truth as far as we know it, and one poll of staleness beats
+          // an indefinitely wrong thumb.
+          void onCommit(next[0]).then((ok) => {
+            if (!ok) setPending(null);
+          });
         }}
         disabled={disabled}
         className="cursor-pointer"
@@ -217,18 +241,18 @@ function Stepper({
 }: {
   label: string;
   display: string;
-  onStep: (direction: -1 | 1) => void;
+  onStep: (direction: -1 | 1) => void | Promise<void>;
   disabled?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-sm text-muted-foreground">{label}</span>
       <div className="flex items-center gap-2">
-        <Button size="icon" variant="outline" onClick={() => onStep(-1)} disabled={disabled}>
+        <Button size="icon" variant="outline" onClick={() => void onStep(-1)} disabled={disabled}>
           <Minus />
         </Button>
         <span className="min-w-16 text-center text-lg font-semibold tabular-nums">{display}</span>
-        <Button size="icon" variant="outline" onClick={() => onStep(1)} disabled={disabled}>
+        <Button size="icon" variant="outline" onClick={() => void onStep(1)} disabled={disabled}>
           <Plus />
         </Button>
       </div>
@@ -900,10 +924,13 @@ function ClimateActions({ entity }: DomainProps) {
           label={tAttr("temperature")}
           display={`${target}${unit}`}
           disabled={busy}
-          onStep={(direction) => {
+          onStep={async (direction) => {
             const next = clampTemp(target + direction * step);
             setTarget(next);
-            call("set_temperature", { temperature: next });
+            // Refused: back to the thermostat's own setpoint. Keeping the
+            // guess would leave the panel claiming a target the room will
+            // never reach, and nothing would ever correct it.
+            if (!(await call("set_temperature", { temperature: next }))) setTarget(null);
           }}
         />
       )}
@@ -913,20 +940,28 @@ function ClimateActions({ entity }: DomainProps) {
             label={tAttr("target_temp_low")}
             display={`${low}${unit}`}
             disabled={busy}
-            onStep={(direction) => {
+            onStep={async (direction) => {
               const next = clampTemp(low + direction * step);
               setLow(next);
-              call("set_temperature", { target_temp_low: next, target_temp_high: high });
+              const ok = await call("set_temperature", {
+                target_temp_low: next,
+                target_temp_high: high,
+              });
+              if (!ok) setLow(null);
             }}
           />
           <Stepper
             label={tAttr("target_temp_high")}
             display={`${high}${unit}`}
             disabled={busy}
-            onStep={(direction) => {
+            onStep={async (direction) => {
               const next = clampTemp(high + direction * step);
               setHigh(next);
-              call("set_temperature", { target_temp_low: low, target_temp_high: next });
+              const ok = await call("set_temperature", {
+                target_temp_low: low,
+                target_temp_high: next,
+              });
+              if (!ok) setHigh(null);
             }}
           />
         </>

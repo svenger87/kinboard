@@ -651,10 +651,14 @@ test.describe("controls the household drags and taps", () => {
     expect(body).toContain("usePendingNumber(num(attrs.temperature))");
     expect(body).toContain("usePendingNumber(num(attrs.target_temp_low))");
     expect(body).toContain("usePendingNumber(num(attrs.target_temp_high))");
-    // Each tap records what it asked for before the call goes out.
-    expect(body).toMatch(/setTarget\(next\);\s*\n\s*call\("set_temperature"/);
-    expect(body).toMatch(/setLow\(next\);\s*\n\s*call\("set_temperature"/);
-    expect(body).toMatch(/setHigh\(next\);\s*\n\s*call\("set_temperature"/);
+    // Each tap records what it asked for before the call goes out…
+    for (const setter of ["setTarget(next)", "setLow(next)", "setHigh(next)"]) {
+      expect(body, setter).toContain(setter);
+    }
+    // …and drops it again if Home Assistant refused.
+    for (const revert of ["setTarget(null)", "setLow(null)", "setHigh(null)"]) {
+      expect(body, revert).toContain(revert);
+    }
     // The old shape — computing straight off the attribute inside the call.
     expect(body).not.toContain("clampTemp(target + direction * step) }");
   });
@@ -718,5 +722,53 @@ test.describe("a scene nobody has activated — RFC-008 R1", () => {
       expect(typeof detail.neverActivated, `${locale}.neverActivated`).toBe("string");
       expect(detail.neverActivated, locale).not.toBe("");
     }
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────
+   Fix round 3 — a refused call must not leave the panel confidently wrong.
+
+   Same caveat as the drag guard above: the honest check is a rendered sheet
+   whose states poll keeps returning the old reading while the set call fails,
+   and it was run — both engines, poll and service call both intercepted and
+   counted — but it needs the scratch route to stand up and so cannot be
+   committed until the sheet has a caller. These hold the structure it depends
+   on. No weaker behavioural test is committed in its place.
+   ──────────────────────────────────────────────────────────────────────── */
+
+test.describe("a call Home Assistant refused", () => {
+  test("the runner reports the failure rather than swallowing it", () => {
+    const start = actionsSource.indexOf("function useRunAction(");
+    const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
+    expect(body).toContain("Promise<boolean>");
+    expect(body).toContain("return true");
+    expect(body).toContain('toast.error(t("controlFailed"))');
+    expect(body).toContain("return false");
+  });
+
+  test("the slider goes back to the reading", () => {
+    /*
+      Not "wait for the source to move": the light stayed at 20%, so the poll
+      returns 20% again and the source never moves. The thumb would sit at the
+      80% nobody achieved for as long as the panel is on, with the toast that
+      explained it long gone — a wall panel stating something confidently
+      about a device that never moved, which is the same defect as the lock
+      this branch already fixed and worse, because nothing ever corrects it.
+    */
+    const start = actionsSource.indexOf("function CommitSlider(");
+    const body = actionsSource.slice(start, actionsSource.indexOf("\nfunction ", start + 1));
+    expect(body).toContain("onCommit: (value: number) => Promise<boolean>");
+    expect(body).toMatch(/onCommit\(next\[0\]\)\.then\(\(ok\) => \{\s*\n\s*if \(!ok\) setPending\(null\);/);
+  });
+
+  test("and so do the two surfaces together", () => {
+    // `page.tsx`'s tiles drop their optimistic state on failure. The sliders
+    // match it deliberately: a household should not learn one rule for tiles
+    // and another for sliders, so if that shape changes this should be
+    // revisited rather than silently diverge.
+    const page = codeOnly(
+      readFileSync(join(__dirname, "../src/app/home-automation/page.tsx"), "utf8"),
+    );
+    expect(page).toMatch(/catch \{\s*\n\s*forget\(entityId\);\s*\n\s*toast\.error/);
   });
 });
