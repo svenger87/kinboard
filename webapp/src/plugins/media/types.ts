@@ -9,8 +9,10 @@
  * RFC-003 §2.4.
  */
 export type Capability =
+  | "power"
   | "transport"
   | "next"
+  | "previous"
   | "seek"
   | "volume"
   | "mute"
@@ -42,6 +44,7 @@ export interface MediaPlayerState {
 
 /** The commands a driver may be asked to perform. */
 export type MediaCommand =
+  | { kind: "power"; on: boolean }
   | { kind: "playPause" }
   | { kind: "next" }
   | { kind: "previous" }

@@ -448,5 +448,36 @@
       "latitude": 52.52,
       "longitude": 13.405
     }
+  },
+  {
+    "entity_id": "media_player.kuche",
+    "state": "playing",
+    "attributes": {
+      "friendly_name": "Kitchen speaker",
+      "media_title": "Morning Coffee",
+      "media_artist": "The Bright Sides",
+      "media_album_name": "Weekday",
+      "volume_level": 0.34,
+      "is_volume_muted": false,
+      "shuffle": false,
+      "supported_features": 53309
+    }
+  },
+  {
+    "entity_id": "media_player.wohnzimmer_tv",
+    "state": "off",
+    "attributes": {
+      "friendly_name": "Living room TV",
+      "source": "HDMI 1",
+      "source_list": [
+        "HDMI 1",
+        "HDMI 2",
+        "Netflix",
+        "Live TV"
+      ],
+      "volume_level": 0.2,
+      "is_volume_muted": false,
+      "supported_features": 22925
+    }
   }
 ]

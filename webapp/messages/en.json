@@ -4068,7 +4068,10 @@
     "commandFailed": "That did not go through",
     "removeDialogTitle": "Remove player?",
     "confirmRemove": "Remove \"{name}\"? This cannot be undone.",
-    "removeFailed": "Could not remove the player. Please try again."
+    "removeFailed": "Could not remove the player. Please try again.",
+    "off": "Off",
+    "turnOn": "Turn on",
+    "turnOff": "Turn off"
   },
   "messages": {
     "title": "Messages",

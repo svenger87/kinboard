@@ -26,6 +26,16 @@ BEGIN;
 -- Cascades through FKs: devices, people, calendars, events, todos,
 -- shopping_items, subjects, schedules, birthdays, notes, recipes,
 -- recipe_ingredients, recipe_tags, meal_plans, meal_plan_entries.
+-- The wipe has to be a *hard* delete. `migration_zzz_soft_delete.sql` puts a
+-- BEFORE DELETE trigger on people, notes, todos, birthdays, recipes and the
+-- rest that stamps `deleted_at` and returns NULL, so the cascade leaves every
+-- row in place with its id — and the re-insert below then fails on
+-- `people_pkey`. That made this file's "idempotent" promise false on any
+-- install carrying soft delete: the first seed worked and every later one
+-- aborted the transaction, which is exactly what an hourly demo reset would
+-- have hit. The trigger's own escape hatch turns it off for this transaction.
+SET LOCAL kinboard.hard_delete = 'on';
+
 DELETE FROM public.families WHERE id = '00000000-0000-0000-0000-000000000001';
 
 -- =========================================================================
@@ -593,6 +603,149 @@ VALUES
      'EUR', 2480, 300, 500, 6, 'dragon', 7300, 4, 4),
     ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a4',
      'EUR', 640, 300, 300, 6, 'turtle', 1900, 2, 2);
+
+-- =========================================================================
+-- Everything shipped since this seed was first written
+-- =========================================================================
+-- The seed had drifted a long way behind the product: it wrote four settings
+-- keys out of the twenty-three the app knows, and populated none of the
+-- tables added by RFC-003 (media players), RFC-004 (timers), RFC-005
+-- (messages), RFC-006 (the device catalogue) or RFC-007 (rooms). A visitor
+-- therefore met a demo that showed none of the last two months of work.
+--
+-- Every section below is guarded on `to_regclass`. The whole file is one
+-- transaction, so a single reference to a table an older install has not
+-- migrated yet would abort the entire seed and leave the demo with nothing.
+-- The guards let the same file seed a current box and an older one.
+--
+-- Deliberately NOT seeded: `integration_tokens`, `integration_clients`,
+-- `oauth_credentials`, `push_subscriptions`, `device_sessions`,
+-- `domain_events`, `notification_logs`, `scheduled_notifications` and
+-- `integration_idempotency`. Those are credentials and runtime bookkeeping.
+-- A public demo anybody can join should hold no secrets, and seeding
+-- machine-generated rows would only make them stale. `attention_items` is
+-- left alone for the same reason: the engine computes it, and a seeded row
+-- would be a hint about a state the demo is no longer in.
+
+-- Settings the seed never learned about. ON CONFLICT DO UPDATE so re-running
+-- moves an existing demo forward rather than erroring.
+INSERT INTO public.settings (family_id, key, value) VALUES
+    -- Widgets are the demo's shop window. The defaults hide most of them
+    -- because a fresh household has no data behind them; the demo does, so
+    -- the ones with something to show are switched on. `photos` stays off —
+    -- it needs a photo source, and there is no credential-free one to seed.
+    ('00000000-0000-0000-0000-000000000001', 'widget_visibility',
+     '{"weather":true,"upcomingEvents":true,"weekOverview":true,"schedule":true,
+       "tasks":true,"mealPlan":true,"birthday":true,"wasteCollection":false,
+       "notes":true,"shopping":true,"vehicles":true,"stonks":false,
+       "pocketMoney":true,"photos":false,"timers":true,"media":true,
+       "messages":true}'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', 'week_start', '"monday"'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', 'currency', '"EUR"'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', 'locale', '"en"'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', 'weather_units', '"metric"'::jsonb),
+    ('00000000-0000-0000-0000-000000000001', 'weather_location', '{"type":"city","city":"Hamburg"}'::jsonb)
+ON CONFLICT (family_id, key) DO UPDATE SET value = EXCLUDED.value;
+
+-- `enabled_plugins` is deliberately absent: a plugin missing from that blob
+-- counts as enabled (use-enabled-plugins.ts), so writing it can only ever
+-- turn things off, and a plugin shipped after this seed would arrive
+-- switched off on the demo alone.
+
+-- Rooms and the device catalogue (RFC-006, RFC-007) — the room-by-room
+-- automation screen has nothing to draw without them. Entity ids are the
+-- ones the mock-ha container actually serves, so the tiles carry live state
+-- rather than sitting at "Not reachable".
+DO $seed$
+BEGIN
+  IF to_regclass('public.rooms') IS NOT NULL THEN
+    INSERT INTO public.rooms (id, family_id, name, icon, color, position) VALUES
+      ('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-000000000001', 'Hallway',     'door-open', '#67f264', 0),
+      ('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-000000000001', 'Living room', 'sofa',      '#4A8FD6', 1),
+      ('00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-000000000001', 'Kitchen',     'utensils',  '#D667A0', 2),
+      ('00000000-0000-0000-0000-0000000000f4', '00000000-0000-0000-0000-000000000001', 'Garage',      'car',       NULL,      3);
+  END IF;
+
+  IF to_regclass('public.catalogue_items') IS NOT NULL THEN
+    -- `room` (the legacy free text) is filled as well as `room_id`: RFC-007
+    -- keeps it for one release as the copy a household recovers from, and a
+    -- demo that seeds only the new column would not exercise that path.
+    INSERT INTO public.catalogue_items
+      (family_id, kind, entity_id, builtin_key, name, room, room_id, position) VALUES
+      ('00000000-0000-0000-0000-000000000001', 'ha_entity', 'light.flur',              NULL, 'Hall light',        'Hallway',     '00000000-0000-0000-0000-0000000000f1', 0),
+      ('00000000-0000-0000-0000-000000000001', 'ha_entity', 'light.wohnzimmer',        NULL, 'Living room light', 'Living room', '00000000-0000-0000-0000-0000000000f2', 1),
+      ('00000000-0000-0000-0000-000000000001', 'ha_entity', 'light.esstisch',          NULL, 'Dining table',      'Kitchen',     '00000000-0000-0000-0000-0000000000f3', 2),
+      ('00000000-0000-0000-0000-000000000001', 'ha_entity', 'sensor.innentemperatur',  NULL, 'Indoor temperature','Living room', '00000000-0000-0000-0000-0000000000f2', 3),
+      ('00000000-0000-0000-0000-000000000001', 'ha_entity', 'sensor.aussentemperatur', NULL, 'Outside temperature','Garage',     '00000000-0000-0000-0000-0000000000f4', 4),
+      -- A row with no entity behind it: the catalogue holds things that are
+      -- not smart devices, and the screen must render one without inventing
+      -- a state for it.
+      ('00000000-0000-0000-0000-000000000001', 'builtin',   NULL, 'bike', 'Riley''s bike', 'Garage', '00000000-0000-0000-0000-0000000000f4', 5);
+  END IF;
+
+  -- Media players (RFC-003 M1). The widget only appears while something is
+  -- playing, and the /media page lists them either way.
+  IF to_regclass('public.media_players') IS NOT NULL THEN
+    INSERT INTO public.media_players (family_id, position, driver, nickname, config) VALUES
+      ('00000000-0000-0000-0000-000000000001', 0, 'home_assistant', 'Kitchen speaker',
+       '{"entity_id":"media_player.kuche"}'::jsonb),
+      ('00000000-0000-0000-0000-000000000001', 1, 'home_assistant', 'Living room TV',
+       '{"entity_id":"media_player.wohnzimmer_tv"}'::jsonb);
+  END IF;
+
+  -- School holidays: without one the timetable demo cannot show the thing
+  -- that makes it interesting — the packing reminders going quiet.
+  IF to_regclass('public.school_holidays') IS NOT NULL THEN
+    INSERT INTO public.school_holidays (family_id, name, starts_on, ends_on) VALUES
+      ('00000000-0000-0000-0000-000000000001', 'Autumn half-term',
+       (CURRENT_DATE + INTERVAL '24 days')::date,
+       (CURRENT_DATE + INTERVAL '32 days')::date),
+      ('00000000-0000-0000-0000-000000000001', 'Christmas holidays',
+       (CURRENT_DATE + INTERVAL '90 days')::date,
+       (CURRENT_DATE + INTERVAL '104 days')::date);
+  END IF;
+
+  -- Recipe tags: the seed already writes recipes, so the tag filter on
+  -- /recipes had nothing to filter by.
+  IF to_regclass('public.recipe_tags') IS NOT NULL THEN
+    INSERT INTO public.recipe_tags (family_id, name, color) VALUES
+      ('00000000-0000-0000-0000-000000000001', 'Quick',      '#4A8FD6'),
+      ('00000000-0000-0000-0000-000000000001', 'Vegetarian', '#67C46A'),
+      ('00000000-0000-0000-0000-000000000001', 'Family favourite', '#D667A0');
+  END IF;
+
+  -- Gift ideas hang off whichever birthdays the seed created above; picked
+  -- by subquery rather than a hardcoded id so this survives that list
+  -- being edited.
+  IF to_regclass('public.birthday_gift_ideas') IS NOT NULL THEN
+    INSERT INTO public.birthday_gift_ideas (family_id, birthday_id, text, bought)
+    SELECT '00000000-0000-0000-0000-000000000001', b.id, g.text, g.bought
+    FROM (SELECT id FROM public.birthdays WHERE family_id = '00000000-0000-0000-0000-000000000001' ORDER BY id LIMIT 1) b
+    CROSS JOIN (VALUES ('Bouldering session', false), ('Field guide to birds', true)) AS g(text, bought);
+  END IF;
+
+  -- Shopping autocomplete has nothing to suggest on a fresh box.
+  IF to_regclass('public.item_catalog') IS NOT NULL THEN
+    INSERT INTO public.item_catalog (family_id, name, name_normalized, category, default_unit, source)
+    VALUES
+      ('00000000-0000-0000-0000-000000000001', 'Milk',    'milk',    'Dairy',   'l',     'demo'),
+      ('00000000-0000-0000-0000-000000000001', 'Bread',   'bread',   'Bakery',  'loaf',  'demo'),
+      ('00000000-0000-0000-0000-000000000001', 'Apples',  'apples',  'Produce', 'kg',    'demo'),
+      ('00000000-0000-0000-0000-000000000001', 'Coffee',  'coffee',  'Pantry',  'pack',  'demo');
+  END IF;
+
+  -- One message, unacknowledged but two hours old (RFC-005): past the minute
+  -- it would have taken over the board, so it sits quietly in the widget
+  -- waiting for somebody to tap "Got it" — which is the half of the feature
+  -- worth demonstrating. A fresh one would hijack the screen of every
+  -- visitor who loaded the demo.
+  IF to_regclass('public.messages') IS NOT NULL THEN
+    INSERT INTO public.messages (family_id, body, created_at)
+    VALUES ('00000000-0000-0000-0000-000000000001', 'Back by six — dinner is in the oven', now() - INTERVAL '2 hours');
+  END IF;
+END
+$seed$;
+
 
 COMMIT;
 
