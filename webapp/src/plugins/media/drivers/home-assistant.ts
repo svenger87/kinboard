@@ -1,5 +1,5 @@
 import type { HAEntity } from "@/types/home-assistant";
-import type { Capability, MediaPlayerState, MediaStatus } from "../types";
+import type { BrowseNode, Capability, MediaPlayerState, MediaStatus } from "../types";
 
 /**
  * MediaPlayerEntityFeature, from Home Assistant's media_player/const.py.
@@ -112,4 +112,43 @@ export function stateFromHaEntity(entity: HAEntity | undefined): MediaPlayerStat
         ? []
         : capabilitiesFromSupportedFeatures(num(a.supported_features) ?? 0),
   };
+}
+
+/**
+ * Home Assistant's `browse_media` payload, as much of it as we read.
+ * Everything else on the frame is left alone rather than typed speculatively.
+ */
+interface HaBrowseMedia {
+  title?: string;
+  media_content_id?: string;
+  media_content_type?: string;
+  thumbnail?: string | null;
+  can_play?: boolean;
+  can_expand?: boolean;
+  children?: HaBrowseMedia[] | null;
+}
+
+/**
+ * One level of HA's tree, mapped into the uniform node shape.
+ *
+ * Children only — the node the caller asked for is the breadcrumb they are
+ * already standing on, and returning it again would make every level render
+ * itself as its own first row.
+ *
+ * A child with neither `can_play` nor `can_expand` is dropped: it is a label
+ * in HA's own UI, and here it would be a row that does nothing when tapped.
+ */
+export function browseNodesFromHa(result: HaBrowseMedia | null | undefined): BrowseNode[] {
+  const children = result?.children ?? [];
+  return children
+    .filter((c) => (c.can_play ?? false) || (c.can_expand ?? false))
+    .map((c) => ({
+      id: c.media_content_id ?? "",
+      title: c.title ?? "",
+      type: c.media_content_type ?? "",
+      artworkUrl: c.thumbnail ?? undefined,
+      playable: c.can_play ?? false,
+      expandable: c.can_expand ?? false,
+    }))
+    .filter((n) => n.id !== "" && n.title !== "");
 }

@@ -4071,7 +4071,13 @@
     "removeFailed": "Impossible de supprimer l’appareil. Veuillez réessayer.",
     "off": "Éteint",
     "turnOn": "Allumer",
-    "turnOff": "Éteindre"
+    "turnOff": "Éteindre",
+    "browse": "Parcourir",
+    "browseTitle": "Que jouer sur {name}",
+    "browseBack": "Retour",
+    "browseLoading": "Lecture de la médiathèque…",
+    "browseEmpty": "Rien ici",
+    "browseFailed": "Nous n'avons pas pu lire le contenu de cet appareil."
   },
   "messages": {
     "title": "Messages",

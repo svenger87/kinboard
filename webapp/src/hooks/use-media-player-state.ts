@@ -90,6 +90,11 @@ export function useMediaCommand() {
         return void (await call("volume_set", { volume_level: command.volume }));
       case "setMuted":
         return void (await call("volume_mute", { is_volume_muted: command.muted }));
+      case "playMedia":
+        return void (await call("play_media", {
+          media_content_id: command.contentId,
+          media_content_type: command.contentType,
+        }));
       case "selectSource":
         return void (await call("select_source", { source: command.source }));
     }

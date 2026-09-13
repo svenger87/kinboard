@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Pause, Play, Power, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
+import { ListMusic, Pause, Play, Power, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
+import { MediaBrowseSheet } from "./browse-sheet";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { interpolatedPosition } from "./progress";
@@ -51,6 +52,7 @@ export function PlayerCard({
   }, [state.status]);
 
   const can = (c: Capability) => state.capabilities.includes(c);
+  const [browseOpen, setBrowseOpen] = useState(false);
   const isUnavailable = state.status === "unavailable";
   const position = interpolatedPosition(state, now);
 
@@ -171,6 +173,17 @@ export function PlayerCard({
               <SkipForward className="size-5" />
             </Button>
           )}
+          {can("browse") && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="min-h-[44px] min-w-[44px]"
+              aria-label={t("browse")}
+              onClick={() => setBrowseOpen(true)}
+            >
+              <ListMusic className="size-5" />
+            </Button>
+          )}
           {can("mute") && (
             <Button
               variant="ghost"
@@ -229,6 +242,21 @@ export function PlayerCard({
       )}
 
       {failed && <p className="text-xs text-destructive">{t("commandFailed")}</p>}
+
+      {can("browse") && (
+        <MediaBrowseSheet
+          player={player}
+          familyId={familyId}
+          open={browseOpen}
+          onOpenChange={setBrowseOpen}
+          onPlay={(node) => {
+            setBrowseOpen(false);
+            send(() =>
+              run(player, { kind: "playMedia", contentId: node.id, contentType: node.type }),
+            );
+          }}
+        />
+      )}
     </div>
   );
 }
