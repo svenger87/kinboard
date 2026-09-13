@@ -7,6 +7,20 @@ import { familyMatchesSession, requireSession } from "@/lib/require-session";
 // Proxies the household's own Home Assistant with the token stored for that
 // family — see the note in ../route.ts. This is the verb that acts rather
 // than reads: unlocking a door is a service call.
+/**
+ * Home Assistant's REST `/api/services/...` **blocks until the service
+ * finishes**, so this timeout is a bound on the device, not on the network.
+ *
+ * It was 10s, which a real device beats: an LG soundbar asked to switch to a
+ * radio source turned on, switched, and took longer than that to say so — and
+ * Kinboard told the household it had failed while they watched it work.
+ *
+ * 30s is long enough for a device that has to wake up and change inputs, and
+ * still short enough that a genuinely unreachable Home Assistant does not hold
+ * the handler open.
+ */
+const SERVICE_CALL_TIMEOUT_MS = 30_000;
+
 export async function POST(request: NextRequest) {
   const auth = await requireSession(request);
   if (!auth.ok) return auth.response;
@@ -66,7 +80,7 @@ export async function POST(request: NextRequest) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(SERVICE_CALL_TIMEOUT_MS),
       }
     );
 
@@ -87,6 +101,25 @@ export async function POST(request: NextRequest) {
       affected_entities: result.length || 0,
     });
   } catch (err) {
+    /*
+      A timeout is not a failure, and saying so was the bug.
+
+      The request reached Home Assistant; what ran out was our patience waiting
+      for it to confirm. Reporting failure for a command the household can see
+      working is the same wall-panel lie as claiming success for one that did
+      nothing, just inverted — and the client already knows how to handle "we
+      do not know yet": the optimistic value stands until a poll agrees with
+      it, disagrees with it, or the settle elapses.
+
+      So: 202, which `response.ok` accepts, leaving that machinery to decide.
+    */
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      console.warn(
+        `Home Assistant did not confirm the service call within ${SERVICE_CALL_TIMEOUT_MS}ms; ` +
+          `it was delivered, and the next poll decides what happened`,
+      );
+      return NextResponse.json({ success: true, timedOut: true }, { status: 202 });
+    }
     console.error("Error calling Home Assistant service:", err);
     return NextResponse.json(
       { error: "Failed to call Home Assistant service" },
