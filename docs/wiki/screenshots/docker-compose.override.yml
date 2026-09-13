@@ -88,7 +88,7 @@ services:
       - kinboard
 
   mock-ha:
-    image: node:20-alpine
+    image: node:22-alpine
     container_name: ${PROJECT_NAME:-kinboard-demo}-mock-ha
     restart: unless-stopped
     working_dir: /app
@@ -101,7 +101,7 @@ services:
       - kinboard
 
   mock-tesla:
-    image: node:20-alpine
+    image: node:22-alpine
     container_name: ${PROJECT_NAME:-kinboard-demo}-mock-tesla
     restart: unless-stopped
     working_dir: /app
@@ -114,7 +114,7 @@ services:
       - kinboard
 
   mock-weather:
-    image: node:20-alpine
+    image: node:22-alpine
     container_name: ${PROJECT_NAME:-kinboard-demo}-mock-weather
     restart: unless-stopped
     working_dir: /app
