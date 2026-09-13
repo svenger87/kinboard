@@ -37,6 +37,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Operators: the container now runs Node 22.** Node 20 stopped receiving security updates in April 2026, so the image was building on an unsupported runtime. Nothing changes about how you run Kinboard — same image, same compose file — but if you build from source yourself you now need Node 22 or newer.
 - **Operators: restart the realtime and rest containers after deploying this.** It adds a table to the realtime publication, and Home Assistant's realtime service only reads that publication when it starts — so live updates for rooms will not arrive until it is restarted. It also adds a column to the families table, and PostgREST holds its own copy of the schema; the migration asks it to reload, but a restart is what makes certain it picked the change up rather than serving from a cache that predates it. `docker compose restart realtime rest`.
 - **One typeface across the interface.** Small labels — the caption under the clock, the headings on birthdays, energy, todos, shopping, the setup steps — were set in a monospace face while everything around them used the body font, which made the same screen look assembled from two different products. They use the body font now. The monospace face stays where it earns its keep: things you type, read out or copy, such as the join code, the settings PIN, device identifiers, calendar URLs, API tokens and keyboard keys.
 

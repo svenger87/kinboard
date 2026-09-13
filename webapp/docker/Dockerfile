@@ -4,7 +4,7 @@
 # ===================
 # Stage 1: Dependencies
 # ===================
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 # Pinned to match `packageManager` in package.json — a floating major
 # would eventually pull npm 12 and reintroduce lockfile drift.
 RUN apk add --no-cache libc6-compat && npm install -g npm@11.19.0
@@ -28,7 +28,7 @@ RUN \
 # ===================
 # Stage 2: Builder
 # ===================
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 WORKDIR /app
 
@@ -91,7 +91,7 @@ RUN set -e; \
 # ===================
 # Stage 3: Runner
 # ===================
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 # curl: cron job health checks (existing). postgresql-client: provides

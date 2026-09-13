@@ -29,7 +29,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: webapp/package-lock.json
 
@@ -58,7 +58,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: webapp/package-lock.json
 
@@ -87,7 +87,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       # npm 10 (bundled with Node 20) and npm 11 disagree on lockfile
       # shape, and `npm ci` on the wrong one fails outright. Corepack
@@ -186,7 +186,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       # npm 10 (bundled with Node 20) and npm 11 disagree on lockfile
       # shape, and `npm ci` on the wrong one fails outright. Corepack
@@ -236,7 +236,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
       # No `npm ci` and no corepack: the script imports only node:fs/url/path,
       # so it runs against a bare checkout.
       - name: Check CHANGELOG section structure
@@ -263,7 +263,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: webapp/package-lock.json
 
@@ -306,7 +306,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: webapp/package-lock.json
       - name: Use the pinned npm
