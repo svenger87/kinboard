@@ -4071,7 +4071,13 @@
     "removeFailed": "Das Gerät konnte nicht entfernt werden. Bitte versuche es erneut.",
     "off": "Aus",
     "turnOn": "Einschalten",
-    "turnOff": "Ausschalten"
+    "turnOff": "Ausschalten",
+    "browse": "Durchsuchen",
+    "browseTitle": "Was auf {name} laufen soll",
+    "browseBack": "Zurück",
+    "browseLoading": "Mediathek wird gelesen …",
+    "browseEmpty": "Hier ist nichts",
+    "browseFailed": "Wir konnten nicht lesen, was auf diesem Gerät liegt."
   },
   "messages": {
     "title": "Nachrichten",

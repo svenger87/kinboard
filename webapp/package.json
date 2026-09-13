@@ -78,6 +78,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tsdav": "^2.3.1",
     "web-push": "^3.6.7",
+    "ws": "^8.21.3",
     "yahoo-finance2": "^3.14.0",
     "zod": "^4.3.5",
     "zustand": "^5.0.2"
@@ -91,6 +92,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@types/web-push": "^3.6.4",
+    "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.2.4",

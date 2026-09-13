@@ -4071,7 +4071,13 @@
     "removeFailed": "Could not remove the player. Please try again.",
     "off": "Off",
     "turnOn": "Turn on",
-    "turnOff": "Turn off"
+    "turnOff": "Turn off",
+    "browse": "Browse",
+    "browseTitle": "What to play on {name}",
+    "browseBack": "Back",
+    "browseLoading": "Reading the library…",
+    "browseEmpty": "Nothing here",
+    "browseFailed": "We could not read what is on this player."
   },
   "messages": {
     "title": "Messages",
