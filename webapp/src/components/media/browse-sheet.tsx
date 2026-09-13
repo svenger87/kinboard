@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { BrowseNode } from "@/plugins/media/types";
 import type { MediaPlayer } from "@/types/database";
+import { artworkSrc } from "./artwork-src";
 
 /** One step of where we are, so Back is a step rather than a reload. */
 interface Crumb {
@@ -138,10 +139,11 @@ export function MediaBrowseSheet({
                   className="flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => (node.expandable ? openNode(node) : onPlay(node))}
                 >
-                  {node.artworkUrl ? (
+                  {artworkSrc(player.id, familyId, node.artworkUrl) ? (
                     <img
-                      src={`/api/media-players/${player.id}/artwork?family_id=${familyId}&src=${encodeURIComponent(node.artworkUrl)}`}
+                      src={artworkSrc(player.id, familyId, node.artworkUrl)}
                       alt=""
+                      loading="lazy"
                       className="size-10 shrink-0 rounded object-cover"
                     />
                   ) : (
