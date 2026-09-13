@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ListMusic, Pause, Play, Power, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
 import { MediaBrowseSheet } from "./browse-sheet";
+import { artworkSrc } from "./artwork-src";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { interpolatedPosition } from "./progress";
@@ -67,7 +68,7 @@ export function PlayerCard({
   };
 
   const artwork = state.artworkUrl
-    ? `/api/media-players/${player.id}/artwork?family_id=${familyId}&src=${encodeURIComponent(state.artworkUrl)}`
+    ? artworkSrc(player.id, familyId, state.artworkUrl)
     : null;
 
   const volumePercent = Math.round((state.volume ?? 0) * 100);

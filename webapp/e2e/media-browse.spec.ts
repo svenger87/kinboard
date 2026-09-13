@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { websocketUrl } from "../src/lib/ha-websocket";
 import { browseNodesFromHa } from "../src/plugins/media/drivers/home-assistant";
+import { artworkSrc } from "../src/components/media/artwork-src";
 
 /**
  * RFC-003 M3. Home Assistant exposes `browse_media` on its WebSocket API only,
@@ -104,5 +105,46 @@ test.describe("browseNodesFromHa", () => {
     expect(browseNodesFromHa(null)).toEqual([]);
     expect(browseNodesFromHa({})).toEqual([]);
     expect(browseNodesFromHa({ children: null })).toEqual([]);
+  });
+});
+
+/*
+  Radio Browser hands out each station's own logo, hosted by the station —
+  `https://i.iheart.com/...`, `https://icecast.walmradio.com:8443/classic.jpg`.
+  Those went through the artwork route, which is built to refuse anything off
+  Home Assistant's origin because it attaches the household's token. Correct
+  rule for a credentialed fetch; wrong one for a public image that never lived
+  on HA. All 238 stations rendered as grey squares.
+*/
+test.describe("artworkSrc", () => {
+  const P = "player-1";
+  const F = "fam-1";
+
+  test("a path on Home Assistant goes through our proxy, which holds the token", () => {
+    const out = artworkSrc(P, F, "/api/media_player_proxy/media_player.radio?token=abc");
+    expect(out).toContain(`/api/media-players/${P}/artwork`);
+    expect(out).toContain(`family_id=${F}`);
+    expect(out).toContain(encodeURIComponent("/api/media_player_proxy/media_player.radio?token=abc"));
+  });
+
+  test("a station's own logo is loaded directly, because the proxy would refuse it", () => {
+    for (const url of [
+      "https://i.iheart.com/v3/re/assets.brands/abc",
+      "https://icecast.walmradio.com:8443/classic.jpg",
+      "http://www.cnn.com/media/sites/cnn/favicon.ico",
+    ]) {
+      expect(artworkSrc(P, F, url), url).toBe(url);
+    }
+  });
+
+  test("a protocol-relative URL is not mistaken for a path", () => {
+    // `//host/x` starts with a slash and is absolute. Proxying it would send
+    // it to the route's origin check, which is not where it belongs.
+    expect(artworkSrc(P, F, "//evil.example.com/logo.png")).toBe("//evil.example.com/logo.png");
+  });
+
+  test("nothing in, nothing out", () => {
+    expect(artworkSrc(P, F, undefined)).toBeUndefined();
+    expect(artworkSrc(P, F, "")).toBeUndefined();
   });
 });
