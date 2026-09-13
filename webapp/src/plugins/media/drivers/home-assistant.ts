@@ -13,6 +13,8 @@ const FEATURE = {
   VOLUME_MUTE: 8,
   PREVIOUS_TRACK: 16,
   NEXT_TRACK: 32,
+  TURN_ON: 128,
+  TURN_OFF: 256,
   PLAY_MEDIA: 512,
   SELECT_SOURCE: 2048,
   PLAY: 16384,
@@ -29,8 +31,17 @@ const FEATURE = {
 export function capabilitiesFromSupportedFeatures(supported: number): Capability[] {
   const has = (flag: number) => (supported & flag) === flag;
   const caps: Capability[] = [];
+  // Power is not a nicety on this screen: a player reporting `off` has no
+  // transport worth pressing and, unless it also exposes a source list, nothing
+  // at all to tap. Two of the four players in the household this was tested
+  // against sat `off` with no way to switch them on.
+  if (has(FEATURE.TURN_ON) || has(FEATURE.TURN_OFF)) caps.push("power");
   if (has(FEATURE.PLAY) || has(FEATURE.PAUSE)) caps.push("transport");
   if (has(FEATURE.NEXT_TRACK)) caps.push("next");
+  // Separate from `transport`: a soundbar reports PAUSE and PLAY without
+  // PREVIOUS_TRACK, and drawing Previous off the transport bit gave it a
+  // button Home Assistant would accept and the device would ignore.
+  if (has(FEATURE.PREVIOUS_TRACK)) caps.push("previous");
   if (has(FEATURE.SEEK)) caps.push("seek");
   if (has(FEATURE.VOLUME_SET)) caps.push("volume");
   if (has(FEATURE.VOLUME_MUTE)) caps.push("mute");

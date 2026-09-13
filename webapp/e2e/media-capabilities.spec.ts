@@ -15,6 +15,7 @@ import type { HAEntity } from "../src/types/home-assistant";
 // MediaPlayerEntityFeature, from Home Assistant's media_player const.py.
 const PAUSE = 1, SEEK = 2, VOLUME_SET = 4, VOLUME_MUTE = 8;
 const PREVIOUS = 16, NEXT = 32, PLAY_MEDIA = 512, SELECT_SOURCE = 2048;
+const TURN_ON = 128, TURN_OFF = 256;
 const PLAY = 16384, BROWSE_MEDIA = 131072;
 
 const entity = (attrs: Record<string, unknown>, state = "playing"): HAEntity =>
@@ -33,6 +34,9 @@ test.describe("capabilitiesFromSupportedFeatures", () => {
     expect(capabilitiesFromSupportedFeatures(VOLUME_SET)).toContain("volume");
     expect(capabilitiesFromSupportedFeatures(VOLUME_MUTE)).toContain("mute");
     expect(capabilitiesFromSupportedFeatures(NEXT)).toContain("next");
+    expect(capabilitiesFromSupportedFeatures(PREVIOUS)).toContain("previous");
+    expect(capabilitiesFromSupportedFeatures(TURN_ON)).toContain("power");
+    expect(capabilitiesFromSupportedFeatures(TURN_OFF)).toContain("power");
     expect(capabilitiesFromSupportedFeatures(SELECT_SOURCE)).toContain("sources");
     expect(capabilitiesFromSupportedFeatures(PLAY_MEDIA)).toContain("playUrl");
     expect(capabilitiesFromSupportedFeatures(BROWSE_MEDIA)).toContain("browse");
@@ -106,5 +110,45 @@ test.describe("stateFromHaEntity", () => {
     const s = stateFromHaEntity(entity({ supported_features: 0 }));
     expect(s.volume).toBeUndefined();
     expect(s.muted).toBeUndefined();
+  });
+});
+
+/*
+  The four players in the household this was built against, with the masks
+  Home Assistant actually reported for them. They are here because they are
+  the reason `power` and `previous` exist: two of the four sat `off` with no
+  way to switch them on, and two offered a Previous button they cannot honour.
+*/
+test.describe("the masks four real devices report", () => {
+  const REAL = {
+    "Apple TV": 450487,
+    "Internetradio (Frontier Silicon)": 200588,
+    "Soundbar": 152461,
+    "Wohnzimmer": 137093,
+  } as const;
+
+  test("every one of them can be switched on and off", () => {
+    for (const [name, mask] of Object.entries(REAL)) {
+      expect(capabilitiesFromSupportedFeatures(mask), name).toContain("power");
+    }
+  });
+
+  test("only the devices that report PREVIOUS_TRACK offer it", () => {
+    // The Apple TV does; the radio, the soundbar and the living-room player
+    // do not. Drawing Previous off the transport bit gave three of the four a
+    // button Home Assistant accepts and the device ignores.
+    expect(capabilitiesFromSupportedFeatures(REAL["Apple TV"])).toContain("previous");
+    for (const name of ["Internetradio (Frontier Silicon)", "Soundbar", "Wohnzimmer"] as const) {
+      expect(capabilitiesFromSupportedFeatures(REAL[name]), name).not.toContain("previous");
+    }
+  });
+
+  test("the radio is the one with no transport at all", () => {
+    // Which is why it was the only player that felt usable before `power`:
+    // its source list gave it something to tap. RFC-003 §2.4.
+    const radio = capabilitiesFromSupportedFeatures(REAL["Internetradio (Frontier Silicon)"]);
+    expect(radio).not.toContain("transport");
+    expect(radio).toContain("sources");
+    expect(radio).toContain("power");
   });
 });

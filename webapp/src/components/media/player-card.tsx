@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Pause, Play, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
+import { Pause, Play, Power, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { interpolatedPosition } from "./progress";
@@ -86,7 +86,11 @@ export function PlayerCard({
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{player.nickname}</p>
           <p className="truncate text-sm text-muted-foreground">
-            {isUnavailable ? t("unavailable") : (state.title ?? t("nothingPlaying"))}
+            {isUnavailable
+              ? t("unavailable")
+              : state.status === "off"
+                ? t("off")
+                : (state.title ?? t("nothingPlaying"))}
           </p>
           {!isUnavailable && state.artist && (
             <p className="truncate text-xs text-muted-foreground">{state.artist}</p>
@@ -107,20 +111,38 @@ export function PlayerCard({
         </div>
       )}
 
-      {(can("transport") || can("next") || can("mute")) && (
+      {(can("power") || can("transport") || can("next") || can("previous") || can("mute")) && (
         <div className="flex items-center gap-2">
+          {/* Power first: on a player reporting `off` it is the only control
+              that does anything, and it is what the rest depend on. */}
+          {can("power") && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="min-h-[44px] min-w-[44px]"
+              aria-label={state.status === "off" ? t("turnOn") : t("turnOff")}
+              disabled={isPending}
+              onClick={() =>
+                send(() => run(player, { kind: "power", on: state.status === "off" }))
+              }
+            >
+              <Power className={`size-5 ${state.status === "off" ? "" : "text-primary"}`} />
+            </Button>
+          )}
+          {can("previous") && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="min-h-[44px] min-w-[44px]"
+              aria-label={t("previous")}
+              disabled={isPending}
+              onClick={() => send(() => run(player, { kind: "previous" }))}
+            >
+              <SkipBack className="size-5" />
+            </Button>
+          )}
           {can("transport") && (
             <>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="min-h-[44px] min-w-[44px]"
-                aria-label={t("previous")}
-                disabled={isPending}
-                onClick={() => send(() => run(player, { kind: "previous" }))}
-              >
-                <SkipBack className="size-5" />
-              </Button>
               <Button
                 variant="ghost"
                 size="icon"

@@ -4068,7 +4068,10 @@
     "commandFailed": "Cela n’est pas passé",
     "removeDialogTitle": "Supprimer l’appareil ?",
     "confirmRemove": "Supprimer « {name} » ? Cette action est irréversible.",
-    "removeFailed": "Impossible de supprimer l’appareil. Veuillez réessayer."
+    "removeFailed": "Impossible de supprimer l’appareil. Veuillez réessayer.",
+    "off": "Éteint",
+    "turnOn": "Allumer",
+    "turnOff": "Éteindre"
   },
   "messages": {
     "title": "Messages",

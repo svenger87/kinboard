@@ -76,6 +76,8 @@ export function useMediaCommand() {
       mutateAsync({ domain: "media_player", service, entity_id, service_data });
 
     switch (command.kind) {
+      case "power":
+        return void (await call(command.on ? "turn_on" : "turn_off"));
       case "playPause":
         return void (await call("media_play_pause"));
       case "next":

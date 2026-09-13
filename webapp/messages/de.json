@@ -4068,7 +4068,10 @@
     "commandFailed": "Das hat nicht funktioniert",
     "removeDialogTitle": "Gerät entfernen?",
     "confirmRemove": "„{name}“ entfernen? Das kann nicht rückgängig gemacht werden.",
-    "removeFailed": "Das Gerät konnte nicht entfernt werden. Bitte versuche es erneut."
+    "removeFailed": "Das Gerät konnte nicht entfernt werden. Bitte versuche es erneut.",
+    "off": "Aus",
+    "turnOn": "Einschalten",
+    "turnOff": "Ausschalten"
   },
   "messages": {
     "title": "Nachrichten",
