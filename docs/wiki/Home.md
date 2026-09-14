@@ -21,6 +21,9 @@ The wall display is the point, but you're not always in front of it. The whole a
 
 See [Notifications](Notifications) for the push setup and [Shopping](Shopping) for the offline-capable list.
 
+For quick interactions on the wall, see [Timers](Timers), [Messages](Messages),
+and [Media players](Media-Players).
+
 ## Start here
 
 1. **[Quick-start](Quick-start)** — bring up the stack with one Docker command, create your first family, add devices

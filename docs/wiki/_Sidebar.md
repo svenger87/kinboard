@@ -31,6 +31,8 @@
 - [[Recipes & meal planning|Recipes]]
 - [[Tasks & todos|Tasks]]
 - [[Notes]]
+- [[Messages]]
+- [[Timers]]
 - [[Photos]]
 - [[News]]
 - [[Birthdays]]
@@ -47,6 +49,7 @@
 - [[Vehicles]]
 - [[Stonks]]
 - [[Pocket Money|Pocket-Money]]
+- [[Media players|Media-Players]]
 
 **Contributing**
 - [[Plugin development|Plugin-Development]]

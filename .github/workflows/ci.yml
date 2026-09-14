@@ -174,7 +174,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: bash -n on shipped scripts
         run: |
-          for f in setup.sh webapp/deploy.sh webapp/docker/start.sh; do
+          for f in install.sh setup.sh webapp/deploy.sh webapp/docker/start.sh; do
             echo "checking $f"
             bash -n "$f"
           done

@@ -75,9 +75,12 @@ a stray "README" page in the wiki navigation.
 | [Recipes](Recipes) | Authored — Chefkoch + schema.org URL import — TODO screenshots |
 | [Tasks](Tasks) | Authored — TODO screenshots |
 | [Notes](Notes) | Authored — TODO screenshots |
+| [Messages](Messages) | Authored — realtime takeover, acknowledgement, push delivery |
+| [Timers](Timers) | Authored — shared countdowns, kiosk alarm, push delivery |
 | [Birthdays](Birthdays) | Authored — TODO screenshots |
 | [Schedule](Schedule) | Authored — TODO screenshots |
 | [Smart-Home](Smart-Home) | Authored — TODO screenshots |
+| [Media-Players](Media-Players) | Authored — Home Assistant setup, controls, browsing |
 | [Screensaver](Screensaver) | Authored — TODO screenshots |
 | [People-and-Devices](People-and-Devices) | Authored — absorbed Family-Members + Devices |
 | [Family-Members](Family-Members) | Merged into People-and-Devices |

@@ -2,137 +2,92 @@
 
 <img src="assets/logos/kinboard-banner.png" alt="Kinboard" width="600"/>
 
-**A self-hosted family dashboard for the kitchen wall.**
-Calendar · weather · photos · shopping list · smart-home — one screen, every device, real-time sync.
+### Your family's day, on one screen
+
+Calendar, weather, meals, shopping, tasks, photos, and your smart home in a
+self-hosted dashboard built for the kitchen wall and every phone in the house.
 
 [![License: MIT](https://img.shields.io/github/license/svenger87/kinboard?style=flat-square&color=blue&cacheSeconds=300)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/svenger87/kinboard/ci.yml?branch=main&style=flat-square&label=CI&cacheSeconds=300)](https://github.com/svenger87/kinboard/actions/workflows/ci.yml)
-[![Docker image](https://img.shields.io/badge/ghcr.io-kinboard-blue?logo=docker&logoColor=white&style=flat-square)](https://github.com/svenger87/kinboard/pkgs/container/kinboard)
 [![Release](https://img.shields.io/github/v/release/svenger87/kinboard?style=flat-square&include_prereleases&cacheSeconds=300)](https://github.com/svenger87/kinboard/releases)
-[![Stars](https://img.shields.io/github/stars/svenger87/kinboard?style=flat-square&logo=github&cacheSeconds=300)](https://github.com/svenger87/kinboard/stargazers)
-[![Issues](https://img.shields.io/github/issues/svenger87/kinboard?style=flat-square&cacheSeconds=300)](https://github.com/svenger87/kinboard/issues)
 
-[![Sponsor](https://img.shields.io/badge/Sponsor-svenger87-ea4aaa?logo=githubsponsors&logoColor=white&style=flat-square)](https://github.com/sponsors/svenger87)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-sven.7687-FFDD00?logo=buymeacoffee&logoColor=000&style=flat-square)](https://buymeacoffee.com/sven.7687)
-
-<br/>
-
-### **[Visit kinboard.app](https://kinboard.app)** &nbsp;·&nbsp; **[▶ Try the live demo](https://demo.kinboard.app)**
-
-<sub>The landing page at **[kinboard.app](https://kinboard.app)** has the pitch, screenshots, and install path. The demo at **[demo.kinboard.app](https://demo.kinboard.app)** runs the latest tagged release with mock integrations — use join code **`DEMO01`** to load a populated household, or create your own family from scratch. Demo data resets hourly.</sub>
+[Website](https://kinboard.app) · [Live demo](https://demo.kinboard.app) ·
+[Documentation](https://github.com/svenger87/kinboard/wiki) ·
+[Community](https://github.com/svenger87/kinboard/discussions)
 
 <br/>
 
 <img src="docs/wiki/images/dashboard-portrait.png" alt="Kinboard dashboard — kitchen kiosk portrait view" width="420"/>
 
-<sub>Built for kiosk-style touchscreens but works on any phone, tablet, or browser. Multi-device, multi-person, no cloud account required.</sub>
+<sub>Built for an always-on touchscreen. Works on phones, tablets, and desktop browsers too.</sub>
 
 </div>
 
 ---
 
-## Table of contents
+## Install
 
-- [Why](#why)
-- [Features](#features)
-- [Quick start](#quick-start)
-- [Screenshots](#screenshots)
-- [Integrations](#integrations)
-- [Tech stack](#tech-stack)
-- [Reference hardware build](#reference-hardware-build)
-- [Documentation](#documentation)
-- [Status & roadmap](#status--roadmap)
-- [Contributing](#contributing)
-- [Support development](#support-development)
-- [Acknowledgements](#acknowledgements)
-- [License](#license)
-
----
-
-## Why
-
-Family logistics are scattered across calendars, chat threads, sticky notes, and "did you check the shopping list?" Kinboard consolidates the daily-driver stuff into one always-on display, so the family knows what's happening without opening apps.
-
-- **Self-hosted.** Your data stays on your hardware. No SaaS, no telemetry, no account gating.
-- **Real-time.** Edit a shopping item on your phone, it appears on the kitchen wall in milliseconds (Supabase Realtime over WebSockets).
-- **Offline-tolerant.** The shopping list works in the basement supermarket without signal — changes queue locally and replay when the device gets connectivity back.
-- **Touch-friendly.** Designed for wall-mounted tablets first; mobile and desktop are first-class too.
-- **Modular.** Pick the integrations you actually use; the rest stay invisible.
-
----
-
-## Features
-
-| Feature | Wiki page |
-|---|---|
-| **Dashboard** — clock, today strip, configurable widget grid | [Dashboard](https://github.com/svenger87/kinboard/wiki/Dashboard) |
-| **Calendar** — two-way sync with Google Calendar **and any CalDAV server**, read-only `.ics` feeds, per-person colors, holidays, waste-pickup widgets | [Calendar](https://github.com/svenger87/kinboard/wiki/Calendar) · [CalDAV](https://github.com/svenger87/kinboard/wiki/CalDAV) |
-| **Shopping list** — built-in real-time list with **offline support**, editable from any phone, + dedicated standalone PWA, optional Bring! sync | [Shopping](https://github.com/svenger87/kinboard/wiki/Shopping) |
-| **Recipes & meal planning** — Chefkoch.de search + schema.org URL import, weekly meal board, recipe-driven shopping | [Recipes & meals](https://github.com/svenger87/kinboard/wiki/Recipes) |
-| **Tasks & todos** — per-person assignment, priorities, daily reminder push | [Tasks & todos](https://github.com/svenger87/kinboard/wiki/Tasks) |
-| **Notes** — quick shared sticky notes for the household | [Notes](https://github.com/svenger87/kinboard/wiki/Notes) |
-| **Birthdays** — year-ring viz, countdowns, gift-idea tracking | [Birthdays](https://github.com/svenger87/kinboard/wiki/Birthdays) |
-| **School schedule** — per-child timetable + auto pack list for tomorrow | [Schedule](https://github.com/svenger87/kinboard/wiki/Schedule) |
-| **Smart home** — Home Assistant entities, room tabs, floating-lights master control | [Smart home](https://github.com/svenger87/kinboard/wiki/Smart-Home) |
-| **Energy dashboard** — solar / battery / grid live flow + charts | [Smart home → Energy](https://github.com/svenger87/kinboard/wiki/Smart-Home#energy) |
-| **Cameras** — live WebRTC streams (via go2rtc) | [Cameras](https://github.com/svenger87/kinboard/wiki/Cameras) |
-| **Pocket money** — per-kid virtual accounts with parent-configurable APR, allowance cron, saving goals + parent-approval queue, evolving avatar (5 species × 8 stages) | [Pocket Money](https://github.com/svenger87/kinboard/wiki/Pocket-Money) |
-| **Photos** — album grid, full-screen viewer and a dashboard widget; sources: Immich, a DLNA server on your NAS, or an iCloud Shared Album — no account needed for the last two | [Photos](https://github.com/svenger87/kinboard/wiki/Photos) |
-| **Photo screensaver** — the same library as the Photos page (Immich monthly album, DLNA, iCloud) or Unsplash as a no-setup fallback, presence-aware blanking | [Screensaver](https://github.com/svenger87/kinboard/wiki/Screensaver) |
-| **Weather** — current + hourly + radar (OpenWeatherMap) | [OpenWeatherMap](https://github.com/svenger87/kinboard/wiki/OpenWeatherMap) |
-| **Web push notifications** — shopping items, task assignments, daily todo digest. **PWA install** required on iOS. | [Notifications](https://github.com/svenger87/kinboard/wiki/Notifications) |
-| **Multi-device + multi-person** — devices join a family with a 6-char code, per-person color coding everywhere | [People & devices](https://github.com/svenger87/kinboard/wiki/People-and-Devices) |
-| **Recycle bin** — deleted items are recoverable for a configurable window, because a wall display is touched by everyone in the house | [Recycle bin](https://github.com/svenger87/kinboard/wiki/Recycle-Bin) |
-| **Monthly themes** — colors shift through the year automatically | [Themes & locales](https://github.com/svenger87/kinboard/wiki/Themes) |
-| **i18n** — English, German, French — partial translations welcome | [Themes & locales](https://github.com/svenger87/kinboard/wiki/Themes) |
-
-The full wiki has a page for every feature plus integration setup, kiosk hardware reference build, security model, and database schema.
-
----
-
-## Quick start
-
-You need **Docker** (with Compose v2), **Node.js 20+** (for the VAPID key generator that powers push notifications — `setup.sh` uses `npx`; if Node.js is missing, setup completes but push notifications stay disabled), ~2 GB free disk, and ~10 minutes. The bundled `docker-compose.yml` brings up the Next.js app, a self-hosted Supabase stack, and supporting services.
-
-> **RAM**: the local Next.js build peaks around **~4 GB** during type-check and static-page generation. On a 4 GB VM you'll need **≥ 8 GB total swap** to avoid OOM kills during build (`fallocate -l 8G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile`). Or — recommended — skip the build entirely by using the pre-built image at [`docker-compose.image.yml`](webapp/docker/docker-compose.image.yml). That drops bring-up to ~30 sec and needs only ~512 MB at runtime.
-
-If you don't have Docker yet:
+Kinboard needs Linux, Git, OpenSSL, and Docker with Compose v2. The installer
+downloads the current configuration, generates unique local secrets, walks you
+through the public URL and optional integrations, and starts the stable
+multi-architecture image:
 
 ```bash
-curl -fsSL https://get.docker.com | sh
+curl -fsSL https://raw.githubusercontent.com/svenger87/kinboard/main/install.sh | bash
 ```
 
-Then bring Kinboard up:
+The default location is `./kinboard`. Pass `KINBOARD_DIR` to choose another
+path, or `KINBOARD_URL` for a headless install:
 
 ```bash
-git clone https://github.com/svenger87/kinboard.git
-cd kinboard
-./setup.sh                # generate random secrets + Supabase JWT keys
+curl -fsSL https://raw.githubusercontent.com/svenger87/kinboard/main/install.sh | KINBOARD_DIR="$HOME/kinboard" KINBOARD_URL=http://192.168.1.50:8100 bash
+```
+
+Open the URL printed at the end and create your family. The first device receives
+a six-character join code for the other phones, tablets, and wall displays.
+Optional services are configured later in **Settings → Integrations**.
+
+The installer will never modify an existing `kinboard` directory. Existing
+installations keep their `.env`, secrets, data, compose overlays, and current
+upgrade path.
+
+### Update an existing installation
+
+From its checkout:
+
+```bash
+git pull --ff-only
+./setup.sh --non-interactive
 cd webapp/docker
-./start.sh up             # docker compose up -d
+./start.sh up
 ```
 
-Open `http://<server-ip>:3001` (or `http://localhost:3001` if local), follow the setup wizard to create your first family, and start adding integrations from `/settings`.
-
-> **Push notifications** require Node.js for VAPID key generation. If `node` isn't on PATH when `setup.sh` runs, push stays disabled (everything else works); install Node.js + re-run `./setup.sh --force` later to enable.
-
-> **Skip the local build** by using the pre-built multi-arch image (amd64 + arm64) at `ghcr.io/svenger87/kinboard:latest`. Drops bring-up to ~30 sec and ~512 MB RAM at runtime instead of 4 GB+ during build. See [`webapp/docker/docker-compose.image.yml`](webapp/docker/docker-compose.image.yml) for the overlay.
-
-### Updating
-
-`./start.sh up` reuses the cached image — fast for restarts but won't pick up new code. After pulling source updates, use:
-
-```bash
-git pull
-cd webapp/docker
-./start.sh restart    # rebuilds the webapp image + recreates webapp + cron
-```
+That is the image-based path used by the one-line installer. If your existing
+installation intentionally builds a modified webapp from source, keep using
+`COMPOSE_FILES="-f docker-compose.yml" ./start.sh restart`; the installer does
+not change that checkout or its configuration.
 
 **Trying a release candidate** — set `KINBOARD_TAG=next` in `webapp/docker/.env` and bring the stack up again. That follows the pre-release channel; remove the line (or set `latest`) to go back to stable. Release candidates are announced on the [Releases](https://github.com/svenger87/kinboard/releases) page and are where feedback is most useful. See [Self-hosting → Pre-release channel](https://github.com/svenger87/kinboard/wiki/Self-hosting#pre-release-channel).
 
 **Hands-off auto-update** — an optional Diun + webhook overlay watches GHCR for new `kinboard-webapp` images and runs the full upgrade path (pull, migrate, restart) automatically when one lands. Replaces the deprecated Watchtower overlay. See [Self-hosting → Auto-updates](https://github.com/svenger87/kinboard/wiki/Self-hosting#auto-updates) for setup.
 
 For production self-hosting (Traefik + custom domain + backups + updates), see [Self-hosting](https://github.com/svenger87/kinboard/wiki/Self-hosting).
+
+---
+
+## What you get
+
+- A shared dashboard for calendars, weather, meals, tasks, notes, birthdays,
+  school schedules, shopping, and photos.
+- Real-time updates across the wall display and every family device, with an
+  offline-capable shopping list for poor mobile coverage.
+- Optional Home Assistant, Google Calendar, CalDAV, Immich, DLNA, iCloud,
+  OpenWeatherMap, Bring!, and camera integrations.
+- Local data in a bundled Supabase stack, with backups and no hosted account or
+  telemetry.
+- Touch-first layouts, installable PWAs, English, German, and French.
+
+[Explore every feature in the wiki](https://github.com/svenger87/kinboard/wiki).
 
 ---
 
@@ -275,7 +230,7 @@ The wiki is the source of truth for everything beyond this README:
 
 - **Getting started** — [Quick-start](https://github.com/svenger87/kinboard/wiki/Quick-start), [Self-hosting](https://github.com/svenger87/kinboard/wiki/Self-hosting)
 - **Architecture** — [Architecture overview](https://github.com/svenger87/kinboard/wiki/Architecture), [Security model](https://github.com/svenger87/kinboard/wiki/Security-and-Threat-Model)
-- **Built-in features** — [Dashboard](https://github.com/svenger87/kinboard/wiki/Dashboard) · [Calendar](https://github.com/svenger87/kinboard/wiki/Calendar) · [Shopping](https://github.com/svenger87/kinboard/wiki/Shopping) · [Recipes & meals](https://github.com/svenger87/kinboard/wiki/Recipes) · [Tasks](https://github.com/svenger87/kinboard/wiki/Tasks) · [Notes](https://github.com/svenger87/kinboard/wiki/Notes) · [Birthdays](https://github.com/svenger87/kinboard/wiki/Birthdays) · [Schedule](https://github.com/svenger87/kinboard/wiki/Schedule) · [Smart home](https://github.com/svenger87/kinboard/wiki/Smart-Home) · [Screensaver](https://github.com/svenger87/kinboard/wiki/Screensaver) · [People & devices](https://github.com/svenger87/kinboard/wiki/People-and-Devices) · [Notifications](https://github.com/svenger87/kinboard/wiki/Notifications) · [Themes & locales](https://github.com/svenger87/kinboard/wiki/Themes)
+- **Built-in features** — [Dashboard](https://github.com/svenger87/kinboard/wiki/Dashboard) · [Calendar](https://github.com/svenger87/kinboard/wiki/Calendar) · [Shopping](https://github.com/svenger87/kinboard/wiki/Shopping) · [Recipes & meals](https://github.com/svenger87/kinboard/wiki/Recipes) · [Tasks](https://github.com/svenger87/kinboard/wiki/Tasks) · [Notes](https://github.com/svenger87/kinboard/wiki/Notes) · [Messages](https://github.com/svenger87/kinboard/wiki/Messages) · [Timers](https://github.com/svenger87/kinboard/wiki/Timers) · [Media players](https://github.com/svenger87/kinboard/wiki/Media-Players) · [Birthdays](https://github.com/svenger87/kinboard/wiki/Birthdays) · [Schedule](https://github.com/svenger87/kinboard/wiki/Schedule) · [Smart home](https://github.com/svenger87/kinboard/wiki/Smart-Home) · [Screensaver](https://github.com/svenger87/kinboard/wiki/Screensaver) · [People & devices](https://github.com/svenger87/kinboard/wiki/People-and-Devices) · [Notifications](https://github.com/svenger87/kinboard/wiki/Notifications) · [Themes & locales](https://github.com/svenger87/kinboard/wiki/Themes)
 - **Integrations** — [Google Calendar](https://github.com/svenger87/kinboard/wiki/Google-Calendar) · [CalDAV](https://github.com/svenger87/kinboard/wiki/CalDAV) · [Home Assistant](https://github.com/svenger87/kinboard/wiki/Home-Assistant) · [Immich](https://github.com/svenger87/kinboard/wiki/Immich) · [Bring!](https://github.com/svenger87/kinboard/wiki/Bring) · [OpenWeatherMap](https://github.com/svenger87/kinboard/wiki/OpenWeatherMap) · [Cameras](https://github.com/svenger87/kinboard/wiki/Cameras)
 - **Hardware** — [Reference build (BOM + frame)](https://github.com/svenger87/kinboard/wiki/Reference-Build) · [Windows kiosk](https://github.com/svenger87/kinboard/wiki/Kiosk-Windows-11-Mele-4C) · [Linux guidance](https://github.com/svenger87/kinboard/wiki/Kiosk-Linux-Guidance) · [LD2410 presence sensor](https://github.com/svenger87/kinboard/wiki/Presence-Sensor)
 - **Extending Kinboard** — [Vehicles](https://github.com/svenger87/kinboard/wiki/Vehicles) · [Stonks](https://github.com/svenger87/kinboard/wiki/Stonks) · [Pocket Money](https://github.com/svenger87/kinboard/wiki/Pocket-Money) · [Plugin development](https://github.com/svenger87/kinboard/wiki/Plugin-Development) · [Plugin directory](https://github.com/svenger87/kinboard/wiki/Plugin-Directory)
@@ -283,27 +238,18 @@ The wiki is the source of truth for everything beyond this README:
 
 ---
 
-## Status & roadmap
+## Project status
 
-**v1.0.0 shipped 2026-05-04** — first tagged public release. **Latest stable: [v1.6.10](https://github.com/svenger87/kinboard/releases/tag/v1.6.10) (2026-08-06).** Live demo running the latest tag at **[demo.kinboard.app](https://demo.kinboard.app)** (auto-updated via Diun + the self-update webhook; data resets hourly). The project is single-maintainer and developed in personal time; expect periodic activity rather than a Big Co cadence. See the [`CHANGELOG`](CHANGELOG.md) for what's in each release and the [`RELEASE`](RELEASE.md) doc for how releases are cut.
+Kinboard is actively developed by one maintainer. See the
+[release history](https://github.com/svenger87/kinboard/releases) for shipped
+versions and [`CHANGELOG.md`](CHANGELOG.md) for the next release. The
+[live demo](https://demo.kinboard.app) follows the release channel and resets
+its sample data hourly.
 
-**Security model:** designed for a trusted home network. Do not expose Kinboard directly to the public internet without putting a reverse proxy and authentication layer in front of it. See [Security & threat model](https://github.com/svenger87/kinboard/wiki/Security-and-Threat-Model) and [`SECURITY.md`](SECURITY.md).
-
-### Recently shipped
-- [x] **Settings lock, demo completeness, theme-aware sensors** (v1.7.0) — the settings PIN could be bypassed while it was still loading and the prompt could vanish mid-entry; both are closed. Pocket-money settings save again, the getting-started checklist no longer takes over a wall display, and pale sensor and forecast colours are readable in every theme
-- [x] **Custom RSS feeds, pocket-money corrections, safer image search** (v1.6.0) — News sources accepts any RSS or Atom feed alongside the built-in publishers; pocket-money goals can finally be renamed, re-targeted and deleted; the saving avatar reflects the current balance rather than lifetime earnings, and daily interest stopped discarding its sub-cent remainder; shopping-list image search moved off scraped search pages that could return unrelated or adult results
-- [x] **Restore from backup, meal-plan digest, notification fixes** (v1.5.0) — the join screen can rebuild a whole family from a Kinboard export file; an optional evening push lists tomorrow's planned meals; settings writes now go through the app server instead of straight from the browser to the database; Undo works on the shopping kiosk, offline included
-- [x] **Security hardening, backup & export, undo** (v1.4.0) — integration credentials and the settings PIN moved to server-only storage; Settings → Data & backup can export everything to JSON or publish a secret ICS feed of your calendar; deleted items get an Undo toast; birthday reminders now actually send a push; the webapp container reports health for automated monitoring
-- [x] **Redesign completion, French, join-code expiry** (v1.3.0) — the flat sage-linen visual refresh reaches nearly every page; Kinboard ships a French interface alongside English and German (community-contributed, #9); Settings can rotate the family join code and set it to expire
-- [x] **Onboarding completeness + setup hardening** (v1.2.0) — a persistent getting-started checklist replaces the one-time setup banner, "discover" cards explain empty plugin widgets, Reconnect banners surface rejected Google/Home Assistant credentials, and the stack self-aligns service passwords so a bare `docker compose up` works out of the box
-- [x] **Pocket Money plugin, end-to-end auto-update, and nav drag-reorder** (v1.1.0) — per-kid virtual pocket-money accounts with parent-configurable interest and savings goals, a Diun + webhook overlay that pulls and applies new images automatically, and drag-and-drop reordering of the bottom navigation per device. See [Pocket Money](https://github.com/svenger87/kinboard/wiki/Pocket-Money)
-
-### Up next (no fixed dates)
-- [ ] Additional Stonks data drivers — paid sources like Polygon or Tiingo for users wanting higher-resolution intraday + cleaner symbol coverage than Yahoo's unofficial endpoints. The driver contract already leaves room; only API-key plumbing and a settings UI need to land
-- [ ] News feed per ticker on the Stonks detail page — Yahoo already returns it via `quoteSummary`, just needs UI
-- [ ] Per-ticker price alerts via the existing notification queue
-- [ ] Drag-reorder for the Stonks watchlist (currently creation-order)
-- [x] More community locales (FR shipped in v1.3.0) — additional languages welcome via PR, see [`CONTRIBUTING.md`](CONTRIBUTING.md#translations)
+Kinboard is designed for a trusted home network. Use a reverse proxy with
+authentication before exposing it to the internet. Read the
+[security model](https://github.com/svenger87/kinboard/wiki/Security-and-Threat-Model)
+and [`SECURITY.md`](SECURITY.md) before a public deployment.
 
 ---
 
