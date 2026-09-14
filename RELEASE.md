@@ -53,9 +53,11 @@ Any tag with a prerelease identifier (`-rc.1`, `-beta.2`, `-alpha.1`)
 publishes two image tags: the exact version (`1.6.0-rc.1`) and a moving
 `next` tag pointing at the newest pre-release.
 
-Then create the GitHub Release from that tag and **tick "Set as a
-pre-release"**, so it doesn't display as the latest release and doesn't
-notify everyone watching releases.
+After the multi-architecture image has been published, the Docker workflow
+creates the GitHub Release from that tag and marks it as a pre-release. It is
+safe to rerun the workflow: if the release already exists, the publication job
+leaves it alone. This keeps the candidate off the latest stable release and
+avoids notifying everyone watching stable releases.
 
 **What a pre-release cannot break.** `latest` is gated on a push to the
 default branch, and a tag push is never that — so a release candidate can

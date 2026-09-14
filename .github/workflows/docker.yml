@@ -238,3 +238,34 @@ jobs:
         run: |
           docker buildx imagetools inspect \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+
+  release-prerelease:
+    name: Publish GitHub pre-release
+    runs-on: ubuntu-latest
+    needs: [changes, merge]
+    if: >-
+      needs.changes.outputs.build == 'true' &&
+      github.event_name == 'push' &&
+      github.ref_type == 'tag' &&
+      contains(github.ref_name, '-')
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Create pre-release from tag
+        run: |
+          tag="${{ github.ref_name }}"
+
+          # A rerun must be harmless if the first attempt created the release
+          # before a later step or runner failed.
+          if gh release view "$tag" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "$tag is already published"
+            exit 0
+          fi
+
+          gh release create "$tag" \
+            --repo "${{ github.repository }}" \
+            --title "$tag" \
+            --prerelease \
+            --generate-notes
