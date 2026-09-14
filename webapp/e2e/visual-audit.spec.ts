@@ -20,7 +20,7 @@ const FAMILY_CODE = process.env.FAMILY_CODE ?? "";
 if (!FAMILY_CODE) {
   throw new Error("FAMILY_CODE env var must be set to a 6-character family join code");
 }
-const DEVICE_NAME = "Claude Visual Auditor";
+const DEVICE_NAME = "Kinboard Visual Audit";
 const SCREENSHOT_DIR = path.join(__dirname, "screenshots");
 const AUTH_STATE_FILE = path.join(__dirname, ".auth-state.json");
 
@@ -90,7 +90,30 @@ test.describe("Visual Audit", () => {
 
   for (const route of ROUTES) {
     test(`capture ${route}`, async ({ page, context }, testInfo) => {
-      await page.goto(route);
+      const browserErrors: string[] = [];
+      const requestErrors: string[] = [];
+      const serverErrors: string[] = [];
+      const appOrigin = new URL(testInfo.project.use.baseURL as string).origin;
+      page.on("pageerror", (error) => browserErrors.push(error.message));
+      page.on("console", (message) => {
+        if (
+          message.type() === "error" &&
+          !message.text().startsWith("Failed to load resource:")
+        ) {
+          browserErrors.push(message.text());
+        }
+      });
+      page.on("response", (response) => {
+        const url = new URL(response.url());
+        if (url.origin !== appOrigin || response.status() < 400) return;
+        if (response.status() >= 500) {
+          serverErrors.push(`${response.status()} ${url.pathname}`);
+        } else if (response.request().resourceType() !== "document") {
+          requestErrors.push(`${response.status()} ${url.pathname}`);
+        }
+      });
+      const navigation = await page.goto(route);
+      test.skip(navigation?.status() === 404, `${route} is unavailable for this family's plugin configuration`);
       if (page.url().includes("/join")) {
         await joinFamilyViaUI(page, FAMILY_CODE, DEVICE_NAME);
         fs.writeFileSync(AUTH_STATE_FILE, JSON.stringify(await context.cookies(), null, 2));
@@ -142,6 +165,10 @@ test.describe("Visual Audit", () => {
           `${route} overflows a compact phone (${compactViewport.scrollWidth}px > ${compactViewport.clientWidth}px)`,
         ).toBeLessThanOrEqual(compactViewport.clientWidth);
       }
+
+      expect(browserErrors, `${route} emitted browser errors`).toEqual([]);
+      expect(requestErrors, `${route} received failed subrequests`).toEqual([]);
+      expect(serverErrors, `${route} received server errors`).toEqual([]);
     });
   }
 });

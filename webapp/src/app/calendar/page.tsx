@@ -273,7 +273,7 @@ export default function CalendarPage() {
         end: endOfWeek(currentDate, { weekStartsOn }).toISOString(),
       };
     }
-  }, [currentDate, view]);
+  }, [currentDate, view, weekStartsOn]);
 
   // Fetch data from Supabase
   const { data: eventsData, isLoading: loadingEvents, error: eventsError, refetch: refetchEvents } = useEvents(dateRange.start, dateRange.end);

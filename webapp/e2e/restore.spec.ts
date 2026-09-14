@@ -28,6 +28,7 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { joinFamilyViaApi } from "./helpers";
 
 const DEMO_FAMILY_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -41,6 +42,10 @@ test.describe("Restore from backup", () => {
   test("export -> import round trip rebuilds the family under a fresh join code", async ({
     request,
   }) => {
+    const joinRes = await joinFamilyViaApi(request, "DEMO01", "Restore Test Device");
+    test.skip(joinRes.status() === 401, "demo family not present on this stack");
+    expect(joinRes.status(), "join demo family").toBe(200);
+
     const exportRes = await request.get(`/api/export?family_id=${DEMO_FAMILY_ID}`);
     test.skip(
       exportRes.status() === 404,
@@ -64,6 +69,13 @@ test.describe("Restore from backup", () => {
     expect(Array.isArray(importBody.warnings), "warnings is an array").toBe(true);
 
     try {
+      const restoredJoin = await joinFamilyViaApi(
+        request,
+        importBody.join_code,
+        "Restore Verification Device",
+      );
+      expect(restoredJoin.status(), "join restored family").toBe(200);
+
       const reExportRes = await request.get(`/api/export?family_id=${importBody.family_id}`);
       expect(reExportRes.status(), "GET /api/export (restored family)").toBe(200);
       const reExportBody = await reExportRes.json();

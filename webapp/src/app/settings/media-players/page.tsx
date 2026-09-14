@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Music } from "lucide-react";
-import { useHomeAssistantEntities } from "@/hooks/use-home-assistant";
+import { useHomeAssistantEntities, useHomeAssistantStatus } from "@/hooks/use-home-assistant";
 import {
   useMediaPlayers,
   useSaveMediaPlayer,
@@ -30,7 +30,9 @@ export default function MediaPlayersSettingsPage() {
   const t = useTranslations("media");
   const tCommon = useTranslations("common");
   const { data: players = [] } = useMediaPlayers();
-  const { data: entities = [] } = useHomeAssistantEntities("media_player");
+  const { data: haStatus } = useHomeAssistantStatus();
+  const haConnected = !!haStatus?.url && !!haStatus?.access_token;
+  const { data: entities = [] } = useHomeAssistantEntities("media_player", haConnected);
   const save = useSaveMediaPlayer();
   const remove = useDeleteMediaPlayer();
   const [picked, setPicked] = useState("");
@@ -92,6 +94,13 @@ export default function MediaPlayersSettingsPage() {
               </li>
             ))}
           </ul>
+
+          {players.length === 0 && (
+            <div className="mb-6 rounded-xl border border-border bg-background/50 p-4 text-center">
+              <p className="font-medium">{t("noPlayers")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t("noPlayersHint")}</p>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <select

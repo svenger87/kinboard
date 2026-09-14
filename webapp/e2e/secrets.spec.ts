@@ -38,7 +38,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { joinFamilyViaUI } from "./helpers";
+import { joinFamilyViaApi, joinFamilyViaUI } from "./helpers";
 
 const FAMILY_ID = "00000000-0000-0000-0000-000000000001";
 const FAMILY_CODE = process.env.FAMILY_CODE ?? "";
@@ -51,6 +51,10 @@ const RAW_TOKEN = "demo-token-not-real";
 
 test.describe("Settings API secret masking", () => {
   test("GET /api/settings masks the HA access_token", async ({ request }) => {
+    const joinRes = await joinFamilyViaApi(request, "DEMO01", "Secrets API Test Device");
+    test.skip(joinRes.status() === 401, "demo family not present on this stack");
+    expect(joinRes.status(), "join demo family").toBe(200);
+
     const response = await request.get(
       `/api/settings?family_id=${FAMILY_ID}&key=home_assistant`,
     );

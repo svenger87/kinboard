@@ -9,7 +9,8 @@
  * see src/app/join/page.tsx and src/components/code-input.tsx.
  */
 
-import { expect, type Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+import { expect, type APIRequestContext, type APIResponse, type Page } from "@playwright/test";
 
 // Locale-tolerant (EN/DE) — the suite doesn't pin a Playwright locale, and
 // next-intl negotiates from the browser/OS. Anchored where a substring
@@ -100,5 +101,24 @@ export async function joinFamilyViaUI(
 
   await page.waitForURL((url) => !url.pathname.startsWith("/join"), {
     timeout: 15_000,
+  });
+}
+
+/**
+ * Authenticate API-only tests through the same public join contract as the UI.
+ * Playwright's request context retains the HttpOnly session cookie returned by
+ * this call for subsequent requests.
+ */
+export function joinFamilyViaApi(
+  request: APIRequestContext,
+  familyCode: string,
+  deviceName: string,
+): Promise<APIResponse> {
+  return request.post("/api/session/join", {
+    data: {
+      joinCode: familyCode,
+      deviceName,
+      hardwareId: `e2e-${randomUUID()}`,
+    },
   });
 }

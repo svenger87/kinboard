@@ -94,7 +94,7 @@ export function useGoogleCalendarStatus() {
 }
 
 // Hook to get list of Google Calendars
-export function useGoogleCalendars() {
+export function useGoogleCalendars(isConnected = true) {
   const { family } = useFamilyStore();
 
   return useQuery({
@@ -110,7 +110,7 @@ export function useGoogleCalendars() {
       const data = await response.json();
       return data.calendars;
     },
-    enabled: !!family?.id,
+    enabled: !!family?.id && isConnected,
   });
 }
 

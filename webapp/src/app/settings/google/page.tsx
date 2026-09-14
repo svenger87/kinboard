@@ -83,7 +83,8 @@ export default function GoogleSettingsPage() {
   const { data: googleConfigured } = useGoogleConfigured();
   const isUnconfigured = googleConfigured === false;
   const { data: googleStatus, isLoading: statusLoading } = useGoogleCalendarStatus();
-  const { data: calendars, isLoading: calendarsLoading } = useGoogleCalendars();
+  const isConnected = !!googleStatus?.access_token;
+  const { data: calendars, isLoading: calendarsLoading } = useGoogleCalendars(isConnected);
   const { data: people } = usePeople();
   const { data: localCalendars } = useCalendars();
 
@@ -117,8 +118,6 @@ export default function GoogleSettingsPage() {
   const [newRuleMatchType, setNewRuleMatchType] = useState<MatchType>("contains");
   const [showTestResults, setShowTestResults] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
-
-  const isConnected = !!googleStatus?.access_token;
 
   // Initialize local state from server data
   useEffect(() => {

@@ -107,7 +107,6 @@ export async function POST(request: NextRequest) {
   const history = new Set(row.fingerprint_history ?? []);
   if (fingerprint) history.add(fingerprint);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase as any)
     .from("devices")
     .update({
