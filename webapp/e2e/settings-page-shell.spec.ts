@@ -5,18 +5,8 @@ import { join } from "node:path";
 /**
  * Every settings sub-page wears the same frame.
  *
- * `settings/layout.tsx` renders a *floating* back button over the top-left
- * corner of every sub-page. A page that does not open with the shared shell
- * therefore has no clearance for it: the hints page put its own `<h1>`
- * underneath that button and hid the subtitle behind it, ran its rows the full
- * width of a 1280px display instead of the centred column, and tucked its last
- * row under the navigation bar.
- *
- * Then fixing the padding revealed the second half: the page also passed
- * `backHref="/settings"` to PageHeader, which renders a back control the
- * layout had already drawn. While the two overlapped it read as one; with
- * correct padding it read as two. Both faults were invisible to types, tests
- * and review, and obvious within a second of looking at the page.
+ * Settings pages use one shared shell so headings, content width, safe areas,
+ * and bottom-navigation clearance remain consistent across phone and kiosk.
  *
  * A written convention did not prevent any of that, so it is asserted here.
  * CONTRIBUTING.md carries the prose; this is what makes it hold.
@@ -56,18 +46,17 @@ test("every settings page opens with the shared shell", () => {
   const missing = pages.filter((p) => !p.source.includes(SHELL)).map((p) => p.name);
   expect(
     missing,
-    `these settings pages do not use the shared shell, so the floating back ` +
-      `button will overlap their heading: ${missing.join(", ")}`,
+    `these settings pages do not use the shared shell: ${missing.join(", ")}`,
   ).toEqual([]);
 });
 
-test("no settings page draws a second back button to /settings", () => {
+test("settings pages let the shared PageHeader supply their back button", () => {
   const duplicated = pages
     .filter((p) => /backHref=\{?["']\/settings["']\}?/.test(p.source))
     .map((p) => p.name);
   expect(
     duplicated,
-    `settings/layout.tsx already renders the back control for every sub-page; ` +
-      `these pass backHref="/settings" as well and so render two: ${duplicated.join(", ")}`,
+    `PageHeader supplies the correct settings parent automatically; these ` +
+      `hard-code backHref="/settings": ${duplicated.join(", ")}`,
   ).toEqual([]);
 });

@@ -8,9 +8,8 @@ import { readFileSync } from "node:fs";
  * The declaration is `padding-top: env(safe-area-inset-top, 0)`. On a device
  * with no notch that resolves to 0, so it did not *add* an inset — it replaced
  * the shell's `pt-16` with nothing. Measured on a 390px viewport, main's
- * computed padding-top was 0px and the page heading and its icon sat
- * underneath the floating back button that settings/layout.tsx draws over the
- * top-left corner. Desktop escaped it only because `md:pt-20` sorts after this
+ * computed padding-top was 0px and the page heading moved to the top edge.
+ * Desktop escaped it only because `md:pt-20` sorts after this
  * rule in the utilities layer — so it looked correct on the wall display and
  * was broken on every phone.
  *

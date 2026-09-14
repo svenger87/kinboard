@@ -109,8 +109,8 @@ export default function IntegrationsPage() {
 
   return (
     // The shared settings shell. This page used its own wrapper, which had no
-    // clearance for the floating back button the settings layout renders, and
-    // no safe-area padding on a tablet. The wider max-w-3xl column is kept —
+    // consistent heading clearance or safe-area padding on a tablet. The
+    // wider max-w-3xl column is kept —
     // it holds a table of tokens — but the frame is the common one.
     <main
       id="main-content"

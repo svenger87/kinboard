@@ -33,8 +33,8 @@ export default function HintsSettingsPage() {
 
   return (
     // The same shell every other settings page uses. Without it this page had
-    // no top padding, so the floating back button sat on top of the title and
-    // cut off the subtitle behind it; the cards ran the full width of a
+    // no top padding, so the title touched the viewport edge and the subtitle
+    // was cut off; the cards ran the full width of a
     // desktop panel instead of the centred column, and the last rule row
     // disappeared under the navigation bar. 25 of the 28 settings pages
     // already open exactly like this — the page was simply missing it.

@@ -44,14 +44,14 @@ test("an ordinary settings page still goes back to the root", () => {
   expect(settingsBackHref("/settings/hints")).toBe("/settings");
 });
 
-test("the layout does not hard-code the back destination", () => {
-  const layout = readFileSync("src/app/settings/layout.tsx", "utf8");
-  expect(layout, "the back link should resolve through settingsBackHref").toContain(
+test("the shared page header does not hard-code the back destination", () => {
+  const header = readFileSync("src/components/page-header.tsx", "utf8");
+  expect(header, "the back link should resolve through settingsBackHref").toContain(
     "settingsBackHref(pathname)",
   );
   expect(
-    /href="\/settings"/.test(layout),
-    "the layout hard-codes href=\"/settings\" again, which sends nested pages to the root",
+    /href="\/settings"/.test(header),
+    "the header hard-codes href=\"/settings\" again, which sends nested pages to the root",
   ).toBe(false);
 });
 
