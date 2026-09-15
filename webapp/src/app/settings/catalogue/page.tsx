@@ -466,7 +466,7 @@ export default function CataloguePage() {
           title={t("title")}
           subtitle={t("description")}
           actions={
-            <div className="flex items-center gap-2">
+            <>
               {isConnected && (
                 <Button
                   variant="outline"
@@ -485,7 +485,7 @@ export default function CataloguePage() {
                 <Plus className="mr-2 size-4" />
                 {t("addDevice")}
               </Button>
-            </div>
+            </>
           }
         />
 

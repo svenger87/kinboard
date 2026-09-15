@@ -77,3 +77,14 @@ test("every rendered settings sub-page has a back control", () => {
     `these settings pages use neither PageHeader nor their own settings back link: ${missing.join(", ")}`,
   ).toEqual([]);
 });
+
+test("settings header actions can wrap individually inside the mobile safe area", () => {
+  const groupedActions = pages
+    .filter((page) => /actions=\{\s*<div className=["'][^"']*flex/.test(page.source))
+    .map((page) => page.name);
+
+  expect(
+    groupedActions,
+    `these settings pages group PageHeader actions in a non-wrapping row: ${groupedActions.join(", ")}`,
+  ).toEqual([]);
+});

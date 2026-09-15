@@ -129,7 +129,7 @@ export default function EditVehiclePage({
           backHref="/settings/vehicles"
           backLabel={tComponents("backTo", { target: tSettings("itemVehiclesLabel") })}
           actions={
-            <div className="flex gap-2">
+            <>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" size="sm">
@@ -158,7 +158,7 @@ export default function EditVehiclePage({
                 {isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
                 {isSaving ? t("saving") : t("save")}
               </Button>
-            </div>
+            </>
           }
         />
 

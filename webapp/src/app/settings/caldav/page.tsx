@@ -290,7 +290,7 @@ export default function CaldavSettingsPage() {
           subtitle={t("subtitle")}
           backLabel={tComponents("backTo", { target: tSettings("itemCalendarLabel") })}
           actions={
-            <div className="flex items-center gap-2">
+            <>
               {caldavCalendars.length > 0 && (
                 <Button
                   onClick={handleSyncNow}
@@ -309,7 +309,7 @@ export default function CaldavSettingsPage() {
                 <Plus className="size-4 mr-2" />
                 {t("addButton")}
               </Button>
-            </div>
+            </>
           }
         />
 

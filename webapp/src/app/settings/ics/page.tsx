@@ -245,7 +245,7 @@ export default function IcsSettingsPage() {
           title={t("title")}
           subtitle={t("subtitle")}
           actions={
-            <div className="flex items-center gap-2">
+            <>
               {icsCalendars.length > 0 && (
                 <Button
                   onClick={handleSyncNow}
@@ -264,7 +264,7 @@ export default function IcsSettingsPage() {
                 <Plus className="size-4 mr-2" />
                 {t("addButton")}
               </Button>
-            </div>
+            </>
           }
         />
 

@@ -57,3 +57,13 @@ test("the settings layout supplies the top safe area once for every state", () =
     "the rooms sticky header must not add the same safe-area inset a second time",
   ).not.toContain("top-[env(safe-area-inset-top");
 });
+
+test("page shells preserve their normal margin inside both side safe areas", () => {
+  const block = css.slice(css.indexOf(".safe-area-inset {"));
+  expect(block).toMatch(
+    /padding-left:\s*max\(1rem,\s*env\(safe-area-inset-left,\s*0\)\)/,
+  );
+  expect(block).toMatch(
+    /padding-right:\s*max\(1rem,\s*env\(safe-area-inset-right,\s*0\)\)/,
+  );
+});
