@@ -8,6 +8,16 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Security
+
+## [1.9.0] - 2026-09-15
+
+### Added
+
 - **A new installation is one command.** The README now starts with a one-line installer that checks its prerequisites, downloads Kinboard, generates unique secrets, asks for the address the family will use, and starts the published stable image. It refuses to touch a directory that already exists, so it cannot overwrite the configuration, secrets, compose overlays, or data of an existing installation; those installations keep their current update path.
 - **You can now pick something to play.** Until now Kinboard could control whatever was already playing — pause it, change the volume, switch the source — but somebody had to start it from the speaker's own app first. Tapping Browse on a player now opens its library: albums, playlists, radio stations, whatever that device offers, one level at a time, and tapping something plays it. Only players that say they support browsing show the button, so nothing offers a library that is not there.
 - **The automation screen shows your house, room by room.** Instead of dashboards you assembled by hand, you now see the rooms you actually have — with the names, pictures and rooms you gave things on the devices screen — and you can switch a light, lock a door or open a blind from the tile. Rooms live in one place now: setting a device's room on the devices screen is all there is to it, and the rooms screen is where you name a room, give it an icon and a colour, and put them in order. Before this a room could be edited in two places that never agreed with each other, and on some setups they had already drifted apart. Your existing rooms, their icons and colours are carried across; the dashboards you had built are replaced by the room view, and every device that was on one is already in your devices list.
