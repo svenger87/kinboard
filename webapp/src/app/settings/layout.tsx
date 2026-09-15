@@ -9,7 +9,7 @@ export default function SettingsLayout({
 }) {
   return (
     <PinGuard cancelHref="/">
-      <div className="min-h-page relative">
+      <div className="settings-safe-area-top min-h-page relative">
         <div className="page-gradient fixed inset-0 pointer-events-none z-[-1]" />
         {children}
       </div>

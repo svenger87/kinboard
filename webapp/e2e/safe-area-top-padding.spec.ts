@@ -25,6 +25,7 @@ import { readFileSync } from "node:fs";
  */
 
 const css = readFileSync("src/app/globals.css", "utf8");
+const settingsLayout = readFileSync("src/app/settings/layout.tsx", "utf8");
 
 test("the safe-area top inset does not clobber the page shell's padding", () => {
   const rule = css.slice(css.indexOf(".safe-area-inset {"));
@@ -42,4 +43,17 @@ test("the safe-area top inset does not clobber the page shell's padding", () => 
     "padding-top is set unconditionally again — this collapses pt-16 to 0 on any device without a notch",
   ).toBe(false);
   expect(guarded).toMatch(/padding-top\s*:\s*env\(safe-area-inset-top/);
+});
+
+test("the settings layout supplies the top safe area once for every state", () => {
+  expect(settingsLayout).toContain("settings-safe-area-top");
+  expect(css).toMatch(
+    /\.settings-safe-area-top\s*\{[^}]*padding-top:\s*env\(safe-area-inset-top/m,
+  );
+
+  const rooms = readFileSync("src/app/settings/homeassistant/rooms/page.tsx", "utf8");
+  expect(
+    rooms,
+    "the rooms sticky header must not add the same safe-area inset a second time",
+  ).not.toContain("top-[env(safe-area-inset-top");
 });

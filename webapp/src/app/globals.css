@@ -534,6 +534,12 @@
     padding-top: env(safe-area-inset-top, 0);
   }
 
+  /* Settings owns its top inset at the layout boundary so every sub-page,
+     including loading and error states, starts below a phone's sensor area. */
+  .settings-safe-area-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
   .safe-area-inset {
     /*
       NOT applied to <main>: page shells carry their own top padding.
