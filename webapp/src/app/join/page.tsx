@@ -20,6 +20,9 @@ import {
   Upload,
   Loader2,
   AlertCircle,
+  CalendarDays,
+  House,
+  ShieldCheck,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { safeNextPath } from "@/components/auth-guard";
@@ -240,7 +243,7 @@ export default function JoinPage() {
   };
 
   return (
-    <main className="min-h-page flex items-center justify-center p-8 relative overflow-hidden">
+    <main className="min-h-page flex items-center justify-center px-4 py-10 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background — flat page gradient, theme-following, no glass */}
       <div className="page-gradient" />
 
@@ -252,46 +255,76 @@ export default function JoinPage() {
         transition={{ duration: 0.6 }}
         // max-w-md is a phone measure. On a 1080x1920 portrait panel it left
         // roughly 70% of the first screen anyone ever sees empty (audit KB-45).
-        className="relative z-10 w-full max-w-md lg:max-w-lg xl:max-w-xl"
+        className="relative z-10 w-full max-w-6xl"
       >
         {/* Header / Welcome hero */}
         {!modeChosen && recognizedDevices.length === 0 && !isFreshInstall && !isCheckingFingerprint ? (
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center size-20 icon-badge rounded-3xl mb-6">
-              <Users className="size-10" strokeWidth={1.75} />
+          <div className="grid gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:gap-16">
+            <div>
+              <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
+                <span className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                  <Users className="size-4" strokeWidth={2} />
+                </span>
+                {t("welcomeEyebrow")}
+              </div>
+              <h1 className="max-w-2xl text-5xl font-display font-medium leading-[0.98] tracking-tight sm:text-6xl lg:text-7xl">
+                {t("welcomeTitle")}
+              </h1>
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+                {t("welcomeBody")}
+              </p>
+              <div className="mt-10 grid gap-4 sm:grid-cols-3 lg:max-w-2xl">
+                {[
+                  { icon: CalendarDays, title: t("welcomeFeatureCalendarTitle"), body: t("welcomeFeatureCalendarBody") },
+                  { icon: House, title: t("welcomeFeatureHomeTitle"), body: t("welcomeFeatureHomeBody") },
+                  { icon: ShieldCheck, title: t("welcomeFeaturePrivacyTitle"), body: t("welcomeFeaturePrivacyBody") },
+                ].map(({ icon: Icon, title, body }) => (
+                  <div key={title} className="rounded-2xl border border-border/70 bg-card/60 p-4 shadow-sm">
+                    <Icon className="mb-3 size-5 text-primary" strokeWidth={1.8} />
+                    <p className="text-sm font-medium">{title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{body}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <p className="text-kiosk-label text-primary mb-3">{t("welcomeEyebrow")}</p>
-            <h1 className="text-4xl font-display font-medium tracking-tight mb-3">
-              {t("welcomeTitle")}
-            </h1>
-            <p className="text-muted-foreground text-base leading-relaxed max-w-sm mx-auto mb-8">
-              {t("welcomeBody")}
-            </p>
-            <div className="flex flex-col gap-3">
-              <Button
-                size="kiosk"
-                className="w-full"
-                onClick={() => {
-                  setMode("create");
-                  setModeChosen(true);
-                }}
-              >
-                <Plus className="size-5" strokeWidth={1.75} />
-                {t("welcomeCreateCta")}
-              </Button>
-              <Button
-                size="kiosk"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  setMode("join");
-                  setModeChosen(true);
-                }}
-              >
-                <KeyRound className="size-5" strokeWidth={1.75} />
-                {t("welcomeJoinCta")}
-              </Button>
-            </div>
+            <Card className="border-primary/20 bg-card/90 p-2 shadow-xl shadow-primary/5">
+              <CardContent className="p-6 sm:p-8">
+                <div className="mb-7 flex items-center gap-3">
+                  <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <Sparkles className="size-6" strokeWidth={1.8} />
+                  </div>
+                  <div>
+                    <p className="text-lg font-medium">{t("welcomeActionTitle")}</p>
+                    <p className="text-sm text-muted-foreground">{t("welcomeActionBody")}</p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <Button
+                    size="kiosk"
+                    className="w-full justify-between"
+                    onClick={() => {
+                      setMode("create");
+                      setModeChosen(true);
+                    }}
+                  >
+                    <span className="flex items-center gap-2"><Plus className="size-5" strokeWidth={1.75} />{t("welcomeCreateCta")}</span>
+                    <ArrowRight className="size-4" />
+                  </Button>
+                  <Button
+                    size="kiosk"
+                    variant="outline"
+                    className="w-full justify-between"
+                    onClick={() => {
+                      setMode("join");
+                      setModeChosen(true);
+                    }}
+                  >
+                    <span className="flex items-center gap-2"><KeyRound className="size-5" strokeWidth={1.75} />{t("welcomeJoinCta")}</span>
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         ) : (
           <div className="text-center mb-8">

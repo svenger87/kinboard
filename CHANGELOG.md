@@ -8,6 +8,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The welcome screen now explains Kinboard before asking people to connect.** New visitors see the household dashboard's core benefits — planning, home control and privacy — alongside clear actions to create a family or join with a code. The layout adapts from a focused mobile stack to a spacious two-column landing page on larger displays.
+
 ### Changed
 
 ### Fixed
