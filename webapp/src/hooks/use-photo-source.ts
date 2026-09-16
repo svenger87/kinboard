@@ -7,13 +7,21 @@ import { useImmichMonthlyPhotos } from "./use-immich";
 import { useUnsplashMonthlyPhotos } from "./use-unsplash";
 import { useDlnaPhotos } from "./use-dlna";
 import { useIcloudPhotos } from "./use-icloud";
+import { useFamilyPhotos } from "./use-family-photos";
 
 /** Which library the screensaver draws from. */
-export type PhotoSourceId = "immich" | "unsplash" | "dlna" | "icloud";
+export type PhotoSourceId = "immich" | "unsplash" | "dlna" | "icloud" | "upload";
 
 export interface ScreensaverPhoto {
   id: string;
   url: string;
+  /**
+   * Pixel dimensions where the source knows them, so the screensaver can tell
+   * a portrait photo from a landscape one before it loads and choose how to
+   * fit it (RFC-009 3.4). Sources that cannot say keep the old behaviour.
+   */
+  width?: number | null;
+  height?: number | null;
   metadata?: {
     photographer?: string;
     photographerUrl?: string;
@@ -72,8 +80,22 @@ export function usePhotoSource(): {
     100,
     source === "icloud",
   );
+  // The only source Kinboard stores itself, and the only one that can report
+  // each photo's dimensions.
+  const { data: uploaded, isLoading: isUploadLoading } = useFamilyPhotos(source === "upload");
 
   const photos = useMemo<ScreensaverPhoto[]>(() => {
+    if (source === "upload") {
+      return (uploaded?.photos ?? [])
+        .filter((photo) => !!photo.url)
+        .map((photo) => ({
+          id: photo.id,
+          url: photo.url!,
+          width: photo.width,
+          height: photo.height,
+        }));
+    }
+
     if (source === "icloud") {
       return icloudPhotos.map((photo) => ({
         id: photo.id,
@@ -109,11 +131,13 @@ export function usePhotoSource(): {
       id: photo.id,
       url: photo.url,
     }));
-  }, [source, immichPhotos, unsplashPhotos, dlnaPhotos, icloudPhotos]);
+  }, [source, immichPhotos, unsplashPhotos, dlnaPhotos, icloudPhotos, uploaded]);
 
   const isLoading =
     isSourceLoading ||
-    (source === "icloud"
+    (source === "upload"
+      ? isUploadLoading
+      : source === "icloud"
       ? isIcloudLoading
       : source === "dlna"
         ? isDlnaLoading

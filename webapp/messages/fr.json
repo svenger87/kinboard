@@ -1672,6 +1672,8 @@
       "sourceHeading": "Source de photos",
       "sourceImmichLabel": "Immich",
       "sourceImmichSuffix": "— Vos propres photos de famille",
+      "sourceUploadLabel": "Vos propres photos",
+      "sourceUploadSuffix": "importées",
       "sourceUnsplashLabel": "Unsplash",
       "sourceUnsplashSuffix": "— Photos libres de droits de haute qualité",
       "immichConnectionTitle": "Connexion à Immich",
@@ -1792,7 +1794,24 @@
         "previewNote": "Les liens d’images d’Apple expirent après environ une heure ; Kinboard en récupère de nouveaux au fil de l’eau."
       },
       "sourceIcloudLabel": "Album partagé iCloud",
-      "sourceIcloudSuffix": "depuis votre iPhone"
+      "sourceIcloudSuffix": "depuis votre iPhone",
+      "upload": {
+        "heading": "Vos propres photos",
+        "description": "Importez des images directement — aucun serveur, aucun compte, aucune clé.",
+        "addButton": "Ajouter des photos",
+        "uploading": "Envoi de {count}…",
+        "uploadedTitle": "{count} photo(s) ajoutée(s)",
+        "loading": "Chargement de la bibliothèque…",
+        "empty": "Aucune photo pour l'instant. Ajoutez-en et elles apparaîtront sur l'écran de veille.",
+        "summary": "{count} photos · {size}",
+        "deleteAria": "Supprimer cette photo",
+        "deleteFailed": "Impossible de supprimer cette photo",
+        "failedTitle": "Échec de l'envoi",
+        "tooLargeTitle": "Fichier trop volumineux",
+        "tooLargeBody": "Maximum {max} par photo.",
+        "heicTitle": "HEIC n'est pas encore pris en charge",
+        "heicBody": "Les iPhone enregistrent en HEIC par défaut. Dans Réglages → Appareil photo → Formats, choisissez « Plus compatible », ou exportez les images en JPEG."
+      }
     },
     "google": {
       "title": "Google Agenda",

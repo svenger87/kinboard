@@ -16,6 +16,7 @@ import { type Locale } from "date-fns/locale";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { hasBirthYear } from "@/lib/birthday";
 import { useTimeFormat } from "@/hooks/use-time-format";
+import { choosePhotoFit, aspectOf } from "@/lib/photo-fit";
 
 // Parse date string safely without timezone shift
 // "1990-01-28" should be January 28th local, not UTC midnight
@@ -129,6 +130,60 @@ function screensaverWeatherIcon(condition: string) {
   return Cloud;
 }
 
+
+/**
+ * One photo layer, fitted to the screen rather than always cropped to it.
+ *
+ * `object-cover` was unconditional here, so on a 16:9 wall panel a portrait
+ * phone photo was cropped to its middle third — the faces gone. It stays the
+ * right default: a 4:3 holiday picture on a television should fill it.
+ * `choosePhotoFit` decides which case this is (RFC-009 §3.4).
+ *
+ * The contained case sits on the black the screensaver already paints. The
+ * obvious alternative — a blurred copy of the photo behind it, the way a phone
+ * gallery does it — is banned by eslint.config.mjs, because compositing a
+ * full-screen blur for hours on an ARM panel is exactly what kiosk surfaces
+ * must not do.
+ *
+ * Dimensions come from the source where it knows them, which today means the
+ * uploaded library. For Immich, Unsplash, DLNA and iCloud the browser measures
+ * the image on load instead, so all five sources get this rather than only the
+ * one that stores a width.
+ */
+function ScreensaverPhotoLayer({
+  src,
+  photoAspect,
+  viewportAspect,
+  className,
+}: {
+  src: string;
+  photoAspect: number | null;
+  viewportAspect: number;
+  className: string;
+}) {
+  const [measuredAspect, setMeasuredAspect] = useState<number | null>(null);
+  const aspect = photoAspect ?? measuredAspect;
+  // An unknown shape keeps the behaviour this had before: fill the screen.
+  const fit = aspect === null ? "cover" : choosePhotoFit(aspect, viewportAspect);
+
+  return (
+    <img
+      src={src}
+      alt=""
+      decoding="async"
+      onLoad={(event) => {
+        if (photoAspect !== null) return;
+        const img = event.currentTarget;
+        const natural = aspectOf(img.naturalWidth, img.naturalHeight);
+        if (natural !== null) setMeasuredAspect(natural);
+      }}
+      className={`absolute inset-0 size-full ${
+        fit === "contain" ? "object-contain" : "object-cover"
+      } ${className}`}
+    />
+  );
+}
+
 export function Screensaver({ photos }: ScreensaverProps) {
   const { formatTime, use24Hour } = useTimeFormat();
   const t = useTranslations("components.screensaver");
@@ -149,6 +204,21 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // ignored the household's setting entirely (issue #198).
   const { hours, minutes, date } = useClock(60000, use24Hour);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(-1); // -1 means not initialized
+  // The screen's own shape, which decides whether a photo is cropped or
+  // letterboxed. Kinboard runs on portrait wall panels as well as landscape
+  // ones, and a tablet gets rotated, so this is measured rather than assumed.
+  const [viewportAspect, setViewportAspect] = useState(16 / 9);
+  useEffect(() => {
+    const measure = () =>
+      setViewportAspect(window.innerWidth / Math.max(1, window.innerHeight));
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+    };
+  }, []);
   // The shuffled running order and how far through it we are. Refs, because
   // advancing the bag must not re-render — the rotation effect already
   // re-runs on every photo change.
@@ -279,6 +349,17 @@ export function Screensaver({ photos }: ScreensaverProps) {
     if (currentPhotoIndex < 0 || !sourcePhotos || sourcePhotos.length === 0) return null;
     return sourcePhotos[currentPhotoIndex]?.metadata || null;
   }, [currentPhotoIndex, sourcePhotos]);
+
+  // Dimensions where the source reports them (the uploaded library does; the
+  // other four do not). null means "let the browser measure it on load".
+  const aspectAt = useCallback(
+    (index: number): number | null => {
+      if (index < 0 || !sourcePhotos) return null;
+      const photo = sourcePhotos[index];
+      return photo ? aspectOf(photo.width, photo.height) : null;
+    },
+    [sourcePhotos],
+  );
 
   // Tell Unsplash the photo was displayed.
   //
@@ -561,22 +642,22 @@ export function Screensaver({ photos }: ScreensaverProps) {
       <div className="absolute inset-0">
         {/* Previous photo (fading out) */}
         {previousBlobUrl && previousPhotoIndex !== currentPhotoIndex && (
-          <img
+          <ScreensaverPhotoLayer
             key={`prev-${previousPhotoIndex}`}
             src={previousBlobUrl}
-            alt=""
-            decoding="async"
-            className="absolute inset-0 size-full object-cover screensaver-photo screensaver-photo-out"
+            photoAspect={aspectAt(previousPhotoIndex)}
+            viewportAspect={viewportAspect}
+            className="screensaver-photo screensaver-photo-out"
           />
         )}
         {/* Current photo (fading in) */}
         {currentBlobUrl && (
-          <img
+          <ScreensaverPhotoLayer
             key={`curr-${currentPhotoIndex}`}
             src={currentBlobUrl}
-            alt=""
-            decoding="async"
-            className="absolute inset-0 size-full object-cover screensaver-photo screensaver-photo-in"
+            photoAspect={aspectAt(currentPhotoIndex)}
+            viewportAspect={viewportAspect}
+            className="screensaver-photo screensaver-photo-in"
           />
         )}
 

@@ -1672,6 +1672,8 @@
       "sourceHeading": "Photo source",
       "sourceImmichLabel": "Immich",
       "sourceImmichSuffix": "— Your own family photos",
+      "sourceUploadLabel": "Your own photos",
+      "sourceUploadSuffix": "uploaded",
       "sourceUnsplashLabel": "Unsplash",
       "sourceUnsplashSuffix": "— High-quality stock photos",
       "immichConnectionTitle": "Immich connection",
@@ -1792,7 +1794,24 @@
         "previewNote": "Apple’s image links expire after about an hour, so Kinboard fetches fresh ones as it goes."
       },
       "sourceIcloudLabel": "iCloud Shared Album",
-      "sourceIcloudSuffix": "from your iPhone"
+      "sourceIcloudSuffix": "from your iPhone",
+      "upload": {
+        "heading": "Your own photos",
+        "description": "Upload pictures directly — no server, no account, no API key.",
+        "addButton": "Add photos",
+        "uploading": "Uploading {count}…",
+        "uploadedTitle": "Added {count} photo(s)",
+        "loading": "Loading your library…",
+        "empty": "No photos yet. Add some and they'll show on the screensaver.",
+        "summary": "{count} photos · {size}",
+        "deleteAria": "Delete this photo",
+        "deleteFailed": "Couldn't delete that photo",
+        "failedTitle": "Upload failed",
+        "tooLargeTitle": "File too large",
+        "tooLargeBody": "Maximum {max} per photo.",
+        "heicTitle": "HEIC isn't supported yet",
+        "heicBody": "iPhones save HEIC by default. On your iPhone, set Camera → Formats to \"Most Compatible\", or export the pictures as JPEG."
+      }
     },
     "google": {
       "title": "Google Calendar",
