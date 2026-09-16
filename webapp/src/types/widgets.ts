@@ -67,3 +67,25 @@ export function migrateLegacyWidgetVisibility(
   }
   return saved;
 }
+
+/**
+ * Settings for the Stundenplan widget that are not "is it visible".
+ *
+ * Kept out of `WidgetVisibility` on purpose: that type is read as "one
+ * boolean per widget" — `settings/widgets/page.tsx` counts its true values
+ * against `WIDGET_CONFIGS.length` — so a flag that is not a widget would
+ * make the enabled count wrong the moment it is switched on.
+ */
+export interface ScheduleWidgetSettings {
+  /**
+   * Render one card per timetabled child instead of a single card with the
+   * manual child switcher (discussion #264). Off by default: one card is
+   * the right shape for a single child, and a wall that is already full
+   * should not grow widgets without being asked.
+   */
+  perChild: boolean;
+}
+
+export const DEFAULT_SCHEDULE_WIDGET_SETTINGS: ScheduleWidgetSettings = {
+  perChild: false,
+};

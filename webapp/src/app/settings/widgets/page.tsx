@@ -26,10 +26,12 @@ import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/page-header";
-import { useSetting, useUpdateSetting } from "@/hooks";
+import { useSetting, useUpdateSetting, usePeople, useSchedules } from "@/hooks";
+import { timetabledChildren } from "@/lib/timetabled-children";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
-import { DEFAULT_WIDGET_VISIBILITY } from "@/types/widgets";
-import type { WidgetVisibility } from "@/types/widgets";
+import { DEFAULT_WIDGET_VISIBILITY, DEFAULT_SCHEDULE_WIDGET_SETTINGS } from "@/types/widgets";
+import type { WidgetVisibility, ScheduleWidgetSettings } from "@/types/widgets";
 
 interface WidgetConfig {
   key: keyof WidgetVisibility;
@@ -69,6 +71,24 @@ export default function WidgetSettingsPage() {
     DEFAULT_WIDGET_VISIBILITY
   );
   const updateSetting = useUpdateSetting<WidgetVisibility>();
+
+  // ── Stundenplan: one card per child (discussion #264) ──
+  // Its own settings row, not another key in `widget_visibility` — that blob
+  // is one boolean per widget and `enabledCount` below counts it against
+  // `WIDGET_CONFIGS.length`.
+  const { data: scheduleWidget } = useSetting<ScheduleWidgetSettings>(
+    SETTINGS_KEYS.scheduleWidget,
+    DEFAULT_SCHEDULE_WIDGET_SETTINGS,
+  );
+  const updateScheduleWidget = useUpdateSetting<ScheduleWidgetSettings>();
+  const perChild = scheduleWidget?.perChild ?? DEFAULT_SCHEDULE_WIDGET_SETTINGS.perChild;
+
+  // Named here so the switch can say who it will actually affect. A family
+  // with no timetable built yet sees the hint instead — turning the option
+  // on would otherwise look like it did nothing.
+  const { data: people } = usePeople();
+  const { data: schedules } = useSchedules();
+  const affectedChildren = timetabledChildren(people, schedules);
 
   // Same merge as the dashboard's read (see page.tsx): `visibility` only
   // falls back to `DEFAULT_WIDGET_VISIBILITY` wholesale when there's no saved
@@ -164,6 +184,38 @@ export default function WidgetSettingsPage() {
                           </p>
                         ))}
                       </div>
+
+                      {/* Sub-option, Stundenplan only: one card per child
+                          instead of the single card with the manual switcher
+                          (discussion #264). Nested under its widget because
+                          it is meaningless while that widget is hidden. */}
+                      {widget.key === "schedule" && (
+                        <div className="mt-3 border-t border-border/40 pt-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-medium">{t("schedulePerChildLabel")}</p>
+                            <Switch
+                              checked={perChild}
+                              onCheckedChange={() =>
+                                updateScheduleWidget.mutate({
+                                  key: SETTINGS_KEYS.scheduleWidget,
+                                  value: { ...DEFAULT_SCHEDULE_WIDGET_SETTINGS, ...(scheduleWidget ?? {}), perChild: !perChild },
+                                })
+                              }
+                              disabled={!enabled || isLoading || updateScheduleWidget.isPending}
+                              aria-label={t("schedulePerChildToggleAria", {
+                                state: perChild ? t("toggleStateHide") : t("toggleStateShow"),
+                              })}
+                            />
+                          </div>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {affectedChildren.length > 0
+                              ? t("schedulePerChildNames", {
+                                  names: affectedChildren.map((c) => c.name).join(", "),
+                                })
+                              : t("schedulePerChildNobody")}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Card>

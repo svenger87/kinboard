@@ -27,7 +27,20 @@ import { AttentionWidget } from "@/components/widgets/attention-widget";
 import { GettingStartedChecklist } from "@/components/getting-started-checklist";
 import { ConnectivityBanner } from "@/components/connectivity-banner";
 import { ShoppingInstallPrompt } from "@/components/shopping-install-prompt";
-import { useKeyboardShortcuts, useSwipeNavigation, useThemeSettings, useSetting } from "@/hooks";
+import {
+  useKeyboardShortcuts,
+  useSwipeNavigation,
+  useThemeSettings,
+  useSetting,
+  usePeople,
+  useSchedules,
+} from "@/hooks";
+import { timetabledChildren } from "@/lib/timetabled-children";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import {
+  DEFAULT_SCHEDULE_WIDGET_SETTINGS,
+  type ScheduleWidgetSettings,
+} from "@/types/widgets";
 import { DEFAULT_WIDGET_VISIBILITY, migrateLegacyWidgetVisibility } from "@/types/widgets";
 import type { WidgetVisibility } from "@/types/widgets";
 
@@ -54,6 +67,30 @@ export default function DashboardPage() {
   const w = widgets
     ? { ...DEFAULT_WIDGET_VISIBILITY, ...migrateLegacyWidgetVisibility(widgets) }
     : DEFAULT_WIDGET_VISIBILITY;
+
+  // One Stundenplan card per child, from discussion #264: a family with two
+  // kids wants both timetables on the wall at once rather than switching
+  // between them. Off by default — the single card with its switcher is
+  // still the right shape for one child, and for a wall that is already full.
+  //
+  // Deliberately its own settings row rather than another key in
+  // `widget_visibility`: every key in that blob is treated as a widget, and
+  // Settings → Widgets counts the true ones against `WIDGET_CONFIGS.length`
+  // for its "7 von 17" subtitle. A non-widget boolean in there makes that
+  // number quietly wrong.
+  const { data: scheduleWidget } = useSetting<ScheduleWidgetSettings>(
+    SETTINGS_KEYS.scheduleWidget,
+    DEFAULT_SCHEDULE_WIDGET_SETTINGS,
+  );
+  const perChild = scheduleWidget?.perChild ?? DEFAULT_SCHEDULE_WIDGET_SETTINGS.perChild;
+
+  // Both already cached for the dashboard's other widgets: `useSchedules()`
+  // with no argument is the whole family's rows in one query, the same one
+  // the nav visibility check reads.
+  const { data: people } = usePeople();
+  const { data: schedules } = useSchedules();
+  const perChildCards =
+    w.schedule && perChild ? timetabledChildren(people, schedules) : [];
 
   // Enable keyboard shortcuts for navigation
   useKeyboardShortcuts();
@@ -145,7 +182,18 @@ export default function DashboardPage() {
           <AttentionWidget />
           {w.weather && <Weather />}
           {w.upcomingEvents && <UpcomingEvents maxEvents={3} />}
-          {w.schedule && <ScheduleWidget />}
+          {/* Per-child mode falls back to the single card when nobody has a
+              timetable yet, so switching the option on in a fresh family
+              shows the "Kein Kind konfiguriert" hint instead of silently
+              removing the widget. */}
+          {w.schedule &&
+            (perChildCards.length > 0 ? (
+              perChildCards.map((child) => (
+                <ScheduleWidget key={child.id} personId={child.id} />
+              ))
+            ) : (
+              <ScheduleWidget />
+            ))}
           {w.birthday && <BirthdayWidget maxItems={3} />}
           {w.weekOverview && <WeekOverviewWidget className="sm:col-span-2" />}
           {w.mealPlan && <MealPlanWidget />}
