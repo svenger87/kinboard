@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **The welcome screen uses the same depth and surface treatment as the rest of Kinboard.** Its two panels carried a hard black shadow and a very slightly see-through background, so the page behind them showed through as a faint, sharp ghost rather than looking like a solid card. They now use the standard elevation, which is tinted to match whichever colour theme is active, on an opaque surface.
 - **The photo widget no longer mislabels pictures that have no title.** Its accessible description was built from a phrase that needed a number it was never given, so for any photo without a caption the raw template text was used instead of a real description — which is what a screen reader would have read out.
+- **Per-person event colours now work without a Google account.** Kinboard has always colour-coded CalDAV and `.ics` events by person exactly like Google ones — both the "this whole calendar belongs to Emma" setting and the title rules that split a shared calendar between people. But the screen where those rules are written only appeared once a Google account was connected, so a household using Nextcloud, iCloud or a school feed had rules being applied to their calendar that they could not see, add or change. The rule editor is now on the page whether or not Google is connected. Nothing about Google changed, and any rules you already had keep working exactly as before.
 
 ### Security
 
