@@ -12,9 +12,10 @@ The calendar surface unifies events from:
 
 1. **Google Calendar (two-way sync)** — any calendar you've enabled in [Settings → Google Calendar](Google-Calendar). Events created or edited in Kinboard are pushed back to Google; edits made on the Google side flow down at the next sync interval. Subject to Google's per-calendar permissions: a read-only subscribed calendar (holidays, sports schedules, etc.) stays read-only in Kinboard too.
 2. **CalDAV (two-way sync)** — any calendar connected in [Settings → Calendar → CalDAV](CalDAV). Nextcloud, Radicale, Baïkal, Fastmail, iCloud and friends: username + password, events written back on save. The recommended option if you're not in the Google ecosystem.
-3. **Local events** — added directly in the Kinboard UI without selecting a Google or CalDAV calendar. Lives in `public.events` with no external link and never round-trips anywhere.
-4. **Holidays** — calendars marked with the "holidays" badge get rendered with the 🎉 indicator and slightly different styling.
-5. **Waste-pickup calendars** — calendars marked with the "waste pickup" badge are *hidden* from the calendar view and show up only on the waste widget. Avoids cluttering month view with weekly bin reminders.
+3. **iCalendar (`.ics`) feeds (read-only)** — any feed subscribed in [Settings → ICS](Calendar#icalendar-ics-feeds). iCloud Family Sharing, a school's published calendar, a club fixture list. Pulled on a schedule and never written back, because a published `.ics` URL is a snapshot, not an API.
+4. **Local events** — added directly in the Kinboard UI without selecting a Google, CalDAV or ICS calendar. Lives in `public.events` with no external link and never round-trips anywhere.
+5. **Holidays** — calendars marked with the "holidays" badge get rendered with the 🎉 indicator and slightly different styling.
+6. **Waste-pickup calendars** — calendars marked with the "waste pickup" badge are *hidden* from the calendar view and show up only on the waste widget. Avoids cluttering month view with weekly bin reminders.
 
 ## Month view
 
@@ -35,11 +36,13 @@ Events happening at the same time split the day's width between them and sit sid
 
 ## Per-person colors
 
-Each event is color-coded by the person it's assigned to. Assignment happens in three ways:
+Each event is color-coded by the person it's assigned to. This works the same for every provider — Google, CalDAV and `.ics` feeds all run through the same assignment, so a household with no Google account gets per-person colors exactly like one with. Assignment happens in three ways:
 
-1. **Whole calendar → one person** — set in [Settings → Google Calendar](Google-Calendar) per calendar
-2. **Per-event mapping rule** — `contains "Emma"` / `starts_with "Mama:"` → assign to Emma. Configured in the same settings page.
+1. **Whole calendar → one person** — set per calendar in [Settings → Google Calendar](Google-Calendar), in [Settings → CalDAV](CalDAV) (pencil icon on the calendar) or in Settings → ICS when you add or edit a feed. Right when a calendar belongs to one person: a partner's iPhone calendar, a child's school feed.
+2. **Per-event mapping rule** — `contains "Emma"` / `starts_with "Mama:"` → assign to Emma. Right when one calendar carries several people's events. One set of rules applies to **all** providers, not just Google.
 3. **Manual override** — edit a local event and pick the person directly
+
+The first two are checked in that order: a calendar assigned to a person stays assigned to them, and rules are only consulted for calendars left unassigned.
 
 If no rule matches, the event is "family-wide" (gray accent).
 
@@ -98,6 +101,10 @@ Hidden under [Settings → Google Calendar](Google-Calendar). Useful when:
 
 - One shared family calendar, want each person's events colored differently → use rules to auto-assign by title pattern
 - Subscribed to a calendar that mixes events for multiple people (school, sports club) → rules split it
+
+The rules are family-wide and are applied to Google, CalDAV and `.ics` events alike — the editor lives on the Google page for historical reasons, not because the rules are a Google feature.
+
+> **Known limitation.** That editor is only rendered once a Google account is connected, so a household using only CalDAV or `.ics` feeds currently has no way to create or edit rules, even though rules it already has are still applied at sync time. Until that is fixed, assign the whole calendar to a person instead (option 1 above), which works everywhere.
 
 Full match-type reference and the **Test** button: see [Google-Calendar → Mapping rules](Google-Calendar#mapping-rules).
 
