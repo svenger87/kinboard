@@ -5,6 +5,7 @@ import { usePhotoSourceSetting, type PhotoSourceId } from "./use-photo-source";
 import { useImmichPhotos, useImmichStatus, isImmichConnected } from "./use-immich";
 import { useDlnaPhotos } from "./use-dlna";
 import { useIcloudPhotos } from "./use-icloud";
+import { useFamilyPhotos } from "./use-family-photos";
 
 /**
  * The configured photo library, for browsing rather than for a slideshow.
@@ -26,6 +27,9 @@ export interface LibraryPhoto {
   thumbnailUrl: string;
   title: string | null;
   date: string | null;
+  /** Known only for the uploaded library; see RFC-009 3.4. */
+  width?: number | null;
+  height?: number | null;
 }
 
 /**
@@ -65,9 +69,23 @@ export function usePhotoLibrary(limit = 200, albumId?: string): {
   const immich = useImmichPhotos(albumId, limit, false, source === "immich" && immichConnected);
   const dlna = useDlnaPhotos(limit, false, source === "dlna", albumId);
   const icloud = useIcloudPhotos(limit, source === "icloud");
+  const uploaded = useFamilyPhotos(source === "upload");
 
   const photos = useMemo<LibraryPhoto[]>(() => {
     switch (source) {
+      case "upload":
+        return (uploaded.data?.photos ?? []).map((p) => ({
+          id: p.id,
+          url: p.url ?? "",
+          thumbnailUrl: p.thumbnailUrl ?? p.url ?? "",
+          // Uploaded photos carry no caption of their own — there is nowhere
+          // for one to have come from, and inventing a filename-derived title
+          // would put "IMG_4821" under every picture.
+          title: null,
+          date: p.takenAt ?? p.uploadedAt,
+          width: p.width,
+          height: p.height,
+        }));
       case "dlna":
         return (dlna.data ?? []).map((p) => ({
           id: p.id,
@@ -98,11 +116,13 @@ export function usePhotoLibrary(limit = 200, albumId?: string): {
           date: null,
         }));
     }
-  }, [source, immich.data, dlna.data, icloud.data]);
+  }, [source, immich.data, dlna.data, icloud.data, uploaded.data]);
 
   const isLoading =
     sourceLoading ||
-    (source === "dlna"
+    (source === "upload"
+      ? uploaded.isLoading
+      : source === "dlna"
       ? dlna.isLoading
       : source === "icloud"
         ? icloud.isLoading

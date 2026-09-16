@@ -97,9 +97,33 @@ This is not an upload problem, it is a Kinboard problem, and it is fixed for
 - The screensaver compares the photo's aspect with the viewport's. Close
   enough, and `object-cover` still wins — it fills the screen and crops
   nothing that matters. Far apart, and the photo is drawn `object-contain`
-  over a blurred, darkened copy of itself, so a portrait keeps its whole
-  subject and the panel keeps a full-bleed background.
+  over the black ground the screensaver already paints, so a portrait keeps
+  its whole subject.
 - The widget stops forcing `aspect-[4/3]` on whatever it is given.
+
+### Correction: the backdrop is black, not blurred
+
+An earlier draft of this section said a contained photo would sit over "a
+blurred, darkened copy of itself" — the treatment a phone gallery uses. That
+was written without checking `eslint.config.mjs`, which bans `backdrop-blur`
+and `blur-2xl`/`blur-3xl` outright: *"Kiosk surfaces must not ask an ARM GPU
+to composite a blur."* The rule exists because the policy had been stated in
+four comments in `globals.css` and drifted anyway (audit KB-29), and the
+screensaver — full-screen, animated, running for hours on a wall panel — is
+the worst possible place to break it.
+
+Plain `object-contain` over the black the screensaver already paints is what
+a television does with a portrait video, costs nothing, and needs no
+exception. Recorded rather than quietly changed, because "add a blurred
+backdrop" is the obvious suggestion and will come up again.
+
+### Where the dimensions come from
+
+The uploaded library stores them (§3.2). The other four sources do not report
+a size, so the fit falls back to what the browser measures on load
+(`naturalWidth`/`naturalHeight`) and `cover` until then — the behaviour they
+have today. That way the fix reaches all five sources rather than only the
+one this RFC adds, without inventing dimensions nobody supplied.
 
 Sources that cannot report dimensions fall back to today's behaviour rather
 than guessing; the uploaded library always can.
@@ -121,6 +145,16 @@ ship without HEIF decode, so these uploads would fail — and iPhone owners are 
 large part of who asked. M1 rejects unsupported types with a message naming the
 format rather than a generic failure; deciding between client-side conversion
 and a decoder is left to M2, informed by whether anyone actually hits it.
+
+**Objects outlive rows when a family is deleted.** `family_photos.family_id`
+cascades, so removing a family takes its rows with it — and nothing takes the
+storage objects, because only `/api/photos/[id]` removes those. A deleted
+household's photographs would stay on the disk indefinitely. Found while
+cleaning up after a manual test, not designed for. Not fixed in M1 because the
+fix belongs with whatever else deleting a family has to tidy up rather than
+bolted onto this table alone; `storage.protect_delete()` already refuses
+direct deletes from `storage.objects`, so the cleanup has to go through the
+Storage API either way.
 
 **Disk.** A family library is unbounded and lands on the self-hoster's disk.
 M1 enforces a per-file size cap and shows the library's total size; it does not

@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - **Both children's timetables on the board at once.** A household with two school-age kids had one School schedule card and a row of buttons to switch between them, so the second child's day was always one tap away — and on a wall display nobody is standing at, one tap away means never seen. **Settings → Widgets → School schedule** now has "One widget per child": switch it on and every child who has a timetable gets their own card, named and coloured as they are everywhere else, with no switcher to touch. It is off by default, and left off the single card behaves exactly as before. A child with no timetable — the pre-schooler, or one whose plan you cleared — does not get an empty card taking up space, and if nobody has a timetable yet the single card stays where it is rather than the widget quietly disappearing.
+- **Your own photos on the board, with nothing to set up.** Until now the screensaver needed an Immich server, a NAS, an iCloud album or an Unsplash key — every option assumed you already ran something. You can now just upload pictures: **Settings → Photos → Your own photos**, pick some files, done. They feed the screensaver, the Photos page and the dashboard widget like any other source. The pictures are stored privately rather than in a publicly readable bucket, and the links the board uses to show them expire after an hour, because these are photographs of your family and not decoration. iPhone HEIC files are not readable yet and say so plainly, with the setting to change on your phone, instead of failing as "invalid file".
+- **Portrait photos are no longer cropped to their middle.** Every photo surface filled its space by cropping, so a picture taken upright on a phone lost the top and bottom of itself on a landscape wall panel — usually the faces. Photos whose shape is close to the screen's still fill it, as before; ones that are plainly a different shape are now shown whole. This applies to all photo sources, not just uploaded ones, and it works the same way round on a portrait kiosk showing a landscape picture.
+
 - **The welcome screen now explains Kinboard before asking people to connect.** New visitors see the household dashboard's core benefits — planning, home control and privacy — alongside clear actions to create a family or join with a code. The layout adapts from a focused mobile stack to a spacious two-column landing page on larger displays.
 
 ### Changed
@@ -16,6 +19,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - **The welcome screen uses the same depth and surface treatment as the rest of Kinboard.** Its two panels carried a hard black shadow and a very slightly see-through background, so the page behind them showed through as a faint, sharp ghost rather than looking like a solid card. They now use the standard elevation, which is tinted to match whichever colour theme is active, on an opaque surface.
+- **The photo widget no longer mislabels pictures that have no title.** Its accessible description was built from a phrase that needed a number it was never given, so for any photo without a caption the raw template text was used instead of a real description — which is what a screen reader would have read out.
 
 ### Security
 

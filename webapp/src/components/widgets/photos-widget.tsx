@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { choosePhotoFit, aspectOf } from "@/lib/photo-fit";
 import { Images } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/card";
@@ -32,6 +33,14 @@ export function PhotosWidget() {
   // show one picture would make every dashboard load pay for the viewer.
   const { photos, isLoading, screensaverOnly } = usePhotoLibrary(12);
   const [activeIdx, setActiveIdx] = useState(0);
+  // Only the uploaded library reports dimensions; for the other four sources
+  // the browser measures the image when it loads.
+  //
+  // Stored with the id of the photo it was measured from, not on its own: a
+  // bare number would still be the portrait's 0.75 when the next photo — a
+  // landscape one, from a source that reports no size — first renders, and
+  // that photo would be letterboxed until its own onLoad corrected it.
+  const [measured, setMeasured] = useState<{ id: string; aspect: number | null } | null>(null);
 
   useEffect(() => {
     if (photos.length <= 1) return;
@@ -96,6 +105,19 @@ export function PhotosWidget() {
   const photo = photos[safeIdx];
   if (!photo) return null;
 
+  // The card keeps its 4:3 shape rather than following the photo. A tile that
+  // changed height every twenty seconds would shove every widget below it up
+  // and down the dashboard for as long as the slideshow ran.
+  //
+  // What changes is how the photo sits inside it. `object-cover` was
+  // unconditional, so a portrait phone photo was cropped to its middle third
+  // — RFC-009 §3.4, the same fix the screensaver gets. Dimensions come from
+  // the source where it reports them and from the browser on load otherwise,
+  // so this works for all five sources.
+  const knownAspect = aspectOf(photo.width, photo.height);
+  const aspect = knownAspect ?? (measured?.id === photo.id ? measured.aspect : null);
+  const fit = aspect === null ? "cover" : choosePhotoFit(aspect, 4 / 3);
+
   return (
     <Link href="/photos" className="block h-full" aria-label={tp("title")}>
       <Card className="relative aspect-[4/3] overflow-hidden">
@@ -103,14 +125,19 @@ export function PhotosWidget() {
           <motion.img
             key={photo.id}
             src={photo.thumbnailUrl || photo.url}
-            alt={photo.title ?? tp("photoAria")}
+            alt={photo.title ?? tp("photoAria", { index: safeIdx + 1 })}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.6 }}
-            className="absolute inset-0 size-full object-cover"
+            className={`absolute inset-0 size-full ${fit === "contain" ? "object-contain" : "object-cover"}`}
             // A photo that 404s — an expired iCloud link, a NAS that went to
             // sleep — must not leave a broken-image glyph on the wall.
+            onLoad={(event) => {
+              if (knownAspect !== null) return;
+              const img = event.currentTarget;
+              setMeasured({ id: photo.id, aspect: aspectOf(img.naturalWidth, img.naturalHeight) });
+            }}
             onError={() => setActiveIdx((i) => (photos.length > 1 ? (i + 1) % photos.length : i))}
           />
         </AnimatePresence>
