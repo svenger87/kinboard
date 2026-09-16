@@ -8,6 +8,7 @@ export const SETTINGS_KEYS = {
   holidayCountry: "holiday_country",
   theme: "theme",
   widgetVisibility: "widget_visibility",
+  scheduleWidget: "schedule_widget",
   schedulePackItems: "schedule_pack_items",
   schedulePeriods: "schedule_periods",
   screensaver: "screensaver",

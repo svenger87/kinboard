@@ -8,6 +8,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Both children's timetables on the board at once.** A household with two school-age kids had one School schedule card and a row of buttons to switch between them, so the second child's day was always one tap away — and on a wall display nobody is standing at, one tap away means never seen. **Settings → Widgets → School schedule** now has "One widget per child": switch it on and every child who has a timetable gets their own card, named and coloured as they are everywhere else, with no switcher to touch. It is off by default, and left off the single card behaves exactly as before. A child with no timetable — the pre-schooler, or one whose plan you cleared — does not get an empty card taking up space, and if nobody has a timetable yet the single card stays where it is rather than the widget quietly disappearing.
 - **The welcome screen now explains Kinboard before asking people to connect.** New visitors see the household dashboard's core benefits — planning, home control and privacy — alongside clear actions to create a family or join with a code. The layout adapts from a focused mobile stack to a spacious two-column landing page on larger displays.
 
 ### Changed

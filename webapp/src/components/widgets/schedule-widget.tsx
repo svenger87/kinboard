@@ -247,7 +247,13 @@ export function ScheduleWidget({
               <span className="truncate">{t("title")}</span>
             </CardTitle>
             <div className="flex shrink-0 items-center gap-2">
-              {children.length > 1 ? (
+              {/* Only an unpinned card gets the child switcher. `personId` below
+                  resolves as `propPersonId || selectedChildId || firstChild?.id`,
+                  so on a card the dashboard pinned to one child (the per-child
+                  option from discussion #264) the prop always wins and these
+                  buttons would set state nothing reads — controls on the wall
+                  that visibly do nothing. Pinned cards show the name badge. */}
+              {!propPersonId && children.length > 1 ? (
                 <div className="flex gap-1">
                   {children.map((child) => (
                     <button
