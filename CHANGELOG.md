@@ -14,6 +14,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The welcome screen uses the same depth and surface treatment as the rest of Kinboard.** Its two panels carried a hard black shadow and a very slightly see-through background, so the page behind them showed through as a faint, sharp ghost rather than looking like a solid card. They now use the standard elevation, which is tinted to match whichever colour theme is active, on an opaque surface.
+
 ### Security
 
 ## [1.9.0] - 2026-09-15

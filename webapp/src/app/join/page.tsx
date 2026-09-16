@@ -279,7 +279,7 @@ export default function JoinPage() {
                   { icon: House, title: t("welcomeFeatureHomeTitle"), body: t("welcomeFeatureHomeBody") },
                   { icon: ShieldCheck, title: t("welcomeFeaturePrivacyTitle"), body: t("welcomeFeaturePrivacyBody") },
                 ].map(({ icon: Icon, title, body }) => (
-                  <div key={title} className="rounded-2xl border border-border/70 bg-card/60 p-4 shadow-sm">
+                  <div key={title} className="rounded-2xl border border-border/70 bg-card/60 p-4 elev-sm">
                     <Icon className="mb-3 size-5 text-primary" strokeWidth={1.8} />
                     <p className="text-sm font-medium">{title}</p>
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{body}</p>
@@ -287,7 +287,7 @@ export default function JoinPage() {
                 ))}
               </div>
             </div>
-            <Card className="border-primary/20 bg-card/90 p-2 shadow-xl shadow-primary/5">
+            <Card className="border-primary/20 bg-card p-2 elev-lg">
               <CardContent className="p-6 sm:p-8">
                 <div className="mb-7 flex items-center gap-3">
                   <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
