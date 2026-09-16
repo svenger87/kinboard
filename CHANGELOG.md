@@ -8,9 +8,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The welcome screen now explains Kinboard before asking people to connect.** New visitors see the household dashboard's core benefits — planning, home control and privacy — alongside clear actions to create a family or join with a code. The layout adapts from a focused mobile stack to a spacious two-column landing page on larger displays.
+
 ### Changed
 
 ### Fixed
+
+- **The welcome screen uses the same depth and surface treatment as the rest of Kinboard.** Its two panels carried a hard black shadow and a very slightly see-through background, so the page behind them showed through as a faint, sharp ghost rather than looking like a solid card. They now use the standard elevation, which is tinted to match whichever colour theme is active, on an opaque surface.
 
 ### Security
 
