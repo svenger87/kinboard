@@ -573,218 +573,239 @@ export default function GoogleSettingsPage() {
                 </Card>
               </motion.div>
 
-              {/* Person Mapping Rules */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="mt-6"
-              >
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <div className="flex items-center gap-2">
-                    <Users className="size-4 text-muted-foreground" />
-                    <h2 className="text-sm font-medium text-muted-foreground">
-                      {t("mappingHeading")}
-                    </h2>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowTestResults(!showTestResults)}
-                    >
-                      <TestTube2 className="size-4 mr-2" />
-                      {t("testButton")}
-                    </Button>
-                    <Dialog open={ruleDialogOpen} onOpenChange={setRuleDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button size="sm">
-                          <Plus className="size-4 mr-2" />
-                          {t("addRuleButton")}
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>{t("ruleDialogTitle")}</DialogTitle>
-                        </DialogHeader>
-                        <div className="flex flex-col gap-4 pt-4">
-                          <div className="flex flex-col gap-2">
-                            <Label className="text-sm font-medium">{t("rulePersonLabel")}</Label>
-                            <Select value={newRulePerson} onValueChange={setNewRulePerson}>
-                              <SelectTrigger>
-                                <SelectValue placeholder={t("rulePersonPlaceholder")} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(people || []).map((person) => (
-                                  <SelectItem key={person.id} value={person.id}>
-                                    <div className="flex items-center gap-2">
-                                      <div
-                                        className="size-3 rounded-full"
-                                        style={{ backgroundColor: person.color }}
-                                      />
-                                      {person.name}
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="flex flex-col gap-2">
-                            <Label className="text-sm font-medium">{t("rulePatternLabel")}</Label>
-                            <Input
-                              placeholder={t("rulePatternPlaceholder")}
-                              value={newRulePattern}
-                              onChange={(e) => setNewRulePattern(e.target.value)}
-                            />
-                          </div>
-
-                          <div className="flex flex-col gap-2">
-                            <Label className="text-sm font-medium">{t("ruleMatchTypeLabel")}</Label>
-                            <Select
-                              value={newRuleMatchType}
-                              onValueChange={(v) => setNewRuleMatchType(v as MatchType)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="contains">{t("matchType_contains")}</SelectItem>
-                                <SelectItem value="starts_with">{t("matchType_starts_with")}</SelectItem>
-                                <SelectItem value="ends_with">{t("matchType_ends_with")}</SelectItem>
-                                <SelectItem value="regex">{t("matchType_regex")}</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <Button
-                            className="w-full"
-                            onClick={handleAddRule}
-                            disabled={!newRulePattern.trim() || !newRulePerson}
-                          >
-                            {t("ruleSubmit")}
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </div>
-
-                <Card className="divide-y divide-border/50">
-                  {mappingRules.length === 0 ? (
-                    <div className="p-8 text-center text-muted-foreground">
-                      <Users className="size-8 mx-auto mb-2 opacity-30" />
-                      <p className="text-sm">{t("rulesEmpty")}</p>
-                      <p className="text-xs mt-1">
-                        {t("rulesEmptyHint")}
-                      </p>
-                    </div>
-                  ) : (
-                    mappingRules
-                      .sort((a, b) => b.priority - a.priority)
-                      .map((rule, index) => {
-                        const person = getPersonById(rule.person_id);
-                        return (
-                          <motion.div
-                            key={rule.id}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.5 + index * 0.05 }}
-                            className="flex items-center justify-between p-4 group"
-                          >
-                            <div className="flex items-center gap-3">
-                              <GripVertical className="size-4 text-muted-foreground opacity-50 sm:opacity-0 sm:group-hover:opacity-50 transition-opacity cursor-grab" />
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <code className="text-sm bg-muted px-2 py-0.5 rounded">
-                                    {rule.pattern}
-                                  </code>
-                                  <Badge variant="outline" className="text-xs">
-                                    {matchTypeLabel(rule.match_type)}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-xs text-muted-foreground">→</span>
-                                  {person && (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs"
-                                      style={{
-                                        borderColor: person.color,
-                                        color: person.color,
-                                      }}
-                                    >
-                                      {person.name}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                              onClick={() => handleDeleteRule(rule.id)}
-                              aria-label={t("deleteRuleAria", { pattern: rule.pattern })}
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </motion.div>
-                        );
-                      })
-                  )}
-                </Card>
-
-                {/* Test Results */}
-                {showTestResults && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    className="mt-4"
-                  >
-                    <Card className="p-4">
-                      <h3 className="text-sm font-medium mb-3">{t("testResultsHeading")}</h3>
-                      <div className="flex flex-col gap-2">
-                        {eventTitles.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-4">
-                            {t("testResultsEmpty")}
-                          </p>
-                        ) : (
-                          testRules(eventTitles, mappingRules).map((result, i) => {
-                            const person = result.person_id ? getPersonById(result.person_id) : null;
-                            return (
-                              <div
-                                key={i}
-                                className="flex items-center justify-between text-sm p-2 rounded-lg bg-muted/30"
-                              >
-                                <span className="text-muted-foreground truncate mr-2">{result.title}</span>
-                                {person ? (
-                                  <Badge
-                                    variant="outline"
-                                    className="shrink-0"
-                                    style={{
-                                      borderColor: person.color,
-                                      color: person.color,
-                                    }}
-                                  >
-                                    {person.name}
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="outline" className="text-muted-foreground shrink-0">
-                                    {t("testResultsFamily")}
-                                  </Badge>
-                                )}
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    </Card>
-                  </motion.div>
-                )}
-              </motion.div>
             </>
           )}
+
+          {/* Person mapping rules live outside the `isConnected` gate above,
+              and deliberately so.
+
+              They are not a Google feature. `caldav-sync.ts:145` and
+              `ics-sync.ts:107` run event titles through the same
+              `matchPersonForEvent` as `google/sync/route.ts:303`, reading the
+              same family-wide list — all three pull `mapping_rules` off the
+              `google_calendar` settings row. Inside the gate, the engine went
+              on colouring a CalDAV or ICS household's events by rules that
+              household had no way to create or edit, and CalDAV is what the
+              docs recommend to anyone outside the Google ecosystem.
+
+              Nothing else needed changing: `/api/settings` answers a missing
+              row with `{ value: null }` and a 200, so the first rule saved by
+              a family with no Google account creates the row, and the Test
+              button's sample titles come from `useEvents`, which knows
+              nothing about providers.
+
+              What stays gated is everything that genuinely needs Google —
+              sync status, the calendar list, auto-sync. */}
+          {/* Person Mapping Rules */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="mt-6"
+          >
+            <div className="flex items-center justify-between mb-3 px-1">
+              <div className="flex items-center gap-2">
+                <Users className="size-4 text-muted-foreground" />
+                <h2 className="text-sm font-medium text-muted-foreground">
+                  {t("mappingHeading")}
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowTestResults(!showTestResults)}
+                >
+                  <TestTube2 className="size-4 mr-2" />
+                  {t("testButton")}
+                </Button>
+                <Dialog open={ruleDialogOpen} onOpenChange={setRuleDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="size-4 mr-2" />
+                      {t("addRuleButton")}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{t("ruleDialogTitle")}</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4 pt-4">
+                      <div className="flex flex-col gap-2">
+                        <Label className="text-sm font-medium">{t("rulePersonLabel")}</Label>
+                        <Select value={newRulePerson} onValueChange={setNewRulePerson}>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t("rulePersonPlaceholder")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(people || []).map((person) => (
+                              <SelectItem key={person.id} value={person.id}>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="size-3 rounded-full"
+                                    style={{ backgroundColor: person.color }}
+                                  />
+                                  {person.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <Label className="text-sm font-medium">{t("rulePatternLabel")}</Label>
+                        <Input
+                          placeholder={t("rulePatternPlaceholder")}
+                          value={newRulePattern}
+                          onChange={(e) => setNewRulePattern(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <Label className="text-sm font-medium">{t("ruleMatchTypeLabel")}</Label>
+                        <Select
+                          value={newRuleMatchType}
+                          onValueChange={(v) => setNewRuleMatchType(v as MatchType)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="contains">{t("matchType_contains")}</SelectItem>
+                            <SelectItem value="starts_with">{t("matchType_starts_with")}</SelectItem>
+                            <SelectItem value="ends_with">{t("matchType_ends_with")}</SelectItem>
+                            <SelectItem value="regex">{t("matchType_regex")}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        onClick={handleAddRule}
+                        disabled={!newRulePattern.trim() || !newRulePerson}
+                      >
+                        {t("ruleSubmit")}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+
+            <Card className="divide-y divide-border/50">
+              {mappingRules.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <Users className="size-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">{t("rulesEmpty")}</p>
+                  <p className="text-xs mt-1">
+                    {t("rulesEmptyHint")}
+                  </p>
+                </div>
+              ) : (
+                mappingRules
+                  .sort((a, b) => b.priority - a.priority)
+                  .map((rule, index) => {
+                    const person = getPersonById(rule.person_id);
+                    return (
+                      <motion.div
+                        key={rule.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 + index * 0.05 }}
+                        className="flex items-center justify-between p-4 group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <GripVertical className="size-4 text-muted-foreground opacity-50 sm:opacity-0 sm:group-hover:opacity-50 transition-opacity cursor-grab" />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <code className="text-sm bg-muted px-2 py-0.5 rounded">
+                                {rule.pattern}
+                              </code>
+                              <Badge variant="outline" className="text-xs">
+                                {matchTypeLabel(rule.match_type)}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-muted-foreground">→</span>
+                              {person && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs"
+                                  style={{
+                                    borderColor: person.color,
+                                    color: person.color,
+                                  }}
+                                >
+                                  {person.name}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteRule(rule.id)}
+                          aria-label={t("deleteRuleAria", { pattern: rule.pattern })}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </motion.div>
+                    );
+                  })
+              )}
+            </Card>
+
+            {/* Test Results */}
+            {showTestResults && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="mt-4"
+              >
+                <Card className="p-4">
+                  <h3 className="text-sm font-medium mb-3">{t("testResultsHeading")}</h3>
+                  <div className="flex flex-col gap-2">
+                    {eventTitles.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        {t("testResultsEmpty")}
+                      </p>
+                    ) : (
+                      testRules(eventTitles, mappingRules).map((result, i) => {
+                        const person = result.person_id ? getPersonById(result.person_id) : null;
+                        return (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between text-sm p-2 rounded-lg bg-muted/30"
+                          >
+                            <span className="text-muted-foreground truncate mr-2">{result.title}</span>
+                            {person ? (
+                              <Badge
+                                variant="outline"
+                                className="shrink-0"
+                                style={{
+                                  borderColor: person.color,
+                                  color: person.color,
+                                }}
+                              >
+                                {person.name}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-muted-foreground shrink-0">
+                                {t("testResultsFamily")}
+                              </Badge>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </Card>
+              </motion.div>
+            )}
+          </motion.div>
 
           {/* Info */}
           <motion.div
