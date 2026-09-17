@@ -8,6 +8,16 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Security
+
+## [1.10.0] - 2026-09-17
+
+### Added
+
 - **Both children's timetables on the board at once.** A household with two school-age kids had one School schedule card and a row of buttons to switch between them, so the second child's day was always one tap away — and on a wall display nobody is standing at, one tap away means never seen. **Settings → Widgets → School schedule** now has "One widget per child": switch it on and every child who has a timetable gets their own card, named and coloured as they are everywhere else, with no switcher to touch. It is off by default, and left off the single card behaves exactly as before. A child with no timetable — the pre-schooler, or one whose plan you cleared — does not get an empty card taking up space, and if nobody has a timetable yet the single card stays where it is rather than the widget quietly disappearing.
 - **Your own photos on the board, with nothing to set up.** Until now the screensaver needed an Immich server, a NAS, an iCloud album or an Unsplash key — every option assumed you already ran something. You can now just upload pictures: **Settings → Photos → Your own photos**, pick some files, done. They feed the screensaver, the Photos page and the dashboard widget like any other source. The pictures are stored privately rather than in a publicly readable bucket, and the links the board uses to show them expire after an hour, because these are photographs of your family and not decoration. iPhone HEIC files are not readable yet and say so plainly, with the setting to change on your phone, instead of failing as "invalid file".
 - **Portrait photos are no longer cropped to their middle.** Every photo surface filled its space by cropping, so a picture taken upright on a phone lost the top and bottom of itself on a landscape wall panel — usually the faces. Photos whose shape is close to the screen's still fill it, as before; ones that are plainly a different shape are now shown whole. This applies to all photo sources, not just uploaded ones, and it works the same way round on a portrait kiosk showing a landscape picture.
@@ -785,7 +795,8 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/svenger87/kinboard/compare/v1.9.0...v1.10.0
 [1.7.0]: https://github.com/svenger87/kinboard/compare/v1.6.10...v1.7.0
 [1.6.10]: https://github.com/svenger87/kinboard/compare/v1.6.9...v1.6.10
 [1.6.9]: https://github.com/svenger87/kinboard/compare/v1.6.8...v1.6.9
