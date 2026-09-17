@@ -214,7 +214,7 @@ healthcheck:
 Two options, at different levels:
 
 - **Family-level JSON export** — Settings → **Data & backup** → **Download backup**. Downloads everything the app manages for your family (events, todos, shopping, recipes, meal plans, notes, birthdays, schedules, settings) as one JSON file, excluding credentials and device data. Good for a quick "just in case" snapshot before a risky change, or for migrating a family between installs. Not a full restore mechanism by itself — there's no matching "import" flow yet, so treat it as a reference/manual-recovery backup, not a one-click restore.
-- **Full database backup (`pg_dump`)** — see below. This is the complete, restorable backup: every family on the instance, all integration credentials, everything. Use this for real disaster recovery.
+- **Full backup (`pg_dump` + the storage directory)** — see below. This is the restorable backup: every family on the instance, all integration credentials, everything. It is **two** things, and the second one is easy to miss: uploaded files — photos your family has added, recipe pictures, vehicle images — are not in the database. They sit on disk under `${DATA_DIR}/storage/`, and a `pg_dump` alone will not bring them back.
 
 ## Backups
 
@@ -222,7 +222,7 @@ The bind paths under `${DATA_DIR}` are what need backing up:
 
 ```
 ${DATA_DIR}/db/         # PostgreSQL data dir
-${DATA_DIR}/storage/    # Supabase Storage objects (recipe images, avatars)
+${DATA_DIR}/storage/    # Uploaded files: family photos, recipe images, vehicle pictures
 ```
 
 For a clean backup, snapshot the DB with `pg_dump` rather than copying `db/` while Postgres is running:
@@ -263,7 +263,39 @@ reports the *last* command's exit status, so `pg_dump | gzip > file` reports
 success even when the dump failed. Write the dump first, check the exit status,
 then compress.
 
-Storage objects can be `tar`'d safely while the stack is up — they're write-once.
+### The storage directory
+
+The dump above covers the database. It does not contain a single uploaded byte,
+so on its own it is half a backup — and the half that is missing is the one
+nobody can recreate. A family's photographs are only ever in `${DATA_DIR}/storage/`.
+
+```bash
+tar --xattrs --xattrs-include='*' -czf /backups/kinboard-storage-$(date +%F).tar.gz \
+  -C "${DATA_DIR}" storage
+```
+
+**`--xattrs --xattrs-include='*'` is not optional, and leaving it off fails in
+the worst possible way.** Storage keeps each object's content type and cache
+headers in extended attributes on the file itself, not in the database:
+
+```
+user.supabase.content-type="image/jpeg"
+user.supabase.cache-control="max-age=3600"
+```
+
+A plain `tar -czf` copies the bytes and silently drops those. The restore then
+looks perfect — right files, right sizes, right paths, matching rows in the
+database — and every image returns **HTTP 500**:
+
+```
+{"code":"ENODATA","errno":61}  The extended attribute does not exist.
+```
+
+Nothing in the app says what is wrong; the pictures simply do not load. The
+same flags are needed again when extracting, so the attributes survive the trip
+back.
+
+Objects are write-once, so this can be `tar`'d while the stack is up.
 
 Per-family settings live in `public.settings` (JSONB) and come along with the `pg_dump`.
 
@@ -280,7 +312,25 @@ cd webapp/docker
 # 2. put the data back
 docker exec -i kinboard-db pg_restore -U supabase_admin -d postgres \
   --data-only --disable-triggers -n public < /backups/kinboard-2026-08-09.pgdump
+
+# 3. put the uploaded files back, and the rows that point at them
+docker exec -i kinboard-db pg_restore -U supabase_admin -d postgres \
+  --data-only --disable-triggers -n storage -t objects < /backups/kinboard-2026-08-09.pgdump
+
+tar --xattrs --xattrs-include='*' -xzf /backups/kinboard-storage-2026-08-09.tar.gz \
+  -C "${DATA_DIR}"
+
+docker restart kinboard-storage
 ```
+
+**Step 3 is a separate restore on purpose.** `-n public` selects the public
+schema and nothing else, so it does not bring back `storage.objects` — the rows
+that tell storage which files exist. Restoring only the public schema leaves a
+photo library that lists pictures it cannot show. Restoring the whole `storage`
+schema is the wrong fix in the other direction: `storage.buckets` has already
+been populated by the migrations that ran when the stack started, so a
+wholesale restore collides with them. `-t objects` takes the one table that
+holds the household's data.
 
 Three things about that are load-bearing, and each of them fails quietly if you
 get it wrong.
