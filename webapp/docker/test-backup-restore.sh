@@ -71,6 +71,18 @@ STORAGE_TAR="$DUMP_DIR/storage.tar.gz"
 RIG_JPEG_B64='/9j/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAACAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAABAb/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCIAOr3/9k='
 RIG_PHOTO_OBJECT=""
 
+# The storage directory belongs to the container that writes it, so on a CI
+# runner — where this does not run as root — reading it is fine and writing
+# into it after a teardown is not. `rig_destroy_data` has the same problem and
+# solves it with a container; this uses sudo, because what is needed here is
+# GNU tar with --xattrs and busybox tar does not have it.
+#
+# On the Unraid host this is already root and the prefix stays empty, which
+# matters because sudo is not installed there.
+rig_tar() {
+  if [ "$(id -u)" -eq 0 ]; then tar "$@"; else sudo tar "$@"; fi
+}
+
 rig_service_key() { grep -E '^SERVICE_ROLE_KEY=' "$SCRIPT_DIR/.env" | cut -d= -f2- | tr -d '"'; }
 rig_storage_url() { printf 'http://localhost:%s/storage/v1' "$RIG_KONG_HTTP_PORT"; }
 
@@ -219,7 +231,7 @@ run_cycle() {
   # right files, right sizes, right paths, matching rows -- while every image
   # answers 500 {"code":"ENODATA"}. That is exactly what `photo_is_served`
   # below is here to catch, so the flags and the assertion are a pair.
-  if ! tar --xattrs --xattrs-include='*' -czf "$STORAGE_TAR" \
+  if ! rig_tar --xattrs --xattrs-include='*' -czf "$STORAGE_TAR" \
        -C "$RIG_DATA" storage 2>/dev/null; then
     fail "cycle $n: could not archive the storage directory"
     return 1
@@ -268,8 +280,21 @@ run_cycle() {
     --data-only --disable-triggers -n storage -t objects \
     >> "$DUMP_DIR/restore.out" 2>> "$DUMP_DIR/restore.err" < "$DUMP"
 
-  tar --xattrs --xattrs-include='*' -xzf "$STORAGE_TAR" -C "$RIG_DATA" 2>/dev/null \
-    || fail "cycle $n: could not restore the storage directory"
+  # Errors are kept rather than discarded: the first version of this sent them
+  # to /dev/null and the failure read as "could not restore the storage
+  # directory" with nothing saying why — which was a permission error the
+  # whole time.
+  if ! rig_tar --xattrs --xattrs-include='*' -xzf "$STORAGE_TAR" -C "$RIG_DATA" \
+       2> "$DUMP_DIR/untar.err"; then
+    fail "cycle $n: could not restore the storage directory"
+    head -3 "$DUMP_DIR/untar.err" | sed 's/^/     /'
+  fi
+
+  # The storage container caches nothing about which files exist, but it does
+  # hold open handles into the directory it was started with; a restart is the
+  # cheap way to be sure it is reading what was just put back.
+  docker restart "${RIG_PROJECT}-storage" >/dev/null 2>&1 || true
+  sleep 3
 
   # `grep -c` prints 0 and exits non-zero when nothing matches, so the usual
   # `|| echo 0` appends a second 0 and the comparison below dies on "0\n0".
