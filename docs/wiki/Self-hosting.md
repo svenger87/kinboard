@@ -400,6 +400,17 @@ It's idempotent. It appends new templated env keys (`DATA_DIR`, `DOMAIN`, etc.),
 
 ### Auto-updates
 
+> **Auto-update takes its own backup.** Every release note says to back up
+> before upgrading, which is advice nobody on this overlay can act on — Diun
+> polls every 30 minutes and the upgrade has happened by the time you read
+> anything. So the update dumps the database and archives the storage
+> directory immediately before it recreates anything, verifies both, and
+> **refuses to upgrade if either cannot be verified**. Backups land in
+> `${DATA_DIR}/backups` as `pre-upgrade-<timestamp>.sql.gz` and
+> `pre-upgrade-<timestamp>-storage.tar.gz`; set `KINBOARD_BACKUP_DIR` to put
+> them elsewhere, and `BACKUP_KEEP` (default 5) for how many to keep. Nothing
+> is dumped on a run where no image changed.
+
 The recommended path is the **Diun + webhook overlay** (`docker-compose.diun.yml.example`). It runs the FULL upgrade sequence end-to-end whenever a new GHCR image lands:
 
 1. `git pull --ff-only origin main` — picks up new `docker-compose.yml`, `kong.yml`, migrations, `init.sql`, `seed-demo.sql`

@@ -8,6 +8,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Automatic updates now take a backup first, and stop if they can't.** If you run the recommended auto-update setup, Kinboard upgrades itself within half an hour of a release — which makes "take a backup before upgrading" advice nobody can act on, because it has already happened. The update now dumps the database and archives your uploaded photos immediately before it changes anything, checks that both are real rather than empty files, and refuses to go ahead if either check fails. Staying on the version you have is recoverable; finding out afterwards that an upgrade ran with no backup is not. Backups are kept alongside your data, five by default.
+
 ### Changed
 
 ### Fixed
