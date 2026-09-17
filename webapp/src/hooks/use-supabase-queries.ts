@@ -454,19 +454,39 @@ export function useDeleteDevice() {
   });
 }
 
+/**
+ * The heartbeat, which is also how a device learns about itself.
+ *
+ * It writes `last_seen` on mount and every minute after. It now reads the row
+ * back and puts it in the store, because nothing else did.
+ *
+ * `useUpdateDevice` writes the store only when the device being changed is
+ * the one you are looking at — right for that device, and it leaves every
+ * other one holding the copy it was handed when it joined. So flagging the
+ * kitchen panel as a kiosk from your phone reached the database and never
+ * reached the panel: `data-kiosk` stayed off, the body scrollbar stayed
+ * (globals.css gates it on `html[data-kiosk]`) and useReturnToDashboard
+ * stayed off, potentially for months.
+ *
+ * The read costs nothing extra — the round trip was already happening — and
+ * it covers every column, so a rename made from another screen lands here
+ * too rather than needing its own mechanism.
+ */
 export function useUpdateDeviceLastSeen() {
   const supabase = createClient();
-  const { device } = useFamilyStore();
+  const { device, setDevice } = useFamilyStore();
 
   return useMutation({
     mutationFn: async () => {
       if (!device?.id) return null;
 
        
-      const { error } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("devices")
         .update({ last_seen: new Date().toISOString() })
-        .eq("id", device.id);
+        .eq("id", device.id)
+        .select("*")
+        .maybeSingle();
 
       // If device doesn't exist (was deleted), clear it from local storage
       if (error) {
@@ -474,7 +494,19 @@ export function useUpdateDeviceLastSeen() {
         // Don't throw - this is a non-critical heartbeat
         return null;
       }
-      return { success: true };
+      return (data ?? null) as Device | null;
+    },
+    onSuccess: (row) => {
+      if (!row) return;
+      // Only when something actually differs, so the store — and the cookie it
+      // persists to — is not rewritten every sixty seconds for a timestamp
+      // this device wrote itself.
+      const current = useFamilyStore.getState().device;
+      if (!current || current.id !== row.id) return;
+      const changed = (Object.keys(row) as (keyof Device)[]).some(
+        (k) => k !== "last_seen" && row[k] !== current[k],
+      );
+      if (changed) setDevice({ ...current, ...row });
     },
   });
 }
