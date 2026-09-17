@@ -1,0 +1,10 @@
+This squash also contains ae9cf67 'feat(landing): refresh welcome experience'.
+
+That commit existed only on a local main and had never been pushed, so the
+branch for #269 was cut from it and GitHub squashed both together under this
+PR's title. The landing-page work is therefore recorded here as a fix, which
+it is not; its CHANGELOG entry under [Unreleased] -> Added is the accurate
+record of what shipped.
+
+Not corrected by rewriting, deliberately: v1.10.0-rc.1 and v1.10.0-rc.2 both
+descend from this commit and their images were built from these SHAs.
