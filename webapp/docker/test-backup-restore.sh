@@ -208,6 +208,24 @@ run_cycle() {
   esac
   step "dump: $(du -h "$DUMP" | cut -f1), valid archive"
 
+  # The other half of the backup, and the half the documentation used to omit.
+  # No uploaded byte is in the dump above; the files live under the storage
+  # bind mount.
+  #
+  # --xattrs is load-bearing. Storage keeps each object's content type and
+  # cache headers in extended attributes on the file itself
+  # (user.supabase.content-type, user.supabase.cache-control). A plain tar
+  # copies the bytes and drops those, and the restore then looks perfect --
+  # right files, right sizes, right paths, matching rows -- while every image
+  # answers 500 {"code":"ENODATA"}. That is exactly what `photo_is_served`
+  # below is here to catch, so the flags and the assertion are a pair.
+  if ! tar --xattrs --xattrs-include='*' -czf "$STORAGE_TAR" \
+       -C "$RIG_DATA" storage 2>/dev/null; then
+    fail "cycle $n: could not archive the storage directory"
+    return 1
+  fi
+  step "storage: $(du -h "$STORAGE_TAR" | cut -f1), $(tar -tzf "$STORAGE_TAR" | grep -vc '/$') file(s)"
+
   # -- 3. lose everything ---------------------------------------------------
   rig_teardown
   rig_destroy_data
@@ -237,6 +255,21 @@ run_cycle() {
     --data-only --disable-triggers -n public \
     > "$DUMP_DIR/restore.out" 2> "$DUMP_DIR/restore.err" < "$DUMP"
   local restore_rc=$?
+
+  # The storage half, restored the way the wiki now documents it.
+  #
+  # `-t objects` and not the whole schema: storage.buckets has already been
+  # populated by the migrations that ran when this stack came up, so restoring
+  # the schema wholesale collides with them. And `-n public` on its own does
+  # not select storage at all -- `pg_restore -l --data-only -n public` lists
+  # zero storage entries -- which is why the records need their own pass
+  # rather than arriving with everything else.
+  docker exec -i "${RIG_PROJECT}-db" pg_restore -U supabase_admin -d postgres \
+    --data-only --disable-triggers -n storage -t objects \
+    >> "$DUMP_DIR/restore.out" 2>> "$DUMP_DIR/restore.err" < "$DUMP"
+
+  tar --xattrs --xattrs-include='*' -xzf "$STORAGE_TAR" -C "$RIG_DATA" 2>/dev/null \
+    || fail "cycle $n: could not restore the storage directory"
 
   # `grep -c` prints 0 and exits non-zero when nothing matches, so the usual
   # `|| echo 0` appends a second 0 and the comparison below dies on "0\n0".
