@@ -24,8 +24,14 @@
 #   5. bring up a bare database and restore the dump into it
 #   6. start the current webapp against the restored database, so its
 #      migrations run over restored data rather than an empty schema
-#   7. assert the family, its rows, and the schema all came back, and that the
-#      app answers
+#   7. assert the family, its rows, and the schema all came back, that an
+#      uploaded photo is still served, and that the app answers
+#
+# Uploaded files are checked because they are the half a dump does not hold.
+# Family photos live on disk under ${DATA_DIR}/storage/, their records live in
+# storage.objects, and until this rig seeded one it compared row counts in
+# public.* only — so it would have passed, green, on a build that lost every
+# photograph a household had uploaded. A guard that cannot fail is not a guard.
 #
 # Usage:
 #   ./test-backup-restore.sh          # one full cycle
@@ -57,6 +63,63 @@ RIG_DEMO_CODE="BKUP01"
 RIG_COMPOSE=(-f docker-compose.yml)
 DUMP_DIR="$(mktemp -d)"
 DUMP="$DUMP_DIR/kinboard.sql"
+STORAGE_TAR="$DUMP_DIR/storage.tar.gz"
+
+# A real 2x2 JPEG. Small enough to inline, real enough that storage stores it
+# the way it stores a household's photographs — which is the point, since what
+# is being tested is whether it comes back.
+RIG_JPEG_B64='/9j/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAACAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAABAb/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCIAOr3/9k='
+RIG_PHOTO_OBJECT=""
+
+# The storage directory belongs to the container that writes it, so on a CI
+# runner — where this does not run as root — reading it is fine and writing
+# into it after a teardown is not. `rig_destroy_data` has the same problem and
+# solves it with a container; this uses sudo, because what is needed here is
+# GNU tar with --xattrs and busybox tar does not have it.
+#
+# On the Unraid host this is already root and the prefix stays empty, which
+# matters because sudo is not installed there.
+rig_tar() {
+  if [ "$(id -u)" -eq 0 ]; then tar "$@"; else sudo tar "$@"; fi
+}
+
+rig_service_key() { grep -E '^SERVICE_ROLE_KEY=' "$SCRIPT_DIR/.env" | cut -d= -f2- | tr -d '"'; }
+rig_storage_url() { printf 'http://localhost:%s/storage/v1' "$RIG_KONG_HTTP_PORT"; }
+
+# Put one photo in the library, the way the upload route does: straight into
+# the private bucket with service_role, plus the row that names it.
+seed_photo() {
+  local family key
+  family=$(psql_rig -c 'SELECT id FROM families ORDER BY created_at LIMIT 1;')
+  [ -n "$family" ] || return 1
+  key=$(rig_service_key)
+  RIG_PHOTO_OBJECT="${family}/rig-photo.jpg"
+
+  printf '%s' "$RIG_JPEG_B64" | base64 -d > "$DUMP_DIR/rig-photo.jpg" || return 1
+
+  curl -sf -X POST "$(rig_storage_url)/object/family-photos/${RIG_PHOTO_OBJECT}" \
+    -H "apikey: $key" -H "Authorization: Bearer $key" \
+    -H "Content-Type: image/jpeg" \
+    --data-binary "@$DUMP_DIR/rig-photo.jpg" >/dev/null || return 1
+
+  psql_rig -c "INSERT INTO family_photos
+      (family_id, storage_path, mime_type, byte_size, width, height)
+      VALUES ('${family}', '${RIG_PHOTO_OBJECT}', 'image/jpeg', 269, 2, 2);" >/dev/null || return 1
+}
+
+# Can the photo actually be fetched? This is the assertion that matters, and
+# the only one that catches the failure a file-count check misses: extended
+# attributes carry each object's content type, a plain tar drops them, and
+# storage then answers 500 {"code":"ENODATA"} for a file that is present,
+# correctly sized and correctly named.
+photo_is_served() {
+  local key code
+  key=$(rig_service_key)
+  code=$(curl -s -o /dev/null -w '%{http_code}' \
+    "$(rig_storage_url)/object/family-photos/${RIG_PHOTO_OBJECT}" \
+    -H "apikey: $key" -H "Authorization: Bearer $key")
+  [ "$code" = "200" ]
+}
 
 cleanup() { rm -rf "$DUMP_DIR"; }
 trap cleanup EXIT
@@ -110,6 +173,20 @@ run_cycle() {
   ( cd "$SCRIPT_DIR" && COMPOSE_FILES="-f docker-compose.yml" \
       ./start.sh seed-demo >/dev/null 2>&1 ) || step "seed-demo reported a problem (continuing)"
 
+  if seed_photo; then
+    step "seeded one uploaded photo"
+  else
+    fail "cycle $n: could not seed a photo — nothing would test the storage half"
+    return 1
+  fi
+
+  local objects_before
+  objects_before="$(psql_rig -c "SELECT count(*) FROM storage.objects WHERE bucket_id='family-photos';")"
+  if ! photo_is_served; then
+    fail "cycle $n: the seeded photo is not served before the backup even starts"
+    return 1
+  fi
+
   local rows_before schema_before families_before
   rows_before="$(snapshot_rows)"
   schema_before="$(snapshot_schema)"
@@ -143,6 +220,24 @@ run_cycle() {
   esac
   step "dump: $(du -h "$DUMP" | cut -f1), valid archive"
 
+  # The other half of the backup, and the half the documentation used to omit.
+  # No uploaded byte is in the dump above; the files live under the storage
+  # bind mount.
+  #
+  # --xattrs is load-bearing. Storage keeps each object's content type and
+  # cache headers in extended attributes on the file itself
+  # (user.supabase.content-type, user.supabase.cache-control). A plain tar
+  # copies the bytes and drops those, and the restore then looks perfect --
+  # right files, right sizes, right paths, matching rows -- while every image
+  # answers 500 {"code":"ENODATA"}. That is exactly what `photo_is_served`
+  # below is here to catch, so the flags and the assertion are a pair.
+  if ! rig_tar --xattrs --xattrs-include='*' -czf "$STORAGE_TAR" \
+       -C "$RIG_DATA" storage 2>/dev/null; then
+    fail "cycle $n: could not archive the storage directory"
+    return 1
+  fi
+  step "storage: $(du -h "$STORAGE_TAR" | cut -f1), $(tar -tzf "$STORAGE_TAR" | grep -vc '/$') file(s)"
+
   # -- 3. lose everything ---------------------------------------------------
   rig_teardown
   rig_destroy_data
@@ -172,6 +267,34 @@ run_cycle() {
     --data-only --disable-triggers -n public \
     > "$DUMP_DIR/restore.out" 2> "$DUMP_DIR/restore.err" < "$DUMP"
   local restore_rc=$?
+
+  # The storage half, restored the way the wiki now documents it.
+  #
+  # `-t objects` and not the whole schema: storage.buckets has already been
+  # populated by the migrations that ran when this stack came up, so restoring
+  # the schema wholesale collides with them. And `-n public` on its own does
+  # not select storage at all -- `pg_restore -l --data-only -n public` lists
+  # zero storage entries -- which is why the records need their own pass
+  # rather than arriving with everything else.
+  docker exec -i "${RIG_PROJECT}-db" pg_restore -U supabase_admin -d postgres \
+    --data-only --disable-triggers -n storage -t objects \
+    >> "$DUMP_DIR/restore.out" 2>> "$DUMP_DIR/restore.err" < "$DUMP"
+
+  # Errors are kept rather than discarded: the first version of this sent them
+  # to /dev/null and the failure read as "could not restore the storage
+  # directory" with nothing saying why — which was a permission error the
+  # whole time.
+  if ! rig_tar --xattrs --xattrs-include='*' -xzf "$STORAGE_TAR" -C "$RIG_DATA" \
+       2> "$DUMP_DIR/untar.err"; then
+    fail "cycle $n: could not restore the storage directory"
+    head -3 "$DUMP_DIR/untar.err" | sed 's/^/     /'
+  fi
+
+  # The storage container caches nothing about which files exist, but it does
+  # hold open handles into the directory it was started with; a restart is the
+  # cheap way to be sure it is reading what was just put back.
+  docker restart "${RIG_PROJECT}-storage" >/dev/null 2>&1 || true
+  sleep 3
 
   # `grep -c` prints 0 and exits non-zero when nothing matches, so the usual
   # `|| echo 0` appends a second 0 and the comparison below dies on "0\n0".
@@ -209,6 +332,20 @@ run_cycle() {
     step "  after:  ${rows_after}"
   else
     pass "every table has the rows it had"
+  fi
+
+  local objects_after
+  objects_after="$(psql_rig -c "SELECT count(*) FROM storage.objects WHERE bucket_id='family-photos';")"
+  if [ "${objects_after:-0}" != "${objects_before:-0}" ]; then
+    fail "cycle $n: storage.objects ${objects_before} -> ${objects_after}"
+  else
+    pass "the photo's storage record survived (${objects_after})"
+  fi
+
+  if photo_is_served; then
+    pass "the uploaded photo is still served after the restore"
+  else
+    fail "cycle $n: the uploaded photo is gone or unreadable after the restore"
   fi
 
   # The migration runner refuses to start against a half-applied schema, so a
