@@ -24,8 +24,14 @@
 #   5. bring up a bare database and restore the dump into it
 #   6. start the current webapp against the restored database, so its
 #      migrations run over restored data rather than an empty schema
-#   7. assert the family, its rows, and the schema all came back, and that the
-#      app answers
+#   7. assert the family, its rows, and the schema all came back, that an
+#      uploaded photo is still served, and that the app answers
+#
+# Uploaded files are checked because they are the half a dump does not hold.
+# Family photos live on disk under ${DATA_DIR}/storage/, their records live in
+# storage.objects, and until this rig seeded one it compared row counts in
+# public.* only — so it would have passed, green, on a build that lost every
+# photograph a household had uploaded. A guard that cannot fail is not a guard.
 #
 # Usage:
 #   ./test-backup-restore.sh          # one full cycle
@@ -57,6 +63,51 @@ RIG_DEMO_CODE="BKUP01"
 RIG_COMPOSE=(-f docker-compose.yml)
 DUMP_DIR="$(mktemp -d)"
 DUMP="$DUMP_DIR/kinboard.sql"
+STORAGE_TAR="$DUMP_DIR/storage.tar.gz"
+
+# A real 2x2 JPEG. Small enough to inline, real enough that storage stores it
+# the way it stores a household's photographs — which is the point, since what
+# is being tested is whether it comes back.
+RIG_JPEG_B64='/9j/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAACAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAABAb/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCIAOr3/9k='
+RIG_PHOTO_OBJECT=""
+
+rig_service_key() { grep -E '^SERVICE_ROLE_KEY=' "$SCRIPT_DIR/.env" | cut -d= -f2- | tr -d '"'; }
+rig_storage_url() { printf 'http://localhost:%s/storage/v1' "$RIG_KONG_HTTP_PORT"; }
+
+# Put one photo in the library, the way the upload route does: straight into
+# the private bucket with service_role, plus the row that names it.
+seed_photo() {
+  local family key
+  family=$(psql_rig -c 'SELECT id FROM families ORDER BY created_at LIMIT 1;')
+  [ -n "$family" ] || return 1
+  key=$(rig_service_key)
+  RIG_PHOTO_OBJECT="${family}/rig-photo.jpg"
+
+  printf '%s' "$RIG_JPEG_B64" | base64 -d > "$DUMP_DIR/rig-photo.jpg" || return 1
+
+  curl -sf -X POST "$(rig_storage_url)/object/family-photos/${RIG_PHOTO_OBJECT}" \
+    -H "apikey: $key" -H "Authorization: Bearer $key" \
+    -H "Content-Type: image/jpeg" \
+    --data-binary "@$DUMP_DIR/rig-photo.jpg" >/dev/null || return 1
+
+  psql_rig -c "INSERT INTO family_photos
+      (family_id, storage_path, mime_type, byte_size, width, height)
+      VALUES ('${family}', '${RIG_PHOTO_OBJECT}', 'image/jpeg', 269, 2, 2);" >/dev/null || return 1
+}
+
+# Can the photo actually be fetched? This is the assertion that matters, and
+# the only one that catches the failure a file-count check misses: extended
+# attributes carry each object's content type, a plain tar drops them, and
+# storage then answers 500 {"code":"ENODATA"} for a file that is present,
+# correctly sized and correctly named.
+photo_is_served() {
+  local key code
+  key=$(rig_service_key)
+  code=$(curl -s -o /dev/null -w '%{http_code}' \
+    "$(rig_storage_url)/object/family-photos/${RIG_PHOTO_OBJECT}" \
+    -H "apikey: $key" -H "Authorization: Bearer $key")
+  [ "$code" = "200" ]
+}
 
 cleanup() { rm -rf "$DUMP_DIR"; }
 trap cleanup EXIT
@@ -109,6 +160,20 @@ run_cycle() {
   step "seeding the demo family"
   ( cd "$SCRIPT_DIR" && COMPOSE_FILES="-f docker-compose.yml" \
       ./start.sh seed-demo >/dev/null 2>&1 ) || step "seed-demo reported a problem (continuing)"
+
+  if seed_photo; then
+    step "seeded one uploaded photo"
+  else
+    fail "cycle $n: could not seed a photo — nothing would test the storage half"
+    return 1
+  fi
+
+  local objects_before
+  objects_before="$(psql_rig -c "SELECT count(*) FROM storage.objects WHERE bucket_id='family-photos';")"
+  if ! photo_is_served; then
+    fail "cycle $n: the seeded photo is not served before the backup even starts"
+    return 1
+  fi
 
   local rows_before schema_before families_before
   rows_before="$(snapshot_rows)"
@@ -209,6 +274,20 @@ run_cycle() {
     step "  after:  ${rows_after}"
   else
     pass "every table has the rows it had"
+  fi
+
+  local objects_after
+  objects_after="$(psql_rig -c "SELECT count(*) FROM storage.objects WHERE bucket_id='family-photos';")"
+  if [ "${objects_after:-0}" != "${objects_before:-0}" ]; then
+    fail "cycle $n: storage.objects ${objects_before} -> ${objects_after}"
+  else
+    pass "the photo's storage record survived (${objects_after})"
+  fi
+
+  if photo_is_served; then
+    pass "the uploaded photo is still served after the restore"
+  else
+    fail "cycle $n: the uploaded photo is gone or unreadable after the restore"
   fi
 
   # The migration runner refuses to start against a half-applied schema, so a
