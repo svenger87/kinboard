@@ -68,25 +68,46 @@ export async function POST(request: NextRequest) {
 
   const { data: device } = await supabase
     .from("devices")
-    .select("id, name, family_id, hardware_id, fingerprint, fingerprint_history, families(id, name)")
+    // The whole row on both sides, because `useRestoreSession` writes this
+    // response straight into the persisted family store and nothing ever
+    // refetches either object. A column left out here is gone from that
+    // device until somebody types the family code in again.
+    //
+    // `families(id, name)` cost a household its join code: Settings renders
+    // the family card from the store, so the card came up with their name and
+    // a blank where the code belongs. The hand-built device object cost the
+    // same wall panel its kiosk mode — `is_kiosk` drives `data-kiosk` on
+    // <html>, which is what hides the body scrollbar and drives
+    // useReturnToDashboard.
+    //
+    // A resumed session must be indistinguishable from a fresh join, and
+    // /api/session/join returns both rows whole.
+    .select("*, families(*)")
     .eq("id", deviceId)
     .maybeSingle();
 
   const row = device as unknown as
-    | {
+    | (Record<string, unknown> & {
         id: string;
         name: string;
         family_id: string;
         hardware_id: string | null;
         fingerprint: string | null;
         fingerprint_history: string[] | null;
-        families: { id: string; name: string } | null;
-      }
+        families: Record<string, unknown> | null;
+      })
     | null;
 
   if (!row?.families) {
     return NextResponse.json({ error: "not recognised" }, { status: 404 });
   }
+
+  // The device as the store should hold it: every column the table has, minus
+  // the embedded family, which is returned separately. Spread rather than
+  // named fields so a column added to `devices` later reaches the client
+  // without anyone remembering to add it here — forgetting exactly that is
+  // what dropped `is_kiosk`.
+  const { families: _embeddedFamily, ...deviceRow } = row;
 
   // The claim has to hold up. A device id on its own is not enough — they are
   // uuids, but they travel in responses, and this endpoint hands out sessions.
@@ -136,7 +157,7 @@ export async function POST(request: NextRequest) {
   const response = NextResponse.json(
     {
       family: row.families,
-      device: { id: row.id, name: row.name },
+      device: deviceRow,
       token: familyToken?.token ?? null,
       expiresAt: familyToken?.expiresAt ?? null,
     },
