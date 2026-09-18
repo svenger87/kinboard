@@ -1,5 +1,10 @@
 # Kiosk on Windows 11 (Mele 4C reference setup)
 
+> **This page is about the panel on the wall, not the server.** It covers the
+> Windows machine that *displays* Kinboard. The server can run anywhere on your
+> network — and in this build it does not run on this machine. If you want the
+> server on Windows too, see [Windows (WSL) as a host](Windows-WSL-Host).
+
 This is the **maintainer's actual fielded configuration** — captured from the live device, registry keys and scheduled-task definitions included. Use it as a copy-paste recipe or as an example to adapt for your hardware.
 
 ## Why Windows 11

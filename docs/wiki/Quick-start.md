@@ -8,6 +8,11 @@ You'll need:
 - An **interactive terminal** for `./setup.sh` (it prompts for the URL your browser will use). Piping `setup.sh` over SSH or into a script makes it skip the prompt and silently default to `localhost:8100`, which won't work for any other device on your network. If you must run it non-interactively, set `API_EXTERNAL_URL` and `SITE_URL` in `webapp/docker/.env` *before* running `./setup.sh`.
 - A free [OpenWeatherMap API key](https://openweathermap.org/api) (optional, for the weather widget)
 
+> **On Windows?** Install into your WSL filesystem, not `/mnt/c/` — PostgreSQL
+> cannot create its data directory on a Windows drive, and the failure looks
+> like an unrelated "container kinboard-db is unhealthy". See
+> [Windows (WSL) as a host](Windows-WSL-Host) first.
+
 ## 1. Clone and bootstrap
 
 ```bash

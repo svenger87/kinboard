@@ -7,6 +7,7 @@
 
 **Operations**
 - [[Self-hosting]]
+- [[Windows (WSL) as a host|Windows-WSL-Host]]
 - [[Security-and-Threat-Model]]
 - [[Troubleshooting]]
 
