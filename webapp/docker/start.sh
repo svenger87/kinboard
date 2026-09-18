@@ -204,8 +204,70 @@ wait_for_migrations() {
   return 0
 }
 
+# Refuse to start when the data directory sits on a Windows drive.
+#
+# Discussion #275: a Windows user on WSL cloned into /mnt/c, ran `./start.sh
+# up`, and got
+#
+#   Error dependency db failed to start — container kinboard-db is unhealthy
+#
+# PostgreSQL cannot initialise a data directory on a Windows drive mounted
+# into WSL — drvfs (WSL1) and 9p (WSL2) do not carry the ownership and
+# permission semantics initdb needs. It dies on first start, pg_isready never
+# succeeds, and every other service reports the dependency failure instead of
+# the cause. Nothing anywhere said so; he concluded Kinboard needed a
+# PostgreSQL server, installed one on the host, and lost an evening.
+#
+# DATA_DIR defaults to ./data, inside the project, so wherever somebody clones
+# is where the database tries to live — which on Windows is the wrong place by
+# default rather than by mistake.
+#
+# A refusal, not a warning like the build-from-source one below: there is no
+# configuration in which continuing works.
+check_data_dir_filesystem() {
+  data_dir="${DATA_DIR:-./data}"
+
+  # The directory may not exist yet on a first run; the filesystem question is
+  # about where it WILL be, so walk up to the nearest existing parent.
+  probe="$data_dir"
+  while [ ! -e "$probe" ] && [ "$probe" != "/" ] && [ "$probe" != "." ]; do
+    parent="$(dirname "$probe")"
+    [ "$parent" = "$probe" ] && break
+    probe="$parent"
+  done
+  [ -e "$probe" ] || return 0
+
+  fs_type="$(stat -f -c %T "$probe" 2>/dev/null || echo unknown)"
+
+  case "$fs_type" in
+    drvfs|9p|cifs|fuseblk)
+      echo "error: the data directory is on a filesystem PostgreSQL cannot use." >&2
+      echo "" >&2
+      echo "         $data_dir  ->  $probe  ($fs_type)" >&2
+      echo "" >&2
+      echo "       That looks like a Windows drive mounted into WSL. PostgreSQL" >&2
+      echo "       cannot create its data directory there — the permissions it" >&2
+      echo "       needs do not exist on an NTFS mount — so kinboard-db would" >&2
+      echo "       fail to start and every other service would report" >&2
+      echo "       'dependency failed to start' without saying why." >&2
+      echo "" >&2
+      echo "       Move the project into the WSL filesystem, not /mnt/c:" >&2
+      echo "" >&2
+      echo "         cd ~ && git clone https://github.com/svenger87/kinboard.git" >&2
+      echo "         cd kinboard && ./setup.sh" >&2
+      echo "" >&2
+      echo "       Or point DATA_DIR at a path inside WSL in webapp/docker/.env." >&2
+      echo "       See the wiki: Windows (WSL) as a host." >&2
+      return 1
+      ;;
+  esac
+  return 0
+}
+
 case "$cmd" in
   up)
+    check_data_dir_filesystem || exit 1
+
     # Say something when the stack is about to build the webapp from source
     # while a published image sits unused on this machine.
     #

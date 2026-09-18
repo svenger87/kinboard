@@ -14,6 +14,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Installing on Windows no longer fails with an error about the wrong thing.** Under WSL, putting Kinboard on a Windows drive (anything under `/mnt/c/`) meant the database could not create its files there — but what you saw was "container kinboard-db is unhealthy" and every other service complaining about a dependency, with nothing pointing at the real cause. At least one person concluded they needed to install a database server by hand and lost an evening to it. Starting the stack now stops immediately and says what is wrong and where to put the project instead. There is also a new wiki page for running the server on Windows, and the existing Windows page now says plainly that it describes the wall panel rather than the server.
+
 ### Security
 
 ## [1.10.0] - 2026-09-17
