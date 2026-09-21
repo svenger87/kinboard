@@ -14,6 +14,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Setup suggests an address that actually works at home.** When you install, Kinboard asks where you will open it and offers a suggestion most people accept. Behind a normal home router it offered your internet-facing address — which from inside your own network only works if you have set up port forwarding. The page loaded, setting up a family got one step in, and then the board said it could not reach the server, while live updates stayed paused and nothing could be saved. On Windows with WSL the same thing happened for a second reason. Setup now suggests your local network address at home, your public address only on a cloud server where it really belongs to the machine, and `localhost` on WSL. If you installed with an older version and pressed Enter, the Windows and Quick start guides say how to check and fix it — running setup again will not change an address it already wrote.
+
 - **Installing on Windows no longer fails with an error about the wrong thing.** Under WSL, putting Kinboard on a Windows drive (anything under `/mnt/c/`) meant the database could not create its files there — but what you saw was "container kinboard-db is unhealthy" and every other service complaining about a dependency, with nothing pointing at the real cause. At least one person concluded they needed to install a database server by hand and lost an evening to it. Starting the stack now stops immediately and says what is wrong and where to put the project instead. There is also a new wiki page for running the server on Windows, and the existing Windows page now says plainly that it describes the wall panel rather than the server.
 
 ### Security

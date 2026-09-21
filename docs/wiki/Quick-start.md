@@ -33,13 +33,16 @@ Pick what matches your setup:
 | Your situation | Type this |
 |---|---|
 | Just trying it on this same machine | `http://localhost:8100` |
+| Windows with WSL, using it on that same PC | `http://localhost:8100` — see [Windows (WSL) as a host](Windows-WSL-Host) |
 | Home server, family will browse from phones in the house | `http://<your-server-LAN-IP>:8100` (find with `hostname -I`) |
 | Cloud server (Hetzner, DigitalOcean, etc.) | `http://<your-server-public-IP>:8100` |
 | You've set up a domain + Traefik for HTTPS | `https://kinboard.your-domain.com` |
 
 > **Don't forget the `:8100`** unless you're using Traefik. See the [URL gotchas section](Self-hosting#what-url-should-i-use-the-most-common-confusion) for more.
 
-`setup.sh` auto-detects a sensible default (your public or LAN IP) so non-technical users can usually just press Enter. It's idempotent — re-running won't overwrite anything you've set manually. It:
+`setup.sh` suggests a default so you can usually just press Enter: this machine's LAN address at home, its public address only when that address is actually on the machine (a cloud server), and `localhost` under WSL. Check the suggestion anyway — it is a guess about how your network is laid out.
+
+It's idempotent — re-running won't overwrite anything you've set manually, **including the address**. If you accepted a wrong one, edit `API_EXTERNAL_URL`, `SITE_URL` and `ADDITIONAL_REDIRECT_URLS` in `webapp/docker/.env` and run `./start.sh up` again; running `setup.sh` a second time will keep the old value. It:
 
 - generates `POSTGRES_PASSWORD`, `JWT_SECRET`, `SECRET_KEY_BASE`, `CRON_SECRET`
 - mints `ANON_KEY` + `SERVICE_ROLE_KEY` (Supabase JWTs signed with `JWT_SECRET` — no need to visit supabase.com)
