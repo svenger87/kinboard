@@ -81,6 +81,48 @@ fi
 # same machine that runs the stack — accessing from another device on
 # the LAN or from the public internet needs the actual server IP/host.
 #
+# Which address to suggest for API_EXTERNAL_URL — the absolute URL every
+# browser data call and the realtime socket go to. Getting this wrong does not
+# fail loudly: the page still loads from wherever the user typed, the family
+# step still works (it is a same-origin Next route), and then every call after
+# it hangs until it times out. Discussion #277.
+#
+# Arguments are the detected facts, so the decision can be tested without a
+# network: public IP, this machine's own addresses, the source address of the
+# default route, and whether this is WSL (1/0). Prints "url|reason".
+suggest_api_url() {
+  local public_ip="$1" own_ips="$2" route_ip="$3" is_wsl="$4"
+
+  # WSL2 sits behind its own NAT. Its addresses are the VM's — nothing on the
+  # LAN reaches them and they change on restart — while the Windows browser on
+  # the same PC reaches the stack through localhost forwarding.
+  if [[ "$is_wsl" == "1" ]]; then
+    echo "http://localhost:8100|WSL: works from this PC's browser; phones and tablets need WSL mirrored networking — see the wiki"
+    return
+  fi
+
+  # A public IP only counts when it is on one of this machine's interfaces,
+  # which is what a VPS looks like. The old test was "public differs from LAN",
+  # which is backwards: behind a home router the two ALWAYS differ, because
+  # the public address belongs to the router — so every home install was
+  # offered an address it could only reach through a port forward.
+  if [[ -n "$public_ip" ]] && printf '%s\n' $own_ips | grep -qxF "$public_ip"; then
+    echo "http://${public_ip}:8100|this machine's public IP"
+    return
+  fi
+
+  # The address the default route leaves from, rather than whichever
+  # `hostname -I` lists first — on a Docker host that can be the docker0
+  # bridge.
+  local lan_ip="$route_ip"
+  [[ -n "$lan_ip" ]] || lan_ip=$(printf '%s\n' $own_ips | head -n1)
+  if [[ -n "$lan_ip" && "$lan_ip" != 127.* ]]; then
+    echo "http://${lan_ip}:8100|this machine's LAN IP"
+  else
+    echo "http://localhost:8100|localhost only — won't work from other devices"
+  fi
+}
+
 # We auto-detect a plausible public IP if the user hasn't pre-set
 # API_EXTERNAL_URL. Skipped when the env var is set non-interactively.
 existing_api_url=$(grep -E "^API_EXTERNAL_URL=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
@@ -121,20 +163,14 @@ elif [[ ! -t 0 ]]; then
 elif [[ -t 0 ]] && [[ "$default_api_url" == "http://localhost:8100" ]]; then
   # Auto-detect plausible defaults for the suggestion line.
   detected_public_ip=$(curl -s --max-time 3 https://api.ipify.org 2>/dev/null || true)
-  detected_lan_ip=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
+  detected_own_ips=$(hostname -I 2>/dev/null || true)
+  detected_route_ip=$(ip route get 1.1.1.1 2>/dev/null \
+    | awk '{for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit }}' || true)
+  detected_wsl=0
+  grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null && detected_wsl=1
 
-  if [[ -n "$detected_public_ip" && "$detected_public_ip" != "$detected_lan_ip" ]]; then
-    # Server with public IP (e.g. VPS) — most likely they want public access
-    suggested="http://${detected_public_ip}:8100"
-    suggestion_reason="this machine's public IP"
-  elif [[ -n "$detected_lan_ip" && "$detected_lan_ip" != "127.0.0.1" ]]; then
-    # Home server / NAS — LAN-only access default
-    suggested="http://${detected_lan_ip}:8100"
-    suggestion_reason="this machine's LAN IP"
-  else
-    suggested="$default_api_url"
-    suggestion_reason="localhost only — won't work from other devices"
-  fi
+  IFS='|' read -r suggested suggestion_reason <<< \
+    "$(suggest_api_url "$detected_public_ip" "$detected_own_ips" "$detected_route_ip" "$detected_wsl")"
 
   cat <<EOF
 

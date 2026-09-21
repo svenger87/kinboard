@@ -31,8 +31,12 @@ If Windows is what you have, read on — it does work.
 - **Virtualisation enabled in the BIOS/UEFI.** Usually called Intel VT-x, AMD-V
   or SVM. If WSL2 refuses to install, this is the first thing to check.
 - **WSL2** — `wsl --install` from an admin PowerShell, then reboot.
-- **Docker Desktop**, with *Settings → Resources → WSL integration* switched on
-  for your distribution.
+- **Docker**, one of:
+  - **Docker Desktop**, with *Settings → Resources → WSL integration* switched
+    on for your distribution, or
+  - **Docker Engine installed inside the WSL distribution** itself (no Docker
+    Desktop). Works, and behaves differently on the network — see
+    [Reaching it from other devices](#reaching-it-from-other-devices).
 
 ## The one rule that matters
 
@@ -67,27 +71,97 @@ git clone https://github.com/svenger87/kinboard.git
 cd kinboard
 ./setup.sh
 cd webapp/docker
-COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml" ./start.sh up
+./start.sh up
 ```
 
-Then open `http://localhost:3000` in Windows — WSL forwards localhost, so the
-browser on the Windows side reaches it without any extra configuration.
+`setup.sh` asks one question — the address you will open Kinboard at. **On
+WSL, answer `http://localhost:8100`.** Recent versions suggest that by
+themselves; older ones suggested your public IP, which does not work (see
+below).
+
+Then open **`http://localhost:3001`** in the Windows browser. WSL forwards
+localhost from Windows into the VM, so it reaches the stack without further
+configuration.
+
+## The second address
+
+This is the part that is easy to get wrong, and the error you get does not
+point at it.
+
+Kinboard uses two addresses. The **page** comes from wherever you typed —
+`localhost:3001`. But everything the page does after that — loading your
+family's data, saving, live updates — goes from the browser to a second,
+fixed address: `API_EXTERNAL_URL` in `webapp/docker/.env`, which `setup.sh`
+wrote. If that address is not reachable from your browser, the page loads,
+the first step of setting up a family works (it goes through the page's own
+address), and then:
+
+- **"Kinboard-Server nicht erreichbar" / "Can't reach the Kinboard server"**
+  after the family-name step, sometimes only after a couple of minutes, and
+- **"Live-Updates pausiert" / "Live updates paused"** permanently at the bottom,
+  and nothing you enter is saved.
+
+Those minutes are timeouts. Check what is configured:
+
+```bash
+cd ~/kinboard/webapp/docker
+grep -E "API_EXTERNAL_URL|SITE_URL" .env
+```
+
+For a server you use from the same Windows PC, it should read:
+
+```
+API_EXTERNAL_URL=http://localhost:8100
+SITE_URL=http://localhost:3001
+ADDITIONAL_REDIRECT_URLS=http://localhost:3001
+```
+
+If it does not, edit those three lines and run `./start.sh up` again. Running
+`setup.sh` again will **not** fix it: once an address is written, setup keeps
+it. If the browser still shows the old behaviour, clear the site data for
+`localhost:3001` — Kinboard installs an offline cache that can remember the
+page as it was.
+
+Before 1.11, `setup.sh` suggested your **public** IP here on WSL — and on most
+home servers — because it treated "public address differs from local address"
+as a sign of a cloud server, when behind a home router the two always differ.
+If you installed with an older version and pressed Enter, that is what you
+have.
 
 For everything after that — integrations, the family code, adding the wall
 panel — follow [Quick start](Quick-start) from step 3.
 
-## Reaching it from the wall panel
+## Reaching it from other devices
 
-The panel needs a hostname or IP that works from another machine, and
-`localhost` will not do. Two options:
+`localhost` only means *this* PC. A phone, a tablet or a separate wall panel
+needs an address that works from the network, and then `API_EXTERNAL_URL`
+has to be that address too — not localhost — or those devices get the "second
+address" failure above.
 
-- **Give the Windows host a fixed IP** on your LAN and use that. You may need
-  to allow the port through Windows Defender Firewall.
-- **Put a reverse proxy in front**, as in [Self-hosting](Self-hosting).
+How you get there depends on how Docker is installed:
 
-WSL2 runs its own virtual network, so a port published by Docker Desktop is
-forwarded from Windows automatically. You do not need to forward anything
-inside WSL by hand.
+- **Docker Desktop** publishes the stack's ports on the Windows machine
+  itself. Give the PC a fixed IP on your LAN, allow ports 3001 and 8100
+  through Windows Defender Firewall, and set `API_EXTERNAL_URL` to
+  `http://<that IP>:8100` (and `SITE_URL` to `http://<that IP>:3001`).
+- **Docker Engine inside WSL** is reachable from Windows through localhost
+  forwarding and from nowhere else: WSL2 has its own NAT, and its internal
+  address (`172.x`) is invisible to the LAN and changes on restart. On
+  Windows 11 22H2 or later, switch WSL to mirrored networking so it shares
+  the PC's LAN address — in `%UserProfile%\.wslconfig`:
+
+  ```ini
+  [wsl2]
+  networkingMode=mirrored
+  ```
+
+  then `wsl --shutdown`, start the distribution again, and use the PC's LAN
+  IP as above.
+
+If the panel on the wall **is** this PC, as in the reference build, none of
+this is needed — localhost is correct.
+
+Or put a reverse proxy in front, as in [Self-hosting](Self-hosting).
 
 ## When it does not work
 
@@ -106,9 +180,12 @@ is listening on port 5432 it will collide with Kinboard's.
 is off for this distribution. *Settings → Resources → WSL integration*.
 
 **Containers stop when you close the terminal** — they do not, but WSL shuts
-itself down when nothing is using it. Keep Docker Desktop running; it holds the
-distribution open. Do not run `wsl --shutdown` while Kinboard is meant to be
-up.
+itself down when nothing is using it. With Docker Desktop, keep Desktop
+running; it holds the distribution open. With Docker Engine inside WSL,
+nothing does that for you: the stack stops when the WSL VM goes idle. Keep a
+WSL window open, or on Windows 11 set `vmIdleTimeout=-1` under `[wsl2]` in
+`.wslconfig`. Either way, do not run `wsl --shutdown` while Kinboard is meant
+to be up.
 
 **Everything dies after a Windows update** — expected. Docker Desktop has to be
 running for the stack to come back. Set it to start with Windows, and set the
