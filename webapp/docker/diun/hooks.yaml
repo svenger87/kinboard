@@ -1,5 +1,12 @@
 - id: kinboard-update
-  execute-command: /scripts/kinboard-self-update.sh
+  # Through the project DIRECTORY mount, which sees every `git pull`.
+  # It used to be /scripts/kinboard-self-update.sh, a single-file mount that
+  # stayed at whatever version was on disk when the container started — so
+  # changes to the update script never ran until someone recreated the
+  # webhook by hand. PROJECT_DIR is the same path inside and out, and the
+  # webhook runs with -template, which is what resolves getenv here and in
+  # the trigger rule below.
+  execute-command: '{{ getenv "PROJECT_DIR" }}/webapp/docker/kinboard-self-update.sh'
   command-working-directory: /tmp
   response-message: kinboard-self-update fired
   include-command-output-in-response: false
