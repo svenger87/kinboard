@@ -133,35 +133,117 @@ panel — follow [Quick start](Quick-start) from step 3.
 
 ## Reaching it from other devices
 
-`localhost` only means *this* PC. A phone, a tablet or a separate wall panel
-needs an address that works from the network, and then `API_EXTERNAL_URL`
-has to be that address too — not localhost — or those devices get the "second
-address" failure above.
+`localhost` only means *this* PC. For a phone, a tablet or a separate wall
+panel, three things have to be true, and missing any one of them looks the
+same from the phone — a timeout, or the page loading and then "can't reach
+the Kinboard server".
 
-How you get there depends on how Docker is installed:
+**You do not need port forwarding on your router.** That is for reaching
+Kinboard from the internet. The obstacle here is inside the Windows machine.
+
+### 1. The stack has to be reachable on the PC's LAN address
 
 - **Docker Desktop** publishes the stack's ports on the Windows machine
-  itself. Give the PC a fixed IP on your LAN, allow ports 3001 and 8100
-  through Windows Defender Firewall, and set `API_EXTERNAL_URL` to
-  `http://<that IP>:8100` (and `SITE_URL` to `http://<that IP>:3001`).
+  itself. Nothing to do here.
 - **Docker Engine inside WSL** is reachable from Windows through localhost
-  forwarding and from nowhere else: WSL2 has its own NAT, and its internal
-  address (`172.x`) is invisible to the LAN and changes on restart. On
-  Windows 11 22H2 or later, switch WSL to mirrored networking so it shares
-  the PC's LAN address — in `%UserProfile%\.wslconfig`:
+  forwarding and from nowhere else: WSL2 sits behind its own NAT, and its
+  internal address (`172.x`) is invisible to the LAN and changes on restart.
+  On Windows 11 22H2 or later, switch WSL to mirrored networking so it shares
+  the PC's LAN address. In `C:\Users\<you>\.wslconfig`:
 
   ```ini
   [wsl2]
   networkingMode=mirrored
   ```
 
-  then `wsl --shutdown`, start the distribution again, and use the PC's LAN
-  IP as above.
+  then `wsl --shutdown` in PowerShell, open WSL again, and `./start.sh up`.
 
-If the panel on the wall **is** this PC, as in the reference build, none of
-this is needed — localhost is correct.
+  On older Windows without mirrored mode, the fallback is a port proxy from
+  the PC's address to WSL's — `netsh interface portproxy add v4tov4
+  listenport=3001 listenaddress=0.0.0.0 connectport=3001
+  connectaddress=<wsl-ip>`, and the same for 8100 — with the catch that WSL's
+  address changes on every restart and the rules have to follow it.
 
-Or put a reverse proxy in front, as in [Self-hosting](Self-hosting).
+### 2. The firewall has to let it in
+
+From an **administrator** PowerShell:
+
+```powershell
+New-NetFirewallRule -DisplayName "Kinboard" -Direction Inbound -Protocol TCP -LocalPort 3001,8100 -Action Allow -Profile Private
+```
+
+That rule only applies while your network is set to **Private** — check
+*Settings → Network & internet → your Wi-Fi/Ethernet → Network profile type*.
+A network Windows considers Public ignores it.
+
+In mirrored mode Windows puts a second firewall in front of WSL, the Hyper-V
+firewall. If the phone still times out after the rule above:
+
+```powershell
+New-NetFirewallHyperVRule -Name "Kinboard" -DisplayName "Kinboard" -Direction Inbound -VMCreatorId '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -Protocol TCP -LocalPorts 3001,8100
+```
+
+(The GUID identifies WSL; it is the same on every machine.)
+
+### 3. Kinboard has to be told the address
+
+This is [the second address](#the-second-address) again, and it is the step
+that gets missed. The phone loads the page from `http://<PC-IP>:3001`, then
+sends every data request to `API_EXTERNAL_URL` — and if that still reads
+`localhost`, the phone looks for its data on *itself*.
+
+It is not only that line. Kong only accepts requests from pages it has been
+told about, and that list is written by `setup.sh` from the same address. So:
+
+```bash
+cd ~/kinboard/webapp/docker
+# set this one line in .env to the PC's LAN IP:
+#   API_EXTERNAL_URL=http://<PC-IP>:8100
+./setup.sh --non-interactive
+./start.sh up
+docker restart kinboard-kong
+```
+
+`setup.sh` keeps an address you have written by hand, derives `SITE_URL` and
+`ADDITIONAL_REDIRECT_URLS` from it, and rewrites Kong's allowed origin. Kong
+reads that file only when it starts, which is what the restart is for — skip
+it and the phone's browser blocks every request with a CORS error.
+
+Then open `http://<PC-IP>:3001` on the phone and join with the family code.
+Point the panel at the same address rather than `localhost`, so everything
+uses one address.
+
+**Give the PC a fixed IP** — a DHCP reservation on your router. The address
+is now written into the configuration, and if the router hands out a
+different one, every device stops working again.
+
+If the panel on the wall **is** this PC and nothing else needs to reach it,
+none of this section applies — localhost is correct.
+
+### Why this is so much work
+
+All three steps exist only because the server runs inside WSL on Windows:
+WSL's own network, the extra firewall, and an address that has to be written
+down. On a Raspberry Pi, a NAS or any small Linux machine the stack sits on
+your home network directly, a phone reaches it without any of this, and
+`setup.sh` suggests the right address by itself. If you have one, that is the
+better host; the Windows PC can stay the display.
+
+### Outside your home network
+
+Kinboard is built for the home network, and this page stops there. Reaching
+it from the internet — a domain, HTTPS, port forwarding on the router — is
+covered for a Linux host in [Self-hosting](Self-hosting), and it is not worth
+attempting on a WSL host without a strong reason.
+
+The low-effort way to use it from outside is a VPN such as Tailscale on the
+PC and the phone: no router changes, no domain, no certificate. One catch,
+and it is [the second address](#the-second-address) again: `API_EXTERNAL_URL`
+is your LAN IP, so the phone has to be able to reach that LAN IP when it is
+away as well. Share your home network as a Tailscale **subnet route** from a
+device that is always on, and approve the route in Tailscale's admin console
+(see Tailscale's documentation on subnet routers). Without that, the page
+loads from outside and then says it cannot reach the server.
 
 ## When it does not work
 
@@ -171,6 +253,15 @@ the `/mnt/c` problem above. Check with `pwd`. The database itself will say so:
 ```bash
 docker logs kinboard-db
 ```
+
+**The phone times out on `http://<PC-IP>:3001`** — nothing on the LAN
+address is answering: step 1 or 2 of
+[Reaching it from other devices](#reaching-it-from-other-devices). With Docker
+Engine inside WSL and no mirrored networking, this is guaranteed.
+
+**The phone loads the page, then "can't reach the Kinboard server"** — the
+page is reachable, the data address is not: step 3. `API_EXTERNAL_URL` still
+says `localhost`, or Kong was not restarted after `setup.sh`.
 
 **You do not need to install PostgreSQL.** It runs in a container, as do all
 the other services. A PostgreSQL installed on Windows will not help, and if it
