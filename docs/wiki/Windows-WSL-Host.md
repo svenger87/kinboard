@@ -229,7 +229,21 @@ your home network directly, a phone reaches it without any of this, and
 `setup.sh` suggests the right address by itself. If you have one, that is the
 better host; the Windows PC can stay the display.
 
-Or put a reverse proxy in front, as in [Self-hosting](Self-hosting).
+### Outside your home network
+
+Kinboard is built for the home network, and this page stops there. Reaching
+it from the internet — a domain, HTTPS, port forwarding on the router — is
+covered for a Linux host in [Self-hosting](Self-hosting), and it is not worth
+attempting on a WSL host without a strong reason.
+
+The low-effort way to use it from outside is a VPN such as Tailscale on the
+PC and the phone: no router changes, no domain, no certificate. One catch,
+and it is [the second address](#the-second-address) again: `API_EXTERNAL_URL`
+is your LAN IP, so the phone has to be able to reach that LAN IP when it is
+away as well. Share your home network as a Tailscale **subnet route** from a
+device that is always on, and approve the route in Tailscale's admin console
+(see Tailscale's documentation on subnet routers). Without that, the page
+loads from outside and then says it cannot reach the server.
 
 ## When it does not work
 
