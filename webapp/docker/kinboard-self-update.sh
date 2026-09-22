@@ -297,8 +297,13 @@ log "docker compose $COMPOSE_FILES pull --ignore-buildable"
 # from a no-op run. `config --images` lists what the stack resolves to;
 # inspecting each gives the id actually on disk now.
 images_now() {
+  # Sorted, because `config --images` returns the images in a different order
+  # on every call: three consecutive calls on a production host gave three
+  # different checksums with every image id unchanged. Unsorted, this compared
+  # two shuffles of the same list and nearly always reported a change, so the
+  # backup ran on runs that had nothing to upgrade.
   # shellcheck disable=SC2086
-  docker compose $COMPOSE_FILES config --images 2>/dev/null | while read -r ref; do
+  docker compose $COMPOSE_FILES config --images 2>/dev/null | sort -u | while read -r ref; do
     docker image inspect -f '{{.Id}}' "$ref" 2>/dev/null || echo "absent:$ref"
   done
 }
