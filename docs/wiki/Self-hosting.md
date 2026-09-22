@@ -410,6 +410,23 @@ It's idempotent. It appends new templated env keys (`DATA_DIR`, `DOMAIN`, etc.),
 > `pre-upgrade-<timestamp>-storage.tar.gz`; set `KINBOARD_BACKUP_DIR` to put
 > them elsewhere, and `BACKUP_KEEP` (default 5) for how many to keep. Nothing
 > is dumped on a run where no image changed.
+>
+> **If your auto-update overlay predates 1.11, recreate the webhook once:**
+>
+> ```bash
+> cd webapp/docker
+> docker compose $COMPOSE_FILES up -d --force-recreate --no-deps webhook
+> ```
+>
+> Until 1.11 the webhook ran a copy of the update script that was mounted as
+> a single file, and a single-file mount stays at whatever version was on
+> disk when the container started — `git pull` replaces the file, the
+> container keeps the old one. The update never recreates its own webhook, so
+> nothing refreshed it, and changes to the update script — the pre-upgrade
+> backup included — did not run on an existing install until this was done.
+> Your update log shows which one you have: a current script writes either
+> `taking a backup before recreating anything` or `skipping the pre-upgrade
+> backup` on every run. Neither line means the old copy is still running.
 
 The recommended path is the **Diun + webhook overlay** (`docker-compose.diun.yml.example`). It runs the FULL upgrade sequence end-to-end whenever a new GHCR image lands:
 

@@ -327,6 +327,12 @@ else
   log "no image changed; skipping the pre-upgrade backup"
 fi
 
+# Changes to THIS script do not need that out-of-band step any more: the hook
+# runs it through the project directory mount (diun/hooks.yaml), so the next
+# run after a `git pull` executes the new version. It used to run a copy
+# mounted as a single file, which stayed at the version on disk when the
+# webhook started — and since the webhook is excluded below, that was forever.
+#
 # Exclude webhook + diun from the recreate. The script is currently
 # executing INSIDE the webhook container — if compose recreates it, the
 # script gets SIGKILL'd mid-flight and can't finish (half-done state,

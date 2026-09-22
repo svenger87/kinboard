@@ -112,11 +112,20 @@ services:
       LOG_FILE: /var/log/kinboard-update.log
     working_dir: ${KINBOARD_PROJECT_DIR}
     volumes:
-      - ./diun/hooks.yaml:/etc/webhook/hooks.yaml:ro
-      # Static path the webhook hooks.json targets. Same file as the
-      # one inside the project mount below, just at a stable hook-side
-      # location so hooks.json doesn't need templating.
-      - ./kinboard-self-update.sh:/scripts/kinboard-self-update.sh:ro
+      # The diun/ DIRECTORY, not hooks.yaml on its own, and no separate
+      # mount of kinboard-self-update.sh at all — the hook runs the script
+      # through the project mount below (see diun/hooks.yaml).
+      #
+      # Both used to be single-file bind mounts, and a single-file bind mount
+      # is pinned to the inode that was at that path when the container
+      # started. `git pull` replaces a file by renaming a new one over it —
+      # a new inode — so the container kept seeing the old copy forever. A
+      # production webhook up since 13 Sep was still running the 5 Aug
+      # version of the script, and the pre-upgrade backup it gained on
+      # 17 Sep had never once executed there. Nothing refreshed it, because
+      # the self-update deliberately never recreates this container.
+      # Directory mounts do see replaced files.
+      - ./diun:/etc/webhook:ro
       # Bind-mount the project root at THE SAME PATH inside as outside.
       # Set KINBOARD_PROJECT_DIR=/absolute/host/path in .env (e.g.
       # /opt/kinboard, /root/kinboard, /mnt/user/appdata/kinboard).
