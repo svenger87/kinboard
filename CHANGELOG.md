@@ -8,9 +8,16 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A configurable home screen for each device.** Keep the familiar layout or switch to a compact two-column portrait layout. Dashboard widgets can be reordered per device, and an optional countdown widget tracks family dates.
+- **More ways to tailor the family board.** The timetable can show equal-sized classes and switch to the next school day at a chosen time; the screensaver can show news and use larger clock and event details. Navigation items can be hidden per device, with an icon-only Settings shortcut.
+- **Kid-friendly tasks.** Tasks can have an icon and points for a child; points are awarded once per completion and shown alongside the child's total. A larger dashboard task display is optional.
+
 ### Changed
 
 ### Fixed
+
+- **Recipe imports now recognize JSON-LD on more sites.** Unquoted script attributes and nested `@graph` entries are supported, and array-shaped serving counts no longer cause an import error (#283).
+- **Starting the stack now warns when the API address points at the wrong port.** Kinboard uses two: 3001 for the page you open, 8100 for the address the page fetches its data from. Typing one of them wrong — `8001` for `8100`, say — produced the most confusing failure this project has: the page appears, setting up a family gets one step in, and then it says it cannot reach the server, with nothing anywhere naming the port it was trying. Both numbers are known at startup, so it now says when they disagree. It is a warning, not a refusal, because a reverse proxy on another port in front is a legitimate setup.
 
 ### Security
 

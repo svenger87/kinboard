@@ -204,6 +204,34 @@ wait_for_migrations() {
   return 0
 }
 
+# Does the port in API_EXTERNAL_URL match the one Kong publishes?
+#
+# Discussion #277 cost somebody an evening to `:8001` instead of `:8100`. The
+# two numbers a self-hoster types are 3001 for the page and 8100 for the API,
+# and getting the second wrong produces the failure that thread was entirely
+# about: the page loads, setting up a family gets one step in, and everything
+# after it goes nowhere. Nothing named the port it was reaching for, and the
+# address is typed once and then lives in a file nobody opens again.
+#
+# Both numbers are right here, so say when they disagree. Prints "match",
+# "mismatch <url-port> <kong-port>", or "none" when the address carries no
+# port at all, which is what a Traefik/domain setup looks like.
+api_url_port_verdict() {
+  url="$1"
+  kong_port="$2"
+  [ -n "$url" ] || { echo none; return 0; }
+
+  # The port is the ":NNNN" after the host, before any path.
+  url_port=$(printf '%s' "$url" \
+    | sed -E 's#^[a-zA-Z][a-zA-Z0-9+.-]*://##; s#/.*$##; s#^[^:]*$##; s#^[^:]*:##')
+
+  case "$url_port" in
+    ''|*[!0-9]*) echo none ;;
+    "$kong_port") echo match ;;
+    *) echo "mismatch $url_port $kong_port" ;;
+  esac
+}
+
 # Refuse to start when the data directory sits on a Windows drive.
 #
 # Discussion #275: a Windows user on WSL cloned into /mnt/c, ran `./start.sh
@@ -267,6 +295,25 @@ check_data_dir_filesystem() {
 case "$cmd" in
   up)
     check_data_dir_filesystem || exit 1
+
+    # A warning, not a refusal: a reverse proxy listening on a different port
+    # in front of Kong is a legitimate setup, and this cannot tell that apart
+    # from a typo.
+    port_verdict="$(api_url_port_verdict "${API_EXTERNAL_URL:-}" "${KONG_HTTP_PORT:-8100}")"
+    case "$port_verdict" in
+      mismatch*)
+        set -- $port_verdict
+        echo "warning: API_EXTERNAL_URL uses port $2, but Kong is published on $3." >&2
+        echo "         API_EXTERNAL_URL=${API_EXTERNAL_URL}" >&2
+        echo "         The browser loads the page from the webapp port (${WEBAPP_PORT:-3001})" >&2
+        echo "         and then sends every data request to the address above, so if that" >&2
+        echo "         port is wrong the page appears and nothing in it works: setting up" >&2
+        echo "         a family gets one step in, then 'can't reach the Kinboard server'." >&2
+        echo "         If a reverse proxy listens on $2 and forwards to Kong, this is fine." >&2
+        echo "         Otherwise fix API_EXTERNAL_URL in webapp/docker/.env and re-run" >&2
+        echo "         ./setup.sh --non-interactive from the project root." >&2
+        ;;
+    esac
 
     # Say something when the stack is about to build the webapp from source
     # while a published image sits unused on this machine.
