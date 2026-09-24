@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -82,6 +83,10 @@ export default function ScreensaverSettingsPage() {
     });
   };
 
+  const updateDisplayOption = (field: "showNews" | "largeDetails", value: boolean) => {
+    updateSettings.mutate({ key: "screensaver", value: { ...settings, [field]: value } });
+  };
+
   if (isLoading) {
     return (
       <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
@@ -103,6 +108,23 @@ export default function ScreensaverSettingsPage() {
           subtitle={t("subtitle")}
           className="mb-8"
         />
+
+        <Card className="mb-6 space-y-4 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label htmlFor="screensaver-news">{t("showNewsLabel")}</Label>
+              <p className="text-xs text-muted-foreground">{t("showNewsDescription")}</p>
+            </div>
+            <Switch id="screensaver-news" checked={settings.showNews ?? true} onCheckedChange={(value) => updateDisplayOption("showNews", value)} disabled={updateSettings.isPending} />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label htmlFor="screensaver-large">{t("largeDetailsLabel")}</Label>
+              <p className="text-xs text-muted-foreground">{t("largeDetailsDescription")}</p>
+            </div>
+            <Switch id="screensaver-large" checked={settings.largeDetails ?? false} onCheckedChange={(value) => updateDisplayOption("largeDetails", value)} disabled={updateSettings.isPending} />
+          </div>
+        </Card>
 
         {/* Inactivity Timeout */}
         <motion.div

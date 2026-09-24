@@ -3,6 +3,7 @@ import { applyNavOrder } from "@/lib/nav-order";
 import { useHomeAssistantStatus } from "./use-home-assistant";
 import { useIsPluginEnabled } from "./use-enabled-plugins";
 import { useNavOrder } from "./use-nav-order";
+import { useHiddenNavItems } from "./use-hidden-nav-items";
 import { useSubjects, useSchedules } from "./use-supabase-queries";
 import { PLUGINS } from "@/plugins/registry";
 import type { NavGatingContext } from "@/plugins/types";
@@ -41,9 +42,10 @@ const SCHEDULE_HREF = "/schedule";
  * count never changes between renders. See SurfacePlugin.useOwnDataCount
  * for the Rules-of-Hooks invariant.
  */
-export function useVisibleNavItems(): typeof NAV_ITEMS {
+export function useVisibleNavItems(includeUserHidden = false): typeof NAV_ITEMS {
   const { data: haSettings, isPending: haPending } = useHomeAssistantStatus();
   const navOrder = useNavOrder();
+  const hiddenItems = useHiddenNavItems();
   const { data: subjects, isPending: subjectsPending } = useSubjects();
   const { data: schedules, isPending: schedulesPending } = useSchedules();
 
@@ -68,6 +70,7 @@ export function useVisibleNavItems(): typeof NAV_ITEMS {
   const haConnected = Boolean(haSettings?.url && haSettings?.access_token);
 
   const filtered = NAV_ITEMS.filter((item) => {
+    if (!includeUserHidden && hiddenItems.includes(item.href)) return false;
     if (HA_DEPENDENT_HREFS.has(item.href)) {
       if (haPending) return false;
       return haConnected;

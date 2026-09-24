@@ -88,7 +88,7 @@ function spec(table: string, overrides: Partial<TableSpec> = {}): TableSpec {
 }
 
 // Insertion order — every table GET /api/export writes under `data` MUST
-// appear here (self-review requirement, Task 3 Step 4). 24 tables, same
+// appear here (self-review requirement, Task 3 Step 4). 25 tables, same
 // count as the export payload's `data` keys.
 const TABLE_SPECS: TableSpec[] = [
   spec("people"),
@@ -102,6 +102,10 @@ const TABLE_SPECS: TableSpec[] = [
   spec("todos", {
     nullableFks: ["person_id"],
     forceNullColumns: ["source_device_id"], // devices are never exported
+  }),
+  spec("todo_point_awards", {
+    requiredFks: ["person_id"],
+    nullableFks: ["todo_id"],
   }),
   spec("subjects"),
   spec("schedules", { requiredFks: ["person_id"] }),

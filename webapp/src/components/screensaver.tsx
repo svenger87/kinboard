@@ -196,7 +196,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
   );
 
   // Configurable photo rotation interval from settings
-  const { photoRotationInterval } = useScreensaverSettings();
+  const { photoRotationInterval, settings: screensaverSettings } = useScreensaverSettings();
+  const largeDetails = screensaverSettings.largeDetails ?? false;
   const photoRotationMs = photoRotationInterval * 1000;
 
   // Update clock every 60 seconds - screensaver only shows hours:minutes, not seconds
@@ -668,7 +669,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       </div>
 
       {/* News list - top left (always rendered for data-no-wake) */}
-      {news && news.length > 0 && (
+      {(screensaverSettings.showNews ?? true) && news && news.length > 0 && (
         <div
           className={`absolute top-0 left-0 landscape:lg:top-0 landscape:lg:left-0 p-4 pt-16 landscape:lg:p-12 w-96 landscape:lg:w-[28rem] safe-area-inset screensaver-slide-down ${selectedNews ? 'opacity-0 pointer-events-none' : ''}`}
           style={{ animationDelay: "0.8s", backgroundColor: "rgba(0,0,0,0.001)", ...burnInStyle }}
@@ -978,17 +979,17 @@ export function Screensaver({ photos }: ScreensaverProps) {
         style={{ animationDelay: "0.5s", ...burnInStyle }}
       >
         <div className="flex items-baseline">
-          <span className="font-display font-light text-7xl landscape:lg:text-[8rem] text-white clock-display tracking-tighter leading-none">
+          <span className={`font-display font-light ${largeDetails ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]" : "text-7xl landscape:lg:text-[8rem]"} text-white clock-display tracking-tighter leading-none`}>
             {hours}
           </span>
-          <span className="font-display font-light text-7xl landscape:lg:text-[8rem] text-white/30 mx-1 landscape:lg:mx-2">
+          <span className={`font-display font-light ${largeDetails ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]" : "text-7xl landscape:lg:text-[8rem]"} text-white/30 mx-1 landscape:lg:mx-2`}>
             :
           </span>
-          <span className="font-display font-light text-7xl landscape:lg:text-[8rem] text-white clock-display tracking-tighter leading-none">
+          <span className={`font-display font-light ${largeDetails ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]" : "text-7xl landscape:lg:text-[8rem]"} text-white clock-display tracking-tighter leading-none`}>
             {minutes}
           </span>
         </div>
-        <p className="text-xl landscape:lg:text-2xl font-light text-white/60 mt-2 tracking-wide">
+        <p className={`${largeDetails ? "text-2xl landscape:lg:text-4xl" : "text-xl landscape:lg:text-2xl"} font-light text-white/60 mt-2 tracking-wide`}>
           {formattedDate}
         </p>
       </div>
@@ -996,14 +997,14 @@ export function Screensaver({ photos }: ScreensaverProps) {
       {/* Right side - Events and Birthdays (above clock for portrait/mobile, right side for landscape desktop) */}
       <div
         className="max-w-sm landscape:lg:absolute landscape:lg:bottom-12 landscape:lg:right-12 flex flex-col gap-4 landscape:lg:gap-6 safe-area-inset screensaver-slide-right"
-        style={{ animationDelay: "0.7s", ...burnInStyle }}
+        style={{ animationDelay: "0.7s", maxWidth: largeDetails ? "36rem" : undefined, ...burnInStyle }}
       >
         {/* Upcoming Events */}
         {upcomingEvents.length > 0 && (
           <div className="flex flex-col gap-2 landscape:lg:gap-3">
             <div className="flex items-center gap-2 text-white/60">
               <Calendar className="size-4" />
-              <span className="text-xs landscape:lg:text-sm font-medium uppercase tracking-wider">{t("eventsLabel")}</span>
+              <span className={`${largeDetails ? "text-lg" : "text-xs landscape:lg:text-sm"} font-medium uppercase tracking-wider`}>{t("eventsLabel")}</span>
             </div>
             <div className="flex flex-col gap-1.5 landscape:lg:gap-2">
               {upcomingEvents.map((event) => (
@@ -1026,10 +1027,10 @@ export function Screensaver({ photos }: ScreensaverProps) {
                     />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium truncate text-sm">
+                    <p className={`text-white font-medium truncate ${largeDetails ? "text-xl" : "text-sm"}`}>
                       {event.title}
                     </p>
-                    <div className="flex items-center gap-2 text-white/50 text-xs">
+                    <div className={`flex items-center gap-2 text-white/50 ${largeDetails ? "text-base" : "text-xs"}`}>
                       <span>{formatEventTime(event.start, event.allDay, eventLabels, dateLocale, formatTime)}</span>
                       {event.location && (
                         <span className="flex items-center gap-1 truncate">
@@ -1050,7 +1051,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
           <div className="flex flex-col gap-2 landscape:lg:gap-3">
             <div className="flex items-center gap-2 text-white/60">
               <Cake className="size-4" />
-              <span className="text-xs landscape:lg:text-sm font-medium uppercase tracking-wider">{t("birthdaysLabel")}</span>
+              <span className={`${largeDetails ? "text-lg" : "text-xs landscape:lg:text-sm"} font-medium uppercase tracking-wider`}>{t("birthdaysLabel")}</span>
             </div>
             <div className="flex flex-col gap-1.5 landscape:lg:gap-2">
               {upcomingBirthdays.map((birthday) => (
@@ -1078,13 +1079,13 @@ export function Screensaver({ photos }: ScreensaverProps) {
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium truncate text-sm">
+                    <p className={`text-white font-medium truncate ${largeDetails ? "text-xl" : "text-sm"}`}>
                       {/* No birth year stored means no age to announce - see hasBirthYear. */}
                       {hasBirthYear(birthday.date)
                         ? t("birthdayTurns", { name: birthday.name, age: calculateUpcomingAge(birthday.date) })
                         : birthday.name}
                     </p>
-                    <p className="text-white/50 text-xs">
+                    <p className={`text-white/50 ${largeDetails ? "text-base" : "text-xs"}`}>
                       {format(birthday.date, locale === "de" ? "d. MMMM" : "MMMM d", { locale: dateLocale })}
                     </p>
                   </div>

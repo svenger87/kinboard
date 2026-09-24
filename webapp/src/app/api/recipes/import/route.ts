@@ -1,37 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateExternalUrl } from "@/lib/validate-external-url";
 import { safeFetch, BlockedAddressError } from "@/lib/safe-fetch";
-
-// Schema.org Recipe type
-interface SchemaOrgRecipe {
-  "@type": "Recipe" | string;
-  name?: string;
-  description?: string;
-  image?: string | string[] | { url: string }[];
-  author?: string | { name?: string } | { name?: string }[];
-  prepTime?: string;
-  cookTime?: string;
-  totalTime?: string;
-  recipeYield?: string | number;
-  recipeIngredient?: string[];
-  recipeInstructions?:
-    | string
-    | string[]
-    | { "@type": string; text?: string; name?: string }[];
-  recipeCuisine?: string | string[];
-  recipeCategory?: string | string[];
-  keywords?: string | string[];
-  aggregateRating?: {
-    ratingValue?: number | string;
-    ratingCount?: number | string;
-    reviewCount?: number | string;
-  };
-  nutrition?: {
-    calories?: string;
-    [key: string]: string | undefined;
-  };
-  video?: { name?: string; thumbnailUrl?: string };
-}
+import { extractRecipeFromHtml, parseRecipeYield, type SchemaOrgRecipe } from "@/lib/recipe-json-ld";
 
 // Parsed recipe result
 interface ParsedRecipe {
@@ -68,15 +38,6 @@ function parseDuration(duration: string | undefined): number | null {
   const seconds = parseInt(match[3] || "0", 10);
 
   return hours * 60 + minutes + Math.round(seconds / 60);
-}
-
-// Parse yield string to number (e.g., "4 Portionen" -> 4)
-function parseYield(yield_: string | number | undefined): number {
-  if (!yield_) return 4;
-  if (typeof yield_ === "number") return yield_;
-
-  const match = yield_.match(/(\d+)/);
-  return match ? parseInt(match[1], 10) : 4;
 }
 
 // Get image URL from various formats
@@ -268,45 +229,6 @@ function estimateDifficulty(
   return "mittel";
 }
 
-// Extract recipe from HTML using JSON-LD
-function extractRecipeFromHtml(html: string): SchemaOrgRecipe | null {
-  // Find all JSON-LD scripts
-  const jsonLdRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-  let match;
-
-  while ((match = jsonLdRegex.exec(html)) !== null) {
-    try {
-      const jsonContent = match[1].trim();
-      const data = JSON.parse(jsonContent);
-
-      // Handle single object or array
-      const items = Array.isArray(data) ? data : [data];
-
-      for (const item of items) {
-        // Direct recipe
-        if (item["@type"] === "Recipe" || item["@type"]?.includes?.("Recipe")) {
-          return item as SchemaOrgRecipe;
-        }
-
-        // Recipe in @graph
-        if (item["@graph"]) {
-          const graphItems = Array.isArray(item["@graph"]) ? item["@graph"] : [item["@graph"]];
-          for (const graphItem of graphItems) {
-            if (graphItem["@type"] === "Recipe" || graphItem["@type"]?.includes?.("Recipe")) {
-              return graphItem as SchemaOrgRecipe;
-            }
-          }
-        }
-      }
-    } catch (e) {
-      // JSON parse error, try next script
-      continue;
-    }
-  }
-
-  return null;
-}
-
 // Get domain from URL
 function getDomain(url: string): string {
   try {
@@ -439,7 +361,7 @@ export async function POST(request: NextRequest) {
       source_url: url,
       source_domain: getDomain(url),
       image_url: getImageUrl(schemaRecipe.image),
-      servings: parseYield(schemaRecipe.recipeYield),
+      servings: parseRecipeYield(schemaRecipe.recipeYield),
       prep_time_minutes: parseDuration(schemaRecipe.prepTime),
       cook_time_minutes: parseDuration(schemaRecipe.cookTime),
       total_time_minutes: parseDuration(schemaRecipe.totalTime),

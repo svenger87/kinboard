@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { useTranslations } from "next-intl";
 import { Clock } from "@/components/widgets/clock";
 import { Weather } from "@/components/widgets/weather";
@@ -12,6 +13,7 @@ import { StonksWidget } from "@/components/widgets/stonks-widget";
 import { PhotosWidget } from "@/components/widgets/photos-widget";
 import { PocketMoneyWidget } from "@/components/widgets/pocket-money-widget";
 import { TimerWidget } from "@/components/widgets/timer-widget";
+import { CountdownWidget } from "@/components/widgets/countdown-widget";
 import { MediaPlayerWidget } from "@/components/widgets/media-player-widget";
 import { MessagesWidget } from "@/components/widgets/messages-widget";
 import { MessageTakeover } from "@/components/message-takeover";
@@ -37,17 +39,22 @@ import {
 } from "@/hooks";
 import { timetabledChildren } from "@/lib/timetabled-children";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { useHomeLayout } from "@/hooks/use-home-layout";
+import { mergeWidgetOrder, useWidgetOrder } from "@/hooks/use-widget-order";
+import type { WidgetKey } from "@/hooks/use-widget-order";
 import {
   DEFAULT_SCHEDULE_WIDGET_SETTINGS,
   type ScheduleWidgetSettings,
 } from "@/types/widgets";
-import { DEFAULT_WIDGET_VISIBILITY, migrateLegacyWidgetVisibility } from "@/types/widgets";
+import { DEFAULT_WIDGET_VISIBILITY, DEFAULT_WIDGET_ORDER, migrateLegacyWidgetVisibility } from "@/types/widgets";
 import type { WidgetVisibility } from "@/types/widgets";
 
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   // Load theme settings from Supabase (applies theme CSS class, clock settings)
   const { showSeconds } = useThemeSettings();
+  const [homeLayout] = useHomeLayout();
+  const [savedWidgetOrder] = useWidgetOrder();
 
   // Load widget visibility settings
   const { data: widgets } = useSetting<WidgetVisibility>(
@@ -91,6 +98,29 @@ export default function DashboardPage() {
   const { data: schedules } = useSchedules();
   const perChildCards =
     w.schedule && perChild ? timetabledChildren(people, schedules) : [];
+  const widgetCards: Record<WidgetKey, React.ReactNode> = {
+    weather: <Weather />,
+    upcomingEvents: <UpcomingEvents maxEvents={3} />,
+    schedule: perChildCards.length > 0
+      ? perChildCards.map((child) => <ScheduleWidget key={child.id} personId={child.id} />)
+      : <ScheduleWidget />,
+    birthday: <BirthdayWidget maxItems={3} />,
+    weekOverview: <WeekOverviewWidget className="sm:col-span-2" />,
+    mealPlan: <MealPlanWidget />,
+    wasteCollection: <WasteCollectionWidget maxItems={3} />,
+    tasks: <TasksWidget maxItems={4} />,
+    shopping: <ShoppingWidget maxItems={4} />,
+    notes: <NotesWidget maxItems={3} />,
+    vehicles: <VehiclesWidget />,
+    stonks: <StonksWidget />,
+    pocketMoney: <PocketMoneyWidget />,
+    photos: <PhotosWidget />,
+    timers: <TimerWidget />,
+    media: <MediaPlayerWidget />,
+    messages: <MessagesWidget />,
+    countdown: <CountdownWidget />,
+  };
+  const widgetKeys = mergeWidgetOrder(DEFAULT_WIDGET_ORDER, savedWidgetOrder);
 
   // Enable keyboard shortcuts for navigation
   useKeyboardShortcuts();
@@ -126,19 +156,19 @@ export default function DashboardPage() {
             family information the dashboard exists to show. Portrait is
             deliberately untouched: it already fits. */}
         <section
-          className="relative z-[1] flex flex-1 flex-col items-center justify-center hero-block"
+          className={`relative z-[1] flex items-center justify-center hero-block ${homeLayout === "compact" ? "flex-col portrait:md:grid portrait:md:grid-cols-2 portrait:md:gap-6 py-4" : "flex-1 flex-col"}`}
           aria-label={t("ariaClock")}
         >
-          <Clock size="xl" showDate showSeconds={showSeconds} showGreeting />
-
-          {/* Family Members below clock */}
-          <div className="mt-6 lg:mt-10">
-            <FamilyMembers />
+          <div className={homeLayout === "compact" ? "min-w-0 text-center" : "contents"}>
+            <Clock size={homeLayout === "compact" ? "lg" : "xl"} showDate showSeconds={showSeconds} showGreeting />
           </div>
-
-          {/* Today at a glance — horizontal pill row */}
-          <div className="mt-4 mb-4 w-full lg:mb-6">
-            <TodayStrip />
+          <div className={homeLayout === "compact" ? "min-w-0" : "contents"}>
+            <div className={homeLayout === "compact" ? "" : "mt-6 lg:mt-10"}>
+              <FamilyMembers className={homeLayout === "compact" ? "flex-wrap" : ""} />
+            </div>
+            <div className="mt-4 mb-4 w-full lg:mb-6">
+              <TodayStrip />
+            </div>
           </div>
         </section>
 
@@ -180,37 +210,7 @@ export default function DashboardPage() {
               Deliberately not behind a visibility toggle: individual hints are
               switched off from themselves, which is the finer control. */}
           <AttentionWidget />
-          {w.weather && <Weather />}
-          {w.upcomingEvents && <UpcomingEvents maxEvents={3} />}
-          {/* Per-child mode falls back to the single card when nobody has a
-              timetable yet, so switching the option on in a fresh family
-              shows the "Kein Kind konfiguriert" hint instead of silently
-              removing the widget. */}
-          {w.schedule &&
-            (perChildCards.length > 0 ? (
-              perChildCards.map((child) => (
-                <ScheduleWidget key={child.id} personId={child.id} />
-              ))
-            ) : (
-              <ScheduleWidget />
-            ))}
-          {w.birthday && <BirthdayWidget maxItems={3} />}
-          {w.weekOverview && <WeekOverviewWidget className="sm:col-span-2" />}
-          {w.mealPlan && <MealPlanWidget />}
-          {w.wasteCollection && <WasteCollectionWidget maxItems={3} />}
-          {w.tasks && <TasksWidget maxItems={4} />}
-          {w.shopping && <ShoppingWidget maxItems={4} />}
-          {w.notes && <NotesWidget maxItems={3} />}
-          {w.vehicles && <VehiclesWidget />}
-          {w.stonks && <StonksWidget />}
-          {w.pocketMoney && <PocketMoneyWidget />}
-          {w.photos && <PhotosWidget />}
-          {w.timers && <TimerWidget />}
-          {/* Absent whenever nothing plays — the component itself returns
-              null in that case (RFC-003 §7) — so the flag only decides
-              whether it is allowed to appear at all. */}
-          {w.media && <MediaPlayerWidget />}
-          {w.messages && <MessagesWidget />}
+          {widgetKeys.filter((key) => w[key]).map((key) => <Fragment key={key}>{widgetCards[key]}</Fragment>)}
         </section>
       </div>
     </main>

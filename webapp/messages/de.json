@@ -524,6 +524,11 @@
     "monthOverview": "Monatsübersicht"
   },
   "todos": {
+    "fieldIcon": "Aufgaben-Icon",
+    "fieldPoints": "Punkte bei Erledigung",
+    "fieldPointsHint": "Nur für Aufgaben von Kindern. 0 deaktiviert Punkte.",
+    "pointsHeading": "Gesammelte Aufgabenpunkte",
+    "pointsUnit": "Punkte",
     "title": "Aufgaben",
     "subtitle": "{active} offen, {recurring} wiederkehrend, {completed} erledigt",
     "progressAria": "Fortschritt: {percent}% erledigt, {completed} von {total} Aufgaben",
@@ -958,7 +963,7 @@
     "itemWidgetsLabel": "Widgets",
     "itemWidgetsDescription": "Dashboard-Widgets ein-/ausblenden",
     "itemNavigationLabel": "Navigation",
-    "itemNavigationDescription": "Reihenfolge der unteren Leiste anpassen",
+    "itemNavigationDescription": "Untere Leiste sortieren und Einträge ausblenden",
     "itemThemeLabel": "Design",
     "itemThemeDescription": "Farben und Uhr-Anzeige",
     "itemScreensaverLabel": "Bildschirmschoner",
@@ -1025,6 +1030,14 @@
     "diagnosticsStatusNotConfigured": "Nicht konfiguriert",
     "widgets": {
       "title": "Widgets",
+      "compactHomeLabel": "Kompaktes Home-Layout",
+      "compactHomeDescription": "Uhr links, Personen rechts auf Hochkantbildschirmen. Gilt nur für dieses Gerät.",
+      "reorderHint": "Widgets durch Ziehen sortieren. Die Reihenfolge gilt nur auf diesem Gerät.",
+      "dragToReorder": "{label} sortieren",
+      "countdownLabel": "Countdown",
+      "largeTasksLabel": "Aufgaben auf Home größer anzeigen",
+      "countdownDescription": "Tage bis zu besonderen Ereignissen zählen",
+      "countdownPreview1": "🎄 Weihnachten — noch 92 Tage",
       "subtitleCount": "{count} von {total} Widgets aktiv",
       "intro": "Wähle aus, welche Widgets auf dem Dashboard angezeigt werden.",
       "toggleAria": "{label} {state}",
@@ -1043,6 +1056,9 @@
       "scheduleLabel": "Stundenplan",
       "scheduleDescription": "Heutiger Schulstundenplan",
       "schedulePerChildLabel": "Pro Kind ein Widget",
+      "scheduleEqualSizeLabel": "Alle Schulstunden gleich groß",
+      "scheduleTomorrowLabel": "Nächsten Schultag anzeigen ab",
+      "scheduleTomorrowDescription": "Abends den nächsten Schultag zeigen; standardmäßig aus.",
       "schedulePerChildToggleAria": "Pro Kind ein Stundenplan-Widget {state}",
       "schedulePerChildNames": "Jedes Kind bekommt eine eigene Karte: {names}",
       "schedulePerChildNobody": "Noch kein Stundenplan angelegt — sobald ein Kind einen hat, bekommt es eine eigene Karte.",
@@ -1116,8 +1132,12 @@
     },
     "navigation": {
       "title": "Navigation",
-      "intro": "Untere Navigation per Drag & Drop sortieren. Die Reihenfolge gilt nur auf diesem Gerät — Küchen-Kiosk, Telefon und Tablets der Kinder behalten jeweils ihre eigene Anordnung.",
-      "reset": "Standard wiederherstellen",
+      "showItem": "{label} in der Navigation anzeigen",
+      "fixedItemsHint": "Start, Kalender, Einkaufen und Einstellungen bleiben als wichtige Einstiege sichtbar.",
+      "settingsIconOnly": "Einstellungen nur als Zahnrad",
+      "settingsIconOnlyHint": "Spart Platz in der unteren Leiste auf diesem Gerät.",
+      "intro": "Untere Navigation sortieren und nicht benötigte Einträge ausblenden. Die Einstellungen gelten nur auf diesem Gerät.",
+      "reset": "Standard-Reihenfolge wiederherstellen",
       "perDeviceHint": "Auf diesem Gerät gespeichert. Neue Bereiche (z. B. ein frisch aktiviertes Plugin) erscheinen am Ende, bis du sie verschiebst.",
       "dragToReorder": "Zum Sortieren ziehen"
     },
@@ -1147,6 +1167,10 @@
     },
     "screensaver": {
       "title": "Bildschirmschoner",
+      "showNewsLabel": "Nachrichten anzeigen",
+      "showNewsDescription": "Nachrichtenliste auf den Fotos einblenden",
+      "largeDetailsLabel": "Große Uhr und Termine",
+      "largeDetailsDescription": "Für bessere Lesbarkeit aus der Entfernung",
       "subtitle": "Automatische Aktivierung konfigurieren",
       "timeoutHeading": "Inaktivitäts-Timeout",
       "timeoutLabel": "Aktivierung nach",
@@ -3304,6 +3328,18 @@
       "photosEmpty": "Verbinde eine Fotoquelle, dann erscheinen deine Bilder hier."
     }
   },
+  "countdownWidget": {
+    "title": "Countdown",
+    "add": "Countdown hinzufügen",
+    "empty": "Noch kein Countdown angelegt",
+    "daysRemaining": "{count, plural, one {Noch # Tag} other {Noch # Tage}}",
+    "daysUnit": "{count, plural, one {Tag} other {Tage}}",
+    "remove": "{title} entfernen",
+    "namePlaceholder": "Name des Ereignisses",
+    "dateLabel": "Datum",
+    "save": "Hinzufügen",
+    "saveFailed": "Countdown konnte nicht gespeichert werden"
+  },
   "energy": {
     "title": "Energie",
     "description": "Solar-, Batterie- und Netz-Energie-Dashboard auf Basis von Home Assistant.",
@@ -3670,6 +3706,7 @@
     "moreCount": "+{count} weitere"
   },
   "scheduleWidget": {
+    "nextSchoolDay": "Nächster Schultag",
     "loadingAria": "Stundenplan wird geladen",
     "title": "Stundenplan",
     "noChildTitle": "Kein Kind eingerichtet",

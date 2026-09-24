@@ -1,6 +1,6 @@
 "use client";
 
-import { todayKey } from "@/lib/local-date";
+import { todayKey, toLocalDateKey } from "@/lib/local-date";
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
@@ -14,7 +14,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { useTodos, useUpdateTodo, usePeople } from "@/hooks";
+import { useTodos, useUpdateTodo, usePeople, useSetting } from "@/hooks";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { useTodoPoints } from "@/hooks/use-todo-points";
 import { toast } from "sonner";
 import type { Todo } from "@/types/database";
 import { WidgetCard } from "@/components/widget-card";
@@ -64,7 +66,9 @@ export function TasksWidget({
   const t = useTranslations("tasksWidget");
   const { data: todos, isLoading, isError } = useTodos();
   const { data: people } = usePeople();
+  const { data: pointAwards = [] } = useTodoPoints();
   const updateTodo = useUpdateTodo();
+  const { data: taskDisplay } = useSetting<{ large: boolean }>(SETTINGS_KEYS.taskDisplay, { large: false });
 
   // Sort: overdue first, then due today, then by priority, then by date
   const openTodos = useMemo(() => {
@@ -102,6 +106,7 @@ export function TasksWidget({
         await updateTodo.mutateAsync({
           id: todo.id,
           last_completed: new Date().toISOString(),
+          last_completed_day: toLocalDateKey(),
         });
         toast.success(t("toastDoneRecurring"));
       } else {
@@ -165,6 +170,15 @@ export function TasksWidget({
         }
         className={`h-full ${className}`}
       >
+        {(pointAwards.length > 0 || todos?.some((todo) => todo.points > 0)) && (
+          <div className="flex flex-wrap gap-2">
+            {people?.filter((person) => person.is_child).map((person) => (
+              <span key={person.id} className="rounded-md bg-primary/10 px-2 py-1 text-xs text-primary">
+                {person.name} · ⭐ {pointAwards.filter((award) => award.person_id === person.id).reduce((sum, award) => sum + award.points, 0)}
+              </span>
+            ))}
+          </div>
+        )}
         <motion.div variants={container} initial="hidden" animate="show" className="flex flex-col gap-2">
           {displayTodos.map((todo) => {
             const person = getPersonName(todo.person_id);
@@ -175,10 +189,11 @@ export function TasksWidget({
                 key={todo.id}
                 checked={false}
                 onCheckedChange={() => handleToggle(todo)}
+                className={taskDisplay?.large ? "min-h-[72px] [&_label]:text-lg [&_.peer]:scale-125" : undefined}
                 color={person?.color}
                 label={
                   <span className="flex flex-col">
-                    <span className="truncate leading-tight">{todo.title}</span>
+                    <span className="truncate leading-tight">{todo.icon && <span className="mr-2 text-xl" aria-hidden="true">{todo.icon}</span>}{todo.title}{todo.points > 0 && <span className="ml-2 text-xs text-primary">⭐ {todo.points}</span>}</span>
                     <span className="mt-0.5 flex items-center gap-2 text-2xs">
                       {overdue && <span className="text-destructive">{t("overdue")}</span>}
                       {dueToday && !overdue && <span className="text-warning">{t("today")}</span>}
