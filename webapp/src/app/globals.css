@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Centered dialogs are portals, outside page shells that provide safe-area
+   padding. Keep their panels clear of notches and home indicators, including
+   short landscape viewports. The custom-property fallbacks let layout tests
+   emulate insets that headless browsers otherwise report as zero. */
+@media (max-width: 1023px) {
+  .modal-safe-area {
+    width: calc(100vw - 2 * max(1rem, var(--modal-safe-left, env(safe-area-inset-left, 0px)), var(--modal-safe-right, env(safe-area-inset-right, 0px))));
+    max-height: min(80dvh, calc(100dvh - 2 * max(1rem, var(--modal-safe-top, env(safe-area-inset-top, 0px)), var(--modal-safe-bottom, env(safe-area-inset-bottom, 0px)))));
+    border-radius: var(--radius);
+  }
+}
+
 @layer base {
   :root {
     --mobile-nav-height: 5rem;
