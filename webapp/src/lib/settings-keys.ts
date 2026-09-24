@@ -9,6 +9,8 @@ export const SETTINGS_KEYS = {
   theme: "theme",
   widgetVisibility: "widget_visibility",
   scheduleWidget: "schedule_widget",
+  countdowns: "countdowns",
+  taskDisplay: "task_display",
   schedulePackItems: "schedule_pack_items",
   schedulePeriods: "schedule_periods",
   screensaver: "screensaver",

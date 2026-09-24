@@ -1486,6 +1486,8 @@ export function useCreateTodo() {
       due_date?: string | null;
       priority?: number | string;
       recurrence?: string;
+      icon?: string | null;
+      points?: number;
     }) => {
        
       const { data, error } = await (supabase as any)
@@ -1499,6 +1501,7 @@ export function useCreateTodo() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.todos(requireFamilyId(family)) });
+      queryClient.invalidateQueries({ queryKey: ["todo-point-awards", requireFamilyId(family)] });
     },
   });
 }
@@ -1523,6 +1526,7 @@ export function useUpdateTodo() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.todos(requireFamilyId(family)) });
+      queryClient.invalidateQueries({ queryKey: ["todo-point-awards", requireFamilyId(family)] });
     },
   });
 }

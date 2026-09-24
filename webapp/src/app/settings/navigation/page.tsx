@@ -9,11 +9,16 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
 import { setNavOrder, clearNavOrder } from "@/lib/nav-order";
+import { getHiddenNavItems, setHiddenNavItems, setSettingsIconOnly } from "@/lib/nav-visibility";
+import { useHiddenNavItems, useSettingsIconOnly } from "@/hooks/use-hidden-nav-items";
+import { Switch } from "@/components/ui/switch";
 
 export default function NavigationSettingsPage() {
   const t = useTranslations("settings.navigation");
   const tNav = useTranslations("nav");
-  const visibleItems = useVisibleNavItems();
+  const visibleItems = useVisibleNavItems(true);
+  const hiddenItems = useHiddenNavItems();
+  const settingsIconOnly = useSettingsIconOnly();
 
   // Local working copy. Initialized from useVisibleNavItems (which already
   // reflects the saved order); subsequent drags update local state, and
@@ -81,10 +86,26 @@ export default function NavigationSettingsPage() {
                   href={href}
                   Icon={item.icon}
                   label={tNav(item.labelKey as never)}
+                  enabled={!hiddenItems.includes(href)}
+                  onEnabledChange={(enabled) => {
+                    const next = new Set(getHiddenNavItems());
+                    if (enabled) next.delete(href);
+                    else next.add(href);
+                    setHiddenNavItems([...next]);
+                  }}
                 />
               );
             })}
           </Reorder.Group>
+        </Card>
+        <p className="text-xs text-muted-foreground">{t("fixedItemsHint")}</p>
+
+        <Card className="flex items-center justify-between gap-4 p-4">
+          <div>
+            <p className="font-medium">{t("settingsIconOnly")}</p>
+            <p className="text-sm text-muted-foreground">{t("settingsIconOnlyHint")}</p>
+          </div>
+          <Switch checked={settingsIconOnly} onCheckedChange={setSettingsIconOnly} aria-label={t("settingsIconOnly")} />
         </Card>
 
         <Button
@@ -106,10 +127,14 @@ function NavItemRow({
   href,
   Icon,
   label,
+  enabled,
+  onEnabledChange,
 }: {
   href: string;
   Icon: React.ComponentType<{ className?: string }>;
   label: string;
+  enabled: boolean;
+  onEnabledChange: (enabled: boolean) => void;
 }) {
   // Per-item dragControls + dragListener=false constrains the drag
   // affordance to the explicit handle, so taps on the row body don't
@@ -134,7 +159,7 @@ function NavItemRow({
       </button>
       <Icon className="size-5" />
       <span className="text-sm font-medium">{label}</span>
-      <span className="ml-auto text-xs text-muted-foreground">{href}</span>
+      <Switch className="ml-auto" checked={enabled} onCheckedChange={onEnabledChange} disabled={["/", "/settings", "/calendar", "/shopping"].includes(href)} aria-label={t("showItem", { label })} />
     </Reorder.Item>
   );
 }

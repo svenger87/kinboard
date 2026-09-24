@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { isNoNavPath } from "@/lib/constants";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
+import { useSettingsIconOnly } from "@/hooks/use-hidden-nav-items";
 import { useNavBadges } from "@/hooks/use-nav-badges";
 
 export function DesktopNav() {
@@ -19,6 +20,7 @@ export function DesktopNav() {
   const [canScrollRight, setCanScrollRight] = useState(false);
   const badges = useNavBadges();
   const navItems = useVisibleNavItems();
+  const settingsIconOnly = useSettingsIconOnly();
 
   const updateScrollIndicators = useCallback(() => {
     const el = scrollRef.current;
@@ -140,6 +142,7 @@ export function DesktopNav() {
               key={item.href}
               ref={isActive ? activeRef : undefined}
               href={item.href}
+              aria-label={item.href === "/settings" && settingsIconOnly ? tNav(item.labelKey) : undefined}
               aria-current={isActive ? "page" : undefined}
               // 44px minimum, 48px on kiosk-width displays. These were 36px tall
               // with 14px labels — the single largest cluster of undersized
@@ -162,7 +165,7 @@ export function DesktopNav() {
                   </span>
                 )}
               </span>
-              <span className="whitespace-nowrap text-sm font-medium lg:text-base">{tNav(item.labelKey)}</span>
+              {!(item.href === "/settings" && settingsIconOnly) && <span className="whitespace-nowrap text-sm font-medium lg:text-base">{tNav(item.labelKey)}</span>}
               {isActive && (
                 <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-primary rounded-full" />
               )}

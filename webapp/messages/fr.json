@@ -524,6 +524,11 @@
     "monthOverview": "Aperçu mensuel"
   },
   "todos": {
+    "fieldIcon": "Icône de la tâche",
+    "fieldPoints": "Points à la réalisation",
+    "fieldPointsHint": "Pour les tâches attribuées aux enfants. 0 désactive les points.",
+    "pointsHeading": "Points gagnés",
+    "pointsUnit": "points",
     "title": "Tâches",
     "subtitle": "{active} en cours, {recurring} récurrentes, {completed} terminées",
     "progressAria": "Progression : {percent}% terminé, {completed} sur {total} tâches",
@@ -958,7 +963,7 @@
     "itemWidgetsLabel": "Widgets",
     "itemWidgetsDescription": "Afficher / masquer les widgets du tableau de bord",
     "itemNavigationLabel": "Navigation",
-    "itemNavigationDescription": "Réorganiser la navigation du bas",
+    "itemNavigationDescription": "Réorganiser et masquer les éléments de navigation",
     "itemThemeLabel": "Design",
     "itemThemeDescription": "Couleurs et affichage de l'horloge",
     "itemScreensaverLabel": "Économiseur d'écran",
@@ -1025,6 +1030,14 @@
     "diagnosticsStatusNotConfigured": "Non configuré",
     "widgets": {
       "title": "Widgets",
+      "compactHomeLabel": "Accueil compact",
+      "compactHomeDescription": "Horloge à gauche, personnes à droite sur les écrans verticaux. Uniquement sur cet appareil.",
+      "reorderHint": "Faites glisser les widgets pour les réorganiser. L’ordre s’applique uniquement à cet appareil.",
+      "dragToReorder": "Réorganiser {label}",
+      "countdownLabel": "Compte à rebours",
+      "largeTasksLabel": "Agrandir les tâches sur l’accueil",
+      "countdownDescription": "Compter les jours avant les événements spéciaux",
+      "countdownPreview1": "🎄 Noël — dans 92 jours",
       "subtitleCount": "{count} sur {total} widgets actifs",
       "intro": "Choisissez quels widgets s'affichent sur le tableau de bord.",
       "toggleAria": "{label} {state}",
@@ -1043,6 +1056,9 @@
       "scheduleLabel": "Emploi du temps scolaire",
       "scheduleDescription": "Emploi du temps du jour",
       "schedulePerChildLabel": "Un widget par enfant",
+      "scheduleEqualSizeLabel": "Afficher tous les cours à taille égale",
+      "scheduleTomorrowLabel": "Afficher le prochain jour d’école dès",
+      "scheduleTomorrowDescription": "Afficher le prochain jour d’école le soir ; désactivé par défaut.",
       "schedulePerChildToggleAria": "Un widget emploi du temps par enfant {state}",
       "schedulePerChildNames": "Chaque enfant a sa propre carte : {names}",
       "schedulePerChildNobody": "Aucun emploi du temps pour l'instant — chaque enfant aura sa carte dès qu'il en aura un.",
@@ -1116,7 +1132,11 @@
     },
     "navigation": {
       "title": "Navigation",
-      "intro": "Faites glisser pour réorganiser la navigation du bas. L'ordre s'applique uniquement à cet appareil — le kiosque de cuisine, le téléphone et les tablettes des enfants conservent leurs propres dispositions.",
+      "showItem": "Afficher {label} dans la navigation",
+      "fixedItemsHint": "Accueil, Calendrier, Courses et Réglages restent visibles comme accès essentiels.",
+      "settingsIconOnly": "Réglages : icône seule",
+      "settingsIconOnlyHint": "Libère de la place dans la barre inférieure sur cet appareil.",
+      "intro": "Réorganisez la navigation inférieure et masquez les éléments inutiles. Ces réglages s’appliquent uniquement à cet appareil.",
       "reset": "Réinitialiser l'ordre par défaut",
       "perDeviceHint": "Enregistré sur cet appareil. Les nouvelles surfaces (ex. un plugin récemment activé) apparaissent à la fin jusqu'à ce que vous les réorganisiez.",
       "dragToReorder": "Glisser pour réorganiser"
@@ -1147,6 +1167,10 @@
     },
     "screensaver": {
       "title": "Économiseur d'écran",
+      "showNewsLabel": "Afficher les actualités",
+      "showNewsDescription": "Afficher les actualités sur les photos",
+      "largeDetailsLabel": "Grande horloge et événements",
+      "largeDetailsDescription": "Plus facile à lire de loin",
       "subtitle": "Configurer l'activation automatique",
       "timeoutHeading": "Délai d'inactivité",
       "timeoutLabel": "Activer après",
@@ -3304,6 +3328,18 @@
       "photosEmpty": "Connectez une source de photos et vos images apparaîtront ici."
     }
   },
+  "countdownWidget": {
+    "title": "Compte à rebours",
+    "add": "Ajouter un compte à rebours",
+    "empty": "Aucun compte à rebours",
+    "daysRemaining": "{count, plural, one {Encore # jour} other {Encore # jours}}",
+    "daysUnit": "{count, plural, one {jour} other {jours}}",
+    "remove": "Supprimer {title}",
+    "namePlaceholder": "Nom de l’événement",
+    "dateLabel": "Date",
+    "save": "Ajouter",
+    "saveFailed": "Impossible d’enregistrer le compte à rebours"
+  },
   "energy": {
     "title": "Énergie",
     "description": "Tableau de bord énergétique solaire, batterie et réseau piloté par Home Assistant.",
@@ -3670,6 +3706,7 @@
     "moreCount": "+{count} autres"
   },
   "scheduleWidget": {
+    "nextSchoolDay": "Prochain jour d’école",
     "loadingAria": "Chargement de l'emploi du temps",
     "title": "Emploi du temps",
     "noChildTitle": "Aucun enfant configuré",

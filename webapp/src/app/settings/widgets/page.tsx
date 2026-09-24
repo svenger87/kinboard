@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { Reorder, useDragControls } from "framer-motion";
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import {
   LayoutGrid,
@@ -21,6 +22,8 @@ import {
   Timer,
   Music,
   MessageSquare,
+  GripVertical,
+  CalendarClock,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -31,7 +34,9 @@ import { timetabledChildren } from "@/lib/timetabled-children";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
 import { DEFAULT_WIDGET_VISIBILITY, DEFAULT_SCHEDULE_WIDGET_SETTINGS } from "@/types/widgets";
+import { useHomeLayout } from "@/hooks/use-home-layout";
 import type { WidgetVisibility, ScheduleWidgetSettings } from "@/types/widgets";
+import { useWidgetOrder, mergeWidgetOrder } from "@/hooks/use-widget-order";
 
 interface WidgetConfig {
   key: keyof WidgetVisibility;
@@ -59,12 +64,19 @@ const WIDGET_CONFIGS: WidgetConfig[] = [
   { key: "timers", labelKey: "timersLabel", descriptionKey: "timersDescription", previewKeys: ["timersPreview1", "timersPreview2"], icon: Timer },
   { key: "media", labelKey: "mediaLabel", descriptionKey: "mediaDescription", previewKeys: ["mediaPreview1", "mediaPreview2"], icon: Music },
   { key: "messages", labelKey: "messagesLabel", descriptionKey: "messagesDescription", previewKeys: ["messagesPreview1", "messagesPreview2"], icon: MessageSquare },
+  { key: "countdown", labelKey: "countdownLabel", descriptionKey: "countdownDescription", previewKeys: ["countdownPreview1"], icon: CalendarClock },
 ];
 
 export default function WidgetSettingsPage() {
   useKeyboardShortcuts();
   useSwipeNavigation();
   const t = useTranslations("settings.widgets");
+  const [homeLayout, setHomeLayout] = useHomeLayout();
+  const [savedOrder, saveOrder] = useWidgetOrder();
+  const { data: taskDisplay } = useSetting<{ large: boolean }>(SETTINGS_KEYS.taskDisplay, { large: false });
+  const updateTaskDisplay = useUpdateSetting<{ large: boolean }>();
+  const orderedConfigs = mergeWidgetOrder(WIDGET_CONFIGS.map((widget) => widget.key), savedOrder)
+    .map((key) => WIDGET_CONFIGS.find((widget) => widget.key === key)!);
 
   const { data: visibility, isLoading } = useSetting<WidgetVisibility>(
     "widget_visibility",
@@ -129,22 +141,28 @@ export default function WidgetSettingsPage() {
           {t("intro")}
         </p>
 
+        <Card className="mb-6 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-medium">{t("compactHomeLabel")}</p>
+              <p className="text-sm text-muted-foreground">{t("compactHomeDescription")}</p>
+            </div>
+            <Switch checked={homeLayout === "compact"} onCheckedChange={(checked) => setHomeLayout(checked ? "compact" : "classic")} aria-label={t("compactHomeLabel")} />
+          </div>
+        </Card>
+
         {/* Widget Cards */}
-        <div className="flex flex-col gap-3">
-          {WIDGET_CONFIGS.map((widget, index) => {
+        <p className="mb-3 text-sm text-muted-foreground">{t("reorderHint")}</p>
+        <Reorder.Group axis="y" values={orderedConfigs.map((widget) => widget.key)} onReorder={saveOrder} className="flex flex-col gap-3">
+          {orderedConfigs.map((widget) => {
             const enabled = merged[widget.key];
             const Icon = widget.icon;
             const label = t(widget.labelKey);
 
             return (
-              <motion.div
-                key={widget.key}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.04 }}
-              >
+              <WidgetReorderRow value={widget.key} key={widget.key} label={label}>
                 <Card
-                  className={`p-4 transition-all duration-200 ${
+                  className={`min-w-0 flex-1 p-4 transition-all duration-200 ${
                     enabled ? "" : "opacity-50"
                   }`}
                 >
@@ -214,16 +232,73 @@ export default function WidgetSettingsPage() {
                                 })
                               : t("schedulePerChildNobody")}
                           </p>
+                          <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/40 pt-3">
+                            <p className="text-sm font-medium">{t("scheduleEqualSizeLabel")}</p>
+                            <Switch
+                              checked={scheduleWidget?.equalSize ?? false}
+                              onCheckedChange={(equalSize) => updateScheduleWidget.mutate({
+                                key: SETTINGS_KEYS.scheduleWidget,
+                                value: { ...DEFAULT_SCHEDULE_WIDGET_SETTINGS, ...(scheduleWidget ?? {}), equalSize },
+                              })}
+                              disabled={!enabled || updateScheduleWidget.isPending}
+                              aria-label={t("scheduleEqualSizeLabel")}
+                            />
+                          </div>
+                          <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/40 pt-3">
+                            <div>
+                              <p className="text-sm font-medium">{t("scheduleTomorrowLabel")}</p>
+                              <p className="text-xs text-muted-foreground">{t("scheduleTomorrowDescription")}</p>
+                            </div>
+                            <Switch
+                              checked={(scheduleWidget?.tomorrowFrom ?? "off") !== "off"}
+                              onCheckedChange={(checked) => updateScheduleWidget.mutate({
+                                key: SETTINGS_KEYS.scheduleWidget,
+                                value: { ...DEFAULT_SCHEDULE_WIDGET_SETTINGS, ...(scheduleWidget ?? {}), tomorrowFrom: checked ? "17:00" : "off" },
+                              })}
+                              disabled={!enabled || updateScheduleWidget.isPending}
+                              aria-label={t("scheduleTomorrowLabel")}
+                            />
+                          </div>
+                          {(scheduleWidget?.tomorrowFrom ?? "off") !== "off" && <input
+                              type="time"
+                              className="mt-2 w-28 rounded-md border border-border bg-background p-2 text-sm"
+                              value={scheduleWidget?.tomorrowFrom ?? "17:00"}
+                              onChange={(event) => updateScheduleWidget.mutate({
+                                key: SETTINGS_KEYS.scheduleWidget,
+                                value: { ...DEFAULT_SCHEDULE_WIDGET_SETTINGS, ...(scheduleWidget ?? {}), tomorrowFrom: event.target.value || "17:00" },
+                              })}
+                              disabled={!enabled || updateScheduleWidget.isPending}
+                              aria-label={t("scheduleTomorrowLabel")}
+                            />}
+                        </div>
+                      )}
+                      {widget.key === "tasks" && (
+                        <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/40 pt-3">
+                          <p className="text-sm font-medium">{t("largeTasksLabel")}</p>
+                          <Switch checked={taskDisplay?.large ?? false} onCheckedChange={(large) => updateTaskDisplay.mutate({ key: SETTINGS_KEYS.taskDisplay, value: { large } })} disabled={!enabled || updateTaskDisplay.isPending} aria-label={t("largeTasksLabel")} />
                         </div>
                       )}
                     </div>
                   </div>
                 </Card>
-              </motion.div>
+              </WidgetReorderRow>
             );
           })}
-        </div>
+        </Reorder.Group>
       </div>
     </main>
+  );
+}
+
+function WidgetReorderRow({ value, label, children }: { value: string; label: string; children: ReactNode }) {
+  const controls = useDragControls();
+  const t = useTranslations("settings.widgets");
+  return (
+    <Reorder.Item value={value} dragListener={false} dragControls={controls} className="flex gap-2">
+      <button type="button" onPointerDown={(event) => controls.start(event)} className="touch-none cursor-grab rounded-md px-1 text-muted-foreground active:cursor-grabbing" aria-label={t("dragToReorder", { label })}>
+        <GripVertical className="size-5" />
+      </button>
+      {children}
+    </Reorder.Item>
   );
 }

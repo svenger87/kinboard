@@ -24,6 +24,8 @@ export interface ScreensaverSettings {
   presenceControlMode: PresenceControlMode;
   // Photo rotation interval in seconds (how often photos change)
   photoRotationInterval: number;
+  showNews?: boolean;
+  largeDetails?: boolean;
 }
 
 export const DEFAULT_SCREENSAVER_SETTINGS: ScreensaverSettings = {
@@ -31,6 +33,8 @@ export const DEFAULT_SCREENSAVER_SETTINGS: ScreensaverSettings = {
   presenceTimeout: 30,
   presenceControlMode: 'screensaver',
   photoRotationInterval: 30,
+  showNews: true,
+  largeDetails: false,
 };
 
 export interface PresenceState {
