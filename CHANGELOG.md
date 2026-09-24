@@ -17,6 +17,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - **Recipe imports now recognize JSON-LD on more sites.** Unquoted script attributes and nested `@graph` entries are supported, and array-shaped serving counts no longer cause an import error (#283).
+- **Starting the stack now warns when the API address points at the wrong port.** Kinboard uses two: 3001 for the page you open, 8100 for the address the page fetches its data from. Typing one of them wrong — `8001` for `8100`, say — produced the most confusing failure this project has: the page appears, setting up a family gets one step in, and then it says it cannot reach the server, with nothing anywhere naming the port it was trying. Both numbers are known at startup, so it now says when they disagree. It is a warning, not a refusal, because a reverse proxy on another port in front is a legitimate setup.
 
 ### Security
 

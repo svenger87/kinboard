@@ -196,13 +196,33 @@ It is not only that line. Kong only accepts requests from pages it has been
 told about, and that list is written by `setup.sh` from the same address. So:
 
 ```bash
-cd ~/kinboard/webapp/docker
-# set this one line in .env to the PC's LAN IP:
-#   API_EXTERNAL_URL=http://<PC-IP>:8100
+# 1. the address, in webapp/docker/.env — mind the port, it is 8100:
+#      API_EXTERNAL_URL=http://<PC-IP>:8100
+nano ~/kinboard/webapp/docker/.env
+
+# 2. setup.sh lives in the PROJECT ROOT
+cd ~/kinboard
 ./setup.sh --non-interactive
+
+# 3. start.sh lives in webapp/docker
+cd ~/kinboard/webapp/docker
 ./start.sh up
 docker restart kinboard-kong
 ```
+
+**The two scripts live in different directories** — `setup.sh` at the top of
+the project, `start.sh` under `webapp/docker` — so each block here changes
+directory before it calls one.
+
+**And mind the two ports.** They are easy to swap and the failure is silent:
+
+| | port |
+|---|---|
+| the page you open in a browser | **3001** |
+| the API address (`API_EXTERNAL_URL`) | **8100** |
+
+`8001` is not a Kinboard port. Since 1.11.1, `./start.sh up` warns when the
+port in `API_EXTERNAL_URL` is not the one Kong is published on.
 
 `setup.sh` keeps an address you have written by hand, derives `SITE_URL` and
 `ADDITIONAL_REDIRECT_URLS` from it, and rewrites Kong's allowed origin. Kong
