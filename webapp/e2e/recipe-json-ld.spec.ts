@@ -55,3 +55,8 @@ test("parses recipeYield arrays used by Love and Lemons", () => {
   expect(parseRecipeYield("4 Portionen")).toBe(4);
   expect(parseRecipeYield({ value: 6 })).toBe(6);
 });
+
+test("an HTML end tag with whitespace and an ignored attribute still ends the script", () => {
+  const html = '<script type=application/ld+json>{"@type":"Recipe","name":"Odd end tag"}</script\t\n bar><p>after</p>';
+  expect(extractRecipeFromHtml(html)?.name).toBe("Odd end tag");
+});

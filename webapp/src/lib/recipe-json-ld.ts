@@ -1,3 +1,5 @@
+import { JSDOM } from "jsdom";
+
 export interface SchemaOrgRecipe {
   "@type": string | string[];
   name?: string;
@@ -72,21 +74,22 @@ function findRecipe(data: unknown): SchemaOrgRecipe | null {
 
 /** Find the first Schema.org Recipe in a page's JSON-LD scripts. */
 export function extractRecipeFromHtml(html: string): SchemaOrgRecipe | null {
-  const scripts = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
-  let match: RegExpExecArray | null;
+  const dom = new JSDOM(html);
+  try {
+    for (const script of dom.window.document.querySelectorAll("script[type]")) {
+      // HTML permits quoted and unquoted attribute values. Several recipe
+      // sites, including Love and Lemons, use an unquoted JSON-LD type.
+      if (script.getAttribute("type")?.trim().toLowerCase() !== "application/ld+json") continue;
 
-  while ((match = scripts.exec(html)) !== null) {
-    // HTML permits quoted and unquoted attribute values. Several recipe sites,
-    // including Love and Lemons, use type=application/ld+json without quotes.
-    const type = match[1].match(/(?:^|\s)type\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
-    if ((type?.[1] ?? type?.[2] ?? type?.[3])?.toLowerCase() !== "application/ld+json") continue;
-
-    try {
-      const recipe = findRecipe(JSON.parse(match[2].trim()));
-      if (recipe) return recipe;
-    } catch {
-      // A malformed JSON-LD script must not hide a valid one later on.
+      try {
+        const recipe = findRecipe(JSON.parse(script.textContent?.trim() ?? ""));
+        if (recipe) return recipe;
+      } catch {
+        // A malformed JSON-LD script must not hide a valid one later on.
+      }
     }
+  } finally {
+    dom.window.close();
   }
 
   return null;

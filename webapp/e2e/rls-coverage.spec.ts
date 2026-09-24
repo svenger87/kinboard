@@ -87,6 +87,13 @@ test("every family-scoped table is under row-level security", () => {
     "todo_point_awards",
   ]);
 
+  const awardsSql = codeOnly(
+    readFileSync(join(DOCKER, "migration_zzz_todo_points.sql"), "utf8"),
+    { sql: true },
+  );
+  expect(awardsSql).toMatch(/ALTER TABLE public\.todo_point_awards ENABLE ROW LEVEL SECURITY;/i);
+  expect(awardsSql).toMatch(/CREATE POLICY todo_point_awards_family_read ON public\.todo_point_awards\s+FOR SELECT USING \(family_id = public\.current_family_id\(\)\);/i);
+
   const uncovered = [...scoped].filter(
     (t) => !direct.has(t) && !viaParent.has(t) && !coveredElsewhere.has(t),
   );
