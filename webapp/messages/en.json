@@ -524,6 +524,11 @@
     "monthOverview": "Month overview"
   },
   "todos": {
+    "fieldIcon": "Task icon",
+    "fieldPoints": "Points on completion",
+    "fieldPointsHint": "For tasks assigned to children. Set to 0 to disable points.",
+    "pointsHeading": "Earned task points",
+    "pointsUnit": "points",
     "title": "Tasks",
     "subtitle": "{active} open, {recurring} recurring, {completed} done",
     "progressAria": "Progress: {percent}% done, {completed} of {total} tasks",
@@ -958,7 +963,7 @@
     "itemWidgetsLabel": "Widgets",
     "itemWidgetsDescription": "Show / hide dashboard widgets",
     "itemNavigationLabel": "Navigation",
-    "itemNavigationDescription": "Reorder the bottom navigation",
+    "itemNavigationDescription": "Reorder and hide bottom navigation items",
     "itemThemeLabel": "Design",
     "itemThemeDescription": "Colors and clock display",
     "itemScreensaverLabel": "Screensaver",
@@ -1025,6 +1030,14 @@
     "diagnosticsStatusNotConfigured": "Not configured",
     "widgets": {
       "title": "Widgets",
+      "compactHomeLabel": "Compact home layout",
+      "compactHomeDescription": "Clock on the left, people on the right on portrait screens. Applies to this device only.",
+      "reorderHint": "Drag widgets to reorder them. The order applies to this device only.",
+      "dragToReorder": "Reorder {label}",
+      "countdownLabel": "Countdown",
+      "largeTasksLabel": "Show larger tasks on Home",
+      "countdownDescription": "Count the days until special events",
+      "countdownPreview1": "🎄 Christmas — 92 days to go",
       "subtitleCount": "{count} of {total} widgets active",
       "intro": "Choose which widgets show on the dashboard.",
       "toggleAria": "{label} {state}",
@@ -1043,6 +1056,9 @@
       "scheduleLabel": "School schedule",
       "scheduleDescription": "Today's school schedule",
       "schedulePerChildLabel": "One widget per child",
+      "scheduleEqualSizeLabel": "Show all classes equally",
+      "scheduleTomorrowLabel": "Show next school day from",
+      "scheduleTomorrowDescription": "Show the next school day in the evening; off by default.",
       "schedulePerChildToggleAria": "One schedule widget per child {state}",
       "schedulePerChildNames": "Each child gets their own card: {names}",
       "schedulePerChildNobody": "No timetable set up yet — a child gets their own card as soon as they have one.",
@@ -1116,7 +1132,11 @@
     },
     "navigation": {
       "title": "Navigation",
-      "intro": "Drag to reorder the bottom navigation. The order applies to this device only — kitchen kiosk, phone, and kids' tablets keep their own layouts.",
+      "showItem": "Show {label} in navigation",
+      "fixedItemsHint": "Home, Calendar, Shopping and Settings remain visible as essential entry points.",
+      "settingsIconOnly": "Settings icon only",
+      "settingsIconOnlyHint": "Saves space in the bottom bar on this device.",
+      "intro": "Reorder the bottom navigation and hide items you do not need. These settings apply to this device only.",
       "reset": "Reset to default order",
       "perDeviceHint": "Saved on this device. New surfaces (e.g. a freshly enabled plugin) appear at the end until you reorder them.",
       "dragToReorder": "Drag to reorder"
@@ -1147,6 +1167,10 @@
     },
     "screensaver": {
       "title": "Screensaver",
+      "showNewsLabel": "Show news",
+      "showNewsDescription": "Display the news list over photos",
+      "largeDetailsLabel": "Large clock and events",
+      "largeDetailsDescription": "Easier to read from a distance",
       "subtitle": "Configure auto-activation",
       "timeoutHeading": "Inactivity timeout",
       "timeoutLabel": "Activate after",
@@ -3304,6 +3328,18 @@
       "photosEmpty": "Connect a photo source and your pictures appear here."
     }
   },
+  "countdownWidget": {
+    "title": "Countdown",
+    "add": "Add countdown",
+    "empty": "No countdown yet",
+    "daysRemaining": "{count, plural, one {# day left} other {# days left}}",
+    "daysUnit": "{count, plural, one {day} other {days}}",
+    "remove": "Remove {title}",
+    "namePlaceholder": "Event name",
+    "dateLabel": "Date",
+    "save": "Add",
+    "saveFailed": "Could not save countdown"
+  },
   "energy": {
     "title": "Energy",
     "description": "Solar, battery, and grid energy dashboard powered by Home Assistant.",
@@ -3670,6 +3706,7 @@
     "moreCount": "+{count} more"
   },
   "scheduleWidget": {
+    "nextSchoolDay": "Next school day",
     "loadingAria": "Loading schedule",
     "title": "Schedule",
     "noChildTitle": "No child set up",

@@ -23,11 +23,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { toLocalDateKey } from "@/lib/local-date";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
+import { useTodoPoints } from "@/hooks/use-todo-points";
+import { TodoDecorationFields } from "@/components/todo-decoration-fields";
 import { showUndoToast } from "@/lib/undo-toast";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
@@ -157,6 +160,8 @@ export default function TodosPage() {
   const [newTaskDueDate, setNewTaskDueDate] = useState<Date | undefined>();
   const [newTaskPriority, setNewTaskPriority] = useState<Priority>("medium");
   const [newTaskRecurrence, setNewTaskRecurrence] = useState<RecurrenceType>("once");
+  const [newTaskIcon, setNewTaskIcon] = useState("");
+  const [newTaskPoints, setNewTaskPoints] = useState(0);
   const [filterPerson, setFilterPerson] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "completed">("all");
   const [filterRecurrence, setFilterRecurrence] = useState<"all" | "recurring" | "once">("all");
@@ -168,10 +173,13 @@ export default function TodosPage() {
   const [editDueDate, setEditDueDate] = useState<Date | undefined>();
   const [editPriority, setEditPriority] = useState<Priority>("medium");
   const [editRecurrence, setEditRecurrence] = useState<RecurrenceType>("once");
+  const [editIcon, setEditIcon] = useState("");
+  const [editPoints, setEditPoints] = useState(0);
 
   // Fetch data from Supabase
   const { data: todos, isLoading: loadingTodos, error: todosError, refetch: refetchTodos } = useTodos();
   const { data: people, isLoading: loadingPeople, error: peopleError, refetch: refetchPeople } = usePeople();
+  const { data: pointAwards = [] } = useTodoPoints();
   const createTodo = useCreateTodo();
   const updateTodo = useUpdateTodo();
   const deleteTodo = useDeleteTodo();
@@ -197,6 +205,8 @@ export default function TodosPage() {
         due_date: newTaskDueDate ? format(newTaskDueDate, "yyyy-MM-dd") : null,
         priority: newTaskPriority,
         recurrence: newTaskRecurrence,
+        icon: newTaskIcon || null,
+        points: newTaskPoints,
       });
 
       setNewTaskTitle("");
@@ -204,6 +214,8 @@ export default function TodosPage() {
       setNewTaskDueDate(undefined);
       setNewTaskPriority("medium");
       setNewTaskRecurrence("once");
+      setNewTaskIcon("");
+      setNewTaskPoints(0);
       setDialogOpen(false);
     } catch {
       toast.error(t("createFailed"));
@@ -233,6 +245,8 @@ export default function TodosPage() {
     setEditDueDate(todo.due_date ? new Date(todo.due_date) : undefined);
     setEditPriority((todo.priority as Priority) || "medium");
     setEditRecurrence((todo.recurrence as RecurrenceType) || "once");
+    setEditIcon(todo.icon || "");
+    setEditPoints(todo.points || 0);
     setEditDialogOpen(true);
   };
 
@@ -247,6 +261,8 @@ export default function TodosPage() {
         due_date: editDueDate ? format(editDueDate, "yyyy-MM-dd") : null,
         priority: editPriority,
         recurrence: editRecurrence,
+        icon: editIcon || null,
+        points: editPoints,
       });
 
       setEditDialogOpen(false);
@@ -263,6 +279,7 @@ export default function TodosPage() {
         await updateTodo.mutateAsync({
           id,
           last_completed: new Date().toISOString(),
+          last_completed_day: toLocalDateKey(),
           completed: false,
         });
       } else {
@@ -713,6 +730,8 @@ export default function TodosPage() {
                       </div>
                     </div>
 
+                    <TodoDecorationFields icon={newTaskIcon} points={newTaskPoints} onIconChange={setNewTaskIcon} onPointsChange={setNewTaskPoints} />
+
                     <Button
                       className="w-full"
                       onClick={handleAddTask}
@@ -733,6 +752,17 @@ export default function TodosPage() {
               </>
             }
           />
+
+          {(pointAwards.length > 0 || todos?.some((task) => task.points > 0)) && (
+            <div className="mb-6 flex flex-wrap gap-2" aria-label={t("pointsHeading")}>
+              {people?.filter((person) => person.is_child).map((person) => (
+                <div key={person.id} className="rounded-xl border border-border bg-card px-4 py-2 text-sm">
+                  <span className="font-medium">{person.name}</span>
+                  <span className="ml-2 text-primary tabular-nums">⭐ {pointAwards.filter((award) => award.person_id === person.id).reduce((sum, award) => sum + award.points, 0)} {t("pointsUnit")}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Overview Stat Cards */}
           {!isLoading && !error && (todos || []).length > 0 && (() => {
@@ -1023,6 +1053,7 @@ export default function TodosPage() {
                                     onClick={() => openEditDialog(task)}
                                   >
                                     <div className="flex items-center gap-2 min-w-0">
+                                      {task.icon && <span className="shrink-0 text-xl" aria-hidden="true">{task.icon}</span>}
                                       <p
                                         className={`font-medium truncate ${
                                           task.completed
@@ -1032,6 +1063,7 @@ export default function TodosPage() {
                                       >
                                         {task.title}
                                       </p>
+                                      {task.points > 0 && <span className="shrink-0 text-xs text-primary">⭐ {task.points}</span>}
                                       {isRecurring && task.recurrence && (() => {
                                         const RecurrenceIcon = RECURRENCE_ICON_MAP[task.recurrence as RecurrenceType];
                                         if (!RecurrenceIcon) return null;
@@ -1269,6 +1301,8 @@ export default function TodosPage() {
                   </Popover>
                 </div>
               </div>
+
+              <TodoDecorationFields icon={editIcon} points={editPoints} onIconChange={setEditIcon} onPointsChange={setEditPoints} />
 
               <Button
                 className="w-full"

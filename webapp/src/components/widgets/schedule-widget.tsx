@@ -34,6 +34,9 @@ import Link from "next/link";
 import { personText, personTint } from "@/lib/person-color";
 import { useTranslations } from "next-intl";
 import { useSchedules, usePeople } from "@/hooks";
+import { useSetting } from "@/hooks";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { DEFAULT_SCHEDULE_WIDGET_SETTINGS, type ScheduleWidgetSettings } from "@/types/widgets";
 import { useTimeFormat } from "@/hooks/use-time-format";
 
 interface TimeSlot {
@@ -166,6 +169,7 @@ export function ScheduleWidget({
   const personId = propPersonId || selectedChildId || firstChild?.id;
 
   const { data: schedules, isLoading: loadingSchedules } = useSchedules(personId);
+  const { data: widgetSettings } = useSetting<ScheduleWidgetSettings>(SETTINGS_KEYS.scheduleWidget, DEFAULT_SCHEDULE_WIDGET_SETTINGS);
 
   // Update every minute
   useEffect(() => {
@@ -202,7 +206,19 @@ export function ScheduleWidget({
   // JavaScript getDay(): 0=Sunday, 1=Monday...6=Saturday
   // Database day_of_week: 1=Monday, 2=Tuesday...5=Friday (1-based)
   const jsDay = currentTime.getDay();
-  const dbDay = jsDay === 0 || jsDay === 6 ? -1 : jsDay; // Convert: Weekend=-1 (invalid), Monday=1, etc.
+  const nowTime = `${currentTime.getHours().toString().padStart(2, "0")}:${currentTime.getMinutes().toString().padStart(2, "0")}`;
+  const tomorrowFrom = widgetSettings?.tomorrowFrom ?? DEFAULT_SCHEDULE_WIDGET_SETTINGS.tomorrowFrom!;
+  const previewNextDay = tomorrowFrom !== "off" && nowTime >= tomorrowFrom;
+  let dbDay = jsDay === 0 || jsDay === 6 ? -1 : jsDay;
+  if (previewNextDay && schedules?.length) {
+    for (let offset = 1; offset <= 7; offset++) {
+      const nextDay = (jsDay + offset) % 7;
+      if (schedules.some((schedule) => schedule.day_of_week === nextDay && Array.isArray(schedule.time_slots) && schedule.time_slots.length > 0)) {
+        dbDay = nextDay;
+        break;
+      }
+    }
+  }
 
   // Find schedule for today
   const todayScheduleData = schedules?.find((s) => s.day_of_week === dbDay);
@@ -227,7 +243,7 @@ export function ScheduleWidget({
   const schoolOver = lastSlot && timeNow > lastSlot.end;
 
   // Weekend or no schedule (using JavaScript day)
-  const isWeekend = jsDay === 0 || jsDay === 6;
+  const isWeekend = dbDay === -1;
   const noScheduleToday = todaySchedule.length === 0;
 
   return (
@@ -309,6 +325,9 @@ export function ScheduleWidget({
           </div>
         </CardHeader>
         <CardContent>
+          {previewNextDay && !noScheduleToday && (
+            <p className="mb-3 text-sm font-medium text-primary">{t("nextSchoolDay")}</p>
+          )}
           {isWeekend ? (
             /* Weekend */
             <div className="text-center py-4">
@@ -320,6 +339,19 @@ export function ScheduleWidget({
             <div className="text-center py-4">
               <GraduationCap className="size-8 mx-auto mb-2 text-primary/20" />
               <p className="text-muted-foreground text-sm">{t("noScheduleToday")}</p>
+            </div>
+          ) : (widgetSettings?.equalSize ?? false) || previewNextDay ? (
+            <div className="space-y-2">
+              {todaySchedule.map((slot) => {
+                const SubjectIcon = getSubjectIcon(slot.subject);
+                return (
+                  <div key={slot.period} className="flex items-center gap-3 rounded-lg bg-muted/30 px-3 py-2">
+                    <SubjectIcon className="size-5 shrink-0" style={{ color: getSubjectColor(slot.subject) }} />
+                    <span className="min-w-0 flex-1 truncate font-medium">{slot.subject}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{formatWallClock(slot.start)}–{formatWallClock(slot.end)}</span>
+                  </div>
+                );
+              })}
             </div>
           ) : schoolOver ? (
             /* School day over */

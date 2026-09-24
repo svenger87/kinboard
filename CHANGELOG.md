@@ -8,9 +8,15 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A configurable home screen for each device.** Keep the familiar layout or switch to a compact two-column portrait layout. Dashboard widgets can be reordered per device, and an optional countdown widget tracks family dates.
+- **More ways to tailor the family board.** The timetable can show equal-sized classes and switch to the next school day at a chosen time; the screensaver can show news and use larger clock and event details. Navigation items can be hidden per device, with an icon-only Settings shortcut.
+- **Kid-friendly tasks.** Tasks can have an icon and points for a child; points are awarded once per completion and shown alongside the child's total. A larger dashboard task display is optional.
+
 ### Changed
 
 ### Fixed
+
+- **Recipe imports now recognize JSON-LD on more sites.** Unquoted script attributes and nested `@graph` entries are supported, and array-shaped serving counts no longer cause an import error (#283).
 
 ### Security
 

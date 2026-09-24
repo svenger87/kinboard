@@ -120,6 +120,9 @@ export async function GET(request: NextRequest) {
     const todos = await fetchAll(db, (q, from, to) =>
       q.from("todos").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
+    const todo_point_awards = await fetchAll(db, (q, from, to) =>
+      q.from("todo_point_awards").select("*").eq("family_id", familyId).order("id").range(from, to)
+    );
     const shopping_items = await fetchAll(db, (q, from, to) =>
       q.from("shopping_items").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
@@ -238,6 +241,7 @@ export async function GET(request: NextRequest) {
         calendars,
         events,
         todos,
+        todo_point_awards,
         shopping_items,
         subjects,
         schedules,

@@ -16,7 +16,15 @@ export interface WidgetVisibility {
   timers: boolean;
   media: boolean;
   messages: boolean;
+  countdown: boolean;
 }
+
+export const DEFAULT_WIDGET_ORDER: (keyof WidgetVisibility)[] = [
+  "weather", "upcomingEvents", "schedule", "birthday", "weekOverview",
+  "mealPlan", "wasteCollection", "tasks", "shopping", "notes",
+  "vehicles", "stonks", "pocketMoney", "photos", "timers", "media", "messages",
+  "countdown",
+];
 
 // Defaults are curated for kiosk glanceability — 6 widgets fill a 4-col landscape grid
 // cleanly (1.5 rows) without overflow. Opt-in extras (birthday, wasteCollection, notes,
@@ -49,6 +57,7 @@ export const DEFAULT_WIDGET_VISIBILITY: WidgetVisibility = {
   // On by default, same reasoning as timers — and the widget switch is the
   // feature switch: RFC-005 §6.
   messages: true,
+  countdown: false,
 };
 
 // Read-side migration: legacy widget_visibility blobs persisted before
@@ -84,8 +93,12 @@ export interface ScheduleWidgetSettings {
    * should not grow widgets without being asked.
    */
   perChild: boolean;
+  equalSize?: boolean;
+  tomorrowFrom?: string;
 }
 
 export const DEFAULT_SCHEDULE_WIDGET_SETTINGS: ScheduleWidgetSettings = {
   perChild: false,
+  equalSize: false,
+  tomorrowFrom: "off",
 };

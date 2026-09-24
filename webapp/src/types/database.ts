@@ -358,6 +358,9 @@ export interface Database {
           priority: string;
           recurrence: string | null;
           last_completed: string | null;
+          last_completed_day: string | null;
+          icon: string | null;
+          points: number;
           created_at: string;
           updated_at: string;
         };
@@ -371,6 +374,9 @@ export interface Database {
           priority?: string;
           recurrence?: string | null;
           last_completed?: string | null;
+          last_completed_day?: string | null;
+          icon?: string | null;
+          points?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -384,8 +390,41 @@ export interface Database {
           priority?: string;
           recurrence?: string | null;
           last_completed?: string | null;
+          last_completed_day?: string | null;
+          icon?: string | null;
+          points?: number;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      todo_point_awards: {
+        Row: {
+          id: string;
+          family_id: string;
+          person_id: string;
+          todo_id: string | null;
+          completion_key: string;
+          points: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          person_id: string;
+          todo_id?: string | null;
+          completion_key: string;
+          points: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          person_id?: string;
+          todo_id?: string | null;
+          completion_key?: string;
+          points?: number;
+          created_at?: string;
         };
         Relationships: [];
       };

@@ -93,6 +93,9 @@ CREATE TABLE IF NOT EXISTS public.todos (
     priority TEXT DEFAULT 'medium',
     recurrence TEXT DEFAULT 'once',
     last_completed TIMESTAMPTZ,
+    last_completed_day DATE,
+    icon TEXT,
+    points INTEGER NOT NULL DEFAULT 0 CHECK (points BETWEEN 0 AND 10000),
     source_device_id UUID REFERENCES public.devices(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()

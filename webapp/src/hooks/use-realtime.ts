@@ -110,6 +110,9 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           queryClient.invalidateQueries({
             queryKey: queryKeys.todos(family.id),
           });
+          queryClient.invalidateQueries({
+            queryKey: ["todo-point-awards", family.id],
+          });
           break;
         case "shopping_items":
           queryClient.invalidateQueries({

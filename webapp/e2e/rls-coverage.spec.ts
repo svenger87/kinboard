@@ -77,10 +77,14 @@ test("every family-scoped table is under row-level security", () => {
   //   REVOKE-from-authenticated / GRANT-to-service_role-only shape, in
   //   migration_zzy_integration_idempotency.sql and
   //   migration_zzy_domain_events.sql respectively.
+  // - todo_point_awards: its own RLS + todo_point_awards_family_read policy
+  //   in migration_zzz_todo_points.sql, which runs after the central RLS
+  //   migration and scopes reads to public.current_family_id().
   const coveredElsewhere = new Set([
     "context_rules", "attention_items",
     "integration_tokens", "integration_clients",
     "integration_idempotency", "domain_events",
+    "todo_point_awards",
   ]);
 
   const uncovered = [...scoped].filter(
