@@ -27,7 +27,11 @@ import { cn } from "../src/lib/utils";
  */
 
 const dialog = readFileSync("src/components/ui/dialog.tsx", "utf8");
+const alertDialog = readFileSync("src/components/ui/alert-dialog.tsx", "utf8");
 const sheet = readFileSync("src/components/ui/sheet.tsx", "utf8");
+const globalStyles = readFileSync("src/app/globals.css", "utf8");
+const photos = readFileSync("src/app/photos/page.tsx", "utf8");
+const screensaver = readFileSync("src/components/screensaver.tsx", "utf8");
 
 test.describe("the base components", () => {
   test("a dialog is bounded by the screen and can scroll", () => {
@@ -44,6 +48,25 @@ test.describe("the base components", () => {
     // which would put the bottom of a full-height dialog back under the URL bar.
     const rule = dialog.match(/max-h-\[calc\(100(d?)vh-2rem\)\]/);
     expect(rule?.[1], "the dialog ceiling should be in dvh").toBe("d");
+  });
+
+  test("centered dialogs and confirmations share a mobile safe-area boundary", () => {
+    expect(dialog).toContain("modal-safe-area");
+    expect(alertDialog).toContain("modal-safe-area");
+    const rule = globalStyles.match(/\.modal-safe-area\s*\{([^}]*)\}/)?.[1];
+    expect(rule, "the shared safe-area rule is missing").toBeTruthy();
+    for (const side of ["top", "bottom", "left", "right"]) {
+      expect(rule).toContain(`safe-area-inset-${side}`);
+    }
+    expect(rule).toContain("100dvh");
+    expect(rule).toContain("100vw");
+  });
+
+  test("custom full-screen overlays keep their controls inside safe areas", () => {
+    expect(screensaver).toContain('className="modal-safe-area relative bg-zinc-900');
+    expect(photos).toContain("env(safe-area-inset-left");
+    expect(photos).toContain("env(safe-area-inset-right");
+    expect(photos).toContain("env(safe-area-inset-bottom");
   });
 
   test("every sheet side is bounded and scrollable", () => {

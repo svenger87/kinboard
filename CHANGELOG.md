@@ -12,6 +12,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Mobile dialogs respect safe areas.** The new-task form and other centered dialogs or confirmations now keep clear of notches and home indicators, with long content scrolling inside the panel instead of filling or escaping the screen. The screensaver's news detail and full-screen photo controls also stay clear of device cutouts.
+
 ### Security
 
 ## [1.12.0] - 2026-09-24

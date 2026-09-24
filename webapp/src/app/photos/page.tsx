@@ -264,7 +264,7 @@ export default function PhotosPage() {
                   step(-1);
                 }}
                 aria-label={t("previous")}
-                className="absolute left-2 min-h-[44px] min-w-[44px] text-white hover:bg-white/10"
+                className="absolute left-[max(0.5rem,env(safe-area-inset-left,0px))] min-h-[44px] min-w-[44px] text-white hover:bg-white/10"
               >
                 <ChevronLeft className="size-8" />
               </Button>
@@ -287,13 +287,13 @@ export default function PhotosPage() {
                   step(1);
                 }}
                 aria-label={t("next")}
-                className="absolute right-2 min-h-[44px] min-w-[44px] text-white hover:bg-white/10"
+                className="absolute right-[max(0.5rem,env(safe-area-inset-right,0px))] min-h-[44px] min-w-[44px] text-white hover:bg-white/10"
               >
                 <ChevronRight className="size-8" />
               </Button>
             </div>
 
-            <p className="pb-6 text-center text-sm text-white/50">
+            <p className="pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] text-center text-sm text-white/50">
               {t("position", { current: (openAt ?? 0) + 1, total: photos.length })}
             </p>
           </motion.div>
