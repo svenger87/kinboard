@@ -12,6 +12,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Meal-plan views no longer write to the database.** Opening a dashboard or Meals page used to update the weekly plan row on every fetch, triggering realtime refetches and, with multiple screens, an UPDATE storm (#287). A week row is now created only when a meal is actually added or moved into it.
+
 - **Mobile dialogs respect safe areas.** The new-task form and other centered dialogs or confirmations now keep clear of notches and home indicators, with long content scrolling inside the panel instead of filling or escaping the screen. The screensaver's news detail and full-screen photo controls also stay clear of device cutouts.
 
 ### Security

@@ -156,33 +156,14 @@ jobs:
           FAMILY_CODE: DEMO01
           PLAYWRIGHT_BASE_URL: http://localhost:3001
           PLAYWRIGHT_DEVICE_NAME: "CI Smoke (GH Actions)"
-        run: npx playwright test e2e/smoke.spec.ts e2e/calendar-layout.spec.ts e2e/realtime-publication.spec.ts e2e/rls-coverage.spec.ts e2e/catalogue-migration.spec.ts e2e/health-endpoint.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/media-widget-layout.spec.ts e2e/messages-broadcast.spec.ts e2e/message-state.spec.ts e2e/rooms-migration.spec.ts e2e/automation-layout.spec.ts e2e/media-browse-flow.spec.ts --project=desktop
+        run: npx playwright test e2e/smoke.spec.ts e2e/calendar-layout.spec.ts e2e/realtime-publication.spec.ts e2e/rls-coverage.spec.ts e2e/catalogue-migration.spec.ts e2e/health-endpoint.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/media-widget-layout.spec.ts e2e/messages-broadcast.spec.ts e2e/message-state.spec.ts e2e/rooms-migration.spec.ts e2e/automation-layout.spec.ts e2e/media-browse-flow.spec.ts e2e/meal-plan-read-only.spec.ts --project=desktop
 
       # A separate step so a WebKit-only failure reads as one at a glance rather
       # than as "the smoke suite is flaky". Most of the suite reads source files
       # and would be paid for twice for nothing, so only what renders runs here.
       #
-      # Deliberately NOT the smoke suite. Smoke asserts an empty console, and
-      # WebKit intermittently reports
-      #
-      #   [pageerror] …/rest/v1/meal_plans?on_conflict=… due to access control checks
-      #
-      # on /calendar. That message names CORS and is not about CORS. The
-      # dashboard starts a meal_plans upsert; smoke navigates to /calendar while
-      # it is still in flight; WebKit reports a cancelled cross-origin request
-      # that way, and Chromium says nothing. Established by measurement: no HTTP
-      # response ≥400 is ever recorded, /calendar loaded on its own makes no
-      # meal_plans request at all and never errors, waiting 8s on the dashboard
-      # before navigating makes it disappear, and the preflight returns 200 with
-      # POST, Prefer and the right Access-Control-Allow-Origin.
-      #
-      # It also cannot happen in production: NEXT_PUBLIC_SUPABASE_URL there is
-      # the app's own origin, so there is no cross-origin request to cancel. It
-      # is an artefact of the split origin dev and CI use (app on one port,
-      # Kong on another).
-      #
-      # So running smoke here would buy a flaky check measuring our own
-      # navigation timing rather than a difference between engines.
+      # Smoke is covered by the desktop job above; this one is limited to
+      # browser-engine-specific layout checks.
       - name: Run layout specs under WebKit
         env:
           FAMILY_CODE: DEMO01
