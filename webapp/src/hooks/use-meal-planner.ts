@@ -8,7 +8,6 @@ import { requireFamilyId } from "./use-supabase-queries";
 import { useWeekStart } from "./use-week-start";
 import type { WeekStartsOn } from "./use-week-start";
 import type {
-  MealPlan,
   MealPlanEntry,
   MealPlanEntryWithRecipe,
   MealType,
@@ -93,37 +92,17 @@ export interface UpdateMealPlanEntryInput {
   servings?: number;
 }
 
-// Fetch or create meal plan for a specific week
+// Fetching a week must stay read-only. A meal_plans upsert here used to UPDATE
+// the row on every refetch; realtime then invalidated this query and started a
+// feedback loop across every open client (issue #287). Empty weeks need no row.
 export function useMealPlan(weekStart: string) {
   const supabase = createClient();
   const { family } = useFamilyStore();
 
   return useQuery({
     queryKey: mealPlanQueryKeys.week(family?.id ?? "", weekStart),
-    queryFn: async (): Promise<{
-      mealPlan: MealPlan;
-      entries: MealPlanEntryWithRecipe[];
-    }> => {
-       
+    queryFn: async (): Promise<{ entries: MealPlanEntryWithRecipe[] }> => {
       const supabaseAny = supabase as any;
-
-      // Get or create meal plan via upsert. The unique constraint
-      // (family_id, week_start) makes this race-safe — without it, parallel
-      // hooks (dashboard widget + meals page + adjacent-week prefetch) all
-      // SELECT → null → INSERT and cascade into 409 conflicts.
-      const { data: mealPlan, error } = await supabaseAny
-        .from("meal_plans")
-        .upsert(
-          {
-            family_id: requireFamilyId(family),
-            week_start: weekStart,
-          },
-          { onConflict: "family_id,week_start" },
-        )
-        .select()
-        .single();
-
-      if (error) throw error;
 
       /*
         Entries are fetched by the dates on screen, not by `meal_plan_id`.
@@ -162,12 +141,45 @@ export function useMealPlan(weekStart: string) {
       if (entriesError) throw entriesError;
 
       return {
-        mealPlan: mealPlan as MealPlan,
         entries: (entries || []) as MealPlanEntryWithRecipe[],
       };
     },
     enabled: !!family?.id && !!weekStart,
   });
+}
+
+// Only a mutation needs a container row. A SELECT avoids touching an existing
+// row; the insert's DO NOTHING conflict path handles two devices creating the
+// same week simultaneously without producing an UPDATE or a realtime event.
+async function getOrCreateMealPlanId(
+  supabase: ReturnType<typeof createClient>,
+  familyId: string,
+  weekStart: string,
+): Promise<string> {
+  const plans = (supabase as any).from("meal_plans");
+  const findPlan = () => plans
+    .select("id")
+    .eq("family_id", familyId)
+    .eq("week_start", weekStart);
+
+  const { data: existing, error: readError } = await findPlan().maybeSingle();
+  if (readError) throw readError;
+  if (existing) return existing.id as string;
+
+  const { data: inserted, error: insertError } = await plans
+    .upsert(
+      { family_id: familyId, week_start: weekStart },
+      { onConflict: "family_id,week_start", ignoreDuplicates: true },
+    )
+    .select("id")
+    .maybeSingle();
+  if (insertError) throw insertError;
+  if (inserted) return inserted.id as string;
+
+  // A competing client inserted it between our SELECT and INSERT.
+  const { data: raced, error: raceError } = await findPlan().single();
+  if (raceError) throw raceError;
+  return raced.id as string;
 }
 
 // Add entry to meal plan
@@ -184,29 +196,17 @@ export function useAddMealPlanEntry() {
       weekStart: string;
       entry: CreateMealPlanEntryInput;
     }): Promise<MealPlanEntry> => {
-       
       const supabaseAny = supabase as any;
 
-      // Race-safe get-or-create — see useMealPlan above.
-      const { data: mealPlan, error: planError } = await supabaseAny
-        .from("meal_plans")
-        .upsert(
-          {
-            family_id: requireFamilyId(family),
-            week_start: weekStart,
-          },
-          { onConflict: "family_id,week_start" },
-        )
-        .select("id")
-        .single();
-
-      if (planError) throw planError;
+      const mealPlanId = await getOrCreateMealPlanId(
+        supabase, requireFamilyId(family), weekStart,
+      );
 
       // Create entry
       const { data, error } = await supabaseAny
         .from("meal_plan_entries")
         .insert({
-          meal_plan_id: mealPlan.id,
+          meal_plan_id: mealPlanId,
           ...entry,
         })
         .select()
@@ -297,7 +297,6 @@ export function useRescheduleMealPlanEntry() {
       newMealType?: MealType;
       currentWeekStart: string;
     }): Promise<MealPlanEntry> => {
-       
       const supabaseAny = supabase as any;
 
       // Get the new week start for the target date
@@ -305,24 +304,13 @@ export function useRescheduleMealPlanEntry() {
 
       // Check if moving to a different week
       if (newWeekStart !== currentWeekStart) {
-        // Race-safe get-or-create for the destination week — see useMealPlan above.
-        const { data: newMealPlan, error: planError } = await supabaseAny
-          .from("meal_plans")
-          .upsert(
-            {
-              family_id: requireFamilyId(family),
-              week_start: newWeekStart,
-            },
-            { onConflict: "family_id,week_start" },
-          )
-          .select("id")
-          .single();
-
-        if (planError) throw planError;
+        const newMealPlanId = await getOrCreateMealPlanId(
+          supabase, requireFamilyId(family), newWeekStart,
+        );
 
         // Update the entry with new meal_plan_id
         const updates: Record<string, unknown> = {
-          meal_plan_id: newMealPlan.id,
+          meal_plan_id: newMealPlanId,
           date: newDate,
         };
         if (newMealType) {
