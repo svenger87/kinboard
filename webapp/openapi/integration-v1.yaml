@@ -27,7 +27,8 @@ info:
     to authorise answers `401` — including "valid token, wrong scope", so a
     caller probing an endpoint cannot learn that its token is real.
   license:
-    name: MIT
+    name: PolyForm Noncommercial 1.0.0
+    identifier: PolyForm-Noncommercial-1.0.0
 
 servers:
   - url: "{kinboard_url}/api/integration/v1"

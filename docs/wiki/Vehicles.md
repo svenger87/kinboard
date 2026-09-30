@@ -176,6 +176,6 @@ The CI `i18n bundles` job fails the PR if any key is in EN but missing from DE �
 - Code follows the copy-Tesla shape — no clever new abstractions invented just for one driver
 - i18n parity holds (en/de must have the same keys)
 - A short note in the PR explaining which Polestar HA integration you tested against
-- MIT-compatible (no copy-paste from a vendor's proprietary SDK)
+- Your own code (no copy-paste from a vendor's proprietary SDK), contributed under the terms in [CONTRIBUTING.md](https://github.com/svenger87/kinboard/blob/main/CONTRIBUTING.md#licensing-of-contributions)
 
 If you want to discuss the approach before writing code — say you're not sure whether your car's case warrants a driver or just better Generic-EV docs — open a [GitHub Discussion](https://github.com/svenger87/kinboard/discussions) first. Faster than writing code that bounces in review.

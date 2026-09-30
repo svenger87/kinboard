@@ -128,4 +128,4 @@ chromium-browser --kiosk --app=http://your-server:3001 \
 
 ## License
 
-Private - Family Use Only
+PolyForm Noncommercial 1.0.0 — see [`LICENSE`](../LICENSE) and [`NOTICE`](../NOTICE).

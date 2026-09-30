@@ -52,6 +52,6 @@ The reference deployment is a wall-mounted touchscreen running in browser kiosk 
 
 ## Status
 
-Kinboard is single-maintainer, MIT-licensed, and supported on best-effort. Bug reports and PRs welcome — see [`CONTRIBUTING.md`](https://github.com/svenger87/kinboard/blob/main/CONTRIBUTING.md). Security issues to **security@kinboard.app** (see [Security-and-Threat-Model](Security-and-Threat-Model)).
+Kinboard is single-maintainer, free for noncommercial use ([PolyForm Noncommercial 1.0.0](https://github.com/svenger87/kinboard/blob/main/LICENSE)), and supported on best-effort. Bug reports and PRs welcome — see [`CONTRIBUTING.md`](https://github.com/svenger87/kinboard/blob/main/CONTRIBUTING.md). Security issues to **security@kinboard.app** (see [Security-and-Threat-Model](Security-and-Threat-Model)).
 
 If Kinboard is useful to your family and you'd like to help keep it healthy: [GitHub Sponsors](https://github.com/sponsors/svenger87) (recurring) or [Buy Me a Coffee](https://buymeacoffee.com/sven.7687) (one-time tip).

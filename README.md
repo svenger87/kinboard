@@ -7,7 +7,7 @@
 Calendar, weather, meals, shopping, tasks, photos, and your smart home in a
 self-hosted dashboard built for the kitchen wall and every phone in the house.
 
-[![License: MIT](https://img.shields.io/github/license/svenger87/kinboard?style=flat-square&color=blue&cacheSeconds=300)](LICENSE)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue?style=flat-square)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/svenger87/kinboard/ci.yml?branch=main&style=flat-square&label=CI&cacheSeconds=300)](https://github.com/svenger87/kinboard/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/svenger87/kinboard?style=flat-square&include_prereleases&cacheSeconds=300)](https://github.com/svenger87/kinboard/releases)
 
@@ -309,4 +309,14 @@ For the specific kiosk hardware combination (display + mini-PC + frame), see [Re
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+Kinboard is free for your family and for any other noncommercial use — run it,
+change it, share it. It is licensed under the
+[PolyForm Noncommercial License 1.0.0](LICENSE).
+
+**Commercial use needs a separate license.** That covers selling Kinboard,
+selling devices with it installed, offering it as a hosted service, or building
+it into a paid product. Ask in
+[GitHub Discussions](https://github.com/svenger87/kinboard/discussions).
+
+Releases up to and including v1.12.1-rc.3 were published under the MIT License
+and stay under it; see [`NOTICE`](NOTICE).

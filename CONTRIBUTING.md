@@ -111,6 +111,18 @@ easiest start is to copy `en.json` and translate top-down; untranslated keys can
 stay in English (or be omitted). Only `en` and `de` are held to full parity in
 CI; additional locales just report their coverage.
 
+## Licensing of contributions
+
+Kinboard is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+By submitting a contribution you confirm that it is your own work, and you
+license it to the project under those same terms. You also grant Sven Rosema a
+perpetual, worldwide, royalty-free, irrevocable license to use, modify,
+sublicense and relicense your contribution, including under commercial
+license terms — that is what lets the project offer commercial licenses at all.
+You keep the copyright in your contribution.
+
+If you can't agree to that, say so in the PR before it is merged.
+
 ## Reviewer expectations
 
 Reviews are best-effort. If your PR has been sitting for more than two weeks, ping the issue or PR — it's almost certainly just life, not disinterest.

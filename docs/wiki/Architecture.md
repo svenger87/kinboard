@@ -94,7 +94,7 @@ A 30,000-foot view of how the pieces fit together. Read this once before you cha
 ├── docs/wiki/                   # This wiki
 ├── setup.sh                     # First-run bootstrap
 ├── README.md
-├── LICENSE                      # MIT
+├── LICENSE                      # PolyForm Noncommercial 1.0.0
 └── …
 ```
 

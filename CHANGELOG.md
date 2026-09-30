@@ -10,6 +10,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Kinboard is now licensed under the PolyForm Noncommercial License 1.0.0 instead of MIT.** Using, changing and sharing it at home or for any other noncommercial purpose stays free; selling it, selling devices with it installed, running it as a paid hosted service or building it into a paid product now needs a commercial license from the maintainer. Releases up to and including v1.12.1-rc.3 remain under MIT. Contributions are covered by a new section in `CONTRIBUTING.md`, and the MIT-licensed French translation keeps its notice in the new `NOTICE` file.
+
 ### Fixed
 
 - **The shopping app can be left again on wall displays.** On a device running Kinboard as an installed app or in a fullscreen kiosk browser, the "Einkaufs-App" button opened the standalone shopping list with no back arrow, no menu and no browser controls — the only way out was restarting the browser (discussion #289). Opened from inside Kinboard, it now always shows a back arrow to the page it came from; the separately installed shopping app keeps its navigation-free layout.

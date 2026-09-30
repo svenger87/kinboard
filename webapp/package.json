@@ -2,6 +2,7 @@
   "name": "kinboard",
   "version": "1.12.1-rc.3",
   "private": true,
+  "license": "PolyForm-Noncommercial-1.0.0",
   "packageManager": "npm@11.19.0",
   "engines": {
     "node": ">=22.11",
