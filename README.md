@@ -320,3 +320,7 @@ it into a paid product. Ask in
 
 Releases up to and including v1.12.1-rc.3 were published under the MIT License
 and stay under it; see [`NOTICE`](NOTICE).
+
+The name **Kinboard** and its logos are not covered by either license. If you
+publish a modified version, give it a name of its own. See
+[`TRADEMARK.md`](TRADEMARK.md) for what is fine and what needs asking.
