@@ -3,8 +3,6 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { DCR_CLIENT_PREFIX, MCP_SCOPES, type McpScope } from "@/lib/oauth/config";
 import type { AuthRequest, GrantRecord, OAuthClient, OAuthStore } from "@/lib/oauth/types";
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- tables not in types/database.ts, as integration_tokens */
-
 const toScopes = (value: unknown): McpScope[] =>
   Array.isArray(value) ? MCP_SCOPES.filter((s) => value.includes(s)) : [];
 
@@ -45,7 +43,11 @@ export function createOAuthStore(): OAuthStore {
     async createAuthRequest(r) {
       const now = new Date().toISOString();
       // Opportunistic sweep: expired attempts are useless and unbounded otherwise.
-      await db().from("oauth_authorization_requests").delete().lt("expires_at", now).is("grant_id", null);
+      // Non-blocking — a sweep failure must not stop a new request from being
+      // created — but logged, so a persistent failure doesn't go unnoticed.
+      const { error: sweepError } = await db().from("oauth_authorization_requests")
+        .delete().lt("expires_at", now).is("grant_id", null);
+      if (sweepError) console.error("[oauth] sweep of expired authorization requests failed", sweepError);
       const { data, error } = await db().from("oauth_authorization_requests").insert({
         client_id: r.clientId, client_name: r.clientName, redirect_uri: r.redirectUri, state: r.state,
         code_challenge: r.codeChallenge, scopes: r.scopes, resource: r.resource, expires_at: r.expiresAt,
@@ -77,8 +79,9 @@ export function createOAuthStore(): OAuthStore {
         .select("*");
       if (error) throw error;
       if ((data ?? []).length === 1) return { status: "ok", request: toRequest(data[0]) };
-      const { data: seen } = await db().from("oauth_authorization_requests")
+      const { data: seen, error: seenError } = await db().from("oauth_authorization_requests")
         .select("used_at, grant_id").eq("code_hash", codeHash).maybeSingle();
+      if (seenError) throw seenError;
       return seen?.used_at ? { status: "reused", grantId: seen.grant_id } : { status: "missing" };
     },
     async insertGrant(g) {
