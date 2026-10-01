@@ -87,8 +87,13 @@ export interface FamilySummary {
    * looked like an answer.
    */
   attention_required: boolean;
-  /** What it is about, so a dashboard can show it without a second call. */
-  attention: { count: number; top: string | null };
+  /**
+   * What it is about, so a dashboard can show it without a second call — and
+   * which one to dismiss. `top_key` and each item's `key` are the value
+   * `dismiss_attention` takes as `attention_id`; without them Home Assistant
+   * had a service to dismiss an item and nothing that told it which.
+   */
+  attention: AttentionSummary;
   /**
    * The next bin collection. Bin day is among the most-automated things in
    * Home Assistant and the data was already here, sitting in a calendar
@@ -176,6 +181,46 @@ export function firstLessonOf(timeSlots: unknown): string | null {
  */
 export function isoDayOfWeek(date: Date): number {
   return date.getDay();
+}
+
+/** The columns read from attention_items: the key rides along in the same query. */
+export const ATTENTION_COLUMNS = "item_key, title, priority";
+
+/** How many items the summary lists. Matches the query's limit. */
+export const ATTENTION_ITEMS_MAX = 10;
+
+export interface AttentionRow {
+  item_key: string;
+  title: string;
+  priority: number;
+}
+
+export interface AttentionSummary {
+  count: number;
+  top: string | null;
+  top_key: string | null;
+  items: { key: string; title: string; priority: number }[];
+}
+
+/**
+ * The summary's `attention` object, from rows already ordered by priority.
+ *
+ * Additive over the original `{count, top}`: `top_key` and `items[].key` are
+ * what `dismiss_attention` accepts as `attention_id`, in the same order as
+ * `top`, so `items[0]` is always the item `top` names.
+ */
+export function summariseAttention(rows: AttentionRow[]): AttentionSummary {
+  const items = rows.slice(0, ATTENTION_ITEMS_MAX).map((row) => ({
+    key: row.item_key,
+    title: row.title,
+    priority: row.priority,
+  }));
+  return {
+    count: rows.length,
+    top: items[0]?.title ?? null,
+    top_key: items[0]?.key ?? null,
+    items,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -283,12 +328,12 @@ export async function GET(request: NextRequest) {
 
         (supabase as any)
           .from("attention_items")
-          .select("title, priority")
+          .select(ATTENTION_COLUMNS)
           .eq("family_id", familyId)
           .is("resolved_at", null)
           .eq("state", "active")
           .order("priority", { ascending: true })
-          .limit(10),
+          .limit(ATTENTION_ITEMS_MAX),
       ]);
 
       // Calendar events need the family's calendar ids first — events are
@@ -443,7 +488,7 @@ export async function GET(request: NextRequest) {
 
       // Already ordered by priority in the query, so [0] is the one that
       // matters most rather than merely the oldest.
-      const attentionItems = (attention.data ?? []) as { title: string; priority: number }[];
+      const attentionItems = (attention.data ?? []) as AttentionRow[];
 
       // Progress is measured against the child's balance, not against a
       // per-goal pot: Kinboard has one account per child and goals are targets
@@ -555,10 +600,7 @@ export async function GET(request: NextRequest) {
         pocket_money: pocketMoney,
         display_mode: resolveDayContext(now, familyTimeZone),
         attention_required: attentionItems.length > 0,
-        attention: {
-          count: attentionItems.length,
-          top: attentionItems[0]?.title ?? null,
-        },
+        attention: summariseAttention(attentionItems),
         saving_goals: savingGoals,
         waste_collection: waste,
       };

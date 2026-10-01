@@ -1,8 +1,14 @@
 import { test, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import yaml from "js-yaml";
 import {
+  ATTENTION_COLUMNS,
+  ATTENTION_ITEMS_MAX,
   daysUntilNextBirthday,
   firstLessonOf,
   isoDayOfWeek,
+  summariseAttention,
 } from "../src/app/api/integration/v1/family/summary/route";
 
 /**
@@ -111,5 +117,58 @@ test.describe("day of week", () => {
       expect(v).toBeGreaterThanOrEqual(0);
       expect(v).toBeLessThanOrEqual(6);
     }
+  });
+});
+
+test.describe("attention says which item to dismiss", () => {
+  const rows = [
+    { item_key: "lock-up-before-bed:2026-10-01", title: "Lock up", priority: 10 },
+    { item_key: "bins-out:2026-10-02", title: "Bins out", priority: 50 },
+  ];
+
+  test("top_key is the key of the item top names", () => {
+    const summary = summariseAttention(rows);
+    expect(summary.top).toBe("Lock up");
+    expect(summary.top_key).toBe("lock-up-before-bed:2026-10-01");
+    expect(summary.count).toBe(2);
+  });
+
+  test("items keep the query's order and carry key, title and priority", () => {
+    expect(summariseAttention(rows).items).toEqual([
+      { key: "lock-up-before-bed:2026-10-01", title: "Lock up", priority: 10 },
+      { key: "bins-out:2026-10-02", title: "Bins out", priority: 50 },
+    ]);
+  });
+
+  test("the original fields are unchanged and nothing is null-padded", () => {
+    expect(summariseAttention([])).toEqual({ count: 0, top: null, top_key: null, items: [] });
+  });
+
+  test("items are capped at ten", () => {
+    const many = Array.from({ length: 14 }, (_, i) => ({
+      item_key: `rule:${i}`, title: `Item ${i}`, priority: i,
+    }));
+    const summary = summariseAttention(many);
+    expect(ATTENTION_ITEMS_MAX).toBe(10);
+    expect(summary.items).toHaveLength(10);
+    expect(summary.items[0].key).toBe(summary.top_key);
+  });
+
+  test("the key is read in the same query as the title", () => {
+    // No second round trip: the key comes from the one attention_items select.
+    expect(ATTENTION_COLUMNS.split(",").map((c) => c.trim())).toEqual(
+      expect.arrayContaining(["item_key", "title", "priority"]),
+    );
+  });
+
+  test("the OpenAPI schema documents top_key and items", () => {
+    const spec = yaml.load(
+      readFileSync(join(__dirname, "..", "openapi", "integration-v1.yaml"), "utf8"),
+    ) as { components: { schemas: Record<string, { properties: Record<string, any> }> } };
+    const attention = spec.components.schemas.FamilySummary.properties.attention;
+    expect(Object.keys(attention.properties).sort()).toEqual(["count", "items", "top", "top_key"]);
+    expect(Object.keys(attention.properties.items.items.properties).sort()).toEqual([
+      "key", "priority", "title",
+    ]);
   });
 });

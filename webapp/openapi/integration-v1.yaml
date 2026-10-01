@@ -753,10 +753,35 @@ components:
             dealt with. Snoozed items do not count until their snooze runs out.
         attention:
           type: object
-          description: What it is about, so a dashboard needs no second call.
+          description: |
+            What it is about, so a dashboard needs no second call, and which
+            item to dismiss. `top_key` and `items[].key` are the value
+            `dismiss_attention` accepts as `attention_id`. At most 10 items are
+            read, ordered by priority; `items` is in the same order as `top`,
+            so `items[0]` is the item `top` names.
+          required: [count, top, top_key, items]
           properties:
             count: { type: integer }
-            top: { type: [string, "null"] }
+            top:
+              type: [string, "null"]
+              description: Title of the most important item.
+            top_key:
+              type: [string, "null"]
+              description: Key of the most important item, for `dismiss_attention`.
+            items:
+              type: array
+              maxItems: 10
+              items:
+                type: object
+                required: [key, title, priority]
+                properties:
+                  key:
+                    type: string
+                    description: Pass as `attention_id` to `dismiss_attention`.
+                  title: { type: string }
+                  priority:
+                    type: integer
+                    description: Lower is more important.
         saving_goals:
           type: array
           description: |
