@@ -23,6 +23,32 @@ test.describe("public origin", () => {
   test("drops a default port and lower-cases the host", () => {
     expect(publicOrigin(h({ "x-forwarded-proto": "https", host: "KB.Example.com:443" }), "http://x")).toBe("https://kb.example.com");
   });
+  test("an upper-case forwarded proto is still https", () => {
+    expect(publicOrigin(h({ "x-forwarded-proto": "HTTPS", host: "kb.example.com" }), "http://webapp:3000", undefined))
+      .toBe("https://kb.example.com");
+  });
+  test("no forwarded proto behind a TLS proxy: SITE_URL's https wins for its own host", () => {
+    // The proxy forwarded Host but not X-Forwarded-Proto; the request reached
+    // Next over plain http. SITE_URL says that name is served over https.
+    expect(publicOrigin(h({ host: "kb.example.com" }), "http://kb.example.com", "https://kb.example.com"))
+      .toBe("https://kb.example.com");
+    // Host case and default ports do not stop the match.
+    expect(publicOrigin(h({ host: "KB.Example.com:443" }), "http://webapp:3000", "https://kb.example.com/"))
+      .toBe("https://kb.example.com");
+    expect(publicOrigin(h({ host: "kb.example.com:80" }), "http://webapp:3000", "https://kb.example.com:443"))
+      .toBe("https://kb.example.com");
+  });
+  test("SITE_URL for a different host is ignored", () => {
+    expect(publicOrigin(h({ host: "192.168.1.20:3000" }), "http://192.168.1.20:3000", "https://kb.example.com"))
+      .toBe("http://192.168.1.20:3000");
+    expect(publicOrigin(h({ host: "kb.example.com:8443" }), "http://x", "https://kb.example.com"))
+      .toBe("http://kb.example.com:8443");
+    expect(publicOrigin(h({ "x-forwarded-proto": "https", host: "lan.example" }), "http://x", "http://kb.example.com"))
+      .toBe("https://lan.example");
+  });
+  test("an unparseable SITE_URL is ignored", () => {
+    expect(publicOrigin(h({ host: "kb.example.com" }), "http://kb.example.com", "not a url")).toBe("http://kb.example.com");
+  });
   test("ignores a host header that is not a host", () => {
     expect(publicOrigin(h({ host: "evil.com/path?x" }), "http://localhost:3000")).toBe("http://localhost:3000");
   });
