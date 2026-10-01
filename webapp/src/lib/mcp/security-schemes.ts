@@ -1,17 +1,19 @@
-import { TOOL_SCOPES } from "@/lib/mcp/server";
+import { TOOL_SCOPES, toolScopes } from "@/lib/mcp/server";
 
 /**
  * ChatGPT reads a per-tool `securitySchemes` from tools/list to know which
  * scope each tool needs; the SDK drops unknown tool fields when it
- * serializes, so the list response is patched on the way out. Responses may
+ * serializes, so the list response is patched on the way out. A tool that
+ * any of several scopes unlocks gets one scheme per scope: the schemes are
+ * alternatives. Responses may
  * be JSON or a single-shot SSE stream; anything else passes through.
  */
 function patch(payload: unknown): unknown {
   const tools = (payload as { result?: { tools?: { name: string; securitySchemes?: unknown }[] } })?.result?.tools;
   if (!Array.isArray(tools)) return payload;
   for (const tool of tools) {
-    const scope = TOOL_SCOPES[tool.name as keyof typeof TOOL_SCOPES];
-    if (scope) tool.securitySchemes = [{ type: "oauth2", scopes: [scope] }];
+    const name = tool.name as keyof typeof TOOL_SCOPES;
+    if (TOOL_SCOPES[name]) tool.securitySchemes = toolScopes(name).map((scope) => ({ type: "oauth2", scopes: [scope] }));
   }
   return payload;
 }

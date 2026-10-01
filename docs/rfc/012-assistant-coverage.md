@@ -39,7 +39,11 @@ columns become nullable with a CHECK that `kind = 'home'` rows still carry them;
 a pocket-money request stores `{ person_id, person_name, amount_cents, currency,
 type, note }` in `data`. Approval stays exactly as RFC-011 §4.3 (PIN to approve,
 anyone can deny, 2-minute expiry, token re-check, limits); execution dispatches
-on `kind`. Screens describe the request in words for both kinds.
+on `kind` (a `{ validate, execute, describe }` handler per kind). Screens
+describe the request in words for both kinds — the server sends the words,
+in the screen's language. An assistant follows any of its requests at
+`GET /actions/{id}` (`home:control` or `pocket_money:write`, its own requests
+only); `GET /home/actions/{id}` stays as it was for home requests.
 
 **Every assistant pocket-money booking needs the PIN.** The RFC-001
 `add_pocket_money` service is unchanged for Home Assistant tokens (frozen

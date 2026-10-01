@@ -4,7 +4,7 @@ import { publicOrigin } from "@/lib/oauth/origin";
 import { logApiError } from "@/lib/api-error";
 import { decideActionRequest, familyActionRequest } from "@/lib/home/action-requests";
 import { liveActionStore, liveDecideDeps } from "@/lib/home/action-requests-live";
-import { withRooms } from "@/lib/home/action-requests-rooms";
+import { screenTranslator, withRooms } from "@/lib/home/action-requests-rooms";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,7 @@ export async function GET(
   try {
     const row = await familyActionRequest(id, familyId, { store: liveActionStore });
     if (!row) return NextResponse.json({ error: "not_found" }, { status: 404 });
-    const [screen] = await withRooms(familyId, [row]);
+    const [screen] = await withRooms(familyId, [row], screenTranslator(request));
     return NextResponse.json({ request: screen });
   } catch (err) {
     await logApiError("assistant-actions/read", err);
@@ -74,7 +74,7 @@ export async function POST(
       { id, familyId, deviceId, decision: body?.decision, pin: body?.pin },
       liveDecideDeps,
     );
-    const [screen] = outcome.request ? await withRooms(familyId, [outcome.request]) : [undefined];
+    const [screen] = outcome.request ? await withRooms(familyId, [outcome.request], screenTranslator(request)) : [undefined];
     if (outcome.status === 200) return NextResponse.json({ request: screen });
     return NextResponse.json(
       screen ? { error: outcome.error, request: screen } : { error: outcome.error },

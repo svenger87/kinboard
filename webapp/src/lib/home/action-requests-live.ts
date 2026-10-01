@@ -15,8 +15,9 @@ import { catalogueEntity } from "@/lib/home/catalogue";
 import { sendPushToMultiple, isVapidConfigured, type DatabaseSubscription } from "@/lib/push-sender";
 import { getPushTranslator, getTranslator } from "@/lib/notifications/messages";
 import { getFamilyLocale } from "@/lib/family-locale";
+import { CONFIRM_MAX_PENDING, confirmationBudget, hitConfirmLimit, type Budget } from "@/lib/integration-limits";
 import {
-  describeAction,
+  describeRequest,
   type ActionRequestRow,
   type ActionRequestStore,
   type ActionTranslator,
@@ -96,14 +97,7 @@ export async function pushActionRequest(request: PushRequest): Promise<void> {
 
     const locale = await getFamilyLocale(request.familyId);
     const t = getTranslator(locale, "assistantActions") as unknown as ActionTranslator;
-    const title = describeAction(t, {
-      client_name: request.clientName,
-      entity_name: request.entityName,
-      room: request.room,
-      domain: request.domain,
-      service: request.service,
-      data: request.data,
-    });
+    const title = describeRequest(t, request.request);
     await sendPushToMultiple(subs as DatabaseSubscription[], {
       title,
       body: getPushTranslator(locale)("assistantActionBody"),
@@ -123,3 +117,25 @@ export const liveDecideDeps: DecideDeps = {
     callHaService(familyId, domain, service, entityId, data),
   catalogueEntity: (familyId, entityId) => catalogueEntity(familyId, entityId),
 };
+
+/**
+ * May this assistant ask the family for one more confirmation? Counts its
+ * pending requests of every kind — a pocket-money booking and a door unlock
+ * share the same budget (at most 2 waiting, 5 per 10 minutes per token,
+ * `lib/integration-limits.ts`), because both light up every screen in the
+ * house. Spends the budget when it says yes; throws when unreadable.
+ */
+export async function liveConfirmationBudget(familyId: string, tokenId: string): Promise<Budget> {
+  const now = new Date();
+  const { data, error } = await db()
+    .from(TABLE)
+    .select("expires_at")
+    .eq("family_id", familyId)
+    .eq("token_id", tokenId)
+    .eq("status", "pending")
+    .gt("expires_at", now.toISOString())
+    .limit(CONFIRM_MAX_PENDING);
+  if (error) throw new Error(`Failed to count pending requests: ${error.message}`);
+  const expiries = ((data ?? []) as { expires_at: string }[]).map((r) => r.expires_at);
+  return confirmationBudget(expiries, now, () => hitConfirmLimit(tokenId));
+}

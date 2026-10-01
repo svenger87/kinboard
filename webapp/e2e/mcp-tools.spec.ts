@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import type { AuthInfo } from "@modelcontextprotocol/server";
-import { createKinboardMcpServer, registeredTools, TOOL_SCOPES } from "../src/lib/mcp/server";
+import { createKinboardMcpServer, registeredTools, TOOL_SCOPES, toolScopes } from "../src/lib/mcp/server";
+import { addSecuritySchemes } from "../src/lib/mcp/security-schemes";
 import { IntegrationCallError, type CallOptions, type RouteHandler } from "../src/lib/mcp/call-integration";
 
 /**
@@ -748,13 +749,13 @@ test.describe("control_device", () => {
 test.describe("get_action_status", () => {
   const ID = "33333333-3333-4333-8333-333333333333";
 
-  test("reads /home/actions/{id} and is read-only", async () => {
+  test("reads the generic /actions/{id} and is read-only", async () => {
     const action = { id: ID, status: "done", entity_id: "lock.front_door", service: "unlock", result: { status: 200 } };
     const { server, calls } = buildServer(["home:control"], () => ({ action }));
     const t = tool(server, "get_action_status");
     expect(t.annotations?.readOnlyHint).toBe(true);
     const result = await t.handler({ request_id: ID });
-    expect(calls).toEqual([{ path: `/home/actions/${ID}`, params: { id: ID } }]);
+    expect(calls).toEqual([{ path: `/actions/${ID}`, params: { id: ID } }]);
     expect(JSON.parse(result.content[0].text)).toEqual({ action });
   });
 
@@ -778,6 +779,26 @@ test.describe("get_action_status", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("home:control");
     expect(calls).toEqual([]);
+  });
+
+  test("pocket_money:write alone is enough: it follows its own bookings with it", async () => {
+    const { server, calls } = buildServer(["pocket_money:write"], () => ({ action: { id: ID, kind: "pocket_money", status: "pending" } }));
+    const result = await tool(server, "get_action_status").handler({ request_id: ID });
+    expect(result.isError).toBeFalsy();
+    expect(calls).toEqual([{ path: `/actions/${ID}`, params: { id: ID } }]);
+  });
+
+  test("tools/list offers either scope for it, as alternatives", async () => {
+    expect(toolScopes("get_action_status")).toEqual(["home:control", "pocket_money:write"]);
+    expect(toolScopes("control_device")).toEqual(["home:control"]);
+    const listed = new Response(JSON.stringify({ result: { tools: [{ name: "get_action_status" }, { name: "control_device" }] } }), {
+      headers: { "content-type": "application/json" },
+    });
+    const patched = (await (await addSecuritySchemes(listed)).json()) as { result: { tools: { securitySchemes: unknown }[] } };
+    expect(patched.result.tools[0].securitySchemes).toEqual([
+      { type: "oauth2", scopes: ["home:control"] }, { type: "oauth2", scopes: ["pocket_money:write"] },
+    ]);
+    expect(patched.result.tools[1].securitySchemes).toEqual([{ type: "oauth2", scopes: ["home:control"] }]);
   });
 
   test("says that only done means it ran", () => {

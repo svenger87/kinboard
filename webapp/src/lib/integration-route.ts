@@ -60,7 +60,8 @@ export const RATE_WINDOW_MS = 60_000;
 
 export async function withIntegrationAuth(
   request: NextRequest,
-  scope: IntegrationScope,
+  /** The scope the route needs; a list means any one of them. */
+  scope: IntegrationScope | readonly IntegrationScope[],
   handler: (context: IntegrationContext) => Promise<NextResponse>,
 ): Promise<NextResponse> {
   let matched: Awaited<ReturnType<typeof findTokenByHash>> = null;

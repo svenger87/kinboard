@@ -4255,7 +4255,8 @@
       "unknown_outcome": "Allowed, but Kinboard never heard whether it happened. Check the device.",
       "not_in_catalogue": "Allowed, but the device is no longer on Kinboard’s list, so nothing was done.",
       "catalogue_unavailable": "Allowed, but Kinboard couldn’t check its device list, so nothing was done.",
-      "not_allowed": "Allowed, but this is no longer something an assistant may do, so nothing was done."
+      "not_allowed": "Allowed, but this is no longer something an assistant may do, so nothing was done.",
+      "not_available": "Allowed, but Kinboard can’t do this yet, so nothing was done."
     },
     "pageTitle": "Assistant request",
     "loading": "Loading…",
@@ -4288,6 +4289,10 @@
       "lawn_mower_dock": "send {device} back to its dock",
       "lawn_mower_pause": "pause {device}",
       "generic": "run “{service}” on {device}"
+    },
+    "kinds": {
+      "pocket_money": "book pocket money",
+      "unknown": "do something this Kinboard doesn’t know"
     },
     "denyHint": "Anyone can deny. Allowing needs the settings PIN.",
     "close": "Close"

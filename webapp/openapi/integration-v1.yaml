@@ -231,7 +231,7 @@ paths:
         5. Not sensitive: Home Assistant is called once, `200`. Sensitive:
            it waits for a family member to confirm with the settings PIN on
            a Kinboard screen — `202 pending_confirmation`, with a
-           `request_id` to follow at `GET /home/actions/{id}`. It runs, as
+           `request_id` to follow at `GET /actions/{id}` (or `GET /home/actions/{id}`). It runs, as
            stored, only once approved; deny, expiry (2 minutes) or revoking
            the assistant end it without running anything.
 
@@ -325,6 +325,43 @@ paths:
                 required: [action]
                 properties:
                   action: { $ref: "#/components/schemas/HomeActionRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such request of this assistant. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /actions/{id}:
+    get:
+      tags: [home]
+      summary: The outcome of any request this assistant left waiting for confirmation
+      description: |
+        A `request_id` from a `202 pending_confirmation` of any kind — a
+        sensitive home action, or a pocket-money booking. Needs
+        `home:control` **or** `pocket_money:write`: either is enough. Only
+        the calling token's own requests are visible; any other id,
+        including another assistant's in the same family, is `404`.
+
+        The same as `GET /home/actions/{id}`, plus `kind` (`home` or
+        `pocket_money`) and `description`, the request in words as the
+        family was asked about it. `entity_id` and `service` are `null` for
+        a request that is not a home action. `result.reason`
+        `not_available`: approved, but this Kinboard cannot run that kind of
+        request, so nothing was done.
+      x-required-scope: home:control
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The request
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [action]
+                properties:
+                  action: { $ref: "#/components/schemas/ActionRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { description: No such request of this assistant. }
         "429": { $ref: "#/components/responses/RateLimited" }
@@ -1891,6 +1928,28 @@ components:
                 never sent to Home Assistant. `unknown_outcome`: approved and
                 possibly sent, but Kinboard never learned the answer — it may
                 or may not have happened.
+
+    ActionRequest:
+      type: object
+      required: [id, kind, description, status, entity_id, service, created_at, expires_at, decided_at, result]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [home, pocket_money] }
+        description: { type: string, description: "The request in words, e.g. `unlock Front door (Hallway)`." }
+        status: { type: string, enum: [pending, approved, denied, expired, failed, done] }
+        entity_id: { type: [string, "null"] }
+        service: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        decided_at: { type: [string, "null"], format: date-time }
+        result:
+          type: [object, "null"]
+          required: [status]
+          properties:
+            status: { type: integer, description: "Home Assistant's HTTP status for a home request; 0 when it was not reached or did not answer, and for other kinds." }
+            reason:
+              type: string
+              enum: [not_in_catalogue, catalogue_unavailable, not_allowed, unknown_outcome, not_available]
 
     VehicleStatus:
       type: object

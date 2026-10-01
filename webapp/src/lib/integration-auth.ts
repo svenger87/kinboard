@@ -185,7 +185,9 @@ export function shouldRefreshLastUsed(lastUsedAt: string | null, now: Date): boo
 }
 
 /**
- * The single entry point. A route calls this with the scope it needs.
+ * The single entry point. A route calls this with the scope it needs — or,
+ * for the rare route several features share (`GET /actions/{id}`), a list of
+ * scopes of which any one is enough.
  *
  * Every rejection answers **401 `not_authenticated`**, including the case where
  * the token is valid but lacks the scope. 403 would be the more precise code
@@ -200,7 +202,7 @@ export function shouldRefreshLastUsed(lastUsedAt: string | null, now: Date): boo
  */
 export async function requireIntegrationAuth(
   request: NextRequest,
-  required: IntegrationScope,
+  required: IntegrationScope | readonly IntegrationScope[],
   lookup: (hash: string) => Promise<TokenRow | null>,
   now: Date = new Date(),
 ): Promise<IntegrationAuthResult> {
@@ -216,7 +218,8 @@ export async function requireIntegrationAuth(
   }
 
   const scopes = (evaluated.row.scopes ?? []).filter(isIntegrationScope);
-  if (!hasScope(scopes, required)) {
+  const anyOf: readonly IntegrationScope[] = typeof required === "string" ? [required] : required;
+  if (!anyOf.some((scope) => hasScope(scopes, scope))) {
     return { ok: false, response: await apiError("not authenticated", "not_authenticated") };
   }
 

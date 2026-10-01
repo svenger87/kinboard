@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 import {
+  ACTION_KIND_HANDLERS,
+  ACTION_STATUS_SCOPES,
   ACTION_REQUEST_TTL_MS,
   actionRequestStatus,
   actionVerbKey,
@@ -8,16 +10,21 @@ import {
   createActionRequest,
   decideActionRequest,
   describeAction,
+  describeRequest,
+  describeRequestVerb,
   describeVerb,
   familyActionRequest,
   pendingActionRequests,
   recordHomeAction,
   toAssistantRequest,
+  toAssistantStatus,
   toScreenRequest,
+  type ActionKindHandler,
   type ActionPatch,
   type ActionRequestRow,
   type ActionRequestStore,
   type ActionStatus,
+  type ActionTranslator,
   type DecideDeps,
   type NewActionRow,
   type PushRequest,
@@ -50,6 +57,9 @@ const OTHER_TOKEN = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const DEVICE = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const T0 = new Date("2026-10-01T12:00:00.000Z");
 const PIN = "4711";
+
+/** The `assistantActions` translator in English, for what a screen is sent. */
+const EN = createTranslator({ locale: "en", messages: en, namespace: "assistantActions" }) as unknown as ActionTranslator;
 
 let seq = 0;
 const newId = () => `00000000-0000-4000-8000-${String(++seq).padStart(12, "0")}`;
@@ -93,6 +103,7 @@ function seed(
     family_id: FAMILY,
     token_id: TOKEN,
     client_name: "Claude",
+    kind: "home",
     entity_id: "lock.front_door",
     entity_name: "Front door",
     domain: "lock",
@@ -492,13 +503,13 @@ test.describe("createActionRequest", () => {
     }, { store, push: async (p) => { pushes.push(p); }, now: () => T0 });
     expect(res.expiresAt).toBe("2026-10-01T12:02:00.000Z");
     expect(rows.get(res.id)).toMatchObject({
-      family_id: FAMILY, token_id: TOKEN, client_name: "Claude", entity_id: "lock.front_door",
+      family_id: FAMILY, token_id: TOKEN, client_name: "Claude", kind: "home", entity_id: "lock.front_door",
       entity_name: "Front door", domain: "lock", service: "unlock", data: {}, status: "pending",
       decided_at: null, decided_by_device_id: null, result: null,
     });
     expect(pushes).toEqual([{
-      familyId: FAMILY, requestId: res.id, clientName: "Claude", entityName: "Front door", room: "Hall",
-      domain: "lock", service: "unlock", data: {},
+      familyId: FAMILY, requestId: res.id,
+      request: { kind: "home", client_name: "Claude", entity_name: "Front door", room: "Hall", domain: "lock", service: "unlock", data: {} },
     }]);
   });
 
@@ -531,7 +542,7 @@ test.describe("recordHomeAction (every action is attributable)", () => {
         entityName: "Kitchen light", domain: "light", service: "turn_on", data: { brightness_pct: 40 }, ok, status,
       }, { store, now: () => T0 });
       expect(log.inserts).toEqual([{
-        family_id: FAMILY, token_id: TOKEN, client_name: "Claude", entity_id: "light.kitchen",
+        family_id: FAMILY, token_id: TOKEN, client_name: "Claude", kind: "home", entity_id: "light.kitchen",
         entity_name: "Kitchen light", domain: "light", service: "turn_on", data: { brightness_pct: 40 },
         status: expected, expires_at: T0.toISOString(), decided_at: T0.toISOString(),
         decided_by_device_id: null, result: { status },
@@ -582,7 +593,7 @@ test.describe("reading requests", () => {
   test("what leaves the server: no token id or deciding device for screens; only status fields for the assistant", () => {
     const { rows } = fakeStore();
     const row = seed(rows, { decided_by_device_id: DEVICE, status: "done", result: { status: 200 } });
-    const screen = toScreenRequest(row, "Hall");
+    const screen = toScreenRequest(row, EN, "Hall");
     expect(screen).not.toHaveProperty("token_id");
     expect(screen).not.toHaveProperty("decided_by_device_id");
     expect(screen.room).toBe("Hall");
@@ -664,7 +675,7 @@ test.describe("describing an action", () => {
 test.describe("the prompt on a screen", () => {
   const screen = (overrides: Partial<ActionRequestRow> = {}) => {
     const { rows } = fakeStore();
-    return toScreenRequest(seed(rows, overrides));
+    return toScreenRequest(seed(rows, overrides), EN);
   };
 
   test("counts down in whole seconds, never below zero; an unreadable expiry is zero", () => {
@@ -801,5 +812,220 @@ test.describe("the prompt on a screen", () => {
         expect((messages.assistantActions.status as Record<string, string>)[status], status).toBeTruthy();
       }
     }
+  });
+});
+
+// ── kinds (RFC-012 §3) ──────────────────────────────────────────────────────
+
+test.describe("a request carries a kind, and running it dispatches on it", () => {
+  /** A handler that counts what it is asked, and answers as told. */
+  function countingHandler(name: string, log: string[], opts: { blocked?: "not_available" | "not_allowed"; ok?: boolean } = {}): ActionKindHandler {
+    return {
+      validate: async (row) => { log.push(`${name}.validate:${row.id}`); return opts.blocked ?? null; },
+      execute: async (row) => { log.push(`${name}.execute:${row.id}`); return { ok: opts.ok ?? true, result: { status: 0 } }; },
+      describe: () => `${name} thing`,
+    };
+  }
+  const pocketRow = { kind: "pocket_money" as const, entity_id: null, entity_name: null, domain: null, service: null, data: { amount_cents: 500 } };
+
+  test("an approved home request runs the home handler, and only it", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const log: string[] = [];
+    const { d } = deps(store);
+    d.kinds = { home: countingHandler("home", log), pocket_money: countingHandler("pocket", log) };
+    const res = await decide(d, row.id);
+    expect(res.status).toBe(200);
+    expect(log).toEqual([`home.validate:${row.id}`, `home.execute:${row.id}`]);
+    expect(rows.get(row.id)!.status).toBe("done");
+  });
+
+  test("an approved pocket-money request runs the pocket-money handler, never Home Assistant", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows, pocketRow);
+    const log: string[] = [];
+    const { d, calls, catalogueChecks } = deps(store);
+    d.kinds = { home: countingHandler("home", log), pocket_money: countingHandler("pocket", log) };
+    const res = await decide(d, row.id);
+    expect(res.status).toBe(200);
+    expect(log).toEqual([`pocket.validate:${row.id}`, `pocket.execute:${row.id}`]);
+    expect(calls).toEqual([]);
+    expect(catalogueChecks).toEqual([]);
+    expect(rows.get(row.id)!.status).toBe("done");
+  });
+
+  test("a handler's validate stops it: failed with its reason, execute never called", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows, pocketRow);
+    const log: string[] = [];
+    const { d } = deps(store);
+    d.kinds = { pocket_money: countingHandler("pocket", log, { blocked: "not_allowed" }) };
+    await decide(d, row.id);
+    expect(log).toEqual([`pocket.validate:${row.id}`]);
+    expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { status: 0, reason: "not_allowed" } });
+  });
+
+  test("pocket money is wired but not available yet: approving it books nothing and says so", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows, pocketRow);
+    const { d, calls, catalogueChecks, pinChecks } = deps(store);
+    const res = await decide(d, row.id);
+    // Same approval as a home request: the PIN was checked, the swap won.
+    expect(pinChecks).toEqual([PIN]);
+    expect(res.status).toBe(200);
+    expect(rows.get(row.id)).toMatchObject({
+      status: "failed", decided_by_device_id: DEVICE, result: { status: 0, reason: "not_available" },
+    });
+    expect(calls).toEqual([]);
+    expect(catalogueChecks).toEqual([]);
+    expect(statusMessageKey(rows.get(row.id)!)).toBe("status.not_available");
+  });
+
+  test("a pocket-money request is denied, expires and is revoked exactly like a home one", async () => {
+    const { store, rows, revoked } = fakeStore();
+    const denied = seed(rows, pocketRow);
+    const { d, pinChecks } = deps(store);
+    expect((await decide(d, denied.id, "deny", undefined)).status).toBe(200);
+    expect(rows.get(denied.id)!.status).toBe("denied");
+    expect(pinChecks).toEqual([]);
+
+    const old = seed(rows, { ...pocketRow, expires_at: T0.toISOString() });
+    expect(await decide(d, old.id)).toMatchObject({ status: 409, error: "expired" });
+
+    const orphan = seed(rows, { ...pocketRow, token_id: OTHER_TOKEN });
+    revoked.add(OTHER_TOKEN);
+    expect(await decide(d, orphan.id)).toMatchObject({ status: 409, error: "revoked" });
+  });
+
+  test("a kind this server does not know never runs", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows, { kind: "garage_sale" as never });
+    const { d, calls } = deps(store);
+    await decide(d, row.id);
+    expect(calls).toEqual([]);
+    expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { status: 0, reason: "not_available" } });
+  });
+
+  test("a handler that throws while checking ends the request unrun", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d, calls } = deps(store);
+    d.kinds = { home: { ...ACTION_KIND_HANDLERS.home, validate: async () => { throw new Error("bug"); } } };
+    await decide(d, row.id);
+    expect(calls).toEqual([]);
+    expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { status: 0, reason: "not_available" } });
+  });
+
+  test("the built-in map: home is the RFC-011 handler, pocket money refuses", async () => {
+    expect(Object.keys(ACTION_KIND_HANDLERS).sort()).toEqual(["home", "pocket_money"]);
+    const { rows } = fakeStore();
+    expect(await ACTION_KIND_HANDLERS.pocket_money.validate(seed(rows, pocketRow), FAMILY, {} as DecideDeps)).toBe("not_available");
+  });
+
+  test("a home row without its device fields is never run, even if one slipped past the CHECK", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows, { entity_id: null });
+    const { d, calls } = deps(store);
+    await decide(d, row.id);
+    expect(calls).toEqual([]);
+    expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { reason: "not_allowed" } });
+  });
+});
+
+test.describe("creating a request of another kind", () => {
+  test("stores the kind and no device fields, and the push describes it by kind", async () => {
+    const { store, rows } = fakeStore();
+    const pushes: PushRequest[] = [];
+    const res = await createActionRequest({
+      kind: "pocket_money", familyId: FAMILY, tokenId: TOKEN, clientName: "ChatGPT", data: { amount_cents: 500 },
+    }, { store, push: async (p) => { pushes.push(p); }, now: () => T0 });
+    expect(rows.get(res.id)).toMatchObject({
+      kind: "pocket_money", entity_id: null, entity_name: null, domain: null, service: null,
+      data: { amount_cents: 500 }, status: "pending", expires_at: "2026-10-01T12:02:00.000Z",
+    });
+    expect(pushes).toHaveLength(1);
+    expect(describeRequest(EN, pushes[0].request)).toBe("ChatGPT wants to book pocket money");
+  });
+});
+
+test.describe("every kind is described by its handler, for the screen, the push and the assistant", () => {
+  const translators = Object.fromEntries(
+    ([["en", en], ["de", de], ["fr", fr]] as const).map(([locale, messages]) => [
+      locale, createTranslator({ locale, messages, namespace: "assistantActions" }) as unknown as ActionTranslator,
+    ]),
+  );
+
+  test("home: exactly the words it had before kinds existed", () => {
+    const { rows } = fakeStore();
+    const row = seed(rows);
+    for (const t of Object.values(translators)) {
+      const before = describeVerb(t, { entity_name: "Front door", room: "Hall", domain: "lock", service: "unlock", data: {} });
+      expect(toScreenRequest(row, t, "Hall").description).toBe(before);
+      expect(describeRequestVerb(t, { ...row, room: "Hall" })).toBe(before);
+      expect(describeRequest(t, { ...row, room: "Hall" })).toBe(describeAction(t, { ...row, entity_name: "Front door", domain: "lock", service: "unlock", room: "Hall" }));
+    }
+    expect(toScreenRequest(row, EN, "Hall")).toMatchObject({ kind: "home", description: "unlock Front door (Hall)" });
+  });
+
+  test("pocket money has words in every language", () => {
+    const { rows } = fakeStore();
+    const row = seed(rows, { kind: "pocket_money", entity_id: null, entity_name: null, domain: null, service: null });
+    for (const [locale, t] of Object.entries(translators)) {
+      const text = toScreenRequest(row, t).description;
+      expect(text, locale).toBeTruthy();
+      expect(text, locale).not.toContain("assistantActions.");
+      expect(text, locale).not.toMatch(/[{}]/);
+    }
+    expect(toScreenRequest(row, EN)).toMatchObject({ kind: "pocket_money", room: null, description: "book pocket money" });
+  });
+
+  test("an unknown kind is said to be unknown, not left blank", () => {
+    for (const t of Object.values(translators)) {
+      const text = describeRequestVerb(t, { kind: "garage_sale" as never, client_name: "C", entity_name: null, domain: null, service: null, data: {} });
+      expect(text).toBeTruthy();
+      expect(text).not.toContain("assistantActions.");
+    }
+  });
+
+  test("the assistant's generic status adds kind and description; the home status stays as it was", () => {
+    const { rows } = fakeStore();
+    const row = seed(rows, { status: "done", result: { status: 200 } });
+    expect(toAssistantStatus(row, EN)).toEqual({ ...toAssistantRequest(row), kind: "home", description: "unlock Front door" });
+  });
+
+  test("not_available has words in every language", () => {
+    for (const messages of [en, de, fr]) {
+      expect((messages.assistantActions.status as Record<string, string>).not_available).toBeTruthy();
+    }
+  });
+});
+
+test.describe("following a request: GET /actions/{id} and /home/actions/{id}", () => {
+  test("the generic status sees only the calling token's own requests, of any kind", async () => {
+    const { store, rows } = fakeStore();
+    const home = seed(rows);
+    const pocket = seed(rows, { kind: "pocket_money", entity_id: null, entity_name: null, domain: null, service: null });
+    const theirs = seed(rows, { kind: "pocket_money", token_id: OTHER_TOKEN, entity_id: null, entity_name: null, domain: null, service: null });
+    const otherFamily = seed(rows, { family_id: OTHER_FAMILY, kind: "pocket_money", entity_id: null, entity_name: null, domain: null, service: null });
+    const legacy = seed(rows, { token_id: null });
+    const as = (id: string) => actionRequestStatus({ id, familyId: FAMILY, tokenId: TOKEN }, { store, now: () => T0 });
+    expect((await as(home.id))?.id).toBe(home.id);
+    expect((await as(pocket.id))?.id).toBe(pocket.id);
+    expect(await as(theirs.id)).toBeNull();
+    expect(await as(otherFamily.id)).toBeNull();
+    expect(await as(legacy.id)).toBeNull();
+  });
+
+  test("/home/actions/{id} keeps to home requests", async () => {
+    const { store, rows } = fakeStore();
+    const home = seed(rows);
+    const pocket = seed(rows, { kind: "pocket_money", entity_id: null, entity_name: null, domain: null, service: null });
+    const asHome = (id: string) => actionRequestStatus({ id, familyId: FAMILY, tokenId: TOKEN, kind: "home" }, { store, now: () => T0 });
+    expect((await asHome(home.id))?.id).toBe(home.id);
+    expect(await asHome(pocket.id)).toBeNull();
+  });
+
+  test("either scope that can make a request may follow one", () => {
+    expect([...ACTION_STATUS_SCOPES]).toEqual(["home:control", "pocket_money:write"]);
   });
 });

@@ -4255,7 +4255,8 @@
       "unknown_outcome": "Autorisé, mais Kinboard n’a jamais su si cela a eu lieu. Vérifiez l’appareil.",
       "not_in_catalogue": "Autorisé, mais l’appareil n’est plus dans la liste de Kinboard, donc rien n’a été fait.",
       "catalogue_unavailable": "Autorisé, mais Kinboard n’a pas pu vérifier sa liste d’appareils, donc rien n’a été fait.",
-      "not_allowed": "Autorisé, mais un assistant n’a plus le droit de faire cela, donc rien n’a été fait."
+      "not_allowed": "Autorisé, mais un assistant n’a plus le droit de faire cela, donc rien n’a été fait.",
+      "not_available": "Autorisé, mais Kinboard ne sait pas encore faire cela, donc rien n’a été fait."
     },
     "pageTitle": "Demande d’un assistant",
     "loading": "Chargement…",
@@ -4288,6 +4289,10 @@
       "lawn_mower_dock": "renvoyer {device} à sa base",
       "lawn_mower_pause": "mettre {device} en pause",
       "generic": "lancer « {service} » sur {device}"
+    },
+    "kinds": {
+      "pocket_money": "enregistrer une opération d’argent de poche",
+      "unknown": "faire quelque chose que ce Kinboard ne connaît pas"
     },
     "denyHint": "Tout le monde peut refuser. Pour autoriser, il faut le code PIN des réglages.",
     "close": "Fermer"

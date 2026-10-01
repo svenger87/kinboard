@@ -272,3 +272,30 @@ test.describe("requireIntegrationAuth sets context.assistant from oauth_client_i
     expect(result.ok && result.context.assistant).toBe(true);
   });
 });
+
+/**
+ * A route several features share takes a list of scopes, any one of which is
+ * enough (`GET /actions/{id}`: home:control or pocket_money:write).
+ */
+test.describe("requireIntegrationAuth with a list of scopes", () => {
+  const authReq = () =>
+    ({ headers: new Headers({ authorization: "Bearer kbi_example" }) }) as unknown as Parameters<
+      typeof requireIntegrationAuth
+    >[0];
+  const anyOf = ["home:control", "pocket_money:write"] as const;
+
+  for (const scopes of [["home:control"], ["pocket_money:write"], ["family:read", "pocket_money:write"]]) {
+    test(`${scopes.join(" + ")} is enough`, async () => {
+      const result = await requireIntegrationAuth(authReq(), anyOf, async () => row({ scopes }), NOW);
+      expect(result.ok).toBe(true);
+    });
+  }
+
+  test("none of them is a 401, and an empty list admits nobody", async () => {
+    const without = await requireIntegrationAuth(authReq(), anyOf, async () => row({ scopes: ["home:read", "family:read"] }), NOW);
+    expect(without.ok).toBe(false);
+    expect(!without.ok && without.response.status).toBe(401);
+    const empty = await requireIntegrationAuth(authReq(), [], async () => row({ scopes: ["home:control"] }), NOW);
+    expect(empty.ok).toBe(false);
+  });
+});

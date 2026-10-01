@@ -24,7 +24,8 @@ import { POST as sendMessageRoute } from "@/app/api/integration/v1/messages/rout
 import { GET as homeDevices } from "@/app/api/integration/v1/home/devices/route";
 import { GET as homeDevice } from "@/app/api/integration/v1/home/devices/[entity]/route";
 import { POST as homeDeviceAction } from "@/app/api/integration/v1/home/devices/[entity]/actions/route";
-import { GET as homeActionStatus } from "@/app/api/integration/v1/home/actions/[id]/route";
+import { GET as actionStatus } from "@/app/api/integration/v1/actions/[id]/route";
+import { ACTION_STATUS_SCOPES } from "@/lib/home/action-requests";
 import { GET as vehicles } from "@/app/api/integration/v1/vehicles/route";
 import { GET as recipes } from "@/app/api/integration/v1/recipes/route";
 import { GET as recipe } from "@/app/api/integration/v1/recipes/[id]/route";
@@ -98,6 +99,21 @@ export const TOOL_SCOPES = {
 } as const satisfies Record<string, McpScope>;
 
 type ToolName = keyof typeof TOOL_SCOPES;
+
+/**
+ * Tools that any one of several scopes unlocks; `TOOL_SCOPES` names the
+ * first. `get_action_status` follows every kind of confirmation request
+ * (`GET /actions/{id}`), so whichever scope let the assistant make one also
+ * lets it ask what became of it.
+ */
+export const TOOL_ANY_SCOPES: Partial<Record<ToolName, readonly McpScope[]>> = {
+  get_action_status: ACTION_STATUS_SCOPES,
+};
+
+/** Every scope that unlocks a tool, any one of which is enough. */
+export function toolScopes(name: ToolName): readonly McpScope[] {
+  return TOOL_ANY_SCOPES[name] ?? [TOOL_SCOPES[name]];
+}
 
 const readOnly = { readOnlyHint: true, openWorldHint: false };
 const createAction = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
@@ -224,8 +240,9 @@ export function createKinboardMcpServer(
     annotations: typeof readOnly | typeof createAction | typeof externalCreateAction | typeof editAction, run: (args: z.infer<S>) => Promise<unknown>,
   ) => {
     const scope = TOOL_SCOPES[name];
+    const anyOf = toolScopes(name);
     const handle = async (args: z.infer<S>) => {
-      if (!authInfo.scopes.includes(scope)) {
+      if (!anyOf.some((s) => authInfo.scopes.includes(s))) {
         // ChatGPT reads this to offer re-linking with the missing scope.
         return {
           content: [{ type: "text" as const, text: `${scope} authorization is required` }],
@@ -489,9 +506,9 @@ export function createKinboardMcpServer(
       path: `${devicePath(entity_id)}/actions`, params: { entity: entity_id },
       body: data === undefined ? { service } : { service, data },
     }));
-  register("get_action_status", "Check what happened to a sensitive action that control_device left waiting for confirmation, by its request_id. status is pending (nobody has answered yet — a request expires after 2 minutes), approved (allowed, running), done, failed (it did not run, or Home Assistant did not confirm it — result.reason unknown_outcome or a status of 0 means it may or may not have happened; not_in_catalogue, catalogue_unavailable and not_allowed mean it never ran), denied (a family member refused, or this assistant was disconnected) or expired. Only done means the action ran. Only your own requests are visible.",
+  register("get_action_status", "Check what happened to a request that is waiting for a family member's confirmation — a sensitive action that control_device left waiting — by its request_id. The answer has kind and a description of the request in words. status is pending (nobody has answered yet — a request expires after 2 minutes), approved (allowed, running), done, failed (it did not run, or Home Assistant did not confirm it — result.reason unknown_outcome or a status of 0 means it may or may not have happened; not_in_catalogue, catalogue_unavailable and not_allowed mean it never ran), denied (a family member refused, or this assistant was disconnected) or expired. Only done means the action ran. Only your own requests are visible.",
     z.object({ request_id: z.uuid() }), readOnly,
-    ({ request_id }) => call(homeActionStatus, { path: `/home/actions/${request_id}`, params: { id: request_id } }));
+    ({ request_id }) => call(actionStatus, { path: `/actions/${request_id}`, params: { id: request_id } }));
 
   return server;
 }

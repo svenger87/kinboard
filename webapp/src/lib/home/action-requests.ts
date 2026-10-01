@@ -1,12 +1,21 @@
 /**
- * Assistant actions that wait for a person — RFC-011 §4.3, §5, §7.
+ * Assistant actions that wait for a person — RFC-011 §4.3, §5, §7; RFC-012 §3.
  *
  * A sensitive home action (a lock, an alarm panel, a garage door, a script,
- * …) is not run when an assistant asks. It is stored as a pending request;
+ * …) is not run when an assistant asks. Nor is anything else of a `kind`
+ * that needs a person (RFC-012 §3: a pocket-money booking). It is stored as
+ * a pending request;
  * every Kinboard screen shows it and every phone is pushed. A family member
  * approves it there with the settings PIN, or denies it — which needs no PIN
  * — and only an approval runs it — with the domain, service, entity and data **as stored**, never
  * anything from the approving request.
+ *
+ * What a request is for is its `kind`. Everything up to the moment it runs —
+ * PIN, deny, expiry, revocation, the compare-and-swap, the limits — is the
+ * same for every kind. Running it is not: each kind has a handler in
+ * `ACTION_KIND_HANDLERS` — `validate` (may it still run?), `execute` (run it,
+ * as stored) and `describe` (what it is, in words, for the screens, the push
+ * and the assistant).
  *
  * Without I/O: the table, the PIN check, Home Assistant and the push come in
  * as dependencies, so every branch — and every "Home Assistant was never
@@ -30,19 +39,32 @@
  *    at once: one wins, the other is told it was already decided, and Home
  *    Assistant hears it once.
  * 4. After winning, the assistant is checked again (a revoke racing the
- *    approval ends it as denied), the entity must still be in the family's
- *    catalogue, and the stored action is re-checked against the policy;
- *    otherwise it ends `failed` with a `reason` and Home Assistant is not
- *    called. Then Home Assistant is called once and the row becomes `done`
- *    or `failed` with `result = { status }` — the HTTP status only.
+ *    approval ends it as denied), then its kind's `validate` — for a home
+ *    request: the entity must still be in the family's catalogue, and the
+ *    stored action is re-checked against the policy; otherwise it ends
+ *    `failed` with a `reason` and nothing runs. Then its kind's `execute`
+ *    runs it once — for home, one Home Assistant call — and the row becomes
+ *    `done` or `failed` with `result = { status }` — the HTTP status only.
  * 5. A row left `approved` for over a minute (the server stopped between the
  *    claim and the answer) is reported, and marked best-effort, as `failed`
  *    with `reason: "unknown_outcome"`: it may or may not have happened.
  */
 
 import { decideHomeAction, ENTITY_ID } from "@/lib/home/policy";
+import type { IntegrationScope } from "@/lib/integration-auth";
 
 export type ActionStatus = "pending" | "approved" | "denied" | "expired" | "failed" | "done";
+
+/** What a request asks for. The table's CHECK lists the same (RFC-012 §3). */
+export const ACTION_KINDS = ["home", "pocket_money"] as const;
+export type ActionKind = (typeof ACTION_KINDS)[number];
+
+/**
+ * Who may follow a request at `GET /actions/{id}`: a token that can make a
+ * confirmation request of any kind. Any one is enough; the request must
+ * still be that token's own.
+ */
+export const ACTION_STATUS_SCOPES = ["home:control", "pocket_money:write"] as const satisfies readonly IntegrationScope[];
 
 /** RFC-011 §4.3: a request lives two minutes. */
 export const ACTION_REQUEST_TTL_MS = 120_000;
@@ -53,11 +75,15 @@ export const ACTION_REQUEST_TTL_MS = 120_000;
  */
 export const APPROVED_STALE_MS = 60_000;
 
-/** Why an approved action did not reach Home Assistant, or why its outcome is unknown. */
-export type ActionFailureReason = "not_in_catalogue" | "catalogue_unavailable" | "not_allowed" | "unknown_outcome";
+/**
+ * Why an approved request did not run, or why its outcome is unknown.
+ * `not_available`: Kinboard cannot run this kind of request (yet).
+ */
+export type ActionFailureReason =
+  | "not_in_catalogue" | "catalogue_unavailable" | "not_allowed" | "unknown_outcome" | "not_available";
 
 export interface ActionResult {
-  /** Home Assistant's HTTP status; 0 when it was not reached or did not answer. */
+  /** Home Assistant's HTTP status; 0 when it was not reached or did not answer. Other kinds: 0. */
   status: number;
   reason?: ActionFailureReason;
 }
@@ -71,10 +97,13 @@ export interface ActionRequestRow {
   family_id: string;
   token_id: string | null;
   client_name: string;
-  entity_id: string;
-  entity_name: string;
-  domain: string;
-  service: string;
+  kind: ActionKind;
+  /** The Home Assistant fields: always set for `home` (a CHECK says so), null for other kinds. */
+  entity_id: string | null;
+  entity_name: string | null;
+  domain: string | null;
+  service: string | null;
+  /** home: the service data, run as is. pocket_money: the booking (RFC-012 §3). */
   data: Record<string, unknown>;
   status: ActionStatus;
   created_at: string;
@@ -148,6 +177,17 @@ export interface DescribableAction {
   data: Record<string, unknown>;
 }
 
+/** Any request, as its kind's `describe` sees it. */
+export interface DescribableRequest {
+  kind: ActionKind;
+  client_name: string;
+  entity_name: string | null;
+  room?: string | null;
+  domain: string | null;
+  service: string | null;
+  data: Record<string, unknown>;
+}
+
 /** How much of an assistant's self-chosen name a screen or a push shows. */
 export const CLIENT_LABEL_MAX = 40;
 
@@ -184,17 +224,24 @@ export function describeAction(t: ActionTranslator, action: DescribableAction): 
   return t("request", { client: clientLabel(action.client_name), action: describeVerb(t, action) });
 }
 
+/** The action alone, in words, for any kind: its handler's `describe`. */
+export function describeRequestVerb(t: ActionTranslator, request: DescribableRequest): string {
+  const handler = (ACTION_KIND_HANDLERS as Partial<Record<string, ActionKindHandler>>)[request.kind];
+  return handler ? handler.describe(t, request) : t("kinds.unknown");
+}
+
+/** "Claude wants to …" for any kind — the push title. */
+export function describeRequest(t: ActionTranslator, request: DescribableRequest): string {
+  return t("request", { client: clientLabel(request.client_name), action: describeRequestVerb(t, request) });
+}
+
 // ── creating ────────────────────────────────────────────────────────────────
 
 export interface PushRequest {
   familyId: string;
   requestId: string;
-  clientName: string;
-  entityName: string;
-  room: string | null;
-  domain: string;
-  service: string;
-  data: Record<string, unknown>;
+  /** What to put into words; the push describes it with `describeRequest`. */
+  request: DescribableRequest;
 }
 
 export interface CreateDeps {
@@ -204,6 +251,7 @@ export interface CreateDeps {
   now?: () => Date;
 }
 
+/** A home request: what `control_device` asked for, already through the policy. */
 export interface CreateActionInput {
   familyId: string;
   tokenId: string;
@@ -217,6 +265,16 @@ export interface CreateActionInput {
   data: Record<string, unknown>;
 }
 
+/** A request of a kind without a device: everything it runs is in `data`. */
+export interface CreateKindRequestInput {
+  kind: Exclude<ActionKind, "home">;
+  familyId: string;
+  tokenId: string;
+  clientName: string;
+  /** Already validated by the kind's own route. */
+  data: Record<string, unknown>;
+}
+
 const PUSH_TIMEOUT_MS = 5_000;
 
 /**
@@ -225,18 +283,20 @@ const PUSH_TIMEOUT_MS = 5_000;
  * hangs never fails the request; it is cut off after five seconds.
  */
 export async function createActionRequest(
-  input: CreateActionInput,
+  input: CreateActionInput | CreateKindRequestInput,
   deps: CreateDeps,
 ): Promise<{ id: string; expiresAt: string }> {
   const now = (deps.now ?? (() => new Date()))();
+  const home = !("kind" in input);
   const row = await deps.store.insert({
     family_id: input.familyId,
     token_id: input.tokenId,
     client_name: input.clientName.slice(0, MAX_NAME),
-    entity_id: input.entityId,
-    entity_name: input.entityName.slice(0, MAX_NAME),
-    domain: input.domain,
-    service: input.service,
+    kind: home ? "home" : input.kind,
+    entity_id: home ? input.entityId : null,
+    entity_name: home ? input.entityName.slice(0, MAX_NAME) : null,
+    domain: home ? input.domain : null,
+    service: home ? input.service : null,
     data: input.data,
     status: "pending",
     expires_at: new Date(now.getTime() + ACTION_REQUEST_TTL_MS).toISOString(),
@@ -250,12 +310,15 @@ export async function createActionRequest(
     deps.push({
       familyId: input.familyId,
       requestId: row.id,
-      clientName: row.client_name,
-      entityName: row.entity_name,
-      room: input.room ?? null,
-      domain: input.domain,
-      service: input.service,
-      data: input.data,
+      request: {
+        kind: row.kind,
+        client_name: row.client_name,
+        entity_name: row.entity_name,
+        room: home ? input.room ?? null : null,
+        domain: row.domain,
+        service: row.service,
+        data: input.data,
+      },
     }).catch((err) => console.error("[assistant-actions] push failed:", err)),
     new Promise<void>((resolve) => { timer = setTimeout(resolve, PUSH_TIMEOUT_MS); }),
   ]);
@@ -279,6 +342,7 @@ export async function recordHomeAction(
     family_id: input.familyId,
     token_id: input.tokenId,
     client_name: input.clientName.slice(0, MAX_NAME),
+    kind: "home",
     entity_id: input.entityId,
     entity_name: input.entityName.slice(0, MAX_NAME),
     domain: input.domain,
@@ -382,18 +446,27 @@ export async function familyActionRequest(
  * (404). Expired pending rows are marked `expired` on the way.
  */
 export async function actionRequestStatus(
-  input: { id: string; familyId: string; tokenId: string },
+  input: { id: string; familyId: string; tokenId: string; kind?: ActionKind },
   deps: { store: ActionRequestStore; now?: () => Date },
 ): Promise<ActionRequestRow | null> {
   const row = await familyActionRequest(input.id, input.familyId, deps);
   if (!row || row.token_id === null || row.token_id !== input.tokenId) return null;
+  // `/home/actions/{id}` asks for home requests only.
+  if (input.kind && row.kind !== input.kind) return null;
   return row;
 }
 
-/** What a screen sees of a request. Not the token id or the deciding device. */
-export function toScreenRequest(row: ActionRequestRow, room: string | null = null) {
+/**
+ * What a screen sees of a request. Not the token id or the deciding device.
+ * `description` is the action in words ("unlock Front door (Hallway)"), in
+ * the screen's language — the screen shows it as is and never builds it from
+ * the other fields, so a new kind needs no change on the client.
+ */
+export function toScreenRequest(row: ActionRequestRow, t: ActionTranslator, room: string | null = null) {
   return {
     id: row.id,
+    kind: row.kind,
+    description: describeRequestVerb(t, { ...row, room }),
     client_name: row.client_name,
     entity_id: row.entity_id,
     entity_name: row.entity_name,
@@ -411,7 +484,7 @@ export function toScreenRequest(row: ActionRequestRow, room: string | null = nul
 
 export type ScreenRequest = ReturnType<typeof toScreenRequest>;
 
-/** What the assistant sees of its own request. */
+/** What the assistant sees of its own request at `/home/actions/{id}` (RFC-011, unchanged). */
 export function toAssistantRequest(row: ActionRequestRow) {
   return {
     id: row.id,
@@ -425,6 +498,14 @@ export function toAssistantRequest(row: ActionRequestRow) {
   };
 }
 
+/**
+ * What the assistant sees of its own request at the generic `/actions/{id}`:
+ * the same, plus what kind of request it is and what it asked for, in words.
+ */
+export function toAssistantStatus(row: ActionRequestRow, t: ActionTranslator) {
+  return { ...toAssistantRequest(row), kind: row.kind, description: describeRequestVerb(t, row) };
+}
+
 // ── deciding ────────────────────────────────────────────────────────────────
 
 export interface DecideDeps {
@@ -432,12 +513,110 @@ export interface DecideDeps {
   hasPin: (familyId: string) => Promise<boolean>;
   /** `verifySettingsPin`: the shared, race-safe limiter. */
   verifyPin: (familyId: string, pin: string) => Promise<"valid" | "invalid" | "rate_limited">;
+  // What the `home` handler runs with.
   callHaService: (
     familyId: string, domain: string, service: string, entityId: string, data: Record<string, unknown>,
   ) => Promise<{ ok: boolean; status: number }>;
   /** The family's catalogue entry for the entity, or null; throws when unreadable. */
   catalogueEntity: (familyId: string, entityId: string) => Promise<unknown | null>;
+  /** Replaces a kind's handler in `ACTION_KIND_HANDLERS`. For tests. */
+  kinds?: Partial<Record<ActionKind, ActionKindHandler>>;
   now?: () => Date;
+}
+
+// ── kinds ───────────────────────────────────────────────────────────────────
+
+/**
+ * What differs between kinds of request: whether an approved one may still
+ * run, running it, and saying what it is. Everything else — PIN, deny,
+ * expiry, revocation, who wins a race, the limits — is the same for all.
+ */
+export interface ActionKindHandler {
+  /**
+   * Called after the approval won and the assistant was re-checked, before
+   * anything runs: why this stored request must not run now, or null.
+   * Throws only for a bug; the request then ends unrun.
+   */
+  validate: (row: ActionRequestRow, familyId: string, deps: DecideDeps) => Promise<ActionFailureReason | null>;
+  /**
+   * Run it once, exactly as stored. `ok: false` with a result is a failure
+   * that reached the outside; a throw means it did not run as far as is known.
+   */
+  execute: (row: ActionRequestRow, familyId: string, deps: DecideDeps) => Promise<{ ok: boolean; result: ActionResult }>;
+  /** The action alone, in words, in `t`'s language: "unlock Front door (Hallway)". */
+  describe: (t: ActionTranslator, request: DescribableRequest) => string;
+}
+
+/** Is the stored action still one the policy allows on this entity? It always should be. */
+function stillAllowed(row: ActionRequestRow): boolean {
+  if (row.entity_id === null || row.domain === null || row.service === null) return false;
+  if (!ENTITY_ID.test(row.entity_id)) return false;
+  if (row.entity_id.slice(0, row.entity_id.indexOf(".")) !== row.domain) return false;
+  return decideHomeAction({ entityId: row.entity_id, service: row.service, data: row.data, deviceClass: null }).ok;
+}
+
+/** A Home Assistant service call (RFC-011 §4.3) — the behaviour before kinds existed. */
+const homeHandler: ActionKindHandler = {
+  async validate(row, familyId, deps) {
+    if (row.entity_id === null) return "not_allowed";
+    let entity: unknown;
+    try {
+      entity = await deps.catalogueEntity(familyId, row.entity_id);
+    } catch {
+      return "catalogue_unavailable";
+    }
+    if (!entity) return "not_in_catalogue";
+    if (!stillAllowed(row)) return "not_allowed";
+    return null;
+  },
+  async execute(row, familyId, deps) {
+    // validate has made sure these are set.
+    const { domain, service, entity_id: entityId } = row as ActionRequestRow & { domain: string; service: string; entity_id: string };
+    try {
+      const outcome = await deps.callHaService(familyId, domain, service, entityId, row.data);
+      return { ok: outcome.ok, result: { status: outcome.status } };
+    } catch (err) {
+      // HomeUnavailable (not connected) or a bug: either way it did not run as far as we know.
+      console.error("[assistant-actions] Home Assistant call failed:", err instanceof Error ? err.name : "error");
+      return { ok: false, result: { status: 0 } };
+    }
+  },
+  describe(t, request) {
+    return describeVerb(t, {
+      entity_name: request.entity_name ?? "",
+      room: request.room,
+      domain: request.domain ?? "",
+      service: request.service ?? "",
+      data: request.data,
+    });
+  },
+};
+
+/**
+ * A pocket-money booking (RFC-012 §3). Not runnable yet: an approved one
+ * ends `failed` / `not_available`, and nothing is booked.
+ */
+const pocketMoneyHandler: ActionKindHandler = {
+  async validate() {
+    return "not_available";
+  },
+  async execute() {
+    throw new Error("pocket-money bookings are not available yet");
+  },
+  describe(t) {
+    return t("kinds.pocket_money");
+  },
+};
+
+export const ACTION_KIND_HANDLERS: Readonly<Record<ActionKind, ActionKindHandler>> = {
+  home: homeHandler,
+  pocket_money: pocketMoneyHandler,
+};
+
+/** The handler for a row's kind, or null for a kind this server does not know. */
+function handlerFor(kind: string, deps: DecideDeps): ActionKindHandler | null {
+  if (!(ACTION_KINDS as readonly string[]).includes(kind)) return null;
+  return deps.kinds?.[kind as ActionKind] ?? ACTION_KIND_HANDLERS[kind as ActionKind];
 }
 
 export interface DecideInput {
@@ -465,13 +644,6 @@ async function conflict(id: string, familyId: string, deps: DecideDeps, now: Dat
   const settled = await settle(row, deps.store, now);
   if (settled.ended) return { status: 409, error: settled.ended, request: settled.row };
   return { status: 409, error: "already_decided", request: settled.row };
-}
-
-/** Is the stored action still one the policy allows on this entity? It always should be. */
-function stillAllowed(row: ActionRequestRow): boolean {
-  if (!ENTITY_ID.test(row.entity_id)) return false;
-  if (row.entity_id.slice(0, row.entity_id.indexOf(".")) !== row.domain) return false;
-  return decideHomeAction({ entityId: row.entity_id, service: row.service, data: row.data, deviceClass: null }).ok;
 }
 
 export async function decideActionRequest(input: DecideInput, deps: DecideDeps): Promise<DecideResult> {
@@ -531,35 +703,31 @@ export async function decideActionRequest(input: DecideInput, deps: DecideDeps):
     return { status: 409, error: "revoked", request: denied ?? approved };
   }
 
-  // 6. Still in the catalogue, and still allowed — or it ends here, unrun.
-  const blocked = await whyNotRun(approved, familyId, deps);
-  if (blocked) {
+  // 6. Its kind may still run it — for home: still in the catalogue, and
+  //    still allowed — or it ends here, unrun. A kind this server does not
+  //    know never runs.
+  const handler = handlerFor(approved.kind, deps);
+  let blocked: ActionFailureReason | null;
+  try {
+    blocked = handler ? await handler.validate(approved, familyId, deps) : "not_available";
+  } catch (err) {
+    console.error("[assistant-actions] could not check:", approved.kind, err instanceof Error ? err.name : "error");
+    blocked = "not_available";
+  }
+  if (blocked || !handler) {
     console.error("[assistant-actions] not run:", blocked, approved.id);
-    return finish(id, familyId, approved, false, { status: 0, reason: blocked }, deps);
+    return finish(id, familyId, approved, false, { status: 0, reason: blocked ?? "not_available" }, deps);
   }
 
   // 7. Exactly what was stored — from the row the UPDATE returned, never the request.
-  let outcome: { ok: boolean; status: number };
+  let outcome: { ok: boolean; result: ActionResult };
   try {
-    outcome = await deps.callHaService(familyId, approved.domain, approved.service, approved.entity_id, approved.data);
+    outcome = await handler.execute(approved, familyId, deps);
   } catch (err) {
-    // HomeUnavailable (not connected) or a bug: either way it did not run as far as we know.
-    console.error("[assistant-actions] Home Assistant call failed:", err instanceof Error ? err.name : "error");
-    outcome = { ok: false, status: 0 };
+    console.error("[assistant-actions] run failed:", approved.kind, err instanceof Error ? err.name : "error");
+    outcome = { ok: false, result: { status: 0 } };
   }
-  return finish(id, familyId, approved, outcome.ok, { status: outcome.status }, deps);
-}
-
-async function whyNotRun(row: ActionRequestRow, familyId: string, deps: DecideDeps): Promise<ActionFailureReason | null> {
-  let entity: unknown;
-  try {
-    entity = await deps.catalogueEntity(familyId, row.entity_id);
-  } catch {
-    return "catalogue_unavailable";
-  }
-  if (!entity) return "not_in_catalogue";
-  if (!stillAllowed(row)) return "not_allowed";
-  return null;
+  return finish(id, familyId, approved, outcome.ok, outcome.result, deps);
 }
 
 /**

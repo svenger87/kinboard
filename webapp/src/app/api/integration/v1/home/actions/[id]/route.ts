@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
  * HTTP status once it ran. Only the calling token's own requests — another
  * assistant's, even in the same family, is the same 404 as one that does not
  * exist. A pending request past its expiry is marked expired on the way.
+ * Home requests only; `GET /actions/{id}` reads requests of every kind.
  */
 export async function GET(
   request: NextRequest,
@@ -23,7 +24,7 @@ export async function GET(
   return withIntegrationAuth(request, "home:control", async (context) => {
     try {
       const row = await actionRequestStatus(
-        { id, familyId: context.familyId, tokenId: context.tokenId },
+        { id, familyId: context.familyId, tokenId: context.tokenId, kind: "home" },
         { store: liveActionStore },
       );
       if (!row) return NextResponse.json({ error: "No such action request", code: "not_found" }, { status: 404 });

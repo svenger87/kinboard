@@ -76,7 +76,7 @@ export function newerRequest(polled: ScreenRequest | null | undefined, decided: 
 export function statusMessageKey(request: Pick<ScreenRequest, "status" | "result">): string {
   const reason = (request.result as { reason?: unknown } | null)?.reason;
   if (request.status === "failed" && typeof reason === "string"
-    && ["unknown_outcome", "not_in_catalogue", "catalogue_unavailable", "not_allowed"].includes(reason)) {
+    && ["unknown_outcome", "not_in_catalogue", "catalogue_unavailable", "not_allowed", "not_available"].includes(reason)) {
     return `status.${reason}`;
   }
   return `status.${request.status}`;

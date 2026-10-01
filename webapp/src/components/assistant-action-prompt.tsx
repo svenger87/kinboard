@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { clientLabel, describeVerb, type ActionTranslator, type ScreenRequest } from "@/lib/home/action-requests";
+import { clientLabel, type ScreenRequest } from "@/lib/home/action-requests";
 import {
   canApprove, canDeny, decisionErrorKey, isFinalError, outcomeNoticeKey, secondsLeft, visibleRequests,
 } from "@/lib/home/action-prompt";
@@ -24,6 +24,8 @@ import {
  * "[Claude] wants to unlock Front door". The assistant's name is whatever it
  * registered itself as, so it is cut to 40 characters and set apart as a
  * label — not running text a crafted name could turn into an instruction.
+ * What it wants is the server's `description`, in this screen's language,
+ * for every kind of request — the screen never builds it from the fields.
  */
 export function ActionHeadline({
   request,
@@ -45,7 +47,7 @@ export function ActionHeadline({
       >
         {label}
       </span>
-      {t("wantsTo", { action: describeVerb(t as unknown as ActionTranslator, request) })}
+      {t("wantsTo", { action: request.description })}
     </p>
   );
 }
