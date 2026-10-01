@@ -1,0 +1,74 @@
+-- AI assistants through a built-in MCP endpoint (RFC-010).
+--
+-- An approved assistant connection is ONE integration_tokens row: the access
+-- token lives in token_hash/expires_at exactly like a manual token, so the
+-- existing check (evaluateToken) needs no change. The refresh token rotates
+-- in place on the same row, which is why revoking it in Settings ends the
+-- connection rather than one link of a chain.
+--
+-- Sorts after migration_integration_tokens.sql ('o' > 'i'), which creates the
+-- table. Safe to run twice: the entrypoint applies every file on every start.
+
+ALTER TABLE public.integration_tokens
+  ADD COLUMN IF NOT EXISTS oauth_client_id    TEXT,
+  ADD COLUMN IF NOT EXISTS resource           TEXT,
+  ADD COLUMN IF NOT EXISTS refresh_token_hash TEXT,
+  ADD COLUMN IF NOT EXISTS refresh_expires_at TIMESTAMPTZ;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_integration_tokens_refresh
+  ON public.integration_tokens (refresh_token_hash)
+  WHERE refresh_token_hash IS NOT NULL;
+
+-- Clients that registered through DCR. Registration is anonymous (RFC 7591),
+-- so these are not family-scoped; a client is only an identity and a list of
+-- redirect URIs until a family approves it.
+CREATE TABLE IF NOT EXISTS public.oauth_clients (
+  client_id     TEXT PRIMARY KEY,
+  client_name   TEXT NOT NULL,
+  redirect_uris TEXT[] NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- One row per authorization attempt: pending until a family approves it,
+-- then holding the code until it is redeemed once. family_id stays NULL while
+-- pending, because nobody has said which family yet.
+CREATE TABLE IF NOT EXISTS public.oauth_authorization_requests (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id       TEXT NOT NULL,
+  client_name     TEXT NOT NULL,
+  redirect_uri    TEXT NOT NULL,
+  state           TEXT,
+  code_challenge  TEXT NOT NULL,
+  scopes          TEXT[] NOT NULL,
+  resource        TEXT NOT NULL,
+  expires_at      TIMESTAMPTZ NOT NULL,
+  family_id       UUID REFERENCES public.families(id) ON DELETE CASCADE,
+  granted_scopes  TEXT[],
+  code_hash       TEXT UNIQUE,
+  code_expires_at TIMESTAMPTZ,
+  used_at         TIMESTAMPTZ,
+  grant_id        UUID REFERENCES public.integration_tokens(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_authorization_requests_expiry
+  ON public.oauth_authorization_requests (expires_at);
+
+-- Same protection as integration_tokens: nothing for anon/authenticated,
+-- everything for service_role. The routes are the only way in.
+REVOKE ALL ON TABLE public.oauth_clients FROM PUBLIC;
+REVOKE ALL ON TABLE public.oauth_authorization_requests FROM PUBLIC;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    REVOKE ALL ON TABLE public.oauth_clients FROM anon;
+    REVOKE ALL ON TABLE public.oauth_authorization_requests FROM anon;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    REVOKE ALL ON TABLE public.oauth_clients FROM authenticated;
+    REVOKE ALL ON TABLE public.oauth_authorization_requests FROM authenticated;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    GRANT ALL ON TABLE public.oauth_clients TO service_role;
+    GRANT ALL ON TABLE public.oauth_authorization_requests TO service_role;
+  END IF;
+END $$;

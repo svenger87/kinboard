@@ -22,6 +22,8 @@ export interface StoredToken {
   expires_at: string | null;
   revoked_at: string | null;
   last_used_at: string | null;
+  oauth_client_id: string | null;
+  resource: string | null;
 }
 
 /**
@@ -54,7 +56,7 @@ export async function findTokenByHash(hash: string): Promise<StoredToken | null>
 
   const { data, error } = await (supabase as any)
     .from("integration_tokens")
-    .select("id, family_id, name, scopes, token_hash, expires_at, revoked_at, last_used_at")
+    .select("id, family_id, name, scopes, token_hash, expires_at, revoked_at, last_used_at, oauth_client_id, resource")
     .eq("token_hash", hash)
     .maybeSingle();
 

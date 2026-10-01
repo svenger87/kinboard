@@ -80,11 +80,15 @@ test("every family-scoped table is under row-level security", () => {
   // - todo_point_awards: its own RLS + todo_point_awards_family_read policy
   //   in migration_zzz_todo_points.sql, which runs after the central RLS
   //   migration and scopes reads to public.current_family_id().
+  // - oauth_authorization_requests: no RLS, REVOKE-from-anon/authenticated and
+  //   GRANT-to-service_role-only in migration_oauth_mcp.sql, like
+  //   integration_tokens above.
   const coveredElsewhere = new Set([
     "context_rules", "attention_items",
     "integration_tokens", "integration_clients",
     "integration_idempotency", "domain_events",
     "todo_point_awards",
+    "oauth_authorization_requests",
   ]);
 
   const awardsSql = codeOnly(
