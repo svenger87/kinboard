@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound, Copy, Check, Ban } from "lucide-react";
+import { KeyRound, Copy, Check, Ban, Bot } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ interface TokenRow {
   last_used_at: string | null;
   expires_at: string | null;
   revoked_at: string | null;
+  oauth_client_id: string | null;
 }
 
 /**
@@ -44,6 +45,8 @@ export default function IntegrationsPage() {
   const [scopes, setScopes] = useState<string[]>(["family:read"]);
   const [secret, setSecret] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const mcpUrl = typeof window === "undefined" ? "/api/mcp" : `${window.location.origin}/api/mcp`;
 
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ["integration-tokens"],
@@ -140,6 +143,23 @@ export default function IntegrationsPage() {
       )}
 
       <Card className="mb-8 p-6">
+        <h2 className="mb-2 font-semibold">{t("assistantsHeading")}</h2>
+        <p className="mb-3 text-sm text-muted-foreground">{t("assistantsBody")}</p>
+        <div className="flex items-center gap-2">
+          <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1.5 text-sm">{mcpUrl}</code>
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={t("copyMcpUrl")}
+            onClick={() => void navigator.clipboard.writeText(mcpUrl).then(() => toast.success(t("copied")))}
+          >
+            <Copy className="size-4" />
+          </Button>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">{t("assistantsReachability")}</p>
+      </Card>
+
+      <Card className="mb-8 p-6">
         <h2 className="mb-4 font-semibold">{t("createHeading")}</h2>
 
         <div className="mb-4">
@@ -208,6 +228,12 @@ export default function IntegrationsPage() {
                     {token.name}
                     {revoked && (
                       <span className="ml-2 text-xs text-muted-foreground">{t("revokedBadge")}</span>
+                    )}
+                    {token.oauth_client_id && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                        <Bot className="size-3" aria-hidden />
+                        {t("assistantBadge")}
+                      </span>
                     )}
                   </p>
                   <p className="mt-1 flex flex-wrap gap-1">

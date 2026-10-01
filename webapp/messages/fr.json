@@ -2479,7 +2479,13 @@
       "revoked": "Jeton révoqué.",
       "revokeFailed": "Impossible de révoquer le jeton.",
       "revokeConfirmTitle": "Révoquer ce jeton ?",
-      "revokeConfirmBody": "{name} cessera immédiatement de fonctionner. Tout ce qui l'utilise — Home Assistant, une automatisation — perdra l'accès jusqu'à ce que vous en créiez un nouveau."
+      "revokeConfirmBody": "{name} cessera immédiatement de fonctionner. Tout ce qui l'utilise — Home Assistant, une automatisation — perdra l'accès jusqu'à ce que vous en créiez un nouveau.",
+      "assistantBadge": "Assistant",
+      "assistantsHeading": "Assistants IA",
+      "assistantsBody": "Pour connecter Claude ou ChatGPT, ajoutez cette adresse comme connecteur personnalisé. Kinboard vous demandera de l'approuver et de choisir les autorisations.",
+      "assistantsReachability": "Claude et ChatGPT accèdent à cette adresse depuis Internet : elle doit donc être servie en HTTPS sous un nom d'hôte public. Claude Code sur ce réseau peut l'utiliser directement.",
+      "copyMcpUrl": "Copier l'adresse pour assistants",
+      "copied": "Copié"
     },
     "itemIntegrationTokensLabel": "Jetons d'intégration",
     "itemIntegrationTokensDescription": "Permettre à Home Assistant et à d'autres programmes de dialoguer avec Kinboard",

@@ -2479,7 +2479,13 @@
       "revoked": "Token widerrufen.",
       "revokeFailed": "Token konnte nicht widerrufen werden.",
       "revokeConfirmTitle": "Dieses Token widerrufen?",
-      "revokeConfirmBody": "{name} funktioniert sofort nicht mehr. Alles, was es nutzt — Home Assistant, eine Automation — verliert den Zugriff, bis du ein neues erstellst."
+      "revokeConfirmBody": "{name} funktioniert sofort nicht mehr. Alles, was es nutzt — Home Assistant, eine Automation — verliert den Zugriff, bis du ein neues erstellst.",
+      "assistantBadge": "Assistent",
+      "assistantsHeading": "KI-Assistenten",
+      "assistantsBody": "Um Claude oder ChatGPT zu verbinden, füge diese Adresse als eigenen Connector hinzu. Kinboard fragt dann nach deiner Freigabe und den Berechtigungen.",
+      "assistantsReachability": "Claude und ChatGPT greifen aus dem Internet auf diese Adresse zu. Sie muss also per HTTPS unter einem öffentlichen Hostnamen erreichbar sein. Claude Code in diesem Netzwerk kann sie direkt nutzen.",
+      "copyMcpUrl": "Assistenten-Adresse kopieren",
+      "copied": "Kopiert"
     },
     "itemIntegrationTokensLabel": "Integrations-Tokens",
     "itemIntegrationTokensDescription": "Home Assistant und andere Programme mit Kinboard sprechen lassen",
