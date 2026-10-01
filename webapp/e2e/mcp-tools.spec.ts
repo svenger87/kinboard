@@ -136,8 +136,88 @@ test.describe("delete_task", () => {
   });
 });
 
+test.describe("check_shopping_item", () => {
+  test("PATCHes status: completed on the shopping list", async () => {
+    const { server, calls } = buildServer(["shopping:write"]);
+    const t = tool(server, "check_shopping_item");
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    await t.handler({ shopping_item_id: "55555555-5555-5555-5555-555555555555" });
+    expect(calls).toEqual([{
+      path: "/lists/shopping/55555555-5555-5555-5555-555555555555",
+      params: { list: "shopping", item: "55555555-5555-5555-5555-555555555555" },
+      method: "PATCH",
+      body: { status: "completed" },
+    }]);
+  });
+
+  test("is refused without shopping:write, naming the missing scope", async () => {
+    const { server } = buildServer(["family:read"]);
+    const result = await tool(server, "check_shopping_item").handler({ shopping_item_id: "55555555-5555-5555-5555-555555555555" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("shopping:write");
+  });
+});
+
+test.describe("uncheck_shopping_item", () => {
+  test("PATCHes status: needs_action on the shopping list", async () => {
+    const { server, calls } = buildServer(["shopping:write"]);
+    await tool(server, "uncheck_shopping_item").handler({ shopping_item_id: "66666666-6666-6666-6666-666666666666" });
+    expect(calls).toEqual([{
+      path: "/lists/shopping/66666666-6666-6666-6666-666666666666",
+      params: { list: "shopping", item: "66666666-6666-6666-6666-666666666666" },
+      method: "PATCH",
+      body: { status: "needs_action" },
+    }]);
+  });
+});
+
+test.describe("rename_shopping_item", () => {
+  test("PATCHes summary with the new name", async () => {
+    const { server, calls } = buildServer(["shopping:write"]);
+    const t = tool(server, "rename_shopping_item");
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    await t.handler({ shopping_item_id: "77777777-7777-7777-7777-777777777777", name: "Oat milk" });
+    expect(calls).toEqual([{
+      path: "/lists/shopping/77777777-7777-7777-7777-777777777777",
+      params: { list: "shopping", item: "77777777-7777-7777-7777-777777777777" },
+      method: "PATCH",
+      body: { summary: "Oat milk" },
+    }]);
+  });
+
+  test("its input schema rejects an empty name, so the SDK refuses the call before the handler runs", async () => {
+    const { server } = buildServer(["shopping:write"]);
+    const t = tool(server, "rename_shopping_item") as unknown as { inputSchema: { parse: (v: unknown) => unknown } };
+    expect(() => t.inputSchema.parse({ shopping_item_id: "77777777-7777-7777-7777-777777777777", name: "" })).toThrow();
+  });
+});
+
+test.describe("delete_shopping_item", () => {
+  test("DELETEs with no body, and is an edit annotation", async () => {
+    const { server, calls } = buildServer(["shopping:write"]);
+    const t = tool(server, "delete_shopping_item");
+    await t.handler({ shopping_item_id: "88888888-8888-8888-8888-888888888888" });
+    expect(calls).toEqual([{
+      path: "/lists/shopping/88888888-8888-8888-8888-888888888888",
+      params: { list: "shopping", item: "88888888-8888-8888-8888-888888888888" },
+      method: "DELETE",
+    }]);
+    expect(t.annotations?.destructiveHint).toBe(true);
+  });
+
+  test("is refused without shopping:write, naming the missing scope", async () => {
+    const { server } = buildServer(["family:read"]);
+    const result = await tool(server, "delete_shopping_item").handler({ shopping_item_id: "88888888-8888-8888-8888-888888888888" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("shopping:write");
+  });
+});
+
 test("every new tool carries a real scope", () => {
-  for (const name of ["list_people", "complete_task", "reopen_task", "update_task", "delete_task"]) {
+  for (const name of [
+    "list_people", "complete_task", "reopen_task", "update_task", "delete_task",
+    "check_shopping_item", "uncheck_shopping_item", "rename_shopping_item", "delete_shopping_item",
+  ]) {
     expect(TOOL_SCOPES).toHaveProperty(name);
   }
   expect(TOOL_SCOPES.list_people).toBe("family:read");
@@ -145,4 +225,8 @@ test("every new tool carries a real scope", () => {
   expect(TOOL_SCOPES.reopen_task).toBe("tasks:write");
   expect(TOOL_SCOPES.update_task).toBe("tasks:write");
   expect(TOOL_SCOPES.delete_task).toBe("tasks:write");
+  expect(TOOL_SCOPES.check_shopping_item).toBe("shopping:write");
+  expect(TOOL_SCOPES.uncheck_shopping_item).toBe("shopping:write");
+  expect(TOOL_SCOPES.rename_shopping_item).toBe("shopping:write");
+  expect(TOOL_SCOPES.delete_shopping_item).toBe("shopping:write");
 });
