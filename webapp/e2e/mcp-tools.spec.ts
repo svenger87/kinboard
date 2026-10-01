@@ -678,3 +678,29 @@ test("every new tool carries a real scope", () => {
   expect(TOOL_SCOPES.control_device).toBe("home:control");
   expect(TOOL_SCOPES.get_action_status).toBe("home:control");
 });
+
+test.describe("tools that act outside Kinboard say so", () => {
+  test("control_device, update_calendar_event and delete_calendar_event are open-world; Kinboard-only edits are not", () => {
+    const { server } = buildServer(["calendar:write", "home:control", "tasks:write"]);
+    for (const name of ["control_device", "update_calendar_event", "delete_calendar_event"]) {
+      const t = tool(server, name) as unknown as { annotations?: Record<string, unknown> };
+      expect(t.annotations, name).toMatchObject({ readOnlyHint: false, destructiveHint: true, openWorldHint: true });
+    }
+    const local = tool(server, "complete_task") as unknown as { annotations?: Record<string, unknown> };
+    expect(local.annotations).toMatchObject({ openWorldHint: false });
+  });
+
+  test("complete_task says a chore's points go to the person it is assigned to", () => {
+    const { server } = buildServer(["tasks:write"]);
+    const t = tool(server, "complete_task") as unknown as { description?: string };
+    expect(t.description).toMatch(/points/);
+  });
+
+  test("control_device names scenes, input booleans and non-outlet switches among the confirmed actions", () => {
+    const { server } = buildServer(["home:control"]);
+    const t = tool(server, "control_device") as unknown as { description?: string };
+    expect(t.description).toMatch(/scenes/);
+    expect(t.description).toMatch(/switches that are not outlets/);
+    expect(t.description).toMatch(/input booleans/);
+  });
+});

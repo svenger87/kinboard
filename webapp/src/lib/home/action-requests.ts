@@ -4,8 +4,8 @@
  * A sensitive home action (a lock, an alarm panel, a garage door, a script,
  * …) is not run when an assistant asks. It is stored as a pending request;
  * every Kinboard screen shows it and every phone is pushed. A family member
- * approves or denies it there with the settings PIN, and only an approval
- * runs it — with the domain, service, entity and data **as stored**, never
+ * approves it there with the settings PIN, or denies it — which needs no PIN
+ * — and only an approval runs it — with the domain, service, entity and data **as stored**, never
  * anything from the approving request.
  *
  * Without I/O: the table, the PIN check, Home Assistant and the push come in

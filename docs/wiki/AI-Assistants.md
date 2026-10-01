@@ -73,7 +73,7 @@ change them.
 |---|---|
 | `list_tasks` | Active tasks |
 | `create_task` | Add a task |
-| `complete_task` | Mark a task done |
+| `complete_task` | Mark a task done — a chore with points awards them, just as ticking it off on a screen does |
 | `reopen_task` | Mark a one-off task not done again — recurring tasks can't be reopened |
 | `update_task` | Edit a task's title, due date or assignee |
 | `delete_task` | Delete a task — to the recycle bin, recoverable from Settings |
@@ -109,7 +109,7 @@ change them.
 
 | Tool | Does |
 |---|---|
-| `send_message` | Put text on every Kinboard screen and push it to every phone — at most 5 messages per 10 minutes per assistant connection |
+| `send_message` | Put text on every Kinboard screen and push it to every phone, marked "via" the assistant's name — at most 5 messages per 10 minutes per assistant connection |
 | `get_solar_production` | Current solar power and today's solar energy, from the sensors set up under Energy |
 
 ### Home
@@ -125,7 +125,7 @@ change them.
 
 | Permission | Lets the assistant |
 |---|---|
-| `family:read` | read the summary, calendar, tasks, people and shopping list |
+| `family:read` | read the summary, calendar, tasks, people, meal plan and shopping list |
 | `notes:read` | read notes |
 | `calendar:write` | add, edit and delete calendar events |
 | `tasks:write` | add, complete, edit and delete tasks |
@@ -138,6 +138,19 @@ change them.
 | `home:control` | control catalogue devices — grant `home:read` too if the assistant should also be able to look before it acts |
 
 Twenty wrong PINs within an hour lock PIN entry for the rest of that hour.
+
+**Points.** Completing a task through an assistant is the same as ticking it
+off on a screen: if the task is a chore with points, the person it's
+assigned to gets them (and reopening a one-off task takes them back). Only
+grant `tasks:write` to an assistant you'd let tick off the children's chores.
+
+**Limits.** Each assistant connection can make at most 30 edits and deletes
+in 10 minutes, across tasks, shopping items, notes, calendar events and meal
+entries, and can have at most 2 home actions waiting for confirmation (5 in
+10 minutes). Past that it is told to slow down and nothing happens. Edits
+overwrite the previous text with no history; deleted tasks, notes and meals
+go to the recycle bin, but deleted shopping items and calendar events are
+gone for good — calendar events from Google or CalDAV too.
 
 ## Home
 

@@ -38,7 +38,7 @@ Write scopes cover create, edit and delete of their own kind — the rule the
 | `shopping:write` | — | add, check/uncheck, rename, delete items |
 | `calendar:write` | — (unreleased) | create, edit, delete events, with Google/CalDAV write-through |
 | `notes:write` | — | create, edit, delete notes (**broadens** an existing scope; see §8) |
-| `meals:write` | **new** | add, change, remove meal-plan entries |
+| `meals:write` | **new** | add and remove meal-plan entries (there is no edit; change a meal by removing it and adding another) |
 | `announcements:write` | — (unused until now) | send a message to the family's screens |
 | `home:read` | **new** | list catalogue devices and their current state |
 | `home:control` | **new** | run allowed actions on catalogue devices |
@@ -50,7 +50,7 @@ Write scopes cover create, edit and delete of their own kind — the rule the
 | Tool | Scope | Notes |
 |---|---|---|
 | `list_people` | family:read | names and ids, so tasks can be assigned |
-| `complete_task` | tasks:write | recurring tasks: done for today, in the family's time zone |
+| `complete_task` | tasks:write | recurring tasks: done for today, in the family's time zone; a chore with points awards them (§8) |
 | `reopen_task` | tasks:write | one-off tasks only (the UI has no "undo" for a recurring day) |
 | `update_task` | tasks:write | title, due date, assignee |
 | `delete_task` | tasks:write | to the recycle bin (soft delete), never a purge |
@@ -121,9 +121,14 @@ Write scopes cover create, edit and delete of their own kind — the rule the
    (same rate-limited check as everywhere). **Denying** needs no PIN —
    refusing is always safe, and anyone at a screen must be able to stop an
    unexpected unlock. Approval re-checks that the assistant is still
-   connected and the entity is still in the family's catalogue before
-   running anything; only then does the server run the action exactly as
-   stored and record the result. Expiry or a revoked assistant also end a
+   connected, that the entity is still in the family's catalogue, and that
+   the stored action is still allowed by the policy (§4.2) before running
+   anything; only then does the server run the action exactly as stored and
+   record the result. If a screen has meanwhile reported a slow approval as
+   "outcome unknown", Home Assistant's real answer replaces that report. The
+   screen that approved keeps the outcome — done, didn't work, or unknown and
+   "check the device" — on screen until someone closes it, and the
+   screensaver stays off while it does. Expiry or a revoked assistant also end a
    request without running anything. The assistant learns the outcome with
    `get_action_status`.
 4. **Fail closed.** No Home Assistant configured, catalogue unreadable, state
@@ -137,6 +142,11 @@ assistant tables, readable to the family's screens through a session route):
 `id, family_id, token_id, client_name, entity_id, entity_name, domain, service,
 data jsonb, status (pending|approved|denied|expired|failed|done), created_at,
 expires_at, decided_at, decided_by_device_id, result jsonb`.
+
+`messages.sender_label` (nullable text, at most 100 characters): the
+assistant connection's name, cut to 40 characters, on a message sent with
+`send_message`; null for a message a person typed. Screens show "via
+<name>" under an assistant's message.
 
 No other schema changes: tasks, notes and meal-plan entries already
 soft-delete; events and shopping items do not, by earlier design.
@@ -160,13 +170,35 @@ soft-delete; events and shopping items do not, by earlier design.
   remains a local act (RFC-002 §6).
 - Prompt injection: note text, event titles and shopping items are attacker-
   reachable content in the model's context. The worst an injected instruction
-  can do without a human is non-sensitive device control and edits/deletes that
-  the recycle bin (tasks, notes) or provider history (calendar) can recover;
-  door, alarm and garage actions need the PIN on a household device.
+  can do without a human is non-sensitive device control, and edits and
+  deletes — not all of which can be undone:
+  - **Edits overwrite without history.** A changed task title, note text or
+    event time is not kept anywhere; for a calendar event the change is also
+    written through to Google or CalDAV.
+  - **Deletes:** tasks, notes and meal entries go to the recycle bin and can
+    be restored. Shopping items are deleted outright (the list has no
+    recycle bin), and so are calendar events — including from Google or
+    CalDAV, where a CalDAV server keeps no history either.
+  - Door, alarm, garage, scene, script and non-outlet switch actions need the
+    PIN on a household device.
+- Per-assistant limits bound how much an injected instruction can do before
+  somebody notices, on top of the Integration API's generic per-token limit
+  (`lib/integration-limits.ts`; 429 `rate_limited` with `Retry-After`):
+  - **Confirmations:** at most **2 waiting** and **5 created per 10 minutes**
+    per assistant connection, checked before anything is stored or pushed —
+    every request lights up every screen and phone in the house.
+  - **Edits and deletes:** at most **30 per 10 minutes** per assistant
+    connection across tasks, shopping items, notes, calendar events and meal
+    entries (every Integration API `PATCH` and `DELETE`).
 - Every action is attributable: `assistant_action_requests` carries the
   token for a sensitive action's confirmation *and* for an action that ran
   immediately (a `done`/`failed` row is written after the fact, with no
   screen ever shown), and the Settings list shows each assistant connection.
+- Messages are attributed: an assistant's message carries its connection's
+  name (`messages.sender_label`, §5), shown on every screen as "via <name>",
+  so a family can tell it from one a person typed. The name is the client's
+  own choice, so everywhere it is shown — the confirmation prompt included —
+  it is cut to 40 characters and set as a label, not as running text.
 - `send_message` has its own budget on top of the Integration API's generic
   per-token write limit: at most **5 messages per 10 minutes per assistant
   connection**, 429 `rate_limited` past it. A message interrupts whoever is
@@ -180,3 +212,10 @@ soft-delete; events and shopping items do not, by earlier design.
 API. Accepted: it matches what `tasks:write` and `shopping:write` already
 allow, and the HA component holds no edit tools. Called out in the release
 notes when this ships.
+
+Completing a task through the API is the same completion as ticking it on a
+screen, so a chore that carries points awards them to the person it is
+assigned to (the database trigger from `migration_zzz_todo_points.sql`), and
+reopening a one-off task takes them back. An assistant with `tasks:write`
+can therefore move a child's points; the family grants that scope knowing
+it, and every completion shows on the task list like any other.

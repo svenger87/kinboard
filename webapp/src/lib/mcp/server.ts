@@ -70,6 +70,9 @@ const createAction = { readOnlyHint: false, destructiveHint: false, openWorldHin
 // which editing and soft-deleting both are; recoverability is explained in
 // each tool's own description instead.
 const editAction = { readOnlyHint: false, destructiveHint: true, openWorldHint: false };
+// The same, for tools that also act outside Kinboard: an event edit or delete
+// written through to Google or CalDAV, a device in the real home.
+const externalEditAction = { readOnlyHint: false, destructiveHint: true, openWorldHint: true };
 const isoWithOffset = z.string()
   .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/, "ISO 8601 with Z or a +HH:MM offset")
   .refine((s) => !Number.isNaN(Date.parse(s)), "not a real time");
@@ -190,20 +193,20 @@ export function createKinboardMcpServer(
       all_day: z.boolean().optional(), start_date: date.optional(), end_date: date.optional(),
       description: z.union([z.string().max(2000), z.null()]).optional(),
       location: z.union([z.string().max(300), z.null()]).optional(),
-    }), editAction,
+    }), externalEditAction,
     ({ event_id, ...fields }) => {
       const body = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
       return call(calendarEventPatch, { path: `/calendar/events/${event_id}`, params: { id: event_id }, method: "PATCH", body });
     });
   register("delete_calendar_event", "Delete a calendar event. This also deletes it from Google or the CalDAV calendar; cannot be undone (calendar events have no recycle bin). If the provider refuses, the event is kept and the error says so. One occurrence of a repeating CalDAV event cannot be deleted. Use the event id from list_calendar_events.",
-    z.object({ event_id: z.uuid() }), editAction,
+    z.object({ event_id: z.uuid() }), externalEditAction,
     ({ event_id }) => call(calendarEventDelete, { path: `/calendar/events/${event_id}`, params: { id: event_id }, method: "DELETE" }));
   register("list_tasks", "Read active family tasks, including completion status and due dates.", z.object({}), readOnly,
     () => call(listGet, { path: "/lists/tasks", params: { list: "tasks" } }));
   register("create_task", "Create a family task. Ask the user before writing when their intent is ambiguous; never invent a due date.",
     z.object({ title: z.string().trim().min(1).max(300), due_date: date.optional() }), createAction,
     ({ title, due_date }) => call(listPost, { path: "/lists/tasks", params: { list: "tasks" }, body: { summary: title, ...(due_date ? { due: due_date } : {}) } }));
-  register("complete_task", "Mark a task done. A recurring task is marked done for today only, in the family's time zone, and becomes due again on its next occurrence; a one-off task is completed outright.",
+  register("complete_task", "Mark a task done. A recurring task is marked done for today only, in the family's time zone, and becomes due again on its next occurrence; a one-off task is completed outright. Completing a chore that carries points awards them to the person it is assigned to (a child's pocket of points), exactly as ticking it off on a Kinboard screen does.",
     z.object({ task_id: z.uuid() }), editAction,
     ({ task_id }) => call(listItemPatch, { path: `/lists/tasks/${task_id}`, params: { list: "tasks", item: task_id }, method: "PATCH", body: { status: "completed" } }));
   register("reopen_task", "Mark a one-off task not done. Recurring tasks cannot be reopened — Kinboard itself has no undo for a day already marked done — and this fails if task_id names one.",
@@ -282,12 +285,12 @@ export function createKinboardMcpServer(
   register("get_device_state", "Read one catalogue device's current state, attributes and allowed_actions. A device outside the family's catalogue is reported as not found.",
     z.object({ entity_id: entityId }), readOnly,
     ({ entity_id }) => call(homeDevice, { path: devicePath(entity_id), params: { entity: entity_id } }));
-  register("control_device", "Run an action on a device in the family's Kinboard catalogue — only a service listed in that device's allowed_actions (list_home_devices), with the data that service takes (for example light turn_on with brightness_pct 0-100). This acts on the real home and Kinboard cannot undo it. Sensitive actions do not run straight away: locks, alarm panels, garage doors, gates and every cover that is not a blind, shutter, curtain, shade, awning or damper, scripts, buttons, sirens and lawn mowers need a family member to confirm on a Kinboard screen with the settings PIN. For those, tell the user that someone has to confirm it on a Kinboard screen and that nothing has happened yet; the answer has a request_id to check with get_action_status. If Home Assistant cannot be reached, nothing is done.",
+  register("control_device", "Run an action on a device in the family's Kinboard catalogue — only a service listed in that device's allowed_actions (list_home_devices), with the data that service takes (for example light turn_on with brightness_pct 0-100). This acts on the real home and Kinboard cannot undo it. Sensitive actions do not run straight away: locks, alarm panels, garage doors, gates and every cover that is not a blind, shutter, curtain, shade, awning or damper, scenes, scripts, input booleans, switches that are not outlets, buttons, sirens and lawn mowers need a family member to confirm on a Kinboard screen with the settings PIN. An assistant may have at most 2 such requests waiting and 5 per 10 minutes. For those, tell the user that someone has to confirm it on a Kinboard screen and that nothing has happened yet; the answer has a request_id to check with get_action_status. If Home Assistant cannot be reached, nothing is done.",
     z.object({
       entity_id: entityId,
       service: z.string().min(1).max(64).regex(/^[a-z_]+$/, "a bare service name such as turn_on"),
       data: z.record(z.string(), z.unknown()).optional(),
-    }), editAction,
+    }), externalEditAction,
     ({ entity_id, service, data }) => call(homeDeviceAction, {
       path: `${devicePath(entity_id)}/actions`, params: { entity: entity_id },
       body: data === undefined ? { service } : { service, data },
