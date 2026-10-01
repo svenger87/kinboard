@@ -213,10 +213,80 @@ test.describe("delete_shopping_item", () => {
   });
 });
 
+test.describe("update_note", () => {
+  test("sends only the fields supplied", async () => {
+    const { server, calls } = buildServer(["notes:write"]);
+    await tool(server, "update_note").handler({ note_id: "99999999-9999-9999-9999-999999999999", content: "Buy milk" });
+    expect(calls).toEqual([{
+      path: "/notes/99999999-9999-9999-9999-999999999999",
+      params: { id: "99999999-9999-9999-9999-999999999999" },
+      method: "PATCH",
+      body: { content: "Buy milk" },
+    }]);
+  });
+
+  test("pinned alone, and both together", async () => {
+    const { server, calls } = buildServer(["notes:write"]);
+    await tool(server, "update_note").handler({ note_id: "99999999-9999-9999-9999-999999999999", pinned: true });
+    await tool(server, "update_note").handler({ note_id: "99999999-9999-9999-9999-999999999999", content: "Buy milk", pinned: false });
+    expect(calls[0].body).toEqual({ pinned: true });
+    expect(calls[1].body).toEqual({ content: "Buy milk", pinned: false });
+  });
+
+  test("is an edit annotation", async () => {
+    const { server } = buildServer(["notes:write"]);
+    expect(tool(server, "update_note").annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+  });
+
+  test("its input schema rejects content over 2000 characters, so the SDK refuses the call before the handler runs", async () => {
+    const { server } = buildServer(["notes:write"]);
+    const t = tool(server, "update_note") as unknown as { inputSchema: { parse: (v: unknown) => unknown } };
+    expect(() => t.inputSchema.parse({ note_id: "99999999-9999-9999-9999-999999999999", content: "a".repeat(2001) })).toThrow();
+  });
+
+  test("is refused without notes:write, naming the missing scope", async () => {
+    const { server } = buildServer(["notes:read"]);
+    const result = await tool(server, "update_note").handler({ note_id: "99999999-9999-9999-9999-999999999999", content: "x" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("notes:write");
+  });
+});
+
+test.describe("delete_note", () => {
+  test("DELETEs with no body, and says it's recoverable", async () => {
+    const { server, calls } = buildServer(["notes:write"]);
+    const t = tool(server, "delete_note");
+    await t.handler({ note_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" });
+    expect(calls).toEqual([{
+      path: "/notes/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      params: { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" },
+      method: "DELETE",
+    }]);
+    expect(t.annotations?.destructiveHint).toBe(true);
+  });
+
+  test("surfaces the route's 404 as a tool error, not a crash", async () => {
+    const { server } = buildServer(["notes:write"], () => {
+      throw new IntegrationCallError("no such note", 404, "not_found");
+    });
+    const result = await tool(server, "delete_note").handler({ note_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe("no such note");
+  });
+
+  test("is refused without notes:write, naming the missing scope", async () => {
+    const { server } = buildServer(["notes:read"]);
+    const result = await tool(server, "delete_note").handler({ note_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("notes:write");
+  });
+});
+
 test("every new tool carries a real scope", () => {
   for (const name of [
     "list_people", "complete_task", "reopen_task", "update_task", "delete_task",
     "check_shopping_item", "uncheck_shopping_item", "rename_shopping_item", "delete_shopping_item",
+    "update_note", "delete_note",
   ]) {
     expect(TOOL_SCOPES).toHaveProperty(name);
   }
@@ -229,4 +299,6 @@ test("every new tool carries a real scope", () => {
   expect(TOOL_SCOPES.uncheck_shopping_item).toBe("shopping:write");
   expect(TOOL_SCOPES.rename_shopping_item).toBe("shopping:write");
   expect(TOOL_SCOPES.delete_shopping_item).toBe("shopping:write");
+  expect(TOOL_SCOPES.update_note).toBe("notes:write");
+  expect(TOOL_SCOPES.delete_note).toBe("notes:write");
 });

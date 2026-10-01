@@ -161,6 +161,7 @@ test.describe("energy reads only configured sensors", () => {
 test.describe("each assistant route demands its own scope", () => {
   const ROUTES: [string, IntegrationScope][] = [
     ["notes/route.ts", "notes:read"],
+    ["notes/[id]/route.ts", "notes:write"],
     ["energy/current/route.ts", "energy:read"],
     ["calendars/route.ts", "family:read"],
     ["people/route.ts", "family:read"],

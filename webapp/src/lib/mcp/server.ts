@@ -10,6 +10,7 @@ import { GET as listGet, POST as listPost } from "@/app/api/integration/v1/lists
 import { PATCH as listItemPatch, DELETE as listItemDelete } from "@/app/api/integration/v1/lists/[list]/[item]/route";
 import { GET as people } from "@/app/api/integration/v1/people/route";
 import { GET as notes } from "@/app/api/integration/v1/notes/route";
+import { PATCH as notePatchRoute, DELETE as noteDelete } from "@/app/api/integration/v1/notes/[id]/route";
 import { POST as service } from "@/app/api/integration/v1/services/[service]/route";
 import { GET as energy } from "@/app/api/integration/v1/energy/current/route";
 
@@ -34,6 +35,8 @@ export const TOOL_SCOPES = {
   delete_shopping_item: "shopping:write",
   list_notes: "notes:read",
   create_note: "notes:write",
+  update_note: "notes:write",
+  delete_note: "notes:write",
   get_solar_production: "energy:read",
 } as const satisfies Record<string, McpScope>;
 
@@ -181,6 +184,17 @@ export function createKinboardMcpServer(
     () => call(notes, { path: "/notes" }));
   register("create_note", "Create a family note containing text supplied by the user.", z.object({ text: z.string().trim().min(1).max(2000) }), createAction,
     ({ text }) => call(service, { path: "/services/create_note", params: { service: "create_note" }, body: { text } }));
+  register("update_note", "Edit a note's text and/or pinned state. Only the fields supplied are changed.",
+    z.object({ note_id: z.uuid(), content: z.string().trim().min(1).max(2000).optional(), pinned: z.boolean().optional() }), editAction,
+    ({ note_id, content, pinned }) => {
+      const body: Record<string, unknown> = {};
+      if (content !== undefined) body.content = content;
+      if (pinned !== undefined) body.pinned = pinned;
+      return call(notePatchRoute, { path: `/notes/${note_id}`, params: { id: note_id }, method: "PATCH", body });
+    });
+  register("delete_note", "Delete a note. This moves it to Kinboard's recycle bin — recoverable from Settings — rather than erasing it outright.",
+    z.object({ note_id: z.uuid() }), editAction,
+    ({ note_id }) => call(noteDelete, { path: `/notes/${note_id}`, params: { id: note_id }, method: "DELETE" }));
   register("get_solar_production", "Read current solar power and today's solar energy from the sensors configured in Kinboard. Report units and observed_at; null means unavailable. No arbitrary Home Assistant entities are accessible.", z.object({}), readOnly,
     () => call(energy, { path: "/energy/current" }));
 

@@ -167,6 +167,58 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
+  /notes/{id}:
+    patch:
+      tags: [state]
+      summary: Edit a note's content or pinned state
+      description: |
+        Only the fields supplied are changed; send `content`, `pinned`, or
+        both. `content` is trimmed and bounded to 1–2000 characters, the same
+        bound `create_note` already enforces. A note already in the recycle
+        bin, missing, or belonging to another family answers `404`.
+      x-required-scope: notes:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                content: { type: string, minLength: 1, maxLength: 2000 }
+                pinned: { type: boolean }
+      responses:
+        "200": { description: Updated }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such note in this family, including one already in the recycle bin." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    delete:
+      tags: [state]
+      summary: Delete a note
+      description: |
+        Moves the note to Kinboard's recycle bin through the same BEFORE
+        DELETE trigger as tasks (`migration_zzz_soft_delete.sql`). A note
+        already binned, missing, or belonging to another family answers
+        `404` rather than being deleted again — a second delete on an
+        already-binned row purges it for real, which this refuses to do.
+      x-required-scope: notes:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Removed }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such note in this family, including one already in the recycle bin." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
   /people:
     get:
       tags: [state]
