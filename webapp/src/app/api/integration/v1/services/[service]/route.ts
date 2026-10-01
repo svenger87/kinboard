@@ -28,6 +28,10 @@ export const dynamic = "force-dynamic";
 type Handler = (args: {
   familyId: string;
   body: Record<string, unknown>;
+  // The service-role client, passed in rather than created in each handler so
+  // a spec can hand the real handler a recording stand-in and send it exactly
+  // what Home Assistant sends. Untyped, like the admin client everywhere else.
+  db: any;
 }) => Promise<{ status: number; response: Record<string, unknown> }>;
 
 interface ServiceDef {
@@ -43,6 +47,8 @@ function text(value: unknown, max = 500): string | null {
   return t;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function optionalText(value: unknown, max = 500): string | null | undefined {
   if (value === undefined || value === null) return undefined;
   return text(value, max);
@@ -51,15 +57,13 @@ function optionalText(value: unknown, max = 500): string | null | undefined {
 const SERVICES: Record<string, ServiceDef> = {
   add_shopping_item: {
     scope: "shopping:write",
-    handle: async ({ familyId, body }) => {
+    handle: async ({ familyId, body, db }) => {
       const name = text(body.name, 200);
       if (!name) {
         return { status: 400, response: { error: "`name` is required", code: "invalid_request" } };
       }
 
-      const supabase = createAdminClient();
-
-      const { data, error } = await (supabase as any)
+      const { data, error } = await db
         .from("shopping_items")
         .insert({ family_id: familyId, name })
         .select("id")
@@ -72,7 +76,7 @@ const SERVICES: Record<string, ServiceDef> = {
 
   create_task: {
     scope: "tasks:write",
-    handle: async ({ familyId, body }) => {
+    handle: async ({ familyId, body, db }) => {
       const title = text(body.title, 300);
       if (!title) {
         return { status: 400, response: { error: "`title` is required", code: "invalid_request" } };
@@ -88,9 +92,7 @@ const SERVICES: Record<string, ServiceDef> = {
         };
       }
 
-      const supabase = createAdminClient();
-
-      const { data, error } = await (supabase as any)
+      const { data, error } = await db
         .from("todos")
         .insert({
           family_id: familyId,
@@ -109,15 +111,13 @@ const SERVICES: Record<string, ServiceDef> = {
 
   create_note: {
     scope: "notes:write",
-    handle: async ({ familyId, body }) => {
+    handle: async ({ familyId, body, db }) => {
       const content = text(body.text, 2000);
       if (!content) {
         return { status: 400, response: { error: "`text` is required", code: "invalid_request" } };
       }
 
-      const supabase = createAdminClient();
-
-      const { data, error } = await (supabase as any)
+      const { data, error } = await db
         .from("notes")
         .insert({ family_id: familyId, content })
         .select("id")
@@ -137,14 +137,25 @@ const SERVICES: Record<string, ServiceDef> = {
    */
   add_pocket_money: {
     scope: "tasks:write",
-    handle: async ({ familyId, body }) => {
-      const person = text(body.person, 200);
+    handle: async ({ familyId, body, db }) => {
+      // RFC-001 §5.2 names the arguments `person_id, amount, reason`, and that
+      // is what the Home Assistant component sends. This handler first shipped
+      // reading `person` (a name) and `note`, so every call from Home Assistant
+      // was a 400. The RFC names come first; the old ones stay accepted for
+      // anything already written against them.
+      const personId = text(body.person_id, 100);
+      const personName = personId ? null : text(body.person, 200);
       const amount = typeof body.amount === "number" ? body.amount : null;
-      if (!person || amount === null || !Number.isFinite(amount) || amount === 0) {
+      if (
+        (!personId && !personName) ||
+        amount === null ||
+        !Number.isFinite(amount) ||
+        amount === 0
+      ) {
         return {
           status: 400,
           response: {
-            error: "`person` and a non-zero `amount` are required",
+            error: "`person_id` (or `person`, a name) and a non-zero `amount` are required",
             code: "invalid_request",
           },
         };
@@ -154,21 +165,32 @@ const SERVICES: Record<string, ServiceDef> = {
       // credits a child two hundred and fifty euros.
       const cents = Math.round(amount * 100);
 
-      const supabase = createAdminClient();
-      const { data: people } = await (supabase as any)
+      const { data: people } = await db
         .from("people")
         .select("id, name")
         .eq("family_id", familyId)
         .is("deleted_at", null);
 
-      const match = ((people ?? []) as { id: string; name: string }[]).find(
-        (candidate) => candidate.name.toLowerCase() === person.toLowerCase()
-      );
+      // Matching against this family's living people is the family check for
+      // `person_id` as well as the lookup for `person`: an id from another
+      // family, or of someone in the recycle bin, is simply not in the list.
+      const candidates = (people ?? []) as { id: string; name: string }[];
+      const match = personId
+        ? candidates.find((candidate) => candidate.id === personId)
+        : candidates.find(
+            (candidate) => candidate.name.toLowerCase() === personName!.toLowerCase()
+          );
       if (!match) {
-        return { status: 404, response: { error: `No person called ${person}`, code: "not_found" } };
+        return {
+          status: 404,
+          response: {
+            error: personId ? `No person with id ${personId}` : `No person called ${personName}`,
+            code: "not_found",
+          },
+        };
       }
 
-      const { data: account } = await (supabase as any)
+      const { data: account } = await db
         .from("pocket_money_accounts")
         .select("id, balance_cents, lifetime_saved_cents")
         .eq("family_id", familyId)
@@ -187,13 +209,13 @@ const SERVICES: Record<string, ServiceDef> = {
       }
 
       const type = cents > 0 ? "manual_deposit" : "withdrawal";
-      const { error: txnError } = await (supabase as any)
+      const { error: txnError } = await db
         .from("pocket_money_transactions")
         .insert({
           account_id: account.id,
           amount_cents: cents,
           type,
-          note: text(body.note, 200) ?? "Home Assistant",
+          note: text(body.reason, 200) ?? text(body.note, 200) ?? "Home Assistant",
         });
       if (txnError) {
         return { status: 500, response: { error: "Could not record the transaction" } };
@@ -203,14 +225,14 @@ const SERVICES: Record<string, ServiceDef> = {
       if (cents > 0) {
         update.lifetime_saved_cents = (account.lifetime_saved_cents ?? 0) + cents;
       }
-      await (supabase as any)
+      await db
         .from("pocket_money_accounts")
         .update(update)
         .eq("id", account.id);
 
       return {
         status: 201,
-        response: { person: match.name, amount, balance: newBalance / 100 },
+        response: { person_id: match.id, person: match.name, amount, balance: newBalance / 100 },
       };
     },
   },
@@ -224,26 +246,43 @@ const SERVICES: Record<string, ServiceDef> = {
    */
   dismiss_attention: {
     scope: "tasks:write",
-    handle: async ({ familyId, body }) => {
-      const supabase = createAdminClient();
-      const key = text(body.key, 200);
-      const ruleId = text(body.rule_id, 100);
+    handle: async ({ familyId, body, db }) => {
+      // RFC-001 §5.2 calls the argument `attention_id`, and that is what the
+      // Home Assistant component sends; this handler first shipped reading only
+      // `key` and `rule_id`, so every call from Home Assistant was a 400.
+      // `attention_id` means the item key, as `key` does. A row id is accepted
+      // too, because "id" invites one — still only within this family.
+      const attentionId = text(body.attention_id, 200);
+      const key = attentionId ? null : text(body.key, 200);
+      const ruleId = attentionId || key ? null : text(body.rule_id, 100);
 
-      if (!key && !ruleId) {
+      if (!attentionId && !key && !ruleId) {
         return {
           status: 400,
-          response: { error: "`key` or `rule_id` is required", code: "invalid_request" },
+          response: {
+            error: "`attention_id` is required (or the older `key` or `rule_id`)",
+            code: "invalid_request",
+          },
         };
       }
 
-      let query = (supabase as any)
+      let query = db
         .from("attention_items")
         .update({ state: "acknowledged", acted_at: new Date().toISOString() })
         .eq("family_id", familyId)
         .is("resolved_at", null)
         .eq("state", "active");
 
-      query = key ? query.eq("item_key", key) : query.eq("rule_id", ruleId);
+      if (attentionId) {
+        // Only a value shaped like a UUID may reach the `or` filter: it is
+        // interpolated into PostgREST's filter syntax, where a comma or a
+        // parenthesis in free text would change the filter's meaning.
+        query = UUID.test(attentionId)
+          ? query.or(`item_key.eq.${attentionId},id.eq.${attentionId}`)
+          : query.eq("item_key", attentionId);
+      } else {
+        query = key ? query.eq("item_key", key) : query.eq("rule_id", ruleId);
+      }
 
       const { data, error } = await query.select("item_key");
       if (error) {
@@ -289,6 +328,11 @@ const NOT_YET_IMPLEMENTED = new Set([
   "show_announcement",
   "activate_context",
 ]);
+
+/** Exposed so a spec can drive a handler with the exact payload a client sends. */
+export const SERVICE_HANDLERS: Record<string, Handler> = Object.fromEntries(
+  Object.entries(SERVICES).map(([name, def]) => [name, def.handle]),
+);
 
 /** Exposed so the OpenAPI contract test can check the spec against reality. */
 export const IMPLEMENTED_SERVICES = Object.keys(SERVICES);
@@ -367,7 +411,11 @@ export async function POST(
     }
 
     try {
-      const result = await def.handle({ familyId: context.familyId, body });
+      const result = await def.handle({
+        familyId: context.familyId,
+        body,
+        db: createAdminClient(),
+      });
 
       // Only successful work is remembered. A 400 is a client mistake, and
       // replaying it would mean a corrected retry with the same key kept

@@ -22,6 +22,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - **RTSP cameras say LIVE only when they are.** A camera tile said LIVE over the still image an RTSP camera shows while it connects, which refreshes every few seconds. And in a browser that cannot play the camera's video format (an H.265 camera, viewed in a browser without H.265 in WebRTC) it switched to a black box marked LIVE and never drew a frame. The tile now switches to live video, and says LIVE, only once video is actually arriving -- including after Refresh on a tile that was already live. Until then, or if it never does, it stays on the refreshing still.
+- **Home Assistant's add pocket money and dismiss alert actions work.** Both had failed with an error on every call since they were added, because Kinboard expected different field names from the ones the Home Assistant integration sends. Adding pocket money now takes the person's id, the amount and a reason, and the reason is shown on the booking instead of just "Home Assistant"; dismissing an alert takes the alert's key. Automations that already used the older names -- a person's name and a note, or `key` and `rule_id` -- keep working.
 - **The week overview counts a task on the day it is due.** West of UTC -- across the Americas -- a task due on the 14th was counted on the 13th, because its due date was read as midnight UTC.
 
 ### Security

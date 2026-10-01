@@ -142,6 +142,30 @@ test.describe("the spec says the things a consumer has to get right", () => {
     expect(key?.required).toBe(true);
   });
 
+  test("service arguments are documented under the names Home Assistant sends", () => {
+    // #309: the server read `person`/`note`/`key` while the component sent the
+    // RFC's `person_id`/`amount`/`reason` and `attention_id`, and both services
+    // were a 400 from day one. The spec now names the RFC fields as primary; a
+    // spec that drifted back to the aliases would mislead the next client.
+    const schemas = spec.components.schemas as Record<
+      string,
+      { properties?: Record<string, { deprecated?: boolean }> }
+    >;
+    const pocket = schemas.AddPocketMoneyArgs?.properties ?? {};
+    for (const field of ["person_id", "amount", "reason"]) {
+      expect(pocket[field], `AddPocketMoneyArgs.${field}`).toBeTruthy();
+      expect(pocket[field]?.deprecated, `${field} is primary`).toBeFalsy();
+    }
+    expect(pocket.person?.deprecated).toBe(true);
+    expect(pocket.note?.deprecated).toBe(true);
+
+    const dismiss = schemas.DismissAttentionArgs?.properties ?? {};
+    expect(dismiss.attention_id).toBeTruthy();
+    expect(dismiss.attention_id?.deprecated).toBeFalsy();
+    expect(dismiss.key?.deprecated).toBe(true);
+    expect(dismiss.rule_id?.deprecated).toBe(true);
+  });
+
   test("the events endpoint documents its limit ceiling", () => {
     // A consumer that does not know the cap will believe it received
     // everything when it received 200 of 5,000.
