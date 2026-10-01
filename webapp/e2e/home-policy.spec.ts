@@ -19,7 +19,7 @@ import { DANGEROUS_ACTIONS } from "../src/lib/ha-dangerous-actions";
  * Pure functions, no stack: runs in CI's stack-free specs job.
  */
 
-type Sensitivity = "never" | "always" | "unless_blind";
+type Sensitivity = "never" | "always" | "unless_blind" | "unless_outlet";
 
 /** RFC-011 §4: the only cover device classes that move without asking. */
 const HARMLESS_COVER_CLASSES = ["awning", "blind", "curtain", "damper", "shade", "shutter"];
@@ -28,6 +28,8 @@ const HARMLESS_COVER_CLASSES = ["awning", "blind", "curtain", "damper", "shade",
 function expectedSensitive(s: Sensitivity, deviceClass: string | null): boolean {
   if (s === "always") return true;
   if (s === "never") return false;
+  // Ruling 8: a switch is harmless only when Home Assistant calls it an outlet.
+  if (s === "unless_outlet") return deviceClass === null || deviceClass.trim().toLowerCase() !== "outlet";
   return !(deviceClass !== null && HARMLESS_COVER_CLASSES.includes(deviceClass.trim().toLowerCase()));
 }
 
@@ -39,6 +41,10 @@ const DEVICE_CLASSES: (string | null)[] = [
   "door",
   "window",
   "damper_x",
+  "outlet",
+  " Outlet ",
+  "switch",
+  "outlets",
   "",
   null,
 ];
@@ -46,8 +52,8 @@ const DEVICE_CLASSES: (string | null)[] = [
 /** RFC-011 §4, verbatim. Domain → service → sensitivity. */
 const RFC_TABLE: Record<string, Record<string, Sensitivity>> = {
   light: { turn_on: "never", turn_off: "never", toggle: "never" },
-  switch: { turn_on: "never", turn_off: "never", toggle: "never" },
-  input_boolean: { turn_on: "never", turn_off: "never", toggle: "never" },
+  switch: { turn_on: "unless_outlet", turn_off: "unless_outlet", toggle: "unless_outlet" },
+  input_boolean: { turn_on: "always", turn_off: "always", toggle: "always" },
   fan: { turn_on: "never", turn_off: "never", toggle: "never", set_percentage: "never" },
   climate: {
     set_temperature: "never",
@@ -73,7 +79,7 @@ const RFC_TABLE: Record<string, Record<string, Sensitivity>> = {
     stop_cover: "unless_blind",
     set_cover_position: "unless_blind",
   },
-  scene: { turn_on: "never" },
+  scene: { turn_on: "always" },
   vacuum: { start: "never", pause: "never", return_to_base: "never" },
   humidifier: { turn_on: "never", turn_off: "never", set_humidity: "never" },
   lock: { lock: "always", unlock: "always", open: "always" },
@@ -353,6 +359,44 @@ test.describe("covers ask unless they are plainly a blind", () => {
   });
 });
 
+test.describe("scenes and switches (rulings of 2026-10-01)", () => {
+  test("a scene always asks — it can unlock, disarm or open", () => {
+    for (const dc of [null, "outlet", "blind", "anything"]) {
+      expect(call("scene.good_night", "turn_on", {}, dc), String(dc)).toEqual({ ok: true, sensitive: true, data: {} });
+    }
+    expect(allowedActionsFor("scene.good_night", null)).toEqual([{ service: "turn_on", sensitive: true }]);
+  });
+
+  test("a switch asks unless Home Assistant reports it as an outlet", () => {
+    for (const service of ["turn_on", "turn_off", "toggle"]) {
+      for (const dc of [null, "", "switch", "garage", "outlets", "outlet_x", "something_new"]) {
+        expect(call("switch.x", service, {}, dc), `${service} ${dc}`).toEqual({ ok: true, sensitive: true, data: {} });
+      }
+      for (const dc of ["outlet", "Outlet", " OUTLET\n"]) {
+        expect(call("switch.x", service, {}, dc), `${service} ${dc}`).toEqual({ ok: true, sensitive: false, data: {} });
+      }
+    }
+    // The name is not the class: a "plug" without the outlet class still asks.
+    expect(call("switch.kitchen_plug", "turn_on", {}, null)).toEqual({ ok: true, sensitive: true, data: {} });
+    expect(allowedActionsFor("switch.x", null).every((a) => a.sensitive)).toBe(true);
+    expect(allowedActionsFor("switch.x", "outlet").every((a) => !a.sensitive)).toBe(true);
+  });
+
+  test("an input_boolean always asks, whatever its class", () => {
+    for (const service of ["turn_on", "turn_off", "toggle"]) {
+      for (const dc of [null, "outlet", "switch"]) {
+        expect(call("input_boolean.away_mode", service, {}, dc), `${service} ${dc}`).toEqual({ ok: true, sensitive: true, data: {} });
+      }
+    }
+  });
+
+  test("the outlet exemption is the switch's alone — an outlet-class cover or light is unchanged", () => {
+    expect(call("cover.x", "open_cover", {}, "outlet")).toEqual({ ok: true, sensitive: true, data: {} });
+    expect(call("lock.x", "unlock", {}, "outlet")).toEqual({ ok: true, sensitive: true, data: {} });
+    expect(call("light.x", "turn_on", {}, "outlet")).toEqual({ ok: true, sensitive: false, data: {} });
+  });
+});
+
 test.describe("service data", () => {
   test("missing, null or empty data is no data", () => {
     for (const data of [undefined, null, {}]) {
@@ -471,7 +515,7 @@ test.describe("service data", () => {
       ],
     ],
     ["fan.set_percentage", "percentage", [0, 33, 100], [-1, 101, 33.3, "50", null]],
-    ["climate.set_temperature", "temperature", [-20, 0, 21.5, 40], [-20.5, 40.5, 100, "21", NaN, Infinity, null]],
+    ["climate.set_temperature", "temperature", [5, 5.5, 21.5, 30], [-20, 0, 4.9, 30.1, 40, 100, "21", NaN, Infinity, null]],
     [
       "climate.set_hvac_mode",
       "hvac_mode",

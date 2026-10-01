@@ -124,7 +124,9 @@ const VERB_KEYS: ReadonlySet<string> = new Set([
   "alarm_control_panel_alarm_arm_home", "alarm_control_panel_alarm_arm_away",
   "alarm_control_panel_alarm_arm_night", "alarm_control_panel_alarm_disarm",
   "cover_open_cover", "cover_close_cover", "cover_stop_cover", "cover_set_cover_position",
-  "script_turn_on", "button_press", "input_button_press",
+  "scene_turn_on", "script_turn_on", "button_press", "input_button_press",
+  "switch_turn_on", "switch_turn_off", "switch_toggle",
+  "input_boolean_turn_on", "input_boolean_turn_off", "input_boolean_toggle",
   "siren_turn_on", "siren_turn_off",
   "lawn_mower_start_mowing", "lawn_mower_dock", "lawn_mower_pause",
 ]);

@@ -78,11 +78,13 @@ Write scopes cover create, edit and delete of their own kind — the rule the
    | Domain | Services | Sensitive |
    |---|---|---|
    | light | turn_on (brightness_pct, color_temp_kelvin, rgb_color), turn_off, toggle | |
-   | switch, input_boolean, fan | turn_on, turn_off, toggle (fan: + set_percentage) | |
+   | switch | turn_on, turn_off, toggle | **unless `device_class` is outlet** |
+   | input_boolean | turn_on, turn_off, toggle | **always** (a helper toggle can drive any automation) |
+   | fan | turn_on, turn_off, toggle, set_percentage | |
    | climate | set_temperature, set_hvac_mode, turn_on, turn_off | |
    | media_player | media_play, media_pause, media_stop, media_next_track, media_previous_track, volume_set, volume_mute, turn_on, turn_off, select_source | |
    | cover | open_cover, close_cover, stop_cover, set_cover_position | **unless `device_class` is awning, blind, curtain, damper, shade or shutter** |
-   | scene | turn_on | |
+   | scene | turn_on | **always** (a scene can unlock, disarm or open) |
    | vacuum | start, pause, return_to_base | |
    | humidifier | turn_on, turn_off, set_humidity | |
    | lock | lock, unlock, open | **always** |
@@ -97,7 +99,15 @@ Write scopes cover create, edit and delete of their own kind — the rule the
    Assistant at call time, never trusted from the caller. A cover with any
    other device class, or none, asks first — garage openers often report
    `door` or nothing; a household can mark an unclassified blind with
-   "Show as" in Home Assistant. `set_temperature` accepts −20 to 40, which
+   "Show as" in Home Assistant. A switch is sensitive for the same reason —
+   it can be a garage relay, a door opener or an alarm — unless Home
+   Assistant reports it as an `outlet`. "Show as" covers both cases there
+   too: a switch shown as an outlet keeps its entity and gets that device
+   class; a switch shown as a light becomes a new `light.*` entity (Home
+   Assistant's "Switch as X"), which the household adds to the catalogue in
+   place of the switch, and it no longer asks. Scenes and helper toggles
+   (`input_boolean`) always ask: what they do is decided in Home Assistant,
+   not visible from the entity. `set_temperature` accepts 5 to 30, which
    assumes °C; households running Home Assistant in °F are a known limitation.
 3. **Confirmation for sensitive actions.** `control_device` stores a pending
    request (expires after **2 minutes**) and returns `pending_confirmation`

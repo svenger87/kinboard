@@ -149,17 +149,25 @@ allowed per kind of device — a light can be turned on or off and dimmed, a
 thermostat can have its temperature or mode set, and so on — there's no
 "run any Home Assistant service" tool.
 
-**Runs immediately:** lights, switches, input booleans, fans, climate
-devices, media players, scenes, vacuums, humidifiers, and covers whose Home
-Assistant `device_class` is `awning`, `blind`, `curtain`, `damper`, `shade`
-or `shutter`.
+**Runs immediately:** lights, fans, climate devices (temperature 5–30 °C),
+media players, vacuums, humidifiers, switches whose Home Assistant
+`device_class` is `outlet`, and covers whose `device_class` is `awning`,
+`blind`, `curtain`, `damper`, `shade` or `shutter`.
 
-**Always waits for a family member to confirm:** locks, alarm panels, any
-cover that isn't one of the plainly harmless kinds above — including a
-garage door, a gate, a plain `door`, or a cover with no device class set —
-scripts, buttons, sirens and lawn mowers. If Home Assistant has one of your
-blinds under a device class it doesn't recognise, set its "Show as" in Home
-Assistant to fix that.
+**Always waits for a family member to confirm:** locks, alarm panels,
+scenes, scripts, input booleans (helper toggles), buttons, sirens, lawn
+mowers, any switch that isn't an outlet — a switch can just as well be a
+garage relay or an alarm — and any cover that isn't one of the plainly
+harmless kinds above, including a garage door, a gate, a plain `door`, or a
+cover with no device class set. Scenes and scripts ask because they can
+include anything, an unlock or a disarm among them.
+
+Home Assistant's **"Show as"** setting is how you tell it what a device
+really is. A blind under a device class Kinboard doesn't recognise: set
+"Show as" to the right kind of cover. A smart plug: show it as an outlet,
+and switching it no longer asks. A switch that really drives a lamp: show it
+as a light — Home Assistant then creates a new `light.` entity, which you
+add to the catalogue in place of the switch.
 
 When an action needs confirming, it appears on every Kinboard screen in the
 house at once — including over the screensaver — and as a push notification

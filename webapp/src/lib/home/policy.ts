@@ -15,8 +15,14 @@
  *   server adds the entity id itself — and so is `code`: an assistant neither
  *   holds nor relays alarm or lock codes.
  * - **Sensitive** means the action waits for a family member to confirm it
- *   with the settings PIN on a Kinboard screen. Locks, alarm panels, scripts,
- *   buttons, sirens and mowers always are. A cover is too, **unless** Home
+ *   with the settings PIN on a Kinboard screen. Locks, alarm panels, scenes,
+ *   scripts, buttons, sirens, mowers and helper toggles (`input_boolean`)
+ *   always are — a scene or a script can unlock, disarm or open, and a
+ *   helper toggle can drive any automation. A switch is too, **unless** Home
+ *   Assistant reports its `device_class` as `outlet`: a switch can be a
+ *   garage relay or an alarm, an outlet is a plug. A switch that is really a
+ *   lamp can be shown as a light with "Show as" in Home Assistant; it then
+ *   becomes a `light.*` entity and no longer asks. A cover is sensitive too, **unless** Home
  *   Assistant reports its `device_class` as one of the plainly harmless
  *   window coverings (awning, blind, curtain, damper, shade, shutter).
  *   Default-deny: garage, gate, door, window, any value we do not know, and
@@ -41,8 +47,11 @@ export interface DataField {
 }
 
 export interface ServiceSpec {
-  /** `always`, `never`, or — covers only — unless the device class is a plain blind. */
-  readonly sensitive: "always" | "never" | "unless_blind";
+  /**
+   * `always`, `never`, or unless the device class says it is harmless:
+   * a plain window covering (covers) or an outlet (switches).
+   */
+  readonly sensitive: "always" | "never" | "unless_blind" | "unless_outlet";
   readonly fields: Readonly<Record<string, DataField>>;
   /** Groups of keys of which at most one may be present. */
   readonly exclusive?: readonly (readonly string[])[];
@@ -109,6 +118,7 @@ const HVAC_MODES = ["off", "heat", "cool", "heat_cool", "auto", "dry", "fan_only
 const plain: ServiceSpec = { sensitive: "never", fields: {} };
 const always: ServiceSpec = { sensitive: "always", fields: {} };
 const coverMove: ServiceSpec = { sensitive: "unless_blind", fields: {} };
+const outlet: ServiceSpec = { sensitive: "unless_outlet", fields: {} };
 const onOffToggle = { turn_on: plain, turn_off: plain, toggle: plain };
 
 // ── the table: RFC-011 §4, exactly ─────────────────────────────────────────
@@ -137,14 +147,16 @@ export const ALLOWED_SERVICES: Readonly<Record<string, Readonly<Record<string, S
       turn_off: plain,
       toggle: plain,
     },
-    switch: onOffToggle,
-    input_boolean: onOffToggle,
+    // A switch can be a garage relay, a door opener or an alarm: only an outlet is harmless.
+    switch: { turn_on: outlet, turn_off: outlet, toggle: outlet },
+    // A helper toggle can drive any automation ("away mode", "open gate").
+    input_boolean: { turn_on: always, turn_off: always, toggle: always },
     fan: {
       ...onOffToggle,
       set_percentage: { sensitive: "never", fields: { percentage: required(int(0, 100)) } },
     },
     climate: {
-      set_temperature: { sensitive: "never", fields: { temperature: required(num(-20, 40)) } },
+      set_temperature: { sensitive: "never", fields: { temperature: required(num(5, 30)) } },
       set_hvac_mode: { sensitive: "never", fields: { hvac_mode: required(oneOf(HVAC_MODES)) } },
       turn_on: plain,
       turn_off: plain,
@@ -167,7 +179,8 @@ export const ALLOWED_SERVICES: Readonly<Record<string, Readonly<Record<string, S
       stop_cover: coverMove,
       set_cover_position: { sensitive: "unless_blind", fields: { position: required(int(0, 100)) } },
     },
-    scene: { turn_on: plain },
+    // A scene can include a lock, an alarm panel or a cover.
+    scene: { turn_on: always },
     vacuum: { start: plain, pause: plain, return_to_base: plain },
     humidifier: {
       turn_on: plain,
@@ -219,8 +232,10 @@ function domainOf(entityId: unknown): string | null {
 function isSensitive(spec: ServiceSpec, deviceClass: string | null): boolean {
   if (spec.sensitive === "always") return true;
   if (spec.sensitive === "never") return false;
-  // Default-deny: only a recognised window covering is harmless.
-  return !(typeof deviceClass === "string" && HARMLESS_COVERS.has(deviceClass.trim().toLowerCase()));
+  const dc = typeof deviceClass === "string" ? deviceClass.trim().toLowerCase() : null;
+  // Default-deny: only an outlet, or a recognised window covering, is harmless.
+  if (spec.sensitive === "unless_outlet") return dc !== "outlet";
+  return !(dc !== null && HARMLESS_COVERS.has(dc));
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -256,7 +271,8 @@ function validateData(spec: ServiceSpec, data: unknown): Record<string, unknown>
  * a family member have to confirm it first?
  *
  * `deviceClass` is the entity's `device_class` as Home Assistant reports it
- * right now, or `null` when it has none; a cover without one is sensitive.
+ * right now, or `null` when it has none; a cover or a switch without one is
+ * sensitive.
  */
 export function decideHomeAction(input: {
   entityId: string;
