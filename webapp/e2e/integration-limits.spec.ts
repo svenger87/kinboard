@@ -108,7 +108,8 @@ test.describe("edits and deletes (ruling 10)", () => {
         expect(first.startsWith("const limited = destructiveLimitResponse(context);"), `${file} ${m[1]}`).toBe(true);
       }
     }
-    // tasks+shopping (lists PATCH/DELETE), notes PATCH/DELETE, calendar PATCH/DELETE, meals DELETE.
-    expect(handlers).toBe(7);
+    // tasks+shopping (lists PATCH/DELETE), notes PATCH/DELETE, calendar PATCH/DELETE, meals DELETE,
+    // timers DELETE.
+    expect(handlers).toBe(8);
   });
 });

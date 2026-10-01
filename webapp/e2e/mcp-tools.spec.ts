@@ -766,6 +766,79 @@ test.describe("add_recipe_to_shopping_list", () => {
   });
 });
 
+const TIMER = "aaaaaaaa-aaaa-aaaa-aaaa-000000000001";
+
+test.describe("list_timers", () => {
+  test("reads /timers with no arguments and is read-only", async () => {
+    const { server, calls } = buildServer(["family:read"], () => ({ timers: [] }));
+    const t = tool(server, "list_timers") as unknown as Annotated;
+    expect(t.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: false });
+    await t.handler({});
+    expect(calls).toEqual([{ path: "/timers" }]);
+  });
+});
+
+test.describe("start_timer", () => {
+  test("POSTs duration_seconds and the label only when one is given", async () => {
+    const { server, calls } = buildServer(["timers:write"], () => ({ timer: { id: TIMER } }));
+    await tool(server, "start_timer").handler({ duration_seconds: 600, label: "Pasta" });
+    await tool(server, "start_timer").handler({ duration_seconds: 60 });
+    expect(calls).toEqual([
+      { path: "/timers", body: { duration_seconds: 600, label: "Pasta" } },
+      { path: "/timers", body: { duration_seconds: 60 } },
+    ]);
+  });
+
+  test("is a create, not destructive, and names the cap", () => {
+    const { server } = buildServer(["timers:write"]);
+    const t = tool(server, "start_timer") as unknown as Annotated;
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false, openWorldHint: false });
+    const description = (registeredTools(server).start_timer as unknown as { description: string }).description;
+    expect(description).toContain("too_many_timers");
+    expect(description).toContain("10");
+  });
+
+  test("its input schema keeps the duration to 1..86400 whole seconds and the label to 60 characters", () => {
+    const { server } = buildServer(["timers:write"]);
+    const t = tool(server, "start_timer") as unknown as Annotated;
+    expect(() => t.inputSchema.parse({ duration_seconds: 0 })).toThrow();
+    expect(() => t.inputSchema.parse({ duration_seconds: 86_401 })).toThrow();
+    expect(() => t.inputSchema.parse({ duration_seconds: 1.5 })).toThrow();
+    expect(() => t.inputSchema.parse({ duration_seconds: 86_400, label: "x".repeat(60) })).not.toThrow();
+    expect(() => t.inputSchema.parse({ duration_seconds: 60, label: "x".repeat(61) })).toThrow();
+  });
+
+  test("surfaces the cap as a tool error", async () => {
+    const { server } = buildServer(["timers:write"], () => {
+      throw new IntegrationCallError("The family already has 10 timers running or ringing", 429, "too_many_timers");
+    });
+    const result = await tool(server, "start_timer").handler({ duration_seconds: 60 });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("10 timers");
+  });
+
+  test("is refused without timers:write — family:read does not imply it", async () => {
+    const { server, calls } = buildServer(["family:read"]);
+    const result = await tool(server, "start_timer").handler({ duration_seconds: 60 });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("timers:write");
+    expect(calls).toEqual([]);
+  });
+});
+
+test.describe("stop_timer", () => {
+  test("DELETEs /timers/{id}, is marked destructive and says it cannot be resumed", async () => {
+    const { server, calls } = buildServer(["timers:write"], () => ({ ok: true, id: TIMER }));
+    const t = tool(server, "stop_timer") as unknown as Annotated;
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true, openWorldHint: false });
+    await t.handler({ timer_id: TIMER });
+    expect(calls).toEqual([{ path: `/timers/${TIMER}`, params: { id: TIMER }, method: "DELETE" }]);
+    const description = (registeredTools(server).stop_timer as unknown as { description: string }).description;
+    expect(description).toContain("cannot be resumed");
+    expect(() => t.inputSchema.parse({ timer_id: "nope" })).toThrow();
+  });
+});
+
 test("every new tool carries a real scope", () => {
   for (const name of [
     "list_people", "complete_task", "reopen_task", "update_task", "delete_task",
@@ -774,6 +847,7 @@ test("every new tool carries a real scope", () => {
     "get_meal_plan", "add_meal", "remove_meal", "send_message",
     "list_home_devices", "get_device_state", "control_device", "get_action_status", "list_vehicles",
     "search_recipes", "get_recipe", "add_recipe_to_shopping_list",
+    "list_timers", "start_timer", "stop_timer",
   ]) {
     expect(TOOL_SCOPES).toHaveProperty(name);
   }

@@ -737,6 +737,114 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { description: The items could not be stored. }
 
+  /timers:
+    get:
+      tags: [state]
+      summary: List the kitchen timers on the screens
+      description: |
+        Every timer not yet dismissed: running, or ringing because its time
+        is up and nobody has acknowledged it. `remaining_seconds` is derived
+        from `started_at` and `duration_seconds` at the moment of the call
+        (0 once ringing). Sorted by `ends_at`, the one due soonest first.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: The family's running and ringing timers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timers]
+                properties:
+                  timers:
+                    type: array
+                    items: { $ref: "#/components/schemas/Timer" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    post:
+      tags: [state]
+      summary: Start a kitchen timer
+      description: |
+        Starts a timer on every screen, exactly as the panel does: it counts
+        down everywhere, rings when the time is up, and a push is queued for
+        the phones. Refused with `429` and code `too_many_timers` while the
+        family already has 10 timers running or ringing — counted across
+        everyone's timers, not only this token's. Every call starts a new
+        timer.
+      x-required-scope: timers:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [duration_seconds]
+              properties:
+                duration_seconds: { type: integer, minimum: 1, maximum: 86400 }
+                label:
+                  type: [string, "null"]
+                  maxLength: 60
+                  description: Trimmed; empty means no label.
+      responses:
+        "201":
+          description: The timer started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timer]
+                properties:
+                  timer: { $ref: "#/components/schemas/Timer" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429":
+          description: |
+            `too_many_timers` — the family already has 10 timers running or
+            ringing; stop one first. Or `rate_limited`, the token's write
+            budget.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "500": { description: The timer could not be started. }
+
+  /timers/{id}:
+    delete:
+      tags: [state]
+      summary: Stop a timer
+      description: |
+        The panel's dismiss: the queued push is cancelled and the timer
+        leaves every screen, whether it was still running or already
+        ringing. The row is kept, stamped `dismissed_at`; a stopped timer
+        cannot be resumed. A timer that is missing, belongs to another
+        family, or was already dismissed answers `404`.
+      x-required-scope: timers:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Stopped
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, id]
+                properties:
+                  ok: { type: boolean }
+                  id: { type: string, format: uuid }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such running or ringing timer in this family." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The timer could not be stopped. }
+
   /people:
     get:
       tags: [state]
@@ -1553,10 +1661,26 @@ components:
             - upstream_unavailable
             - unavailable
             - internal_error
+            - too_many_timers
             - not_implemented
         correlationId:
           type: string
           description: Also sent as the `x-correlation-id` header, and printed on every log line for this request.
+
+    Timer:
+      type: object
+      required: [id, label, duration_seconds, started_at, ends_at, remaining_seconds, state]
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: [string, "null"] }
+        duration_seconds: { type: integer, minimum: 1 }
+        started_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        remaining_seconds: { type: integer, minimum: 0 }
+        state:
+          type: string
+          enum: [running, ringing]
+          description: "`ringing`: the time is up and nobody has dismissed it yet."
 
     CalendarEvent:
       type: object

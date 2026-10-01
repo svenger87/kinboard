@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyIdFrom } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { listActiveTimers, startTimer } from "@/lib/timers";
 
 export const dynamic = "force-dynamic";
 
@@ -18,13 +19,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("timers")
-    .select("*")
-    .eq("family_id", familyId)
-    .is("dismissed_at", null)
-    .order("started_at", { ascending: false });
+  const { data, error } = await listActiveTimers(createAdminClient(), familyId);
 
   if (error) {
     console.error("[timers] list error:", error);
@@ -34,12 +29,8 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Start a timer, and queue the push that announces its end.
- *
- * The push is a `scheduled_notifications` row rather than anything new: the
- * existing processor runs every 30 seconds and sends whatever is due. It is
- * tagged with `related_entity_type: "timer"` and the timer's id so that
- * cancelling can find and delete it — see the item route.
+ * Start a timer, and queue the push that announces its end
+ * (`startTimer`, lib/timers.ts).
  */
 export async function POST(request: NextRequest) {
   const auth = await requireSession(request);
@@ -67,44 +58,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = createAdminClient();
-  const { data: timer, error } = await supabase
-    .from("timers")
-    .insert({
-      family_id: familyId,
-      label: body.label?.trim() || null,
-      duration_seconds: Math.round(duration),
-    })
-    .select()
-    .single();
+  // The insert and the push that announces the end live in lib/timers.ts,
+  // shared with the Integration API.
+  const { timer, error } = await startTimer(
+    createAdminClient(),
+    familyId,
+    body.label?.trim() || null,
+    Math.round(duration),
+  );
 
   if (error || !timer) {
     console.error("[timers] create error:", error);
     return NextResponse.json({ error: error?.message ?? "could not start" }, { status: 500 });
-  }
-
-  // Queue the announcement. A failure here must not fail the timer itself —
-  // the panel still counts down and still rings; only the phone push is lost.
-  //
-  // `title` is written in English because `scheduled_notifications.title` is
-  // `NOT NULL` and nothing has resolved the recipient's locale yet at insert
-  // time — it's a sensible fallback if it's ever read directly, not what
-  // gets sent. The send side (process-notifications' `case "timer"`) renders
-  // the real, locale-aware push through `getPushTranslator`, and needs the
-  // label on its own rather than baked into a sentence, so it goes in `data`.
-  const dueAt = new Date(Date.parse(timer.started_at) + timer.duration_seconds * 1000);
-  const { error: notifyError } = await supabase.from("scheduled_notifications").insert({
-    family_id: familyId,
-    notification_type: "timer",
-    scheduled_for: dueAt.toISOString(),
-    title: timer.label ? `${timer.label} is ready` : "Timer finished",
-    body: null,
-    data: timer.label ? { label: timer.label } : null,
-    related_entity_type: "timer",
-    related_entity_id: timer.id,
-  });
-  if (notifyError) {
-    console.error("[timers] could not schedule the push:", notifyError);
   }
 
   return NextResponse.json({ timer });

@@ -27,6 +27,9 @@ import { GET as recipes } from "@/app/api/integration/v1/recipes/route";
 import { GET as recipe } from "@/app/api/integration/v1/recipes/[id]/route";
 import { POST as recipeShopping } from "@/app/api/integration/v1/recipes/[id]/shopping/route";
 import { MAX_RECIPE_RESULTS, MAX_RECIPE_SERVINGS, MAX_INGREDIENT_IDS } from "@/lib/integration-recipes";
+import { GET as timers, POST as startTimerRoute } from "@/app/api/integration/v1/timers/route";
+import { DELETE as stopTimerRoute } from "@/app/api/integration/v1/timers/[id]/route";
+import { MAX_ACTIVE_TIMERS, MAX_TIMER_LABEL, MAX_TIMER_SECONDS } from "@/lib/timers";
 import { ENTITY_ID } from "@/lib/home/policy";
 
 export const TOOL_SCOPES = {
@@ -67,6 +70,9 @@ export const TOOL_SCOPES = {
   search_recipes: "family:read",
   get_recipe: "family:read",
   add_recipe_to_shopping_list: "shopping:write",
+  list_timers: "family:read",
+  start_timer: "timers:write",
+  stop_timer: "timers:write",
 } as const satisfies Record<string, McpScope>;
 
 type ToolName = keyof typeof TOOL_SCOPES;
@@ -335,6 +341,17 @@ export function createKinboardMcpServer(
       ingredient_ids: z.array(z.uuid()).min(1).max(MAX_INGREDIENT_IDS).optional(),
     }), externalCreateAction,
     ({ recipe_id, ...body }) => call(recipeShopping, { path: `/recipes/${recipe_id}/shopping`, params: { id: recipe_id }, body }));
+  register("list_timers", "Read the kitchen timers on the family's screens: each running or ringing timer with its id, label, duration_seconds, ends_at and remaining_seconds. state is running, or ringing when the time is up and nobody has dismissed it yet. The timer due soonest comes first.", z.object({}), readOnly,
+    () => call(timers, { path: "/timers" }));
+  register("start_timer", `Start a kitchen timer on every Kinboard screen. When it runs out it rings on the screens and notifies phones. duration_seconds from 1 to ${MAX_TIMER_SECONDS} (24 hours); label optional, up to ${MAX_TIMER_LABEL} characters, for example "Pasta". Each call starts a new timer. Refused with too_many_timers once the family has ${MAX_ACTIVE_TIMERS} running or ringing — stop one first.`,
+    z.object({
+      duration_seconds: z.number().int().min(1).max(MAX_TIMER_SECONDS),
+      label: z.string().trim().max(MAX_TIMER_LABEL).optional(),
+    }), createAction,
+    ({ duration_seconds, label }) => call(startTimerRoute, { path: "/timers", body: { duration_seconds, ...(label ? { label } : {}) } }));
+  register("stop_timer", "Stop a timer, running or ringing, and take it off every screen; its phone notification is cancelled. A stopped timer cannot be resumed — start a new one instead.",
+    z.object({ timer_id: z.uuid() }), editAction,
+    ({ timer_id }) => call(stopTimerRoute, { path: `/timers/${timer_id}`, params: { id: timer_id }, method: "DELETE" }));
   register("send_message", "Shows on every Kinboard screen and notifies phones; use sparingly. Not a log — this interrupts whoever is looking at a screen. Limited to at most 5 messages per 10 minutes.",
     z.object({ text: z.string().trim().min(1).max(200) }), createAction,
     ({ text }) => call(sendMessageRoute, { path: "/messages", body: { text } }));

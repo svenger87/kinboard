@@ -1,0 +1,323 @@
+import { test, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  MAX_ACTIVE_TIMERS,
+  dismissTimer,
+  deleteTimer,
+  parseTimerInput,
+  readActiveTimers,
+  startTimer,
+  startTimerForAssistant,
+  stopTimerForAssistant,
+  timerView,
+  type TimerDb,
+} from "../src/lib/timers";
+import { API_ERROR_CODES } from "../src/lib/api-error";
+import { hasScope } from "../src/lib/integration-auth";
+import { TOOL_SCOPES } from "../src/lib/mcp/server";
+import { codeOnly } from "./source-helpers";
+
+/**
+ * RFC-012 task 2: kitchen timers for assistants — list, start (capped at 10
+ * running or ringing per family) and stop, sharing lib/timers.ts with the
+ * session routes.
+ *
+ * The fake client applies the `.eq`/`.is` filters it is given to every
+ * select, update and delete, so a query that forgets `family_id` or
+ * `dismissed_at` really does reach the foreign or dismissed row here.
+ */
+
+const OURS = "11111111-1111-1111-1111-111111111111";
+const THEIRS = "22222222-2222-2222-2222-222222222222";
+const T = (n: number) => `aaaaaaaa-aaaa-aaaa-aaaa-${String(n).padStart(12, "0")}`;
+const NOW = new Date("2026-10-01T12:00:00.000Z");
+
+type Row = Record<string, unknown>;
+type Filter = [op: "eq" | "is", column: string, value: unknown];
+
+function fakeDb(tables: Record<string, Row[]>) {
+  const writes: Array<{ table: string; op: "insert" | "update" | "delete"; filters: Filter[]; payload?: Row }> = [];
+  let failInsertOn: string | null = null;
+  let nextId = 900;
+
+  const matches = (filters: Filter[]) => (row: Row) =>
+    filters.every(([op, column, value]) => (op === "is" ? (row[column] ?? null) === value : row[column] === value));
+
+  const db = {
+    from(table: string) {
+      const rows = (tables[table] ??= []);
+      const filters: Filter[] = [];
+      let mode: "select" | "update" | "delete" = "select";
+      let head = false;
+      let patch: Row = {};
+
+      const result = () => {
+        const hit = rows.filter(matches(filters));
+        if (mode === "update") {
+          writes.push({ table, op: "update", filters: [...filters], payload: patch });
+          for (const row of hit) Object.assign(row, patch);
+          return { data: hit, error: null };
+        }
+        if (mode === "delete") {
+          writes.push({ table, op: "delete", filters: [...filters] });
+          for (const row of hit) rows.splice(rows.indexOf(row), 1);
+          return { data: null, error: null };
+        }
+        return head ? { data: null, count: hit.length, error: null } : { data: hit, error: null };
+      };
+
+      const chain = {
+        select(_columns?: string, options?: { head?: boolean }) { head = Boolean(options?.head); return chain; },
+        eq(column: string, value: unknown) { filters.push(["eq", column, value]); return chain; },
+        is(column: string, value: unknown) { filters.push(["is", column, value]); return chain; },
+        order() { return chain; },
+        update(values: Row) { mode = "update"; patch = values; return chain; },
+        delete() { mode = "delete"; return chain; },
+        async maybeSingle() { const r = result(); return { data: (r.data as Row[] | null)?.[0] ?? null, error: null }; },
+        async single() { const r = result(); return { data: (r.data as Row[] | null)?.[0] ?? null, error: null }; },
+        then(resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) {
+          return Promise.resolve(result()).then(resolve, reject);
+        },
+        insert(row: Row) {
+          const failed = failInsertOn === table;
+          const stored: Row = table === "timers"
+            ? { id: T(nextId++), started_at: new Date().toISOString(), dismissed_at: null, finished_at: null, ...row }
+            : { ...row };
+          if (!failed) { rows.push(stored); writes.push({ table, op: "insert", filters: [], payload: stored }); }
+          const outcome = failed ? { data: null, error: { message: `${table} insert failed` } } : { data: stored, error: null };
+          return {
+            select: () => ({ single: async () => outcome }),
+            then(resolve: (v: unknown) => unknown) { return Promise.resolve(outcome).then(resolve); },
+          };
+        },
+      };
+      return chain;
+    },
+  };
+  return {
+    db: db as unknown as TimerDb,
+    tables,
+    writes,
+    failInsertOn(table: string) { failInsertOn = table; },
+  };
+}
+
+const timer = (n: number, family: string, extra: Row = {}): Row => ({
+  id: T(n), family_id: family, label: `T${n}`, duration_seconds: 600,
+  started_at: "2026-10-01T11:55:00.000Z", dismissed_at: null, finished_at: null, ...extra,
+});
+
+test.describe("input", () => {
+  test("duration_seconds is a whole number from 1 to 86400", () => {
+    expect(parseTimerInput({ duration_seconds: 1 })).toEqual({ ok: true, value: { label: null, duration_seconds: 1 } });
+    expect(parseTimerInput({ duration_seconds: 86_400 }).ok).toBe(true);
+    for (const bad of [0, -5, 86_401, 90.5, "600", null, undefined, Number.NaN]) {
+      expect(parseTimerInput({ duration_seconds: bad }).ok, String(bad)).toBe(false);
+    }
+  });
+
+  test("label is optional, trimmed, empty means none, at most 60 characters", () => {
+    expect(parseTimerInput({ duration_seconds: 60, label: "  Pasta  " })).toMatchObject({ ok: true, value: { label: "Pasta" } });
+    expect(parseTimerInput({ duration_seconds: 60, label: "   " })).toMatchObject({ ok: true, value: { label: null } });
+    expect(parseTimerInput({ duration_seconds: 60, label: null })).toMatchObject({ ok: true, value: { label: null } });
+    expect(parseTimerInput({ duration_seconds: 60, label: "x".repeat(60) }).ok).toBe(true);
+    expect(parseTimerInput({ duration_seconds: 60, label: ` ${"x".repeat(60)} ` }).ok).toBe(true);
+    expect(parseTimerInput({ duration_seconds: 60, label: "x".repeat(61) }).ok).toBe(false);
+    expect(parseTimerInput({ duration_seconds: 60, label: 42 }).ok).toBe(false);
+  });
+});
+
+test.describe("reading", () => {
+  test("a running timer reports its remaining seconds and end; one past its time is ringing at 0", () => {
+    expect(timerView(timer(1, OURS) as never, NOW)).toEqual({
+      id: T(1), label: "T1", duration_seconds: 600, started_at: "2026-10-01T11:55:00.000Z",
+      ends_at: "2026-10-01T12:05:00.000Z", remaining_seconds: 300, state: "running",
+    });
+    expect(timerView(timer(2, OURS, { duration_seconds: 60 }) as never, NOW)).toMatchObject({
+      remaining_seconds: 0, state: "ringing", ends_at: "2026-10-01T11:56:00.000Z",
+    });
+  });
+
+  test("only this family's timers that are not dismissed, the one due soonest first", async () => {
+    const f = fakeDb({
+      timers: [
+        timer(1, OURS, { duration_seconds: 1200 }),
+        timer(2, OURS, { duration_seconds: 60 }),
+        timer(3, OURS, { dismissed_at: "2026-10-01T11:58:00.000Z" }),
+        timer(4, THEIRS),
+      ],
+    });
+    const list = await readActiveTimers(OURS, NOW, f.db);
+    expect(list.map((t) => [t.id, t.state])).toEqual([[T(2), "ringing"], [T(1), "running"]]);
+  });
+});
+
+test.describe("starting", () => {
+  test("inserts the timer and queues its push, exactly as the session route did", async () => {
+    const f = fakeDb({ timers: [] });
+    const outcome = await startTimerForAssistant(OURS, { label: "Pasta", duration_seconds: 480 }, f.db);
+    expect(outcome).toMatchObject({ status: "started", timer: { label: "Pasta", duration_seconds: 480, state: "running" } });
+    expect(f.tables.timers).toHaveLength(1);
+    expect(f.tables.timers[0]).toMatchObject({ family_id: OURS, label: "Pasta", duration_seconds: 480 });
+    expect(f.tables.scheduled_notifications).toEqual([{
+      family_id: OURS,
+      notification_type: "timer",
+      scheduled_for: new Date(Date.parse(f.tables.timers[0].started_at as string) + 480_000).toISOString(),
+      title: "Pasta is ready",
+      body: null,
+      data: { label: "Pasta" },
+      related_entity_type: "timer",
+      related_entity_id: f.tables.timers[0].id,
+    }]);
+  });
+
+  test("an unlabelled timer's push falls back to 'Timer finished' with no data", async () => {
+    const f = fakeDb({ timers: [] });
+    await startTimer(f.db, OURS, null, 60);
+    expect(f.tables.scheduled_notifications[0]).toMatchObject({ title: "Timer finished", data: null });
+  });
+
+  test("the push failing does not fail the timer", async () => {
+    const f = fakeDb({ timers: [] });
+    f.failInsertOn("scheduled_notifications");
+    const { timer: started, error } = await startTimer(f.db, OURS, null, 60);
+    expect(error).toBeNull();
+    expect(started).toBeTruthy();
+  });
+
+  test("the timer insert failing is reported and nothing is queued", async () => {
+    const f = fakeDb({ timers: [] });
+    f.failInsertOn("timers");
+    const { timer: started, error } = await startTimer(f.db, OURS, null, 60);
+    expect(started).toBeNull();
+    expect(error).toMatchObject({ message: "timers insert failed" });
+    expect(f.tables.scheduled_notifications ?? []).toEqual([]);
+    await expect(startTimerForAssistant(OURS, { label: null, duration_seconds: 60 }, fakeDbFailing().db)).rejects.toBeTruthy();
+  });
+
+  test(`refused once the family has ${MAX_ACTIVE_TIMERS} running or ringing; nothing is written`, async () => {
+    const rows = Array.from({ length: MAX_ACTIVE_TIMERS }, (_, i) => timer(i + 1, OURS, i % 2 ? { duration_seconds: 60 } : {}));
+    const f = fakeDb({ timers: rows });
+    expect(await startTimerForAssistant(OURS, { label: null, duration_seconds: 60 }, f.db)).toEqual({ status: "too_many", active: MAX_ACTIVE_TIMERS });
+    expect(f.tables.timers).toHaveLength(MAX_ACTIVE_TIMERS);
+    expect(f.writes).toEqual([]);
+  });
+
+  test("one under the cap still starts; dismissed and other families' timers do not count", async () => {
+    const f = fakeDb({
+      timers: [
+        ...Array.from({ length: MAX_ACTIVE_TIMERS - 1 }, (_, i) => timer(i + 1, OURS)),
+        ...Array.from({ length: 5 }, (_, i) => timer(20 + i, OURS, { dismissed_at: "2026-10-01T11:00:00.000Z" })),
+        ...Array.from({ length: 12 }, (_, i) => timer(40 + i, THEIRS)),
+      ],
+    });
+    expect((await startTimerForAssistant(OURS, { label: null, duration_seconds: 60 }, f.db)).status).toBe("started");
+    // Now at the cap.
+    expect((await startTimerForAssistant(OURS, { label: null, duration_seconds: 60 }, f.db)).status).toBe("too_many");
+  });
+});
+
+function fakeDbFailing() {
+  const f = fakeDb({ timers: [] });
+  f.failInsertOn("timers");
+  return f;
+}
+
+test.describe("stopping", () => {
+  test("dismisses the timer and cancels its push, scoped to the family", async () => {
+    const f = fakeDb({
+      timers: [timer(1, OURS)],
+      scheduled_notifications: [
+        { family_id: OURS, related_entity_type: "timer", related_entity_id: T(1) },
+        { family_id: OURS, related_entity_type: "timer", related_entity_id: T(2) },
+      ],
+    });
+    expect(await stopTimerForAssistant(OURS, T(1), f.db)).toBe(true);
+    expect(f.tables.timers[0].dismissed_at).toEqual(expect.any(String));
+    expect(f.tables.timers).toHaveLength(1); // kept, not deleted
+    expect(f.tables.scheduled_notifications.map((r) => r.related_entity_id)).toEqual([T(2)]);
+    const update = f.writes.find((w) => w.table === "timers" && w.op === "update");
+    expect(update?.filters).toEqual(expect.arrayContaining([["eq", "id", T(1)], ["eq", "family_id", OURS]]));
+  });
+
+  test("another family's timer is not found and is left alone, push included", async () => {
+    const f = fakeDb({
+      timers: [timer(4, THEIRS)],
+      scheduled_notifications: [{ family_id: THEIRS, related_entity_type: "timer", related_entity_id: T(4) }],
+    });
+    expect(await stopTimerForAssistant(OURS, T(4), f.db)).toBe(false);
+    expect(f.tables.timers[0].dismissed_at).toBeNull();
+    expect(f.tables.scheduled_notifications).toHaveLength(1);
+    expect(f.writes).toEqual([]);
+  });
+
+  test("a missing or already dismissed timer is not found, and its dismissal time is not rewritten", async () => {
+    const f = fakeDb({ timers: [timer(3, OURS, { dismissed_at: "2026-10-01T11:58:00.000Z" })] });
+    expect(await stopTimerForAssistant(OURS, T(3), f.db)).toBe(false);
+    expect(await stopTimerForAssistant(OURS, T(99), f.db)).toBe(false);
+    expect(f.tables.timers[0].dismissed_at).toBe("2026-10-01T11:58:00.000Z");
+    expect(f.writes).toEqual([]);
+  });
+
+  test("the session route's dismiss and delete still cancel the push first", async () => {
+    const f = fakeDb({
+      timers: [timer(1, OURS), timer(2, OURS)],
+      scheduled_notifications: [
+        { family_id: OURS, related_entity_type: "timer", related_entity_id: T(1) },
+        { family_id: OURS, related_entity_type: "timer", related_entity_id: T(2) },
+      ],
+    });
+    await dismissTimer(f.db, OURS, T(1));
+    await deleteTimer(f.db, OURS, T(2));
+    expect(f.writes.map((w) => `${w.table}:${w.op}`)).toEqual([
+      "scheduled_notifications:delete", "timers:update",
+      "scheduled_notifications:delete", "timers:delete",
+    ]);
+    expect(f.tables.timers.map((r) => r.id)).toEqual([T(1)]);
+    expect(f.tables.scheduled_notifications).toEqual([]);
+  });
+});
+
+test.describe("routes", () => {
+  const read = (...p: string[]) => codeOnly(readFileSync(join(__dirname, "..", "src", "app", "api", ...p), "utf8"));
+
+  test("each Integration route asks for its scope; the start takes an Idempotency-Key and answers too_many_timers", () => {
+    const list = read("integration", "v1", "timers", "route.ts");
+    expect(list).toContain('withIntegrationAuth(request, "family:read"');
+    expect(list).toContain('withIntegrationAuth(request, "timers:write"');
+    expect(list).toContain("validateIdempotencyKey(");
+    expect(list).toContain("findStoredResult(");
+    expect(list).toContain('code: "too_many_timers"');
+    expect(list).toContain("status: 429");
+    const item = read("integration", "v1", "timers", "[id]", "route.ts");
+    expect(item).toContain('withIntegrationAuth(request, "timers:write"');
+    expect(item).toContain("destructiveLimitResponse(context)");
+    expect(item).toContain("stopTimerForAssistant(context.familyId, id)");
+  });
+
+  test("too_many_timers is a stable API error code", () => {
+    expect(API_ERROR_CODES).toContain("too_many_timers");
+  });
+
+  test("the session routes keep their checks and call the lib", () => {
+    const list = read("timers", "route.ts");
+    expect(list).toContain("requireSession(request)");
+    expect(list).toContain("familyMatchesSession(auth.session, familyId)");
+    expect(list).toContain("startTimer(");
+    expect(list).toContain("Math.round(duration)");
+    expect(list).toContain("listActiveTimers(");
+    expect(list).not.toContain("scheduled_notifications");
+    const item = read("timers", "[id]", "route.ts");
+    expect(item).toContain('rowInFamily(supabase, "timers", id, familyId)');
+    expect(item).toContain("dismissTimer(supabase, familyId, id)");
+    expect(item).toContain("deleteTimer(supabase, familyId, id)");
+  });
+
+  test("list_timers reads with family:read; start_timer and stop_timer need timers:write", () => {
+    expect(TOOL_SCOPES.list_timers).toBe("family:read");
+    expect(TOOL_SCOPES.start_timer).toBe("timers:write");
+    expect(TOOL_SCOPES.stop_timer).toBe("timers:write");
+    expect(hasScope(["family:read"], "timers:write")).toBe(false);
+  });
+});

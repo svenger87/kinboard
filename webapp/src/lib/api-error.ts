@@ -45,6 +45,10 @@ export const API_ERROR_CODES = [
   // told 401 may reasonably stop using its token; one told 503 retries.
   "unavailable",
   "internal_error",
+  // A family already has as many timers running or ringing as an assistant
+  // may start (lib/timers.ts). 429 like rate_limited, but waiting does not
+  // help on its own — a timer has to ring and be dismissed, or be stopped.
+  "too_many_timers",
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
@@ -59,6 +63,7 @@ const STATUS_FOR: Record<ApiErrorCode, number> = {
   upstream_unavailable: 502,
   unavailable: 503,
   internal_error: 500,
+  too_many_timers: 429,
 };
 
 export interface ApiErrorBody {

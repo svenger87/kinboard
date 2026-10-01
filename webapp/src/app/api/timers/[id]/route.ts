@@ -2,29 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyIdFrom, rowInFamily } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { deleteTimer, dismissTimer } from "@/lib/timers";
 
 export const dynamic = "force-dynamic";
-
-/**
- * Cancel the queued push for a timer.
- *
- * Without this, stopping a timer early leaves its notification queued and the
- * phone buzzes for something that no longer exists. `related_entity_type` and
- * `related_entity_id` are exactly the handle for it.
- */
-async function cancelScheduledPush(
-  supabase: ReturnType<typeof createAdminClient>,
-  familyId: string,
-  timerId: string,
-) {
-  const { error } = await supabase
-    .from("scheduled_notifications")
-    .delete()
-    .eq("family_id", familyId)
-    .eq("related_entity_type", "timer")
-    .eq("related_entity_id", timerId);
-  if (error) console.error("[timers] could not cancel the push:", error);
-}
 
 /** Dismiss: the timer stops being shown, but the row stays. */
 export async function PATCH(
@@ -49,15 +29,8 @@ export async function PATCH(
     return NextResponse.json({ error: "no such timer" }, { status: 404 });
   }
 
-  await cancelScheduledPush(supabase, familyId, id);
-
-  const { data, error } = await supabase
-    .from("timers")
-    .update({ dismissed_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("family_id", familyId)
-    .select()
-    .single();
+  // Cancels the queued push, then stamps dismissed_at (lib/timers.ts).
+  const { data, error } = await dismissTimer(supabase, familyId, id);
 
   if (error) {
     console.error("[timers] dismiss error:", error);
@@ -87,9 +60,7 @@ export async function DELETE(
     return NextResponse.json({ error: "no such timer" }, { status: 404 });
   }
 
-  await cancelScheduledPush(supabase, familyId, id);
-
-  const { error } = await supabase.from("timers").delete().eq("id", id).eq("family_id", familyId);
+  const { error } = await deleteTimer(supabase, familyId, id);
   if (error) {
     console.error("[timers] delete error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

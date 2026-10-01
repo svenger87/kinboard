@@ -113,6 +113,14 @@ change them.
 | `get_recipe` | One recipe's ingredients, servings, times and steps |
 | `add_recipe_to_shopping_list` | Put a recipe's ingredients — all of them or just the ones picked — on the shopping list, scaled to the servings asked for, exactly as the recipe page's button does. With Bring! sync on they go onto the Bring! list too |
 
+### Kitchen timers
+
+| Tool | Does |
+|---|---|
+| `list_timers` | The timers on the screens, running or ringing, with the time left |
+| `start_timer` | Start a timer of up to 24 hours, with an optional label — it counts down on every screen, rings, and notifies phones like one set on the panel. At most 10 can be running or ringing at once |
+| `stop_timer` | Stop a timer and take it off every screen; its phone notification is cancelled |
+
 ### Messages and energy
 
 | Tool | Does |
