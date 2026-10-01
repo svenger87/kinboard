@@ -2,10 +2,12 @@
  * One pocket-money booking: the transaction row and the account's balance,
  * together, or neither.
  *
- * Every path that books money from outside the pocket-money page goes
- * through here — the session route (`/api/pocket-money/accounts/{id}/transactions`),
- * the RFC-001 `add_pocket_money` service and an approved assistant booking
- * (RFC-012 §3). It calls `book_pocket_money()`
+ * Every change to a balance goes through `book_pocket_money()`: the session
+ * route (`/api/pocket-money/accounts/{id}/transactions`), the RFC-001
+ * `add_pocket_money` service and an approved assistant booking (RFC-012 §3)
+ * call it from here; an approved withdrawal request, the allowance cron and
+ * the interest cron reach it through their own SQL functions
+ * (`lib/pocket-money/runs.ts`). It is `book_pocket_money()`
  * (`docker/migration_zzzzz_pocket_money_booking.sql`), which moves the balance
  * with one conditional UPDATE — `balance_cents + delta >= 0` is checked by the
  * statement that changes it, so two withdrawals racing on one account cannot

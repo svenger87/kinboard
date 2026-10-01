@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { bookPocketMoney, type RpcClient } from "@/lib/pocket-money/booking";
+import { processAllowance, type PocketMoneyClient } from "@/lib/pocket-money/runs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -16,78 +14,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const supabase = createAdminClient();
-  const dow = new Date().getUTCDay();
-  const now = Date.now();
-
-  const { data: accounts, error } = await (supabase as any)
-    .from("pocket_money_accounts")
-    .select("id, family_id, weekly_allowance_cents, allowance_interval_days, last_allowance_at")
-    .eq("allowance_day_of_week", dow)
-    .gt("weekly_allowance_cents", 0);
-
-  if (error) {
-    console.error("[cron/process-allowance] read error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  let deposited = 0;
-  for (const acct of accounts ?? []) {
-    // The interval is the cadence the parent set (7=weekly, 14=biweekly,
-    // etc.). The dedup window is (interval - 1) days — caps the cadence
-    // at one pay per period, with a −1 day buffer for off-by-an-hour
-    // cron re-fires.
-    //
-    // Schedule-change re-anchor: when the parent changes
-    // allowance_day_of_week, the last pay's UTC day-of-week no longer
-    // matches today's (today's is the configured day; the last pay was
-    // on the previous schedule). In that case, ignore the interval
-    // window — pay now and re-anchor `last_allowance_at` to the new
-    // schedule. Without this, a kid loses up to (interval - 1) days of
-    // allowance whenever the parent retunes the day.
-    const intervalDays = acct.allowance_interval_days ?? 7;
-    const minIntervalMs = (intervalDays - 1) * ONE_DAY_MS;
-    if (acct.last_allowance_at) {
-      const lastAt = new Date(acct.last_allowance_at);
-      const lastDow = lastAt.getUTCDay();
-      const elapsedMs = now - lastAt.getTime();
-      const sameDow = lastDow === dow;
-      // Only enforce the interval window when the schedule hasn't
-      // shifted. A different DOW from the last pay means the parent
-      // retuned the cadence — honor the new day immediately.
-      if (sameDow && elapsedMs < minIntervalMs) {
-        continue; // already paid this period at the same DOW
-      }
-    }
-
-    // Booked as a delta (lib/pocket-money/booking.ts): balance and lifetime
-    // move in the same statement that adds the allowance, so a booking made
-    // at the same moment — a withdrawal on the kiosk, an assistant's
-    // approved deposit — is never overwritten by a balance read earlier.
-    const booked = await bookPocketMoney(supabase as unknown as RpcClient, {
-      familyId: acct.family_id,
-      accountId: acct.id,
-      amountCents: acct.weekly_allowance_cents,
-      type: "allowance",
-      note: intervalDays === 7 ? "Weekly allowance" : `Allowance (every ${intervalDays} days)`,
-    });
-    if (!booked.ok) {
-      console.error("[cron/process-allowance] booking error:", booked.error === "failed" ? booked.message : booked.error);
-      continue;
-    }
-
-    const { error: updErr } = await (supabase as any)
-      .from("pocket_money_accounts")
-      .update({ last_allowance_at: new Date().toISOString() })
-      .eq("id", acct.id);
-    if (updErr) {
-      // Without `last_allowance_at` written, the next hourly tick
-      // re-fires for this account. Log loudly so the operator notices.
-      console.error("[cron/process-allowance] update error (POSSIBLE DOUBLE-PAY ON RETRY):", updErr);
-      continue;
-    }
-    deposited++;
-  }
-
-  return NextResponse.json({ ok: true, deposited });
+  const result = await processAllowance(createAdminClient() as unknown as PocketMoneyClient, new Date());
+  if ("error" in result) return NextResponse.json({ error: result.error }, { status: 500 });
+  return NextResponse.json({ ok: true, deposited: result.deposited });
 }

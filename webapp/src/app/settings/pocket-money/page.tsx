@@ -514,6 +514,9 @@ function AccountInbox({
           <div className="flex gap-2">
             <Button
               size="sm"
+              // One decision at a time per request: a double tap must not
+              // send a second approval while the first is still on its way.
+              disabled={decide.isPending && decide.variables?.id === r.id}
               onClick={() =>
                 decide
                   .mutateAsync({ id: r.id, status: "approved" })
@@ -529,6 +532,7 @@ function AccountInbox({
             <Button
               size="sm"
               variant="outline"
+              disabled={decide.isPending && decide.variables?.id === r.id}
               onClick={() =>
                 decide
                   .mutateAsync({ id: r.id, status: "denied" })

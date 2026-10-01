@@ -642,15 +642,24 @@ export function pocketMoneyBookingFrom(data: Record<string, unknown> | null | un
   return { person_id, person_name, amount_cents, currency, type, note: typeof note === "string" ? note : null };
 }
 
+/** Format characters (Cf) except ZWNJ, ZWJ and the tag characters. */
+const INVISIBLE_FORMAT = /(?![\u200C\u200D\u{E0020}-\u{E007F}])\p{Cf}/gu;
+
 /**
  * Text on one line with nothing invisible in it: format characters (Unicode
- * Cf — bidi overrides and isolates such as U+202E, zero-width spaces and
- * joiners, the BOM, soft hyphens) are removed, whitespace runs become one
- * space, and any other control character (Cc) is removed, so what a family reads is what is there, in the order it
+ * Cf — bidi overrides and isolates such as U+202E, zero-width spaces, the
+ * BOM, soft hyphens) and control characters that are not whitespace (Cc) are
+ * removed, then whitespace runs become one space. Kept: the zero-width joiner
+ * and non-joiner (U+200D, U+200C) and the tag characters (U+E0020–E007F),
+ * which hold emoji such as 👨‍👩‍👧 and subdivision flags together and shape
+ * Persian and Indic script; none of them reorders text, so what a family reads is what is there, in the order it
  * is there.
  */
 export function stripInvisible(text: string): string {
-  return text.replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").replace(/\p{Cc}/gu, "");
+  return text
+    .replace(INVISIBLE_FORMAT, "")
+    .replace(/(?!\s)\p{Cc}/gu, "")
+    .replace(/\s+/g, " ");
 }
 
 /**

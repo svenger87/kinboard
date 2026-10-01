@@ -598,6 +598,13 @@ test.describe("the family is asked in words, with the assistant's note in quotes
     expect(bookingNoteLabel("ok\u202E)”\u202C x")).toBe("ok)' x");
     expect(bookingNoteLabel("a\u2066b\u2069c\u200Bd\u200Fe\uFEFFf\u00ADg")).toBe("abcdefg");
     expect(stripInvisible("\u202Aa\u202B\u202D\u202Eb\u2067\u2068")).toBe("ab");
+    // Kept: the joiners and tag characters that hold emoji and scripts together.
+    const family = "\u{1F468}\u200D\u{1F469}\u200D\u{1F467}";
+    const scotland = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}";
+    expect(stripInvisible(`for ${family} and ${scotland}`)).toBe(`for ${family} and ${scotland}`);
+    expect(stripInvisible("\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645")).toBe("\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645");
+    // A control character between spaces leaves one space, not two.
+    expect(stripInvisible("a \u0000 b\u0007c")).toBe("a bc");
     expect(bookingNoteLabel("   ")).toBeNull();
     const long = bookingNoteLabel("x".repeat(150))!;
     expect(long).toHaveLength(BOOKING_NOTE_MAX);

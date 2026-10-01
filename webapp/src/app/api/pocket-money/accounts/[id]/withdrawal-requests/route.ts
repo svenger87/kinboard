@@ -78,6 +78,22 @@ export async function POST(
   if (!(await accountInFamily(supabase, accountId, familyId))) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
+
+  // A request can only be for one of this account's own goals: approving it
+  // marks that goal bought, and the booking refuses any other goal.
+  if (body.related_goal_id) {
+    const { data: goal, error: goalErr } = await (supabase as any)
+      .from("pocket_money_goals")
+      .select("id")
+      .eq("id", body.related_goal_id)
+      .eq("account_id", accountId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (goalErr || !goal) {
+      return NextResponse.json({ error: "related_goal_id is not a goal of this account" }, { status: 400 });
+    }
+  }
+
   const { data, error } = await (supabase as any)
     .from("pocket_money_withdrawal_requests")
     .insert({

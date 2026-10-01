@@ -28,9 +28,10 @@
 -- type, a goal that is not this account's, a person who is not this family's.
 --
 -- Every balance change goes through it: the session route, the Home Assistant
--- service, an approved assistant request, an approved withdrawal request, the
--- allowance cron and — through commit_pocket_money_interest() below — the
--- interest cron.
+-- service, an approved assistant request, and — through the functions below —
+-- an approved withdrawal request (decide_pocket_money_withdrawal), the
+-- allowance cron (pay_pocket_money_allowance) and the interest cron
+-- (commit_pocket_money_interest).
 --
 -- SECURITY INVOKER: only the service role calls it (the routes' admin client),
 -- and it has the table rights already. EXECUTE is taken from everyone else.
@@ -176,6 +177,134 @@ GRANT EXECUTE ON FUNCTION public.accrue_pocket_money_interest(UUID, INTEGER, BIG
 REVOKE ALL ON FUNCTION public.commit_pocket_money_interest(UUID, TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.commit_pocket_money_interest(UUID, TEXT) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.commit_pocket_money_interest(UUID, TEXT) TO service_role;
+
+-- The allowance, paid and recorded as paid in one transaction. The period is
+-- claimed first — last_allowance_at moves only if it still holds what the
+-- cron read (p_expected_last) — and the booking runs in the same call, so a
+-- failure anywhere undoes both: a retry can neither pay twice nor skip a
+-- payment. Another run that claimed the period first gets 'already_paid'.
+CREATE OR REPLACE FUNCTION public.pay_pocket_money_allowance(
+  p_account_id UUID,
+  p_amount_cents INTEGER,
+  p_note TEXT,
+  p_expected_last TIMESTAMPTZ
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_family UUID;
+  v_result JSONB;
+BEGIN
+  UPDATE public.pocket_money_accounts
+     SET last_allowance_at = now()
+   WHERE id = p_account_id
+     AND last_allowance_at IS NOT DISTINCT FROM p_expected_last
+  RETURNING family_id INTO v_family;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'already_paid');
+  END IF;
+  v_result := public.book_pocket_money(v_family, p_account_id, p_amount_cents, 'allowance', p_note);
+  IF NOT (v_result->>'ok')::BOOLEAN THEN
+    -- Undo the claim with the rest: nothing was paid.
+    RAISE EXCEPTION 'allowance not booked: %', v_result->>'error' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN v_result;
+END;
+$$;
+
+-- A parent's decision on a child's withdrawal request, in one transaction.
+-- The request row is locked, so two devices deciding at once are served one
+-- after the other and the second is told it was already decided. Approving
+-- books -amount as a withdrawal through book_pocket_money(); not enough money
+-- denies the request instead (as the route always did). A linked goal is
+-- marked bought. Answers:
+--   { ok: true, status: 'approved' | 'denied' }
+--   { ok: false, error: 'not_found' }                 no such request in this family
+--   { ok: false, error: 'already_decided', status }   nothing changed
+--   { ok: false, error: 'insufficient_funds' }        request denied, nothing booked
+--   { ok: false, error: 'invalid_goal' | 'invalid_person' }  nothing changed
+CREATE OR REPLACE FUNCTION public.decide_pocket_money_withdrawal(
+  p_family_id UUID,
+  p_request_id UUID,
+  p_decision TEXT,
+  p_person_id UUID DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_req public.pocket_money_withdrawal_requests;
+  v_result JSONB;
+BEGIN
+  IF p_decision NOT IN ('approved', 'denied') THEN
+    RAISE EXCEPTION 'decision must be approved or denied' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT r.* INTO v_req
+    FROM public.pocket_money_withdrawal_requests r
+    JOIN public.pocket_money_accounts a ON a.id = r.account_id
+   WHERE r.id = p_request_id AND a.family_id = p_family_id
+     FOR UPDATE OF r;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'not_found');
+  END IF;
+  IF v_req.status <> 'pending' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'already_decided', 'status', v_req.status);
+  END IF;
+
+  IF p_decision = 'denied' THEN
+    UPDATE public.pocket_money_withdrawal_requests
+       SET status = 'denied', parent_decided_at = now(), parent_decided_by_person_id = p_person_id
+     WHERE id = p_request_id;
+    RETURN jsonb_build_object('ok', true, 'status', 'denied');
+  END IF;
+
+  -- Said cleanly rather than raised by the booking.
+  IF v_req.related_goal_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.pocket_money_goals g
+    WHERE g.id = v_req.related_goal_id AND g.account_id = v_req.account_id) THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_goal');
+  END IF;
+  IF p_person_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.people p WHERE p.id = p_person_id AND p.family_id = p_family_id) THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_person');
+  END IF;
+
+  v_result := public.book_pocket_money(
+    p_family_id, v_req.account_id, -v_req.amount_cents, 'withdrawal',
+    NULLIF(v_req.reason, ''), v_req.related_goal_id, p_person_id);
+
+  IF NOT (v_result->>'ok')::BOOLEAN THEN
+    IF v_result->>'error' = 'insufficient_funds' THEN
+      -- The child spent the money on something else after asking.
+      UPDATE public.pocket_money_withdrawal_requests
+         SET status = 'denied', parent_decided_at = now(), parent_decided_by_person_id = p_person_id
+       WHERE id = p_request_id;
+    END IF;
+    RETURN v_result;
+  END IF;
+
+  IF v_req.related_goal_id IS NOT NULL THEN
+    UPDATE public.pocket_money_goals
+       SET status = 'bought', parent_confirmed_at = now()
+     WHERE id = v_req.related_goal_id;
+  END IF;
+  UPDATE public.pocket_money_withdrawal_requests
+     SET status = 'approved', parent_decided_at = now(), parent_decided_by_person_id = p_person_id
+   WHERE id = p_request_id;
+  RETURN jsonb_build_object('ok', true, 'status', 'approved', 'balance_cents', v_result->'balance_cents');
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.pay_pocket_money_allowance(UUID, INTEGER, TEXT, TIMESTAMPTZ) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.pay_pocket_money_allowance(UUID, INTEGER, TEXT, TIMESTAMPTZ) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.pay_pocket_money_allowance(UUID, INTEGER, TEXT, TIMESTAMPTZ) TO service_role;
+REVOKE ALL ON FUNCTION public.decide_pocket_money_withdrawal(UUID, UUID, TEXT, UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.decide_pocket_money_withdrawal(UUID, UUID, TEXT, UUID) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.decide_pocket_money_withdrawal(UUID, UUID, TEXT, UUID) TO service_role;
 
 -- A pocket-money request is described by `data` alone.
 DO $$ BEGIN
