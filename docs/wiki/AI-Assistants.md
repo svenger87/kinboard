@@ -205,11 +205,11 @@ only connect assistants through the "Allow AI assistants" sign-in.
 
 | Permission | Lets the assistant |
 |---|---|
-| `family:read` | read the summary, calendar, tasks, people, meal plan and shopping list, the countdowns, the messages on the screens and the attention panel's hints |
+| `family:read` | read the summary, calendar, tasks, people, meal plan and shopping list, the family's recipes, the timers, the school timetable, birthdays, each child's pocket money, what is in the recycle bin, the countdowns, the messages on the screens and the attention panel's hints (those from Home Assistant only as a count, unless `home:read` is granted too) |
 | `notes:read` | read notes |
 | `calendar:write` | add, edit and delete calendar events, and say who an event is for; add and delete countdowns |
 | `tasks:write` | add, complete, edit and delete tasks, and bring them back from the recycle bin; dismiss hints on the attention panel |
-| `shopping:write` | add, check/uncheck, rename and delete shopping items |
+| `shopping:write` | add, check/uncheck, rename and delete shopping items, and put a recipe's ingredients on the list |
 | `notes:write` | add, edit and delete notes, and bring them back from the recycle bin |
 | `meals:write` | add and remove meal plan entries, and bring them back from the recycle bin |
 | `announcements:write` | send a message to the family's screens, and mark one as seen |

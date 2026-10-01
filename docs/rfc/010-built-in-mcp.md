@@ -171,10 +171,12 @@ Assistant actuation — superseding this paragraph.
 
 - This is the first path by which something outside the house acts inside it.
   RFC-002 §6's "never" list holds: **no actuation**. No tool reaches Home
-  Assistant services, locks, alarms or presence; `energy:read` reads two
-  configured sensors only. RFC-011 later lifts this, for devices in a
-  household-built catalogue and behind PIN confirmation for sensitive
-  actions — superseding this bullet.
+  Assistant services, locks, alarms or presence; `energy:read` reads only
+  sensors configured in Kinboard's energy settings — two solar sensors when
+  this was written, every configured energy sensor (solar, battery, grid,
+  consumption) since RFC-012 §5.8, never an arbitrary entity. RFC-011 later
+  lifts the actuation rule, for devices in a household-built catalogue and
+  behind PIN confirmation for sensitive actions — superseding this bullet.
 - The new anonymous surface is: metadata (static), DCR (rate-limited, writes a
   bounded row), authorize (validates, writes a 10-minute pending row), token
   (rate-limited). It exists only once a family has switched on **Allow AI

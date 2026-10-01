@@ -201,7 +201,9 @@ items cannot create tasks, and a read-only token cannot write at all.
 ### AI assistants
 
 Claude and ChatGPT can read the family's calendar, tasks, notes, meal plan
-and shopping list, add to and edit them, and control devices in a
+and shopping list, add to and edit them, find recipes, set timers, keep
+birthdays, read the timetable and the energy sensors, ask to book pocket
+money, and control devices in a
 Home Assistant catalogue the family sets up — anything beyond the plainly
 harmless waits for a family member to confirm it on a Kinboard screen or
 phone — through Kinboard's built-in MCP endpoint. Add

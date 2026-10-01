@@ -84,3 +84,20 @@ test("the pocket money scope needs the PIN, in every language", () => {
   expect(en.oauthConsent.scope_pocket_money_write).toBe("Ask to book pocket money — every booking needs the settings PIN");
   for (const dict of [en, de, fr]) expect(dict.oauthConsent.scope_pocket_money_write).toMatch(/PIN/);
 });
+
+// family:read grew with every assistant feature that only reads; the label is
+// what the family agrees to, so it has to name each of them, not just the
+// four it started with.
+test("the family read scope names everything it reads, in every language", () => {
+  const names: Record<"en" | "de" | "fr", RegExp[]> = {
+    en: [/calendar/, /people/, /tasks/, /shopping list/, /meal plan/, /recipes/, /school timetable/, /birthdays/, /pocket money/, /timers/, /countdowns/, /screen messages/, /attention hints/, /recycle bin/],
+    de: [/Kalender/, /Personen/, /Aufgaben/, /Einkaufsliste/, /Mahlzeiten/, /Rezepte/, /Stundenplan/, /Geburtstage/, /Taschengeld/, /Timer/, /Countdowns/, /Nachrichten/, /Hinweise/, /Papierkorb/],
+    fr: [/calendrier/, /membres/, /tâches/, /courses/, /repas/, /recettes/, /emploi du temps/, /anniversaires/, /argent de poche/, /minuteurs/, /comptes à rebours/, /messages/, /conseils/, /corbeille/],
+  };
+  const dicts = { en, de, fr };
+  for (const locale of ["en", "de", "fr"] as const) {
+    for (const name of names[locale]) {
+      expect(dicts[locale].oauthConsent.scope_family_read, `${locale} ${name}`).toMatch(name);
+    }
+  }
+});
