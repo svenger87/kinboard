@@ -3,10 +3,11 @@
  * listing them in the order they come round, and adding, editing and
  * deleting one the way the birthdays page does.
  *
- * Shared by GET/POST /birthdays and PATCH/DELETE /birthdays/{id}; every
- * function takes the database client so the spec can hand it a fake one that
- * applies the filters it is given, and a missing family or deleted_at filter
- * really does reach a foreign or binned row there.
+ * Shared by GET/POST /birthdays and PATCH/DELETE /birthdays/{id}. Every
+ * database function makes its own admin client unless handed one — the
+ * routes never touch the client, so all family scoping lives here — and the
+ * spec hands it a fake that applies the filters it is given, so a missing
+ * family or deleted_at filter really does reach a foreign or binned row.
  *
  * How the app stores a birthday, which this follows rather than reinvents:
  *
@@ -16,8 +17,9 @@
  *   `hasBirthYear` reads a stored year that is not before the current one as
  *   "no year". So `--MM-DD` here is stored as this year's date — this year in
  *   the family's time zone — and read back as `--MM-DD` with
- *   `year_known: false` and no age. A child genuinely born this year reads
- *   the same way; the app makes the same choice (see hasBirthYear).
+ *   `year_known: false` and no age. A full date in the current year would be
+ *   stored identically and lose its year on the way back, so it is refused
+ *   with a pointer to `--MM-DD`; a later year is a birth in the future.
  * - 29 February without a year cannot be stored in a year that is not a leap
  *   year, and the form refuses it then too ("invalid date"); so does this.
  * - 29 February falls on 1 March in a non-leap year — the day the birthdays
@@ -28,7 +30,8 @@
  *   "in 0 days" turns over at the family's midnight, not the server's.
  */
 
-import { familyPersonId, invalidRequest, type TaskDb } from "@/lib/integration-tasks";
+import { createAdminClient } from "@/lib/supabase/server";
+import { familyPersonId, invalidRequest, isUuid, type TaskDb } from "@/lib/integration-tasks";
 
 export type BirthdayDb = TaskDb;
 
@@ -37,11 +40,7 @@ export const MAX_NOTIFY_DAYS = 60;
 export const DEFAULT_NOTIFY_DAYS = 7;
 /** The form's own lower bound for a birth year. */
 export const MIN_BIRTH_YEAR = 1900;
-/** Enough for any household; beyond this something is wrong, not busy. */
-export const MAX_BIRTHDAYS = 500;
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export const isUuid = (value: string) => UUID_RE.test(value);
+export { isUuid };
 
 const COLUMNS = "id, name, date, person_id, notify_days_before";
 
@@ -118,8 +117,11 @@ export function describeBirthday(row: Row, today: string): Birthday {
 
 /**
  * `YYYY-MM-DD`, or `--MM-DD` for a birthday whose year nobody knows, as the
- * date to store. The year must be from 1900 to the family's current year,
- * the form's bounds; the day must exist in that month. `--MM-DD` is stored
+ * date to store. The year must be from 1900 (the form's lower bound) to
+ * last year: the form's upper bound is this year, but a birth year of this
+ * year is stored exactly like an unknown one and read back without it, so
+ * accepting it would silently drop what the caller said. The day must exist
+ * in that month. `--MM-DD` is stored
  * with the current year, as the form stores a blank year — so 29 February
  * without a year is refused unless this year is a leap year, as the form
  * refuses it.
@@ -138,8 +140,12 @@ export function parseBirthdayDate(value: unknown, today: string): Outcome<string
   const month = Number(full ? full[2] : yearless![1]);
   const day = Number(full ? full[3] : yearless![2]);
 
-  if (full && (year < MIN_BIRTH_YEAR || year > thisYear)) {
-    return bad(`the birth year must be from ${MIN_BIRTH_YEAR} to ${thisYear}; use --MM-DD when it is unknown`);
+  if (full && year > thisYear) return bad(`\`date\` is in the future: ${value}`);
+  if (full && year === thisYear) {
+    return bad(`a birth year of ${thisYear} cannot be told apart from an unknown year in Kinboard; send --${full[2]}-${full[3]}, which is stored the same way and shows no age`);
+  }
+  if (full && year < MIN_BIRTH_YEAR) {
+    return bad(`the birth year must be from ${MIN_BIRTH_YEAR} to ${thisYear - 1}; use --MM-DD when it is unknown`);
   }
   if (month < 1 || month > 12 || day < 1) return bad(`\`date\` is not a real date: ${value}`);
   if (day > daysInMonth(year, month)) {
@@ -186,13 +192,14 @@ export function parseBirthdayFields(
 type Result = { status: number; response: Record<string, unknown> };
 
 /** Every birthday of the family not in the recycle bin, the next one first. Throws on a database error. */
-export async function listBirthdays(db: BirthdayDb, familyId: string, today: string): Promise<Birthday[]> {
+export async function listBirthdays(familyId: string, today: string, db: BirthdayDb = createAdminClient()): Promise<Birthday[]> {
+  // No cap: a household's birthdays are household-sized, and a capped read
+  // without an order would drop an arbitrary one without saying so.
   const { data, error } = await (db as any)
     .from("birthdays")
     .select(COLUMNS)
     .eq("family_id", familyId)
-    .is("deleted_at", null)
-    .limit(MAX_BIRTHDAYS);
+    .is("deleted_at", null);
   if (error) throw error;
   return ((data ?? []) as Row[])
     .map((row) => describeBirthday(row, today))
@@ -203,7 +210,9 @@ export async function listBirthdays(db: BirthdayDb, familyId: string, today: str
  * POST /birthdays once the key and idempotency are dealt with. Nothing is
  * written when any field is refused. Throws on a database error.
  */
-export async function createBirthday(db: BirthdayDb, familyId: string, body: Record<string, unknown>, today: string): Promise<Result> {
+export async function createBirthday(
+  familyId: string, body: Record<string, unknown>, today: string, db: BirthdayDb = createAdminClient(),
+): Promise<Result> {
   if (!("name" in body)) return invalidRequest("`name` is required");
   if (!("date" in body)) return invalidRequest("`date` is required: YYYY-MM-DD, or --MM-DD when the year is unknown");
   const fields = parseBirthdayFields(body, today);
@@ -232,7 +241,7 @@ export async function createBirthday(db: BirthdayDb, familyId: string, body: Rec
  * missing, binned or another family's is 404. Throws on a database error.
  */
 export async function updateBirthday(
-  db: BirthdayDb, familyId: string, id: string, body: Record<string, unknown>, today: string,
+  familyId: string, id: string, body: Record<string, unknown>, today: string, db: BirthdayDb = createAdminClient(),
 ): Promise<Result> {
   const notFound = { status: 404, response: { error: "no such birthday", code: "not_found" } };
   if (!isUuid(id)) return notFound;
@@ -274,7 +283,7 @@ export async function updateBirthday(
  * trigger lets a DELETE of an already-binned row through as a real purge.
  * Throws on a database error.
  */
-export async function deleteBirthday(db: BirthdayDb, familyId: string, id: string): Promise<boolean> {
+export async function deleteBirthday(familyId: string, id: string, db: BirthdayDb = createAdminClient()): Promise<boolean> {
   if (!isUuid(id)) return false;
   const { data: existing, error: selectErr } = await (db as any)
     .from("birthdays")

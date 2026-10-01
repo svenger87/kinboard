@@ -18,6 +18,7 @@ import { itemDue, itemSummary } from "@/lib/integration-lists";
 export type TaskDb = ReturnType<typeof createAdminClient>;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isUuid = (value: unknown): value is string => typeof value === "string" && UUID_RE.test(value);
 
 export const TASK_PRIORITIES = ["high", "medium", "low"] as const;
 export const MAX_TASK_POINTS = 10_000;
@@ -43,7 +44,7 @@ export async function familyPersonId(
   value: unknown,
 ): Promise<{ ok: true; value: string | null } | { ok: false; error: string }> {
   if (value === null) return { ok: true, value: null };
-  if (typeof value !== "string" || !UUID_RE.test(value)) {
+  if (!isUuid(value)) {
     return { ok: false, error: "`person_id` must be a uuid or null" };
   }
   const { data, error } = await (db as any)

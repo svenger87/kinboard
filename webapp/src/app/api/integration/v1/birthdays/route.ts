@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
-import { createAdminClient } from "@/lib/supabase/server";
 import { logApiError } from "@/lib/api-error";
 import { familyDateKey, familyTimeZone } from "@/lib/family-time";
 import {
@@ -22,7 +21,7 @@ export async function GET(request: NextRequest) {
   return withIntegrationAuth(request, "family:read", async (context) => {
     try {
       const today = familyDateKey(new Date(), await familyTimeZone(context.familyId));
-      const birthdays = await listBirthdays(createAdminClient(), context.familyId, today);
+      const birthdays = await listBirthdays(context.familyId, today);
       return NextResponse.json({ today, birthdays });
     } catch (err) {
       await logApiError("integration/birthdays/list", err);
@@ -35,7 +34,8 @@ export async function GET(request: NextRequest) {
  * POST /api/integration/v1/birthdays
  *
  * Add a birthday as the birthdays page does: `name` (at most 100
- * characters), `date` as YYYY-MM-DD or --MM-DD when the year is unknown,
+ * characters), `date` as YYYY-MM-DD with a birth year before this one, or
+ * --MM-DD when the year is unknown or is this year,
  * optional `person_id` (a person of this family) and `notify_days_before`
  * 0..60 (default 7). A create, so an Idempotency-Key is required: a retried
  * "add Grandma's birthday" must not add it twice.
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const today = familyDateKey(new Date(), await familyTimeZone(context.familyId));
-      const result = await createBirthday(createAdminClient(), context.familyId, body, today);
+      const result = await createBirthday(context.familyId, body, today);
       // A refusal is a 400 and, like every 400, is not remembered against the key.
       if (result.status < 400) {
         await storeResult({

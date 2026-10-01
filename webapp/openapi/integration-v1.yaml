@@ -1054,10 +1054,13 @@ paths:
       summary: Add a birthday
       description: |
         Adds a birthday as the birthdays page does. `date` is `YYYY-MM-DD`
-        with a birth year from 1900 to the family's current year, or
-        `--MM-DD` when the year is unknown — stored with the current year,
-        as the page stores a blank year, so `--02-29` is refused in a year
-        that is not a leap year. `person_id` must name a person of this
+        with a birth year from 1900 to last year (in the family's time
+        zone), or `--MM-DD` when the year is unknown — stored with the
+        current year, as the page stores a blank year, so `--02-29` is
+        refused in a year that is not a leap year. A full date with this
+        year's birth year is refused (`400`, pointing at `--MM-DD`): it
+        would be stored exactly like an unknown year and read back without
+        it. A later year is refused as a date in the future. `person_id` must name a person of this
         family who is not in the recycle bin. `notify_days_before` defaults
         to 7. Nothing is written when any field is refused.
       x-required-scope: birthdays:write

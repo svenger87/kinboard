@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { destructiveLimitResponse } from "@/lib/integration-limits";
-import { createAdminClient } from "@/lib/supabase/server";
 import { logApiError } from "@/lib/api-error";
 import { familyDateKey, familyTimeZone } from "@/lib/family-time";
 import { deleteBirthday, isUuid, updateBirthday } from "@/lib/integration-birthdays";
@@ -14,9 +13,9 @@ export const dynamic = "force-dynamic";
  * Edit or delete one birthday — `birthdays:write`, behind the assistant
  * edit/delete budget like every other Integration API PATCH and DELETE.
  * A birthday that is missing, in the recycle bin or another family's is 404;
- * every statement in lib/integration-birthdays.ts filters `family_id` and
- * `deleted_at IS NULL` itself, because the admin client bypasses RLS
- * (e2e/integration-birthdays.spec.ts holds that with a fake client).
+ * lib/integration-birthdays.ts makes the admin client and scopes every
+ * statement by family and `deleted_at IS NULL` itself, because that client
+ * bypasses RLS (e2e/integration-birthdays.spec.ts holds it with a fake).
  */
 export async function PATCH(
   request: NextRequest,
@@ -42,7 +41,7 @@ export async function PATCH(
 
     try {
       const today = familyDateKey(new Date(), await familyTimeZone(context.familyId));
-      const result = await updateBirthday(createAdminClient(), context.familyId, id, body, today);
+      const result = await updateBirthday(context.familyId, id, body, today);
       return NextResponse.json(result.response, { status: result.status });
     } catch (err) {
       await logApiError("integration/birthdays/update", err);
@@ -70,7 +69,7 @@ export async function DELETE(
     }
 
     try {
-      const deleted = await deleteBirthday(createAdminClient(), context.familyId, id);
+      const deleted = await deleteBirthday(context.familyId, id);
       if (!deleted) {
         return NextResponse.json({ error: "no such birthday", code: "not_found" }, { status: 404 });
       }

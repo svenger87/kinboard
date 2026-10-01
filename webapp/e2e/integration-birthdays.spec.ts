@@ -162,11 +162,22 @@ test.describe("the date a caller sends", () => {
 
   test("the year is from 1900 to this year; the date must exist; anything else is refused", () => {
     expect(parseBirthdayDate("1900-01-01", TODAY).ok).toBe(true);
-    expect(parseBirthdayDate("2026-12-31", TODAY).ok).toBe(true);
+    expect(parseBirthdayDate("2025-12-31", TODAY).ok).toBe(true);
     for (const bad of ["1899-12-31", "2027-01-01", "1985-13-01", "1985-00-10", "1985-04-31", "1985-04-00", "--13-01", "--04-31",
       "1985-4-7", "85-04-07", "1985-04-07T00:00:00Z", "-04-07", "", null, 19850407, undefined]) {
       expect(parseBirthdayDate(bad, TODAY).ok, String(bad)).toBe(false);
     }
+  });
+
+  test("a birth year of this year is refused, pointing at --MM-DD; a later one is in the future", () => {
+    const thisYear = parseBirthdayDate("2026-03-14", TODAY);
+    expect(thisYear.ok).toBe(false);
+    if (!thisYear.ok) expect(thisYear.error).toContain("--03-14");
+    expect(parseBirthdayDate("2026-12-25", TODAY).ok).toBe(false);
+    const future = parseBirthdayDate("2027-01-01", TODAY);
+    expect(future.ok).toBe(false);
+    if (!future.ok) expect(future.error).toContain("future");
+    expect(parseBirthdayDate("--03-14", TODAY)).toEqual({ ok: true, value: "2026-03-14" });
   });
 
   test("name is trimmed and 1..100 characters; notify_days_before a whole number 0..60", () => {
@@ -181,7 +192,7 @@ test.describe("the date a caller sends", () => {
 test.describe("GET /birthdays", () => {
   test("only this family's, never the binned one, next first", async () => {
     const { db } = fakeDb();
-    const list = await listBirthdays(db, OURS, TODAY);
+    const list = await listBirthdays(OURS, TODAY, db);
     expect(list.map((b) => b.name)).toEqual(["Mia", "Nils", "Oma"]);
     expect(list[0]).toMatchObject({ id: B_MIA, date: "2018-10-03", days_until: 2, age: 7, turns: 8, person_id: MIA });
     expect(list[1]).toMatchObject({ date: "--11-05", year_known: false, age: null, notify_days_before: 7 });
@@ -191,7 +202,7 @@ test.describe("GET /birthdays", () => {
 test.describe("POST /birthdays", () => {
   test("stores what the form stores and answers with the birthday", async () => {
     const { db, tables } = fakeDb();
-    const result = await createBirthday(db, OURS, { name: " Opa ", date: "--06-15", person_id: MIA, notify_days_before: 3 }, TODAY);
+    const result = await createBirthday(OURS, { name: " Opa ", date: "--06-15", person_id: MIA, notify_days_before: 3 }, TODAY, db);
     expect(result.status).toBe(201);
     expect(result.response.birthday).toMatchObject({ name: "Opa", date: "--06-15", year_known: false, person_id: MIA, notify_days_before: 3 });
     expect(tables.birthdays.at(-1)).toMatchObject({ family_id: OURS, name: "Opa", date: "2026-06-15", person_id: MIA, notify_days_before: 3 });
@@ -199,7 +210,7 @@ test.describe("POST /birthdays", () => {
 
   test("notify_days_before defaults to 7 and person_id to nobody", async () => {
     const { db, tables } = fakeDb();
-    await createBirthday(db, OURS, { name: "Opa", date: "1950-06-15" }, TODAY);
+    await createBirthday(OURS, { name: "Opa", date: "1950-06-15" }, TODAY, db);
     expect(tables.birthdays.at(-1)).toMatchObject({ notify_days_before: 7, person_id: null });
   });
 
@@ -207,7 +218,7 @@ test.describe("POST /birthdays", () => {
     for (const person_id of [OTHER_CHILD, BINNED_PERSON, NOWHERE, "not-a-uuid", 5]) {
       const { db, tables } = fakeDb();
       const before = tables.birthdays.length;
-      const result = await createBirthday(db, OURS, { name: "Opa", date: "1950-06-15", person_id }, TODAY);
+      const result = await createBirthday(OURS, { name: "Opa", date: "1950-06-15", person_id }, TODAY, db);
       expect(result.status, String(person_id)).toBe(400);
       expect(tables.birthdays.length).toBe(before);
     }
@@ -217,7 +228,7 @@ test.describe("POST /birthdays", () => {
     for (const body of [{ date: "1950-06-15" }, { name: "Opa" }, { name: "Opa", date: "--02-29" }, { name: "Opa", date: "1950-06-15", notify_days_before: 90 }]) {
       const { db, tables } = fakeDb();
       const before = tables.birthdays.length;
-      expect((await createBirthday(db, OURS, body, TODAY)).status, JSON.stringify(body)).toBe(400);
+      expect((await createBirthday(OURS, body, TODAY, db)).status, JSON.stringify(body)).toBe(400);
       expect(tables.birthdays.length).toBe(before);
     }
   });
@@ -226,52 +237,52 @@ test.describe("POST /birthdays", () => {
 test.describe("PATCH /birthdays/{id}", () => {
   test("changes only the fields sent", async () => {
     const { db, tables } = fakeDb();
-    const result = await updateBirthday(db, OURS, B_OMA, { notify_days_before: 0, person_id: MIA }, TODAY);
+    const result = await updateBirthday(OURS, B_OMA, { notify_days_before: 0, person_id: MIA }, TODAY, db);
     expect(result.status).toBe(200);
     expect(tables.birthdays.find((b) => b.id === B_OMA)).toMatchObject({ name: "Oma", date: "1950-12-24", notify_days_before: 0, person_id: MIA });
-    await updateBirthday(db, OURS, B_OMA, { person_id: null, date: "--12-25" }, TODAY);
+    await updateBirthday(OURS, B_OMA, { person_id: null, date: "--12-25" }, TODAY, db);
     expect(tables.birthdays.find((b) => b.id === B_OMA)).toMatchObject({ date: "2026-12-25", person_id: null });
   });
 
   test("another family's, a binned or a missing birthday is 404 and unchanged", async () => {
     const { db, tables } = fakeDb();
     for (const id of [B_FOREIGN, B_BINNED, NOWHERE, "nope"]) {
-      expect((await updateBirthday(db, OURS, id, { name: "Hacked" }, TODAY)).status, id).toBe(404);
+      expect((await updateBirthday(OURS, id, { name: "Hacked" }, TODAY, db)).status, id).toBe(404);
     }
     expect(tables.birthdays.filter((b) => b.name === "Hacked")).toEqual([]);
   });
 
   test("a person of another family is refused", async () => {
     const { db, tables } = fakeDb();
-    expect((await updateBirthday(db, OURS, B_OMA, { person_id: OTHER_CHILD }, TODAY)).status).toBe(400);
+    expect((await updateBirthday(OURS, B_OMA, { person_id: OTHER_CHILD }, TODAY, db)).status).toBe(400);
     expect(tables.birthdays.find((b) => b.id === B_OMA)?.person_id).toBeNull();
   });
 
   test("an empty patch is 400", async () => {
     const { db } = fakeDb();
-    expect((await updateBirthday(db, OURS, B_OMA, {}, TODAY)).status).toBe(400);
+    expect((await updateBirthday(OURS, B_OMA, {}, TODAY, db)).status).toBe(400);
   });
 });
 
 test.describe("DELETE /birthdays/{id}", () => {
   test("moves it to the recycle bin rather than erasing it", async () => {
     const { db, tables } = fakeDb();
-    expect(await deleteBirthday(db, OURS, B_OMA)).toBe(true);
+    expect(await deleteBirthday(OURS, B_OMA, db)).toBe(true);
     expect(tables.birthdays.find((b) => b.id === B_OMA)?.deleted_at).not.toBeNull();
   });
 
   test("a second delete is 404, not a purge", async () => {
     const { db, tables } = fakeDb();
-    expect(await deleteBirthday(db, OURS, B_OMA)).toBe(true);
-    expect(await deleteBirthday(db, OURS, B_OMA)).toBe(false);
+    expect(await deleteBirthday(OURS, B_OMA, db)).toBe(true);
+    expect(await deleteBirthday(OURS, B_OMA, db)).toBe(false);
     expect(tables.birthdays.some((b) => b.id === B_OMA)).toBe(true);
   });
 
   test("another family's or a binned birthday is 404 and untouched", async () => {
     const { db, tables, deletes } = fakeDb();
-    expect(await deleteBirthday(db, OURS, B_FOREIGN)).toBe(false);
-    expect(await deleteBirthday(db, OURS, B_BINNED)).toBe(false);
-    expect(await deleteBirthday(db, OURS, "nope")).toBe(false);
+    expect(await deleteBirthday(OURS, B_FOREIGN, db)).toBe(false);
+    expect(await deleteBirthday(OURS, B_BINNED, db)).toBe(false);
+    expect(await deleteBirthday(OURS, "nope", db)).toBe(false);
     expect(deletes).toEqual([]);
     expect(tables.birthdays.find((b) => b.id === B_FOREIGN)?.deleted_at).toBeNull();
     expect(tables.birthdays.some((b) => b.id === B_BINNED)).toBe(true);
@@ -281,7 +292,7 @@ test.describe("DELETE /birthdays/{id}", () => {
     const { db, tables, deletes } = fakeDb({
       beforeDelete: (t) => { t.birthdays.find((b) => b.id === B_OMA)!.deleted_at = "2026-10-01T11:59:00Z"; },
     });
-    await deleteBirthday(db, OURS, B_OMA);
+    await deleteBirthday(OURS, B_OMA, db);
     expect(tables.birthdays.some((b) => b.id === B_OMA)).toBe(true);
     expect(deletes[0].filters).toEqual(expect.arrayContaining([["family_id", OURS], ["deleted_at", null]]));
   });
@@ -297,6 +308,9 @@ test.describe("the routes", () => {
     expect(list).toContain('withIntegrationAuth(request, "birthdays:write"');
     expect(one.match(/withIntegrationAuth\(request, "birthdays:write"/g)).toHaveLength(2);
     for (const src of [list, one]) {
+      // The client and every family filter live in the lib, which the tests
+      // above hold; a route that made its own client would escape them.
+      expect(src).not.toContain("createAdminClient");
       expect(src).not.toMatch(/body\.family_id|searchParams\.get\("family/);
       expect(src).toContain("context.familyId");
     }
