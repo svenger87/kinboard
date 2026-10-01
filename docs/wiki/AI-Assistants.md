@@ -174,7 +174,7 @@ only connect assistants through the "Allow AI assistants" sign-in.
 | Tool | Does |
 |---|---|
 | `list_attention_items` | The hints the attention panel is showing right now ("Rain likely today"), most important first, in the family's language. A hint from Home Assistant, such as doors still open at bedtime, only says how many unless the assistant may also see the home (`home:read`) |
-| `dismiss_attention_item` | Take a hint off the panel, as tapping OK on it does; the screens catch up within a few minutes |
+| `dismiss_attention_item` | Take a hint off the panel, as tapping OK on it does; the screens catch up within a few minutes. The hint comes back if the situation arises again |
 
 ### Messages and energy
 

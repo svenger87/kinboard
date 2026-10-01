@@ -235,7 +235,9 @@ this build doesn't know — keeps its `item_key`, `rule_id` and priority, but
 its title is rendered from numeric parameters only ("2 still open") and
 `detail` is null, so no entity id or device name reaches a `family:read`
 token. Dismissal goes through RFC-001's `dismiss_attention` service
-(`tasks:write`), called in process.
+(`tasks:write`), called in process. Like acknowledging a message it is not
+destructive and takes nothing from the edit/delete budget: the hint stays
+off while the situation lasts and comes back if it arises again.
 
 ## 6. Fixes found by the survey
 
