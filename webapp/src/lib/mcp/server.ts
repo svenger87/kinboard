@@ -2,7 +2,7 @@ import { McpServer, type AuthInfo } from "@modelcontextprotocol/server";
 import * as z from "zod";
 import type { McpScope } from "@/lib/oauth/config";
 import { wwwAuthenticate } from "@/lib/oauth/metadata";
-import { callIntegration, type RouteHandler } from "@/lib/mcp/call-integration";
+import { callIntegration, IntegrationCallError, type RouteHandler } from "@/lib/mcp/call-integration";
 import { GET as familySummary } from "@/app/api/integration/v1/family/summary/route";
 import { GET as calendarEvents, POST as createCalendarEvent } from "@/app/api/integration/v1/calendar/events/route";
 import { GET as calendars } from "@/app/api/integration/v1/calendars/route";
@@ -30,7 +30,9 @@ type ToolName = keyof typeof TOOL_SCOPES;
 
 const readOnly = { readOnlyHint: true, openWorldHint: false };
 const createAction = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
-const isoWithOffset = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/, "ISO 8601 with Z or a +HH:MM offset");
+const isoWithOffset = z.string()
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/, "ISO 8601 with Z or a +HH:MM offset")
+  .refine((s) => !Number.isNaN(Date.parse(s)), "not a real time");
 const date = z.iso.date();
 
 export function createKinboardMcpServer(authInfo: AuthInfo, origin: string): McpServer {
@@ -55,7 +57,17 @@ export function createKinboardMcpServer(authInfo: AuthInfo, origin: string): Mcp
       try {
         return { content: [{ type: "text" as const, text: JSON.stringify(await run(args)) }] };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "Kinboard request failed" }], isError: true };
+        // Only an IntegrationCallError's message is safe to hand back: it is
+        // the route's own apiError text, already written for an external
+        // reader. Anything else is an unexpected exception (a bug, a
+        // timeout, a thrown non-Error) and its message might carry a stack
+        // frame, a file path, or other detail that was never meant to leave
+        // the server — so it goes to the log, not the model.
+        if (error instanceof IntegrationCallError) {
+          return { content: [{ type: "text" as const, text: error.message }], isError: true };
+        }
+        console.error("[mcp] tool failed", name, error);
+        return { content: [{ type: "text" as const, text: "Kinboard request failed" }], isError: true };
       }
     };
     // The SDK's registerTool overloads require an OutputArgs generic with no

@@ -3,7 +3,7 @@ import { authenticateMcpRequest } from "../src/lib/mcp/auth";
 import { TOOL_SCOPES } from "../src/lib/mcp/server";
 import { hashIntegrationToken } from "../src/lib/integration-auth";
 import { MCP_SCOPES } from "../src/lib/oauth/config";
-import type { StoredToken } from "../src/lib/integration-store";
+import { TokenLookupUnavailable, type StoredToken } from "../src/lib/integration-store";
 
 const ORIGIN = "https://kb.example.com";
 const TOKEN = `kbi_${"a".repeat(43)}`;
@@ -13,7 +13,11 @@ const row = (over: Partial<StoredToken> = {}): StoredToken => ({
   expires_at: "2026-10-01T13:00:00Z", revoked_at: null, last_used_at: null, oauth_client_id: "https://claude.ai/meta", resource: `${ORIGIN}/api/mcp`, ...over,
 });
 const req = (auth?: string) => new Request(`${ORIGIN}/api/mcp`, { method: "POST", headers: auth ? { authorization: auth } : {} });
-const auth = (r: Request, found: StoredToken | null) => authenticateMcpRequest(r, ORIGIN, async () => found, NOW);
+// A no-op default so none of these tests reach the real touchToken (and so
+// the real Postgres it talks to) unless a test explicitly wants to observe it.
+const noopTouch = async () => {};
+const auth = (r: Request, found: StoredToken | null, touch: (token: StoredToken, now?: Date) => Promise<void> = noopTouch) =>
+  authenticateMcpRequest(r, ORIGIN, async () => found, NOW, touch);
 
 test("no token is a 401 that points the client at the metadata", async () => {
   const r = await auth(req(), null);
@@ -47,4 +51,33 @@ test("expired and revoked tokens are refused", async () => {
 test("every tool names an assistant scope", () => {
   for (const [tool, scope] of Object.entries(TOOL_SCOPES)) expect(MCP_SCOPES, tool).toContain(scope);
   expect(TOOL_SCOPES.list_notes).toBe("notes:read");
+});
+
+test("a lookup that cannot be verified is a 503 with retry-after, never a 401", async () => {
+  const r = await authenticateMcpRequest(
+    req(`Bearer ${TOKEN}`), ORIGIN,
+    async () => { throw new TokenLookupUnavailable(); },
+    NOW, noopTouch,
+  );
+  expect(r.ok).toBe(false);
+  if (r.ok) return;
+  expect(r.response.status).toBe(503);
+  expect(r.response.headers.get("retry-after")).toBe("5");
+});
+
+test("a successful authentication touches the token once; a failed one does not", async () => {
+  let calls: StoredToken[] = [];
+  const touch = async (token: StoredToken) => { calls.push(token); };
+
+  await auth(req(`Bearer ${TOKEN}`), row(), touch);
+  expect(calls).toHaveLength(1);
+  expect(calls[0].id).toBe("tok-1");
+
+  calls = [];
+  await auth(req(`Bearer ${TOKEN}`), row({ revoked_at: "2026-10-01T10:00:00Z" }), touch);
+  expect(calls).toHaveLength(0);
+
+  calls = [];
+  await auth(req(), null, touch);
+  expect(calls).toHaveLength(0);
 });

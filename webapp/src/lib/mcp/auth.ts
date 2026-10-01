@@ -1,6 +1,6 @@
 import type { AuthInfo } from "@modelcontextprotocol/server";
 import { evaluateToken, hashIntegrationToken, isIntegrationScope } from "@/lib/integration-auth";
-import { findTokenByHash, TokenLookupUnavailable, type StoredToken } from "@/lib/integration-store";
+import { findTokenByHash, touchToken, TokenLookupUnavailable, type StoredToken } from "@/lib/integration-store";
 import { wwwAuthenticate } from "@/lib/oauth/metadata";
 import { mcpResource } from "@/lib/oauth/origin";
 
@@ -18,6 +18,7 @@ export async function authenticateMcpRequest(
   origin: string,
   lookup: (hash: string) => Promise<StoredToken | null> = findTokenByHash,
   now: Date = new Date(),
+  touch: (token: StoredToken, now?: Date) => Promise<void> = touchToken,
 ): Promise<McpAuthResult> {
   const challenge = (error?: "invalid_token"): McpAuthResult => ({
     ok: false,
@@ -46,6 +47,12 @@ export async function authenticateMcpRequest(
   const evaluated = evaluateToken(row, hash, now);
   if (!evaluated.ok || !row) return challenge("invalid_token");
   if (row.resource && row.resource !== mcpResource(origin)) return challenge("invalid_token");
+
+  // Fire-and-forget, like every other Integration API caller: a connection
+  // that only ever lists tools (no scope-gated call ever reaches
+  // withIntegrationAuth, which is the only other place last_used_at moves)
+  // would otherwise show as never used in Settings.
+  void touch(row, now);
 
   return {
     ok: true,

@@ -116,9 +116,14 @@ Claude / ChatGPT ──► GET  /api/mcp                       401 + WWW-Authent
   `invalid_grant` and the connection must be re-approved.
 - Authorization codes: single use, 60 s, PKCE S256 required. A code presented
   twice revokes the connection it produced.
-- `/api/mcp` accepts a token whose `resource` is NULL (manually created) or
-  equals this server's resource. The REST Integration API keeps accepting all
-  tokens: it is the same server.
+- `/api/mcp` accepts a token whose resource is NULL (manually created) or
+  equals this server's resource. The binding separates origins a client
+  legitimately reached; it is not a defence against a token holder, who can
+  present any Host/X-Forwarded-Host.
+- The REST Integration API accepts all tokens, including OAuth ones: MCP
+  tools call it in process with the caller's token, so an assistant's token
+  is, by design, an Integration API token with the scopes the family
+  granted.
 
 ### 3.5 Consent
 
@@ -131,6 +136,9 @@ check `/api/pin` uses; if the family has none, the consent page sets one
 The page shows the client name, the redirect **hostname** (MCP spec: required,
 with an extra warning when only loopback redirects are registered), and the
 requested scopes as checkboxes; the user may grant fewer.
+
+Twenty wrong PINs within an hour lock PIN entry (settings and consent) for
+the rest of that hour.
 
 ### 3.6 Tools
 
