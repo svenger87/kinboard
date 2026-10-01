@@ -160,6 +160,7 @@ test.describe("scopes", () => {
     expect([...INTEGRATION_SCOPES].sort()).toEqual(
       [
         "announcements:write",
+        "birthdays:write",
         "calendar:write",
         "energy:read",
         "events:read",
@@ -169,8 +170,10 @@ test.describe("scopes", () => {
         "meals:write",
         "notes:read",
         "notes:write",
+        "pocket_money:write",
         "shopping:write",
         "tasks:write",
+        "timers:write",
         "vehicles:read",
       ].sort(),
     );

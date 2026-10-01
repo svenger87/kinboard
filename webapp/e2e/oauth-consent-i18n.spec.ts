@@ -59,3 +59,20 @@ test("the vehicles scope names charge level and range, in every language", () =>
   expect(de.oauthConsent.scope_vehicles_read).toMatch(/Ladestand/);
   expect(fr.oauthConsent.scope_vehicles_read).toMatch(/charge/);
 });
+
+test("the timers scope says start and stop, in every language", () => {
+  expect(en.oauthConsent.scope_timers_write).toBe("Start and stop timers on the screens");
+  expect(de.oauthConsent.scope_timers_write).toMatch(/Timer/);
+  expect(fr.oauthConsent.scope_timers_write).toMatch(/minuteur/i);
+});
+
+test("the birthdays scope says add, change and delete, in every language", () => {
+  expect(en.oauthConsent.scope_birthdays_write).toBe("Add, change and delete birthdays");
+  expect(de.oauthConsent.scope_birthdays_write).toMatch(/Geburtstage/);
+  expect(fr.oauthConsent.scope_birthdays_write).toMatch(/anniversaire/i);
+});
+
+test("the pocket money scope needs the PIN, in every language", () => {
+  expect(en.oauthConsent.scope_pocket_money_write).toBe("Ask to book pocket money — every booking needs the settings PIN");
+  for (const dict of [en, de, fr]) expect(dict.oauthConsent.scope_pocket_money_write).toMatch(/PIN/);
+});

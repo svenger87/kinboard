@@ -143,6 +143,9 @@ change them.
 | `home:read` | list the home catalogue and read a device's state |
 | `home:control` | control catalogue devices — grant `home:read` too if the assistant should also be able to look before it acts |
 | `vehicles:read` | read the cars' charge level, range and charging status — never their location |
+| `timers:write` | start and stop timers on the screens |
+| `birthdays:write` | add, edit and delete birthdays |
+| `pocket_money:write` | ask to book pocket money — every booking still needs a family member to confirm with the settings PIN |
 
 Twenty wrong PINs within an hour lock PIN entry for the rest of that hour.
 

@@ -43,6 +43,9 @@ Write scopes cover create, edit and delete of their own kind — the rule the
 | `home:read` | **new** | list catalogue devices and their current state |
 | `home:control` | **new** | run allowed actions on catalogue devices |
 | `vehicles:read` | **new** | read the cars' charge level, range and charging status from Home Assistant; never a location (RFC-002) |
+| `timers:write` | **new** | start and stop timers on the screens |
+| `birthdays:write` | **new** | add, edit, delete birthdays |
+| `pocket_money:write` | **new** | request pocket-money bookings; every booking waits for PIN confirmation |
 
 `home:control` never implies `home:read`, consistent with RFC-001 §4.
 

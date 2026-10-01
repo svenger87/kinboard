@@ -43,6 +43,9 @@ export const MCP_SCOPES = [
   "home:read",
   "home:control",
   "vehicles:read",
+  "timers:write",
+  "birthdays:write",
+  "pocket_money:write",
 ] as const satisfies readonly IntegrationScope[];
 
 export type McpScope = (typeof MCP_SCOPES)[number];

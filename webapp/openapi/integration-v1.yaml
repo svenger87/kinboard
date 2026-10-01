@@ -1199,6 +1199,9 @@ components:
         - home:read
         - home:control
         - vehicles:read
+        - timers:write
+        - birthdays:write
+        - pocket_money:write
 
     ListId:
       type: string

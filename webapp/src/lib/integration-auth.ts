@@ -37,6 +37,9 @@ export const INTEGRATION_SCOPES = [
   "home:read",
   "home:control",
   "vehicles:read",
+  "timers:write",
+  "birthdays:write",
+  "pocket_money:write",
 ] as const;
 
 export type IntegrationScope = (typeof INTEGRATION_SCOPES)[number];
