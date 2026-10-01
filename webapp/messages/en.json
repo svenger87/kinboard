@@ -1141,6 +1141,7 @@
       "title": "Navigation",
       "showItem": "Show {label} in navigation",
       "fixedItemsHint": "Home, Calendar, Shopping and Settings remain visible as essential entry points.",
+      "fixedItemsHintKiosk": "This device is in kiosk mode, so Calendar and Shopping can be hidden too. Home and Settings always stay visible.",
       "settingsIconOnly": "Settings icon only",
       "settingsIconOnlyHint": "Saves space in the bottom bar on this device.",
       "intro": "Reorder the bottom navigation and hide items you do not need. These settings apply to this device only.",
@@ -2207,6 +2208,33 @@
       "editAria": "Edit {name}",
       "deleteAria": "Delete {name}"
     },
+    "localCalendars": {
+      "title": "Local calendars",
+      "subtitle": "Calendars that live only in Kinboard",
+      "addButton": "Add calendar",
+      "emptyTitle": "No local calendars yet",
+      "emptyDescription": "A local calendar needs no account and no feed. Its events stay in Kinboard and show on every device in the family.",
+      "onlyInKinboard": "Only in Kinboard, not synced anywhere",
+      "dialogAddTitle": "Add local calendar",
+      "dialogEditTitle": "Edit local calendar",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. Family",
+      "colorLabel": "Color",
+      "customColorTitle": "Custom color",
+      "personLabel": "Person",
+      "personPlaceholder": "Whole family",
+      "saveButton": "Save",
+      "addSubmitButton": "Add",
+      "toastAdded": "Calendar added",
+      "toastUpdated": "Calendar updated",
+      "toastDeleted": "Calendar deleted",
+      "toastError": "That did not work. Please try again.",
+      "editAria": "Edit {name}",
+      "deleteAria": "Delete {name}",
+      "deleteTitle": "Delete this calendar?",
+      "deleteDescription": "Every event in it is deleted too. Local events exist only in Kinboard, so they cannot be recovered.",
+      "deleteConfirm": "Delete calendar"
+    },
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "update to {version} available",
     "whatsNewButtonLabel": "View release notes",
@@ -2358,9 +2386,22 @@
       "statusFeedCount": "{count, plural, one {1 feed} other {# feeds}}",
       "caldavHeading": "CalDAV",
       "caldavDescription": "Username + password, read and write. Nextcloud, Radicale, Baïkal, Fastmail, iCloud, Synology.",
+      "localHeading": "Local calendars",
+      "localDescription": "Live only in Kinboard. No account or feed needed.",
+      "statusNone": "None yet",
       "statusCalendarCount": "{count, plural, one {1 calendar} other {# calendars}}",
       "whyTwoSourcesTitle": "Which one should I use?",
-      "whyTwoSourcesBody": "CalDAV is the best default if you self-host or use a non-Google provider: a username and password, and events you create in Kinboard are written back. Google Calendar needs a Google Cloud project + OAuth credentials. ICS feeds need only a public URL, but are read-only."
+      "whyTwoSourcesBody": "CalDAV is the best default if you self-host or use a non-Google provider: a username and password, and events you create in Kinboard are written back. Google Calendar needs a Google Cloud project + OAuth credentials. ICS feeds need only a public URL, but are read-only. A local calendar needs nothing at all, but its events stay in Kinboard and reach no phone."
+    },
+    "calendarDisplay": {
+      "title": "Show on the calendar",
+      "description": "Marks on each day besides events. Applies to every device in the family.",
+      "holidaysLabel": "Public holidays",
+      "holidaysHint": "An amber dot on the day, and the holiday's name where there is room. The country comes from Settings → Language.",
+      "tasksLabel": "Tasks",
+      "tasksHint": "A dot in the person's color on each day a task is due. Repeating tasks are marked on every day they come round.",
+      "tasksAsEventsLabel": "Treat tasks as events",
+      "tasksAsEventsHint": "Tasks also appear among events: in the Events widget, the Week overview and the calendar's day list. In lists of what is coming up, a repeating task shows only its next time."
     },
     "caldav": {
       "title": "CalDAV calendars",
@@ -2579,9 +2620,9 @@
     "fieldCalendar": "Calendar",
     "fieldCalendarPlaceholder": "Select calendar…",
     "defaultBadge": "Default",
-    "noCalendarsHint": "No calendars available. Connect Google Calendar in settings.",
+    "noCalendarsHint": "No calendars available. Create a local calendar or connect one in Settings → Calendar.",
     "noCalendarsBannerTitle": "No calendars yet",
-    "noCalendarsBannerDescription": "Add a calendar to start scheduling — connect Google Calendar or paste an iCal (.ics) feed URL.",
+    "noCalendarsBannerDescription": "Add a calendar to start scheduling — create a local one, connect Google Calendar or paste an iCal (.ics) feed URL.",
     "noCalendarsBannerAction": "Add a calendar",
     "setAsDefault": "Set as default",
     "creating": "Creating…",
@@ -2627,6 +2668,11 @@
     "weekView": {
       "allDayLabel": "All day",
       "overlapAria": "{count, plural, one {overlaps 1 other event} other {overlaps # other events}}"
+    },
+    "markers": {
+      "tasksDue": "Tasks due",
+      "taskTitle": "✓ {title}",
+      "taskTitleWithPerson": "✓ {title} · {person}"
     }
   },
   "weather": {

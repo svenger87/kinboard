@@ -610,7 +610,7 @@
       "biweekly": "Alle 2 Wochen",
       "monthly": "Monatlich",
       "custom": "Eigene Tage",
-      "weekdays": "Werktags"
+      "weekdays": "Wochentags"
     }
   },
   "meals": {
@@ -1141,6 +1141,7 @@
       "title": "Navigation",
       "showItem": "{label} in der Navigation anzeigen",
       "fixedItemsHint": "Start, Kalender, Einkaufen und Einstellungen bleiben als wichtige Einstiege sichtbar.",
+      "fixedItemsHintKiosk": "Dieses Gerät ist im Kiosk-Modus, daher lassen sich auch Kalender und Einkaufen ausblenden. Start und Einstellungen bleiben immer sichtbar.",
       "settingsIconOnly": "Einstellungen nur als Zahnrad",
       "settingsIconOnlyHint": "Spart Platz in der unteren Leiste auf diesem Gerät.",
       "intro": "Untere Navigation sortieren und nicht benötigte Einträge ausblenden. Die Einstellungen gelten nur auf diesem Gerät.",
@@ -2207,6 +2208,33 @@
       "editAria": "{name} bearbeiten",
       "deleteAria": "{name} löschen"
     },
+    "localCalendars": {
+      "title": "Lokale Kalender",
+      "subtitle": "Kalender, die nur in Kinboard existieren",
+      "addButton": "Kalender hinzufügen",
+      "emptyTitle": "Noch keine lokalen Kalender",
+      "emptyDescription": "Ein lokaler Kalender braucht kein Konto und keinen Feed. Seine Termine bleiben in Kinboard und erscheinen auf jedem Gerät der Familie.",
+      "onlyInKinboard": "Nur in Kinboard, wird nirgends synchronisiert",
+      "dialogAddTitle": "Lokalen Kalender hinzufügen",
+      "dialogEditTitle": "Lokalen Kalender bearbeiten",
+      "nameLabel": "Name",
+      "namePlaceholder": "z. B. Familie",
+      "colorLabel": "Farbe",
+      "customColorTitle": "Eigene Farbe",
+      "personLabel": "Person",
+      "personPlaceholder": "Ganze Familie",
+      "saveButton": "Speichern",
+      "addSubmitButton": "Hinzufügen",
+      "toastAdded": "Kalender hinzugefügt",
+      "toastUpdated": "Kalender aktualisiert",
+      "toastDeleted": "Kalender gelöscht",
+      "toastError": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
+      "editAria": "{name} bearbeiten",
+      "deleteAria": "{name} löschen",
+      "deleteTitle": "Diesen Kalender löschen?",
+      "deleteDescription": "Alle Termine darin werden ebenfalls gelöscht. Lokale Termine gibt es nur in Kinboard, sie lassen sich nicht wiederherstellen.",
+      "deleteConfirm": "Kalender löschen"
+    },
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "Update auf {version} verfügbar",
     "whatsNewButtonLabel": "Versionshinweise anzeigen",
@@ -2358,9 +2386,22 @@
       "statusFeedCount": "{count, plural, one {1 Feed} other {# Feeds}}",
       "caldavHeading": "CalDAV",
       "caldavDescription": "Benutzername + Passwort, lesen und schreiben. Nextcloud, Radicale, Baïkal, Fastmail, iCloud, Synology.",
+      "localHeading": "Lokale Kalender",
+      "localDescription": "Nur in Kinboard. Kein Konto und kein Feed nötig.",
+      "statusNone": "Noch keine",
       "statusCalendarCount": "{count, plural, one {1 Kalender} other {# Kalender}}",
       "whyTwoSourcesTitle": "Welche Quelle passt?",
-      "whyTwoSourcesBody": "CalDAV ist die beste Wahl beim Selbst-Hosten oder bei Anbietern außerhalb von Google: Benutzername und Passwort genügen, und in Kinboard erstellte Termine werden zurückgeschrieben. Google Kalender benötigt ein Google-Cloud-Projekt mit OAuth. ICS-Feeds brauchen nur eine öffentliche URL, sind aber nur lesbar."
+      "whyTwoSourcesBody": "CalDAV ist die beste Wahl beim Selbst-Hosten oder bei Anbietern außerhalb von Google: Benutzername und Passwort genügen, und in Kinboard erstellte Termine werden zurückgeschrieben. Google Kalender benötigt ein Google-Cloud-Projekt mit OAuth. ICS-Feeds brauchen nur eine öffentliche URL, sind aber nur lesbar. Ein lokaler Kalender braucht gar nichts, seine Termine bleiben aber in Kinboard und erscheinen auf keinem Handy."
+    },
+    "calendarDisplay": {
+      "title": "Im Kalender anzeigen",
+      "description": "Markierungen an jedem Tag, zusätzlich zu Terminen. Gilt für alle Geräte der Familie.",
+      "holidaysLabel": "Feiertage",
+      "holidaysHint": "Ein bernsteinfarbener Punkt am Tag und der Name des Feiertags, wo Platz ist. Das Land kommt aus Einstellungen → Sprache.",
+      "tasksLabel": "Aufgaben",
+      "tasksHint": "Ein Punkt in der Farbe der Person an jedem Tag, an dem eine Aufgabe fällig ist. Wiederkehrende Aufgaben werden an jedem Tag markiert, an dem sie wieder anstehen.",
+      "tasksAsEventsLabel": "Aufgaben wie Termine behandeln",
+      "tasksAsEventsHint": "Aufgaben erscheinen auch zwischen den Terminen: im Widget Termine, in der Wochenübersicht und in der Tagesliste des Kalenders. In Vorschau-Listen zeigt eine wiederkehrende Aufgabe nur ihr nächstes Mal."
     },
     "caldav": {
       "title": "CalDAV-Kalender",
@@ -2579,9 +2620,9 @@
     "fieldCalendar": "Kalender",
     "fieldCalendarPlaceholder": "Kalender auswählen…",
     "defaultBadge": "Standard",
-    "noCalendarsHint": "Keine Kalender vorhanden. Verbinde Google Kalender in den Einstellungen.",
+    "noCalendarsHint": "Keine Kalender vorhanden. Lege einen lokalen Kalender an oder verbinde einen unter Einstellungen → Kalender.",
     "noCalendarsBannerTitle": "Noch keine Kalender",
-    "noCalendarsBannerDescription": "Füge einen Kalender hinzu, um zu planen — verbinde Google Kalender oder hinterlege eine iCal-(.ics)-Feed-URL.",
+    "noCalendarsBannerDescription": "Füge einen Kalender hinzu, um zu planen — lege einen lokalen an, verbinde Google Kalender oder hinterlege eine iCal-(.ics)-Feed-URL.",
     "noCalendarsBannerAction": "Kalender hinzufügen",
     "setAsDefault": "Als Standard festlegen",
     "creating": "Erstellen…",
@@ -2627,6 +2668,11 @@
     "weekView": {
       "allDayLabel": "Ganztag",
       "overlapAria": "{count, plural, one {überschneidet sich mit 1 weiteren Termin} other {überschneidet sich mit # weiteren Terminen}}"
+    },
+    "markers": {
+      "tasksDue": "Fällige Aufgaben",
+      "taskTitle": "✓ {title}",
+      "taskTitleWithPerson": "✓ {title} · {person}"
     }
   },
   "weather": {

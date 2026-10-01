@@ -249,7 +249,7 @@ export default function ThemeSettingsPage() {
               </h2>
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground mb-4">{t("paletteIntro")}</p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {PALETTES.map((p) => (
                     <button
                       key={p.id}

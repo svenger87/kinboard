@@ -1,10 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getHiddenNavItems, getSettingsIconOnly, NAV_VISIBILITY_EVENT } from "@/lib/nav-visibility";
+import { useEffect, useMemo, useState } from "react";
+import {
+  effectiveHiddenNavItems,
+  getHiddenNavItems,
+  getSettingsIconOnly,
+  NAV_VISIBILITY_EVENT,
+} from "@/lib/nav-visibility";
+import { useFamilyStore } from "@/stores/family-store";
 
+/**
+ * The nav items hidden on this device. Both bottom bars and Settings →
+ * Navigation read it here, so all three agree on what a non-kiosk device may
+ * hide -- see effectiveHiddenNavItems.
+ */
 export function useHiddenNavItems(): readonly string[] {
   const [hidden, setHidden] = useState<readonly string[]>([]);
+  const { device } = useFamilyStore();
+  const isKiosk = device?.is_kiosk ?? false;
   useEffect(() => {
     const update = () => setHidden(getHiddenNavItems());
     update();
@@ -15,7 +28,7 @@ export function useHiddenNavItems(): readonly string[] {
       window.removeEventListener("storage", update);
     };
   }, []);
-  return hidden;
+  return useMemo(() => effectiveHiddenNavItems(hidden, isKiosk), [hidden, isKiosk]);
 }
 
 export function useSettingsIconOnly(): boolean {

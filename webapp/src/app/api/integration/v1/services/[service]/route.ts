@@ -33,6 +33,10 @@ type Handler = (args: {
   body: Record<string, unknown>;
   /** An OAuth-issued (assistant) token, not one made by hand in Settings. */
   assistant: boolean;
+  // The service-role client, passed in rather than created in each handler so
+  // a spec can hand the real handler a recording stand-in and send it exactly
+  // what Home Assistant sends. Untyped, like the admin client everywhere else.
+  db: any;
 }) => Promise<{ status: number; response: Record<string, unknown> }>;
 
 interface ServiceDef {
@@ -47,6 +51,8 @@ function text(value: unknown, max = 500): string | null {
   if (t.length === 0 || t.length > max) return null;
   return t;
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Exported for the spec, which calls a service's handler directly. */
 export const SERVICES: Record<string, ServiceDef> = {
@@ -70,20 +76,18 @@ export const SERVICES: Record<string, ServiceDef> = {
     scope: "tasks:write",
     // A string person_id must name a person of this family; see
     // createServiceTask for why the contract's other fields are unchanged.
-    handle: ({ familyId, body }) => createServiceTask(createAdminClient(), familyId, body),
+    handle: ({ familyId, body, db }) => createServiceTask(db, familyId, body),
   },
 
   create_note: {
     scope: "notes:write",
-    handle: async ({ familyId, body }) => {
+    handle: async ({ familyId, body, db }) => {
       const content = text(body.text, 2000);
       if (!content) {
         return { status: 400, response: { error: "`text` is required", code: "invalid_request" } };
       }
 
-      const supabase = createAdminClient();
-
-      const { data, error } = await (supabase as any)
+      const { data, error } = await db
         .from("notes")
         .insert({ family_id: familyId, content })
         .select("id")
@@ -100,8 +104,8 @@ export const SERVICES: Record<string, ServiceDef> = {
    */
   add_pocket_money: {
     scope: "tasks:write",
-    handle: ({ familyId, body, assistant }) =>
-      addPocketMoneyService({ familyId, body, assistant }),
+    handle: ({ familyId, body, assistant, db }) =>
+      addPocketMoneyService({ familyId, body, assistant }, db),
   },
 
   /**
@@ -113,26 +117,43 @@ export const SERVICES: Record<string, ServiceDef> = {
    */
   dismiss_attention: {
     scope: "tasks:write",
-    handle: async ({ familyId, body }) => {
-      const supabase = createAdminClient();
-      const key = text(body.key, 200);
-      const ruleId = text(body.rule_id, 100);
+    handle: async ({ familyId, body, db }) => {
+      // RFC-001 §5.2 calls the argument `attention_id`, and that is what the
+      // Home Assistant component sends; this handler first shipped reading only
+      // `key` and `rule_id`, so every call from Home Assistant was a 400.
+      // `attention_id` means the item key, as `key` does. A row id is accepted
+      // too, because "id" invites one — still only within this family.
+      const attentionId = text(body.attention_id, 200);
+      const key = attentionId ? null : text(body.key, 200);
+      const ruleId = attentionId || key ? null : text(body.rule_id, 100);
 
-      if (!key && !ruleId) {
+      if (!attentionId && !key && !ruleId) {
         return {
           status: 400,
-          response: { error: "`key` or `rule_id` is required", code: "invalid_request" },
+          response: {
+            error: "`attention_id` is required (or the older `key` or `rule_id`)",
+            code: "invalid_request",
+          },
         };
       }
 
-      let query = (supabase as any)
+      let query = db
         .from("attention_items")
         .update({ state: "acknowledged", acted_at: new Date().toISOString() })
         .eq("family_id", familyId)
         .is("resolved_at", null)
         .eq("state", "active");
 
-      query = key ? query.eq("item_key", key) : query.eq("rule_id", ruleId);
+      if (attentionId) {
+        // Only a value shaped like a UUID may reach the `or` filter: it is
+        // interpolated into PostgREST's filter syntax, where a comma or a
+        // parenthesis in free text would change the filter's meaning.
+        query = UUID.test(attentionId)
+          ? query.or(`item_key.eq.${attentionId},id.eq.${attentionId}`)
+          : query.eq("item_key", attentionId);
+      } else {
+        query = key ? query.eq("item_key", key) : query.eq("rule_id", ruleId);
+      }
 
       const { data, error } = await query.select("item_key");
       if (error) {
@@ -178,6 +199,11 @@ const NOT_YET_IMPLEMENTED = new Set([
   "show_announcement",
   "activate_context",
 ]);
+
+/** Exposed so a spec can drive a handler with the exact payload a client sends. */
+export const SERVICE_HANDLERS: Record<string, Handler> = Object.fromEntries(
+  Object.entries(SERVICES).map(([name, def]) => [name, def.handle]),
+);
 
 /** Exposed so the OpenAPI contract test can check the spec against reality. */
 export const IMPLEMENTED_SERVICES = Object.keys(SERVICES);
@@ -256,7 +282,12 @@ export async function POST(
     }
 
     try {
-      const result = await def.handle({ familyId: context.familyId, body, assistant: context.assistant });
+      const result = await def.handle({
+        familyId: context.familyId,
+        body,
+        assistant: context.assistant,
+        db: createAdminClient(),
+      });
 
       // Only successful work is remembered. A 400 is a client mistake, and
       // replaying it would mean a corrected retry with the same key kept

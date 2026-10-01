@@ -1141,6 +1141,7 @@
       "title": "Navigation",
       "showItem": "Afficher {label} dans la navigation",
       "fixedItemsHint": "Accueil, Calendrier, Courses et Réglages restent visibles comme accès essentiels.",
+      "fixedItemsHintKiosk": "Cet appareil est en mode kiosque : Calendrier et Courses peuvent donc aussi être masqués. Accueil et Réglages restent toujours visibles.",
       "settingsIconOnly": "Réglages : icône seule",
       "settingsIconOnlyHint": "Libère de la place dans la barre inférieure sur cet appareil.",
       "intro": "Réorganisez la navigation inférieure et masquez les éléments inutiles. Ces réglages s’appliquent uniquement à cet appareil.",
@@ -2207,6 +2208,33 @@
       "editAria": "Modifier {name}",
       "deleteAria": "Supprimer {name}"
     },
+    "localCalendars": {
+      "title": "Calendriers locaux",
+      "subtitle": "Des calendriers qui n'existent que dans Kinboard",
+      "addButton": "Ajouter un calendrier",
+      "emptyTitle": "Aucun calendrier local",
+      "emptyDescription": "Un calendrier local ne demande ni compte ni flux. Ses événements restent dans Kinboard et s'affichent sur tous les appareils de la famille.",
+      "onlyInKinboard": "Uniquement dans Kinboard, synchronisé nulle part",
+      "dialogAddTitle": "Ajouter un calendrier local",
+      "dialogEditTitle": "Modifier le calendrier local",
+      "nameLabel": "Nom",
+      "namePlaceholder": "p. ex. Famille",
+      "colorLabel": "Couleur",
+      "customColorTitle": "Couleur personnalisée",
+      "personLabel": "Personne",
+      "personPlaceholder": "Toute la famille",
+      "saveButton": "Enregistrer",
+      "addSubmitButton": "Ajouter",
+      "toastAdded": "Calendrier ajouté",
+      "toastUpdated": "Calendrier mis à jour",
+      "toastDeleted": "Calendrier supprimé",
+      "toastError": "Cela n'a pas fonctionné. Veuillez réessayer.",
+      "editAria": "Modifier {name}",
+      "deleteAria": "Supprimer {name}",
+      "deleteTitle": "Supprimer ce calendrier ?",
+      "deleteDescription": "Tous ses événements sont aussi supprimés. Les événements locaux n'existent que dans Kinboard : ils ne peuvent pas être récupérés.",
+      "deleteConfirm": "Supprimer le calendrier"
+    },
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "mise à jour vers {version} disponible",
     "whatsNewButtonLabel": "Voir les notes de version",
@@ -2358,9 +2386,22 @@
       "statusFeedCount": "{count, plural, one {1 flux} other {# flux}}",
       "caldavHeading": "CalDAV",
       "caldavDescription": "Identifiant + mot de passe, lecture et écriture. Nextcloud, Radicale, Baïkal, Fastmail, iCloud, Synology.",
+      "localHeading": "Calendriers locaux",
+      "localDescription": "Uniquement dans Kinboard. Ni compte ni flux nécessaire.",
+      "statusNone": "Aucun",
       "statusCalendarCount": "{count, plural, one {1 calendrier} other {# calendriers}}",
       "whyTwoSourcesTitle": "Laquelle choisir ?",
-      "whyTwoSourcesBody": "CalDAV est le meilleur choix par défaut si vous auto-hébergez ou utilisez un fournisseur autre que Google : un identifiant et un mot de passe suffisent, et les événements créés dans Kinboard sont réécrits sur le serveur. Google Agenda nécessite un projet Google Cloud + des identifiants OAuth. Les flux ICS ne demandent qu'une URL publique, mais sont en lecture seule."
+      "whyTwoSourcesBody": "CalDAV est le meilleur choix par défaut si vous auto-hébergez ou utilisez un fournisseur autre que Google : un identifiant et un mot de passe suffisent, et les événements créés dans Kinboard sont réécrits sur le serveur. Google Agenda nécessite un projet Google Cloud + des identifiants OAuth. Les flux ICS ne demandent qu'une URL publique, mais sont en lecture seule. Un calendrier local ne demande rien du tout, mais ses événements restent dans Kinboard et n'apparaissent sur aucun téléphone."
+    },
+    "calendarDisplay": {
+      "title": "Afficher dans le calendrier",
+      "description": "Des repères sur chaque jour, en plus des événements. S'applique à tous les appareils de la famille.",
+      "holidaysLabel": "Jours fériés",
+      "holidaysHint": "Un point ambré sur le jour, et le nom du jour férié quand la place le permet. Le pays vient de Paramètres → Langue.",
+      "tasksLabel": "Tâches",
+      "tasksHint": "Un point de la couleur de la personne chaque jour où une tâche est due. Les tâches récurrentes sont marquées chaque jour où elles reviennent.",
+      "tasksAsEventsLabel": "Traiter les tâches comme des événements",
+      "tasksAsEventsHint": "Les tâches apparaissent aussi parmi les événements : dans le widget Événements, l'Aperçu de la semaine et la liste du jour du calendrier. Dans les listes à venir, une tâche récurrente n'apparaît qu'à sa prochaine occurrence."
     },
     "caldav": {
       "title": "Calendriers CalDAV",
@@ -2579,9 +2620,9 @@
     "fieldCalendar": "Calendrier",
     "fieldCalendarPlaceholder": "Sélectionner un calendrier…",
     "defaultBadge": "Par défaut",
-    "noCalendarsHint": "Aucun calendrier disponible. Connectez Google Agenda dans les paramètres.",
+    "noCalendarsHint": "Aucun calendrier disponible. Créez un calendrier local ou connectez-en un dans Paramètres → Calendrier.",
     "noCalendarsBannerTitle": "Pas encore de calendriers",
-    "noCalendarsBannerDescription": "Ajoutez un calendrier pour commencer à planifier — connectez Google Agenda ou collez une URL de flux iCal (.ics).",
+    "noCalendarsBannerDescription": "Ajoutez un calendrier pour commencer à planifier — créez-en un local, connectez Google Agenda ou collez une URL de flux iCal (.ics).",
     "noCalendarsBannerAction": "Ajouter un calendrier",
     "setAsDefault": "Définir par défaut",
     "creating": "Création…",
@@ -2627,6 +2668,11 @@
     "weekView": {
       "allDayLabel": "Toute la journée",
       "overlapAria": "{count, plural, one {chevauche 1 autre événement} other {chevauche # autres événements}}"
+    },
+    "markers": {
+      "tasksDue": "Tâches à faire",
+      "taskTitle": "✓ {title}",
+      "taskTitleWithPerson": "✓ {title} · {person}"
     }
   },
   "weather": {

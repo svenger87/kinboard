@@ -177,6 +177,12 @@ export function CameraViewer({
     try {
       if (!isFallbackCapable) setIsLoading(true);
       setError(null);
+      // A new attempt starts from the still. cleanupWebRTC() ends the video
+      // the last connection had, and LIVE belongs to this one's video, not
+      // to that. Without this, Refresh on a live tile kept LIVE over a dead
+      // picture whenever the new connection never got video: the no-video
+      // timer gives up on the connection but never touched rtspLive.
+      if (isFallbackCapable) setRtspLive(false);
       cleanupWebRTC();
 
       const pc = new RTCPeerConnection({

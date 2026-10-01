@@ -104,12 +104,13 @@ export const NAV_ITEMS = [
  *
  * Declared rather than inferred, because the nesting is a fact about the
  * navigation and not about the paths. `/settings/calendar` is the only page
- * with children today; it links to all three of these.
+ * with children today; it links to all four of these.
  */
 export const SETTINGS_PARENT_PATHS: Record<string, string> = {
   "/settings/caldav": "/settings/calendar",
   "/settings/ics": "/settings/calendar",
   "/settings/google": "/settings/calendar",
+  "/settings/local-calendars": "/settings/calendar",
 };
 
 /** Where the back control on a settings sub-page should go. */

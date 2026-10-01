@@ -210,6 +210,65 @@ export function isRecurringTaskDue(
   return calendarDaysBetween(lastCompleted, now, timeZone) >= interval;
 }
 
+const keyOf = (dayN: number): string => new Date(dayN * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * The days from `fromKey` to `toKey` (local date keys, inclusive) on which a
+ * recurring task comes due if it is done each time: the days
+ * isRecurringTaskDue answers true on, walking forward from `startKey` and
+ * ticking the task off on each. Nothing before `startKey` -- past occurrences
+ * are not stored, so there is no history to show.
+ *
+ * Computed rather than walked. After its first due day an interval task comes
+ * round every N days and a custom-days task on each picked weekday, so the
+ * cost is the days in range, not every day since `startKey`: a calendar paged
+ * ten years ahead used to walk 3,650 days per task, on every refetch.
+ */
+export function recurringDueDayKeys(
+  todo: RecurringFields,
+  startKey: string,
+  fromKey: string,
+  toKey: string,
+): string[] {
+  if (!isRecurring(todo)) return [];
+  const startN = dayNumber(startKey);
+  const fromN = Math.max(dayNumber(fromKey), startN);
+  const toN = dayNumber(toKey);
+  if (toN < fromN) return [];
+  const keys: string[] = [];
+
+  const weekdays = recurrenceWeekdays(todo.recurrence);
+  if (weekdays) {
+    if (weekdays.length === 0) return [];
+    // Due once a picked weekday has come round since the window opened, and
+    // seven days hold every weekday: the first is at most six days on.
+    let firstN = weekdayWindowStart(todo, startN);
+    while (!weekdays.includes(weekdayOf(firstN))) firstN++;
+    firstN = Math.max(firstN, startN);
+    if (firstN >= fromN && firstN <= toN) keys.push(keyOf(firstN));
+    // Each tick reopens the window the day after, so every picked weekday
+    // after the first is due again.
+    for (let n = Math.max(firstN + 1, fromN); n <= toN; n++) {
+      if (weekdays.includes(weekdayOf(n))) keys.push(keyOf(n));
+    }
+    return keys;
+  }
+
+  const last = todo.last_completed ? new Date(todo.last_completed) : null;
+  const lastN = last && !Number.isNaN(last.getTime()) ? dayNumber(toLocalDateKey(last)) : null;
+  const interval = INTERVAL_DAYS[todo.recurrence as string];
+  if (!interval) {
+    // A schedule this file does not know: isRecurringTaskDue calls it due
+    // until it is first done, and never after.
+    return lastN === null && startN >= fromN && startN <= toN ? [keyOf(startN)] : [];
+  }
+  // Never done: due from the start. Done: due `interval` days after.
+  const firstN = lastN === null ? startN : Math.max(startN, lastN + interval);
+  const skip = Math.max(0, Math.ceil((fromN - firstN) / interval));
+  for (let n = firstN + skip * interval; n <= toN; n += interval) keys.push(keyOf(n));
+  return keys;
+}
+
 /**
  * True when a todo is genuinely outstanding — the count a badge should show.
  *

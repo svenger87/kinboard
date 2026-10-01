@@ -19,7 +19,14 @@ import {
 } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
-import { useEvents, useTodos, useBirthdays } from "@/hooks";
+import { useEvents, useTodos, useBirthdays, useSetting } from "@/hooks";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { toLocalDateKey } from "@/lib/local-date";
+import {
+  DEFAULT_CALENDAR_DISPLAY,
+  taskDayKeys,
+  type CalendarDisplaySettings,
+} from "@/lib/calendar-markers";
 
 function parseBirthdayDate(dateStr: string): Date {
   return parseISO(dateStr + "T12:00:00");
@@ -77,6 +84,11 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
   const { data: events, isLoading: loadingEvents } = useEvents(startStr, endStr);
   const { data: todos, isLoading: loadingTodos } = useTodos();
   const { data: birthdays, isLoading: loadingBirthdays } = useBirthdays();
+  const { data: calendarDisplay } = useSetting<CalendarDisplaySettings>(
+    SETTINGS_KEYS.calendarDisplay,
+    DEFAULT_CALENDAR_DISPLAY,
+  );
+  const tasksAsEvents = calendarDisplay?.tasksAsEvents ?? false;
 
   const isLoading = loadingEvents || loadingTodos || loadingBirthdays;
 
@@ -99,13 +111,17 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
         );
       });
 
-      // Count todos due this day
-      const dayTodos = (todos || []).filter((t) => {
-        if (t.completed) return false;
-        if (!t.due_date) return false;
-        const dueDate = new Date(t.due_date);
-        return isSameDay(startOfDay(dueDate), day);
-      });
+      // Count todos due this day. A due date is a calendar date and is
+      // compared as one: new Date("2026-10-14") is midnight UTC, which west of
+      // UTC is the evening of the 13th, so the task was counted a day early.
+      // Treated as events, a repeating task also counts on every day it comes
+      // round, by the same rule the calendar uses.
+      const dayKey = toLocalDateKey(day);
+      const dayTodos = (todos || []).filter((t) =>
+        tasksAsEvents
+          ? taskDayKeys(t, today, weekEnd).includes(dayKey)
+          : !t.completed && t.due_date?.slice(0, 10) === dayKey,
+      );
 
       // Check birthdays on this day
       const dayBirthdays = (birthdays || []).filter((b) => {
@@ -129,7 +145,7 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
       });
     }
     return days;
-  }, [events, todos, birthdays, today, t, dateLocale]);
+  }, [events, todos, birthdays, today, weekEnd, t, dateLocale, tasksAsEvents]);
 
   if (isLoading) {
     return <WeekOverviewSkeleton />;

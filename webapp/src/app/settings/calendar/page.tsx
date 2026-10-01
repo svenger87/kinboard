@@ -4,18 +4,21 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { Calendar, Rss, Server, ChevronRight, Check, AlertCircle } from "lucide-react";
+import { Calendar, CalendarPlus, Rss, Server, ChevronRight, Check, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
+import { CalendarDisplayCard } from "@/components/settings/calendar-display-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useGoogleCalendarStatus, useCalendars } from "@/hooks";
+import { isLocalCalendar } from "@/lib/local-calendars";
 
 /**
  * Calendar settings landing — unified entry point for the three calendar
  * sources Kinboard supports: Google Calendar (OAuth, read/write), ICS
  * feeds (read-only public URLs, e.g. iCloud Family Sharing) and CalDAV
- * (authenticated, read/write — Nextcloud, Radicale, Fastmail, iCloud).
+ * (authenticated, read/write — Nextcloud, Radicale, Fastmail, iCloud) —
+ * plus local calendars, which have no source and live only in Kinboard.
  * Each source has its own detail page reachable via the Manage link; this
  * landing just shows current connection state at a glance.
  *
@@ -39,6 +42,11 @@ export default function CalendarSettingsPage() {
     [allCalendars],
   );
 
+  const localCount = useMemo(
+    () => allCalendars.filter(isLocalCalendar).length,
+    [allCalendars],
+  );
+
   // GoogleCalendarSettings has no boolean `connected` field — presence
   // of `access_token` (set after OAuth callback completes) is the
   // canonical "is this family connected" signal. `connected_at` is
@@ -52,6 +60,9 @@ export default function CalendarSettingsPage() {
       <PageHeader title={t("title")} icon={Calendar} />
 
       <p className="text-sm text-muted-foreground">{t("intro")}</p>
+
+      {/* What the calendar marks on a day, besides events */}
+      <CalendarDisplayCard />
 
       {/* Google Calendar */}
       <motion.div
@@ -160,6 +171,42 @@ export default function CalendarSettingsPage() {
                 )}
               </div>
               <p className="text-sm text-muted-foreground">{t("caldavDescription")}</p>
+            </div>
+            <ChevronRight className="size-5 text-muted-foreground shrink-0" />
+          </Card>
+        </Link>
+      </motion.div>
+
+      {/* Local calendars -- no source, nothing to connect */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, delay: 0.15 }}
+      >
+        <Link
+          href="/settings/local-calendars"
+          className="block group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-4 focus-visible:ring-offset-background rounded-lg"
+        >
+          <Card className="p-5 flex items-center gap-4 group-hover:bg-muted/30 transition-colors">
+            <div className="p-3 rounded-xl bg-primary/10 shrink-0">
+              <CalendarPlus className="size-6 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="font-medium">{t("localHeading")}</h2>
+                {calendarsLoading ? (
+                  <Skeleton className="h-5 w-16" />
+                ) : localCount > 0 ? (
+                  <Badge variant="outline" className="border-success/50 text-success text-xs">
+                    {t("statusCalendarCount", { count: localCount })}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs">
+                    {t("statusNone")}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">{t("localDescription")}</p>
             </div>
             <ChevronRight className="size-5 text-muted-foreground shrink-0" />
           </Card>

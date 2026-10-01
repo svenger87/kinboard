@@ -19,6 +19,8 @@ import {
   isWeekend,
 } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
+import { toLocalDateKey } from "@/lib/local-date";
+import type { Holiday } from "@/lib/holidays";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { personStrongTint, personText } from "@/lib/person-color";
@@ -50,9 +52,14 @@ interface WeekViewProps {
   events: CalendarEvent[];
   onSelectDate: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
+  /** Built-in public holidays by local day key; absent when the option is off. */
+  holidayMarkers?: Map<string, Holiday>;
+  /** Person colours with a task due, by local day key; absent when the option is off. */
+  taskMarkers?: Map<string, string[]>;
 }
 
 const HOUR_HEIGHT = 60; // pixels per hour
+const MAX_TASK_DOTS = 4;
 /** Gap between side-by-side events, as a fraction of the day column. */
 const COLUMN_GAP = 0.02;
 
@@ -62,10 +69,14 @@ export function WeekView({
   events,
   onSelectDate,
   onSelectEvent,
+  holidayMarkers,
+  taskMarkers,
 }: WeekViewProps) {
   const { formatTime, formatHourLabel, use24Hour } = useTimeFormat();
   const { weekStartsOn } = useWeekStart();
   const t = useTranslations("calendar");
+  const tHolidays = useTranslations("holidays");
+  const showsMarkers = Boolean(holidayMarkers || taskMarkers);
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
 
@@ -155,6 +166,9 @@ export function WeekView({
         {weekDays.map((day) => {
           const isDayToday = isToday(day);
           const isSelected = selectedDate && isSameDay(day, selectedDate);
+          const dayKey = toLocalDateKey(day);
+          const holiday = holidayMarkers?.get(dayKey);
+          const taskColors = taskMarkers?.get(dayKey) ?? [];
 
           return (
             <button
@@ -176,6 +190,39 @@ export function WeekView({
               >
                 {format(day, "d")}
               </div>
+              {/* A fixed-height row whenever markers are on, so headers with
+                  and without markers stay aligned. */}
+              {showsMarkers && (
+                // Wraps rather than spilling into the next day on a phone,
+                // where a column is ~40px; the day numbers above stay aligned.
+                <div className="flex flex-wrap items-center justify-center gap-0.5 min-h-2.5 mt-1">
+                  {holiday && (
+                    <span
+                      className="size-1.5 sm:size-2 rounded-full bg-amber-400"
+                      role="img"
+                      aria-label={tHolidays(holiday.nameKey)}
+                      title={tHolidays(holiday.nameKey)}
+                    />
+                  )}
+                  {taskColors.length > 0 && (
+                    <span
+                      className="flex flex-wrap items-center justify-center gap-0.5"
+                      role="img"
+                      aria-label={t("markers.tasksDue")}
+                      title={t("markers.tasksDue")}
+                    >
+                      {taskColors.slice(0, MAX_TASK_DOTS).map((color, i) => (
+                        <span key={`${color}-${i}`} className="size-1.5 sm:size-2 rounded-full" style={{ backgroundColor: color }} />
+                      ))}
+                      {taskColors.length > MAX_TASK_DOTS && (
+                        <span className="text-3xs text-muted-foreground leading-none">
+                          +{taskColors.length - MAX_TASK_DOTS}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </div>
+              )}
             </button>
           );
         })}

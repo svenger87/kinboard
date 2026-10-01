@@ -10,7 +10,14 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
-import { useEvents, usePeople, useToday } from "@/hooks";
+import { useEvents, usePeople, useSetting, useTodos, useToday } from "@/hooks";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import {
+  DEFAULT_CALENDAR_DISPLAY,
+  nextTaskOccurrences,
+  taskOccurrences,
+  type CalendarDisplaySettings,
+} from "@/lib/calendar-markers";
 import { WidgetCard } from "@/components/widget-card";
 import { EventPill } from "@/components/event-pill";
 import { useTimeFormat } from "@/hooks/use-time-format";
@@ -57,6 +64,7 @@ export function UpcomingEvents({
 }: UpcomingEventsProps) {
   const { formatTime } = useTimeFormat();
   const t = useTranslations("upcomingEvents");
+  const tCalendar = useTranslations("calendar");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
   // Re-render at midnight so the query window follows the day.
@@ -76,9 +84,15 @@ export function UpcomingEvents({
 
   const { data: events, isLoading, isError } = useEvents(startDate, endDate);
   const { data: people } = usePeople();
+  const { data: calendarDisplay } = useSetting<CalendarDisplaySettings>(
+    SETTINGS_KEYS.calendarDisplay,
+    DEFAULT_CALENDAR_DISPLAY,
+  );
+  const tasksAsEvents = calendarDisplay?.tasksAsEvents ?? false;
+  const { data: todos } = useTodos({ enabled: tasksAsEvents });
 
   // Transform events to display format
-  const displayEvents = useMemo(() => (events || []).filter((event) => !event.calendar?.is_waste_collection).map((event) => {
+  const calendarEvents = useMemo(() => (events || []).filter((event) => !event.calendar?.is_waste_collection).map((event) => {
     // Use event's person_id first, then fall back to calendar's person_id
     const personId = event.person_id || event.calendar?.person_id;
     const person = personId ? people?.find((p) => p.id === personId) : undefined;
@@ -90,6 +104,25 @@ export function UpcomingEvents({
       allDay: event.all_day,
     };
   }), [events, people]);
+
+  // With tasks treated as events, each task joins the list once, at its next
+  // occurrence in the window, as an all-day item. Listing every repeat would
+  // let one daily chore fill all the slots and push the real events out.
+  const displayEvents = useMemo(() => {
+    if (!tasksAsEvents) return calendarEvents;
+    const tasks = nextTaskOccurrences(
+      taskOccurrences(todos ?? [], people ?? [], new Date(startDate), new Date(endDate), "hsl(var(--muted-foreground))"),
+    ).map((o) => ({
+      id: o.id,
+      title: o.personName
+        ? tCalendar("markers.taskTitleWithPerson", { title: o.title, person: o.personName })
+        : tCalendar("markers.taskTitle", { title: o.title }),
+      start: o.date,
+      color: o.color,
+      allDay: true,
+    }));
+    return [...calendarEvents, ...tasks].sort((a, b) => a.start.getTime() - b.start.getTime());
+  }, [calendarEvents, tasksAsEvents, todos, people, startDate, endDate, tCalendar]);
 
   if (isLoading) {
     return <UpcomingEventsSkeleton />;

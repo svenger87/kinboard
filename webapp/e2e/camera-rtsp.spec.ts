@@ -215,3 +215,17 @@ test("an RTSP camera goes live in one place, and not on ICE state alone", () => 
   expect(calls[0].index).toBeGreaterThan(goLiveAt);
   expect(calls[0].index).toBeLessThan(end);
 });
+
+test("a new connection attempt on an RTSP camera starts from the still", () => {
+  // Refresh in fullscreen calls initWebRTC() on a tile that may already be
+  // live. If the new connection never got video, the no-video timer closed
+  // it and rtspLive stayed true: LIVE over a dead picture, and the still
+  // never came back. The reset has to come before the old connection goes.
+  const source = readFileSync(join(process.cwd(), "src/components/camera-viewer.tsx"), "utf8");
+  const initAt = source.indexOf("const initWebRTC = useCallback(");
+  expect(initAt).toBeGreaterThan(-1);
+  const resetAt = source.indexOf("if (isFallbackCapable) setRtspLive(false);", initAt);
+  const cleanupAt = source.indexOf("cleanupWebRTC();", initAt);
+  expect(resetAt).toBeGreaterThan(initAt);
+  expect(resetAt).toBeLessThan(cleanupAt);
+});

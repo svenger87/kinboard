@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { invalidateFamilyToken, primeFamilyToken } from "@/lib/supabase/family-token";
 import { useFamilyStore } from "@/stores/family-store";
 import { getDeviceId, persistDeviceId, getDeviceFingerprint } from "@/lib/device-id";
+import { eventPushTarget } from "@/lib/local-calendars";
 import type {
   Database,
   Family,
@@ -749,6 +750,7 @@ export function useCreateCalendar() {
       name: string;
       color: string;
       google_calendar_id?: string;
+      person_id?: string | null;
     }) => {
        
       const { data, error } = await (supabase as any)
@@ -1237,14 +1239,15 @@ export function useCreateEvent() {
       const createdEvent = data as Event;
 
       // Route by provider: a CalDAV-backed calendar gets a PUT to its
-      // server, anything else keeps the existing Google push (which
-      // itself no-ops for local-only calendars).
+      // server, a Google calendar the Google push, and a calendar with
+      // neither (a local one, or an ICS feed) nothing -- see eventPushTarget.
       const calendar = findCachedCalendar(
         queryClient,
         requireFamilyId(family),
         event.calendar_id,
       );
-      if (calendar?.caldav_url) {
+      const pushTarget = eventPushTarget(calendar);
+      if (pushTarget === "caldav") {
         const caldavError = await pushToCaldav("POST", {
           family_id: requireFamilyId(family),
           event_id: createdEvent.id,
@@ -1257,6 +1260,7 @@ export function useCreateEvent() {
         if (caldavError) toast.error(tCaldav("pushFailed"), { description: caldavError });
         return createdEvent;
       }
+      if (pushTarget === "none") return createdEvent;
 
       // Push to Google Calendar (non-blocking)
       try {
@@ -1393,8 +1397,9 @@ export function useDeleteEvent() {
       const calendar = existing
         ? findCachedCalendar(queryClient, requireFamilyId(family), existing.calendar_id)
         : undefined;
+      const pushTarget = eventPushTarget(calendar);
 
-      if (calendar?.caldav_url) {
+      if (pushTarget === "caldav") {
         const caldavError = await pushToCaldav("DELETE", {
           family_id: requireFamilyId(family),
           event_id: id,
@@ -1407,7 +1412,7 @@ export function useDeleteEvent() {
           toast.error(tCaldav("deleteFailed"), { description: caldavError });
           throw new Error(caldavError);
         }
-      } else {
+      } else if (pushTarget === "google") {
         // Delete from Google first, and keep the local row if that fails —
         // the same reasoning the CalDAV branch above spells out. Deleting
         // locally while the event survives on Google means the next sync
@@ -1438,6 +1443,7 @@ export function useDeleteEvent() {
           throw new Error(googleError);
         }
       }
+      // pushTarget "none": nothing outside Kinboard holds the event.
 
       // Delete locally
 
@@ -1454,7 +1460,7 @@ export function useDeleteEvent() {
 // TODOS HOOKS
 // ===================
 
-export function useTodos() {
+export function useTodos(options?: { enabled?: boolean }) {
   const supabase = createClient();
   const { family } = useFamilyStore();
 
@@ -1470,7 +1476,7 @@ export function useTodos() {
       if (error) throw error;
       return data as Todo[];
     },
-    enabled: !!family?.id,
+    enabled: !!family?.id && (options?.enabled ?? true),
   });
 }
 

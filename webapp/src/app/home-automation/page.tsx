@@ -38,6 +38,7 @@ import { useCatalogue } from "@/hooks/use-catalogue";
 import { useCameras } from "@/hooks/use-cameras";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { CameraGrid } from "@/components/camera-viewer";
+import { groupCamerasByRoom } from "@/lib/camera-rooms";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { iconFor } from "@/components/home-assistant/room-icon";
@@ -166,7 +167,7 @@ export default function HausautomationPage() {
     isError: catalogueError,
     refetch: refetchCatalogue,
   } = useCatalogue();
-  const { cameras } = useCameras();
+  const { cameras, isLoading: camerasLoading } = useCameras();
   const camerasEnabled = useIsPluginEnabled("cameras");
 
   /**
@@ -420,27 +421,18 @@ export default function HausautomationPage() {
   }, [catalogue, rooms]);
 
   /**
-   * Camera feeds filed under a room, keyed like `grouped.byRoom`.
-   *
-   * Only cameras with a room that currently exists are placed. A camera with
-   * no room, or with the id of a room since deleted, is left out rather than
-   * gathered into a "no room" group: /cameras already shows every camera,
-   * and this page is about rooms. Disabled cameras are already filtered by
-   * `useCameras`, and the whole thing stands down if the cameras plugin is
-   * switched off for the family.
+   * Camera feeds filed under a room, keyed like `grouped.byRoom` -- see
+   * groupCamerasByRoom for which cameras are placed. Disabled cameras are
+   * already filtered by `useCameras`, and the whole thing stands down if the
+   * cameras plugin is switched off for the family.
    */
-  const camerasByRoom = useMemo(() => {
-    const byRoom = new Map<string, CameraConfig[]>();
-    if (!camerasEnabled) return byRoom;
-    const known = new Set(rooms.map((r) => r.id));
-    for (const camera of cameras) {
-      if (!camera.room_id || !known.has(camera.room_id)) continue;
-      const list = byRoom.get(camera.room_id) ?? [];
-      list.push(camera);
-      byRoom.set(camera.room_id, list);
-    }
-    return byRoom;
-  }, [cameras, camerasEnabled, rooms]);
+  const camerasByRoom = useMemo(
+    () =>
+      camerasEnabled
+        ? groupCamerasByRoom(cameras, rooms.map((r) => r.id))
+        : new Map<string, CameraConfig[]>(),
+    [cameras, camerasEnabled, rooms],
+  );
 
   /**
    * Which room a device is in is unknown while the rooms query is in flight
@@ -711,7 +703,7 @@ export default function HausautomationPage() {
               {t("unreachableRetry")}
             </Button>
           </div>
-        ) : catalogue.length === 0 && !roomsLoading && camerasByRoom.size === 0 ? (
+        ) : catalogue.length === 0 && !roomsLoading && !(camerasEnabled && camerasLoading) && camerasByRoom.size === 0 ? (
           <EmptyState
             icon={Boxes}
             title={t("noDevices")}

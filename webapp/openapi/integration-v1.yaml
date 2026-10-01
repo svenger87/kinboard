@@ -2141,7 +2141,27 @@ paths:
           application/json:
             schema:
               type: object
-              description: Arguments for the named service. Key order is not significant.
+              description: |
+                Arguments for the named service. Key order is not significant.
+
+                The argument names are the ones RFC-001 §5.2 fixes, and the ones
+                the Home Assistant component sends. Services whose arguments
+                have a schema below are described there, including older
+                aliases the server still accepts:
+
+                - `add_pocket_money` — `AddPocketMoneyArgs`
+                - `dismiss_attention` — `DismissAttentionArgs`
+              anyOf:
+                - $ref: "#/components/schemas/AddPocketMoneyArgs"
+                - $ref: "#/components/schemas/DismissAttentionArgs"
+                - type: object
+            examples:
+              add_pocket_money:
+                summary: add_pocket_money, as Home Assistant sends it
+                value: { person_id: "3f2504e0-4f89-11d3-9a0c-0305e82c3301", amount: 2.5, reason: "Mowed the lawn" }
+              dismiss_attention:
+                summary: dismiss_attention, as Home Assistant sends it
+                value: { attention_id: "lock-up-before-bed:2026-10-01" }
       responses:
         "201":
           description: Created
@@ -2487,6 +2507,72 @@ components:
         - dismiss_attention
         - add_pocket_money
         - refresh_integration
+
+    AddPocketMoneyArgs:
+      type: object
+      description: |
+        Arguments for `add_pocket_money`. Credits (positive `amount`) or debits
+        (negative) a child's pocket money and records a transaction.
+
+        `person_id` and `reason` are the contract's names. `person` and `note`
+        are older aliases that remain accepted; when both forms are sent,
+        `person_id` wins over `person` and `reason` wins over `note`. One of
+        `person_id` or `person` is required.
+
+        A `person_id` that is not one of this family's people, or belongs to
+        someone in the recycle bin, answers `404` with code `not_found`.
+      required: [amount]
+      properties:
+        person_id:
+          type: string
+          format: uuid
+          description: The person to credit. Must belong to the token's family.
+        amount:
+          type: number
+          description: In currency units, not cents — `2.5` is 2.50. Non-zero.
+        reason:
+          type: string
+          maxLength: 200
+          description: Shown on the transaction. Defaults to "Home Assistant".
+        person:
+          type: string
+          maxLength: 200
+          deprecated: true
+          description: Alias. The person's name, matched case-insensitively.
+        note:
+          type: string
+          maxLength: 200
+          deprecated: true
+          description: Alias for `reason`.
+
+    DismissAttentionArgs:
+      type: object
+      description: |
+        Arguments for `dismiss_attention`. Acknowledges an active Heute-Motor
+        item, as the button on the board does; it does not resolve it.
+
+        `attention_id` is the contract's name. It is the item's key (for
+        example `lock-up-before-bed:2026-10-01`); an attention item's row id is
+        accepted too. `key` (same meaning) and `rule_id` (every active item from
+        one rule) are older aliases that remain accepted, in that order of
+        precedence after `attention_id`. Only the token's own family's items are
+        ever touched. The response reports how many were dismissed — `0` is not
+        an error.
+      properties:
+        attention_id:
+          type: string
+          maxLength: 200
+          description: The item key, or the attention item's id.
+        key:
+          type: string
+          maxLength: 200
+          deprecated: true
+          description: Alias for `attention_id`, key form only.
+        rule_id:
+          type: string
+          maxLength: 100
+          deprecated: true
+          description: Dismisses every active item raised by this rule.
 
     Error:
       type: object
@@ -2858,10 +2944,35 @@ components:
             dealt with. Snoozed items do not count until their snooze runs out.
         attention:
           type: object
-          description: What it is about, so a dashboard needs no second call.
+          description: |
+            What it is about, so a dashboard needs no second call, and which
+            item to dismiss. `top_key` and `items[].key` are the value
+            `dismiss_attention` accepts as `attention_id`. At most 10 items are
+            read, ordered by priority; `items` is in the same order as `top`,
+            so `items[0]` is the item `top` names.
+          required: [count, top, top_key, items]
           properties:
             count: { type: integer }
-            top: { type: [string, "null"] }
+            top:
+              type: [string, "null"]
+              description: Title of the most important item.
+            top_key:
+              type: [string, "null"]
+              description: Key of the most important item, for `dismiss_attention`.
+            items:
+              type: array
+              maxItems: 10
+              items:
+                type: object
+                required: [key, title, priority]
+                properties:
+                  key:
+                    type: string
+                    description: Pass as `attention_id` to `dismiss_attention`.
+                  title: { type: string }
+                  priority:
+                    type: integer
+                    description: Lower is more important.
         saving_goals:
           type: array
           description: |

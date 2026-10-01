@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
 import { setNavOrder, clearNavOrder } from "@/lib/nav-order";
-import { getHiddenNavItems, setHiddenNavItems, setSettingsIconOnly } from "@/lib/nav-visibility";
+import { canHideNavItem, getHiddenNavItems, setHiddenNavItems, setSettingsIconOnly } from "@/lib/nav-visibility";
 import { useHiddenNavItems, useSettingsIconOnly } from "@/hooks/use-hidden-nav-items";
 import { Switch } from "@/components/ui/switch";
+import { useFamilyStore } from "@/stores/family-store";
 
 export default function NavigationSettingsPage() {
   const t = useTranslations("settings.navigation");
@@ -19,6 +20,8 @@ export default function NavigationSettingsPage() {
   const visibleItems = useVisibleNavItems(true);
   const hiddenItems = useHiddenNavItems();
   const settingsIconOnly = useSettingsIconOnly();
+  const { device } = useFamilyStore();
+  const isKiosk = device?.is_kiosk ?? false;
 
   // Local working copy. Initialized from useVisibleNavItems (which already
   // reflects the saved order); subsequent drags update local state, and
@@ -84,6 +87,7 @@ export default function NavigationSettingsPage() {
                 <NavItemRow
                   key={href}
                   href={href}
+                  isKiosk={isKiosk}
                   Icon={item.icon}
                   label={tNav(item.labelKey as never)}
                   enabled={!hiddenItems.includes(href)}
@@ -98,7 +102,9 @@ export default function NavigationSettingsPage() {
             })}
           </Reorder.Group>
         </Card>
-        <p className="text-xs text-muted-foreground">{t("fixedItemsHint")}</p>
+        <p className="text-xs text-muted-foreground">
+          {t(isKiosk ? "fixedItemsHintKiosk" : "fixedItemsHint")}
+        </p>
 
         <Card className="flex items-center justify-between gap-4 p-4">
           <div>
@@ -128,12 +134,14 @@ function NavItemRow({
   Icon,
   label,
   enabled,
+  isKiosk,
   onEnabledChange,
 }: {
   href: string;
   Icon: React.ComponentType<{ className?: string }>;
   label: string;
   enabled: boolean;
+  isKiosk: boolean;
   onEnabledChange: (enabled: boolean) => void;
 }) {
   // Per-item dragControls + dragListener=false constrains the drag
@@ -159,7 +167,7 @@ function NavItemRow({
       </button>
       <Icon className="size-5" />
       <span className="text-sm font-medium">{label}</span>
-      <Switch className="ml-auto" checked={enabled} onCheckedChange={onEnabledChange} disabled={["/", "/settings", "/calendar", "/shopping"].includes(href)} aria-label={t("showItem", { label })} />
+      <Switch className="ml-auto" checked={enabled} onCheckedChange={onEnabledChange} disabled={!canHideNavItem(href, isKiosk)} aria-label={t("showItem", { label })} />
     </Reorder.Item>
   );
 }

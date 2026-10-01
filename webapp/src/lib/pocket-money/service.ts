@@ -48,28 +48,30 @@ export async function addPocketMoneyService(
   }
   // Only now, after the refusal: an assistant's call never touches the database.
   const db = (client ?? createAdminClient()) as any;
-  const person = text(body.person, 200);
+  // RFC-001 §5.2 names the arguments `person_id, amount, reason`, and that
+  // is what the Home Assistant component sends. This service first shipped
+  // reading `person` (a name) and `note`, so every call from Home Assistant
+  // was a 400. The RFC names come first; the old ones stay accepted for
+  // anything already written against them.
+  const personId = text(body.person_id, 100);
+  const personName = personId ? null : text(body.person, 200);
   const amount = typeof body.amount === "number" ? body.amount : null;
-  if (!person || amount === null || !Number.isFinite(amount) || amount === 0) {
-    return {
-      status: 400,
-      response: {
-        error: "`person` and a non-zero `amount` are required",
-        code: "invalid_request",
-      },
-    };
+  const required = {
+    status: 400,
+    response: {
+      error: "`person_id` (or `person`, a name) and a non-zero `amount` are required",
+      code: "invalid_request",
+    },
+  };
+  if ((!personId && !personName) || amount === null || !Number.isFinite(amount) || amount === 0) {
+    return required;
   }
   // Currency units in, cents stored. An automation saying `amount: 2.50`
   // means €2.50; making callers send 250 would guarantee somebody one day
   // credits a child two hundred and fifty euros.
   const cents = Math.round(amount * 100);
   // Less than half a cent books nothing: a zero amount, said as such.
-  if (cents === 0) {
-    return {
-      status: 400,
-      response: { error: "`person` and a non-zero `amount` are required", code: "invalid_request" },
-    };
-  }
+  if (cents === 0) return required;
 
   const { data: people } = await db
     .from("people")
@@ -77,11 +79,21 @@ export async function addPocketMoneyService(
     .eq("family_id", familyId)
     .is("deleted_at", null);
 
-  const match = ((people ?? []) as { id: string; name: string }[]).find(
-    (candidate) => candidate.name.toLowerCase() === person.toLowerCase()
-  );
+  // Matching against this family's living people is the family check for
+  // `person_id` as well as the lookup for `person`: an id from another
+  // family, or of someone in the recycle bin, is simply not in the list.
+  const candidates = (people ?? []) as { id: string; name: string }[];
+  const match = personId
+    ? candidates.find((candidate) => candidate.id === personId)
+    : candidates.find((candidate) => candidate.name.toLowerCase() === personName!.toLowerCase());
   if (!match) {
-    return { status: 404, response: { error: `No person called ${person}`, code: "not_found" } };
+    return {
+      status: 404,
+      response: {
+        error: personId ? `No person with id ${personId}` : `No person called ${personName}`,
+        code: "not_found",
+      },
+    };
   }
 
   const { data: account } = await db
@@ -105,7 +117,7 @@ export async function addPocketMoneyService(
     accountId: account.id,
     amountCents: cents,
     type: cents > 0 ? "manual_deposit" : "withdrawal",
-    note: text(body.note, 200) ?? "Home Assistant",
+    note: text(body.reason, 200) ?? text(body.note, 200) ?? "Home Assistant",
   });
   if (!booked.ok) {
     if (booked.error === "insufficient_funds") {
@@ -123,6 +135,6 @@ export async function addPocketMoneyService(
 
   return {
     status: 201,
-    response: { person: match.name, amount, balance: newBalance / 100 },
+    response: { person_id: match.id, person: match.name, amount, balance: newBalance / 100 },
   };
 }

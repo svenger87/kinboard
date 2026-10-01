@@ -20,6 +20,8 @@ import {
   isWeekend,
 } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
+import { toLocalDateKey } from "@/lib/local-date";
+import type { Holiday } from "@/lib/holidays";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Trash2 } from "lucide-react";
@@ -52,9 +54,14 @@ interface MonthViewProps {
   events: CalendarEvent[];
   onSelectDate: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
+  /** Built-in public holidays by local day key; absent when the option is off. */
+  holidayMarkers?: Map<string, Holiday>;
+  /** Person colours with a task due, by local day key; absent when the option is off. */
+  taskMarkers?: Map<string, string[]>;
 }
 
 const MAX_EVENTS_PER_CELL = 3;
+const MAX_TASK_DOTS = 4;
 
 const isMultiDayOrAllDay = (event: CalendarEvent) => {
   return event.allDay || differenceInDays(endOfDay(event.end), startOfDay(event.start)) >= 1;
@@ -72,10 +79,13 @@ export function MonthView({
   events,
   onSelectDate,
   onSelectEvent,
+  holidayMarkers,
+  taskMarkers,
 }: MonthViewProps) {
   const { formatTime } = useTimeFormat();
   const { weekStartsOn } = useWeekStart();
   const t = useTranslations("calendar");
+  const tHolidays = useTranslations("holidays");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
 
@@ -175,6 +185,9 @@ export function MonthView({
                 const holidayEvent = events.find(
                   (e) => e.is_holiday && isSameDay(e.start, day)
                 );
+                const dayKey = toLocalDateKey(day);
+                const holiday = holidayMarkers?.get(dayKey);
+                const taskColors = taskMarkers?.get(dayKey) ?? [];
                 const visibleEvents = dayEvents.slice(0, MAX_EVENTS_PER_CELL);
                 const overflowCount = dayEvents.length - MAX_EVENTS_PER_CELL;
 
@@ -213,7 +226,7 @@ export function MonthView({
                     />
 
                     {/* Day Number */}
-                    <div className="relative z-10 flex items-center gap-0.5 mb-0.5">
+                    <div className="relative z-10 flex items-center gap-0.5 mb-0.5 min-w-0">
                       <span
                         className={`
                           inline-flex items-center justify-center size-5 sm:size-6 rounded-full text-3xs sm:text-xs font-medium tabular-nums shrink-0
@@ -227,7 +240,74 @@ export function MonthView({
                           {holidayEvent.title}
                         </span>
                       )}
+                      {/* Built-in holiday: an amber dot, the colour holidays
+                          already have in the day panel, and the name where
+                          there is room -- unless a holiday calendar already
+                          labelled the day. */}
+                      {holiday && (
+                        <>
+                          <span
+                            className="size-1.5 sm:size-2 rounded-full bg-amber-400 shrink-0"
+                            role="img"
+                            aria-label={tHolidays(holiday.nameKey)}
+                            title={tHolidays(holiday.nameKey)}
+                          />
+                          {!holidayEvent && (
+                            <span className="hidden sm:inline min-w-0 text-3xs text-amber-400 truncate leading-none">
+                              {tHolidays(holiday.nameKey)}
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {/* Tasks: one dot per person with something due, in
+                          the corner from sm up. A phone cell is ~45px: the
+                          number, a holiday dot and four task dots do not fit
+                          on one line, so there they get a row of their own. */}
+                      {taskColors.length > 0 && (
+                        <span
+                          className="hidden sm:flex ml-auto items-center gap-0.5 shrink-0 pr-0.5"
+                          role="img"
+                          aria-label={t("markers.tasksDue")}
+                          title={t("markers.tasksDue")}
+                        >
+                          {taskColors.slice(0, MAX_TASK_DOTS).map((color, i) => (
+                            <span
+                              key={`${color}-${i}`}
+                              className="size-2 rounded-full"
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                          {taskColors.length > MAX_TASK_DOTS && (
+                            <span className="text-3xs text-muted-foreground leading-none">
+                              +{taskColors.length - MAX_TASK_DOTS}
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </div>
+
+                    {/* Phone: the task dots on their own row, wrapping like
+                        the event dots below rather than running off the cell. */}
+                    {taskColors.length > 0 && (
+                      <div
+                        className="sm:hidden relative z-10 flex flex-wrap justify-center gap-0.5 mb-0.5"
+                        role="img"
+                        aria-label={t("markers.tasksDue")}
+                      >
+                        {taskColors.slice(0, MAX_TASK_DOTS).map((color, i) => (
+                          <span
+                            key={`${color}-${i}`}
+                            className="size-1.5 rounded-full"
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                        {taskColors.length > MAX_TASK_DOTS && (
+                          <span className="text-3xs text-muted-foreground leading-none">
+                            +{taskColors.length - MAX_TASK_DOTS}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Events - inline in cell. z-10 keeps chips above the
                         day-selection button that now sits behind the content. */}

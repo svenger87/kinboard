@@ -696,9 +696,10 @@ test.describe("services/add_pocket_money books at once for Home Assistant, and n
   });
 
   test("the route's own add_pocket_money hands the token's assistant flag to the service", async () => {
-    // No database client exists here: if the flag were dropped on the way,
+    // A client that throws on any use: if the flag were dropped on the way,
     // the service would go on to read people and this would throw instead.
-    const res = await SERVICES.add_pocket_money.handle({ familyId: FAMILY, body: { person: "Enno", amount: 2.5 }, assistant: true });
+    const untouchable = new Proxy({}, { get() { throw new Error("the database was touched"); } });
+    const res = await SERVICES.add_pocket_money.handle({ familyId: FAMILY, body: { person: "Enno", amount: 2.5 }, assistant: true, db: untouchable });
     expect(res).toMatchObject({ status: 403, response: { code: "forbidden" } });
     expect(SERVICES.add_pocket_money.scope).toBe("tasks:write");
   });
@@ -706,7 +707,7 @@ test.describe("services/add_pocket_money books at once for Home Assistant, and n
   test("a Home Assistant token books once: a deposit as manual_deposit, the note defaulting to Home Assistant", async () => {
     const { db, rpcs } = serviceDb();
     const res = await addPocketMoneyService({ familyId: FAMILY, body: { person: "enno", amount: 2.5 }, assistant: false }, db);
-    expect(res).toEqual({ status: 201, response: { person: "Enno", amount: 2.5, balance: 12.5 } });
+    expect(res).toEqual({ status: 201, response: { person_id: ENNO, person: "Enno", amount: 2.5, balance: 12.5 } });
     expect(rpcs).toEqual([{ fn: "book_pocket_money", args: {
       p_family_id: FAMILY, p_account_id: ACCOUNT, p_amount_cents: 250, p_type: "manual_deposit",
       p_note: "Home Assistant", p_related_goal_id: null, p_created_by_person_id: null,
