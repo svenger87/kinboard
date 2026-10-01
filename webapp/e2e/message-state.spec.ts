@@ -7,6 +7,7 @@ const at = (iso: string, ack: string | null = null): Message => ({
   family_id: "f1",
   body: "back by 6",
   sender_device_id: "d1",
+  sender_label: null,
   acknowledged_at: ack,
   acknowledged_by_device_id: ack ? "d2" : null,
   created_at: iso,

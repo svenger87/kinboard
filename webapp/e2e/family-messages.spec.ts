@@ -3,6 +3,7 @@ import {
   MAX_MESSAGE_BODY,
   parseMessageText,
   sendFamilyMessage,
+  storedSenderLabel,
   type InsertMessageFn,
   type PushMessageFn,
 } from "../src/lib/family-messages";
@@ -22,6 +23,7 @@ function makeRow(overrides: Partial<Message> = {}): Message {
     family_id: "f1",
     body: "back by 6",
     sender_device_id: null,
+    sender_label: null,
     acknowledged_at: null,
     acknowledged_by_device_id: null,
     created_at: "2026-10-01T12:00:00.000Z",
@@ -73,7 +75,7 @@ test.describe("sendFamilyMessage", () => {
     );
 
     expect(result).toEqual({ ok: true, message: inserted });
-    expect(insertCalls).toEqual([{ familyId: "fam-1", body: "soup's on", senderDeviceId: "dev-1" }]);
+    expect(insertCalls).toEqual([{ familyId: "fam-1", body: "soup's on", senderDeviceId: "dev-1", senderLabel: null }]);
     expect(pushCalls).toEqual([{
       familyId: "fam-1", senderDeviceId: "dev-1", messageId: "m-new", body: "soup's on", senderLabel: undefined,
     }]);
@@ -106,6 +108,34 @@ test.describe("sendFamilyMessage", () => {
     expect(pushCalls).toEqual([{
       familyId: "f1", senderDeviceId: null, messageId: "m3", body: "dinner's ready", senderLabel: "Home Assistant",
     }]);
+  });
+
+  test("ruling 11: an assistant's message stores its label (cut to 40) on the row; a person's stores null", async () => {
+    const insertCalls: { senderLabel: string | null }[] = [];
+    const pushCalls: { senderLabel?: string }[] = [];
+    const insert: InsertMessageFn = async (args) => {
+      insertCalls.push(args);
+      return { message: makeRow(), error: null };
+    };
+    const push: PushMessageFn = async (args) => {
+      pushCalls.push(args);
+    };
+    const long = "Claude for the whole family, connected from the laptop";
+    await sendFamilyMessage({ familyId: "f1", body: "hi", senderDeviceId: null, senderLabel: long }, { insert, push });
+    await sendFamilyMessage({ familyId: "f1", body: "hi", senderDeviceId: "dev-1" }, { insert, push });
+    expect(insertCalls[0].senderLabel).toBe(storedSenderLabel(long));
+    expect(insertCalls[0].senderLabel!.length).toBeLessThanOrEqual(40);
+    expect(insertCalls[0].senderLabel!.endsWith("…")).toBe(true);
+    expect(pushCalls[0].senderLabel).toBe(insertCalls[0].senderLabel);
+    expect(insertCalls[1].senderLabel).toBeNull();
+  });
+
+  test("storedSenderLabel: one line, at most 40 characters, and never an empty string", () => {
+    expect(storedSenderLabel("Claude")).toBe("Claude");
+    expect(storedSenderLabel("  Claude\nCode ")).toBe("Claude Code");
+    expect(storedSenderLabel("   ")).toBeNull();
+    expect(storedSenderLabel(undefined)).toBeNull();
+    expect(storedSenderLabel("z".repeat(100))!.length).toBeLessThanOrEqual(40);
   });
 
   test("an insert failure is reported and never reaches the push", async () => {

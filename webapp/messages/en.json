@@ -4181,7 +4181,8 @@
     "remaining": "{count} characters left",
     "empty": "Nothing to pass on",
     "close": "Close",
-    "alreadySeen": "Somebody has already seen this"
+    "alreadySeen": "Somebody has already seen this",
+    "via": "via {label}"
   },
   "oauthConsent": {
     "title": "Connect {client} to Kinboard",

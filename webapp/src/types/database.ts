@@ -636,6 +636,7 @@ export interface Database {
           family_id: string;
           body: string;
           sender_device_id: string | null;
+          sender_label: string | null;
           acknowledged_at: string | null;
           acknowledged_by_device_id: string | null;
           created_at: string;
@@ -645,6 +646,7 @@ export interface Database {
           family_id: string;
           body: string;
           sender_device_id?: string | null;
+          sender_label?: string | null;
           acknowledged_at?: string | null;
           acknowledged_by_device_id?: string | null;
           created_at?: string;
@@ -654,6 +656,7 @@ export interface Database {
           family_id?: string;
           body?: string;
           sender_device_id?: string | null;
+          sender_label?: string | null;
           acknowledged_at?: string | null;
           acknowledged_by_device_id?: string | null;
           created_at?: string;

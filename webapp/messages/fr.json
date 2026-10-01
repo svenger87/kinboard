@@ -4181,7 +4181,8 @@
     "remaining": "{count} caractères restants",
     "empty": "Rien à transmettre",
     "close": "Fermer",
-    "alreadySeen": "Quelqu'un l'a déjà vu"
+    "alreadySeen": "Quelqu'un l'a déjà vu",
+    "via": "via {label}"
   },
   "oauthConsent": {
     "title": "Connecter {client} à Kinboard",

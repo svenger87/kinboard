@@ -17,6 +17,7 @@ import { sendPushToMultiple, isVapidConfigured, type DatabaseSubscription } from
 import { getPushTranslator } from "@/lib/notifications/messages";
 import { getFamilyLocale } from "@/lib/family-locale";
 import type { Message } from "@/types/database";
+import { clientLabel } from "@/lib/home/action-requests";
 
 export const MAX_MESSAGE_BODY = 200;
 
@@ -50,10 +51,18 @@ export interface SendFamilyMessageParams {
   senderDeviceId: string | null;
   /**
    * Set only for an assistant-sent message (the integration token's name).
-   * Names the assistant in the push title instead of the generic
-   * `messageTitle` a person's own message gets.
+   * Stored on the row as `sender_label`, cut to 40 characters, so every
+   * screen shows "via <label>"; names the assistant in the push title
+   * instead of the generic `messageTitle` a person's own message gets.
    */
   senderLabel?: string;
+}
+
+/** What `sender_label` stores for a sender name: one line, at most 40 characters, or null. */
+export function storedSenderLabel(name: string | undefined | null): string | null {
+  if (typeof name !== "string") return null;
+  const label = clientLabel(name);
+  return label.length > 0 ? label : null;
 }
 
 export type SendFamilyMessageResult =
@@ -64,6 +73,8 @@ export interface InsertMessageArgs {
   familyId: string;
   body: string;
   senderDeviceId: string | null;
+  /** `storedSenderLabel` of the sender — null for a person's message. */
+  senderLabel: string | null;
 }
 
 export type InsertMessageFn = (
@@ -84,11 +95,12 @@ async function defaultInsertMessage({
   familyId,
   body,
   senderDeviceId,
+  senderLabel,
 }: InsertMessageArgs): ReturnType<InsertMessageFn> {
   const supabase = createAdminClient();
   const { data, error } = await (supabase as any)
     .from("messages")
-    .insert({ family_id: familyId, body, sender_device_id: senderDeviceId })
+    .insert({ family_id: familyId, body, sender_device_id: senderDeviceId, sender_label: senderLabel })
     .select()
     .single();
   return { message: (data as Message | null) ?? null, error };
@@ -184,6 +196,7 @@ export async function sendFamilyMessage(
     familyId: params.familyId,
     body: params.body,
     senderDeviceId: params.senderDeviceId,
+    senderLabel: storedSenderLabel(params.senderLabel),
   });
 
   if (error || !message) {
@@ -201,7 +214,7 @@ export async function sendFamilyMessage(
       senderDeviceId: params.senderDeviceId,
       messageId: message.id,
       body: params.body,
-      senderLabel: params.senderLabel,
+      senderLabel: storedSenderLabel(params.senderLabel) ?? undefined,
     }).catch((err) => {
       console.error("[family-messages] push failed:", err);
     }),

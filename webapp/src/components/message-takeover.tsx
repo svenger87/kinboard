@@ -32,6 +32,11 @@ export function MessageTakeover() {
       </span>
       <div className="min-w-0 flex-1">
         <p className="font-display text-2xl leading-tight">{shown.body}</p>
+        {shown.sender_label && (
+          <p data-message-sender className="mt-1 text-sm text-muted-foreground">
+            {t("via", { label: shown.sender_label })}
+          </p>
+        )}
         {alreadySeen && (
           <p className="mt-1 text-sm text-muted-foreground">{t("alreadySeen")}</p>
         )}

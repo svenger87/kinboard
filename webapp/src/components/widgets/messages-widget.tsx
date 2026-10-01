@@ -88,6 +88,11 @@ export function MessagesWidget() {
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm">{message.body}</p>
+                {message.sender_label && (
+                  <p data-message-sender className="truncate text-xs text-muted-foreground">
+                    {t("via", { label: message.sender_label })}
+                  </p>
+                )}
                 {mine && (
                   <p className="truncate text-xs text-muted-foreground">{t("waiting")}</p>
                 )}
