@@ -25,11 +25,14 @@ import {
  * database. Everything it creates is removed in afterAll, and the family's
  * Home Assistant settings and "Allow AI assistants" switch are put back.
  *
- * The overlay screenshot lands in SCREENSHOT_DIR (default /tmp/claude-1000).
+ * The overlay screenshot lands in SCREENSHOT_DIR when set, otherwise in the
+ * test's own output directory.
  */
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 const FAMILY_CODE = process.env.FAMILY_CODE;
-const SCREENSHOT = `${process.env.SCREENSHOT_DIR ?? "/tmp/claude-1000"}/assistant-action-overlay-webkit.png`;
+const SCREENSHOT_FILE = "assistant-action-overlay-webkit.png";
+const screenshotPath = () =>
+  process.env.SCREENSHOT_DIR ? `${process.env.SCREENSHOT_DIR}/${SCREENSHOT_FILE}` : test.info().outputPath(SCREENSHOT_FILE);
 test.skip(!FAMILY_CODE, "needs FAMILY_CODE and a running stack");
 
 const ALL_SCOPES = [
@@ -56,6 +59,8 @@ const CATALOGUE = HA_STATES.filter((s) => s.entity_id !== "switch.not_in_catalog
 
 interface HaCall { domain: string; service: string; body: Record<string, unknown>; authorized: boolean }
 const haCalls: HaCall[] = [];
+/** Paths of single-entity state reads, so the spec can see they are used. */
+const haStateReads: string[] = [];
 let haServer: http.Server | null = null;
 const callsTo = (domain: string, service: string, entityId?: string) =>
   haCalls.filter((c) => c.domain === domain && c.service === service && (!entityId || c.body.entity_id === entityId));
@@ -74,6 +79,15 @@ async function startMockHa(): Promise<string> {
         res.end("{}");
       } else if (req.method === "GET" && url.pathname === "/api/states") {
         res.end(JSON.stringify(HA_STATES));
+      } else if (req.method === "GET" && url.pathname.startsWith("/api/states/")) {
+        // One entity, as get_device_state and control_device read it.
+        const one = HA_STATES.find((s) => s.entity_id === decodeURIComponent(url.pathname.slice("/api/states/".length)));
+        haStateReads.push(url.pathname);
+        if (one) res.end(JSON.stringify(one));
+        else {
+          res.statusCode = 404;
+          res.end("{}");
+        }
       } else if (req.method === "POST" && service) {
         let body: Record<string, unknown> = {};
         try {
@@ -335,6 +349,11 @@ test("messages: five go through, the sixth in ten minutes is rate limited", asyn
       const sent = await tool("send_message", { text: `${P}message ${i}` });
       expect(sent.isError, sent.text).toBe(false);
       expect(one(`SELECT body FROM messages WHERE id = '${sent.json.id}' AND family_id = '${fam()}'`)).toBe(`${P}message ${i}`);
+      // Ruling 11: attributed to the connection, by its (at most 40-character) name.
+      const label = one(`SELECT sender_label FROM messages WHERE id = '${sent.json.id}'`);
+      expect(label.length).toBeGreaterThan(0);
+      expect(label.length).toBeLessThanOrEqual(40);
+      expect(one(`SELECT name FROM integration_tokens WHERE id = '${conn.tokenId}'`).startsWith(label.replace(/…$/, ""))).toBe(true);
     }
     const sixth = await integ("POST", "/messages", { text: `${P}message 6` });
     expect(sixth.status(), await sixth.text()).toBe(429);
@@ -396,6 +415,8 @@ test("home: catalogue only, run or confirm, approve with the PIN, deny without i
   expect(light.isError, light.text).toBe(false);
   expect(light.json).toEqual({ status: "done" });
   expect(callsTo("light", "turn_on")).toEqual([{ domain: "light", service: "turn_on", body: { brightness_pct: 40, entity_id: "light.test_lamp" }, authorized: true }]);
+  // Acting on one device read that device's state alone, not the whole list.
+  expect(haStateReads).toContain("/api/states/light.test_lamp");
   expect(one(`SELECT status || '|' || client_name FROM assistant_action_requests WHERE token_id = '${conn.tokenId}' AND entity_id = 'light.test_lamp' AND service = 'turn_on'`))
     .toBe(`done|${one(`SELECT name FROM integration_tokens WHERE id = '${conn.tokenId}'`)}`);
 
@@ -478,8 +499,12 @@ test("home: catalogue only, run or confirm, approve with the PIN, deny without i
     const overlay = page.getByTestId("assistant-action-overlay");
     await expect(overlay).toBeVisible({ timeout: 45_000 });
     await expect(overlay).toContainText(`${P}test_door`);
+    // The assistant's self-chosen name is a label of at most 40 characters, not the sentence.
+    const label = (await overlay.locator("[data-assistant-client]").first().textContent()) ?? "";
+    expect(label.length).toBeGreaterThan(0);
+    expect(label.length).toBeLessThanOrEqual(40);
     expect(new URL(page.url()).pathname).toBe("/calendar");
-    await page.screenshot({ path: SCREENSHOT });
+    await page.screenshot({ path: screenshotPath() });
 
     // Deny from this screen — it never entered the PIN.
     const denyLabels = [en, de, fr].map((m) => m.assistantActions.deny);
