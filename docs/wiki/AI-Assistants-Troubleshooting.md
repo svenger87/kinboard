@@ -11,24 +11,25 @@ exactly what is wrong.
 ## A new permission never gets asked for
 
 **Symptom.** Kinboard gained a permission (`vehicles:read`, say) after you
-connected ChatGPT. You reconnect, but the consent page doesn't list it, and
+connected ChatGPT. You reconnect, but ChatGPT doesn't ask for it, and
 asking about the car still answers that `vehicles:read` authorization is
 required.
 
 **Why.** An assistant can remember the list of permissions it asked for when
 you first added it and ask for exactly that list every time it reconnects;
-ChatGPT does. The consent page lists the permissions the assistant asked for,
-so a permission that didn't exist back then is never on it.
+ChatGPT does. So a permission that didn't exist back then is never in its
+request.
 
 **Fix.**
 
-- **If the consent page has an "Also available" list** (*"Also available —
-  ChatGPT didn't ask for these"*), tick the permissions you want there and
-  allow as usual. Nothing in that list is granted unless you tick it.
-- **Otherwise, delete the connector in the assistant and add it again** with
-  the same address. A newly added connector asks for the permissions Kinboard
-  offers today. Then revoke the old connection under **Settings → Integration
-  tokens**, so only the new one is left.
+- **Tick it under "Also available".** Since 1.13, the consent page lists
+  every permission the assistant didn't ask for under *"Also available —
+  ChatGPT didn't ask for these"*, unticked. Tick the ones you want and allow
+  as usual. Nothing in that list is granted unless you tick it.
+- **On an older Kinboard, delete the connector in the assistant and add it
+  again** with the same address. A newly added connector asks for the
+  permissions Kinboard offers today. Then revoke the old connection under
+  **Settings → Integration tokens**, so only the new one is left.
 
 To check what a connection was actually given, look at its row under
 **Settings → Integration tokens**: the permissions are listed next to it.

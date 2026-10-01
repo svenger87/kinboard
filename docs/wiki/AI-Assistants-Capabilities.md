@@ -235,8 +235,8 @@ See [Messages](Messages).
 
 | Tool | What it does | Permission | Notes |
 |---|---|---|---|
-| `get_solar_production` | Current solar power and today's solar energy | `energy:read` | Reads. Only the sensors chosen under **Settings → Energy** |
-| `get_energy_status` | The whole energy picture: solar, battery, grid and home power right now, today's energy in and out, and the battery's charge | `energy:read` | Reads. Only the sensors chosen under **Settings → Energy** |
+| `get_solar_production` | Current solar power and today's solar energy. Today's energy is the change since midnight in the family's time zone, as on the Energy page; `total` is the counter's raw state | `energy:read` | Reads. Only the sensors chosen under **Settings → Energy** |
+| `get_energy_status` | The whole energy picture: solar, battery, grid and home power right now, today's energy in and out (the change since local midnight, with the raw counter as `total`), and the battery's charge | `energy:read` | Reads. Only the sensors chosen under **Settings → Energy** |
 
 "Today" is the change since midnight in the family's time zone, taken from
 Home Assistant's statistics: the figure the Energy page shows. Each reading

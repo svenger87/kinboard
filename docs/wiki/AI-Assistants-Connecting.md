@@ -145,6 +145,10 @@ worth reading each time.
    ticked. Untick any you don't want to give. At least one has to stay
    ticked. What each one allows: [Permissions and
    safety](AI-Assistants-Permissions-and-Safety#permissions).
+   Below them, **Also available** lists every permission the assistant
+   didn't ask for, unticked — tick any you want it to have. This matters when
+   an assistant replays an old list on reconnect (see
+   [Troubleshooting](AI-Assistants-Troubleshooting#a-new-permission-never-gets-asked-for)).
 5. **Settings PIN.** Enter your family's 4-digit settings PIN. If the family
    has no PIN yet, the page asks you to set one instead (**New settings
    PIN**, **Repeat the PIN**); it then protects the settings pages too.
