@@ -102,7 +102,7 @@ test("every family-scoped table is under row-level security", () => {
     { sql: true },
   );
   expect(actionsSql).toMatch(/ALTER TABLE public\.assistant_action_requests ENABLE ROW LEVEL SECURITY;/i);
-  expect(actionsSql).toMatch(/CREATE POLICY assistant_action_requests_family_read ON public\.assistant_action_requests\s+FOR SELECT USING \(family_id = public\.current_family_id\(\)\);/i);
+  expect(actionsSql).toMatch(/CREATE POLICY assistant_action_requests_family_scope ON public\.assistant_action_requests\s+FOR SELECT USING \(family_id = public\.current_family_id\(\)\);/i);
   expect(actionsSql).toMatch(/REVOKE ALL ON TABLE public\.assistant_action_requests FROM anon;/i);
   expect(actionsSql).toMatch(/REVOKE ALL ON TABLE public\.assistant_action_requests FROM authenticated;/i);
   expect(actionsSql).toMatch(/GRANT SELECT ON TABLE public\.assistant_action_requests TO authenticated;/i);

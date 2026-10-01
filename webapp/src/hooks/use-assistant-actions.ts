@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
 import type { ScreenRequest } from "@/lib/home/action-requests";
+import { isTerminal } from "@/lib/home/action-prompt";
 
 const KEY = "assistant-actions";
 
@@ -16,11 +17,11 @@ const EMPTY: ScreenRequest[] = [];
  * table; the 10-second poll is the backstop for a dropped realtime message,
  * which here would mean a door request nobody sees until it expires.
  */
-export function usePendingAssistantActions(): ScreenRequest[] {
+export function usePendingAssistantActions(enabled = true): ScreenRequest[] {
   const { family } = useFamilyStore();
   const { data = EMPTY } = useQuery({
     queryKey: [KEY, family?.id],
-    enabled: Boolean(family?.id),
+    enabled: enabled && Boolean(family?.id),
     queryFn: async (): Promise<ScreenRequest[]> => {
       const r = await fetch("/api/assistant-actions");
       if (!r.ok) throw new Error(`assistant-actions: ${r.status}`);
@@ -43,8 +44,12 @@ export function useAssistantAction(id: string) {
       if (!r.ok) throw new Error(`assistant-action: ${r.status}`);
       return ((await r.json()) as { request: ScreenRequest }).request;
     },
-    // While it waits for an answer, keep looking; once decided, it stops changing.
-    refetchInterval: (query) => (query.state.data?.status === "pending" || query.state.data?.status === "approved" ? 5_000 : false),
+    // While it waits for an answer, keep looking; once it is final — including
+    // an approval the server has settled as "outcome unknown" — stop.
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      return data && !isTerminal(data) ? 5_000 : false;
+    },
   });
 }
 
@@ -59,11 +64,12 @@ export function useDecideAssistantAction() {
   const qc = useQueryClient();
   const { family } = useFamilyStore();
   return useMutation({
-    mutationFn: async (args: { id: string; decision: "approve" | "deny"; pin: string }): Promise<ScreenRequest> => {
+    mutationFn: async (args: { id: string; decision: "approve" | "deny"; pin?: string }): Promise<ScreenRequest> => {
       const r = await fetch(`/api/assistant-actions/${encodeURIComponent(args.id)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision: args.decision, pin: args.pin }),
+        // Deny sends no PIN at all.
+        body: JSON.stringify(args.decision === "approve" ? { decision: "approve", pin: args.pin } : { decision: "deny" }),
       });
       const body = (await r.json().catch(() => null)) as { request?: ScreenRequest; error?: string } | null;
       if (!r.ok || !body?.request) throw new DecisionError(body?.error ?? "generic", body?.request);

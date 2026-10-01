@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { useRealtimeStatusStore } from "@/stores/realtime-status-store";
 import { queryKeys } from "./use-supabase-queries";
+import { actionChangeMatters } from "@/lib/home/action-prompt";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 /**
@@ -208,7 +209,9 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           });
           break;
         case "assistant_action_requests":
-          // Pending requests and any one a deep link is showing.
+          // Pending requests and any one a deep link is showing — but not
+          // for the audit row every non-sensitive assistant action inserts.
+          if (!actionChangeMatters(payload)) break;
           queryClient.invalidateQueries({
             queryKey: ["assistant-actions", family.id],
           });

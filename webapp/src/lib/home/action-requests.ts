@@ -16,20 +16,28 @@
  *
  * The rules for deciding:
  *
- * 1. The settings PIN, for approve and deny alike. A family with no PIN
- *    cannot decide (`pin_required`): the PIN is the household's proof that a
- *    person, not whoever can reach a screen, said yes.
+ * 1. Approving needs the settings PIN; a family with no PIN cannot approve
+ *    (`pin_required`). The PIN is the household's proof that a person, not
+ *    whoever can reach a screen, said yes. Denying needs no PIN — stopping
+ *    an unexpected unlock must be possible for anyone at a screen — and
+ *    never touches the PIN limiter.
  * 2. Only a pending request can be decided. One past `expires_at`, or whose
  *    assistant has been revoked (token revoked or gone), is ended on the spot
  *    — `expired` / `denied` — and nothing runs. The same happens lazily on
  *    every read, so a revoked assistant's requests vanish from the screens.
  * 3. The decision is one conditional UPDATE, `pending → approved|denied`
- *    while not expired. Two screens approving at once: one wins, the other
- *    is told it was already decided, and Home Assistant hears it once.
+ *    while not expired (by the clock at that moment). Two screens approving
+ *    at once: one wins, the other is told it was already decided, and Home
+ *    Assistant hears it once.
  * 4. After winning, the assistant is checked again (a revoke racing the
- *    approval ends it as denied) and the stored action is re-checked against
- *    the policy; then Home Assistant is called once and the row becomes
- *    `done` or `failed` with `result = { status }` — the HTTP status only.
+ *    approval ends it as denied), the entity must still be in the family's
+ *    catalogue, and the stored action is re-checked against the policy;
+ *    otherwise it ends `failed` with a `reason` and Home Assistant is not
+ *    called. Then Home Assistant is called once and the row becomes `done`
+ *    or `failed` with `result = { status }` — the HTTP status only.
+ * 5. A row left `approved` for over a minute (the server stopped between the
+ *    claim and the answer) is reported, and marked best-effort, as `failed`
+ *    with `reason: "unknown_outcome"`: it may or may not have happened.
  */
 
 import { decideHomeAction, ENTITY_ID } from "@/lib/home/policy";
@@ -38,6 +46,21 @@ export type ActionStatus = "pending" | "approved" | "denied" | "expired" | "fail
 
 /** RFC-011 §4.3: a request lives two minutes. */
 export const ACTION_REQUEST_TTL_MS = 120_000;
+
+/**
+ * How long a row may sit in `approved`. The Home Assistant call it waits on
+ * times out after 10 s, so a minute means the process that claimed it is gone.
+ */
+export const APPROVED_STALE_MS = 60_000;
+
+/** Why an approved action did not reach Home Assistant, or why its outcome is unknown. */
+export type ActionFailureReason = "not_in_catalogue" | "catalogue_unavailable" | "not_allowed" | "unknown_outcome";
+
+export interface ActionResult {
+  /** Home Assistant's HTTP status; 0 when it was not reached or did not answer. */
+  status: number;
+  reason?: ActionFailureReason;
+}
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -58,7 +81,7 @@ export interface ActionRequestRow {
   expires_at: string;
   decided_at: string | null;
   decided_by_device_id: string | null;
-  result: { status: number } | null;
+  result: ActionResult | null;
 }
 
 export type NewActionRow = Omit<ActionRequestRow, "id" | "created_at">;
@@ -67,7 +90,7 @@ export interface ActionPatch {
   status: ActionStatus;
   decided_at?: string;
   decided_by_device_id?: string | null;
-  result?: { status: number } | null;
+  result?: ActionResult | null;
 }
 
 export interface ActionRequestStore {
@@ -268,6 +291,7 @@ async function settle(
   store: ActionRequestStore,
   now: Date,
 ): Promise<{ row: ActionRequestRow; ended?: Ended }> {
+  if (row.status === "approved") return { row: await settleStaleApproved(row, store, now) };
   if (row.status !== "pending") return { row };
   let ended: Ended | undefined;
   let patch: ActionPatch | undefined;
@@ -283,6 +307,25 @@ async function settle(
   // Lost the race to someone else's decision: report what they decided.
   if (!updated) return { row: (await store.get(row.id, row.family_id)) ?? row };
   return { row: updated, ended };
+}
+
+/**
+ * An `approved` row older than `APPROVED_STALE_MS` will never be finished by
+ * the request that claimed it. Report it as failed with an unknown outcome,
+ * and write that down if we can — a failed write still reports it.
+ */
+async function settleStaleApproved(row: ActionRequestRow, store: ActionRequestStore, now: Date): Promise<ActionRequestRow> {
+  const decidedAt = Date.parse(row.decided_at ?? "");
+  if (Number.isFinite(decidedAt) && now.getTime() - decidedAt <= APPROVED_STALE_MS) return row;
+  const patch: ActionPatch = { status: "failed", result: { status: 0, reason: "unknown_outcome" } };
+  try {
+    const updated = await store.transition(row.id, row.family_id, "approved", patch);
+    if (updated) return updated;
+    // Finished meanwhile: report what it became.
+    return (await store.get(row.id, row.family_id)) ?? { ...row, ...patch };
+  } catch {
+    return { ...row, ...patch };
+  }
 }
 
 /** The family's pending requests, after ending any that expired or lost their assistant. */
@@ -372,6 +415,8 @@ export interface DecideDeps {
   callHaService: (
     familyId: string, domain: string, service: string, entityId: string, data: Record<string, unknown>,
   ) => Promise<{ ok: boolean; status: number }>;
+  /** The family's catalogue entry for the entity, or null; throws when unreadable. */
+  catalogueEntity: (familyId: string, entityId: string) => Promise<unknown | null>;
   now?: () => Date;
 }
 
@@ -410,42 +455,47 @@ function stillAllowed(row: ActionRequestRow): boolean {
 }
 
 export async function decideActionRequest(input: DecideInput, deps: DecideDeps): Promise<DecideResult> {
-  const now = (deps.now ?? (() => new Date()))();
+  // Read afresh at each step that needs it: PIN checks and reads take time,
+  // and the swap must judge expiry by the moment it runs.
+  const clock = deps.now ?? (() => new Date());
   const { id, familyId } = input;
 
   if (input.decision !== "approve" && input.decision !== "deny") {
     return { status: 400, error: "invalid_request" };
   }
-  if (typeof input.pin !== "string" || input.pin.length === 0 || input.pin.length > MAX_PIN) {
+  const approve = input.decision === "approve";
+  // Deny ignores `pin` entirely.
+  if (approve && (typeof input.pin !== "string" || input.pin.length === 0 || input.pin.length > MAX_PIN)) {
     return { status: 400, error: "invalid_request" };
   }
   if (!UUID.test(id)) return { status: 404, error: "not_found" };
 
-  // 1. No PIN, no decision. Throws (unreadable) → the route answers 500: fail closed.
-  if (!(await deps.hasPin(familyId))) return { status: 403, error: "pin_required" };
+  // 1. No PIN, no approval. Throws (unreadable) → the route answers 500: fail closed.
+  if (approve && !(await deps.hasPin(familyId))) return { status: 403, error: "pin_required" };
 
   // 2. Only a pending request, still within its two minutes, of a live assistant.
   const found = await deps.store.get(id, familyId);
   if (!found || found.family_id !== familyId) return { status: 404, error: "not_found" };
-  const settled = await settle(found, deps.store, now);
+  const settled = await settle(found, deps.store, clock());
   if (settled.ended) return { status: 409, error: settled.ended, request: settled.row };
   if (settled.row.status !== "pending") return { status: 409, error: "already_decided", request: settled.row };
 
-  // 3. The PIN, through the shared limiter.
-  const verdict = await deps.verifyPin(familyId, input.pin);
-  if (verdict === "rate_limited") return { status: 429, error: "rate_limited" };
-  if (verdict !== "valid") return { status: 403, error: "pin_invalid" };
-
-  const decidedAt = now.toISOString();
+  // 3. Approving: the PIN, through the shared limiter.
+  if (approve) {
+    const verdict = await deps.verifyPin(familyId, input.pin as string);
+    if (verdict === "rate_limited") return { status: 429, error: "rate_limited" };
+    if (verdict !== "valid") return { status: 403, error: "pin_invalid" };
+  }
 
   // 4. One conditional UPDATE decides; whoever loses it is told so.
-  if (input.decision === "deny") {
+  const decidedAt = clock().toISOString();
+  if (!approve) {
     const denied = await deps.store.transition(
       id, familyId, "pending",
       { status: "denied", decided_at: decidedAt, decided_by_device_id: input.deviceId },
       decidedAt,
     );
-    return denied ? { status: 200, request: denied } : conflict(id, familyId, deps, now);
+    return denied ? { status: 200, request: denied } : conflict(id, familyId, deps, clock());
   }
 
   const approved = await deps.store.transition(
@@ -453,7 +503,7 @@ export async function decideActionRequest(input: DecideInput, deps: DecideDeps):
     { status: "approved", decided_at: decidedAt, decided_by_device_id: input.deviceId },
     decidedAt,
   );
-  if (!approved) return conflict(id, familyId, deps, now);
+  if (!approved) return conflict(id, familyId, deps, clock());
 
   // 5. Revoked while the PIN was being typed: nothing runs.
   if (!(await deps.store.tokenActive(approved.token_id, familyId))) {
@@ -461,27 +511,41 @@ export async function decideActionRequest(input: DecideInput, deps: DecideDeps):
     return { status: 409, error: "revoked", request: denied ?? approved };
   }
 
-  // 6. Exactly what was stored — from the row the UPDATE returned, never the request.
-  let outcome: { ok: boolean; status: number };
-  if (!stillAllowed(approved)) {
-    console.error("[assistant-actions] stored action no longer passes the policy; not run", approved.id);
-    outcome = { ok: false, status: 0 };
-  } else {
-    try {
-      outcome = await deps.callHaService(familyId, approved.domain, approved.service, approved.entity_id, approved.data);
-    } catch (err) {
-      // HomeUnavailable (not connected) or a bug: either way it did not run as far as we know.
-      console.error("[assistant-actions] Home Assistant call failed:", err instanceof Error ? err.name : "error");
-      outcome = { ok: false, status: 0 };
-    }
+  // 6. Still in the catalogue, and still allowed — or it ends here, unrun.
+  const blocked = await whyNotRun(approved, familyId, deps);
+  if (blocked) {
+    console.error("[assistant-actions] not run:", blocked, approved.id);
+    return finish(id, familyId, approved, false, { status: 0, reason: blocked }, deps);
   }
 
-  const finished = await deps.store.transition(
-    id, familyId, "approved",
-    { status: outcome.ok ? "done" : "failed", result: { status: outcome.status } },
-  );
-  return {
-    status: 200,
-    request: finished ?? { ...approved, status: outcome.ok ? "done" : "failed", result: { status: outcome.status } },
-  };
+  // 7. Exactly what was stored — from the row the UPDATE returned, never the request.
+  let outcome: { ok: boolean; status: number };
+  try {
+    outcome = await deps.callHaService(familyId, approved.domain, approved.service, approved.entity_id, approved.data);
+  } catch (err) {
+    // HomeUnavailable (not connected) or a bug: either way it did not run as far as we know.
+    console.error("[assistant-actions] Home Assistant call failed:", err instanceof Error ? err.name : "error");
+    outcome = { ok: false, status: 0 };
+  }
+  return finish(id, familyId, approved, outcome.ok, { status: outcome.status }, deps);
+}
+
+async function whyNotRun(row: ActionRequestRow, familyId: string, deps: DecideDeps): Promise<ActionFailureReason | null> {
+  let entity: unknown;
+  try {
+    entity = await deps.catalogueEntity(familyId, row.entity_id);
+  } catch {
+    return "catalogue_unavailable";
+  }
+  if (!entity) return "not_in_catalogue";
+  if (!stillAllowed(row)) return "not_allowed";
+  return null;
+}
+
+async function finish(
+  id: string, familyId: string, approved: ActionRequestRow, ok: boolean, result: ActionResult, deps: DecideDeps,
+): Promise<DecideResult> {
+  const status: ActionStatus = ok ? "done" : "failed";
+  const finished = await deps.store.transition(id, familyId, "approved", { status, result });
+  return { status: 200, request: finished ?? { ...approved, status, result } };
 }

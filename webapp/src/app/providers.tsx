@@ -27,6 +27,10 @@ import { PageShell } from "@/components/page-shell";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import { isScreensaverSkipPath } from "@/lib/constants";
+import { screensaverAllowed } from "@/lib/screensaver-gate";
+import { promptShownOn } from "@/lib/home/action-prompt";
+import { usePendingAssistantActions } from "@/hooks/use-assistant-actions";
+import { AssistantActionPrompt } from "@/components/assistant-action-prompt";
 
 // Helper functions for cookie migration
 function getCookie(name: string): string | null {
@@ -112,6 +116,10 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   const { device } = useFamilyStore();
   const hasPresenceSensor = device?.has_presence_sensor ?? false;
   const presence = usePresence(3000);
+  const pathname = usePathname();
+  // An assistant waiting for someone to allow a door or an alarm (RFC-011
+  // §4.3). Not on /join: no session there, and it would poll into 401s.
+  const pendingAssistantActions = usePendingAssistantActions(promptShownOn(pathname, !!device)).length;
 
   const timeoutMs = screensaverTimeout > 0 ? screensaverTimeout * 1000 : Infinity;
   const presenceTimeoutMs = presenceTimeout * 1000;
@@ -129,10 +137,11 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   // usePathname re-renders on every navigation, which is the point.
   // A wall panel left on a sub-page finds its own way home. Kiosk only: a
   // phone is somebody's own screen, and pulling it back mid-read is hostile.
-  useReturnToDashboard({ enabled: device?.is_kiosk ?? false });
+  // Paused while an assistant request waits, so a panel never walks away
+  // from somebody typing the PIN.
+  useReturnToDashboard({ enabled: (device?.is_kiosk ?? false) && pendingAssistantActions === 0 });
 
-  const screensaverPathname = usePathname();
-  const skipScreensaver = isScreensaverSkipPath(screensaverPathname);
+  const skipScreensaver = isScreensaverSkipPath(pathname);
 
   // The screensaver is a wall-display feature: a full-bleed photo canvas
   // with an overlaid clock and widgets, laid out for a landscape panel.
@@ -160,8 +169,15 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   const takeoverMessage = useTakeoverMessage();
 
   // Hide nav bars during screensaver to save GPU (backdrop-blur is expensive on ARM)
-  const showScreensaver =
-    isIdle && !skipScreensaver && !suppressForViewport && !ringingTimer && !takeoverMessage;
+  // And an assistant request waiting for a person must not sit under it either.
+  const showScreensaver = screensaverAllowed({
+    isIdle,
+    skipPath: skipScreensaver,
+    handheld: suppressForViewport,
+    ringingTimer: !!ringingTimer,
+    takeoverMessage: !!takeoverMessage,
+    pendingAssistantActions,
+  });
   useEffect(() => {
     if (showScreensaver) {
       document.documentElement.setAttribute("data-screensaver", "true");
@@ -174,6 +190,7 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
+      {promptShownOn(pathname, !!device) && <AssistantActionPrompt />}
       <AnimatePresence>
         {showScreensaver && <Screensaver key="screensaver" />}
       </AnimatePresence>

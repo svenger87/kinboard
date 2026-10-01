@@ -21,9 +21,7 @@
 --
 -- Sorts after migration_catalogue_items.sql, migration_oauth_mcp.sql (which
 -- adds the integration_tokens columns the routes read) and
--- migration_zz_row_level_security.sql, whose clean-up loop drops every
--- policy not named `*_family_scope` — this file re-creates its own policy
--- after that loop on every run. Safe to run twice.
+-- migration_zz_row_level_security.sql. Safe to run twice.
 
 CREATE TABLE IF NOT EXISTS public.assistant_action_requests (
   id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -46,7 +44,8 @@ CREATE TABLE IF NOT EXISTS public.assistant_action_requests (
   -- The screen that approved or denied it. NULL for an action that needed no
   -- confirmation, and for one ended by expiry or revocation.
   decided_by_device_id UUID REFERENCES public.devices(id) ON DELETE SET NULL,
-  -- Only Home Assistant's HTTP status ({"status": 200}); never its body.
+  -- Only Home Assistant's HTTP status ({"status": 200}), plus a `reason` when
+-- it was never reached or its outcome is unknown; never its body.
   result               JSONB
 );
 
@@ -56,9 +55,14 @@ CREATE INDEX IF NOT EXISTS assistant_action_requests_pending_idx
   ON public.assistant_action_requests (family_id, created_at DESC)
   WHERE status = 'pending';
 
+-- Named `*_family_scope` so migration_zz_row_level_security.sql's clean-up
+-- loop leaves it alone on every run. The first version of this file called it
+-- `_family_read`; dropped here so an install that ran that version ends with
+-- exactly one policy.
 ALTER TABLE public.assistant_action_requests ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS assistant_action_requests_family_read ON public.assistant_action_requests;
-CREATE POLICY assistant_action_requests_family_read ON public.assistant_action_requests
+DROP POLICY IF EXISTS assistant_action_requests_family_scope ON public.assistant_action_requests;
+CREATE POLICY assistant_action_requests_family_scope ON public.assistant_action_requests
   FOR SELECT USING (family_id = public.current_family_id());
 
 -- Read-only for the browser roles, as the other assistant tables: the Supabase

@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AssistantActionCard, useTickingServerNow } from "@/components/assistant-action-prompt";
 import { useAssistantAction } from "@/hooks/use-assistant-actions";
 import { describeAction, type ActionTranslator, type ScreenRequest } from "@/lib/home/action-requests";
-import { secondsLeft } from "@/lib/home/action-prompt";
+import { newerRequest, secondsLeft, statusMessageKey } from "@/lib/home/action-prompt";
 
 /**
  * One assistant request — where the push notification lands (RFC-011 §4.3).
@@ -22,7 +22,8 @@ export default function AssistantActionPage({ params }: { params: Promise<{ id: 
   const t = useTranslations("assistantActions");
   const { data, isPending, isError } = useAssistantAction(id);
   const [decided, setDecided] = useState<ScreenRequest | null>(null);
-  const request = decided ?? data ?? null;
+  // The decision's own answer until the poll has caught up with it, then the poll.
+  const request = newerRequest(data, decided);
   const now = useTickingServerNow(request?.status === "pending");
 
   let body: React.ReactNode;
@@ -34,11 +35,11 @@ export default function AssistantActionPage({ params }: { params: Promise<{ id: 
     body = <AssistantActionCard request={request} now={now} onDecided={setDecided} />;
   } else {
     // A pending row whose time ran out on this screen is expired, whatever the server has written yet.
-    const status = request.status === "pending" ? "expired" : request.status;
+    const key = request.status === "pending" ? "status.expired" : statusMessageKey(request);
     body = (
       <Card className="space-y-2 p-6">
         <p className="font-display text-xl leading-tight">{describeAction(t as unknown as ActionTranslator, request)}</p>
-        <p role="status" className="text-muted-foreground">{t(`status.${status}`)}</p>
+        <p role="status" className="text-muted-foreground">{t(key)}</p>
       </Card>
     );
   }

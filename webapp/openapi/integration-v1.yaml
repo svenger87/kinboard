@@ -285,6 +285,7 @@ paths:
                   expires_at: { type: string, format: date-time }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { description: "Sensitive, and the family has no settings PIN, so nobody could allow it (`reason: pin_required`). Nothing was done." }
         "404": { description: No such device in this family's catalogue. }
         "409": { description: Idempotency key reused with different arguments. }
         "429": { $ref: "#/components/responses/RateLimited" }
@@ -305,7 +306,9 @@ paths:
         it — it may or may not have happened), `denied` (refused, or the
         assistant was revoked) or `expired` (nobody answered within two
         minutes). Only `approved` → `done`/`failed` ran anything. `result`
-        holds Home Assistant's HTTP status once it ran (`0`: no answer).
+        holds Home Assistant's HTTP status once it ran (`0`: no answer), and
+        a `reason` when it failed without reaching Home Assistant or with an
+        unknown outcome.
       x-required-scope: home:control
       parameters:
         - name: id
@@ -1227,7 +1230,15 @@ components:
           type: [object, "null"]
           required: [status]
           properties:
-            status: { type: integer, description: "Home Assistant's HTTP status; 0 when it could not be reached." }
+            status: { type: integer, description: "Home Assistant's HTTP status; 0 when it was not reached or did not answer." }
+            reason:
+              type: string
+              enum: [not_in_catalogue, catalogue_unavailable, not_allowed, unknown_outcome]
+              description: |
+                Set on some `failed` requests. The first three: approved, but
+                never sent to Home Assistant. `unknown_outcome`: approved and
+                possibly sent, but Kinboard never learned the answer — it may
+                or may not have happened.
 
     Person:
       type: object

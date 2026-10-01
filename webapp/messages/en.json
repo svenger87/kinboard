@@ -220,7 +220,7 @@
     "messageTitle": "A message at home",
     "messageTitleFromAssistant": "Message from {name}",
     "messagesManyTitle": "{count} messages at home",
-    "assistantActionBody": "Open to allow or deny it with the settings PIN. It expires in 2 minutes."
+    "assistantActionBody": "Open to allow it with the settings PIN, or to deny it. It expires in 2 minutes."
   },
   "join": {
     "title": "Kinboard",
@@ -4234,9 +4234,10 @@
       "expired": "This request has expired. Nothing was done.",
       "already_decided": "Someone has already answered this.",
       "revoked": "This assistant has been disconnected, so nothing was done.",
-      "pin_required": "Set a settings PIN in Settings first. Without one, nobody can approve this.",
+      "pin_required": "Set a settings PIN in Settings first. Without one, nobody can allow this.",
       "not_found": "This request doesn’t exist, or belongs to another family.",
-      "generic": "That didn’t work. Please try again."
+      "generic": "That didn’t work. Please try again.",
+      "unknown_outcome": "Kinboard couldn’t tell whether this happened. Check the device before trying again."
     },
     "status": {
       "pending": "Waiting for an answer.",
@@ -4244,7 +4245,11 @@
       "done": "Allowed, and done.",
       "failed": "Allowed, but Home Assistant didn’t confirm it. Check the device.",
       "denied": "Denied. Nothing was done.",
-      "expired": "Expired. Nothing was done."
+      "expired": "Expired. Nothing was done.",
+      "unknown_outcome": "Allowed, but Kinboard never heard whether it happened. Check the device.",
+      "not_in_catalogue": "Allowed, but the device is no longer on Kinboard’s list, so nothing was done.",
+      "catalogue_unavailable": "Allowed, but Kinboard couldn’t check its device list, so nothing was done.",
+      "not_allowed": "Allowed, but this is no longer something an assistant may do, so nothing was done."
     },
     "pageTitle": "Assistant request",
     "loading": "Loading…",
@@ -4270,6 +4275,8 @@
       "lawn_mower_dock": "send {device} back to its dock",
       "lawn_mower_pause": "pause {device}",
       "generic": "run “{service}” on {device}"
-    }
+    },
+    "denyHint": "Anyone can deny. Allowing needs the settings PIN.",
+    "close": "Close"
   }
 }

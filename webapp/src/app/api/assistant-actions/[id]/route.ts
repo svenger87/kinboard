@@ -33,18 +33,22 @@ export async function GET(
 }
 
 /**
- * POST /api/assistant-actions/{id}  `{ decision: "approve" | "deny", pin }`
+ * POST /api/assistant-actions/{id}  `{ decision: "approve", pin }` or `{ decision: "deny" }`
  *
- * A family member deciding a sensitive assistant action with the settings
- * PIN (RFC-011 §4.3). Everything that matters — the PIN through the shared
+ * A family member deciding a sensitive assistant action (RFC-011 §4.3):
+ * allowing it takes the settings PIN, denying it takes nothing — anyone at
+ * a screen may stop it; a `pin` sent with a deny is ignored. Everything that matters — the PIN through the shared
  * limiter, the compare-and-swap, the revoke and expiry checks, running the
  * stored action exactly once — is `decideActionRequest`
  * (`lib/home/action-requests.ts`). This handler keeps the session, the
  * Origin check and the error log.
  *
- * Errors are `{ error }` with one of: invalid_request (400), pin_required,
- * pin_invalid, forbidden (403), not_found (404), expired, revoked,
- * already_decided (409), rate_limited (429).
+ * Errors are `{ error }` with one of: invalid_request (400), forbidden
+ * (403, Origin), not_found (404), expired, revoked, already_decided (409);
+ * and for approve only: pin_required, pin_invalid (403), rate_limited (429).
+ * A 200 can still be a `failed` request — its `result.reason` says why it
+ * never reached Home Assistant (not_in_catalogue, catalogue_unavailable,
+ * not_allowed).
  */
 export async function POST(
   request: NextRequest,

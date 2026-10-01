@@ -20,7 +20,11 @@ import {
   type PushRequest,
 } from "../src/lib/home/action-requests";
 import { ALLOWED_SERVICES } from "../src/lib/home/policy";
-import { canDecide, decisionErrorKey, secondsLeft, visibleRequests } from "../src/lib/home/action-prompt";
+import {
+  actionChangeMatters, canApprove, canDeny, decisionErrorKey, isFinalError, isTerminal, newerRequest,
+  promptShownOn, secondsLeft, statusMessageKey, visibleRequests,
+} from "../src/lib/home/action-prompt";
+import { screensaverAllowed } from "../src/lib/screensaver-gate";
 import { HomeUnavailable } from "../src/lib/home/errors";
 import en from "../messages/en.json";
 import de from "../messages/de.json";
@@ -107,10 +111,12 @@ function deps(store: ActionRequestStore, opts: {
   pin?: string | null;
   verdict?: "valid" | "invalid" | "rate_limited";
   ha?: (call: unknown[]) => Promise<{ ok: boolean; status: number }>;
+  catalogue?: (familyId: string, entityId: string) => Promise<unknown | null>;
   now?: Date;
 } = {}) {
   const calls: unknown[][] = [];
   const pinChecks: string[] = [];
+  const catalogueChecks: string[] = [];
   const pin = opts.pin === undefined ? PIN : opts.pin;
   const d: DecideDeps = {
     store,
@@ -124,9 +130,13 @@ function deps(store: ActionRequestStore, opts: {
       calls.push(args);
       return opts.ha ? opts.ha(args) : { ok: true, status: 200 };
     },
+    catalogueEntity: async (familyId, entityId) => {
+      catalogueChecks.push(entityId);
+      return opts.catalogue ? opts.catalogue(familyId, entityId) : { entityId };
+    },
     now: () => opts.now ?? new Date(T0.getTime() + 30_000),
   };
-  return { d, calls, pinChecks };
+  return { d, calls, pinChecks, catalogueChecks };
 }
 
 const decide = (d: DecideDeps, id: string, decision: unknown = "approve", pin: unknown = PIN, familyId = FAMILY) =>
@@ -178,16 +188,73 @@ test.describe("decideActionRequest", () => {
     expect(rows.get(row.id)!.status).toBe("pending");
   });
 
-  test("no PIN set is 403 pin_required, before the PIN is even checked", async () => {
+  test("approving with no PIN set is 403 pin_required, before the PIN is even checked", async () => {
     const { store, rows } = fakeStore();
     const row = seed(rows);
     const { d, calls, pinChecks } = deps(store, { pin: null });
-    for (const decision of ["approve", "deny"]) {
-      expect(await decide(d, row.id, decision)).toMatchObject({ status: 403, error: "pin_required" });
-    }
+    expect(await decide(d, row.id, "approve")).toMatchObject({ status: 403, error: "pin_required" });
     expect(pinChecks).toEqual([]);
     expect(calls).toEqual([]);
     expect(rows.get(row.id)!.status).toBe("pending");
+  });
+
+  test("denying needs no PIN: no PIN set, a garbage PIN or none at all — denied, PIN and Home Assistant untouched", async () => {
+    for (const [pinSet, pin] of [[null, null], [null, "garbage"], [PIN, 12], [PIN, "0000"], [PIN, ""]] as const) {
+      const { store, rows } = fakeStore();
+      const row = seed(rows);
+      const { d, calls, pinChecks } = deps(store, { pin: pinSet });
+      const hasPinCalls: string[] = [];
+      const hasPin = d.hasPin;
+      d.hasPin = async (f) => { hasPinCalls.push(f); return hasPin(f); };
+      const res = await decide(d, row.id, "deny", pin);
+      expect(res, JSON.stringify(pin)).toMatchObject({ status: 200 });
+      expect(rows.get(row.id)).toMatchObject({ status: "denied", decided_by_device_id: DEVICE });
+      expect(pinChecks).toEqual([]);
+      expect(hasPinCalls).toEqual([]);
+      expect(calls).toEqual([]);
+    }
+  });
+
+  test("denying after expiry is 409 expired", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d, pinChecks } = deps(store, { pin: null, now: new Date(T0.getTime() + ACTION_REQUEST_TTL_MS + 1) });
+    expect(await decide(d, row.id, "deny", null)).toMatchObject({ status: 409, error: "expired" });
+    expect(rows.get(row.id)!.status).toBe("expired");
+    expect(pinChecks).toEqual([]);
+  });
+
+  test("the swap judges expiry by the clock when it runs, not when the request came in", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d, calls } = deps(store);
+    let current = new Date(T0.getTime() + 1_000);
+    d.now = () => current;
+    const verify = d.verifyPin;
+    // The PIN check is slow enough for the request to run out meanwhile.
+    d.verifyPin = async (f, p) => { current = new Date(T0.getTime() + ACTION_REQUEST_TTL_MS + 5); return verify(f, p); };
+    expect(await decide(d, row.id)).toMatchObject({ status: 409, error: "expired" });
+    expect(calls).toEqual([]);
+    expect(rows.get(row.id)!.status).toBe("expired");
+  });
+
+  test("a device removed from the catalogue after the request is never run", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d, calls, catalogueChecks } = deps(store, { catalogue: async () => null });
+    expect(await decide(d, row.id)).toMatchObject({ status: 200 });
+    expect(catalogueChecks).toEqual(["lock.front_door"]);
+    expect(calls).toEqual([]);
+    expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { status: 0, reason: "not_in_catalogue" } });
+  });
+
+  test("an unreadable catalogue at approval runs nothing", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d, calls } = deps(store, { catalogue: async () => { throw new Error("db down"); } });
+    expect(await decide(d, row.id)).toMatchObject({ status: 200 });
+    expect(calls).toEqual([]);
+    expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { status: 0, reason: "catalogue_unavailable" } });
   });
 
   test("an expired request is ended as expired and never runs — not even with the right PIN", async () => {
@@ -313,6 +380,7 @@ test.describe("decideActionRequest", () => {
     expect(await decide(d, row.id, "approve", 4711)).toMatchObject({ status: 400 });
     expect(await decide(d, row.id, "approve", "")).toMatchObject({ status: 400 });
     expect(await decide(d, row.id, "approve", "1".repeat(33))).toMatchObject({ status: 400 });
+    expect(await decide(d, row.id, "approve", null)).toMatchObject({ status: 400 });
     expect(pinChecks).toEqual([]);
     expect(calls).toEqual([]);
   });
@@ -325,8 +393,55 @@ test.describe("decideActionRequest", () => {
     expect(await decide(d, row.id)).toMatchObject({ status: 200 });
     expect(await decide(d, tampered.id)).toMatchObject({ status: 200 });
     expect(calls).toEqual([]);
-    expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { status: 0 } });
-    expect(rows.get(tampered.id)).toMatchObject({ status: "failed", result: { status: 0 } });
+    expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { status: 0, reason: "not_allowed" } });
+    expect(rows.get(tampered.id)).toMatchObject({ status: "failed", result: { status: 0, reason: "not_allowed" } });
+  });
+
+  test("Home Assistant's answer is recorded as its status only, with no reason", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d } = deps(store, { ha: async () => ({ ok: false, status: 502 }) });
+    await decide(d, row.id);
+    expect(rows.get(row.id)!.result).toEqual({ status: 502 });
+  });
+});
+
+test.describe("an approval nobody finished", () => {
+  const decidedAgo = (ms: number) => new Date(T0.getTime() + 30_000 - ms).toISOString();
+  const at = { now: () => new Date(T0.getTime() + 30_000) };
+
+  test("approved for over a minute reads as failed with an unknown outcome, and is written so", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows, { status: "approved", decided_at: decidedAgo(61_000) });
+    const read = await familyActionRequest(row.id, FAMILY, { store, ...at });
+    expect(read).toMatchObject({ status: "failed", result: { status: 0, reason: "unknown_outcome" } });
+    expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { status: 0, reason: "unknown_outcome" } });
+    // get_action_status says the same.
+    expect(await actionRequestStatus({ id: row.id, familyId: FAMILY, tokenId: TOKEN }, { store, ...at }))
+      .toMatchObject({ status: "failed", result: { reason: "unknown_outcome" } });
+  });
+
+  test("a fresh approval is left alone — it is still running", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows, { status: "approved", decided_at: decidedAgo(10_000) });
+    expect((await familyActionRequest(row.id, FAMILY, { store, ...at }))?.status).toBe("approved");
+    expect(rows.get(row.id)!.status).toBe("approved");
+  });
+
+  test("if writing that down fails, it is still reported as failed", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows, { status: "approved", decided_at: decidedAgo(120_000) });
+    store.transition = async () => { throw new Error("db down"); };
+    expect(await familyActionRequest(row.id, FAMILY, { store, ...at }))
+      .toMatchObject({ status: "failed", result: { status: 0, reason: "unknown_outcome" } });
+  });
+
+  test("deciding it again is already_decided, and runs nothing", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows, { status: "approved", decided_at: decidedAgo(61_000) });
+    const { d, calls } = deps(store);
+    expect(await decide(d, row.id)).toMatchObject({ status: 409, error: "already_decided", request: { status: "failed" } });
+    expect(calls).toEqual([]);
   });
 });
 
@@ -527,11 +642,82 @@ test.describe("the prompt on a screen", () => {
   });
 
   test("Allow and Deny need a four-digit PIN, time left, and no decision in flight", () => {
-    expect(canDecide("4711", false, 30)).toBe(true);
-    expect(canDecide("471", false, 30)).toBe(false);
-    expect(canDecide("47a1", false, 30)).toBe(false);
-    expect(canDecide("4711", true, 30)).toBe(false);
-    expect(canDecide("4711", false, 0)).toBe(false);
+    expect(canApprove("4711", false, 30)).toBe(true);
+    expect(canApprove("471", false, 30)).toBe(false);
+    expect(canApprove("47a1", false, 30)).toBe(false);
+    expect(canApprove("4711", true, 30)).toBe(false);
+    expect(canApprove("4711", false, 0)).toBe(false);
+  });
+
+  test("Deny needs only time left and no decision in flight — no PIN", () => {
+    expect(canDeny(false, 30)).toBe(true);
+    expect(canDeny(true, 30)).toBe(false);
+    expect(canDeny(false, 0)).toBe(false);
+  });
+
+  test("an approval that failed without a known answer says the outcome is unknown, not 'try again'", () => {
+    for (const code of ["internal_error", "network", undefined]) {
+      expect(decisionErrorKey(code, "approve")).toBe("errors.unknown_outcome");
+      expect(decisionErrorKey(code, "deny")).toBe("errors.generic");
+    }
+    expect(decisionErrorKey("pin_invalid", "approve")).toBe("errors.pin_invalid");
+    for (const messages of [en, de, fr]) expect(messages.assistantActions.errors.unknown_outcome).toBeTruthy();
+  });
+
+  test("errors that end the request stay up until closed; ones you can retry stay on the card", () => {
+    for (const code of ["expired", "already_decided", "revoked", "not_found"]) expect(isFinalError(code, "approve")).toBe(true);
+    for (const code of ["pin_invalid", "rate_limited", "pin_required"]) expect(isFinalError(code, "approve")).toBe(false);
+    expect(isFinalError("network", "approve")).toBe(true);
+    expect(isFinalError("network", "deny")).toBe(false);
+  });
+
+  test("the deep-link page shows the further-along copy, the polled one on a tie", () => {
+    const pending = screen();
+    const done = { ...pending, status: "done" as const };
+    const failed = { ...pending, status: "failed" as const };
+    expect(newerRequest(pending, done)).toBe(done);
+    expect(newerRequest(failed, done)).toBe(failed);
+    expect(newerRequest(done, { ...pending, status: "approved" as const })).toBe(done);
+    expect(newerRequest(undefined, done)).toBe(done);
+    expect(newerRequest(pending, null)).toBe(pending);
+    expect(isTerminal(done)).toBe(true);
+    expect(isTerminal({ status: "approved" })).toBe(false);
+  });
+
+  test("a failed request says why, in every language", () => {
+    for (const reason of ["unknown_outcome", "not_in_catalogue", "catalogue_unavailable", "not_allowed"]) {
+      const key = statusMessageKey({ status: "failed", result: { status: 0, reason } } as never);
+      expect(key).toBe(`status.${reason}`);
+      for (const messages of [en, de, fr]) {
+        expect((messages.assistantActions.status as Record<string, string>)[reason], reason).toBeTruthy();
+      }
+    }
+    expect(statusMessageKey({ status: "failed", result: { status: 500 } })).toBe("status.failed");
+    expect(statusMessageKey({ status: "done", result: { status: 200 } })).toBe("status.done");
+  });
+
+  test("audit rows (non-pending INSERTs) do not make every screen refetch", () => {
+    expect(actionChangeMatters({ eventType: "INSERT", new: { status: "done" } })).toBe(false);
+    expect(actionChangeMatters({ eventType: "INSERT", new: { status: "failed" } })).toBe(false);
+    expect(actionChangeMatters({ eventType: "INSERT", new: { status: "pending" } })).toBe(true);
+    expect(actionChangeMatters({ eventType: "UPDATE", new: { status: "done" } })).toBe(true);
+    expect(actionChangeMatters({ eventType: "DELETE", new: {} })).toBe(true);
+  });
+
+  test("the prompt shows on every page of a joined device, but not on /join or its own page", () => {
+    for (const path of ["/", "/calendar", "/settings/integrations", "/einkaufen", "/setup"]) expect(promptShownOn(path, true), path).toBe(true);
+    expect(promptShownOn("/", false)).toBe(false);
+    expect(promptShownOn("/join", true)).toBe(false);
+    expect(promptShownOn("/assistant-actions/33333333-3333-4333-8333-333333333333", true)).toBe(false);
+  });
+
+  test("the screensaver stays off while an assistant request waits", () => {
+    const idle = { isIdle: true, skipPath: false, handheld: false, ringingTimer: false, takeoverMessage: false, pendingAssistantActions: 0 };
+    expect(screensaverAllowed(idle)).toBe(true);
+    expect(screensaverAllowed({ ...idle, pendingAssistantActions: 1 })).toBe(false);
+    expect(screensaverAllowed({ ...idle, takeoverMessage: true })).toBe(false);
+    expect(screensaverAllowed({ ...idle, ringingTimer: true })).toBe(false);
+    expect(screensaverAllowed({ ...idle, isIdle: false })).toBe(false);
   });
 
   test("every status the deep-link page can show has words in every language", () => {

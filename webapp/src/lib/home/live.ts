@@ -11,6 +11,7 @@ import { catalogueEntities, catalogueEntity } from "@/lib/home/catalogue";
 import { callHaService, getHaStates } from "@/lib/home/ha-client";
 import { createActionRequest, recordHomeAction } from "@/lib/home/action-requests";
 import { liveActionStore, pushActionRequest } from "@/lib/home/action-requests-live";
+import { familyHasPin } from "@/lib/settings-pin";
 
 export const liveHomeDeps: HomeDeps = {
   catalogueEntities,
@@ -35,6 +36,7 @@ export const liveHomeDeps: HomeDeps = {
     );
     return { requestId: id, expiresAt };
   },
+  familyHasPin: (familyId) => familyHasPin(familyId),
   recordAction: (record) =>
     recordHomeAction(
       {

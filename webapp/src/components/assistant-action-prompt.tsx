@@ -8,7 +8,9 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { describeAction, type ActionTranslator, type ScreenRequest } from "@/lib/home/action-requests";
-import { canDecide, decisionErrorKey, secondsLeft, visibleRequests } from "@/lib/home/action-prompt";
+import {
+  canApprove, canDeny, decisionErrorKey, isFinalError, secondsLeft, visibleRequests,
+} from "@/lib/home/action-prompt";
 import { applyOffset } from "@/lib/server-clock";
 import { useServerClockOffset } from "@/hooks/use-server-clock";
 import {
@@ -32,30 +34,39 @@ export function useTickingServerNow(active: boolean): Date {
 
 /**
  * One request: who wants to do what, a countdown, the settings PIN and
- * Allow / Deny. Shared by the dashboard prompt and the deep-link page.
+ * Allow / Deny. Shared by the overlay prompt and the deep-link page.
+ *
+ * Allow needs the PIN; Deny does not (anyone at a screen may stop it), and
+ * Enter in the PIN field only ever allows. `onFinalError` hands an error that
+ * ends the request (expired, already answered, outcome unknown, …) to the
+ * parent, because this card disappears with the request and its message must
+ * not disappear with it.
  */
 export function AssistantActionCard({
   request,
   now,
   onDecided,
+  onFinalError,
 }: {
   request: ScreenRequest;
   now: Date;
   onDecided?: (request: ScreenRequest) => void;
+  onFinalError?: (request: ScreenRequest, message: string) => void;
 }) {
   const t = useTranslations("assistantActions");
   const decide = useDecideAssistantAction();
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const remaining = secondsLeft(request.expires_at, now);
-  const enabled = canDecide(pin, decide.isPending, remaining);
+  const approveEnabled = canApprove(pin, decide.isPending, remaining);
+  const denyEnabled = canDeny(decide.isPending, remaining);
   const inputId = `assistant-action-pin-${request.id}`;
 
   function submit(decision: "approve" | "deny") {
-    if (!enabled) return;
+    if (decision === "approve" ? !approveEnabled : !denyEnabled) return;
     setError(null);
     decide.mutate(
-      { id: request.id, decision, pin },
+      decision === "approve" ? { id: request.id, decision, pin } : { id: request.id, decision },
       {
         onSuccess: (decided) => {
           setPin("");
@@ -63,8 +74,10 @@ export function AssistantActionCard({
         },
         onError: (err) => {
           setPin("");
-          const code = err instanceof DecisionError ? err.code : "generic";
-          setError(t(decisionErrorKey(code)));
+          const code = err instanceof DecisionError ? err.code : "network";
+          const message = t(decisionErrorKey(code, decision));
+          setError(message);
+          if (isFinalError(code, decision)) onFinalError?.(request, message);
           if (err instanceof DecisionError && err.request) onDecided?.(err.request);
         },
       },
@@ -76,7 +89,7 @@ export function AssistantActionCard({
       data-assistant-action={request.id}
       role="alertdialog"
       aria-labelledby={`${inputId}-title`}
-      className="mb-4 space-y-4 border-amber-500/50 bg-amber-500/5 p-5"
+      className="space-y-4 border-amber-500/50 bg-background p-5 elev-lg"
     >
       <div className="flex items-start gap-4">
         <span className="icon-badge">
@@ -114,35 +127,71 @@ export function AssistantActionCard({
           />
         </div>
         <div className="ml-auto flex gap-2">
-          <Button type="button" variant="outline" className="min-h-[44px]" disabled={!enabled} onClick={() => submit("deny")}>
+          <Button type="button" variant="outline" className="min-h-[44px]" disabled={!denyEnabled} onClick={() => submit("deny")}>
             {t("deny")}
           </Button>
-          <Button type="submit" className="min-h-[44px]" disabled={!enabled}>
+          <Button type="submit" className="min-h-[44px]" disabled={!approveEnabled}>
             {decide.isPending ? t("working") : t("allow")}
           </Button>
         </div>
       </form>
+      <p className="text-xs text-muted-foreground">{t("denyHint")}</p>
 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </Card>
   );
 }
 
+interface Notice {
+  request: ScreenRequest;
+  message: string;
+}
+
 /**
- * Every pending assistant request, on the dashboard, above everything else
- * (RFC-011 §4.3). Renders nothing when nobody is waiting, which is almost
- * always. Not tied to the messages widget's visibility: a screen that does
- * not show messages can still be the one somebody is standing at when the
- * front door asks to be unlocked.
+ * Every pending assistant request, over whatever page is showing (RFC-011
+ * §4.3) — mounted once for the whole app inside the authenticated shell, so
+ * the person standing at any screen sees it. Renders nothing when nobody is
+ * waiting, which is almost always. A request that ended with an error keeps
+ * its message on screen until someone closes it.
  */
 export function AssistantActionPrompt() {
+  const t = useTranslations("assistantActions");
   const requests = usePendingAssistantActions();
+  const [notices, setNotices] = useState<Notice[]>([]);
   const now = useTickingServerNow(requests.length > 0);
-  const visible = visibleRequests(requests, now);
-  if (visible.length === 0) return null;
+  const noticeIds = new Set(notices.map((n) => n.request.id));
+  const visible = visibleRequests(requests, now).filter((r) => !noticeIds.has(r.id));
+  if (visible.length === 0 && notices.length === 0) return null;
   return (
-    <div aria-live="polite">
-      {visible.map((r) => <AssistantActionCard key={r.id} request={r} now={now} />)}
+    <div
+      data-testid="assistant-action-overlay"
+      aria-live="polite"
+      className="fixed inset-x-0 bottom-0 z-[90] mx-auto flex max-h-[80dvh] w-full max-w-2xl flex-col gap-3 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+    >
+      {notices.map(({ request, message }) => (
+        <Card key={`notice-${request.id}`} data-assistant-action-notice={request.id} className="space-y-3 bg-background p-5 elev-lg">
+          <p className="font-display text-xl leading-tight">{describeAction(t as unknown as ActionTranslator, request)}</p>
+          <p role="alert" className="text-sm">{message}</p>
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={() => setNotices((all) => all.filter((n) => n.request.id !== request.id))}
+            >
+              {t("close")}
+            </Button>
+          </div>
+        </Card>
+      ))}
+      {visible.map((r) => (
+        <AssistantActionCard
+          key={r.id}
+          request={r}
+          now={now}
+          onFinalError={(request, message) =>
+            setNotices((all) => [...all.filter((n) => n.request.id !== request.id), { request, message }])}
+        />
+      ))}
     </div>
   );
 }

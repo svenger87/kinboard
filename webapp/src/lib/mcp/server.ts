@@ -292,7 +292,7 @@ export function createKinboardMcpServer(
       path: `${devicePath(entity_id)}/actions`, params: { entity: entity_id },
       body: data === undefined ? { service } : { service, data },
     }));
-  register("get_action_status", "Check what happened to a sensitive action that control_device left waiting for confirmation, by its request_id. status is pending (nobody has answered yet — a request expires after 2 minutes), approved (allowed, running), done, failed (Home Assistant did not confirm it; it may or may not have happened), denied (a family member refused, or this assistant was disconnected) or expired. Only done means the action ran. Only your own requests are visible.",
+  register("get_action_status", "Check what happened to a sensitive action that control_device left waiting for confirmation, by its request_id. status is pending (nobody has answered yet — a request expires after 2 minutes), approved (allowed, running), done, failed (it did not run, or Home Assistant did not confirm it — result.reason unknown_outcome or a status of 0 means it may or may not have happened; not_in_catalogue, catalogue_unavailable and not_allowed mean it never ran), denied (a family member refused, or this assistant was disconnected) or expired. Only done means the action ran. Only your own requests are visible.",
     z.object({ request_id: z.uuid() }), readOnly,
     ({ request_id }) => call(homeActionStatus, { path: `/home/actions/${request_id}`, params: { id: request_id } }));
 

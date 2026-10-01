@@ -17,7 +17,6 @@ import { CountdownWidget } from "@/components/widgets/countdown-widget";
 import { MediaPlayerWidget } from "@/components/widgets/media-player-widget";
 import { MessagesWidget } from "@/components/widgets/messages-widget";
 import { MessageTakeover } from "@/components/message-takeover";
-import { AssistantActionPrompt } from "@/components/assistant-action-prompt";
 import { NotesWidget } from "@/components/widgets/notes-widget";
 import { TasksWidget } from "@/components/widgets/tasks-widget";
 import { ShoppingWidget } from "@/components/widgets/shopping-widget";
@@ -202,10 +201,6 @@ export default function DashboardPage() {
             as the widget: a screen with messages switched off is not one of
             the screens being talked to (RFC-005 §6). */}
         {w.messages && <MessageTakeover />}
-        {/* Not behind any widget toggle: an assistant waiting for someone
-            to allow a door or an alarm must reach whichever screen a person
-            is standing at (RFC-011 §4.3). Renders nothing when none waits. */}
-        <AssistantActionPrompt />
 
         <section className="relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 2xl:grid-cols-5 min-[2000px]:grid-cols-6 auto-rows-min items-start gap-4 md:gap-6 w-full max-w-[2200px] mx-auto" aria-label={t("ariaWidgets")}>
           <FloatingLightsFab />

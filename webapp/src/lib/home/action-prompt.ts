@@ -24,12 +24,83 @@ const KNOWN_ERRORS: ReadonlySet<string> = new Set([
   "pin_invalid", "rate_limited", "expired", "already_decided", "revoked", "pin_required", "not_found",
 ]);
 
-/** The `assistantActions` message key for a decision's error code. */
-export function decisionErrorKey(code: unknown): string {
-  return typeof code === "string" && KNOWN_ERRORS.has(code) ? `errors.${code}` : "errors.generic";
+/**
+ * The `assistantActions` message key for a decision's error code. An
+ * approval that failed for any other reason (a 500, a dropped connection)
+ * may have reached Home Assistant, so it says the outcome is unknown and
+ * points at the device — "try again" could run it twice.
+ */
+export function decisionErrorKey(code: unknown, decision: "approve" | "deny" = "deny"): string {
+  if (typeof code === "string" && KNOWN_ERRORS.has(code)) return `errors.${code}`;
+  return decision === "approve" ? "errors.unknown_outcome" : "errors.generic";
 }
 
-/** Allow needs a well-formed PIN; Deny too (the server asks the PIN for both). */
-export function canDecide(pin: string, busy: boolean, secondsRemaining: number): boolean {
+/** Errors after which the request is finished: shown until dismissed, since the card itself goes. */
+export function isFinalError(code: unknown, decision: "approve" | "deny"): boolean {
+  if (code === "pin_invalid" || code === "rate_limited" || code === "pin_required") return false;
+  if (typeof code === "string" && KNOWN_ERRORS.has(code)) return true;
+  return decision === "approve";
+}
+
+/** Allow needs a well-formed PIN, time left, and no decision in flight. */
+export function canApprove(pin: string, busy: boolean, secondsRemaining: number): boolean {
   return !busy && secondsRemaining > 0 && PIN_DIGITS.test(pin);
+}
+
+/** Deny needs no PIN — anyone at a screen may stop a request. */
+export function canDeny(busy: boolean, secondsRemaining: number): boolean {
+  return !busy && secondsRemaining > 0;
+}
+
+const RANK: Record<ScreenRequest["status"], number> = {
+  pending: 0, approved: 1, denied: 2, expired: 2, failed: 2, done: 2,
+};
+
+/** Whether nothing more will happen to this request. */
+export function isTerminal(request: Pick<ScreenRequest, "status">): boolean {
+  return RANK[request.status] === 2;
+}
+
+/**
+ * The deep-link page has two copies of a request: the one its decision
+ * returned and the one it polls. Show the further-along one; on a tie the
+ * polled one, which is newer.
+ */
+export function newerRequest(polled: ScreenRequest | null | undefined, decided: ScreenRequest | null): ScreenRequest | null {
+  if (!polled) return decided;
+  if (!decided || decided.id !== polled.id) return polled;
+  return RANK[decided.status] > RANK[polled.status] ? decided : polled;
+}
+
+/** The `assistantActions` key that says what became of a request. */
+export function statusMessageKey(request: Pick<ScreenRequest, "status" | "result">): string {
+  const reason = (request.result as { reason?: unknown } | null)?.reason;
+  if (request.status === "failed" && typeof reason === "string"
+    && ["unknown_outcome", "not_in_catalogue", "catalogue_unavailable", "not_allowed"].includes(reason)) {
+    return `status.${reason}`;
+  }
+  return `status.${request.status}`;
+}
+
+/**
+ * Whether a realtime change to `assistant_action_requests` is worth a
+ * refetch of the pending list. An INSERT that is not pending is the audit
+ * row of an action that already ran (one per light an assistant switches),
+ * which no screen shows.
+ */
+export function actionChangeMatters(payload: { eventType?: string; new?: unknown }): boolean {
+  if (payload.eventType !== "INSERT") return true;
+  return (payload.new as { status?: unknown } | null | undefined)?.status === "pending";
+}
+
+/**
+ * Where the overlay prompt appears: every page of a joined device, except
+ * the join screen (no session — it would poll into 401s) and the deep-link
+ * page, which shows the request itself.
+ */
+export function promptShownOn(pathname: string, joined: boolean): boolean {
+  if (!joined) return false;
+  if (pathname === "/join" || pathname.startsWith("/join/")) return false;
+  if (pathname.startsWith("/assistant-actions/")) return false;
+  return true;
 }

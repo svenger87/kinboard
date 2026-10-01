@@ -220,7 +220,7 @@
     "messageTitle": "Nachricht von zu Hause",
     "messageTitleFromAssistant": "Nachricht von {name}",
     "messagesManyTitle": "{count} Nachrichten von zu Hause",
-    "assistantActionBody": "Öffnen, um es mit der Einstellungs-PIN zu erlauben oder abzulehnen. Läuft in 2 Minuten ab."
+    "assistantActionBody": "Öffnen, um es mit der Einstellungs-PIN zu erlauben oder es abzulehnen. Läuft in 2 Minuten ab."
   },
   "join": {
     "title": "Kinboard",
@@ -4236,7 +4236,8 @@
       "revoked": "Dieser Assistent wurde getrennt, deshalb ist nichts passiert.",
       "pin_required": "Lege zuerst in den Einstellungen eine PIN fest. Ohne PIN kann niemand das erlauben.",
       "not_found": "Diese Anfrage gibt es nicht, oder sie gehört zu einer anderen Familie.",
-      "generic": "Das hat nicht geklappt. Bitte versuch es noch einmal."
+      "generic": "Das hat nicht geklappt. Bitte versuch es noch einmal.",
+      "unknown_outcome": "Kinboard weiß nicht, ob es passiert ist. Sieh am Gerät nach, bevor du es noch einmal versuchst."
     },
     "status": {
       "pending": "Wartet auf eine Antwort.",
@@ -4244,7 +4245,11 @@
       "done": "Erlaubt und erledigt.",
       "failed": "Erlaubt, aber Home Assistant hat es nicht bestätigt. Sieh am Gerät nach.",
       "denied": "Abgelehnt. Es ist nichts passiert.",
-      "expired": "Abgelaufen. Es ist nichts passiert."
+      "expired": "Abgelaufen. Es ist nichts passiert.",
+      "unknown_outcome": "Erlaubt, aber Kinboard hat nie erfahren, ob es passiert ist. Sieh am Gerät nach.",
+      "not_in_catalogue": "Erlaubt, aber das Gerät steht nicht mehr in Kinboards Liste, deshalb ist nichts passiert.",
+      "catalogue_unavailable": "Erlaubt, aber Kinboard konnte seine Geräteliste nicht prüfen, deshalb ist nichts passiert.",
+      "not_allowed": "Erlaubt, aber das darf ein Assistent nicht mehr tun, deshalb ist nichts passiert."
     },
     "pageTitle": "Anfrage eines Assistenten",
     "loading": "Wird geladen …",
@@ -4270,6 +4275,8 @@
       "lawn_mower_dock": "{device} zur Ladestation schicken",
       "lawn_mower_pause": "{device} anhalten",
       "generic": "„{service}“ für {device} ausführen"
-    }
+    },
+    "denyHint": "Ablehnen kann jeder. Zum Erlauben braucht es die Einstellungs-PIN.",
+    "close": "Schließen"
   }
 }

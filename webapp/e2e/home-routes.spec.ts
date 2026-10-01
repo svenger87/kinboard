@@ -90,6 +90,7 @@ function stubDeps(overrides: Partial<HomeDeps> = {}, opts: { serviceOk?: boolean
     recordAction: async (record) => {
       rec.records.push(record);
     },
+    familyHasPin: async () => true,
     ...overrides,
   };
   return { deps, rec };
@@ -426,6 +427,30 @@ test.describe("POST /home/devices/{entity}/actions", () => {
       domain: "lock", service: "unlock", data: {},
     }]);
     expect(rec.calls).toEqual([]);
+  });
+
+  test("a sensitive action in a family with no settings PIN is refused at once — no request nobody could allow", async () => {
+    const { deps, rec } = stubDeps({ familyHasPin: async () => false });
+    const res = await act("lock.front_door", { service: "unlock" }, deps);
+    expect([res.status, res.body.code, res.body.reason]).toEqual([403, "forbidden", "pin_required"]);
+    expect(String(res.body.error)).toContain("Set a settings PIN in Kinboard");
+    expect(rec.confirmations).toEqual([]);
+    expect(rec.calls).toEqual([]);
+  });
+
+  test("an unreadable PIN state refuses the sensitive action (503) and stores nothing", async () => {
+    const { deps, rec } = stubDeps({ familyHasPin: async () => { throw new Error("db down"); } });
+    const res = await act("cover.garage", { service: "open_cover" }, deps);
+    expect([res.status, res.body.code]).toEqual([503, "unavailable"]);
+    expect(rec.confirmations).toEqual([]);
+    expect(rec.calls).toEqual([]);
+  });
+
+  test("the PIN is not asked about for a non-sensitive action", async () => {
+    const { deps, rec } = stubDeps({ familyHasPin: async () => false });
+    const res = await act("light.kitchen", { service: "toggle" }, deps);
+    expect(res.status).toBe(200);
+    expect(rec.calls).toHaveLength(1);
   });
 
   test("every action that ran is recorded against the assistant, done or failed, with only the status", async () => {

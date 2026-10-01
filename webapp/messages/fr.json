@@ -220,7 +220,7 @@
     "messageTitle": "Un message à la maison",
     "messageTitleFromAssistant": "Message de {name}",
     "messagesManyTitle": "{count} messages à la maison",
-    "assistantActionBody": "Ouvrez pour autoriser ou refuser avec le code PIN des réglages. Expire dans 2 minutes."
+    "assistantActionBody": "Ouvrez pour l’autoriser avec le code PIN des réglages, ou pour la refuser. Expire dans 2 minutes."
   },
   "join": {
     "title": "Kinboard",
@@ -4236,7 +4236,8 @@
       "revoked": "Cet assistant a été déconnecté, donc rien n’a été fait.",
       "pin_required": "Définissez d’abord un code PIN dans les réglages. Sans code, personne ne peut autoriser cela.",
       "not_found": "Cette demande n’existe pas ou appartient à une autre famille.",
-      "generic": "Cela n’a pas fonctionné. Veuillez réessayer."
+      "generic": "Cela n’a pas fonctionné. Veuillez réessayer.",
+      "unknown_outcome": "Kinboard ne sait pas si cela a eu lieu. Vérifiez l’appareil avant de réessayer."
     },
     "status": {
       "pending": "En attente d’une réponse.",
@@ -4244,7 +4245,11 @@
       "done": "Autorisé et fait.",
       "failed": "Autorisé, mais Home Assistant ne l’a pas confirmé. Vérifiez l’appareil.",
       "denied": "Refusé. Rien n’a été fait.",
-      "expired": "Expiré. Rien n’a été fait."
+      "expired": "Expiré. Rien n’a été fait.",
+      "unknown_outcome": "Autorisé, mais Kinboard n’a jamais su si cela a eu lieu. Vérifiez l’appareil.",
+      "not_in_catalogue": "Autorisé, mais l’appareil n’est plus dans la liste de Kinboard, donc rien n’a été fait.",
+      "catalogue_unavailable": "Autorisé, mais Kinboard n’a pas pu vérifier sa liste d’appareils, donc rien n’a été fait.",
+      "not_allowed": "Autorisé, mais un assistant n’a plus le droit de faire cela, donc rien n’a été fait."
     },
     "pageTitle": "Demande d’un assistant",
     "loading": "Chargement…",
@@ -4270,6 +4275,8 @@
       "lawn_mower_dock": "renvoyer {device} à sa base",
       "lawn_mower_pause": "mettre {device} en pause",
       "generic": "lancer « {service} » sur {device}"
-    }
+    },
+    "denyHint": "Tout le monde peut refuser. Pour autoriser, il faut le code PIN des réglages.",
+    "close": "Fermer"
   }
 }

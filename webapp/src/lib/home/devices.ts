@@ -66,6 +66,8 @@ export interface HomeDeps {
   requestConfirmation: (request: ConfirmationRequest) => Promise<{ requestId: string; expiresAt: string }>;
   /** Attribute an action that ran (RFC-011 §7). A failure is logged, never the action's. */
   recordAction: (record: ActionRecord) => Promise<void>;
+  /** Whether the family has a settings PIN — without one, nobody could approve. Throws when unreadable. */
+  familyHasPin: (familyId: string) => Promise<boolean>;
 }
 
 export interface HomeResult {
@@ -276,6 +278,22 @@ export async function runHomeAction(
 
   // 5a. Sensitive: a person confirms on a Kinboard screen, or nothing runs.
   if (decision.sensitive) {
+    // No PIN, nobody can approve: say so now rather than leave a request
+    // on every screen that no one can allow. Unreadable → refused.
+    let hasPin: boolean;
+    try {
+      hasPin = await deps.familyHasPin(familyId);
+    } catch {
+      return fail(503, "unavailable", "Kinboard could not check whether this action can be confirmed, so nothing was done");
+    }
+    if (!hasPin) {
+      return fail(
+        403,
+        "forbidden",
+        "This action needs a family member to allow it with the settings PIN, and this family has none. Set a settings PIN in Kinboard to allow this. Nothing was done.",
+        { reason: "pin_required" },
+      );
+    }
     const pending = await deps.requestConfirmation({
       familyId, tokenId: input.tokenId, tokenName: input.tokenName,
       entityId, entityName: entity.name, room: entity.room, domain, service, data: decision.data,

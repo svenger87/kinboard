@@ -11,6 +11,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyHasPin, verifySettingsPin } from "@/lib/settings-pin";
 import { callHaService } from "@/lib/home/ha-client";
+import { catalogueEntity } from "@/lib/home/catalogue";
 import { sendPushToMultiple, isVapidConfigured, type DatabaseSubscription } from "@/lib/push-sender";
 import { getPushTranslator, getTranslator } from "@/lib/notifications/messages";
 import { getFamilyLocale } from "@/lib/family-locale";
@@ -120,4 +121,5 @@ export const liveDecideDeps: DecideDeps = {
   verifyPin: (familyId, pin) => verifySettingsPin(familyId, pin),
   callHaService: (familyId, domain, service, entityId, data) =>
     callHaService(familyId, domain, service, entityId, data),
+  catalogueEntity: (familyId, entityId) => catalogueEntity(familyId, entityId),
 };
