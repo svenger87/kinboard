@@ -3,6 +3,7 @@ import {
   isCimdClientId, parseClientMetadataDocument, parseRegistrationRequest, resolveClient, readBoundedJson, clientCacheSize,
   admitDcrRegistration, DCR_HOURLY_CAP, DCR_UNUSED_TTL_MS,
 } from "../src/lib/oauth/clients";
+import { sweepUnusedDcrClients, USED_DCR_IDS_LIMIT } from "../src/lib/oauth/store";
 
 const URL_ID = "https://claude.ai/oauth/mcp-oauth-client-metadata";
 
@@ -122,4 +123,54 @@ test.describe("DCR admission (install-wide cap and sweep)", () => {
   test("a count that cannot be read refuses rather than guessing", async () => {
     await expect(admitDcrRegistration({ countSince: async () => { throw new Error("db down"); }, sweepUnused: async () => {} }, NOW)).rejects.toThrow("db down");
   });
+});
+
+test.describe("the unused-client sweep never deletes on a partial exclusion list", () => {
+  /** A stand-in for the admin client: answers the used-ids read, records the candidate read and the delete. */
+  function fakeDb(used: { rows: number; count: number | null }) {
+    const log: string[] = [];
+    const chain = (table: string, result: () => unknown) => {
+      const c: Record<string, unknown> = {};
+      for (const m of ["select", "like", "limit", "lt", "not", "order", "in", "delete"]) {
+        c[m] = (...args: unknown[]) => {
+          log.push(`${table}.${m}${m === "limit" ? `(${String(args[0])})` : ""}`);
+          return c;
+        };
+      }
+      c.then = (resolve: (v: unknown) => void) => resolve(result());
+      return c;
+    };
+    return {
+      log,
+      from(table: string) {
+        if (table === "integration_tokens") {
+          return chain(table, () => ({
+            data: Array.from({ length: used.rows }, (_, i) => ({ oauth_client_id: `kbc_used${i}` })),
+            error: null,
+            count: used.count,
+          }));
+        }
+        return chain(table, () => ({ data: [{ client_id: "kbc_old" }], error: null }));
+      },
+    };
+  }
+
+  test("a complete list: the read is bounded, and unused old clients are deleted", async () => {
+    const db = fakeDb({ rows: 3, count: 3 });
+    await sweepUnusedDcrClients("2026-10-01T00:00:00Z", db);
+    expect(db.log).toContain(`integration_tokens.limit(${USED_DCR_IDS_LIMIT})`);
+    expect(db.log).toContain("oauth_clients.delete");
+  });
+
+  for (const [label, used] of [
+    ["the count reaches the limit", { rows: USED_DCR_IDS_LIMIT, count: USED_DCR_IDS_LIMIT }],
+    ["more exist than came back (a max-rows cap)", { rows: 1000, count: 1500 }],
+    ["no count at all", { rows: 3, count: null }],
+  ] as const) {
+    test(`skipped entirely when ${label}`, async () => {
+      const db = fakeDb(used);
+      await sweepUnusedDcrClients("2026-10-01T00:00:00Z", db);
+      expect(db.log.some((l) => l.startsWith("oauth_clients."))).toBe(false);
+    });
+  }
 });

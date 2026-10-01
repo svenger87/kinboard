@@ -176,13 +176,29 @@ export async function countDcrClientsSince(sinceIso: string): Promise<number> {
  *
  * Oldest first, at most 200 per call; the next registration continues
  * with whatever is left.
+ *
+ * The exclusion set must be complete, or a client with a live connection
+ * could be deleted. So the read is bounded (USED_DCR_IDS_LIMIT) and counted:
+ * when there may be more used ids than were returned — the count reaches the
+ * limit, or exceeds what came back (PostgREST's own max-rows cap) — the
+ * sweep does nothing at all rather than delete on a partial list.
+ *
+ * `db` is injectable so that rule is tested without a database.
  */
-export async function sweepUnusedDcrClients(beforeIso: string): Promise<void> {
-  const db = createAdminClient() as any;
-  const { data: used, error: usedError } = await db.from("integration_tokens")
-    .select("oauth_client_id").like("oauth_client_id", `${DCR_CLIENT_PREFIX}%`);
+export const USED_DCR_IDS_LIMIT = 10_000;
+
+export async function sweepUnusedDcrClients(beforeIso: string, db: any = createAdminClient()): Promise<void> {
+  const { data: used, error: usedError, count } = await db.from("integration_tokens")
+    .select("oauth_client_id", { count: "exact" })
+    .like("oauth_client_id", `${DCR_CLIENT_PREFIX}%`)
+    .limit(USED_DCR_IDS_LIMIT);
   if (usedError) throw usedError;
-  const usedIds = [...new Set(((used ?? []) as { oauth_client_id: string }[]).map((r) => r.oauth_client_id))];
+  const rows = (used ?? []) as { oauth_client_id: string }[];
+  if (typeof count !== "number" || count >= USED_DCR_IDS_LIMIT || count > rows.length) {
+    console.warn("[oauth] unused-client sweep skipped: the list of connected clients may be incomplete");
+    return;
+  }
+  const usedIds = [...new Set(rows.map((r) => r.oauth_client_id))];
 
   let candidates = db.from("oauth_clients").select("client_id").lt("created_at", beforeIso);
   // Ids are the prefix plus base64url, so quoting them is enough for the list.
