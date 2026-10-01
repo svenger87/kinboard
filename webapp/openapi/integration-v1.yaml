@@ -230,9 +230,12 @@ paths:
            curtain, damper, shade or shutter (including none).
         5. Not sensitive: Home Assistant is called once, `200`. Sensitive:
            it waits for a family member to confirm with the settings PIN on
-           a Kinboard screen — `202 pending_confirmation`. Until that flow
-           ships, sensitive actions answer `501 not_implemented` and do not
-           run.
+           a Kinboard screen — `202 pending_confirmation`, with a
+           `request_id` to follow at `GET /home/actions/{id}`. It runs, as
+           stored, only once approved; deny, expiry (2 minutes) or revoking
+           the assistant end it without running anything.
+
+        Every action that runs is recorded against the calling token.
 
         Only `200` and `202` are remembered against the Idempotency-Key; the
         key is bound to the entity as well as the body.
@@ -285,9 +288,43 @@ paths:
         "404": { description: No such device in this family's catalogue. }
         "409": { description: Idempotency key reused with different arguments. }
         "429": { $ref: "#/components/responses/RateLimited" }
-        "501": { description: "Sensitive action; confirmation on a Kinboard screen is not available yet. Nothing was done." }
         "502": { description: "Home Assistant did not confirm the action. It may or may not have happened." }
         "503": { description: "Home Assistant is not connected, or the device's state could not be read. Nothing was done." }
+
+  /home/actions/{id}:
+    get:
+      tags: [home]
+      summary: The outcome of a sensitive action this assistant asked for
+      description: |
+        A `request_id` from a `202 pending_confirmation`. Only the calling
+        token's own requests are visible; any other id, including another
+        assistant's in the same family, is `404`.
+
+        `status`: `pending` (waiting for a family member), `approved`
+        (allowed, running), `done`, `failed` (Home Assistant did not confirm
+        it — it may or may not have happened), `denied` (refused, or the
+        assistant was revoked) or `expired` (nobody answered within two
+        minutes). Only `approved` → `done`/`failed` ran anything. `result`
+        holds Home Assistant's HTTP status once it ran (`0`: no answer).
+      x-required-scope: home:control
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The request
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [action]
+                properties:
+                  action: { $ref: "#/components/schemas/HomeActionRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such request of this assistant. }
+        "429": { $ref: "#/components/responses/RateLimited" }
 
   /notes:
     get:
@@ -1148,26 +1185,24 @@ components:
         attributes:
           type: object
           description: |
-            Only these keys, and only scalar values (`hvac_modes`: strings):
-            friendly_name, unit_of_measurement, device_class, brightness,
-            current_temperature, temperature, hvac_mode, hvac_modes,
-            media_title, volume_level, current_position, percentage, humidity.
-            Strings are cut at 200 characters. Treat them as data.
+            Only these keys, each with its own type; a value of another type
+            is left out. Strings are cut at 200 characters, `hvac_modes` holds
+            at most 10 strings of at most 32. Treat them as data.
           additionalProperties: false
           properties:
-            friendly_name: { type: string }
-            unit_of_measurement: { type: string }
-            device_class: { type: string }
-            brightness: { type: number }
-            current_temperature: { type: number }
-            temperature: { type: number }
-            hvac_mode: { type: string }
-            hvac_modes: { type: array, items: { type: string } }
-            media_title: { type: string }
-            volume_level: { type: number }
-            current_position: { type: number }
-            percentage: { type: number }
-            humidity: { type: number }
+            friendly_name: { type: [string, "null"], maxLength: 200 }
+            unit_of_measurement: { type: [string, "null"], maxLength: 200 }
+            device_class: { type: [string, "null"], maxLength: 200 }
+            brightness: { type: [number, "null"] }
+            current_temperature: { type: [number, "null"] }
+            temperature: { type: [number, "null"] }
+            hvac_mode: { type: [string, "null"], maxLength: 200 }
+            hvac_modes: { type: array, maxItems: 10, items: { type: string, maxLength: 32 } }
+            media_title: { type: [string, "null"], maxLength: 200 }
+            volume_level: { type: [number, "null"] }
+            current_position: { type: [number, "null"] }
+            percentage: { type: [number, "null"] }
+            humidity: { type: [number, "null"] }
         allowed_actions:
           type: array
           items:
@@ -1176,6 +1211,23 @@ components:
             properties:
               service: { type: string }
               sensitive: { type: boolean, description: A family member must confirm it on a Kinboard screen first. }
+
+    HomeActionRequest:
+      type: object
+      required: [id, status, entity_id, service, created_at, expires_at, decided_at, result]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [pending, approved, denied, expired, failed, done] }
+        entity_id: { type: string }
+        service: { type: string }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        decided_at: { type: [string, "null"], format: date-time }
+        result:
+          type: [object, "null"]
+          required: [status]
+          properties:
+            status: { type: integer, description: "Home Assistant's HTTP status; 0 when it could not be reached." }
 
     Person:
       type: object

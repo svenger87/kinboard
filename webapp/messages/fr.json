@@ -219,7 +219,8 @@
     "timersManyTitle": "{count} minuteurs sont terminés",
     "messageTitle": "Un message à la maison",
     "messageTitleFromAssistant": "Message de {name}",
-    "messagesManyTitle": "{count} messages à la maison"
+    "messagesManyTitle": "{count} messages à la maison",
+    "assistantActionBody": "Ouvrez pour autoriser ou refuser avec le code PIN des réglages. Expire dans 2 minutes."
   },
   "join": {
     "title": "Kinboard",
@@ -4216,5 +4217,59 @@
     "assistantsDisabled": "Les assistants IA sont désactivés dans Paramètres → Intégrations.",
     "verifiedBy": "Vérifié par {host}",
     "selfRegisteredWarning": "Application auto-enregistrée — Kinboard ne peut pas confirmer qu'il s'agit vraiment de {client}. Ne continuez que si vous l'avez lancée vous-même."
+  },
+  "assistantActions": {
+    "title": "Un assistant demande",
+    "request": "{client} veut {action}",
+    "deviceInRoom": "{name} ({room})",
+    "hint": "N’autorisez que si quelqu’un de la famille l’a demandé.",
+    "expiresIn": "Encore {seconds, plural, one {# seconde} other {# secondes}}",
+    "pinLabel": "Code PIN des réglages",
+    "allow": "Autoriser",
+    "deny": "Refuser",
+    "working": "Un instant…",
+    "errors": {
+      "pin_invalid": "Ce code PIN n’est pas le bon.",
+      "rate_limited": "Trop d’essais incorrects. Attendez une minute, puis réessayez.",
+      "expired": "Cette demande a expiré. Rien n’a été fait.",
+      "already_decided": "Quelqu’un a déjà répondu à cette demande.",
+      "revoked": "Cet assistant a été déconnecté, donc rien n’a été fait.",
+      "pin_required": "Définissez d’abord un code PIN dans les réglages. Sans code, personne ne peut autoriser cela.",
+      "not_found": "Cette demande n’existe pas ou appartient à une autre famille.",
+      "generic": "Cela n’a pas fonctionné. Veuillez réessayer."
+    },
+    "status": {
+      "pending": "En attente d’une réponse.",
+      "approved": "Autorisé. Exécution en cours…",
+      "done": "Autorisé et fait.",
+      "failed": "Autorisé, mais Home Assistant ne l’a pas confirmé. Vérifiez l’appareil.",
+      "denied": "Refusé. Rien n’a été fait.",
+      "expired": "Expiré. Rien n’a été fait."
+    },
+    "pageTitle": "Demande d’un assistant",
+    "loading": "Chargement…",
+    "backToDashboard": "Retour au tableau de bord",
+    "verbs": {
+      "lock_lock": "verrouiller {device}",
+      "lock_unlock": "déverrouiller {device}",
+      "lock_open": "ouvrir {device}",
+      "alarm_control_panel_alarm_arm_home": "armer {device} en mode présence",
+      "alarm_control_panel_alarm_arm_away": "armer {device} en mode absence",
+      "alarm_control_panel_alarm_arm_night": "armer {device} en mode nuit",
+      "alarm_control_panel_alarm_disarm": "désarmer {device}",
+      "cover_open_cover": "ouvrir {device}",
+      "cover_close_cover": "fermer {device}",
+      "cover_stop_cover": "arrêter {device}",
+      "cover_set_cover_position": "régler {device} à {position} %",
+      "script_turn_on": "lancer {device}",
+      "button_press": "appuyer sur {device}",
+      "input_button_press": "appuyer sur {device}",
+      "siren_turn_on": "déclencher {device}",
+      "siren_turn_off": "arrêter {device}",
+      "lawn_mower_start_mowing": "lancer la tonte avec {device}",
+      "lawn_mower_dock": "renvoyer {device} à sa base",
+      "lawn_mower_pause": "mettre {device} en pause",
+      "generic": "lancer « {service} » sur {device}"
+    }
   }
 }

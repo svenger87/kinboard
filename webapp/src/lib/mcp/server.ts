@@ -21,6 +21,7 @@ import { POST as sendMessageRoute } from "@/app/api/integration/v1/messages/rout
 import { GET as homeDevices } from "@/app/api/integration/v1/home/devices/route";
 import { GET as homeDevice } from "@/app/api/integration/v1/home/devices/[entity]/route";
 import { POST as homeDeviceAction } from "@/app/api/integration/v1/home/devices/[entity]/actions/route";
+import { GET as homeActionStatus } from "@/app/api/integration/v1/home/actions/[id]/route";
 import { ENTITY_ID } from "@/lib/home/policy";
 
 export const TOOL_SCOPES = {
@@ -56,6 +57,7 @@ export const TOOL_SCOPES = {
   list_home_devices: "home:read",
   get_device_state: "home:read",
   control_device: "home:control",
+  get_action_status: "home:control",
 } as const satisfies Record<string, McpScope>;
 
 type ToolName = keyof typeof TOOL_SCOPES;
@@ -280,7 +282,7 @@ export function createKinboardMcpServer(
   register("get_device_state", "Read one catalogue device's current state, attributes and allowed_actions. A device outside the family's catalogue is reported as not found.",
     z.object({ entity_id: entityId }), readOnly,
     ({ entity_id }) => call(homeDevice, { path: devicePath(entity_id), params: { entity: entity_id } }));
-  register("control_device", "Run an action on a device in the family's Kinboard catalogue — only a service listed in that device's allowed_actions (list_home_devices), with the data that service takes (for example light turn_on with brightness_pct 0-100). This acts on the real home and Kinboard cannot undo it. Sensitive actions do not run straight away: locks, alarm panels, garage doors, gates and every cover that is not a blind, shutter, curtain, shade, awning or damper, scripts, buttons, sirens and lawn mowers need a family member to confirm on a Kinboard screen with the settings PIN. For those, tell the user that someone has to confirm it on a Kinboard screen and that nothing has happened yet. If Home Assistant cannot be reached, nothing is done.",
+  register("control_device", "Run an action on a device in the family's Kinboard catalogue — only a service listed in that device's allowed_actions (list_home_devices), with the data that service takes (for example light turn_on with brightness_pct 0-100). This acts on the real home and Kinboard cannot undo it. Sensitive actions do not run straight away: locks, alarm panels, garage doors, gates and every cover that is not a blind, shutter, curtain, shade, awning or damper, scripts, buttons, sirens and lawn mowers need a family member to confirm on a Kinboard screen with the settings PIN. For those, tell the user that someone has to confirm it on a Kinboard screen and that nothing has happened yet; the answer has a request_id to check with get_action_status. If Home Assistant cannot be reached, nothing is done.",
     z.object({
       entity_id: entityId,
       service: z.string().min(1).max(64).regex(/^[a-z_]+$/, "a bare service name such as turn_on"),
@@ -290,6 +292,9 @@ export function createKinboardMcpServer(
       path: `${devicePath(entity_id)}/actions`, params: { entity: entity_id },
       body: data === undefined ? { service } : { service, data },
     }));
+  register("get_action_status", "Check what happened to a sensitive action that control_device left waiting for confirmation, by its request_id. status is pending (nobody has answered yet — a request expires after 2 minutes), approved (allowed, running), done, failed (Home Assistant did not confirm it; it may or may not have happened), denied (a family member refused, or this assistant was disconnected) or expired. Only done means the action ran. Only your own requests are visible.",
+    z.object({ request_id: z.uuid() }), readOnly,
+    ({ request_id }) => call(homeActionStatus, { path: `/home/actions/${request_id}`, params: { id: request_id } }));
 
   return server;
 }

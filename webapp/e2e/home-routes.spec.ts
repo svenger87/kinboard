@@ -12,6 +12,7 @@ import { toCatalogueEntities, type CatalogueEntity } from "../src/lib/home/catal
 import { callHaService, getHaStates, haServiceUrl, haStatesUrl, type HaState } from "../src/lib/home/ha-client";
 import { CatalogueUnavailable, HomeUnavailable, HomeUpstreamError } from "../src/lib/home/errors";
 import type { HomeAssistantSettings } from "../src/types/home-assistant";
+import type { ActionRecord, ConfirmationRequest } from "../src/lib/home/devices";
 
 /**
  * The home routes (RFC-011 §3/§4): what an assistant can see of a household's
@@ -59,11 +60,12 @@ interface Recorded {
   catalogueOne: { familyId: string; entityId: string }[];
   states: { familyId: string; ids: string[] }[];
   calls: { familyId: string; domain: string; service: string; entityId: string; data: Record<string, unknown> }[];
-  confirmations: unknown[];
+  confirmations: ConfirmationRequest[];
+  records: ActionRecord[];
 }
 
 function stubDeps(overrides: Partial<HomeDeps> = {}, opts: { serviceOk?: boolean } = {}) {
-  const rec: Recorded = { catalogueList: [], catalogueOne: [], states: [], calls: [], confirmations: [] };
+  const rec: Recorded = { catalogueList: [], catalogueOne: [], states: [], calls: [], confirmations: [], records: [] };
   const deps: HomeDeps = {
     catalogueEntities: async (familyId) => {
       rec.catalogueList.push(familyId);
@@ -81,6 +83,13 @@ function stubDeps(overrides: Partial<HomeDeps> = {}, opts: { serviceOk?: boolean
       rec.calls.push({ familyId, domain, service, entityId, data });
       return opts.serviceOk === false ? { ok: false, status: 500 } : { ok: true, status: 200 };
     },
+    requestConfirmation: async (request) => {
+      rec.confirmations.push(request);
+      return { requestId: "req-1", expiresAt: "2026-10-01T12:02:00.000Z" };
+    },
+    recordAction: async (record) => {
+      rec.records.push(record);
+    },
     ...overrides,
   };
   return { deps, rec };
@@ -92,9 +101,19 @@ const act = (entity: string, body: unknown, deps: HomeDeps) =>
 // ── pure helpers ────────────────────────────────────────────────────────────
 
 test.describe("the entity in the path", () => {
-  test("accepts a plain entity id and its percent-encoded form", () => {
+  test("accepts a plain entity id; Next has already decoded the segment, so it is not decoded again", () => {
     expect(parseEntityParam("light.kitchen")).toBe("light.kitchen");
-    expect(parseEntityParam("light%2Ekitchen")).toBe("light.kitchen");
+    // What arrives for a request to /home/devices/light%252Ekitchen: one decode, by Next.
+    expect(parseEntityParam("light%2Ekitchen")).toBeNull();
+  });
+
+  test("Next decodes a dynamic segment exactly once (the reason for the above)", async () => {
+    const { getRouteMatcher } = await import("next/dist/shared/lib/router/utils/route-matcher.js");
+    const { getRouteRegex } = await import("next/dist/shared/lib/router/utils/route-regex.js");
+    const match = getRouteMatcher(getRouteRegex("/api/integration/v1/home/devices/[entity]/actions"));
+    const base = "/api/integration/v1/home/devices/";
+    expect(match(`${base}light%2Ekitchen/actions`)).toEqual({ entity: "light.kitchen" });
+    expect(match(`${base}light%252Ekitchen/actions`)).toEqual({ entity: "light%2Ekitchen" });
   });
 
   test("refuses anything that is not an entity id, including malformed escapes", () => {
@@ -157,6 +176,32 @@ test.describe("attributes", () => {
     expect(out.hvac_modes).toEqual(["off", "heat"]);
     expect(out.temperature).toBeUndefined();
     expect(out.volume_level).toBe(0.4);
+  });
+
+  test("each key keeps its own type: numbers stay numbers, text stays text, null is null", () => {
+    const out = whitelistAttributes({
+      brightness: "255",
+      current_temperature: null,
+      temperature: Infinity,
+      volume_level: true,
+      current_position: 40,
+      percentage: [50],
+      humidity: { value: 40 },
+      friendly_name: 7,
+      unit_of_measurement: null,
+      device_class: false,
+      hvac_mode: "heat",
+      media_title: ["a"],
+    });
+    expect(out).toEqual({ current_temperature: null, current_position: 40, unit_of_measurement: null, hvac_mode: "heat" });
+  });
+
+  test("hvac_modes: at most 10 strings of at most 32 characters, and never null or a string", () => {
+    const many = Array.from({ length: 15 }, (_, i) => `mode_${i}`);
+    expect(whitelistAttributes({ hvac_modes: many }).hvac_modes).toEqual(many.slice(0, 10));
+    expect(whitelistAttributes({ hvac_modes: ["x".repeat(100)] }).hvac_modes).toEqual(["x".repeat(32)]);
+    expect(whitelistAttributes({ hvac_modes: null })).toEqual({});
+    expect(whitelistAttributes({ hvac_modes: "heat" })).toEqual({});
   });
 
   test("the whitelist is exactly the documented one", () => {
@@ -348,11 +393,11 @@ test.describe("POST /home/devices/{entity}/actions", () => {
   test("a device_class from the caller is never trusted", async () => {
     const { deps, rec } = stubDeps();
     const res = await act("cover.garage", { service: "open_cover", device_class: "blind", data: {} }, deps);
-    expect(res.status).toBe(501);
+    expect(res.status).toBe(202);
     expect(rec.calls).toEqual([]);
   });
 
-  test("sensitive actions do not run: garage, unclassified cover, lock", async () => {
+  test("sensitive actions do not run: garage, unclassified cover, lock — they wait for a person", async () => {
     for (const [entity, service] of [
       ["cover.garage", "open_cover"],
       ["cover.mystery", "close_cover"],
@@ -360,29 +405,56 @@ test.describe("POST /home/devices/{entity}/actions", () => {
     ] as const) {
       const { deps, rec } = stubDeps();
       const res = await act(entity, { service }, deps);
-      expect([res.status, res.body.code], entity).toEqual([501, "not_implemented"]);
+      expect([res.status, res.body.status], entity).toEqual([202, "pending_confirmation"]);
       expect(rec.calls).toEqual([]);
+      expect(rec.confirmations).toHaveLength(1);
+      // Not attributed as run: the request row is its record.
+      expect(rec.records).toEqual([]);
     }
   });
 
-  test("with a confirmation seam, a sensitive action is stored as requested and still not run", async () => {
-    const requests: unknown[] = [];
-    const { deps, rec } = stubDeps({
-      requestConfirmation: async (req) => {
-        requests.push(req);
-        return { requestId: "req-1", expiresAt: "2026-10-01T12:02:00.000Z" };
-      },
-    });
+  test("a sensitive action is stored as requested, with the household's name and room, and not run", async () => {
+    const { deps, rec } = stubDeps();
     const res = await act("lock.front_door", { service: "unlock" }, deps);
     expect(res).toEqual({
       status: 202,
       body: { status: "pending_confirmation", request_id: "req-1", expires_at: "2026-10-01T12:02:00.000Z" },
     });
-    expect(requests).toEqual([{
+    expect(rec.confirmations).toEqual([{
       familyId: FAMILY, tokenId: "tok-1", tokenName: "Claude",
-      entityId: "lock.front_door", domain: "lock", service: "unlock", data: {},
+      entityId: "lock.front_door", entityName: "Front door", room: "Hall",
+      domain: "lock", service: "unlock", data: {},
     }]);
     expect(rec.calls).toEqual([]);
+  });
+
+  test("every action that ran is recorded against the assistant, done or failed, with only the status", async () => {
+    for (const [serviceOk, ok, status] of [[true, true, 200], [false, false, 500]] as const) {
+      const { deps, rec } = stubDeps({}, { serviceOk });
+      await act("light.kitchen", { service: "turn_on", data: { brightness_pct: 40 } }, deps);
+      expect(rec.records).toEqual([{
+        familyId: FAMILY, tokenId: "tok-1", tokenName: "Claude",
+        entityId: "light.kitchen", entityName: "Kitchen light", domain: "light", service: "turn_on",
+        data: { brightness_pct: 40 }, ok, status,
+      }]);
+    }
+  });
+
+  test("a failure to record does not fail an action that already ran", async () => {
+    const { deps, rec } = stubDeps({ recordAction: async () => { throw new Error("db down"); } });
+    const res = await act("light.kitchen", { service: "toggle" }, deps);
+    expect(res).toEqual({ status: 200, body: { status: "done" } });
+    expect(rec.calls).toHaveLength(1);
+  });
+
+  test("nothing is recorded when nothing was sent: refused, unreadable state, or not connected", async () => {
+    const refused = stubDeps();
+    await act("light.kitchen", { service: "explode" }, refused.deps);
+    const noState = stubDeps({ getHaStates: async () => new Map<string, HaState>() });
+    await act("light.kitchen", { service: "toggle" }, noState.deps);
+    const disconnected = stubDeps({ callHaService: async () => { throw new HomeUnavailable(); } });
+    await act("light.kitchen", { service: "toggle" }, disconnected.deps);
+    for (const { rec } of [refused, noState, disconnected]) expect(rec.records).toEqual([]);
   });
 
   test("Home Assistant refusing or failing the call is 502", async () => {

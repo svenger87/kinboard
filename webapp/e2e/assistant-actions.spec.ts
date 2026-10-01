@@ -1,0 +1,544 @@
+import { test, expect } from "@playwright/test";
+import {
+  ACTION_REQUEST_TTL_MS,
+  actionRequestStatus,
+  actionVerbKey,
+  createActionRequest,
+  decideActionRequest,
+  describeAction,
+  familyActionRequest,
+  pendingActionRequests,
+  recordHomeAction,
+  toAssistantRequest,
+  toScreenRequest,
+  type ActionPatch,
+  type ActionRequestRow,
+  type ActionRequestStore,
+  type ActionStatus,
+  type DecideDeps,
+  type NewActionRow,
+  type PushRequest,
+} from "../src/lib/home/action-requests";
+import { ALLOWED_SERVICES } from "../src/lib/home/policy";
+import { canDecide, decisionErrorKey, secondsLeft, visibleRequests } from "../src/lib/home/action-prompt";
+import { HomeUnavailable } from "../src/lib/home/errors";
+import en from "../messages/en.json";
+import de from "../messages/de.json";
+import fr from "../messages/fr.json";
+import { createTranslator } from "next-intl";
+
+/**
+ * Confirmation for sensitive assistant actions (RFC-011 §4.3).
+ *
+ * The decision flow is pure; the table, PIN, Home Assistant and push are
+ * fakes that count what they were asked. The fake table implements
+ * `transition` as the real one does — one conditional update — so the
+ * double-approve test exercises the compare-and-swap rather than assuming it.
+ */
+
+const FAMILY = "11111111-1111-1111-1111-111111111111";
+const OTHER_FAMILY = "22222222-2222-2222-2222-222222222222";
+const TOKEN = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const OTHER_TOKEN = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const DEVICE = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const T0 = new Date("2026-10-01T12:00:00.000Z");
+const PIN = "4711";
+
+let seq = 0;
+const newId = () => `00000000-0000-4000-8000-${String(++seq).padStart(12, "0")}`;
+
+function fakeStore(opts: { revoked?: Set<string> } = {}) {
+  const rows = new Map<string, ActionRequestRow>();
+  const revoked = opts.revoked ?? new Set<string>();
+  const log = { inserts: [] as NewActionRow[], transitions: [] as { id: string; from: ActionStatus; patch: ActionPatch }[] };
+  const store: ActionRequestStore = {
+    insert: async (row) => {
+      log.inserts.push(row);
+      const full: ActionRequestRow = { ...row, id: newId(), created_at: T0.toISOString() };
+      rows.set(full.id, full);
+      return { ...full };
+    },
+    get: async (id, familyId) => {
+      const r = rows.get(id);
+      return r && r.family_id === familyId ? { ...r } : null;
+    },
+    listPending: async (familyId) =>
+      [...rows.values()].filter((r) => r.family_id === familyId && r.status === "pending").map((r) => ({ ...r })),
+    transition: async (id, familyId, from, patch, unexpiredAt) => {
+      const r = rows.get(id);
+      if (!r || r.family_id !== familyId || r.status !== from) return null;
+      if (unexpiredAt && !(Date.parse(r.expires_at) > Date.parse(unexpiredAt))) return null;
+      log.transitions.push({ id, from, patch });
+      Object.assign(r, patch);
+      return { ...r };
+    },
+    tokenActive: async (tokenId) => tokenId !== null && !revoked.has(tokenId),
+  };
+  return { store, rows, log, revoked };
+}
+
+function seed(
+  rows: Map<string, ActionRequestRow>,
+  overrides: Partial<ActionRequestRow> = {},
+): ActionRequestRow {
+  const row: ActionRequestRow = {
+    id: newId(),
+    family_id: FAMILY,
+    token_id: TOKEN,
+    client_name: "Claude",
+    entity_id: "lock.front_door",
+    entity_name: "Front door",
+    domain: "lock",
+    service: "unlock",
+    data: {},
+    status: "pending",
+    created_at: T0.toISOString(),
+    expires_at: new Date(T0.getTime() + ACTION_REQUEST_TTL_MS).toISOString(),
+    decided_at: null,
+    decided_by_device_id: null,
+    result: null,
+    ...overrides,
+  };
+  rows.set(row.id, row);
+  return row;
+}
+
+function deps(store: ActionRequestStore, opts: {
+  pin?: string | null;
+  verdict?: "valid" | "invalid" | "rate_limited";
+  ha?: (call: unknown[]) => Promise<{ ok: boolean; status: number }>;
+  now?: Date;
+} = {}) {
+  const calls: unknown[][] = [];
+  const pinChecks: string[] = [];
+  const pin = opts.pin === undefined ? PIN : opts.pin;
+  const d: DecideDeps = {
+    store,
+    hasPin: async () => pin !== null,
+    verifyPin: async (_f, given) => {
+      pinChecks.push(given);
+      if (opts.verdict) return opts.verdict;
+      return given === pin ? "valid" : "invalid";
+    },
+    callHaService: async (...args) => {
+      calls.push(args);
+      return opts.ha ? opts.ha(args) : { ok: true, status: 200 };
+    },
+    now: () => opts.now ?? new Date(T0.getTime() + 30_000),
+  };
+  return { d, calls, pinChecks };
+}
+
+const decide = (d: DecideDeps, id: string, decision: unknown = "approve", pin: unknown = PIN, familyId = FAMILY) =>
+  decideActionRequest({ id, familyId, deviceId: DEVICE, decision, pin }, d);
+
+// ── deciding ────────────────────────────────────────────────────────────────
+
+test.describe("decideActionRequest", () => {
+  test("the right PIN runs the stored action once, exactly as stored, and records done", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows, { entity_id: "cover.garage", entity_name: "Garage", domain: "cover", service: "set_cover_position", data: { position: 30 } });
+    const { d, calls } = deps(store);
+    const res = await decide(d, row.id);
+    expect(res.status).toBe(200);
+    expect(calls).toEqual([[FAMILY, "cover", "set_cover_position", "cover.garage", { position: 30 }]]);
+    const stored = rows.get(row.id)!;
+    expect(stored.status).toBe("done");
+    expect(stored.result).toEqual({ status: 200 });
+    expect(stored.decided_by_device_id).toBe(DEVICE);
+    expect(stored.decided_at).toBe(new Date(T0.getTime() + 30_000).toISOString());
+    expect(res.request?.status).toBe("done");
+  });
+
+  test("nothing in the approving request can change what runs", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d, calls } = deps(store);
+    const input = { id: row.id, familyId: FAMILY, deviceId: DEVICE, decision: "approve", pin: PIN, service: "open", entity_id: "lock.back_door", data: { code: "1" } };
+    await decideActionRequest(input as never, d);
+    expect(calls).toEqual([[FAMILY, "lock", "unlock", "lock.front_door", {}]]);
+  });
+
+  test("a wrong PIN never reaches Home Assistant and leaves the request pending", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d, calls } = deps(store);
+    const res = await decide(d, row.id, "approve", "0000");
+    expect(res).toMatchObject({ status: 403, error: "pin_invalid" });
+    expect(calls).toEqual([]);
+    expect(rows.get(row.id)!.status).toBe("pending");
+  });
+
+  test("a rate-limited PIN check is 429 and runs nothing", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d, calls } = deps(store, { verdict: "rate_limited" });
+    expect(await decide(d, row.id)).toMatchObject({ status: 429, error: "rate_limited" });
+    expect(calls).toEqual([]);
+    expect(rows.get(row.id)!.status).toBe("pending");
+  });
+
+  test("no PIN set is 403 pin_required, before the PIN is even checked", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d, calls, pinChecks } = deps(store, { pin: null });
+    for (const decision of ["approve", "deny"]) {
+      expect(await decide(d, row.id, decision)).toMatchObject({ status: 403, error: "pin_required" });
+    }
+    expect(pinChecks).toEqual([]);
+    expect(calls).toEqual([]);
+    expect(rows.get(row.id)!.status).toBe("pending");
+  });
+
+  test("an expired request is ended as expired and never runs — not even with the right PIN", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d, calls, pinChecks } = deps(store, { now: new Date(T0.getTime() + ACTION_REQUEST_TTL_MS) });
+    expect(await decide(d, row.id)).toMatchObject({ status: 409, error: "expired" });
+    expect(calls).toEqual([]);
+    expect(pinChecks).toEqual([]);
+    expect(rows.get(row.id)!.status).toBe("expired");
+  });
+
+  test("a request that expires between the read and the decision still does not run (the UPDATE checks expiry)", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d, calls } = deps(store, { now: new Date(T0.getTime() + 1000) });
+    // The read sees it live; by the time the UPDATE runs, the database's clock is past expiry.
+    const late = new Date(T0.getTime() + ACTION_REQUEST_TTL_MS + 1).toISOString();
+    const real = store.transition;
+    store.transition = (id, f, from, patch, unexpiredAt) => real(id, f, from, patch, unexpiredAt ? late : undefined);
+    const res = await decide(d, row.id);
+    expect(res.status).toBe(409);
+    expect(calls).toEqual([]);
+    expect(rows.get(row.id)!.status).toBe("pending");
+  });
+
+  test("approving twice — even concurrently — runs Home Assistant once", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const { d, calls } = deps(store, { ha: async () => { await gate; return { ok: true, status: 200 }; } });
+    const first = decide(d, row.id);
+    const second = decide(d, row.id);
+    await new Promise((r) => setTimeout(r, 10));
+    release();
+    const results = await Promise.all([first, second]);
+    expect(calls).toHaveLength(1);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    expect(results.find((r) => r.status === 409)).toMatchObject({ error: "already_decided" });
+    // And a third, after it is done.
+    expect(await decide(d, row.id)).toMatchObject({ status: 409, error: "already_decided" });
+    expect(calls).toHaveLength(1);
+    expect(rows.get(row.id)!.status).toBe("done");
+  });
+
+  test("deny never runs anything and records who denied it", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d, calls } = deps(store);
+    const res = await decide(d, row.id, "deny");
+    expect(res).toMatchObject({ status: 200 });
+    expect(calls).toEqual([]);
+    expect(rows.get(row.id)).toMatchObject({ status: "denied", decided_by_device_id: DEVICE, result: null });
+    // Approving after a deny does nothing.
+    expect(await decide(d, row.id)).toMatchObject({ status: 409, error: "already_decided" });
+    expect(calls).toEqual([]);
+  });
+
+  test("Home Assistant refusing or failing ends the request failed, with only its status", async () => {
+    for (const [ha, expected] of [
+      [async () => ({ ok: false, status: 500 }), { status: 500 }],
+      [async () => ({ ok: false, status: 0 }), { status: 0 }],
+      [async () => { throw new HomeUnavailable(); }, { status: 0 }],
+      [async () => { throw new Error("boom"); }, { status: 0 }],
+    ] as const) {
+      const { store, rows } = fakeStore();
+      const row = seed(rows);
+      const { d, calls } = deps(store, { ha });
+      const res = await decide(d, row.id);
+      expect(res.status).toBe(200);
+      expect(calls).toHaveLength(1);
+      expect(rows.get(row.id)).toMatchObject({ status: "failed", result: expected });
+    }
+  });
+
+  test("a revoked assistant's request is denied on decide and never runs", async () => {
+    const { store, rows, revoked } = fakeStore();
+    const row = seed(rows);
+    revoked.add(TOKEN);
+    const { d, calls, pinChecks } = deps(store);
+    expect(await decide(d, row.id)).toMatchObject({ status: 409, error: "revoked" });
+    expect(calls).toEqual([]);
+    expect(pinChecks).toEqual([]);
+    expect(rows.get(row.id)).toMatchObject({ status: "denied", decided_by_device_id: null });
+  });
+
+  test("a request whose token was deleted (token_id null) counts as revoked", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows, { token_id: null });
+    const { d, calls } = deps(store);
+    expect(await decide(d, row.id)).toMatchObject({ status: 409, error: "revoked" });
+    expect(calls).toEqual([]);
+  });
+
+  test("revoked while the PIN was being checked: approved, then denied, never run", async () => {
+    const { store, rows, revoked } = fakeStore();
+    const row = seed(rows);
+    const { d, calls } = deps(store);
+    const verify = d.verifyPin;
+    d.verifyPin = async (f, p) => { revoked.add(TOKEN); return verify(f, p); };
+    expect(await decide(d, row.id)).toMatchObject({ status: 409, error: "revoked" });
+    expect(calls).toEqual([]);
+    expect(rows.get(row.id)!.status).toBe("denied");
+  });
+
+  test("another family's request is 404 and untouched", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows, { family_id: OTHER_FAMILY });
+    const { d, calls, pinChecks } = deps(store);
+    expect(await decide(d, row.id)).toMatchObject({ status: 404, error: "not_found" });
+    expect(calls).toEqual([]);
+    expect(pinChecks).toEqual([]);
+    expect(rows.get(row.id)!.status).toBe("pending");
+  });
+
+  test("a malformed id, decision or PIN is refused before anything is read", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d, calls, pinChecks } = deps(store);
+    expect(await decide(d, "not-a-uuid")).toMatchObject({ status: 404 });
+    expect(await decide(d, row.id, "maybe")).toMatchObject({ status: 400, error: "invalid_request" });
+    expect(await decide(d, row.id, "approve", 4711)).toMatchObject({ status: 400 });
+    expect(await decide(d, row.id, "approve", "")).toMatchObject({ status: 400 });
+    expect(await decide(d, row.id, "approve", "1".repeat(33))).toMatchObject({ status: 400 });
+    expect(pinChecks).toEqual([]);
+    expect(calls).toEqual([]);
+  });
+
+  test("a stored action the policy no longer allows is marked failed, not run", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows, { entity_id: "lock.front_door", domain: "homeassistant", service: "restart" });
+    const tampered = seed(rows, { service: "unlock", data: { code: "1234" } });
+    const { d, calls } = deps(store);
+    expect(await decide(d, row.id)).toMatchObject({ status: 200 });
+    expect(await decide(d, tampered.id)).toMatchObject({ status: 200 });
+    expect(calls).toEqual([]);
+    expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { status: 0 } });
+    expect(rows.get(tampered.id)).toMatchObject({ status: "failed", result: { status: 0 } });
+  });
+});
+
+// ── creating and recording ──────────────────────────────────────────────────
+
+test.describe("createActionRequest", () => {
+  test("stores a pending request expiring in two minutes and pushes the family once", async () => {
+    const { store, rows } = fakeStore();
+    const pushes: PushRequest[] = [];
+    const res = await createActionRequest({
+      familyId: FAMILY, tokenId: TOKEN, clientName: "Claude", entityId: "lock.front_door",
+      entityName: "Front door", room: "Hall", domain: "lock", service: "unlock", data: {},
+    }, { store, push: async (p) => { pushes.push(p); }, now: () => T0 });
+    expect(res.expiresAt).toBe("2026-10-01T12:02:00.000Z");
+    expect(rows.get(res.id)).toMatchObject({
+      family_id: FAMILY, token_id: TOKEN, client_name: "Claude", entity_id: "lock.front_door",
+      entity_name: "Front door", domain: "lock", service: "unlock", data: {}, status: "pending",
+      decided_at: null, decided_by_device_id: null, result: null,
+    });
+    expect(pushes).toEqual([{
+      familyId: FAMILY, requestId: res.id, clientName: "Claude", entityName: "Front door", room: "Hall",
+      domain: "lock", service: "unlock", data: {},
+    }]);
+  });
+
+  test("a failing push does not fail the request", async () => {
+    const { store, rows } = fakeStore();
+    const res = await createActionRequest({
+      familyId: FAMILY, tokenId: TOKEN, clientName: "Claude", entityId: "lock.front_door",
+      entityName: "Front door", domain: "lock", service: "unlock", data: {},
+    }, { store, push: async () => { throw new Error("push down"); }, now: () => T0 });
+    expect(rows.get(res.id)!.status).toBe("pending");
+  });
+
+  test("bounds the names it stores", async () => {
+    const { store, rows } = fakeStore();
+    const res = await createActionRequest({
+      familyId: FAMILY, tokenId: TOKEN, clientName: "C".repeat(500), entityId: "lock.front_door",
+      entityName: "D".repeat(500), domain: "lock", service: "unlock", data: {},
+    }, { store, push: async () => undefined, now: () => T0 });
+    expect(rows.get(res.id)!.client_name).toHaveLength(200);
+    expect(rows.get(res.id)!.entity_name).toHaveLength(200);
+  });
+});
+
+test.describe("recordHomeAction (every action is attributable)", () => {
+  test("writes a done or failed row with the token, the action and only the status", async () => {
+    for (const [ok, status, expected] of [[true, 200, "done"], [false, 502, "failed"]] as const) {
+      const { store, log } = fakeStore();
+      await recordHomeAction({
+        familyId: FAMILY, tokenId: TOKEN, clientName: "Claude", entityId: "light.kitchen",
+        entityName: "Kitchen light", domain: "light", service: "turn_on", data: { brightness_pct: 40 }, ok, status,
+      }, { store, now: () => T0 });
+      expect(log.inserts).toEqual([{
+        family_id: FAMILY, token_id: TOKEN, client_name: "Claude", entity_id: "light.kitchen",
+        entity_name: "Kitchen light", domain: "light", service: "turn_on", data: { brightness_pct: 40 },
+        status: expected, expires_at: T0.toISOString(), decided_at: T0.toISOString(),
+        decided_by_device_id: null, result: { status },
+      }]);
+    }
+  });
+});
+
+// ── reading ─────────────────────────────────────────────────────────────────
+
+test.describe("reading requests", () => {
+  test("pending lists only live requests, ending expired and revoked ones on the way", async () => {
+    const { store, rows, revoked } = fakeStore();
+    const live = seed(rows);
+    const old = seed(rows, { expires_at: T0.toISOString() });
+    const orphan = seed(rows, { token_id: OTHER_TOKEN });
+    seed(rows, { family_id: OTHER_FAMILY });
+    seed(rows, { status: "done" });
+    revoked.add(OTHER_TOKEN);
+    const pending = await pendingActionRequests(FAMILY, { store, now: () => new Date(T0.getTime() + 1000) });
+    expect(pending.map((r) => r.id)).toEqual([live.id]);
+    expect(rows.get(old.id)!.status).toBe("expired");
+    expect(rows.get(orphan.id)).toMatchObject({ status: "denied", decided_by_device_id: null });
+  });
+
+  test("get_action_status sees only the caller's own requests; expiry is applied lazily", async () => {
+    const { store, rows } = fakeStore();
+    const mine = seed(rows);
+    const theirs = seed(rows, { token_id: OTHER_TOKEN });
+    const otherFamily = seed(rows, { family_id: OTHER_FAMILY });
+    const later = { store, now: () => new Date(T0.getTime() + ACTION_REQUEST_TTL_MS + 1) };
+    expect(await actionRequestStatus({ id: theirs.id, familyId: FAMILY, tokenId: TOKEN }, later)).toBeNull();
+    expect(await actionRequestStatus({ id: otherFamily.id, familyId: FAMILY, tokenId: TOKEN }, later)).toBeNull();
+    expect(await actionRequestStatus({ id: "nope", familyId: FAMILY, tokenId: TOKEN }, later)).toBeNull();
+    const status = await actionRequestStatus({ id: mine.id, familyId: FAMILY, tokenId: TOKEN }, later);
+    expect(status?.status).toBe("expired");
+    expect(rows.get(mine.id)!.status).toBe("expired");
+  });
+
+  test("a screen can read any of its family's requests, but not another family's", async () => {
+    const { store, rows } = fakeStore();
+    const mine = seed(rows, { status: "done", result: { status: 200 } });
+    const other = seed(rows, { family_id: OTHER_FAMILY });
+    expect((await familyActionRequest(mine.id, FAMILY, { store }))?.status).toBe("done");
+    expect(await familyActionRequest(other.id, FAMILY, { store })).toBeNull();
+  });
+
+  test("what leaves the server: no token id or deciding device for screens; only status fields for the assistant", () => {
+    const { rows } = fakeStore();
+    const row = seed(rows, { decided_by_device_id: DEVICE, status: "done", result: { status: 200 } });
+    const screen = toScreenRequest(row, "Hall");
+    expect(screen).not.toHaveProperty("token_id");
+    expect(screen).not.toHaveProperty("decided_by_device_id");
+    expect(screen.room).toBe("Hall");
+    expect(Object.keys(toAssistantRequest(row)).sort()).toEqual(
+      ["created_at", "decided_at", "entity_id", "expires_at", "id", "result", "service", "status"],
+    );
+  });
+});
+
+// ── wording ─────────────────────────────────────────────────────────────────
+
+test.describe("describing an action", () => {
+  const translators = Object.fromEntries(
+    ([["en", en], ["de", de], ["fr", fr]] as const).map(([locale, messages]) => [
+      locale,
+      createTranslator({ locale, messages, namespace: "assistantActions" }) as unknown as
+        (key: string, values?: Record<string, string | number>) => string,
+    ]),
+  );
+
+  test("says who wants to do what to which device, in words", () => {
+    const action = { client_name: "Claude", entity_name: "Front door", room: "Hallway", domain: "lock", service: "unlock", data: {} };
+    expect(describeAction(translators.en, action)).toBe("Claude wants to unlock Front door (Hallway)");
+    expect(describeAction(translators.de, action)).toBe("Claude möchte Front door (Hallway) aufschließen");
+    expect(describeAction(translators.fr, action)).toBe("Claude veut déverrouiller Front door (Hallway)");
+    expect(describeAction(translators.en, { ...action, room: null })).toBe("Claude wants to unlock Front door");
+    expect(describeAction(translators.en, { ...action, room: null, domain: "cover", service: "set_cover_position", data: { position: 30 }, entity_name: "Garage" }))
+      .toBe("Claude wants to move Garage to 30%");
+  });
+
+  test("every sensitive service in the policy has its own words in every language", () => {
+    const sensitive: string[] = [];
+    for (const [domain, services] of Object.entries(ALLOWED_SERVICES)) {
+      for (const [service, spec] of Object.entries(services)) {
+        if ((spec as { sensitive: string }).sensitive !== "never") sensitive.push(`${domain}.${service}`);
+      }
+    }
+    expect(sensitive.length).toBeGreaterThan(15);
+    for (const id of sensitive) {
+      const [domain, service] = [id.slice(0, id.indexOf(".")), id.slice(id.indexOf(".") + 1)];
+      expect(actionVerbKey(domain, service), id).not.toBe("generic");
+      for (const [locale, t] of Object.entries(translators)) {
+        const text = describeAction(t, { client_name: "C", entity_name: "D", domain, service, data: { position: 5 } });
+        expect(text, `${locale} ${id}`).not.toContain("assistantActions.");
+        expect(text, `${locale} ${id}`).not.toMatch(/[{}]/);
+        expect(text, `${locale} ${id}`).toContain("D");
+      }
+    }
+  });
+
+  test("an unknown service falls back to naming it", () => {
+    expect(actionVerbKey("light", "turn_on")).toBe("generic");
+    expect(describeAction(translators.en, { client_name: "Claude", entity_name: "Lamp", domain: "light", service: "turn_on", data: {} }))
+      .toBe("Claude wants to run “turn_on” on Lamp");
+  });
+});
+
+// ── the screen prompt ───────────────────────────────────────────────────────
+
+test.describe("the prompt on a screen", () => {
+  const screen = (overrides: Partial<ActionRequestRow> = {}) => {
+    const { rows } = fakeStore();
+    return toScreenRequest(seed(rows, overrides));
+  };
+
+  test("counts down in whole seconds, never below zero; an unreadable expiry is zero", () => {
+    const expires = new Date(T0.getTime() + ACTION_REQUEST_TTL_MS).toISOString();
+    expect(secondsLeft(expires, T0)).toBe(120);
+    expect(secondsLeft(expires, new Date(T0.getTime() + 119_001))).toBe(1);
+    expect(secondsLeft(expires, new Date(T0.getTime() + 120_000))).toBe(0);
+    expect(secondsLeft(expires, new Date(T0.getTime() + 999_000))).toBe(0);
+    expect(secondsLeft("not a date", T0)).toBe(0);
+  });
+
+  test("shows only pending requests with time left", () => {
+    const live = screen();
+    const decided = screen({ status: "done" });
+    const ranOut = screen({ expires_at: new Date(T0.getTime() + 5_000).toISOString() });
+    expect(visibleRequests([live, decided, ranOut], new Date(T0.getTime() + 10_000)).map((r) => r.id)).toEqual([live.id]);
+  });
+
+  test("maps every error the route can answer to its own message, anything else to a generic one", () => {
+    for (const code of ["pin_invalid", "rate_limited", "expired", "already_decided", "revoked", "pin_required", "not_found"]) {
+      const key = decisionErrorKey(code);
+      expect(key).toBe(`errors.${code}`);
+      for (const messages of [en, de, fr]) {
+        expect((messages.assistantActions.errors as Record<string, string>)[code], code).toBeTruthy();
+      }
+    }
+    expect(decisionErrorKey("internal_error")).toBe("errors.generic");
+    expect(decisionErrorKey(undefined)).toBe("errors.generic");
+  });
+
+  test("Allow and Deny need a four-digit PIN, time left, and no decision in flight", () => {
+    expect(canDecide("4711", false, 30)).toBe(true);
+    expect(canDecide("471", false, 30)).toBe(false);
+    expect(canDecide("47a1", false, 30)).toBe(false);
+    expect(canDecide("4711", true, 30)).toBe(false);
+    expect(canDecide("4711", false, 0)).toBe(false);
+  });
+
+  test("every status the deep-link page can show has words in every language", () => {
+    for (const status of ["pending", "approved", "done", "failed", "denied", "expired"]) {
+      for (const messages of [en, de, fr]) {
+        expect((messages.assistantActions.status as Record<string, string>)[status], status).toBeTruthy();
+      }
+    }
+  });
+});

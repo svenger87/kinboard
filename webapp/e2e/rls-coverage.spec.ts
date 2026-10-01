@@ -83,13 +83,32 @@ test("every family-scoped table is under row-level security", () => {
   // - oauth_authorization_requests: no RLS, REVOKE-from-anon/authenticated and
   //   GRANT-to-service_role-only in migration_oauth_mcp.sql, like
   //   integration_tokens above.
+  // - assistant_action_requests: its own RLS + a family-scoped SELECT-only
+  //   policy, REVOKE ALL from anon/authenticated and only SELECT given back to
+  //   authenticated (realtime needs it), in
+  //   migration_zzzz_assistant_actions.sql — verified below. A screen's token
+  //   must never be able to UPDATE a request into "approved" past the PIN.
   const coveredElsewhere = new Set([
     "context_rules", "attention_items",
     "integration_tokens", "integration_clients",
     "integration_idempotency", "domain_events",
     "todo_point_awards",
     "oauth_authorization_requests",
+    "assistant_action_requests",
   ]);
+
+  const actionsSql = codeOnly(
+    readFileSync(join(DOCKER, "migration_zzzz_assistant_actions.sql"), "utf8"),
+    { sql: true },
+  );
+  expect(actionsSql).toMatch(/ALTER TABLE public\.assistant_action_requests ENABLE ROW LEVEL SECURITY;/i);
+  expect(actionsSql).toMatch(/CREATE POLICY assistant_action_requests_family_read ON public\.assistant_action_requests\s+FOR SELECT USING \(family_id = public\.current_family_id\(\)\);/i);
+  expect(actionsSql).toMatch(/REVOKE ALL ON TABLE public\.assistant_action_requests FROM anon;/i);
+  expect(actionsSql).toMatch(/REVOKE ALL ON TABLE public\.assistant_action_requests FROM authenticated;/i);
+  expect(actionsSql).toMatch(/GRANT SELECT ON TABLE public\.assistant_action_requests TO authenticated;/i);
+  expect(actionsSql).not.toMatch(/GRANT\s+(?:ALL|INSERT|UPDATE|DELETE)[^;]*assistant_action_requests TO (?:anon|authenticated)/i);
+  // Sorts after the RLS migration, whose clean-up loop drops non-`_family_scope` policies.
+  expect("migration_zzzz_assistant_actions.sql" > "migration_zz_row_level_security.sql").toBe(true);
 
   const awardsSql = codeOnly(
     readFileSync(join(DOCKER, "migration_zzz_todo_points.sql"), "utf8"),

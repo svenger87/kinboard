@@ -1,14 +1,16 @@
 /**
  * The real dependencies of the home routes (`lib/home/devices.ts`).
  *
- * `requestConfirmation` is deliberately absent until RFC-011 Task 9 adds the
- * confirmation flow; without it a sensitive action answers 501 and never
- * reaches Home Assistant. Task 9 adds it here.
+ * `requestConfirmation` stores a sensitive action and pushes the family
+ * (`lib/home/action-requests.ts`, RFC-011 §4.3); `recordAction` writes the
+ * attribution row for an action that ran without confirmation (RFC-011 §7).
  */
 
 import type { HomeDeps } from "@/lib/home/devices";
 import { catalogueEntities, catalogueEntity } from "@/lib/home/catalogue";
 import { callHaService, getHaStates } from "@/lib/home/ha-client";
+import { createActionRequest, recordHomeAction } from "@/lib/home/action-requests";
+import { liveActionStore, pushActionRequest } from "@/lib/home/action-requests-live";
 
 export const liveHomeDeps: HomeDeps = {
   catalogueEntities,
@@ -16,4 +18,37 @@ export const liveHomeDeps: HomeDeps = {
   getHaStates: (familyId, entityIds) => getHaStates(familyId, entityIds),
   callHaService: (familyId, domain, service, entityId, data) =>
     callHaService(familyId, domain, service, entityId, data),
+  requestConfirmation: async (request) => {
+    const { id, expiresAt } = await createActionRequest(
+      {
+        familyId: request.familyId,
+        tokenId: request.tokenId,
+        clientName: request.tokenName,
+        entityId: request.entityId,
+        entityName: request.entityName,
+        room: request.room,
+        domain: request.domain,
+        service: request.service,
+        data: request.data,
+      },
+      { store: liveActionStore, push: pushActionRequest },
+    );
+    return { requestId: id, expiresAt };
+  },
+  recordAction: (record) =>
+    recordHomeAction(
+      {
+        familyId: record.familyId,
+        tokenId: record.tokenId,
+        clientName: record.tokenName,
+        entityId: record.entityId,
+        entityName: record.entityName,
+        domain: record.domain,
+        service: record.service,
+        data: record.data,
+        ok: record.ok,
+        status: record.status,
+      },
+      { store: liveActionStore },
+    ),
 };

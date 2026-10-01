@@ -17,9 +17,9 @@ export const dynamic = "force-dynamic";
  * `device_class`, then call or confirmation — and why it is fail-closed at
  * every step is documented in `lib/home/devices.ts`, which holds all of it.
  *
- * Sensitive actions answer 501 `not_implemented` and do not run until the
- * confirmation flow (RFC-011 §4.3, Task 9) supplies
- * `liveHomeDeps.requestConfirmation`; then they answer 202.
+ * Sensitive actions answer 202 `pending_confirmation` and do not run until
+ * a family member approves them on a Kinboard screen with the settings PIN
+ * (RFC-011 §4.3); the assistant follows them at `GET /home/actions/{id}`.
  *
  * Idempotency as in `calendar/events` POST. The entity is part of the
  * fingerprint, so a key reused for another device is a conflict, and only a

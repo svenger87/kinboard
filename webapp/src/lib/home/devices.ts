@@ -23,14 +23,10 @@
  * 4. The policy decides again with the live `device_class`, which is the
  *    decision that counts. A `device_class` in the request body is ignored.
  * 5. Non-sensitive → Home Assistant is called once with the policy's rebuilt
- *    data. Sensitive → `requestConfirmation` (RFC-011 §4.3), and nothing
- *    runs until a person confirms.
- *
- * **Seam for Task 9.** `HomeDeps.requestConfirmation` is optional. Until the
- * confirmation flow exists the routes do not pass it, and a sensitive action
- * answers 501 `not_implemented` without calling Home Assistant. Task 9 adds
- * its implementation to `liveHomeDeps` (`lib/home/live.ts`); nothing in this
- * file needs to change for that.
+ *    data, and the call is recorded (`recordAction`) so every action is
+ *    attributable to the assistant that asked (RFC-011 §7). Sensitive →
+ *    `requestConfirmation` stores it (`lib/home/action-requests.ts`), and
+ *    nothing runs until a family member approves it with the settings PIN.
  */
 
 import { allowedActionsFor, decideHomeAction, ENTITY_ID } from "@/lib/home/policy";
@@ -44,10 +40,19 @@ export interface ConfirmationRequest {
   tokenId: string;
   tokenName: string;
   entityId: string;
+  /** The household's name for the device, and its room — for the screens and the push. */
+  entityName: string;
+  room: string | null;
   domain: string;
   service: string;
   /** Already validated and rebuilt by the policy; stored and run exactly as is. */
   data: Record<string, unknown>;
+}
+
+/** An action that ran without confirmation, and what Home Assistant answered. */
+export interface ActionRecord extends Omit<ConfirmationRequest, "room"> {
+  ok: boolean;
+  status: number;
 }
 
 export interface HomeDeps {
@@ -57,8 +62,10 @@ export interface HomeDeps {
   callHaService: (
     familyId: string, domain: string, service: string, entityId: string, data: Record<string, unknown>,
   ) => Promise<{ ok: boolean; status: number }>;
-  /** Task 9. Absent → sensitive actions answer 501 and do not run. */
-  requestConfirmation?: (request: ConfirmationRequest) => Promise<{ requestId: string; expiresAt: string }>;
+  /** Store a sensitive action until a family member decides it (RFC-011 §4.3). */
+  requestConfirmation: (request: ConfirmationRequest) => Promise<{ requestId: string; expiresAt: string }>;
+  /** Attribute an action that ran (RFC-011 §7). A failure is logged, never the action's. */
+  recordAction: (record: ActionRecord) => Promise<void>;
 }
 
 export interface HomeResult {
@@ -73,15 +80,17 @@ const fail = (status: number, code: string, error: string, extra: Record<string,
 
 const NOT_FOUND = (): HomeResult => fail(404, "not_found", "No such device in this family's catalogue");
 
-/** The `{entity}` path segment as an entity id, or null. */
+/**
+ * The `{entity}` path segment as an entity id, or null.
+ *
+ * Not decoded again: Next already decodes a dynamic segment once before the
+ * route sees it (`getRouteMatcher` in next/dist/shared/lib/router/utils/
+ * route-matcher.js), so `light%2Ekitchen` arrives as `light.kitchen`. A
+ * second decode would accept a double-encoded `light%252Ekitchen` too —
+ * harmless only because `ENTITY_ID` is checked after it.
+ */
 export function parseEntityParam(raw: string): string | null {
-  let entityId: string;
-  try {
-    entityId = decodeURIComponent(raw);
-  } catch {
-    return null;
-  }
-  return entityId.length <= MAX_ENTITY_ID && ENTITY_ID.test(entityId) ? entityId : null;
+  return raw.length <= MAX_ENTITY_ID && ENTITY_ID.test(raw) ? raw : null;
 }
 
 // ── attributes ──────────────────────────────────────────────────────────────
@@ -115,26 +124,42 @@ export const ATTRIBUTE_WHITELIST: ReadonlySet<string> = new Set([
 ]);
 
 const MAX_TEXT = 200;
-const MAX_LIST = 20;
+const MAX_MODES = 10;
+const MAX_MODE = 32;
 
-function scalar(value: unknown): unknown {
-  if (typeof value === "string") return value.slice(0, MAX_TEXT);
-  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
-  if (typeof value === "boolean" || value === null) return value;
+/** Numbers: finite or null. Everything else under these keys is dropped. */
+const NUMERIC_ATTRIBUTES: ReadonlySet<string> = new Set([
+  "brightness", "current_temperature", "temperature", "volume_level",
+  "current_position", "percentage", "humidity",
+]);
+/** Text: at most 200 characters, or null. */
+const TEXT_ATTRIBUTES: ReadonlySet<string> = new Set([
+  "friendly_name", "unit_of_measurement", "device_class", "hvac_mode", "media_title",
+]);
+
+function typedAttribute(key: string, raw: unknown): unknown {
+  if (raw === null) return key === "hvac_modes" ? undefined : null;
+  if (NUMERIC_ATTRIBUTES.has(key)) return typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
+  if (TEXT_ATTRIBUTES.has(key)) return typeof raw === "string" ? raw.slice(0, MAX_TEXT) : undefined;
+  if (key === "hvac_modes") {
+    if (!Array.isArray(raw)) return undefined;
+    return raw.filter((m): m is string => typeof m === "string").slice(0, MAX_MODES).map((m) => m.slice(0, MAX_MODE));
+  }
   return undefined;
 }
 
-/** Whitelisted keys only, scalar values only (`hvac_modes`: a short list of strings). */
+/**
+ * Whitelisted keys only, each with its own type: the numeric ones finite
+ * numbers or null, the text ones strings of at most 200 characters or null,
+ * `hvac_modes` at most 10 strings of at most 32. A value of any other type is
+ * dropped rather than coerced — a "brightness" that is a string is not a
+ * brightness.
+ */
 export function whitelistAttributes(attributes: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const key of ATTRIBUTE_WHITELIST) {
     if (!Object.prototype.hasOwnProperty.call(attributes, key)) continue;
-    const raw = attributes[key];
-    const value = key === "hvac_modes"
-      ? (Array.isArray(raw)
-        ? raw.filter((m): m is string => typeof m === "string").slice(0, MAX_LIST).map((m) => m.slice(0, MAX_TEXT))
-        : undefined)
-      : scalar(raw);
+    const value = typedAttribute(key, attributes[key]);
     if (value !== undefined) out[key] = value;
   }
   return out;
@@ -251,16 +276,9 @@ export async function runHomeAction(
 
   // 5a. Sensitive: a person confirms on a Kinboard screen, or nothing runs.
   if (decision.sensitive) {
-    if (!deps.requestConfirmation) {
-      return fail(
-        501,
-        "not_implemented",
-        "This action needs a family member to confirm it on a Kinboard screen, which is not available yet. Nothing was done.",
-      );
-    }
     const pending = await deps.requestConfirmation({
       familyId, tokenId: input.tokenId, tokenName: input.tokenName,
-      entityId, domain, service, data: decision.data,
+      entityId, entityName: entity.name, room: entity.room, domain, service, data: decision.data,
     });
     return {
       status: 202,
@@ -273,8 +291,19 @@ export async function runHomeAction(
   try {
     result = await deps.callHaService(familyId, domain, service, entityId, decision.data);
   } catch (err) {
+    // Not connected: nothing was sent, so there is nothing to attribute.
     if (err instanceof HomeUnavailable) return fail(503, "unavailable", "Home Assistant is not connected to Kinboard");
     throw err;
+  }
+  // The action has happened (or may have); a failure to record it must not turn that into an error.
+  try {
+    await deps.recordAction({
+      familyId, tokenId: input.tokenId, tokenName: input.tokenName,
+      entityId, entityName: entity.name, domain, service, data: decision.data,
+      ok: result.ok, status: result.status,
+    });
+  } catch (err) {
+    console.error("[home] could not record the action:", err instanceof Error ? err.message : "error");
   }
   if (!result.ok) {
     return fail(

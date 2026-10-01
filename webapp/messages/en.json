@@ -219,7 +219,8 @@
     "timersManyTitle": "{count} timers are up",
     "messageTitle": "A message at home",
     "messageTitleFromAssistant": "Message from {name}",
-    "messagesManyTitle": "{count} messages at home"
+    "messagesManyTitle": "{count} messages at home",
+    "assistantActionBody": "Open to allow or deny it with the settings PIN. It expires in 2 minutes."
   },
   "join": {
     "title": "Kinboard",
@@ -4216,5 +4217,59 @@
     "assistantsDisabled": "AI assistants are switched off in Settings → Integrations.",
     "verifiedBy": "Verified by {host}",
     "selfRegisteredWarning": "Self-registered app — Kinboard can't confirm it is really {client}. Only continue if you started this yourself."
+  },
+  "assistantActions": {
+    "title": "An assistant is asking",
+    "request": "{client} wants to {action}",
+    "deviceInRoom": "{name} ({room})",
+    "hint": "Only allow this if someone in the family asked for it.",
+    "expiresIn": "{seconds, plural, one {# second} other {# seconds}} left",
+    "pinLabel": "Settings PIN",
+    "allow": "Allow",
+    "deny": "Deny",
+    "working": "One moment…",
+    "errors": {
+      "pin_invalid": "That PIN isn’t right.",
+      "rate_limited": "Too many wrong tries. Wait a minute, then try again.",
+      "expired": "This request has expired. Nothing was done.",
+      "already_decided": "Someone has already answered this.",
+      "revoked": "This assistant has been disconnected, so nothing was done.",
+      "pin_required": "Set a settings PIN in Settings first. Without one, nobody can approve this.",
+      "not_found": "This request doesn’t exist, or belongs to another family.",
+      "generic": "That didn’t work. Please try again."
+    },
+    "status": {
+      "pending": "Waiting for an answer.",
+      "approved": "Allowed. Running it now…",
+      "done": "Allowed, and done.",
+      "failed": "Allowed, but Home Assistant didn’t confirm it. Check the device.",
+      "denied": "Denied. Nothing was done.",
+      "expired": "Expired. Nothing was done."
+    },
+    "pageTitle": "Assistant request",
+    "loading": "Loading…",
+    "backToDashboard": "Back to the dashboard",
+    "verbs": {
+      "lock_lock": "lock {device}",
+      "lock_unlock": "unlock {device}",
+      "lock_open": "open {device}",
+      "alarm_control_panel_alarm_arm_home": "arm {device} in home mode",
+      "alarm_control_panel_alarm_arm_away": "arm {device} in away mode",
+      "alarm_control_panel_alarm_arm_night": "arm {device} in night mode",
+      "alarm_control_panel_alarm_disarm": "disarm {device}",
+      "cover_open_cover": "open {device}",
+      "cover_close_cover": "close {device}",
+      "cover_stop_cover": "stop {device}",
+      "cover_set_cover_position": "move {device} to {position}%",
+      "script_turn_on": "run {device}",
+      "button_press": "press {device}",
+      "input_button_press": "press {device}",
+      "siren_turn_on": "sound {device}",
+      "siren_turn_off": "silence {device}",
+      "lawn_mower_start_mowing": "start {device} mowing",
+      "lawn_mower_dock": "send {device} back to its dock",
+      "lawn_mower_pause": "pause {device}",
+      "generic": "run “{service}” on {device}"
+    }
   }
 }

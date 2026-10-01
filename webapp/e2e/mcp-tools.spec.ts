@@ -571,10 +571,20 @@ test.describe("control_device", () => {
     }
   });
 
-  test("surfaces a refusal (400) and a not-yet-available confirmation (501) as tool errors", async () => {
+  test("returns a pending confirmation as a result the model can act on, not an error", async () => {
+    const pending = { status: "pending_confirmation", request_id: "33333333-3333-4333-8333-333333333333", expires_at: "2026-10-01T12:02:00.000Z" };
+    const { server } = buildServer(["home:control"], () => pending);
+    const result = await tool(server, "control_device").handler({ entity_id: "lock.front_door", service: "unlock" });
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(result.content[0].text)).toEqual(pending);
+    const description = (registeredTools(server).control_device as unknown as { description: string }).description;
+    expect(description).toContain("get_action_status");
+  });
+
+  test("surfaces a refusal (400) and an unreachable Home Assistant (503) as tool errors", async () => {
     for (const [message, status, code] of [
       ["`unlock` is not an action an assistant may run on this device", 400, "invalid_request"],
-      ["This action needs a family member to confirm it on a Kinboard screen, which is not available yet. Nothing was done.", 501, "not_implemented"],
+      ["The device's current state could not be read from Home Assistant, so nothing was done", 503, "unavailable"],
     ] as const) {
       const { server } = buildServer(["home:control"], () => { throw new IntegrationCallError(message, status, code); });
       const result = await tool(server, "control_device").handler({ entity_id: "lock.front_door", service: "unlock" });
@@ -592,13 +602,57 @@ test.describe("control_device", () => {
   });
 });
 
+test.describe("get_action_status", () => {
+  const ID = "33333333-3333-4333-8333-333333333333";
+
+  test("reads /home/actions/{id} and is read-only", async () => {
+    const action = { id: ID, status: "done", entity_id: "lock.front_door", service: "unlock", result: { status: 200 } };
+    const { server, calls } = buildServer(["home:control"], () => ({ action }));
+    const t = tool(server, "get_action_status");
+    expect(t.annotations?.readOnlyHint).toBe(true);
+    const result = await t.handler({ request_id: ID });
+    expect(calls).toEqual([{ path: `/home/actions/${ID}`, params: { id: ID } }]);
+    expect(JSON.parse(result.content[0].text)).toEqual({ action });
+  });
+
+  test("its input schema takes only a UUID", () => {
+    const { server } = buildServer(["home:control"]);
+    const t = tool(server, "get_action_status") as unknown as { inputSchema: { parse: (v: unknown) => unknown } };
+    expect(() => t.inputSchema.parse({ request_id: "../../devices" })).toThrow();
+    expect(() => t.inputSchema.parse({ request_id: ID })).not.toThrow();
+  });
+
+  test("another assistant's request is the route's 404, surfaced as a tool error", async () => {
+    const { server } = buildServer(["home:control"], () => { throw new IntegrationCallError("No such action request", 404, "not_found"); });
+    const result = await tool(server, "get_action_status").handler({ request_id: ID });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe("No such action request");
+  });
+
+  test("is refused without home:control — home:read does not imply it", async () => {
+    const { server, calls } = buildServer(["home:read"]);
+    const result = await tool(server, "get_action_status").handler({ request_id: ID });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("home:control");
+    expect(calls).toEqual([]);
+  });
+
+  test("says that only done means it ran", () => {
+    const { server } = buildServer(["home:control"]);
+    const description = (registeredTools(server).get_action_status as unknown as { description: string }).description;
+    for (const word of ["pending", "denied", "expired", "failed", "Only done means the action ran"]) {
+      expect(description, word).toContain(word);
+    }
+  });
+});
+
 test("every new tool carries a real scope", () => {
   for (const name of [
     "list_people", "complete_task", "reopen_task", "update_task", "delete_task",
     "check_shopping_item", "uncheck_shopping_item", "rename_shopping_item", "delete_shopping_item",
     "update_note", "delete_note", "update_calendar_event", "delete_calendar_event",
     "get_meal_plan", "add_meal", "remove_meal", "send_message",
-    "list_home_devices", "get_device_state", "control_device",
+    "list_home_devices", "get_device_state", "control_device", "get_action_status",
   ]) {
     expect(TOOL_SCOPES).toHaveProperty(name);
   }
@@ -622,4 +676,5 @@ test("every new tool carries a real scope", () => {
   expect(TOOL_SCOPES.list_home_devices).toBe("home:read");
   expect(TOOL_SCOPES.get_device_state).toBe("home:read");
   expect(TOOL_SCOPES.control_device).toBe("home:control");
+  expect(TOOL_SCOPES.get_action_status).toBe("home:control");
 });

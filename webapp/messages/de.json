@@ -219,7 +219,8 @@
     "timersManyTitle": "{count} Timer sind abgelaufen",
     "messageTitle": "Nachricht von zu Hause",
     "messageTitleFromAssistant": "Nachricht von {name}",
-    "messagesManyTitle": "{count} Nachrichten von zu Hause"
+    "messagesManyTitle": "{count} Nachrichten von zu Hause",
+    "assistantActionBody": "Öffnen, um es mit der Einstellungs-PIN zu erlauben oder abzulehnen. Läuft in 2 Minuten ab."
   },
   "join": {
     "title": "Kinboard",
@@ -4216,5 +4217,59 @@
     "assistantsDisabled": "KI-Assistenten sind unter Einstellungen → Integrationen ausgeschaltet.",
     "verifiedBy": "Bestätigt durch {host}",
     "selfRegisteredWarning": "Selbst registrierte App — Kinboard kann nicht bestätigen, dass es wirklich {client} ist. Fahre nur fort, wenn du das selbst gestartet hast."
+  },
+  "assistantActions": {
+    "title": "Ein Assistent fragt",
+    "request": "{client} möchte {action}",
+    "deviceInRoom": "{name} ({room})",
+    "hint": "Nur erlauben, wenn jemand aus der Familie darum gebeten hat.",
+    "expiresIn": "Noch {seconds, plural, one {# Sekunde} other {# Sekunden}}",
+    "pinLabel": "Einstellungs-PIN",
+    "allow": "Erlauben",
+    "deny": "Ablehnen",
+    "working": "Einen Moment …",
+    "errors": {
+      "pin_invalid": "Die PIN stimmt nicht.",
+      "rate_limited": "Zu viele falsche Versuche. Warte eine Minute und versuch es dann noch einmal.",
+      "expired": "Die Anfrage ist abgelaufen. Es ist nichts passiert.",
+      "already_decided": "Jemand hat die Anfrage schon beantwortet.",
+      "revoked": "Dieser Assistent wurde getrennt, deshalb ist nichts passiert.",
+      "pin_required": "Lege zuerst in den Einstellungen eine PIN fest. Ohne PIN kann niemand das erlauben.",
+      "not_found": "Diese Anfrage gibt es nicht, oder sie gehört zu einer anderen Familie.",
+      "generic": "Das hat nicht geklappt. Bitte versuch es noch einmal."
+    },
+    "status": {
+      "pending": "Wartet auf eine Antwort.",
+      "approved": "Erlaubt. Wird gerade ausgeführt …",
+      "done": "Erlaubt und erledigt.",
+      "failed": "Erlaubt, aber Home Assistant hat es nicht bestätigt. Sieh am Gerät nach.",
+      "denied": "Abgelehnt. Es ist nichts passiert.",
+      "expired": "Abgelaufen. Es ist nichts passiert."
+    },
+    "pageTitle": "Anfrage eines Assistenten",
+    "loading": "Wird geladen …",
+    "backToDashboard": "Zurück zur Übersicht",
+    "verbs": {
+      "lock_lock": "{device} abschließen",
+      "lock_unlock": "{device} aufschließen",
+      "lock_open": "{device} öffnen",
+      "alarm_control_panel_alarm_arm_home": "{device} scharf schalten (Zuhause)",
+      "alarm_control_panel_alarm_arm_away": "{device} scharf schalten (Abwesend)",
+      "alarm_control_panel_alarm_arm_night": "{device} scharf schalten (Nacht)",
+      "alarm_control_panel_alarm_disarm": "{device} unscharf schalten",
+      "cover_open_cover": "{device} öffnen",
+      "cover_close_cover": "{device} schließen",
+      "cover_stop_cover": "{device} anhalten",
+      "cover_set_cover_position": "{device} auf {position} % fahren",
+      "script_turn_on": "{device} ausführen",
+      "button_press": "{device} drücken",
+      "input_button_press": "{device} drücken",
+      "siren_turn_on": "{device} einschalten",
+      "siren_turn_off": "{device} ausschalten",
+      "lawn_mower_start_mowing": "{device} mähen lassen",
+      "lawn_mower_dock": "{device} zur Ladestation schicken",
+      "lawn_mower_pause": "{device} anhalten",
+      "generic": "„{service}“ für {device} ausführen"
+    }
   }
 }
