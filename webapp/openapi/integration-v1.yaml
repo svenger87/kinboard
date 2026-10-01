@@ -610,6 +610,133 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
+  /recipes:
+    get:
+      tags: [state]
+      summary: Find the family's recipes
+      description: |
+        The family's own saved recipes, never binned ones; there is no
+        external recipe search. `query` matches the title or any tag name,
+        `tag` a whole tag name, both case-insensitively. Favourites first,
+        then by title.
+      x-required-scope: family:read
+      parameters:
+        - name: query
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: tag
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        "200":
+          description: Matching recipes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recipes]
+                properties:
+                  recipes:
+                    type: array
+                    items: { $ref: "#/components/schemas/RecipeSummary" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /recipes/{id}:
+    get:
+      tags: [state]
+      summary: Read one recipe
+      description: |
+        Ingredients in their sort order, each with the `id` that
+        `POST /recipes/{id}/shopping` takes, and the instructions as plain
+        steps. Another family's recipe and a binned one are both not found.
+      x-required-scope: family:read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The recipe
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recipe]
+                properties:
+                  recipe: { $ref: "#/components/schemas/RecipeDetail" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such recipe in this family. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /recipes/{id}/shopping:
+    post:
+      tags: [state]
+      summary: Put a recipe's ingredients on the shopping list
+      description: |
+        What the recipe page's "add to shopping list" does: quantities are
+        scaled by `servings` over the recipe's servings (an ingredient with
+        no quantity stays without one), each item gets the catalogue's
+        category, picture and catalogue id where one matches (else the
+        ingredient's own category, else `sonstiges`), and every item carries
+        the recipe's id. `ingredient_ids` limits the add to those
+        ingredients; an id that is not in this recipe is refused and nothing
+        is added. With Bring! two-way sync on, each item is also put on the
+        family's Bring! list; the catalogue or Bring! failing never fails
+        the add. Every call adds new items.
+      x-required-scope: shopping:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                servings: { type: integer, minimum: 1, maximum: 50 }
+                ingredient_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  items: { type: string, format: uuid }
+      responses:
+        "201":
+          description: The items added, in the recipe's order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [added]
+                properties:
+                  added:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, quantity, unit]
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        quantity: { type: [number, "null"] }
+                        unit: { type: [string, "null"] }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such recipe in this family. }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The items could not be stored. }
+
   /people:
     get:
       tags: [state]
@@ -1329,6 +1456,44 @@ components:
         person_id: { type: [string, "null"], format: uuid }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    RecipeSummary:
+      type: object
+      required: [id, title, servings, tags, is_favorite]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        servings: { type: integer, description: The recipe's servings; 4 when unset. }
+        total_time_minutes: { type: [integer, "null"] }
+        prep_time_minutes: { type: [integer, "null"] }
+        cook_time_minutes: { type: [integer, "null"] }
+        difficulty: { type: [string, "null"], enum: [einfach, mittel, schwer, null] }
+        tags: { type: array, items: { type: string } }
+        is_favorite: { type: boolean }
+        image_url: { type: [string, "null"] }
+
+    RecipeDetail:
+      allOf:
+        - $ref: "#/components/schemas/RecipeSummary"
+        - type: object
+          required: [ingredients, instructions]
+          properties:
+            description: { type: [string, "null"] }
+            source_url: { type: [string, "null"] }
+            ingredients:
+              type: array
+              items:
+                type: object
+                required: [id, name, quantity, unit, group, notes, sort_order]
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string }
+                  quantity: { type: [number, "null"] }
+                  unit: { type: [string, "null"] }
+                  group: { type: [string, "null"] }
+                  notes: { type: [string, "null"] }
+                  sort_order: { type: integer }
+            instructions: { type: array, items: { type: string } }
 
     MealPlanEntry:
       type: object

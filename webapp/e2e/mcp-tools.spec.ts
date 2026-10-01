@@ -675,6 +675,97 @@ test.describe("list_vehicles", () => {
   });
 });
 
+const RECIPE = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+const INGREDIENT = "eeeeeeee-eeee-eeee-eeee-000000000001";
+type Annotated = ReturnType<typeof tool> & { annotations?: Record<string, unknown>; inputSchema: { parse: (v: unknown) => unknown } };
+
+test.describe("search_recipes", () => {
+  test("reads /recipes with only the filters supplied, and is read-only", async () => {
+    const { server, calls } = buildServer(["family:read"], () => ({ recipes: [] }));
+    const t = tool(server, "search_recipes") as unknown as Annotated;
+    expect(t.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: false });
+    await t.handler({ query: "Pasta", limit: 5 });
+    await t.handler({});
+    expect(calls).toEqual([
+      { path: "/recipes", query: { query: "Pasta", limit: "5" } },
+      { path: "/recipes", query: {} },
+    ]);
+  });
+
+  test("its input schema caps limit at 50", () => {
+    const { server } = buildServer(["family:read"]);
+    const t = tool(server, "search_recipes") as unknown as Annotated;
+    expect(() => t.inputSchema.parse({ limit: 51 })).toThrow();
+    expect(() => t.inputSchema.parse({ limit: 50 })).not.toThrow();
+  });
+
+  test("is refused without family:read, and says it searches only the family's own recipes", async () => {
+    const { server, calls } = buildServer(["shopping:write"]);
+    const result = await tool(server, "search_recipes").handler({});
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("family:read");
+    expect(calls).toEqual([]);
+    const description = (registeredTools(server).search_recipes as unknown as { description: string }).description;
+    expect(description).toContain("not the web");
+  });
+});
+
+test.describe("get_recipe", () => {
+  test("reads /recipes/{id} and is read-only", async () => {
+    const { server, calls } = buildServer(["family:read"], () => ({ recipe: { id: RECIPE } }));
+    const t = tool(server, "get_recipe") as unknown as Annotated;
+    expect(t.annotations).toMatchObject({ readOnlyHint: true });
+    await t.handler({ recipe_id: RECIPE });
+    expect(calls).toEqual([{ path: `/recipes/${RECIPE}`, params: { id: RECIPE } }]);
+  });
+
+  test("surfaces the route's 404 as a tool error, not a crash", async () => {
+    const { server } = buildServer(["family:read"], () => {
+      throw new IntegrationCallError("no such recipe", 404, "not_found");
+    });
+    const result = await tool(server, "get_recipe").handler({ recipe_id: RECIPE });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe("no such recipe");
+  });
+});
+
+test.describe("add_recipe_to_shopping_list", () => {
+  test("POSTs servings and ingredient_ids, without the recipe id in the body", async () => {
+    const { server, calls } = buildServer(["shopping:write"], () => ({ added: [] }));
+    await tool(server, "add_recipe_to_shopping_list").handler({ recipe_id: RECIPE, servings: 6, ingredient_ids: [INGREDIENT] });
+    await tool(server, "add_recipe_to_shopping_list").handler({ recipe_id: RECIPE });
+    expect(calls).toEqual([
+      { path: `/recipes/${RECIPE}/shopping`, params: { id: RECIPE }, body: { servings: 6, ingredient_ids: [INGREDIENT] } },
+      { path: `/recipes/${RECIPE}/shopping`, params: { id: RECIPE }, body: {} },
+    ]);
+  });
+
+  test("is a create that reaches outside Kinboard, and says Bring! cannot be taken back", () => {
+    const { server } = buildServer(["shopping:write"]);
+    const t = tool(server, "add_recipe_to_shopping_list") as unknown as Annotated;
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false, openWorldHint: true });
+    const description = (registeredTools(server).add_recipe_to_shopping_list as unknown as { description: string }).description;
+    expect(description).toContain("Bring!");
+    expect(description).toContain("cannot take back");
+  });
+
+  test("its input schema rejects a bad servings and an empty ingredient list", () => {
+    const { server } = buildServer(["shopping:write"]);
+    const t = tool(server, "add_recipe_to_shopping_list") as unknown as Annotated;
+    expect(() => t.inputSchema.parse({ recipe_id: RECIPE, servings: 0 })).toThrow();
+    expect(() => t.inputSchema.parse({ recipe_id: RECIPE, ingredient_ids: [] })).toThrow();
+    expect(() => t.inputSchema.parse({ recipe_id: "nope" })).toThrow();
+  });
+
+  test("is refused without shopping:write — family:read does not imply it", async () => {
+    const { server, calls } = buildServer(["family:read"]);
+    const result = await tool(server, "add_recipe_to_shopping_list").handler({ recipe_id: RECIPE });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("shopping:write");
+    expect(calls).toEqual([]);
+  });
+});
+
 test("every new tool carries a real scope", () => {
   for (const name of [
     "list_people", "complete_task", "reopen_task", "update_task", "delete_task",
@@ -682,6 +773,7 @@ test("every new tool carries a real scope", () => {
     "update_note", "delete_note", "update_calendar_event", "delete_calendar_event",
     "get_meal_plan", "add_meal", "remove_meal", "send_message",
     "list_home_devices", "get_device_state", "control_device", "get_action_status", "list_vehicles",
+    "search_recipes", "get_recipe", "add_recipe_to_shopping_list",
   ]) {
     expect(TOOL_SCOPES).toHaveProperty(name);
   }

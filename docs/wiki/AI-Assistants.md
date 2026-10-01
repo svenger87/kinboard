@@ -105,6 +105,14 @@ change them.
 | `add_meal` | Add a meal to a date and slot (breakfast, lunch, dinner or snack) — adds to the slot, doesn't replace what's already there |
 | `remove_meal` | Remove a meal plan entry — to the recycle bin, recoverable from Settings |
 
+### Recipes
+
+| Tool | Does |
+|---|---|
+| `search_recipes` | Find the family's own saved recipes by title or tag — never a recipe from the web |
+| `get_recipe` | One recipe's ingredients, servings, times and steps |
+| `add_recipe_to_shopping_list` | Put a recipe's ingredients — all of them or just the ones picked — on the shopping list, scaled to the servings asked for, exactly as the recipe page's button does. With Bring! sync on they go onto the Bring! list too |
+
 ### Messages and energy
 
 | Tool | Does |
