@@ -190,12 +190,30 @@ export async function unlockSettings(sessionId: string, now: Date = new Date()):
   if (error) throw new Error(`Failed to record the settings unlock: ${error.message}`);
 }
 
-/** Ends this device's unlock — after the PIN is removed, so a new one starts from a locked state. */
-export async function clearSettingsUnlock(sessionId: string): Promise<void> {
-  const { error } = await createAdminClient()
+/**
+ * Ends the settings unlock of every device in the family, or of every device
+ * but `exceptSessionId`.
+ *
+ * An unlock is proof that a device knew the PIN — the PIN as it was then.
+ * When the PIN changes, a device that only knew the old one must not keep a
+ * fifteen-minute window to mint tokens or switch assistants on with it; when
+ * it is removed, every window ends so a PIN set later starts every device
+ * from locked. The device that made the change is the one exception on a
+ * change: choosing the new PIN proves it knows it.
+ *
+ * `db` is injectable so the query shape can be tested without a database.
+ */
+export async function clearSettingsUnlockForFamily(
+  familyId: string,
+  exceptSessionId?: string,
+  db: any = createAdminClient(),
+): Promise<void> {
+  let query = db
     .from("device_sessions")
     .update({ settings_unlocked_until: null })
-    .eq("id", sessionId);
+    .eq("family_id", familyId);
+  if (exceptSessionId) query = query.neq("id", exceptSessionId);
+  const { error } = await query;
   if (error) throw new Error(`Failed to clear the settings unlock: ${error.message}`);
 }
 

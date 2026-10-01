@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import {
   familyHasPin, verifySettingsPin, setSettingsPin, setSettingsPinIfAbsent, PIN_FORMAT,
-  settingsUnlocked, requireSettingsUnlock, SETTINGS_UNLOCK_TTL_S,
+  settingsUnlocked, requireSettingsUnlock, SETTINGS_UNLOCK_TTL_S, clearSettingsUnlockForFamily,
 } from "../src/lib/settings-pin";
 import type { SessionContext } from "../src/lib/session";
 
@@ -134,4 +134,47 @@ test.describe("settings unlock", () => {
   test("a PIN lookup that fails is a failure, not 'no PIN'", async () => {
     await expect(requireSettingsUnlock(session(null), async () => { throw new Error("db down"); }, NOW)).rejects.toThrow("db down");
   });
+});
+
+/** Records the PostgREST builder calls clearSettingsUnlockForFamily makes. */
+function recordingDb(error: { message: string } | null = null) {
+  const calls: unknown[][] = [];
+  const builder: any = {
+    eq: (...a: unknown[]) => { calls.push(["eq", ...a]); return builder; },
+    neq: (...a: unknown[]) => { calls.push(["neq", ...a]); return builder; },
+    then: (resolve: (v: unknown) => void) => resolve({ error }),
+  };
+  const db = {
+    from: (t: string) => {
+      calls.push(["from", t]);
+      return { update: (v: unknown) => { calls.push(["update", v]); return builder; } };
+    },
+  };
+  return { db, calls };
+}
+
+test("a PIN change clears every other device's unlock in the family", async () => {
+  const { db, calls } = recordingDb();
+  await clearSettingsUnlockForFamily("fam-x", "sess-acting", db);
+  expect(calls).toEqual([
+    ["from", "device_sessions"],
+    ["update", { settings_unlocked_until: null }],
+    ["eq", "family_id", "fam-x"],
+    ["neq", "id", "sess-acting"],
+  ]);
+});
+
+test("a PIN removal clears every device's unlock, the acting one included", async () => {
+  const { db, calls } = recordingDb();
+  await clearSettingsUnlockForFamily("fam-x", undefined, db);
+  expect(calls).toEqual([
+    ["from", "device_sessions"],
+    ["update", { settings_unlocked_until: null }],
+    ["eq", "family_id", "fam-x"],
+  ]);
+});
+
+test("clearing the unlocks throws when the update fails", async () => {
+  const { db } = recordingDb({ message: "boom" });
+  await expect(clearSettingsUnlockForFamily("fam-x", undefined, db)).rejects.toThrow(/boom/);
 });

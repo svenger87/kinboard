@@ -4,7 +4,7 @@ import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import {
   PIN_FORMAT,
   PIN_KEY,
-  clearSettingsUnlock,
+  clearSettingsUnlockForFamily,
   familyHasPin,
   requireSettingsUnlock,
   setSettingsPin,
@@ -120,6 +120,10 @@ export async function POST(request: NextRequest) {
         // locked.
         return NextResponse.json({ error: "pin_required" }, { status: 403 });
       }
+      // Every other device's unlock was earned with the old PIN (or, for a
+      // first PIN, is a leftover from before one existed): end them, so a
+      // device that never learned this PIN cannot keep acting on it.
+      await clearSettingsUnlockForFamily(familyId, auth.session.sessionId);
       // Choosing the PIN is proof of knowing it; without this, setting one
       // would lock the person who just set it out of the next action.
       await unlockSettings(auth.session.sessionId);
@@ -135,10 +139,10 @@ export async function POST(request: NextRequest) {
       const locked = await requireSettingsUnlock(auth.session);
       if (locked) return locked;
       await deleteSecrets(familyId, PIN_KEY);
-      // Without a PIN everything is open anyway; clearing the unlock means a
-      // PIN set later starts this device from locked, not from a leftover
-      // window.
-      await clearSettingsUnlock(auth.session.sessionId);
+      // Without a PIN everything is open anyway; clearing every device's
+      // unlock (this one included) means a PIN set later starts them all
+      // from locked, not from a leftover window.
+      await clearSettingsUnlockForFamily(familyId);
     } catch (err) {
       console.error("pin: failed to remove PIN:", err);
       return NextResponse.json({ error: "Failed to remove PIN" }, { status: 500 });
