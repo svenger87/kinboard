@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
+import { loadOwnedCalendar, loadOwnedEvent } from "@/lib/google-events-scope";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -71,7 +72,18 @@ async function getOAuth2Client(familyId: string) {
 
 // Every verb here reaches a family's connected Google account with the
 // refresh token stored for it, so the family named in the request decides
-// whose calendar gets read, written or deleted. It was decided by the caller.
+// whose Google credentials make the call. That family_id is checked against
+// the session (familyMatchesSession) below. But event_id and calendar_id are
+// also request-supplied, and events carry no family_id of their own — they
+// are scoped through calendar_id -> calendars.family_id. POST, PATCH and
+// DELETE all resolve those ids through loadOwnedCalendar/loadOwnedEvent
+// (src/lib/google-events-scope.ts), which require the calendar's family_id
+// to match the caller's, so a foreign id is indistinguishable from a
+// missing one. Without that check, a caller could point their own Google
+// credentials at another family's calendar_id/event_id, and — regardless of
+// what Google's own ACL does with the mismatch — always succeeded at
+// corrupting that family's local event row (see POST's google_event_id
+// write-back) and at probing whether a foreign id exists.
 
 // GET: Fetch events from enabled calendars
 export async function GET(request: NextRequest) {
@@ -208,13 +220,9 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // Get calendar's google_calendar_id
-   
-  const { data: calendarData } = await (supabase as any)
-    .from("calendars")
-    .select("google_calendar_id")
-    .eq("id", calendar_id)
-    .single();
+  // Get calendar's google_calendar_id — scoped to the caller's family, so a
+  // calendar_id for someone else's calendar behaves exactly like a missing one.
+  const calendarData = await loadOwnedCalendar(supabase, family_id, calendar_id);
 
   if (!calendarData?.google_calendar_id) {
     return NextResponse.json(
@@ -258,13 +266,18 @@ export async function POST(request: NextRequest) {
       requestBody: googleEvent,
     });
 
-    // Update local event with google_event_id if event_id provided
+    // Update local event with google_event_id if event_id provided — only
+    // when that event is actually one of this family's. A foreign event_id
+    // is silently skipped rather than written to, the same as if it did not
+    // exist.
     if (event_id && createdEvent.id) {
-       
-      await (supabase as any)
-        .from("events")
-        .update({ google_event_id: createdEvent.id })
-        .eq("id", event_id);
+      const owned = await loadOwnedEvent(supabase, family_id, event_id);
+      if (owned) {
+        await (supabase as any)
+          .from("events")
+          .update({ google_event_id: createdEvent.id })
+          .eq("id", event_id);
+      }
     }
 
     return NextResponse.json({
@@ -309,13 +322,10 @@ export async function PATCH(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // Get event with its calendar's google_calendar_id
-   
-  const { data: eventData } = await (supabase as any)
-    .from("events")
-    .select("google_event_id, calendar:calendars(google_calendar_id)")
-    .eq("id", event_id)
-    .single();
+  // Get event with its calendar's google_calendar_id — scoped to the
+  // caller's family, so an event_id for someone else's event responds
+  // exactly as a missing one does, below.
+  const eventData = await loadOwnedEvent(supabase, family_id, event_id);
 
   if (!eventData?.google_event_id) {
     return NextResponse.json(
@@ -324,7 +334,7 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const googleCalendarId = eventData.calendar?.google_calendar_id;
+  const googleCalendarId = eventData.google_calendar_id;
   if (!googleCalendarId) {
     return NextResponse.json(
       { error: "Calendar not linked to Google" },
@@ -409,20 +419,17 @@ export async function DELETE(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // Get event with its calendar's google_calendar_id
-   
-  const { data: eventData } = await (supabase as any)
-    .from("events")
-    .select("google_event_id, calendar:calendars(google_calendar_id)")
-    .eq("id", event_id)
-    .single();
+  // Get event with its calendar's google_calendar_id — scoped to the
+  // caller's family. A foreign event_id is treated exactly like a missing
+  // one: nothing to delete, never a reason to say more.
+  const eventData = await loadOwnedEvent(supabase, family_id, event_id);
 
   if (!eventData?.google_event_id) {
     // Event not linked to Google, nothing to delete
     return NextResponse.json({ success: true, skipped: true });
   }
 
-  const googleCalendarId = eventData.calendar?.google_calendar_id;
+  const googleCalendarId = eventData.google_calendar_id;
   if (!googleCalendarId) {
     return NextResponse.json({ success: true, skipped: true });
   }

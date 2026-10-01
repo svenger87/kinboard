@@ -22,6 +22,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Google Calendar sync could be pointed at another family's calendar or event.** `/api/google/events` checked that the caller belonged to the family named in the request, but looked up the event or calendar id in the request body without checking it belonged to that family. A joined device could overwrite another family's local event record this way, and could make the server attempt a Google Calendar call against another family's calendar using its own Google credentials. Lookups are now scoped to the caller's family, and an id for someone else's calendar or event behaves exactly like one that does not exist.
+
 ## [1.12.1] - 2026-09-30
 
 ### Changed
