@@ -12,6 +12,7 @@ import { useSetting, useUpdateSetting } from "@/hooks";
 import { useToday } from "@/hooks";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { toLocalDateKey } from "@/lib/local-date";
+import { COUNTDOWN_ICONS as ICONS } from "@/lib/countdown-icons";
 
 interface Countdown {
   id: string;
@@ -19,8 +20,6 @@ interface Countdown {
   date: string;
   icon: string;
 }
-
-const ICONS = ["🎉", "🎄", "🎂", "🏖️", "🎒", "🚗", "⭐"];
 
 export function CountdownWidget() {
   const t = useTranslations("countdownWidget");
@@ -31,7 +30,7 @@ export function CountdownWidget() {
   const update = useUpdateSetting<Countdown[]>();
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
-  const [icon, setIcon] = useState(ICONS[0]);
+  const [icon, setIcon] = useState<string>(ICONS[0]);
   const [editing, setEditing] = useState(false);
   const cleanedExpired = useRef("");
   const visible = entries.filter((entry) => entry.date >= todayDateKey);

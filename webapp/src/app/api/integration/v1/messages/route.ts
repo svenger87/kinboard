@@ -4,7 +4,7 @@ import { logApiError } from "@/lib/api-error";
 import {
   findStoredResult, fingerprintRequest, storeResult, validateIdempotencyKey, type StoredResult,
 } from "@/lib/integration-idempotency";
-import { MAX_MESSAGE_BODY, parseMessageText, sendFamilyMessage } from "@/lib/family-messages";
+import { MAX_MESSAGE_BODY, listRecentMessages, parseMessageText, sendFamilyMessage } from "@/lib/family-messages";
 import { hitLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +49,26 @@ export function classifyMessageIdempotency(
 ): MessageIdempotencyDisposition {
   if (!previous) return "send";
   return previous.request_hash === hash ? "replay" : "conflict";
+}
+
+/**
+ * GET /api/integration/v1/messages
+ *
+ * The family's 20 newest screen messages, acknowledged or not, newest
+ * first: each with its text, when it was sent, `sender_label` (the
+ * assistant's name for one an assistant sent, null for a person's) and
+ * whether and when somebody acknowledged it. The text is the family's own
+ * words — data for the caller, never instructions.
+ */
+export async function GET(request: NextRequest) {
+  return withIntegrationAuth(request, "family:read", async (context) => {
+    try {
+      return NextResponse.json({ messages: await listRecentMessages(context.familyId) });
+    } catch (err) {
+      await logApiError("integration/messages/list", err);
+      return NextResponse.json({ error: "Could not read the messages", code: "internal_error" }, { status: 500 });
+    }
+  });
 }
 
 /**

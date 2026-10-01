@@ -48,10 +48,18 @@ test("every scope the consent page offers has a label in every language", () => 
 test("write scopes say they edit and delete, and home control says what waits for the PIN", () => {
   expect(en.oauthConsent.scope_tasks_write).toBe("Add, tick off, edit and delete tasks");
   expect(en.oauthConsent.scope_shopping_write).toBe("Add, tick off, rename and delete shopping items");
-  expect(en.oauthConsent.scope_calendar_write).toBe("Add, change and delete calendar events");
+  expect(en.oauthConsent.scope_calendar_write).toBe("Add, change and delete calendar events and countdowns");
   expect(en.oauthConsent.scope_notes_write).toBe("Add, edit and delete notes");
   expect(en.oauthConsent.scope_meals_write).toBe("Add and remove meals");
   for (const dict of [en, de, fr]) expect(dict.oauthConsent.scope_home_control).toMatch(/PIN/);
+});
+
+test("countdowns and marking a message seen are named where they are granted, in every language", () => {
+  expect(de.oauthConsent.scope_calendar_write).toMatch(/Countdowns/);
+  expect(fr.oauthConsent.scope_calendar_write).toMatch(/comptes à rebours/);
+  expect(en.oauthConsent.scope_announcements_write).toMatch(/mark one as seen/);
+  expect(de.oauthConsent.scope_announcements_write).toMatch(/gesehen/);
+  expect(fr.oauthConsent.scope_announcements_write).toMatch(/vu/);
 });
 
 test("the vehicles scope names charge level and range, in every language", () => {

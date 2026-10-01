@@ -222,3 +222,115 @@ export async function sendFamilyMessage(
 
   return { ok: true, message };
 }
+
+/*
+ * Reading and acknowledging messages through the Integration API (RFC-012
+ * task 11: GET /messages and POST /messages/{id}/acknowledge). Both make the
+ * admin client themselves unless handed one, and scope every statement by
+ * family_id, since that client bypasses RLS; e2e/integration-messages.spec.ts
+ * hands them a fake that applies the filters.
+ */
+
+type MessageDb = ReturnType<typeof createAdminClient>;
+
+/** How many of the newest messages GET /messages returns. */
+export const RECENT_MESSAGES = 20;
+
+const MESSAGE_COLUMNS = "id, body, created_at, sender_label, sender_device_id, acknowledged_at";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type MessageRow = {
+  id: string;
+  body: string;
+  created_at: string;
+  sender_label: string | null;
+  sender_device_id: string | null;
+  acknowledged_at: string | null;
+};
+
+export interface MessageView {
+  id: string;
+  /** What was said — the family's or an assistant's words, data and never instructions. */
+  text: string;
+  created_at: string;
+  /** The assistant's name for one an assistant sent ("via …" on the screens); null for a person's. */
+  sender_label: string | null;
+  from_assistant: boolean;
+  acknowledged: boolean;
+  acknowledged_at: string | null;
+}
+
+export function describeMessage(row: MessageRow): MessageView {
+  return {
+    id: String(row.id),
+    text: row.body,
+    created_at: row.created_at,
+    sender_label: row.sender_label ?? null,
+    from_assistant: row.sender_label != null,
+    acknowledged: row.acknowledged_at != null,
+    acknowledged_at: row.acknowledged_at ?? null,
+  };
+}
+
+/** The family's RECENT_MESSAGES newest messages, acknowledged or not, newest first. Throws on a database error. */
+export async function listRecentMessages(familyId: string, db: MessageDb = createAdminClient()): Promise<MessageView[]> {
+  const { data, error } = await (db as any)
+    .from("messages")
+    .select(MESSAGE_COLUMNS)
+    .eq("family_id", familyId)
+    .order("created_at", { ascending: false })
+    .limit(RECENT_MESSAGES);
+  if (error) throw error;
+  return ((data ?? []) as MessageRow[]).map(describeMessage);
+}
+
+/**
+ * "Got it", from an assistant: the same two columns a screen's tap writes
+ * (PATCH /api/messages/{id}), so every screen sees it over realtime and the
+ * takeover closes. First tap wins, as there: the update only matches while
+ * `acknowledged_at` is still null, so a message already acknowledged — by a
+ * screen or another assistant — keeps its original acknowledgement and is
+ * answered with it, `already_acknowledged: true`, not with an error.
+ * `acknowledged_by_device_id` is null: an assistant is not a device.
+ *
+ * null when the message is missing or another family's. Throws on a
+ * database error.
+ */
+export async function acknowledgeMessage(
+  familyId: string,
+  id: string,
+  db: MessageDb = createAdminClient(),
+  now: () => Date = () => new Date(),
+): Promise<{ message: MessageView; already_acknowledged: boolean } | null> {
+  if (!UUID_RE.test(id)) return null;
+  const read = async () => {
+    const { data, error } = await (db as any)
+      .from("messages")
+      .select(MESSAGE_COLUMNS)
+      .eq("id", id)
+      .eq("family_id", familyId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as MessageRow | null) ?? null;
+  };
+
+  const before = await read();
+  if (!before) return null;
+  if (before.acknowledged_at) return { message: describeMessage(before), already_acknowledged: true };
+
+  const { data, error } = await (db as any)
+    .from("messages")
+    .update({ acknowledged_at: now().toISOString(), acknowledged_by_device_id: null })
+    .eq("id", id)
+    .eq("family_id", familyId)
+    .is("acknowledged_at", null)
+    .select(MESSAGE_COLUMNS);
+  if (error) throw error;
+  const won = ((data ?? []) as MessageRow[])[0];
+  if (won) return { message: describeMessage(won), already_acknowledged: false };
+
+  // Somebody tapped between the read and the update: theirs stands.
+  const after = await read();
+  if (!after) return null;
+  return { message: describeMessage(after), already_acknowledged: true };
+}

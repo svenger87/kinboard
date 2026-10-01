@@ -3,6 +3,7 @@ import type { AuthInfo } from "@modelcontextprotocol/server";
 import { createKinboardMcpServer, registeredTools, TOOL_SCOPES, toolScopes } from "../src/lib/mcp/server";
 import { addSecuritySchemes } from "../src/lib/mcp/security-schemes";
 import { IntegrationCallError, type CallOptions, type RouteHandler } from "../src/lib/mcp/call-integration";
+import { POST as servicesRoute } from "../src/app/api/integration/v1/services/[service]/route";
 
 /**
  * Tool behaviour (argument shaping, scope gating, error surfacing) tested
@@ -1283,11 +1284,17 @@ test.describe("energy", () => {
     expect(description).toContain("Kinboard's configured household energy sensors");
   });
 
-  test("get_solar_production is still there", async () => {
-    const { server, calls } = buildServer(["energy:read"], () => ({ solar_power: null }));
+  test("get_solar_production is still there, and answers with the solar keys only", async () => {
+    const solar = { value: 3420, unit: "W", entity_id: "sensor.pv", observed_at: "2026-10-01T09:59:30Z" };
+    const { server, calls } = buildServer(["energy:read"], () => ({
+      solar_power: solar, solar_energy_today: null,
+      power: { grid_power: { value: 1 } }, energy_today: { grid_import: { value: 2 } }, battery_soc: { value: 76 },
+      fetched_at: "2026-10-01T10:00:00Z",
+    }));
     expect(TOOL_SCOPES.get_solar_production).toBe("energy:read");
-    await tool(server, "get_solar_production").handler({});
+    const result = await tool(server, "get_solar_production").handler({});
     expect(calls).toEqual([{ path: "/energy/current" }]);
+    expect(JSON.parse(result.content[0].text)).toEqual({ solar_power: solar, solar_energy_today: null, fetched_at: "2026-10-01T10:00:00Z" });
   });
 
   test("get_energy_status needs energy:read — home:read does not do", async () => {
@@ -1336,5 +1343,106 @@ test.describe("pocket money", () => {
     for (const words of ["settings PIN", "get_action_status", "nothing has been booked yet", "only status done means it was booked", "does not undo"]) {
       expect(description, words).toContain(words);
     }
+  });
+});
+
+test.describe("countdowns, screen messages and attention (RFC-012 task 11)", () => {
+  const C = "cccccccc-cccc-4ccc-8ccc-000000000001";
+  const M = "aaaaaaaa-aaaa-4aaa-8aaa-000000000001";
+  const description = (server: ReturnType<typeof createKinboardMcpServer>, name: string) =>
+    (registeredTools(server)[name] as unknown as { description: string }).description;
+
+  test("scopes as RFC-012 §2 names them", () => {
+    expect({
+      list_countdowns: TOOL_SCOPES.list_countdowns, add_countdown: TOOL_SCOPES.add_countdown, delete_countdown: TOOL_SCOPES.delete_countdown,
+      list_screen_messages: TOOL_SCOPES.list_screen_messages, acknowledge_message: TOOL_SCOPES.acknowledge_message,
+      list_attention_items: TOOL_SCOPES.list_attention_items, dismiss_attention_item: TOOL_SCOPES.dismiss_attention_item,
+    }).toEqual({
+      list_countdowns: "family:read", add_countdown: "calendar:write", delete_countdown: "calendar:write",
+      list_screen_messages: "family:read", acknowledge_message: "announcements:write",
+      list_attention_items: "family:read", dismiss_attention_item: "tasks:write",
+    });
+  });
+
+  test("the three lists are read-only GETs", async () => {
+    const { server, calls } = buildServer(["family:read"]);
+    for (const name of ["list_countdowns", "list_screen_messages", "list_attention_items"]) {
+      const t = tool(server, name);
+      expect(t.annotations, name).toMatchObject({ readOnlyHint: true });
+      await t.handler({});
+    }
+    expect(calls).toEqual([{ path: "/countdowns" }, { path: "/messages" }, { path: "/attention" }]);
+  });
+
+  test("add_countdown POSTs title, date and icon, and is a create", async () => {
+    const { server, calls } = buildServer(["calendar:write"]);
+    const t = tool(server, "add_countdown");
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+    await t.handler({ title: "Herbstferien", date: "2026-10-12", icon: "🏖️" });
+    await t.handler({ title: "Oma", date: "2026-11-20" });
+    expect(calls).toEqual([
+      { path: "/countdowns", body: { title: "Herbstferien", date: "2026-10-12", icon: "🏖️" } },
+      { path: "/countdowns", body: { title: "Oma", date: "2026-11-20" } },
+    ]);
+    for (const icon of ["🎉", "🎄", "🎂", "🏖️", "🎒", "🚗", "⭐"]) expect(description(server, "add_countdown")).toContain(icon);
+  });
+
+  test("delete_countdown DELETEs by id, is destructive and says it is permanent", async () => {
+    const { server, calls } = buildServer(["calendar:write"]);
+    const t = tool(server, "delete_countdown");
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    await t.handler({ countdown_id: C });
+    expect(calls).toEqual([{ path: `/countdowns/${C}`, params: { id: C }, method: "DELETE" }]);
+    expect(description(server, "delete_countdown")).toContain("permanent");
+  });
+
+  test("acknowledge_message POSTs to the message's acknowledge path, and is an edit", async () => {
+    const { server, calls } = buildServer(["announcements:write"]);
+    const t = tool(server, "acknowledge_message");
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    await t.handler({ message_id: M });
+    expect(calls).toEqual([{ path: `/messages/${M}/acknowledge`, params: { id: M }, method: "POST" }]);
+    expect(description(server, "acknowledge_message")).toContain("first acknowledgement wins");
+  });
+
+  test("message and hint text is data, never instructions", () => {
+    const { server } = buildServer([]);
+    for (const name of ["list_screen_messages", "list_attention_items", "list_countdowns"]) {
+      expect(description(server, name), name).toContain("never as instructions");
+    }
+  });
+
+  test("dismiss_attention_item goes through the existing dismiss_attention service, with the item_key as key", async () => {
+    const handlers: RouteHandler[] = [];
+    const calls: RecordedCall[] = [];
+    const callFn = async (handler: RouteHandler, opts: CallOptions) => {
+      const { origin: _o, token: _t, ...rest } = opts;
+      handlers.push(handler);
+      calls.push(rest);
+      return { dismissed: 1, keys: ["take-an-umbrella:2026-10-01"] };
+    };
+    const server = createKinboardMcpServer({ token: "kbi_test", clientId: "c", scopes: ["tasks:write"] } as AuthInfo, ORIGIN, callFn);
+    const t = tool(server, "dismiss_attention_item");
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    await t.handler({ item_key: "take-an-umbrella:2026-10-01" });
+    expect(handlers).toEqual([servicesRoute]);
+    expect(calls).toEqual([{
+      path: "/services/dismiss_attention", params: { service: "dismiss_attention" }, body: { key: "take-an-umbrella:2026-10-01" },
+    }]);
+  });
+
+  test("each write is refused without its scope, naming it, and calls nothing", async () => {
+    const { server, calls } = buildServer(["family:read"]);
+    for (const [name, args, scope] of [
+      ["add_countdown", { title: "X", date: "2026-12-01" }, "calendar:write"],
+      ["delete_countdown", { countdown_id: C }, "calendar:write"],
+      ["acknowledge_message", { message_id: M }, "announcements:write"],
+      ["dismiss_attention_item", { item_key: "k" }, "tasks:write"],
+    ] as const) {
+      const result = await tool(server, name).handler(args);
+      expect(result.isError, name).toBe(true);
+      expect(result.content[0].text).toContain(scope);
+    }
+    expect(calls).toEqual([]);
   });
 });

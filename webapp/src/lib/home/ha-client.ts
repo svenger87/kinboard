@@ -37,8 +37,15 @@ export interface HaIo {
 }
 
 export const HA_TIMEOUT_MS = 10_000;
-/** The most of `GET /api/states` read: a large install's full list is well under this. */
+/** The most of `GET /api/states` read by default. */
 export const HA_STATES_MAX_BYTES = 2 * 1024 * 1024;
+/**
+ * The most of `GET /api/states` the energy read takes. A large install's
+ * full list passes 2 MiB — every entity with its attributes, and energy
+ * dashboards come with many — and the energy read has to fetch it whole to
+ * find a handful of sensors. Still a cap: the answer is buffered in memory.
+ */
+export const HA_ENERGY_STATES_MAX_BYTES = 16 * 1024 * 1024;
 /** The most of one entity's `GET /api/states/{id}` read. */
 export const HA_STATE_MAX_BYTES = 256 * 1024;
 
@@ -165,12 +172,18 @@ export async function getHaState(familyId: string, entityId: string, io: HaIo = 
  * the same request the screens make, filtered here so nothing outside
  * `entityIds` leaves this function. An entity Home Assistant does not report
  * is simply absent from the map. For listing the catalogue; one device is
- * read with `getHaState`. The answer is read up to HA_STATES_MAX_BYTES.
+ * read with `getHaState`. The answer is read up to `maxBytes`,
+ * HA_STATES_MAX_BYTES unless the caller says otherwise.
  *
  * Throws `HomeUnavailable` (not connected) or `HomeUpstreamError` (asked and
  * no usable answer).
  */
-export async function getHaStates(familyId: string, entityIds: readonly string[], io: HaIo = {}): Promise<Map<string, HaState>> {
+export async function getHaStates(
+  familyId: string,
+  entityIds: readonly string[],
+  io: HaIo = {},
+  maxBytes: number = HA_STATES_MAX_BYTES,
+): Promise<Map<string, HaState>> {
   const response = await haGet(familyId, haStatesUrl, io);
   if (!response.ok) {
     await response.body?.cancel().catch(() => undefined);
@@ -178,7 +191,7 @@ export async function getHaStates(familyId: string, entityIds: readonly string[]
   }
   let body: unknown;
   try {
-    body = await readJsonAtMost(response, HA_STATES_MAX_BYTES);
+    body = await readJsonAtMost(response, maxBytes);
   } catch (err) {
     if (err instanceof HomeUpstreamError) throw err;
     throw new HomeUpstreamError("Home Assistant returned an unexpected answer");

@@ -109,7 +109,7 @@ test.describe("edits and deletes (ruling 10)", () => {
       }
     }
     // tasks+shopping (lists PATCH/DELETE), notes PATCH/DELETE, calendar PATCH/DELETE, meals DELETE,
-    // timers DELETE, birthdays PATCH/DELETE.
-    expect(handlers).toBe(10);
+    // timers DELETE, birthdays PATCH/DELETE, countdowns DELETE.
+    expect(handlers).toBe(11);
   });
 });

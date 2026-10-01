@@ -161,11 +161,28 @@ only connect assistants through the "Allow AI assistants" sign-in.
 | `list_deleted_items` | What's in the recycle bin that an assistant can bring back — deleted tasks, notes, meal plan entries and birthdays, newest first |
 | `restore_task` / `restore_note` / `restore_meal` / `restore_birthday` | Take one back out of the recycle bin, exactly as it was. Each needs the same permission as editing that kind of thing (`tasks:write`, `notes:write`, `meals:write`, `birthdays:write`). An assistant can never empty the bin or erase anything in it for good |
 
+### Countdowns
+
+| Tool | Does |
+|---|---|
+| `list_countdowns` | The countdowns on the countdown widget, the soonest first, with how many days are left |
+| `add_countdown` | Add a countdown — a title, the date and one of the widget's seven icons. If someone adds one on a screen at the same moment, both are kept |
+| `delete_countdown` | Take a countdown off the widget. Permanent — countdowns have no recycle bin |
+
+### Attention panel
+
+| Tool | Does |
+|---|---|
+| `list_attention_items` | The hints the attention panel is showing right now ("Rain likely today"), most important first, in the family's language |
+| `dismiss_attention_item` | Take a hint off the panel, as tapping OK on it does |
+
 ### Messages and energy
 
 | Tool | Does |
 |---|---|
 | `send_message` | Put text on every Kinboard screen and push it to every phone, marked "via" the assistant's name — at most 5 messages per 10 minutes per assistant connection |
+| `list_screen_messages` | The 20 newest messages on the screens, whether someone has seen them yet, and which assistant sent one |
+| `acknowledge_message` | Mark a message as seen, like tapping "Got it" — it leaves every screen. If someone already tapped it, theirs stands |
 | `get_solar_production` | Current solar power and today's solar energy, from the sensors set up under Energy |
 | `get_energy_status` | The whole energy picture from the sensors set up under Energy: solar, battery, grid and home power right now, today's energy in and out, and the battery's charge |
 
@@ -188,14 +205,14 @@ only connect assistants through the "Allow AI assistants" sign-in.
 
 | Permission | Lets the assistant |
 |---|---|
-| `family:read` | read the summary, calendar, tasks, people, meal plan and shopping list |
+| `family:read` | read the summary, calendar, tasks, people, meal plan and shopping list, the countdowns, the messages on the screens and the attention panel's hints |
 | `notes:read` | read notes |
-| `calendar:write` | add, edit and delete calendar events, and say who an event is for |
-| `tasks:write` | add, complete, edit and delete tasks, and bring them back from the recycle bin |
+| `calendar:write` | add, edit and delete calendar events, and say who an event is for; add and delete countdowns |
+| `tasks:write` | add, complete, edit and delete tasks, and bring them back from the recycle bin; dismiss hints on the attention panel |
 | `shopping:write` | add, check/uncheck, rename and delete shopping items |
 | `notes:write` | add, edit and delete notes, and bring them back from the recycle bin |
 | `meals:write` | add and remove meal plan entries, and bring them back from the recycle bin |
-| `announcements:write` | send a message to the family's screens |
+| `announcements:write` | send a message to the family's screens, and mark one as seen |
 | `energy:read` | read the energy sensors set up under Energy (solar, battery, grid, consumption) |
 | `home:read` | list the home catalogue and read a device's state |
 | `home:control` | control catalogue devices — grant `home:read` too if the assistant should also be able to look before it acts |

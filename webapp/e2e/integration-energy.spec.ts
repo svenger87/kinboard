@@ -6,6 +6,8 @@ import {
   type EnergySensorConfig,
 } from "../src/lib/integration-energy";
 import { readEnergyStatus } from "../src/lib/integration-energy-status";
+import { HA_ENERGY_STATES_MAX_BYTES } from "../src/lib/home/ha-client";
+import { HomeUpstreamError } from "../src/lib/home/errors";
 import type { HomeAssistantSettings } from "../src/types/home-assistant";
 
 /**
@@ -120,6 +122,22 @@ test.describe("readEnergyStatus", () => {
     expect(Object.keys(status.solar_power!)).toEqual(["value", "unit", "entity_id", "observed_at"]);
     expect(status.solar_energy_today).toEqual({ value: 12.4, unit: "kWh", entity_id: "sensor.pv_today", observed_at: T });
     expect(Object.keys(status)).toEqual(["solar_power", "solar_energy_today", "power", "energy_today", "battery_soc", "fetched_at"]);
+  });
+
+  test("a large install's states list (over 2 MiB) is read, up to the 16 MiB cap and no further", async () => {
+    expect(HA_ENERGY_STATES_MAX_BYTES).toBe(16 * 1024 * 1024);
+    const padded = (bytes: number) => {
+      const filler = { entity_id: "sensor.filler", state: "1", attributes: { blob: "x".repeat(bytes) }, last_updated: T };
+      return JSON.stringify([...STATES, filler]);
+    };
+    const io = (body: string) => ({
+      fetch: (async () => new Response(body, { status: 200 })) as typeof fetch,
+      loadSettings: async () => SETTINGS,
+    });
+    const big = await readEnergyStatus("fam", energySensorIds(CONFIG), io(padded(3 * 1024 * 1024)), () => NOW);
+    expect(big.power.solar_power).toEqual({ value: 3420, unit: "W", observed_at: T });
+    await expect(readEnergyStatus("fam", energySensorIds(CONFIG), io(padded(HA_ENERGY_STATES_MAX_BYTES + 1)), () => NOW))
+      .rejects.toBeInstanceOf(HomeUpstreamError);
   });
 
   test("Home Assistant failing is an error, not an empty picture", async () => {
