@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { parseEventPatch } from "../src/lib/integration-event-input";
+import { loadFamilyEvent } from "../src/lib/integration-calendar-event";
 import {
   deleteVerdict,
   syncDeletedCalendarEvent,
@@ -149,6 +150,15 @@ test.describe("parseEventPatch: switching between all-day and timed needs both e
     const r = parseEventPatch({ all_day: true, end_date: "2026-10-05" }, ALL_DAY, BERLIN);
     expect(r.ok).toBe(true);
   });
+
+  test("restating the current kind and nothing else changes nothing, so it is refused", () => {
+    // Otherwise the route would run `.update({})` — PostgREST answers that
+    // with no row (PGRST116) and the edit 500s — and still call the provider.
+    const allDay = parseEventPatch({ all_day: true }, ALL_DAY, BERLIN);
+    const timed = parseEventPatch({ all_day: false }, TIMED, BERLIN);
+    expect(allDay).toEqual({ ok: false, error: expect.stringContaining("nothing to change") });
+    expect(timed).toEqual({ ok: false, error: expect.stringContaining("nothing to change") });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -171,8 +181,9 @@ function row(overrides: Partial<StoredCalendarEvent> = {}): StoredCalendarEvent 
 
 function fakes(opts: { googleFails?: unknown; caldavFails?: unknown; googleMissing?: boolean; caldavMissing?: boolean } = {}) {
   const google: { patch: unknown[]; delete: unknown[] } = { patch: [], delete: [] };
-  const caldav: { update: unknown[][]; delete: unknown[][] } = { update: [], delete: [] };
+  const caldav: { update: unknown[][]; delete: unknown[][]; create: unknown[][] } = { update: [], delete: [], create: [] };
   const etags: unknown[][] = [];
+  const links: unknown[][] = [];
   const googleApi: GoogleEventsApi = {
     async patch(params) { google.patch.push(params); if (opts.googleFails) throw opts.googleFails; },
     async delete(params) { google.delete.push(params); if (opts.googleFails) throw opts.googleFails; },
@@ -180,13 +191,19 @@ function fakes(opts: { googleFails?: unknown; caldavFails?: unknown; googleMissi
   const caldavApi: CaldavEventsApi = {
     async update(href, ical, etag) { caldav.update.push([href, ical, etag]); if (opts.caldavFails) throw opts.caldavFails; return { etag: "\"new\"" }; },
     async delete(href, etag) { caldav.delete.push([href, etag]); if (opts.caldavFails) throw opts.caldavFails; },
+    async create(calendarUrl, uid, ical) {
+      caldav.create.push([calendarUrl, uid, ical]);
+      if (opts.caldavFails) throw opts.caldavFails;
+      return { href: `${calendarUrl}${uid}.ics`, etag: "\"created\"" };
+    },
   };
   const deps: WriteThroughDeps = {
     googleEvents: async () => (opts.googleMissing ? null : googleApi),
     caldavEvents: async () => (opts.caldavMissing ? null : caldavApi),
     saveCaldavEtag: async (event, etag) => { etags.push([event.id, event.calendar_id, etag]); },
+    saveCaldavLink: async (event, link) => { links.push([event.id, event.calendar_id, link]); },
   };
-  return { google, caldav, etags, deps };
+  return { google, caldav, etags, links, deps };
 }
 
 test.describe("syncUpdatedCalendarEvent: Google", () => {
@@ -305,14 +322,35 @@ test.describe("CalDAV write-through", () => {
     expect(f.caldav.delete).toEqual([]);
   });
 
-  test("an event never written to the server is neither updated nor deleted", async () => {
+  test("an edit to an event never written to the server creates it there, as /api/caldav/events does", async () => {
     const f = fakes();
     expect(await syncUpdatedCalendarEvent("fam", CALDAV_CAL, row(), undefined, BERLIN, f.deps))
-      .toEqual({ provider: "caldav", synced: false, reason: "not_linked" });
+      .toEqual({ provider: "caldav", synced: true });
+    expect(f.caldav.update).toEqual([]);
+    expect(f.caldav.create).toHaveLength(1);
+    const [calendarUrl, uid, ical] = f.caldav.create[0] as string[];
+    expect(calendarUrl).toBe(CALDAV_CAL.caldav_url);
+    expect(uid).toMatch(/@kinboard$/);
+    expect(ical).toContain(`UID:${uid}`);
+    expect(ical).toContain("SUMMARY:Swimming");
+    expect(f.links).toEqual([["ev-1", "cal-1", {
+      google_event_id: `caldav:${uid}`, caldav_href: `${CALDAV_CAL.caldav_url}${uid}.ics`, caldav_etag: "\"created\"",
+    }]]);
+  });
+
+  test("a failed repair create is reported, never thrown", async () => {
+    const f = fakes({ caldavFails: new Error("down") });
+    expect(await syncUpdatedCalendarEvent("fam", CALDAV_CAL, row(), undefined, BERLIN, f.deps))
+      .toEqual({ provider: "caldav", synced: false, reason: "provider_write_failed" });
+    expect(f.links).toEqual([]);
+  });
+
+  test("a delete of an event never written to the server does not call it", async () => {
+    const f = fakes();
     expect(await syncDeletedCalendarEvent("fam", CALDAV_CAL, row(), f.deps))
       .toEqual({ provider: "caldav", synced: false, reason: "not_linked" });
-    expect(f.caldav.update).toEqual([]);
     expect(f.caldav.delete).toEqual([]);
+    expect(f.caldav.create).toEqual([]);
   });
 
   test("a delete removes the resource with its ETag", async () => {
@@ -364,5 +402,69 @@ test.describe("deleteVerdict: provider first, local row kept on failure", () => 
     for (const reason of ["provider_write_failed", "google_not_connected", "caldav_not_connected"]) {
       expect(deleteVerdict({ provider: "google", synced: false, reason })).toMatchObject({ proceed: false, status: 502, code: "upstream_unavailable" });
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Family scoping: an event reaches a family only through its calendar
+// ---------------------------------------------------------------------------
+
+/** The same shape as e2e/family-scope.spec.ts's fakeClient: rows matched on every `.eq`. */
+function fakeClient(rows: Record<string, Array<Record<string, unknown>>>) {
+  const calls: Array<{ table: string; filters: Record<string, unknown> }> = [];
+  return {
+    calls,
+    from(table: string) {
+      const filters: Record<string, unknown> = {};
+      calls.push({ table, filters });
+      const chain = {
+        select: () => chain,
+        eq: (column: string, value: unknown) => {
+          filters[column] = value;
+          return chain;
+        },
+        maybeSingle: async () => {
+          const match = (rows[table] ?? []).find((row) => Object.entries(filters).every(([k, v]) => row[k] === v));
+          return { data: match ?? null, error: null };
+        },
+      };
+      return chain;
+    },
+  };
+}
+
+test.describe("loadFamilyEvent", () => {
+  const calendar = (id: string, family_id: string, extra: Record<string, unknown> = {}) => ({
+    id, family_id, google_calendar_id: null, ics_url: null, caldav_url: null, caldav_server_url: null, caldav_read_only: null, ...extra,
+  });
+  const DATA = {
+    calendars: [calendar("cal-ours", "fam-a"), calendar("cal-theirs", "fam-b"), calendar("cal-ics", "fam-a", { ics_url: "https://x/a.ics" })],
+    events: [
+      { ...row({ id: "ev-ours", calendar_id: "cal-ours" }) },
+      { ...row({ id: "ev-theirs", calendar_id: "cal-theirs" }) },
+      { ...row({ id: "ev-ics", calendar_id: "cal-ics" }) },
+    ],
+  };
+
+  test("finds our event with its calendar", async () => {
+    const found = await loadFamilyEvent(fakeClient(DATA), "fam-a", "ev-ours");
+    expect(found?.event.id).toBe("ev-ours");
+    expect(found?.calendar.id).toBe("cal-ours");
+  });
+
+  test("an event in another family's calendar is null, like a missing one", async () => {
+    expect(await loadFamilyEvent(fakeClient(DATA), "fam-a", "ev-theirs")).toBeNull();
+    expect(await loadFamilyEvent(fakeClient(DATA), "fam-a", "ev-missing")).toBeNull();
+  });
+
+  test("it filters the calendar on family_id, not just on id", async () => {
+    const db = fakeClient(DATA);
+    await loadFamilyEvent(db, "fam-a", "ev-ours");
+    expect(db.calls.find((c) => c.table === "calendars")?.filters).toEqual({ id: "cal-ours", family_id: "fam-a" });
+  });
+
+  test("an event in a read-only calendar is null, and empty ids match nothing", async () => {
+    expect(await loadFamilyEvent(fakeClient(DATA), "fam-a", "ev-ics")).toBeNull();
+    expect(await loadFamilyEvent(fakeClient(DATA), "", "ev-ours")).toBeNull();
   });
 });

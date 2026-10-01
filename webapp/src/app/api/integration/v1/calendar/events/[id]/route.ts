@@ -8,8 +8,8 @@ import {
   syncDeletedCalendarEvent,
   syncUpdatedCalendarEvent,
   type StoredCalendarEvent,
-  type WritableCalendar,
 } from "@/lib/calendar-write-through";
+import { EVENT_COLUMNS, loadFamilyEvent, type EventQueryClient } from "@/lib/integration-calendar-event";
 import { isRecurrenceInstance } from "@/lib/caldav-serialize";
 import { parseEventPatch } from "@/lib/integration-event-input";
 import { familyTimeZone } from "@/lib/family-time";
@@ -18,8 +18,6 @@ export const dynamic = "force-dynamic";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const EVENT_COLUMNS =
-  "id, calendar_id, title, description, location, start_at, end_at, all_day, google_event_id, caldav_href, caldav_etag";
 /** What the response shows: the same shape POST answers with. */
 const RESPONSE_COLUMNS = ["id", "calendar_id", "title", "description", "start_at", "end_at", "all_day", "location"] as const;
 
@@ -30,9 +28,11 @@ const RESPONSE_COLUMNS = ["id", "calendar_id", "title", "description", "start_at
  * event's Google or CalDAV calendar.
  *
  * `events` has no `family_id`; an event belongs to a family through its
- * calendar. So the event is read by id, then its calendar by id **and**
- * `family_id = context.familyId` — an event in another family's calendar is
- * a 404 indistinguishable from one that does not exist. A read-only calendar
+ * calendar. `loadFamilyEvent` (lib/integration-calendar-event.ts) reads the
+ * event by id, then its calendar by id **and** `family_id =
+ * context.familyId` — an event in another family's calendar is a 404
+ * indistinguishable from one that does not exist. The update and delete
+ * below then filter on that calendar's id as well as the event's. A read-only calendar
  * (an ICS subscription, a read-only CalDAV collection) is a 404 too, as it
  * is for POST: its events are a mirror, and the next sync would undo any
  * edit made here.
@@ -48,26 +48,6 @@ const RESPONSE_COLUMNS = ["id", "calendar_id", "title", "description", "start_at
  * means the next sync pulls it straight back. Events have no recycle bin —
  * this is a hard delete, by design.
  */
-async function loadEvent(familyId: string, id: string) {
-  const supabase = createAdminClient();
-  const { data: event, error } = await (supabase as any)
-    .from("events")
-    .select(EVENT_COLUMNS)
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw error;
-  if (!event) return null;
-  const { data: calendar, error: calendarError } = await (supabase as any)
-    .from("calendars")
-    .select("id, google_calendar_id, ics_url, caldav_url, caldav_server_url, caldav_read_only")
-    .eq("id", event.calendar_id)
-    .eq("family_id", familyId)
-    .maybeSingle();
-  if (calendarError) throw calendarError;
-  if (!calendar || calendarWriteMode(calendar as WritableCalendar) === "read_only") return null;
-  return { event: event as StoredCalendarEvent, calendar: calendar as WritableCalendar };
-}
-
 const notFound = () =>
   NextResponse.json({ error: "No editable event with that ID", code: "not_found" }, { status: 404 });
 
@@ -95,7 +75,7 @@ export async function PATCH(
     }
 
     try {
-      const found = await loadEvent(context.familyId, id);
+      const found = await loadFamilyEvent(createAdminClient() as unknown as EventQueryClient, context.familyId, id);
       if (!found) return notFound();
       const { event, calendar } = found;
       if (calendarWriteMode(calendar) === "caldav" && isRecurrenceInstance(event.google_event_id)) {
@@ -143,7 +123,7 @@ export async function DELETE(
     if (!UUID_RE.test(id)) return notFound();
 
     try {
-      const found = await loadEvent(context.familyId, id);
+      const found = await loadFamilyEvent(createAdminClient() as unknown as EventQueryClient, context.familyId, id);
       if (!found) return notFound();
       const { event, calendar } = found;
 

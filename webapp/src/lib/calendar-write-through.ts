@@ -39,6 +39,7 @@ export async function syncCreatedCalendarEvent(
   event: CreatedCalendarEvent,
   allDayDates?: { start: string; endExclusive: string },
   timeZone = process.env.TZ ?? "Europe/Berlin",
+  deps: WriteThroughDeps = defaultWriteThroughDeps,
 ): Promise<{ provider: "local" | "google" | "caldav"; synced: boolean; reason?: string }> {
   const mode = calendarWriteMode(calendar);
   if (mode === "read_only") return { provider: "local", synced: false, reason: "calendar_read_only" };
@@ -47,9 +48,9 @@ export async function syncCreatedCalendarEvent(
     return { provider: "google", synced: false, reason: "all_day_dates_missing" };
   }
 
-  const supabase = createAdminClient();
   try {
     if (mode === "google") {
+      const supabase = createAdminClient();
       const auth = await getGoogleOAuth2Client(familyId);
       if (!auth) return { provider: "google", synced: false, reason: "google_not_connected" };
       const client = google.calendar({ version: "v3", auth: auth.oauth2Client });
@@ -73,22 +74,15 @@ export async function syncCreatedCalendarEvent(
       return { provider: "google", synced: true };
     }
 
-    const credentials = await getCaldavCredentials(familyId, calendar.id);
-    if (!credentials) return { provider: "caldav", synced: false, reason: "caldav_not_connected" };
-    const client = await createCaldavClient({
-      serverUrl: calendar.caldav_server_url ?? calendar.caldav_url!,
-      username: credentials.username,
-      password: credentials.password,
-    });
+    const api = await deps.caldavEvents(familyId, calendar);
+    if (!api) return { provider: "caldav", synced: false, reason: "caldav_not_connected" };
     const uid = newCaldavUid();
     const iCalString = buildCaldavCalendarObject(event, uid, timeZone);
-    const { href, etag } = await createCaldavEvent(client, calendar.caldav_url!, uid, iCalString);
-    const { error } = await (supabase as any)
-      .from("events")
-      .update({ google_event_id: caldavExternalId(uid), caldav_href: href, caldav_etag: etag })
-      .eq("id", event.id)
-      .eq("calendar_id", calendar.id);
-    if (error) throw error;
+    const { href, etag } = await api.create(calendar.caldav_url!, uid, iCalString);
+    await deps.saveCaldavLink(
+      { id: event.id, calendar_id: calendar.id },
+      { google_event_id: caldavExternalId(uid), caldav_href: href, caldav_etag: etag },
+    );
     return { provider: "caldav", synced: true };
   } catch (error) {
     // The local event already exists. Report the unsynced state rather than
@@ -122,6 +116,7 @@ export interface GoogleEventsApi {
 export interface CaldavEventsApi {
   update(href: string, iCalString: string, etag: string | null): Promise<{ etag: string | null }>;
   delete(href: string, etag: string | null): Promise<void>;
+  create(calendarUrl: string, uid: string, iCalString: string): Promise<{ href: string; etag: string | null }>;
 }
 
 /**
@@ -135,6 +130,11 @@ export interface WriteThroughDeps {
   googleEvents(familyId: string): Promise<GoogleEventsApi | null>;
   caldavEvents(familyId: string, calendar: WritableCalendar): Promise<CaldavEventsApi | null>;
   saveCaldavEtag(event: { id: string; calendar_id: string }, etag: string | null): Promise<void>;
+  /** Record the server identity of an event just created on a CalDAV server. */
+  saveCaldavLink(
+    event: { id: string; calendar_id: string },
+    link: { google_event_id: string; caldav_href: string; caldav_etag: string | null },
+  ): Promise<void>;
 }
 
 export const defaultWriteThroughDeps: WriteThroughDeps = {
@@ -158,12 +158,21 @@ export const defaultWriteThroughDeps: WriteThroughDeps = {
     return {
       update: (href, iCalString, etag) => updateCaldavEvent(client, href, iCalString, etag),
       delete: (href, etag) => deleteCaldavEvent(client, href, etag),
+      create: (calendarUrl, uid, iCalString) => createCaldavEvent(client, calendarUrl, uid, iCalString),
     };
   },
   async saveCaldavEtag(event, etag) {
     const { error } = await (createAdminClient() as any)
       .from("events")
       .update({ caldav_etag: etag })
+      .eq("id", event.id)
+      .eq("calendar_id", event.calendar_id);
+    if (error) throw error;
+  },
+  async saveCaldavLink(event, link) {
+    const { error } = await (createAdminClient() as any)
+      .from("events")
+      .update(link)
       .eq("id", event.id)
       .eq("calendar_id", event.calendar_id);
     if (error) throw error;
@@ -197,9 +206,9 @@ function providerStatus(error: unknown): number | undefined {
  * refused: the series is one calendar object, and Kinboard has nowhere to
  * keep an override.
  *
- * An event never written to its provider answers `not_linked` rather than
- * being created there now; that repair stays with the household's own
- * screens.
+ * A Google event never written there answers `not_linked`. A CalDAV event
+ * never written to the server is created there instead, as
+ * `/api/caldav/events` PATCH does.
  */
 export async function syncUpdatedCalendarEvent(
   familyId: string,
@@ -236,7 +245,12 @@ export async function syncUpdatedCalendarEvent(
 
     if (isRecurrenceInstance(event.google_event_id)) return { provider: "caldav", synced: false, reason: "recurring" };
     const uid = caldavUidFromExternalId(event.google_event_id);
-    if (!uid || !event.caldav_href) return { provider: "caldav", synced: false, reason: "not_linked" };
+    if (!uid || !event.caldav_href) {
+      // Never reached the server — usually a create whose PUT failed.
+      // Creating it now is the repair /api/caldav/events PATCH makes too,
+      // and leaves the caller with a synced event either way.
+      return await syncCreatedCalendarEvent(familyId, calendar, event, undefined, timeZone, deps);
+    }
     const api = await deps.caldavEvents(familyId, calendar);
     if (!api) return { provider: "caldav", synced: false, reason: "caldav_not_connected" };
     const iCalString = buildCaldavCalendarObject(event, uid, timeZone);

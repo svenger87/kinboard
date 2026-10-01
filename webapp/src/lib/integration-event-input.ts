@@ -214,6 +214,21 @@ export function parseEventPatch(
   existing: StoredEventTimes,
   timeZone: string,
 ): EventPatchResult {
+  const result = parseEventPatchFields(body, existing, timeZone);
+  // `{ all_day: true }` on an event that already is all-day names a field
+  // but changes nothing. Letting it through would run `.update({})`, which
+  // PostgREST answers with no row (a 500 here), and still call the provider.
+  if (result.ok && Object.keys(result.value.columns).length === 0 && !result.value.allDayDates) {
+    return { ok: false, error: "nothing to change: the fields sent already have these values" };
+  }
+  return result;
+}
+
+function parseEventPatchFields(
+  body: Record<string, unknown>,
+  existing: StoredEventTimes,
+  timeZone: string,
+): EventPatchResult {
   const fail = (error: string): EventPatchResult => ({ ok: false, error });
   if (body.calendar_id !== undefined) return fail("`calendar_id` cannot be changed; delete the event and create it in the other calendar");
   if (!PATCHABLE.some((k) => body[k] !== undefined)) {
