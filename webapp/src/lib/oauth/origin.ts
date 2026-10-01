@@ -7,13 +7,16 @@
  * changes what *that* caller is told, and tokens are bound to the resource
  * they were minted for (RFC-010 §3.1), so it buys nothing at the real origin.
  *
- * SITE_URL does settle one thing: the scheme, when its host is the one the
- * request arrived on. A TLS-terminating proxy that forwards Host but not
- * X-Forwarded-Proto makes an https request look like plain http here — the
- * metadata then advertises http:// URLs, and the consent page's https Origin
- * no longer matches and every approval is refused. The operator already
- * wrote down "this name is served over https" in SITE_URL; for that name,
- * believe it. A different host (the LAN address) is left alone.
+ * SITE_URL can settle one thing: an upgrade to https, when its host is the
+ * one the request arrived on. A TLS-terminating proxy that forwards Host but
+ * not X-Forwarded-Proto makes an https request look like plain http here —
+ * the metadata then advertises http:// URLs, and the consent page's https
+ * Origin no longer matches and every approval is refused. The operator
+ * already wrote down "this name is served over https" in SITE_URL; for that
+ * name, believe it. It only ever upgrades: an https request (forwarded or
+ * direct) stays https whatever SITE_URL says, so an http SITE_URL — a stale
+ * value, or one written before TLS was added — never downgrades the issuer.
+ * A different host (the LAN address) is left alone.
  */
 const HOST = /^(?:[a-z0-9-]+(?:\.[a-z0-9-]+)*|\[[0-9a-f:]+\])(?::\d{1,5})?$/i;
 
@@ -27,15 +30,14 @@ function withoutDefaultPort(host: string): string {
   return /:(?:80|443)$/.test(host) ? host.slice(0, host.lastIndexOf(":")) : host;
 }
 
-function siteScheme(siteUrl: string | undefined, host: string): "http" | "https" | null {
-  if (!siteUrl) return null;
+/** True when SITE_URL is https and names the host the request arrived on (default ports normalised). */
+function siteSaysHttps(siteUrl: string | undefined, host: string): boolean {
+  if (!siteUrl) return false;
   try {
     const site = new URL(siteUrl);
-    const scheme = site.protocol === "https:" ? "https" : site.protocol === "http:" ? "http" : null;
-    if (!scheme) return null;
-    return withoutDefaultPort(site.host.toLowerCase()) === withoutDefaultPort(host) ? scheme : null;
+    return site.protocol === "https:" && withoutDefaultPort(site.host.toLowerCase()) === withoutDefaultPort(host);
   } catch {
-    return null;
+    return false;
   }
 }
 
@@ -48,10 +50,9 @@ export function publicOrigin(
   if (!host || !HOST.test(host)) return fallbackOrigin;
   const lower = host.toLowerCase();
   const proto = first(headers.get("x-forwarded-proto"))?.toLowerCase();
-  const fromSite = siteScheme(siteUrl, lower);
-  // Matched modulo default ports, so it is SITE_URL's own origin: no port.
-  if (fromSite) return `${fromSite}://${withoutDefaultPort(lower)}`;
   const scheme = proto === "https" || proto === "http" ? proto : new URL(fallbackOrigin).protocol.slice(0, -1);
+  // Upgrade only. Matched modulo default ports, so it is SITE_URL's own origin: no port.
+  if (scheme !== "https" && siteSaysHttps(siteUrl, lower)) return `https://${withoutDefaultPort(lower)}`;
   const bare = (scheme === "https" && lower.endsWith(":443")) || (scheme === "http" && lower.endsWith(":80"))
     ? lower.slice(0, lower.lastIndexOf(":"))
     : lower;

@@ -46,6 +46,22 @@ test.describe("public origin", () => {
     expect(publicOrigin(h({ "x-forwarded-proto": "https", host: "lan.example" }), "http://x", "http://kb.example.com"))
       .toBe("https://lan.example");
   });
+  test("SITE_URL never downgrades: a forwarded https stays https under an http SITE_URL", () => {
+    expect(publicOrigin(h({ "x-forwarded-proto": "https", host: "kb.example.com" }), "http://webapp:3000", "http://kb.example.com"))
+      .toBe("https://kb.example.com");
+    expect(publicOrigin(h({ "x-forwarded-proto": "HTTPS", host: "KB.Example.com:443" }), "http://webapp:3000", "http://kb.example.com:80"))
+      .toBe("https://kb.example.com");
+  });
+  test("SITE_URL https upgrades a forwarded http on its own host", () => {
+    expect(publicOrigin(h({ "x-forwarded-proto": "http", host: "kb.example.com" }), "http://webapp:3000", "https://kb.example.com"))
+      .toBe("https://kb.example.com");
+  });
+  test("an http SITE_URL changes nothing when the request is plain http", () => {
+    expect(publicOrigin(h({ host: "kb.example.com" }), "http://kb.example.com", "http://kb.example.com"))
+      .toBe("http://kb.example.com");
+    expect(publicOrigin(h({ host: "kb.example.com:3000" }), "http://x", "http://kb.example.com:3000"))
+      .toBe("http://kb.example.com:3000");
+  });
   test("an unparseable SITE_URL is ignored", () => {
     expect(publicOrigin(h({ host: "kb.example.com" }), "http://kb.example.com", "not a url")).toBe("http://kb.example.com");
   });
