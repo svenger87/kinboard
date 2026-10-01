@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { KeyRound, Copy, Check, Ban, Bot } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
@@ -45,8 +45,11 @@ export default function IntegrationsPage() {
   const [scopes, setScopes] = useState<string[]>(["family:read"]);
   const [secret, setSecret] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [mcpUrl, setMcpUrl] = useState("/api/mcp");
 
-  const mcpUrl = typeof window === "undefined" ? "/api/mcp" : `${window.location.origin}/api/mcp`;
+  useEffect(() => {
+    setMcpUrl(`${window.location.origin}/api/mcp`);
+  }, []);
 
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ["integration-tokens"],
@@ -107,6 +110,15 @@ export default function IntegrationsPage() {
     }
   };
 
+  const copyMcpUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(mcpUrl);
+      toast.success(t("copied"));
+    } catch {
+      toast.error(t("copyFailed"));
+    }
+  };
+
   const fmt = (iso: string | null) =>
     iso ? new Date(iso).toLocaleDateString(locale, { dateStyle: "medium" }) : "—";
 
@@ -151,7 +163,7 @@ export default function IntegrationsPage() {
             variant="outline"
             size="sm"
             aria-label={t("copyMcpUrl")}
-            onClick={() => void navigator.clipboard.writeText(mcpUrl).then(() => toast.success(t("copied")))}
+            onClick={() => void copyMcpUrl()}
           >
             <Copy className="size-4" />
           </Button>
