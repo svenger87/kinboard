@@ -1,6 +1,7 @@
 import { safeFetch } from "@/lib/safe-fetch";
 import { isAcceptableRedirectUri } from "@/lib/oauth/redirect";
 import { findDcrClient } from "@/lib/oauth/store";
+import { logApiError } from "@/lib/api-error";
 import type { OAuthClient } from "@/lib/oauth/types";
 
 /**
@@ -134,7 +135,14 @@ export async function resolveClient(clientId: string, deps: ClientDeps = default
       cache.set(clientId, { client, until: now + CACHE_MS });
     }
     return client;
-  } catch {
+  } catch (err) {
+    // A bad or unreachable CIMD document is routine — most of the internet
+    // is not a Kinboard client — but logging it means a *persistent* failure
+    // (our own egress broken, a client's document newly malformed) is still
+    // visible instead of silently turning into "unknown client" for every
+    // caller. The outer .catch() in oauth/authorize/route.ts cannot see this
+    // error: it is swallowed right here, before it would ever reach there.
+    await logApiError("oauth/authorize/client", err);
     return null;
   }
 }

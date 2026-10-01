@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clientIp, hitLimit } from "@/lib/rate-limit";
 import { publicOrigin } from "@/lib/oauth/origin";
+import { AUTH_REQUEST_TTL_S, OAUTH_REQUEST_COOKIE } from "@/lib/oauth/config";
 import { resolveClient } from "@/lib/oauth/clients";
 import { validateAuthorizeQuery } from "@/lib/oauth/authorize";
 import { createOAuthStore } from "@/lib/oauth/store";
@@ -26,13 +27,28 @@ export async function GET(request: NextRequest) {
   const origin = publicOrigin(request.headers, request.nextUrl.origin);
   const q = request.nextUrl.searchParams;
   const clientId = q.get("client_id");
-  const client = clientId ? await resolveClient(clientId).catch(() => null) : null;
+  const client = clientId
+    ? await resolveClient(clientId).catch(async (err) => {
+        await logApiError("oauth/authorize/client", err);
+        return null;
+      })
+    : null;
   const check = validateAuthorizeQuery(q, origin, client);
   if (check.kind === "page") return page(check.status, check.message);
   if (check.kind === "redirect") return NextResponse.redirect(check.location, 302);
   try {
     const id = await createOAuthStore().createAuthRequest(check.request);
-    return NextResponse.redirect(`${origin}/oauth/consent/${id}`, 302);
+    const response = NextResponse.redirect(`${origin}/oauth/consent/${id}`, 302);
+    // Binds the request to this browser; see the comment on OAUTH_REQUEST_COOKIE
+    // and on cookieMatches() in the consent route for why.
+    response.cookies.set(OAUTH_REQUEST_COOKIE, id, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/api/oauth/consent",
+      maxAge: AUTH_REQUEST_TTL_S,
+      secure: origin.startsWith("https://"),
+    });
+    return response;
   } catch (err) {
     await logApiError("oauth/authorize", err);
     return page(500, "Kinboard could not start the connection. Try again.");

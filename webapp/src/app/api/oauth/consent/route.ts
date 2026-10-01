@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/require-session";
 import { publicOrigin } from "@/lib/oauth/origin";
-import { CODE_TTL_S } from "@/lib/oauth/config";
-import { buildRedirect, isLoopbackRedirect } from "@/lib/oauth/redirect";
-import { narrowScopes } from "@/lib/oauth/scopes";
+import { OAUTH_REQUEST_COOKIE } from "@/lib/oauth/config";
+import { isLoopbackRedirect } from "@/lib/oauth/redirect";
 import { createOAuthStore } from "@/lib/oauth/store";
 import { generateAuthorizationCode } from "@/lib/oauth/grants";
-import { familyHasPin, verifySettingsPin, setSettingsPin, PIN_FORMAT } from "@/lib/settings-pin";
+import { familyHasPin, verifySettingsPin, setSettingsPin } from "@/lib/settings-pin";
+import { decideConsent, type ConsentDeps } from "@/lib/oauth/consent";
 import { logApiError } from "@/lib/api-error";
 import type { AuthRequest } from "@/lib/oauth/types";
 
@@ -18,17 +18,35 @@ function pending(r: AuthRequest | null, now: Date): r is AuthRequest {
   return !!r && !r.familyId && !r.usedAt && new Date(r.expiresAt).getTime() > now.getTime();
 }
 
+/**
+ * The browser answering this request must be the one /api/oauth/authorize
+ * started it for. That route sets OAUTH_REQUEST_COOKIE when it parks the
+ * pending request; without it, a consent *link* forwarded to someone else —
+ * pasted into chat, read off a shared screen — could be approved in their
+ * browser instead of the one that opened it. They might well have a joined
+ * device of their own, even a PIN: the right credentials, held by the wrong
+ * person.
+ */
+function cookieMatches(request: NextRequest, id: string): boolean {
+  return request.cookies.get(OAUTH_REQUEST_COOKIE)?.value === id;
+}
+
 /** What the consent page shows. The family comes from the session, never the request. */
 export async function GET(request: NextRequest) {
   const auth = await requireSession(request);
   if (!auth.ok) return auth.response;
   const id = request.nextUrl.searchParams.get("request") ?? "";
   if (!UUID.test(id)) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (!cookieMatches(request, id)) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const r = await createOAuthStore().getAuthRequest(id);
   if (!pending(r, new Date())) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const redirectUrl = new URL(r.redirectUri);
   return NextResponse.json({
     clientName: r.clientName,
-    redirectHost: new URL(r.redirectUri).host,
+    // A custom URI scheme without an authority component (e.g. a bare
+    // "cursor:" callback) parses with an empty .host; .protocol (which
+    // includes the trailing colon) is what actually identifies it then.
+    redirectHost: redirectUrl.host || redirectUrl.protocol,
     loopbackOnly: isLoopbackRedirect(r.redirectUri),
     scopes: r.scopes,
     pinSet: await familyHasPin(auth.session.familyId),
@@ -37,14 +55,10 @@ export async function GET(request: NextRequest) {
 
 /**
  * Approve or deny. Returns where the browser goes next; the page navigates
- * there.
- *
- * Controller Ruling 1 (amendment, binding): the settings PIN is mandatory to
- * approve an assistant. A family that has none sets its first PIN in this
- * same request — the consent page collects it twice and sends `newPin`. The
- * check order matters: scopes are validated *before* a new PIN is stored, so
- * a request that would fail anyway (no scopes granted) never has the side
- * effect of setting a PIN nobody confirmed they wanted.
+ * there. The decision itself — PIN, scopes, code minting — lives in
+ * decideConsent (lib/oauth/consent.ts); this handler keeps the session,
+ * request-id, Origin and cookie checks, the pending-request lookup and
+ * error logging.
  */
 export async function POST(request: NextRequest) {
   const auth = await requireSession(request);
@@ -52,43 +66,44 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const id = typeof body?.request === "string" ? body.request : "";
   if (!UUID.test(id)) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (!cookieMatches(request, id)) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
   const now = new Date();
   const origin = publicOrigin(request.headers, request.nextUrl.origin);
+  // A same-origin fetch from the consent page never sets Origin to anything
+  // but this server's own origin. One present and different means the POST
+  // did not come from that page, whatever the cookie says.
+  const requestOrigin = request.headers.get("origin");
+  if (requestOrigin && requestOrigin !== origin) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
   const store = createOAuthStore();
   try {
     const r = await store.getAuthRequest(id);
     if (!pending(r, now)) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-    if (body?.decision === "deny") {
-      await store.denyAuthRequest(id, now);
-      return NextResponse.json({ redirect: buildRedirect(r.redirectUri, { error: "access_denied", state: r.state, iss: origin }) });
-    }
-    if (body?.decision !== "approve") return NextResponse.json({ error: "invalid_request" }, { status: 400 });
-
-    const familyId = auth.session.familyId;
-    const hasPin = await familyHasPin(familyId);
-    let newPin: string | null = null;
-    if (hasPin) {
-      const result = await verifySettingsPin(familyId, typeof body.pin === "string" ? body.pin : "");
-      if (result === "rate_limited") return NextResponse.json({ error: "rate_limited" }, { status: 429 });
-      if (result === "invalid") return NextResponse.json({ error: "pin_invalid" }, { status: 403 });
-    } else {
-      newPin = typeof body.newPin === "string" ? body.newPin : "";
-      if (!PIN_FORMAT.test(newPin)) return NextResponse.json({ error: "new_pin_invalid" }, { status: 400 });
-    }
-
-    const granted = narrowScopes(r.scopes, Array.isArray(body.scopes) ? body.scopes : []);
-    if (granted.length === 0) return NextResponse.json({ error: "no_scopes" }, { status: 400 });
-
-    if (newPin !== null) await setSettingsPin(familyId, newPin);
-
-    const code = generateAuthorizationCode();
-    const approved = await store.approveAuthRequest(
-      id, familyId, granted, code.hash, new Date(now.getTime() + CODE_TTL_S * 1000).toISOString(), now,
-    );
-    if (!approved) return NextResponse.json({ error: "not_found" }, { status: 404 });
-    return NextResponse.json({ redirect: buildRedirect(r.redirectUri, { code: code.code, state: r.state, iss: origin }) });
+    const deps: ConsentDeps = {
+      hasPin: familyHasPin,
+      verifyPin: verifySettingsPin,
+      setPin: setSettingsPin,
+      approve: (reqId, familyId, granted, codeHash, codeExpiresAt, approveNow) =>
+        store.approveAuthRequest(reqId, familyId, granted, codeHash, codeExpiresAt, approveNow),
+      deny: (reqId, denyNow) => store.denyAuthRequest(reqId, denyNow),
+      newCode: generateAuthorizationCode,
+    };
+    const outcome = await decideConsent(deps, {
+      request: r,
+      familyId: auth.session.familyId,
+      origin,
+      decision: body?.decision,
+      pin: body?.pin,
+      newPin: body?.newPin,
+      scopes: body?.scopes,
+      now,
+    });
+    if (outcome.status === 200) return NextResponse.json({ redirect: outcome.redirect });
+    return NextResponse.json({ error: outcome.error }, { status: outcome.status });
   } catch (err) {
     await logApiError("oauth/consent", err);
     return NextResponse.json({ error: "internal_error" }, { status: 500 });

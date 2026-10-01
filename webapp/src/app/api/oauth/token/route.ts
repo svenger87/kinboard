@@ -7,6 +7,13 @@ import { logApiError } from "@/lib/api-error";
 export const dynamic = "force-dynamic";
 
 const NO_STORE = { "cache-control": "no-store", pragma: "no-cache" };
+// Token requests are a handful of short strings; 16 KiB is generous. A
+// content-length check rejects an honest oversized request cheaply, and the
+// length check after reading the body catches a chunked request lying about
+// (or omitting) that header.
+const MAX_BODY_BYTES = 16 * 1024;
+const tooLarge = () =>
+  NextResponse.json({ error: "invalid_request", error_description: "request too large" }, { status: 413, headers: NO_STORE });
 
 /**
  * RFC 6749 token endpoint. Claude and ChatGPT send
@@ -19,7 +26,11 @@ export async function POST(request: NextRequest) {
   if (hitLimit(`oauth-token:${clientIp(request)}`, 60, 60_000).limited) {
     return NextResponse.json({ error: "temporarily_unavailable", error_description: "too many requests" }, { status: 429, headers: NO_STORE });
   }
-  const form = new URLSearchParams(await request.text());
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && Number(contentLength) > MAX_BODY_BYTES) return tooLarge();
+  const text = await request.text();
+  if (text.length > MAX_BODY_BYTES) return tooLarge();
+  const form = new URLSearchParams(text);
   const get = (k: string) => form.get(k) ?? "";
   const clientId = get("client_id");
   if (!clientId) {

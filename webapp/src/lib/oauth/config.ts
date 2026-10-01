@@ -14,6 +14,14 @@ export const REFRESH_TOKEN_PREFIX = "kbr_";
 export const CODE_PREFIX = "kbo_";
 export const DCR_CLIENT_PREFIX = "kbclient_";
 
+/**
+ * Binds a pending authorization request to the browser that started it.
+ * /api/oauth/authorize sets this on success; /api/oauth/consent refuses to
+ * show or answer a request unless it matches, which is what stops a consent
+ * link forwarded to someone else being approved in their browser instead.
+ */
+export const OAUTH_REQUEST_COOKIE = "kb_oauth_request";
+
 /** The integration scopes an assistant can be granted. No actuation (RFC-002 §6). */
 export const MCP_SCOPES = [
   "family:read",

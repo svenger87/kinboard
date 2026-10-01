@@ -6,6 +6,12 @@ import { logApiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
+// A registration document is a name and a short list of redirect URIs; 16
+// KiB is generous. See the token route for why there are two checks.
+const MAX_BODY_BYTES = 16 * 1024;
+const tooLarge = () =>
+  NextResponse.json({ error: "invalid_request", error_description: "request too large" }, { status: 413 });
+
 /**
  * RFC 7591 Dynamic Client Registration — the fallback for assistants that do
  * not use CIMD. Anonymous by design (that is what DCR is), so it is
@@ -16,7 +22,17 @@ export async function POST(request: NextRequest) {
   if (hitLimit(`oauth-register:${clientIp(request)}`, 10, 60 * 60_000).limited) {
     return NextResponse.json({ error: "temporarily_unavailable", error_description: "too many registrations" }, { status: 429 });
   }
-  const parsed = parseRegistrationRequest(await request.json().catch(() => null));
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && Number(contentLength) > MAX_BODY_BYTES) return tooLarge();
+  const text = await request.text();
+  if (text.length > MAX_BODY_BYTES) return tooLarge();
+  let json: unknown = null;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    json = null;
+  }
+  const parsed = parseRegistrationRequest(json);
   if (!parsed.ok) {
     return NextResponse.json({ error: parsed.error, error_description: parsed.description }, { status: 400 });
   }

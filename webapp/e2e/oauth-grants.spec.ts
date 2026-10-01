@@ -24,7 +24,7 @@ function memoryStore() {
       if (!r || r.familyId || r.usedAt || new Date(r.expiresAt) <= now) return false;
       Object.assign(r, { familyId, grantedScopes: granted, codeHash, codeExpiresAt }); return true;
     },
-    async denyAuthRequest(id, now) { const r = requests.get(id); if (r) r.usedAt = now.toISOString(); },
+    async denyAuthRequest(id, now) { const r = requests.get(id); if (r && !r.familyId && !r.usedAt) r.usedAt = now.toISOString(); },
     async consumeCode(codeHash, now) {
       const r = [...requests.values()].find((x) => x.codeHash === codeHash);
       if (!r) return { status: "missing" };

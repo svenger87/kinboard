@@ -50,6 +50,7 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
   const selected = granted ?? data?.scopes ?? [];
   const settingNewPin = data ? !data.pinSet : false;
   const newPinsValid = PIN_DIGITS.test(newPin) && PIN_DIGITS.test(confirmPin);
+  const existingPinValid = PIN_DIGITS.test(pin);
 
   async function decide(decision: "approve" | "deny") {
     if (decision === "approve" && settingNewPin) {
@@ -74,6 +75,9 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
       });
       const body = (await r.json().catch(() => ({}))) as { redirect?: string; error?: string };
       if (body.redirect) {
+        // Stay busy: the browser is about to leave for the client's redirect
+        // URI, and resetting here would let a second click race a second
+        // request against a request that is about to be gone either way.
         window.location.assign(body.redirect);
         return;
       }
@@ -85,7 +89,9 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
           : body.error === "not_found" ? t("expired")
           : t("failed"),
       );
-    } finally {
+      setBusy(false);
+    } catch {
+      setError(t("failed"));
       setBusy(false);
     }
   }
@@ -94,7 +100,7 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
   if (isError || !data) return <main className="mx-auto max-w-lg p-4"><Card className="p-6">{t("expired")}</Card></main>;
 
   const approveDisabled =
-    busy || selected.length === 0 || (settingNewPin && !newPinsValid);
+    busy || selected.length === 0 || (settingNewPin ? !newPinsValid : !existingPinValid);
 
   return (
     <main className="mx-auto max-w-lg p-4">
@@ -126,6 +132,7 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
               <Label htmlFor="consent-new-pin">{t("newPinLabel")}</Label>
               <Input
                 id="consent-new-pin"
+                type="password"
                 inputMode="numeric"
                 autoComplete="off"
                 maxLength={4}
@@ -137,6 +144,7 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
               <Label htmlFor="consent-confirm-pin">{t("confirmPinLabel")}</Label>
               <Input
                 id="consent-confirm-pin"
+                type="password"
                 inputMode="numeric"
                 autoComplete="off"
                 maxLength={4}
@@ -148,7 +156,7 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
         ) : (
           <div>
             <Label htmlFor="consent-pin">{t("pinLabel")}</Label>
-            <Input id="consent-pin" inputMode="numeric" autoComplete="off" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value)} />
+            <Input id="consent-pin" type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value)} />
           </div>
         )}
 

@@ -69,7 +69,12 @@ export function createOAuthStore(): OAuthStore {
       return (data ?? []).length === 1;
     },
     async denyAuthRequest(id, now) {
-      const { error } = await db().from("oauth_authorization_requests").update({ used_at: now.toISOString() }).eq("id", id);
+      // Only a still-pending row — matches approveAuthRequest's own guard, so
+      // a deny can't overwrite an answer (approved or denied) that already
+      // happened, e.g. a double-submit racing a first click's response.
+      const { error } = await db().from("oauth_authorization_requests")
+        .update({ used_at: now.toISOString() })
+        .eq("id", id).is("family_id", null).is("used_at", null);
       if (error) throw error;
     },
     async consumeCode(codeHash, now) {

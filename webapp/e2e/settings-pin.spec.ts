@@ -19,6 +19,30 @@ test("five failures in a minute lock the family out, a success clears it", async
   expect(await verifySettingsPin("fam-d", "1234", load("1234"))).toBe("valid"); // per family
 });
 
+test("10 concurrent wrong verifications: at most 5 invalid, the rest rate_limited", async () => {
+  const slowWrongLoad = () => new Promise<string | null>((resolve) => setTimeout(() => resolve("1234"), 10));
+  const results = await Promise.all(
+    Array.from({ length: 10 }, () => verifySettingsPin("fam-race", "0000", slowWrongLoad)),
+  );
+  const invalid = results.filter((r) => r === "invalid").length;
+  const rateLimited = results.filter((r) => r === "rate_limited").length;
+  expect(invalid).toBeLessThanOrEqual(5);
+  expect(invalid + rateLimited).toBe(10);
+  expect(rateLimited).toBeGreaterThanOrEqual(5);
+});
+
+test("20 failures in a rolling hour lock the family out even spread well past the minute window", async () => {
+  let clock = 1_700_000_000_000;
+  const now = () => clock;
+  const results: string[] = [];
+  for (let i = 0; i < 25; i++) {
+    results.push(await verifySettingsPin("fam-hour", "0000", async () => "1234", now));
+    clock += 61_000; // outside the 60s window every time, so only the hourly cap can fire
+  }
+  expect(results.slice(0, 20)).toEqual(Array(20).fill("invalid"));
+  expect(results.slice(20)).toEqual(Array(5).fill("rate_limited"));
+});
+
 test.describe("setSettingsPin", () => {
   test("a valid 4-digit PIN reaches the injected store with the right family and value", async () => {
     const calls: Array<{ familyId: string; pin: string }> = [];
