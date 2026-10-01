@@ -244,24 +244,52 @@ export async function DELETE(
       // and removing a shopping item is not, matching each list's own
       // behaviour rather than inventing a third.
       if (def.softDeletes) {
-        // `.is("deleted_at", null)` here is load-bearing, not decorative: the
-        // trigger lets a DELETE through once a row is already binned (so a
-        // purge can happen at all), so without this filter a second DELETE on
-        // the same task id — the entirely ordinary case of a client retrying
-        // after a dropped response — would purge it for real. Checking the
-        // row actually matched is what turns "already gone" into 404 instead
-        // of a silent, unearned `ok: true`.
-        const { data, error } = await (supabase as any)
+        // A DELETE's own RETURNING clause cannot be used to judge success
+        // here. The soft-delete trigger (migration_zzz_soft_delete.sql) is a
+        // BEFORE DELETE trigger that stamps deleted_at and returns NULL —
+        // and returning NULL from a BEFORE DELETE trigger tells Postgres to
+        // skip the row, which cancels the physical delete *and* empties its
+        // RETURNING clause. A successful soft delete therefore reports the
+        // same "0 rows" a delete that matched nothing would; `.select("id")`
+        // after `.delete()` cannot tell them apart. Confirmed directly
+        // against kbfresh-db in a rolled-back transaction:
+        //
+        //   BEGIN;
+        //   DELETE FROM todos WHERE id = '<id>' AND family_id = '<fam>' AND deleted_at IS NULL RETURNING id;
+        //   -- DELETE 0
+        //   SELECT deleted_at FROM todos WHERE id = '<id>';
+        //   -- 2026-10-01 ...  (the row WAS soft-deleted)
+        //   ROLLBACK;
+        //
+        // So existence is confirmed with a SELECT first — that is what turns
+        // "missing" and "already binned" into 404 — and the DELETE's own
+        // success is judged only by the absence of an error, matching
+        // notes/[id]/route.ts's DELETE.
+        const { data: existing, error: selectErr } = await (supabase as any)
+          .from(def.table)
+          .select("id")
+          .eq("id", item)
+          .eq("family_id", context.familyId)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (selectErr) throw selectErr;
+        if (!existing) {
+          return NextResponse.json({ error: "no such item", code: "not_found" }, { status: 404 });
+        }
+
+        // `.is("deleted_at", null)` stays on the DELETE itself even after
+        // that SELECT: without it, a second DELETE that raced in between (or
+        // a stale re-check) could reach an already-binned row and purge it
+        // for real, which the same trigger allows once deleted_at is already
+        // set.
+        const { error: deleteErr } = await (supabase as any)
           .from(def.table)
           .delete()
           .eq("id", item)
           .eq("family_id", context.familyId)
-          .is("deleted_at", null)
-          .select("id");
-        if (error) throw error;
-        if (!data || data.length === 0) {
-          return NextResponse.json({ error: "no such item", code: "not_found" }, { status: 404 });
-        }
+          .is("deleted_at", null);
+        if (deleteErr) throw deleteErr;
+
         return NextResponse.json({ ok: true });
       }
 
