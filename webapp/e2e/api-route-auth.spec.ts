@@ -99,6 +99,8 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "oauth/authorize/route.ts": "validates and parks a pending request; grants nothing",
   // RFC 7591 registration is anonymous by definition.
   "oauth/register/route.ts": "rate-limited, writes one bounded row describing a client",
+  // The credential is in the body: code + PKCE verifier, or a refresh token.
+  "oauth/token/route.ts": "OAuth token endpoint; authenticates by code+verifier or refresh token",
 };
 
 /**
