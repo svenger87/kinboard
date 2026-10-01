@@ -72,10 +72,10 @@ change them.
 | Tool | Does |
 |---|---|
 | `list_tasks` | Active tasks |
-| `create_task` | Add a task |
+| `create_task` | Add a task — optionally for someone, repeating (daily, weekly, every other week, monthly or on picked weekdays), with a priority, an icon and points |
 | `complete_task` | Mark a task done — a chore with points awards them, just as ticking it off on a screen does |
 | `reopen_task` | Mark a one-off task not done again — recurring tasks can't be reopened |
-| `update_task` | Edit a task's title, due date or assignee |
+| `update_task` | Edit a task's title, due date, assignee, repetition, priority, icon or points |
 | `delete_task` | Delete a task — to the recycle bin, recoverable from Settings |
 
 ### Shopping list
@@ -173,9 +173,11 @@ change them.
 Twenty wrong PINs within an hour lock PIN entry for the rest of that hour.
 
 **Points.** Completing a task through an assistant is the same as ticking it
-off on a screen: if the task is a chore with points, the person it's
-assigned to gets them (and reopening a one-off task takes them back). Only
-grant `tasks:write` to an assistant you'd let tick off the children's chores.
+off on a screen: if the task is a chore with points and it's assigned to a
+child, the child gets them (and reopening a one-off task takes them back).
+An assistant can also put points on a task it adds or edits; on a task for
+a grown-up they're kept but never awarded. Only grant `tasks:write` to an
+assistant you'd let tick off and set up the children's chores.
 
 **Limits.** Each assistant connection can make at most 30 edits and deletes
 in 10 minutes, across tasks, shopping items, notes, calendar events and meal

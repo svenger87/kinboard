@@ -15,6 +15,9 @@ import { PATCH as notePatchRoute, DELETE as noteDelete } from "@/app/api/integra
 import { GET as mealPlan, POST as addMealRoute } from "@/app/api/integration/v1/meals/route";
 import { DELETE as removeMealRoute } from "@/app/api/integration/v1/meals/[id]/route";
 import { MEAL_TYPES } from "@/lib/integration-meal-input";
+import { MAX_TASK_POINTS, TASK_PRIORITIES } from "@/lib/integration-tasks";
+import { TODO_ICONS } from "@/lib/todo-icons";
+import { parseRecurrence } from "@/lib/todo-recurrence";
 import { POST as service } from "@/app/api/integration/v1/services/[service]/route";
 import { GET as energy } from "@/app/api/integration/v1/energy/current/route";
 import { POST as sendMessageRoute } from "@/app/api/integration/v1/messages/route";
@@ -102,6 +105,27 @@ const isoWithOffset = z.string()
   .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/, "ISO 8601 with Z or a +HH:MM offset")
   .refine((s) => !Number.isNaN(Date.parse(s)), "not a real time");
 const date = z.iso.date();
+
+// The task fields beyond title, date and assignee, as the task form offers
+// them. The route checks them again (lib/integration-tasks.ts); refusing here
+// first gives the model the reason before anything is called.
+const taskRecurrence = z.string().trim()
+  .refine((value) => parseRecurrence(value) !== null, "once, daily, weekly, biweekly, monthly, or days: with weekday codes such as days:MO,WE,FR")
+  .describe("How the task repeats: once (the default, no repeat), daily, weekly, biweekly, monthly, or on picked weekdays as days: with iCalendar codes MO TU WE TH FR SA SU, e.g. days:MO,WE,FR.");
+const taskPriority = z.enum(TASK_PRIORITIES).describe("high, medium (the default) or low.");
+const taskIcon = z.enum(TODO_ICONS).describe("A picture shown on the task; only these icons exist.");
+const taskPoints = z.number().int().min(0).max(MAX_TASK_POINTS)
+  .describe(`Points for completing it, 0 to ${MAX_TASK_POINTS}. Points are awarded only when the task is assigned to a child; on anyone else's task they are stored but never awarded.`);
+const TASK_FIELDS_NOTE = "A task can be assigned to a person (person_id from list_people), repeat (recurrence), and carry a priority, an icon and points; points are awarded only when the task is assigned to a child, each time that child completes it.";
+
+/** The optional task fields a tool was given, as the lists routes name them. */
+function taskFieldsBody(args: { person_id?: string | null; recurrence?: string; priority?: string; icon?: string | null; points?: number }) {
+  const body: Record<string, unknown> = {};
+  for (const key of ["person_id", "recurrence", "priority", "icon", "points"] as const) {
+    if (args[key] !== undefined) body[key] = args[key];
+  }
+  return body;
+}
 const entityId = z.string().max(255).regex(ENTITY_ID, "a Home Assistant entity id such as light.kitchen");
 /** The `{entity}` path segment. An entity id needs no escaping, but every path segment is encoded anyway. */
 const devicePath = (id: string) => `/home/devices/${encodeURIComponent(id)}`;
@@ -249,27 +273,38 @@ export function createKinboardMcpServer(
     ({ event_id }) => call(calendarEventDelete, { path: `/calendar/events/${event_id}`, params: { id: event_id }, method: "DELETE" }));
   register("list_tasks", "Read active family tasks, including completion status and due dates.", z.object({}), readOnly,
     () => call(listGet, { path: "/lists/tasks", params: { list: "tasks" } }));
-  register("create_task", "Create a family task. Ask the user before writing when their intent is ambiguous; never invent a due date.",
-    z.object({ title: z.string().trim().min(1).max(300), due_date: date.optional() }), createAction,
-    ({ title, due_date }) => call(listPost, { path: "/lists/tasks", params: { list: "tasks" }, body: { summary: title, ...(due_date ? { due: due_date } : {}) } }));
+  register("create_task", `Create a family task. Ask the user before writing when their intent is ambiguous; never invent a due date, an assignee or a repetition. ${TASK_FIELDS_NOTE}`,
+    z.object({
+      title: z.string().trim().min(1).max(300),
+      due_date: date.optional(),
+      person_id: z.uuid().optional(),
+      recurrence: taskRecurrence.optional(),
+      priority: taskPriority.optional(),
+      icon: taskIcon.optional(),
+      points: taskPoints.optional(),
+    }), createAction,
+    ({ title, due_date, ...fields }) => call(listPost, { path: "/lists/tasks", params: { list: "tasks" }, body: { summary: title, ...(due_date ? { due: due_date } : {}), ...taskFieldsBody(fields) } }));
   register("complete_task", "Mark a task done. A recurring task is marked done for today only, in the family's time zone, and becomes due again on its next occurrence; a one-off task is completed outright. Completing a chore that carries points awards them to the person it is assigned to (a child's pocket of points), exactly as ticking it off on a Kinboard screen does.",
     z.object({ task_id: z.uuid() }), editAction,
     ({ task_id }) => call(listItemPatch, { path: `/lists/tasks/${task_id}`, params: { list: "tasks", item: task_id }, method: "PATCH", body: { status: "completed" } }));
   register("reopen_task", "Mark a one-off task not done. Recurring tasks cannot be reopened — Kinboard itself has no undo for a day already marked done — and this fails if task_id names one.",
     z.object({ task_id: z.uuid() }), editAction,
     ({ task_id }) => call(listItemPatch, { path: `/lists/tasks/${task_id}`, params: { list: "tasks", item: task_id }, method: "PATCH", body: { status: "needs_action" } }));
-  register("update_task", "Edit a task's title, due date or assignee. Only the fields supplied are changed; omit a field to leave it alone, or send it as null to clear it (due_date, person_id). The previous value of a changed field is overwritten and not kept anywhere.",
+  register("update_task", `Edit a task's title, due date, assignee, repetition, priority, icon or points. Only the fields supplied are changed; omit a field to leave it alone, or send it as null to clear it (due_date, person_id, icon); recurrence once stops a task repeating. The previous value of a changed field is overwritten and not kept anywhere. ${TASK_FIELDS_NOTE}`,
     z.object({
       task_id: z.uuid(),
       title: z.string().trim().min(1).max(300).optional(),
       due_date: z.union([date, z.null()]).optional(),
       person_id: z.union([z.uuid(), z.null()]).optional(),
+      recurrence: taskRecurrence.optional(),
+      priority: taskPriority.optional(),
+      icon: z.union([taskIcon, z.null()]).optional(),
+      points: taskPoints.optional(),
     }), editAction,
-    ({ task_id, title, due_date, person_id }) => {
-      const body: Record<string, unknown> = {};
+    ({ task_id, title, due_date, ...fields }) => {
+      const body: Record<string, unknown> = taskFieldsBody(fields);
       if (title !== undefined) body.summary = title;
       if (due_date !== undefined) body.due = due_date;
-      if (person_id !== undefined) body.person_id = person_id;
       return call(listItemPatch, { path: `/lists/tasks/${task_id}`, params: { list: "tasks", item: task_id }, method: "PATCH", body });
     });
   register("delete_task", "Delete a task. This moves it to Kinboard's recycle bin — recoverable from Settings — rather than erasing it outright.",

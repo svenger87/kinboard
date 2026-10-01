@@ -80,6 +80,30 @@ export function formatRecurrenceDays(days: Iterable<number>): string | null {
   return DAYS_PREFIX + MONDAY_FIRST.filter((day) => picked.has(day)).map((day) => WEEKDAY_CODES[day]).join(",");
 }
 
+/** The interval recurrences, plus "once" for a task that does not repeat. */
+export const RECURRENCE_VALUES = ["once", "daily", "weekly", "biweekly", "monthly"] as const;
+
+/**
+ * A recurrence a caller sent, as it would be stored -- or null when it is not
+ * one Kinboard knows. Accepts the values the task form stores: "once",
+ * "daily", "weekly", "biweekly", "monthly", and "days:" with one or more
+ * weekday codes ("days:MO,WE,FR"). Codes are case-insensitive and stored the
+ * way the form stores them (formatRecurrenceDays: Monday first, all seven as
+ * "daily"). An empty "days:" or an unknown code is refused rather than
+ * dropped: a task that silently repeats on fewer days than asked for is worse
+ * than an error.
+ */
+export function parseRecurrence(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const v = value.trim();
+  if ((RECURRENCE_VALUES as readonly string[]).includes(v)) return v;
+  if (!v.startsWith(DAYS_PREFIX)) return null;
+  const codes = v.slice(DAYS_PREFIX.length).split(",").map((code) => code.trim().toUpperCase());
+  const days = codes.map((code) => (WEEKDAY_CODES as readonly string[]).indexOf(code));
+  if (days.length === 0 || days.some((day) => day < 0)) return null;
+  return formatRecurrenceDays(days);
+}
+
 /** A local date key ("YYYY-MM-DD") in `timeZone`, or in this runtime's own zone without one. */
 export function dayKeyIn(date: Date, timeZone?: string | null): string {
   if (timeZone) {

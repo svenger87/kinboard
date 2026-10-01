@@ -10,6 +10,7 @@ import {
   validateIdempotencyKey,
 } from "@/lib/integration-idempotency";
 import { addShoppingItemFromText } from "@/lib/shopping-enrich";
+import { createServiceTask } from "@/lib/integration-tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -44,11 +45,6 @@ function text(value: unknown, max = 500): string | null {
   return t;
 }
 
-function optionalText(value: unknown, max = 500): string | null | undefined {
-  if (value === undefined || value === null) return undefined;
-  return text(value, max);
-}
-
 const SERVICES: Record<string, ServiceDef> = {
   add_shopping_item: {
     scope: "shopping:write",
@@ -68,39 +64,9 @@ const SERVICES: Record<string, ServiceDef> = {
 
   create_task: {
     scope: "tasks:write",
-    handle: async ({ familyId, body }) => {
-      const title = text(body.title, 300);
-      if (!title) {
-        return { status: 400, response: { error: "`title` is required", code: "invalid_request" } };
-      }
-
-      // due_at in the contract is a date for a to-do; the column is a date.
-      const due = optionalText(body.due_at, 40);
-      const dueDate = due ? due.slice(0, 10) : null;
-      if (due !== undefined && due !== null && !/^\d{4}-\d{2}-\d{2}/.test(due)) {
-        return {
-          status: 400,
-          response: { error: "`due_at` must start with YYYY-MM-DD", code: "invalid_request" },
-        };
-      }
-
-      const supabase = createAdminClient();
-
-      const { data, error } = await (supabase as any)
-        .from("todos")
-        .insert({
-          family_id: familyId,
-          title,
-          completed: false,
-          ...(dueDate ? { due_date: dueDate } : {}),
-          ...(typeof body.person_id === "string" ? { person_id: body.person_id } : {}),
-        })
-        .select("id")
-        .single();
-
-      if (error) throw error;
-      return { status: 201, response: { id: data.id, title } };
-    },
+    // A string person_id must name a person of this family; see
+    // createServiceTask for why the contract's other fields are unchanged.
+    handle: ({ familyId, body }) => createServiceTask(createAdminClient(), familyId, body),
   },
 
   create_note: {

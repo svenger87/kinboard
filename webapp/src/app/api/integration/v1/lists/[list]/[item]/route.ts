@@ -6,10 +6,9 @@ import { logApiError } from "@/lib/api-error";
 import { LISTS, isListId, itemDue, itemSummary } from "@/lib/integration-lists";
 import { completionUpdate } from "@/lib/task-completion";
 import { familyTimeZone } from "@/lib/family-time";
+import { TASK_ONLY_FIELDS, familyPersonId, parseTaskExtras } from "@/lib/integration-tasks";
 
 export const dynamic = "force-dynamic";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * PATCH/DELETE /api/integration/v1/lists/{list}/{item}
@@ -71,6 +70,24 @@ export async function PATCH(
 
     const patch: Record<string, unknown> = {};
 
+    // Assignee, repetition, priority, icon and points are task columns; the
+    // shopping list has none of them.
+    if (list !== "tasks") {
+      const taskOnly = TASK_ONLY_FIELDS.find((field) => field in body);
+      if (taskOnly) {
+        const what = taskOnly === "person_id" ? "assignee" : `\`${taskOnly}\``;
+        return NextResponse.json(
+          { error: `the \`${list}\` list has no ${what}`, code: "invalid_request" },
+          { status: 400 },
+        );
+      }
+    }
+    const extras = parseTaskExtras(body);
+    if (!extras.ok) {
+      return NextResponse.json({ error: extras.error, code: "invalid_request" }, { status: 400 });
+    }
+    Object.assign(patch, extras.value);
+
     if ("status" in body) {
       const status = body.status;
       if (status !== "completed" && status !== "needs_action") {
@@ -98,8 +115,11 @@ export async function PATCH(
             return NextResponse.json({ error: "no such item", code: "not_found" }, { status: 404 });
           }
 
+          // A patch that also changes the repetition is completed under the
+          // new one, as the edit and the tick would be if made one after the
+          // other.
           const result = completionUpdate(
-            { recurrence: taskRow.recurrence },
+            { recurrence: extras.value.recurrence ?? taskRow.recurrence },
             status,
             new Date(),
             await familyTimeZone(context.familyId),
@@ -157,49 +177,21 @@ export async function PATCH(
     }
 
     if ("person_id" in body) {
-      // Only tasks carry an assignee; shopping_items has no such column.
-      if (list !== "tasks") {
-        return NextResponse.json(
-          { error: `the \`${list}\` list has no assignee`, code: "invalid_request" },
-          { status: 400 },
-        );
-      }
-      const personId = body.person_id;
-      if (personId === null) {
-        patch.person_id = null;
-      } else {
-        if (typeof personId !== "string" || !UUID_RE.test(personId)) {
-          return NextResponse.json(
-            { error: "`person_id` must be a uuid or null", code: "invalid_request" },
-            { status: 400 },
-          );
+      try {
+        const person = await familyPersonId(supabase, context.familyId, body.person_id);
+        if (!person.ok) {
+          return NextResponse.json({ error: person.error, code: "invalid_request" }, { status: 400 });
         }
-        try {
-          const { data: person, error: personErr } = await (supabase as any)
-            .from("people")
-            .select("id")
-            .eq("id", personId)
-            .eq("family_id", context.familyId)
-            .is("deleted_at", null)
-            .maybeSingle();
-          if (personErr) throw personErr;
-          if (!person) {
-            return NextResponse.json(
-              { error: "no such person in this family", code: "invalid_request" },
-              { status: 400 },
-            );
-          }
-        } catch (err) {
-          await logApiError(`integration/lists/${list}/update`, err);
-          return NextResponse.json({ error: "Could not update the item", code: "internal_error" }, { status: 500 });
-        }
-        patch.person_id = personId;
+        patch.person_id = person.value;
+      } catch (err) {
+        await logApiError(`integration/lists/${list}/update`, err);
+        return NextResponse.json({ error: "Could not update the item", code: "internal_error" }, { status: 500 });
       }
     }
 
     if (Object.keys(patch).length === 0) {
       return NextResponse.json(
-        { error: "nothing to change — send status, summary, due or person_id", code: "invalid_request" },
+        { error: "nothing to change — send status, summary, due, person_id, recurrence, priority, icon or points", code: "invalid_request" },
         { status: 400 },
       );
     }

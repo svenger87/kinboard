@@ -4,8 +4,7 @@ import { useId } from "react";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const ICONS = ["🧹", "🗑️", "🧺", "🍽️", "📚", "🪥", "🐾", "🌱", "⭐"];
+import { TODO_ICONS } from "@/lib/todo-icons";
 
 export function TodoDecorationFields({
   icon,
@@ -26,7 +25,7 @@ export function TodoDecorationFields({
         <Label>{t("fieldIcon")}</Label>
         <div className="flex flex-wrap gap-1">
           <button type="button" onClick={() => onIconChange("")} aria-pressed={!icon} className={`rounded-md px-2 text-sm ${!icon ? "ring-1 ring-primary" : ""}`}>–</button>
-          {ICONS.map((choice) => <button key={choice} type="button" onClick={() => onIconChange(choice)} aria-label={choice} aria-pressed={icon === choice} className={`rounded-md p-1 text-xl ${icon === choice ? "bg-primary/20 ring-1 ring-primary" : "bg-muted/30"}`}>{choice}</button>)}
+          {TODO_ICONS.map((choice) => <button key={choice} type="button" onClick={() => onIconChange(choice)} aria-label={choice} aria-pressed={icon === choice} className={`rounded-md p-1 text-xl ${icon === choice ? "bg-primary/20 ring-1 ring-primary" : "bg-muted/30"}`}>{choice}</button>)}
         </div>
       </div>
       <div className="space-y-2">

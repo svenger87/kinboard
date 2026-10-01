@@ -124,6 +124,67 @@ test.describe("update_task", () => {
     const { server } = buildServer(["tasks:write"]);
     expect(tool(server, "update_task").annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
   });
+
+  test("passes repetition, priority, icon and points through, and null clears the icon", async () => {
+    const { server, calls } = buildServer(["tasks:write"]);
+    await tool(server, "update_task").handler({
+      task_id: "33333333-3333-3333-3333-333333333333", recurrence: "days:MO,FR", priority: "low", icon: null, points: 0,
+    });
+    expect(calls[0].body).toEqual({ recurrence: "days:MO,FR", priority: "low", icon: null, points: 0 });
+  });
+});
+
+test.describe("task fields on create_task and update_task", () => {
+  const PERSON = "4f1c2b8e-9a3d-4e2f-8b7a-1c2d3e4f5a6b";
+  type WithSchema = { inputSchema: { parse: (v: unknown) => unknown }; description: string };
+  const schemaOf = (name: string) => {
+    const { server } = buildServer(["tasks:write"]);
+    return registeredTools(server)[name] as unknown as WithSchema;
+  };
+
+  test("create_task POSTs every field it was given, and only those", async () => {
+    const { server, calls } = buildServer(["tasks:write"], () => ({ id: "t1" }));
+    await tool(server, "create_task").handler({
+      title: "Feed the cat", due_date: "2026-10-02", person_id: PERSON,
+      recurrence: "daily", priority: "high", icon: "🐾", points: 2,
+    });
+    await tool(server, "create_task").handler({ title: "Bins" });
+    expect(calls).toEqual([
+      {
+        path: "/lists/tasks", params: { list: "tasks" },
+        body: { summary: "Feed the cat", due: "2026-10-02", person_id: PERSON, recurrence: "daily", priority: "high", icon: "🐾", points: 2 },
+      },
+      { path: "/lists/tasks", params: { list: "tasks" }, body: { summary: "Bins" } },
+    ]);
+  });
+
+  test("the schemas refuse what the routes would refuse", () => {
+    for (const name of ["create_task", "update_task"]) {
+      const base = name === "create_task" ? { title: "x" } : { task_id: PERSON };
+      const s = schemaOf(name).inputSchema;
+      expect(() => s.parse({ ...base, recurrence: "days:MO,WE", priority: "medium", icon: "⭐", points: 10_000 })).not.toThrow();
+      for (const bad of [
+        { recurrence: "days:" }, { recurrence: "yearly" }, { recurrence: "days:MO,XX" },
+        { priority: "urgent" }, { icon: "🎉" }, { points: 10_001 }, { points: -1 }, { points: 1.5 },
+        { person_id: "mia" },
+      ]) {
+        expect(() => s.parse({ ...base, ...bad }), `${name} ${JSON.stringify(bad)}`).toThrow();
+      }
+    }
+    expect(() => schemaOf("create_task").inputSchema.parse({ title: "x", icon: null })).toThrow();
+    expect(() => schemaOf("update_task").inputSchema.parse({ task_id: PERSON, icon: null })).not.toThrow();
+  });
+
+  test("both descriptions say points are only awarded to a child", () => {
+    for (const name of ["create_task", "update_task"]) {
+      expect(schemaOf(name).description).toContain("points are awarded only when the task is assigned to a child");
+    }
+  });
+
+  test("create_task stays a create", () => {
+    const { server } = buildServer(["tasks:write"]);
+    expect(tool(server, "create_task").annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+  });
 });
 
 test.describe("delete_task", () => {

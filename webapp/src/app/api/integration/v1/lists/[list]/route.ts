@@ -19,6 +19,7 @@ import {
   validateIdempotencyKey,
 } from "@/lib/integration-idempotency";
 import { addShoppingItemFromText } from "@/lib/shopping-enrich";
+import { createListTask } from "@/lib/integration-tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +89,6 @@ export async function POST(
     if (!isListId(list)) {
       return NextResponse.json({ error: `unknown list \`${list}\``, code: "not_found" }, { status: 404 });
     }
-    const def = LISTS[list];
 
     // Required on create, as everywhere else that makes a row: a retried
     // "add milk" must not add milk twice.
@@ -152,31 +152,22 @@ export async function POST(
         return NextResponse.json(response, { status: 201 });
       }
 
-      const supabase = createAdminClient();
-      const row: Record<string, unknown> = {
-        family_id: context.familyId,
-        [def.titleColumn]: summary,
-        [def.doneColumn]: false,
-      };
-      if (def.dueColumn && due.value) row[def.dueColumn] = due.value;
-
-      const { data, error } = await (supabase as any)
-        .from(def.table)
-        .insert(row)
-        .select("id")
-        .single();
-      if (error) throw error;
-
-      const response = { id: String(data.id), summary, status: "needs_action", due: due.value };
-      await storeResult({
-        familyId: context.familyId,
-        key: key.key,
-        service: `lists/${list}`,
-        requestHash,
-        status: 201,
-        response,
-      });
-      return NextResponse.json(response, { status: 201 });
+      // A task may also carry an assignee (checked against this family),
+      // repetition, priority, icon and points (lib/integration-tasks.ts).
+      // A refusal there is a 400 and, like every 400, is not remembered
+      // against the key.
+      const result = await createListTask(createAdminClient(), context.familyId, body);
+      if (result.status < 400) {
+        await storeResult({
+          familyId: context.familyId,
+          key: key.key,
+          service: `lists/${list}`,
+          requestHash,
+          status: result.status,
+          response: result.response,
+        });
+      }
+      return NextResponse.json(result.response, { status: result.status });
     } catch (err) {
       await logApiError(`integration/lists/${list}/create`, err);
       return NextResponse.json({ error: "Could not add the item", code: "internal_error" }, { status: 500 });

@@ -1278,6 +1278,9 @@ paths:
         Requires the list's own scope, so a token that may add shopping items
         still cannot create tasks. An `Idempotency-Key` is required, as
         everywhere that creates a row.
+
+        A task can also be created with an assignee, a repetition, a
+        priority, an icon and points, the fields the task form offers.
       parameters:
         - name: list
           in: path
@@ -1299,6 +1302,36 @@ paths:
                 due:
                   type: [string, "null"]
                   description: Calendar day. Ignored by lists that have no due date.
+                person_id:
+                  type: [string, "null"]
+                  format: uuid
+                  description: |
+                    Tasks only. Must name a person in the same family, or be
+                    null for nobody; anyone else is refused with `400`. Ignored
+                    on the shopping list, like the other task fields.
+                recurrence:
+                  type: string
+                  description: |
+                    Tasks only. `once` (no repeat), `daily`, `weekly`,
+                    `biweekly`, `monthly`, or `days:` followed by iCalendar
+                    weekday codes, e.g. `days:MO,WE,FR`. All seven days are
+                    stored as `daily`. An unknown value or an empty `days:` is
+                    refused with `400`.
+                priority:
+                  type: string
+                  enum: [high, medium, low]
+                  description: Tasks only.
+                icon:
+                  type: [string, "null"]
+                  enum: ["🧹", "🗑️", "🧺", "🍽️", "📚", "🪥", "🐾", "🌱", "⭐", null]
+                  description: Tasks only. One of the task form's icons; null or empty for none.
+                points:
+                  type: integer
+                  minimum: 0
+                  maximum: 10000
+                  description: |
+                    Tasks only. Awarded when the task is completed, but only
+                    when it is assigned to a child.
       responses:
         "201":
           description: Created
@@ -1313,7 +1346,7 @@ paths:
   /lists/{list}/{item}:
     patch:
       tags: [state]
-      summary: Tick, rename or re-date an item
+      summary: Tick, rename, re-date or otherwise edit an item
       description: |
         No `Idempotency-Key`: this addresses one row by id, so repeating it is
         already harmless — ticking a ticked item leaves it ticked. Requiring a
@@ -1329,7 +1362,8 @@ paths:
         UI itself has no "undo" for a day already marked done.
 
         `person_id` (tasks only) assigns or unassigns the task; it must be a
-        person in the same family, or `null`.
+        person in the same family, or `null`. `recurrence`, `priority`, `icon`
+        and `points` (tasks only) take the same values as on create.
       parameters:
         - name: list
           in: path
@@ -1362,6 +1396,29 @@ paths:
                   description: |
                     Tasks only. Must name a person in the same family, or be
                     null to unassign. Refused with `400` on any other list.
+                recurrence:
+                  type: string
+                  description: |
+                    Tasks only (refused with `400` on any other list). `once` (no repeat), `daily`, `weekly`,
+                    `biweekly`, `monthly`, or `days:` followed by iCalendar
+                    weekday codes, e.g. `days:MO,WE,FR`. All seven days are
+                    stored as `daily`. An unknown value or an empty `days:` is
+                    refused with `400`.
+                priority:
+                  type: string
+                  enum: [high, medium, low]
+                  description: Tasks only (refused with `400` on any other list).
+                icon:
+                  type: [string, "null"]
+                  enum: ["🧹", "🗑️", "🧺", "🍽️", "📚", "🪥", "🐾", "🌱", "⭐", null]
+                  description: Tasks only (refused with `400` on any other list). One of the task form's icons; null or empty for none.
+                points:
+                  type: integer
+                  minimum: 0
+                  maximum: 10000
+                  description: |
+                    Tasks only (refused with `400` on any other list). Awarded when the task is completed, but only
+                    when it is assigned to a child.
       responses:
         "200": { description: Updated }
         "400": { $ref: "#/components/responses/InvalidRequest" }
