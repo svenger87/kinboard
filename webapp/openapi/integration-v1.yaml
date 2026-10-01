@@ -849,6 +849,56 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { description: The timer could not be stopped. }
 
+  /schedule:
+    get:
+      tags: [state]
+      summary: Read the school timetable
+      description: |
+        Read only. Without `day`: each child with lessons and their lessons
+        per weekday, Monday first. With `day` (a date in the family's time
+        zone): who has school that day and which lessons. `school_day` is
+        `false` when a school holiday covers the day — one typed in under
+        the timetable's holidays, or an event on a calendar marked as
+        holidays — with `reason: holiday` and the holiday's name, or else on
+        a Saturday or Sunday with `reason: weekend`; `children` is then
+        empty. A holiday takes precedence over the weekend.
+
+        A child counts when they are a child in the family, not in the
+        recycle bin, and have at least one lesson — the children the
+        dashboard shows a timetable for. Lessons are in time order; a slot
+        without a subject is not a lesson. `person_id` narrows it to one
+        person; a person who is missing, binned or in another family
+        answers `404`.
+      x-required-scope: family:read
+      parameters:
+        - name: day
+          in: query
+          schema: { type: string, format: date }
+        - name: person_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: |
+            The weekly timetable (`children` of `ScheduleChild`) without
+            `day`, or one day (`SchoolDay`) with it.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [children]
+                    properties:
+                      children:
+                        type: array
+                        items: { $ref: "#/components/schemas/ScheduleChild" }
+                  - { $ref: "#/components/schemas/SchoolDay" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such person in this family. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The timetable could not be read. }
+
   /recycle-bin:
     get:
       tags: [state]
@@ -1858,6 +1908,65 @@ components:
       type: string
       enum: [task, note, meal, birthday]
 
+    Weekday:
+      type: string
+      enum: [sunday, monday, tuesday, wednesday, thursday, friday, saturday]
+
+    Lesson:
+      type: object
+      required: [period, start, end, subject, room]
+      properties:
+        period: { type: [integer, "null"] }
+        start: { type: [string, "null"], description: "HH:MM" }
+        end: { type: [string, "null"], description: "HH:MM" }
+        subject: { type: string }
+        room: { type: [string, "null"] }
+
+    ScheduleChild:
+      type: object
+      required: [person_id, name, days]
+      properties:
+        person_id: { type: string, format: uuid }
+        name: { type: string }
+        days:
+          type: array
+          description: Weekdays with lessons, Monday first.
+          items:
+            type: object
+            required: [day_of_week, weekday, slots]
+            properties:
+              day_of_week: { type: integer, minimum: 0, maximum: 6, description: "0 = Sunday" }
+              weekday: { $ref: "#/components/schemas/Weekday" }
+              slots:
+                type: array
+                items: { $ref: "#/components/schemas/Lesson" }
+
+    SchoolDay:
+      type: object
+      required: [date, weekday, school_day, reason, holiday, children]
+      properties:
+        date: { type: string, format: date }
+        weekday: { $ref: "#/components/schemas/Weekday" }
+        school_day: { type: boolean }
+        reason:
+          type: [string, "null"]
+          enum: [holiday, weekend, null]
+        holiday:
+          type: [string, "null"]
+          description: The holiday's name when `reason` is `holiday`.
+        children:
+          type: array
+          description: Who has lessons that day; empty when `school_day` is false.
+          items:
+            type: object
+            required: [person_id, name, slots]
+            properties:
+              person_id: { type: string, format: uuid }
+              name: { type: string }
+              slots:
+                type: array
+                items: { $ref: "#/components/schemas/Lesson" }
+
     DeletedItem:
       type: object
       required: [id, type, title, subtitle, detail, deleted_at]
@@ -2004,12 +2113,27 @@ components:
           description: |
             `state` is the children's names, not a count. A dashboard renders
             the state and hides attributes, so the state has to be the human
-            answer — "0" does not tell anyone who has school.
+            answer — "0" does not tell anyone who has school. Tomorrow is the
+            family's tomorrow; a school holiday or a weekend lists nobody, and
+            a child in the recycle bin is never listed (the same rules as
+            `GET /schedule` with `day`).
           properties:
             state: { type: [string, "null"] }
             children: { type: array, items: { type: string } }
             count: { type: integer }
             first_lesson: { type: [string, "null"] }
+            date:
+              type: [string, "null"]
+              format: date
+              description: Tomorrow in the family's time zone.
+            school_day:
+              type: [boolean, "null"]
+              description: |
+                `false` on a school holiday or a weekend, when nobody is
+                listed; `null` when the timetable could not be read.
+            reason:
+              type: [string, "null"]
+              enum: [holiday, weekend, null]
         birthdays_upcoming:
           type: object
           description: "`state` is the person, with the day count alongside."

@@ -15,7 +15,7 @@ export const MAX_MEAL_NOTE = 200;
 export const MAX_SERVINGS = 50;
 
 /** A real calendar date, same check as `integration-event-input.ts`'s `dayNumber`. */
-function isRealDate(value: string): boolean {
+export function isRealDate(value: string): boolean {
   const m = DATE_ONLY.exec(value);
   if (!m) return false;
   const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));

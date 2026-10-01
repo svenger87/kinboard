@@ -5,6 +5,8 @@ import { todayKey, toLocalDateKey } from "@/lib/local-date";
 import { resolveDayContext } from "@/lib/attention/engine";
 import { detectWasteType } from "@/lib/waste-types";
 import { logApiError } from "@/lib/api-error";
+import { familyDateKey, familyTimeZone as familyZone } from "@/lib/family-time";
+import { addDays, schoolOn } from "@/lib/school-days";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +60,17 @@ export interface FamilySummary {
    * "0" is not an answer to "whose birthday is next" — which is exactly how
    * this read on a real wall display.
    */
-  school_tomorrow: { state: string | null; children: string[]; count: number; first_lesson: string | null };
+  school_tomorrow: {
+    state: string | null;
+    children: string[];
+    count: number;
+    first_lesson: string | null;
+    /** Tomorrow in the family's time zone, which is the day this is about. */
+    date: string | null;
+    /** False on a school holiday or a weekend; null when it could not be read. */
+    school_day: boolean | null;
+    reason: "holiday" | "weekend" | null;
+  };
   birthdays_upcoming: {
     state: string | null;
     name: string | null;
@@ -187,10 +199,9 @@ export async function GET(request: NextRequest) {
     const today = todayKey();
     const tomorrowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     const tomorrow = toLocalDateKey(tomorrowDate);
-    const tomorrowDow = isoDayOfWeek(tomorrowDate);
 
     try {
-      const [calendars, shopping, todos, meals, schedules, birthdays, people, mealsTomorrow, purses, timezoneSetting, wasteCalendars, goals, attention] =
+      const [calendars, shopping, todos, meals, school, birthdays, people, mealsTomorrow, purses, timezoneSetting, wasteCalendars, goals, attention] =
         await Promise.all([
 
         (supabase as any).from("calendars").select("id").eq("family_id", familyId),
@@ -220,11 +231,16 @@ export async function GET(request: NextRequest) {
           .eq("date", today)
           .is("deleted_at", null),
 
-        (supabase as any)
-          .from("schedules")
-          .select("person_id, time_slots")
-          .eq("family_id", familyId)
-          .eq("day_of_week", tomorrowDow),
+        // Tomorrow in the family's zone, through the same reader as GET
+        // /schedule: a holiday or a weekend means nobody has school, and a
+        // binned child is not announced. A failure here costs this sensor
+        // only, not the whole summary.
+        familyZone(familyId)
+          .then((zone) => schoolOn(familyId, addDays(familyDateKey(now, zone), 1), zone))
+          .catch(async (err) => {
+            await logApiError("integration/family/summary/school", err);
+            return null;
+          }),
 
         (supabase as any)
           .from("birthdays")
@@ -379,8 +395,7 @@ export async function GET(request: NextRequest) {
       const openTodos = (todos.data ?? []) as { id: string; due_date: string | null }[];
       const overdue = openTodos.filter((t) => t.due_date !== null && t.due_date < today).length;
 
-      const scheduleRows = (schedules.data ?? []) as { person_id: string; time_slots: unknown }[];
-      const withLessons = scheduleRows.filter((s) => firstLessonOf(s.time_slots) !== null);
+      const withLessons = school?.children ?? [];
 
       const nextBirthday = ((birthdays.data ?? []) as { name: string; date: string }[])
         .map((b) => {
@@ -432,7 +447,7 @@ export async function GET(request: NextRequest) {
         currency: a.currency ?? "EUR",
       }));
 
-      const childNames = withLessons.map((s) => nameById.get(s.person_id) ?? "?");
+      const childNames = withLessons.map((c) => c.name);
 
       // Same default as the Heute-Motor's own adapter, so the two cannot
       // resolve different parts of the day for the same instant.
@@ -536,7 +551,10 @@ export async function GET(request: NextRequest) {
           state: childNames.length > 0 ? childNames.join(", ") : null,
           children: childNames,
           count: childNames.length,
-          first_lesson: withLessons.length > 0 ? firstLessonOf(withLessons[0].time_slots) : null,
+          first_lesson: withLessons.length > 0 ? firstLessonOf(withLessons[0].slots) : null,
+          date: school?.date ?? null,
+          school_day: school ? school.school_day : null,
+          reason: school?.reason ?? null,
         },
         birthdays_upcoming: {
           // The person, not the day count. "0" told nobody it was Nora's.

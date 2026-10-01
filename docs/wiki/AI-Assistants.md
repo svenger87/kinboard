@@ -67,6 +67,7 @@ change them.
 | `update_calendar_event` | Edit an event's title, time, location, description or who it is for, written through to Google or CalDAV; the previous values are overwritten and cannot be restored |
 | `delete_calendar_event` | Delete an event, including from Google or CalDAV; cannot be undone — calendar events have no recycle bin |
 | `list_people` | The people in the family, so a task or an event can be assigned to someone |
+| `get_school_timetable` | The children's school timetable — lessons per weekday with times, subject and room — or, for a given date, who has school and which lessons. During school holidays (entered under Settings -> School schedule, or a calendar marked as holidays) and at weekends it says there is no school, and why |
 
 ### Tasks
 
