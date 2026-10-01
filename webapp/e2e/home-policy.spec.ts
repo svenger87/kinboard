@@ -19,7 +19,29 @@ import { DANGEROUS_ACTIONS } from "../src/lib/ha-dangerous-actions";
  * Pure functions, no stack: runs in CI's stack-free specs job.
  */
 
-type Sensitivity = "never" | "always" | "garage_or_gate";
+type Sensitivity = "never" | "always" | "unless_blind";
+
+/** RFC-011 §4: the only cover device classes that move without asking. */
+const HARMLESS_COVER_CLASSES = ["awning", "blind", "curtain", "damper", "shade", "shutter"];
+
+/** What the RFC says `sensitive` must be, restated independently of the module. */
+function expectedSensitive(s: Sensitivity, deviceClass: string | null): boolean {
+  if (s === "always") return true;
+  if (s === "never") return false;
+  return !(deviceClass !== null && HARMLESS_COVER_CLASSES.includes(deviceClass.trim().toLowerCase()));
+}
+
+/** Every device class the tables iterate: harmless, dangerous, unknown, none. */
+const DEVICE_CLASSES: (string | null)[] = [
+  ...HARMLESS_COVER_CLASSES,
+  "garage",
+  "gate",
+  "door",
+  "window",
+  "damper_x",
+  "",
+  null,
+];
 
 /** RFC-011 §4, verbatim. Domain → service → sensitivity. */
 const RFC_TABLE: Record<string, Record<string, Sensitivity>> = {
@@ -46,10 +68,10 @@ const RFC_TABLE: Record<string, Record<string, Sensitivity>> = {
     select_source: "never",
   },
   cover: {
-    open_cover: "garage_or_gate",
-    close_cover: "garage_or_gate",
-    stop_cover: "garage_or_gate",
-    set_cover_position: "garage_or_gate",
+    open_cover: "unless_blind",
+    close_cover: "unless_blind",
+    stop_cover: "unless_blind",
+    set_cover_position: "unless_blind",
   },
   scene: { turn_on: "never" },
   vacuum: { start: "never", pause: "never", return_to_base: "never" },
@@ -84,6 +106,13 @@ function call(entityId: string, service: string, data: unknown = {}, deviceClass
   return decideHomeAction({ entityId, service, data, deviceClass });
 }
 
+/** `values` with a hole punched at `index` — `[1, , 3]` without a lint-hostile literal. */
+function sparse(values: number[], index: number): number[] {
+  const out = [...values];
+  delete out[index];
+  return out;
+}
+
 test.describe("the allowlist is RFC-011 §4, exactly", () => {
   test("same domains, same services — nothing more", () => {
     const actual = Object.fromEntries(
@@ -100,18 +129,15 @@ test.describe("the allowlist is RFC-011 §4, exactly", () => {
       test(`${domain}.${service} runs, sensitive=${sensitivity}`, () => {
         const data = MINIMAL_DATA[`${domain}.${service}`] ?? {};
         const plain = call(`${domain}.thing_1`, service, data, null);
-        expect(plain).toEqual({ ok: true, sensitive: sensitivity === "always", data });
+        expect(plain).toEqual({ ok: true, sensitive: sensitivity !== "never", data });
 
         // A device class never makes an always-sensitive action safe, and only
-        // garage/gate makes a cover sensitive.
-        for (const dc of ["garage", "gate", "door", "shutter", "awning", "blind", null]) {
+        // a recognised window covering makes a cover harmless.
+        for (const dc of DEVICE_CLASSES) {
           const r = call(`${domain}.thing_1`, service, data, dc);
-          const want =
-            sensitivity === "always" ||
-            (sensitivity === "garage_or_gate" && (dc === "garage" || dc === "gate"));
           expect(r, `${domain}.${service} with device_class=${dc}`).toEqual({
             ok: true,
-            sensitive: want,
+            sensitive: expectedSensitive(sensitivity, dc),
             data,
           });
         }
@@ -270,40 +296,59 @@ test.describe("entity ids", () => {
   });
 });
 
-test.describe("garage doors and gates", () => {
-  test("a garage or gate cover asks; a blind does not", () => {
+test.describe("covers ask unless they are plainly a blind", () => {
+  test("garage, gate, door, window, unknown and missing classes ask; blinds do not", () => {
     for (const service of ["open_cover", "close_cover", "stop_cover"]) {
-      expect(call("cover.garage", service, {}, "garage")).toEqual({ ok: true, sensitive: true, data: {} });
-      expect(call("cover.drive", service, {}, "gate")).toEqual({ ok: true, sensitive: true, data: {} });
-      expect(call("cover.living_room", service, {}, "blind")).toEqual({ ok: true, sensitive: false, data: {} });
-      expect(call("cover.living_room", service, {}, null)).toEqual({ ok: true, sensitive: false, data: {} });
+      for (const dc of ["garage", "gate", "door", "window", "something_new", "", null]) {
+        expect(call("cover.x", service, {}, dc), `${service} ${dc}`).toEqual({ ok: true, sensitive: true, data: {} });
+      }
+      for (const dc of HARMLESS_COVER_CLASSES) {
+        expect(call("cover.x", service, {}, dc), `${service} ${dc}`).toEqual({ ok: true, sensitive: false, data: {} });
+      }
     }
     expect(call("cover.garage", "set_cover_position", { position: 10 }, "garage")).toEqual({
       ok: true,
       sensitive: true,
       data: { position: 10 },
     });
+    expect(call("cover.blind", "set_cover_position", { position: 10 }, "blind")).toEqual({
+      ok: true,
+      sensitive: false,
+      data: { position: 10 },
+    });
   });
 
-  test("the device class is matched case- and whitespace-insensitively (fail closed)", () => {
-    for (const dc of ["Garage", "GATE", " garage ", "gate\n"]) {
+  test("a garage opener that reports no class, or `door`, still asks", () => {
+    // The case the default-deny exists for: openers often report `door` or nothing.
+    expect(call("cover.garage", "open_cover", {}, null)).toEqual({ ok: true, sensitive: true, data: {} });
+    expect(call("cover.garage", "open_cover", {}, "door")).toEqual({ ok: true, sensitive: true, data: {} });
+  });
+
+  test("the device class is matched case- and whitespace-insensitively", () => {
+    for (const dc of ["Blind", "SHUTTER", " awning ", "curtain\n"]) {
+      expect(call("cover.x", "open_cover", {}, dc), dc).toEqual({ ok: true, sensitive: false, data: {} });
+    }
+    for (const dc of ["Garage", "GATE", " garage ", "gate\n", "blinds", "blind_x"]) {
       expect(call("cover.x", "open_cover", {}, dc), dc).toEqual({ ok: true, sensitive: true, data: {} });
     }
   });
 
   test("the name of the entity is not the device class", () => {
-    // `cover.garage` with no device class is an ordinary cover: the caller
-    // must read device_class live, and the policy never guesses from the id.
-    expect(call("cover.garage", "open_cover", {}, null)).toEqual({ ok: true, sensitive: false, data: {} });
+    // The policy never guesses from the id, in either direction.
+    expect(call("cover.living_room_blind", "open_cover", {}, null)).toEqual({ ok: true, sensitive: true, data: {} });
+    expect(call("cover.garage", "open_cover", {}, "blind")).toEqual({ ok: true, sensitive: false, data: {} });
   });
 
   test("allowedActionsFor reflects the device class", () => {
-    expect(allowedActionsFor("cover.garage", "garage")).toEqual([
+    const allSensitive = [
       { service: "close_cover", sensitive: true },
       { service: "open_cover", sensitive: true },
       { service: "set_cover_position", sensitive: true },
       { service: "stop_cover", sensitive: true },
-    ]);
+    ];
+    expect(allowedActionsFor("cover.garage", "garage")).toEqual(allSensitive);
+    expect(allowedActionsFor("cover.x", null)).toEqual(allSensitive);
+    expect(allowedActionsFor("cover.x", "door")).toEqual(allSensitive);
     expect(allowedActionsFor("cover.blind", "blind").every((a) => !a.sensitive)).toBe(true);
   });
 });
@@ -383,6 +428,9 @@ test.describe("service data", () => {
       ["humidifier.x", "turn_on", { humidity: 40 }],
       ["vacuum.x", "start", { command: "x" }],
       ["light.x", "turn_on", { __proto__: { brightness_pct: 1 }, extra: 1 }],
+      // An own `__proto__` key, as JSON.parse produces it from a request body.
+      ["light.x", "turn_on", JSON.parse('{"__proto__":{"brightness_pct":1}}') as Record<string, unknown>],
+      ["light.x", "turn_on", JSON.parse('{"brightness_pct":1,"__proto__":{"entity_id":"lock.front"}}') as Record<string, unknown>],
     ] as const) {
       expect(call(entity, service, data), `${entity} ${service} ${JSON.stringify(data)}`).toEqual({
         ok: false,
@@ -408,7 +456,19 @@ test.describe("service data", () => {
       "light.turn_on",
       "rgb_color",
       [[0, 0, 0], [255, 128, 0], [255, 255, 255]],
-      [[256, 0, 0], [-1, 0, 0], [1, 2], [1, 2, 3, 4], [1.5, 2, 3], ["1", 2, 3], "255,0,0", { 0: 1, 1: 2, 2: 3, length: 3 }, null],
+      [
+        [256, 0, 0],
+        [-1, 0, 0],
+        [1, 2],
+        [1, 2, 3, 4],
+        [1.5, 2, 3],
+        ["1", 2, 3],
+        "255,0,0",
+        { 0: 1, 1: 2, 2: 3, length: 3 },
+        null,
+        new Array(3), // three holes
+        sparse([1, 2, 3], 1), // [1, , 3]
+      ],
     ],
     ["fan.set_percentage", "percentage", [0, 33, 100], [-1, 101, 33.3, "50", null]],
     ["climate.set_temperature", "temperature", [-20, 0, 21.5, 40], [-20.5, 40.5, 100, "21", NaN, Infinity, null]],
@@ -431,7 +491,7 @@ test.describe("service data", () => {
       for (const v of good) {
         expect(call(`${domain}.x`, service, { [key]: v }), `${key}=${JSON.stringify(v)}`).toEqual({
           ok: true,
-          sensitive: false,
+          sensitive: expectedSensitive(RFC_TABLE[domain][service], null),
           data: { [key]: v },
         });
       }
@@ -458,7 +518,7 @@ test.describe("allowedActionsFor", () => {
   test("lists every allowed service of the domain, sorted, with sensitivity", () => {
     for (const [domain, services] of Object.entries(RFC_TABLE)) {
       const want = Object.entries(services)
-        .map(([service, s]) => ({ service, sensitive: s === "always" }))
+        .map(([service, s]) => ({ service, sensitive: expectedSensitive(s, null) }))
         .sort((a, b) => a.service.localeCompare(b.service));
       expect(allowedActionsFor(`${domain}.x`, null), domain).toEqual(want);
     }
@@ -466,10 +526,13 @@ test.describe("allowedActionsFor", () => {
 
   test("agrees with decideHomeAction on every service", () => {
     for (const domain of Object.keys(RFC_TABLE)) {
-      for (const dc of [null, "garage", "blind"]) {
+      for (const dc of DEVICE_CLASSES) {
         for (const { service, sensitive } of allowedActionsFor(`${domain}.x`, dc)) {
           const r = call(`${domain}.x`, service, MINIMAL_DATA[`${domain}.${service}`] ?? {}, dc);
-          expect(r.ok && r.sensitive, `${domain}.${service} ${dc}`).toBe(sensitive);
+          // ok first, so a non-sensitive service cannot pass on invalid_data.
+          expect(r.ok, `${domain}.${service} ${dc} runs`).toBe(true);
+          if (!r.ok) continue;
+          expect(r.sensitive, `${domain}.${service} ${dc}`).toBe(sensitive);
         }
       }
     }

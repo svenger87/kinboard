@@ -16,10 +16,14 @@
  *   holds nor relays alarm or lock codes.
  * - **Sensitive** means the action waits for a family member to confirm it
  *   with the settings PIN on a Kinboard screen. Locks, alarm panels, scripts,
- *   buttons, sirens and mowers always are; a cover is when Home Assistant
- *   reports its `device_class` as `garage` or `gate`. The caller reads that
- *   device class live and passes it in; this module never guesses it from the
- *   entity's name.
+ *   buttons, sirens and mowers always are. A cover is too, **unless** Home
+ *   Assistant reports its `device_class` as one of the plainly harmless
+ *   window coverings (awning, blind, curtain, damper, shade, shutter).
+ *   Default-deny: garage, gate, door, window, any value we do not know, and
+ *   no device class at all all ask first — garage openers often report
+ *   `door` or nothing. A household can mark an unclassified blind with
+ *   "Show as" in Home Assistant. The caller reads the device class live and
+ *   passes it in; this module never guesses it from the entity's name.
  *
  * Pure: no I/O, no server-only imports — the Playwright specs import it.
  * Every entry of `DANGEROUS_ACTIONS` (RFC-008, `ha-dangerous-actions.ts`) is
@@ -37,8 +41,8 @@ export interface DataField {
 }
 
 export interface ServiceSpec {
-  /** `always`, `never`, or — covers only — when the device class is garage/gate. */
-  readonly sensitive: "always" | "never" | "garage_or_gate";
+  /** `always`, `never`, or — covers only — unless the device class is a plain blind. */
+  readonly sensitive: "always" | "never" | "unless_blind";
   readonly fields: Readonly<Record<string, DataField>>;
   /** Groups of keys of which at most one may be present. */
   readonly exclusive?: readonly (readonly string[])[];
@@ -91,7 +95,8 @@ function text(maxLength: number): (v: unknown) => unknown {
 function rgb(v: unknown): unknown {
   if (!Array.isArray(v) || v.length !== 3) return undefined;
   const channel = int(0, 255);
-  const out = v.map(channel);
+  // Array.from visits holes (as undefined), so `[1, , 3]` is refused; `map` would skip them.
+  const out = Array.from(v as unknown[], channel);
   return out.every((c) => c !== undefined) ? out : undefined;
 }
 
@@ -103,7 +108,7 @@ const HVAC_MODES = ["off", "heat", "cool", "heat_cool", "auto", "dry", "fan_only
 
 const plain: ServiceSpec = { sensitive: "never", fields: {} };
 const always: ServiceSpec = { sensitive: "always", fields: {} };
-const garageOrGate: ServiceSpec = { sensitive: "garage_or_gate", fields: {} };
+const coverMove: ServiceSpec = { sensitive: "unless_blind", fields: {} };
 const onOffToggle = { turn_on: plain, turn_off: plain, toggle: plain };
 
 // ── the table: RFC-011 §4, exactly ─────────────────────────────────────────
@@ -157,10 +162,10 @@ export const ALLOWED_SERVICES: Readonly<Record<string, Readonly<Record<string, S
       select_source: { sensitive: "never", fields: { source: required(text(100)) } },
     },
     cover: {
-      open_cover: garageOrGate,
-      close_cover: garageOrGate,
-      stop_cover: garageOrGate,
-      set_cover_position: { sensitive: "garage_or_gate", fields: { position: required(int(0, 100)) } },
+      open_cover: coverMove,
+      close_cover: coverMove,
+      stop_cover: coverMove,
+      set_cover_position: { sensitive: "unless_blind", fields: { position: required(int(0, 100)) } },
     },
     scene: { turn_on: plain },
     vacuum: { start: plain, pause: plain, return_to_base: plain },
@@ -186,7 +191,19 @@ export const ALLOWED_SERVICES: Readonly<Record<string, Readonly<Record<string, S
     lawn_mower: { start_mowing: always, dock: always, pause: always },
   });
 
-const GARAGE_OR_GATE = new Set(["garage", "gate"]);
+/**
+ * The only cover device classes that move without asking. Everything else —
+ * garage, gate, door, window (opening one is a way in), an unknown value or
+ * none — is sensitive.
+ */
+const HARMLESS_COVERS: ReadonlySet<string> = new Set([
+  "awning",
+  "blind",
+  "curtain",
+  "damper",
+  "shade",
+  "shutter",
+]);
 
 function own<T>(record: Readonly<Record<string, T>>, key: string): T | undefined {
   return Object.prototype.hasOwnProperty.call(record, key) ? record[key] : undefined;
@@ -202,8 +219,8 @@ function domainOf(entityId: unknown): string | null {
 function isSensitive(spec: ServiceSpec, deviceClass: string | null): boolean {
   if (spec.sensitive === "always") return true;
   if (spec.sensitive === "never") return false;
-  // Normalised so that an oddly-cased class errs towards asking.
-  return typeof deviceClass === "string" && GARAGE_OR_GATE.has(deviceClass.trim().toLowerCase());
+  // Default-deny: only a recognised window covering is harmless.
+  return !(typeof deviceClass === "string" && HARMLESS_COVERS.has(deviceClass.trim().toLowerCase()));
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -239,8 +256,7 @@ function validateData(spec: ServiceSpec, data: unknown): Record<string, unknown>
  * a family member have to confirm it first?
  *
  * `deviceClass` is the entity's `device_class` as Home Assistant reports it
- * right now; the caller must refuse rather than pass `null` when it could not
- * read the state of a cover.
+ * right now, or `null` when it has none; a cover without one is sensitive.
  */
 export function decideHomeAction(input: {
   entityId: string;

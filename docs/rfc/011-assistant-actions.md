@@ -81,7 +81,7 @@ Write scopes cover create, edit and delete of their own kind — the rule the
    | switch, input_boolean, fan | turn_on, turn_off, toggle (fan: + set_percentage) | |
    | climate | set_temperature, set_hvac_mode, turn_on, turn_off | |
    | media_player | media_play, media_pause, media_stop, media_next_track, media_previous_track, volume_set, volume_mute, turn_on, turn_off, select_source | |
-   | cover | open_cover, close_cover, stop_cover, set_cover_position | **when `device_class` is garage or gate** |
+   | cover | open_cover, close_cover, stop_cover, set_cover_position | **unless `device_class` is awning, blind, curtain, damper, shade or shutter** |
    | scene | turn_on | |
    | vacuum | start, pause, return_to_base | |
    | humidifier | turn_on, turn_off, set_humidity | |
@@ -94,7 +94,11 @@ Write scopes cover create, edit and delete of their own kind — the rule the
 
    `homeassistant.*`, `automation.*`, `update.*`, `shell_command.*` and every
    other domain are never callable. `device_class` is read live from Home
-   Assistant at call time, never trusted from the caller.
+   Assistant at call time, never trusted from the caller. A cover with any
+   other device class, or none, asks first — garage openers often report
+   `door` or nothing; a household can mark an unclassified blind with
+   "Show as" in Home Assistant. `set_temperature` accepts −20 to 40, which
+   assumes °C; households running Home Assistant in °F are a known limitation.
 3. **Confirmation for sensitive actions.** `control_device` stores a pending
    request (expires after **2 minutes**) and returns `pending_confirmation`
    with an id. Every Kinboard screen shows it at once (realtime), and every
