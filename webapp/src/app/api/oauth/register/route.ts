@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   if (hitLimit(`oauth-register:${clientIp(request)}`, 10, 60 * 60_000).limited) {
-    return NextResponse.json({ error: "slow_down", error_description: "too many registrations" }, { status: 429 });
+    return NextResponse.json({ error: "temporarily_unavailable", error_description: "too many registrations" }, { status: 429 });
   }
   const parsed = parseRegistrationRequest(await request.json().catch(() => null));
   if (!parsed.ok) {

@@ -12,6 +12,7 @@ import type { OAuthClient } from "@/lib/oauth/types";
  */
 const MAX_DOCUMENT_BYTES = 16 * 1024;
 const CACHE_MS = 10 * 60_000;
+const MAX_CACHE_ENTRIES = 100;
 const cache = new Map<string, { client: OAuthClient; until: number }>();
 
 export interface ClientDeps {
@@ -58,15 +59,59 @@ export function parseRegistrationRequest(body: unknown):
   return { ok: true, clientName, redirectUris };
 }
 
-async function fetchClientMetadataDocument(url: string): Promise<unknown> {
-  const response = await safeFetch(url, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(5_000) });
-  if (!response.ok) throw new Error(`client metadata returned ${response.status}`);
-  const text = await response.text();
-  if (text.length > MAX_DOCUMENT_BYTES) throw new Error("client metadata too large");
+export async function readBoundedJson(response: Response, maxBytes: number): Promise<unknown> {
+  // Check content-length header first to avoid reading a too-large body
+  const contentLength = response.headers.get("content-length");
+  if (contentLength) {
+    const bytes = parseInt(contentLength, 10);
+    if (bytes > maxBytes) throw new Error("client metadata too large");
+  }
+
+  if (!response.body) throw new Error("no response body");
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.length;
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        throw new Error("client metadata too large");
+      }
+      chunks.push(value);
+    }
+  } catch (err) {
+    await reader.cancel();
+    throw err;
+  }
+
+  const concatenated = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    concatenated.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  const text = new TextDecoder().decode(concatenated);
   return JSON.parse(text);
 }
 
+async function fetchClientMetadataDocument(url: string): Promise<unknown> {
+  const response = await safeFetch(url, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(5_000) });
+  if (!response.ok) throw new Error(`client metadata returned ${response.status}`);
+  return readBoundedJson(response, MAX_DOCUMENT_BYTES);
+}
+
 const defaultDeps: ClientDeps = { fetchDocument: fetchClientMetadataDocument, findRegistered: findDcrClient };
+
+// Test-only helper to inspect cache size
+export function clientCacheSize(): number {
+  return cache.size;
+}
 
 export async function resolveClient(clientId: string, deps: ClientDeps = defaultDeps, now: number = Date.now()): Promise<OAuthClient | null> {
   if (!isCimdClientId(clientId)) return deps.findRegistered(clientId);
@@ -74,7 +119,20 @@ export async function resolveClient(clientId: string, deps: ClientDeps = default
   if (hit && hit.until > now) return hit.client;
   try {
     const client = parseClientMetadataDocument(clientId, await deps.fetchDocument(clientId));
-    if (client) cache.set(clientId, { client, until: now + CACHE_MS });
+    if (client) {
+      // Delete expired entries before writing new ones
+      for (const [key, value] of cache) {
+        if (value.until <= now) {
+          cache.delete(key);
+        }
+      }
+      // Evict oldest entries if cache is at capacity
+      while (cache.size >= MAX_CACHE_ENTRIES) {
+        const oldestKey = cache.keys().next().value;
+        if (oldestKey) cache.delete(oldestKey);
+      }
+      cache.set(clientId, { client, until: now + CACHE_MS });
+    }
     return client;
   } catch {
     return null;

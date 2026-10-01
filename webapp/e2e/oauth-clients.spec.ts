@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { isCimdClientId, parseClientMetadataDocument, parseRegistrationRequest, resolveClient } from "../src/lib/oauth/clients";
+import { isCimdClientId, parseClientMetadataDocument, parseRegistrationRequest, resolveClient, readBoundedJson, clientCacheSize } from "../src/lib/oauth/clients";
 
 const URL_ID = "https://claude.ai/oauth/mcp-oauth-client-metadata";
 
@@ -54,5 +54,43 @@ test.describe("resolveClient", () => {
     const deps = { fetchDocument: async () => { throw new Error("unused"); }, findRegistered: async (id: string) => id === "kbclient_x" ? { clientId: id, clientName: "ChatGPT", redirectUris: [], kind: "dcr" as const } : null };
     expect((await resolveClient("kbclient_x", deps))?.clientName).toBe("ChatGPT");
     expect(await resolveClient("kbclient_y", deps)).toBeNull();
+  });
+  test("cache never exceeds 100 entries when resolving 150 distinct CIMD ids", async () => {
+    const deps = {
+      fetchDocument: async (url: string) => ({ client_id: url, redirect_uris: ["https://example.com/cb"] }),
+      findRegistered: async () => null,
+    };
+    for (let i = 0; i < 150; i++) {
+      const clientId = `https://example.com/client-${i}`;
+      await resolveClient(clientId, deps, 1_000);
+      expect(clientCacheSize()).toBeLessThanOrEqual(100);
+    }
+  });
+});
+
+test.describe("readBoundedJson", () => {
+  test("parses a small JSON body", async () => {
+    const body = JSON.stringify({ ok: true });
+    const response = new Response(body);
+    const result = await readBoundedJson(response, 1024);
+    expect(result).toEqual({ ok: true });
+  });
+  test("rejects a body exceeding maxBytes", async () => {
+    const body = "x".repeat(2048);
+    const response = new Response(body);
+    await expect(readBoundedJson(response, 1024)).rejects.toThrow("too large");
+  });
+  test("rejects a content-length header exceeding maxBytes without reading", async () => {
+    const response = new Response(null, { headers: { "content-length": "2048" } });
+    await expect(readBoundedJson(response, 1024)).rejects.toThrow("too large");
+  });
+  test("rejects a body with lying small content-length but large stream", async () => {
+    const largeBody = "x".repeat(2048);
+    const response = new Response(largeBody, { headers: { "content-length": "10" } });
+    await expect(readBoundedJson(response, 1024)).rejects.toThrow("too large");
+  });
+  test("rejects null body", async () => {
+    const response = new Response(null);
+    await expect(readBoundedJson(response, 1024)).rejects.toThrow("no response body");
   });
 });
