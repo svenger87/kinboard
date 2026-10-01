@@ -61,11 +61,12 @@ change them.
 | `get_family_summary` | Today's family context: next event, due tasks, meals, birthdays, more |
 | `get_next_birthday` | The next family birthday and how many days away it is |
 | `list_calendar_events` | Events in a date/time range |
+| `search_calendar_events` | Find appointments by name — "when is the dentist?" — in the title, place or notes; from today to a year ahead unless a range is given, at most 100 |
 | `list_writable_calendars` | Calendars an event can be created on, including connected Google and CalDAV calendars |
-| `create_calendar_event` | Add an event, written through to Google or CalDAV when connected |
-| `update_calendar_event` | Edit an event's title, time, location or description, written through to Google or CalDAV; the previous values are overwritten and cannot be restored |
+| `create_calendar_event` | Add an event, optionally for someone, written through to Google or CalDAV when connected |
+| `update_calendar_event` | Edit an event's title, time, location, description or who it is for, written through to Google or CalDAV; the previous values are overwritten and cannot be restored |
 | `delete_calendar_event` | Delete an event, including from Google or CalDAV; cannot be undone — calendar events have no recycle bin |
-| `list_people` | The people in the family, so a task can be assigned to someone |
+| `list_people` | The people in the family, so a task or an event can be assigned to someone |
 
 ### Tasks
 
@@ -156,7 +157,7 @@ change them.
 |---|---|
 | `family:read` | read the summary, calendar, tasks, people, meal plan and shopping list |
 | `notes:read` | read notes |
-| `calendar:write` | add, edit and delete calendar events |
+| `calendar:write` | add, edit and delete calendar events, and say who an event is for |
 | `tasks:write` | add, complete, edit and delete tasks, and bring them back from the recycle bin |
 | `shopping:write` | add, check/uncheck, rename and delete shopping items |
 | `notes:write` | add, edit and delete notes, and bring them back from the recycle bin |

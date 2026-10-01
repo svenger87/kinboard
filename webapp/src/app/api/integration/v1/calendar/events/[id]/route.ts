@@ -14,13 +14,14 @@ import { EVENT_COLUMNS, loadFamilyEvent, type EventQueryClient } from "@/lib/fam
 import { isRecurrenceInstance } from "@/lib/caldav-serialize";
 import { parseEventPatch } from "@/lib/integration-event-input";
 import { familyTimeZone } from "@/lib/family-time";
+import { familyPersonId } from "@/lib/integration-tasks";
 
 export const dynamic = "force-dynamic";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** What the response shows: the same shape POST answers with. */
-const RESPONSE_COLUMNS = ["id", "calendar_id", "title", "description", "start_at", "end_at", "all_day", "location"] as const;
+const RESPONSE_COLUMNS = ["id", "calendar_id", "title", "description", "start_at", "end_at", "all_day", "location", "person_id"] as const;
 
 /**
  * PATCH/DELETE /api/integration/v1/calendar/events/{id}
@@ -37,6 +38,12 @@ const RESPONSE_COLUMNS = ["id", "calendar_id", "title", "description", "start_at
  * (an ICS subscription, a read-only CalDAV collection) is a 404 too, as it
  * is for POST: its events are a mirror, and the next sync would undo any
  * edit made here.
+ *
+ * `person_id` assigns the event to a person of this family (null: nobody),
+ * checked as a task's assignee is (`familyPersonId`); a person of another
+ * family is refused like one that does not exist. A Google event carries
+ * the assignee in its private extended property, as the screens write it,
+ * or the next Google sync would put the old one back.
  *
  * PATCH updates the row first, then pushes it (the browser's order,
  * `useUpdateEvent`): the edit stands in Kinboard and `sync` says whether the
@@ -91,19 +98,31 @@ export async function PATCH(
         return NextResponse.json({ error: patch.error, code: "invalid_request" }, { status: 400 });
       }
 
+      const { columns } = patch.value;
+      if (typeof columns.person_id === "string") {
+        const person = await familyPersonId(createAdminClient(), context.familyId, columns.person_id);
+        if (!person.ok) {
+          return NextResponse.json({ error: person.error, code: "invalid_request" }, { status: 400 });
+        }
+      }
+
       const { data: updated, error } = await (createAdminClient() as any)
         .from("events")
-        .update(patch.value.columns)
+        .update(columns)
         .eq("id", event.id)
         .eq("calendar_id", calendar.id)
-        .select(EVENT_COLUMNS)
+        .select(`${EVENT_COLUMNS}, person_id`)
         .single();
       if (error) throw error;
 
+      // The assignee goes to the provider only when this edit set it, so an
+      // edit of the title never pins a person Google sync had derived from
+      // the calendar.
+      const { person_id: assignee, ...stored } = updated as StoredCalendarEvent;
       const sync = await syncUpdatedCalendarEvent(
         context.familyId,
         calendar,
-        updated as StoredCalendarEvent,
+        "person_id" in columns ? { ...stored, person_id: assignee ?? null } : stored,
         patch.value.allDayDates,
         timeZone,
       );

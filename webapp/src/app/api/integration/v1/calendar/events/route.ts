@@ -8,13 +8,25 @@ import {
 import { calendarWriteMode, syncCreatedCalendarEvent, type WritableCalendar } from "@/lib/calendar-write-through";
 import { parseEventInput } from "@/lib/integration-event-input";
 import { familyTimeZone } from "@/lib/family-time";
+import { familyPersonId } from "@/lib/integration-tasks";
+import {
+  LISTED_EVENT_COLUMNS, defaultSearchWindow, parseSearchQuery, searchEvents, type SearchClient,
+} from "@/lib/integration-event-search";
 
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/integration/v1/calendar/events?start=&end=
+ * GET /api/integration/v1/calendar/events?start=&end=[&query=]
  *
  * Calendar events in a range, for `calendar.kinboard_family`.
+ *
+ * With `query` it is a search (RFC-012, `search_calendar_events`): only
+ * events whose title, location or description contains the text, at most
+ * 100, earliest first (lib/integration-event-search.ts). A search may leave
+ * out `start` and `end` — "when is the dentist?" names no window — and then
+ * looks from today to 365 days ahead in the family's zone. Given, they are
+ * used unchanged, with the same bounds as a listing. Without `query` both
+ * stay required, as below.
  *
  * Separate from /family/summary rather than folded into it, because the two
  * answer different questions. The summary answers "what is true right now",
@@ -60,11 +72,20 @@ export function parseRange(startRaw: string | null, endRaw: string | null): Rang
 export async function GET(request: NextRequest) {
   return withIntegrationAuth(request, "family:read", async (context) => {
     const url = new URL(request.url);
-    const range = parseRange(url.searchParams.get("start"), url.searchParams.get("end"));
+    const rawQuery = url.searchParams.get("query");
+    const query = rawQuery === null ? null : parseSearchQuery(rawQuery);
+    if (query && !query.ok) {
+      return NextResponse.json({ error: query.error, code: "invalid_request" }, { status: 400 });
+    }
+    const startRaw = url.searchParams.get("start");
+    const endRaw = url.searchParams.get("end");
+    const range: RangeParseResult = query && startRaw === null && endRaw === null
+      ? { ok: true, ...defaultSearchWindow(new Date(), await familyTimeZone(context.familyId)) }
+      : parseRange(startRaw, endRaw);
 
     if (!range.ok) {
       const messages: Record<string, string> = {
-        missing: "`start` and `end` are both required",
+        missing: query ? "send both `start` and `end`, or neither to search from today" : "`start` and `end` are both required",
         unparseable: "`start` and `end` must be ISO 8601 timestamps",
         reversed: "`end` must be after `start`",
         too_wide: `the window may not exceed ${MAX_RANGE_DAYS} days`,
@@ -91,12 +112,19 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ events: [] });
       }
 
+      if (query?.ok) {
+        const events = await searchEvents(
+          supabase as unknown as SearchClient, calendarIds, query.value, range.start!, range.end!,
+        );
+        return NextResponse.json({ events });
+      }
+
       // Overlap, not containment: an event that started yesterday and ends
       // tomorrow belongs in today's window. Filtering on start_at alone would
       // drop exactly the long events a calendar most needs to show.
       const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, title, description, location, start_at, end_at, all_day, person_id")
+        .select(LISTED_EVENT_COLUMNS)
         .in("calendar_id", calendarIds)
         .lt("start_at", range.end!.toISOString())
         .gt("end_at", range.start!.toISOString())
@@ -149,6 +177,12 @@ export async function POST(request: NextRequest) {
 
     try {
       const supabase = createAdminClient();
+      if (typeof event.personId === "string") {
+        const person = await familyPersonId(supabase, context.familyId, event.personId);
+        if (!person.ok) {
+          return NextResponse.json({ error: person.error, code: "invalid_request" }, { status: 400 });
+        }
+      }
       const { data: calendar, error: calendarError } = await (supabase as any)
         .from("calendars")
         .select("id, google_calendar_id, ics_url, caldav_url, caldav_server_url, caldav_read_only")
@@ -169,8 +203,9 @@ export async function POST(request: NextRequest) {
           all_day: event.allDay,
           ...(event.description !== undefined ? { description: event.description } : {}),
           ...(event.location !== undefined ? { location: event.location } : {}),
+          ...(event.personId !== undefined ? { person_id: event.personId } : {}),
         })
-        .select("id, calendar_id, title, description, start_at, end_at, all_day, location")
+        .select("id, calendar_id, title, description, start_at, end_at, all_day, location, person_id")
         .single();
       if (error) throw error;
       const sync = await syncCreatedCalendarEvent(

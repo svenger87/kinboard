@@ -30,6 +30,24 @@ export interface CreatedCalendarEvent {
   start_at: string;
   end_at: string;
   all_day: boolean;
+  /**
+   * Who the event is for, as Google should store it. Google sync reads the
+   * assignee back from the event's private extended property `person_id`
+   * (google/sync/route.ts) and otherwise falls back to the calendar's own
+   * person, so an assignment Google does not carry is undone by the next
+   * sync. The screens write it there (/api/google/events), and so does this.
+   *
+   * Present only when it is to be written: a create sends a non-null one,
+   * an update sends it whenever the key is present (null clears it, as the
+   * screens clear it, with ""), and an absent key leaves Google's alone.
+   * CalDAV has no such field; its sync assigns from the calendar.
+   */
+  person_id?: string | null;
+}
+
+/** Google's private extended property carrying the assignee. */
+export function googlePersonProperty(personId: string | null): calendar_v3.Schema$Event["extendedProperties"] {
+  return { private: { person_id: personId ?? "" } };
 }
 
 /** Write a newly-created local row through to its configured provider. */
@@ -62,6 +80,7 @@ export async function syncCreatedCalendarEvent(
           location: event.location ?? undefined,
           start: event.all_day ? { date: allDayDates?.start } : { dateTime: event.start_at },
           end: event.all_day ? { date: allDayDates?.endExclusive } : { dateTime: event.end_at },
+          ...(event.person_id ? { extendedProperties: googlePersonProperty(event.person_id) } : {}),
         },
       });
       if (!data.id) return { provider: "google", synced: false, reason: "provider_no_id" };
@@ -232,6 +251,7 @@ export async function syncUpdatedCalendarEvent(
         description: event.description,
         location: event.location,
       };
+      if (event.person_id !== undefined) requestBody.extendedProperties = googlePersonProperty(event.person_id);
       if (!event.all_day) {
         requestBody.start = { dateTime: event.start_at, timeZone, date: null };
         requestBody.end = { dateTime: event.end_at, timeZone, date: null };

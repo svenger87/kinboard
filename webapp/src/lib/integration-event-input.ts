@@ -24,6 +24,11 @@ export interface EventInput {
   allDayDates?: { start: string; endExclusive: string };
   description?: string;
   location?: string;
+  /**
+   * Who the event is for; null for nobody. Only its shape is checked here —
+   * the route checks it names a person of the family (`familyPersonId`).
+   */
+  personId?: string | null;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -90,6 +95,12 @@ export function isValidTimeZone(timeZone: unknown): timeZone is string {
   }
 }
 
+/** The same words `familyPersonId` uses for a malformed id. */
+const PERSON_ID_ERROR = "`person_id` must be a uuid or null";
+function isPersonIdShape(value: unknown): value is string | null {
+  return value === null || (typeof value === "string" && UUID.test(value));
+}
+
 export type EventInputResult = { ok: true; value: EventInput } | { ok: false; error: string };
 
 export function parseEventInput(body: Record<string, unknown>, timeZone: string): EventInputResult {
@@ -106,9 +117,11 @@ export function parseEventInput(body: Record<string, unknown>, timeZone: string)
   if (body.location !== undefined && (typeof body.location !== "string" || body.location.length > 300)) {
     return fail("`location` must be a string of at most 300 characters");
   }
+  if (body.person_id !== undefined && !isPersonIdShape(body.person_id)) return fail(PERSON_ID_ERROR);
   const extras = {
     ...(typeof body.description === "string" ? { description: body.description.trim() } : {}),
     ...(typeof body.location === "string" ? { location: body.location.trim() } : {}),
+    ...(body.person_id !== undefined ? { personId: body.person_id as string | null } : {}),
   };
 
   if (body.all_day === true) {
@@ -167,6 +180,8 @@ export interface EventPatchColumns {
   start_at?: string;
   end_at?: string;
   all_day?: boolean;
+  /** Shape-checked only; the route checks the person is the family's. */
+  person_id?: string | null;
 }
 
 export interface EventPatch {
@@ -188,7 +203,7 @@ function zonedDayNumber(instant: string, timeZone: string): number {
   return dayNumber(key) ?? Math.floor(new Date(instant).getTime() / 86_400_000);
 }
 
-const PATCHABLE = ["title", "description", "location", "all_day", "start_at", "end_at", "start_date", "end_date"];
+const PATCHABLE = ["title", "description", "location", "person_id", "all_day", "start_at", "end_at", "start_date", "end_date"];
 
 /**
  * Validation for `PATCH /api/integration/v1/calendar/events/{id}`.
@@ -205,7 +220,7 @@ const PATCHABLE = ["title", "description", "location", "all_day", "start_at", "e
  * there is no faithful way to turn 09:00–10:00 into dates, or a day into
  * times, without inventing one of them.
  *
- * `description` and `location` may be `null` to clear them. `calendar_id`
+ * `description`, `location` and `person_id` may be `null` to clear them. `calendar_id`
  * is refused: moving an event between calendars is a delete in one provider
  * and a create in another, not an edit.
  */
@@ -248,6 +263,10 @@ function parseEventPatchFields(
       return fail(`\`${key}\` must be a string of at most ${max} characters, or null to clear it`);
     }
     columns[key] = value === null ? null : value.trim();
+  }
+  if (body.person_id !== undefined) {
+    if (!isPersonIdShape(body.person_id)) return fail(PERSON_ID_ERROR);
+    columns.person_id = body.person_id;
   }
   if (body.all_day !== undefined && typeof body.all_day !== "boolean") return fail("`all_day` must be a boolean");
 

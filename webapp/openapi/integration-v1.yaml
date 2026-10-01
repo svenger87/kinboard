@@ -975,23 +975,37 @@ paths:
         start alone would drop exactly the long events a calendar most needs
         to show.
 
-        Both bounds are required. A default would be a guess, and the two
-        plausible guesses ("today", "everything") differ by orders of
-        magnitude in cost.
+        Both bounds are required for a listing. A default would be a guess,
+        and the two plausible guesses ("today", "everything") differ by
+        orders of magnitude in cost.
+
+        With `query` it is a **search**: only events whose title, location
+        or description contains the text, ignoring case, at most 100,
+        earliest first. The text is matched literally — `%`, `_`, `*`, `\`,
+        commas and brackets are characters to find, not wildcards or filter
+        syntax. A search may leave out both bounds, and then covers today
+        to 365 days ahead in the family's time zone (from local midnight);
+        given, they are used unchanged. Send both or neither.
       x-required-scope: family:read
       parameters:
         - name: start
           in: query
-          required: true
+          required: false
           schema: { type: string, format: date-time }
+          description: Required unless `query` is given.
         - name: end
           in: query
-          required: true
+          required: false
           schema: { type: string, format: date-time }
-          description: Must be after `start`, and no more than 370 days later.
+          description: Must be after `start`, and no more than 370 days later. Required unless `query` is given.
+        - name: query
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+          description: Text to find in the title, location or description. Plain text, no control characters.
       responses:
         "200":
-          description: Events overlapping the window, oldest first
+          description: Events overlapping the window, oldest first (a search returns at most 100)
           content:
             application/json:
               schema:
@@ -1042,6 +1056,14 @@ paths:
                 end_date: { type: string, format: date, description: All-day events only. Last day, inclusive. }
                 description: { type: string, maxLength: 2000 }
                 location: { type: string, maxLength: 300 }
+                person_id:
+                  type: [string, "null"]
+                  format: uuid
+                  description: |
+                    Who the event is for: a person of this family (see
+                    `/people`). Anyone else, or someone in the recycle bin,
+                    is a `400`. On a Google calendar it is also stored with
+                    the event in Google, so Google sync keeps it.
       responses:
         "201":
           description: Created local event
@@ -1093,6 +1115,13 @@ paths:
         `description` and `location` accept `null` to clear them.
         `calendar_id` cannot be changed.
 
+        `person_id` assigns the event to a person of this family, or to
+        nobody with `null`; a person of another family is a `400`, worded
+        as for one that does not exist. On a Google calendar the assignee is
+        written to the event in Google as well, as Kinboard's screens do, so
+        the next sync keeps it. A CalDAV calendar's sync assigns events from
+        the calendar's own settings.
+
         The row is updated first, then pushed to the provider; `sync`
         reports whether the provider took it (`reason: not_linked` when the
         event was never written there). One occurrence of a repeating CalDAV
@@ -1117,6 +1146,7 @@ paths:
                 end_date: { type: string, format: date, description: All-day events only. Last day, inclusive. }
                 description: { type: [string, "null"], maxLength: 2000 }
                 location: { type: [string, "null"], maxLength: 300 }
+                person_id: { type: [string, "null"], format: uuid }
       responses:
         "200":
           description: The updated event and the provider outcome
