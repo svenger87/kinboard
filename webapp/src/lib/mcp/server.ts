@@ -5,6 +5,7 @@ import { wwwAuthenticate } from "@/lib/oauth/metadata";
 import { callIntegration, IntegrationCallError, type RouteHandler } from "@/lib/mcp/call-integration";
 import { GET as familySummary } from "@/app/api/integration/v1/family/summary/route";
 import { GET as calendarEvents, POST as createCalendarEvent } from "@/app/api/integration/v1/calendar/events/route";
+import { PATCH as calendarEventPatch, DELETE as calendarEventDelete } from "@/app/api/integration/v1/calendar/events/[id]/route";
 import { GET as calendars } from "@/app/api/integration/v1/calendars/route";
 import { GET as listGet, POST as listPost } from "@/app/api/integration/v1/lists/[list]/route";
 import { PATCH as listItemPatch, DELETE as listItemDelete } from "@/app/api/integration/v1/lists/[list]/[item]/route";
@@ -20,6 +21,8 @@ export const TOOL_SCOPES = {
   list_calendar_events: "family:read",
   list_writable_calendars: "family:read",
   create_calendar_event: "calendar:write",
+  update_calendar_event: "calendar:write",
+  delete_calendar_event: "calendar:write",
   list_tasks: "family:read",
   create_task: "tasks:write",
   complete_task: "tasks:write",
@@ -159,6 +162,22 @@ export function createKinboardMcpServer(
       description: z.string().max(2000).optional(), location: z.string().max(300).optional(),
     }), createAction,
     (args) => call(createCalendarEvent, { path: "/calendar/events", body: args }));
+  register("update_calendar_event", "Edit an event's title, time, all-day dates, location or description, and write the change through to Google or CalDAV when connected. Only the fields supplied change; send description or location as null to clear it. A timed event moves with start_at/end_at (time zone offsets required); an all-day event with start_date/end_date as YYYY-MM-DD, end_date being the last day (inclusive). Switching between all-day and timed needs both ends in the new form. The previous values are overwritten in Kinboard and in Google or CalDAV and cannot be restored. One occurrence of a repeating CalDAV event cannot be edited. Use the event id from list_calendar_events; inspect the returned sync status and disclose failures.",
+    z.object({
+      event_id: z.uuid(),
+      title: z.string().trim().min(1).max(300).optional(),
+      start_at: isoWithOffset.optional(), end_at: isoWithOffset.optional(),
+      all_day: z.boolean().optional(), start_date: date.optional(), end_date: date.optional(),
+      description: z.union([z.string().max(2000), z.null()]).optional(),
+      location: z.union([z.string().max(300), z.null()]).optional(),
+    }), editAction,
+    ({ event_id, ...fields }) => {
+      const body = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
+      return call(calendarEventPatch, { path: `/calendar/events/${event_id}`, params: { id: event_id }, method: "PATCH", body });
+    });
+  register("delete_calendar_event", "Delete a calendar event. This also deletes it from Google or the CalDAV calendar; cannot be undone (calendar events have no recycle bin). If the provider refuses, the event is kept and the error says so. One occurrence of a repeating CalDAV event cannot be deleted. Use the event id from list_calendar_events.",
+    z.object({ event_id: z.uuid() }), editAction,
+    ({ event_id }) => call(calendarEventDelete, { path: `/calendar/events/${event_id}`, params: { id: event_id }, method: "DELETE" }));
   register("list_tasks", "Read active family tasks, including completion status and due dates.", z.object({}), readOnly,
     () => call(listGet, { path: "/lists/tasks", params: { list: "tasks" } }));
   register("create_task", "Create a family task. Ask the user before writing when their intent is ambiguous; never invent a due date.",

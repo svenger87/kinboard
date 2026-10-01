@@ -286,11 +286,79 @@ test.describe("delete_note", () => {
   });
 });
 
+const EVENT_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+
+test.describe("update_calendar_event", () => {
+  test("PATCHes only the fields supplied, without the event id in the body", async () => {
+    const { server, calls } = buildServer(["calendar:write"]);
+    await tool(server, "update_calendar_event").handler({ event_id: EVENT_ID, title: "Swimming", location: null });
+    expect(calls).toEqual([{
+      path: `/calendar/events/${EVENT_ID}`,
+      params: { id: EVENT_ID },
+      method: "PATCH",
+      body: { title: "Swimming", location: null },
+    }]);
+  });
+
+  test("passes all-day dates through untouched", async () => {
+    const { server, calls } = buildServer(["calendar:write"]);
+    await tool(server, "update_calendar_event").handler({ event_id: EVENT_ID, all_day: true, start_date: "2026-10-03", end_date: "2026-10-04" });
+    expect(calls[0].body).toEqual({ all_day: true, start_date: "2026-10-03", end_date: "2026-10-04" });
+  });
+
+  test("is an edit annotation and says edits reach the provider", async () => {
+    const { server } = buildServer(["calendar:write"]);
+    const t = tool(server, "update_calendar_event") as unknown as { annotations?: Record<string, unknown>; description?: string };
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    expect(t.description).toMatch(/Google or CalDAV/);
+  });
+
+  test("its input schema rejects offset-less timestamps before the handler runs", async () => {
+    const { server } = buildServer(["calendar:write"]);
+    const t = tool(server, "update_calendar_event") as unknown as { inputSchema: { parse: (v: unknown) => unknown } };
+    expect(() => t.inputSchema.parse({ event_id: EVENT_ID, start_at: "2026-10-03T09:00:00" })).toThrow();
+  });
+
+  test("is refused without calendar:write, naming the missing scope", async () => {
+    const { server } = buildServer(["family:read"]);
+    const result = await tool(server, "update_calendar_event").handler({ event_id: EVENT_ID, title: "x" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("calendar:write");
+  });
+});
+
+test.describe("delete_calendar_event", () => {
+  test("DELETEs with no body, and says it reaches the provider and cannot be undone", async () => {
+    const { server, calls } = buildServer(["calendar:write"]);
+    const t = tool(server, "delete_calendar_event") as unknown as { handler: ToolHandler; annotations?: Record<string, unknown>; description?: string };
+    await t.handler({ event_id: EVENT_ID });
+    expect(calls).toEqual([{ path: `/calendar/events/${EVENT_ID}`, params: { id: EVENT_ID }, method: "DELETE" }]);
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    expect(t.description).toContain("also deletes it from Google or the CalDAV calendar; cannot be undone");
+  });
+
+  test("surfaces a provider failure as a tool error, not a crash", async () => {
+    const { server } = buildServer(["calendar:write"], () => {
+      throw new IntegrationCallError("The event could not be deleted from Google Calendar, so it was kept", 502, "upstream_unavailable");
+    });
+    const result = await tool(server, "delete_calendar_event").handler({ event_id: EVENT_ID });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("so it was kept");
+  });
+
+  test("is refused without calendar:write, naming the missing scope", async () => {
+    const { server } = buildServer(["family:read"]);
+    const result = await tool(server, "delete_calendar_event").handler({ event_id: EVENT_ID });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("calendar:write");
+  });
+});
+
 test("every new tool carries a real scope", () => {
   for (const name of [
     "list_people", "complete_task", "reopen_task", "update_task", "delete_task",
     "check_shopping_item", "uncheck_shopping_item", "rename_shopping_item", "delete_shopping_item",
-    "update_note", "delete_note",
+    "update_note", "delete_note", "update_calendar_event", "delete_calendar_event",
   ]) {
     expect(TOOL_SCOPES).toHaveProperty(name);
   }
@@ -305,4 +373,6 @@ test("every new tool carries a real scope", () => {
   expect(TOOL_SCOPES.delete_shopping_item).toBe("shopping:write");
   expect(TOOL_SCOPES.update_note).toBe("notes:write");
   expect(TOOL_SCOPES.delete_note).toBe("notes:write");
+  expect(TOOL_SCOPES.update_calendar_event).toBe("calendar:write");
+  expect(TOOL_SCOPES.delete_calendar_event).toBe("calendar:write");
 });

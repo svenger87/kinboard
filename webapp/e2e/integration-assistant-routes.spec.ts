@@ -183,6 +183,14 @@ test.describe("each assistant route demands its own scope", () => {
     ]);
   });
 
+  test("editing and deleting an event both require calendar:write", () => {
+    const src = readFileSync(join(dir, "calendar/events/[id]/route.ts"), "utf8");
+    expect(src.match(/withIntegrationAuth\(request, "([a-z:]+)"/g)).toEqual([
+      'withIntegrationAuth(request, "calendar:write"',
+      'withIntegrationAuth(request, "calendar:write"',
+    ]);
+  });
+
   test("a Home Assistant token cannot read notes, create events or read energy", () => {
     const ha = ["family:read", "events:read", "shopping:write", "tasks:write", "notes:write"];
     expect(hasScope(ha, "notes:read")).toBe(false);

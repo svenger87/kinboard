@@ -361,6 +361,105 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { description: The event could not be stored. }
 
+  /calendar/events/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [state]
+      summary: Edit an event, written through to Google or CalDAV
+      description: |
+        Only the fields supplied change. The same rules as creating apply: a
+        **timed** event takes `start_at`/`end_at` with `Z` or a `+HH:MM`
+        offset; an **all-day** event takes `start_date`/`end_date` as plain
+        dates, `end_date` being the last day (inclusive). An end that is not
+        sent keeps its stored value; a start that would land at or after it
+        is rejected rather than moving the end. Switching between all-day and
+        timed (`all_day`) needs **both** ends in the new form.
+
+        `description` and `location` accept `null` to clear them.
+        `calendar_id` cannot be changed.
+
+        The row is updated first, then pushed to the provider; `sync`
+        reports whether the provider took it (`reason: not_linked` when the
+        event was never written there). One occurrence of a repeating CalDAV
+        event answers `409` before anything is written.
+
+        An event in another family's calendar, or in a read-only calendar
+        (ICS subscription, read-only CalDAV), answers `404`.
+      x-required-scope: calendar:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                title: { type: string, minLength: 1, maxLength: 300 }
+                start_at: { type: string, format: date-time, description: Timed events only. }
+                end_at: { type: string, format: date-time, description: Timed events only. }
+                all_day: { type: boolean }
+                start_date: { type: string, format: date, description: All-day events only. First day. }
+                end_date: { type: string, format: date, description: All-day events only. Last day, inclusive. }
+                description: { type: [string, "null"], maxLength: 2000 }
+                location: { type: [string, "null"], maxLength: 300 }
+      responses:
+        "200":
+          description: The updated event and the provider outcome
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [event, sync]
+                properties:
+                  event:
+                    allOf:
+                      - { $ref: "#/components/schemas/CalendarEvent" }
+                      - type: object
+                        required: [calendar_id]
+                        properties:
+                          calendar_id: { type: string, format: uuid }
+                  sync: { $ref: "#/components/schemas/CalendarSync" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such event in a writable calendar of this family. }
+        "409": { description: One occurrence of a repeating CalDAV event; edit the series in the calendar app. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The event could not be updated. }
+    delete:
+      tags: [state]
+      summary: Delete an event, from Google or CalDAV first
+      description: |
+        The provider is asked first, as Kinboard's own screens do: deleting
+        locally while the event survives upstream would let the next sync
+        bring it straight back. If the provider refuses, the local event is
+        **kept** and the answer is `502 upstream_unavailable` (or `409` for a
+        server-side change or one occurrence of a repeating CalDAV event).
+        An event never written to its provider is deleted locally with
+        `sync.reason: not_linked`. Calendar events have no recycle bin; this
+        cannot be undone.
+      x-required-scope: calendar:write
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, sync]
+                properties:
+                  ok: { type: boolean, const: true }
+                  sync: { $ref: "#/components/schemas/CalendarSync" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such event in a writable calendar of this family. }
+        "409": { description: The event changed on the CalDAV server, or is one occurrence of a repeating event. The event is kept. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { description: The provider could not delete the event. The event is kept. }
+        "500": { description: The event could not be deleted. }
+
   /calendars:
     get:
       tags: [state]
@@ -794,6 +893,19 @@ components:
         end_at: { type: string, format: date-time }
         all_day: { type: [boolean, "null"] }
         person_id: { type: [string, "null"], format: uuid }
+
+    CalendarSync:
+      type: object
+      required: [provider, synced]
+      properties:
+        provider: { type: string, enum: [local, google, caldav] }
+        synced: { type: boolean }
+        reason:
+          type: string
+          description: |
+            Why `synced` is false: `not_linked`, `recurring`, `conflict`,
+            `google_not_connected`, `caldav_not_connected`,
+            `provider_write_failed`, `calendar_read_only`.
 
     DomainEvent:
       type: object

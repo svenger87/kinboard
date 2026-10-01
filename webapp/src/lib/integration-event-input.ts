@@ -149,3 +149,138 @@ export function parseEventInput(body: Record<string, unknown>, timeZone: string)
     value: { calendarId, title, allDay: false, ...extras, startAt: start.toISOString(), endAt: end.toISOString() },
   };
 }
+
+/**
+ * The stored event a patch applies to — only what the time rules need.
+ */
+export interface StoredEventTimes {
+  start_at: string;
+  end_at: string;
+  all_day: boolean;
+}
+
+/** Columns a PATCH may write; only the keys the caller sent are present. */
+export interface EventPatchColumns {
+  title?: string;
+  description?: string | null;
+  location?: string | null;
+  start_at?: string;
+  end_at?: string;
+  all_day?: boolean;
+}
+
+export interface EventPatch {
+  columns: EventPatchColumns;
+  /**
+   * Provider dates for an all-day event, present only when the edit touched
+   * its dates (or made it all-day). Absent on a title-only edit, so a
+   * provider is never re-sent dates derived from instants stored by some
+   * other client in some other zone.
+   */
+  allDayDates?: { start: string; endExclusive: string };
+}
+
+export type EventPatchResult = { ok: true; value: EventPatch } | { ok: false; error: string };
+
+/** `instant` as a UTC day number of its calendar date in `timeZone`. */
+function zonedDayNumber(instant: string, timeZone: string): number {
+  const key = new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(instant));
+  return dayNumber(key) ?? Math.floor(new Date(instant).getTime() / 86_400_000);
+}
+
+const PATCHABLE = ["title", "description", "location", "all_day", "start_at", "end_at", "start_date", "end_date"];
+
+/**
+ * Validation for `PATCH /api/integration/v1/calendar/events/{id}`.
+ *
+ * The same rules as `parseEventInput`, applied to only the fields present:
+ * a timed event moves with `start_at`/`end_at` (each with an offset), an
+ * all-day event with `start_date`/`end_date` (the last day, inclusive), and
+ * an end that is not sent keeps its stored value. A start that would land at
+ * or after the stored end is refused rather than dragging the end along —
+ * guessing that the caller wanted to keep the duration is exactly the kind
+ * of silent decision an assistant should not have made for it.
+ *
+ * Switching between all-day and timed needs **both** ends in the new form:
+ * there is no faithful way to turn 09:00–10:00 into dates, or a day into
+ * times, without inventing one of them.
+ *
+ * `description` and `location` may be `null` to clear them. `calendar_id`
+ * is refused: moving an event between calendars is a delete in one provider
+ * and a create in another, not an edit.
+ */
+export function parseEventPatch(
+  body: Record<string, unknown>,
+  existing: StoredEventTimes,
+  timeZone: string,
+): EventPatchResult {
+  const fail = (error: string): EventPatchResult => ({ ok: false, error });
+  if (body.calendar_id !== undefined) return fail("`calendar_id` cannot be changed; delete the event and create it in the other calendar");
+  if (!PATCHABLE.some((k) => body[k] !== undefined)) {
+    return fail(`send at least one of ${PATCHABLE.map((k) => `\`${k}\``).join(", ")}`);
+  }
+
+  const columns: EventPatchColumns = {};
+  if (body.title !== undefined) {
+    const title = typeof body.title === "string" ? body.title.trim() : "";
+    if (!title || title.length > 300) return fail("`title` must be 1 to 300 characters");
+    columns.title = title;
+  }
+  for (const [key, max] of [["description", 2000], ["location", 300]] as const) {
+    const value = body[key];
+    if (value === undefined) continue;
+    if (value !== null && (typeof value !== "string" || value.length > max)) {
+      return fail(`\`${key}\` must be a string of at most ${max} characters, or null to clear it`);
+    }
+    columns[key] = value === null ? null : value.trim();
+  }
+  if (body.all_day !== undefined && typeof body.all_day !== "boolean") return fail("`all_day` must be a boolean");
+
+  const allDay = body.all_day ?? existing.all_day;
+  const switching = allDay !== existing.all_day;
+  if (switching) columns.all_day = allDay;
+
+  if (allDay) {
+    if (body.start_at !== undefined || body.end_at !== undefined) {
+      return fail("an all-day event takes `start_date` and `end_date`, not timestamps");
+    }
+    if (switching && (body.start_date === undefined || body.end_date === undefined)) {
+      return fail("making an event all-day needs both `start_date` and `end_date`");
+    }
+    if (body.start_date === undefined && body.end_date === undefined) return { ok: true, value: { columns } };
+    const first = body.start_date !== undefined ? dayNumber(body.start_date) : zonedDayNumber(existing.start_at, timeZone);
+    const last = body.end_date !== undefined ? dayNumber(body.end_date) : zonedDayNumber(existing.end_at, timeZone);
+    if (first === null || last === null) return fail("`start_date` and `end_date` must be YYYY-MM-DD dates");
+    if (last < first) return fail("`end_date` must not be before `start_date`");
+    if (last - first + 1 > MAX_EVENT_DAYS) return fail(`an event may not exceed ${MAX_EVENT_DAYS} days`);
+    if (switching || body.start_date !== undefined) columns.start_at = zonedWallTimeToUtc(first, 0, timeZone).toISOString();
+    if (switching || body.end_date !== undefined) columns.end_at = zonedWallTimeToUtc(last, 86_400_000 - 1, timeZone).toISOString();
+    return {
+      ok: true,
+      value: { columns, allDayDates: { start: dateFromDayNumber(first), endExclusive: dateFromDayNumber(last + 1) } },
+    };
+  }
+
+  if (body.start_date !== undefined || body.end_date !== undefined) {
+    return fail("`start_date` and `end_date` are only for all-day events");
+  }
+  if (switching && (body.start_at === undefined || body.end_at === undefined)) {
+    return fail("making an event timed needs both `start_at` and `end_at`");
+  }
+  if (body.start_at === undefined && body.end_at === undefined) return { ok: true, value: { columns } };
+  for (const key of ["start_at", "end_at"] as const) {
+    const raw = body[key];
+    if (raw !== undefined && (typeof raw !== "string" || !ISO_WITH_OFFSET.test(raw) || Number.isNaN(new Date(raw).getTime()))) {
+      return fail("`start_at` and `end_at` must be ISO 8601 timestamps with `Z` or a `+HH:MM` offset");
+    }
+  }
+  const start = new Date(body.start_at !== undefined ? (body.start_at as string) : existing.start_at);
+  const end = new Date(body.end_at !== undefined ? (body.end_at as string) : existing.end_at);
+  if (end <= start) {
+    return fail("`end_at` must be after `start_at`; send both to move the event past its current end");
+  }
+  if (end.getTime() - start.getTime() > MAX_EVENT_DAYS * 86_400_000) return fail(`an event may not exceed ${MAX_EVENT_DAYS} days`);
+  if (body.start_at !== undefined) columns.start_at = start.toISOString();
+  if (body.end_at !== undefined) columns.end_at = end.toISOString();
+  return { ok: true, value: { columns } };
+}
