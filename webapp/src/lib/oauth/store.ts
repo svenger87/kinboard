@@ -45,8 +45,14 @@ export function createOAuthStore(): OAuthStore {
       // Opportunistic sweep: expired attempts are useless and unbounded otherwise.
       // Non-blocking — a sweep failure must not stop a new request from being
       // created — but logged, so a persistent failure doesn't go unnoticed.
+      //
+      // "Expired" is the later of the request's and its code's expiry. A
+      // request approved in its last minute holds a code that outlives the
+      // request itself; sweeping on expires_at alone would delete it while
+      // the code is still being exchanged, turning a valid exchange (and a
+      // replay check) into "unknown code".
       const { error: sweepError } = await db().from("oauth_authorization_requests")
-        .delete().lt("expires_at", now).is("grant_id", null);
+        .delete().lt("expires_at", now).or(`code_expires_at.is.null,code_expires_at.lt.${now}`).is("grant_id", null);
       if (sweepError) console.error("[oauth] sweep of expired authorization requests failed", sweepError);
       const { data, error } = await db().from("oauth_authorization_requests").insert({
         client_id: r.clientId, client_name: r.clientName, redirect_uri: r.redirectUri, state: r.state,
@@ -84,21 +90,41 @@ export function createOAuthStore(): OAuthStore {
         .select("*");
       if (error) throw error;
       if ((data ?? []).length === 1) return { status: "ok", request: toRequest(data[0]) };
+      // Not consumable: a replay if it was already used, else unknown or
+      // expired. The replay is recorded in the same statement that detects it.
       const { data: seen, error: seenError } = await db().from("oauth_authorization_requests")
-        .select("used_at, grant_id").eq("code_hash", codeHash).maybeSingle();
+        .update({ replayed_at: now.toISOString() })
+        .eq("code_hash", codeHash).not("used_at", "is", null)
+        .select("id");
       if (seenError) throw seenError;
-      return seen?.used_at ? { status: "reused", grantId: seen.grant_id } : { status: "missing" };
+      return (seen ?? []).length === 1 ? { status: "reused", requestId: seen[0].id } : { status: "missing" };
     },
     async insertGrant(g) {
       const { data, error } = await db().from("integration_tokens").insert({
         family_id: g.familyId, name: g.name, scopes: g.scopes, token_hash: g.accessHash, expires_at: g.accessExpiresAt,
         oauth_client_id: g.oauthClientId, resource: g.resource, refresh_token_hash: g.refreshHash, refresh_expires_at: g.refreshExpiresAt,
+        oauth_request_id: g.requestId,
       }).select("id").single();
       if (error) throw error;
       return data.id as string;
     },
     async linkGrant(requestId, grantId) {
       const { error } = await db().from("oauth_authorization_requests").update({ grant_id: grantId }).eq("id", requestId);
+      if (error) throw error;
+    },
+    async wasReplayed(requestId) {
+      const { data, error } = await db().from("oauth_authorization_requests").select("replayed_at").eq("id", requestId).maybeSingle();
+      if (error) throw error;
+      return !!data?.replayed_at;
+    },
+    async revokeGrantsForRequest(requestId, now) {
+      const { error } = await db().from("integration_tokens").update({ revoked_at: now.toISOString() })
+        .eq("oauth_request_id", requestId).is("revoked_at", null);
+      if (error) throw error;
+    },
+    async revokeOtherGrants(familyId, oauthClientId, keepId, now) {
+      const { error } = await db().from("integration_tokens").update({ revoked_at: now.toISOString() })
+        .eq("family_id", familyId).eq("oauth_client_id", oauthClientId).neq("id", keepId).is("revoked_at", null);
       if (error) throw error;
     },
     async findGrantByRefreshHash(refreshHash) {
@@ -129,6 +155,35 @@ export async function findDcrClient(clientId: string): Promise<OAuthClient | nul
     .select("client_id, client_name, redirect_uris").eq("client_id", clientId).maybeSingle();
   if (error) throw error;
   return data ? { clientId: data.client_id, clientName: data.client_name, redirectUris: data.redirect_uris, kind: "dcr" } : null;
+}
+
+/** How many DCR clients were registered since `sinceIso`, across every caller. */
+export async function countDcrClientsSince(sinceIso: string): Promise<number> {
+  const { count, error } = await (createAdminClient() as any).from("oauth_clients")
+    .select("client_id", { count: "exact", head: true }).gte("created_at", sinceIso);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Deletes DCR clients registered before `beforeIso` that never got a
+ * connection (no integration_tokens row names them). Registration is
+ * anonymous, so without this the table only grows. Bounded per call; the
+ * next registration continues where this one stopped.
+ */
+export async function sweepUnusedDcrClients(beforeIso: string): Promise<void> {
+  const db = createAdminClient() as any;
+  const { data: old, error } = await db.from("oauth_clients").select("client_id").lt("created_at", beforeIso).limit(200);
+  if (error) throw error;
+  const ids = ((old ?? []) as { client_id: string }[]).map((r) => r.client_id);
+  if (ids.length === 0) return;
+  const { data: used, error: usedError } = await db.from("integration_tokens").select("oauth_client_id").in("oauth_client_id", ids);
+  if (usedError) throw usedError;
+  const keep = new Set(((used ?? []) as { oauth_client_id: string }[]).map((r) => r.oauth_client_id));
+  const unused = ids.filter((id) => !keep.has(id));
+  if (unused.length === 0) return;
+  const { error: deleteError } = await db.from("oauth_clients").delete().in("client_id", unused);
+  if (deleteError) throw deleteError;
 }
 
 export async function registerDcrClient(clientName: string, redirectUris: string[]): Promise<OAuthClient> {

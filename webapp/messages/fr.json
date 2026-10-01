@@ -4201,7 +4201,7 @@
     "approve": "Autoriser",
     "deny": "Refuser",
     "pinInvalid": "Ce code PIN est incorrect.",
-    "rateLimited": "Trop de codes PIN erronés. Patientez une minute puis réessayez.",
+    "rateLimited": "Trop de codes PIN erronés. Réessayez plus tard.",
     "noScopes": "Choisissez au moins une autorisation, ou refusez.",
     "newPinInvalid": "Le code PIN doit comporter exactement 4 chiffres.",
     "expired": "Cette demande a expiré ou a déjà reçu une réponse. Relancez la connexion depuis l'assistant.",

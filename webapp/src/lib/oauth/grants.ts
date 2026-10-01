@@ -76,7 +76,10 @@ export async function exchangeAuthorizationCode(
   if (!p.code.startsWith(CODE_PREFIX)) return fail("invalid_grant", "unknown or expired code");
   const consumed = await store.consumeCode(hashIntegrationToken(p.code), now);
   if (consumed.status === "reused") {
-    if (consumed.grantId) await store.revokeGrant(consumed.grantId, now);
+    // By request id, not the request's grant_id: the first presentation
+    // records the request on the grant in the same INSERT, whereas grant_id
+    // is only linked a statement later.
+    await store.revokeGrantsForRequest(consumed.requestId, now);
     return fail("invalid_grant", "code already used");
   }
   if (consumed.status === "missing") return fail("invalid_grant", "unknown or expired code");
@@ -91,10 +94,22 @@ export async function exchangeAuthorizationCode(
 
   const t = freshTokens(now);
   const grantId = await store.insertGrant({
-    familyId: r.familyId, name: grantName(r.clientId, r.clientName, r.redirectUri), scopes: r.grantedScopes, oauthClientId: r.clientId, resource: r.resource,
+    requestId: r.id, familyId: r.familyId, name: grantName(r.clientId, r.clientName, r.redirectUri), scopes: r.grantedScopes, oauthClientId: r.clientId, resource: r.resource,
     accessHash: t.access.hash, accessExpiresAt: t.accessExpiresAt, refreshHash: t.refresh.hash, refreshExpiresAt: t.refreshExpiresAt,
   });
   await store.linkGrant(r.id, grantId);
+  // A replay that arrived before the grant above existed revoked nothing,
+  // but it marked the request first. Checked after the insert, so either
+  // that replay's revoke saw this grant or this check sees its mark.
+  if (await store.wasReplayed(r.id)) {
+    await store.revokeGrant(grantId, now);
+    return fail("invalid_grant", "code already used");
+  }
+  // One connection per assistant per family: approving Claude again replaces
+  // the old connection instead of leaving it live and forgotten in the list.
+  // Done here, where the new connection exists, rather than at consent — an
+  // approval that is never exchanged must not cut off the working one.
+  await store.revokeOtherGrants(r.familyId, r.clientId, grantId, now);
   return {
     ok: true,
     body: { access_token: t.access.token, token_type: "Bearer", expires_in: ACCESS_TOKEN_TTL_S, refresh_token: t.refresh.token, scope: r.grantedScopes.join(" ") },

@@ -1,6 +1,6 @@
 import { safeFetch } from "@/lib/safe-fetch";
 import { isAcceptableRedirectUri } from "@/lib/oauth/redirect";
-import { findDcrClient } from "@/lib/oauth/store";
+import { countDcrClientsSince, findDcrClient, sweepUnusedDcrClients } from "@/lib/oauth/store";
 import { logApiError } from "@/lib/api-error";
 import type { OAuthClient } from "@/lib/oauth/types";
 
@@ -58,6 +58,40 @@ export function parseRegistrationRequest(body: unknown):
   }
   const clientName = typeof b.client_name === "string" && b.client_name.trim() ? b.client_name.trim().slice(0, 100) : "Assistant";
   return { ok: true, clientName, redirectUris };
+}
+
+/**
+ * The per-address limit on /api/oauth/register (10 an hour) does nothing
+ * against many addresses. This is the install-wide ceiling: past 50 new
+ * clients in an hour, registration answers 429 until the hour rolls over. A
+ * household connects a handful of assistants, ever; 50 an hour is an attack
+ * or a broken client, and either way the table should stop growing.
+ */
+export const DCR_HOURLY_CAP = 50;
+/** A registered client that never got a connection is deleted after this. */
+export const DCR_UNUSED_TTL_MS = 7 * 24 * 60 * 60_000;
+
+export interface RegistrationDeps {
+  countSince(sinceIso: string): Promise<number>;
+  sweepUnused(beforeIso: string): Promise<void>;
+}
+
+const defaultRegistrationDeps: RegistrationDeps = { countSince: countDcrClientsSince, sweepUnused: sweepUnusedDcrClients };
+
+/**
+ * Whether one more DCR registration may be written now. Sweeps week-old
+ * clients that never got a connection on the way — opportunistically, like
+ * the authorization-request sweep: its failure is logged and does not block
+ * a registration. A failed count does block it (throws): an unknown total
+ * must not read as "under the cap".
+ */
+export async function admitDcrRegistration(deps: RegistrationDeps = defaultRegistrationDeps, now: number = Date.now()): Promise<boolean> {
+  try {
+    await deps.sweepUnused(new Date(now - DCR_UNUSED_TTL_MS).toISOString());
+  } catch (err) {
+    console.error("[oauth] sweep of unused registered clients failed", err);
+  }
+  return (await deps.countSince(new Date(now - 60 * 60_000).toISOString())) < DCR_HOURLY_CAP;
 }
 
 export async function readBoundedJson(response: Response, maxBytes: number): Promise<unknown> {

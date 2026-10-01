@@ -36,6 +36,12 @@ const psql = (sql: string) =>
 let clientId: string | null = null;
 let pinCreated = false;
 let familyId: string | null = null;
+// A throwaway second family with one writable calendar, so the cross-family
+// check below always has a target (CI has only the demo family) and its id
+// is a real random UUID (seeded ids like 00000000-…-0000000000b1 fail the
+// tool's own UUID validation, which would make the check pass for the wrong
+// reason).
+const FOREIGN_FAMILY = "claude-flow-foreign";
 // The family's assistants_enabled row before this test touched it: null
 // until read, "" when there was no row, else the JSON text to put back.
 let assistantsBefore: string | null = null;
@@ -49,6 +55,9 @@ test.afterAll(() => {
     }
   }
   psql("DELETE FROM devices WHERE hardware_id LIKE 'claude-%'");
+  psql(`DELETE FROM events WHERE calendar_id IN (SELECT c.id FROM calendars c JOIN families f ON f.id = c.family_id WHERE f.name = '${FOREIGN_FAMILY}')`);
+  psql(`DELETE FROM calendars WHERE family_id IN (SELECT id FROM families WHERE name = '${FOREIGN_FAMILY}')`);
+  psql(`DELETE FROM families WHERE name = '${FOREIGN_FAMILY}'`);
   if (clientId) {
     psql(`DELETE FROM integration_tokens WHERE oauth_client_id = '${clientId}'`);
     psql(`DELETE FROM oauth_authorization_requests WHERE client_id = '${clientId}'`);
@@ -92,7 +101,7 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
   const verifier = randomBytes(32).toString("base64url");
   const challenge = createHash("sha256").update(verifier).digest("base64url");
   const authorize = await api.get("/api/oauth/authorize", {
-    params: { response_type: "code", client_id: clientId, redirect_uri: redirectUri, state: "st", code_challenge: challenge, code_challenge_method: "S256", scope: "family:read tasks:write" },
+    params: { response_type: "code", client_id: clientId, redirect_uri: redirectUri, state: "st", code_challenge: challenge, code_challenge_method: "S256", scope: "family:read tasks:write calendar:write" },
     maxRedirects: 0,
   });
   expect(authorize.status()).toBe(302);
@@ -111,7 +120,7 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
 
   const details = await api.get(`/api/oauth/consent?request=${requestId}`);
   // A DCR client named itself: the page must not vouch for it.
-  expect(await details.json()).toMatchObject({ clientName: "claude-flow-test", verified: false, clientHost: null, scopes: ["family:read", "tasks:write"], loopbackOnly: true, pinSet: hasPin });
+  expect(await details.json()).toMatchObject({ clientName: "claude-flow-test", verified: false, clientHost: null, scopes: ["family:read", "calendar:write", "tasks:write"], loopbackOnly: true, pinSet: hasPin });
 
   // A same-origin-page POST never carries a different Origin. One present
   // and different means the request didn't come from the consent page,
@@ -137,7 +146,7 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
   }
 
   const consent = await api.post("/api/oauth/consent", {
-    data: { request: requestId, decision: "approve", scopes: ["family:read"], ...(hasPin ? { pin: process.env.SETTINGS_PIN } : { newPin: "4826" }) },
+    data: { request: requestId, decision: "approve", scopes: ["family:read", "calendar:write"], ...(hasPin ? { pin: process.env.SETTINGS_PIN } : { newPin: "4826" }) },
   });
   expect(consent.status(), await consent.text()).toBe(200);
   if (!hasPin) pinCreated = true;
@@ -149,7 +158,7 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
     form: { grant_type: "authorization_code", code: redirect.searchParams.get("code")!, code_verifier: verifier, client_id: clientId, redirect_uri: redirectUri },
   });
   const tokens = await exchange.json();
-  expect(tokens).toMatchObject({ token_type: "Bearer", scope: "family:read" });
+  expect(tokens).toMatchObject({ token_type: "Bearer", scope: "family:read calendar:write" });
 
   const client = new Client({ name: "kinboard-flow-test", version: "1.0.0" });
   await client.connect(new StreamableHTTPClientTransport(new URL(`${BASE}/api/mcp`), { requestInit: { headers: { authorization: `Bearer ${tokens.access_token}` } } }));
@@ -158,7 +167,23 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
   const listed = await client.callTool({ name: "list_tasks", arguments: {} });
   expect(listed.isError).toBeFalsy();
   const denied = await client.callTool({ name: "create_task", arguments: { title: "should not exist" } });
-  expect(denied.isError).toBe(true); // granted family:read only
+  expect(denied.isError).toBe(true); // tasks:write was requested but not granted
+
+  // calendar:write is granted — for this family's calendars only. Another
+  // family's calendar id, however it was learned, is refused and nothing is
+  // written to it. The refusal must be the route's family check ("No
+  // writable calendar"), not input validation, or this proves nothing.
+  const foreignCalendar = psql(
+    `WITH f AS (INSERT INTO families (name, join_code) VALUES ('${FOREIGN_FAMILY}', upper(substr(md5(random()::text), 1, 6))) RETURNING id) ` +
+    `INSERT INTO calendars (family_id, name) SELECT id, '${FOREIGN_FAMILY}' FROM f RETURNING id`,
+  ).split("\n")[0];
+  const foreign = await client.callTool({
+    name: "create_calendar_event",
+    arguments: { calendar_id: foreignCalendar, title: "claude-flow-test foreign", start_at: "2030-01-01T10:00:00+00:00", end_at: "2030-01-01T11:00:00+00:00" },
+  });
+  expect(foreign.isError).toBe(true);
+  expect(JSON.stringify(foreign.content)).toContain("No writable calendar");
+  expect(psql(`SELECT count(*) FROM events WHERE calendar_id = '${foreignCalendar}'`)).toBe("0");
   await client.close();
 
   const refreshed = await (await api.post("/api/oauth/token", { form: { grant_type: "refresh_token", refresh_token: tokens.refresh_token, client_id: clientId } })).json();

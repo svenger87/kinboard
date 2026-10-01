@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clientIp, hitLimit } from "@/lib/rate-limit";
-import { parseRegistrationRequest } from "@/lib/oauth/clients";
+import { admitDcrRegistration, parseRegistrationRequest } from "@/lib/oauth/clients";
 import { registerDcrClient } from "@/lib/oauth/store";
 import { logApiError } from "@/lib/api-error";
 import { assistantsGate } from "@/lib/oauth/enabled";
@@ -41,6 +41,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: parsed.error, error_description: parsed.description }, { status: 400 });
   }
   try {
+    if (!(await admitDcrRegistration())) {
+      return NextResponse.json({ error: "temporarily_unavailable", error_description: "too many registrations" }, { status: 429 });
+    }
     const client = await registerDcrClient(parsed.clientName, parsed.redirectUris);
     return NextResponse.json({
       client_id: client.clientId,

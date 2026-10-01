@@ -4201,7 +4201,7 @@
     "approve": "Erlauben",
     "deny": "Nicht erlauben",
     "pinInvalid": "Die PIN stimmt nicht.",
-    "rateLimited": "Zu viele falsche PINs. Warte eine Minute und versuche es erneut.",
+    "rateLimited": "Zu viele falsche PINs. Versuche es später noch einmal.",
     "noScopes": "Wähle mindestens eine Berechtigung oder lehne ab.",
     "newPinInvalid": "Die PIN muss genau 4 Ziffern haben.",
     "expired": "Diese Anfrage ist abgelaufen oder wurde schon beantwortet. Starte die Verbindung im Assistenten neu.",

@@ -1,5 +1,8 @@
 import { test, expect } from "@playwright/test";
-import { isCimdClientId, parseClientMetadataDocument, parseRegistrationRequest, resolveClient, readBoundedJson, clientCacheSize } from "../src/lib/oauth/clients";
+import {
+  isCimdClientId, parseClientMetadataDocument, parseRegistrationRequest, resolveClient, readBoundedJson, clientCacheSize,
+  admitDcrRegistration, DCR_HOURLY_CAP, DCR_UNUSED_TTL_MS,
+} from "../src/lib/oauth/clients";
 
 const URL_ID = "https://claude.ai/oauth/mcp-oauth-client-metadata";
 
@@ -92,5 +95,31 @@ test.describe("readBoundedJson", () => {
   test("rejects null body", async () => {
     const response = new Response(null);
     await expect(readBoundedJson(response, 1024)).rejects.toThrow("no response body");
+  });
+});
+
+test.describe("DCR admission (install-wide cap and sweep)", () => {
+  const NOW = Date.parse("2026-10-01T12:00:00Z");
+
+  test("admits under the hourly cap and refuses at it, counting from one hour back", async () => {
+    const since: string[] = [];
+    const deps = (count: number) => ({
+      countSince: async (iso: string) => { since.push(iso); return count; },
+      sweepUnused: async () => {},
+    });
+    expect(await admitDcrRegistration(deps(DCR_HOURLY_CAP - 1), NOW)).toBe(true);
+    expect(await admitDcrRegistration(deps(DCR_HOURLY_CAP), NOW)).toBe(false);
+    expect(since[0]).toBe("2026-10-01T11:00:00.000Z");
+  });
+
+  test("sweeps clients older than a week, and a failed sweep does not block registration", async () => {
+    const swept: string[] = [];
+    expect(await admitDcrRegistration({ countSince: async () => 0, sweepUnused: async (iso) => { swept.push(iso); } }, NOW)).toBe(true);
+    expect(swept).toEqual([new Date(NOW - DCR_UNUSED_TTL_MS).toISOString()]);
+    expect(await admitDcrRegistration({ countSince: async () => 0, sweepUnused: async () => { throw new Error("db down"); } }, NOW)).toBe(true);
+  });
+
+  test("a count that cannot be read refuses rather than guessing", async () => {
+    await expect(admitDcrRegistration({ countSince: async () => { throw new Error("db down"); }, sweepUnused: async () => {} }, NOW)).rejects.toThrow("db down");
   });
 });

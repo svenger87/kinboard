@@ -13,11 +13,11 @@ const NOW = new Date("2026-10-01T12:00:00Z");
 
 /** In-memory OAuthStore with the same compare-and-swap semantics as the Supabase one. */
 function memoryStore() {
-  const requests = new Map<string, AuthRequest & { codeHash: string | null }>();
-  const grants = new Map<string, GrantRecord & { accessHash: string; refreshHash: string; name: string }>();
+  const requests = new Map<string, AuthRequest & { codeHash: string | null; replayedAt: string | null }>();
+  const grants = new Map<string, GrantRecord & { accessHash: string; refreshHash: string; name: string; requestId: string }>();
   let n = 0;
   const store: OAuthStore = {
-    async createAuthRequest(r) { const id = `req${++n}`; requests.set(id, { ...r, id, familyId: null, grantedScopes: null, codeExpiresAt: null, usedAt: null, grantId: null, codeHash: null }); return id; },
+    async createAuthRequest(r) { const id = `req${++n}`; requests.set(id, { ...r, id, familyId: null, grantedScopes: null, codeExpiresAt: null, usedAt: null, grantId: null, codeHash: null, replayedAt: null }); return id; },
     async getAuthRequest(id) { return requests.get(id) ?? null; },
     async approveAuthRequest(id, familyId, granted, codeHash, codeExpiresAt, now) {
       const r = requests.get(id);
@@ -28,12 +28,17 @@ function memoryStore() {
     async consumeCode(codeHash, now) {
       const r = [...requests.values()].find((x) => x.codeHash === codeHash);
       if (!r) return { status: "missing" };
-      if (r.usedAt) return { status: "reused", grantId: r.grantId };
+      if (r.usedAt) { r.replayedAt = now.toISOString(); return { status: "reused", requestId: r.id }; }
       if (!r.codeExpiresAt || new Date(r.codeExpiresAt) <= now) return { status: "missing" };
       r.usedAt = now.toISOString(); return { status: "ok", request: r };
     },
-    async insertGrant(g) { const id = `grant${++n}`; grants.set(id, { id, name: g.name, familyId: g.familyId, scopes: g.scopes, oauthClientId: g.oauthClientId, resource: g.resource, refreshExpiresAt: g.refreshExpiresAt, revokedAt: null, accessHash: g.accessHash, refreshHash: g.refreshHash }); return id; },
+    async insertGrant(g) { const id = `grant${++n}`; grants.set(id, { id, requestId: g.requestId, name: g.name, familyId: g.familyId, scopes: g.scopes, oauthClientId: g.oauthClientId, resource: g.resource, refreshExpiresAt: g.refreshExpiresAt, revokedAt: null, accessHash: g.accessHash, refreshHash: g.refreshHash }); return id; },
     async linkGrant(requestId, grantId) { requests.get(requestId)!.grantId = grantId; },
+    async wasReplayed(requestId) { return !!requests.get(requestId)?.replayedAt; },
+    async revokeGrantsForRequest(requestId, now) { for (const g of grants.values()) if (g.requestId === requestId && !g.revokedAt) g.revokedAt = now.toISOString(); },
+    async revokeOtherGrants(familyId, clientId, keepId, now) {
+      for (const g of grants.values()) if (g.familyId === familyId && g.oauthClientId === clientId && g.id !== keepId && !g.revokedAt) g.revokedAt = now.toISOString();
+    },
     async findGrantByRefreshHash(h) { return [...grants.values()].find((g) => g.refreshHash === h) ?? null; },
     async rotateGrant(id, old, next) {
       const g = grants.get(id); if (!g || g.refreshHash !== old || g.revokedAt) return false;
@@ -44,10 +49,10 @@ function memoryStore() {
   return { store, requests, grants };
 }
 
-async function approvedCode(store: OAuthStore) {
+async function approvedCode(store: OAuthStore, familyId = "fam-1") {
   const id = await store.createAuthRequest({ clientId: CLIENT, clientName: "Claude", redirectUri: REDIRECT, state: "s", codeChallenge: CHALLENGE, scopes: ["family:read", "tasks:write"], resource: RESOURCE, expiresAt: "2026-10-01T12:10:00Z" });
   const code = generateAuthorizationCode();
-  expect(await store.approveAuthRequest(id, "fam-1", ["tasks:write"], code.hash, "2026-10-01T12:01:00Z", NOW)).toBe(true);
+  expect(await store.approveAuthRequest(id, familyId, ["tasks:write"], code.hash, "2026-10-01T12:01:00Z", NOW)).toBe(true);
   return code.code;
 }
 const exchange = (store: OAuthStore, code: string, over: Partial<Parameters<typeof exchangeAuthorizationCode>[1]> = {}) =>
@@ -74,6 +79,55 @@ test.describe("authorization code", () => {
     const again = await exchange(store, code);
     expect(again).toMatchObject({ ok: false, body: { error: "invalid_grant" } });
     expect([...grants.values()][0].revokedAt).not.toBeNull();
+  });
+
+  test("a replay racing the first exchange before its grant exists still revokes it", async () => {
+    // The second presentation arrives after the first consumed the code but
+    // before it inserted the grant: the replay's revoke finds nothing, so the
+    // first exchange must notice the replay itself.
+    const m = memoryStore();
+    const code = await approvedCode(m.store);
+    let replay: Awaited<ReturnType<typeof exchange>> | null = null;
+    const racing: OAuthStore = {
+      ...m.store,
+      async insertGrant(g) {
+        replay = await exchange(m.store, code);
+        return m.store.insertGrant(g);
+      },
+    };
+    const first = await exchange(racing, code);
+    expect(replay).toMatchObject({ ok: false, body: { error: "invalid_grant" } });
+    expect(first).toMatchObject({ ok: false, body: { error: "invalid_grant" } });
+    const [g] = [...m.grants.values()];
+    expect(g.revokedAt).not.toBeNull();
+  });
+
+  test("a replay racing between the grant insert and its link revokes it by request id", async () => {
+    const m = memoryStore();
+    const code = await approvedCode(m.store);
+    let revokedDuringReplay: string | null = null;
+    const racing: OAuthStore = {
+      ...m.store,
+      async linkGrant(requestId, grantId) {
+        // grant_id is not linked yet, so only the request id can find it.
+        await exchange(m.store, code);
+        revokedDuringReplay = m.grants.get(grantId)!.revokedAt;
+        return m.store.linkGrant(requestId, grantId);
+      },
+    };
+    expect(await exchange(racing, code)).toMatchObject({ ok: false, body: { error: "invalid_grant" } });
+    expect(revokedDuringReplay).not.toBeNull();
+  });
+
+  test("approving the same assistant again replaces the family's old connection, and only that", async () => {
+    const m = memoryStore();
+    expect((await exchange(m.store, await approvedCode(m.store, "fam-1"))).ok).toBe(true);
+    expect((await exchange(m.store, await approvedCode(m.store, "fam-2"))).ok).toBe(true);
+    expect((await exchange(m.store, await approvedCode(m.store, "fam-1"))).ok).toBe(true);
+    const [oldFam1, fam2, newFam1] = [...m.grants.values()];
+    expect(oldFam1.revokedAt).not.toBeNull();
+    expect(fam2.revokedAt).toBeNull();
+    expect(newFam1.revokedAt).toBeNull();
   });
 
   test("wrong verifier, client, redirect or resource are all refused", async () => {

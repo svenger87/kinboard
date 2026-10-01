@@ -54,6 +54,28 @@ CREATE TABLE IF NOT EXISTS public.oauth_authorization_requests (
 CREATE INDEX IF NOT EXISTS idx_oauth_authorization_requests_expiry
   ON public.oauth_authorization_requests (expires_at);
 
+-- Code replay (OAuth 2.1 §4.1.3): a code presented twice must revoke what
+-- the first presentation produced — including when both arrive together and
+-- the second is answered before the first has written its grant.
+--
+-- oauth_request_id: the authorization request a connection was minted from,
+-- written in the same INSERT as the grant, so there is no moment where the
+-- grant exists but cannot be found from its request (grant_id on the request
+-- is only linked a statement later). Not a foreign key: requests are swept,
+-- and a connection must outlive the request that started it.
+--
+-- replayed_at: set by the second presentation before it revokes by
+-- oauth_request_id. The first presentation checks it after inserting its
+-- grant. One of the two always sees the other's write, so the connection
+-- cannot survive a replay however the two interleave.
+ALTER TABLE public.integration_tokens
+  ADD COLUMN IF NOT EXISTS oauth_request_id UUID;
+ALTER TABLE public.oauth_authorization_requests
+  ADD COLUMN IF NOT EXISTS replayed_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_integration_tokens_oauth_request
+  ON public.integration_tokens (oauth_request_id)
+  WHERE oauth_request_id IS NOT NULL;
+
 -- Same protection as integration_tokens: nothing for anon/authenticated,
 -- everything for service_role. The routes are the only way in.
 REVOKE ALL ON TABLE public.oauth_clients FROM PUBLIC;

@@ -69,10 +69,9 @@ export async function GET(request: NextRequest) {
     clientName: r.clientName,
     verified,
     clientHost: verified ? new URL(r.clientId).host : null,
-    // A custom URI scheme without an authority component (e.g. a bare
-    // "cursor:" callback) parses with an empty .host; .protocol (which
-    // includes the trailing colon) is what actually identifies it then.
-    redirectHost: redirectUrl.host || redirectUrl.protocol,
+    // Always a host: only https and http-loopback redirect URIs are ever
+    // accepted (isAcceptableRedirectUri), so there is no custom scheme here.
+    redirectHost: redirectUrl.host,
     loopbackOnly: isLoopbackRedirect(r.redirectUri),
     scopes: r.scopes,
     pinSet: await familyHasPin(auth.session.familyId),
