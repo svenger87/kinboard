@@ -167,20 +167,34 @@ export async function countDcrClientsSince(sinceIso: string): Promise<number> {
 
 /**
  * Deletes DCR clients registered before `beforeIso` that never got a
- * connection (no integration_tokens row names them). Registration is
- * anonymous, so without this the table only grows. Bounded per call; the
- * next registration continues where this one stopped.
+ * connection (no integration_tokens row names them, revoked or not).
+ * Registration is anonymous, so without this the table only grows.
+ *
+ * The used clients are excluded in the candidate query itself, not filtered
+ * out of a page afterwards: filtering a page of the 200 oldest let 200 old
+ * *used* clients fill every page, and the sweep then deleted nothing, ever.
+ * integration_tokens has no foreign key to oauth_clients (CIMD client ids
+ * are URLs with no row there), so PostgREST cannot anti-join; instead the
+ * set of DCR client ids that have a connection is read first and excluded
+ * with `not.in`. That set stays small by construction — every entry is a
+ * connection someone approved with the family PIN — so it fits a URL.
+ *
+ * Oldest first, at most 200 per call; the next registration continues
+ * with whatever is left.
  */
 export async function sweepUnusedDcrClients(beforeIso: string): Promise<void> {
   const db = createAdminClient() as any;
-  const { data: old, error } = await db.from("oauth_clients").select("client_id").lt("created_at", beforeIso).limit(200);
-  if (error) throw error;
-  const ids = ((old ?? []) as { client_id: string }[]).map((r) => r.client_id);
-  if (ids.length === 0) return;
-  const { data: used, error: usedError } = await db.from("integration_tokens").select("oauth_client_id").in("oauth_client_id", ids);
+  const { data: used, error: usedError } = await db.from("integration_tokens")
+    .select("oauth_client_id").like("oauth_client_id", `${DCR_CLIENT_PREFIX}%`);
   if (usedError) throw usedError;
-  const keep = new Set(((used ?? []) as { oauth_client_id: string }[]).map((r) => r.oauth_client_id));
-  const unused = ids.filter((id) => !keep.has(id));
+  const usedIds = [...new Set(((used ?? []) as { oauth_client_id: string }[]).map((r) => r.oauth_client_id))];
+
+  let candidates = db.from("oauth_clients").select("client_id").lt("created_at", beforeIso);
+  // Ids are the prefix plus base64url, so quoting them is enough for the list.
+  if (usedIds.length > 0) candidates = candidates.not("client_id", "in", `(${usedIds.map((id) => `"${id}"`).join(",")})`);
+  const { data: old, error } = await candidates.order("created_at", { ascending: true }).limit(200);
+  if (error) throw error;
+  const unused = ((old ?? []) as { client_id: string }[]).map((r) => r.client_id);
   if (unused.length === 0) return;
   const { error: deleteError } = await db.from("oauth_clients").delete().in("client_id", unused);
   if (deleteError) throw deleteError;
