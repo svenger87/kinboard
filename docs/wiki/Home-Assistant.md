@@ -118,8 +118,8 @@ write at all.
 | `tasks:write` | the task to-do list |
 | `notes:write` | creating notes |
 
-Three more exist for AI assistants connected through the
-[MCP server](https://github.com/svenger87/kinboard/blob/main/mcp/README.md);
+Three more exist for AI assistants connected through Kinboard's
+[built-in MCP endpoint](https://github.com/svenger87/kinboard/wiki/AI-Assistants);
 Home Assistant needs none of them: `notes:read` (reading notes),
 `calendar:write` (creating calendar events) and `energy:read` (the configured
 solar sensors).

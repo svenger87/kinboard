@@ -1,5 +1,0 @@
-# Replace this name with the hostname in MCP_PUBLIC_URL. Set its DNS record
-# to this host and allow inbound HTTPS. Caddy obtains and renews TLS certs.
-mcp.example.com {
-  reverse_proxy 127.0.0.1:8787
-}

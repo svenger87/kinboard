@@ -198,13 +198,12 @@ quietly rot.
 Permissions are per-token and nothing is implied: a token that may add shopping
 items cannot create tasks, and a read-only token cannot write at all.
 
-### Local AI assistant connection
+### AI assistants
 
-The [Kinboard MCP server](mcp/README.md) lets AI clients read family
-context, calendars, tasks, notes, shopping lists and configured solar sensors,
-and create tasks, notes, shopping items and calendar events through the
-scoped Integration API. It supports local stdio and an OAuth-protected web
-endpoint for households with public HTTPS and an identity provider.
+Claude and ChatGPT can read the family's calendar, tasks, notes and shopping
+list, and add to them, through Kinboard's built-in MCP endpoint. Add
+`https://<your-kinboard>/api/mcp` as a custom connector and approve the
+request Kinboard shows you. See [AI assistants](https://github.com/svenger87/kinboard/wiki/AI-Assistants).
 
 
 Niche integrations (Tesla Fleet, Zendure SolarFlow batteries, etc.) ship as opt-in plugins. See the [Plugin development guide](https://github.com/svenger87/kinboard/wiki/Plugin-Development) to write your own.
