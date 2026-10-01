@@ -219,6 +219,116 @@ paths:
         "404": { description: "No such note in this family, including one already in the recycle bin." }
         "429": { $ref: "#/components/responses/RateLimited" }
 
+  /meals:
+    get:
+      tags: [state]
+      summary: Read planned meals in a date range
+      description: |
+        Entries overlapping `start`..`end`, both inclusive, both plain
+        `YYYY-MM-DD` dates — a meal plan entry has no time-of-day, so
+        timestamps are refused rather than silently truncated. Scoped
+        through `meal_plans!inner(family_id)`, since `meal_plan_entries`
+        carries no `family_id` of its own, and by the same dates the window
+        asks for rather than by which `meal_plans` row an entry happens to
+        sit in — a household's chosen week start can change at any time.
+      x-required-scope: family:read
+      parameters:
+        - name: start
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: end
+          in: query
+          required: true
+          schema: { type: string, format: date }
+          description: Must not be before `start`, and the range may not exceed 31 days.
+      responses:
+        "200":
+          description: Entries overlapping the window, earliest date first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries]
+                properties:
+                  entries:
+                    type: array
+                    items: { $ref: "#/components/schemas/MealPlanEntry" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    post:
+      tags: [state]
+      summary: Add a meal to the plan
+      description: |
+        Finds or creates the `meal_plans` row for the week containing
+        `date`, following the family's `week_start` setting the same way
+        `getOrCreateMealPlanId` in `hooks/use-meal-planner.ts` does
+        (`locale` resolves to Monday here — there is no device to resolve
+        it against on the server).
+
+        Exactly one of `recipe_id` (must name a recipe in this family) or
+        `note` (1-200 characters) is required. This adds an entry to the
+        slot; it does not replace whatever else is already planned for that
+        date and meal type.
+      x-required-scope: meals:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, meal_type]
+              properties:
+                date: { type: string, format: date }
+                meal_type: { type: string, enum: [breakfast, lunch, dinner, snack] }
+                recipe_id: { type: string, format: uuid }
+                note: { type: string, minLength: 1, maxLength: 200 }
+                servings: { type: integer, minimum: 1, maximum: 50 }
+      responses:
+        "201":
+          description: Created entry
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entry]
+                properties:
+                  entry: { $ref: "#/components/schemas/MealPlanEntry" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: recipe_id does not name a recipe in this family. }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The entry could not be stored. }
+
+  /meals/{id}:
+    delete:
+      tags: [state]
+      summary: Remove a meal plan entry
+      description: |
+        Moves the entry to Kinboard's recycle bin through the same BEFORE
+        DELETE trigger as notes and tasks (`migration_zzz_soft_delete.sql`).
+        An entry already binned, missing, or belonging to another family
+        answers `404` rather than being deleted again — a second delete on
+        an already-binned row purges it for real, which this refuses to do.
+      x-required-scope: meals:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Removed }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such meal in this family, including one already in the recycle bin." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
   /people:
     get:
       tags: [state]
@@ -831,6 +941,20 @@ components:
         person_id: { type: [string, "null"], format: uuid }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    MealPlanEntry:
+      type: object
+      required: [id, date, meal_type]
+      properties:
+        id: { type: string, format: uuid }
+        date: { type: string, format: date }
+        meal_type: { type: string, enum: [breakfast, lunch, dinner, snack] }
+        recipe_id: { type: [string, "null"], format: uuid }
+        recipe_title:
+          type: [string, "null"]
+          description: Null when the entry has no linked recipe.
+        note: { type: [string, "null"] }
+        servings: { type: [integer, "null"] }
 
     ListItem:
       type: object

@@ -286,6 +286,99 @@ test.describe("delete_note", () => {
   });
 });
 
+test.describe("get_meal_plan", () => {
+  test("reads /meals with the range as query params and is read-only", async () => {
+    const { server, calls } = buildServer(["family:read"], () => ({ entries: [] }));
+    const t = tool(server, "get_meal_plan");
+    expect(t.annotations?.readOnlyHint).toBe(true);
+    const result = await t.handler({ start: "2026-10-01", end: "2026-10-07" });
+    expect(calls).toEqual([{ path: "/meals", query: { start: "2026-10-01", end: "2026-10-07" } }]);
+    expect(JSON.parse(result.content[0].text)).toEqual({ entries: [] });
+  });
+
+  test("is refused without family:read, naming the missing scope", async () => {
+    const { server } = buildServer(["meals:write"]);
+    const result = await tool(server, "get_meal_plan").handler({ start: "2026-10-01", end: "2026-10-07" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("family:read");
+  });
+});
+
+test.describe("add_meal", () => {
+  test("POSTs the arguments as the body unchanged, and is a create annotation", async () => {
+    const { server, calls } = buildServer(["meals:write"]);
+    const t = tool(server, "add_meal");
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+    await t.handler({ date: "2026-10-03", meal_type: "dinner", note: "Pizza" });
+    expect(calls).toEqual([{ path: "/meals", body: { date: "2026-10-03", meal_type: "dinner", note: "Pizza" } }]);
+  });
+
+  test("a recipe_id entry passes recipe_id through, not note", async () => {
+    const { server, calls } = buildServer(["meals:write"]);
+    await tool(server, "add_meal").handler({
+      date: "2026-10-03", meal_type: "lunch",
+      recipe_id: "11111111-1111-1111-1111-111111111111", servings: 4,
+    });
+    expect(calls[0].body).toEqual({
+      date: "2026-10-03", meal_type: "lunch",
+      recipe_id: "11111111-1111-1111-1111-111111111111", servings: 4,
+    });
+  });
+
+  test("its input schema rejects an unknown meal_type and an out-of-range servings before the handler runs", async () => {
+    const { server } = buildServer(["meals:write"]);
+    const t = tool(server, "add_meal") as unknown as { inputSchema: { parse: (v: unknown) => unknown } };
+    expect(() => t.inputSchema.parse({ date: "2026-10-03", meal_type: "brunch", note: "x" })).toThrow();
+    expect(() => t.inputSchema.parse({ date: "2026-10-03", meal_type: "dinner", note: "x", servings: 0 })).toThrow();
+  });
+
+  test("surfaces the route's 400 (neither or both of recipe_id/note) as a tool error, not a crash", async () => {
+    const { server } = buildServer(["meals:write"], () => {
+      throw new IntegrationCallError("send exactly one of `recipe_id` or `note`", 400, "invalid_request");
+    });
+    const result = await tool(server, "add_meal").handler({ date: "2026-10-03", meal_type: "dinner", note: "x" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("exactly one");
+  });
+
+  test("is refused without meals:write, naming the missing scope", async () => {
+    const { server } = buildServer(["family:read"]);
+    const result = await tool(server, "add_meal").handler({ date: "2026-10-03", meal_type: "dinner", note: "x" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("meals:write");
+  });
+});
+
+test.describe("remove_meal", () => {
+  test("DELETEs with no body, and says it's recoverable", async () => {
+    const { server, calls } = buildServer(["meals:write"]);
+    const t = tool(server, "remove_meal");
+    await t.handler({ meal_id: "cccccccc-cccc-cccc-cccc-cccccccccccc" });
+    expect(calls).toEqual([{
+      path: "/meals/cccccccc-cccc-cccc-cccc-cccccccccccc",
+      params: { id: "cccccccc-cccc-cccc-cccc-cccccccccccc" },
+      method: "DELETE",
+    }]);
+    expect(t.annotations?.destructiveHint).toBe(true);
+  });
+
+  test("surfaces the route's 404 as a tool error, not a crash", async () => {
+    const { server } = buildServer(["meals:write"], () => {
+      throw new IntegrationCallError("no such meal", 404, "not_found");
+    });
+    const result = await tool(server, "remove_meal").handler({ meal_id: "cccccccc-cccc-cccc-cccc-cccccccccccc" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe("no such meal");
+  });
+
+  test("is refused without meals:write, naming the missing scope", async () => {
+    const { server } = buildServer(["family:read"]);
+    const result = await tool(server, "remove_meal").handler({ meal_id: "cccccccc-cccc-cccc-cccc-cccccccccccc" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("meals:write");
+  });
+});
+
 const EVENT_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 
 test.describe("update_calendar_event", () => {
@@ -359,6 +452,7 @@ test("every new tool carries a real scope", () => {
     "list_people", "complete_task", "reopen_task", "update_task", "delete_task",
     "check_shopping_item", "uncheck_shopping_item", "rename_shopping_item", "delete_shopping_item",
     "update_note", "delete_note", "update_calendar_event", "delete_calendar_event",
+    "get_meal_plan", "add_meal", "remove_meal",
   ]) {
     expect(TOOL_SCOPES).toHaveProperty(name);
   }
@@ -375,4 +469,7 @@ test("every new tool carries a real scope", () => {
   expect(TOOL_SCOPES.delete_note).toBe("notes:write");
   expect(TOOL_SCOPES.update_calendar_event).toBe("calendar:write");
   expect(TOOL_SCOPES.delete_calendar_event).toBe("calendar:write");
+  expect(TOOL_SCOPES.get_meal_plan).toBe("family:read");
+  expect(TOOL_SCOPES.add_meal).toBe("meals:write");
+  expect(TOOL_SCOPES.remove_meal).toBe("meals:write");
 });

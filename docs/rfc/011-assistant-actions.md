@@ -61,7 +61,7 @@ Write scopes cover create, edit and delete of their own kind — the rule the
 | `delete_calendar_event` | calendar:write | provider first, then local, like the browser |
 | `update_note` / `delete_note` | notes:write | delete goes to the recycle bin |
 | `get_meal_plan` | family:read | date range ≤ 31 days |
-| `set_meal` / `remove_meal` | meals:write | free-text meal or a recipe id, per date and meal type |
+| `add_meal` / `remove_meal` | meals:write | free-text meal or a recipe id, per date and meal type. Named `add_meal`, not `set_meal`: "set" would imply replacing a slot's existing entries, which deletes silently |
 | `send_message` | announcements:write | ≤ 200 characters, shown on screens and pushed to phones |
 | `list_home_devices` | home:read | catalogue devices with room, state and the actions allowed for each |
 | `get_device_state` | home:read | one catalogue device |

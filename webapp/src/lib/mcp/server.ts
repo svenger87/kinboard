@@ -12,6 +12,9 @@ import { PATCH as listItemPatch, DELETE as listItemDelete } from "@/app/api/inte
 import { GET as people } from "@/app/api/integration/v1/people/route";
 import { GET as notes } from "@/app/api/integration/v1/notes/route";
 import { PATCH as notePatchRoute, DELETE as noteDelete } from "@/app/api/integration/v1/notes/[id]/route";
+import { GET as mealPlan, POST as addMealRoute } from "@/app/api/integration/v1/meals/route";
+import { DELETE as removeMealRoute } from "@/app/api/integration/v1/meals/[id]/route";
+import { MEAL_TYPES } from "@/lib/integration-meal-input";
 import { POST as service } from "@/app/api/integration/v1/services/[service]/route";
 import { GET as energy } from "@/app/api/integration/v1/energy/current/route";
 
@@ -40,6 +43,9 @@ export const TOOL_SCOPES = {
   create_note: "notes:write",
   update_note: "notes:write",
   delete_note: "notes:write",
+  get_meal_plan: "family:read",
+  add_meal: "meals:write",
+  remove_meal: "meals:write",
   get_solar_production: "energy:read",
 } as const satisfies Record<string, McpScope>;
 
@@ -239,6 +245,19 @@ export function createKinboardMcpServer(
   register("delete_note", "Delete a note. This moves it to Kinboard's recycle bin — recoverable from Settings — rather than erasing it outright.",
     z.object({ note_id: z.uuid() }), editAction,
     ({ note_id }) => call(noteDelete, { path: `/notes/${note_id}`, params: { id: note_id }, method: "DELETE" }));
+  register("get_meal_plan", "Read planned meals in a date range, inclusive, at most 31 days. Each entry names its date, meal type (breakfast, lunch, dinner, or snack) and either a linked recipe (id and title) or a free-text note.",
+    z.object({ start: date, end: date }), readOnly,
+    ({ start, end }) => call(mealPlan, { path: "/meals", query: { start, end } }));
+  register("add_meal", "Add a meal to the plan for a date and meal type. Send exactly one of recipe_id (a known recipe) or note (free text, up to 200 characters). This adds an entry to the slot rather than replacing what is already planned there — a slot can hold more than one meal; use remove_meal first to take one away.",
+    z.object({
+      date, meal_type: z.enum(MEAL_TYPES),
+      recipe_id: z.uuid().optional(), note: z.string().trim().min(1).max(200).optional(),
+      servings: z.number().int().min(1).max(50).optional(),
+    }), createAction,
+    (args) => call(addMealRoute, { path: "/meals", body: args }));
+  register("remove_meal", "Remove a meal plan entry. This moves it to Kinboard's recycle bin — recoverable from Settings — rather than erasing it outright.",
+    z.object({ meal_id: z.uuid() }), editAction,
+    ({ meal_id }) => call(removeMealRoute, { path: `/meals/${meal_id}`, params: { id: meal_id }, method: "DELETE" }));
   register("get_solar_production", "Read current solar power and today's solar energy from the sensors configured in Kinboard. Report units and observed_at; null means unavailable. No arbitrary Home Assistant entities are accessible.", z.object({}), readOnly,
     () => call(energy, { path: "/energy/current" }));
 
