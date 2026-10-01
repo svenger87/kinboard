@@ -1,4 +1,4 @@
-import { McpServer, type AuthInfo } from "@modelcontextprotocol/server";
+import { McpServer, type AuthInfo, type RegisteredTool } from "@modelcontextprotocol/server";
 import * as z from "zod";
 import type { McpScope } from "@/lib/oauth/config";
 import { wwwAuthenticate } from "@/lib/oauth/metadata";
@@ -56,14 +56,37 @@ const isoWithOffset = z.string()
 const date = z.iso.date();
 
 /**
+ * Every tool a server built by `createKinboardMcpServer` registered, keyed
+ * by name, for tests to reach a tool's own `.handler`/`.annotations`
+ * directly — the public `RegisteredTool` `server.registerTool(...)` returns
+ * (it carries both), rather than reaching into the SDK's own private,
+ * underscore-prefixed per-tool registry on `McpServer`. Keyed by the
+ * `McpServer` instance rather than attached to it, so
+ * `createKinboardMcpServer`'s return type stays exactly `McpServer` and
+ * `/api/mcp/route.ts` — which only ever constructs and uses one — needs no
+ * change.
+ */
+const toolRegistry = new WeakMap<McpServer, Record<string, RegisteredTool>>();
+
+/**
+ * The tools a server registered, for tests. See `toolRegistry` above and
+ * e2e/mcp-tools.spec.ts, which is the pattern later tasks should reuse:
+ * build a server with a stub `callFn`, then look up a tool here and invoke
+ * its `.handler(args)` directly — no database, no HTTP round trip, and
+ * nothing SDK-internal.
+ */
+export function registeredTools(server: McpServer): Record<string, RegisteredTool> {
+  return toolRegistry.get(server) ?? {};
+}
+
+/**
  * `callFn` defaults to the real `callIntegration` but can be swapped for a
  * stub — this is the seam that lets a tool's own logic (argument shaping,
  * scope gating, error surfacing) be tested without a database: a test
  * constructs a server with a `callFn` that records its arguments and returns
- * a canned response, then invokes the registered tool's handler directly
- * (`(server as any)._registeredTools[name].handler(args)` — a plain object
- * property on the SDK's McpServer, not a private field). See
- * e2e/mcp-tools.spec.ts.
+ * a canned response, then looks the tool up with `registeredTools(server)`
+ * and invokes its handler directly with the arguments a model would have
+ * sent. See e2e/mcp-tools.spec.ts.
  */
 export function createKinboardMcpServer(
   authInfo: AuthInfo,
@@ -71,6 +94,8 @@ export function createKinboardMcpServer(
   callFn: typeof callIntegration = callIntegration,
 ): McpServer {
   const server = new McpServer({ name: "kinboard", version: "1.0.0" });
+  const tools: Record<string, RegisteredTool> = {};
+  toolRegistry.set(server, tools);
   const call = (handler: RouteHandler, opts: Omit<Parameters<typeof callIntegration>[1], "origin" | "token">) =>
     callFn(handler, { ...opts, origin, token: authInfo.token });
 
@@ -112,7 +137,7 @@ export function createKinboardMcpServer(
     // is exactly the shape the SDK documents and expects at runtime. Cast the
     // handler past that mismatch; `inputSchema` above stays fully typed as
     // `S`, so argument validation is unaffected.
-    server.registerTool(name, { description, inputSchema, annotations }, handle as never);
+    tools[name] = server.registerTool(name, { description, inputSchema, annotations }, handle as never);
   };
 
   register("get_family_summary", "Read today's family context: upcoming birthday, next event, due tasks, meals, attention, and more. Results include generated_at and the family's local date.", z.object({}), readOnly,

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import type { AuthInfo } from "@modelcontextprotocol/server";
-import { createKinboardMcpServer, TOOL_SCOPES } from "../src/lib/mcp/server";
+import { createKinboardMcpServer, registeredTools, TOOL_SCOPES } from "../src/lib/mcp/server";
 import { IntegrationCallError, type CallOptions, type RouteHandler } from "../src/lib/mcp/call-integration";
 
 /**
@@ -10,18 +10,20 @@ import { IntegrationCallError, type CallOptions, type RouteHandler } from "../sr
  * The seam is `createKinboardMcpServer`'s third parameter: `callFn`, which
  * defaults to the real `callIntegration` but can be swapped for a stub that
  * records what it was asked to do and returns a canned answer. A registered
- * tool's handler is then reachable at
- * `(server as any)._registeredTools[name].handler` — a plain object property
- * the SDK stores on `McpServer`, not a private field — so it can be invoked
- * directly with the arguments a model would have sent.
+ * tool's handler is then reachable through `registeredTools(server)[name]` —
+ * the public `RegisteredTool` (with `.handler` and `.annotations`)
+ * `server.registerTool(...)` itself returns, not the SDK's own private
+ * per-tool registry — so it can be invoked directly with the arguments a
+ * model would have sent.
  *
- * Later tasks (notes, meal plan, home control, …) should reuse this pattern
- * rather than re-deriving it.
+ * Later tasks (meal plan, home control, …) should reuse this pattern rather
+ * than re-deriving it.
  */
 
 const ORIGIN = "https://kb.example.com";
 
 type RecordedCall = Omit<CallOptions, "origin" | "token">;
+type ToolHandler = (args: unknown) => Promise<{ content: { text: string }[]; isError?: boolean }>;
 
 function buildServer(scopes: string[], run?: (call: RecordedCall) => unknown) {
   const calls: RecordedCall[] = [];
@@ -37,7 +39,9 @@ function buildServer(scopes: string[], run?: (call: RecordedCall) => unknown) {
 }
 
 function tool(server: ReturnType<typeof createKinboardMcpServer>, name: string) {
-  return (server as unknown as { _registeredTools: Record<string, { handler: (args: unknown) => Promise<{ content: { text: string }[]; isError?: boolean }>; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean } }> })._registeredTools[name];
+  const found = registeredTools(server)[name];
+  if (!found) throw new Error(`tool ${name} was not registered`);
+  return found as unknown as { handler: ToolHandler; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean } };
 }
 
 test.describe("list_people", () => {
