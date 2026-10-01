@@ -488,12 +488,117 @@ test.describe("send_message", () => {
   });
 });
 
+test.describe("list_home_devices", () => {
+  test("reads /home/devices with no arguments and is read-only", async () => {
+    const devices = [{ entity_id: "light.kitchen", name: "Kitchen", room: null, state: "on", attributes: {}, allowed_actions: [] }];
+    const { server, calls } = buildServer(["home:read"], () => ({ devices }));
+    const t = tool(server, "list_home_devices");
+    expect(t.annotations?.readOnlyHint).toBe(true);
+    const result = await t.handler({});
+    expect(calls).toEqual([{ path: "/home/devices" }]);
+    expect(JSON.parse(result.content[0].text)).toEqual({ devices });
+  });
+
+  test("is refused without home:read — home:control does not imply it", async () => {
+    const { server, calls } = buildServer(["home:control", "family:read"]);
+    const result = await tool(server, "list_home_devices").handler({});
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("home:read");
+    expect(calls).toEqual([]);
+  });
+});
+
+test.describe("get_device_state", () => {
+  test("reads one device with the entity as an encoded path segment and a param", async () => {
+    const { server, calls } = buildServer(["home:read"]);
+    const t = tool(server, "get_device_state");
+    expect(t.annotations?.readOnlyHint).toBe(true);
+    await t.handler({ entity_id: "climate.hall" });
+    expect(calls).toEqual([{ path: "/home/devices/climate.hall", params: { entity: "climate.hall" } }]);
+  });
+
+  test("its input schema refuses anything that is not an entity id", async () => {
+    const { server } = buildServer(["home:read"]);
+    const t = tool(server, "get_device_state") as unknown as { inputSchema: { parse: (v: unknown) => unknown } };
+    for (const entity_id of ["../config", "light", "Light.Kitchen", "light.kitchen/actions", `light.${"a".repeat(300)}`]) {
+      expect(() => t.inputSchema.parse({ entity_id }), entity_id).toThrow();
+    }
+  });
+
+  test("surfaces the route's 404 as a tool error", async () => {
+    const { server } = buildServer(["home:read"], () => {
+      throw new IntegrationCallError("No such device in this family's catalogue", 404, "not_found");
+    });
+    const result = await tool(server, "get_device_state").handler({ entity_id: "lock.back_door" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("No such device");
+  });
+});
+
+test.describe("control_device", () => {
+  test("POSTs { service, data } to the device's actions, and is an edit annotation", async () => {
+    const { server, calls } = buildServer(["home:control"], () => ({ status: "done" }));
+    const t = tool(server, "control_device");
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    const result = await t.handler({ entity_id: "light.kitchen", service: "turn_on", data: { brightness_pct: 40 } });
+    expect(calls).toEqual([{
+      path: "/home/devices/light.kitchen/actions",
+      params: { entity: "light.kitchen" },
+      body: { service: "turn_on", data: { brightness_pct: 40 } },
+    }]);
+    expect(JSON.parse(result.content[0].text)).toEqual({ status: "done" });
+  });
+
+  test("sends no data key when none was given", async () => {
+    const { server, calls } = buildServer(["home:control"]);
+    await tool(server, "control_device").handler({ entity_id: "light.kitchen", service: "toggle" });
+    expect(calls[0].body).toEqual({ service: "toggle" });
+  });
+
+  test("its input schema refuses a domain-qualified service and a bad entity", async () => {
+    const { server } = buildServer(["home:control"]);
+    const t = tool(server, "control_device") as unknown as { inputSchema: { parse: (v: unknown) => unknown } };
+    expect(() => t.inputSchema.parse({ entity_id: "light.kitchen", service: "homeassistant.restart" })).toThrow();
+    expect(() => t.inputSchema.parse({ entity_id: "../x", service: "turn_on" })).toThrow();
+    expect(() => t.inputSchema.parse({ entity_id: "light.kitchen", service: "turn_on", data: "bright" })).toThrow();
+  });
+
+  test("says which devices need confirmation on a Kinboard screen with the PIN, and to tell the user", () => {
+    const { server } = buildServer(["home:control"]);
+    const description = (registeredTools(server).control_device as unknown as { description: string }).description;
+    for (const word of ["locks", "alarm", "garage doors", "scripts", "buttons", "sirens", "lawn mowers", "PIN", "Kinboard screen", "tell the user"]) {
+      expect(description, word).toContain(word);
+    }
+  });
+
+  test("surfaces a refusal (400) and a not-yet-available confirmation (501) as tool errors", async () => {
+    for (const [message, status, code] of [
+      ["`unlock` is not an action an assistant may run on this device", 400, "invalid_request"],
+      ["This action needs a family member to confirm it on a Kinboard screen, which is not available yet. Nothing was done.", 501, "not_implemented"],
+    ] as const) {
+      const { server } = buildServer(["home:control"], () => { throw new IntegrationCallError(message, status, code); });
+      const result = await tool(server, "control_device").handler({ entity_id: "lock.front_door", service: "unlock" });
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe(message);
+    }
+  });
+
+  test("is refused without home:control — home:read does not imply it", async () => {
+    const { server, calls } = buildServer(["home:read"]);
+    const result = await tool(server, "control_device").handler({ entity_id: "light.kitchen", service: "turn_on" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("home:control");
+    expect(calls).toEqual([]);
+  });
+});
+
 test("every new tool carries a real scope", () => {
   for (const name of [
     "list_people", "complete_task", "reopen_task", "update_task", "delete_task",
     "check_shopping_item", "uncheck_shopping_item", "rename_shopping_item", "delete_shopping_item",
     "update_note", "delete_note", "update_calendar_event", "delete_calendar_event",
     "get_meal_plan", "add_meal", "remove_meal", "send_message",
+    "list_home_devices", "get_device_state", "control_device",
   ]) {
     expect(TOOL_SCOPES).toHaveProperty(name);
   }
@@ -514,4 +619,7 @@ test("every new tool carries a real scope", () => {
   expect(TOOL_SCOPES.add_meal).toBe("meals:write");
   expect(TOOL_SCOPES.remove_meal).toBe("meals:write");
   expect(TOOL_SCOPES.send_message).toBe("announcements:write");
+  expect(TOOL_SCOPES.list_home_devices).toBe("home:read");
+  expect(TOOL_SCOPES.get_device_state).toBe("home:read");
+  expect(TOOL_SCOPES.control_device).toBe("home:control");
 });

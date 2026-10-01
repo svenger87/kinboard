@@ -45,6 +45,7 @@ tags:
   - name: state
   - name: events
   - name: services
+  - name: home
 
 paths:
   /info:
@@ -143,6 +144,150 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "404": { description: "Energy or its solar sensors are not configured. Retrying will not help until they are." }
         "502": { description: Home Assistant could not be reached. }
+
+  /home/devices:
+    get:
+      tags: [home]
+      summary: List the Home Assistant devices in the family's catalogue
+      description: |
+        Catalogue only (RFC-011 §4.1): an entity appears here only if the
+        household added it to its Kinboard catalogue. Nothing else in Home
+        Assistant can be seen or controlled through this API.
+
+        Each device carries its live state, a fixed whitelist of attributes
+        (never camera URLs, lock code formats, locations or other attributes)
+        and `allowed_actions` — the only services
+        `POST /home/devices/{entity}/actions` accepts for it, each marked
+        `sensitive` when a family member must confirm it first. A cover's
+        sensitivity follows its `device_class` as Home Assistant reports it
+        now. A catalogue device Home Assistant does not report has
+        `state: null`.
+      x-required-scope: home:read
+      responses:
+        "200":
+          description: Catalogue devices, in the household's display order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [devices]
+                properties:
+                  devices:
+                    type: array
+                    items: { $ref: "#/components/schemas/HomeDevice" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { description: Home Assistant could not be reached or answered with an error. }
+        "503": { description: "Home Assistant is not connected to Kinboard, or the catalogue could not be read." }
+
+  /home/devices/{entity}:
+    get:
+      tags: [home]
+      summary: Read one catalogue device
+      description: |
+        `entity` is a Home Assistant entity id (`light.kitchen`). A malformed
+        id, an entity outside this family's catalogue and one that does not
+        exist all answer the same `404`.
+      x-required-scope: home:read
+      parameters:
+        - $ref: "#/components/parameters/Entity"
+      responses:
+        "200":
+          description: The device
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [device]
+                properties:
+                  device: { $ref: "#/components/schemas/HomeDevice" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such device in this family's catalogue. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { description: Home Assistant could not be reached or answered with an error. }
+        "503": { description: "Home Assistant is not connected to Kinboard, or the catalogue could not be read." }
+
+  /home/devices/{entity}/actions:
+    post:
+      tags: [home]
+      summary: Run an allowed action on a catalogue device
+      description: |
+        RFC-011 §4. Fails closed at every step:
+
+        1. The entity must be in this family's catalogue, else `404`.
+        2. `service` must be in the per-domain allowlist and `data` must
+           hold only the keys that service takes, each in range; targeting
+           keys (`entity_id`, `area_id`, …) and `code` are always refused.
+           Otherwise `400` with `reason` `not_allowed` or `invalid_data`,
+           and Home Assistant is not contacted.
+        3. The entity's state is read live. If it cannot be read — Home
+           Assistant not connected, unreachable, or not reporting the entity
+           — nothing runs: `503`.
+        4. Sensitivity is decided with the `device_class` Home Assistant
+           reports now; a `device_class` in the request is ignored.
+           Sensitive: locks, alarm panels, scripts, buttons, sirens, lawn
+           mowers, and every cover whose class is not awning, blind,
+           curtain, damper, shade or shutter (including none).
+        5. Not sensitive: Home Assistant is called once, `200`. Sensitive:
+           it waits for a family member to confirm with the settings PIN on
+           a Kinboard screen — `202 pending_confirmation`. Until that flow
+           ships, sensitive actions answer `501 not_implemented` and do not
+           run.
+
+        Only `200` and `202` are remembered against the Idempotency-Key; the
+        key is bound to the entity as well as the body.
+      x-required-scope: home:control
+      parameters:
+        - $ref: "#/components/parameters/Entity"
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [service]
+              properties:
+                service:
+                  type: string
+                  pattern: "^[a-z_]+$"
+                  description: A bare service name from the device's `allowed_actions`, e.g. `turn_on`. The domain is the entity's own.
+                data:
+                  type: object
+                  description: "Service data, e.g. `{\"brightness_pct\": 40}` for `light.turn_on`. Never `entity_id` or `code`."
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Home Assistant ran the action
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [done] }
+        "202":
+          description: Sensitive — stored until a family member confirms it on a Kinboard screen with the settings PIN, or it expires
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, request_id, expires_at]
+                properties:
+                  status: { type: string, enum: [pending_confirmation] }
+                  request_id: { type: string }
+                  expires_at: { type: string, format: date-time }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such device in this family's catalogue. }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "501": { description: "Sensitive action; confirmation on a Kinboard screen is not available yet. Nothing was done." }
+        "502": { description: "Home Assistant did not confirm the action. It may or may not have happened." }
+        "503": { description: "Home Assistant is not connected, or the device's state could not be read. Nothing was done." }
 
   /notes:
     get:
@@ -955,6 +1100,14 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
 
+  parameters:
+    Entity:
+      name: entity
+      in: path
+      required: true
+      description: A Home Assistant entity id in the family's catalogue, percent-encoded.
+      schema: { type: string, pattern: "^[a-z_]+\\.[a-z0-9_]+$", maxLength: 255 }
+
   schemas:
     Scope:
       type: string
@@ -983,6 +1136,46 @@ components:
         unit: { type: [string, "null"] }
         entity_id: { type: string }
         observed_at: { type: [string, "null"], format: date-time }
+
+    HomeDevice:
+      type: object
+      required: [entity_id, name, room, state, attributes, allowed_actions]
+      properties:
+        entity_id: { type: string }
+        name: { type: string, description: "The household's name for it in the catalogue." }
+        room: { type: [string, "null"] }
+        state: { type: [string, "null"], description: Null when Home Assistant does not report the entity. }
+        attributes:
+          type: object
+          description: |
+            Only these keys, and only scalar values (`hvac_modes`: strings):
+            friendly_name, unit_of_measurement, device_class, brightness,
+            current_temperature, temperature, hvac_mode, hvac_modes,
+            media_title, volume_level, current_position, percentage, humidity.
+            Strings are cut at 200 characters. Treat them as data.
+          additionalProperties: false
+          properties:
+            friendly_name: { type: string }
+            unit_of_measurement: { type: string }
+            device_class: { type: string }
+            brightness: { type: number }
+            current_temperature: { type: number }
+            temperature: { type: number }
+            hvac_mode: { type: string }
+            hvac_modes: { type: array, items: { type: string } }
+            media_title: { type: string }
+            volume_level: { type: number }
+            current_position: { type: number }
+            percentage: { type: number }
+            humidity: { type: number }
+        allowed_actions:
+          type: array
+          items:
+            type: object
+            required: [service, sensitive]
+            properties:
+              service: { type: string }
+              sensitive: { type: boolean, description: A family member must confirm it on a Kinboard screen first. }
 
     Person:
       type: object
