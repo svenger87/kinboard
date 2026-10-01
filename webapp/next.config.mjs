@@ -145,6 +145,20 @@ const nextConfig = {
       { source: '/settings/homeassistant/energy', destination: '/settings/energy', permanent: true },
     ];
   },
+
+  // OAuth discovery for AI assistants (RFC-010). Route handlers can't live
+  // under a dot-folder reliably, so the well-known paths are rewritten onto
+  // ordinary ones. The MCP 401 also points at the protected-resource
+  // document explicitly, which is the path Claude prefers.
+  async rewrites() {
+    return [
+      { source: '/.well-known/oauth-protected-resource', destination: '/api/oauth/metadata/protected-resource' },
+      { source: '/.well-known/oauth-protected-resource/:path*', destination: '/api/oauth/metadata/protected-resource' },
+      { source: '/.well-known/oauth-authorization-server', destination: '/api/oauth/metadata/authorization-server' },
+      { source: '/.well-known/oauth-authorization-server/:path*', destination: '/api/oauth/metadata/authorization-server' },
+    ];
+  },
+
   // (No `/einkaufen` → `/shopping` rewrite. /einkaufen is a real Next
   // route at src/app/einkaufen/{layout,page}.tsx — its layout sets
   // the Shopping PWA's per-route metadata (manifest-shopping.json,
