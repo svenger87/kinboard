@@ -4,7 +4,7 @@ import { logApiError } from "@/lib/api-error";
 import {
   findStoredResult, fingerprintRequest, storeResult, validateIdempotencyKey,
 } from "@/lib/integration-idempotency";
-import { addRecipeToShoppingList, isUuid, parseRecipeShoppingInput } from "@/lib/integration-recipes";
+import { addRecipeToShoppingList, isUuid, parseRecipeShoppingBody, parseRecipeShoppingInput } from "@/lib/integration-recipes";
 
 export const dynamic = "force-dynamic";
 
@@ -33,21 +33,21 @@ export async function POST(
       return NextResponse.json({ error: "no such recipe", code: "not_found" }, { status: 404 });
     }
 
-    let body: Record<string, unknown>;
-    try {
-      const parsed: unknown = await request.json();
-      body = parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? parsed as Record<string, unknown> : {};
-    } catch {
-      body = {};
+    const parsedBody = parseRecipeShoppingBody(await request.text());
+    if (!parsedBody.ok) {
+      return NextResponse.json({ error: parsedBody.error, code: "invalid_request" }, { status: 400 });
     }
+    const body = parsedBody.value;
 
     const input = parseRecipeShoppingInput(body);
     if (!input.ok) {
       return NextResponse.json({ error: input.error, code: "invalid_request" }, { status: 400 });
     }
 
-    const hash = fingerprintRequest("recipes.shopping", { recipe_id: id.toLowerCase(), ...body });
+    // The path id is in the service string, where nothing in the body can
+    // overwrite it: one key reused for another recipe is a 409, not a replay.
+    const service = `recipes/${id.toLowerCase()}/shopping`;
+    const hash = fingerprintRequest(service, body);
     const previous = await findStoredResult(context.familyId, key.key);
     if (previous) {
       if (previous.request_hash !== hash) {
@@ -69,7 +69,7 @@ export async function POST(
       }
 
       const response = { added: result.added };
-      await storeResult({ familyId: context.familyId, key: key.key, service: "recipes.shopping", requestHash: hash, status: 201, response });
+      await storeResult({ familyId: context.familyId, key: key.key, service, requestHash: hash, status: 201, response });
       return NextResponse.json(response, { status: 201 });
     } catch (err) {
       await logApiError("integration/recipes/shopping", err);

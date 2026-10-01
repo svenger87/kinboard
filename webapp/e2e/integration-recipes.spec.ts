@@ -5,6 +5,7 @@ import {
   addRecipeToShoppingList,
   getRecipe,
   parseRecipeSearch,
+  parseRecipeShoppingBody,
   parseRecipeShoppingInput,
   scaleQuantity,
   searchRecipes,
@@ -41,7 +42,7 @@ type Row = Record<string, unknown>;
 
 function fakeDb(tables: Record<string, Row[]>) {
   const inserted: Record<string, Row[]> = {};
-  const selects: Array<{ table: string; columns: string; filters: Array<[string, string, unknown]> }> = [];
+  const selects: Array<{ table: string; columns: string; filters: Array<[string, string, unknown]>; ops: string[] }> = [];
   let failInsert: unknown = null;
   let nextId = 1;
 
@@ -49,7 +50,7 @@ function fakeDb(tables: Record<string, Row[]>) {
     from(table: string) {
       const filters: Array<[string, string, unknown]> = [];
       let rowLimit = Infinity;
-      const entry = { table, columns: "", filters };
+      const entry = { table, columns: "", filters, ops: [] as string[] };
       const run = () => {
         const rows = (tables[table] ?? []).filter((row) =>
           filters.every(([op, column, value]) => (op === "is" ? (row[column] ?? null) === value : row[column] === value)),
@@ -64,8 +65,8 @@ function fakeDb(tables: Record<string, Row[]>) {
         },
         eq(column: string, value: unknown) { filters.push(["eq", column, value]); return chain; },
         is(column: string, value: unknown) { filters.push(["is", column, value]); return chain; },
-        order() { return chain; },
-        limit(n: number) { rowLimit = n; return chain; },
+        order(column: string) { entry.ops.push(`order:${column}`); return chain; },
+        limit(n: number) { entry.ops.push("limit"); rowLimit = n; return chain; },
         async maybeSingle() { return { data: run()[0] ?? null, error: null }; },
         then(resolve: (v: { data: Row[]; error: null }) => unknown) { return Promise.resolve({ data: run(), error: null }).then(resolve); },
         insert(rows: Row[]) {
@@ -197,6 +198,12 @@ test.describe("searchRecipes", () => {
   });
 });
 
+test("the scan is ordered before it is capped, so a cut is always the same rows", async () => {
+  const { db, selects } = fakeDb({ recipes: recipeRows() });
+  await searchRecipes(OURS, { query: null, tag: null, limit: 20 }, db);
+  expect(selects[0].ops).toEqual(["order:is_favorite", "order:title", "limit"]);
+});
+
 test.describe("getRecipe", () => {
   test("a binned recipe and another family's recipe are both not found", async () => {
     const { db } = fakeDb({ recipes: recipeRows() });
@@ -225,6 +232,15 @@ test.describe("getRecipe", () => {
 });
 
 test.describe("adding a recipe to the shopping list: input", () => {
+  test("no body at all means everything; a garbled or non-object body is refused", () => {
+    expect(parseRecipeShoppingBody("")).toEqual({ ok: true, value: {} });
+    expect(parseRecipeShoppingBody("  \n")).toEqual({ ok: true, value: {} });
+    expect(parseRecipeShoppingBody('{"servings":2}')).toEqual({ ok: true, value: { servings: 2 } });
+    for (const bad of [`{"ingredient_ids":["${ING(1)}"]`, "[]", "null", "4", '"x"', "not json"]) {
+      expect(parseRecipeShoppingBody(bad), bad).toEqual({ ok: false, error: "the body must be a JSON object" });
+    }
+  });
+
   test("an empty body is fine — everything, at the recipe's own servings", () => {
     expect(parseRecipeShoppingInput({})).toEqual({ ok: true, value: {} });
   });
@@ -289,6 +305,16 @@ test.describe("addRecipeToShoppingList", () => {
     const f = fakeDb({ recipes: recipeRows() });
     await addRecipeToShoppingList(OURS, CURRY, { servings: 2 }, { db: f.db, match: noCatalog, bring: bringOff });
     expect(f.inserted.shopping_items[0]).toMatchObject({ name: "Kokosmilch", quantity: 0.5, unit: "Dose" });
+  });
+
+  test("an empty body adds every ingredient", async () => {
+    const f = fakeDb({ recipes: recipeRows() });
+    const body = parseRecipeShoppingBody("");
+    if (!body.ok) throw new Error("empty body refused");
+    const input = parseRecipeShoppingInput(body.value);
+    if (!input.ok) throw new Error("empty input refused");
+    await addRecipeToShoppingList(OURS, PASTA, input.value, { db: f.db, match: noCatalog, bring: bringOff });
+    expect(f.inserted.shopping_items.map((r) => r.name)).toEqual(["Spaghetti", "Hackfleisch", "Salz"]);
   });
 
   test("ingredient_ids adds only those", async () => {
@@ -367,6 +393,18 @@ test.describe("addRecipeToShoppingList", () => {
     expect(b.adds.map((a) => [a.itemName, a.specification, a.listId])).toEqual([
       ["Spaghetti", "200 g", "list-1"], ["Hackfleisch", "250 g", "list-1"], ["Salz", undefined, "list-1"],
     ]);
+  });
+
+  test("the Bring! settings are read once for the whole recipe, not per item", async () => {
+    const f = fakeDb({ recipes: recipeRows() });
+    const b = bring(connected);
+    let loads = 0;
+    const loadSettings = b.deps.loadSettings!;
+    await addRecipeToShoppingList(OURS, PASTA, {}, {
+      db: f.db, match: noCatalog, bring: { ...b.deps, loadSettings: async (id) => { loads++; return loadSettings(id); } },
+    });
+    expect(loads).toBe(1);
+    expect(b.adds).toHaveLength(3);
   });
 
   test("with two-way sync off nothing reaches Bring!", async () => {
@@ -455,5 +493,14 @@ test.describe("scopes", () => {
     expect(shopping).toContain('withIntegrationAuth(request, "shopping:write"');
     expect(shopping).toContain("validateIdempotencyKey(");
     expect(shopping).toContain("findStoredResult(");
+    // A garbled body answers 400 before anything is looked up or added.
+    const refused = shopping.indexOf("if (!parsedBody.ok)");
+    expect(refused).toBeGreaterThan(-1);
+    expect(shopping).not.toContain("request.json()");
+    expect(refused).toBeLessThan(shopping.indexOf("findStoredResult("));
+    expect(refused).toBeLessThan(shopping.indexOf("addRecipeToShoppingList("));
+    // The path id is part of the fingerprint's service string.
+    expect(shopping).toContain("const service = `recipes/${id.toLowerCase()}/shopping`");
+    expect(shopping).toContain("fingerprintRequest(service, body)");
   });
 });

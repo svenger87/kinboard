@@ -26,6 +26,11 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { parseInstructions } from "@/lib/recipe-instructions";
 import { matchCatalogItems, type CatalogMatch } from "@/lib/catalog-match";
 import { pushToBring, type BringPushDeps } from "@/lib/shopping-enrich";
+import { getMergedSetting } from "@/lib/integration-secrets";
+import type { ServerBringSettings } from "@/lib/bring-server";
+
+const defaultLoadBringSettings = (familyId: string) =>
+  getMergedSetting<ServerBringSettings>(familyId, "bring_settings");
 
 /** The slice of the Supabase client used here; a test passes a fake. */
 export type RecipeDb = ReturnType<typeof createAdminClient>;
@@ -177,6 +182,9 @@ export async function searchRecipes(familyId: string, search: RecipeSearch, db: 
     .select(SUMMARY_COLUMNS)
     .eq("family_id", familyId)
     .is("deleted_at", null)
+    // Ordered before the cap, so a family past it loses the same rows every time.
+    .order("is_favorite", { ascending: false })
+    .order("title")
     .limit(MAX_SCANNED);
   if (error) throw error;
 
@@ -230,6 +238,27 @@ export async function getRecipe(familyId: string, recipeId: string, db: RecipeDb
 export interface RecipeShoppingInput {
   servings?: number;
   ingredientIds?: string[];
+}
+
+/**
+ * The POST body as an object. No body at all means "everything at the
+ * recipe's servings"; anything else must be a JSON object. A garbled or
+ * truncated body is refused rather than read as `{}` — here `{}` is a valid
+ * request that puts the whole recipe on the list, so falling back to it
+ * would turn "not understood" into "added everything".
+ */
+export function parseRecipeShoppingBody(text: string): Result<Record<string, unknown>> {
+  if (text.trim() === "") return { ok: true, value: {} };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { ok: false, error: "the body must be a JSON object" };
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { ok: false, error: "the body must be a JSON object" };
+  }
+  return { ok: true, value: parsed as Record<string, unknown> };
 }
 
 export function parseRecipeShoppingInput(body: Record<string, unknown>): Result<RecipeShoppingInput> {
@@ -355,7 +384,18 @@ export async function addRecipeToShoppingList(
 
   // In parallel: each push has its own timeout, and a recipe's worth of
   // sequential ones could keep the assistant waiting for a minute.
-  await Promise.all(added.map((item) => pushToBring(familyId, item, deps.bring)));
+  // The settings are read once, not once per item.
+  const loadSettings = deps.bring?.loadSettings ?? defaultLoadBringSettings;
+  let settings: ServerBringSettings | null = null;
+  try {
+    settings = await loadSettings(familyId);
+  } catch (err) {
+    console.error("[integration-recipes] reading the Bring! settings failed; nothing goes to Bring!:", err);
+  }
+  if (settings) {
+    const bring = { ...deps.bring, loadSettings: async () => settings };
+    await Promise.all(added.map((item) => pushToBring(familyId, item, bring)));
+  }
 
   return { added };
 }

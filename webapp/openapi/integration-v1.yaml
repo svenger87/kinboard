@@ -688,7 +688,9 @@ paths:
         ingredients; an id that is not in this recipe is refused and nothing
         is added. With Bring! two-way sync on, each item is also put on the
         family's Bring! list; the catalogue or Bring! failing never fails
-        the add. Every call adds new items.
+        the add. Every call adds new items. No body means every ingredient
+        at the recipe's servings; a body that is not a JSON object is
+        refused (400) and nothing is added.
       x-required-scope: shopping:write
       parameters:
         - name: id
