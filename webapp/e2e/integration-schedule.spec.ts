@@ -1,16 +1,20 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import yaml from "js-yaml";
 import {
   addDays,
+  lastDayCovered,
   dayOfWeekOf,
   fetchSchoolBreaks,
   loadTimetables,
   normalizeSlots,
   schoolDayStatus,
   schoolOn,
+  schoolTomorrowSensor,
   type SchoolDb,
 } from "../src/lib/school-days";
+import { familyDays } from "../src/lib/family-time";
 import { readSchedule } from "../src/lib/integration-schedule";
 import { codeOnly } from "./source-helpers";
 
@@ -139,10 +143,11 @@ function household(extra: Partial<Record<string, Row[]>> = {}) {
       ...(extra.calendars ?? []),
     ],
     events: [
-      // An ordinary all-day event on our normal calendar is not a holiday.
-      { calendar_id: CAL(2), title: "Ausflug", all_day: true, start_at: "2026-10-04T22:00:00Z", end_at: "2026-10-05T22:00:00Z" },
-      // Another family's holiday calendar.
-      { calendar_id: CAL(9), title: "Their ICS break", all_day: true, start_at: "2026-10-04T22:00:00Z", end_at: "2026-10-06T22:00:00Z" },
+      // An ordinary all-day event on our normal calendar is not a holiday
+      // (the app's own format: local midnight to local 23:59:59.999).
+      { calendar_id: CAL(2), title: "Ausflug", all_day: true, start_at: "2026-10-04T22:00:00.000Z", end_at: "2026-10-05T21:59:59.999Z" },
+      // Another family's holiday calendar (the ICS format: noon UTC, inclusive).
+      { calendar_id: CAL(9), title: "Their ICS break", all_day: true, start_at: "2026-10-05T12:00:00.000Z", end_at: "2026-10-06T12:00:00.000Z" },
       ...(extra.events ?? []),
     ],
   });
@@ -250,14 +255,45 @@ test.describe("one day", () => {
     expect((await schoolOn(OURS, "2026-10-02", TZ, {}, db)).school_day).toBe(true);
   });
 
-  test("an all-day event on a holidays calendar counts, its exclusive end does not", async () => {
-    const { db } = household({
-      // Monday and Tuesday, ending (exclusive) at Wednesday's local midnight.
-      events: [{ calendar_id: CAL(1), title: "Herbstferien (ICS)", all_day: true, start_at: "2026-10-04T22:00:00Z", end_at: "2026-10-06T22:00:00Z" }],
+  /*
+   * The stored formats, as every writer produces them today — checked against
+   * the local stack and prod: ICS/CalDAV imports (allDayEndAnchor) and Google
+   * sync store noon UTC of the first and of the LAST day; the app's calendar
+   * and the Integration API store local midnight to local 23:59:59.999 of the
+   * last day. Both are inclusive. The legacy exclusive form (DTEND verbatim,
+   * local midnight of the day after) still reads right.
+   */
+  const holidayCases: Array<[label: string, start: string, end: string, off: string[], on: string[]]> = [
+    ["ICS/Google, two days", "2026-10-05T12:00:00.000Z", "2026-10-06T12:00:00.000Z", [MONDAY, TUESDAY], ["2026-10-02", "2026-10-07"]],
+    ["ICS/Google, one day", "2026-10-07T12:00:00.000Z", "2026-10-07T12:00:00.000Z", ["2026-10-07"], [TUESDAY, "2026-10-08"]],
+    ["app, two days", "2026-10-04T22:00:00.000Z", "2026-10-06T21:59:59.999Z", [MONDAY, TUESDAY], ["2026-10-02", "2026-10-07"]],
+    ["app, one day", "2026-10-06T22:00:00.000Z", "2026-10-07T21:59:59.999Z", ["2026-10-07"], [TUESDAY, "2026-10-08"]],
+    ["legacy exclusive, two days", "2026-10-04T22:00:00.000Z", "2026-10-06T22:00:00.000Z", [MONDAY, TUESDAY], ["2026-10-02", "2026-10-07"]],
+    ["legacy exclusive, one day", "2026-10-06T22:00:00.000Z", "2026-10-07T22:00:00.000Z", ["2026-10-07"], [TUESDAY, "2026-10-08"]],
+  ];
+  for (const [label, start_at, end_at, off, on] of holidayCases) {
+    test(`an all-day holiday stored as ${label} covers exactly its days`, async () => {
+      const { db } = household({
+        events: [{ calendar_id: CAL(1), title: "Herbstferien (ICS)", all_day: true, start_at, end_at }],
+      });
+      for (const d of off) {
+        expect(await schoolDayStatus(OURS, d, TZ, db), d).toMatchObject({ school_day: false, reason: "holiday", holiday: "Herbstferien (ICS)" });
+      }
+      for (const d of on) {
+        expect((await schoolDayStatus(OURS, d, TZ, db)).school_day, d).toBe(true);
+      }
     });
-    expect(await schoolDayStatus(OURS, MONDAY, TZ, db)).toMatchObject({ school_day: false, reason: "holiday", holiday: "Herbstferien (ICS)" });
-    expect((await schoolDayStatus(OURS, TUESDAY, TZ, db)).reason).toBe("holiday");
-    expect((await schoolDayStatus(OURS, "2026-10-07", TZ, db)).school_day).toBe(true);
+  }
+
+  test("lastDayCovered reads an inclusive end as it is, and a midnight end as the day before", () => {
+    const last = (start_at: string, end_at: string) => lastDayCovered({ start_at, end_at }, TZ);
+    expect(last("2026-10-07T12:00:00.000Z", "2026-10-07T12:00:00.000Z")).toBe("2026-10-07");
+    expect(last("2026-10-06T22:00:00.000Z", "2026-10-07T21:59:59.999Z")).toBe("2026-10-07");
+    expect(last("2026-10-06T22:00:00.000Z", "2026-10-07T22:00:00.000Z")).toBe("2026-10-07");
+    // A zero-length event at midnight keeps its day.
+    expect(last("2026-10-06T22:00:00.000Z", "2026-10-06T22:00:00.000Z")).toBe("2026-10-07");
+    // An evening event ending at midnight does not reach the next day.
+    expect(last("2026-10-06T20:00:00.000Z", "2026-10-06T22:00:00.000Z")).toBe("2026-10-06");
   });
 
   test("another family's holidays and an ordinary calendar's all-day event change nothing", async () => {
@@ -311,12 +347,24 @@ test.describe("one day", () => {
 test.describe("one copy of the rules", () => {
   const read = (p: string) => codeOnly(readFileSync(join(__dirname, "..", p), "utf8"));
 
-  test("the family summary's school_tomorrow reads the shared helper for the family's tomorrow", () => {
+  test("the family summary's school_tomorrow reads the shared helper, for the same tomorrow as everything else", () => {
     const summary = read("src/app/api/integration/v1/family/summary/route.ts");
-    expect(summary).toMatch(/schoolOn\(familyId, addDays\(familyDateKey\(now, zone\), 1\), zone\)/);
-    // The weekday-only query it replaced is gone.
+    expect(summary).toContain('from "@/lib/school-days"');
+    expect(summary).toContain("schoolOn(familyId, tomorrow, zone)");
+    expect(summary).toContain("school_tomorrow: schoolTomorrowSensor(school)");
+    // One zone, one today/tomorrow pair: no server-local day, no second zone lookup.
+    expect(summary).toContain("familyDays(now, zone)");
+    expect(summary).not.toContain("todayKey(");
+    expect(summary).not.toContain('.eq("key", "timezone")');
     expect(summary).not.toContain('from("schedules")');
-    expect(summary).toMatch(/school_day: school \? school\.school_day : null/);
+    expect(summary).toMatch(/\.eq\("date", tomorrow\)/);
+    expect(summary).toMatch(/\.eq\("date", today\)/);
+  });
+
+  test("the Heute-Motor's lessons come from the same live children", () => {
+    const signals = read("src/lib/attention/signals.ts");
+    expect(signals).toContain("loadTimetables(familyId)");
+    expect(signals).not.toContain('from("schedules")');
   });
 
   test("the Heute-Motor reads holidays through the same reader", () => {
@@ -330,5 +378,58 @@ test.describe("one copy of the rules", () => {
     expect(route).toContain('withIntegrationAuth(request, "family:read"');
     expect(route).toContain("readSchedule(\n        context.familyId,");
     expect(route).toContain("familyTimeZone(context.familyId)");
+  });
+});
+
+test.describe("the summary's days and sensor", () => {
+  test("today and tomorrow are the family's, whatever the server's zone", () => {
+    // 23:30 in Berlin on Monday is 21:30 UTC, and still Monday in New York.
+    const now = new Date("2026-10-05T21:30:00.000Z");
+    expect(familyDays(now, "Europe/Berlin")).toEqual({ today: MONDAY, tomorrow: TUESDAY });
+    // 00:30 in Berlin on Tuesday: tomorrow is Wednesday, in UTC it is still Monday.
+    expect(familyDays(new Date("2026-10-05T22:30:00.000Z"), "Europe/Berlin")).toEqual({ today: TUESDAY, tomorrow: "2026-10-07" });
+    expect(familyDays(new Date("2026-10-05T22:30:00.000Z"), "UTC")).toEqual({ today: MONDAY, tomorrow: TUESDAY });
+    expect(familyDays(new Date("2026-10-31T23:30:00.000Z"), "Europe/Berlin")).toEqual({ today: "2026-11-01", tomorrow: "2026-11-02" });
+  });
+
+  test("a term day names the children and the first child's first lesson", async () => {
+    const { db } = household();
+    expect(schoolTomorrowSensor(await schoolOn(OURS, MONDAY, TZ, {}, db))).toEqual({
+      state: "Mara, Enno", children: ["Mara", "Enno"], count: 2, first_lesson: "Mathe",
+      date: MONDAY, school_day: true, reason: null,
+    });
+  });
+
+  test("a holiday and a weekend name nobody and say why; a failed read says nothing", async () => {
+    const { db } = household({
+      school_holidays: [{ family_id: OURS, name: "Herbstferien", starts_on: MONDAY, ends_on: MONDAY }],
+    });
+    expect(schoolTomorrowSensor(await schoolOn(OURS, MONDAY, TZ, {}, db))).toEqual({
+      state: null, children: [], count: 0, first_lesson: null, date: MONDAY, school_day: false, reason: "holiday",
+    });
+    expect(schoolTomorrowSensor(await schoolOn(OURS, SATURDAY, TZ, {}, db))).toMatchObject({ count: 0, school_day: false, reason: "weekend" });
+    expect(schoolTomorrowSensor(null)).toEqual({
+      state: null, children: [], count: 0, first_lesson: null, date: null, school_day: null, reason: null,
+    });
+  });
+});
+
+test.describe("OpenAPI", () => {
+  test("a weekly body and a one-day body each match exactly one /schedule shape", async () => {
+    const spec = yaml.load(readFileSync(join(__dirname, "..", "openapi", "integration-v1.yaml"), "utf8")) as {
+      components: { schemas: Record<string, { required?: string[]; properties?: Record<string, unknown>; additionalProperties?: boolean }> };
+    };
+    const weekly = spec.components.schemas.WeeklySchedule;
+    const oneDay = spec.components.schemas.SchoolDay;
+    expect(weekly.additionalProperties).toBe(false);
+    const fitsWeekly = (body: Record<string, unknown>) =>
+      (weekly.required ?? []).every((k) => k in body) && Object.keys(body).every((k) => k in (weekly.properties ?? {}));
+    const fitsDay = (body: Record<string, unknown>) => (oneDay.required ?? []).every((k) => k in body);
+
+    const { db } = household();
+    const week = (await readSchedule(OURS, { personId: null, day: null }, TZ, db)).body;
+    const weekend = (await readSchedule(OURS, { personId: null, day: SATURDAY }, TZ, db)).body;
+    expect([fitsWeekly(week), fitsDay(week)]).toEqual([true, false]);
+    expect([fitsWeekly(weekend), fitsDay(weekend)]).toEqual([false, true]);
   });
 });

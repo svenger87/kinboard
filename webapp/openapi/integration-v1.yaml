@@ -880,18 +880,17 @@ paths:
       responses:
         "200":
           description: |
-            The weekly timetable (`children` of `ScheduleChild`) without
-            `day`, or one day (`SchoolDay`) with it.
+            Without `day`: `WeeklySchedule`, only `children`, each with
+            their lessons per weekday. With `day`: `SchoolDay`, which always
+            carries `date`, `weekday`, `school_day`, `reason` and `holiday`
+            beside `children`. `WeeklySchedule` allows no other property, so
+            a body matches exactly one of the two — including a holiday or
+            weekend `SchoolDay`, whose `children` is empty.
           content:
             application/json:
               schema:
                 oneOf:
-                  - type: object
-                    required: [children]
-                    properties:
-                      children:
-                        type: array
-                        items: { $ref: "#/components/schemas/ScheduleChild" }
+                  - { $ref: "#/components/schemas/WeeklySchedule" }
                   - { $ref: "#/components/schemas/SchoolDay" }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
@@ -1926,6 +1925,15 @@ components:
         end: { type: [string, "null"], description: "HH:MM" }
         subject: { type: string }
         room: { type: [string, "null"] }
+
+    WeeklySchedule:
+      type: object
+      additionalProperties: false
+      required: [children]
+      properties:
+        children:
+          type: array
+          items: { $ref: "#/components/schemas/ScheduleChild" }
 
     ScheduleChild:
       type: object

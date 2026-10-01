@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
-import {
-  daysUntilNextBirthday,
-  firstLessonOf,
-  isoDayOfWeek,
-} from "../src/app/api/integration/v1/family/summary/route";
+import { daysUntilNextBirthday } from "../src/app/api/integration/v1/family/summary/route";
+import { dayOfWeekOf, normalizeSlots } from "../src/lib/school-days";
+
+/** The sensor's first_lesson: the first of the normalised, time-ordered slots. */
+const firstLessonOf = (slots: unknown) => normalizeSlots(slots)[0]?.subject ?? null;
 
 /**
  * The date arithmetic in the summary, tested as pure functions.
@@ -89,8 +89,9 @@ test.describe("first lesson of a schedule", () => {
 
   test("skips malformed slots rather than throwing", () => {
     // time_slots is JSONB — nothing at the database level guarantees a shape.
+    // A slot without a usable start time sorts after the timed ones.
     expect(firstLessonOf([null, { subject: "X" }, { start: "07:00", subject: "Sport" }])).toBe("Sport");
-    expect(firstLessonOf([{ start: 800, subject: "Bad" }])).toBeNull();
+    expect(firstLessonOf([{ start: 800, subject: "Bad" }, { start: "09:00", subject: "Good" }])).toBe("Good");
   });
 });
 
@@ -99,15 +100,15 @@ test.describe("day of week", () => {
     // The column is CHECK (day_of_week >= 0 AND <= 6) and the app writes
     // 1=Monday..5=Friday. Sunday is 0, not 7 — asking for 7 is asking for a
     // value the schema forbids, which can never match anything.
-    expect(isoDayOfWeek(new Date(2026, 7, 10))).toBe(1); // Monday
-    expect(isoDayOfWeek(new Date(2026, 7, 14))).toBe(5); // Friday
-    expect(isoDayOfWeek(new Date(2026, 7, 15))).toBe(6); // Saturday
-    expect(isoDayOfWeek(new Date(2026, 7, 16))).toBe(0); // Sunday
+    expect(dayOfWeekOf("2026-08-10")).toBe(1); // Monday
+    expect(dayOfWeekOf("2026-08-14")).toBe(5); // Friday
+    expect(dayOfWeekOf("2026-08-15")).toBe(6); // Saturday
+    expect(dayOfWeekOf("2026-08-16")).toBe(0); // Sunday
   });
 
   test("never returns a value outside the constraint", () => {
     for (let d = 1; d <= 28; d++) {
-      const v = isoDayOfWeek(new Date(2026, 7, d));
+      const v = dayOfWeekOf(`2026-08-${String(d).padStart(2, "0")}`);
       expect(v).toBeGreaterThanOrEqual(0);
       expect(v).toBeLessThanOrEqual(6);
     }

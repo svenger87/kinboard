@@ -6,7 +6,7 @@ import {
   type PackItemConfig,
 } from "@/lib/schedule-pack-items";
 import { fetchHome, fetchWeather } from "./external-signals";
-import { fetchSchoolBreaks as fetchSchoolBreaksBetween, localDayString } from "@/lib/school-days";
+import { fetchSchoolBreaks as fetchSchoolBreaksBetween, loadTimetables, localDayString } from "@/lib/school-days";
 import type {
   SignalBirthday,
   SignalEvent,
@@ -164,7 +164,8 @@ async function fetchTodos(familyId: string): Promise<SignalTodo[]> {
 /**
  * School holiday periods around now, through the same reader the Integration
  * API's timetable and the family summary use (lib/school-days.ts), so the
- * board and an assistant cannot disagree about whether there is school.
+ * board and an assistant agree about whether there is school — and, with
+ * fetchLessons below reading the same children, about who has it.
  *
  * A window either side of today: enough for "is tomorrow a school day" and
  * for the morning branch looking back at today, without loading a decade of
@@ -194,33 +195,29 @@ async function fetchSchoolBreaks(
  * the timetable page disagreed about whether to bring a sports kit.
  */
 async function fetchLessons(familyId: string): Promise<SignalLesson[]> {
-  const supabase = createAdminClient();
-
-  const [{ data: schedules }, packItems, people] = await Promise.all([
-    (supabase as any)
-      .from("schedules")
-      .select("person_id, day_of_week, time_slots")
-      .eq("family_id", familyId),
+  // The same children GET /schedule and the summary's school_tomorrow list:
+  // a child of this family, not in the recycle bin, with lessons. A binned
+  // child keeps their schedules rows (the soft delete leaves them for a
+  // restore), so reading the rows directly put "School tomorrow: Lotte" on
+  // the board for someone the rest of Kinboard no longer shows.
+  const [children, packItems] = await Promise.all([
+    loadTimetables(familyId),
     fetchPackItems(familyId),
-    peopleNames(familyId),
   ]);
 
   const lessons: SignalLesson[] = [];
-  for (const row of schedules ?? []) {
-    const personId = String(row.person_id);
-    const slots = Array.isArray(row.time_slots) ? row.time_slots : [];
-    for (const slot of slots) {
-      const subject = typeof slot?.subject === "string" ? slot.subject : "";
-      if (!subject) continue;
-
-      lessons.push({
-        personId,
-        personName: people.get(personId) ?? "",
-        dayOfWeek: Number(row.day_of_week),
-        period: Number(slot?.period ?? 0),
-        subject,
-        packList: packItemsForSubject(subject, packItems),
-      });
+  for (const child of children) {
+    for (const day of child.days) {
+      for (const slot of day.slots) {
+        lessons.push({
+          personId: child.person_id,
+          personName: child.name,
+          dayOfWeek: day.day_of_week,
+          period: slot.period ?? 0,
+          subject: slot.subject,
+          packList: packItemsForSubject(slot.subject, packItems),
+        });
+      }
     }
   }
   return lessons;

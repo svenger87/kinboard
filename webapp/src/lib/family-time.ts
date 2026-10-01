@@ -33,3 +33,20 @@ export async function familyTimeZone(familyId: string): Promise<string> {
 export function familyDateKey(now: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone }).format(now);
 }
+
+/** A calendar date `n` days from `day` (`YYYY-MM-DD`). Date arithmetic only — no zone, no DST. */
+export function addDays(day: string, n: number): string {
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * The family's today and tomorrow at `now`, as `YYYY-MM-DD`. The family
+ * summary dates everything from this one pair, so school_tomorrow and
+ * meal_tomorrow can never be about different days.
+ */
+export function familyDays(now: Date, timeZone: string): { today: string; tomorrow: string } {
+  const today = familyDateKey(now, timeZone);
+  return { today, tomorrow: addDays(today, 1) };
+}

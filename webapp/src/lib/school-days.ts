@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { isSchoolBreakOn, type SignalSchoolBreak } from "@/lib/attention/types";
 import { timetabledChildren } from "@/lib/timetabled-children";
+import { addDays } from "@/lib/family-time";
 
 /**
  * The school timetable and "is there school on day X", shared by every
@@ -19,8 +20,6 @@ import { timetabledChildren } from "@/lib/timetabled-children";
 
 export type SchoolDb = ReturnType<typeof createAdminClient>;
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /** `schedules.day_of_week` order: 0 = Sunday, as its CHECK constraint allows. */
 export const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
@@ -35,12 +34,7 @@ export function localDayString(instant: Date, timeZone: string): string {
   }).format(instant);
 }
 
-/** A calendar date `n` days from `day`. Date arithmetic only — no zone, no DST. */
-export function addDays(day: string, n: number): string {
-  const d = new Date(`${day}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
+export { addDays };
 
 /** 0 = Sunday … 6 = Saturday, of a calendar date. */
 export function dayOfWeekOf(day: string): number {
@@ -102,22 +96,38 @@ export async function fetchSchoolBreaks(
   for (const row of calendarEvents.data ?? []) {
     if (!row?.start_at || !row?.end_at) continue;
     const start = new Date(row.start_at);
-    // An all-day range ends at midnight on the morning *after* the last day —
-    // the iCalendar convention, and the one every ICS feed follows. Taking
-    // that date as-is would extend every holiday by a day, so step back to the
-    // last day the children are actually off.
-    const rawEnd = new Date(row.end_at);
-    const end = row.all_day ? new Date(rawEnd.getTime() - DAY_MS) : rawEnd;
+    const end = new Date(row.end_at);
     if (end.getTime() < start.getTime()) continue;
     breaks.push({
       name: String(row.title ?? ""),
       startsOn: localDayString(start, timeZone),
-      endsOn: localDayString(end, timeZone),
+      endsOn: lastDayCovered(row, timeZone),
       source: "calendar",
     });
   }
 
   return breaks;
+}
+
+/**
+ * The last day an event covers, as a local `YYYY-MM-DD`: the day of the last
+ * millisecond before `end_at`, or the start's day for a zero-length event.
+ *
+ * Every writer today stores an all-day event's `end_at` INCLUSIVELY: ICS and
+ * CalDAV imports (`allDayEndAnchor` in ics-fetcher.ts) and Google sync at
+ * 12:00 UTC of the last day, the app's own calendar and the Integration API
+ * at local 23:59:59.999 of the last day — one millisecond earlier is the same
+ * day for both. This once subtracted a whole day from every all-day end, from
+ * the time imports stored iCalendar's exclusive DTEND verbatim, and that cost
+ * every imported holiday its last day and dropped single-day ones altogether.
+ * A legacy row in that exclusive form ends exactly at local midnight, and one
+ * millisecond earlier is its real last day, so it still reads right; so does
+ * a timed event that ends at midnight.
+ */
+export function lastDayCovered(row: { start_at: string; end_at: string }, timeZone: string): string {
+  const start = new Date(row.start_at).getTime();
+  const end = new Date(row.end_at).getTime();
+  return localDayString(new Date(end > start ? end - 1 : start), timeZone);
 }
 
 export interface SchoolDayStatus {
@@ -284,5 +294,35 @@ export async function schoolOn(
     children: timetables.flatMap((c) =>
       c.days.filter((d) => d.day_of_week === dayOfWeekOf(day)).map((d) => ({ person_id: c.person_id, name: c.name, slots: d.slots })),
     ),
+  };
+}
+
+/** The family summary's `school_tomorrow` sensor. */
+export interface SchoolTomorrowSensor {
+  /** The children's names — the human answer, which is what a dashboard shows. */
+  state: string | null;
+  children: string[];
+  count: number;
+  /** The first child's first lesson, by start time. */
+  first_lesson: string | null;
+  /** The day this is about: tomorrow in the family's time zone. */
+  date: string | null;
+  /** False on a school holiday or a weekend; null when it could not be read. */
+  school_day: boolean | null;
+  reason: "holiday" | "weekend" | null;
+}
+
+/** `schoolOn(tomorrow)` as the sensor reports it; `null` (a failed read) reports nothing. */
+export function schoolTomorrowSensor(school: SchoolDay | null): SchoolTomorrowSensor {
+  const children = school?.children ?? [];
+  const names = children.map((c) => c.name);
+  return {
+    state: names.length > 0 ? names.join(", ") : null,
+    children: names,
+    count: names.length,
+    first_lesson: children[0]?.slots[0]?.subject ?? null,
+    date: school?.date ?? null,
+    school_day: school ? school.school_day : null,
+    reason: school?.reason ?? null,
   };
 }
