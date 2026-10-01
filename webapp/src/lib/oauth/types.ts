@@ -81,8 +81,6 @@ export interface OAuthStore {
   wasReplayed(requestId: string): Promise<boolean>;
   /** Revokes every connection minted from this authorization request. */
   revokeGrantsForRequest(requestId: string, now: Date): Promise<void>;
-  /** Revokes the family's other live connections to the same client: one connection per assistant. */
-  revokeOtherGrants(familyId: string, oauthClientId: string, keepId: string, now: Date): Promise<void>;
   findGrantByRefreshHash(refreshHash: string): Promise<GrantRecord | null>;
   /** Compare-and-swap on the old refresh hash, so a replayed refresh token loses. */
   rotateGrant(id: string, oldRefreshHash: string, next: RotatedTokens): Promise<boolean>;

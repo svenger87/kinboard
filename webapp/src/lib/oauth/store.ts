@@ -122,11 +122,6 @@ export function createOAuthStore(): OAuthStore {
         .eq("oauth_request_id", requestId).is("revoked_at", null);
       if (error) throw error;
     },
-    async revokeOtherGrants(familyId, oauthClientId, keepId, now) {
-      const { error } = await db().from("integration_tokens").update({ revoked_at: now.toISOString() })
-        .eq("family_id", familyId).eq("oauth_client_id", oauthClientId).neq("id", keepId).is("revoked_at", null);
-      if (error) throw error;
-    },
     async findGrantByRefreshHash(refreshHash) {
       const { data, error } = await db().from("integration_tokens")
         .select("id, family_id, scopes, oauth_client_id, resource, refresh_expires_at, revoked_at")

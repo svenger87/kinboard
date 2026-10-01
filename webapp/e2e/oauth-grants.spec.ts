@@ -36,9 +36,6 @@ function memoryStore() {
     async linkGrant(requestId, grantId) { requests.get(requestId)!.grantId = grantId; },
     async wasReplayed(requestId) { return !!requests.get(requestId)?.replayedAt; },
     async revokeGrantsForRequest(requestId, now) { for (const g of grants.values()) if (g.requestId === requestId && !g.revokedAt) g.revokedAt = now.toISOString(); },
-    async revokeOtherGrants(familyId, clientId, keepId, now) {
-      for (const g of grants.values()) if (g.familyId === familyId && g.oauthClientId === clientId && g.id !== keepId && !g.revokedAt) g.revokedAt = now.toISOString();
-    },
     async findGrantByRefreshHash(h) { return [...grants.values()].find((g) => g.refreshHash === h) ?? null; },
     async rotateGrant(id, old, next) {
       const g = grants.get(id); if (!g || g.refreshHash !== old || g.revokedAt) return false;
@@ -122,15 +119,18 @@ test.describe("authorization code", () => {
     expect(revokedDuringReplay).not.toBeNull();
   });
 
-  test("approving the same assistant again replaces the family's old connection, and only that", async () => {
+  test("a second connection from the same assistant in the same family leaves the first one active", async () => {
+    // Two household members, each connecting their own Claude: same client id, same family.
     const m = memoryStore();
-    expect((await exchange(m.store, await approvedCode(m.store, "fam-1"))).ok).toBe(true);
-    expect((await exchange(m.store, await approvedCode(m.store, "fam-2"))).ok).toBe(true);
-    expect((await exchange(m.store, await approvedCode(m.store, "fam-1"))).ok).toBe(true);
-    const [oldFam1, fam2, newFam1] = [...m.grants.values()];
-    expect(oldFam1.revokedAt).not.toBeNull();
-    expect(fam2.revokedAt).toBeNull();
-    expect(newFam1.revokedAt).toBeNull();
+    const first = await exchange(m.store, await approvedCode(m.store, "fam-1"));
+    const second = await exchange(m.store, await approvedCode(m.store, "fam-1"));
+    expect(first.ok && second.ok).toBe(true);
+    const [g1, g2] = [...m.grants.values()];
+    expect(g1).toMatchObject({ familyId: "fam-1", oauthClientId: CLIENT, revokedAt: null });
+    expect(g2).toMatchObject({ familyId: "fam-1", oauthClientId: CLIENT, revokedAt: null });
+    // And the first one still refreshes.
+    if (!first.ok) return;
+    expect((await refreshAccessToken(m.store, { refreshToken: first.body.refresh_token, clientId: CLIENT, resource: null }, NOW, ON)).ok).toBe(true);
   });
 
   test("wrong verifier, client, redirect or resource are all refused", async () => {

@@ -126,11 +126,10 @@ export async function exchangeAuthorizationCode(
     await store.revokeGrant(grantId, now);
     return fail("invalid_grant", "code already used");
   }
-  // One connection per assistant per family: approving Claude again replaces
-  // the old connection instead of leaving it live and forgotten in the list.
-  // Done here, where the new connection exists, rather than at consent — an
-  // approval that is never exchanged must not cut off the working one.
-  await store.revokeOtherGrants(r.familyId, r.clientId, grantId, now);
+  // Earlier connections from the same assistant are left alone: two people
+  // in a household who each connect their own Claude share a client id, and
+  // both must stay connected. Each connection is listed on its own under
+  // Settings → Integrations and is revoked there on its own.
   return {
     ok: true,
     body: { access_token: t.access.token, token_type: "Bearer", expires_in: ACCESS_TOKEN_TTL_S, refresh_token: t.refresh.token, scope: r.grantedScopes.join(" ") },
