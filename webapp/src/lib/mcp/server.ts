@@ -106,6 +106,27 @@ export function registeredTools(server: McpServer): Record<string, RegisteredToo
 }
 
 /**
+ * What the server says about itself in `initialize`. Without `icons` an
+ * assistant shows a generic placeholder where Kinboard's logo belongs —
+ * ChatGPT did exactly that. The URLs are absolute on the public origin so a
+ * client can fetch them from outside; the PNGs under /icons are static
+ * files the proxy matcher skips, so they are served without a session.
+ */
+export function kinboardServerInfo(origin: string) {
+  const base = origin.replace(/\/+$/, "");
+  return {
+    name: "kinboard",
+    title: "Kinboard",
+    version: "1.0.0",
+    websiteUrl: base,
+    icons: [
+      { src: `${base}/icons/icon-512.png`, mimeType: "image/png", sizes: ["512x512"] },
+      { src: `${base}/icons/icon-192.png`, mimeType: "image/png", sizes: ["192x192"] },
+    ],
+  };
+}
+
+/**
  * `callFn` defaults to the real `callIntegration` but can be swapped for a
  * stub — this is the seam that lets a tool's own logic (argument shaping,
  * scope gating, error surfacing) be tested without a database: a test
@@ -119,7 +140,7 @@ export function createKinboardMcpServer(
   origin: string,
   callFn: typeof callIntegration = callIntegration,
 ): McpServer {
-  const server = new McpServer({ name: "kinboard", version: "1.0.0" });
+  const server = new McpServer(kinboardServerInfo(origin));
   const tools: Record<string, RegisteredTool> = {};
   toolRegistry.set(server, tools);
   const call = (handler: RouteHandler, opts: Omit<Parameters<typeof callIntegration>[1], "origin" | "token">) =>
