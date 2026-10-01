@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { hasScope } from "../src/lib/integration-auth";
 import { resolveServerWeekStartsOn, weekStartForDate } from "../src/lib/meal-plan-week";
-import { parseMealEntryInput, MAX_MEAL_NOTE, MAX_SERVINGS } from "../src/lib/integration-meal-input";
+import { parseMealEntryInput, toMealEntry, MAX_MEAL_NOTE, MAX_SERVINGS } from "../src/lib/integration-meal-input";
 import { parseMealRange, MAX_MEAL_RANGE_DAYS } from "../src/app/api/integration/v1/meals/route";
 import { TOOL_SCOPES } from "../src/lib/mcp/server";
 
@@ -150,5 +150,35 @@ test.describe("each meals route demands its own scope", () => {
   test("removing needs meals:write", () => {
     const src = readFileSync(join(dir, "meals/[id]/route.ts"), "utf8");
     expect(src).toContain('withIntegrationAuth(request, "meals:write"');
+  });
+});
+
+test.describe("recipes in the recycle bin", () => {
+  const row = {
+    id: "e1", date: "2026-10-02", meal_type: "dinner", recipe_id: "r1", note: null, servings: 4,
+    recipe: { title: "Lasagne", deleted_at: null as string | null },
+  };
+
+  test("an entry shows its live recipe", () => {
+    expect(toMealEntry(row)).toEqual({
+      id: "e1", date: "2026-10-02", meal_type: "dinner", recipe_id: "r1", recipe_title: "Lasagne", note: null, servings: 4,
+    });
+  });
+
+  test("an entry whose recipe is binned carries no recipe — neither its title nor its id", () => {
+    const binned = toMealEntry({ ...row, recipe: { title: "Lasagne", deleted_at: "2026-10-01T10:00:00Z" } });
+    expect([binned.recipe_id, binned.recipe_title]).toEqual([null, null]);
+    expect(toMealEntry({ ...row, recipe: null }).recipe_title).toBeNull();
+  });
+
+  test("the route asks for deleted_at in the join, and filters it on both recipe lookups", () => {
+    const source = readFileSync(join(__dirname, "..", "src", "app", "api", "integration", "v1", "meals", "route.ts"), "utf8");
+    expect(source).toContain("recipe:recipes(title, deleted_at)");
+    expect(source).toContain(".map(toMealEntry)");
+    const lookups = source.split('.from("recipes")').length - 1;
+    const filtered = source.split('.from("recipes")').slice(1)
+      .filter((after) => after.slice(0, after.indexOf("maybeSingle")).includes('.is("deleted_at", null)')).length;
+    expect(lookups).toBe(2);
+    expect(filtered).toBe(lookups);
   });
 });

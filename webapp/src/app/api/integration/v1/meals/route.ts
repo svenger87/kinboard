@@ -5,7 +5,7 @@ import { logApiError } from "@/lib/api-error";
 import {
   findStoredResult, fingerprintRequest, storeResult, validateIdempotencyKey,
 } from "@/lib/integration-idempotency";
-import { parseMealEntryInput } from "@/lib/integration-meal-input";
+import { parseMealEntryInput, toMealEntry, type MealEntryRow } from "@/lib/integration-meal-input";
 import { familyWeekStartsOn, weekStartForDate } from "@/lib/meal-plan-week";
 
 export const dynamic = "force-dynamic";
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
         .from("meal_plan_entries")
         .select(`
           id, date, meal_type, recipe_id, note, servings,
-          recipe:recipes(title),
+          recipe:recipes(title, deleted_at),
           meal_plan:meal_plans!inner(family_id)
         `)
         .eq("meal_plan.family_id", context.familyId)
@@ -99,15 +99,7 @@ export async function GET(request: NextRequest) {
 
       if (error) throw error;
 
-      const entries = ((data ?? []) as any[]).map((row) => ({
-        id: row.id,
-        date: row.date,
-        meal_type: row.meal_type,
-        recipe_id: row.recipe_id,
-        recipe_title: row.recipe?.title ?? null,
-        note: row.note,
-        servings: row.servings,
-      }));
+      const entries = ((data ?? []) as MealEntryRow[]).map(toMealEntry);
 
       return NextResponse.json({ entries });
     } catch (err) {
@@ -198,6 +190,8 @@ export async function POST(request: NextRequest) {
           .select("id")
           .eq("id", entry.recipeId)
           .eq("family_id", context.familyId)
+          // A binned recipe is gone as far as an assistant is concerned.
+          .is("deleted_at", null)
           .maybeSingle();
         if (recipeError) throw recipeError;
         if (!recipe) {
@@ -226,7 +220,7 @@ export async function POST(request: NextRequest) {
       let recipeTitle: string | null = null;
       if (data.recipe_id) {
         const { data: recipe } = await (supabase as any)
-          .from("recipes").select("title").eq("id", data.recipe_id).maybeSingle();
+          .from("recipes").select("title").eq("id", data.recipe_id).is("deleted_at", null).maybeSingle();
         recipeTitle = recipe?.title ?? null;
       }
 

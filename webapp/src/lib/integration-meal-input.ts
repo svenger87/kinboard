@@ -91,3 +91,33 @@ export function parseMealEntryInput(body: Record<string, unknown>): MealEntryInp
 
   return { ok: true, value };
 }
+
+/** A meal-plan row as `GET /meals` reads it, with its recipe embedded. */
+export interface MealEntryRow {
+  id: string;
+  date: string;
+  meal_type: string;
+  recipe_id: string | null;
+  note: string | null;
+  servings: number | null;
+  recipe?: { title: string | null; deleted_at?: string | null } | null;
+}
+
+/**
+ * The wire shape of a meal-plan entry. A recipe in the recycle bin is not
+ * there any more as far as an assistant is concerned — the family's own
+ * screens hide it (RLS), but the Integration API reads with the admin
+ * client — so an entry pointing at one carries no recipe at all.
+ */
+export function toMealEntry(row: MealEntryRow) {
+  const recipe = row.recipe && !row.recipe.deleted_at ? row.recipe : null;
+  return {
+    id: row.id,
+    date: row.date,
+    meal_type: row.meal_type,
+    recipe_id: recipe ? row.recipe_id : null,
+    recipe_title: recipe?.title ?? null,
+    note: row.note,
+    servings: row.servings,
+  };
+}
