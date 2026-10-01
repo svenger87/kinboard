@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
+import { destructiveLimitResponse } from "@/lib/integration-limits";
 import { createAdminClient } from "@/lib/supabase/server";
 import { logApiError } from "@/lib/api-error";
 import {
@@ -64,6 +65,8 @@ export async function PATCH(
   const { id } = await params;
 
   return withIntegrationAuth(request, "calendar:write", async (context) => {
+    const limited = destructiveLimitResponse(context.tokenId);
+    if (limited) return limited;
     if (!UUID_RE.test(id)) return notFound();
 
     let body: Record<string, unknown>;
@@ -120,6 +123,8 @@ export async function DELETE(
   const { id } = await params;
 
   return withIntegrationAuth(request, "calendar:write", async (context) => {
+    const limited = destructiveLimitResponse(context.tokenId);
+    if (limited) return limited;
     if (!UUID_RE.test(id)) return notFound();
 
     try {

@@ -33,6 +33,7 @@ import { allowedActionsFor, decideHomeAction, ENTITY_ID } from "@/lib/home/polic
 import { CatalogueUnavailable, HomeUnavailable, HomeUpstreamError } from "@/lib/home/errors";
 import type { CatalogueEntity } from "@/lib/home/catalogue";
 import type { HaState } from "@/lib/home/ha-client";
+import { retryAfterSeconds, type Budget } from "@/lib/integration-limits";
 
 export interface ConfirmationRequest {
   familyId: string;
@@ -68,11 +69,18 @@ export interface HomeDeps {
   recordAction: (record: ActionRecord) => Promise<void>;
   /** Whether the family has a settings PIN — without one, nobody could approve. Throws when unreadable. */
   familyHasPin: (familyId: string) => Promise<boolean>;
+  /**
+   * May this assistant ask for one more confirmation (ruling 9: 2 waiting, 5
+   * per 10 minutes — `lib/integration-limits.ts`)? Spends the budget when it
+   * says yes. Throws when the pending requests cannot be read.
+   */
+  confirmationBudget: (familyId: string, tokenId: string) => Promise<Budget>;
 }
 
 export interface HomeResult {
   status: number;
   body: Record<string, unknown>;
+  headers?: Record<string, string>;
 }
 
 const MAX_ENTITY_ID = 255;
@@ -293,6 +301,24 @@ export async function runHomeAction(
         "This action needs a family member to allow it with the settings PIN, and this family has none. Set a settings PIN in Kinboard to allow this. Nothing was done.",
         { reason: "pin_required" },
       );
+    }
+    // Before anything is stored or pushed: every request lights up every
+    // screen and phone in the house, so one assistant gets a small budget.
+    let budget: Budget;
+    try {
+      budget = await deps.confirmationBudget(familyId, input.tokenId);
+    } catch {
+      return fail(503, "unavailable", "Kinboard could not check this assistant's pending requests, so nothing was done");
+    }
+    if (!budget.ok) {
+      return {
+        ...fail(
+          429,
+          "rate_limited",
+          "This assistant already has requests waiting for confirmation, or has asked too often. Wait for a family member to answer, then try again. Nothing was done.",
+        ),
+        headers: { "retry-after": String(retryAfterSeconds(budget.retryAfterMs)) },
+      };
     }
     const pending = await deps.requestConfirmation({
       familyId, tokenId: input.tokenId, tokenName: input.tokenName,

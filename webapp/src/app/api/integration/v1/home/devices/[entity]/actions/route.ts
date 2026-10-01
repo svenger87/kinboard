@@ -63,7 +63,7 @@ export async function POST(
           requestHash: hash, status: result.status, response: result.body,
         });
       }
-      return NextResponse.json(result.body, { status: result.status });
+      return NextResponse.json(result.body, { status: result.status, headers: result.headers });
     } catch (err) {
       await logApiError("integration/home/devices/actions", err);
       return NextResponse.json({ error: "Could not run the action", code: "internal_error" }, { status: 500 });

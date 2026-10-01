@@ -12,6 +12,8 @@ import { callHaService, getHaStates } from "@/lib/home/ha-client";
 import { createActionRequest, recordHomeAction } from "@/lib/home/action-requests";
 import { liveActionStore, pushActionRequest } from "@/lib/home/action-requests-live";
 import { familyHasPin } from "@/lib/settings-pin";
+import { createAdminClient } from "@/lib/supabase/server";
+import { CONFIRM_MAX_PENDING, confirmationBudget, hitConfirmLimit } from "@/lib/integration-limits";
 
 export const liveHomeDeps: HomeDeps = {
   catalogueEntities,
@@ -37,6 +39,20 @@ export const liveHomeDeps: HomeDeps = {
     return { requestId: id, expiresAt };
   },
   familyHasPin: (familyId) => familyHasPin(familyId),
+  confirmationBudget: async (familyId, tokenId) => {
+    const now = new Date();
+    const { data, error } = await (createAdminClient() as any)
+      .from("assistant_action_requests")
+      .select("expires_at")
+      .eq("family_id", familyId)
+      .eq("token_id", tokenId)
+      .eq("status", "pending")
+      .gt("expires_at", now.toISOString())
+      .limit(CONFIRM_MAX_PENDING);
+    if (error) throw new Error(`Failed to count pending requests: ${error.message}`);
+    const expiries = ((data ?? []) as { expires_at: string }[]).map((r) => r.expires_at);
+    return confirmationBudget(expiries, now, () => hitConfirmLimit(tokenId));
+  },
   recordAction: (record) =>
     recordHomeAction(
       {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
+import { destructiveLimitResponse } from "@/lib/integration-limits";
 import { createAdminClient } from "@/lib/supabase/server";
 import { logApiError } from "@/lib/api-error";
 import { LISTS, isListId, itemDue, itemSummary } from "@/lib/integration-lists";
@@ -52,6 +53,8 @@ export async function PATCH(
   const scope = isListId(list) ? LISTS[list].writeScope : "family:read";
 
   return withIntegrationAuth(request, scope, async (context) => {
+    const limited = destructiveLimitResponse(context.tokenId);
+    if (limited) return limited;
     if (!isListId(list)) {
       return NextResponse.json({ error: `unknown list \`${list}\``, code: "not_found" }, { status: 404 });
     }
@@ -231,6 +234,8 @@ export async function DELETE(
   const scope = isListId(list) ? LISTS[list].writeScope : "family:read";
 
   return withIntegrationAuth(request, scope, async (context) => {
+    const limited = destructiveLimitResponse(context.tokenId);
+    if (limited) return limited;
     if (!isListId(list)) {
       return NextResponse.json({ error: `unknown list \`${list}\``, code: "not_found" }, { status: 404 });
     }

@@ -62,10 +62,11 @@ interface Recorded {
   calls: { familyId: string; domain: string; service: string; entityId: string; data: Record<string, unknown> }[];
   confirmations: ConfirmationRequest[];
   records: ActionRecord[];
+  budgets: { familyId: string; tokenId: string }[];
 }
 
 function stubDeps(overrides: Partial<HomeDeps> = {}, opts: { serviceOk?: boolean } = {}) {
-  const rec: Recorded = { catalogueList: [], catalogueOne: [], states: [], calls: [], confirmations: [], records: [] };
+  const rec: Recorded = { catalogueList: [], catalogueOne: [], states: [], calls: [], confirmations: [], records: [], budgets: [] };
   const deps: HomeDeps = {
     catalogueEntities: async (familyId) => {
       rec.catalogueList.push(familyId);
@@ -91,6 +92,10 @@ function stubDeps(overrides: Partial<HomeDeps> = {}, opts: { serviceOk?: boolean
       rec.records.push(record);
     },
     familyHasPin: async () => true,
+    confirmationBudget: async (familyId, tokenId) => {
+      rec.budgets.push({ familyId, tokenId });
+      return { ok: true };
+    },
     ...overrides,
   };
   return { deps, rec };
@@ -444,6 +449,31 @@ test.describe("POST /home/devices/{entity}/actions", () => {
     expect([res.status, res.body.code]).toEqual([503, "unavailable"]);
     expect(rec.confirmations).toEqual([]);
     expect(rec.calls).toEqual([]);
+  });
+
+  test("ruling 9: past the confirmation budget a sensitive action is refused 429 before anything is stored or pushed", async () => {
+    const { deps, rec } = stubDeps({ confirmationBudget: async () => ({ ok: false, retryAfterMs: 61_500 }) });
+    const res = await act("lock.front_door", { service: "unlock" }, deps);
+    expect([res.status, res.body.code]).toEqual([429, "rate_limited"]);
+    expect(res.headers).toEqual({ "retry-after": "62" });
+    expect(rec.confirmations).toEqual([]);
+    expect(rec.calls).toEqual([]);
+  });
+
+  test("ruling 9: the budget is asked for the acting token, and only for a sensitive action", async () => {
+    const { deps, rec } = stubDeps();
+    await act("lock.front_door", { service: "unlock" }, deps);
+    expect(rec.budgets).toEqual([{ familyId: FAMILY, tokenId: "tok-1" }]);
+    const plain = stubDeps();
+    await act("light.kitchen", { service: "toggle" }, plain.deps);
+    expect(plain.rec.budgets).toEqual([]);
+  });
+
+  test("ruling 9: an unreadable budget refuses (503) and stores nothing", async () => {
+    const { deps, rec } = stubDeps({ confirmationBudget: async () => { throw new Error("db down"); } });
+    const res = await act("lock.front_door", { service: "unlock" }, deps);
+    expect([res.status, res.body.code]).toEqual([503, "unavailable"]);
+    expect(rec.confirmations).toEqual([]);
   });
 
   test("the PIN is not asked about for a non-sensitive action", async () => {
