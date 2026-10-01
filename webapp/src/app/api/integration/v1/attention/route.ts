@@ -11,12 +11,16 @@ export const dynamic = "force-dynamic";
  * The Heute-Motor's hints the attention widget shows right now, most
  * important first, each with the `item_key` that
  * `POST /services/dismiss_attention` takes and its title in the family's
- * language (lib/integration-attention.ts).
+ * language (lib/integration-attention.ts). A hint built from Home Assistant
+ * (an open door at bedtime) is shown with its count only, no entity names,
+ * unless the token also holds `home:read`.
  */
 export async function GET(request: NextRequest) {
   return withIntegrationAuth(request, "family:read", async (context) => {
     try {
-      return NextResponse.json(await listAttentionItems(context.familyId));
+      // Hints built from Home Assistant name the household's entities; only
+      // a token that may read the home sees them in full.
+      return NextResponse.json(await listAttentionItems(context.familyId, context.scopes.includes("home:read")));
     } catch (err) {
       await logApiError("integration/attention/list", err);
       return NextResponse.json({ error: "Could not read the attention items", code: "internal_error" }, { status: 500 });

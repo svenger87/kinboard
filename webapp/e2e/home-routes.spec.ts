@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   ATTRIBUTE_WHITELIST,
   getHomeDevice,
@@ -651,6 +653,20 @@ test.describe("one device's state (getHaState)", () => {
 });
 
 test.describe("the full state list is bounded", () => {
+  test("a large install's list (over 2 MiB) is read, for the catalogue and the vehicles alike", async () => {
+    expect(HA_STATES_MAX_BYTES).toBe(16 * 1024 * 1024);
+    const filler = { entity_id: "sensor.filler", state: "1", attributes: { blob: "x".repeat(3 * 1024 * 1024) } };
+    const body = JSON.stringify([{ entity_id: "light.kitchen", state: "on", attributes: {} }, filler]);
+    const { io } = stubIo(() => new Response(body, { headers: { "content-length": String(body.length) } }));
+    const states = await getHaStates(FAMILY, ["light.kitchen"], io);
+    expect(states.get("light.kitchen")?.state).toBe("on");
+    // Both read paths go through getHaStates and its one cap, with no override.
+    for (const file of ["../src/lib/home/live.ts", "../src/app/api/integration/v1/vehicles/route.ts", "../src/lib/integration-energy-status.ts"]) {
+      const src = readFileSync(join(__dirname, file), "utf8");
+      expect(src, file).toMatch(/getHaStates\(familyId, (entityIds|\[\.\.\.new Set\(ids\.values\(\)\)\]), io\)|getHaStates\(familyId, entityIds\)/);
+    }
+  });
+
   test(`an answer over ${HA_STATES_MAX_BYTES} bytes is refused, announced or not`, async () => {
     const big = "x".repeat(HA_STATES_MAX_BYTES + 10);
     const announced = stubIo(() => new Response(JSON.stringify([big]), { headers: { "content-length": String(big.length + 4) } }));

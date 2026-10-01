@@ -207,5 +207,16 @@ export interface Rule {
   /** Which contexts this rule may speak in. Empty means any. */
   contexts?: DayContext[];
   defaultConfig?: Record<string, unknown>;
+  /**
+   * Set on every rule built from Home Assistant states (anything reading
+   * `signals.home`). Its hints name the household's entities — which door,
+   * which window is open — and the Integration API shows them in full only
+   * to a token holding `home:read`; anyone else gets the title rendered
+   * with nothing but `keepParams` (numbers only) and no detail
+   * (lib/integration-attention.ts). e2e/integration-attention.spec.ts fails
+   * a rule that reads `signals.home` without it, and the API also redacts
+   * hints from a rule it does not know.
+   */
+  sensitive?: { keepParams: readonly string[] };
   evaluate: (signals: Signals, ctx: RuleContext) => ProposedItem[];
 }

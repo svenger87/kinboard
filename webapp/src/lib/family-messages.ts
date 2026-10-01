@@ -255,6 +255,11 @@ export interface MessageView {
   created_at: string;
   /** The assistant's name for one an assistant sent ("via …" on the screens); null for a person's. */
   sender_label: string | null;
+  /**
+   * The message carries an assistant's label — `sender_label` is set. An
+   * assistant whose name trims to nothing is stored with no label and reads
+   * as a person's here, as it does on the screens (no "via …").
+   */
   from_assistant: boolean;
   acknowledged: boolean;
   acknowledged_at: string | null;

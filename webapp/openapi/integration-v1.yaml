@@ -693,8 +693,8 @@ paths:
         acknowledgement wins: a message already acknowledged — on a screen
         or by another token — is answered `200` with that acknowledgement
         unchanged and `already_acknowledged: true`. Not a create, so no
-        Idempotency-Key; spends the assistant edit/delete budget. A message
-        that is missing or belongs to another family answers `404`.
+        Idempotency-Key, and it does not spend the assistant edit/delete
+        budget (only the generic write budget). A message that is missing or belongs to another family answers `404`.
       x-required-scope: announcements:write
       parameters:
         - name: id
@@ -1308,10 +1308,12 @@ paths:
       description: |
         Adds a countdown as the widget does. The list is one settings row,
         so the write is optimistic: it applies only if the row is unchanged
-        since it was read, and otherwise is redone on the newer list — so a
-        countdown added at the same moment on a screen or by another token
-        is kept. After four lost attempts in a row the answer is `409`
-        `conflict`, and nothing was written. Every call adds a new
+        since it was read, and otherwise is redone on the newer list — so it
+        never overwrites a change made in between, and a countdown another
+        token adds at the same moment is kept. A screen's own save writes
+        the whole list it holds, so a screen saving a stale list can still
+        drop this countdown. After four lost attempts in a row the answer is
+        `409` `conflict`, and nothing was written. Every call adds a new
         countdown.
       x-required-scope: calendar:write
       parameters:
@@ -1345,7 +1347,11 @@ paths:
                   countdown: { $ref: "#/components/schemas/Countdown" }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
-        "409": { description: "Idempotency key reused with different arguments, or `conflict`: the list kept changing under the write; nothing was written, try again." }
+        "409":
+          description: "Idempotency key reused with different arguments, or `conflict`: the list kept changing under the write; nothing was written, try again."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { description: The countdown could not be added. }
 
@@ -1377,7 +1383,11 @@ paths:
                   id: { type: string, format: uuid }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { description: "No such countdown in this family." }
-        "409": { description: "`conflict`: the list kept changing under the write; nothing was deleted, try again." }
+        "409":
+          description: "`conflict`: the list kept changing under the write; nothing was deleted, try again."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { description: The countdown could not be deleted. }
 
@@ -1391,7 +1401,14 @@ paths:
         (lowest `priority`) first. `title` and `detail` are in the family's
         language (its `locale` setting, English when unset), falling back to
         the stored English where a hint has no translation. `item_key` is
-        what `POST /services/dismiss_attention` takes as `key`.
+        what `POST /services/dismiss_attention` takes as `key`; a dismissal
+        reaches the panels at their next refresh, within a few minutes.
+
+        A hint built from Home Assistant states (for example "2 still open"
+        at bedtime, whose detail names the open doors and windows) is shown
+        in full only to a token that also holds `home:read`. Without it, its
+        title keeps only the count and `detail` is null, and no entity id or
+        name is returned.
       x-required-scope: family:read
       responses:
         "200":
@@ -2502,7 +2519,7 @@ components:
       required: [id, title, date, icon, days_until]
       properties:
         id: { type: string, format: uuid }
-        title: { type: string, maxLength: 60 }
+        title: { type: string, description: "At most 60 characters when added here; one typed on a screen can be longer." }
         date: { type: string, format: date }
         icon: { type: string }
         days_until: { type: integer, minimum: 0, description: "Days from the family's today; 0 is today." }
@@ -2514,7 +2531,7 @@ components:
         text: { type: string, maxLength: 200 }
         created_at: { type: string, format: date-time }
         sender_label: { type: [string, "null"], description: "The assistant's name; null for a person's message." }
-        from_assistant: { type: boolean }
+        from_assistant: { type: boolean, description: "The message carries an assistant's label (`sender_label` is set). A label that is empty after trimming is stored as none, and such a message reads as a person's, as it does on the screens." }
         acknowledged: { type: boolean }
         acknowledged_at: { type: [string, "null"], format: date-time }
     Timer:

@@ -349,6 +349,9 @@ const lockUpBeforeBed: Rule = {
   description:
     "Late in the evening, mentions a door or window Home Assistant still reports open.",
   contexts: ["evening", "quiet"],
+  // The detail and `entities` are the open doors' and windows' entity ids:
+  // only the count is shown to an integration token without home:read.
+  sensitive: { keepParams: ["count"] },
   defaultConfig: {
     afterHour: 21,
     // Home Assistant's own device classes, not entity-id prefixes.

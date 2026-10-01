@@ -157,9 +157,10 @@ test.describe("routes", () => {
   const list = codeOnly(readFileSync(join(root, "route.ts"), "utf8"));
   const ack = codeOnly(readFileSync(join(root, "[id]/acknowledge/route.ts"), "utf8"));
 
-  test("reading is family:read, acknowledging announcements:write behind the edit budget", () => {
+  test("reading is family:read, acknowledging announcements:write and not the edit/delete budget", () => {
     expect(list).toContain('withIntegrationAuth(request, "family:read"');
-    expect(ack).toContain('withIntegrationAuth(request, "announcements:write", async (context) => {\n    const limited = destructiveLimitResponse(context);');
+    expect(ack).toContain('withIntegrationAuth(request, "announcements:write"');
+    expect(ack).not.toContain("destructiveLimitResponse");
   });
 
   test("the family comes from the token and neither route makes a client", () => {

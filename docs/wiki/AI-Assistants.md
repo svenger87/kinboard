@@ -166,15 +166,15 @@ only connect assistants through the "Allow AI assistants" sign-in.
 | Tool | Does |
 |---|---|
 | `list_countdowns` | The countdowns on the countdown widget, the soonest first, with how many days are left |
-| `add_countdown` | Add a countdown — a title, the date and one of the widget's seven icons. If someone adds one on a screen at the same moment, both are kept |
+| `add_countdown` | Add a countdown — a title, the date and one of the widget's seven icons. It never overwrites a change made in the meantime, and two assistants adding at once are both kept — but a screen that saves an out-of-date list can still drop it |
 | `delete_countdown` | Take a countdown off the widget. Permanent — countdowns have no recycle bin |
 
 ### Attention panel
 
 | Tool | Does |
 |---|---|
-| `list_attention_items` | The hints the attention panel is showing right now ("Rain likely today"), most important first, in the family's language |
-| `dismiss_attention_item` | Take a hint off the panel, as tapping OK on it does |
+| `list_attention_items` | The hints the attention panel is showing right now ("Rain likely today"), most important first, in the family's language. A hint from Home Assistant, such as doors still open at bedtime, only says how many unless the assistant may also see the home (`home:read`) |
+| `dismiss_attention_item` | Take a hint off the panel, as tapping OK on it does; the screens catch up within a few minutes |
 
 ### Messages and energy
 

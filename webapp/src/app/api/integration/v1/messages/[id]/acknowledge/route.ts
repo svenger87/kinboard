@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
-import { destructiveLimitResponse } from "@/lib/integration-limits";
 import { logApiError } from "@/lib/api-error";
 import { acknowledgeMessage } from "@/lib/family-messages";
 
@@ -14,8 +13,9 @@ export const dynamic = "force-dynamic";
  * everywhere over realtime. First tap wins: a message somebody already
  * acknowledged is answered 200 with that acknowledgement and
  * `already_acknowledged: true`, unchanged. Not a create, so no
- * Idempotency-Key is needed — doing it twice changes nothing — but it is a
- * change to the family's data and spends the assistant edit budget.
+ * Idempotency-Key is needed — doing it twice changes nothing. Saying "seen"
+ * removes nothing, so it does not spend the assistant edit/delete budget;
+ * the token's generic write budget still applies.
  * A message that is missing or another family's is 404
  * (lib/family-messages.ts scopes every statement itself).
  */
@@ -26,9 +26,6 @@ export async function POST(
   const { id } = await params;
 
   return withIntegrationAuth(request, "announcements:write", async (context) => {
-    const limited = destructiveLimitResponse(context);
-    if (limited) return limited;
-
     try {
       const result = await acknowledgeMessage(context.familyId, id);
       if (!result) {

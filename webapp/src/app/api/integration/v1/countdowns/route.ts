@@ -36,8 +36,11 @@ export async function GET(request: NextRequest) {
  * `date` as YYYY-MM-DD, today or later in the family's time zone, and an
  * optional `icon` from the widget's seven. A create, so an Idempotency-Key
  * is required. Written with optimistic concurrency against the setting's
- * `updated_at`, so a countdown added at the same moment elsewhere is kept;
- * 409 only after the write has lost four times in a row.
+ * `updated_at`, so this never overwrites a change made since it read the
+ * list, and a countdown another assistant or token adds at the same moment
+ * is kept; 409 only after the write has lost four times in a row. A
+ * screen's own save is a plain overwrite of the list it holds, so a screen
+ * saving a stale list can still drop this countdown (lib/countdowns.ts).
  */
 export async function POST(request: NextRequest) {
   return withIntegrationAuth(request, "calendar:write", async (context) => {
