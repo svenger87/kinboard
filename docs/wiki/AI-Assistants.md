@@ -120,7 +120,7 @@ change them.
 | Tool | Does |
 |---|---|
 | `list_timers` | The timers on the screens, running or ringing, with the time left |
-| `start_timer` | Start a timer of up to 24 hours, with an optional label — it counts down and rings on the screens that show the timers card, and notifies phones, like one set on the panel. At most 10 can be running or ringing at once |
+| `start_timer` | Start a timer of up to 24 hours, with an optional label — it counts down and rings on the screens that show the timers card, and notifies phones, like one set on the panel. At most 10 can be running or ringing at once; one that has rung unanswered for over an hour no longer counts |
 | `stop_timer` | Stop a timer and take it off the screens; its phone notification is cancelled |
 
 ### Birthdays

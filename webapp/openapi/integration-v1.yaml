@@ -910,10 +910,12 @@ paths:
       description: |
         Starts a timer exactly as the panel does: it counts down and rings
         on the family's screens where the timers card is shown, and a push
-        is queued for the phones. Refused with `429` and code `too_many_timers` while the
-        family already has 10 timers running or ringing — counted across
-        everyone's timers, not only this token's. Every call starts a new
-        timer.
+        is queued for the phones. For an assistant's (OAuth) token, refused
+        with `429` and code `too_many_timers` while the family already has
+        10 timers running or ringing — counted across everyone's timers, not
+        only this token's, and leaving out any that has rung for over an
+        hour without being dismissed. A token made by hand in Settings (Home
+        Assistant) is not capped. Every call starts a new timer.
       x-required-scope: timers:write
       parameters:
         - name: Idempotency-Key
@@ -950,9 +952,9 @@ paths:
         "409": { description: Idempotency key reused with different arguments. }
         "429":
           description: |
-            `too_many_timers` — the family already has 10 timers running or
-            ringing; stop one first. Or `rate_limited`, the token's write
-            budget.
+            `too_many_timers` — an assistant's token, and the family already
+            has 10 timers running or ringing; stop one first. Or
+            `rate_limited`, the token's write budget.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }

@@ -8,7 +8,9 @@ import {
   parseTimerInput,
   readActiveTimers,
   startTimer,
-  startTimerForAssistant,
+  STALE_RINGING_MS,
+  countActiveTimers,
+  startIntegrationTimer,
   stopTimerForAssistant,
   timerView,
   type TimerDb,
@@ -103,6 +105,9 @@ function fakeDb(tables: Record<string, Row[]>) {
   };
 }
 
+const ASSISTANT = { capped: true, now: NOW };
+const MANUAL = { capped: false, now: NOW };
+
 const timer = (n: number, family: string, extra: Row = {}): Row => ({
   id: T(n), family_id: family, label: `T${n}`, duration_seconds: 600,
   started_at: "2026-10-01T11:55:00.000Z", dismissed_at: null, finished_at: null, ...extra,
@@ -156,7 +161,7 @@ test.describe("reading", () => {
 test.describe("starting", () => {
   test("inserts the timer and queues its push, exactly as the session route did", async () => {
     const f = fakeDb({ timers: [] });
-    const outcome = await startTimerForAssistant(OURS, { label: "Pasta", duration_seconds: 480 }, f.db);
+    const outcome = await startIntegrationTimer(OURS, { label: "Pasta", duration_seconds: 480 }, ASSISTANT, f.db);
     expect(outcome).toMatchObject({ status: "started", timer: { label: "Pasta", duration_seconds: 480, state: "running" } });
     expect(f.tables.timers).toHaveLength(1);
     expect(f.tables.timers[0]).toMatchObject({ family_id: OURS, label: "Pasta", duration_seconds: 480 });
@@ -193,13 +198,13 @@ test.describe("starting", () => {
     expect(started).toBeNull();
     expect(error).toMatchObject({ message: "timers insert failed" });
     expect(f.tables.scheduled_notifications ?? []).toEqual([]);
-    await expect(startTimerForAssistant(OURS, { label: null, duration_seconds: 60 }, fakeDbFailing().db)).rejects.toBeTruthy();
+    await expect(startIntegrationTimer(OURS, { label: null, duration_seconds: 60 }, ASSISTANT, fakeDbFailing().db)).rejects.toBeTruthy();
   });
 
   test(`refused once the family has ${MAX_ACTIVE_TIMERS} running or ringing; nothing is written`, async () => {
     const rows = Array.from({ length: MAX_ACTIVE_TIMERS }, (_, i) => timer(i + 1, OURS, i % 2 ? { duration_seconds: 60 } : {}));
     const f = fakeDb({ timers: rows });
-    expect(await startTimerForAssistant(OURS, { label: null, duration_seconds: 60 }, f.db)).toEqual({ status: "too_many", active: MAX_ACTIVE_TIMERS });
+    expect(await startIntegrationTimer(OURS, { label: null, duration_seconds: 60 }, ASSISTANT, f.db)).toEqual({ status: "too_many", active: MAX_ACTIVE_TIMERS });
     expect(f.tables.timers).toHaveLength(MAX_ACTIVE_TIMERS);
     expect(f.writes).toEqual([]);
   });
@@ -212,9 +217,43 @@ test.describe("starting", () => {
         ...Array.from({ length: 12 }, (_, i) => timer(40 + i, THEIRS)),
       ],
     });
-    expect((await startTimerForAssistant(OURS, { label: null, duration_seconds: 60 }, f.db)).status).toBe("started");
+    expect((await startIntegrationTimer(OURS, { label: null, duration_seconds: 60 }, ASSISTANT, f.db)).status).toBe("started");
     // Now at the cap.
-    expect((await startTimerForAssistant(OURS, { label: null, duration_seconds: 60 }, f.db)).status).toBe("too_many");
+    expect((await startIntegrationTimer(OURS, { label: null, duration_seconds: 60 }, ASSISTANT, f.db)).status).toBe("too_many");
+  });
+
+  test("a hand-made token (Home Assistant) is not capped: it starts past the cap without counting", async () => {
+    const rows = Array.from({ length: MAX_ACTIVE_TIMERS + 2 }, (_, i) => timer(i + 1, OURS));
+    const f = fakeDb({ timers: rows });
+    expect((await startIntegrationTimer(OURS, { label: null, duration_seconds: 60 }, MANUAL, f.db)).status).toBe("started");
+    expect(f.tables.timers).toHaveLength(MAX_ACTIVE_TIMERS + 3);
+    // The same family, the same rows: an assistant is refused.
+    expect((await startIntegrationTimer(OURS, { label: null, duration_seconds: 60 }, ASSISTANT, f.db)).status).toBe("too_many");
+  });
+
+  test("a timer that has rung for over an hour unanswered no longer counts; one within the hour still does", async () => {
+    const endedAgo = (ms: number) => ({ started_at: new Date(NOW.getTime() - ms - 600_000).toISOString(), duration_seconds: 600 });
+    const f = fakeDb({
+      timers: [
+        ...Array.from({ length: MAX_ACTIVE_TIMERS - 1 }, (_, i) => timer(i + 1, OURS)),
+        // Rang 1h01m ago and nobody dismissed it: stale.
+        ...Array.from({ length: 4 }, (_, i) => timer(60 + i, OURS, endedAgo(STALE_RINGING_MS + 60_000))),
+      ],
+    });
+    expect(await countActiveTimers(f.db, OURS, NOW)).toBe(MAX_ACTIVE_TIMERS - 1);
+    expect((await startIntegrationTimer(OURS, { label: null, duration_seconds: 60 }, ASSISTANT, f.db)).status).toBe("started");
+
+    // Rang 59 minutes ago: it is still ringing on a screen, and counts.
+    const g = fakeDb({
+      timers: [
+        ...Array.from({ length: MAX_ACTIVE_TIMERS - 1 }, (_, i) => timer(i + 1, OURS)),
+        timer(70, OURS, endedAgo(STALE_RINGING_MS - 60_000)),
+      ],
+    });
+    expect(await countActiveTimers(g.db, OURS, NOW)).toBe(MAX_ACTIVE_TIMERS);
+    expect((await startIntegrationTimer(OURS, { label: null, duration_seconds: 60 }, ASSISTANT, g.db)).status).toBe("too_many");
+    // list_timers still shows the stale ones: only the cap forgets them.
+    expect(await readActiveTimers(OURS, NOW, f.db)).toHaveLength(MAX_ACTIVE_TIMERS + 4);
   });
 });
 
@@ -290,6 +329,8 @@ test.describe("routes", () => {
     expect(list).toContain("findStoredResult(");
     expect(list).toContain('code: "too_many_timers"');
     expect(list).toContain("status: 429");
+    // The cap is an assistant's (RFC-012): a hand-made token is not counted.
+    expect(list).toContain("startIntegrationTimer(context.familyId, input.value, { capped: context.assistant })");
     const item = read("integration", "v1", "timers", "[id]", "route.ts");
     expect(item).toContain('withIntegrationAuth(request, "timers:write"');
     expect(item).toContain("destructiveLimitResponse(context)");

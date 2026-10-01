@@ -46,8 +46,9 @@ export const API_ERROR_CODES = [
   "unavailable",
   "internal_error",
   // A family already has as many timers running or ringing as an assistant
-  // may start (lib/timers.ts). 429 like rate_limited, but waiting does not
-  // help on its own — a timer has to ring and be dismissed, or be stopped.
+  // may start (lib/timers.ts). 429 like rate_limited, but waiting helps only
+  // slowly — a timer has to be stopped or dismissed, or ring unanswered for
+  // an hour, before it stops counting.
   "too_many_timers",
 ] as const;
 

@@ -4,7 +4,7 @@ import { logApiError } from "@/lib/api-error";
 import {
   findStoredResult, fingerprintRequest, storeResult, validateIdempotencyKey,
 } from "@/lib/integration-idempotency";
-import { MAX_ACTIVE_TIMERS, parseTimerInput, readActiveTimers, startTimerForAssistant } from "@/lib/timers";
+import { MAX_ACTIVE_TIMERS, parseTimerInput, readActiveTimers, startIntegrationTimer } from "@/lib/timers";
 
 export const dynamic = "force-dynamic";
 
@@ -33,9 +33,12 @@ export async function GET(request: NextRequest) {
  * Start a kitchen timer on every screen, exactly as the panel does
  * (lib/timers.ts): the row, plus the queued push that announces its end.
  * `duration_seconds` 1–86400, `label` optional and at most 60 characters.
- * Refused with 429 `too_many_timers` once the family already has 10 timers
- * running or ringing (RFC-012) — counted across everyone's timers, so no
- * migration is needed to tell an assistant's from a person's. A create, so
+ * For an assistant's token (OAuth, `context.assistant`), refused with 429
+ * `too_many_timers` once the family already has 10 timers running or
+ * ringing (RFC-012) — counted across everyone's timers, so no migration is
+ * needed to tell an assistant's from a person's, and leaving out any that
+ * has rung for over an hour unanswered. A hand-made token (Home Assistant)
+ * is not capped, as the panel is not. A create, so
  * an Idempotency-Key is required: a retried "set a ten-minute timer" must
  * not start two.
  */
@@ -70,7 +73,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const outcome = await startTimerForAssistant(context.familyId, input.value);
+      const outcome = await startIntegrationTimer(context.familyId, input.value, { capped: context.assistant });
       if (outcome.status === "too_many") {
         return NextResponse.json(
           {

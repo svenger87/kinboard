@@ -461,7 +461,7 @@ export function createKinboardMcpServer(
     ({ recipe_id, ...body }) => call(recipeShopping, { path: `/recipes/${recipe_id}/shopping`, params: { id: recipe_id }, body }));
   register("list_timers", "Read the kitchen timers on the family's screens: each running or ringing timer with its id, label, duration_seconds, ends_at and remaining_seconds. state is running, or ringing when the time is up and nobody has dismissed it yet. The timer due soonest comes first.", z.object({}), readOnly,
     () => call(timers, { path: "/timers" }));
-  register("start_timer", `Start a kitchen timer. It counts down on the family's Kinboard screens that show the timers card, rings there when it runs out, and notifies phones. duration_seconds from 1 to ${MAX_TIMER_SECONDS} (24 hours); label optional, up to ${MAX_TIMER_LABEL} characters, for example "Pasta". Each call starts a new timer. Refused with too_many_timers once the family has ${MAX_ACTIVE_TIMERS} running or ringing — stop one first.`,
+  register("start_timer", `Start a kitchen timer. It counts down on the family's Kinboard screens that show the timers card, rings there when it runs out, and notifies phones. duration_seconds from 1 to ${MAX_TIMER_SECONDS} (24 hours); label optional, up to ${MAX_TIMER_LABEL} characters, for example "Pasta". Each call starts a new timer. Refused with too_many_timers once the family has ${MAX_ACTIVE_TIMERS} running or ringing — stop one first; one that has rung unanswered for over an hour no longer counts.`,
     z.object({
       duration_seconds: z.number().int().min(1).max(MAX_TIMER_SECONDS),
       label: z.string().trim().max(MAX_TIMER_LABEL).optional(),
