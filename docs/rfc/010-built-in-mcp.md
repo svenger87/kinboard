@@ -123,10 +123,10 @@ Claude / ChatGPT ──► GET  /api/mcp                       401 + WWW-Authent
 ### 3.5 Consent
 
 The consent page sits behind `AuthGuard`, so the browser must be joined to the
-family (a device session) — that answers "which family". If the family has a
-settings PIN, the PIN is required and verified server-side through the same
-rate-limited check `/api/pin` uses. Without a PIN the page says that any joined
-device can connect an assistant, and links to setting one.
+family (a device session) — that answers "which family". Approving always
+requires the settings PIN, verified server-side through the same rate-limited
+check `/api/pin` uses; if the family has none, the consent page sets one
+(entered twice) in the same step.
 
 The page shows the client name, the redirect **hostname** (MCP spec: required,
 with an extra warning when only loopback redirects are registered), and the
@@ -173,8 +173,8 @@ Nothing released depends on the WIP gateway. The Integration API contract
 
 ## 9. Open before release
 
-1. Is "joined device + PIN if set" sufficient to grant an assistant access, or
-   should a PIN be mandatory for this one action?
+1. Decided 2026-10-01: the PIN is mandatory for approving an assistant; a
+   family without one sets it on the consent page.
 2. Should OAuth connections be visually separate from manual tokens in
    Settings (proposed: same list, labelled "Assistant").
 3. CHANGELOG, wiki page and release notes once the WIP label comes off.

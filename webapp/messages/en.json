@@ -4169,5 +4169,32 @@
     "empty": "Nothing to pass on",
     "close": "Close",
     "alreadySeen": "Somebody has already seen this"
+  },
+  "oauthConsent": {
+    "title": "Connect {client} to Kinboard",
+    "intro": "{client} is asking for access to this family's Kinboard. After you approve, you'll be sent back to {host}.",
+    "loopbackWarning": "This connection returns to a program on your own computer. Only approve it if you just started it yourself.",
+    "scopesHeading": "It may…",
+    "scope_family_read": "Read the family summary, calendar, tasks and shopping list",
+    "scope_notes_read": "Read notes",
+    "scope_calendar_write": "Add calendar events",
+    "scope_tasks_write": "Add tasks",
+    "scope_shopping_write": "Add shopping items",
+    "scope_notes_write": "Add notes",
+    "scope_energy_read": "Read the solar sensors set up in Energy",
+    "pinLabel": "Settings PIN",
+    "setPinIntro": "Set a 4-digit settings PIN first. It protects this and the settings pages, and you'll need it to connect assistants in future.",
+    "newPinLabel": "New settings PIN",
+    "confirmPinLabel": "Repeat the PIN",
+    "pinMismatch": "The two PINs don't match.",
+    "approve": "Allow",
+    "deny": "Don't allow",
+    "pinInvalid": "That PIN isn't right.",
+    "rateLimited": "Too many wrong PINs. Wait a minute and try again.",
+    "noScopes": "Choose at least one permission, or don't allow.",
+    "newPinInvalid": "The PIN must be exactly 4 digits.",
+    "expired": "This request has expired or was already answered. Start the connection again from the assistant.",
+    "failed": "Something went wrong. Try again.",
+    "revokeHint": "You can disconnect it at any time under Settings → Integrations."
   }
 }

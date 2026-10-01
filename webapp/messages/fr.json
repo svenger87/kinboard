@@ -4169,5 +4169,32 @@
     "empty": "Rien à transmettre",
     "close": "Fermer",
     "alreadySeen": "Quelqu'un l'a déjà vu"
+  },
+  "oauthConsent": {
+    "title": "Connecter {client} à Kinboard",
+    "intro": "{client} demande l'accès au Kinboard de cette famille. Après votre accord, vous serez renvoyé vers {host}.",
+    "loopbackWarning": "Cette connexion renvoie vers un programme sur votre propre ordinateur. N'acceptez que si vous venez de la lancer vous-même.",
+    "scopesHeading": "Il pourra…",
+    "scope_family_read": "Lire le résumé familial, le calendrier, les tâches et la liste de courses",
+    "scope_notes_read": "Lire les notes",
+    "scope_calendar_write": "Ajouter des événements au calendrier",
+    "scope_tasks_write": "Ajouter des tâches",
+    "scope_shopping_write": "Ajouter des articles de courses",
+    "scope_notes_write": "Ajouter des notes",
+    "scope_energy_read": "Lire les capteurs solaires configurés dans Énergie",
+    "pinLabel": "Code PIN des paramètres",
+    "setPinIntro": "Définissez d'abord un code PIN à 4 chiffres pour les paramètres. Il protège cette autorisation et les paramètres, et vous en aurez besoin pour connecter des assistants à l'avenir.",
+    "newPinLabel": "Nouveau code PIN",
+    "confirmPinLabel": "Répétez le code PIN",
+    "pinMismatch": "Les deux codes PIN ne correspondent pas.",
+    "approve": "Autoriser",
+    "deny": "Refuser",
+    "pinInvalid": "Ce code PIN est incorrect.",
+    "rateLimited": "Trop de codes PIN erronés. Patientez une minute puis réessayez.",
+    "noScopes": "Choisissez au moins une autorisation, ou refusez.",
+    "newPinInvalid": "Le code PIN doit comporter exactement 4 chiffres.",
+    "expired": "Cette demande a expiré ou a déjà reçu une réponse. Relancez la connexion depuis l'assistant.",
+    "failed": "Une erreur s'est produite. Réessayez.",
+    "revokeHint": "Vous pouvez la déconnecter à tout moment dans Paramètres → Intégrations."
   }
 }

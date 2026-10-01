@@ -4169,5 +4169,32 @@
     "empty": "Nichts auszurichten",
     "close": "Schließen",
     "alreadySeen": "Das hat schon jemand gesehen"
+  },
+  "oauthConsent": {
+    "title": "{client} mit Kinboard verbinden",
+    "intro": "{client} möchte auf das Kinboard dieser Familie zugreifen. Nach der Freigabe geht es zurück zu {host}.",
+    "loopbackWarning": "Diese Verbindung führt zu einem Programm auf deinem eigenen Computer. Gib sie nur frei, wenn du sie gerade selbst gestartet hast.",
+    "scopesHeading": "Erlaubt wird…",
+    "scope_family_read": "Familienübersicht, Kalender, Aufgaben und Einkaufsliste lesen",
+    "scope_notes_read": "Notizen lesen",
+    "scope_calendar_write": "Termine eintragen",
+    "scope_tasks_write": "Aufgaben anlegen",
+    "scope_shopping_write": "Einkaufsartikel hinzufügen",
+    "scope_notes_write": "Notizen anlegen",
+    "scope_energy_read": "Die unter Energie eingerichteten Solarsensoren lesen",
+    "pinLabel": "Einstellungs-PIN",
+    "setPinIntro": "Lege zuerst eine 4-stellige Einstellungs-PIN fest. Sie schützt diese Freigabe und die Einstellungen, und du brauchst sie künftig, um Assistenten zu verbinden.",
+    "newPinLabel": "Neue Einstellungs-PIN",
+    "confirmPinLabel": "PIN wiederholen",
+    "pinMismatch": "Die beiden PINs stimmen nicht überein.",
+    "approve": "Erlauben",
+    "deny": "Nicht erlauben",
+    "pinInvalid": "Die PIN stimmt nicht.",
+    "rateLimited": "Zu viele falsche PINs. Warte eine Minute und versuche es erneut.",
+    "noScopes": "Wähle mindestens eine Berechtigung oder lehne ab.",
+    "newPinInvalid": "Die PIN muss genau 4 Ziffern haben.",
+    "expired": "Diese Anfrage ist abgelaufen oder wurde schon beantwortet. Starte die Verbindung im Assistenten neu.",
+    "failed": "Etwas ist schiefgelaufen. Versuche es erneut.",
+    "revokeHint": "Du kannst die Verbindung jederzeit unter Einstellungen → Integrationen trennen."
   }
 }
