@@ -646,13 +646,42 @@ test.describe("get_action_status", () => {
   });
 });
 
+test.describe("list_vehicles", () => {
+  test("reads /vehicles with no arguments and is read-only", async () => {
+    const vehicles = [{ id: "v-1", nickname: "Tesla", vendor: "tesla", available: true, battery_level_pct: 57, observed_at: "2026-10-01T11:56:00.000Z" }];
+    const { server, calls } = buildServer(["vehicles:read"], () => ({ vehicles, fetched_at: "2026-10-01T12:00:00.000Z" }));
+    const t = tool(server, "list_vehicles") as unknown as ReturnType<typeof tool> & { annotations?: Record<string, unknown> };
+    expect(t.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: false });
+    const result = await t.handler({});
+    expect(calls).toEqual([{ path: "/vehicles" }]);
+    expect(JSON.parse(result.content[0].text)).toEqual({ vehicles, fetched_at: "2026-10-01T12:00:00.000Z" });
+    expect(result.isError).toBeUndefined();
+  });
+
+  test("is refused without vehicles:read — home:read does not imply it", async () => {
+    const { server, calls } = buildServer(["home:read", "family:read"]);
+    const result = await tool(server, "list_vehicles").handler({});
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("vehicles:read");
+    expect(calls).toEqual([]);
+  });
+
+  test("says where the values come from, that they may be stale, and that there is no location", () => {
+    const { server } = buildServer(["vehicles:read"]);
+    const description = (registeredTools(server).list_vehicles as unknown as { description: string }).description;
+    for (const phrase of ["charge level", "range", "charging", "Home Assistant", "observed_at", "No location"]) {
+      expect(description, phrase).toContain(phrase);
+    }
+  });
+});
+
 test("every new tool carries a real scope", () => {
   for (const name of [
     "list_people", "complete_task", "reopen_task", "update_task", "delete_task",
     "check_shopping_item", "uncheck_shopping_item", "rename_shopping_item", "delete_shopping_item",
     "update_note", "delete_note", "update_calendar_event", "delete_calendar_event",
     "get_meal_plan", "add_meal", "remove_meal", "send_message",
-    "list_home_devices", "get_device_state", "control_device", "get_action_status",
+    "list_home_devices", "get_device_state", "control_device", "get_action_status", "list_vehicles",
   ]) {
     expect(TOOL_SCOPES).toHaveProperty(name);
   }
@@ -677,6 +706,7 @@ test("every new tool carries a real scope", () => {
   expect(TOOL_SCOPES.get_device_state).toBe("home:read");
   expect(TOOL_SCOPES.control_device).toBe("home:control");
   expect(TOOL_SCOPES.get_action_status).toBe("home:control");
+  expect(TOOL_SCOPES.list_vehicles).toBe("vehicles:read");
 });
 
 test.describe("tools that act outside Kinboard say so", () => {

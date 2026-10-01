@@ -53,3 +53,9 @@ test("write scopes say they edit and delete, and home control says what waits fo
   expect(en.oauthConsent.scope_meals_write).toBe("Add and remove meals");
   for (const dict of [en, de, fr]) expect(dict.oauthConsent.scope_home_control).toMatch(/PIN/);
 });
+
+test("the vehicles scope names charge level and range, in every language", () => {
+  expect(en.oauthConsent.scope_vehicles_read).toBe("See your vehicles' charge level, range and charging status");
+  expect(de.oauthConsent.scope_vehicles_read).toMatch(/Ladestand/);
+  expect(fr.oauthConsent.scope_vehicles_read).toMatch(/charge/);
+});

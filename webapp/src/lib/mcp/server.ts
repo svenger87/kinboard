@@ -22,6 +22,7 @@ import { GET as homeDevices } from "@/app/api/integration/v1/home/devices/route"
 import { GET as homeDevice } from "@/app/api/integration/v1/home/devices/[entity]/route";
 import { POST as homeDeviceAction } from "@/app/api/integration/v1/home/devices/[entity]/actions/route";
 import { GET as homeActionStatus } from "@/app/api/integration/v1/home/actions/[id]/route";
+import { GET as vehicles } from "@/app/api/integration/v1/vehicles/route";
 import { ENTITY_ID } from "@/lib/home/policy";
 
 export const TOOL_SCOPES = {
@@ -58,6 +59,7 @@ export const TOOL_SCOPES = {
   get_device_state: "home:read",
   control_device: "home:control",
   get_action_status: "home:control",
+  list_vehicles: "vehicles:read",
 } as const satisfies Record<string, McpScope>;
 
 type ToolName = keyof typeof TOOL_SCOPES;
@@ -298,6 +300,8 @@ export function createKinboardMcpServer(
     ({ meal_id }) => call(removeMealRoute, { path: `/meals/${meal_id}`, params: { id: meal_id }, method: "DELETE" }));
   register("get_solar_production", "Read current solar power and today's solar energy from the sensors configured in Kinboard. Report units and observed_at; null means unavailable. No arbitrary Home Assistant entities are accessible.", z.object({}), readOnly,
     () => call(energy, { path: "/energy/current" }));
+  register("list_vehicles", "Read the charge level, range and charging status of the family's cars: battery_level_pct, range with range_unit, charging, charging_state, plugged_in, charge_limit_pct, minutes_to_full, charger_power_kw, plus inside/outside temperature, locked, doors_open, windows_open and odometer where the car reports them. Values come from Home Assistant and may be a few minutes old — say when, using observed_at. null means no reading. A car with available false could not be read; reason says why (for example home_assistant_unavailable or not_configured). No location is ever returned.", z.object({}), readOnly,
+    () => call(vehicles, { path: "/vehicles" }));
   register("send_message", "Shows on every Kinboard screen and notifies phones; use sparingly. Not a log — this interrupts whoever is looking at a screen. Limited to at most 5 messages per 10 minutes.",
     z.object({ text: z.string().trim().min(1).max(200) }), createAction,
     ({ text }) => call(sendMessageRoute, { path: "/messages", body: { text } }));

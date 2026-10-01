@@ -4200,6 +4200,7 @@
     "scope_announcements_write": "Send a message to your family's screens",
     "scope_home_read": "List your home's cataloged devices and their state",
     "scope_home_control": "Control devices from your catalogue — locks, alarms, garage doors, scenes, scripts and switches only after someone confirms with the settings PIN",
+    "scope_vehicles_read": "See your vehicles' charge level, range and charging status",
     "pinLabel": "Settings PIN",
     "setPinIntro": "Set a 4-digit settings PIN first. It protects this and the settings pages, and you'll need it to connect assistants in future.",
     "newPinLabel": "New settings PIN",

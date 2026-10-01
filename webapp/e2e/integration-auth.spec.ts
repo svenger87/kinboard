@@ -171,6 +171,7 @@ test.describe("scopes", () => {
         "notes:write",
         "shopping:write",
         "tasks:write",
+        "vehicles:read",
       ].sort(),
     );
   });

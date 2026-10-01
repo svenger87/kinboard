@@ -27,6 +27,8 @@ export interface HaState {
   entity_id: string;
   state: string;
   attributes: Record<string, unknown>;
+  /** When the state or an attribute last changed, as Home Assistant reports it. */
+  last_updated?: string;
 }
 
 export interface HaIo {
@@ -106,9 +108,11 @@ async function readJsonAtMost(response: Response, maxBytes: number): Promise<unk
 
 function toState(item: unknown): HaState | null {
   if (!isPlainObject(item)) return null;
-  const { entity_id: id, state, attributes } = item;
+  const { entity_id: id, state, attributes, last_updated: lastUpdated } = item;
   if (typeof id !== "string" || typeof state !== "string") return null;
-  return { entity_id: id, state, attributes: isPlainObject(attributes) ? attributes : {} };
+  const out: HaState = { entity_id: id, state, attributes: isPlainObject(attributes) ? attributes : {} };
+  if (typeof lastUpdated === "string") out.last_updated = lastUpdated;
+  return out;
 }
 
 async function haGet(familyId: string, url: (base: URL) => URL, io: HaIo): Promise<Response> {

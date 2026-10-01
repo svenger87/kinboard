@@ -121,6 +121,12 @@ change them.
 | `control_device` | Run an allowed action on a catalogue device. Most run immediately; a sensitive one waits for a family member to confirm it |
 | `get_action_status` | Check what happened to an action waiting for confirmation |
 
+### Vehicles
+
+| Tool | Does |
+|---|---|
+| `list_vehicles` | Each car's charge level, range and charging status (plus temperature, locks, doors, windows and odometer where the car reports them), read from Home Assistant — the same readings as the Vehicles page. Never the car's location |
+
 ## Permissions
 
 | Permission | Lets the assistant |
@@ -136,6 +142,7 @@ change them.
 | `energy:read` | read the solar sensors set up under Energy |
 | `home:read` | list the home catalogue and read a device's state |
 | `home:control` | control catalogue devices — grant `home:read` too if the assistant should also be able to look before it acts |
+| `vehicles:read` | read the cars' charge level, range and charging status — never their location |
 
 Twenty wrong PINs within an hour lock PIN entry for the rest of that hour.
 

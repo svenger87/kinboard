@@ -42,6 +42,7 @@ export const MCP_SCOPES = [
   "announcements:write",
   "home:read",
   "home:control",
+  "vehicles:read",
 ] as const satisfies readonly IntegrationScope[];
 
 export type McpScope = (typeof MCP_SCOPES)[number];

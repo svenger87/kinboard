@@ -4200,6 +4200,7 @@
     "scope_announcements_write": "Eine Nachricht an die Bildschirme der Familie senden",
     "scope_home_read": "Die im Gerätekatalog erfassten Geräte und ihren Zustand lesen",
     "scope_home_control": "Geräte aus deinem Katalog steuern — Schlösser, Alarmanlagen, Garagentore, Szenen, Skripte und Schalter erst, nachdem jemand mit der Einstellungs-PIN bestätigt hat",
+    "scope_vehicles_read": "Ladestand, Reichweite und Ladestatus deiner Autos sehen",
     "pinLabel": "Einstellungs-PIN",
     "setPinIntro": "Lege zuerst eine 4-stellige Einstellungs-PIN fest. Sie schützt diese Freigabe und die Einstellungen, und du brauchst sie künftig, um Assistenten zu verbinden.",
     "newPinLabel": "Neue Einstellungs-PIN",

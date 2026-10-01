@@ -576,6 +576,40 @@ paths:
               schema: { $ref: "#/components/schemas/Error" }
         "500": { description: The message could not be sent. }
 
+  /vehicles:
+    get:
+      tags: [state]
+      summary: Read the family's cars - charge level, range and charging status
+      description: |
+        One entry per vehicle in Kinboard, read live from the Home Assistant
+        entities its settings name - the same readings the Vehicles page
+        shows. Numbers are finite or null; units are returned as Home
+        Assistant reports them (no conversion), except `charger_power_kw`,
+        which is converted from W. `observed_at` is when Home Assistant last
+        updated the battery reading, so a value may be a few minutes old.
+
+        Never a location: a configured device tracker and the car's
+        home/driving state are presence data and are not read at all.
+
+        Home Assistant failing does not fail the request: each affected car
+        comes back `available: false` with a `reason`.
+      x-required-scope: vehicles:read
+      responses:
+        "200":
+          description: The family's vehicles
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [vehicles, fetched_at]
+                properties:
+                  vehicles:
+                    type: array
+                    items: { $ref: "#/components/schemas/VehicleStatus" }
+                  fetched_at: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
   /people:
     get:
       tags: [state]
@@ -1164,6 +1198,7 @@ components:
         - meals:write
         - home:read
         - home:control
+        - vehicles:read
 
     ListId:
       type: string
@@ -1239,6 +1274,38 @@ components:
                 never sent to Home Assistant. `unknown_outcome`: approved and
                 possibly sent, but Kinboard never learned the answer — it may
                 or may not have happened.
+
+    VehicleStatus:
+      type: object
+      required: [id, nickname, vendor, available]
+      properties:
+        id: { type: string, format: uuid }
+        nickname: { type: string }
+        vendor: { type: string, description: "tesla or generic-ev; both are read from Home Assistant." }
+        available: { type: boolean }
+        reason:
+          type: string
+          enum: [not_configured, unsupported_vendor, home_assistant_not_connected, home_assistant_unavailable, no_readings]
+          description: Present only when `available` is false.
+        battery_level_pct: { type: [number, "null"] }
+        range: { type: [number, "null"] }
+        range_unit: { type: [string, "null"] }
+        charging: { type: [boolean, "null"] }
+        charging_state: { type: [string, "null"], description: "The charging entity's state, lowercased (e.g. charging, complete, disconnected)." }
+        plugged_in: { type: [boolean, "null"] }
+        charge_limit_pct: { type: [number, "null"] }
+        minutes_to_full: { type: [integer, "null"], description: "Only while charging and when the car reports it." }
+        charger_power_kw: { type: [number, "null"] }
+        inside_temp: { type: [number, "null"] }
+        inside_temp_unit: { type: [string, "null"] }
+        outside_temp: { type: [number, "null"] }
+        outside_temp_unit: { type: [string, "null"] }
+        locked: { type: [boolean, "null"] }
+        doors_open: { type: [boolean, "null"] }
+        windows_open: { type: [boolean, "null"] }
+        odometer: { type: [number, "null"] }
+        odometer_unit: { type: [string, "null"] }
+        observed_at: { type: [string, "null"], format: date-time }
 
     Person:
       type: object

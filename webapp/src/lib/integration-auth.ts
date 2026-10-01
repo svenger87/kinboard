@@ -36,6 +36,7 @@ export const INTEGRATION_SCOPES = [
   "meals:write",
   "home:read",
   "home:control",
+  "vehicles:read",
 ] as const;
 
 export type IntegrationScope = (typeof INTEGRATION_SCOPES)[number];

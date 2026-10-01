@@ -42,6 +42,7 @@ Write scopes cover create, edit and delete of their own kind — the rule the
 | `announcements:write` | — (unused until now) | send a message to the family's screens |
 | `home:read` | **new** | list catalogue devices and their current state |
 | `home:control` | **new** | run allowed actions on catalogue devices |
+| `vehicles:read` | **new** | read the cars' charge level, range and charging status from Home Assistant; never a location (RFC-002) |
 
 `home:control` never implies `home:read`, consistent with RFC-001 §4.
 
@@ -67,6 +68,7 @@ Write scopes cover create, edit and delete of their own kind — the rule the
 | `get_device_state` | home:read | one catalogue device |
 | `control_device` | home:control | allowed action → runs; sensitive action → waits for confirmation |
 | `get_action_status` | home:control | outcome of a pending sensitive action |
+| `list_vehicles` | vehicles:read | charge level, range, charging status; device trackers and home/driving state are never read |
 
 ## 4. Home Assistant boundary
 
