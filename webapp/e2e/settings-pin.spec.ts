@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import {
   familyHasPin, verifySettingsPin, setSettingsPin, setSettingsPinIfAbsent, PIN_FORMAT,
   settingsUnlocked, requireSettingsUnlock, SETTINGS_UNLOCK_TTL_S, clearSettingsUnlockForFamily,
+  settleAfterPinSet,
 } from "../src/lib/settings-pin";
 import type { SessionContext } from "../src/lib/session";
 
@@ -177,4 +178,51 @@ test("a PIN removal clears every device's unlock, the acting one included", asyn
 test("clearing the unlocks throws when the update fails", async () => {
   const { db } = recordingDb({ message: "boom" });
   await expect(clearSettingsUnlockForFamily("fam-x", undefined, db)).rejects.toThrow(/boom/);
+});
+
+test.describe("after a PIN is saved (settleAfterPinSet)", () => {
+  test("unlocks the acting session first, then clears every other device", async () => {
+    const calls: string[] = [];
+    await settleAfterPinSet("fam-x", "sess-acting", {
+      unlock: async (id) => { calls.push(`unlock:${id}`); },
+      clearOthers: async (f, id) => { calls.push(`clear:${f}:except:${id}`); },
+      log: () => calls.push("log"),
+    });
+    expect(calls).toEqual(["unlock:sess-acting", "clear:fam-x:except:sess-acting"]);
+  });
+
+  test("a failure to clear the other devices is logged and never thrown — the PIN has already changed", async () => {
+    const logged: string[] = [];
+    let unlocked = false;
+    await expect(settleAfterPinSet("fam-x", "sess-acting", {
+      unlock: async () => { unlocked = true; },
+      clearOthers: async () => { throw new Error("db down"); },
+      log: (message) => logged.push(message),
+    })).resolves.toBeUndefined();
+    expect(unlocked).toBe(true);
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toContain("other devices");
+  });
+
+  test("a failed unlock of the acting device is logged too, and the others are still cleared", async () => {
+    const calls: string[] = [];
+    await expect(settleAfterPinSet("fam-x", "sess-acting", {
+      unlock: async () => { throw new Error("db down"); },
+      clearOthers: async () => { calls.push("clear"); },
+      log: () => calls.push("log"),
+    })).resolves.toBeUndefined();
+    expect(calls).toEqual(["log", "clear"]);
+  });
+
+  test("the route saves the PIN, then settles outside the 500 — never 'Failed to save PIN' after saving it", () => {
+    const { readFileSync } = require("node:fs") as typeof import("node:fs");
+    const { join } = require("node:path") as typeof import("node:path");
+    const source = readFileSync(join(__dirname, "..", "src", "app", "api", "pin", "route.ts"), "utf8");
+    const set = source.slice(source.indexOf('if (action === "set")'), source.indexOf('if (action === "remove")'));
+    const settle = set.indexOf("await settleAfterPinSet(familyId, auth.session.sessionId);");
+    expect(settle).toBeGreaterThan(-1);
+    // After the try/catch that answers "Failed to save PIN", not inside it.
+    expect(settle).toBeGreaterThan(set.lastIndexOf("Failed to save PIN"));
+    expect(set).not.toContain("clearSettingsUnlockForFamily(");
+  });
 });

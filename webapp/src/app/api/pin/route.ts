@@ -9,6 +9,7 @@ import {
   requireSettingsUnlock,
   setSettingsPin,
   setSettingsPinIfAbsent,
+  settleAfterPinSet,
   unlockSettings,
   verifySettingsPin,
 } from "@/lib/settings-pin";
@@ -120,17 +121,15 @@ export async function POST(request: NextRequest) {
         // locked.
         return NextResponse.json({ error: "pin_required" }, { status: 403 });
       }
-      // Every other device's unlock was earned with the old PIN (or, for a
-      // first PIN, is a leftover from before one existed): end them, so a
-      // device that never learned this PIN cannot keep acting on it.
-      await clearSettingsUnlockForFamily(familyId, auth.session.sessionId);
-      // Choosing the PIN is proof of knowing it; without this, setting one
-      // would lock the person who just set it out of the next action.
-      await unlockSettings(auth.session.sessionId);
     } catch (err) {
       console.error("pin: failed to store PIN:", err);
       return NextResponse.json({ error: "Failed to save PIN" }, { status: 500 });
     }
+    // The PIN is saved. Unlock this device (choosing the PIN proves knowing
+    // it), then end every other device's unlock, earned with the old PIN or
+    // left over from before there was one. Neither may fail the request now:
+    // settleAfterPinSet logs and carries on.
+    await settleAfterPinSet(familyId, auth.session.sessionId);
     return NextResponse.json({ success: true });
   }
 

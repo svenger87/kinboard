@@ -217,6 +217,39 @@ export async function clearSettingsUnlockForFamily(
   if (error) throw new Error(`Failed to clear the settings unlock: ${error.message}`);
 }
 
+/**
+ * What follows a stored PIN — RFC-010 §3.5. The device that chose it is
+ * unlocked first (choosing the PIN proves knowing it), then every other
+ * device's unlock, earned with the old PIN, is ended.
+ *
+ * The PIN has already changed when this runs, so nothing here may turn the
+ * request into an error: a "Failed to save PIN" after the PIN was saved
+ * would leave the household guessing which PIN is in force. A failure is
+ * logged; at worst this device asks for the new PIN once more, or another
+ * device keeps its old window until it runs out (SETTINGS_UNLOCK_TTL_S).
+ */
+export async function settleAfterPinSet(
+  familyId: string,
+  sessionId: string,
+  deps: {
+    unlock: (sessionId: string) => Promise<void>;
+    clearOthers: (familyId: string, exceptSessionId: string) => Promise<void>;
+    log?: (message: string, err: unknown) => void;
+  } = { unlock: (id) => unlockSettings(id), clearOthers: (f, id) => clearSettingsUnlockForFamily(f, id) },
+): Promise<void> {
+  const log = deps.log ?? ((message, err) => console.error(message, err));
+  try {
+    await deps.unlock(sessionId);
+  } catch (err) {
+    log("pin: the PIN was saved, but this device's unlock could not be recorded:", err);
+  }
+  try {
+    await deps.clearOthers(familyId, sessionId);
+  } catch (err) {
+    log("pin: the PIN was saved, but other devices' unlocks could not be cleared:", err);
+  }
+}
+
 /** Pure: may this session change protected settings right now? */
 export function settingsUnlocked(session: SessionContext, pinSet: boolean, now: Date): boolean {
   if (!pinSet) return true;
