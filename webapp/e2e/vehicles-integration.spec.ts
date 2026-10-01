@@ -116,6 +116,8 @@ test.describe("mapping entity states to fields", () => {
     expect(v.inside_temp).toBeNull();
     expect(v.locked).toBeNull();
     expect(v.charging).toBeNull();
+    // The cable sensor is configured but silent: no reading, not "unplugged".
+    expect(v.plugged_in).toBeNull();
     expect(v.minutes_to_full).toBeNull();
     expect(v.charger_power_kw).toBeNull();
     expect(v.odometer).toBe(1000);
