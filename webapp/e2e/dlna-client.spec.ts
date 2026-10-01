@@ -40,7 +40,7 @@ const MINIDLNA_DESC = `<?xml version="1.0"?>
 
 const JELLYFIN_DESC = `<?xml version="1.0" encoding="UTF-8"?>
 <root xmlns="urn:schemas-upnp-org:device-1-0">
-  <URLBase>http://10.10.10.4:8096/dlna/abc/</URLBase>
+  <URLBase>http://192.168.1.11:8096/dlna/abc/</URLBase>
   <device>
     <friendlyName>Jellyfin - NAS</friendlyName>
     <serviceList>
@@ -54,15 +54,15 @@ const JELLYFIN_DESC = `<?xml version="1.0" encoding="UTF-8"?>
 
 test.describe("parseDeviceDescription", () => {
   test("resolves an absolute control path against the description URL", () => {
-    const r = parseDeviceDescription(MINIDLNA_DESC, "http://10.10.10.2:8200/rootDesc.xml");
+    const r = parseDeviceDescription(MINIDLNA_DESC, "http://192.168.1.10:8200/rootDesc.xml");
     expect(r?.friendlyName).toBe("Tower: minidlna");
-    expect(r?.controlUrl).toBe("http://10.10.10.2:8200/ctl/ContentDir");
+    expect(r?.controlUrl).toBe("http://192.168.1.10:8200/ctl/ContentDir");
   });
 
   test("prefers URLBase for a relative control path", () => {
-    const r = parseDeviceDescription(JELLYFIN_DESC, "http://10.10.10.4:8096/dlna/abc/description.xml");
+    const r = parseDeviceDescription(JELLYFIN_DESC, "http://192.168.1.11:8096/dlna/abc/description.xml");
     expect(r?.friendlyName).toBe("Jellyfin - NAS");
-    expect(r?.controlUrl).toBe("http://10.10.10.4:8096/dlna/abc/contentdirectory/control");
+    expect(r?.controlUrl).toBe("http://192.168.1.11:8096/dlna/abc/contentdirectory/control");
   });
 
   test("picks ContentDirectory, not the first service listed", () => {
@@ -248,7 +248,7 @@ test.describe("browseEnvelope", () => {
 
 test.describe("assertDlnaUrl", () => {
   test("accepts LAN http, which is the whole point", () => {
-    expect(assertDlnaUrl("http://10.10.10.2:8200/rootDesc.xml").hostname).toBe("10.10.10.2");
+    expect(assertDlnaUrl("http://192.168.1.10:8200/rootDesc.xml").hostname).toBe("192.168.1.10");
     expect(assertDlnaUrl("https://nas.local/desc.xml").protocol).toBe("https:");
   });
 
