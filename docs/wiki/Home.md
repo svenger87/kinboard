@@ -33,6 +33,10 @@ and [Media players](Media-Players).
 
 Kinboard's integrations are all opt-in and configured per-family in the in-app `/settings` UI — see the [README's integrations table](https://github.com/svenger87/kinboard#integrations) for the full list, or jump straight to a page: [Google-Calendar](Google-Calendar), [Home-Assistant](Home-Assistant), [Photos](Photos) (Immich, a DLNA server, or an iCloud Shared Album), [Bring](Bring), [OpenWeatherMap](OpenWeatherMap), [Cameras](Cameras).
 
+## AI assistants
+
+Claude, ChatGPT and other MCP clients can read the family's day, keep its lists and, within limits you set, control the home — anything that opens the house, and every pocket-money booking, waits for someone to allow it on a Kinboard screen with the settings PIN. Start at **[AI-Assistants](AI-Assistants)**; then [Connecting](AI-Assistants-Connecting), [What they can do](AI-Assistants-Capabilities), [Permissions and safety](AI-Assistants-Permissions-and-Safety), [Troubleshooting](AI-Assistants-Troubleshooting) and, for operators, [Self-hosting notes](AI-Assistants-Self-Hosting).
+
 ## Kiosk setups
 
 The reference deployment is a wall-mounted touchscreen running in browser kiosk mode:

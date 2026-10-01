@@ -59,6 +59,12 @@ a stray "README" page in the wiki navigation.
 | [Bring](Bring) | Authored — TODO screenshots |
 | [OpenWeatherMap](OpenWeatherMap) | Authored |
 | [Cameras](Cameras) | Authored |
+| [AI-Assistants](AI-Assistants) | Authored — overview, quick start, forgotten PIN |
+| [AI-Assistants-Connecting](AI-Assistants-Connecting) | Authored — ChatGPT, Claude, Claude Code, consent page |
+| [AI-Assistants-Capabilities](AI-Assistants-Capabilities) | Authored — every MCP tool by area; keep in step with `webapp/src/lib/mcp/server.ts` |
+| [AI-Assistants-Permissions-and-Safety](AI-Assistants-Permissions-and-Safety) | Authored — scopes, PIN confirmation, limits, never-list |
+| [AI-Assistants-Troubleshooting](AI-Assistants-Troubleshooting) | Authored |
+| [AI-Assistants-Self-Hosting](AI-Assistants-Self-Hosting) | Authored — public paths, proxies, issuer binding, upgrading |
 | [Reference-Build](Reference-Build) | Authored — BOM, frame, photos, vendor links |
 | [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C) | Authored from production capture |
 | [Kiosk-Linux-Guidance](Kiosk-Linux-Guidance) | Authored as guidance |

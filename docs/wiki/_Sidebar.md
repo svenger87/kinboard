@@ -19,6 +19,14 @@
 - [[OpenWeatherMap|OpenWeatherMap]]
 - [[Cameras (go2rtc)|Cameras]]
 
+**AI assistants**
+- [[Overview & quick start|AI-Assistants]]
+- [[Connecting|AI-Assistants-Connecting]]
+- [[What they can do|AI-Assistants-Capabilities]]
+- [[Permissions & safety|AI-Assistants-Permissions-and-Safety]]
+- [[Troubleshooting|AI-Assistants-Troubleshooting]]
+- [[Self-hosting notes|AI-Assistants-Self-Hosting]]
+
 **Kiosk hardware**
 - [[Reference build (BOM + frame)|Reference-Build]]
 - [[Windows 11 (Mele 4C)|Kiosk-Windows-11-Mele-4C]]
