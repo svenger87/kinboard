@@ -8,7 +8,7 @@
 
 import type { HomeDeps } from "@/lib/home/devices";
 import { catalogueEntities, catalogueEntity } from "@/lib/home/catalogue";
-import { callHaService, getHaStates } from "@/lib/home/ha-client";
+import { callHaService, getHaState, getHaStates } from "@/lib/home/ha-client";
 import { createActionRequest, recordHomeAction } from "@/lib/home/action-requests";
 import { liveActionStore, pushActionRequest } from "@/lib/home/action-requests-live";
 import { familyHasPin } from "@/lib/settings-pin";
@@ -19,6 +19,7 @@ export const liveHomeDeps: HomeDeps = {
   catalogueEntities,
   catalogueEntity,
   getHaStates: (familyId, entityIds) => getHaStates(familyId, entityIds),
+  getHaState: (familyId, entityId) => getHaState(familyId, entityId),
   callHaService: (familyId, domain, service, entityId, data) =>
     callHaService(familyId, domain, service, entityId, data),
   requestConfirmation: async (request) => {

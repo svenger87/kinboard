@@ -35,6 +35,10 @@ export interface HaIo {
 }
 
 export const HA_TIMEOUT_MS = 10_000;
+/** The most of `GET /api/states` read: a large install's full list is well under this. */
+export const HA_STATES_MAX_BYTES = 2 * 1024 * 1024;
+/** The most of one entity's `GET /api/states/{id}` read. */
+export const HA_STATE_MAX_BYTES = 256 * 1024;
 
 function under(base: URL, path: string): URL {
   return new URL(`${base.pathname.replace(/\/$/, "")}${path}`, base);
@@ -42,6 +46,11 @@ function under(base: URL, path: string): URL {
 
 export function haStatesUrl(base: URL): URL {
   return under(base, "/api/states");
+}
+
+/** One entity's state; the id is one percent-encoded path segment. */
+export function haStateUrl(base: URL, entityId: string): URL {
+  return under(base, `/api/states/${encodeURIComponent(entityId)}`);
 }
 
 export function haServiceUrl(base: URL, domain: string, service: string): URL {
@@ -71,42 +80,112 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/**
- * The current state of the given entities, from one `GET /api/states` —
- * the same request the screens make, filtered here so nothing outside
- * `entityIds` leaves this function. An entity Home Assistant does not report
- * is simply absent from the map.
- *
- * Throws `HomeUnavailable` (not connected) or `HomeUpstreamError` (asked and
- * no usable answer).
- */
-export async function getHaStates(familyId: string, entityIds: readonly string[], io: HaIo = {}): Promise<Map<string, HaState>> {
+/** The body as JSON, refusing more than `maxBytes` — announced or actually sent. */
+async function readJsonAtMost(response: Response, maxBytes: number): Promise<unknown> {
+  const announced = Number(response.headers.get("content-length"));
+  if (Number.isFinite(announced) && announced > maxBytes) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new HomeUpstreamError("Home Assistant's answer was too large");
+  }
+  if (!response.body) throw new HomeUpstreamError("Home Assistant returned an empty answer");
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw new HomeUpstreamError("Home Assistant's answer was too large");
+    }
+    chunks.push(value);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
+function toState(item: unknown): HaState | null {
+  if (!isPlainObject(item)) return null;
+  const { entity_id: id, state, attributes } = item;
+  if (typeof id !== "string" || typeof state !== "string") return null;
+  return { entity_id: id, state, attributes: isPlainObject(attributes) ? attributes : {} };
+}
+
+async function haGet(familyId: string, url: (base: URL) => URL, io: HaIo): Promise<Response> {
   const { base, token } = await connection(familyId, io);
   const doFetch = io.fetch ?? fetch;
-
-  let body: unknown;
   try {
-    const response = await doFetch(haStatesUrl(base), {
+    return await doFetch(url(base), {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
       signal: AbortSignal.timeout(HA_TIMEOUT_MS),
       cache: "no-store",
       redirect: "error",
     });
-    if (!response.ok) throw new HomeUpstreamError(`Home Assistant returned ${response.status}`);
-    body = await response.json();
+  } catch {
+    throw new HomeUpstreamError("Home Assistant could not be reached");
+  }
+}
+
+/**
+ * One entity's current state, from `GET /api/states/{entity_id}` — for
+ * reading or acting on one device, without fetching every state in the
+ * house. Undefined when Home Assistant does not know the entity (404).
+ *
+ * Throws `HomeUnavailable` (not connected) or `HomeUpstreamError` (asked and
+ * no usable answer, including an answer about a different entity).
+ */
+export async function getHaState(familyId: string, entityId: string, io: HaIo = {}): Promise<HaState | undefined> {
+  const response = await haGet(familyId, (base) => haStateUrl(base, entityId), io);
+  if (response.status === 404) {
+    await response.body?.cancel().catch(() => undefined);
+    return undefined;
+  }
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new HomeUpstreamError(`Home Assistant returned ${response.status}`);
+  }
+  let body: unknown;
+  try {
+    body = await readJsonAtMost(response, HA_STATE_MAX_BYTES);
   } catch (err) {
     if (err instanceof HomeUpstreamError) throw err;
-    throw new HomeUpstreamError("Home Assistant could not be reached");
+    throw new HomeUpstreamError("Home Assistant returned an unexpected answer");
+  }
+  const state = toState(body);
+  if (!state || state.entity_id !== entityId) throw new HomeUpstreamError("Home Assistant returned an unexpected answer");
+  return state;
+}
+
+/**
+ * The current state of the given entities, from one `GET /api/states` —
+ * the same request the screens make, filtered here so nothing outside
+ * `entityIds` leaves this function. An entity Home Assistant does not report
+ * is simply absent from the map. For listing the catalogue; one device is
+ * read with `getHaState`. The answer is read up to HA_STATES_MAX_BYTES.
+ *
+ * Throws `HomeUnavailable` (not connected) or `HomeUpstreamError` (asked and
+ * no usable answer).
+ */
+export async function getHaStates(familyId: string, entityIds: readonly string[], io: HaIo = {}): Promise<Map<string, HaState>> {
+  const response = await haGet(familyId, haStatesUrl, io);
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new HomeUpstreamError(`Home Assistant returned ${response.status}`);
+  }
+  let body: unknown;
+  try {
+    body = await readJsonAtMost(response, HA_STATES_MAX_BYTES);
+  } catch (err) {
+    if (err instanceof HomeUpstreamError) throw err;
+    throw new HomeUpstreamError("Home Assistant returned an unexpected answer");
   }
   if (!Array.isArray(body)) throw new HomeUpstreamError("Home Assistant returned an unexpected answer");
 
   const wanted = new Set(entityIds);
   const found = new Map<string, HaState>();
   for (const item of body) {
-    if (!isPlainObject(item)) continue;
-    const { entity_id: id, state, attributes } = item;
-    if (typeof id !== "string" || !wanted.has(id) || typeof state !== "string") continue;
-    found.set(id, { entity_id: id, state, attributes: isPlainObject(attributes) ? attributes : {} });
+    const state = toState(item);
+    if (state && wanted.has(state.entity_id)) found.set(state.entity_id, state);
   }
   // In the order asked for, not Home Assistant's.
   return new Map(entityIds.filter((id) => found.has(id)).map((id) => [id, found.get(id)!]));

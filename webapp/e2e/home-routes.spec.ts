@@ -9,7 +9,9 @@ import {
   type HomeDeps,
 } from "../src/lib/home/devices";
 import { toCatalogueEntities, type CatalogueEntity } from "../src/lib/home/catalogue";
-import { callHaService, getHaStates, haServiceUrl, haStatesUrl, type HaState } from "../src/lib/home/ha-client";
+import {
+  callHaService, getHaState, getHaStates, haServiceUrl, haStateUrl, haStatesUrl, HA_STATES_MAX_BYTES, type HaState,
+} from "../src/lib/home/ha-client";
 import { CatalogueUnavailable, HomeUnavailable, HomeUpstreamError } from "../src/lib/home/errors";
 import type { HomeAssistantSettings } from "../src/types/home-assistant";
 import type { ActionRecord, ConfirmationRequest } from "../src/lib/home/devices";
@@ -96,6 +98,10 @@ function stubDeps(overrides: Partial<HomeDeps> = {}, opts: { serviceOk?: boolean
       rec.budgets.push({ familyId, tokenId });
       return { ok: true };
     },
+    // One device is read with getHaState. By default the stub answers it from
+    // getHaStates — overrides included — so a test that makes the states
+    // unreadable makes the single read unreadable too; rec.states records it.
+    getHaState: async (familyId, entityId) => (await deps.getHaStates(familyId, [entityId])).get(entityId),
     ...overrides,
   };
   return { deps, rec };
@@ -604,6 +610,55 @@ test.describe("getHaStates", () => {
     const states = await getHaStates(FAMILY, ["light.kitchen", "cover.garage"], io);
     expect(states.get("light.kitchen")).toEqual({ entity_id: "light.kitchen", state: "on", attributes: {} });
     expect(states.has("cover.garage")).toBe(false);
+  });
+});
+
+test.describe("one device's state (getHaState)", () => {
+  test("GET /api/states/{encoded id} with the token, no redirects, a timeout", async () => {
+    const { io, fetches } = stubIo(() => Response.json(STATES[0]));
+    expect(await getHaState(FAMILY, "light.kitchen", io)).toMatchObject({ entity_id: "light.kitchen", state: "on" });
+    expect(fetches).toHaveLength(1);
+    expect(fetches[0].url).toBe("http://ha.local:8123/api/states/light.kitchen");
+    expect(fetches[0].init.redirect).toBe("error");
+    expect(fetches[0].init.signal).toBeInstanceOf(AbortSignal);
+    expect(new Headers(fetches[0].init.headers).get("authorization")).toBe("Bearer ha-secret-token");
+    expect(haStateUrl(new URL("http://ha.local:8123/p/"), "a/../b?c").href).toBe("http://ha.local:8123/p/api/states/a%2F..%2Fb%3Fc");
+  });
+
+  test("404 is 'no such entity' (undefined); other failures, or an answer about another entity, are HomeUpstreamError", async () => {
+    expect(await getHaState(FAMILY, "light.kitchen", stubIo(() => new Response("{}", { status: 404 })).io)).toBeUndefined();
+    for (const respond of [
+      () => new Response("nope", { status: 500 }),
+      () => { throw new TypeError("fetch failed"); },
+      () => Response.json([STATES[0]]),
+      () => Response.json({ ...STATES[0], entity_id: "lock.front_door" }),
+      () => new Response("<html>", { status: 200 }),
+    ]) {
+      const err = await getHaState(FAMILY, "light.kitchen", stubIo(respond).io).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HomeUpstreamError);
+      expect(String((err as Error).message)).not.toContain("ha-secret-token");
+    }
+  });
+
+  test("reading or acting on one device never fetches the whole list", async () => {
+    const { deps, rec } = stubDeps({ getHaStates: async () => { throw new Error("the full list was fetched"); } });
+    const single = async (_f: string, id: string) => STATES.find((st) => st.entity_id === id);
+    deps.getHaState = single;
+    expect((await getHomeDevice(FAMILY, "climate.hall", deps)).status).toBe(200);
+    expect((await act("light.kitchen", { service: "toggle" }, deps)).status).toBe(200);
+    expect(rec.calls).toHaveLength(1);
+  });
+});
+
+test.describe("the full state list is bounded", () => {
+  test(`an answer over ${HA_STATES_MAX_BYTES} bytes is refused, announced or not`, async () => {
+    const big = "x".repeat(HA_STATES_MAX_BYTES + 10);
+    const announced = stubIo(() => new Response(JSON.stringify([big]), { headers: { "content-length": String(big.length + 4) } }));
+    expect(await getHaStates(FAMILY, ["light.kitchen"], announced.io).catch((e: unknown) => e)).toBeInstanceOf(HomeUpstreamError);
+    const streamed = stubIo(() => new Response(new ReadableStream({
+      start(c) { c.enqueue(new TextEncoder().encode(`["${big}"]`)); c.close(); },
+    })));
+    expect(await getHaStates(FAMILY, ["light.kitchen"], streamed.io).catch((e: unknown) => e)).toBeInstanceOf(HomeUpstreamError);
   });
 });
 

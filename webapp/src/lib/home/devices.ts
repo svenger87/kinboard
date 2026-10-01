@@ -60,6 +60,8 @@ export interface HomeDeps {
   catalogueEntities: (familyId: string) => Promise<CatalogueEntity[]>;
   catalogueEntity: (familyId: string, entityId: string) => Promise<CatalogueEntity | null>;
   getHaStates: (familyId: string, entityIds: readonly string[]) => Promise<Map<string, HaState>>;
+  /** One entity's state (`GET /api/states/{id}`); undefined when Home Assistant does not know it. */
+  getHaState: (familyId: string, entityId: string) => Promise<HaState | undefined>;
   callHaService: (
     familyId: string, domain: string, service: string, entityId: string, data: Record<string, unknown>,
   ) => Promise<{ ok: boolean; status: number }>;
@@ -218,8 +220,8 @@ export async function getHomeDevice(familyId: string, rawEntity: string, deps: H
   try {
     const entity = await deps.catalogueEntity(familyId, entityId);
     if (!entity) return NOT_FOUND();
-    const states = await deps.getHaStates(familyId, [entity.entityId]);
-    return { status: 200, body: { device: toDevice(entity, states.get(entity.entityId)) } };
+    const state = await deps.getHaState(familyId, entity.entityId);
+    return { status: 200, body: { device: toDevice(entity, state) } };
   } catch (err) {
     return readFailure(err);
   }
@@ -270,7 +272,7 @@ export async function runHomeAction(
   // 3. The live state, or nothing happens.
   let state: HaState | undefined;
   try {
-    state = (await deps.getHaStates(familyId, [entityId])).get(entityId);
+    state = await deps.getHaState(familyId, entityId);
   } catch (err) {
     if (err instanceof HomeUnavailable || err instanceof HomeUpstreamError) state = undefined;
     else throw err;
