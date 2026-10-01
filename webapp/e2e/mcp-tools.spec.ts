@@ -1290,6 +1290,15 @@ test.describe("energy", () => {
     expect(description).toContain("Kinboard's configured household energy sensors");
   });
 
+  test("both energy tools say today is the change since local midnight and total is the raw state", () => {
+    const { server } = buildServer(["energy:read"], () => ({}));
+    for (const name of ["get_energy_status", "get_solar_production"]) {
+      const description = (registeredTools(server)[name] as unknown as { description: string }).description;
+      expect(description, name).toContain("the change since local midnight in the family's time zone, from Home Assistant's statistics");
+      expect(description, name).toContain("total is the counter's raw state");
+    }
+  });
+
   test("get_solar_production is still there, and answers with the solar keys only", async () => {
     const solar = { value: 3420, unit: "W", entity_id: "sensor.pv", observed_at: "2026-10-01T09:59:30Z" };
     const { server, calls } = buildServer(["energy:read"], () => ({

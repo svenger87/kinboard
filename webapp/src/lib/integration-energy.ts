@@ -88,25 +88,53 @@ export function toEnergyReading(state: EnergyState): EnergyReading {
   };
 }
 
+/**
+ * Why an energy-today reading has no value although its sensor is reported:
+ * Home Assistant keeps no statistics or history for it (`no_statistics`), or
+ * the statistics could not be read at all (`statistics_unavailable`).
+ */
+export type EnergyTodayReason = "no_statistics" | "statistics_unavailable";
+
+/**
+ * An energy-today reading. `value` is how much the counter grew since local
+ * midnight in the family's time zone, from Home Assistant's statistics — the
+ * number the energy screens show. `total` is the sensor's raw state, which
+ * for a lifetime counter is the lifetime total, never today's.
+ */
+export interface EnergyTodayReading extends EnergyReading {
+  total: number | null;
+  reason: EnergyTodayReason | null;
+}
+
+/** Today's growth per entity ID, or null when Home Assistant's statistics could not be read at all. */
+export type EnergyTodayChanges = ReadonlyMap<string, number | null> | null;
+
 export interface EnergyStatus {
   /** Compatibility (the solar-only response): the same reading plus its entity ID. */
   solar_power: (EnergyReading & { entity_id: string }) | null;
-  solar_energy_today: (EnergyReading & { entity_id: string }) | null;
+  solar_energy_today: (EnergyReading & { entity_id: string; total: number | null; reason: EnergyTodayReason | null }) | null;
   power: Record<EnergyPowerField, EnergyReading | null>;
-  energy_today: Record<EnergyTodayField, EnergyReading | null>;
+  energy_today: Record<EnergyTodayField, EnergyTodayReading | null>;
   battery_soc: EnergyReading | null;
   fetched_at: string;
 }
 
 /**
- * The response of `/energy/current` from the configured IDs and the states
- * Home Assistant returned. Only a state whose ID is configured for a slot is
- * looked at, so an extra entity in `states` can never appear. A slot that is
- * unconfigured, or whose sensor Home Assistant does not report, is null.
+ * The response of `/energy/current` from the configured IDs, the states
+ * Home Assistant returned and today's change per energy sensor. Only a state
+ * whose ID is configured for a slot is looked at, so an extra entity in
+ * `states` can never appear. A slot that is unconfigured, or whose sensor
+ * Home Assistant does not report, is null.
+ *
+ * Energy today is never the raw state: a household that put a lifetime
+ * counter in the settings (Home Assistant's own energy-dashboard convention)
+ * would otherwise be told 1,636 kWh were made today. Without a change for the
+ * sensor the value is null with a reason, and the raw state stays in `total`.
  */
 export function buildEnergyStatus(
   ids: ReadonlyMap<EnergyField, string>,
   states: ReadonlyMap<string, EnergyState>,
+  changes: EnergyTodayChanges,
   now: Date,
 ): EnergyStatus {
   const reading = (field: EnergyField): EnergyReading | null => {
@@ -114,15 +142,32 @@ export function buildEnergyStatus(
     const state = id === undefined ? undefined : states.get(id);
     return state ? toEnergyReading(state) : null;
   };
-  const withId = (field: "solar_power" | "solar_energy_today") => {
+  const today = (field: EnergyTodayField): EnergyTodayReading | null => {
     const r = reading(field);
-    return r ? { value: r.value, unit: r.unit, entity_id: ids.get(field)!, observed_at: r.observed_at } : null;
+    if (!r) return null;
+    const change = changes === null ? null : (changes.get(ids.get(field)!) ?? null);
+    return {
+      value: change,
+      unit: r.unit,
+      observed_at: r.observed_at,
+      total: r.value,
+      reason: change !== null ? null : changes === null ? "statistics_unavailable" : "no_statistics",
+    };
   };
+  const solarPower = reading("solar_power");
+  const solarToday = today("solar_energy_today");
   return {
-    solar_power: withId("solar_power"),
-    solar_energy_today: withId("solar_energy_today"),
+    solar_power: solarPower
+      ? { value: solarPower.value, unit: solarPower.unit, entity_id: ids.get("solar_power")!, observed_at: solarPower.observed_at }
+      : null,
+    solar_energy_today: solarToday
+      ? {
+        value: solarToday.value, unit: solarToday.unit, entity_id: ids.get("solar_energy_today")!,
+        observed_at: solarToday.observed_at, total: solarToday.total, reason: solarToday.reason,
+      }
+      : null,
     power: Object.fromEntries(ENERGY_POWER_FIELDS.map((f) => [f, reading(f)])) as EnergyStatus["power"],
-    energy_today: Object.fromEntries(ENERGY_TODAY_FIELDS.map((f) => [f, reading(f)])) as EnergyStatus["energy_today"],
+    energy_today: Object.fromEntries(ENERGY_TODAY_FIELDS.map((f) => [f, today(f)])) as EnergyStatus["energy_today"],
     battery_soc: reading("battery_soc"),
     fetched_at: now.toISOString(),
   };

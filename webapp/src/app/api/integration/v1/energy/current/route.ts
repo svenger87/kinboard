@@ -3,6 +3,7 @@ import { withIntegrationAuth } from "@/lib/integration-route";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import { logApiError } from "@/lib/api-error";
 import { readEnergyStatus } from "@/lib/integration-energy-status";
+import { familyTimeZone } from "@/lib/family-time";
 import type { HomeAssistantSettings } from "@/types/home-assistant";
 import { energySensorIds, homeAssistantBase } from "@/lib/integration-energy";
 
@@ -12,7 +13,11 @@ export const dynamic = "force-dynamic";
  * Every sensor selected in Kinboard's energy settings — power, energy today
  * and battery charge — and nothing else: the IDs come only from the settings,
  * only `sensor.*` ones, and one `GET /api/states` is filtered down to them.
- * `solar_power` and `solar_energy_today` keep their original shape for
+ * Energy today is the change since local midnight in the family's time zone,
+ * from Home Assistant's statistics (one request for those sensors), with the
+ * raw state as `total`; if the statistics fail, those values are null with a
+ * reason and the power readings still come back.
+ * `solar_power` and `solar_energy_today` keep their original fields for
  * clients written against the solar-only response.
  */
 export async function GET(request: NextRequest) {
@@ -35,7 +40,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Invalid Home Assistant URL", code: "not_found" }, { status: 404 });
       }
 
-      return NextResponse.json(await readEnergyStatus(context.familyId, ids, { loadSettings: async () => settings }));
+      const timeZone = await familyTimeZone(context.familyId);
+      return NextResponse.json(await readEnergyStatus(context.familyId, ids, timeZone, { loadSettings: async () => settings }));
     } catch (err) {
       await logApiError("integration/energy/current", err);
       return NextResponse.json({ error: "Could not read Home Assistant energy sensors", code: "upstream_unavailable" }, { status: 502 });

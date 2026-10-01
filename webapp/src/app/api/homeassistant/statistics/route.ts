@@ -1,21 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
-import type { HomeAssistantSettings, StatisticsPeriod } from "@/types/home-assistant";
+import type { HomeAssistantSettings } from "@/types/home-assistant";
+import { homeAssistantBase } from "@/lib/integration-energy";
+import { fetchHaStatistics, HaStatisticsError } from "@/lib/home/ha-statistics";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-
-// Statistics response from Home Assistant
-interface HAStatisticsResponse {
-  [entity_id: string]: Array<{
-    start: string;
-    end: string;
-    mean?: number;
-    min?: number;
-    max?: number;
-    sum?: number;
-    change?: number;
-    state?: number;
-  }>;
-}
 
 // GET: Fetch statistics for entities
 // Proxies the household's own Home Assistant with the token stored for that
@@ -73,156 +61,40 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const base = homeAssistantBase(haSettings.url);
+  if (!base) {
+    return NextResponse.json({ error: "Failed to connect to Home Assistant" }, { status: 500 });
+  }
+
+  // One code path with the Integration API's /energy/current — see
+  // lib/home/ha-statistics.ts for the statistics endpoint, the history it
+  // falls back to on a stock Home Assistant, and how `change` is counted.
+  // The screens keep what they always had here: redirects followed, 20 s,
+  // and no size cap (a month of history for chatty sensors is large).
   try {
-    // Home Assistant statistics API (available since 2021.8)
-    // Uses WebSocket API: recorder/statistics_during_period
-    // But we can also use the REST API: /api/history/statistics
-
-    const ids = statisticIds.split(",").map((id) => id.trim());
-
-    // Build URL params
-    const params = new URLSearchParams({
-      statistic_ids: ids.join(","),
+    const statistics = await fetchHaStatistics({
+      base,
+      token: haSettings.access_token,
+      ids: statisticIds.split(",").map((id) => id.trim()),
+      startTime,
+      endTime: endTime || undefined,
       period,
-      start_time: startTime,
+      timeoutMs: 20_000,
+      maxBytes: Number.POSITIVE_INFINITY,
+      redirect: "follow",
     });
-
-    if (endTime) {
-      params.append("end_time", endTime);
-    }
-
-    const statisticsUrl = `${haSettings.url}/api/history/statistics?${params.toString()}`;
-
-    const response = await fetch(statisticsUrl, {
-      headers: {
-        Authorization: `Bearer ${haSettings.access_token}`,
-        "Content-Type": "application/json",
-      },
-      signal: AbortSignal.timeout(20_000),
-    });
-
-    if (!response.ok) {
-      // If statistics API is not available (older HA versions), fall back to computing from history
-      if (response.status === 404) {
-        return await getStatisticsFromHistory(
-          haSettings,
-          ids,
-          startTime,
-          endTime || new Date().toISOString(),
-          period
-        );
-      }
-
-      const errorText = await response.text();
-      console.error("Home Assistant Statistics API error:", response.status, errorText);
-      return NextResponse.json(
-        { error: "Failed to fetch statistics from Home Assistant" },
-        { status: response.status }
-      );
-    }
-
-    const rawStats: HAStatisticsResponse = await response.json();
-
-    // Transform to our format
-    const statistics: Record<string, StatisticsPeriod[]> = {};
-
-    for (const [entityId, periods] of Object.entries(rawStats)) {
-      statistics[entityId] = periods.map((p) => ({
-        start: p.start,
-        end: p.end,
-        mean: p.mean,
-        min: p.min,
-        max: p.max,
-        sum: p.sum,
-        change: p.change,
-      }));
-    }
-
     return NextResponse.json({ statistics });
   } catch (err) {
+    if (err instanceof HaStatisticsError && err.stage !== "connection") {
+      console.error("Home Assistant statistics error:", err.stage, err.status);
+      return NextResponse.json(
+        { error: err.stage === "history" ? "Failed to fetch history for statistics" : "Failed to fetch statistics from Home Assistant" },
+        { status: err.status }
+      );
+    }
     console.error("Error fetching Home Assistant statistics:", err);
     return NextResponse.json(
       { error: "Failed to connect to Home Assistant" },
-      { status: 500 }
-    );
-  }
-}
-
-// Fallback: compute statistics from history data
-async function getStatisticsFromHistory(
-  haSettings: HomeAssistantSettings,
-  entityIds: string[],
-  startTime: string,
-  endTime: string,
-  period: string
-): Promise<NextResponse> {
-  try {
-    const filterEntityIds = entityIds.join(",");
-    const historyUrl = `${haSettings.url}/api/history/period/${encodeURIComponent(startTime)}?filter_entity_id=${encodeURIComponent(filterEntityIds)}&end_time=${encodeURIComponent(endTime)}&minimal_response`;
-
-    const response = await fetch(historyUrl, {
-      headers: {
-        Authorization: `Bearer ${haSettings.access_token}`,
-        "Content-Type": "application/json",
-      },
-      signal: AbortSignal.timeout(20_000),
-    });
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Failed to fetch history for statistics" },
-        { status: response.status }
-      );
-    }
-
-    const rawHistory: Array<Array<{
-      entity_id: string;
-      state: string;
-      last_changed: string;
-    }>> = await response.json();
-
-    // Compute statistics from history
-    const statistics: Record<string, StatisticsPeriod[]> = {};
-
-    for (const entityStates of rawHistory) {
-      if (entityStates.length === 0) continue;
-
-      const entityId = entityStates[0].entity_id;
-
-      // Parse numeric values
-      const values = entityStates
-        .filter((s) => s.state !== "unavailable" && s.state !== "unknown")
-        .map((s) => parseFloat(s.state))
-        .filter((v) => !isNaN(v));
-
-      if (values.length === 0) {
-        statistics[entityId] = [];
-        continue;
-      }
-
-      // Compute basic statistics for the entire period
-      const mean = values.reduce((a, b) => a + b, 0) / values.length;
-      const min = Math.min(...values);
-      const max = Math.max(...values);
-      const sum = values.reduce((a, b) => a + b, 0);
-      const change = values.length > 1 ? values[values.length - 1] - values[0] : 0;
-
-      statistics[entityId] = [{
-        start: startTime,
-        end: endTime,
-        mean,
-        min,
-        max,
-        sum,
-        change,
-      }];
-    }
-
-    return NextResponse.json({ statistics });
-  } catch (err) {
-    console.error("Error computing statistics from history:", err);
-    return NextResponse.json(
-      { error: "Failed to compute statistics" },
       { status: 500 }
     );
   }

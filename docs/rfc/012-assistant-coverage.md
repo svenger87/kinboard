@@ -219,8 +219,20 @@ goals. Bookings: §3.1.
 Kinboard's energy settings — 9 power readings, 6 energy-today readings and the
 battery charge — from one Home Assistant `GET /api/states`, filtered to those
 ids. Grouped readings are `{ value, unit, observed_at }`; `solar_power` and
-`solar_energy_today` keep their exact original shape (with `entity_id`) for
+`solar_energy_today` keep their original fields (with `entity_id`) for
 existing clients. `get_solar_production` returns only those two keys.
+
+Energy today (`energy_today` and `solar_energy_today`) is
+`{ value, unit, observed_at, total, reason }`. **Today = the change since
+local midnight in the family's time zone, from Home Assistant's statistics**
+— one request for the configured energy-today ids, through the same code
+path as the energy screens (`lib/home/ha-statistics.ts`). **`total` is the
+counter's raw state.** The raw state is never `value`: households commonly
+configure lifetime `total_increasing` counters there (the HA energy-dashboard
+convention), and an assistant once read a 1,636 kWh lifetime total out as
+today's yield. With no statistics for a sensor `value` is null with
+`reason: "no_statistics"`; if the statistics request fails, null with
+`"statistics_unavailable"`, and the power readings still come back.
 
 Compatibility changes, both deliberate:
 

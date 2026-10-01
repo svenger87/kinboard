@@ -7,6 +7,7 @@ import {
   callTool, connectAssistant, disconnectAssistant, mcpClient, newConnectState, psql, psqlRow, sqlText,
   type Connection,
 } from "./helpers/assistant-connect";
+import { familyMidnight } from "../src/lib/family-time";
 
 /**
  * RFC-012 end to end: every route the assistant-coverage work added, called
@@ -42,13 +43,17 @@ const PIN = "5172";
 // ── the mock Home Assistant (energy) ───────────────────────────────────────
 
 const HA_TOKEN = "claude-cov-ha-token";
-let haMode: "ok" | "error" = "ok";
+let haMode: "ok" | "error" | "history-error" = "ok";
 let haStatesReads = 0;
+/** What the last history request asked for: Home Assistant core has no REST statistics, so this is the fallback. */
+let haHistoryAsked: { start: string; ids: string[] } | null = null;
 let haServer: http.Server | null = null;
 const HA_STATES = [
   { entity_id: "sensor.claude_solar", state: "1234", attributes: { unit_of_measurement: "W" }, last_updated: "2026-10-01T10:00:00+00:00" },
   { entity_id: "sensor.claude_soc", state: "unavailable", attributes: { unit_of_measurement: "%" }, last_updated: "2026-10-01T10:00:00+00:00" },
   { entity_id: "sensor.claude_grid", state: "-250.5", attributes: { unit_of_measurement: "W" }, last_updated: "2026-10-01T10:00:00+00:00" },
+  // A lifetime counter, as Zendure's aggr_solar is: never today's yield.
+  { entity_id: "sensor.claude_pv_lifetime", state: "1636.318", attributes: { unit_of_measurement: "kWh", state_class: "total_increasing" }, last_updated: "2026-10-01T10:00:00+00:00" },
   // Not configured, and must never appear in an answer.
   { entity_id: "sensor.claude_unconfigured", state: "999", attributes: { unit_of_measurement: "W" } },
   { entity_id: "lock.claude_front_door", state: "unlocked", attributes: {} },
@@ -72,6 +77,26 @@ async function startMockHa(): Promise<string> {
       }
       return;
     }
+    if (req.method === "GET" && req.url?.startsWith("/api/history/period/")) {
+      const url = new URL(req.url, "http://ha");
+      haHistoryAsked = {
+        start: decodeURIComponent(url.pathname.slice("/api/history/period/".length)),
+        ids: (url.searchParams.get("filter_entity_id") ?? "").split(","),
+      };
+      if (haMode === "history-error") {
+        res.statusCode = 500;
+        res.end("{}");
+        return;
+      }
+      // The state at the family's midnight, then today's changes.
+      res.end(JSON.stringify(haHistoryAsked.ids.includes("sensor.claude_pv_lifetime") ? [[
+        { entity_id: "sensor.claude_pv_lifetime", state: "1632.118", last_changed: haHistoryAsked.start },
+        { state: "1633.000", last_changed: "2026-10-01T06:00:00+00:00" },
+        { state: "1636.318", last_changed: "2026-10-01T09:00:00+00:00" },
+      ]] : []));
+      return;
+    }
+    // Includes /api/history/statistics: Home Assistant core has none.
     res.statusCode = 404;
     res.end("{}");
   });
@@ -520,6 +545,27 @@ test("energy: configured sensors only, null for one Home Assistant lacks, 404 an
   const solar = await json(await integ("GET", "/energy/current"), 200);
   expect(solar.solar_power).toEqual({ value: 1234, unit: "W", entity_id: "sensor.claude_solar", observed_at: "2026-10-01T10:00:00+00:00" });
   expect(solar.power.solar_power).toEqual({ value: 1234, unit: "W", observed_at: "2026-10-01T10:00:00+00:00" });
+
+  // Energy today from a lifetime counter: the change since the family's
+  // midnight, with the 1,636 kWh state only as total.
+  psql(`DELETE FROM settings WHERE family_id = '${famA}' AND key = 'timezone'`);
+  psql(`INSERT INTO settings (family_id, key, value) VALUES ('${famA}', 'timezone', '"Pacific/Auckland"'::jsonb)`);
+  setEnergy({ solar_power: "sensor.claude_solar", solar_energy_today: "sensor.claude_pv_lifetime", grid_import: "lock.claude_front_door" });
+  const before = familyMidnight(new Date(), "Pacific/Auckland").toISOString();
+  const pv = await json(await integ("GET", "/energy/current"), 200);
+  const after = familyMidnight(new Date(), "Pacific/Auckland").toISOString();
+  expect([before, after]).toContain(haHistoryAsked!.start);
+  expect(haHistoryAsked!.ids).toEqual(["sensor.claude_pv_lifetime"]);
+  expect(pv.energy_today.solar_energy_today.value).toBeCloseTo(4.2, 9);
+  expect(pv.energy_today.solar_energy_today).toMatchObject({ unit: "kWh", total: 1636.318, reason: null });
+  expect(pv.solar_energy_today).toMatchObject({ entity_id: "sensor.claude_pv_lifetime", total: 1636.318, reason: null });
+  expect(pv.energy_today.grid_import).toBeNull();
+
+  // The statistics failing leaves today unknown, and power still answers.
+  haMode = "history-error";
+  const noStats = await json(await integ("GET", "/energy/current"), 200);
+  expect(noStats.energy_today.solar_energy_today).toMatchObject({ value: null, total: 1636.318, reason: "statistics_unavailable" });
+  expect(noStats.solar_power.value).toBe(1234);
 
   haMode = "error";
   const down = await json(await integ("GET", "/energy/current"), 502);

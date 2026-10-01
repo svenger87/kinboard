@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
-import { isValidTimeZone } from "@/lib/integration-event-input";
+import { isValidTimeZone, zonedWallTimeToUtc } from "@/lib/integration-event-input";
 
 /**
  * The zone that turns an all-day date into instants, and that answers "what
@@ -32,6 +32,17 @@ export async function familyTimeZone(familyId: string): Promise<string> {
  */
 export function familyDateKey(now: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone }).format(now);
+}
+
+/**
+ * The instant the family's today began: local midnight of `now`'s date in
+ * `timeZone` (01:00 on a day whose midnight a DST change skips). For a Berlin
+ * family at 2026-10-01T10:00Z that is 2026-09-30T22:00Z, not 00:00Z — what
+ * "energy today" is counted from.
+ */
+export function familyMidnight(now: Date, timeZone: string): Date {
+  const day = Date.parse(`${familyDateKey(now, timeZone)}T00:00:00Z`) / 86_400_000;
+  return zonedWallTimeToUtc(day, 0, timeZone);
 }
 
 /** A calendar date `n` days from `day` (`YYYY-MM-DD`). Date arithmetic only — no zone, no DST. */

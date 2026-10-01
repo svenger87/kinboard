@@ -183,8 +183,8 @@ only connect assistants through the "Allow AI assistants" sign-in.
 | `send_message` | Put text on every Kinboard screen and push it to every phone, marked "via" the assistant's name — at most 5 messages per 10 minutes per assistant connection |
 | `list_screen_messages` | The 20 newest messages on the screens, whether someone has seen them yet, and which assistant sent one |
 | `acknowledge_message` | Mark a message as seen, like tapping "Got it" — it leaves every screen. If someone already tapped it, theirs stands |
-| `get_solar_production` | Current solar power and today's solar energy, from the sensors set up under Energy |
-| `get_energy_status` | The whole energy picture from the sensors set up under Energy: solar, battery, grid and home power right now, today's energy in and out, and the battery's charge |
+| `get_solar_production` | Current solar power and today's solar energy, from the sensors set up under Energy. Today's energy is the change since midnight in the family's time zone, from Home Assistant's statistics — the number the Energy page shows — and `total` is the counter's raw state, so a lifetime counter is never read out as today's yield |
+| `get_energy_status` | The whole energy picture from the sensors set up under Energy: solar, battery, grid and home power right now, today's energy in and out (counted the same way: the change since local midnight, from Home Assistant's statistics, with the counter's raw state as `total`), and the battery's charge |
 
 ### Home
 

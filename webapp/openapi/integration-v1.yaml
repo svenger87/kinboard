@@ -128,7 +128,8 @@ paths:
         No Home Assistant entity ID may be supplied by a client: IDs come only
         from the settings, and only `sensor.*` IDs are read; a slot set to any
         other entity is treated as unset. One `GET /api/states` is filtered
-        down to the configured IDs.
+        down to the configured IDs, and one Home Assistant statistics request
+        is made for the energy-today sensors.
 
         Keys are the energy settings' field names. A reading is null when its
         slot is not configured or Home Assistant does not report the sensor;
@@ -137,9 +138,20 @@ paths:
         reports them. A combined `battery_power` is positive while charging, a
         combined `grid_power` positive while importing.
 
+        Energy today (`energy_today` and `solar_energy_today`) is never the
+        sensor's raw state. `value` is the change since local midnight in the
+        family's time zone, from Home Assistant's statistics — the same
+        number Kinboard's energy screens show — so it is right whether the
+        sensor resets daily or is a lifetime counter (Home Assistant's
+        `total_increasing` convention). `total` is the counter's raw state:
+        for a lifetime counter that is the lifetime total, not today's. When
+        Home Assistant has no statistics for a sensor, or they could not be
+        read, `value` is null and `reason` says which; the power readings are
+        returned either way.
+
         `solar_power` and `solar_energy_today` at the top level are the
-        original solar-only response, kept unchanged (with `entity_id`) for
-        existing clients; the same readings also appear under `power` and
+        original solar-only response, kept (with `entity_id`) for existing
+        clients; the same readings also appear under `power` and
         `energy_today`.
       x-required-scope: energy:read
       responses:
@@ -152,7 +164,7 @@ paths:
                 required: [solar_power, solar_energy_today, power, energy_today, battery_soc, fetched_at]
                 properties:
                   solar_power: { $ref: "#/components/schemas/EnergyReading" }
-                  solar_energy_today: { $ref: "#/components/schemas/EnergyReading" }
+                  solar_energy_today: { $ref: "#/components/schemas/EnergyTodayCompatReading" }
                   power:
                     type: object
                     description: Power sensors, as Home Assistant reports them (usually W or kW).
@@ -169,15 +181,15 @@ paths:
                       home_consumption: { $ref: "#/components/schemas/EnergySensorReading" }
                   energy_today:
                     type: object
-                    description: Energy so far today (usually kWh).
+                    description: "Energy since local midnight in the family's time zone (usually kWh): the change from Home Assistant's statistics, with the raw state as `total`."
                     required: [solar_energy_today, battery_energy_in, battery_energy_out, grid_import, grid_export, grid_to_battery_energy]
                     properties:
-                      solar_energy_today: { $ref: "#/components/schemas/EnergySensorReading" }
-                      battery_energy_in: { $ref: "#/components/schemas/EnergySensorReading" }
-                      battery_energy_out: { $ref: "#/components/schemas/EnergySensorReading" }
-                      grid_import: { $ref: "#/components/schemas/EnergySensorReading" }
-                      grid_export: { $ref: "#/components/schemas/EnergySensorReading" }
-                      grid_to_battery_energy: { $ref: "#/components/schemas/EnergySensorReading" }
+                      solar_energy_today: { $ref: "#/components/schemas/EnergyTodayReading" }
+                      battery_energy_in: { $ref: "#/components/schemas/EnergyTodayReading" }
+                      battery_energy_out: { $ref: "#/components/schemas/EnergyTodayReading" }
+                      grid_import: { $ref: "#/components/schemas/EnergyTodayReading" }
+                      grid_export: { $ref: "#/components/schemas/EnergyTodayReading" }
+                      grid_to_battery_energy: { $ref: "#/components/schemas/EnergyTodayReading" }
                   battery_soc:
                     $ref: "#/components/schemas/EnergySensorReading"
                   fetched_at: { type: string, format: date-time }
@@ -2259,6 +2271,40 @@ components:
         unit: { type: [string, "null"] }
         entity_id: { type: string }
         observed_at: { type: [string, "null"], format: date-time }
+
+    EnergyTodayCompatReading:
+      type: [object, "null"]
+      description: The solar-only response's `solar_energy_today`; the same reading as `energy_today.solar_energy_today`, plus its entity ID.
+      required: [value, unit, entity_id, observed_at, total, reason]
+      properties:
+        value: { type: [number, "null"], description: "Change since local midnight in the family's time zone, from Home Assistant's statistics. Never the raw state." }
+        unit: { type: [string, "null"] }
+        entity_id: { type: string }
+        observed_at: { type: [string, "null"], format: date-time }
+        total: { type: [number, "null"], description: "The counter's raw state (for a lifetime counter, the lifetime total)." }
+        reason: { type: [string, "null"], enum: [no_statistics, statistics_unavailable, null] }
+
+    EnergyTodayReading:
+      type: [object, "null"]
+      description: Null when the slot is not configured or Home Assistant does not report the sensor.
+      required: [value, unit, observed_at, total, reason]
+      properties:
+        value:
+          type: [number, "null"]
+          description: |
+            Today's energy: the change since local midnight in the family's
+            time zone, from Home Assistant's statistics. Never the raw state.
+            Null, with `reason`, when there is no change to report.
+        unit: { type: [string, "null"] }
+        observed_at: { type: [string, "null"], format: date-time, description: "Home Assistant's last_updated for the sensor." }
+        total: { type: [number, "null"], description: "The counter's raw state — for a lifetime counter, the lifetime total. Null when it is unavailable or non-numeric." }
+        reason:
+          type: [string, "null"]
+          enum: [no_statistics, statistics_unavailable, null]
+          description: |
+            Null when `value` is set. `no_statistics`: Home Assistant keeps no
+            statistics or history for the sensor. `statistics_unavailable`:
+            the statistics request failed.
 
     EnergySensorReading:
       type: [object, "null"]

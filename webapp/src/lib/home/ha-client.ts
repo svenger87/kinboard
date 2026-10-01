@@ -48,24 +48,26 @@ export const HA_STATES_MAX_BYTES = 16 * 1024 * 1024;
 /** The most of one entity's `GET /api/states/{id}` read. */
 export const HA_STATE_MAX_BYTES = 256 * 1024;
 
-function under(base: URL, path: string): URL {
+/** `path` under the configured base, keeping any base path a reverse proxy added. */
+export function haUrl(base: URL, path: string): URL {
   return new URL(`${base.pathname.replace(/\/$/, "")}${path}`, base);
 }
 
 export function haStatesUrl(base: URL): URL {
-  return under(base, "/api/states");
+  return haUrl(base, "/api/states");
 }
 
 /** One entity's state; the id is one percent-encoded path segment. */
 export function haStateUrl(base: URL, entityId: string): URL {
-  return under(base, `/api/states/${encodeURIComponent(entityId)}`);
+  return haUrl(base, `/api/states/${encodeURIComponent(entityId)}`);
 }
 
 export function haServiceUrl(base: URL, domain: string, service: string): URL {
-  return under(base, `/api/services/${encodeURIComponent(domain)}/${encodeURIComponent(service)}`);
+  return haUrl(base, `/api/services/${encodeURIComponent(domain)}/${encodeURIComponent(service)}`);
 }
 
-async function connection(familyId: string, io: HaIo): Promise<{ base: URL; token: string }> {
+/** The family's Home Assistant base and token, or `HomeUnavailable`. */
+export async function haConnection(familyId: string, io: HaIo): Promise<{ base: URL; token: string }> {
   const load = io.loadSettings
     ?? ((id: string) => getMergedSetting<HomeAssistantSettings>(id, "home_assistant"));
   let settings: HomeAssistantSettings | null;
@@ -89,7 +91,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /** The body as JSON, refusing more than `maxBytes` — announced or actually sent. */
-async function readJsonAtMost(response: Response, maxBytes: number): Promise<unknown> {
+export async function readJsonAtMost(response: Response, maxBytes: number): Promise<unknown> {
   const announced = Number(response.headers.get("content-length"));
   if (Number.isFinite(announced) && announced > maxBytes) {
     await response.body?.cancel().catch(() => undefined);
@@ -122,7 +124,7 @@ function toState(item: unknown): HaState | null {
 }
 
 async function haGet(familyId: string, url: (base: URL) => URL, io: HaIo): Promise<Response> {
-  const { base, token } = await connection(familyId, io);
+  const { base, token } = await haConnection(familyId, io);
   const doFetch = io.fetch ?? fetch;
   try {
     return await doFetch(url(base), {
@@ -218,7 +220,7 @@ export async function callHaService(
   data: Record<string, unknown>,
   io: HaIo = {},
 ): Promise<{ ok: boolean; status: number }> {
-  const { base, token } = await connection(familyId, io);
+  const { base, token } = await haConnection(familyId, io);
   const doFetch = io.fetch ?? fetch;
   try {
     const response = await doFetch(haServiceUrl(base, domain, service), {
