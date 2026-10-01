@@ -20,6 +20,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Operators: restart realtime and refresh the screens after deploying this.** The assistant confirmations gain a column on a table that live updates stream, and the realtime container only picks up the new row shape when it restarts: `docker compose restart realtime`. Then reload every household screen, or leave them idle until they update themselves, before an assistant asks for its first pocket-money booking. A screen still on the previous version cannot describe a pocket-money request — it shows a generic line with no amount or child — while still offering the PIN field, and what you approve should always be what you read.
+
 - **`notes:write` now also covers editing and deleting notes.** Until now it only allowed adding them. An existing Home Assistant token that holds it can therefore edit and delete notes through the Integration API, which matches what `tasks:write` and `shopping:write` already allowed. The Home Assistant integration itself has no edit tools.
 
 - **A policy for the Kinboard name and logos (`TRADEMARK.md`).** Talking about Kinboard, running it and passing on unmodified copies need no permission. A modified version that is published needs a name of its own and no Kinboard logos, and must say it is based on Kinboard. This applies to every version, including the MIT-licensed ones, because neither licence covers the name.

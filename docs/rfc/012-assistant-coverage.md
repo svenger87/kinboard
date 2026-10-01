@@ -123,6 +123,24 @@ with `reason: insufficient_funds`; the family is told so in words that do not
 mention Home Assistant. Creating a child's withdrawal request refuses a
 `related_goal_id` that is not a live goal of that account (400).
 
+### 3.2 Upgrading a live install
+
+Two steps for self-hosters, after the migrations have run:
+
+- **Restart the realtime container** (`docker compose restart realtime`).
+  `migration_zzzzz_action_request_kind.sql` adds `kind` to a table realtime
+  already streams; a realtime that was running across the migration keeps
+  the old row shape until it restarts.
+- **Reload every household screen, or let it sit idle, before the first
+  pocket-money request.** A screen still running the previous build words a
+  confirmation from `entity_name`, `domain` and `service`, which a
+  `pocket_money` row leaves empty: it would show a generic line with no
+  amount and no child, yet still offer the PIN field. The screens take the
+  new build on their own once idle (`pwa-provider.tsx`), and a request
+  expires after two minutes, so the window is short — but what is approved
+  must be what was read (RFC-011). Do this before connecting an assistant
+  with `pocket_money:write`, or before its first booking request.
+
 ## 4. Boundaries
 
 - Recipes: the family's own, never binned ones; external recipe search
