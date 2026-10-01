@@ -2,13 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyIdFrom } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-import { sendPushToMultiple, isVapidConfigured, type DatabaseSubscription } from "@/lib/push-sender";
-import { getPushTranslator } from "@/lib/notifications/messages";
-import { getFamilyLocale } from "@/lib/family-locale";
+import { MAX_MESSAGE_BODY, parseMessageText, sendFamilyMessage } from "@/lib/family-messages";
 
 export const dynamic = "force-dynamic";
-
-const MAX_BODY = 200;
 
 /** Messages nobody has acknowledged yet, newest first. */
 export async function GET(request: NextRequest) {
@@ -41,10 +37,10 @@ export async function GET(request: NextRequest) {
 /**
  * Say something to the house.
  *
- * The push goes out here rather than through `scheduled_notifications`. Every
- * other notification in Kinboard is a row that a processor picks up every 30
- * seconds, which is right for a reminder and wrong for somebody typing "back by
- * 6". `sendPushToMultiple` already exists, so this is a call, not new plumbing.
+ * The insert and the push live in `lib/family-messages.ts`'s
+ * `sendFamilyMessage`, shared with the Integration API route an assistant's
+ * `send_message` tool calls (RFC-011 task 6) — this route's own job is just
+ * the session boundary and the request shape a person's browser sends.
  */
 export async function POST(request: NextRequest) {
   const auth = await requireSession(request);
@@ -60,10 +56,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
-  const body = typeof payload.body === "string" ? payload.body.trim() : "";
-  if (body.length === 0 || body.length > MAX_BODY) {
+  const parsed = parseMessageText(payload.body);
+  if (!parsed.ok) {
     return NextResponse.json(
-      { error: `body must be 1-${MAX_BODY} characters` },
+      { error: `body must be 1-${MAX_MESSAGE_BODY} characters` },
       { status: 400 },
     );
   }
@@ -73,87 +69,10 @@ export async function POST(request: NextRequest) {
   // exclude that person from every message the household sends. RFC-005 §3.1.
   const senderDeviceId = auth.session.deviceId;
 
-  const supabase = createAdminClient();
-  const { data: message, error } = await supabase
-    .from("messages")
-    .insert({ family_id: familyId, body, sender_device_id: senderDeviceId })
-    .select()
-    .single();
-
-  if (error || !message) {
-    console.error("[messages] create error:", error);
-    return NextResponse.json({ error: error?.message ?? "could not send" }, { status: 500 });
+  const result = await sendFamilyMessage({ familyId, body: parsed.value!, senderDeviceId });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 500 });
   }
 
-  await withPushTimeout(pushToEveryoneElse(supabase, familyId, senderDeviceId, message.id, body));
-
-  return NextResponse.json({ message });
-}
-
-// A blackholed push endpoint — a household behind a filtering firewall is the
-// realistic case — can leave `sendPushToMultiple` (via `pushToEveryoneElse`)
-// waiting on a socket for minutes; nothing in `push-sender.ts` sets one of its
-// own, and that file is shared with the cron processor, so it is not touched
-// here. Racing the push phase against a timer caps how long this response can
-// be held open by it. The row is already written and every other screen
-// already has it over realtime by this point, so a push that hasn't finished
-// in time is merely late, not lost — the in-flight sends keep running, they
-// just stop blocking the reply. What must not happen is the sender's dialog
-// sitting open with their own words still in the draft box because the one
-// device that knows what they typed is waiting on a phone that will never ACK.
-const PUSH_TIMEOUT_MS = 5_000;
-
-function withPushTimeout(push: Promise<void>): Promise<void> {
-  return Promise.race([push, new Promise<void>((resolve) => setTimeout(resolve, PUSH_TIMEOUT_MS))]);
-}
-
-/**
- * Push to every device in the family except the one that sent it.
- *
- * Nothing in here may throw: the row is already written and every screen in the
- * house has it over realtime. The phones are the part that can be lost.
- *
- * Quiet hours are deliberately not consulted, and `notification_preferences` is
- * not read at all — RFC-005 §3.2. Every other push here is a reminder the
- * system chose to raise; this one is a person deciding, at that moment, to tell
- * the house something, and the messages sent at 23:00 are the ones that matter.
- */
-async function pushToEveryoneElse(
-  supabase: ReturnType<typeof createAdminClient>,
-  familyId: string,
-  senderDeviceId: string | null,
-  messageId: string,
-  body: string,
-) {
-  try {
-    if (!isVapidConfigured()) return;
-
-    let query = supabase
-      .from("push_subscriptions")
-      .select("*")
-      .eq("family_id", familyId)
-      .eq("is_active", true);
-    // A session with no device id has nothing to exclude, so the push goes to
-    // the whole family — including, harmlessly, the sender.
-    if (senderDeviceId) query = query.neq("device_id", senderDeviceId);
-
-    const { data: subs, error } = await query;
-    if (error) {
-      console.error("[messages] could not list subscriptions:", error);
-      return;
-    }
-    if (!subs || subs.length === 0) return;
-
-    const t = getPushTranslator(await getFamilyLocale(familyId));
-    await sendPushToMultiple(subs as DatabaseSubscription[], {
-      title: t("messageTitle"),
-      body,
-      // Per message, so a second message does not replace the first on a phone.
-      tag: `message-${messageId}`,
-      // sw.js already navigates to data.url on click — no service-worker change.
-      url: `/?message=${messageId}`,
-    });
-  } catch (err) {
-    console.error("[messages] push failed:", err);
-  }
+  return NextResponse.json({ message: result.message });
 }

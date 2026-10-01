@@ -447,12 +447,53 @@ test.describe("delete_calendar_event", () => {
   });
 });
 
+test.describe("send_message", () => {
+  test("POSTs text to /messages, and is a create annotation", async () => {
+    const { server, calls } = buildServer(["announcements:write"], () => ({ id: "msg-1" }));
+    const t = tool(server, "send_message");
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+    const result = await t.handler({ text: "Back by 6" });
+    expect(calls).toEqual([{ path: "/messages", body: { text: "Back by 6" } }]);
+    expect(JSON.parse(result.content[0].text)).toEqual({ id: "msg-1" });
+  });
+
+  test("says what it does and to use it sparingly", async () => {
+    const { server } = buildServer(["announcements:write"]);
+    const t = tool(server, "send_message") as unknown as { description?: string };
+    expect(t.description?.toLowerCase()).toContain("every kinboard screen");
+    expect(t.description?.toLowerCase()).toContain("use sparingly");
+  });
+
+  test("its input schema rejects empty text and text over 200 characters before the handler runs", async () => {
+    const { server } = buildServer(["announcements:write"]);
+    const t = tool(server, "send_message") as unknown as { inputSchema: { parse: (v: unknown) => unknown } };
+    expect(() => t.inputSchema.parse({ text: "" })).toThrow();
+    expect(() => t.inputSchema.parse({ text: "a".repeat(201) })).toThrow();
+  });
+
+  test("surfaces the route's 400 as a tool error, not a crash", async () => {
+    const { server } = buildServer(["announcements:write"], () => {
+      throw new IntegrationCallError("`text` must be 1-200 characters", 400, "invalid_request");
+    });
+    const result = await tool(server, "send_message").handler({ text: "x" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe("`text` must be 1-200 characters");
+  });
+
+  test("is refused without announcements:write, naming the missing scope", async () => {
+    const { server } = buildServer(["family:read"]);
+    const result = await tool(server, "send_message").handler({ text: "x" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("announcements:write");
+  });
+});
+
 test("every new tool carries a real scope", () => {
   for (const name of [
     "list_people", "complete_task", "reopen_task", "update_task", "delete_task",
     "check_shopping_item", "uncheck_shopping_item", "rename_shopping_item", "delete_shopping_item",
     "update_note", "delete_note", "update_calendar_event", "delete_calendar_event",
-    "get_meal_plan", "add_meal", "remove_meal",
+    "get_meal_plan", "add_meal", "remove_meal", "send_message",
   ]) {
     expect(TOOL_SCOPES).toHaveProperty(name);
   }
@@ -472,4 +513,5 @@ test("every new tool carries a real scope", () => {
   expect(TOOL_SCOPES.get_meal_plan).toBe("family:read");
   expect(TOOL_SCOPES.add_meal).toBe("meals:write");
   expect(TOOL_SCOPES.remove_meal).toBe("meals:write");
+  expect(TOOL_SCOPES.send_message).toBe("announcements:write");
 });

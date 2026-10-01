@@ -218,6 +218,7 @@
     "timerBody": "The kitchen timer is done",
     "timersManyTitle": "{count} timers are up",
     "messageTitle": "A message at home",
+    "messageTitleFromAssistant": "Message from {name}",
     "messagesManyTitle": "{count} messages at home"
   },
   "join": {

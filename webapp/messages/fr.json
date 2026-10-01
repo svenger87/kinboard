@@ -218,6 +218,7 @@
     "timerBody": "Le minuteur de cuisine est terminé",
     "timersManyTitle": "{count} minuteurs sont terminés",
     "messageTitle": "Un message à la maison",
+    "messageTitleFromAssistant": "Message de {name}",
     "messagesManyTitle": "{count} messages à la maison"
   },
   "join": {

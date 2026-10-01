@@ -329,6 +329,52 @@ paths:
         "404": { description: "No such meal in this family, including one already in the recycle bin." }
         "429": { $ref: "#/components/responses/RateLimited" }
 
+  /messages:
+    post:
+      tags: [state]
+      summary: Put a message on every Kinboard screen and push it to every phone
+      description: |
+        The assistant equivalent of a person typing into the message bar:
+        shown on every screen (realtime) and pushed to every device, naming
+        the assistant in the push title. Shares its insert-and-push with the
+        session route, so it behaves identically to a person's own message
+        in every way but the sender.
+
+        `show_announcement`, the RFC-001 §5.2 service name for this
+        capability, remains unimplemented (`501`) in `/services/{service}` —
+        its own signature differs (`message`, not `text`). This route, not
+        that service, is what the `send_message` tool calls.
+      x-required-scope: announcements:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: string, format: uuid }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The message could not be sent. }
+
   /people:
     get:
       tags: [state]

@@ -218,6 +218,7 @@
     "timerBody": "Der Küchentimer ist fertig",
     "timersManyTitle": "{count} Timer sind abgelaufen",
     "messageTitle": "Nachricht von zu Hause",
+    "messageTitleFromAssistant": "Nachricht von {name}",
     "messagesManyTitle": "{count} Nachrichten von zu Hause"
   },
   "join": {

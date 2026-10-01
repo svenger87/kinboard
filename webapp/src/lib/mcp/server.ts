@@ -17,6 +17,7 @@ import { DELETE as removeMealRoute } from "@/app/api/integration/v1/meals/[id]/r
 import { MEAL_TYPES } from "@/lib/integration-meal-input";
 import { POST as service } from "@/app/api/integration/v1/services/[service]/route";
 import { GET as energy } from "@/app/api/integration/v1/energy/current/route";
+import { POST as sendMessageRoute } from "@/app/api/integration/v1/messages/route";
 
 export const TOOL_SCOPES = {
   get_family_summary: "family:read",
@@ -46,6 +47,7 @@ export const TOOL_SCOPES = {
   get_meal_plan: "family:read",
   add_meal: "meals:write",
   remove_meal: "meals:write",
+  send_message: "announcements:write",
   get_solar_production: "energy:read",
 } as const satisfies Record<string, McpScope>;
 
@@ -260,6 +262,9 @@ export function createKinboardMcpServer(
     ({ meal_id }) => call(removeMealRoute, { path: `/meals/${meal_id}`, params: { id: meal_id }, method: "DELETE" }));
   register("get_solar_production", "Read current solar power and today's solar energy from the sensors configured in Kinboard. Report units and observed_at; null means unavailable. No arbitrary Home Assistant entities are accessible.", z.object({}), readOnly,
     () => call(energy, { path: "/energy/current" }));
+  register("send_message", "Shows on every Kinboard screen and notifies phones; use sparingly. Not a log — this interrupts whoever is looking at a screen.",
+    z.object({ text: z.string().trim().min(1).max(200) }), createAction,
+    ({ text }) => call(sendMessageRoute, { path: "/messages", body: { text } }));
 
   return server;
 }
