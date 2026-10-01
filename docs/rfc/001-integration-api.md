@@ -102,7 +102,8 @@ reusable as machine credentials.
   `notes:write`, `announcements:write`, `events:read`. Added after v1 for
   assistant clients (the MCP server): `notes:read`, `calendar:write`,
   `energy:read` — each its own scope rather than an extension of
-  `family:read`, which every Home Assistant token already holds.
+  `family:read`, which every Home Assistant token already holds. Added for
+  RFC-011 (assistants that act): `meals:write`, `home:read`, `home:control`.
 - Individually revocable and rotatable, with `last_used_at` so a stale token is
   visible before it is revoked.
 - Scope enforcement is **one shared server function**, not a check per route.

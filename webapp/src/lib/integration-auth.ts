@@ -33,6 +33,9 @@ export const INTEGRATION_SCOPES = [
   "notes:read",
   "notes:write",
   "announcements:write",
+  "meals:write",
+  "home:read",
+  "home:control",
 ] as const;
 
 export type IntegrationScope = (typeof INTEGRATION_SCOPES)[number];

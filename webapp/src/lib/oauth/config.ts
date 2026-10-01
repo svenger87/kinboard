@@ -22,7 +22,13 @@ export const DCR_CLIENT_PREFIX = "kbclient_";
  */
 export const OAUTH_REQUEST_COOKIE = "kb_oauth_request";
 
-/** The integration scopes an assistant can be granted. No actuation (RFC-002 §6). */
+/**
+ * The integration scopes an assistant can be granted.
+ *
+ * RFC-010 shipped this as read-and-add only. RFC-011 adds edit/delete and,
+ * inside the device catalogue and its PIN-gated confirmation for sensitive
+ * actions, actuation — superseding RFC-010 §4's "no actuation".
+ */
 export const MCP_SCOPES = [
   "family:read",
   "notes:read",
@@ -31,6 +37,10 @@ export const MCP_SCOPES = [
   "shopping:write",
   "notes:write",
   "energy:read",
+  "meals:write",
+  "announcements:write",
+  "home:read",
+  "home:control",
 ] as const satisfies readonly IntegrationScope[];
 
 export type McpScope = (typeof MCP_SCOPES)[number];

@@ -4,6 +4,7 @@ import { TOOL_SCOPES } from "../src/lib/mcp/server";
 import { hashIntegrationToken } from "../src/lib/integration-auth";
 import { MCP_SCOPES } from "../src/lib/oauth/config";
 import { TokenLookupUnavailable, type StoredToken } from "../src/lib/integration-store";
+import { callIntegration, type RouteHandler } from "../src/lib/mcp/call-integration";
 
 const ORIGIN = "https://kb.example.com";
 const TOKEN = `kbi_${"a".repeat(43)}`;
@@ -105,4 +106,49 @@ test("a switch lookup that fails is a 503, never a 401", async () => {
   const r = await auth(req(`Bearer ${TOKEN}`), row(), noopTouch, async () => { throw new Error("db down"); });
   expect(r.ok).toBe(false);
   if (!r.ok) expect(r.response.status).toBe(503);
+});
+
+/**
+ * `callIntegration` is how a tool reaches a route: it builds the Request the
+ * route handler sees. PATCH and DELETE (RFC-011 §3) must not pick up the
+ * Idempotency-Key that `calendar/events` POST relies on for retry safety —
+ * an edit or delete replayed by a client is not the same operation, and
+ * `integration-idempotency.ts` is not wired into those verbs at all.
+ */
+test.describe("callIntegration method and header shape", () => {
+  const record = (): { handler: RouteHandler; calls: { method: string; headers: Headers; hasBody: boolean }[] } => {
+    const calls: { method: string; headers: Headers; hasBody: boolean }[] = [];
+    const handler: RouteHandler = async (request) => {
+      calls.push({ method: request.method, headers: request.headers, hasBody: request.body !== null });
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    };
+    return { handler, calls };
+  };
+
+  test("PATCH with a body sends a JSON content-type and no Idempotency-Key", async () => {
+    const { handler, calls } = record();
+    await callIntegration(handler, { origin: ORIGIN, path: "/notes/1", token: TOKEN, method: "PATCH", body: { text: "x" } });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("PATCH");
+    expect(calls[0].headers.get("content-type")).toBe("application/json");
+    expect(calls[0].headers.get("idempotency-key")).toBeNull();
+  });
+
+  test("DELETE without a body sends no body and no content-type", async () => {
+    const { handler, calls } = record();
+    await callIntegration(handler, { origin: ORIGIN, path: "/notes/1", token: TOKEN, method: "DELETE" });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("DELETE");
+    expect(calls[0].hasBody).toBe(false);
+    expect(calls[0].headers.get("content-type")).toBeNull();
+    expect(calls[0].headers.get("idempotency-key")).toBeNull();
+  });
+
+  test("POST sends an Idempotency-Key", async () => {
+    const { handler, calls } = record();
+    await callIntegration(handler, { origin: ORIGIN, path: "/lists/tasks", params: { list: "tasks" }, token: TOKEN, body: { summary: "x" } });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].headers.get("idempotency-key")).toBeTruthy();
+  });
 });

@@ -25,7 +25,7 @@ export interface CallOptions {
   origin: string;
   path: string;
   token: string;
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   query?: Record<string, string>;
   body?: unknown;
   params?: Record<string, string>;
@@ -41,15 +41,22 @@ export class IntegrationCallError extends Error {
 export async function callIntegration(handler: RouteHandler, opts: CallOptions): Promise<unknown> {
   const url = new URL(`/api/integration/v1${opts.path}`, opts.origin);
   for (const [k, v] of Object.entries(opts.query ?? {})) url.searchParams.set(k, v);
+  const method = opts.method ?? (opts.body !== undefined ? "POST" : "GET");
   const headers = new Headers({ authorization: `Bearer ${opts.token}`, accept: "application/json" });
   let body: string | undefined;
   if (opts.body !== undefined) {
     headers.set("content-type", "application/json");
-    headers.set("idempotency-key", randomUUID());
     body = JSON.stringify(opts.body);
   }
+  // Idempotency-Key is a POST concern only (lib/integration-idempotency.ts):
+  // it dedupes a *create* retried with the same arguments. PATCH and DELETE
+  // are not wired into that store, and replaying an edit or delete is not
+  // "the same create happened twice" — it is a second edit or delete.
+  if (method === "POST") {
+    headers.set("idempotency-key", randomUUID());
+  }
   const response = await handler(
-    new NextRequest(url, { method: opts.method ?? (body ? "POST" : "GET"), headers, body }),
+    new NextRequest(url, { method, headers, body }),
     { params: Promise.resolve(opts.params ?? {}) },
   );
   const data = (await response.json().catch(() => null)) as { error?: unknown; code?: unknown } | null;

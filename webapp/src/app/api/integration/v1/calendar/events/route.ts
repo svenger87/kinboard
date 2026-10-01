@@ -6,7 +6,8 @@ import {
   findStoredResult, fingerprintRequest, storeResult, validateIdempotencyKey,
 } from "@/lib/integration-idempotency";
 import { calendarWriteMode, syncCreatedCalendarEvent, type WritableCalendar } from "@/lib/calendar-write-through";
-import { isValidTimeZone, parseEventInput } from "@/lib/integration-event-input";
+import { parseEventInput } from "@/lib/integration-event-input";
+import { familyTimeZone } from "@/lib/family-time";
 
 export const dynamic = "force-dynamic";
 
@@ -113,22 +114,6 @@ export async function GET(request: NextRequest) {
       );
     }
   });
-}
-
-/**
- * The zone that turns an all-day date into instants: the family's `timezone`
- * setting, as the summary uses, else the container's `TZ` as the rest of the
- * server does.
- */
-async function familyTimeZone(familyId: string): Promise<string> {
-  const { data } = await (createAdminClient() as any)
-    .from("settings")
-    .select("value")
-    .eq("family_id", familyId)
-    .eq("key", "timezone")
-    .maybeSingle();
-  if (isValidTimeZone(data?.value)) return data.value;
-  return isValidTimeZone(process.env.TZ) ? process.env.TZ : "Europe/Berlin";
 }
 
 /** Create a family event, then write through to its connected provider. */

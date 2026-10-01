@@ -587,6 +587,9 @@ components:
         - notes:read
         - notes:write
         - announcements:write
+        - meals:write
+        - home:read
+        - home:control
 
     ListId:
       type: string
