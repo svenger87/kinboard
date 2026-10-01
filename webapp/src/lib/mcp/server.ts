@@ -7,6 +7,8 @@ import { GET as familySummary } from "@/app/api/integration/v1/family/summary/ro
 import { GET as calendarEvents, POST as createCalendarEvent } from "@/app/api/integration/v1/calendar/events/route";
 import { GET as calendars } from "@/app/api/integration/v1/calendars/route";
 import { GET as listGet, POST as listPost } from "@/app/api/integration/v1/lists/[list]/route";
+import { PATCH as listItemPatch, DELETE as listItemDelete } from "@/app/api/integration/v1/lists/[list]/[item]/route";
+import { GET as people } from "@/app/api/integration/v1/people/route";
 import { GET as notes } from "@/app/api/integration/v1/notes/route";
 import { POST as service } from "@/app/api/integration/v1/services/[service]/route";
 import { GET as energy } from "@/app/api/integration/v1/energy/current/route";
@@ -19,6 +21,11 @@ export const TOOL_SCOPES = {
   create_calendar_event: "calendar:write",
   list_tasks: "family:read",
   create_task: "tasks:write",
+  complete_task: "tasks:write",
+  reopen_task: "tasks:write",
+  update_task: "tasks:write",
+  delete_task: "tasks:write",
+  list_people: "family:read",
   list_shopping_items: "family:read",
   add_shopping_item: "shopping:write",
   list_notes: "notes:read",
@@ -30,19 +37,39 @@ type ToolName = keyof typeof TOOL_SCOPES;
 
 const readOnly = { readOnlyHint: true, openWorldHint: false };
 const createAction = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
+// Edits and deletes (RFC-011 task constraints): destructiveHint: true even
+// where the action is recoverable (a task's delete goes to the recycle bin,
+// not a purge) — the hint is about "this changes or removes something",
+// which editing and soft-deleting both are; recoverability is explained in
+// each tool's own description instead.
+const editAction = { readOnlyHint: false, destructiveHint: true, openWorldHint: false };
 const isoWithOffset = z.string()
   .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/, "ISO 8601 with Z or a +HH:MM offset")
   .refine((s) => !Number.isNaN(Date.parse(s)), "not a real time");
 const date = z.iso.date();
 
-export function createKinboardMcpServer(authInfo: AuthInfo, origin: string): McpServer {
+/**
+ * `callFn` defaults to the real `callIntegration` but can be swapped for a
+ * stub — this is the seam that lets a tool's own logic (argument shaping,
+ * scope gating, error surfacing) be tested without a database: a test
+ * constructs a server with a `callFn` that records its arguments and returns
+ * a canned response, then invokes the registered tool's handler directly
+ * (`(server as any)._registeredTools[name].handler(args)` — a plain object
+ * property on the SDK's McpServer, not a private field). See
+ * e2e/mcp-tools.spec.ts.
+ */
+export function createKinboardMcpServer(
+  authInfo: AuthInfo,
+  origin: string,
+  callFn: typeof callIntegration = callIntegration,
+): McpServer {
   const server = new McpServer({ name: "kinboard", version: "1.0.0" });
   const call = (handler: RouteHandler, opts: Omit<Parameters<typeof callIntegration>[1], "origin" | "token">) =>
-    callIntegration(handler, { ...opts, origin, token: authInfo.token });
+    callFn(handler, { ...opts, origin, token: authInfo.token });
 
   const register = <S extends z.ZodType>(
     name: ToolName, description: string, inputSchema: S,
-    annotations: typeof readOnly | typeof createAction, run: (args: z.infer<S>) => Promise<unknown>,
+    annotations: typeof readOnly | typeof createAction | typeof editAction, run: (args: z.infer<S>) => Promise<unknown>,
   ) => {
     const scope = TOOL_SCOPES[name];
     const handle = async (args: z.infer<S>) => {
@@ -105,6 +132,31 @@ export function createKinboardMcpServer(authInfo: AuthInfo, origin: string): Mcp
   register("create_task", "Create a family task. Ask the user before writing when their intent is ambiguous; never invent a due date.",
     z.object({ title: z.string().trim().min(1).max(300), due_date: date.optional() }), createAction,
     ({ title, due_date }) => call(listPost, { path: "/lists/tasks", params: { list: "tasks" }, body: { summary: title, ...(due_date ? { due: due_date } : {}) } }));
+  register("complete_task", "Mark a task done. A recurring task is marked done for today only, in the family's time zone, and becomes due again on its next occurrence; a one-off task is completed outright.",
+    z.object({ task_id: z.uuid() }), editAction,
+    ({ task_id }) => call(listItemPatch, { path: `/lists/tasks/${task_id}`, params: { list: "tasks", item: task_id }, method: "PATCH", body: { status: "completed" } }));
+  register("reopen_task", "Mark a one-off task not done. Recurring tasks cannot be reopened — Kinboard itself has no undo for a day already marked done — and this fails if task_id names one.",
+    z.object({ task_id: z.uuid() }), editAction,
+    ({ task_id }) => call(listItemPatch, { path: `/lists/tasks/${task_id}`, params: { list: "tasks", item: task_id }, method: "PATCH", body: { status: "needs_action" } }));
+  register("update_task", "Edit a task's title, due date or assignee. Only the fields supplied are changed; omit a field to leave it alone, or send it as null to clear it (due_date, person_id).",
+    z.object({
+      task_id: z.uuid(),
+      title: z.string().trim().min(1).max(300).optional(),
+      due_date: z.union([date, z.null()]).optional(),
+      person_id: z.union([z.uuid(), z.null()]).optional(),
+    }), editAction,
+    ({ task_id, title, due_date, person_id }) => {
+      const body: Record<string, unknown> = {};
+      if (title !== undefined) body.summary = title;
+      if (due_date !== undefined) body.due = due_date;
+      if (person_id !== undefined) body.person_id = person_id;
+      return call(listItemPatch, { path: `/lists/tasks/${task_id}`, params: { list: "tasks", item: task_id }, method: "PATCH", body });
+    });
+  register("delete_task", "Delete a task. This moves it to Kinboard's recycle bin — recoverable from Settings — rather than erasing it outright.",
+    z.object({ task_id: z.uuid() }), editAction,
+    ({ task_id }) => call(listItemDelete, { path: `/lists/tasks/${task_id}`, params: { list: "tasks", item: task_id }, method: "DELETE" }));
+  register("list_people", "List the people in the family, with ids, so a task can be assigned to someone by name.", z.object({}), readOnly,
+    () => call(people, { path: "/people" }));
   register("list_shopping_items", "Read the family's shopping list.", z.object({}), readOnly,
     () => call(listGet, { path: "/lists/shopping", params: { list: "shopping" } }));
   register("add_shopping_item", "Add an item to the family's shopping list.", z.object({ name: z.string().trim().min(1).max(200) }), createAction,

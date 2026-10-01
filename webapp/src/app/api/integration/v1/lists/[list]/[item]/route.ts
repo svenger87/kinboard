@@ -3,8 +3,12 @@ import { withIntegrationAuth } from "@/lib/integration-route";
 import { createAdminClient } from "@/lib/supabase/server";
 import { logApiError } from "@/lib/api-error";
 import { LISTS, isListId, itemDue, itemSummary } from "@/lib/integration-lists";
+import { completionUpdate } from "@/lib/task-completion";
+import { familyTimeZone } from "@/lib/family-time";
 
 export const dynamic = "force-dynamic";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * PATCH/DELETE /api/integration/v1/lists/{list}/{item}
@@ -14,13 +18,31 @@ export const dynamic = "force-dynamic";
  *
  * No Idempotency-Key here, unlike create. These address a specific row by id,
  * so repeating one is already harmless: ticking a ticked item leaves it
- * ticked, and deleting a deleted item affects nothing. Demanding a key for an
- * operation that is idempotent by construction would be ceremony, and a
- * to-do platform ticks items constantly.
+ * ticked, and deleting a shopping item that is already gone reports the same
+ * `ok: true` either way. Demanding a key for an operation that is idempotent
+ * by construction would be ceremony, and a to-do platform ticks items
+ * constantly.
+ *
+ * Tasks are the one exception to "repeating does nothing extra": a *second*
+ * DELETE on a task id that already moved it to the recycle bin is refused
+ * with 404 rather than silently answered `ok: true`, because letting it
+ * through would purge the row for real (see the soft-delete note below). A
+ * client retrying a delete still gets an idempotent-looking outcome — the
+ * task stays exactly where the first call put it — it just also gets told
+ * there is nothing left to delete.
  *
  * Every statement is scoped by family as well as id. An id belonging to
  * another household must change nothing rather than rely on the id being
  * unguessable.
+ *
+ * `todos` is additionally soft-deleted. The admin client used here carries
+ * the service role, which bypasses RLS entirely — the `deleted_at IS NULL`
+ * clause the browser-facing policies add for free does not apply — so every
+ * query against `todos` in this file repeats `.is("deleted_at", null)`
+ * itself. Skipping it on the DELETE path is what let a second delete reach
+ * an already-binned row and purge it: the soft-delete trigger lets a DELETE
+ * through once `deleted_at` is already set (`migration_zzz_soft_delete.sql`),
+ * so the WHERE clause is the only thing standing between "binned" and "gone".
  */
 export async function PATCH(
   request: NextRequest,
@@ -34,6 +56,7 @@ export async function PATCH(
       return NextResponse.json({ error: `unknown list \`${list}\``, code: "not_found" }, { status: 404 });
     }
     const def = LISTS[list];
+    const supabase = createAdminClient();
 
     let body: Record<string, unknown>;
     try {
@@ -53,7 +76,45 @@ export async function PATCH(
           { status: 400 },
         );
       }
-      patch[def.doneColumn] = status === "completed";
+
+      if (list === "tasks") {
+        // Recurring and one-off tasks are completed and reopened differently
+        // (task-completion.ts) — fetch the row's recurrence to decide, under
+        // the same deleted_at filter everything else here uses, so a binned
+        // task answers 404 rather than letting a status patch resurrect it.
+        try {
+          const { data: taskRow, error: taskErr } = await (supabase as any)
+            .from("todos")
+            .select("recurrence")
+            .eq("id", item)
+            .eq("family_id", context.familyId)
+            .is("deleted_at", null)
+            .maybeSingle();
+          if (taskErr) throw taskErr;
+          if (!taskRow) {
+            return NextResponse.json({ error: "no such item", code: "not_found" }, { status: 404 });
+          }
+
+          const result = completionUpdate(
+            { recurrence: taskRow.recurrence },
+            status,
+            new Date(),
+            await familyTimeZone(context.familyId),
+          );
+          if (!result.ok) {
+            return NextResponse.json(
+              { error: "recurring tasks can't be reopened", code: "conflict" },
+              { status: 409 },
+            );
+          }
+          Object.assign(patch, result.update);
+        } catch (err) {
+          await logApiError(`integration/lists/${list}/update`, err);
+          return NextResponse.json({ error: "Could not update the item", code: "internal_error" }, { status: 500 });
+        }
+      } else {
+        patch[def.doneColumn] = status === "completed";
+      }
     }
 
     if ("summary" in body) {
@@ -92,22 +153,63 @@ export async function PATCH(
       }
     }
 
+    if ("person_id" in body) {
+      // Only tasks carry an assignee; shopping_items has no such column.
+      if (list !== "tasks") {
+        return NextResponse.json(
+          { error: `the \`${list}\` list has no assignee`, code: "invalid_request" },
+          { status: 400 },
+        );
+      }
+      const personId = body.person_id;
+      if (personId === null) {
+        patch.person_id = null;
+      } else {
+        if (typeof personId !== "string" || !UUID_RE.test(personId)) {
+          return NextResponse.json(
+            { error: "`person_id` must be a uuid or null", code: "invalid_request" },
+            { status: 400 },
+          );
+        }
+        try {
+          const { data: person, error: personErr } = await (supabase as any)
+            .from("people")
+            .select("id")
+            .eq("id", personId)
+            .eq("family_id", context.familyId)
+            .is("deleted_at", null)
+            .maybeSingle();
+          if (personErr) throw personErr;
+          if (!person) {
+            return NextResponse.json(
+              { error: "no such person in this family", code: "invalid_request" },
+              { status: 400 },
+            );
+          }
+        } catch (err) {
+          await logApiError(`integration/lists/${list}/update`, err);
+          return NextResponse.json({ error: "Could not update the item", code: "internal_error" }, { status: 500 });
+        }
+        patch.person_id = personId;
+      }
+    }
+
     if (Object.keys(patch).length === 0) {
       return NextResponse.json(
-        { error: "nothing to change — send status, summary or due", code: "invalid_request" },
+        { error: "nothing to change — send status, summary, due or person_id", code: "invalid_request" },
         { status: 400 },
       );
     }
 
     try {
-      const supabase = createAdminClient();
-      const { data, error } = await (supabase as any)
+      let query = (supabase as any)
         .from(def.table)
         .update(patch)
         .eq("id", item)
-        .eq("family_id", context.familyId)
-        .select("id")
-        .maybeSingle();
+        .eq("family_id", context.familyId);
+      if (def.softDeletes) query = query.is("deleted_at", null);
+
+      const { data, error } = await query.select("id").maybeSingle();
 
       if (error) throw error;
       if (!data) {
@@ -141,12 +243,36 @@ export async function DELETE(
       // in Kinboard does — so removing one from Home Assistant is recoverable,
       // and removing a shopping item is not, matching each list's own
       // behaviour rather than inventing a third.
+      if (def.softDeletes) {
+        // `.is("deleted_at", null)` here is load-bearing, not decorative: the
+        // trigger lets a DELETE through once a row is already binned (so a
+        // purge can happen at all), so without this filter a second DELETE on
+        // the same task id — the entirely ordinary case of a client retrying
+        // after a dropped response — would purge it for real. Checking the
+        // row actually matched is what turns "already gone" into 404 instead
+        // of a silent, unearned `ok: true`.
+        const { data, error } = await (supabase as any)
+          .from(def.table)
+          .delete()
+          .eq("id", item)
+          .eq("family_id", context.familyId)
+          .is("deleted_at", null)
+          .select("id");
+        if (error) throw error;
+        if (!data || data.length === 0) {
+          return NextResponse.json({ error: "no such item", code: "not_found" }, { status: 404 });
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      // Shopping has no deleted_at column and no recycle bin: unchanged from
+      // before this fix, including answering ok: true for an id that was
+      // never there — a hard-deleting list has no "binned" state to protect.
       const { error } = await (supabase as any)
         .from(def.table)
         .delete()
         .eq("id", item)
         .eq("family_id", context.familyId);
-
       if (error) throw error;
       return NextResponse.json({ ok: true });
     } catch (err) {

@@ -163,6 +163,7 @@ test.describe("each assistant route demands its own scope", () => {
     ["notes/route.ts", "notes:read"],
     ["energy/current/route.ts", "energy:read"],
     ["calendars/route.ts", "family:read"],
+    ["people/route.ts", "family:read"],
   ];
   const dir = join(__dirname, "../src/app/api/integration/v1");
 

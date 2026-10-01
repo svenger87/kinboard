@@ -167,6 +167,35 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
+  /people:
+    get:
+      tags: [state]
+      summary: List the people in the family
+      description: |
+        Names and ids, so a task can be assigned to someone —
+        `update_task`'s `person_id` comes from here. `family:read` rather than
+        a scope of its own: every token that can read anything about the
+        family can already see who is in it elsewhere (events, the summary).
+
+        Only `id`, `name`, `color` and `is_child` are returned. `people` also
+        holds an avatar and a date of birth, and neither goes out to an
+        assistant token.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: The family's people
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [people]
+                properties:
+                  people:
+                    type: array
+                    items: { $ref: "#/components/schemas/Person" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
   /calendar/events:
     get:
       tags: [state]
@@ -431,6 +460,17 @@ paths:
         already harmless — ticking a ticked item leaves it ticked. Requiring a
         key for something idempotent by construction would be ceremony, and a
         to-do list ticks items constantly.
+
+        On the `tasks` list, `status: completed` behaves differently for a
+        recurring task than for a one-off one, matching the Kinboard UI: a
+        one-off task is simply marked `completed`, while a recurring task
+        records today (in the family's time zone) as done and leaves
+        `completed` false, so it is due again on its next occurrence. Setting
+        `status: needs_action` on a recurring task is refused with `409` — the
+        UI itself has no "undo" for a day already marked done.
+
+        `person_id` (tasks only) assigns or unassigns the task; it must be a
+        person in the same family, or `null`.
       parameters:
         - name: list
           in: path
@@ -457,11 +497,24 @@ paths:
                     have none — a generic client sends a uniform patch without
                     knowing which lists carry a due date. A non-null date on
                     such a list is refused.
+                person_id:
+                  type: [string, "null"]
+                  format: uuid
+                  description: |
+                    Tasks only. Must name a person in the same family, or be
+                    null to unassign. Refused with `400` on any other list.
       responses:
         "200": { description: Updated }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { description: No such item in this family. }
+        "409":
+          description: |
+            A recurring task on the `tasks` list cannot be reopened with
+            `status: needs_action`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "429": { $ref: "#/components/responses/RateLimited" }
     delete:
       tags: [state]
@@ -473,6 +526,10 @@ paths:
         a single tap by design and has Undo in the UI. Removing from Home
         Assistant behaves the same way as removing in Kinboard rather than
         inventing a third behaviour.
+
+        On the `tasks` list, a task already in the recycle bin answers `404`
+        rather than being deleted again — a second delete on an already-binned
+        task purges it for real, which this refuses to do.
       parameters:
         - name: list
           in: path
@@ -485,6 +542,7 @@ paths:
       responses:
         "200": { description: Removed }
         "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such item in this family (tasks: including one already in the recycle bin)." }
         "429": { $ref: "#/components/responses/RateLimited" }
 
   /services/{service}:
@@ -602,6 +660,15 @@ components:
         unit: { type: [string, "null"] }
         entity_id: { type: string }
         observed_at: { type: [string, "null"], format: date-time }
+
+    Person:
+      type: object
+      required: [id, name, color, is_child]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        color: { type: string }
+        is_child: { type: boolean }
 
     Note:
       type: object
