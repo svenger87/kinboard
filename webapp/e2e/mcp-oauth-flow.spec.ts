@@ -2,6 +2,7 @@ import { test, expect, request as pwRequest } from "@playwright/test";
 import { createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "child_process";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
+import { dbContainer } from "./whole-database";
 
 /**
  * The whole assistant connection against a running server: DCR, authorize,
@@ -15,13 +16,19 @@ import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/cli
  * the PIN is mandatory to approve (consent GET returns `pinSet`, POST takes
  * `pin` or `newPin`), /api/oauth/authorize binds the pending request to the
  * browser with a cookie, and a cross-origin consent POST is refused.
+ *
+ * Since the final review it also covers the server-side settings unlock (the
+ * PIN guards the actions, not just the screen) and the "Allow AI assistants"
+ * switch: the test switches it on for the family through /api/assistants,
+ * and switching it off at the end is what cuts the assistant off. The
+ * family's previous setting is restored in afterAll.
  */
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 const FAMILY_CODE = process.env.FAMILY_CODE;
 test.skip(!FAMILY_CODE, "needs FAMILY_CODE and a running stack");
 
 const psql = (sql: string) =>
-  execFileSync("docker", ["exec", "-i", "kbfresh-db", "psql", "-U", "postgres", "-d", "postgres", "-tA", "-c", sql], { encoding: "utf8" }).trim();
+  execFileSync("docker", ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-tA", "-c", sql], { encoding: "utf8" }).trim();
 
 // Rows this test creates, cleaned up in afterAll regardless of where the
 // test fails. `pinCreated` is only set true if the family had no PIN before
@@ -29,8 +36,18 @@ const psql = (sql: string) =>
 let clientId: string | null = null;
 let pinCreated = false;
 let familyId: string | null = null;
+// The family's assistants_enabled row before this test touched it: null
+// until read, "" when there was no row, else the JSON text to put back.
+let assistantsBefore: string | null = null;
 
 test.afterAll(() => {
+  if (familyId && assistantsBefore !== null) {
+    if (assistantsBefore === "") {
+      psql(`DELETE FROM settings WHERE family_id = '${familyId}' AND key = 'assistants_enabled'`);
+    } else {
+      psql(`UPDATE settings SET value = '${assistantsBefore.replace(/'/g, "''")}'::jsonb WHERE family_id = '${familyId}' AND key = 'assistants_enabled'`);
+    }
+  }
   psql("DELETE FROM devices WHERE hardware_id LIKE 'claude-%'");
   if (clientId) {
     psql(`DELETE FROM integration_tokens WHERE oauth_client_id = '${clientId}'`);
@@ -53,6 +70,19 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
   familyId = psql(`SELECT id FROM families WHERE join_code = '${FAMILY_CODE!.replace(/'/g, "''")}'`);
   const hasPin = psql(`SELECT count(*) FROM integration_secrets WHERE family_id = '${familyId}' AND key = 'settings_pin'`) !== "0";
   test.skip(hasPin && !process.env.SETTINGS_PIN, "family has a PIN; set SETTINGS_PIN to run");
+
+  // Switch "Allow AI assistants" on, the way Settings does. With a PIN that
+  // needs the server-side unlock first; without one there is nothing to
+  // prove. Then wait out the 30-second "on anywhere?" cache, in case this
+  // server answered "no" just before.
+  assistantsBefore = psql(`SELECT value::text FROM settings WHERE family_id = '${familyId}' AND key = 'assistants_enabled'`);
+  if (hasPin) {
+    const unlock = await api.post("/api/pin", { data: { family_id: familyId, action: "verify", pin: process.env.SETTINGS_PIN } });
+    expect((await unlock.json()).valid).toBe(true);
+  }
+  const on = await api.post("/api/assistants", { data: { enabled: true } });
+  expect(on.status(), await on.text()).toBe(200);
+  await expect.poll(async () => (await api.get("/.well-known/oauth-authorization-server")).status(), { timeout: 40_000, intervals: [1_000] }).toBe(200);
 
   const redirectUri = "http://127.0.0.1:53682/callback";
   const reg = await api.post("/api/oauth/register", { data: { client_name: "claude-flow-test", redirect_uris: [redirectUri] } });
@@ -80,11 +110,15 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
   await other.dispose();
 
   const details = await api.get(`/api/oauth/consent?request=${requestId}`);
-  expect(await details.json()).toMatchObject({ clientName: "claude-flow-test", scopes: ["family:read", "tasks:write"], loopbackOnly: true, pinSet: hasPin });
+  // A DCR client named itself: the page must not vouch for it.
+  expect(await details.json()).toMatchObject({ clientName: "claude-flow-test", verified: false, clientHost: null, scopes: ["family:read", "tasks:write"], loopbackOnly: true, pinSet: hasPin });
 
   // A same-origin-page POST never carries a different Origin. One present
   // and different means the request didn't come from the consent page,
   // whatever the cookie says — the request must still be refused for it.
+  // The body carries PIN fields on purpose, and they never matter: the
+  // route checks Origin before decideConsent is called, so the PIN logic
+  // (verify, rate limit, inline set) is never reached for this POST.
   const crossOrigin = await api.post("/api/oauth/consent", {
     headers: { origin: "https://evil.example" },
     data: { request: requestId, decision: "approve", scopes: ["family:read"], pin: process.env.SETTINGS_PIN ?? "", newPin: "4826" },
@@ -135,7 +169,40 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
   const old = await api.post("/api/mcp", { headers: { authorization: `Bearer ${tokens.access_token}` }, data: {} });
   expect(old.status()).toBe(401); // rotated away
 
-  psql(`UPDATE integration_tokens SET revoked_at = now() WHERE oauth_client_id = '${clientId}'`);
+  // The connection is listed under the redirect host Kinboard checked, not
+  // only the name the client gave itself.
+  expect(psql(`SELECT name FROM integration_tokens WHERE oauth_client_id = '${clientId}'`)).toBe("claude-flow-test (127.0.0.1:53682)");
+
+  // The PIN now exists (set inline above, or already there), so changing
+  // protected settings needs the server-side unlock. A device that never
+  // entered the PIN is refused — for the switch, for removing the PIN, and
+  // for writing it through the generic settings route.
+  const locked = await pwRequest.newContext({ baseURL: BASE });
+  const lockedJoin = await locked.post("/api/session/join", { data: { joinCode: FAMILY_CODE, hardwareId: `claude-mcp-locked-${Date.now()}`, deviceName: "claude-mcp-test" } });
+  expect(lockedJoin.ok(), await lockedJoin.text()).toBe(true);
+  for (const [path, method, data] of [
+    ["/api/assistants", "post", { enabled: false }],
+    ["/api/pin", "post", { family_id: familyId, action: "remove" }],
+    ["/api/pin", "post", { family_id: familyId, action: "set", pin: "1111" }],
+    ["/api/integration-tokens", "post", { name: "claude-locked", scopes: ["family:read"] }],
+  ] as const) {
+    const r = await locked[method](path, { data });
+    expect(r.status(), `${path} ${JSON.stringify(data)}`).toBe(403);
+    expect((await r.json()).error).toBe("pin_required");
+  }
+  const viaSettings = await locked.put("/api/settings", { data: { family_id: familyId, key: "settings_pin", value: { pin: "1111" } } });
+  expect(viaSettings.status()).toBe(403);
+  await locked.dispose();
+
+  // Switching assistants off is what cuts this one off: with the PIN
+  // entered on this device, the switch revokes every assistant connection.
+  const unlockAgain = await api.post("/api/pin", { data: { family_id: familyId, action: "verify", pin: hasPin ? process.env.SETTINGS_PIN : "4826" } });
+  expect((await unlockAgain.json()).valid).toBe(true);
+  const off = await api.post("/api/assistants", { data: { enabled: false } });
+  expect(off.status(), await off.text()).toBe(200);
+  expect(psql(`SELECT count(*) FROM integration_tokens WHERE oauth_client_id = '${clientId}' AND revoked_at IS NULL`)).toBe("0");
+  // 401 while another family still has assistants on; 404 once none has
+  // (the whole endpoint disappears). Either way the token is dead.
   const revoked = await api.post("/api/mcp", { headers: { authorization: `Bearer ${refreshed.access_token}` }, data: {} });
-  expect(revoked.status()).toBe(401);
+  expect([401, 404]).toContain(revoked.status());
 });
