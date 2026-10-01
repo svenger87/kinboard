@@ -25,7 +25,7 @@ import { retryAfterSeconds, type Budget } from "@/lib/integration-limits";
 import { amountToCents } from "@/lib/pocket-money/booking";
 import { lookupChild, type ChildLookup } from "@/lib/pocket-money/children";
 import {
-  BOOKING_NOTE_MAX, UUID, createActionRequest, type CreateKindRequestInput, type PocketMoneyBooking,
+  BOOKING_NOTE_MAX, UUID, createActionRequest, pocketMoneyBookingFrom, stripInvisible, type CreateKindRequestInput, type PocketMoneyBooking,
 } from "@/lib/home/action-requests";
 import { liveActionStore, liveConfirmationBudget, pushActionRequest } from "@/lib/home/action-requests-live";
 
@@ -161,7 +161,7 @@ export function parseBookingBody(body: unknown):
   let note: string | null = null;
   if (b.note !== undefined && b.note !== null) {
     if (typeof b.note !== "string") return { ok: false, error: "note must be a string" };
-    const trimmed = b.note.trim();
+    const trimmed = stripInvisible(b.note).trim();
     if (trimmed.length > BOOKING_NOTE_MAX) return { ok: false, error: `note must be at most ${BOOKING_NOTE_MAX} characters` };
     note = trimmed.length > 0 ? trimmed : null;
   }
@@ -196,6 +196,21 @@ export async function requestPocketMoneyBooking(
     return fail(400, "invalid_request", "That is more than this child has; nothing was asked", { reason: "insufficient_funds" });
   }
 
+  const data: PocketMoneyBooking = {
+    person_id: parsed.personId,
+    person_name: child.name,
+    amount_cents: parsed.amountCents,
+    currency: child.account.currency,
+    type: parsed.type,
+    note: parsed.note,
+  };
+  // Exactly what the handler will accept when it runs: a request it would
+  // refuse after a family member typed the PIN is refused now instead,
+  // before it reaches any screen.
+  if (!pocketMoneyBookingFrom({ ...data })) {
+    return fail(400, "invalid_request", "This booking cannot be stored as asked (the child's name or the account's currency is unusable); nothing was asked");
+  }
+
   let hasPin: boolean;
   try {
     hasPin = await deps.familyHasPin(input.familyId);
@@ -228,14 +243,6 @@ export async function requestPocketMoneyBooking(
     };
   }
 
-  const data: PocketMoneyBooking = {
-    person_id: parsed.personId,
-    person_name: child.name,
-    amount_cents: parsed.amountCents,
-    currency: child.account.currency,
-    type: parsed.type,
-    note: parsed.note,
-  };
   const pending = await deps.createRequest({
     kind: "pocket_money",
     familyId: input.familyId,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { commitPendingInterest, type RpcClient } from "@/lib/pocket-money/booking";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
   // before showing up in the balance the kid sees.
   const { data: accounts, error } = await (supabase as any)
     .from("pocket_money_accounts")
-    .select("id, pending_interest_cents, balance_cents, lifetime_saved_cents")
+    .select("id, pending_interest_cents")
     .gt("pending_interest_cents", 0);
 
   if (error) {
@@ -59,30 +60,14 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    const { error: txnErr } = await (supabase as any)
-      .from("pocket_money_transactions")
-      .insert({
-        account_id: acct.id,
-        amount_cents: amount,
-        type: "interest",
-        note: "Daily interest",
-      });
-    if (txnErr) {
-      console.error("[cron/commit-interest] txn error:", txnErr);
-      continue;
-    }
-
-    const { error: updErr } = await (supabase as any)
-      .from("pocket_money_accounts")
-      .update({
-        balance_cents: acct.balance_cents + amount,
-        lifetime_saved_cents: acct.lifetime_saved_cents + amount,
-        pending_interest_cents: 0,
-        interest_committed_at: new Date().toISOString(),
-      })
-      .eq("id", acct.id);
-    if (updErr) {
-      console.error("[cron/commit-interest] update error:", updErr);
+    // The amount is read afresh under the account's row lock and booked as
+    // a delta, then exactly that much is taken off pending — all in
+    // commit_pocket_money_interest(). The `amount` read above only decides
+    // whether to try; a booking or an accrual alongside keeps its part.
+    const result = await commitPendingInterest(supabase as unknown as RpcClient, acct.id, "Daily interest");
+    if (!result.ok) {
+      if (result.error === "failed") console.error("[cron/commit-interest] commit error:", result.message);
+      else if (result.error !== "nothing_pending") console.error("[cron/commit-interest] commit refused:", result.error);
       continue;
     }
     committed++;

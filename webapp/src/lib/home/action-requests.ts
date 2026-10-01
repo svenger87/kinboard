@@ -537,7 +537,7 @@ export interface DecideDeps {
    * The pocket-money account of a person who is a child of this family and
    * not in the recycle bin, or null. Throws when unreadable.
    */
-  pocketMoneyAccount?: (familyId: string, personId: string) => Promise<{ accountId: string } | null>;
+  pocketMoneyAccount?: (familyId: string, personId: string) => Promise<{ accountId: string; currency: string } | null>;
   /** `lib/pocket-money/booking.ts`: one atomic booking. */
   bookPocketMoney?: (input: BookingInput) => Promise<BookingResult>;
   /** Replaces a kind's handler in `ACTION_KIND_HANDLERS`. For tests. */
@@ -643,14 +643,26 @@ export function pocketMoneyBookingFrom(data: Record<string, unknown> | null | un
 }
 
 /**
+ * Text on one line with nothing invisible in it: format characters (Unicode
+ * Cf — bidi overrides and isolates such as U+202E, zero-width spaces and
+ * joiners, the BOM, soft hyphens) are removed, whitespace runs become one
+ * space, and any other control character (Cc) is removed, so what a family reads is what is there, in the order it
+ * is there.
+ */
+export function stripInvisible(text: string): string {
+  return text.replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").replace(/\p{Cc}/gu, "");
+}
+
+/**
  * An assistant's note as the family is shown it: on one line, at most 100
- * characters, and without quotation marks of its own — the sentence puts it
+ * characters, nothing invisible (`stripInvisible`), and without quotation
+ * marks of its own — the sentence puts it
  * in quotes, and a note must not be able to close them and carry on as if
  * Kinboard were speaking. Empty → null.
  */
 export function bookingNoteLabel(note: string | null): string | null {
   if (note === null) return null;
-  const flat = note.replace(/["\u201C\u201D\u201E\u201F\u00AB\u00BB\u2039\u203A]/g, "'").replace(/\s+/g, " ").trim();
+  const flat = stripInvisible(note).replace(/["\u201C\u201D\u201E\u201F\u00AB\u00BB\u2039\u203A]/g, "'").trim();
   if (flat.length === 0) return null;
   return flat.length > BOOKING_NOTE_MAX ? `${flat.slice(0, BOOKING_NOTE_MAX - 1).trimEnd()}…` : flat;
 }
@@ -690,7 +702,11 @@ const pocketMoneyHandler: ActionKindHandler = {
     if (!booking) return "not_allowed";
     if (!deps.pocketMoneyAccount || !deps.bookPocketMoney) return "not_available";
     try {
-      return (await deps.pocketMoneyAccount(familyId, booking.person_id)) ? null : "no_account";
+      const account = await deps.pocketMoneyAccount(familyId, booking.person_id);
+      if (!account) return "no_account";
+      // The family allowed an amount in this currency; an account that has
+      // since changed currency is not what they said yes to.
+      return account.currency === booking.currency ? null : "not_allowed";
     } catch {
       return "booking_failed";
     }
@@ -702,6 +718,7 @@ const pocketMoneyHandler: ActionKindHandler = {
     try {
       const account = await deps.pocketMoneyAccount(familyId, booking.person_id);
       if (!account) return failed("no_account");
+      if (account.currency !== booking.currency) return failed("not_allowed");
       const deposit = booking.type === "deposit";
       const booked = await deps.bookPocketMoney({
         familyId,

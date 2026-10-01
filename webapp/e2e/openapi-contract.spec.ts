@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { ACTION_STATUS_SCOPES } from "../src/lib/home/action-requests";
 import yaml from "js-yaml";
 import { API_ERROR_CODES } from "../src/lib/api-error";
 import { INTEGRATION_SCOPES } from "../src/lib/integration-auth";
@@ -29,7 +30,8 @@ const SPEC_PATH = join(__dirname, "..", "openapi", "integration-v1.yaml");
 const ROUTES_ROOT = join(__dirname, "..", "src", "app", "api", "integration", "v1");
 
 interface Spec {
-  paths: Record<string, Record<string, { "x-required-scope"?: string }>>;
+  /** One scope, or a list of which any one is enough (`GET /actions/{id}`). */
+  paths: Record<string, Record<string, { "x-required-scope"?: string | string[] }>>;
   components: {
     schemas: Record<
       string,
@@ -84,7 +86,9 @@ test.describe("the enums match the server's own lists", () => {
     const used: string[] = [];
     for (const methods of Object.values(spec.paths)) {
       for (const op of Object.values(methods)) {
-        if (op["x-required-scope"]) used.push(op["x-required-scope"]);
+        const required = op["x-required-scope"];
+        if (Array.isArray(required)) used.push(...required);
+        else if (required) used.push(required);
       }
     }
     // Documenting a scope the server does not know would send an integrator
@@ -93,6 +97,10 @@ test.describe("the enums match the server's own lists", () => {
     for (const scope of used) {
       expect(INTEGRATION_SCOPES as readonly string[]).toContain(scope);
     }
+  });
+
+  test("GET /actions/{id} advertises every scope that may follow a request", () => {
+    expect(spec.paths["/actions/{id}"].get["x-required-scope"]).toEqual([...ACTION_STATUS_SCOPES]);
   });
 
   test("ServiceName covers what the server implements and defers, and nothing else", () => {

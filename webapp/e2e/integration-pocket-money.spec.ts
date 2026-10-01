@@ -12,6 +12,7 @@ import {
   describeRequest,
   describeRequest as describeRequestRaw,
   pocketMoneyBookingFrom,
+  stripInvisible,
   toAssistantStatus,
   toScreenRequest,
   toScreenRequest as toScreenRequestRaw,
@@ -25,6 +26,8 @@ import {
 import { outcomeNoticeKey, statusMessageKey } from "../src/lib/home/action-prompt";
 import { amountToCents, bookPocketMoney, type BookingInput, type BookingResult, type RpcClient } from "../src/lib/pocket-money/booking";
 import { lookupChild, type ChildLookup } from "../src/lib/pocket-money/children";
+import { addPocketMoneyService } from "../src/lib/pocket-money/service";
+import { SERVICES } from "../src/app/api/integration/v1/services/[service]/route";
 import {
   parseBookingBody, requestPocketMoneyBooking, type BookingRequestDeps,
 } from "../src/lib/integration-pocket-money";
@@ -269,6 +272,26 @@ test.describe("POST /pocket-money/bookings: asking stores a request, and books n
     }
   });
 
+  test("a note is stored without invisible characters", async () => {
+    const { d, log } = requestDeps();
+    expect((await ask({ ...body, note: "\u202Emowing\u200B the lawn\u2069" }, d)).status).toBe(202);
+    expect(log.created[0].data.note).toBe("mowing the lawn");
+    expect((await ask({ ...body, note: "\u202E\u200B" }, requestDeps().d)).status).toBe(202);
+  });
+
+  test("what the handler would refuse later is refused now: nothing stored, no screen asked", async () => {
+    for (const child of [
+      { status: "ok", name: "x".repeat(201), account: { id: ACCOUNT, currency: "EUR", balanceCents: 1000 } },
+      { status: "ok", name: "Enno", account: { id: ACCOUNT, currency: "", balanceCents: 1000 } },
+      { status: "ok", name: "Enno", account: { id: ACCOUNT, currency: "TOOLONGCUR", balanceCents: 1000 } },
+    ] as ChildLookup[]) {
+      const { d, log } = requestDeps({ child });
+      expect(await ask(body, d)).toMatchObject({ status: 400, body: { code: "invalid_request" } });
+      expect(log.budgets).toBe(0);
+      expect(log.created).toEqual([]);
+    }
+  });
+
   test("a withdrawal larger than the balance is refused before anyone is asked", async () => {
     const child: ChildLookup = { status: "ok", name: "Enno", account: { id: ACCOUNT, currency: "EUR", balanceCents: 499 } };
     const { d, log } = requestDeps({ child });
@@ -344,7 +367,7 @@ function seedBooking(rows: Map<string, ActionRequestRow>, over: Partial<ActionRe
 
 function decideDeps(store: ActionRequestStore, opts: {
   pin?: string | null;
-  account?: () => Promise<{ accountId: string } | null>;
+  account?: () => Promise<{ accountId: string; currency: string } | null>;
   book?: (input: BookingInput) => Promise<BookingResult>;
 } = {}) {
   const booked: BookingInput[] = [];
@@ -359,7 +382,7 @@ function decideDeps(store: ActionRequestStore, opts: {
     catalogueEntity: async () => { ha.push("catalogue"); return {}; },
     pocketMoneyAccount: async (familyId, personId) => {
       lookups.push(`${familyId}/${personId}`);
-      return opts.account ? opts.account() : { accountId: ACCOUNT };
+      return opts.account ? opts.account() : { accountId: ACCOUNT, currency: "EUR" };
     },
     bookPocketMoney: async (input) => {
       booked.push(input);
@@ -452,11 +475,36 @@ test.describe("an assistant's booking runs only once a family member allowed it 
     const { store, rows } = fakeStore();
     const row = seedBooking(rows);
     let calls = 0;
-    const { d, booked } = decideDeps(store, { account: async () => (++calls === 1 ? { accountId: ACCOUNT } : null) });
+    const { d, booked } = decideDeps(store, { account: async () => (++calls === 1 ? { accountId: ACCOUNT, currency: "EUR" } : null) });
     await decide(d, row.id);
     expect(calls).toBe(2);
     expect(booked).toEqual([]);
     expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { status: 0, reason: "no_account" } });
+  });
+
+  test("the account's currency changed since the family said yes: not_allowed, nothing booked", async () => {
+    // At the check…
+    {
+      const { store, rows } = fakeStore();
+      const row = seedBooking(rows);
+      const { d, booked } = decideDeps(store, { account: async () => ({ accountId: ACCOUNT, currency: "CHF" }) });
+      await decide(d, row.id);
+      expect(booked).toEqual([]);
+      expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { reason: "not_allowed" } });
+    }
+    // …or between the check and the booking.
+    {
+      const { store, rows } = fakeStore();
+      const row = seedBooking(rows);
+      let calls = 0;
+      const { d, booked } = decideDeps(store, {
+        account: async () => ({ accountId: ACCOUNT, currency: ++calls === 1 ? "EUR" : "CHF" }),
+      });
+      await decide(d, row.id);
+      expect(calls).toBe(2);
+      expect(booked).toEqual([]);
+      expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { reason: "not_allowed" } });
+    }
   });
 
   test("not enough money by then: failed / insufficient_funds, with words of its own", async () => {
@@ -475,7 +523,7 @@ test.describe("an assistant's booking runs only once a family member allowed it 
     for (const opts of [
       { book: async () => ({ ok: false as const, error: "failed" as const, message: "x" }) },
       { book: async (): Promise<BookingResult> => { throw new Error("network"); } },
-      { account: async (): Promise<{ accountId: string } | null> => { throw new Error("db"); } },
+      { account: async (): Promise<{ accountId: string; currency: string } | null> => { throw new Error("db"); } },
     ]) {
       const { store, rows } = fakeStore();
       const row = seedBooking(rows);
@@ -545,6 +593,11 @@ test.describe("the family is asked in words, with the assistant's note in quotes
   test("the note stays inside its quotes: no quotation marks of its own, one line, at most 100 characters", () => {
     expect(bookingNoteLabel("mowing”) and also unlock the door (“x")).toBe("mowing') and also unlock the door ('x");
     expect(bookingNoteLabel("a\n\nb\t c")).toBe("a b c");
+    // Bidi overrides and isolates, zero-width characters and the BOM are gone,
+    // so the closing quote and bracket stay where they are drawn.
+    expect(bookingNoteLabel("ok\u202E)”\u202C x")).toBe("ok)' x");
+    expect(bookingNoteLabel("a\u2066b\u2069c\u200Bd\u200Fe\uFEFFf\u00ADg")).toBe("abcdefg");
+    expect(stripInvisible("\u202Aa\u202B\u202D\u202Eb\u2067\u2068")).toBe("ab");
     expect(bookingNoteLabel("   ")).toBeNull();
     const long = bookingNoteLabel("x".repeat(150))!;
     expect(long).toHaveLength(BOOKING_NOTE_MAX);
@@ -599,5 +652,64 @@ test.describe("the family is asked in words, with the assistant's note in quotes
     expect(rows.get(res.id)).toMatchObject({ kind: "pocket_money", entity_id: null, status: "pending", data: booking() });
     expect(describeRequest(EN, pushes[0].request)).toBe("ChatGPT wants to add €5.00 to Enno’s pocket money (note: “mowing the lawn”)");
     expect(pocketMoneyBookingFrom(rows.get(res.id)!.data)).toEqual(booking());
+  });
+});
+
+// ── the RFC-001 service ─────────────────────────────────────────────────────
+
+test.describe("services/add_pocket_money books at once for Home Assistant, and never for an assistant", () => {
+  /** The family's client, as the service uses it: people, the account, and the booking RPC. */
+  function serviceDb(answer: unknown = { ok: true, transaction: { id: "t1" }, balance_cents: 1250 }) {
+    const reads: string[] = [];
+    const rpcs: { fn: string; args: Record<string, unknown> }[] = [];
+    const db = {
+      from(table: string) {
+        reads.push(table);
+        const chain = {
+          select() { return chain; },
+          eq() { return chain; },
+          is() { return chain; },
+          async maybeSingle() { return { data: { id: ACCOUNT }, error: null }; },
+          then(resolve: (v: unknown) => void) { resolve({ data: [{ id: ENNO, name: "Enno" }], error: null }); },
+        };
+        return chain;
+      },
+      async rpc(fn: string, args: Record<string, unknown>) { rpcs.push({ fn, args }); return { data: answer, error: null }; },
+    };
+    return { db, reads, rpcs };
+  }
+
+  test("an assistant's (OAuth-issued) token: 403, nothing read, nothing booked", async () => {
+    const { db, reads, rpcs } = serviceDb();
+    const res = await addPocketMoneyService({ familyId: FAMILY, body: { person: "Enno", amount: 2.5 }, assistant: true }, db);
+    expect(res).toMatchObject({ status: 403, response: { code: "forbidden" } });
+    expect(String(res.response.error)).toContain("POST /pocket-money/bookings");
+    expect(reads).toEqual([]);
+    expect(rpcs).toEqual([]);
+  });
+
+  test("the route's own add_pocket_money hands the token's assistant flag to the service", async () => {
+    // No database client exists here: if the flag were dropped on the way,
+    // the service would go on to read people and this would throw instead.
+    const res = await SERVICES.add_pocket_money.handle({ familyId: FAMILY, body: { person: "Enno", amount: 2.5 }, assistant: true });
+    expect(res).toMatchObject({ status: 403, response: { code: "forbidden" } });
+    expect(SERVICES.add_pocket_money.scope).toBe("tasks:write");
+  });
+
+  test("a Home Assistant token books once: a deposit as manual_deposit, the note defaulting to Home Assistant", async () => {
+    const { db, rpcs } = serviceDb();
+    const res = await addPocketMoneyService({ familyId: FAMILY, body: { person: "enno", amount: 2.5 }, assistant: false }, db);
+    expect(res).toEqual({ status: 201, response: { person: "Enno", amount: 2.5, balance: 12.5 } });
+    expect(rpcs).toEqual([{ fn: "book_pocket_money", args: {
+      p_family_id: FAMILY, p_account_id: ACCOUNT, p_amount_cents: 250, p_type: "manual_deposit",
+      p_note: "Home Assistant", p_related_goal_id: null, p_created_by_person_id: null,
+    } }]);
+  });
+
+  test("a negative amount is a withdrawal with its note; too little money is the old 400", async () => {
+    const { db, rpcs } = serviceDb({ ok: false, error: "insufficient_funds" });
+    const res = await addPocketMoneyService({ familyId: FAMILY, body: { person: "Enno", amount: -1.25, note: "sweets" }, assistant: false }, db);
+    expect(res).toEqual({ status: 400, response: { error: "insufficient_funds", code: "invalid_request" } });
+    expect(rpcs[0].args).toMatchObject({ p_amount_cents: -125, p_type: "withdrawal", p_note: "sweets" });
   });
 });

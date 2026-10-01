@@ -48,11 +48,14 @@ only); `GET /home/actions/{id}` stays as it was for home requests.
 **Every assistant pocket-money booking needs the PIN.** The RFC-001
 `add_pocket_money` service is unchanged for Home Assistant tokens (frozen
 contract); assistants never reach it — they use the confirmed path, and an
-OAuth-issued token calling it is refused (`403`). Every booking — the session
-route, the service and an approved request — goes through one SQL function,
+OAuth-issued token calling it is refused (`403`). Every balance change — the
+session route, the service, an approved request, an approved withdrawal
+request, the allowance cron and the interest cron (through
+`commit_pocket_money_interest()`) — goes through one SQL function,
 `book_pocket_money()`, which moves the balance with a single conditional
 `UPDATE … WHERE balance_cents + delta >= 0` and writes the transaction in the
-same call, so a racing withdrawal cannot take a balance below zero. An
+same call, so concurrent bookings never overwrite each other and a racing
+withdrawal cannot take a balance below zero. An
 approved request whose withdrawal no longer fits ends `failed` with
 `reason: insufficient_funds`; the family is told so in words that do not
 mention Home Assistant.

@@ -785,6 +785,8 @@ test.describe("get_action_status", () => {
     const { server } = buildServer(["family:read"]);
     const result = await tool(server, "get_action_status").handler({ request_id: ID });
     expect(result.content[0].text).toBe("home:control or pocket_money:write authorization is required");
+    const challenge = (result as unknown as { _meta: Record<string, string[]> })._meta["mcp/www_authenticate"][0];
+    expect(challenge).toContain('scope="home:control pocket_money:write"');
   });
 
   test("pocket_money:write alone is enough: it follows its own bookings with it", async () => {

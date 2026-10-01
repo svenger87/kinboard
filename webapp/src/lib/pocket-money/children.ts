@@ -50,9 +50,11 @@ export async function lookupChild(familyId: string, personId: string, client?: u
 }
 
 /** `DecideDeps.pocketMoneyAccount`: the account of a child of this family, or null. */
-export async function childPocketMoneyAccount(familyId: string, personId: string): Promise<{ accountId: string } | null> {
+export async function childPocketMoneyAccount(
+  familyId: string, personId: string,
+): Promise<{ accountId: string; currency: string } | null> {
   const found = await lookupChild(familyId, personId);
-  return found.status === "ok" ? { accountId: found.account.id } : null;
+  return found.status === "ok" ? { accountId: found.account.id, currency: found.account.currency } : null;
 }
 
 /** `DecideDeps.bookPocketMoney`, on the admin client. */

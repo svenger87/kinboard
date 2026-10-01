@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { applyDailyAccrual } from "@/lib/pocket-money/interest";
+import { accruePendingInterest, type RpcClient } from "@/lib/pocket-money/booking";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,18 +39,17 @@ export async function POST(request: NextRequest) {
       aprBps: acct.apr_bps,
       carryMicros: acct.pending_interest_micros ?? 0,
     });
-    const { error: updErr } = await (supabase as any)
-      .from("pocket_money_accounts")
-      .update({
-        pending_interest_cents: acct.pending_interest_cents + addCents,
-        pending_interest_micros: carryMicros,
-        last_accrued_date: today,
-      })
-      .eq("id", acct.id);
-    if (updErr) {
-      console.error("[cron/accrue-interest] update error:", updErr);
+    // Added to pending as a delta, once for `today`, by
+    // accrue_pocket_money_interest() — never written back as an absolute
+    // value read above, which would undo a commit that ran in between.
+    const accrued = await accruePendingInterest(supabase as unknown as RpcClient, {
+      accountId: acct.id, addCents, carryMicros, today,
+    });
+    if (!accrued.ok) {
+      console.error("[cron/accrue-interest] update error:", accrued.message);
       continue;
     }
+    if (!accrued.accrued) continue; // another run accrued today meanwhile
     updated++;
   }
 

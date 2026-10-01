@@ -391,7 +391,7 @@ paths:
         time it was allowed) and `no_account` (the child or the account is
         gone) — nothing was booked; `booking_failed` — Kinboard could not
         tell whether it was booked.
-      x-required-scope: home:control
+      x-required-scope: [home:control, pocket_money:write]
       parameters:
         - name: id
           in: path
@@ -1269,7 +1269,11 @@ paths:
         is no longer there the request ends `failed` with
         `result.reason: insufficient_funds` and nothing is booked. `note`
         (at most 100 characters) is shown to the family in quotes and
-        stored with the transaction.
+        stored with the transaction; invisible control and format
+        characters (bidi overrides, zero-width spaces) are removed first. A
+        booking that could not be run as stored — the child's name or the
+        account's currency unusable — is refused with `400` before anyone is
+        asked.
 
         The Idempotency-Key is required. Repeating it with the same body
         answers the same request (`idempotent-replay`); only a `202` is

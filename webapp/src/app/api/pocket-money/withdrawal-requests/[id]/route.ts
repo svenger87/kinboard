@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyIdFrom, accountInFamily } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { bookPocketMoney, type RpcClient } from "@/lib/pocket-money/booking";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export async function PATCH(
   // Read the request + the joined account.
   const { data: req, error: readErr } = await (supabase as any)
     .from("pocket_money_withdrawal_requests")
-    .select("*, account:pocket_money_accounts(id, balance_cents)")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
 
@@ -79,12 +80,21 @@ export async function PATCH(
   // succeeds so that any failure leaves it retryable instead of stuck
   // in a ghost-approved state with no balance change.
   //
-  // Known limitation: the read of req.account.balance_cents above and
-  // the write below aren't atomic — concurrent approvals on the same
-  // account can race. Acceptable for household-scale use; mitigate
-  // with a row-level lock or a Postgres RPC if it ever bites.
-  const newBalance = req.account.balance_cents - req.amount_cents;
-  if (newBalance < 0) {
+  // The money moves through the shared atomic booking
+  // (lib/pocket-money/booking.ts): the balance check and the debit are one
+  // statement, so two approvals — or an approval and an allowance — on the
+  // same account cannot both spend the same money or overwrite each other.
+  const booked = await bookPocketMoney(supabase as unknown as RpcClient, {
+    familyId,
+    accountId: req.account_id,
+    amountCents: -req.amount_cents,
+    type: "withdrawal",
+    note: req.reason || null,
+    relatedGoalId: req.related_goal_id,
+    createdByPersonId: body.parent_decided_by_person_id ?? null,
+  });
+
+  if (!booked.ok && booked.error === "insufficient_funds") {
     // Kid spent the money on something else after asking — auto-deny.
     await (supabase as any)
       .from("pocket_money_withdrawal_requests")
@@ -99,26 +109,10 @@ export async function PATCH(
       { status: 409 },
     );
   }
-
-  const { error: txnErr } = await (supabase as any)
-    .from("pocket_money_transactions")
-    .insert({
-      account_id: req.account.id,
-      amount_cents: -req.amount_cents,
-      type: "withdrawal",
-      note: req.reason || null,
-      related_goal_id: req.related_goal_id,
-      created_by_person_id: body.parent_decided_by_person_id ?? null,
-    });
-
-  if (txnErr) return NextResponse.json({ error: txnErr.message }, { status: 500 });
-
-  // Update account balance (lifetime_saved is not affected by withdrawals).
-  const { error: balErr } = await (supabase as any)
-    .from("pocket_money_accounts")
-    .update({ balance_cents: newBalance })
-    .eq("id", req.account.id);
-  if (balErr) return NextResponse.json({ error: balErr.message }, { status: 500 });
+  if (!booked.ok && booked.error === "not_found") {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+  if (!booked.ok) return NextResponse.json({ error: booked.error === "failed" ? booked.message : "failed" }, { status: 500 });
 
   // If this was tied to a goal that hit 100%, mark it bought.
   if (req.related_goal_id) {

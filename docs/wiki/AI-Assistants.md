@@ -149,7 +149,10 @@ than the child has by the time someone allows it, nothing is booked and the
 assistant is told why. Only children with a pocket money account can be
 booked for. Home Assistant's `add_pocket_money` service is unchanged for the
 token you paste into Home Assistant, but an assistant connection can't use
-it — assistants always go through the confirmation.
+it — assistants always go through the confirmation. This depends on how the token was
+made, not on the program using it: a token created by hand under Settings ->
+Integrations books straight away even if you paste it into an AI app, so
+only connect assistants through the "Allow AI assistants" sign-in.
 
 ### Undoing a delete
 

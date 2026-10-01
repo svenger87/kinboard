@@ -244,15 +244,15 @@ export function createKinboardMcpServer(
     name: ToolName, description: string, inputSchema: S,
     annotations: typeof readOnly | typeof createAction | typeof externalCreateAction | typeof editAction, run: (args: z.infer<S>) => Promise<unknown>,
   ) => {
-    const scope = TOOL_SCOPES[name];
     const anyOf = toolScopes(name);
     const handle = async (args: z.infer<S>) => {
       if (!anyOf.some((s) => authInfo.scopes.includes(s))) {
         // ChatGPT reads this to offer re-linking with the missing scope. A
-        // tool any of several scopes unlocks names them all.
+        // tool any of several scopes unlocks names them all, in the text and
+        // in the challenge's scope.
         return {
           content: [{ type: "text" as const, text: `${anyOf.join(" or ")} authorization is required` }],
-          _meta: { "mcp/www_authenticate": [wwwAuthenticate(origin, { error: "insufficient_scope", scope })] },
+          _meta: { "mcp/www_authenticate": [wwwAuthenticate(origin, { error: "insufficient_scope", scope: anyOf.join(" ") })] },
           isError: true,
         };
       }

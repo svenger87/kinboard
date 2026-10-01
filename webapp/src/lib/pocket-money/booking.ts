@@ -79,3 +79,48 @@ export function amountToCents(value: unknown, max = MAX_ASSISTANT_BOOKING_CENTS)
   if (!Number.isSafeInteger(cents) || cents < 1 || cents > max) return null;
   return cents;
 }
+
+export type InterestCommitResult =
+  | { ok: true; amountCents: number; balanceCents: number }
+  /** Nothing was pending (another run got there first), or no such account: nothing written. */
+  | { ok: false; error: "nothing_pending" | "not_found" | "insufficient_funds" }
+  | { ok: false; error: "failed"; message: string };
+
+/**
+ * Move an account's pending interest into its balance:
+ * `commit_pocket_money_interest()` reads what is pending under the row lock,
+ * books it through `book_pocket_money()` as an `interest` delta and takes
+ * exactly that off pending — so a booking or an accrual running alongside
+ * keeps its own part.
+ */
+export async function commitPendingInterest(supabase: RpcClient, accountId: string, note: string): Promise<InterestCommitResult> {
+  const { data, error } = await supabase.rpc("commit_pocket_money_interest", { p_account_id: accountId, p_note: note });
+  if (error) return { ok: false, error: "failed", message: error.message };
+  const answer = data as { ok?: unknown; error?: unknown; amount_cents?: unknown; balance_cents?: unknown } | null;
+  if (answer?.ok === true && typeof answer.amount_cents === "number" && typeof answer.balance_cents === "number") {
+    return { ok: true, amountCents: answer.amount_cents, balanceCents: answer.balance_cents };
+  }
+  if (answer?.error === "nothing_pending" || answer?.error === "not_found" || answer?.error === "insufficient_funds") {
+    return { ok: false, error: answer.error };
+  }
+  return { ok: false, error: "failed", message: "unexpected answer from commit_pocket_money_interest" };
+}
+
+/**
+ * Add a day's interest to what is pending, as a delta, once per `today`
+ * (`accrue_pocket_money_interest()`). True when it was added now; false when
+ * that day was already accrued.
+ */
+export async function accruePendingInterest(
+  supabase: RpcClient,
+  input: { accountId: string; addCents: number; carryMicros: number; today: string },
+): Promise<{ ok: true; accrued: boolean } | { ok: false; message: string }> {
+  const { data, error } = await supabase.rpc("accrue_pocket_money_interest", {
+    p_account_id: input.accountId,
+    p_add_cents: input.addCents,
+    p_carry_micros: input.carryMicros,
+    p_today: input.today,
+  });
+  if (error) return { ok: false, message: error.message };
+  return { ok: true, accrued: data === true };
+}

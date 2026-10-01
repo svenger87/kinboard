@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { bookPocketMoney, type RpcClient } from "@/lib/pocket-money/booking";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
 
   const { data: accounts, error } = await (supabase as any)
     .from("pocket_money_accounts")
-    .select("id, weekly_allowance_cents, allowance_interval_days, balance_cents, lifetime_saved_cents, last_allowance_at")
+    .select("id, family_id, weekly_allowance_cents, allowance_interval_days, last_allowance_at")
     .eq("allowance_day_of_week", dow)
     .gt("weekly_allowance_cents", 0);
 
@@ -59,26 +60,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { error: txnErr } = await (supabase as any)
-      .from("pocket_money_transactions")
-      .insert({
-        account_id: acct.id,
-        amount_cents: acct.weekly_allowance_cents,
-        type: "allowance",
-        note: intervalDays === 7 ? "Weekly allowance" : `Allowance (every ${intervalDays} days)`,
-      });
-    if (txnErr) {
-      console.error("[cron/process-allowance] txn error:", txnErr);
+    // Booked as a delta (lib/pocket-money/booking.ts): balance and lifetime
+    // move in the same statement that adds the allowance, so a booking made
+    // at the same moment — a withdrawal on the kiosk, an assistant's
+    // approved deposit — is never overwritten by a balance read earlier.
+    const booked = await bookPocketMoney(supabase as unknown as RpcClient, {
+      familyId: acct.family_id,
+      accountId: acct.id,
+      amountCents: acct.weekly_allowance_cents,
+      type: "allowance",
+      note: intervalDays === 7 ? "Weekly allowance" : `Allowance (every ${intervalDays} days)`,
+    });
+    if (!booked.ok) {
+      console.error("[cron/process-allowance] booking error:", booked.error === "failed" ? booked.message : booked.error);
       continue;
     }
 
     const { error: updErr } = await (supabase as any)
       .from("pocket_money_accounts")
-      .update({
-        balance_cents: acct.balance_cents + acct.weekly_allowance_cents,
-        lifetime_saved_cents: acct.lifetime_saved_cents + acct.weekly_allowance_cents,
-        last_allowance_at: new Date().toISOString(),
-      })
+      .update({ last_allowance_at: new Date().toISOString() })
       .eq("id", acct.id);
     if (updErr) {
       // Without `last_allowance_at` written, the next hourly tick

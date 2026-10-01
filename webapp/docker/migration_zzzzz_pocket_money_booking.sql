@@ -22,8 +22,15 @@
 --   { "ok": true, "transaction": {…the row…}, "balance_cents": n }
 --   { "ok": false, "error": "insufficient_funds" }   nothing was written
 --   { "ok": false, "error": "not_found" }            no such account in that family
--- and raises for anything else (a zero amount, an unknown type, a bad goal id),
--- which also writes nothing.
+-- and raises for anything else, which also writes nothing: a zero amount, an
+-- amount whose sign contradicts its type (allowance, manual_deposit and
+-- interest are positive, withdrawal negative, adjustment either), an unknown
+-- type, a goal that is not this account's, a person who is not this family's.
+--
+-- Every balance change goes through it: the session route, the Home Assistant
+-- service, an approved assistant request, an approved withdrawal request, the
+-- allowance cron and — through commit_pocket_money_interest() below — the
+-- interest cron.
 --
 -- SECURITY INVOKER: only the service role calls it (the routes' admin client),
 -- and it has the table rights already. EXECUTE is taken from everyone else.
@@ -53,6 +60,24 @@ DECLARE
 BEGIN
   IF p_amount_cents IS NULL OR p_amount_cents = 0 THEN
     RAISE EXCEPTION 'amount_cents must be non-zero' USING ERRCODE = '22023';
+  END IF;
+  -- Money in is positive, money out negative; only an adjustment goes either way.
+  IF (p_type IN ('allowance', 'manual_deposit', 'interest') AND p_amount_cents < 0)
+     OR (p_type = 'withdrawal' AND p_amount_cents > 0) THEN
+    RAISE EXCEPTION 'amount_cents % does not match type %', p_amount_cents, p_type USING ERRCODE = '22023';
+  END IF;
+  -- A linked goal is one of this account's (binned or not: a withdrawal
+  -- request may point at a goal binned since); a linked person is one of
+  -- this family's.
+  IF p_related_goal_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.pocket_money_goals g
+    WHERE g.id = p_related_goal_id AND g.account_id = p_account_id) THEN
+    RAISE EXCEPTION 'related_goal_id is not a goal of this account' USING ERRCODE = '22023';
+  END IF;
+  IF p_created_by_person_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.people p
+    WHERE p.id = p_created_by_person_id AND p.family_id = p_family_id) THEN
+    RAISE EXCEPTION 'created_by_person_id is not a person of this family' USING ERRCODE = '22023';
   END IF;
 
   UPDATE public.pocket_money_accounts
@@ -85,6 +110,72 @@ $$;
 REVOKE ALL ON FUNCTION public.book_pocket_money(UUID, UUID, INTEGER, TEXT, TEXT, UUID, UUID) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.book_pocket_money(UUID, UUID, INTEGER, TEXT, TEXT, UUID, UUID) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.book_pocket_money(UUID, UUID, INTEGER, TEXT, TEXT, UUID, UUID) TO service_role;
+
+-- Interest, in the same way. accrue adds the day's interest to what is
+-- pending as a delta, once per day (last_accrued_date), and commit moves what
+-- is pending into the balance through book_pocket_money while holding the
+-- account's row lock, then takes exactly that amount off pending. Neither
+-- writes an absolute value it read earlier, so an accrual, a commit and a
+-- booking overlapping on one account each keep their part.
+CREATE OR REPLACE FUNCTION public.accrue_pocket_money_interest(
+  p_account_id UUID,
+  p_add_cents INTEGER,
+  p_carry_micros BIGINT,
+  p_today DATE
+) RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  UPDATE public.pocket_money_accounts
+     SET pending_interest_cents = pending_interest_cents + GREATEST(p_add_cents, 0),
+         pending_interest_micros = p_carry_micros,
+         last_accrued_date = p_today
+   WHERE id = p_account_id
+     AND last_accrued_date IS DISTINCT FROM p_today;
+  RETURN FOUND;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.commit_pocket_money_interest(
+  p_account_id UUID,
+  p_note TEXT DEFAULT 'Daily interest'
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_family UUID;
+  v_pending INTEGER;
+  v_result JSONB;
+BEGIN
+  SELECT family_id, pending_interest_cents INTO v_family, v_pending
+    FROM public.pocket_money_accounts WHERE id = p_account_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'not_found');
+  END IF;
+  IF v_pending <= 0 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'nothing_pending');
+  END IF;
+  v_result := public.book_pocket_money(v_family, p_account_id, v_pending, 'interest', p_note);
+  IF (v_result->>'ok')::BOOLEAN THEN
+    UPDATE public.pocket_money_accounts
+       SET pending_interest_cents = pending_interest_cents - v_pending,
+           interest_committed_at = now()
+     WHERE id = p_account_id;
+  END IF;
+  RETURN v_result || jsonb_build_object('amount_cents', v_pending);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.accrue_pocket_money_interest(UUID, INTEGER, BIGINT, DATE) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.accrue_pocket_money_interest(UUID, INTEGER, BIGINT, DATE) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.accrue_pocket_money_interest(UUID, INTEGER, BIGINT, DATE) TO service_role;
+REVOKE ALL ON FUNCTION public.commit_pocket_money_interest(UUID, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.commit_pocket_money_interest(UUID, TEXT) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.commit_pocket_money_interest(UUID, TEXT) TO service_role;
 
 -- A pocket-money request is described by `data` alone.
 DO $$ BEGIN
