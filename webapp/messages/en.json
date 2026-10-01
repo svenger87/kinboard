@@ -4195,7 +4195,7 @@
     "scope_tasks_write": "Add, tick off, edit and delete tasks",
     "scope_shopping_write": "Add, tick off, rename and delete shopping items",
     "scope_notes_write": "Add, edit and delete notes",
-    "scope_energy_read": "Read the solar sensors set up in Energy",
+    "scope_energy_read": "Read the energy sensors set up in Energy (solar, battery, grid, consumption)",
     "scope_meals_write": "Add and remove meals",
     "scope_announcements_write": "Send a message to your family's screens",
     "scope_home_read": "List your home's cataloged devices and their state",

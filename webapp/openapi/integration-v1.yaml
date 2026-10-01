@@ -121,28 +121,69 @@ paths:
   /energy/current:
     get:
       tags: [state]
-      summary: Read the solar sensors selected in Kinboard's energy settings
+      summary: Read every sensor selected in Kinboard's energy settings
       description: |
-        Returns only the configured solar power and energy-today sensors.
-        No arbitrary Home Assistant entity ID may be supplied by a client.
-        Values may be null when a sensor is unavailable; units are returned
-        exactly as Home Assistant reports them.
+        Returns the household energy sensors configured in Kinboard's energy
+        settings — power, energy today and battery charge — and nothing else.
+        No Home Assistant entity ID may be supplied by a client: IDs come only
+        from the settings, and only `sensor.*` IDs are read; a slot set to any
+        other entity is treated as unset. One `GET /api/states` is filtered
+        down to the configured IDs.
+
+        Keys are the energy settings' field names. A reading is null when its
+        slot is not configured or Home Assistant does not report the sensor;
+        `value` is null when the sensor reports `unavailable`, `unknown` or
+        anything non-numeric. Units are returned exactly as Home Assistant
+        reports them. A combined `battery_power` is positive while charging, a
+        combined `grid_power` positive while importing.
+
+        `solar_power` and `solar_energy_today` at the top level are the
+        original solar-only response, kept unchanged (with `entity_id`) for
+        existing clients; the same readings also appear under `power` and
+        `energy_today`.
       x-required-scope: energy:read
       responses:
         "200":
-          description: Current solar measurements
+          description: Current energy measurements
           content:
             application/json:
               schema:
                 type: object
-                required: [solar_power, solar_energy_today, fetched_at]
+                required: [solar_power, solar_energy_today, power, energy_today, battery_soc, fetched_at]
                 properties:
                   solar_power: { $ref: "#/components/schemas/EnergyReading" }
                   solar_energy_today: { $ref: "#/components/schemas/EnergyReading" }
+                  power:
+                    type: object
+                    description: Power sensors, as Home Assistant reports them (usually W or kW).
+                    required: [solar_power, battery_power, battery_charge_power, battery_discharge_power, grid_power, grid_import_power, grid_export_power, grid_to_battery_power, home_consumption]
+                    properties:
+                      solar_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      battery_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      battery_charge_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      battery_discharge_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_import_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_export_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_to_battery_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      home_consumption: { $ref: "#/components/schemas/EnergySensorReading" }
+                  energy_today:
+                    type: object
+                    description: Energy so far today (usually kWh).
+                    required: [solar_energy_today, battery_energy_in, battery_energy_out, grid_import, grid_export, grid_to_battery_energy]
+                    properties:
+                      solar_energy_today: { $ref: "#/components/schemas/EnergySensorReading" }
+                      battery_energy_in: { $ref: "#/components/schemas/EnergySensorReading" }
+                      battery_energy_out: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_import: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_export: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_to_battery_energy: { $ref: "#/components/schemas/EnergySensorReading" }
+                  battery_soc:
+                    $ref: "#/components/schemas/EnergySensorReading"
                   fetched_at: { type: string, format: date-time }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "429": { $ref: "#/components/responses/RateLimited" }
-        "404": { description: "Energy or its solar sensors are not configured. Retrying will not help until they are." }
+        "404": { description: "Energy, or every one of its sensors, is not configured. Retrying will not help until they are." }
         "502": { description: Home Assistant could not be reached. }
 
   /home/devices:
@@ -1973,6 +2014,15 @@ components:
         unit: { type: [string, "null"] }
         entity_id: { type: string }
         observed_at: { type: [string, "null"], format: date-time }
+
+    EnergySensorReading:
+      type: [object, "null"]
+      description: Null when the slot is not configured or Home Assistant does not report the sensor.
+      required: [value, unit, observed_at]
+      properties:
+        value: { type: [number, "null"], description: "Null when the sensor reports unavailable, unknown or a non-number." }
+        unit: { type: [string, "null"] }
+        observed_at: { type: [string, "null"], format: date-time, description: "Home Assistant's last_updated for the sensor." }
 
     HomeDevice:
       type: object

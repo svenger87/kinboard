@@ -77,6 +77,7 @@ export const TOOL_SCOPES = {
   remove_meal: "meals:write",
   send_message: "announcements:write",
   get_solar_production: "energy:read",
+  get_energy_status: "energy:read",
   list_home_devices: "home:read",
   get_device_state: "home:read",
   control_device: "home:control",
@@ -410,6 +411,8 @@ export function createKinboardMcpServer(
     z.object({ meal_id: z.uuid() }), editAction,
     ({ meal_id }) => call(removeMealRoute, { path: `/meals/${meal_id}`, params: { id: meal_id }, method: "DELETE" }));
   register("get_solar_production", "Read current solar power and today's solar energy from the sensors configured in Kinboard. Report units and observed_at; null means unavailable. No arbitrary Home Assistant entities are accessible.", z.object({}), readOnly,
+    () => call(energy, { path: "/energy/current" }));
+  register("get_energy_status", "Read the household's energy picture from Kinboard's configured household energy sensors — only the sensors chosen in Kinboard's energy settings, never other Home Assistant entities. power holds watts for solar_power, battery_power, battery_charge_power, battery_discharge_power, grid_power, grid_import_power, grid_export_power, grid_to_battery_power and home_consumption (combined battery_power is positive when charging, combined grid_power positive when importing); energy_today holds today's kWh for solar_energy_today, battery_energy_in, battery_energy_out, grid_import, grid_export and grid_to_battery_energy; battery_soc is the battery's charge in percent. Each is { value, unit, observed_at }: report the unit Home Assistant gave and how old observed_at is. null means the sensor is not configured or not reporting; value null means it is unavailable right now.", z.object({}), readOnly,
     () => call(energy, { path: "/energy/current" }));
   register("list_vehicles", "Read the charge level, range and charging status of the family's cars: battery_level_pct, range with range_unit, charging, charging_state, plugged_in, charge_limit_pct, minutes_to_full, charger_power_kw, plus inside/outside temperature, locked, doors_open, windows_open and odometer where the car reports them. Values come from Home Assistant and may be a few minutes old — say when, using observed_at. null means no reading. A car with available false could not be read; reason says why (for example home_assistant_unavailable or not_configured). No location is ever returned.", z.object({}), readOnly,
     () => call(vehicles, { path: "/vehicles" }));

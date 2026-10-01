@@ -164,6 +164,7 @@ it — assistants always go through the confirmation.
 |---|---|
 | `send_message` | Put text on every Kinboard screen and push it to every phone, marked "via" the assistant's name — at most 5 messages per 10 minutes per assistant connection |
 | `get_solar_production` | Current solar power and today's solar energy, from the sensors set up under Energy |
+| `get_energy_status` | The whole energy picture from the sensors set up under Energy: solar, battery, grid and home power right now, today's energy in and out, and the battery's charge |
 
 ### Home
 
@@ -192,7 +193,7 @@ it — assistants always go through the confirmation.
 | `notes:write` | add, edit and delete notes, and bring them back from the recycle bin |
 | `meals:write` | add and remove meal plan entries, and bring them back from the recycle bin |
 | `announcements:write` | send a message to the family's screens |
-| `energy:read` | read the solar sensors set up under Energy |
+| `energy:read` | read the energy sensors set up under Energy (solar, battery, grid, consumption) |
 | `home:read` | list the home catalogue and read a device's state |
 | `home:control` | control catalogue devices — grant `home:read` too if the assistant should also be able to look before it acts |
 | `vehicles:read` | read the cars' charge level, range and charging status — never their location |

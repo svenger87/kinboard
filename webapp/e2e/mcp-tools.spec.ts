@@ -1269,6 +1269,33 @@ test.describe("birthday tools", () => {
   });
 });
 
+test.describe("energy", () => {
+  test("get_energy_status reads /energy/current with energy:read and is read-only", async () => {
+    const { server, calls } = buildServer(["energy:read"], () => ({ power: {}, energy_today: {}, battery_soc: null }));
+    const t = tool(server, "get_energy_status");
+    expect(t.annotations).toMatchObject({ readOnlyHint: true });
+    expect(TOOL_SCOPES.get_energy_status).toBe("energy:read");
+    await t.handler({});
+    expect(calls).toEqual([{ path: "/energy/current" }]);
+    const description = (registeredTools(server).get_energy_status as unknown as { description: string }).description;
+    expect(description).toContain("Kinboard's configured household energy sensors");
+  });
+
+  test("get_solar_production is still there", async () => {
+    const { server, calls } = buildServer(["energy:read"], () => ({ solar_power: null }));
+    expect(TOOL_SCOPES.get_solar_production).toBe("energy:read");
+    await tool(server, "get_solar_production").handler({});
+    expect(calls).toEqual([{ path: "/energy/current" }]);
+  });
+
+  test("get_energy_status needs energy:read — home:read does not do", async () => {
+    const { server, calls } = buildServer(["home:read", "family:read"]);
+    const result = await tool(server, "get_energy_status").handler({});
+    expect(result.isError).toBe(true);
+    expect(calls).toEqual([]);
+  });
+});
+
 test.describe("pocket money", () => {
   const ENNO = "eeeeeeee-eeee-4eee-8eee-000000000001";
 
