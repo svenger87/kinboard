@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { BRING_API_URL, BRING_API_KEY, addBringListItem } from "@/lib/bring-server";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +13,6 @@ interface BringSettings {
     accessToken: string;
   } | null;
 }
-
-const BRING_API_URL = "https://api.getbring.com/rest/v2";
-const BRING_API_KEY = "cof4Nc6D8saplXjE3h3HXqHH8m7VU2i1Gs0g85Sp";
 
 interface BringItem {
   name: string;
@@ -135,7 +133,6 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    const authHeader = `Bearer ${credentials.accessToken}`;
 
     if (!listId || !itemName) {
       return NextResponse.json(
@@ -145,26 +142,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Add item to list
-    const response = await fetch(`${BRING_API_URL}/bringlists/${listId}`, {
-      method: "PUT",
-      headers: {
-        Authorization: authHeader,
-        "Content-Type": "application/x-www-form-urlencoded",
-        "X-BRING-API-KEY": BRING_API_KEY,
-        "X-BRING-CLIENT": "webApp",
-        "X-BRING-CLIENT-SOURCE": "webApp",
-        "X-BRING-COUNTRY": "DE",
-      },
-      body: new URLSearchParams({
-        uuid: listId,
-        purchase: itemName,
-        specification: specification || "",
-      }),
+    await addBringListItem({
+      accessToken: credentials.accessToken,
+      listId,
+      itemName,
+      specification,
     });
-
-    if (!response.ok) {
-      throw new Error(`Failed to add item: ${response.status}`);
-    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

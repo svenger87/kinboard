@@ -72,9 +72,13 @@ test.describe("adopt Bring! categories", () => {
   });
 
   test("the route honours it and defaults to on", () => {
-    const source = src("app", "api", "catalog", "search", "route.ts");
-    expect(source).toContain('searchParams.get("bring_categories") !== "0"');
-    expect(source).toContain("useBringCategories = true");
-    expect(source).toContain("mapBringSectionToCategory(r.item.sectionName, r.item.name, useBringCategories)");
+    // The route reads the flag; the search itself lives in lib/catalog-search.ts
+    // so the Integration API can run it without an HTTP round trip.
+    const route = src("app", "api", "catalog", "search", "route.ts");
+    expect(route).toContain('searchParams.get("bring_categories") !== "0"');
+    expect(route).toContain("searchCatalog({ query, familyId, limit, useBringCategories })");
+    const lib = src("lib", "catalog-search.ts");
+    expect(lib).toContain("useBringCategories = true");
+    expect(lib).toContain("mapBringSectionToCategory(r.item.sectionName, r.item.name, useBringCategories)");
   });
 });

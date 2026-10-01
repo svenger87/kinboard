@@ -18,6 +18,7 @@ import {
   storeResult,
   validateIdempotencyKey,
 } from "@/lib/integration-idempotency";
+import { addShoppingItemFromText } from "@/lib/shopping-enrich";
 
 export const dynamic = "force-dynamic";
 
@@ -132,6 +133,25 @@ export async function POST(
     }
 
     try {
+      // A shopping item gets what the shopping page gives a typed one:
+      // quantity and unit parsed out, a category, a catalogue picture and,
+      // with two-way sync on, a copy on Bring!. The stored name is the parsed
+      // one ("2 kg Bananen" is stored as "Bananen", 2 kg), and the answer
+      // reports what was stored.
+      if (list === "shopping") {
+        const { id, item } = await addShoppingItemFromText(context.familyId, summary);
+        const response = { id, summary: item.name, status: "needs_action", due: due.value };
+        await storeResult({
+          familyId: context.familyId,
+          key: key.key,
+          service: `lists/${list}`,
+          requestHash,
+          status: 201,
+          response,
+        });
+        return NextResponse.json(response, { status: 201 });
+      }
+
       const supabase = createAdminClient();
       const row: Record<string, unknown> = {
         family_id: context.familyId,

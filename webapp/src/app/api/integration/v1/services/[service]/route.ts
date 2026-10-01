@@ -9,6 +9,7 @@ import {
   storeResult,
   validateIdempotencyKey,
 } from "@/lib/integration-idempotency";
+import { addShoppingItemFromText } from "@/lib/shopping-enrich";
 
 export const dynamic = "force-dynamic";
 
@@ -57,16 +58,11 @@ const SERVICES: Record<string, ServiceDef> = {
         return { status: 400, response: { error: "`name` is required", code: "invalid_request" } };
       }
 
-      const supabase = createAdminClient();
-
-      const { data, error } = await (supabase as any)
-        .from("shopping_items")
-        .insert({ family_id: familyId, name })
-        .select("id")
-        .single();
-
-      if (error) throw error;
-      return { status: 201, response: { id: data.id, name } };
+      // Parsed, categorised, pictured and pushed to Bring! the way the
+      // shopping page does it (lib/shopping-enrich.ts); `name` in the answer
+      // is the name as stored.
+      const { id, item } = await addShoppingItemFromText(familyId, name);
+      return { status: 201, response: { id, name: item.name } };
     },
   },
 
