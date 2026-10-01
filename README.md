@@ -200,8 +200,11 @@ items cannot create tasks, and a read-only token cannot write at all.
 
 ### AI assistants
 
-Claude and ChatGPT can read the family's calendar, tasks, notes and shopping
-list, and add to them, through Kinboard's built-in MCP endpoint. Add
+Claude and ChatGPT can read the family's calendar, tasks, notes, meal plan
+and shopping list, add to and edit them, and control devices in a
+Home Assistant catalogue the family sets up — anything beyond the plainly
+harmless waits for a family member to confirm it on a Kinboard screen or
+phone — through Kinboard's built-in MCP endpoint. Add
 `https://<your-kinboard>/api/mcp` as a custom connector — after switching on
 **Allow AI assistants** under Settings → Integrations — and approve the
 request Kinboard shows you. See [AI assistants](https://github.com/svenger87/kinboard/wiki/AI-Assistants).

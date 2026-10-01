@@ -163,14 +163,18 @@ process** with the caller's own bearer token. Scope checks, family scoping, rate
 limits, idempotency and error codes are therefore the Integration API's, not a
 second copy. Tool set and scopes are unchanged from the WIP gateway
 (`family:read`, `notes:read`, `calendar:write`, `tasks:write`, `shopping:write`,
-`notes:write`, `energy:read`).
+`notes:write`, `energy:read`). RFC-011 later grows this considerably —
+editing and deleting, meal planning, messaging the screens, and Home
+Assistant actuation — superseding this paragraph.
 
 ## 4. Threat notes (against RFC-002)
 
 - This is the first path by which something outside the house acts inside it.
   RFC-002 §6's "never" list holds: **no actuation**. No tool reaches Home
   Assistant services, locks, alarms or presence; `energy:read` reads two
-  configured sensors only.
+  configured sensors only. RFC-011 later lifts this, for devices in a
+  household-built catalogue and behind PIN confirmation for sensitive
+  actions — superseding this bullet.
 - The new anonymous surface is: metadata (static), DCR (rate-limited, writes a
   bounded row), authorize (validates, writes a 10-minute pending row), token
   (rate-limited). It exists only once a family has switched on **Allow AI

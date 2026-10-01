@@ -101,12 +101,21 @@ Write scopes cover create, edit and delete of their own kind — the rule the
    assumes °C; households running Home Assistant in °F are a known limitation.
 3. **Confirmation for sensitive actions.** `control_device` stores a pending
    request (expires after **2 minutes**) and returns `pending_confirmation`
-   with an id. Every Kinboard screen shows it at once (realtime), and every
-   phone with push enabled gets a notification that opens it. A family member
-   approves with the **settings PIN** (same rate-limited check as everywhere);
-   the server then runs the action exactly as stored and records the result.
-   Deny, expiry, or a revoked assistant all end it without running anything.
-   The assistant learns the outcome with `get_action_status`.
+   with an id, unless the family has no settings PIN — then nothing is
+   stored and the error says a PIN is needed, since nobody could approve it
+   anyway. Otherwise the prompt is mounted globally, on every authenticated
+   page of a joined device (not only the dashboard) and over the
+   screensaver, so a screen on another page does not miss a request inside
+   the 2-minute window; every phone with push enabled also gets a
+   notification that opens it. **Approving** needs the **settings PIN**
+   (same rate-limited check as everywhere). **Denying** needs no PIN —
+   refusing is always safe, and anyone at a screen must be able to stop an
+   unexpected unlock. Approval re-checks that the assistant is still
+   connected and the entity is still in the family's catalogue before
+   running anything; only then does the server run the action exactly as
+   stored and record the result. Expiry or a revoked assistant also end a
+   request without running anything. The assistant learns the outcome with
+   `get_action_status`.
 4. **Fail closed.** No Home Assistant configured, catalogue unreadable, state
    unreadable (for the garage check), PIN unreadable → refused, never "assumed
    safe".
@@ -128,8 +137,8 @@ soft-delete; events and shopping items do not, by earlier design.
   can edit or purge binned rows. Both are fixed: recurring completion writes
   `last_completed_day` in the family's time zone, and binned rows are invisible.
 - `/api/google/events` `PATCH` and `DELETE` look the event up by id with **no
-  family check** (present on `main`). Fixed here, and worth a separate fix on
-  `main` before this branch lands.
+  family check** (present on `main`). Fixed on `main` in PR #302, not on this
+  branch — this branch picks the fix up once it is rebased onto `main`.
 - The session route `/api/homeassistant/services` validates neither domain nor
   service. Out of scope here (it serves the household's own screens), noted.
 
@@ -144,8 +153,15 @@ soft-delete; events and shopping items do not, by earlier design.
   can do without a human is non-sensitive device control and edits/deletes that
   the recycle bin (tasks, notes) or provider history (calendar) can recover;
   door, alarm and garage actions need the PIN on a household device.
-- Every action is attributable: domain events and the request table carry the
-  token, and the Settings list shows each assistant connection.
+- Every action is attributable: `assistant_action_requests` carries the
+  token for a sensitive action's confirmation *and* for an action that ran
+  immediately (a `done`/`failed` row is written after the fact, with no
+  screen ever shown), and the Settings list shows each assistant connection.
+- `send_message` has its own budget on top of the Integration API's generic
+  per-token write limit: at most **5 messages per 10 minutes per assistant
+  connection**, 429 `rate_limited` past it. A message interrupts whoever is
+  looking at a screen in every room at once, so even a token doing exactly
+  what it was asked can be too loud.
 
 ## 8. Compatibility
 
