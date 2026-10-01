@@ -73,6 +73,44 @@ test.describe("rows become to-do items", () => {
     expect(item).toEqual({ id: "b", summary: "Müll", status: "completed", due: "2026-08-09" });
   });
 
+  test("a recurring task done today reads completed — 'today' in the family's time zone", () => {
+    const row = { id: "r", title: "Hoover", completed: false, recurrence: "daily", due_date: null, created_at: "2026-09-01T08:00:00Z" };
+    // Done at 01:30 Berlin on 2 Oct (23:30 UTC on 1 Oct); asked at 10:00 Berlin on 2 Oct.
+    const done = { ...row, last_completed: "2026-10-01T23:30:00Z" };
+    const now = new Date("2026-10-02T08:00:00Z");
+    expect(toListItem(LISTS.tasks, done, { now, timeZone: "Europe/Berlin" }).status).toBe("completed");
+    // In UTC that was yesterday, so it would be due again — the zone matters.
+    expect(toListItem(LISTS.tasks, done, { now, timeZone: "UTC" }).status).toBe("needs_action");
+    // Done yesterday, or never: due.
+    expect(toListItem(LISTS.tasks, { ...row, last_completed: "2026-10-01T06:00:00Z" }, { now, timeZone: "Europe/Berlin" }).status)
+      .toBe("needs_action");
+    expect(toListItem(LISTS.tasks, { ...row, last_completed: null }, { now, timeZone: "Europe/Berlin" }).status).toBe("needs_action");
+  });
+
+  test("a weekly task done three days ago is still completed", () => {
+    const row = { id: "w", title: "Bins", completed: false, recurrence: "weekly", last_completed: "2026-09-29T09:00:00Z" };
+    expect(toListItem(LISTS.tasks, row, { now: new Date("2026-10-02T09:00:00Z"), timeZone: "Europe/Berlin" }).status).toBe("completed");
+    expect(toListItem(LISTS.tasks, row, { now: new Date("2026-10-06T09:00:00Z"), timeZone: "Europe/Berlin" }).status).toBe("needs_action");
+  });
+
+  test("custom days (#301): done on Monday, completed on Tuesday, due again on Wednesday", () => {
+    // 2026-10-05 is a Monday.
+    const row = { id: "d", title: "Lunchbox", completed: false, recurrence: "days:MO,WE,FR", last_completed: "2026-10-05T07:00:00Z", created_at: "2026-09-01T08:00:00Z" };
+    const at = (iso: string) => ({ now: new Date(iso), timeZone: "Europe/Berlin" });
+    expect(toListItem(LISTS.tasks, row, at("2026-10-05T18:00:00Z")).status).toBe("completed");
+    expect(toListItem(LISTS.tasks, row, at("2026-10-06T09:00:00Z")).status).toBe("completed");
+    expect(toListItem(LISTS.tasks, row, at("2026-10-07T09:00:00Z")).status).toBe("needs_action");
+  });
+
+  test("a one-off task (no recurrence, or 'once') reads its completed column, as before", () => {
+    const at = { now: new Date("2026-10-02T08:00:00Z"), timeZone: "Europe/Berlin" };
+    expect(toListItem(LISTS.tasks, { id: "o", title: "X", completed: false, recurrence: null }, at).status).toBe("needs_action");
+    expect(toListItem(LISTS.tasks, { id: "o", title: "X", completed: true, recurrence: "once" }, at).status).toBe("completed");
+    // Shopping never derives: recurrence keys on a shopping row mean nothing.
+    expect(toListItem(LISTS.shopping, { id: "s", name: "Milk", checked: false, recurrence: "daily", last_completed: "2026-10-02T07:00:00Z" }, at).status)
+      .toBe("needs_action");
+  });
+
   test("a shopping row never reports a due date", () => {
     // Even if something put one there, the list has no such column.
     expect(toListItem(LISTS.shopping, { id: "a", name: "X", checked: false, due_date: "2026-01-01" }).due)

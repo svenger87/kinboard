@@ -19,6 +19,8 @@
  *   - Only todos carry a due date.
  */
 
+import { isRecurring, isTodoOpen } from "@/lib/todo-recurrence";
+
 export type ListId = "shopping" | "tasks";
 
 export interface ListDef {
@@ -66,18 +68,39 @@ export interface ListItem {
   due: string | null;
 }
 
+/** The extra todo columns a recurring task's status is derived from. */
+export const RECURRENCE_COLUMNS = ["recurrence", "last_completed", "created_at"] as const;
+
 /**
  * Map a database row to the wire shape.
  *
  * `checked` is nullable on shopping_items with a default of false, so "done"
  * is `=== true` rather than truthiness — a null must read as needing action,
  * not as an unknown third state.
+ *
+ * A recurring task is never `completed` in the table — ticking it writes
+ * `last_completed` and it comes round again (lib/todo-recurrence.ts). Its
+ * status is therefore derived, the way the task list derives it: done until
+ * it is due again, judged by `today` in the family's time zone (`at`).
  */
-export function toListItem(def: ListDef, row: Record<string, unknown>): ListItem {
+export function toListItem(
+  def: ListDef,
+  row: Record<string, unknown>,
+  at: { now: Date; timeZone: string | null } = { now: new Date(), timeZone: null },
+): ListItem {
+  const task = {
+    completed: row[def.doneColumn] === true,
+    recurrence: (row.recurrence as string | null | undefined) ?? null,
+    last_completed: (row.last_completed as string | null | undefined) ?? null,
+    created_at: (row.created_at as string | null | undefined) ?? null,
+  };
+  const done = def.table === "todos" && isRecurring(task)
+    ? !isTodoOpen(task, at.now, at.timeZone)
+    : task.completed;
   return {
     id: String(row.id),
     summary: String(row[def.titleColumn] ?? ""),
-    status: row[def.doneColumn] === true ? "completed" : "needs_action",
+    status: done ? "completed" : "needs_action",
     due: def.dueColumn ? ((row[def.dueColumn] as string | null) ?? null) : null,
   };
 }

@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { createAdminClient } from "@/lib/supabase/server";
 import { logApiError } from "@/lib/api-error";
+import { familyTimeZone } from "@/lib/family-time";
 import {
   LISTS,
+  RECURRENCE_COLUMNS,
   isListId,
   itemDue,
   itemSummary,
@@ -45,7 +47,7 @@ export async function GET(
     const def = LISTS[list];
     const supabase = createAdminClient();
 
-    const columns = ["id", def.titleColumn, def.doneColumn, def.dueColumn]
+    const columns = ["id", def.titleColumn, def.doneColumn, def.dueColumn, ...(list === "tasks" ? RECURRENCE_COLUMNS : [])]
       .filter(Boolean)
       .join(", ");
 
@@ -65,7 +67,9 @@ export async function GET(
       return NextResponse.json({ error: "Could not read the list", code: "internal_error" }, { status: 500 });
     }
 
-    const items: ListItem[] = ((data ?? []) as Record<string, unknown>[]).map((r) => toListItem(def, r));
+    // A recurring task's status depends on what "today" is for the family.
+    const at = { now: new Date(), timeZone: list === "tasks" ? await familyTimeZone(context.familyId) : null };
+    const items: ListItem[] = ((data ?? []) as Record<string, unknown>[]).map((r) => toListItem(def, r, at));
     return NextResponse.json({ list, items });
   });
 }
