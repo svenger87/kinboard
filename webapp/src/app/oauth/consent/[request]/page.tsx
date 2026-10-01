@@ -17,7 +17,10 @@ interface ConsentDetails {
   clientHost: string | null;
   redirectHost: string;
   loopbackOnly: boolean;
+  /** What the assistant asked for; offered ticked. */
   scopes: string[];
+  /** Every other assistant scope; offered unticked. Absent from a server older than this page. */
+  available?: string[];
   pinSet: boolean;
 }
 
@@ -109,6 +112,20 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
     return <main className="mx-auto max-w-lg p-4"><Card className="p-6">{message}</Card></main>;
   }
 
+  const available = (data.available ?? []).filter((s) => !data.scopes.includes(s));
+  const scopeRow = (scope: string) => (
+    <div key={scope} className="flex items-center gap-2">
+      <Checkbox
+        id={`scope-${scope}`}
+        checked={selected.includes(scope)}
+        onCheckedChange={() =>
+          setGranted(selected.includes(scope) ? selected.filter((s) => s !== scope) : [...selected, scope])
+        }
+      />
+      <Label htmlFor={`scope-${scope}`} className="font-normal">{t(`scope_${scope.replace(":", "_")}`)}</Label>
+    </div>
+  );
+
   const approveDisabled =
     busy || selected.length === 0 || (settingNewPin ? !newPinsValid : !existingPinValid);
 
@@ -128,19 +145,19 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
 
         <fieldset className="space-y-2">
           <legend className="mb-2 text-sm font-medium">{t("scopesHeading")}</legend>
-          {data.scopes.map((scope) => (
-            <div key={scope} className="flex items-center gap-2">
-              <Checkbox
-                id={`scope-${scope}`}
-                checked={selected.includes(scope)}
-                onCheckedChange={() =>
-                  setGranted(selected.includes(scope) ? selected.filter((s) => s !== scope) : [...selected, scope])
-                }
-              />
-              <Label htmlFor={`scope-${scope}`} className="font-normal">{t(`scope_${scope.replace(":", "_")}`)}</Label>
-            </div>
-          ))}
+          {data.scopes.map(scopeRow)}
         </fieldset>
+
+        {/* Permissions Kinboard added after this assistant was set up: a
+            client that replays its cached scope list never asks for them.
+            Unticked — the user opts in to each one. */}
+        {available.length > 0 && (
+          <fieldset className="space-y-2" data-testid="consent-available-scopes">
+            <legend className="mb-1 text-sm font-medium">{t("availableHeading", { client: data.clientName })}</legend>
+            <p className="pb-1 text-xs text-muted-foreground">{t("availableHint")}</p>
+            {available.map(scopeRow)}
+          </fieldset>
+        )}
 
         {settingNewPin ? (
           <div className="space-y-3">

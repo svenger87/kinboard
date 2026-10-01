@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { isValidCodeChallenge, verifyPkceS256 } from "../src/lib/oauth/pkce";
 import { buildRedirect, isAcceptableRedirectUri, isLoopbackRedirect, redirectUriMatches } from "../src/lib/oauth/redirect";
-import { narrowScopes, parseRequestedScopes } from "../src/lib/oauth/scopes";
+import { grantableScopes, parseRequestedScopes, stepUpScopes, unrequestedScopes } from "../src/lib/oauth/scopes";
 import { MCP_SCOPES } from "../src/lib/oauth/config";
 
 test.describe("PKCE S256", () => {
@@ -63,7 +63,19 @@ test.describe("scopes", () => {
     expect(parseRequestedScopes("openid offline_access tasks:write family:read admin")).toEqual(["family:read", "tasks:write"]);
   });
   test("only unknown scopes yields nothing", () => expect(parseRequestedScopes("openid email")).toEqual([]));
-  test("the user may grant fewer, never more", () => {
-    expect(narrowScopes(["family:read", "tasks:write"], ["tasks:write", "energy:read", 7])).toEqual(["tasks:write"]);
+  test("the user may grant any assistant scope, requested or not, and nothing else", () => {
+    // energy:read was not requested but is an assistant scope; events:read is
+    // an Integration API scope no assistant is given; the rest are not scopes.
+    expect(grantableScopes(["vehicles:read", "tasks:write", "energy:read", "events:read", "admin", "openid", 7, null, ["family:read"]]))
+      .toEqual(["tasks:write", "energy:read", "vehicles:read"]);
+    expect(grantableScopes(["events:read", "*", "family:read "])).toEqual([]);
+  });
+  test("what was not requested is offered, in MCP_SCOPES order", () => {
+    expect(unrequestedScopes(["family:read", "tasks:write"])).toEqual(MCP_SCOPES.filter((s) => s !== "family:read" && s !== "tasks:write"));
+    expect(unrequestedScopes([...MCP_SCOPES])).toEqual([]);
+  });
+  test("a step-up challenge names what the token holds plus what it needs", () => {
+    expect(stepUpScopes(["tasks:write", "family:read", "events:read"], ["vehicles:read"])).toEqual(["family:read", "tasks:write", "vehicles:read"]);
+    expect(stepUpScopes([], ["home:control", "pocket_money:write"])).toEqual(["home:control", "pocket_money:write"]);
   });
 });

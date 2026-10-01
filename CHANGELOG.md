@@ -20,6 +20,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Connecting an assistant offers permissions it didn't ask for.** ChatGPT and other assistants can keep asking for the permissions they knew about when they were first added, so a reconnect never picked up a newer one such as reading the car's charge level. The Kinboard page that opens when you connect now also lists every other permission, unticked, under "Also available"; tick any you want the assistant to have, and confirm with the settings PIN as before.
+
 - **Operators: restart realtime and refresh the screens after deploying this.** The assistant confirmations gain a column on a table that live updates stream, and the realtime container only picks up the new row shape when it restarts: `docker compose restart realtime`. Then reload every household screen, or leave them idle until they update themselves, before an assistant asks for its first pocket-money booking. A screen still on the previous version cannot describe a pocket-money request — it shows a generic line with no amount or child — while still offering the PIN field, and what you approve should always be what you read.
 
 - **`notes:write` now also covers editing and deleting notes.** Until now it only allowed adding them. An existing Home Assistant token that holds it can therefore edit and delete notes through the Integration API, which matches what `tasks:write` and `shopping:write` already allowed. The Home Assistant integration itself has no edit tools.

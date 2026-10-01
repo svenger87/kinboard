@@ -1,6 +1,6 @@
 import { CODE_TTL_S, type McpScope } from "@/lib/oauth/config";
 import { buildRedirect } from "@/lib/oauth/redirect";
-import { narrowScopes } from "@/lib/oauth/scopes";
+import { grantableScopes } from "@/lib/oauth/scopes";
 import { PIN_FORMAT } from "@/lib/settings-pin";
 import type { AuthRequest } from "@/lib/oauth/types";
 
@@ -39,7 +39,8 @@ export interface ConsentInput {
  *
  * Check order, unchanged from before this was factored out: decision →
  * PIN (verify an existing one, or validate a new one's format when the
- * family has none yet) → scopes non-empty → store the new PIN, if any →
+ * family has none yet) → scopes non-empty (any assistant scope the user
+ * ticked, requested or not; anything else is dropped) → store the new PIN, if any →
  * mint and record the code. Scopes are checked before a new PIN is stored
  * so a request that was going to fail anyway never has the side effect of
  * setting a PIN nobody confirmed they wanted.
@@ -76,7 +77,10 @@ export async function decideConsent(deps: ConsentDeps, input: ConsentInput): Pro
     if (!PIN_FORMAT.test(pinToSet)) return { status: 400, error: "new_pin_invalid" };
   }
 
-  const granted = narrowScopes(r.scopes, Array.isArray(scopes) ? scopes : []);
+  // Any assistant scope, not only the requested ones: the page also offers
+  // those the client did not ask for (unrequestedScopes), unticked. The
+  // user ticked each one, and the PIN above has already been checked.
+  const granted = grantableScopes(Array.isArray(scopes) ? scopes : []);
   if (granted.length === 0) return { status: 400, error: "no_scopes" };
 
   if (pinToSet !== null && !(await deps.setPinIfAbsent(familyId, pinToSet))) {

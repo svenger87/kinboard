@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "child_process";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { dbContainer } from "./whole-database";
+import { MCP_SCOPES } from "../src/lib/oauth/config";
 
 /**
  * The whole assistant connection against a running server: DCR, authorize,
@@ -120,7 +121,13 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
 
   const details = await api.get(`/api/oauth/consent?request=${requestId}`);
   // A DCR client named itself: the page must not vouch for it.
-  expect(await details.json()).toMatchObject({ clientName: "claude-flow-test", verified: false, clientHost: null, scopes: ["family:read", "calendar:write", "tasks:write"], loopbackOnly: true, pinSet: hasPin });
+  const detailsBody = await details.json();
+  expect(detailsBody).toMatchObject({ clientName: "claude-flow-test", verified: false, clientHost: null, scopes: ["family:read", "calendar:write", "tasks:write"], loopbackOnly: true, pinSet: hasPin });
+  // Everything else an assistant can be given is offered too, for the page
+  // to show unticked: a client replaying an old scope list never asks.
+  expect(detailsBody.available).toContain("vehicles:read");
+  expect(detailsBody.available).not.toContain("family:read");
+  expect([...detailsBody.scopes, ...detailsBody.available].sort()).toEqual([...MCP_SCOPES].sort());
 
   // A same-origin-page POST never carries a different Origin. One present
   // and different means the request didn't come from the consent page,
@@ -145,8 +152,19 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
     expect(psql(`SELECT count(*) FROM integration_secrets WHERE family_id = '${familyId}' AND key = 'settings_pin'`)).toBe("0");
   }
 
+  // Ticking something no assistant can be given grants nothing: an
+  // Integration API scope (events:read) and made-up ones are dropped, and
+  // with nothing left the approval is refused.
+  const unsupported = await api.post("/api/oauth/consent", {
+    data: { request: requestId, decision: "approve", scopes: ["events:read", "admin", "*"], ...(hasPin ? { pin: process.env.SETTINGS_PIN } : { newPin: "4826" }) },
+  });
+  expect(unsupported.status()).toBe(400);
+  expect((await unsupported.json()).error).toBe("no_scopes");
+
   const consent = await api.post("/api/oauth/consent", {
-    data: { request: requestId, decision: "approve", scopes: ["family:read", "calendar:write"], ...(hasPin ? { pin: process.env.SETTINGS_PIN } : { newPin: "4826" }) },
+    // vehicles:read was not requested: the family ticked it in the "also
+    // available" section. events:read rides along and must be dropped.
+    data: { request: requestId, decision: "approve", scopes: ["family:read", "calendar:write", "vehicles:read", "events:read"], ...(hasPin ? { pin: process.env.SETTINGS_PIN } : { newPin: "4826" }) },
   });
   expect(consent.status(), await consent.text()).toBe(200);
   if (!hasPin) pinCreated = true;
@@ -158,7 +176,8 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
     form: { grant_type: "authorization_code", code: redirect.searchParams.get("code")!, code_verifier: verifier, client_id: clientId, redirect_uri: redirectUri },
   });
   const tokens = await exchange.json();
-  expect(tokens).toMatchObject({ token_type: "Bearer", scope: "family:read calendar:write" });
+  // The granted set, not the requested one (RFC 6749 §5.1).
+  expect(tokens).toMatchObject({ token_type: "Bearer", scope: "family:read calendar:write vehicles:read" });
 
   const client = new Client({ name: "kinboard-flow-test", version: "1.0.0" });
   await client.connect(new StreamableHTTPClientTransport(new URL(`${BASE}/api/mcp`), { requestInit: { headers: { authorization: `Bearer ${tokens.access_token}` } } }));
@@ -166,6 +185,10 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
   expect(tools.map((t) => t.name)).toContain("list_tasks");
   const listed = await client.callTool({ name: "list_tasks", arguments: {} });
   expect(listed.isError).toBeFalsy();
+  // The unrequested scope reached the token: the tool is not refused for
+  // scope (it may still say Home Assistant is not set up).
+  const vehicles = await client.callTool({ name: "list_vehicles", arguments: {} });
+  expect(JSON.stringify(vehicles.content)).not.toContain("authorization is required");
   const denied = await client.callTool({ name: "create_task", arguments: { title: "should not exist" } });
   expect(denied.isError).toBe(true); // tasks:write was requested but not granted
 
@@ -188,6 +211,8 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
 
   const refreshed = await (await api.post("/api/oauth/token", { form: { grant_type: "refresh_token", refresh_token: tokens.refresh_token, client_id: clientId } })).json();
   expect(refreshed.access_token).toBeTruthy();
+  expect(refreshed.scope).toBe("family:read calendar:write vehicles:read");
+  expect(psql(`SELECT array_to_string(scopes, ' ') FROM integration_tokens WHERE oauth_client_id = '${clientId}'`)).toBe("family:read calendar:write vehicles:read");
   const replay = await api.post("/api/oauth/token", { form: { grant_type: "refresh_token", refresh_token: tokens.refresh_token, client_id: clientId } });
   expect((await replay.json()).error).toBe("invalid_grant");
 

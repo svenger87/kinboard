@@ -4235,6 +4235,8 @@
     "intro": "{client} möchte auf das Kinboard dieser Familie zugreifen. Nach der Freigabe geht es zurück zu {host}.",
     "loopbackWarning": "Diese Verbindung führt zu einem Programm auf deinem eigenen Computer. Gib sie nur frei, wenn du sie gerade selbst gestartet hast.",
     "scopesHeading": "Erlaubt wird…",
+    "availableHeading": "Ebenfalls möglich — {client} hat nicht danach gefragt",
+    "availableHint": "Kinboard hat diese Berechtigungen hinzugefügt, seit dieser Assistent eingerichtet wurde. Hake an, was er dürfen soll.",
     "scope_family_read": "Familienübersicht, Kalender, Personen, Aufgaben, Einkaufsliste, Mahlzeiten, Rezepte, Stundenplan, Geburtstage, Taschengeld-Stände, Timer, Countdowns, Bildschirm-Nachrichten, Hinweise und Papierkorb lesen",
     "scope_notes_read": "Notizen lesen",
     "scope_calendar_write": "Termine und Countdowns eintragen, ändern und löschen",

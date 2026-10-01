@@ -787,7 +787,23 @@ test.describe("get_action_status", () => {
     const result = await tool(server, "get_action_status").handler({ request_id: ID });
     expect(result.content[0].text).toBe("home:control or pocket_money:write authorization is required");
     const challenge = (result as unknown as { _meta: Record<string, string[]> })._meta["mcp/www_authenticate"][0];
-    expect(challenge).toContain('scope="home:control pocket_money:write"');
+    // What the token holds stays in the challenge, so re-authorizing on it
+    // does not trade family:read for the scope that was missing.
+    expect(challenge).toContain('error="insufficient_scope"');
+    expect(challenge).toContain('scope="family:read home:control pocket_money:write"');
+  });
+
+  test("the step-up challenge keeps every scope the token holds, and nothing that is not an assistant scope", async () => {
+    // The prod case: a ChatGPT token minted from its cached 11-scope list,
+    // asking for the car's charge level.
+    const held = ["family:read", "notes:read", "calendar:write", "tasks:write", "shopping:write", "notes:write", "energy:read", "meals:write", "announcements:write", "home:read", "home:control", "events:read"];
+    const { server, calls } = buildServer(held);
+    const result = await tool(server, "list_vehicles").handler({});
+    expect(result.isError).toBe(true);
+    expect(calls).toEqual([]);
+    const challenge = (result as unknown as { _meta: Record<string, string[]> })._meta["mcp/www_authenticate"][0];
+    const scope = /scope="([^"]*)"/.exec(challenge)![1].split(" ");
+    expect(scope).toEqual([...held.filter((s) => s !== "events:read"), "vehicles:read"]);
   });
 
   test("pocket_money:write alone is enough: it follows its own bookings with it", async () => {

@@ -101,3 +101,15 @@ test("the family read scope names everything it reads, in every language", () =>
     }
   }
 });
+
+// A client that replays the scope list it cached at setup never asks for a
+// permission added since; the page offers those under their own heading,
+// naming the assistant, with a line saying why they are there.
+test("the scopes the assistant did not ask for have a heading and an explanation, in every language", () => {
+  expect(en.oauthConsent.availableHeading).toBe("Also available — {client} didn't ask for these");
+  expect(en.oauthConsent.availableHint).toBe("Kinboard has added these since this assistant was set up. Tick any you want it to have.");
+  for (const dict of [en, de, fr]) {
+    expect(dict.oauthConsent.availableHeading).toContain("{client}");
+    expect(dict.oauthConsent.availableHint.length).toBeGreaterThan(20);
+  }
+});

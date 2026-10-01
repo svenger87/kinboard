@@ -127,11 +127,48 @@ test("no PIN yet, but one appears before the new PIN is stored: 409 pin_changed,
   expect(calls.approve).toEqual([]);
 });
 
-test("scopes outside the request are dropped", async () => {
+test("the requested scopes as ticked are what is granted", async () => {
   const { deps, calls } = fakeDeps({ hasPin: async () => true, verifyPin: async () => "valid" });
-  const r = await decideConsent(deps, input({ pin: "1234", scopes: ["family:read", "energy:read", "not-a-real-scope"] }));
+  expect((await decideConsent(deps, input({ pin: "1234" }))).status).toBe(200);
+  expect(calls.approve[0][2]).toEqual(["family:read", "tasks:write"]);
+  // Fewer than requested, as before.
+  const fewer = fakeDeps({ hasPin: async () => true, verifyPin: async () => "valid" });
+  expect((await decideConsent(fewer.deps, input({ pin: "1234", scopes: ["tasks:write"] }))).status).toBe(200);
+  expect(fewer.calls.approve[0][2]).toEqual(["tasks:write"]);
+});
+
+test("an assistant scope the client did not request can be granted when ticked", async () => {
+  // The prod case: ChatGPT replays its cached scope list, which predates
+  // vehicles:read; the family ticks it on the consent page.
+  const { deps, calls } = fakeDeps({ hasPin: async () => true, verifyPin: async () => "valid" });
+  const r = await decideConsent(deps, input({ pin: "1234", scopes: ["family:read", "tasks:write", "vehicles:read"] }));
   expect(r.status).toBe(200);
-  expect(calls.approve[0][2]).toEqual(["family:read"]);
+  expect(calls.approve[0][2]).toEqual(["family:read", "tasks:write", "vehicles:read"]);
+});
+
+test("anything that is not an assistant scope is dropped, requested or not", async () => {
+  const { deps, calls } = fakeDeps({ hasPin: async () => true, verifyPin: async () => "valid" });
+  const r = await decideConsent(deps, input({
+    pin: "1234",
+    request: authRequest({ scopes: ["family:read"] }),
+    scopes: ["family:read", "energy:read", "events:read", "not-a-real-scope", "*", 42, { scope: "home:control" }],
+  }));
+  expect(r.status).toBe(200);
+  expect(calls.approve[0][2]).toEqual(["family:read", "energy:read"]);
+});
+
+test("only unsupported scopes ticked: 400 no_scopes, nothing approved", async () => {
+  const { deps, calls } = fakeDeps({ hasPin: async () => true, verifyPin: async () => "valid" });
+  const r = await decideConsent(deps, input({ pin: "1234", scopes: ["events:read", "admin", "openid"] }));
+  expect(r).toMatchObject({ status: 400, error: "no_scopes" });
+  expect(calls.approve).toEqual([]);
+});
+
+test("an unrequested scope still needs the PIN", async () => {
+  const { deps, calls } = fakeDeps({ hasPin: async () => true, verifyPin: async () => "invalid" });
+  const r = await decideConsent(deps, input({ pin: "0000", scopes: ["vehicles:read"] }));
+  expect(r).toMatchObject({ status: 403, error: "pin_invalid" });
+  expect(calls.approve).toEqual([]);
 });
 
 test("approve() returning false: 404 not_found", async () => {

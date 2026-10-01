@@ -4,6 +4,7 @@ import { publicOrigin } from "@/lib/oauth/origin";
 import { OAUTH_REQUEST_COOKIE } from "@/lib/oauth/config";
 import { isLoopbackRedirect } from "@/lib/oauth/redirect";
 import { isCimdClientId } from "@/lib/oauth/clients";
+import { unrequestedScopes } from "@/lib/oauth/scopes";
 import { createOAuthStore } from "@/lib/oauth/store";
 import { generateAuthorizationCode } from "@/lib/oauth/grants";
 import { familyHasPin, verifySettingsPin, setSettingsPinIfAbsent } from "@/lib/settings-pin";
@@ -74,6 +75,9 @@ export async function GET(request: NextRequest) {
     redirectHost: redirectUrl.host,
     loopbackOnly: isLoopbackRedirect(r.redirectUri),
     scopes: r.scopes,
+    // Offered unticked: a client that replays the scope list it cached when
+    // it was set up never asks for a permission Kinboard added since.
+    available: unrequestedScopes(r.scopes),
     pinSet: await familyHasPin(auth.session.familyId),
   });
 }

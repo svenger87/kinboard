@@ -29,6 +29,15 @@ permissions, and is revoked separately.
    select **Allow**. If your family has no PIN yet, you set one here (4 digits,
    entered twice) — it then also protects the settings pages.
 
+**Reconnecting doesn't always ask for new permissions.** An assistant may
+remember the list of permissions from when you first added it and ask for
+exactly that list every time — ChatGPT does. So when Kinboard gains a new
+permission (`vehicles:read`, say), reconnecting won't ask for it on its own.
+The Kinboard page therefore also lists, under **Also available**, every
+permission the assistant didn't ask for, unticked. Tick the ones you want it
+to have; nothing there is granted unless you tick it, and the PIN is needed as
+always.
+
 Approve in the browser tab the assistant opened. The request is tied to that
 browser, so a link copied to another device shows as expired — start the
 connection again there instead.

@@ -216,6 +216,46 @@ test.describe("refresh", () => {
   });
 });
 
+test.describe("scopes the client did not request", () => {
+  // ChatGPT's cached list, which predates vehicles:read; the family ticked
+  // vehicles:read on the consent page and left tasks:write unticked.
+  const REQUESTED = ["family:read", "notes:read", "calendar:write", "tasks:write"] as const;
+  const GRANTED = ["family:read", "calendar:write", "vehicles:read"] as const;
+
+  async function grantedBeyondRequest() {
+    const m = memoryStore();
+    const id = await m.store.createAuthRequest({ clientId: CLIENT, clientName: "ChatGPT", redirectUri: REDIRECT, state: "s", codeChallenge: CHALLENGE, scopes: [...REQUESTED], resource: RESOURCE, expiresAt: "2026-10-01T12:10:00Z" });
+    const code = generateAuthorizationCode();
+    expect(await m.store.approveAuthRequest(id, "fam-1", [...GRANTED], code.hash, "2026-10-01T12:01:00Z", NOW)).toBe(true);
+    return { ...m, code: code.code };
+  }
+
+  test("the token response's scope is the granted set, not the requested one (RFC 6749 §5.1)", async () => {
+    const { store, grants, code } = await grantedBeyondRequest();
+    const r = await exchange(store, code);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.body.scope).toBe(GRANTED.join(" "));
+    expect(r.body.scope.split(" ")).not.toEqual([...REQUESTED]);
+    expect([...grants.values()][0].scopes).toEqual([...GRANTED]);
+  });
+
+  test("refreshing keeps the granted set, round after round, and never narrows it to the request", async () => {
+    const { store, grants, code } = await grantedBeyondRequest();
+    const first = await exchange(store, code);
+    if (!first.ok) throw new Error("setup");
+    let refreshToken = first.body.refresh_token;
+    for (let round = 0; round < 3; round++) {
+      const r = await refreshAccessToken(store, { refreshToken, clientId: CLIENT, resource: null }, NOW, ON);
+      expect(r.ok, `round ${round}`).toBe(true);
+      if (!r.ok) return;
+      expect(r.body.scope, `round ${round}`).toBe(GRANTED.join(" "));
+      refreshToken = r.body.refresh_token;
+    }
+    expect([...grants.values()][0].scopes).toEqual([...GRANTED]);
+  });
+});
+
 test.describe("the name a connection is listed under", () => {
   test("a CIMD client keeps the name its own host published", () => {
     expect(grantName(CLIENT, "Claude", REDIRECT)).toBe("Claude");

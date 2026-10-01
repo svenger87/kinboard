@@ -135,7 +135,31 @@ check `/api/pin` uses; if the family has none, the consent page sets one
 
 The page shows the client name, the redirect **hostname** (MCP spec: required,
 with an extra warning when only loopback redirects are registered), and the
-requested scopes as checkboxes; the user may grant fewer.
+requested scopes as checkboxes, ticked; the user may grant fewer.
+
+Below them, under "Also available — <client> didn't ask for these", it lists
+every other assistant scope (`MCP_SCOPES`), **unticked**, with the same
+labels. Clients cache the scope list from when the connector was created
+and replay it on every reconnect — ChatGPT does — so a scope Kinboard adds
+later is never requested and, before this, could never be granted: on prod a
+ChatGPT connection reconnected three times with its 11 cached scopes while
+`/.well-known/oauth-protected-resource/api/mcp` advertised 15, and its token
+never got `vehicles:read`. The consent POST therefore accepts any subset of
+`MCP_SCOPES`, requested or not; anything else (an Integration API scope such
+as `events:read`, an unknown string, a non-string) is dropped as before, and
+nothing left is 400 `no_scopes`. This widens nothing without the user: each
+extra scope is opt-in by ticking it, the PIN is still required to approve,
+and the Origin check, browser binding, "Allow AI assistants" switch and
+request expiry are unchanged. The granted set is what is stored on the
+request and the grant, returned as the token response's `scope` (RFC 6749
+§5.1 — it differs from the request exactly in this case), and kept by every
+refresh.
+
+A tool refused for scope answers with an `insufficient_scope` challenge in
+the result's `_meta["mcp/www_authenticate"]` (the in-band form ChatGPT reads;
+the HTTP status stays 200, as a JSON-RPC tool result). Its `scope` is the
+token's current assistant scopes plus the tool's, so a client that
+re-authorizes on it requests what it already had as well as what it lacks.
 
 Twenty wrong PINs within an hour lock PIN entry (settings and consent) for
 the rest of that hour.

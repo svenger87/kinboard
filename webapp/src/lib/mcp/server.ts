@@ -2,6 +2,7 @@ import { McpServer, type AuthInfo, type RegisteredTool } from "@modelcontextprot
 import * as z from "zod";
 import type { McpScope } from "@/lib/oauth/config";
 import { wwwAuthenticate } from "@/lib/oauth/metadata";
+import { stepUpScopes } from "@/lib/oauth/scopes";
 import { callIntegration, IntegrationCallError, type RouteHandler } from "@/lib/mcp/call-integration";
 import { GET as familySummary } from "@/app/api/integration/v1/family/summary/route";
 import { GET as calendarEvents, POST as createCalendarEvent } from "@/app/api/integration/v1/calendar/events/route";
@@ -263,10 +264,12 @@ export function createKinboardMcpServer(
       if (!anyOf.some((s) => authInfo.scopes.includes(s))) {
         // ChatGPT reads this to offer re-linking with the missing scope. A
         // tool any of several scopes unlocks names them all, in the text and
-        // in the challenge's scope.
+        // in the challenge's scope. The challenge's scope also keeps what
+        // the token already holds: a client re-authorizing on it requests
+        // that list, and must not trade its old permissions for the new one.
         return {
           content: [{ type: "text" as const, text: `${anyOf.join(" or ")} authorization is required` }],
-          _meta: { "mcp/www_authenticate": [wwwAuthenticate(origin, { error: "insufficient_scope", scope: anyOf.join(" ") })] },
+          _meta: { "mcp/www_authenticate": [wwwAuthenticate(origin, { error: "insufficient_scope", scope: stepUpScopes(authInfo.scopes, anyOf).join(" ") })] },
           isError: true,
         };
       }

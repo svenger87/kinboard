@@ -4235,6 +4235,8 @@
     "intro": "{client} is asking for access to this family's Kinboard. After you approve, you'll be sent back to {host}.",
     "loopbackWarning": "This connection returns to a program on your own computer. Only approve it if you just started it yourself.",
     "scopesHeading": "It may…",
+    "availableHeading": "Also available — {client} didn't ask for these",
+    "availableHint": "Kinboard has added these since this assistant was set up. Tick any you want it to have.",
     "scope_family_read": "Read the family summary, calendar, people, tasks, shopping list, meal plan, recipes, school timetable, birthdays, pocket money balances, timers, countdowns, screen messages, attention hints and recycle bin",
     "scope_notes_read": "Read notes",
     "scope_calendar_write": "Add, change and delete calendar events and countdowns",
