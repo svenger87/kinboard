@@ -3,6 +3,7 @@ import { clientIp, hitLimit } from "@/lib/rate-limit";
 import { parseRegistrationRequest } from "@/lib/oauth/clients";
 import { registerDcrClient } from "@/lib/oauth/store";
 import { logApiError } from "@/lib/api-error";
+import { assistantsGate } from "@/lib/oauth/enabled";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,9 @@ const tooLarge = () =>
  * registered as public: the response states `none` whatever was asked for.
  */
 export async function POST(request: NextRequest) {
+  // Absent until a family switches assistants on (lib/oauth/enabled.ts).
+  const off = await assistantsGate();
+  if (off) return off;
   if (hitLimit(`oauth-register:${clientIp(request)}`, 10, 60 * 60_000).limited) {
     return NextResponse.json({ error: "temporarily_unavailable", error_description: "too many registrations" }, { status: 429 });
   }

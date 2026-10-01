@@ -2486,7 +2486,11 @@
       "assistantsBody": "Um Claude oder ChatGPT zu verbinden, füge diese Adresse als eigenen Connector hinzu. Kinboard fragt dann nach deiner Freigabe und den Berechtigungen.",
       "assistantsReachability": "Claude und ChatGPT greifen aus dem Internet auf diese Adresse zu. Sie muss also per HTTPS unter einem öffentlichen Hostnamen erreichbar sein. Claude Code in diesem Netzwerk kann sie direkt nutzen.",
       "copyMcpUrl": "Assistenten-Adresse kopieren",
-      "copied": "Kopiert"
+      "copied": "Kopiert",
+      "assistantsToggle": "KI-Assistenten erlauben",
+      "assistantsOff": "KI-Assistenten sind ausgeschaltet. Schalte das ein, um Claude oder ChatGPT zu verbinden.",
+      "assistantsOffHint": "Wenn du das ausschaltest, werden alle verbundenen Assistenten getrennt.",
+      "assistantsToggleFailed": "Die Einstellung konnte nicht geändert werden. Versuche es erneut."
     },
     "itemIntegrationTokensLabel": "Integrations-Tokens",
     "itemIntegrationTokensDescription": "Home Assistant und andere Programme mit Kinboard sprechen lassen",
@@ -4203,6 +4207,7 @@
     "expired": "Diese Anfrage ist abgelaufen oder wurde schon beantwortet. Starte die Verbindung im Assistenten neu.",
     "failed": "Etwas ist schiefgelaufen. Versuche es erneut.",
     "revokeHint": "Du kannst die Verbindung jederzeit unter Einstellungen → Integrationen trennen.",
-    "pinChanged": "Gerade wurde an anderer Stelle eine Einstellungs-PIN festgelegt. Lade die Seite neu und gib diese PIN ein."
+    "pinChanged": "Gerade wurde an anderer Stelle eine Einstellungs-PIN festgelegt. Lade die Seite neu und gib diese PIN ein.",
+    "assistantsDisabled": "KI-Assistenten sind unter Einstellungen → Integrationen ausgeschaltet."
   }
 }

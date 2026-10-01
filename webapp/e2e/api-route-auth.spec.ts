@@ -214,6 +214,10 @@ test("a route that still takes family_id checks it against the session", () => {
     // then threads through approve/deny, but the request itself carries only
     // an opaque authorization-request id — never a family id to compare.
     "oauth/consent/route.ts",
+    // The "Allow AI assistants" switch (RFC-010). The regex matches the
+    // `family_id` column it writes and the local `familyId`, both taken from
+    // auth.session.familyId; the request body carries only `enabled`.
+    "assistants/route.ts",
     // WebRTC signalling. Same shape: the request names a camera_id, and the
     // family it is looked up against comes from the session. Deliberately
     // given no family_id parameter — this route resolves a camera to an RTSP

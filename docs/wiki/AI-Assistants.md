@@ -6,6 +6,10 @@ them. They cannot control Home Assistant devices.
 
 ## Connect Claude or ChatGPT
 
+0. Switch on **Settings → Integrations → Allow AI assistants**. It is off
+   until you do, and while it is off Kinboard answers the assistant addresses
+   as if they did not exist. Switching it off again disconnects every
+   assistant.
 1. Make Kinboard reachable over HTTPS on a public hostname (a reverse proxy,
    Cloudflare Tunnel or Tailscale Funnel). Claude and ChatGPT connect from the
    internet, not from your network.

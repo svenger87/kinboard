@@ -38,11 +38,13 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const { data, isPending, isError } = useQuery({
+  const { data, isPending, isError, error: loadError } = useQuery({
     queryKey: ["oauth-consent", request],
     queryFn: async () => {
       const r = await fetch(`/api/oauth/consent?request=${encodeURIComponent(request)}`);
-      if (!r.ok) throw new Error(String(r.status));
+      // The server's error code is the message, so the page can tell
+      // "assistants are switched off" from "this request is gone".
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? String(r.status));
       return (await r.json()) as ConsentDetails;
     },
     retry: false,
@@ -87,6 +89,7 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
           : body.error === "no_scopes" ? t("noScopes")
           : body.error === "new_pin_invalid" ? t("newPinInvalid")
           : body.error === "pin_changed" ? t("pinChanged")
+          : body.error === "assistants_disabled" ? t("assistantsDisabled")
           : body.error === "not_found" ? t("expired")
           : t("failed"),
       );
@@ -98,7 +101,10 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
   }
 
   if (isPending) return <main className="mx-auto max-w-lg p-4"><Skeleton className="h-64 w-full" /></main>;
-  if (isError || !data) return <main className="mx-auto max-w-lg p-4"><Card className="p-6">{t("expired")}</Card></main>;
+  if (isError || !data) {
+    const message = loadError?.message === "assistants_disabled" ? t("assistantsDisabled") : t("expired");
+    return <main className="mx-auto max-w-lg p-4"><Card className="p-6">{message}</Card></main>;
+  }
 
   const approveDisabled =
     busy || selected.length === 0 || (settingNewPin ? !newPinsValid : !existingPinValid);

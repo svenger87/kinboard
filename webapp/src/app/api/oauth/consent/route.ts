@@ -8,6 +8,7 @@ import { generateAuthorizationCode } from "@/lib/oauth/grants";
 import { familyHasPin, verifySettingsPin, setSettingsPinIfAbsent } from "@/lib/settings-pin";
 import { decideConsent, type ConsentDeps } from "@/lib/oauth/consent";
 import { logApiError } from "@/lib/api-error";
+import { assistantsEnabledFor } from "@/lib/oauth/enabled";
 import type { AuthRequest } from "@/lib/oauth/types";
 
 export const dynamic = "force-dynamic";
@@ -31,10 +32,27 @@ function cookieMatches(request: NextRequest, id: string): boolean {
   return request.cookies.get(OAUTH_REQUEST_COOKIE)?.value === id;
 }
 
+/**
+ * A family that has not switched on "Allow AI assistants" cannot approve
+ * one, even when another family on the same install has (which is what got
+ * this far past the 404 on /api/oauth/authorize). Null to proceed.
+ */
+async function assistantsDisabled(familyId: string): Promise<NextResponse | null> {
+  try {
+    if (await assistantsEnabledFor(familyId)) return null;
+  } catch (err) {
+    await logApiError("oauth/consent/enabled", err);
+    return NextResponse.json({ error: "internal_error" }, { status: 500 });
+  }
+  return NextResponse.json({ error: "assistants_disabled" }, { status: 403 });
+}
+
 /** What the consent page shows. The family comes from the session, never the request. */
 export async function GET(request: NextRequest) {
   const auth = await requireSession(request);
   if (!auth.ok) return auth.response;
+  const disabled = await assistantsDisabled(auth.session.familyId);
+  if (disabled) return disabled;
   const id = request.nextUrl.searchParams.get("request") ?? "";
   if (!UUID.test(id)) return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (!cookieMatches(request, id)) return NextResponse.json({ error: "not_found" }, { status: 404 });
@@ -63,6 +81,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await requireSession(request);
   if (!auth.ok) return auth.response;
+  const disabled = await assistantsDisabled(auth.session.familyId);
+  if (disabled) return disabled;
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const id = typeof body?.request === "string" ? body.request : "";
   if (!UUID.test(id)) return NextResponse.json({ error: "not_found" }, { status: 404 });

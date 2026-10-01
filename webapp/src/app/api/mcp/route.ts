@@ -4,6 +4,7 @@ import { publicOrigin } from "@/lib/oauth/origin";
 import { authenticateMcpRequest } from "@/lib/mcp/auth";
 import { createKinboardMcpServer } from "@/lib/mcp/server";
 import { addSecuritySchemes } from "@/lib/mcp/security-schemes";
+import { assistantsGate } from "@/lib/oauth/enabled";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,10 @@ export const dynamic = "force-dynamic";
  * resource_metadata pointer sign-in depends on.
  */
 async function handle(request: NextRequest): Promise<Response> {
+  // Absent until a family switches assistants on (lib/oauth/enabled.ts);
+  // per-family refusal happens in authenticateMcpRequest.
+  const off = await assistantsGate();
+  if (off) return off;
   const origin = publicOrigin(request.headers, request.nextUrl.origin);
   const auth = await authenticateMcpRequest(request, origin);
   if (!auth.ok) return auth.response;

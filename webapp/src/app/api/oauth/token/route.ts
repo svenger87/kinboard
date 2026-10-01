@@ -3,6 +3,7 @@ import { clientIp, hitLimit } from "@/lib/rate-limit";
 import { createOAuthStore } from "@/lib/oauth/store";
 import { exchangeAuthorizationCode, refreshAccessToken } from "@/lib/oauth/grants";
 import { logApiError } from "@/lib/api-error";
+import { assistantsGate } from "@/lib/oauth/enabled";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,9 @@ const tooLarge = () =>
  * or three single-row queries.
  */
 export async function POST(request: NextRequest) {
+  // Absent until a family switches assistants on (lib/oauth/enabled.ts).
+  const off = await assistantsGate();
+  if (off) return off;
   if (hitLimit(`oauth-token:${clientIp(request)}`, 60, 60_000).limited) {
     return NextResponse.json({ error: "temporarily_unavailable", error_description: "too many requests" }, { status: 429, headers: NO_STORE });
   }

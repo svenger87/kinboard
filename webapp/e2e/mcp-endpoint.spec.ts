@@ -16,8 +16,15 @@ const req = (auth?: string) => new Request(`${ORIGIN}/api/mcp`, { method: "POST"
 // A no-op default so none of these tests reach the real touchToken (and so
 // the real Postgres it talks to) unless a test explicitly wants to observe it.
 const noopTouch = async () => {};
-const auth = (r: Request, found: StoredToken | null, touch: (token: StoredToken, now?: Date) => Promise<void> = noopTouch) =>
-  authenticateMcpRequest(r, ORIGIN, async () => found, NOW, touch);
+// Every family here has "Allow AI assistants" on unless a test says otherwise
+// — and none of them reaches the real settings lookup.
+const allOn = async () => true;
+const auth = (
+  r: Request,
+  found: StoredToken | null,
+  touch: (token: StoredToken, now?: Date) => Promise<void> = noopTouch,
+  familyEnabled: (familyId: string) => Promise<boolean> = allOn,
+) => authenticateMcpRequest(r, ORIGIN, async () => found, NOW, touch, familyEnabled);
 
 test("no token is a 401 that points the client at the metadata", async () => {
   const r = await auth(req(), null);
@@ -80,4 +87,22 @@ test("a successful authentication touches the token once; a failed one does not"
   calls = [];
   await auth(req(), null, touch);
   expect(calls).toHaveLength(0);
+});
+
+test("a valid token from a family with assistants switched off is refused as invalid_token", async () => {
+  const asked: string[] = [];
+  const r = await auth(req(`Bearer ${TOKEN}`), row(), noopTouch, async (familyId) => { asked.push(familyId); return false; });
+  expect(r.ok).toBe(false);
+  if (r.ok) return;
+  expect(r.response.status).toBe(401);
+  expect(r.response.headers.get("www-authenticate")).toContain('error="invalid_token"');
+  expect(asked).toEqual(["fam-1"]);
+  // A hand-made token is no exception: /api/mcp is the assistants' door.
+  expect((await auth(req(`Bearer ${TOKEN}`), row({ resource: null, oauth_client_id: null }), noopTouch, async () => false)).ok).toBe(false);
+});
+
+test("a switch lookup that fails is a 503, never a 401", async () => {
+  const r = await auth(req(`Bearer ${TOKEN}`), row(), noopTouch, async () => { throw new Error("db down"); });
+  expect(r.ok).toBe(false);
+  if (!r.ok) expect(r.response.status).toBe(503);
 });

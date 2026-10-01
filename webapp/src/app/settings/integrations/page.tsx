@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmDestructive } from "@/components/confirm-destructive";
@@ -108,6 +109,42 @@ export default function IntegrationsPage() {
     onError: () => toast.error(t("revokeFailed")),
   });
 
+  // "Allow AI assistants" (RFC-010), off by default. While it is off the
+  // OAuth and MCP routes answer 404, so the address below would only lead
+  // to an error — it is hidden rather than offered.
+  const assistants = useQuery({
+    queryKey: ["assistants-enabled"],
+    queryFn: async () => {
+      const r = await fetch("/api/assistants");
+      if (!r.ok) throw new Error(`assistants: ${r.status}`);
+      return (await r.json()) as { enabled: boolean };
+    },
+  });
+  const assistantsEnabled = assistants.data?.enabled === true;
+
+  const setAssistants = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const r = await fetch("/api/assistants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return null;
+      }
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return (await r.json()) as { enabled: boolean };
+    },
+    onSuccess: (result) => {
+      if (!result) return;
+      qc.setQueryData(["assistants-enabled"], result);
+      // Switching off revoked every assistant connection; show that.
+      void qc.invalidateQueries({ queryKey: ["integration-tokens"] });
+    },
+    onError: () => toast.error(t("assistantsToggleFailed")),
+  });
+
   const toggleScope = (scope: string) =>
     setScopes((current) =>
       current.includes(scope) ? current.filter((s) => s !== scope) : [...current, scope],
@@ -169,20 +206,38 @@ export default function IntegrationsPage() {
       )}
 
       <Card className="mb-8 p-6">
-        <h2 className="mb-2 font-semibold">{t("assistantsHeading")}</h2>
-        <p className="mb-3 text-sm text-muted-foreground">{t("assistantsBody")}</p>
-        <div className="flex items-center gap-2">
-          <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1.5 text-sm">{mcpUrl}</code>
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label={t("copyMcpUrl")}
-            onClick={() => void copyMcpUrl()}
-          >
-            <Copy className="size-4" />
-          </Button>
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <h2 className="font-semibold">{t("assistantsHeading")}</h2>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="assistants-enabled" className="text-sm font-normal">{t("assistantsToggle")}</Label>
+            <Switch
+              id="assistants-enabled"
+              checked={assistantsEnabled}
+              disabled={assistants.isPending || assistants.isError || setAssistants.isPending}
+              onCheckedChange={(v) => setAssistants.mutate(v)}
+            />
+          </div>
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">{t("assistantsReachability")}</p>
+        {assistantsEnabled ? (
+          <>
+            <p className="mb-3 text-sm text-muted-foreground">{t("assistantsBody")}</p>
+            <div className="flex items-center gap-2">
+              <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1.5 text-sm">{mcpUrl}</code>
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label={t("copyMcpUrl")}
+                onClick={() => void copyMcpUrl()}
+              >
+                <Copy className="size-4" />
+              </Button>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">{t("assistantsReachability")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("assistantsOffHint")}</p>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t("assistantsOff")}</p>
+        )}
       </Card>
 
       <Card className="mb-8 p-6">

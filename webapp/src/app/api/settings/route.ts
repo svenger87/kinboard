@@ -26,6 +26,8 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 // remove it — straight past the server-side settings unlock /api/pin checks.
 const DEDICATED_ROUTE_KEYS: Record<string, string> = {
   [SETTINGS_KEYS.settingsPin]: "/api/pin",
+  // Needs the settings unlock too, and turning it off revokes assistants.
+  [SETTINGS_KEYS.assistantsEnabled]: "/api/assistants",
 };
 
 function dedicatedRoute(key: unknown): NextResponse | null {

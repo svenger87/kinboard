@@ -6,6 +6,7 @@ import { resolveClient } from "@/lib/oauth/clients";
 import { validateAuthorizeQuery } from "@/lib/oauth/authorize";
 import { createOAuthStore } from "@/lib/oauth/store";
 import { logApiError } from "@/lib/api-error";
+import { assistantsEnabledAnywhere } from "@/lib/oauth/enabled";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,12 @@ function page(status: number, message: string) {
  * joined device and the PIN decide. Nothing here grants anything.
  */
 export async function GET(request: NextRequest) {
+  // Absent until a family switches assistants on (lib/oauth/enabled.ts). A
+  // person lands here in a browser, so they get a page saying where the
+  // switch is rather than bare JSON.
+  if (!(await assistantsEnabledAnywhere())) {
+    return page(404, "AI assistants are not switched on for this Kinboard. Turn them on under Settings → Integrations, then start the connection again.");
+  }
   if (hitLimit(`oauth-authorize:${clientIp(request)}`, 30, 60_000).limited) return page(429, "Too many attempts. Try again in a minute.");
   const origin = publicOrigin(request.headers, request.nextUrl.origin);
   const q = request.nextUrl.searchParams;

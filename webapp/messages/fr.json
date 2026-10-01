@@ -2486,7 +2486,11 @@
       "assistantsBody": "Pour connecter Claude ou ChatGPT, ajoutez cette adresse comme connecteur personnalisé. Kinboard vous demandera de l'approuver et de choisir les autorisations.",
       "assistantsReachability": "Claude et ChatGPT accèdent à cette adresse depuis Internet : elle doit donc être servie en HTTPS sous un nom d'hôte public. Claude Code sur ce réseau peut l'utiliser directement.",
       "copyMcpUrl": "Copier l'adresse pour assistants",
-      "copied": "Copié"
+      "copied": "Copié",
+      "assistantsToggle": "Autoriser les assistants IA",
+      "assistantsOff": "Les assistants IA sont désactivés. Activez cette option pour connecter Claude ou ChatGPT.",
+      "assistantsOffHint": "Désactiver cette option déconnecte tous les assistants connectés.",
+      "assistantsToggleFailed": "Impossible de modifier ce réglage. Réessayez."
     },
     "itemIntegrationTokensLabel": "Jetons d'intégration",
     "itemIntegrationTokensDescription": "Permettre à Home Assistant et à d'autres programmes de dialoguer avec Kinboard",
@@ -4203,6 +4207,7 @@
     "expired": "Cette demande a expiré ou a déjà reçu une réponse. Relancez la connexion depuis l'assistant.",
     "failed": "Une erreur s'est produite. Réessayez.",
     "revokeHint": "Vous pouvez la déconnecter à tout moment dans Paramètres → Intégrations.",
-    "pinChanged": "Un code PIN des paramètres vient d'être défini ailleurs. Rechargez cette page et saisissez ce code."
+    "pinChanged": "Un code PIN des paramètres vient d'être défini ailleurs. Rechargez cette page et saisissez ce code.",
+    "assistantsDisabled": "Les assistants IA sont désactivés dans Paramètres → Intégrations."
   }
 }

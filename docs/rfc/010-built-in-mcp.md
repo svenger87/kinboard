@@ -173,7 +173,12 @@ second copy. Tool set and scopes are unchanged from the WIP gateway
   configured sensors only.
 - The new anonymous surface is: metadata (static), DCR (rate-limited, writes a
   bounded row), authorize (validates, writes a 10-minute pending row), token
-  (rate-limited). Each is added to `api-route-auth.spec.ts`'s
+  (rate-limited). It exists only once a family has switched on **Allow AI
+  assistants** (a per-family setting, off by default): until then these
+  routes and `/api/mcp` answer 404. A family that has it off cannot approve
+  an assistant or use `/api/mcp`, whatever other families on the install
+  chose; switching it off revokes the family's assistant connections. The
+  Integration API is not behind the switch. Each is added to `api-route-auth.spec.ts`'s
   `PUBLIC_BY_DESIGN` with its argument.
 - CIMD makes Kinboard fetch an attacker-chosen URL: `safeFetch` blocks private
   and loopback addresses on every hop; the DNS-rebinding race documented there
