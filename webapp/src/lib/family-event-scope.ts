@@ -1,4 +1,5 @@
 import { calendarWriteMode, type StoredCalendarEvent, type WritableCalendar } from "@/lib/calendar-write-through";
+import type { createAdminClient } from "@/lib/supabase/server";
 
 /**
  * Family ownership for calendars and events — one module for every route
@@ -14,15 +15,13 @@ import { calendarWriteMode, type StoredCalendarEvent, type WritableCalendar } fr
  * tell "not yours" from "no such id" and enumerate ids.
  */
 
-/** The chain the loaders use: `from().select().eq()….maybeSingle()`. Fakeable in tests. */
-interface Query {
-  select(columns: string): Query;
-  eq(column: string, value: unknown): Query;
-  maybeSingle(): PromiseLike<{ data: unknown; error?: unknown }>;
-}
-export interface EventQueryClient {
-  from(table: string): Query;
-}
+/**
+ * The real admin client, as `SearchDb` is (lib/integration-event-search.ts):
+ * a method the client does not have is then a type error here, and the
+ * routes pass `createAdminClient()` without a cast. Tests cast their fake to
+ * this at the test boundary.
+ */
+export type FamilyEventDb = ReturnType<typeof createAdminClient>;
 
 export const EVENT_COLUMNS =
   "id, calendar_id, title, description, location, start_at, end_at, all_day, google_event_id, caldav_href, caldav_etag";
@@ -35,7 +34,7 @@ const WRITABLE_CALENDAR_COLUMNS = "id, google_calendar_id, ics_url, caldav_url, 
  * Integration API answers 500); otherwise an error reads as not found.
  */
 async function loadEventInFamily<E extends { calendar_id: string }, C>(
-  db: EventQueryClient,
+  db: FamilyEventDb,
   familyId: string,
   id: string,
   columns: { event: string; calendar: string },
@@ -73,8 +72,7 @@ export interface OwnedEvent {
 
 /** `calendarId` when it belongs to `familyId`; null otherwise. */
 export async function loadOwnedCalendar(
-  // The browser route passes the typed admin client, whose builder types
-  // don't fit EventQueryClient; the loose type stays local (see family-scope.ts).
+  // Loose, as in family-scope.ts: the browser route's own client.
   db: any,
   familyId: string,
   calendarId: string,
@@ -120,7 +118,7 @@ export async function loadOwnedEvent(
  * null as another family's event or a missing one.
  */
 export async function loadFamilyEvent(
-  db: EventQueryClient,
+  db: FamilyEventDb,
   familyId: string,
   id: string,
 ): Promise<{ event: StoredCalendarEvent; calendar: WritableCalendar } | null> {

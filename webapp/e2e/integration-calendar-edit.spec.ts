@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { parseEventPatch } from "../src/lib/integration-event-input";
-import { loadFamilyEvent } from "../src/lib/family-event-scope";
+import { loadFamilyEvent, type FamilyEventDb } from "../src/lib/family-event-scope";
 import {
   deleteVerdict,
   syncDeletedCalendarEvent,
@@ -433,6 +433,9 @@ function fakeClient(rows: Record<string, Array<Record<string, unknown>>>) {
   };
 }
 
+/** The test boundary: the fake stands in for the real admin client. */
+const asDb = (fake: ReturnType<typeof fakeClient>) => fake as unknown as FamilyEventDb;
+
 test.describe("loadFamilyEvent", () => {
   const calendar = (id: string, family_id: string, extra: Record<string, unknown> = {}) => ({
     id, family_id, google_calendar_id: null, ics_url: null, caldav_url: null, caldav_server_url: null, caldav_read_only: null, ...extra,
@@ -447,24 +450,24 @@ test.describe("loadFamilyEvent", () => {
   };
 
   test("finds our event with its calendar", async () => {
-    const found = await loadFamilyEvent(fakeClient(DATA), "fam-a", "ev-ours");
+    const found = await loadFamilyEvent(asDb(fakeClient(DATA)), "fam-a", "ev-ours");
     expect(found?.event.id).toBe("ev-ours");
     expect(found?.calendar.id).toBe("cal-ours");
   });
 
   test("an event in another family's calendar is null, like a missing one", async () => {
-    expect(await loadFamilyEvent(fakeClient(DATA), "fam-a", "ev-theirs")).toBeNull();
-    expect(await loadFamilyEvent(fakeClient(DATA), "fam-a", "ev-missing")).toBeNull();
+    expect(await loadFamilyEvent(asDb(fakeClient(DATA)), "fam-a", "ev-theirs")).toBeNull();
+    expect(await loadFamilyEvent(asDb(fakeClient(DATA)), "fam-a", "ev-missing")).toBeNull();
   });
 
   test("it filters the calendar on family_id, not just on id", async () => {
     const db = fakeClient(DATA);
-    await loadFamilyEvent(db, "fam-a", "ev-ours");
+    await loadFamilyEvent(asDb(db), "fam-a", "ev-ours");
     expect(db.calls.find((c) => c.table === "calendars")?.filters).toEqual({ id: "cal-ours", family_id: "fam-a" });
   });
 
   test("an event in a read-only calendar is null, and empty ids match nothing", async () => {
-    expect(await loadFamilyEvent(fakeClient(DATA), "fam-a", "ev-ics")).toBeNull();
-    expect(await loadFamilyEvent(fakeClient(DATA), "", "ev-ours")).toBeNull();
+    expect(await loadFamilyEvent(asDb(fakeClient(DATA)), "fam-a", "ev-ics")).toBeNull();
+    expect(await loadFamilyEvent(asDb(fakeClient(DATA)), "", "ev-ours")).toBeNull();
   });
 });
