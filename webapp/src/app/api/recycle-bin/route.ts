@@ -4,6 +4,7 @@ import { familyIdFrom } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import {
   RECYCLABLE,
+  describeDeletedRow,
   isRecyclable,
   type DeletedRow,
   type RecyclableTable,
@@ -73,15 +74,7 @@ export async function GET(request: NextRequest) {
     if (error || !data) continue;
 
     for (const row of data as Record<string, unknown>[]) {
-      const raw = row[cfg.title];
-      items.push({
-        table: table as RecyclableTable,
-        id: String(row.id),
-        // A note's body can be long; the bin only needs enough to recognise it.
-        title: raw == null || raw === "" ? "—" : String(raw).slice(0, 120),
-        subtitle: cfg.subtitle && row[cfg.subtitle] != null ? String(row[cfg.subtitle]).slice(0, 120) : null,
-        deleted_at: String(row.deleted_at),
-      });
+      items.push(describeDeletedRow(table as RecyclableTable, row));
     }
   }
 

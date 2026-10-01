@@ -118,8 +118,15 @@ change them.
 | Tool | Does |
 |---|---|
 | `list_timers` | The timers on the screens, running or ringing, with the time left |
-| `start_timer` | Start a timer of up to 24 hours, with an optional label — it counts down on every screen, rings, and notifies phones like one set on the panel. At most 10 can be running or ringing at once |
-| `stop_timer` | Stop a timer and take it off every screen; its phone notification is cancelled |
+| `start_timer` | Start a timer of up to 24 hours, with an optional label — it counts down and rings on the screens that show the timers card, and notifies phones, like one set on the panel. At most 10 can be running or ringing at once |
+| `stop_timer` | Stop a timer and take it off the screens; its phone notification is cancelled |
+
+### Undoing a delete
+
+| Tool | Does |
+|---|---|
+| `list_deleted_items` | What's in the recycle bin that an assistant can bring back — deleted tasks, notes, meal plan entries and birthdays, newest first |
+| `restore_task` / `restore_note` / `restore_meal` / `restore_birthday` | Take one back out of the recycle bin, exactly as it was. Each needs the same permission as editing that kind of thing (`tasks:write`, `notes:write`, `meals:write`, `birthdays:write`). An assistant can never empty the bin or erase anything in it for good |
 
 ### Messages and energy
 
@@ -178,8 +185,9 @@ limit applies to assistant connections only — a token you create by hand for
 Home Assistant or another manual integration is not limited this way, so
 bulk actions like "Clear completed" over a long shopping list still work.
 Edits overwrite the previous text with no history; deleted tasks, notes and
-meals go to the recycle bin, but deleted shopping items and calendar events
-are gone for good — calendar events from Google or CalDAV too.
+meals go to the recycle bin, where an assistant can also bring them back
+(restoring doesn't count towards the 30), but deleted shopping items and
+calendar events are gone for good — calendar events from Google or CalDAV too.
 
 ## Home
 

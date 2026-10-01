@@ -44,6 +44,23 @@ export interface DeletedRow {
   deleted_at: string;
 }
 
+/**
+ * How the bin shows a deleted row: its title column (a note's body cut to
+ * enough to recognise it, "—" when empty) and its subtitle column, if the
+ * table has one. Shared by the Settings bin and the Integration API's.
+ */
+export function describeDeletedRow(table: RecyclableTable, row: Record<string, unknown>): DeletedRow {
+  const cfg = RECYCLABLE[table];
+  const raw = row[cfg.title];
+  return {
+    table,
+    id: String(row.id),
+    title: raw == null || raw === "" ? "—" : String(raw).slice(0, 120),
+    subtitle: cfg.subtitle && row[cfg.subtitle] != null ? String(row[cfg.subtitle]).slice(0, 120) : null,
+    deleted_at: String(row.deleted_at),
+  };
+}
+
 /** Default retention. 0 means keep forever. */
 export const DEFAULT_RETENTION_DAYS = 30;
 export const RECYCLE_BIN_SETTING_KEY = "recycle_bin";

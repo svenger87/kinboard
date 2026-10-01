@@ -767,9 +767,9 @@ paths:
       tags: [state]
       summary: Start a kitchen timer
       description: |
-        Starts a timer on every screen, exactly as the panel does: it counts
-        down everywhere, rings when the time is up, and a push is queued for
-        the phones. Refused with `429` and code `too_many_timers` while the
+        Starts a timer exactly as the panel does: it counts down and rings
+        on the family's screens where the timers card is shown, and a push
+        is queued for the phones. Refused with `429` and code `too_many_timers` while the
         family already has 10 timers running or ringing — counted across
         everyone's timers, not only this token's. Every call starts a new
         timer.
@@ -791,7 +791,9 @@ paths:
                 label:
                   type: [string, "null"]
                   maxLength: 60
-                  description: Trimmed; empty means no label.
+                  description: |
+                    Trimmed first; the 60-character limit applies to the
+                    trimmed text. Empty or only spaces means no label.
       responses:
         "201":
           description: The timer started
@@ -821,7 +823,7 @@ paths:
       summary: Stop a timer
       description: |
         The panel's dismiss: the queued push is cancelled and the timer
-        leaves every screen, whether it was still running or already
+        leaves the screens, whether it was still running or already
         ringing. The row is kept, stamped `dismissed_at`; a stopped timer
         cannot be resumed. A timer that is missing, belongs to another
         family, or was already dismissed answers `404`.
@@ -846,6 +848,84 @@ paths:
         "404": { description: "No such running or ringing timer in this family." }
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { description: The timer could not be stopped. }
+
+  /recycle-bin:
+    get:
+      tags: [state]
+      summary: List what is in the recycle bin
+      description: |
+        The family's deleted tasks, notes, meal plan entries and birthdays
+        still in the recycle bin — the kinds an assistant can delete and
+        restore — newest deletion first, at most 50 in all. `type` narrows
+        it to one kind. `title` and `subtitle` are what the Settings bin
+        shows: a task's title; a note's text, cut to 120 characters; a
+        birthday's name and date; a meal entry's date and meal type. An
+        empty title is `—`. Recipes, people and the other binned kinds are
+        not listed here.
+      x-required-scope: family:read
+      parameters:
+        - name: type
+          in: query
+          schema: { $ref: "#/components/schemas/RestoreType" }
+      responses:
+        "200":
+          description: The binned items
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 50
+                    items: { $ref: "#/components/schemas/DeletedItem" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The recycle bin could not be read. }
+
+  /recycle-bin/{type}/{id}/restore:
+    post:
+      tags: [state]
+      summary: Restore an item from the recycle bin
+      description: |
+        Takes one task, note, meal plan entry or birthday back out of the
+        recycle bin, exactly as it was. Requires the type's own write scope:
+        `tasks:write` for `task`, `notes:write` for `note`, `meals:write`
+        for `meal`, `birthdays:write` for `birthday`. An unknown type is
+        authenticated with `family:read` and answers `404`.
+
+        Restore only; nothing can be purged through the API. An item that
+        is missing, belongs to another family, or is not in the bin answers
+        `404`, so restoring the same item twice answers `404` the second
+        time. Restoring is not counted against an assistant's budget of
+        edits and deletes. No `Idempotency-Key` is needed.
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/RestoreType" }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Restored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, type, id]
+                properties:
+                  ok: { type: boolean }
+                  type: { $ref: "#/components/schemas/RestoreType" }
+                  id: { type: string, format: uuid }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such item of this type in the family's recycle bin, or an unknown type. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The item could not be restored. }
 
   /people:
     get:
@@ -1683,6 +1763,20 @@ components:
           type: string
           enum: [running, ringing]
           description: "`ringing`: the time is up and nobody has dismissed it yet."
+
+    RestoreType:
+      type: string
+      enum: [task, note, meal, birthday]
+
+    DeletedItem:
+      type: object
+      required: [id, type, title, subtitle, deleted_at]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/RestoreType" }
+        title: { type: string }
+        subtitle: { type: [string, "null"] }
+        deleted_at: { type: string, format: date-time }
 
     CalendarEvent:
       type: object
