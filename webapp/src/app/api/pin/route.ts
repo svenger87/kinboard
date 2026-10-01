@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteSecrets, getStoredSecrets } from "@/lib/integration-secrets";
+import { deleteSecrets } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-import { PIN_FORMAT, PIN_KEY, setSettingsPin, verifySettingsPin } from "@/lib/settings-pin";
+import {
+  PIN_FORMAT,
+  PIN_KEY,
+  clearSettingsUnlock,
+  familyHasPin,
+  requireSettingsUnlock,
+  setSettingsPin,
+  setSettingsPinIfAbsent,
+  unlockSettings,
+  verifySettingsPin,
+} from "@/lib/settings-pin";
 
 // Server-side settings-PIN check (Milestone C Task 11). Previously the PIN
 // lived in the anon-readable `settings` table and was compared in the
@@ -25,11 +35,14 @@ import { PIN_FORMAT, PIN_KEY, setSettingsPin, verifySettingsPin } from "@/lib/se
 // still the gate in front of the settings screen for people already inside the
 // household; the session is what decides you are inside it.
 //
-// set/remove deliberately still take no proof of the *current* PIN. The
-// settings page sits behind PinGuard, so a caller with a session that reached
-// this route has either passed the PIN screen or there was no PIN to pass —
-// and a household that has forgotten its own PIN should not be locked out of
-// its own dashboard forever.
+// set/remove also need proof of the *current* PIN when one exists: the
+// server-side settings unlock that a correct "verify" records on this device
+// session (lib/settings-pin.ts, RFC-010 §3.5). They used to rely on PinGuard
+// having asked first — but PinGuard is the browser's opinion, and a device
+// with a session could POST "remove" without ever seeing the PIN screen, set
+// its own PIN, and approve an assistant with it. A household that has
+// forgotten its PIN resets it from the database (wiki: AI-Assistants,
+// "Forgot the PIN?"), not through a route anyone with a session can call.
 
 export async function GET(request: NextRequest) {
   const auth = await requireSession(request);
@@ -44,8 +57,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
-  const stored = await getStoredSecrets(familyId, PIN_KEY);
-  return NextResponse.json({ set: typeof stored?.pin === "string" && stored.pin.length > 0 });
+  try {
+    return NextResponse.json({ set: await familyHasPin(familyId) });
+  } catch (err) {
+    // PinGuard shows "unavailable" on an error and does not open Settings.
+    // Answering { set: false } here instead would open it.
+    console.error("pin: failed to read PIN status:", err);
+    return NextResponse.json({ error: "Failed to read PIN status" }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -70,7 +89,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "pin is required" }, { status: 400 });
     }
 
-    const result = await verifySettingsPin(familyId, pin);
+    let result: Awaited<ReturnType<typeof verifySettingsPin>>;
+    try {
+      result = await verifySettingsPin(familyId, pin);
+      if (result === "valid") await unlockSettings(auth.session.sessionId);
+    } catch (err) {
+      console.error("pin: verify failed:", err);
+      return NextResponse.json({ error: "Failed to verify PIN" }, { status: 500 });
+    }
     if (result === "rate_limited") return NextResponse.json({ error: "rate_limited" }, { status: 429 });
     return NextResponse.json({ valid: result === "valid" });
   }
@@ -81,7 +107,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "pin must be 4 digits" }, { status: 400 });
     }
     try {
-      await setSettingsPin(familyId, pin);
+      if (await familyHasPin(familyId)) {
+        // Changing an existing PIN: only from a device that entered it.
+        const locked = await requireSettingsUnlock(auth.session);
+        if (locked) return locked;
+        await setSettingsPin(familyId, pin);
+      } else if (!(await setSettingsPinIfAbsent(familyId, pin))) {
+        // The first PIN is open to any session in the family — there is
+        // nothing to prove yet. But "first" is decided atomically: if one
+        // appeared since the check above, this caller never knew it, and
+        // is treated exactly like someone changing an existing PIN while
+        // locked.
+        return NextResponse.json({ error: "pin_required" }, { status: 403 });
+      }
+      // Choosing the PIN is proof of knowing it; without this, setting one
+      // would lock the person who just set it out of the next action.
+      await unlockSettings(auth.session.sessionId);
     } catch (err) {
       console.error("pin: failed to store PIN:", err);
       return NextResponse.json({ error: "Failed to save PIN" }, { status: 500 });
@@ -91,7 +132,13 @@ export async function POST(request: NextRequest) {
 
   if (action === "remove") {
     try {
+      const locked = await requireSettingsUnlock(auth.session);
+      if (locked) return locked;
       await deleteSecrets(familyId, PIN_KEY);
+      // Without a PIN everything is open anyway; clearing the unlock means a
+      // PIN set later starts this device from locked, not from a leftover
+      // window.
+      await clearSettingsUnlock(auth.session.sessionId);
     } catch (err) {
       console.error("pin: failed to remove PIN:", err);
       return NextResponse.json({ error: "Failed to remove PIN" }, { status: 500 });

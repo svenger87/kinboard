@@ -72,7 +72,8 @@
       "pinRateLimited": "Zu viele Versuche — warte eine Minute.",
       "digitAria": "Ziffer {position}",
       "statusUnavailableTitle": "Einstellungen nicht verfügbar",
-      "statusUnavailableBody": "Kinboard konnte nicht prüfen, ob eine PIN gesetzt ist. Die Einstellungen bleiben deshalb gesperrt. Prüfe die Verbindung und versuche es erneut."
+      "statusUnavailableBody": "Kinboard konnte nicht prüfen, ob eine PIN gesetzt ist. Die Einstellungen bleiben deshalb gesperrt. Prüfe die Verbindung und versuche es erneut.",
+      "pinRequiredAgain": "Gib die Einstellungs-PIN noch einmal ein, um das zu ändern."
     },
     "shortcuts": {
       "title": "Tastenkürzel",
@@ -4201,6 +4202,7 @@
     "newPinInvalid": "Die PIN muss genau 4 Ziffern haben.",
     "expired": "Diese Anfrage ist abgelaufen oder wurde schon beantwortet. Starte die Verbindung im Assistenten neu.",
     "failed": "Etwas ist schiefgelaufen. Versuche es erneut.",
-    "revokeHint": "Du kannst die Verbindung jederzeit unter Einstellungen → Integrationen trennen."
+    "revokeHint": "Du kannst die Verbindung jederzeit unter Einstellungen → Integrationen trennen.",
+    "pinChanged": "Gerade wurde an anderer Stelle eine Einstellungs-PIN festgelegt. Lade die Seite neu und gib diese PIN ein."
   }
 }

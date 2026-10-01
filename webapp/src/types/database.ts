@@ -57,6 +57,7 @@ export interface Database {
           last_used_at: string | null;
           revoked_at: string | null;
           user_agent: string | null;
+          settings_unlocked_until: string | null;
         };
         Insert: {
           id?: string;
@@ -68,6 +69,7 @@ export interface Database {
           last_used_at?: string | null;
           revoked_at?: string | null;
           user_agent?: string | null;
+          settings_unlocked_until?: string | null;
         };
         Update: {
           id?: string;
@@ -79,6 +81,7 @@ export interface Database {
           last_used_at?: string | null;
           revoked_at?: string | null;
           user_agent?: string | null;
+          settings_unlocked_until?: string | null;
         };
         Relationships: [];
       };

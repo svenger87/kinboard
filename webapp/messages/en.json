@@ -72,7 +72,8 @@
       "pinRateLimited": "Too many attempts — wait a minute.",
       "digitAria": "Digit {position}",
       "statusUnavailableTitle": "Settings unavailable",
-      "statusUnavailableBody": "Kinboard could not check whether a PIN is set, so Settings stays locked. Check the connection and try again."
+      "statusUnavailableBody": "Kinboard could not check whether a PIN is set, so Settings stays locked. Check the connection and try again.",
+      "pinRequiredAgain": "Enter the settings PIN again to make this change."
     },
     "shortcuts": {
       "title": "Keyboard shortcuts",
@@ -4201,6 +4202,7 @@
     "newPinInvalid": "The PIN must be exactly 4 digits.",
     "expired": "This request has expired or was already answered. Start the connection again from the assistant.",
     "failed": "Something went wrong. Try again.",
-    "revokeHint": "You can disconnect it at any time under Settings → Integrations."
+    "revokeHint": "You can disconnect it at any time under Settings → Integrations.",
+    "pinChanged": "A settings PIN was just set somewhere else. Reload this page and enter that PIN."
   }
 }

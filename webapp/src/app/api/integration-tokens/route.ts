@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/require-session";
+import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { createAdminClient } from "@/lib/supabase/server";
 import { logApiError } from "@/lib/api-error";
 import {
@@ -67,6 +68,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);
   if (!session.ok) return session.response;
+
+  // Both verbs are settings changes a PIN protects: creating a token hands
+  // the family's data to a machine, and revoking one can break Home
+  // Assistant. A session alone is any joined device; the unlock is a device
+  // that entered the PIN in the last 15 minutes (lib/settings-pin.ts).
+  let locked: NextResponse | null;
+  try {
+    locked = await requireSettingsUnlock(session.session);
+  } catch (err) {
+    await logApiError("integration-tokens/pin", err);
+    return NextResponse.json({ error: "Could not check the settings PIN" }, { status: 500 });
+  }
+  if (locked) return locked;
 
   const familyId = session.session.familyId;
   let body: Record<string, unknown>;

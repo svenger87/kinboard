@@ -1,5 +1,8 @@
 import crypto from "node:crypto";
-import { getStoredSecrets, upsertSecrets } from "@/lib/integration-secrets";
+import { NextResponse } from "next/server";
+import { upsertSecrets } from "@/lib/integration-secrets";
+import { createAdminClient } from "@/lib/supabase/server";
+import type { SessionContext } from "@/lib/session";
 
 /**
  * The settings PIN check, shared by /api/pin and the assistant consent page
@@ -21,9 +24,22 @@ const MAX_FAILS_PER_HOUR = 20;
 const HOUR_MS = 60 * 60_000;
 const failuresByFamily = new Map<string, number[]>();
 
+/**
+ * Reads the stored PIN, and throws when it cannot. `getStoredSecrets` turns a
+ * failed query into "no row", which here would read as "this family has no
+ * PIN" — and with the PIN now a server-side boundary (requireSettingsUnlock),
+ * "no PIN" means "unlocked". A database hiccup must fail closed instead.
+ */
 async function loadStoredPin(familyId: string): Promise<string | null> {
-  const stored = await getStoredSecrets(familyId, PIN_KEY);
-  return typeof stored?.pin === "string" && stored.pin.length > 0 ? stored.pin : null;
+  const { data, error } = await (createAdminClient() as any)
+    .from("integration_secrets")
+    .select("value")
+    .eq("family_id", familyId)
+    .eq("key", PIN_KEY)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to read the settings PIN: ${error.message}`);
+  const pin = (data?.value as { pin?: unknown } | undefined)?.pin;
+  return typeof pin === "string" && pin.length > 0 ? pin : null;
 }
 
 /** Prunes to the hour window — a superset of the minute window — and stores the result back. */
@@ -91,4 +107,116 @@ export async function setSettingsPin(
 ): Promise<void> {
   if (!PIN_FORMAT.test(pin)) throw new Error("pin must be 4 digits");
   await store(familyId, pin);
+}
+
+/**
+ * Store a first PIN only if the family still has none — atomically.
+ *
+ * The consent page sets a PIN inline when a family has none. Checking
+ * `familyHasPin` and then calling `setSettingsPin` leaves a gap: a PIN set
+ * from Settings (or a second consent tab) in between would be silently
+ * overwritten by whoever came second, and that second caller never proved
+ * they knew the first one. So this is a single conditional write instead.
+ *
+ * Not through `upsertSecrets`: it reads, merges and upserts, which is exactly
+ * the read-then-write gap this exists to close. It goes straight to
+ * `integration_secrets`, whose primary key is (family_id, key):
+ *
+ *   1. INSERT ... ON CONFLICT DO NOTHING (`ignoreDuplicates`) — wins only if
+ *      no row exists. Postgres decides, not this process.
+ *   2. If a row did exist, it may still hold no usable PIN (an empty object
+ *      left by an older migration); `loadStoredPin` treats that as "no PIN",
+ *      so it is claimed with an UPDATE guarded on the pin being absent or
+ *      empty — again one statement, so two callers cannot both win.
+ *
+ * Returns false when a real PIN was already there: the caller must not
+ * proceed as if theirs had been stored.
+ */
+export type PinInsertIfAbsent = (familyId: string, pin: string) => Promise<boolean>;
+
+async function insertPinIfAbsent(familyId: string, pin: string): Promise<boolean> {
+  const db = createAdminClient() as any;
+  const value = { pin };
+  const updatedAt = new Date().toISOString();
+  const { data: inserted, error: insertError } = await db
+    .from("integration_secrets")
+    .upsert({ family_id: familyId, key: PIN_KEY, value, updated_at: updatedAt }, { onConflict: "family_id,key", ignoreDuplicates: true })
+    .select("family_id");
+  if (insertError) throw new Error(`Failed to store PIN: ${insertError.message}`);
+  if ((inserted ?? []).length === 1) return true;
+
+  const { data: claimed, error: claimError } = await db
+    .from("integration_secrets")
+    .update({ value, updated_at: updatedAt })
+    .eq("family_id", familyId)
+    .eq("key", PIN_KEY)
+    .or("value->>pin.is.null,value->>pin.eq.")
+    .select("family_id");
+  if (claimError) throw new Error(`Failed to store PIN: ${claimError.message}`);
+  return (claimed ?? []).length === 1;
+}
+
+export async function setSettingsPinIfAbsent(
+  familyId: string,
+  pin: string,
+  store: PinInsertIfAbsent = insertPinIfAbsent,
+): Promise<boolean> {
+  if (!PIN_FORMAT.test(pin)) throw new Error("pin must be 4 digits");
+  return store(familyId, pin);
+}
+
+/**
+ * The server-side settings unlock (RFC-010 §3.5).
+ *
+ * PinGuard asks for the PIN before it renders Settings, but that is the
+ * browser deciding — a device with a session could skip the screen and call
+ * the routes behind it directly. So a correct PIN entry also records, on the
+ * device session that entered it, that this device may change protected
+ * settings for the next fifteen minutes; the routes that matter check that
+ * record, not the browser's word.
+ *
+ * Fifteen minutes is a little longer than PinGuard's own ten-minute idle
+ * window, so someone working through Settings is re-prompted by the screen
+ * before the server would refuse them — a 403 is the fallback, not the flow.
+ */
+export const SETTINGS_UNLOCK_TTL_S = 15 * 60;
+
+export async function unlockSettings(sessionId: string, now: Date = new Date()): Promise<void> {
+  const until = new Date(now.getTime() + SETTINGS_UNLOCK_TTL_S * 1000).toISOString();
+  const { error } = await createAdminClient()
+    .from("device_sessions")
+    .update({ settings_unlocked_until: until })
+    .eq("id", sessionId);
+  if (error) throw new Error(`Failed to record the settings unlock: ${error.message}`);
+}
+
+/** Ends this device's unlock — after the PIN is removed, so a new one starts from a locked state. */
+export async function clearSettingsUnlock(sessionId: string): Promise<void> {
+  const { error } = await createAdminClient()
+    .from("device_sessions")
+    .update({ settings_unlocked_until: null })
+    .eq("id", sessionId);
+  if (error) throw new Error(`Failed to clear the settings unlock: ${error.message}`);
+}
+
+/** Pure: may this session change protected settings right now? */
+export function settingsUnlocked(session: SessionContext, pinSet: boolean, now: Date): boolean {
+  if (!pinSet) return true;
+  if (!session.settingsUnlockedUntil) return false;
+  const until = new Date(session.settingsUnlockedUntil).getTime();
+  return Number.isFinite(until) && until > now.getTime();
+}
+
+/**
+ * For a route: null when the action may proceed, else the 403 to return.
+ * `pin_required` is what the settings UI listens for to put the PIN screen
+ * back up.
+ */
+export async function requireSettingsUnlock(
+  session: SessionContext,
+  hasPin: (familyId: string) => Promise<boolean> = (familyId) => familyHasPin(familyId),
+  now: Date = new Date(),
+): Promise<NextResponse | null> {
+  if (settingsUnlocked(session, await hasPin(session.familyId), now)) return null;
+  return NextResponse.json({ error: "pin_required" }, { status: 403 });
 }

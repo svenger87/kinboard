@@ -8,13 +8,14 @@ import type { AuthRequest } from "@/lib/oauth/types";
 export interface ConsentDeps {
   hasPin(familyId: string): Promise<boolean>;
   verifyPin(familyId: string, pin: string): Promise<"valid" | "invalid" | "rate_limited">;
-  setPin(familyId: string, pin: string): Promise<void>;
+  /** Stores a first PIN only if none exists, atomically; false if one appeared meanwhile. */
+  setPinIfAbsent(familyId: string, pin: string): Promise<boolean>;
   approve(id: string, familyId: string, granted: McpScope[], codeHash: string, codeExpiresAt: string, now: Date): Promise<boolean>;
   deny(id: string, now: Date): Promise<void>;
   newCode(): { code: string; hash: string };
 }
 
-export type ConsentOutcome = { status: 200; redirect: string } | { status: 400 | 403 | 404 | 429; error: string };
+export type ConsentOutcome = { status: 200; redirect: string } | { status: 400 | 403 | 404 | 409 | 429; error: string };
 
 export interface ConsentInput {
   request: AuthRequest;
@@ -47,6 +48,13 @@ export interface ConsentInput {
  * request expired in the gap between the two awaits — acceptable: the user
  * asked to set a PIN, and it is set; they just need to start the connection
  * again.
+ *
+ * "The family has no PIN" is read once, at the top, and could be stale by
+ * the time the new PIN is stored — someone may have set one from Settings
+ * (or a second consent tab) in between. Storing over it would let this
+ * caller approve with a PIN they chose instead of the one they never knew.
+ * So the store is insert-if-absent, decided by Postgres; losing that race
+ * is 409 `pin_changed` and the request is not approved.
  */
 export async function decideConsent(deps: ConsentDeps, input: ConsentInput): Promise<ConsentOutcome> {
   const { request: r, familyId, origin, decision, pin, newPin, scopes, now } = input;
@@ -71,7 +79,9 @@ export async function decideConsent(deps: ConsentDeps, input: ConsentInput): Pro
   const granted = narrowScopes(r.scopes, Array.isArray(scopes) ? scopes : []);
   if (granted.length === 0) return { status: 400, error: "no_scopes" };
 
-  if (pinToSet !== null) await deps.setPin(familyId, pinToSet);
+  if (pinToSet !== null && !(await deps.setPinIfAbsent(familyId, pinToSet))) {
+    return { status: 409, error: "pin_changed" };
+  }
 
   const code = deps.newCode();
   const approved = await deps.approve(

@@ -91,6 +91,37 @@ export function clearUnlock(): void {
   }
 }
 
+/**
+ * The server said no: `{ error: "pin_required" }` with a 403.
+ *
+ * Since RFC-010 §3.5 the routes behind Settings check a server-side unlock
+ * that a correct PIN entry records on the device session for 15 minutes.
+ * The browser's unlock above normally lapses first, so this is the fallback
+ * — a PIN set on another device, or a server unlock that expired while the
+ * screen was still open. Either way the answer is the PIN screen again.
+ */
+export const RELOCK_EVENT = "kinboard:settings-relock";
+
+export async function isPinRequired(response: Response): Promise<boolean> {
+  if (response.status !== 403) return false;
+  const body = (await response.clone().json().catch(() => null)) as { error?: unknown } | null;
+  return body?.error === "pin_required";
+}
+
+/**
+ * Drop the browser's unlock and tell PinGuard to put the PIN screen back up.
+ * An event rather than a reload: PinGuard re-prompts in place and can say
+ * why, which a reload would wipe before anyone read it.
+ */
+export function relockSettings(): void {
+  clearUnlock();
+  try {
+    window.dispatchEvent(new Event(RELOCK_EVENT));
+  } catch {
+    /* no window (tests, SSR): nothing is rendered to re-lock */
+  }
+}
+
 /** Whether a path is inside the area the PIN guards. */
 export function isSettingsPath(pathname: string): boolean {
   return pathname === "/settings" || pathname.startsWith("/settings/");

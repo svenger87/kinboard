@@ -86,6 +86,7 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
           : body.error === "rate_limited" ? t("rateLimited")
           : body.error === "no_scopes" ? t("noScopes")
           : body.error === "new_pin_invalid" ? t("newPinInvalid")
+          : body.error === "pin_changed" ? t("pinChanged")
           : body.error === "not_found" ? t("expired")
           : t("failed"),
       );

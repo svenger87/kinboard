@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmDestructive } from "@/components/confirm-destructive";
+import { isPinRequired, relockSettings } from "@/lib/pin-session";
 
 interface TokenRow {
   id: string;
@@ -67,10 +68,17 @@ export default function IntegrationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, scopes }),
       });
+      // The server wants the PIN again (RFC-010 §3.5): PinGuard re-prompts
+      // and says why, so this is not an error to toast as well.
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return null;
+      }
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`);
       return (await r.json()) as { secret: string };
     },
     onSuccess: (result) => {
+      if (!result) return;
       setSecret(result.secret);
       setName("");
       void qc.invalidateQueries({ queryKey: ["integration-tokens"] });
@@ -85,9 +93,15 @@ export default function IntegrationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "revoke", id }),
       });
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return false;
+      }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return true;
     },
-    onSuccess: () => {
+    onSuccess: (done) => {
+      if (!done) return;
       toast.success(t("revoked"));
       void qc.invalidateQueries({ queryKey: ["integration-tokens"] });
     },

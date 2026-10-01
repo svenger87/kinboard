@@ -77,6 +77,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { isPinRequired, relockSettings } from "@/lib/pin-session";
 import { WhatsNewDialog } from "@/components/whats-new-dialog";
 
 // Diagnostics-only push status row. usePushServerConfigured() fires a fetch
@@ -387,7 +388,13 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ family_id: family.id, action: "set", pin: entered }),
       })
-        .then((res) => {
+        .then(async (res) => {
+          if (await isPinRequired(res)) {
+            setPinDialogOpen(false);
+            setPinDigits(["", "", "", ""]);
+            relockSettings();
+            return;
+          }
           if (!res.ok) throw new Error(`PIN save failed: ${res.status}`);
           // Refresh the unlock session so the new PIN becomes the current session proof
           try { sessionStorage.setItem("kinboard_settings_unlock", "unlocked"); } catch { /* noop */ }
@@ -417,7 +424,12 @@ export default function SettingsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ family_id: family.id, action: "remove" }),
     })
-      .then((res) => {
+      .then(async (res) => {
+        if (await isPinRequired(res)) {
+          setPinDialogOpen(false);
+          relockSettings();
+          return;
+        }
         if (!res.ok) throw new Error(`PIN remove failed: ${res.status}`);
         try { sessionStorage.removeItem("kinboard_settings_unlock"); } catch { /* noop */ }
         toast.success(t("pinRemovedToastTitle"), { description: t("pinRemovedToastDescription") });

@@ -72,7 +72,8 @@
       "pinRateLimited": "Trop de tentatives — attendez une minute.",
       "digitAria": "Chiffre {position}",
       "statusUnavailableTitle": "Réglages indisponibles",
-      "statusUnavailableBody": "Kinboard n’a pas pu vérifier si un code PIN est défini. Les réglages restent donc verrouillés. Vérifiez la connexion et réessayez."
+      "statusUnavailableBody": "Kinboard n’a pas pu vérifier si un code PIN est défini. Les réglages restent donc verrouillés. Vérifiez la connexion et réessayez.",
+      "pinRequiredAgain": "Saisissez à nouveau le code PIN des paramètres pour effectuer cette modification."
     },
     "shortcuts": {
       "title": "Raccourcis clavier",
@@ -4201,6 +4202,7 @@
     "newPinInvalid": "Le code PIN doit comporter exactement 4 chiffres.",
     "expired": "Cette demande a expiré ou a déjà reçu une réponse. Relancez la connexion depuis l'assistant.",
     "failed": "Une erreur s'est produite. Réessayez.",
-    "revokeHint": "Vous pouvez la déconnecter à tout moment dans Paramètres → Intégrations."
+    "revokeHint": "Vous pouvez la déconnecter à tout moment dans Paramètres → Intégrations.",
+    "pinChanged": "Un code PIN des paramètres vient d'être défini ailleurs. Rechargez cette page et saisissez ce code."
   }
 }

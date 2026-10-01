@@ -49,3 +49,15 @@ It signs in through the same Kinboard page — with the same settings PIN. Or cr
 | `energy:read` | read the solar sensors set up under Energy |
 
 Twenty wrong PINs within an hour lock PIN entry for the rest of that hour.
+
+## Forgot the PIN?
+
+The PIN protects the settings pages and approving assistants, and Kinboard
+checks it on the server — there is no way around it from a browser. If nobody
+remembers it, remove it from the database on the machine running Kinboard
+(the container is `kinboard-db` unless you changed `PROJECT_NAME`):
+
+    docker exec -i kinboard-db psql -U postgres -d postgres -c "DELETE FROM integration_secrets WHERE key = 'settings_pin';"
+
+That removes the PIN for every family on this Kinboard. Open **Settings** and
+set a new one.

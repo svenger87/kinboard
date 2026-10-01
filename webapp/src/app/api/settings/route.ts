@@ -11,6 +11,7 @@ import {
   deleteSecrets,
 } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 // Every verb here reads or writes one family's settings row, and the family
 // was picked entirely by the caller. That covered integration config — Home
@@ -18,6 +19,22 @@ import { familyMatchesSession, requireSession } from "@/lib/require-session";
 // and on the write side let anyone repoint another household's integrations.
 // The session decides which family this route may touch; family_id is now only
 // allowed to agree with it.
+
+// Keys this generic route must not write, because a dedicated route guards
+// them with more than a session (RFC-010 §3.5). settings_pin is in
+// SECRET_FIELDS, so a PUT here would upsert the PIN and a DELETE would
+// remove it — straight past the server-side settings unlock /api/pin checks.
+const DEDICATED_ROUTE_KEYS: Record<string, string> = {
+  [SETTINGS_KEYS.settingsPin]: "/api/pin",
+};
+
+function dedicatedRoute(key: unknown): NextResponse | null {
+  if (typeof key !== "string" || !(key in DEDICATED_ROUTE_KEYS)) return null;
+  return NextResponse.json(
+    { error: `${key} is changed through ${DEDICATED_ROUTE_KEYS[key]}` },
+    { status: 403 }
+  );
+}
 
 // GET: Fetch a setting by family_id and key
 export async function GET(request: NextRequest) {
@@ -85,6 +102,9 @@ export async function PUT(request: NextRequest) {
 
   const body = await request.json();
   const { family_id, key, value } = body;
+
+  const dedicated = dedicatedRoute(key);
+  if (dedicated) return dedicated;
 
   if (!family_id || !key || value === undefined) {
     return NextResponse.json(
@@ -165,6 +185,9 @@ export async function DELETE(request: NextRequest) {
 
   const body = await request.json();
   const { family_id, key } = body;
+
+  const dedicated = dedicatedRoute(key);
+  if (dedicated) return dedicated;
 
   if (!family_id || !key) {
     return NextResponse.json(

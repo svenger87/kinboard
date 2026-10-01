@@ -4,12 +4,13 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Lock, ArrowLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useFamilyStore } from "@/stores/family-store";
 import { useRouter } from "next/navigation";
-import { isUnlocked, grantUnlock } from "@/lib/pin-session";
+import { isUnlocked, grantUnlock, RELOCK_EVENT } from "@/lib/pin-session";
 
 const PIN_LENGTH = 4;
 
@@ -53,6 +54,8 @@ function PinStatusUnavailable({ cancelHref }: { cancelHref: string }) {
  */
 export function PinGuard({ children, cancelHref = "/" }: PinGuardProps) {
   const { family } = useFamilyStore();
+  const t = useTranslations("components.pin");
+  const queryClient = useQueryClient();
   const { data: status, isError } = useQuery({
     queryKey: ["pin-status", family?.id],
     queryFn: async (): Promise<{ set: boolean }> => {
@@ -107,6 +110,24 @@ export function PinGuard({ children, cancelHref = "/" }: PinGuardProps) {
     }, 30_000);
     return () => clearInterval(id);
   }, [unlocked, family?.id]);
+
+  /*
+    The server refused a settings change for want of the PIN (a 403
+    `pin_required`, see relockSettings in lib/pin-session.ts). Its unlock is
+    the one that counts, so the screen follows it: back to the PIN entry,
+    with the reason, and the PIN status refetched — the refusal may mean a
+    PIN was set on another device while this one believed there was none.
+  */
+  useEffect(() => {
+    const relock = () => {
+      setUnlocked(false);
+      setDigits(Array(PIN_LENGTH).fill(""));
+      void queryClient.invalidateQueries({ queryKey: ["pin-status", family?.id] });
+      toast.info(t("pinRequiredAgain"));
+    };
+    window.addEventListener(RELOCK_EVENT, relock);
+    return () => window.removeEventListener(RELOCK_EVENT, relock);
+  }, [queryClient, family?.id, t]);
 
   // Pass through only on a positive answer that no PIN is configured.
   if (statusKnown && !pinIsSet) {

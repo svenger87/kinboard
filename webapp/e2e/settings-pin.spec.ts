@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { familyHasPin, verifySettingsPin, setSettingsPin, PIN_FORMAT } from "../src/lib/settings-pin";
+import {
+  familyHasPin, verifySettingsPin, setSettingsPin, setSettingsPinIfAbsent, PIN_FORMAT,
+  settingsUnlocked, requireSettingsUnlock, SETTINGS_UNLOCK_TTL_S,
+} from "../src/lib/settings-pin";
+import type { SessionContext } from "../src/lib/session";
 
 const load = (pin: string | null) => async () => pin;
 
@@ -72,5 +76,62 @@ test.describe("setSettingsPin", () => {
     expect(PIN_FORMAT.test("12a4")).toBe(false);
     expect(PIN_FORMAT.test("123")).toBe(false);
     expect(PIN_FORMAT.test("12345")).toBe(false);
+  });
+});
+
+test.describe("setSettingsPinIfAbsent", () => {
+  test("reports whether the conditional insert won, and validates before reaching it", async () => {
+    expect(await setSettingsPinIfAbsent("fam-g", "1234", async () => true)).toBe(true);
+    expect(await setSettingsPinIfAbsent("fam-g", "1234", async () => false)).toBe(false);
+    let reached = false;
+    await expect(setSettingsPinIfAbsent("fam-g", "12a4", async () => { reached = true; return true; })).rejects.toThrow("pin must be 4 digits");
+    expect(reached).toBe(false);
+  });
+});
+
+/**
+ * The server-side settings unlock (RFC-010 §3.5): the PIN guards the
+ * actions, not just the screen. A session is unlocked when the family has no
+ * PIN, or when its settings_unlocked_until is still in the future.
+ */
+test.describe("settings unlock", () => {
+  const NOW = new Date("2026-10-01T12:00:00Z");
+  const session = (until: string | null): SessionContext => ({
+    familyId: "fam-u", deviceId: "dev-u", sessionId: "ses-u", settingsUnlockedUntil: until,
+  });
+  const later = new Date(NOW.getTime() + 60_000).toISOString();
+  const earlier = new Date(NOW.getTime() - 60_000).toISOString();
+
+  test("truth table", () => {
+    const rows: Array<[boolean, string | null, boolean]> = [
+      // pinSet, unlockedUntil, expected
+      [false, null, true],      // no PIN: nothing to prove
+      [false, earlier, true],
+      [false, later, true],
+      [true, null, false],      // PIN, never entered on this device
+      [true, earlier, false],   // PIN, unlock lapsed
+      [true, NOW.toISOString(), false], // exactly at expiry is expired
+      [true, later, true],      // PIN, entered recently
+      [true, "not a date", false],
+    ];
+    for (const [pinSet, until, expected] of rows) {
+      expect(settingsUnlocked(session(until), pinSet, NOW), `${pinSet} ${until}`).toBe(expected);
+    }
+  });
+
+  test("the unlock lasts fifteen minutes", () => {
+    expect(SETTINGS_UNLOCK_TTL_S).toBe(15 * 60);
+  });
+
+  test("requireSettingsUnlock: 403 pin_required when locked, null when allowed", async () => {
+    const locked = await requireSettingsUnlock(session(earlier), async () => true, NOW);
+    expect(locked?.status).toBe(403);
+    expect(await locked?.json()).toEqual({ error: "pin_required" });
+    expect(await requireSettingsUnlock(session(later), async () => true, NOW)).toBeNull();
+    expect(await requireSettingsUnlock(session(null), async () => false, NOW)).toBeNull();
+  });
+
+  test("a PIN lookup that fails is a failure, not 'no PIN'", async () => {
+    await expect(requireSettingsUnlock(session(null), async () => { throw new Error("db down"); }, NOW)).rejects.toThrow("db down");
   });
 });

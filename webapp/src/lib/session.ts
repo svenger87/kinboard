@@ -38,6 +38,12 @@ export interface SessionContext {
   familyId: string;
   deviceId: string | null;
   sessionId: string;
+  /**
+   * Until when this device may change protected settings without entering
+   * the PIN again (lib/settings-pin.ts, RFC-010 §3.5). Null when it never
+   * unlocked, or the PIN was removed.
+   */
+  settingsUnlockedUntil: string | null;
 }
 
 /** SHA-256, hex. What the database stores. */
@@ -90,7 +96,7 @@ export async function verifySession(token: string | undefined): Promise<SessionC
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("device_sessions")
-    .select("id, family_id, device_id, expires_at, revoked_at, last_used_at")
+    .select("id, family_id, device_id, expires_at, revoked_at, last_used_at, settings_unlocked_until")
     .eq("token_hash", hashToken(token))
     .maybeSingle();
 
@@ -103,6 +109,7 @@ export async function verifySession(token: string | undefined): Promise<SessionC
     expires_at: string;
     revoked_at: string | null;
     last_used_at: string | null;
+    settings_unlocked_until: string | null;
   };
 
   if (row.revoked_at) return null;
@@ -127,7 +134,12 @@ export async function verifySession(token: string | undefined): Promise<SessionC
       });
   }
 
-  return { familyId: row.family_id, deviceId: row.device_id, sessionId: row.id };
+  return {
+    familyId: row.family_id,
+    deviceId: row.device_id,
+    sessionId: row.id,
+    settingsUnlockedUntil: row.settings_unlocked_until ?? null,
+  };
 }
 
 /** Sign one device out. */

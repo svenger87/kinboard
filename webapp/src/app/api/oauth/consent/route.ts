@@ -5,7 +5,7 @@ import { OAUTH_REQUEST_COOKIE } from "@/lib/oauth/config";
 import { isLoopbackRedirect } from "@/lib/oauth/redirect";
 import { createOAuthStore } from "@/lib/oauth/store";
 import { generateAuthorizationCode } from "@/lib/oauth/grants";
-import { familyHasPin, verifySettingsPin, setSettingsPin } from "@/lib/settings-pin";
+import { familyHasPin, verifySettingsPin, setSettingsPinIfAbsent } from "@/lib/settings-pin";
 import { decideConsent, type ConsentDeps } from "@/lib/oauth/consent";
 import { logApiError } from "@/lib/api-error";
 import type { AuthRequest } from "@/lib/oauth/types";
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     const deps: ConsentDeps = {
       hasPin: familyHasPin,
       verifyPin: verifySettingsPin,
-      setPin: setSettingsPin,
+      setPinIfAbsent: (familyId, pin) => setSettingsPinIfAbsent(familyId, pin),
       approve: (reqId, familyId, granted, codeHash, codeExpiresAt, approveNow) =>
         store.approveAuthRequest(reqId, familyId, granted, codeHash, codeExpiresAt, approveNow),
       deny: (reqId, denyNow) => store.denyAuthRequest(reqId, denyNow),

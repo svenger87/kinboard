@@ -26,13 +26,13 @@ function authRequest(over: Partial<AuthRequest> = {}): AuthRequest {
 }
 
 function fakeDeps(over: Partial<ConsentDeps> = {}) {
-  const calls: { hasPin: unknown[][]; verifyPin: unknown[][]; setPin: unknown[][]; approve: unknown[][]; deny: unknown[][] } = {
-    hasPin: [], verifyPin: [], setPin: [], approve: [], deny: [],
+  const calls: { hasPin: unknown[][]; verifyPin: unknown[][]; setPinIfAbsent: unknown[][]; approve: unknown[][]; deny: unknown[][] } = {
+    hasPin: [], verifyPin: [], setPinIfAbsent: [], approve: [], deny: [],
   };
   const deps: ConsentDeps = {
     async hasPin(familyId) { calls.hasPin.push([familyId]); return false; },
     async verifyPin(familyId, pin) { calls.verifyPin.push([familyId, pin]); return "valid"; },
-    async setPin(familyId, pin) { calls.setPin.push([familyId, pin]); },
+    async setPinIfAbsent(familyId, pin) { calls.setPinIfAbsent.push([familyId, pin]); return true; },
     async approve(...args) { calls.approve.push(args); return true; },
     async deny(...args) { calls.deny.push(args); },
     newCode: () => ({ code: "kbo_test", hash: "hash_test" }),
@@ -82,7 +82,7 @@ test("no PIN yet + a valid newPin: setPin is called, then approve", async () => 
   let setPinArgs: [string, string] | null = null;
   const { deps } = fakeDeps({
     hasPin: async () => false,
-    setPin: async (familyId, pin) => { setPinArgs = [familyId, pin]; order.push("setPin"); },
+    setPinIfAbsent: async (familyId, pin) => { setPinArgs = [familyId, pin]; order.push("setPin"); return true; },
     approve: async () => { order.push("approve"); return true; },
   });
   const r = await decideConsent(deps, input({ newPin: "4321" }));
@@ -95,14 +95,14 @@ test("no PIN yet + empty scopes: 400 no_scopes, setPin is never called", async (
   const { deps, calls } = fakeDeps({ hasPin: async () => false });
   const r = await decideConsent(deps, input({ newPin: "4321", scopes: [] }));
   expect(r).toMatchObject({ status: 400, error: "no_scopes" });
-  expect(calls.setPin).toEqual([]);
+  expect(calls.setPinIfAbsent).toEqual([]);
 });
 
 test("no PIN yet + a malformed newPin: 400 new_pin_invalid", async () => {
   const { deps, calls } = fakeDeps({ hasPin: async () => false });
   const r = await decideConsent(deps, input({ newPin: "12a4" }));
   expect(r).toMatchObject({ status: 400, error: "new_pin_invalid" });
-  expect(calls.setPin).toEqual([]);
+  expect(calls.setPinIfAbsent).toEqual([]);
 });
 
 test("PIN already exists + only newPin supplied: 403 pin_invalid, setPin never called (newPin ignored)", async () => {
@@ -113,8 +113,18 @@ test("PIN already exists + only newPin supplied: 403 pin_invalid, setPin never c
   });
   const r = await decideConsent(deps, input({ newPin: "4321", pin: undefined }));
   expect(r).toMatchObject({ status: 403, error: "pin_invalid" });
-  expect(calls.setPin).toEqual([]);
+  expect(calls.setPinIfAbsent).toEqual([]);
   expect(verifyPinArgs).toEqual(["fam-1", ""]);
+});
+
+test("no PIN yet, but one appears before the new PIN is stored: 409 pin_changed, approve is never called", async () => {
+  // hasPin said "none" at the top; by the time the insert-if-absent runs, a
+  // PIN set elsewhere has won. This caller never knew that PIN, so nothing
+  // may be approved on the strength of the one they just typed.
+  const { deps, calls } = fakeDeps({ hasPin: async () => false, setPinIfAbsent: async () => false });
+  const r = await decideConsent(deps, input({ newPin: "4321" }));
+  expect(r).toMatchObject({ status: 409, error: "pin_changed" });
+  expect(calls.approve).toEqual([]);
 });
 
 test("scopes outside the request are dropped", async () => {

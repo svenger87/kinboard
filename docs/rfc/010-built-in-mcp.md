@@ -140,6 +140,20 @@ requested scopes as checkboxes; the user may grant fewer.
 Twenty wrong PINs within an hour lock PIN entry (settings and consent) for
 the rest of that hour.
 
+The PIN is enforced on the server, not only by the screen in front of
+Settings. Changing or removing the PIN, creating or revoking an integration
+token, and switching AI assistants on or off all require a **settings
+unlock**: a correct PIN entry records `settings_unlocked_until` on the device
+session that entered it, fifteen minutes ahead, and those routes answer 403
+`pin_required` without it (the settings UI then shows the PIN screen again).
+Approving an assistant checks the PIN itself in the same request. A family
+without a PIN needs no unlock, and its first PIN — from Settings or inline on
+the consent page — is stored only if none exists at that moment (an atomic
+insert-if-absent; losing that race is 409 `pin_changed`), so nobody can
+replace a PIN they never knew. A forgotten PIN is reset by deleting the
+family's `settings_pin` row from `integration_secrets`; the wiki's
+AI-Assistants page has the one-line command.
+
 ### 3.6 Tools
 
 The MCP server is built per request (`createMcpHandler` from
