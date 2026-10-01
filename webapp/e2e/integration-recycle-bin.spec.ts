@@ -67,7 +67,12 @@ function fakeDb(tables: Record<string, Row[]>) {
           return { data: hit.map((r) => ({ id: r.id })), error: null };
         }
         if (descending) hit = [...hit].sort((a, b) => String(b[descending!]).localeCompare(String(a[descending!])));
-        return { data: hit.slice(0, cap).map((r) => ({ ...r })), error: null };
+        // The recipes(...) embed on a meal entry: the linked row whatever its
+        // family or bin state, as PostgREST returns it; the lib must filter.
+        const embed = (r: Row) => table === "meal_plan_entries"
+          ? { ...r, recipe: (tables.recipes ?? []).find((x) => x.id === r.recipe_id) ?? null }
+          : { ...r };
+        return { data: hit.slice(0, cap).map(embed), error: null };
       };
 
       const chain = {
@@ -144,11 +149,11 @@ test.describe("listing", () => {
     const f = household();
     const items = await listDeletedItems(OURS, null, f.db);
     expect(items).toEqual([
-      { id: R(12), type: "note", title: "—", subtitle: null, deleted_at: at(5) },
-      { id: R(31), type: "birthday", title: "Oma", subtitle: "1950-04-12", deleted_at: at(4) },
-      { id: R(21), type: "meal", title: "2026-10-02", subtitle: "dinner", deleted_at: at(3) },
-      { id: R(11), type: "note", title: "x".repeat(120), subtitle: null, deleted_at: at(2) },
-      { id: R(1), type: "task", title: "Clean the car", subtitle: null, deleted_at: at(1) },
+      { id: R(12), type: "note", title: "—", subtitle: null, detail: null, deleted_at: at(5) },
+      { id: R(31), type: "birthday", title: "Oma", subtitle: "1950-04-12", detail: null, deleted_at: at(4) },
+      { id: R(21), type: "meal", title: "2026-10-02", subtitle: "dinner", detail: null, deleted_at: at(3) },
+      { id: R(11), type: "note", title: "x".repeat(120), subtitle: null, detail: null, deleted_at: at(2) },
+      { id: R(1), type: "task", title: "Clean the car", subtitle: null, detail: null, deleted_at: at(1) },
     ]);
   });
 
@@ -168,6 +173,38 @@ test.describe("listing", () => {
     expect(items).toHaveLength(MAX_DELETED_ITEMS);
     expect(items.filter((i) => i.type === "note")).toHaveLength(40);
     expect(items.at(-1)).toMatchObject({ type: "task", title: "t30" });
+  });
+
+  test("binned meals on one day are told apart by recipe and note; a binned or foreign recipe's title is not shown", async () => {
+    const meal = (n: number, extra: Row) => ({
+      id: R(n), meal_plan_id: PLAN_OURS, date: "2026-10-02", meal_type: "dinner", note: null, recipe_id: null, deleted_at: at(n), ...extra,
+    });
+    const f = fakeDb({
+      meal_plans: [{ id: PLAN_OURS, family_id: OURS }],
+      recipes: [
+        { id: R(51), family_id: OURS, title: "Lasagne", deleted_at: null },
+        { id: R(52), family_id: OURS, title: "Tiramisu", deleted_at: null },
+        { id: R(53), family_id: OURS, title: "Binned curry", deleted_at: at(1) },
+        { id: R(54), family_id: THEIRS, title: "Their stew", deleted_at: null },
+      ],
+      meal_plan_entries: [
+        meal(1, { recipe_id: R(51) }),
+        meal(2, { recipe_id: R(52), note: "  for the guests " }),
+        meal(3, { recipe_id: R(53), note: "with rice" }),
+        meal(4, { recipe_id: R(54) }),
+        meal(5, { note: "y".repeat(200) }),
+        meal(6, {}),
+      ],
+    });
+    const detail = Object.fromEntries((await listDeletedItems(OURS, "meal", f.db)).map((i) => [i.id, i.detail]));
+    expect(detail).toEqual({
+      [R(1)]: "Lasagne",
+      [R(2)]: "Tiramisu — for the guests",
+      [R(3)]: "with rice",
+      [R(4)]: null,
+      [R(5)]: "y".repeat(120),
+      [R(6)]: null,
+    });
   });
 
   test("a failing read is an error, not an empty bin", async () => {

@@ -44,10 +44,28 @@ export interface DeletedItem {
   title: string;
   /** The bin's subtitle column: a birthday's date, a meal's type; otherwise null. */
   subtitle: string | null;
+  /**
+   * Meal entries only, so two binned dinners on one day can be told apart:
+   * the linked recipe's title and the entry's note, joined with " — ", cut
+   * to 120. The recipe title is left out when that recipe is itself in the
+   * bin (RFC-012 §4: binned recipes are never exposed) or is not this
+   * family's. Null for the other types, and for an entry with neither.
+   */
+  detail: string | null;
   deleted_at: string;
 }
 
 const viaMealPlan = (table: RecyclableTable) => table === "meal_plan_entries";
+
+/** See DeletedItem.detail. */
+function mealDetail(row: Record<string, unknown>, familyId: string): string | null {
+  const recipe = row.recipe as { title?: unknown; family_id?: unknown; deleted_at?: unknown } | null | undefined;
+  const recipeTitle = recipe && recipe.family_id === familyId && recipe.deleted_at == null
+    && typeof recipe.title === "string" && recipe.title.trim() !== "" ? recipe.title.trim() : null;
+  const note = typeof row.note === "string" && row.note.trim() !== "" ? row.note.trim() : null;
+  const parts = [recipeTitle, note].filter((p): p is string => p !== null);
+  return parts.length > 0 ? parts.join(" — ").slice(0, 120) : null;
+}
 
 /**
  * The family's deleted rows of one type, or of all four, newest deletion
@@ -65,7 +83,9 @@ export async function listDeletedItems(
     const columns = ["id", "deleted_at", cfg.title, cfg.subtitle].filter(Boolean).join(", ");
 
     let q = viaMealPlan(table)
-      ? (db as any).from(table).select(`${columns}, meal_plan:meal_plans!inner(family_id)`).eq("meal_plan.family_id", familyId)
+      ? (db as any).from(table)
+        .select(`${columns}, note, recipe:recipes(title, family_id, deleted_at), meal_plan:meal_plans!inner(family_id)`)
+        .eq("meal_plan.family_id", familyId)
       : (db as any).from(table).select(columns).eq("family_id", familyId);
     q = q.not("deleted_at", "is", null).order("deleted_at", { ascending: false }).limit(MAX_DELETED_ITEMS);
 
@@ -73,7 +93,8 @@ export async function listDeletedItems(
     if (error) throw error;
     for (const row of (data ?? []) as Record<string, unknown>[]) {
       const { id, title, subtitle, deleted_at } = describeDeletedRow(table, row);
-      items.push({ id, type: name, title, subtitle, deleted_at });
+      const detail = viaMealPlan(table) ? mealDetail(row, familyId) : null;
+      items.push({ id, type: name, title, subtitle, detail, deleted_at });
     }
   }
   items.sort((a, b) => b.deleted_at.localeCompare(a.deleted_at) || a.id.localeCompare(b.id));

@@ -157,17 +157,17 @@ change them.
 | `family:read` | read the summary, calendar, tasks, people, meal plan and shopping list |
 | `notes:read` | read notes |
 | `calendar:write` | add, edit and delete calendar events |
-| `tasks:write` | add, complete, edit and delete tasks |
+| `tasks:write` | add, complete, edit and delete tasks, and bring them back from the recycle bin |
 | `shopping:write` | add, check/uncheck, rename and delete shopping items |
-| `notes:write` | add, edit and delete notes |
-| `meals:write` | add and remove meal plan entries |
+| `notes:write` | add, edit and delete notes, and bring them back from the recycle bin |
+| `meals:write` | add and remove meal plan entries, and bring them back from the recycle bin |
 | `announcements:write` | send a message to the family's screens |
 | `energy:read` | read the solar sensors set up under Energy |
 | `home:read` | list the home catalogue and read a device's state |
 | `home:control` | control catalogue devices — grant `home:read` too if the assistant should also be able to look before it acts |
 | `vehicles:read` | read the cars' charge level, range and charging status — never their location |
 | `timers:write` | start and stop timers on the screens |
-| `birthdays:write` | add, edit and delete birthdays |
+| `birthdays:write` | add, edit and delete birthdays, and bring them back from the recycle bin |
 | `pocket_money:write` | ask to book pocket money — every booking still needs a family member to confirm with the settings PIN |
 
 Twenty wrong PINs within an hour lock PIN entry for the rest of that hour.

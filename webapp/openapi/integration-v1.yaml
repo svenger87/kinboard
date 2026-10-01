@@ -860,7 +860,9 @@ paths:
         it to one kind. `title` and `subtitle` are what the Settings bin
         shows: a task's title; a note's text, cut to 120 characters; a
         birthday's name and date; a meal entry's date and meal type. An
-        empty title is `—`. Recipes, people and the other binned kinds are
+        empty title is `—`. `detail` tells binned meal entries apart: the
+        linked recipe's title (left out when that recipe is itself binned)
+        and the entry's note, joined with ` — `. Recipes, people and the other binned kinds are
         not listed here.
       x-required-scope: family:read
       parameters:
@@ -899,7 +901,8 @@ paths:
         Restore only; nothing can be purged through the API. An item that
         is missing, belongs to another family, or is not in the bin answers
         `404`, so restoring the same item twice answers `404` the second
-        time. Restoring is not counted against an assistant's budget of
+        time — after a retry, a `404` can mean the first call succeeded;
+        `GET /recycle-bin` shows whether it is still binned. Restoring is not counted against an assistant's budget of
         edits and deletes. No `Idempotency-Key` is needed.
       parameters:
         - name: type
@@ -1827,12 +1830,19 @@ components:
 
     DeletedItem:
       type: object
-      required: [id, type, title, subtitle, deleted_at]
+      required: [id, type, title, subtitle, detail, deleted_at]
       properties:
         id: { type: string, format: uuid }
         type: { $ref: "#/components/schemas/RestoreType" }
         title: { type: string }
         subtitle: { type: [string, "null"] }
+        detail:
+          type: [string, "null"]
+          maxLength: 120
+          description: |
+            Meal entries only: the linked recipe's title, unless that recipe
+            is itself in the recycle bin, and the entry's note, joined with
+            ` — `. Null for other types and for an entry with neither.
         deleted_at: { type: string, format: date-time }
 
     CalendarEvent:

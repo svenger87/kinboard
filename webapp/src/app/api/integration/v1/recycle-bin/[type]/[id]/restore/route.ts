@@ -39,7 +39,10 @@ export async function POST(
     try {
       const restored = await restoreDeletedItem(context.familyId, type, id);
       if (!restored) {
-        return NextResponse.json({ error: `no such ${type} in the recycle bin`, code: "not_found" }, { status: 404 });
+        return NextResponse.json(
+          { error: `no such ${type} in the recycle bin (it may already have been restored)`, code: "not_found" },
+          { status: 404 },
+        );
       }
       return NextResponse.json({ ok: true, type, id });
     } catch (err) {
