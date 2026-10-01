@@ -151,12 +151,24 @@ jobs:
       # calendar-layout.spec.ts is pure logic (no browser, no stack) but
       # rides along here because Playwright is the only test runner in
       # the project — it costs a couple of seconds.
+      #
+      # pocket-money-live and event-search-live call the SQL functions and
+      # PostgREST directly with the service role, which is the only place CI
+      # runs migration_zzzzz_pocket_money_booking.sql's guards (overdraw,
+      # allowance claim, double decide) against a real database; the fast
+      # suite drives them through fakes. They read the key and Kong's port
+      # from the .env setup.sh just wrote, exported for this step only.
       - name: Run smoke suite
         env:
           FAMILY_CODE: DEMO01
           PLAYWRIGHT_BASE_URL: http://localhost:3001
           PLAYWRIGHT_DEVICE_NAME: "CI Smoke (GH Actions)"
-        run: npx playwright test e2e/smoke.spec.ts e2e/calendar-layout.spec.ts e2e/realtime-publication.spec.ts e2e/rls-coverage.spec.ts e2e/catalogue-migration.spec.ts e2e/health-endpoint.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/media-widget-layout.spec.ts e2e/messages-broadcast.spec.ts e2e/message-state.spec.ts e2e/rooms-migration.spec.ts e2e/automation-layout.spec.ts e2e/media-browse-flow.spec.ts e2e/meal-plan-read-only.spec.ts e2e/oauth-migration.spec.ts e2e/mcp-oauth-flow.spec.ts e2e/soft-delete-integration.spec.ts --project=desktop
+        run: |
+          SUPABASE_SERVICE_ROLE_KEY="$(grep -E '^SERVICE_ROLE_KEY=' docker/.env | head -n1 | cut -d= -f2- | tr -d '"\r')"
+          KONG_PORT="$(grep -E '^KONG_HTTP_PORT=' docker/.env | head -n1 | cut -d= -f2- | tr -d '"\r')"
+          echo "::add-mask::$SUPABASE_SERVICE_ROLE_KEY"
+          export SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL="http://localhost:${KONG_PORT:-8100}"
+          npx playwright test e2e/smoke.spec.ts e2e/calendar-layout.spec.ts e2e/realtime-publication.spec.ts e2e/rls-coverage.spec.ts e2e/catalogue-migration.spec.ts e2e/health-endpoint.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/media-widget-layout.spec.ts e2e/messages-broadcast.spec.ts e2e/message-state.spec.ts e2e/rooms-migration.spec.ts e2e/automation-layout.spec.ts e2e/media-browse-flow.spec.ts e2e/meal-plan-read-only.spec.ts e2e/oauth-migration.spec.ts e2e/mcp-oauth-flow.spec.ts e2e/soft-delete-integration.spec.ts e2e/pocket-money-live.spec.ts e2e/event-search-live.spec.ts --project=desktop
 
       # A separate step so a WebKit-only failure reads as one at a glance rather
       # than as "the smoke suite is flaky". Most of the suite reads source files
