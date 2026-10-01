@@ -83,6 +83,20 @@ export function statusMessageKey(request: Pick<ScreenRequest, "status" | "result
 }
 
 /**
+ * What the overlay keeps on screen after Allow succeeded: the outcome, as a
+ * `status.*` key — done, didn't work (with its reason), or unknown and
+ * "check the device" — or null when there is nothing to say (a request that
+ * is somehow still pending, which the overlay keeps showing as a card).
+ * A request still `approved` has been claimed but not answered: from this
+ * screen its outcome is unknown.
+ */
+export function outcomeNoticeKey(request: Pick<ScreenRequest, "status" | "result">): string | null {
+  if (request.status === "pending") return null;
+  if (request.status === "approved") return "status.unknown_outcome";
+  return statusMessageKey(request);
+}
+
+/**
  * Whether a realtime change to `assistant_action_requests` is worth a
  * refetch of the pending list. An INSERT that is not pending is the audit
  * row of an action that already ran (one per light an assistant switches),

@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { clientLabel, describeVerb, type ActionTranslator, type ScreenRequest } from "@/lib/home/action-requests";
 import {
-  canApprove, canDeny, decisionErrorKey, isFinalError, secondsLeft, visibleRequests,
+  canApprove, canDeny, decisionErrorKey, isFinalError, outcomeNoticeKey, secondsLeft, visibleRequests,
 } from "@/lib/home/action-prompt";
+import { useAssistantActionNotices } from "@/stores/assistant-action-notices";
 import { applyOffset } from "@/lib/server-clock";
 import { useServerClockOffset } from "@/hooks/use-server-clock";
 import {
@@ -70,7 +71,8 @@ export function useTickingServerNow(active: boolean): Date {
  * Enter in the PIN field only ever allows. `onFinalError` hands an error that
  * ends the request (expired, already answered, outcome unknown, …) to the
  * parent, because this card disappears with the request and its message must
- * not disappear with it.
+ * not disappear with it. `onDecided` gets the decided request, and — when
+ * this screen's own decision succeeded — which decision it was.
  */
 export function AssistantActionCard({
   request,
@@ -80,8 +82,8 @@ export function AssistantActionCard({
 }: {
   request: ScreenRequest;
   now: Date;
-  onDecided?: (request: ScreenRequest) => void;
-  onFinalError?: (request: ScreenRequest, message: string) => void;
+  onDecided?: (request: ScreenRequest, decision?: "approve" | "deny") => void;
+  onFinalError?: (request: ScreenRequest, messageKey: string) => void;
 }) {
   const t = useTranslations("assistantActions");
   const decide = useDecideAssistantAction();
@@ -100,14 +102,14 @@ export function AssistantActionCard({
       {
         onSuccess: (decided) => {
           setPin("");
-          onDecided?.(decided);
+          onDecided?.(decided, decision);
         },
         onError: (err) => {
           setPin("");
           const code = err instanceof DecisionError ? err.code : "network";
-          const message = t(decisionErrorKey(code, decision));
-          setError(message);
-          if (isFinalError(code, decision)) onFinalError?.(request, message);
+          const messageKey = decisionErrorKey(code, decision);
+          setError(t(messageKey));
+          if (isFinalError(code, decision)) onFinalError?.(request, messageKey);
           if (err instanceof DecisionError && err.request) onDecided?.(err.request);
         },
       },
@@ -170,22 +172,21 @@ export function AssistantActionCard({
   );
 }
 
-interface Notice {
-  request: ScreenRequest;
-  message: string;
-}
-
 /**
  * Every pending assistant request, over whatever page is showing (RFC-011
  * §4.3) — mounted once for the whole app inside the authenticated shell, so
  * the person standing at any screen sees it. Renders nothing when nobody is
- * waiting, which is almost always. A request that ended with an error keeps
- * its message on screen until someone closes it.
+ * waiting, which is almost always. After Allow, the outcome — done, didn't
+ * work, or unknown and "check the device" — stays on screen until someone
+ * closes it, as does an error that ended a request; while it does, the
+ * screensaver stays off (lib/screensaver-gate.ts).
  */
 export function AssistantActionPrompt() {
   const t = useTranslations("assistantActions");
   const requests = usePendingAssistantActions();
-  const [notices, setNotices] = useState<Notice[]>([]);
+  const notices = useAssistantActionNotices((s) => s.notices);
+  const showNotice = useAssistantActionNotices((s) => s.show);
+  const dismiss = useAssistantActionNotices((s) => s.dismiss);
   const now = useTickingServerNow(requests.length > 0);
   const noticeIds = new Set(notices.map((n) => n.request.id));
   const visible = visibleRequests(requests, now).filter((r) => !noticeIds.has(r.id));
@@ -196,15 +197,15 @@ export function AssistantActionPrompt() {
       aria-live="polite"
       className="fixed inset-x-0 bottom-0 z-[90] mx-auto flex max-h-[80dvh] w-full max-w-2xl flex-col gap-3 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
     >
-      {notices.map(({ request, message }) => (
+      {notices.map(({ request, messageKey }) => (
         <Card key={`notice-${request.id}`} data-assistant-action-notice={request.id} className="space-y-3 bg-background p-5 elev-lg">
           <ActionHeadline request={request} className="font-display text-xl leading-tight" />
-          <p role="alert" className="text-sm">{message}</p>
+          <p role="alert" className="text-sm">{t(messageKey)}</p>
           <div className="flex justify-end">
             <Button
               variant="outline"
               className="min-h-[44px]"
-              onClick={() => setNotices((all) => all.filter((n) => n.request.id !== request.id))}
+              onClick={() => dismiss(request.id)}
             >
               {t("close")}
             </Button>
@@ -216,8 +217,12 @@ export function AssistantActionPrompt() {
           key={r.id}
           request={r}
           now={now}
-          onFinalError={(request, message) =>
-            setNotices((all) => [...all.filter((n) => n.request.id !== request.id), { request, message }])}
+          onDecided={(decided, decision) => {
+            if (decision !== "approve") return;
+            const messageKey = outcomeNoticeKey(decided);
+            if (messageKey) showNotice({ request: decided, messageKey });
+          }}
+          onFinalError={(request, messageKey) => showNotice({ request, messageKey })}
         />
       ))}
     </div>

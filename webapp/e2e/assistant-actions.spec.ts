@@ -24,7 +24,7 @@ import {
 } from "../src/lib/home/action-requests";
 import { ALLOWED_SERVICES } from "../src/lib/home/policy";
 import {
-  actionChangeMatters, canApprove, canDeny, decisionErrorKey, isFinalError, isTerminal, newerRequest,
+  actionChangeMatters, canApprove, canDeny, decisionErrorKey, isFinalError, isTerminal, newerRequest, outcomeNoticeKey,
   promptShownOn, secondsLeft, statusMessageKey, visibleRequests,
 } from "../src/lib/home/action-prompt";
 import { screensaverAllowed } from "../src/lib/screensaver-gate";
@@ -439,6 +439,38 @@ test.describe("an approval nobody finished", () => {
       .toMatchObject({ status: "failed", result: { status: 0, reason: "unknown_outcome" } });
   });
 
+  test("the real answer arriving after a reader guessed 'unknown outcome' replaces the guess, and is what is returned", async () => {
+    for (const [ok, httpStatus, want] of [[true, 200, "done"], [false, 500, "failed"]] as const) {
+      const { store, rows } = fakeStore();
+      const row = seed(rows);
+      const { d } = deps(store, {
+        ha: async () => {
+          // A screen polled while Home Assistant was slow and settled it as stale.
+          Object.assign(rows.get(row.id)!, { status: "failed", result: { status: 0, reason: "unknown_outcome" } });
+          return { ok, status: httpStatus };
+        },
+      });
+      const res = await decide(d, row.id);
+      expect(res.status).toBe(200);
+      expect(rows.get(row.id)).toMatchObject({ status: want, result: { status: httpStatus } });
+      expect(res.request).toMatchObject({ status: want, result: { status: httpStatus } });
+    }
+  });
+
+  test("a row that ended any other way meanwhile is left alone, and the stored row is returned", async () => {
+    const { store, rows } = fakeStore();
+    const row = seed(rows);
+    const { d } = deps(store, {
+      ha: async () => {
+        Object.assign(rows.get(row.id)!, { status: "failed", result: { status: 0, reason: "not_allowed" } });
+        return { ok: true, status: 200 };
+      },
+    });
+    const res = await decide(d, row.id);
+    expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { reason: "not_allowed" } });
+    expect(res.request).toMatchObject({ status: "failed", result: { reason: "not_allowed" } });
+  });
+
   test("deciding it again is already_decided, and runs nothing", async () => {
     const { store, rows } = fakeStore();
     const row = seed(rows, { status: "approved", decided_at: decidedAgo(61_000) });
@@ -740,6 +772,27 @@ test.describe("the prompt on a screen", () => {
     expect(screensaverAllowed({ ...idle, takeoverMessage: true })).toBe(false);
     expect(screensaverAllowed({ ...idle, ringingTimer: true })).toBe(false);
     expect(screensaverAllowed({ ...idle, isIdle: false })).toBe(false);
+  });
+
+  test("an outcome notice on screen keeps the screensaver off until it is closed", () => {
+    const idle = { isIdle: true, skipPath: false, handheld: false, ringingTimer: false, takeoverMessage: false, pendingAssistantActions: 0 };
+    expect(screensaverAllowed({ ...idle, assistantActionNotices: 0 })).toBe(true);
+    expect(screensaverAllowed({ ...idle, assistantActionNotices: 1 })).toBe(false);
+  });
+
+  test("after Allow, the overlay says what happened: done, didn't work, or unknown — check the device", () => {
+    expect(outcomeNoticeKey({ status: "done", result: { status: 200 } })).toBe("status.done");
+    expect(outcomeNoticeKey({ status: "failed", result: { status: 500 } })).toBe("status.failed");
+    expect(outcomeNoticeKey({ status: "failed", result: { status: 0, reason: "unknown_outcome" } })).toBe("status.unknown_outcome");
+    expect(outcomeNoticeKey({ status: "failed", result: { status: 0, reason: "not_in_catalogue" } })).toBe("status.not_in_catalogue");
+    // Claimed, not yet answered: from this screen the outcome is unknown.
+    expect(outcomeNoticeKey({ status: "approved", result: null })).toBe("status.unknown_outcome");
+    expect(outcomeNoticeKey({ status: "pending", result: null })).toBeNull();
+    for (const key of ["status.done", "status.failed", "status.unknown_outcome"]) {
+      for (const messages of [en, de, fr]) {
+        expect((messages.assistantActions.status as Record<string, string>)[key.slice(7)], key).toBeTruthy();
+      }
+    }
   });
 
   test("every status the deep-link page can show has words in every language", () => {

@@ -562,10 +562,25 @@ async function whyNotRun(row: ActionRequestRow, familyId: string, deps: DecideDe
   return null;
 }
 
+/**
+ * Record what Home Assistant answered. Normally the row is still `approved`.
+ * If it is not, a reader decided meanwhile that this call would never
+ * finish and wrote `failed` / `unknown_outcome` (settleStaleApproved) — but
+ * here is the real answer, which replaces that guess. Any other state is left
+ * as it is. Either way the row returned is the one stored, re-read.
+ */
 async function finish(
   id: string, familyId: string, approved: ActionRequestRow, ok: boolean, result: ActionResult, deps: DecideDeps,
 ): Promise<DecideResult> {
   const status: ActionStatus = ok ? "done" : "failed";
   const finished = await deps.store.transition(id, familyId, "approved", { status, result });
-  return { status: 200, request: finished ?? { ...approved, status, result } };
+  if (finished) return { status: 200, request: finished };
+
+  const current = await deps.store.get(id, familyId);
+  if (current?.status === "failed" && (current.result as { reason?: unknown } | null)?.reason === "unknown_outcome") {
+    const corrected = await deps.store.transition(id, familyId, "failed", { status, result });
+    if (corrected) return { status: 200, request: corrected };
+  }
+  const reread = (await deps.store.get(id, familyId)) ?? current;
+  return { status: 200, request: reread ?? { ...approved, status, result } };
 }

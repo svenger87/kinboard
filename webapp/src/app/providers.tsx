@@ -30,6 +30,7 @@ import { isScreensaverSkipPath } from "@/lib/constants";
 import { screensaverAllowed } from "@/lib/screensaver-gate";
 import { promptShownOn } from "@/lib/home/action-prompt";
 import { usePendingAssistantActions } from "@/hooks/use-assistant-actions";
+import { useAssistantActionNotices } from "@/stores/assistant-action-notices";
 import { AssistantActionPrompt } from "@/components/assistant-action-prompt";
 
 // Helper functions for cookie migration
@@ -120,6 +121,8 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   // An assistant waiting for someone to allow a door or an alarm (RFC-011
   // §4.3). Not on /join: no session there, and it would poll into 401s.
   const pendingAssistantActions = usePendingAssistantActions(promptShownOn(pathname, !!device)).length;
+  // …and the outcome of one that was allowed, until someone has read it.
+  const assistantActionNotices = useAssistantActionNotices((s) => s.notices.length);
 
   const timeoutMs = screensaverTimeout > 0 ? screensaverTimeout * 1000 : Infinity;
   const presenceTimeoutMs = presenceTimeout * 1000;
@@ -177,6 +180,7 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
     ringingTimer: !!ringingTimer,
     takeoverMessage: !!takeoverMessage,
     pendingAssistantActions,
+    assistantActionNotices,
   });
   useEffect(() => {
     if (showScreensaver) {
