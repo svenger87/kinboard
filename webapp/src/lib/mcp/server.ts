@@ -209,7 +209,7 @@ export function createKinboardMcpServer(
   register("reopen_task", "Mark a one-off task not done. Recurring tasks cannot be reopened — Kinboard itself has no undo for a day already marked done — and this fails if task_id names one.",
     z.object({ task_id: z.uuid() }), editAction,
     ({ task_id }) => call(listItemPatch, { path: `/lists/tasks/${task_id}`, params: { list: "tasks", item: task_id }, method: "PATCH", body: { status: "needs_action" } }));
-  register("update_task", "Edit a task's title, due date or assignee. Only the fields supplied are changed; omit a field to leave it alone, or send it as null to clear it (due_date, person_id).",
+  register("update_task", "Edit a task's title, due date or assignee. Only the fields supplied are changed; omit a field to leave it alone, or send it as null to clear it (due_date, person_id). The previous value of a changed field is overwritten and not kept anywhere.",
     z.object({
       task_id: z.uuid(),
       title: z.string().trim().min(1).max(300).optional(),
@@ -238,7 +238,7 @@ export function createKinboardMcpServer(
   register("uncheck_shopping_item", "Mark a shopping list item not bought.",
     z.object({ shopping_item_id: z.uuid() }), editAction,
     ({ shopping_item_id }) => call(listItemPatch, { path: `/lists/shopping/${shopping_item_id}`, params: { list: "shopping", item: shopping_item_id }, method: "PATCH", body: { status: "needs_action" } }));
-  register("rename_shopping_item", "Change a shopping list item's name.",
+  register("rename_shopping_item", "Change a shopping list item's name. The previous name is overwritten and not kept anywhere.",
     z.object({ shopping_item_id: z.uuid(), name: z.string().trim().min(1).max(200) }), editAction,
     ({ shopping_item_id, name }) => call(listItemPatch, { path: `/lists/shopping/${shopping_item_id}`, params: { list: "shopping", item: shopping_item_id }, method: "PATCH", body: { summary: name } }));
   register("delete_shopping_item", "Delete a shopping list item. This is permanent; shopping items have no recycle bin.",
@@ -248,7 +248,7 @@ export function createKinboardMcpServer(
     () => call(notes, { path: "/notes" }));
   register("create_note", "Create a family note containing text supplied by the user.", z.object({ text: z.string().trim().min(1).max(2000) }), createAction,
     ({ text }) => call(service, { path: "/services/create_note", params: { service: "create_note" }, body: { text } }));
-  register("update_note", "Edit a note's text and/or pinned state. Only the fields supplied are changed.",
+  register("update_note", "Edit a note's text and/or pinned state. Only the fields supplied are changed; a changed field's previous value is overwritten and not kept anywhere.",
     z.object({ note_id: z.uuid(), content: z.string().trim().min(1).max(2000).optional(), pinned: z.boolean().optional() }), editAction,
     ({ note_id, content, pinned }) => {
       const body: Record<string, unknown> = {};

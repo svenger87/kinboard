@@ -25,9 +25,10 @@ export const OAUTH_REQUEST_COOKIE = "kb_oauth_request";
 /**
  * The integration scopes an assistant can be granted.
  *
- * RFC-010 shipped this as read-and-add only. RFC-011 adds edit/delete and,
- * inside the device catalogue and its PIN-gated confirmation for sensitive
- * actions, actuation — superseding RFC-010 §4's "no actuation".
+ * RFC-010 shipped this as read-and-add only. RFC-011 adds edit/delete and
+ * actuation — control of devices in the family's catalogue, with PIN-gated
+ * confirmation for sensitive actions — superseding RFC-010 §4's "no
+ * actuation".
  */
 export const MCP_SCOPES = [
   "family:read",
