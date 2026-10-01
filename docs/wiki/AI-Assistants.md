@@ -123,6 +123,15 @@ change them.
 | `start_timer` | Start a timer of up to 24 hours, with an optional label — it counts down and rings on the screens that show the timers card, and notifies phones, like one set on the panel. At most 10 can be running or ringing at once |
 | `stop_timer` | Stop a timer and take it off the screens; its phone notification is cancelled |
 
+### Birthdays
+
+| Tool | Does |
+|---|---|
+| `list_birthdays` | The family's birthdays, the next one first, with the day each falls on next, how many days away it is and — when the birth year is known — how old the person is and will turn |
+| `add_birthday` | Add a birthday, as on the Birthdays page: a name, the date (the year may be left out, and then no age is shown), optionally the family member it belongs to, and how many days ahead to be reminded (0 to 60, 7 if not said) |
+| `update_birthday` | Change a birthday's name, date, family member or reminder |
+| `delete_birthday` | Delete a birthday. It goes to the recycle bin, so `restore_birthday` can bring it back |
+
 ### Undoing a delete
 
 | Tool | Does |
