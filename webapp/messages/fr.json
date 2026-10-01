@@ -4208,6 +4208,8 @@
     "failed": "Une erreur s'est produite. Réessayez.",
     "revokeHint": "Vous pouvez la déconnecter à tout moment dans Paramètres → Intégrations.",
     "pinChanged": "Un code PIN des paramètres vient d'être défini ailleurs. Rechargez cette page et saisissez ce code.",
-    "assistantsDisabled": "Les assistants IA sont désactivés dans Paramètres → Intégrations."
+    "assistantsDisabled": "Les assistants IA sont désactivés dans Paramètres → Intégrations.",
+    "verifiedBy": "Vérifié par {host}",
+    "selfRegisteredWarning": "Application auto-enregistrée — Kinboard ne peut pas confirmer qu'il s'agit vraiment de {client}. Ne continuez que si vous l'avez lancée vous-même."
   }
 }

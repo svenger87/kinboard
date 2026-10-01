@@ -12,6 +12,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface ConsentDetails {
   clientName: string;
+  /** True for a client identified by a metadata document on its own host (CIMD); false for a self-registered (DCR) one. */
+  verified: boolean;
+  clientHost: string | null;
   redirectHost: string;
   loopbackOnly: boolean;
   scopes: string[];
@@ -113,6 +116,13 @@ export default function ConsentPage({ params }: { params: Promise<{ request: str
     <main className="mx-auto max-w-lg p-4">
       <Card className="space-y-5 p-6">
         <h1 className="text-xl font-semibold">{t("title", { client: data.clientName })}</h1>
+        {/* The MCP spec asks the consent screen to show who is really asking.
+            A self-registered name is just a string anyone could send. */}
+        {data.verified && data.clientHost ? (
+          <p className="text-sm text-muted-foreground">{t("verifiedBy", { host: data.clientHost })}</p>
+        ) : (
+          <p className="rounded-md bg-amber-500/10 p-3 text-sm">{t("selfRegisteredWarning", { client: data.clientName })}</p>
+        )}
         <p className="text-sm text-muted-foreground">{t("intro", { client: data.clientName, host: data.redirectHost })}</p>
         {data.loopbackOnly && <p className="rounded-md bg-amber-500/10 p-3 text-sm">{t("loopbackWarning")}</p>}
 

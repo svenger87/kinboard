@@ -4,6 +4,7 @@ import {
   ACCESS_TOKEN_TTL_S, CODE_PREFIX, REFRESH_TOKEN_PREFIX, REFRESH_TOKEN_TTL_S,
 } from "@/lib/oauth/config";
 import { verifyPkceS256 } from "@/lib/oauth/pkce";
+import { isCimdClientId } from "@/lib/oauth/clients";
 import type { OAuthStore } from "@/lib/oauth/types";
 
 export interface TokenResponseBody {
@@ -50,6 +51,18 @@ function freshTokens(now: Date) {
 }
 
 /**
+ * The name a connection is listed under in Settings → Integrations. A CIMD
+ * client's name was published by the host in its client_id, so it stands on
+ * its own. A DCR client chose its name in an anonymous registration — two
+ * "Claude"s could be anyone — so the host it returns to is part of the name:
+ * that is the one thing about it Kinboard actually checked.
+ */
+export function grantName(clientId: string, clientName: string, redirectUri: string): string {
+  if (isCimdClientId(clientId)) return clientName;
+  return `${clientName} (${new URL(redirectUri).host})`;
+}
+
+/**
  * RFC 6749 §4.1.3 with PKCE (RFC 7636) and resource indicators (RFC 8707).
  * A code presented twice revokes what the first presentation produced
  * (OAuth 2.1 §4.1.3): the second caller is either a retry gone wrong or
@@ -78,7 +91,7 @@ export async function exchangeAuthorizationCode(
 
   const t = freshTokens(now);
   const grantId = await store.insertGrant({
-    familyId: r.familyId, name: r.clientName, scopes: r.grantedScopes, oauthClientId: r.clientId, resource: r.resource,
+    familyId: r.familyId, name: grantName(r.clientId, r.clientName, r.redirectUri), scopes: r.grantedScopes, oauthClientId: r.clientId, resource: r.resource,
     accessHash: t.access.hash, accessExpiresAt: t.accessExpiresAt, refreshHash: t.refresh.hash, refreshExpiresAt: t.refreshExpiresAt,
   });
   await store.linkGrant(r.id, grantId);

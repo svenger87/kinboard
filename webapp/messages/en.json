@@ -4208,6 +4208,8 @@
     "failed": "Something went wrong. Try again.",
     "revokeHint": "You can disconnect it at any time under Settings → Integrations.",
     "pinChanged": "A settings PIN was just set somewhere else. Reload this page and enter that PIN.",
-    "assistantsDisabled": "AI assistants are switched off in Settings → Integrations."
+    "assistantsDisabled": "AI assistants are switched off in Settings → Integrations.",
+    "verifiedBy": "Verified by {host}",
+    "selfRegisteredWarning": "Self-registered app — Kinboard can't confirm it is really {client}. Only continue if you started this yourself."
   }
 }

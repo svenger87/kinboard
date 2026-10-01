@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { createHash } from "node:crypto";
-import { exchangeAuthorizationCode, generateAuthorizationCode, refreshAccessToken } from "../src/lib/oauth/grants";
+import { exchangeAuthorizationCode, generateAuthorizationCode, grantName, refreshAccessToken } from "../src/lib/oauth/grants";
 import { hashIntegrationToken } from "../src/lib/integration-auth";
 import type { AuthRequest, GrantRecord, OAuthStore } from "../src/lib/oauth/types";
 
@@ -14,7 +14,7 @@ const NOW = new Date("2026-10-01T12:00:00Z");
 /** In-memory OAuthStore with the same compare-and-swap semantics as the Supabase one. */
 function memoryStore() {
   const requests = new Map<string, AuthRequest & { codeHash: string | null }>();
-  const grants = new Map<string, GrantRecord & { accessHash: string; refreshHash: string }>();
+  const grants = new Map<string, GrantRecord & { accessHash: string; refreshHash: string; name: string }>();
   let n = 0;
   const store: OAuthStore = {
     async createAuthRequest(r) { const id = `req${++n}`; requests.set(id, { ...r, id, familyId: null, grantedScopes: null, codeExpiresAt: null, usedAt: null, grantId: null, codeHash: null }); return id; },
@@ -32,7 +32,7 @@ function memoryStore() {
       if (!r.codeExpiresAt || new Date(r.codeExpiresAt) <= now) return { status: "missing" };
       r.usedAt = now.toISOString(); return { status: "ok", request: r };
     },
-    async insertGrant(g) { const id = `grant${++n}`; grants.set(id, { id, familyId: g.familyId, scopes: g.scopes, oauthClientId: g.oauthClientId, resource: g.resource, refreshExpiresAt: g.refreshExpiresAt, revokedAt: null, accessHash: g.accessHash, refreshHash: g.refreshHash }); return id; },
+    async insertGrant(g) { const id = `grant${++n}`; grants.set(id, { id, name: g.name, familyId: g.familyId, scopes: g.scopes, oauthClientId: g.oauthClientId, resource: g.resource, refreshExpiresAt: g.refreshExpiresAt, revokedAt: null, accessHash: g.accessHash, refreshHash: g.refreshHash }); return id; },
     async linkGrant(requestId, grantId) { requests.get(requestId)!.grantId = grantId; },
     async findGrantByRefreshHash(h) { return [...grants.values()].find((g) => g.refreshHash === h) ?? null; },
     async rotateGrant(id, old, next) {
@@ -132,5 +132,31 @@ test.describe("refresh", () => {
 
     const other = await connected();
     expect(await refresh(other.store, other.tokens.refresh_token, NOW, "https://evil.example/c")).toMatchObject({ ok: false, body: { error: "invalid_grant" } });
+  });
+});
+
+test.describe("the name a connection is listed under", () => {
+  test("a CIMD client keeps the name its own host published", () => {
+    expect(grantName(CLIENT, "Claude", REDIRECT)).toBe("Claude");
+  });
+
+  test("a self-registered client carries the host it returns to", () => {
+    expect(grantName("kbclient_abc", "Claude", "http://127.0.0.1:53682/callback")).toBe("Claude (127.0.0.1:53682)");
+    expect(grantName("kbclient_abc", "Claude", "https://evil.example/cb")).toBe("Claude (evil.example)");
+  });
+
+  test("the exchange stores that name", async () => {
+    const { store, grants } = memoryStore();
+    const dcrRedirect = "http://127.0.0.1:53682/callback";
+    const id = await store.createAuthRequest({ clientId: "kbclient_abc", clientName: "Claude", redirectUri: dcrRedirect, state: null, codeChallenge: CHALLENGE, scopes: ["family:read"], resource: RESOURCE, expiresAt: "2026-10-01T12:10:00Z" });
+    const code = generateAuthorizationCode();
+    await store.approveAuthRequest(id, "fam-1", ["family:read"], code.hash, "2026-10-01T12:01:00Z", NOW);
+    const r = await exchangeAuthorizationCode(store, { code: code.code, codeVerifier: VERIFIER, clientId: "kbclient_abc", redirectUri: dcrRedirect, resource: null }, NOW);
+    expect(r.ok).toBe(true);
+    expect([...grants.values()][0].name).toBe("Claude (127.0.0.1:53682)");
+
+    const cimd = memoryStore();
+    expect((await exchange(cimd.store, await approvedCode(cimd.store))).ok).toBe(true);
+    expect([...cimd.grants.values()][0].name).toBe("Claude");
   });
 });

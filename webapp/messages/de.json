@@ -4208,6 +4208,8 @@
     "failed": "Etwas ist schiefgelaufen. Versuche es erneut.",
     "revokeHint": "Du kannst die Verbindung jederzeit unter Einstellungen → Integrationen trennen.",
     "pinChanged": "Gerade wurde an anderer Stelle eine Einstellungs-PIN festgelegt. Lade die Seite neu und gib diese PIN ein.",
-    "assistantsDisabled": "KI-Assistenten sind unter Einstellungen → Integrationen ausgeschaltet."
+    "assistantsDisabled": "KI-Assistenten sind unter Einstellungen → Integrationen ausgeschaltet.",
+    "verifiedBy": "Bestätigt durch {host}",
+    "selfRegisteredWarning": "Selbst registrierte App — Kinboard kann nicht bestätigen, dass es wirklich {client} ist. Fahre nur fort, wenn du das selbst gestartet hast."
   }
 }

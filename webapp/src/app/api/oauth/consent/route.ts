@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/require-session";
 import { publicOrigin } from "@/lib/oauth/origin";
 import { OAUTH_REQUEST_COOKIE } from "@/lib/oauth/config";
 import { isLoopbackRedirect } from "@/lib/oauth/redirect";
+import { isCimdClientId } from "@/lib/oauth/clients";
 import { createOAuthStore } from "@/lib/oauth/store";
 import { generateAuthorizationCode } from "@/lib/oauth/grants";
 import { familyHasPin, verifySettingsPin, setSettingsPinIfAbsent } from "@/lib/settings-pin";
@@ -59,8 +60,15 @@ export async function GET(request: NextRequest) {
   const r = await createOAuthStore().getAuthRequest(id);
   if (!pending(r, new Date())) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const redirectUrl = new URL(r.redirectUri);
+  // Who is really asking (RFC-010 §3.2). A CIMD client_id is an https URL
+  // whose document Kinboard fetched from that host, so the host vouches for
+  // the name. A DCR client named itself in an anonymous POST — "Claude" from
+  // anyone — and the page must say it cannot confirm that.
+  const verified = isCimdClientId(r.clientId);
   return NextResponse.json({
     clientName: r.clientName,
+    verified,
+    clientHost: verified ? new URL(r.clientId).host : null,
     // A custom URI scheme without an authority component (e.g. a bare
     // "cursor:" callback) parses with an empty .host; .protocol (which
     // includes the trailing colon) is what actually identifies it then.
