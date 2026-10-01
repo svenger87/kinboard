@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { createAdminClient } from "@/lib/supabase/server";
 import { logApiError } from "@/lib/api-error";
+import {
+  findStoredResult, fingerprintRequest, storeResult, validateIdempotencyKey,
+} from "@/lib/integration-idempotency";
+import { calendarWriteMode, syncCreatedCalendarEvent, type WritableCalendar } from "@/lib/calendar-write-through";
+import { isValidTimeZone, parseEventInput } from "@/lib/integration-event-input";
 
 export const dynamic = "force-dynamic";
 
@@ -106,6 +111,96 @@ export async function GET(request: NextRequest) {
         { error: "Could not read the calendar", code: "internal_error" },
         { status: 500 },
       );
+    }
+  });
+}
+
+/**
+ * The zone that turns an all-day date into instants: the family's `timezone`
+ * setting, as the summary uses, else the container's `TZ` as the rest of the
+ * server does.
+ */
+async function familyTimeZone(familyId: string): Promise<string> {
+  const { data } = await (createAdminClient() as any)
+    .from("settings")
+    .select("value")
+    .eq("family_id", familyId)
+    .eq("key", "timezone")
+    .maybeSingle();
+  if (isValidTimeZone(data?.value)) return data.value;
+  return isValidTimeZone(process.env.TZ) ? process.env.TZ : "Europe/Berlin";
+}
+
+/** Create a family event, then write through to its connected provider. */
+export async function POST(request: NextRequest) {
+  return withIntegrationAuth(request, "calendar:write", async (context) => {
+    const key = validateIdempotencyKey(request.headers.get("idempotency-key"));
+    if (!key.ok) {
+      return NextResponse.json({ error: "An Idempotency-Key is required", code: "invalid_request" }, { status: 400 });
+    }
+    let body: Record<string, unknown>;
+    try {
+      const parsed: unknown = await request.json();
+      body = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown> : {};
+    } catch {
+      body = {};
+    }
+    const timeZone = await familyTimeZone(context.familyId);
+    const input = parseEventInput(body, timeZone);
+    if (!input.ok) {
+      return NextResponse.json({ error: input.error, code: "invalid_request" }, { status: 400 });
+    }
+    const event = input.value;
+
+    const hash = fingerprintRequest("calendar/events", body);
+    const previous = await findStoredResult(context.familyId, key.key);
+    if (previous) {
+      if (previous.request_hash !== hash) {
+        return NextResponse.json({ error: "Idempotency-Key reused with different arguments", code: "conflict" }, { status: 409 });
+      }
+      return NextResponse.json(previous.response, { status: previous.status, headers: { "idempotent-replay": "true" } });
+    }
+
+    try {
+      const supabase = createAdminClient();
+      const { data: calendar, error: calendarError } = await (supabase as any)
+        .from("calendars")
+        .select("id, google_calendar_id, ics_url, caldav_url, caldav_server_url, caldav_read_only")
+        .eq("id", event.calendarId)
+        .eq("family_id", context.familyId)
+        .maybeSingle();
+      if (calendarError) throw calendarError;
+      if (!calendar || calendarWriteMode(calendar as WritableCalendar) === "read_only") {
+        return NextResponse.json({ error: "No writable calendar with that ID", code: "not_found" }, { status: 404 });
+      }
+      const { data, error } = await (supabase as any)
+        .from("events")
+        .insert({
+          calendar_id: event.calendarId,
+          title: event.title,
+          start_at: event.startAt,
+          end_at: event.endAt,
+          all_day: event.allDay,
+          ...(event.description !== undefined ? { description: event.description } : {}),
+          ...(event.location !== undefined ? { location: event.location } : {}),
+        })
+        .select("id, calendar_id, title, description, start_at, end_at, all_day, location")
+        .single();
+      if (error) throw error;
+      const sync = await syncCreatedCalendarEvent(
+        context.familyId,
+        calendar as WritableCalendar,
+        data,
+        event.allDayDates,
+        timeZone,
+      );
+      const response = { event: data, sync };
+      await storeResult({ familyId: context.familyId, key: key.key, service: "calendar/events", requestHash: hash, status: 201, response });
+      return NextResponse.json(response, { status: 201 });
+    } catch (err) {
+      await logApiError("integration/calendar/events/create", err);
+      return NextResponse.json({ error: "Could not create event", code: "internal_error" }, { status: 500 });
     }
   });
 }

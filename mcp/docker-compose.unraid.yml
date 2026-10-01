@@ -1,0 +1,28 @@
+# For an Unraid host with a containerized reverse proxy. No host port is
+# published: only containers on MCP_PROXY_NETWORK can reach the gateway.
+services:
+  kinboard-mcp:
+    build: .
+    image: kinboard-mcp:staged
+    env_file: .env.mcp
+    environment:
+      MCP_BIND_HOST: 0.0.0.0
+    expose:
+      - "8787"
+    networks:
+      - proxy
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  proxy:
+    name: ${MCP_PROXY_NETWORK:-proxy}
+    external: true

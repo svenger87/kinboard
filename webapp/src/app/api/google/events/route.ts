@@ -2,73 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 import { loadOwnedCalendar, loadOwnedEvent } from "@/lib/google-events-scope";
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-
-interface GoogleCalendarSettings {
-  access_token: string;
-  refresh_token?: string;
-  expiry_date?: number;
-  email?: string;
-  enabled_calendars?: string[];
-}
-
-async function getOAuth2Client(familyId: string) {
-  const credentials = await getMergedSetting<GoogleCalendarSettings>(familyId, "google_calendar");
-
-  if (!credentials?.access_token) {
-    return null;
-  }
-
-  const oauth2Client = new google.auth.OAuth2(
-    GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET
-  );
-
-  oauth2Client.setCredentials({
-    access_token: credentials.access_token,
-    refresh_token: credentials.refresh_token,
-    expiry_date: credentials.expiry_date,
-  });
-
-  // Token refresh
-  if (credentials.expiry_date && Date.now() >= credentials.expiry_date - 60000) {
-    try {
-      const { credentials: newTokens } = await oauth2Client.refreshAccessToken();
-
-      await upsertSecrets(familyId, "google_calendar", {
-        access_token: newTokens.access_token,
-        ...(newTokens.refresh_token ? { refresh_token: newTokens.refresh_token } : {}),
-      });
-
-      const { publicValue } = splitSecrets("google_calendar", {
-        ...credentials,
-        expiry_date: newTokens.expiry_date,
-      });
-
-      const supabase = createAdminClient();
-
-      await (supabase as any)
-        .from("settings")
-        .update({
-          value: publicValue,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("family_id", familyId)
-        .eq("key", "google_calendar");
-
-      oauth2Client.setCredentials(newTokens);
-    } catch (refreshError) {
-      console.error("Token refresh failed:", refreshError);
-      return null;
-    }
-  }
-
-  return { oauth2Client, settings: credentials };
-}
+import { getGoogleOAuth2Client } from "@/lib/google-calendar-auth";
 
 // Every verb here reaches a family's connected Google account with the
 // refresh token stored for it, so the family named in the request decides
@@ -106,7 +41,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
-  const result = await getOAuth2Client(familyId);
+  const result = await getGoogleOAuth2Client(familyId);
 
   if (!result) {
     return NextResponse.json(
@@ -210,7 +145,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
-  const result = await getOAuth2Client(family_id);
+  const result = await getGoogleOAuth2Client(family_id);
   if (!result) {
     return NextResponse.json(
       { error: "Google Calendar not connected" },
@@ -312,7 +247,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
-  const result = await getOAuth2Client(family_id);
+  const result = await getGoogleOAuth2Client(family_id);
   if (!result) {
     return NextResponse.json(
       { error: "Google Calendar not connected" },
@@ -409,7 +344,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
-  const result = await getOAuth2Client(family_id);
+  const result = await getGoogleOAuth2Client(family_id);
   if (!result) {
     return NextResponse.json(
       { error: "Google Calendar not connected" },

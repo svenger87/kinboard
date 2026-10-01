@@ -154,12 +154,15 @@ test.describe("last_used_at is a heartbeat, not an access log", () => {
 });
 
 test.describe("scopes", () => {
-  test("the list matches RFC-001 §5 and the HA component's const.py", () => {
+  test("the list matches RFC-001 §4 and the HA component's const.py, plus the assistant scopes", () => {
     expect([...INTEGRATION_SCOPES].sort()).toEqual(
       [
         "announcements:write",
+        "calendar:write",
+        "energy:read",
         "events:read",
         "family:read",
+        "notes:read",
         "notes:write",
         "shopping:write",
         "tasks:write",

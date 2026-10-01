@@ -1,0 +1,12 @@
+# Optional overlay when Unraid's reverse proxy is Traefik. The base Unraid
+# Compose file must be included first. Set MCP_DOMAIN and the cert resolver.
+services:
+  kinboard-mcp:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${MCP_PROXY_NETWORK:-proxy}"
+      - "traefik.http.routers.kinboard-mcp.rule=Host(`${MCP_DOMAIN}`) && (Path(`/mcp`) || Path(`/.well-known/oauth-protected-resource`) || Path(`/.well-known/oauth-protected-resource/mcp`))"
+      - "traefik.http.routers.kinboard-mcp.entrypoints=websecure"
+      - "traefik.http.routers.kinboard-mcp.priority=200"
+      - "traefik.http.routers.kinboard-mcp.tls.certresolver=${MCP_TRAEFIK_CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.services.kinboard-mcp.loadbalancer.server.port=8787"

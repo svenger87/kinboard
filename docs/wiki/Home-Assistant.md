@@ -118,6 +118,12 @@ write at all.
 | `tasks:write` | the task to-do list |
 | `notes:write` | creating notes |
 
+Three more exist for AI assistants connected through the
+[MCP server](https://github.com/svenger87/kinboard/blob/main/mcp/README.md);
+Home Assistant needs none of them: `notes:read` (reading notes),
+`calendar:write` (creating calendar events) and `energy:read` (the configured
+solar sensors).
+
 A token can be revoked on its own, at any time, without disturbing the others.
 Revoking keeps the row so you can still see what it was and when it was last
 used — which is exactly what you want to know *after* revoking something.

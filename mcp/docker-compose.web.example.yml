@@ -1,0 +1,12 @@
+services:
+  kinboard-mcp:
+    build: .
+    # The gateway itself binds 127.0.0.1. A reverse proxy on the host handles
+    # public HTTPS; host networking keeps port 8787 private to that host.
+    network_mode: host
+    env_file: .env.mcp
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128

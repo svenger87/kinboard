@@ -25,9 +25,12 @@ import { apiError } from "@/lib/api-error";
  */
 export const INTEGRATION_SCOPES = [
   "family:read",
+  "energy:read",
+  "calendar:write",
   "events:read",
   "shopping:write",
   "tasks:write",
+  "notes:read",
   "notes:write",
   "announcements:write",
 ] as const;

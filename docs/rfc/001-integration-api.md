@@ -99,7 +99,10 @@ reusable as machine credentials.
 
 - Generated in Settings, shown **once**, stored only as a hash.
 - Carries explicit scopes: `family:read`, `shopping:write`, `tasks:write`,
-  `notes:write`, `announcements:write`, `events:read`.
+  `notes:write`, `announcements:write`, `events:read`. Added after v1 for
+  assistant clients (the MCP server): `notes:read`, `calendar:write`,
+  `energy:read` — each its own scope rather than an extension of
+  `family:read`, which every Home Assistant token already holds.
 - Individually revocable and rotatable, with `last_used_at` so a stale token is
   visible before it is revoked.
 - Scope enforcement is **one shared server function**, not a check per route.
