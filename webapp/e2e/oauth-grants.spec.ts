@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { createHash } from "node:crypto";
-import { exchangeAuthorizationCode, generateAuthorizationCode, grantName, refreshAccessToken } from "../src/lib/oauth/grants";
+import { exchangeAuthorizationCode, generateAuthorizationCode, grantName, refreshAccessToken, type GrantDeps } from "../src/lib/oauth/grants";
 import { hashIntegrationToken } from "../src/lib/integration-auth";
 import type { AuthRequest, GrantRecord, OAuthStore } from "../src/lib/oauth/types";
 
@@ -55,8 +55,11 @@ async function approvedCode(store: OAuthStore, familyId = "fam-1") {
   expect(await store.approveAuthRequest(id, familyId, ["tasks:write"], code.hash, "2026-10-01T12:01:00Z", NOW)).toBe(true);
   return code.code;
 }
-const exchange = (store: OAuthStore, code: string, over: Partial<Parameters<typeof exchangeAuthorizationCode>[1]> = {}) =>
-  exchangeAuthorizationCode(store, { code, codeVerifier: VERIFIER, clientId: CLIENT, redirectUri: REDIRECT, resource: RESOURCE, ...over }, NOW);
+/** Assistants switched on for every family unless a test says otherwise — no database behind these tests. */
+const ON: GrantDeps = { isEnabledFor: async () => true };
+const OFF: GrantDeps = { isEnabledFor: async () => false };
+const exchange = (store: OAuthStore, code: string, over: Partial<Parameters<typeof exchangeAuthorizationCode>[1]> = {}, deps = ON) =>
+  exchangeAuthorizationCode(store, { code, codeVerifier: VERIFIER, clientId: CLIENT, redirectUri: REDIRECT, resource: RESOURCE, ...over }, NOW, deps);
 
 test.describe("authorization code", () => {
   test("a valid code yields an access and a refresh token with the granted scopes only", async () => {
@@ -149,6 +152,20 @@ test.describe("authorization code", () => {
     expect((await exchange(store, await approvedCode(store), { resource: null })).ok).toBe(true);
   });
 
+  test("a family with assistants switched off gets no connection, and the code is spent", async () => {
+    const m = memoryStore();
+    const code = await approvedCode(m.store);
+    const asked: string[] = [];
+    const off = { isEnabledFor: async (fid: string) => { asked.push(fid); return false; } };
+    expect(await exchange(m.store, code, {}, off))
+      .toEqual({ ok: false, body: { error: "invalid_grant", error_description: "assistants are switched off" } });
+    expect(asked).toEqual(["fam-1"]);
+    expect(m.grants.size).toBe(0);
+    // Switching back on does not make the old code good again.
+    expect(await exchange(m.store, code)).toMatchObject({ ok: false, body: { error: "invalid_grant", error_description: "code already used" } });
+    expect(m.grants.size).toBe(0);
+  });
+
   test("an unknown code is invalid_grant", async () => {
     const { store } = memoryStore();
     expect(await exchange(store, "kbo_nothing")).toMatchObject({ ok: false, body: { error: "invalid_grant" } });
@@ -162,8 +179,8 @@ test.describe("refresh", () => {
     if (!r.ok) throw new Error("setup");
     return { ...m, tokens: r.body };
   }
-  const refresh = (store: OAuthStore, refreshToken: string, now = NOW, clientId = CLIENT) =>
-    refreshAccessToken(store, { refreshToken, clientId, resource: null }, now);
+  const refresh = (store: OAuthStore, refreshToken: string, now = NOW, clientId = CLIENT, deps = ON) =>
+    refreshAccessToken(store, { refreshToken, clientId, resource: null }, now, deps);
 
   test("rotates both tokens; the old refresh token is dead afterwards", async () => {
     const { store, tokens } = await connected();
@@ -187,6 +204,16 @@ test.describe("refresh", () => {
     const other = await connected();
     expect(await refresh(other.store, other.tokens.refresh_token, NOW, "https://evil.example/c")).toMatchObject({ ok: false, body: { error: "invalid_grant" } });
   });
+
+  test("a family that switched assistants off is refused and its connection revoked", async () => {
+    const { store, grants, tokens } = await connected();
+    expect(await refresh(store, tokens.refresh_token, NOW, CLIENT, OFF))
+      .toEqual({ ok: false, body: { error: "invalid_grant", error_description: "assistants are switched off" } });
+    const [g] = [...grants.values()];
+    expect(g.revokedAt).not.toBeNull();
+    // Switching back on does not revive it.
+    expect(await refresh(store, tokens.refresh_token)).toMatchObject({ ok: false, body: { error: "invalid_grant" } });
+  });
 });
 
 test.describe("the name a connection is listed under", () => {
@@ -205,7 +232,7 @@ test.describe("the name a connection is listed under", () => {
     const id = await store.createAuthRequest({ clientId: "kbclient_abc", clientName: "Claude", redirectUri: dcrRedirect, state: null, codeChallenge: CHALLENGE, scopes: ["family:read"], resource: RESOURCE, expiresAt: "2026-10-01T12:10:00Z" });
     const code = generateAuthorizationCode();
     await store.approveAuthRequest(id, "fam-1", ["family:read"], code.hash, "2026-10-01T12:01:00Z", NOW);
-    const r = await exchangeAuthorizationCode(store, { code: code.code, codeVerifier: VERIFIER, clientId: "kbclient_abc", redirectUri: dcrRedirect, resource: null }, NOW);
+    const r = await exchangeAuthorizationCode(store, { code: code.code, codeVerifier: VERIFIER, clientId: "kbclient_abc", redirectUri: dcrRedirect, resource: null }, NOW, ON);
     expect(r.ok).toBe(true);
     expect([...grants.values()][0].name).toBe("Claude (127.0.0.1:53682)");
 

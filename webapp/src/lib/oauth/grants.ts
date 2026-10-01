@@ -5,6 +5,7 @@ import {
 } from "@/lib/oauth/config";
 import { verifyPkceS256 } from "@/lib/oauth/pkce";
 import { isCimdClientId } from "@/lib/oauth/clients";
+import { assistantsEnabledFor } from "@/lib/oauth/enabled";
 import type { OAuthStore } from "@/lib/oauth/types";
 
 export interface TokenResponseBody {
@@ -63,6 +64,22 @@ export function grantName(clientId: string, clientName: string, redirectUri: str
 }
 
 /**
+ * What the grant functions look up besides the store. Injectable so the
+ * in-memory tests do not need a database.
+ *
+ * `isEnabledFor` is the family's "Allow AI assistants" switch. The consent
+ * page refuses while it is off, but a code approved a moment before it was
+ * switched off, or a refresh token issued weeks ago, would otherwise keep
+ * minting tokens: /api/mcp refuses them, yet the connection would sit
+ * dormant and come back to life the day the switch is turned on again. So
+ * the token endpoint asks too — and a lookup that fails throws, which the
+ * route answers with a 500 rather than a token.
+ */
+export interface GrantDeps {
+  isEnabledFor?: (familyId: string) => Promise<boolean>;
+}
+
+/**
  * RFC 6749 §4.1.3 with PKCE (RFC 7636) and resource indicators (RFC 8707).
  * A code presented twice revokes what the first presentation produced
  * (OAuth 2.1 §4.1.3): the second caller is either a retry gone wrong or
@@ -72,6 +89,7 @@ export async function exchangeAuthorizationCode(
   store: OAuthStore,
   p: { code: string; codeVerifier: string; clientId: string; redirectUri: string; resource: string | null },
   now: Date = new Date(),
+  { isEnabledFor = assistantsEnabledFor }: GrantDeps = {},
 ): Promise<GrantResult> {
   if (!p.code.startsWith(CODE_PREFIX)) return fail("invalid_grant", "unknown or expired code");
   const consumed = await store.consumeCode(hashIntegrationToken(p.code), now);
@@ -91,6 +109,9 @@ export async function exchangeAuthorizationCode(
   if (p.resource !== null && p.resource !== r.resource) return fail("invalid_target", "resource does not match");
   if (!verifyPkceS256(p.codeVerifier, r.codeChallenge)) return fail("invalid_grant", "PKCE verification failed");
   if (!r.familyId || !r.grantedScopes || r.grantedScopes.length === 0) return fail("invalid_grant", "request was not approved");
+  // The code is spent either way (consumed above), so a switched-off family
+  // cannot hold on to it and exchange it once the switch is back on.
+  if (!(await isEnabledFor(r.familyId))) return fail("invalid_grant", "assistants are switched off");
 
   const t = freshTokens(now);
   const grantId = await store.insertGrant({
@@ -125,6 +146,7 @@ export async function refreshAccessToken(
   store: OAuthStore,
   p: { refreshToken: string; clientId: string; resource: string | null },
   now: Date = new Date(),
+  { isEnabledFor = assistantsEnabledFor }: GrantDeps = {},
 ): Promise<GrantResult> {
   if (!p.refreshToken.startsWith(REFRESH_TOKEN_PREFIX)) return fail("invalid_grant", "unknown refresh token");
   const oldHash = hashIntegrationToken(p.refreshToken);
@@ -134,6 +156,12 @@ export async function refreshAccessToken(
   }
   if (g.oauthClientId !== p.clientId) return fail("invalid_grant", "refresh token was issued to another client");
   if (p.resource !== null && p.resource !== g.resource) return fail("invalid_target", "resource does not match");
+  if (!(await isEnabledFor(g.familyId))) {
+    // Revoked, not just refused: switching assistants off ends the family's
+    // connections, so turning it back on does not quietly revive them.
+    await store.revokeGrant(g.id, now);
+    return fail("invalid_grant", "assistants are switched off");
+  }
 
   const t = freshTokens(now);
   const swapped = await store.rotateGrant(g.id, oldHash, {
