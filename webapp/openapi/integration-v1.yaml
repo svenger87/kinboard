@@ -372,7 +372,23 @@ paths:
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "409": { description: Idempotency key reused with different arguments. }
-        "429": { $ref: "#/components/responses/RateLimited" }
+        "429":
+          description: |
+            Too many requests. Two separate budgets guard this route: the
+            Integration API's generic per-token write budget (30/min, shared
+            with every other write), and a tighter one just for sending
+            messages — at most 5 per 10 minutes per token, because each one
+            interrupts whoever is looking at a screen in the house. A
+            request answered from a reused Idempotency-Key (an
+            `idempotent-replay`) does not count against either.
+
+            `Retry-After` gives the seconds to wait and is never zero.
+          headers:
+            Retry-After:
+              schema: { type: integer, minimum: 1 }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "500": { description: The message could not be sent. }
 
   /people:

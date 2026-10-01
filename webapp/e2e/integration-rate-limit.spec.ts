@@ -5,6 +5,13 @@ import {
   READ_LIMIT,
   WRITE_LIMIT,
 } from "../src/lib/integration-route";
+import {
+  MESSAGE_RATE_LIMIT,
+  MESSAGE_RATE_WINDOW_MS,
+  classifyMessageIdempotency,
+  messageRateLimitKey,
+} from "../src/app/api/integration/v1/messages/route";
+import type { StoredResult } from "../src/lib/integration-idempotency";
 
 /**
  * The Integration API's rate-limit *policy*.
@@ -70,6 +77,88 @@ test.describe("reads and writes are counted separately", () => {
     }
     expect(hitLimit(key(token, "write"), WRITE_LIMIT, RATE_WINDOW_MS).limited).toBe(true);
     expect(hitLimit(key(token, "read"), READ_LIMIT, RATE_WINDOW_MS).limited).toBe(false);
+  });
+});
+
+/**
+ * `POST /api/integration/v1/messages` (RFC-011 task 6, fix round 1): a
+ * second, tighter budget on top of the generic write budget above — 5
+ * messages per 10 minutes per token, because each one interrupts whoever is
+ * looking at a Kinboard screen, which even a well-behaved token doing
+ * exactly what it was asked could do too often.
+ */
+test.describe("the message-sending budget is tighter than the generic write budget", () => {
+  test("the policy", () => {
+    expect(MESSAGE_RATE_LIMIT).toBeLessThan(WRITE_LIMIT);
+    expect(MESSAGE_RATE_LIMIT).toBe(5);
+    expect(MESSAGE_RATE_WINDOW_MS).toBe(10 * 60_000);
+  });
+
+  test("keyed separately from the generic write budget, so sending doesn't borrow from it or vice versa", () => {
+    expect(messageRateLimitKey("tok-1")).not.toBe(key("tok-1", "write"));
+  });
+
+  test("a 6th send inside the window is refused, with a positive Retry-After", () => {
+    const token = uniq();
+    for (let i = 0; i < MESSAGE_RATE_LIMIT; i++) {
+      expect(hitLimit(messageRateLimitKey(token), MESSAGE_RATE_LIMIT, MESSAGE_RATE_WINDOW_MS).limited).toBe(false);
+    }
+    const sixth = hitLimit(messageRateLimitKey(token), MESSAGE_RATE_LIMIT, MESSAGE_RATE_WINDOW_MS);
+    expect(sixth.limited).toBe(true);
+    expect(sixth.retryAfterMs).toBeGreaterThan(0);
+    expect(sixth.retryAfterMs).toBeLessThanOrEqual(MESSAGE_RATE_WINDOW_MS);
+  });
+
+  test("one token's messages do not affect another's", () => {
+    const noisy = uniq();
+    const quiet = uniq();
+    for (let i = 0; i < MESSAGE_RATE_LIMIT; i++) hitLimit(messageRateLimitKey(noisy), MESSAGE_RATE_LIMIT, MESSAGE_RATE_WINDOW_MS);
+    expect(hitLimit(messageRateLimitKey(noisy), MESSAGE_RATE_LIMIT, MESSAGE_RATE_WINDOW_MS).limited).toBe(true);
+    expect(hitLimit(messageRateLimitKey(quiet), MESSAGE_RATE_LIMIT, MESSAGE_RATE_WINDOW_MS).limited).toBe(false);
+  });
+});
+
+/**
+ * `classifyMessageIdempotency` is what the route consults *before* touching
+ * the budget above — only a `"send"` disposition ever calls `hitLimit`. A
+ * retried "same arguments" request must answer from the stored result
+ * without being charged a second time: that is the whole point of
+ * Idempotency-Key, and charging the budget on every retry would mean a
+ * flaky connection could exhaust a household's 5-per-10-minutes allowance
+ * without a single extra message ever reaching a screen.
+ */
+test.describe("classifyMessageIdempotency decides what counts against the message budget", () => {
+  const stored = (hash: string): StoredResult => ({
+    status: 201,
+    response: { id: "m1" },
+    request_hash: hash,
+  });
+
+  test("no stored result: a genuine send, chargeable", () => {
+    expect(classifyMessageIdempotency(null, "hash-a")).toBe("send");
+  });
+
+  test("same hash: a replay, not chargeable", () => {
+    expect(classifyMessageIdempotency(stored("hash-a"), "hash-a")).toBe("replay");
+  });
+
+  test("different hash under the same key: a conflict, not chargeable either", () => {
+    expect(classifyMessageIdempotency(stored("hash-a"), "hash-b")).toBe("conflict");
+  });
+
+  test("only \"send\" reaches the limiter: a replay leaves the budget untouched", () => {
+    const token = uniq();
+    for (let i = 0; i < MESSAGE_RATE_LIMIT; i++) {
+      hitLimit(messageRateLimitKey(token), MESSAGE_RATE_LIMIT, MESSAGE_RATE_WINDOW_MS);
+    }
+    // The budget is now exhausted...
+    expect(hitLimit(messageRateLimitKey(token), MESSAGE_RATE_LIMIT, MESSAGE_RATE_WINDOW_MS).limited).toBe(true);
+
+    // ...but a disposition of "replay" (what every retry of an already-sent
+    // message gets) is what tells the route never to call hitLimit at all —
+    // modelled here by simply not calling it, which is the route's own
+    // behaviour for that disposition.
+    expect(classifyMessageIdempotency(stored("hash-a"), "hash-a")).toBe("replay");
   });
 });
 

@@ -262,7 +262,7 @@ export function createKinboardMcpServer(
     ({ meal_id }) => call(removeMealRoute, { path: `/meals/${meal_id}`, params: { id: meal_id }, method: "DELETE" }));
   register("get_solar_production", "Read current solar power and today's solar energy from the sensors configured in Kinboard. Report units and observed_at; null means unavailable. No arbitrary Home Assistant entities are accessible.", z.object({}), readOnly,
     () => call(energy, { path: "/energy/current" }));
-  register("send_message", "Shows on every Kinboard screen and notifies phones; use sparingly. Not a log — this interrupts whoever is looking at a screen.",
+  register("send_message", "Shows on every Kinboard screen and notifies phones; use sparingly. Not a log — this interrupts whoever is looking at a screen. Limited to at most 5 messages per 10 minutes.",
     z.object({ text: z.string().trim().min(1).max(200) }), createAction,
     ({ text }) => call(sendMessageRoute, { path: "/messages", body: { text } }));
 
