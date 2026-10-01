@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import type { PocketMoneyTransactionInsert } from "@/types/database";
 import { familyIdFrom, rowInFamily, accountInFamily } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { bookPocketMoney, type RpcClient, type TransactionType } from "@/lib/pocket-money/booking";
 
 export const dynamic = "force-dynamic";
 
@@ -109,71 +110,32 @@ export async function POST(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  const { data: account, error: readErr } = await (supabase as any)
-    .from("pocket_money_accounts")
-    .select("balance_cents, lifetime_saved_cents")
-    .eq("id", accountId)
-    .maybeSingle();
+  // One call books it: the balance moves with a single conditional UPDATE
+  // (balance_cents + amount >= 0) and the transaction row is written in the
+  // same database transaction — lib/pocket-money/booking.ts.
+  const booked = await bookPocketMoney(supabase as unknown as RpcClient, {
+    familyId,
+    accountId,
+    amountCents: body.amount_cents,
+    type: body.type as TransactionType,
+    note: body.note ?? null,
+    relatedGoalId: body.related_goal_id ?? null,
+    createdByPersonId: body.created_by_person_id ?? null,
+  });
 
-  if (readErr)
-    return NextResponse.json({ error: readErr.message }, { status: 500 });
-  if (!account)
-    return NextResponse.json({ error: "account not found" }, { status: 404 });
-
-  // Read-then-write race: two concurrent POSTs against the same account
-  // can each pass the insufficient_funds guard and leave balance_cents
-  // wrong. Acceptable for the kinboard concurrency model (one kiosk +
-  // a daily allowance cron); harden via a Postgres `UPDATE ... RETURNING`
-  // RPC if multiple parents start posting simultaneously.
-  const newBalance = account.balance_cents + body.amount_cents;
-  if (newBalance < 0) {
-    return NextResponse.json({ error: "insufficient_funds" }, { status: 400 });
-  }
-
-  const { data: txn, error: txnErr } = await (supabase as any)
-    .from("pocket_money_transactions")
-    .insert({
-      account_id: accountId,
-      amount_cents: body.amount_cents,
-      type: body.type,
-      note: body.note ?? null,
-      related_goal_id: body.related_goal_id ?? null,
-      created_by_person_id: body.created_by_person_id ?? null,
-    })
-    .select()
-    .single();
-
-  if (txnErr) {
-    console.error("[pocket-money] txn insert error:", txnErr);
-    return NextResponse.json({ error: txnErr.message }, { status: 500 });
-  }
-
-  const accountUpdate: Record<string, number> = { balance_cents: newBalance };
-  // lifetime_saved_cents drives the avatar tier — bump it only on
-  // genuine earnings (allowance / manual_deposit / interest), not on
-  // adjustment corrections, which are balance fixups by definition.
-  if (body.amount_cents > 0 && body.type !== "adjustment") {
-    accountUpdate.lifetime_saved_cents =
-      account.lifetime_saved_cents + body.amount_cents;
-  }
-
-  const { error: updErr } = await (supabase as any)
-    .from("pocket_money_accounts")
-    .update(accountUpdate)
-    .eq("id", accountId);
-
-  if (updErr) {
-    console.error("[pocket-money] account update error:", updErr);
-    // Best-effort orphan cleanup.
-    await (supabase as any)
-      .from("pocket_money_transactions")
-      .delete()
-      .eq("id", txn.id);
-    return NextResponse.json({ error: updErr.message }, { status: 500 });
+  if (!booked.ok) {
+    if (booked.error === "insufficient_funds") {
+      return NextResponse.json({ error: "insufficient_funds" }, { status: 400 });
+    }
+    if (booked.error === "not_found") {
+      return NextResponse.json({ error: "account not found" }, { status: 404 });
+    }
+    console.error("[pocket-money] booking error:", booked.message);
+    return NextResponse.json({ error: booked.message }, { status: 500 });
   }
 
   return NextResponse.json(
-    { transaction: txn, new_balance_cents: newBalance },
+    { transaction: booked.transaction, new_balance_cents: booked.balanceCents },
     { status: 201 },
   );
 }

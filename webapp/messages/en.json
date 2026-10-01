@@ -4256,7 +4256,10 @@
       "not_in_catalogue": "Allowed, but the device is no longer on Kinboard’s list, so nothing was done.",
       "catalogue_unavailable": "Allowed, but Kinboard couldn’t check its device list, so nothing was done.",
       "not_allowed": "Allowed, but this is no longer something an assistant may do, so nothing was done.",
-      "not_available": "Allowed, but Kinboard can’t do this yet, so nothing was done."
+      "not_available": "Allowed, but Kinboard can’t do this yet, so nothing was done.",
+      "insufficient_funds": "Allowed, but there isn’t enough pocket money for this, so nothing was booked.",
+      "no_account": "Allowed, but this child or their pocket money account no longer exists, so nothing was booked.",
+      "booking_failed": "Allowed, but Kinboard couldn’t tell whether it was booked. Check the pocket money before trying again."
     },
     "pageTitle": "Assistant request",
     "loading": "Loading…",
@@ -4292,7 +4295,10 @@
     },
     "kinds": {
       "pocket_money": "book pocket money",
-      "unknown": "do something this Kinboard doesn’t know"
+      "unknown": "do something this Kinboard doesn’t know",
+      "pocket_money_deposit": "add {amount, number, money} to {name}’s pocket money",
+      "pocket_money_withdrawal": "take {amount, number, money} out of {name}’s pocket money",
+      "pocket_money_note": "{booking} (note: “{note}”)"
     },
     "denyHint": "Anyone can deny. Allowing needs the settings PIN.",
     "close": "Close"

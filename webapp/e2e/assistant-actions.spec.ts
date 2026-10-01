@@ -865,7 +865,7 @@ test.describe("a request carries a kind, and running it dispatches on it", () =>
     expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { status: 0, reason: "not_allowed" } });
   });
 
-  test("pocket money is wired but not available yet: approving it books nothing and says so", async () => {
+  test("a pocket-money row whose data is not a booking is approved like any other, and books nothing", async () => {
     const { store, rows } = fakeStore();
     const row = seed(rows, pocketRow);
     const { d, calls, catalogueChecks, pinChecks } = deps(store);
@@ -874,11 +874,11 @@ test.describe("a request carries a kind, and running it dispatches on it", () =>
     expect(pinChecks).toEqual([PIN]);
     expect(res.status).toBe(200);
     expect(rows.get(row.id)).toMatchObject({
-      status: "failed", decided_by_device_id: DEVICE, result: { status: 0, reason: "not_available" },
+      status: "failed", decided_by_device_id: DEVICE, result: { status: 0, reason: "not_allowed" },
     });
     expect(calls).toEqual([]);
     expect(catalogueChecks).toEqual([]);
-    expect(statusMessageKey(rows.get(row.id)!)).toBe("status.not_available");
+    expect(statusMessageKey(rows.get(row.id)!)).toBe("status.not_allowed");
   });
 
   test("a pocket-money request is denied, expires and is revoked exactly like a home one", async () => {
@@ -916,10 +916,10 @@ test.describe("a request carries a kind, and running it dispatches on it", () =>
     expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { status: 0, reason: "not_available" } });
   });
 
-  test("the built-in map: home is the RFC-011 handler, pocket money refuses", async () => {
+  test("the built-in map: home is the RFC-011 handler, pocket money refuses what is not a booking", async () => {
     expect(Object.keys(ACTION_KIND_HANDLERS).sort()).toEqual(["home", "pocket_money"]);
     const { rows } = fakeStore();
-    expect(await ACTION_KIND_HANDLERS.pocket_money.validate(seed(rows, pocketRow), FAMILY, {} as DecideDeps)).toBe("not_available");
+    expect(await ACTION_KIND_HANDLERS.pocket_money.validate(seed(rows, pocketRow), FAMILY, {} as DecideDeps)).toBe("not_allowed");
   });
 
   test("a home row without its device fields is never run, even if one slipped past the CHECK", async () => {

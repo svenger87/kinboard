@@ -4256,7 +4256,10 @@
       "not_in_catalogue": "Erlaubt, aber das Gerät steht nicht mehr in Kinboards Liste, deshalb ist nichts passiert.",
       "catalogue_unavailable": "Erlaubt, aber Kinboard konnte seine Geräteliste nicht prüfen, deshalb ist nichts passiert.",
       "not_allowed": "Erlaubt, aber das darf ein Assistent nicht mehr tun, deshalb ist nichts passiert.",
-      "not_available": "Erlaubt, aber das kann Kinboard noch nicht, deshalb ist nichts passiert."
+      "not_available": "Erlaubt, aber das kann Kinboard noch nicht, deshalb ist nichts passiert.",
+      "insufficient_funds": "Erlaubt, aber dafür reicht das Taschengeld nicht, deshalb wurde nichts gebucht.",
+      "no_account": "Erlaubt, aber dieses Kind oder sein Taschengeldkonto gibt es nicht mehr, deshalb wurde nichts gebucht.",
+      "booking_failed": "Erlaubt, aber Kinboard weiß nicht, ob es gebucht wurde. Sieh beim Taschengeld nach, bevor du es noch einmal versuchst."
     },
     "pageTitle": "Anfrage eines Assistenten",
     "loading": "Wird geladen …",
@@ -4292,7 +4295,10 @@
     },
     "kinds": {
       "pocket_money": "Taschengeld buchen",
-      "unknown": "etwas tun, das dieses Kinboard nicht kennt"
+      "unknown": "etwas tun, das dieses Kinboard nicht kennt",
+      "pocket_money_deposit": "{name} {amount, number, money} Taschengeld gutschreiben",
+      "pocket_money_withdrawal": "{amount, number, money} vom Taschengeld von {name} abbuchen",
+      "pocket_money_note": "{booking} (Notiz: „{note}“)"
     },
     "denyHint": "Ablehnen kann jeder. Zum Erlauben braucht es die Einstellungs-PIN.",
     "close": "Schließen"

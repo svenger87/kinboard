@@ -132,6 +132,25 @@ change them.
 | `update_birthday` | Change a birthday's name, date, family member or reminder |
 | `delete_birthday` | Delete a birthday. It goes to the recycle bin, so `restore_birthday` can bring it back |
 
+### Pocket money
+
+| Tool | Does |
+|---|---|
+| `list_pocket_money` | Each child's pocket money: balance, what they have saved in total, their allowance, and their saving goals with how far along each one is |
+| `book_pocket_money` | Ask to add money to a child's pocket money or take some out — up to 500 at a time, with an optional note. Nothing is booked until a family member allows it on a Kinboard screen with the settings PIN; `get_action_status` says whether it was |
+
+Every booking an assistant asks for waits for a person, exactly like a
+sensitive home action: it appears on every screen and phone as, for example,
+*"ChatGPT wants to add €5.00 to Enno's pocket money (note: "mowing the
+lawn")"*, anyone can deny it, allowing it needs the settings PIN, and it
+expires after 2 minutes. The assistant's note is always shown in quotes, so
+it can't pass itself off as Kinboard's own words. If a withdrawal is more
+than the child has by the time someone allows it, nothing is booked and the
+assistant is told why. Only children with a pocket money account can be
+booked for. Home Assistant's `add_pocket_money` service is unchanged for the
+token you paste into Home Assistant, but an assistant connection can't use
+it — assistants always go through the confirmation.
+
 ### Undoing a delete
 
 | Tool | Does |
@@ -153,7 +172,7 @@ change them.
 | `list_home_devices` | The devices in the family's catalogue, with their room, state and what each is allowed to do |
 | `get_device_state` | One catalogue device's current state |
 | `control_device` | Run an allowed action on a catalogue device. Most run immediately; a sensitive one waits for a family member to confirm it |
-| `get_action_status` | Check what happened to an action waiting for confirmation |
+| `get_action_status` | Check what happened to an action or a pocket money booking waiting for confirmation |
 
 ### Vehicles
 

@@ -72,11 +72,25 @@ export function newerRequest(polled: ScreenRequest | null | undefined, decided: 
   return RANK[decided.status] > RANK[polled.status] ? decided : polled;
 }
 
-/** The `assistantActions` key that says what became of a request. */
-export function statusMessageKey(request: Pick<ScreenRequest, "status" | "result">): string {
+/** Failure reasons with words of their own under `assistantActions.status`. */
+const STATUS_REASONS: ReadonlySet<string> = new Set([
+  "unknown_outcome", "not_in_catalogue", "catalogue_unavailable", "not_allowed", "not_available",
+  "insufficient_funds", "no_account", "booking_failed",
+]);
+
+/**
+ * The `assistantActions` key that says what became of a request. A failed
+ * pocket-money booking always has a reason, so it never gets `status.failed`,
+ * which is about Home Assistant.
+ */
+export function statusMessageKey(request: Pick<ScreenRequest, "status" | "result"> & { kind?: ScreenRequest["kind"] }): string {
   const reason = (request.result as { reason?: unknown } | null)?.reason;
-  if (request.status === "failed" && typeof reason === "string"
-    && ["unknown_outcome", "not_in_catalogue", "catalogue_unavailable", "not_allowed", "not_available"].includes(reason)) {
+  if (request.status === "failed" && request.kind === "pocket_money"
+    && (typeof reason !== "string" || reason === "unknown_outcome")) {
+    // Nothing about Home Assistant or a device: the booking may not have happened.
+    return "status.booking_failed";
+  }
+  if (request.status === "failed" && typeof reason === "string" && STATUS_REASONS.has(reason)) {
     return `status.${reason}`;
   }
   return `status.${request.status}`;
@@ -90,9 +104,9 @@ export function statusMessageKey(request: Pick<ScreenRequest, "status" | "result
  * A request still `approved` has been claimed but not answered: from this
  * screen its outcome is unknown.
  */
-export function outcomeNoticeKey(request: Pick<ScreenRequest, "status" | "result">): string | null {
+export function outcomeNoticeKey(request: Pick<ScreenRequest, "status" | "result"> & { kind?: ScreenRequest["kind"] }): string | null {
   if (request.status === "pending") return null;
-  if (request.status === "approved") return "status.unknown_outcome";
+  if (request.status === "approved") return request.kind === "pocket_money" ? "status.booking_failed" : "status.unknown_outcome";
   return statusMessageKey(request);
 }
 

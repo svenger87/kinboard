@@ -4256,7 +4256,10 @@
       "not_in_catalogue": "Autorisé, mais l’appareil n’est plus dans la liste de Kinboard, donc rien n’a été fait.",
       "catalogue_unavailable": "Autorisé, mais Kinboard n’a pas pu vérifier sa liste d’appareils, donc rien n’a été fait.",
       "not_allowed": "Autorisé, mais un assistant n’a plus le droit de faire cela, donc rien n’a été fait.",
-      "not_available": "Autorisé, mais Kinboard ne sait pas encore faire cela, donc rien n’a été fait."
+      "not_available": "Autorisé, mais Kinboard ne sait pas encore faire cela, donc rien n’a été fait.",
+      "insufficient_funds": "Autorisé, mais l’argent de poche ne suffit pas, donc rien n’a été enregistré.",
+      "no_account": "Autorisé, mais cet enfant ou son compte d’argent de poche n’existe plus, donc rien n’a été enregistré.",
+      "booking_failed": "Autorisé, mais Kinboard ne sait pas si l’opération a été enregistrée. Vérifiez l’argent de poche avant de réessayer."
     },
     "pageTitle": "Demande d’un assistant",
     "loading": "Chargement…",
@@ -4292,7 +4295,10 @@
     },
     "kinds": {
       "pocket_money": "enregistrer une opération d’argent de poche",
-      "unknown": "faire quelque chose que ce Kinboard ne connaît pas"
+      "unknown": "faire quelque chose que ce Kinboard ne connaît pas",
+      "pocket_money_deposit": "donner {amount, number, money} d’argent de poche à {name}",
+      "pocket_money_withdrawal": "retirer {amount, number, money} à {name} sur son argent de poche",
+      "pocket_money_note": "{booking} (note : « {note} »)"
     },
     "denyHint": "Tout le monde peut refuser. Pour autoriser, il faut le code PIN des réglages.",
     "close": "Fermer"

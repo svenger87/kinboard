@@ -781,6 +781,12 @@ test.describe("get_action_status", () => {
     expect(calls).toEqual([]);
   });
 
+  test("the refusal names both scopes that would do", async () => {
+    const { server } = buildServer(["family:read"]);
+    const result = await tool(server, "get_action_status").handler({ request_id: ID });
+    expect(result.content[0].text).toBe("home:control or pocket_money:write authorization is required");
+  });
+
   test("pocket_money:write alone is enough: it follows its own bookings with it", async () => {
     const { server, calls } = buildServer(["pocket_money:write"], () => ({ action: { id: ID, kind: "pocket_money", status: "pending" } }));
     const result = await tool(server, "get_action_status").handler({ request_id: ID });
@@ -1260,5 +1266,46 @@ test.describe("birthday tools", () => {
       expect(result.content[0].text).toContain("birthdays:write");
     }
     expect(calls).toEqual([]);
+  });
+});
+
+test.describe("pocket money", () => {
+  const ENNO = "eeeeeeee-eeee-4eee-8eee-000000000001";
+
+  test("list_pocket_money reads /pocket-money with family:read and is read-only", async () => {
+    const { server, calls } = buildServer(["family:read"], () => ({ accounts: [] }));
+    const t = tool(server, "list_pocket_money");
+    expect(t.annotations).toMatchObject({ readOnlyHint: true });
+    expect(TOOL_SCOPES.list_pocket_money).toBe("family:read");
+    await t.handler({});
+    expect(calls).toEqual([{ path: "/pocket-money" }]);
+  });
+
+  test("book_pocket_money asks at /pocket-money/bookings with exactly what it was given", async () => {
+    const { server, calls } = buildServer(["pocket_money:write"], () => ({ status: "pending_confirmation", request_id: "r1" }));
+    const t = tool(server, "book_pocket_money");
+    expect(TOOL_SCOPES.book_pocket_money).toBe("pocket_money:write");
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false, openWorldHint: false });
+    const result = await t.handler({ person_id: ENNO, amount: 5, type: "deposit", note: "mowing the lawn" });
+    expect(result.isError).toBeFalsy();
+    expect(calls).toEqual([{ path: "/pocket-money/bookings", body: { person_id: ENNO, amount: 5, type: "deposit", note: "mowing the lawn" } }]);
+    await t.handler({ person_id: ENNO, amount: 2.5, type: "withdrawal" });
+    expect(calls[1]).toEqual({ path: "/pocket-money/bookings", body: { person_id: ENNO, amount: 2.5, type: "withdrawal" } });
+  });
+
+  test("book_pocket_money needs pocket_money:write — tasks:write or home:control do not do", async () => {
+    const { server, calls } = buildServer(["family:read", "tasks:write", "home:control"]);
+    const result = await tool(server, "book_pocket_money").handler({ person_id: ENNO, amount: 5, type: "deposit" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("pocket_money:write");
+    expect(calls).toEqual([]);
+  });
+
+  test("its description says the family must allow it with the PIN, and to poll get_action_status", () => {
+    const { server } = buildServer(["pocket_money:write"]);
+    const description = (registeredTools(server).book_pocket_money as unknown as { description: string }).description;
+    for (const words of ["settings PIN", "get_action_status", "nothing has been booked yet", "only status done means it was booked", "does not undo"]) {
+      expect(description, words).toContain(words);
+    }
   });
 });

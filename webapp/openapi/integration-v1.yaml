@@ -345,7 +345,11 @@ paths:
         family was asked about it. `entity_id` and `service` are `null` for
         a request that is not a home action. `result.reason`
         `not_available`: approved, but this Kinboard cannot run that kind of
-        request, so nothing was done.
+        request, so nothing was done. For a pocket-money booking:
+        `insufficient_funds` (a withdrawal larger than the balance by the
+        time it was allowed) and `no_account` (the child or the account is
+        gone) — nothing was booked; `booking_failed` — Kinboard could not
+        tell whether it was booked.
       x-required-scope: home:control
       parameters:
         - name: id
@@ -1172,6 +1176,101 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { description: The birthday could not be deleted. }
 
+  /pocket-money:
+    get:
+      tags: [state]
+      summary: Read the children's pocket money
+      description: |
+        Every child (`is_child`) with a pocket-money account, people in the
+        recycle bin left out, oldest account first. Amounts are in currency
+        units (`12.5` is 12.50 in `currency`). `allowance` is null when the
+        child gets none. `goals` are the active saving goals, the primary one
+        first; `saved` is the balance counted towards a goal, capped at its
+        target, as on the family summary. Names are the family's own text.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: The children's accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accounts]
+                properties:
+                  accounts:
+                    type: array
+                    items: { $ref: "#/components/schemas/PocketMoneyAccount" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: Pocket money could not be read. }
+
+  /pocket-money/bookings:
+    post:
+      tags: [state]
+      summary: Ask the family to allow a pocket-money booking
+      description: |
+        RFC-012 §3. **Nothing is booked by this call.** Every booking an
+        assistant asks for waits for a family member to allow it on a
+        Kinboard screen with the settings PIN — anyone may deny it, and it
+        expires after 2 minutes — exactly as a sensitive home action does.
+        The answer is `202 pending_confirmation` with a `request_id` to
+        follow at `GET /actions/{id}`; only `done` there means it was
+        booked. The same limits as home confirmations apply, counted
+        together: at most 2 requests waiting and 5 per 10 minutes per token.
+
+        `person_id` must be a child of this family, not in the recycle bin,
+        with a pocket-money account (`GET /pocket-money`): otherwise `404`
+        (`reason` `no_person` or `no_account`) or `400` (`reason`
+        `not_a_child`). `amount` is in the account's currency, 0.01 to 500,
+        at most two decimals. A withdrawal larger than the balance is
+        refused at once (`400`, `reason: insufficient_funds`); it is checked
+        again, atomically, when the approved booking runs, and if the money
+        is no longer there the request ends `failed` with
+        `result.reason: insufficient_funds` and nothing is booked. `note`
+        (at most 100 characters) is shown to the family in quotes and
+        stored with the transaction.
+
+        The Idempotency-Key is required. Repeating it with the same body
+        answers the same request (`idempotent-replay`); only a `202` is
+        remembered.
+      x-required-scope: pocket_money:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [person_id, amount, type]
+              properties:
+                person_id: { type: string, format: uuid }
+                amount: { type: number, minimum: 0.01, maximum: 500, description: "Currency units, at most two decimals." }
+                type: { type: string, enum: [deposit, withdrawal] }
+                note: { type: [string, "null"], maxLength: 100, description: Trimmed first. }
+      responses:
+        "202":
+          description: Stored until a family member allows it with the settings PIN, denies it, or it expires
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, request_id, expires_at]
+                properties:
+                  status: { type: string, enum: [pending_confirmation] }
+                  request_id: { type: string, format: uuid }
+                  expires_at: { type: string, format: date-time }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { description: "The family has no settings PIN, so nobody could allow it (`reason: pin_required`). Nothing was done." }
+        "404": { description: "No such person in this family (`reason: no_person`), or the child has no account (`reason: no_account`)." }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { description: "Kinboard could not check the PIN or this assistant's pending requests. Nothing was done." }
+
   /people:
     get:
       tags: [state]
@@ -1758,6 +1857,11 @@ paths:
         Services named in this contract but not yet implemented answer `501`,
         not `404`, so the difference between a typo and an unbuilt feature is
         visible.
+
+        `add_pocket_money` books at once, so an assistant's (OAuth-issued)
+        token is refused with `403`: assistants ask at
+        `POST /pocket-money/bookings`, which a family member confirms with
+        the settings PIN. Tokens created in Settings are unaffected.
       parameters:
         - name: service
           in: path
@@ -1785,6 +1889,7 @@ paths:
                   id: { type: string, format: uuid }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { description: "`add_pocket_money` called with an assistant's token. Nothing was booked." }
         "429": { $ref: "#/components/responses/RateLimited" }
         "404":
           description: No such service.
@@ -1932,13 +2037,41 @@ components:
                 possibly sent, but Kinboard never learned the answer — it may
                 or may not have happened.
 
+    PocketMoneyAccount:
+      type: object
+      required: [person_id, name, currency, balance, lifetime_saved, allowance, goals]
+      properties:
+        person_id: { type: string, format: uuid }
+        name: { type: string }
+        currency: { type: string, description: "ISO 4217, e.g. EUR." }
+        balance: { type: number, description: Currency units. }
+        lifetime_saved: { type: number, description: "Everything ever earned (allowance, deposits, interest), in currency units." }
+        allowance:
+          type: [object, "null"]
+          required: [amount, every_days]
+          properties:
+            amount: { type: number }
+            every_days: { type: integer }
+        goals:
+          type: array
+          items:
+            type: object
+            required: [id, name, target, saved, percent, is_primary]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              target: { type: number }
+              saved: { type: number, description: "The balance counted towards it, at most the target." }
+              percent: { type: integer, minimum: 0, maximum: 100 }
+              is_primary: { type: boolean }
+
     ActionRequest:
       type: object
       required: [id, kind, description, status, entity_id, service, created_at, expires_at, decided_at, result]
       properties:
         id: { type: string, format: uuid }
         kind: { type: string, enum: [home, pocket_money] }
-        description: { type: string, description: "The request in words, e.g. `unlock Front door (Hallway)`." }
+        description: { type: string, description: "The request in words, e.g. `unlock Front door (Hallway)` or `add €5.00 to Enno’s pocket money (note: “mowing the lawn”)`." }
         status: { type: string, enum: [pending, approved, denied, expired, failed, done] }
         entity_id: { type: [string, "null"] }
         service: { type: [string, "null"] }
@@ -1952,7 +2085,7 @@ components:
             status: { type: integer, description: "Home Assistant's HTTP status for a home request; 0 when it was not reached or did not answer, and for other kinds." }
             reason:
               type: string
-              enum: [not_in_catalogue, catalogue_unavailable, not_allowed, unknown_outcome, not_available]
+              enum: [not_in_catalogue, catalogue_unavailable, not_allowed, unknown_outcome, not_available, insufficient_funds, no_account, booking_failed]
 
     VehicleStatus:
       type: object

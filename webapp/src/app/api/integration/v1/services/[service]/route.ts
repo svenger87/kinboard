@@ -11,6 +11,7 @@ import {
 } from "@/lib/integration-idempotency";
 import { addShoppingItemFromText } from "@/lib/shopping-enrich";
 import { createServiceTask } from "@/lib/integration-tasks";
+import { bookPocketMoney, type RpcClient } from "@/lib/pocket-money/booking";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,8 @@ export const dynamic = "force-dynamic";
 type Handler = (args: {
   familyId: string;
   body: Record<string, unknown>;
+  /** An OAuth-issued (assistant) token, not one made by hand in Settings. */
+  assistant: boolean;
 }) => Promise<{ status: number; response: Record<string, unknown> }>;
 
 interface ServiceDef {
@@ -96,10 +99,24 @@ const SERVICES: Record<string, ServiceDef> = {
    * lifetime_saved_cents only for genuine earnings, because that field drives
    * the child's avatar tier. A service that only wrote the transaction would
    * leave the balance stale and the avatar wrong, and nothing would complain.
+   *
+   * Not for assistants (RFC-012 §3): every booking an assistant asks for
+   * waits for a family member's PIN, at POST /pocket-money/bookings. This
+   * service books at once, so an OAuth-issued token is refused before
+   * anything is read; tokens made by hand (Home Assistant) are unchanged.
    */
   add_pocket_money: {
     scope: "tasks:write",
-    handle: async ({ familyId, body }) => {
+    handle: async ({ familyId, body, assistant }) => {
+      if (assistant) {
+        return {
+          status: 403,
+          response: {
+            error: "Assistants book pocket money with POST /pocket-money/bookings (book_pocket_money), which a family member confirms with the settings PIN. Nothing was booked.",
+            code: "forbidden",
+          },
+        };
+      }
       const person = text(body.person, 200);
       const amount = typeof body.amount === "number" ? body.amount : null;
       if (!person || amount === null || !Number.isFinite(amount) || amount === 0) {
@@ -115,6 +132,13 @@ const SERVICES: Record<string, ServiceDef> = {
       // means €2.50; making callers send 250 would guarantee somebody one day
       // credits a child two hundred and fifty euros.
       const cents = Math.round(amount * 100);
+      // Less than half a cent books nothing: a zero amount, said as such.
+      if (cents === 0) {
+        return {
+          status: 400,
+          response: { error: "`person` and a non-zero `amount` are required", code: "invalid_request" },
+        };
+      }
 
       const supabase = createAdminClient();
       const { data: people } = await (supabase as any)
@@ -132,7 +156,7 @@ const SERVICES: Record<string, ServiceDef> = {
 
       const { data: account } = await (supabase as any)
         .from("pocket_money_accounts")
-        .select("id, balance_cents, lifetime_saved_cents")
+        .select("id")
         .eq("family_id", familyId)
         .eq("person_id", match.id)
         .maybeSingle();
@@ -143,32 +167,29 @@ const SERVICES: Record<string, ServiceDef> = {
         };
       }
 
-      const newBalance = account.balance_cents + cents;
-      if (newBalance < 0) {
-        return { status: 400, response: { error: "insufficient_funds", code: "invalid_request" } };
-      }
-
-      const type = cents > 0 ? "manual_deposit" : "withdrawal";
-      const { error: txnError } = await (supabase as any)
-        .from("pocket_money_transactions")
-        .insert({
-          account_id: account.id,
-          amount_cents: cents,
-          type,
-          note: text(body.note, 200) ?? "Home Assistant",
-        });
-      if (txnError) {
+      // The shared booking (lib/pocket-money/booking.ts): the balance moves
+      // with one conditional UPDATE, so a concurrent withdrawal cannot take
+      // it below zero, and the transaction row is written with it or not at all.
+      const booked = await bookPocketMoney(supabase as unknown as RpcClient, {
+        familyId,
+        accountId: account.id,
+        amountCents: cents,
+        type: cents > 0 ? "manual_deposit" : "withdrawal",
+        note: text(body.note, 200) ?? "Home Assistant",
+      });
+      if (!booked.ok) {
+        if (booked.error === "insufficient_funds") {
+          return { status: 400, response: { error: "insufficient_funds", code: "invalid_request" } };
+        }
+        if (booked.error === "not_found") {
+          return {
+            status: 404,
+            response: { error: `${match.name} has no pocket money account`, code: "not_found" },
+          };
+        }
         return { status: 500, response: { error: "Could not record the transaction" } };
       }
-
-      const update: Record<string, number> = { balance_cents: newBalance };
-      if (cents > 0) {
-        update.lifetime_saved_cents = (account.lifetime_saved_cents ?? 0) + cents;
-      }
-      await (supabase as any)
-        .from("pocket_money_accounts")
-        .update(update)
-        .eq("id", account.id);
+      const newBalance = booked.balanceCents;
 
       return {
         status: 201,
@@ -329,7 +350,7 @@ export async function POST(
     }
 
     try {
-      const result = await def.handle({ familyId: context.familyId, body });
+      const result = await def.handle({ familyId: context.familyId, body, assistant: context.assistant });
 
       // Only successful work is remembered. A 400 is a client mistake, and
       // replaying it would mean a corrected retry with the same key kept

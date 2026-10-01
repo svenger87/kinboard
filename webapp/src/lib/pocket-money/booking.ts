@@ -1,0 +1,81 @@
+/**
+ * One pocket-money booking: the transaction row and the account's balance,
+ * together, or neither.
+ *
+ * Every path that books money from outside the pocket-money page goes
+ * through here — the session route (`/api/pocket-money/accounts/{id}/transactions`),
+ * the RFC-001 `add_pocket_money` service and an approved assistant booking
+ * (RFC-012 §3). It calls `book_pocket_money()`
+ * (`docker/migration_zzzzz_pocket_money_booking.sql`), which moves the balance
+ * with one conditional UPDATE — `balance_cents + delta >= 0` is checked by the
+ * statement that changes it, so two withdrawals racing on one account cannot
+ * both pass — and inserts the transaction in the same call, so a failed insert
+ * leaves the balance as it was.
+ *
+ * lifetime_saved_cents (the avatar tier) grows only with genuine earnings: a
+ * positive amount that is not an `adjustment`.
+ */
+
+export type TransactionType = "allowance" | "manual_deposit" | "interest" | "withdrawal" | "adjustment";
+
+export interface BookingInput {
+  familyId: string;
+  accountId: string;
+  /** Signed: negative takes money out. Never 0. */
+  amountCents: number;
+  type: TransactionType;
+  note?: string | null;
+  relatedGoalId?: string | null;
+  createdByPersonId?: string | null;
+}
+
+export type BookingResult =
+  | { ok: true; transaction: Record<string, unknown>; balanceCents: number }
+  /** Nothing was written. */
+  | { ok: false; error: "insufficient_funds" }
+  | { ok: false; error: "not_found" }
+  /** The database refused or could not be reached; nothing was written as far as is known. */
+  | { ok: false; error: "failed"; message: string };
+
+/** The one call the booking needs: an RPC on the admin client. */
+export interface RpcClient {
+  rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+}
+
+export async function bookPocketMoney(supabase: RpcClient, input: BookingInput): Promise<BookingResult> {
+  const { data, error } = await supabase.rpc("book_pocket_money", {
+    p_family_id: input.familyId,
+    p_account_id: input.accountId,
+    p_amount_cents: input.amountCents,
+    p_type: input.type,
+    p_note: input.note ?? null,
+    p_related_goal_id: input.relatedGoalId ?? null,
+    p_created_by_person_id: input.createdByPersonId ?? null,
+  });
+  if (error) return { ok: false, error: "failed", message: error.message };
+  const answer = data as { ok?: unknown; error?: unknown; transaction?: unknown; balance_cents?: unknown } | null;
+  if (answer?.ok === true && typeof answer.balance_cents === "number" && answer.transaction && typeof answer.transaction === "object") {
+    return { ok: true, transaction: answer.transaction as Record<string, unknown>, balanceCents: answer.balance_cents };
+  }
+  if (answer?.error === "insufficient_funds") return { ok: false, error: "insufficient_funds" };
+  if (answer?.error === "not_found") return { ok: false, error: "not_found" };
+  return { ok: false, error: "failed", message: "unexpected answer from book_pocket_money" };
+}
+
+/** The most an assistant may ask to book at once, in cents (RFC-012 §3). */
+export const MAX_ASSISTANT_BOOKING_CENTS = 50_000;
+
+/**
+ * An amount in currency units — 0.01 to 500, at most two decimals — as whole
+ * cents, or null. Converted from its decimal text, never by multiplying the
+ * float, so 0.29 is 29 and not 28.999…; a number whose shortest text has more
+ * than two decimals (0.1 + 0.2) is refused rather than rounded.
+ */
+export function amountToCents(value: unknown, max = MAX_ASSISTANT_BOOKING_CENTS): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(String(value));
+  if (!match) return null;
+  const cents = Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0"));
+  if (!Number.isSafeInteger(cents) || cents < 1 || cents > max) return null;
+  return cents;
+}

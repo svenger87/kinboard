@@ -52,6 +52,7 @@
 
 import { decideHomeAction, ENTITY_ID } from "@/lib/home/policy";
 import type { IntegrationScope } from "@/lib/integration-auth";
+import { MAX_ASSISTANT_BOOKING_CENTS, type BookingInput, type BookingResult } from "@/lib/pocket-money/booking";
 
 export type ActionStatus = "pending" | "approved" | "denied" | "expired" | "failed" | "done";
 
@@ -78,9 +79,13 @@ export const APPROVED_STALE_MS = 60_000;
 /**
  * Why an approved request did not run, or why its outcome is unknown.
  * `not_available`: Kinboard cannot run this kind of request (yet).
+ * Pocket money: `insufficient_funds` (a withdrawal larger than the balance),
+ * `no_account` (the child or their account is gone), `booking_failed` (the
+ * database could not be read or refused the booking).
  */
 export type ActionFailureReason =
-  | "not_in_catalogue" | "catalogue_unavailable" | "not_allowed" | "unknown_outcome" | "not_available";
+  | "not_in_catalogue" | "catalogue_unavailable" | "not_allowed" | "unknown_outcome" | "not_available"
+  | "insufficient_funds" | "no_account" | "booking_failed";
 
 export interface ActionResult {
   /** Home Assistant's HTTP status; 0 when it was not reached or did not answer. Other kinds: 0. */
@@ -165,8 +170,16 @@ export function actionVerbKey(domain: string, service: string): string {
   return VERB_KEYS.has(key) ? key : "generic";
 }
 
-/** A translator over the `assistantActions` namespace (next-intl's `t`, server or client). */
-export type ActionTranslator = (key: string, values?: Record<string, string | number>) => string;
+/**
+ * A translator over the `assistantActions` namespace (next-intl's `t`, server
+ * or client). `formats` names number formats a message uses, such as the
+ * `money` of a pocket-money booking, formatted in the translator's locale.
+ */
+export type ActionTranslator = (
+  key: string,
+  values?: Record<string, string | number>,
+  formats?: { number?: Record<string, Intl.NumberFormatOptions> },
+) => string;
 
 export interface DescribableAction {
   client_name: string;
@@ -519,6 +532,14 @@ export interface DecideDeps {
   ) => Promise<{ ok: boolean; status: number }>;
   /** The family's catalogue entry for the entity, or null; throws when unreadable. */
   catalogueEntity: (familyId: string, entityId: string) => Promise<unknown | null>;
+  // What the `pocket_money` handler runs with. Without them it runs nothing.
+  /**
+   * The pocket-money account of a person who is a child of this family and
+   * not in the recycle bin, or null. Throws when unreadable.
+   */
+  pocketMoneyAccount?: (familyId: string, personId: string) => Promise<{ accountId: string } | null>;
+  /** `lib/pocket-money/booking.ts`: one atomic booking. */
+  bookPocketMoney?: (input: BookingInput) => Promise<BookingResult>;
   /** Replaces a kind's handler in `ACTION_KIND_HANDLERS`. For tests. */
   kinds?: Partial<Record<ActionKind, ActionKindHandler>>;
   now?: () => Date;
@@ -592,19 +613,115 @@ const homeHandler: ActionKindHandler = {
   },
 };
 
+// ── pocket money ────────────────────────────────────────────────────────────
+
+/** What a pocket-money request stores in `data` (RFC-012 §3). `amount_cents` is always positive. */
+export interface PocketMoneyBooking {
+  person_id: string;
+  person_name: string;
+  amount_cents: number;
+  currency: string;
+  type: "deposit" | "withdrawal";
+  note: string | null;
+}
+
+/** How much of an assistant's note a screen, a push or the assistant is shown. */
+export const BOOKING_NOTE_MAX = 100;
+
+/** A stored booking, or null when `data` is not one — which then never runs. */
+export function pocketMoneyBookingFrom(data: Record<string, unknown> | null | undefined): PocketMoneyBooking | null {
+  if (!data || typeof data !== "object") return null;
+  const { person_id, person_name, amount_cents, currency, type, note } = data as Record<string, unknown>;
+  if (typeof person_id !== "string" || !UUID.test(person_id)) return null;
+  if (typeof person_name !== "string" || person_name.length > MAX_NAME) return null;
+  if (typeof amount_cents !== "number" || !Number.isInteger(amount_cents)) return null;
+  if (amount_cents < 1 || amount_cents > MAX_ASSISTANT_BOOKING_CENTS) return null;
+  if (typeof currency !== "string" || currency.length === 0 || currency.length > 8) return null;
+  if (type !== "deposit" && type !== "withdrawal") return null;
+  if (note !== null && note !== undefined && (typeof note !== "string" || note.length > BOOKING_NOTE_MAX)) return null;
+  return { person_id, person_name, amount_cents, currency, type, note: typeof note === "string" ? note : null };
+}
+
 /**
- * A pocket-money booking (RFC-012 §3). Not runnable yet: an approved one
- * ends `failed` / `not_available`, and nothing is booked.
+ * An assistant's note as the family is shown it: on one line, at most 100
+ * characters, and without quotation marks of its own — the sentence puts it
+ * in quotes, and a note must not be able to close them and carry on as if
+ * Kinboard were speaking. Empty → null.
+ */
+export function bookingNoteLabel(note: string | null): string | null {
+  if (note === null) return null;
+  const flat = note.replace(/["\u201C\u201D\u201E\u201F\u00AB\u00BB\u2039\u203A]/g, "'").replace(/\s+/g, " ").trim();
+  if (flat.length === 0) return null;
+  return flat.length > BOOKING_NOTE_MAX ? `${flat.slice(0, BOOKING_NOTE_MAX - 1).trimEnd()}…` : flat;
+}
+
+/**
+ * "add €5.00 to Enno's pocket money (note: “mowing the lawn”)", in `t`'s
+ * language, the amount in its locale and the account's currency.
+ */
+function describePocketMoney(t: ActionTranslator, data: Record<string, unknown>): string {
+  const booking = pocketMoneyBookingFrom(data);
+  if (!booking) return t("kinds.pocket_money");
+  // An ISO 4217 code is shown as money in the locale's way; anything else
+  // (the column is free text) as a plain amount rather than throwing.
+  const money: Intl.NumberFormatOptions = /^[A-Z]{3}$/.test(booking.currency)
+    ? { style: "currency", currency: booking.currency }
+    : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  const sentence = t(
+    `kinds.pocket_money_${booking.type}`,
+    { amount: booking.amount_cents / 100, name: clientLabel(booking.person_name) },
+    { number: { money } },
+  );
+  const note = bookingNoteLabel(booking.note);
+  return note ? t("kinds.pocket_money_note", { booking: sentence, note }) : sentence;
+}
+
+/**
+ * A pocket-money booking (RFC-012 §3), run only once a family member allowed
+ * it with the PIN. Before it runs, the child and their account are looked up
+ * again — gone, or no longer a child: `no_account`. It books as stored:
+ * a deposit as `manual_deposit`, a withdrawal as `withdrawal`, through the
+ * atomic booking, so a withdrawal larger than the balance by then ends
+ * `failed` / `insufficient_funds` and nothing is written.
  */
 const pocketMoneyHandler: ActionKindHandler = {
-  async validate() {
-    return "not_available";
+  async validate(row, familyId, deps) {
+    const booking = pocketMoneyBookingFrom(row.data);
+    if (!booking) return "not_allowed";
+    if (!deps.pocketMoneyAccount || !deps.bookPocketMoney) return "not_available";
+    try {
+      return (await deps.pocketMoneyAccount(familyId, booking.person_id)) ? null : "no_account";
+    } catch {
+      return "booking_failed";
+    }
   },
-  async execute() {
-    throw new Error("pocket-money bookings are not available yet");
+  async execute(row, familyId, deps) {
+    const failed = (reason: ActionFailureReason) => ({ ok: false, result: { status: 0, reason } });
+    const booking = pocketMoneyBookingFrom(row.data);
+    if (!booking || !deps.pocketMoneyAccount || !deps.bookPocketMoney) return failed("not_available");
+    try {
+      const account = await deps.pocketMoneyAccount(familyId, booking.person_id);
+      if (!account) return failed("no_account");
+      const deposit = booking.type === "deposit";
+      const booked = await deps.bookPocketMoney({
+        familyId,
+        accountId: account.accountId,
+        amountCents: deposit ? booking.amount_cents : -booking.amount_cents,
+        type: deposit ? "manual_deposit" : "withdrawal",
+        note: booking.note ?? clientLabel(row.client_name),
+      });
+      if (booked.ok) return { ok: true, result: { status: 0 } };
+      if (booked.error === "insufficient_funds") return failed("insufficient_funds");
+      if (booked.error === "not_found") return failed("no_account");
+      console.error("[assistant-actions] booking failed:", booked.message);
+      return failed("booking_failed");
+    } catch (err) {
+      console.error("[assistant-actions] booking failed:", err instanceof Error ? err.name : "error");
+      return failed("booking_failed");
+    }
   },
-  describe(t) {
-    return t("kinds.pocket_money");
+  describe(t, request) {
+    return describePocketMoney(t, request.data);
   },
 };
 

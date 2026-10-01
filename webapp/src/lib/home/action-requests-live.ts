@@ -1,5 +1,5 @@
 /**
- * The real table, PIN check, Home Assistant and push behind
+ * The real table, PIN check, Home Assistant, pocket-money booking and push behind
  * `lib/home/action-requests.ts`.
  *
  * Every write is a single PostgREST UPDATE filtered on the expected current
@@ -12,6 +12,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { familyHasPin, verifySettingsPin } from "@/lib/settings-pin";
 import { callHaService } from "@/lib/home/ha-client";
 import { catalogueEntity } from "@/lib/home/catalogue";
+import { childPocketMoneyAccount, liveBookPocketMoney } from "@/lib/pocket-money/children";
 import { sendPushToMultiple, isVapidConfigured, type DatabaseSubscription } from "@/lib/push-sender";
 import { getPushTranslator, getTranslator } from "@/lib/notifications/messages";
 import { getFamilyLocale } from "@/lib/family-locale";
@@ -116,6 +117,8 @@ export const liveDecideDeps: DecideDeps = {
   callHaService: (familyId, domain, service, entityId, data) =>
     callHaService(familyId, domain, service, entityId, data),
   catalogueEntity: (familyId, entityId) => catalogueEntity(familyId, entityId),
+  pocketMoneyAccount: (familyId, personId) => childPocketMoneyAccount(familyId, personId),
+  bookPocketMoney: (input) => liveBookPocketMoney(input),
 };
 
 /**
