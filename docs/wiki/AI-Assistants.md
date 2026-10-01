@@ -147,10 +147,13 @@ grant `tasks:write` to an assistant you'd let tick off the children's chores.
 **Limits.** Each assistant connection can make at most 30 edits and deletes
 in 10 minutes, across tasks, shopping items, notes, calendar events and meal
 entries, and can have at most 2 home actions waiting for confirmation (5 in
-10 minutes). Past that it is told to slow down and nothing happens. Edits
-overwrite the previous text with no history; deleted tasks, notes and meals
-go to the recycle bin, but deleted shopping items and calendar events are
-gone for good — calendar events from Google or CalDAV too.
+10 minutes). Past that it is told to slow down and nothing happens. This
+limit applies to assistant connections only — a token you create by hand for
+Home Assistant or another manual integration is not limited this way, so
+bulk actions like "Clear completed" over a long shopping list still work.
+Edits overwrite the previous text with no history; deleted tasks, notes and
+meals go to the recycle bin, but deleted shopping items and calendar events
+are gone for good — calendar events from Google or CalDAV too.
 
 ## Home
 

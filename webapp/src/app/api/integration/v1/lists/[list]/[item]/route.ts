@@ -53,7 +53,7 @@ export async function PATCH(
   const scope = isListId(list) ? LISTS[list].writeScope : "family:read";
 
   return withIntegrationAuth(request, scope, async (context) => {
-    const limited = destructiveLimitResponse(context.tokenId);
+    const limited = destructiveLimitResponse(context);
     if (limited) return limited;
     if (!isListId(list)) {
       return NextResponse.json({ error: `unknown list \`${list}\``, code: "not_found" }, { status: 404 });
@@ -234,7 +234,7 @@ export async function DELETE(
   const scope = isListId(list) ? LISTS[list].writeScope : "family:read";
 
   return withIntegrationAuth(request, scope, async (context) => {
-    const limited = destructiveLimitResponse(context.tokenId);
+    const limited = destructiveLimitResponse(context);
     if (limited) return limited;
     if (!isListId(list)) {
       return NextResponse.json({ error: `unknown list \`${list}\``, code: "not_found" }, { status: 404 });

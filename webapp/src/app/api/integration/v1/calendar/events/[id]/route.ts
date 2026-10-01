@@ -65,7 +65,7 @@ export async function PATCH(
   const { id } = await params;
 
   return withIntegrationAuth(request, "calendar:write", async (context) => {
-    const limited = destructiveLimitResponse(context.tokenId);
+    const limited = destructiveLimitResponse(context);
     if (limited) return limited;
     if (!UUID_RE.test(id)) return notFound();
 
@@ -123,7 +123,7 @@ export async function DELETE(
   const { id } = await params;
 
   return withIntegrationAuth(request, "calendar:write", async (context) => {
-    const limited = destructiveLimitResponse(context.tokenId);
+    const limited = destructiveLimitResponse(context);
     if (limited) return limited;
     if (!UUID_RE.test(id)) return notFound();
 

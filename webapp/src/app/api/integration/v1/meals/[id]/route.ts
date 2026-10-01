@@ -41,7 +41,7 @@ export async function DELETE(
   const { id } = await params;
 
   return withIntegrationAuth(request, "meals:write", async (context) => {
-    const limited = destructiveLimitResponse(context.tokenId);
+    const limited = destructiveLimitResponse(context);
     if (limited) return limited;
     if (!UUID_RE.test(id)) {
       return NextResponse.json({ error: "no such meal", code: "not_found" }, { status: 404 });

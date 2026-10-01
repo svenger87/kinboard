@@ -54,7 +54,7 @@ export async function PATCH(
   const { id } = await params;
 
   return withIntegrationAuth(request, "notes:write", async (context) => {
-    const limited = destructiveLimitResponse(context.tokenId);
+    const limited = destructiveLimitResponse(context);
     if (limited) return limited;
     if (!UUID_RE.test(id)) {
       return NextResponse.json({ error: "no such note", code: "not_found" }, { status: 404 });
@@ -103,7 +103,7 @@ export async function DELETE(
   const { id } = await params;
 
   return withIntegrationAuth(request, "notes:write", async (context) => {
-    const limited = destructiveLimitResponse(context.tokenId);
+    const limited = destructiveLimitResponse(context);
     if (limited) return limited;
     if (!UUID_RE.test(id)) {
       return NextResponse.json({ error: "no such note", code: "not_found" }, { status: 404 });

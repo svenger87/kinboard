@@ -59,6 +59,19 @@ export interface IntegrationContext {
   familyId: string;
   scopes: IntegrationScope[];
   name: string;
+  /**
+   * True for an OAuth-issued token (an assistant connection: Claude, or any
+   * other MCP client that went through the authorize flow in RFC-010).
+   * False for a token created by hand in Settings — Home Assistant, Bridge,
+   * or anything else a person pasted a `kbi_` value into.
+   *
+   * Drives the edit/delete budget in lib/integration-limits.ts (RFC-011 §7
+   * ruling 10): that limit exists for an assistant that might run away, not
+   * for a scripted client like the Home Assistant component's "Clear
+   * completed", which can legitimately send more than 30 DELETEs in ten
+   * minutes.
+   */
+  assistant: boolean;
 }
 
 export type IntegrationAuthResult =
@@ -122,6 +135,7 @@ interface TokenRow {
   expires_at: string | null;
   revoked_at: string | null;
   last_used_at: string | null;
+  oauth_client_id: string | null;
 }
 
 /**
@@ -209,6 +223,7 @@ export async function requireIntegrationAuth(
       familyId: evaluated.row.family_id,
       scopes,
       name: evaluated.row.name,
+      assistant: evaluated.row.oauth_client_id != null,
     },
   };
 }

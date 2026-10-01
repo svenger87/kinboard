@@ -65,12 +65,21 @@ test.describe("edits and deletes (ruling 10)", () => {
     expect(DESTRUCTIVE_LIMIT).toBe(30);
     expect(destructiveLimitKey("t")).toBe("integration:t:destructive");
     const token = freshToken();
-    for (let i = 0; i < 30; i++) expect(destructiveLimitResponse(token), `#${i + 1}`).toBeNull();
-    const res = destructiveLimitResponse(token);
+    for (let i = 0; i < 30; i++) {
+      expect(destructiveLimitResponse({ tokenId: token, assistant: true }), `#${i + 1}`).toBeNull();
+    }
+    const res = destructiveLimitResponse({ tokenId: token, assistant: true });
     expect(res?.status).toBe(429);
     expect(Number(res?.headers.get("retry-after"))).toBeGreaterThan(590);
     expect(await res?.json()).toMatchObject({ code: "rate_limited" });
-    expect(destructiveLimitResponse(freshToken())).toBeNull();
+    expect(destructiveLimitResponse({ tokenId: freshToken(), assistant: true })).toBeNull();
+  });
+
+  test("a manually created token (assistant: false) is never limited, however many edits it sends", () => {
+    const token = freshToken();
+    for (let i = 0; i < 40; i++) {
+      expect(destructiveLimitResponse({ tokenId: token, assistant: false }), `#${i + 1}`).toBeNull();
+    }
   });
 
   // Every PATCH and DELETE of the Integration API spends the budget first,
@@ -96,7 +105,7 @@ test.describe("edits and deletes (ruling 10)", () => {
         const open = body.indexOf("async (context) => {");
         expect(open, `${file} ${m[1]} uses withIntegrationAuth`).toBeGreaterThan(-1);
         const first = body.slice(open + "async (context) => {".length).trimStart();
-        expect(first.startsWith("const limited = destructiveLimitResponse(context.tokenId);"), `${file} ${m[1]}`).toBe(true);
+        expect(first.startsWith("const limited = destructiveLimitResponse(context);"), `${file} ${m[1]}`).toBe(true);
       }
     }
     // tasks+shopping (lists PATCH/DELETE), notes PATCH/DELETE, calendar PATCH/DELETE, meals DELETE.

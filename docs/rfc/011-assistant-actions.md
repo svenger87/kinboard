@@ -189,7 +189,12 @@ soft-delete; events and shopping items do not, by earlier design.
     every request lights up every screen and phone in the house.
   - **Edits and deletes:** at most **30 per 10 minutes** per assistant
     connection across tasks, shopping items, notes, calendar events and meal
-    entries (every Integration API `PATCH` and `DELETE`).
+    entries (every Integration API `PATCH` and `DELETE`). Applies only to
+    OAuth-issued assistant connections (`context.assistant`, from the token's
+    `oauth_client_id`) — a token created by hand in Settings, such as Home
+    Assistant or Bridge, is not limited this way, since a scripted client can
+    legitimately send more than 30 in a row (Home Assistant's "Clear
+    completed" deletes every ticked shopping item one `DELETE` at a time).
 - Every action is attributable: `assistant_action_requests` carries the
   token for a sensitive action's confirmation *and* for an action that ran
   immediately (a `done`/`failed` row is written after the fact, with no

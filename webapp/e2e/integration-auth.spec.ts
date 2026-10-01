@@ -9,6 +9,7 @@ import {
   hashIntegrationToken,
   hashesEqual,
   isIntegrationScope,
+  requireIntegrationAuth,
   shouldRefreshLastUsed,
 } from "../src/lib/integration-auth";
 
@@ -36,6 +37,7 @@ function row(over: Partial<Parameters<typeof evaluateToken>[0]> = {}) {
     expires_at: null,
     revoked_at: null,
     last_used_at: null,
+    oauth_client_id: null,
     ...over,
   };
 }
@@ -229,5 +231,40 @@ test.describe("a token cannot act outside its scopes", () => {
     const usable = stored.filter(isIntegrationScope);
     expect(usable).toEqual([]);
     expect(hasScope(usable, "tasks:write")).toBe(false);
+  });
+});
+
+/**
+ * lib/integration-limits.ts' edit/delete budget applies only to assistant
+ * (OAuth-issued) connections — a manually created token like Home Assistant
+ * or Bridge must never be limited. `context.assistant` is the one place that
+ * distinction is decided, from `oauth_client_id` on the token row.
+ */
+test.describe("requireIntegrationAuth sets context.assistant from oauth_client_id", () => {
+  const authReq = () =>
+    ({ headers: new Headers({ authorization: "Bearer kbi_example" }) }) as unknown as Parameters<
+      typeof requireIntegrationAuth
+    >[0];
+
+  test("a manually created token (no oauth_client_id) is not an assistant", async () => {
+    const result = await requireIntegrationAuth(
+      authReq(),
+      "family:read",
+      async () => row({ oauth_client_id: null }),
+      NOW,
+    );
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.context.assistant).toBe(false);
+  });
+
+  test("an OAuth-issued token (has oauth_client_id) is an assistant", async () => {
+    const result = await requireIntegrationAuth(
+      authReq(),
+      "family:read",
+      async () => row({ oauth_client_id: "https://claude.ai/meta" }),
+      NOW,
+    );
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.context.assistant).toBe(true);
   });
 });

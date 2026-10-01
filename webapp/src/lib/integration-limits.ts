@@ -15,7 +15,10 @@ import { hitLimit } from "@/lib/rate-limit";
  * - **Edits and deletes** (ruling 10). At most 30 PATCH/DELETE calls per 10
  *   minutes per assistant across tasks, shopping items, notes, calendar
  *   events and meal entries — an injected "clean everything up" stops long
- *   before it has emptied the household's lists.
+ *   before it has emptied the household's lists. Applies only to OAuth-issued
+ *   (assistant) tokens, never to a token created by hand in Settings — the
+ *   Home Assistant component's "Clear completed" legitimately sends more than
+ *   30 DELETEs in ten minutes for a long shopping list.
  *
  * Like every limiter in this codebase it is process-local (lib/rate-limit.ts).
  */
@@ -70,8 +73,21 @@ export function hitConfirmLimit(tokenId: string) {
  * Spend one edit/delete of this assistant's budget, or the 429 to answer
  * with. Called first thing in every Integration API PATCH and DELETE handler
  * (e2e/integration-limits.spec.ts holds that); a refused call changes nothing.
+ *
+ * `assistant` is `context.assistant` (lib/integration-auth.ts) — true only for
+ * an OAuth-issued token. A manually created token (Home Assistant, Bridge)
+ * never spends this budget: its scripted bulk actions, like "Clear
+ * completed" deleting every ticked shopping item one DELETE at a time, can
+ * legitimately exceed 30 calls in ten minutes.
  */
-export function destructiveLimitResponse(tokenId: string): NextResponse | null {
+export function destructiveLimitResponse({
+  tokenId,
+  assistant,
+}: {
+  tokenId: string;
+  assistant: boolean;
+}): NextResponse | null {
+  if (!assistant) return null;
   const { limited, retryAfterMs } = hitLimit(destructiveLimitKey(tokenId), DESTRUCTIVE_LIMIT, DESTRUCTIVE_WINDOW_MS);
   if (!limited) return null;
   return NextResponse.json(
