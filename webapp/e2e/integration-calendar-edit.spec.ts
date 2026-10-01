@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { parseEventPatch } from "../src/lib/integration-event-input";
-import { loadFamilyEvent } from "../src/lib/integration-calendar-event";
+import { loadFamilyEvent } from "../src/lib/family-event-scope";
 import {
   deleteVerdict,
   syncDeletedCalendarEvent,

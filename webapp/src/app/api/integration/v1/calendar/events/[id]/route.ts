@@ -9,7 +9,7 @@ import {
   syncUpdatedCalendarEvent,
   type StoredCalendarEvent,
 } from "@/lib/calendar-write-through";
-import { EVENT_COLUMNS, loadFamilyEvent, type EventQueryClient } from "@/lib/integration-calendar-event";
+import { EVENT_COLUMNS, loadFamilyEvent, type EventQueryClient } from "@/lib/family-event-scope";
 import { isRecurrenceInstance } from "@/lib/caldav-serialize";
 import { parseEventPatch } from "@/lib/integration-event-input";
 import { familyTimeZone } from "@/lib/family-time";
@@ -28,7 +28,7 @@ const RESPONSE_COLUMNS = ["id", "calendar_id", "title", "description", "start_at
  * event's Google or CalDAV calendar.
  *
  * `events` has no `family_id`; an event belongs to a family through its
- * calendar. `loadFamilyEvent` (lib/integration-calendar-event.ts) reads the
+ * calendar. `loadFamilyEvent` (lib/family-event-scope.ts) reads the
  * event by id, then its calendar by id **and** `family_id =
  * context.familyId` — an event in another family's calendar is a 404
  * indistinguishable from one that does not exist. The update and delete

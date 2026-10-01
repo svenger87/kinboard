@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-import { loadOwnedCalendar, loadOwnedEvent } from "@/lib/google-events-scope";
+import { loadOwnedCalendar, loadOwnedEvent } from "@/lib/family-event-scope";
 import { getGoogleOAuth2Client } from "@/lib/google-calendar-auth";
 
 // Every verb here reaches a family's connected Google account with the
@@ -12,7 +12,7 @@ import { getGoogleOAuth2Client } from "@/lib/google-calendar-auth";
 // also request-supplied, and events carry no family_id of their own — they
 // are scoped through calendar_id -> calendars.family_id. POST, PATCH and
 // DELETE all resolve those ids through loadOwnedCalendar/loadOwnedEvent
-// (src/lib/google-events-scope.ts), which require the calendar's family_id
+// (src/lib/family-event-scope.ts), which require the calendar's family_id
 // to match the caller's, so a foreign id is indistinguishable from a
 // missing one. Without that check, a caller could point their own Google
 // credentials at another family's calendar_id/event_id, and — regardless of

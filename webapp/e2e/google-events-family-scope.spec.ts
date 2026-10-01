@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadOwnedCalendar, loadOwnedEvent } from "../src/lib/google-events-scope";
+import { loadOwnedCalendar, loadOwnedEvent } from "../src/lib/family-event-scope";
 
 /**
  * /api/google/events authenticates with requireSession + familyMatchesSession
@@ -28,7 +28,7 @@ import { loadOwnedCalendar, loadOwnedEvent } from "../src/lib/google-events-scop
  * fix is a one-hop ownership check (same shape as pocket_money_goals ->
  * account_id in src/lib/family-scope.ts, and as
  * caldav/events/route.ts's loadCalendar), pulled into
- * src/lib/google-events-scope.ts so it can be tested directly instead of by
+ * src/lib/family-event-scope.ts so it can be tested directly instead of by
  * pattern-matching the route's source.
  */
 
@@ -149,7 +149,7 @@ test("the route resolves every request-supplied id through the ownership helpers
     "utf8",
   );
 
-  expect(source).toContain('import { loadOwnedCalendar, loadOwnedEvent } from "@/lib/google-events-scope"');
+  expect(source).toContain('import { loadOwnedCalendar, loadOwnedEvent } from "@/lib/family-event-scope"');
 
   // POST creates on a calendar_id, and writes back onto an event_id.
   expect(source).toContain("loadOwnedCalendar(supabase, family_id, calendar_id)");
