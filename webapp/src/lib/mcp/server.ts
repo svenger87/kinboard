@@ -121,7 +121,7 @@ const taskPriority = z.enum(TASK_PRIORITIES).describe("high, medium (the default
 const taskIcon = z.enum(TODO_ICONS).describe("A picture shown on the task; only these icons exist.");
 const taskPoints = z.number().int().min(0).max(MAX_TASK_POINTS)
   .describe(`Points for completing it, 0 to ${MAX_TASK_POINTS}. Points are awarded only when the task is assigned to a child; on anyone else's task they are stored but never awarded.`);
-const EVENT_PERSON_NOTE = "person_id (from list_people) says who the event is for; on a Google calendar it is stored with the event in Google too, while a CalDAV calendar's next sync assigns it from the calendar's own settings again.";
+const EVENT_PERSON_NOTE = "person_id (from list_people) says who the event is for; on a Google calendar it is stored with the event in Google too, so the next sync keeps it. Clearing it on a Google calendar that has its own person, or whose mapping rules match the event, gives the event that person again at the next sync; a CalDAV calendar's next sync assigns it from the calendar's own settings again.";
 const TASK_FIELDS_NOTE = "A task can be assigned to a person (person_id from list_people), repeat (recurrence), and carry a priority, an icon and points; points are awarded only when the task is assigned to a child, each time that child completes it.";
 
 /** The optional task fields a tool was given, as the lists routes name them. */
@@ -281,7 +281,7 @@ export function createKinboardMcpServer(
       const body = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
       return call(calendarEventPatch, { path: `/calendar/events/${event_id}`, params: { id: event_id }, method: "PATCH", body });
     });
-  register("delete_calendar_event", "Delete a calendar event. This also deletes it from Google or the CalDAV calendar; cannot be undone (calendar events have no recycle bin). If the provider refuses, the event is kept and the error says so. One occurrence of a repeating CalDAV event cannot be deleted. Use the event id from list_calendar_events.",
+  register("delete_calendar_event", "Delete a calendar event. This also deletes it from Google or the CalDAV calendar; cannot be undone (calendar events have no recycle bin). If the provider refuses, the event is kept and the error says so. One occurrence of a repeating CalDAV event cannot be deleted. Use the event id from list_calendar_events or search_calendar_events.",
     z.object({ event_id: z.uuid() }), externalEditAction,
     ({ event_id }) => call(calendarEventDelete, { path: `/calendar/events/${event_id}`, params: { id: event_id }, method: "DELETE" }));
   register("list_tasks", "Read active family tasks, including completion status and due dates.", z.object({}), readOnly,

@@ -515,7 +515,11 @@ test.describe("calendar events say who they are for", () => {
     expect(update.inputSchema.parse({ event_id: event, person_id: person })).toEqual({ event_id: event, person_id: person });
     expect(() => update.inputSchema.parse({ event_id: event, person_id: "Mia" })).toThrow();
     expect(update.inputSchema.parse({ event_id: event, person_id: null })).toEqual({ event_id: event, person_id: null });
-    for (const t of [create, update]) expect(t.description).toMatch(/person_id \(from list_people\)/);
+    for (const t of [create, update]) {
+      expect(t.description).toMatch(/person_id \(from list_people\)/);
+      // Clearing is not "kept" on a Google calendar with its own person.
+      expect(t.description).toContain("Clearing it on a Google calendar that has its own person");
+    }
   });
 });
 
@@ -566,6 +570,7 @@ test.describe("delete_calendar_event", () => {
     expect(calls).toEqual([{ path: `/calendar/events/${EVENT_ID}`, params: { id: EVENT_ID }, method: "DELETE" }]);
     expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
     expect(t.description).toContain("also deletes it from Google or the CalDAV calendar; cannot be undone");
+    expect(t.description).toContain("from list_calendar_events or search_calendar_events");
   });
 
   test("surfaces a provider failure as a tool error, not a crash", async () => {

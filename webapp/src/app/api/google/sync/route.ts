@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
+import type { PersonMappingRule } from "@/lib/calendar-person-matcher";
+import { familyPersonIds, syncedEventPersonId } from "@/lib/google-sync-person";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -153,6 +154,7 @@ export async function POST(request: NextRequest) {
       .select("id, google_calendar_id, person_id")
       .eq("family_id", family_id);
 
+    const familyPeople = await familyPersonIds(supabase, family_id);
     const calendarPersonMap = new Map<string, CalendarInfo>();
     for (const cal of dbCalendars || []) {
       if (cal.google_calendar_id) {
@@ -293,15 +295,16 @@ export async function POST(request: NextRequest) {
 
           googleEventIds.add(event.id);
 
-          // Get person_id from extended properties first (stored by our app)
-          // Then fall back to calendar's default person, then mapping rules
-          let personId = event.extendedProperties?.private?.person_id || undefined;
-          if (!personId) {
-            personId = localCalendar.person_id;
-          }
-          if (!personId && mappingRules.length > 0) {
-            personId = matchPersonForEvent(event.summary, mappingRules) || undefined;
-          }
+          // The extended property (stored by Kinboard) first, but only when
+          // it names one of this family's people; then the calendar's
+          // default person, then the mapping rules (lib/google-sync-person.ts).
+          const personId = syncedEventPersonId({
+            fromGoogle: event.extendedProperties?.private?.person_id,
+            familyPeople,
+            calendarPersonId: localCalendar.person_id,
+            title: event.summary,
+            mappingRules,
+          });
 
           // Check if event exists
            

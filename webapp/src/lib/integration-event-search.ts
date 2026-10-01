@@ -1,5 +1,14 @@
 import { familyDateKey } from "@/lib/family-time";
 import { zonedWallTimeToUtc } from "@/lib/integration-event-input";
+import type { createAdminClient } from "@/lib/supabase/server";
+
+/**
+ * The real admin client, not a narrowed interface: a method the client
+ * does not have (an earlier draft called `.imatch()`, which supabase-js
+ * names `regexIMatch`) is then a type error here. Tests cast their fake to
+ * this at the test boundary.
+ */
+export type SearchDb = ReturnType<typeof createAdminClient>;
 
 /**
  * Finding an appointment by what it is called: `GET
@@ -43,7 +52,9 @@ export function parseSearchQuery(raw: string): { ok: true; value: string } | { o
   const value = raw.trim();
   // Control characters (a newline, a NUL) are not something anyone types
   // into a calendar search; refusing them keeps the pattern one plain line.
-  if (!value || value.length > MAX_QUERY_LENGTH || /[\u0000-\u001f\u007f]/.test(value)) {
+  // Code points, as OpenAPI's and the tool schema's maxLength count them,
+  // not UTF-16 units: an emoji is one character.
+  if (!value || [...value].length > MAX_QUERY_LENGTH || /[\u0000-\u001f\u007f]/.test(value)) {
     return { ok: false, error: `\`query\` must be 1 to ${MAX_QUERY_LENGTH} characters of plain text` };
   }
   return { ok: true, value };
@@ -71,20 +82,6 @@ export function defaultSearchWindow(now: Date, timeZone: string): { start: Date;
   };
 }
 
-/** The chain the search uses. Fakeable in tests. */
-interface SearchQuery extends PromiseLike<{ data: unknown; error: unknown }> {
-  select(columns: string): SearchQuery;
-  in(column: string, values: string[]): SearchQuery;
-  lt(column: string, value: string): SearchQuery;
-  gt(column: string, value: string): SearchQuery;
-  regexIMatch(column: string, pattern: string): SearchQuery;
-  order(column: string, options: { ascending: boolean }): SearchQuery;
-  limit(count: number): SearchQuery;
-}
-export interface SearchClient {
-  from(table: string): SearchQuery;
-}
-
 type ListedEvent = { id: string; start_at: string } & Record<string, unknown>;
 
 /**
@@ -93,12 +90,13 @@ type ListedEvent = { id: string; start_at: string } & Record<string, unknown>;
  * earliest first. The caller has already limited `calendarIds` to the
  * family's own calendars. Throws on a database error.
  *
- * Each column's request is itself limited to SEARCH_LIMIT, earliest first,
- * so the merged first SEARCH_LIMIT are the true first SEARCH_LIMIT: any
+ * Each column's request is itself limited to SEARCH_LIMIT, ordered by
+ * (start_at, id) — the merge's own order, so ties at the cut are decided
+ * the same way in both places — and so the merged first SEARCH_LIMIT are the true first SEARCH_LIMIT: any
  * event among them is among the first SEARCH_LIMIT of the column it matched.
  */
 export async function searchEvents(
-  db: SearchClient,
+  db: SearchDb,
   calendarIds: string[],
   query: string,
   start: Date,
@@ -116,6 +114,7 @@ export async function searchEvents(
         .gt("end_at", start.toISOString())
         .regexIMatch(column, pattern)
         .order("start_at", { ascending: true })
+        .order("id", { ascending: true })
         .limit(SEARCH_LIMIT),
     ),
   );

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google, type calendar_v3 } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
-import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
+import type { PersonMappingRule } from "@/lib/calendar-person-matcher";
+import { familyPersonIds, syncedEventPersonId } from "@/lib/google-sync-person";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 import {
   orphanedEventIds,
@@ -144,6 +145,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
       .select("id, google_calendar_id, person_id")
       .eq("family_id", familyId);
 
+    const familyPeople = await familyPersonIds(supabase, familyId);
     const calendarPersonMap = new Map<string, CalendarInfo>();
     for (const cal of dbCalendars || []) {
       if (cal.google_calendar_id) {
@@ -296,13 +298,16 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
           googleEventIds.add(event.id);
           seenInCalendar.add(event.id);
 
-          let personId = event.extendedProperties?.private?.person_id || undefined;
-          if (!personId) {
-            personId = localCalendar.person_id;
-          }
-          if (!personId && mappingRules.length > 0) {
-            personId = matchPersonForEvent(event.summary, mappingRules) || undefined;
-          }
+          // The extended property (stored by Kinboard) first, but only when
+          // it names one of this family's people; then the calendar's
+          // default person, then the mapping rules (lib/google-sync-person.ts).
+          const personId = syncedEventPersonId({
+            fromGoogle: event.extendedProperties?.private?.person_id,
+            familyPeople,
+            calendarPersonId: localCalendar.person_id,
+            title: event.summary,
+            mappingRules,
+          });
 
            
           // Same scoping as the delete above. Without the calendar

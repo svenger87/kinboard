@@ -10,7 +10,7 @@ import { parseEventInput } from "@/lib/integration-event-input";
 import { familyTimeZone } from "@/lib/family-time";
 import { familyPersonId } from "@/lib/integration-tasks";
 import {
-  LISTED_EVENT_COLUMNS, defaultSearchWindow, parseSearchQuery, searchEvents, type SearchClient,
+  LISTED_EVENT_COLUMNS, defaultSearchWindow, parseSearchQuery, searchEvents,
 } from "@/lib/integration-event-search";
 
 export const dynamic = "force-dynamic";
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
 
       if (query?.ok) {
         const events = await searchEvents(
-          supabase as unknown as SearchClient, calendarIds, query.value, range.start!, range.end!,
+          supabase, calendarIds, query.value, range.start!, range.end!,
         );
         return NextResponse.json({ events });
       }

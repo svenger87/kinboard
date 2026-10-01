@@ -1113,7 +1113,9 @@ paths:
                     Who the event is for: a person of this family (see
                     `/people`). Anyone else, or someone in the recycle bin,
                     is a `400`. On a Google calendar it is also stored with
-                    the event in Google, so Google sync keeps it.
+                    the event in Google, so Google sync keeps it. With no
+                    person, sync assigns the event as it assigns any other:
+                    from the calendar's own person or the mapping rules.
       responses:
         "201":
           description: Created local event
@@ -1169,7 +1171,10 @@ paths:
         nobody with `null`; a person of another family is a `400`, worded
         as for one that does not exist. On a Google calendar the assignee is
         written to the event in Google as well, as Kinboard's screens do, so
-        the next sync keeps it. A CalDAV calendar's sync assigns events from
+        the next sync keeps it. Clearing it (`null`) on a Google calendar
+        that has its own person, or whose mapping rules match the event,
+        gives the event that person again at the next sync, as clearing it
+        on the screens does. A CalDAV calendar's sync assigns events from
         the calendar's own settings.
 
         The row is updated first, then pushed to the provider; `sync`

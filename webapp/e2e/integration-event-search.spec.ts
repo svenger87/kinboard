@@ -8,7 +8,7 @@ import {
   literalPattern,
   parseSearchQuery,
   searchEvents,
-  type SearchClient,
+  type SearchDb,
 } from "../src/lib/integration-event-search";
 import { parseEventInput, parseEventPatch } from "../src/lib/integration-event-input";
 import { familyPersonId, type TaskDb } from "../src/lib/integration-tasks";
@@ -66,16 +66,26 @@ function fakeEvents(rows: Row[]) {
             if (op === "imatch") return typeof cell === "string" && new RegExp(value as string, "i").test(cell);
             return true;
           });
-          const data = rows.filter(keep)
-            .sort((a, b) => Date.parse(a.start_at as string) - Date.parse(b.start_at as string))
-            .slice(0, limit);
+          // Only the orders the code asks for, in its order; rows tied on
+          // all of them stay in storage order, which a real database does
+          // not promise either.
+          const orders = ops.filter(([op]) => op === "order").map(([, column]) => column as string);
+          const compare = (a: Row, b: Row) => {
+            for (const column of orders) {
+              const x = a[column] as string, y = b[column] as string;
+              const d = column.endsWith("_at") ? Date.parse(x) - Date.parse(y) : x < y ? -1 : x > y ? 1 : 0;
+              if (d !== 0) return d;
+            }
+            return 0;
+          };
+          const data = rows.filter(keep).sort(compare).slice(0, limit);
           return Promise.resolve(resolve({ data, error: null }));
         },
       };
       return chain;
     },
   };
-  return { db: db as unknown as SearchClient, calls };
+  return { db: db as unknown as SearchDb, calls };
 }
 
 const WINDOW = { start: new Date("2026-10-01T00:00:00Z"), end: new Date("2027-10-01T00:00:00Z") };
@@ -172,6 +182,27 @@ test.describe("what a search finds", () => {
     expect(found[0].id).toBe(both.id);
     expect(found[1].id).toBe(many[0].id);
     expect(found[99].id).toBe(many[98].id);
+  });
+
+  test("ties at the cut are decided by id, in each request as in the merge", async () => {
+    const tied = Array.from({ length: 150 }, (_, i) => ev(`Dentist ${i}`, {
+      start_at: "2026-11-01T08:00:00.000Z", end_at: "2026-11-01T09:00:00.000Z",
+    }));
+    // Stored newest id first, so storage order is the wrong answer.
+    const { db, calls } = fakeEvents(tied.slice().reverse());
+    const found = await searchEvents(db, [CAL], "dentist", WINDOW.start, WINDOW.end);
+    expect(found.map((e) => e.id)).toEqual(tied.slice(0, SEARCH_LIMIT).map((e) => e.id));
+    for (const ops of calls) {
+      expect(ops.filter(([op]) => op === "order")).toEqual([
+        ["order", "start_at", { ascending: true }],
+        ["order", "id", { ascending: true }],
+      ]);
+    }
+  });
+
+  test("the length cap counts characters, not UTF-16 units", () => {
+    expect(parseSearchQuery("🦷".repeat(200)).ok).toBe(true);
+    expect(parseSearchQuery("🦷".repeat(201)).ok).toBe(false);
   });
 
   test("no calendars, no query", async () => {
