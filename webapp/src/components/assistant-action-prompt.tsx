@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { describeAction, type ActionTranslator, type ScreenRequest } from "@/lib/home/action-requests";
+import { clientLabel, describeVerb, type ActionTranslator, type ScreenRequest } from "@/lib/home/action-requests";
 import {
   canApprove, canDeny, decisionErrorKey, isFinalError, secondsLeft, visibleRequests,
 } from "@/lib/home/action-prompt";
@@ -18,6 +18,36 @@ import {
   useDecideAssistantAction,
   usePendingAssistantActions,
 } from "@/hooks/use-assistant-actions";
+
+/**
+ * "[Claude] wants to unlock Front door". The assistant's name is whatever it
+ * registered itself as, so it is cut to 40 characters and set apart as a
+ * label — not running text a crafted name could turn into an instruction.
+ */
+export function ActionHeadline({
+  request,
+  id,
+  className,
+}: {
+  request: ScreenRequest;
+  id?: string;
+  className: string;
+}) {
+  const t = useTranslations("assistantActions");
+  const label = clientLabel(request.client_name);
+  return (
+    <p id={id} className={className}>
+      <span
+        data-assistant-client
+        title={request.client_name.length > label.length ? request.client_name.slice(0, 200) : undefined}
+        className="mr-2 inline-block max-w-full truncate rounded-md border border-border bg-muted px-2 py-0.5 align-middle font-sans text-sm font-medium"
+      >
+        {label}
+      </span>
+      {t("wantsTo", { action: describeVerb(t as unknown as ActionTranslator, request) })}
+    </p>
+  );
+}
 
 /** The server-corrected time, ticking once a second while `active`. */
 export function useTickingServerNow(active: boolean): Date {
@@ -97,9 +127,7 @@ export function AssistantActionCard({
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm text-muted-foreground">{t("title")}</p>
-          <p id={`${inputId}-title`} className="font-display text-2xl leading-tight">
-            {describeAction(t as unknown as ActionTranslator, request)}
-          </p>
+          <ActionHeadline request={request} id={`${inputId}-title`} className="font-display text-2xl leading-tight" />
           <p className="mt-1 text-sm text-muted-foreground">{t("hint")}</p>
         </div>
         <p className="shrink-0 text-sm tabular-nums text-muted-foreground" aria-live="off">
@@ -170,7 +198,7 @@ export function AssistantActionPrompt() {
     >
       {notices.map(({ request, message }) => (
         <Card key={`notice-${request.id}`} data-assistant-action-notice={request.id} className="space-y-3 bg-background p-5 elev-lg">
-          <p className="font-display text-xl leading-tight">{describeAction(t as unknown as ActionTranslator, request)}</p>
+          <ActionHeadline request={request} className="font-display text-xl leading-tight" />
           <p role="alert" className="text-sm">{message}</p>
           <div className="flex justify-end">
             <Button

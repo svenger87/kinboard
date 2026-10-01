@@ -3,9 +3,12 @@ import {
   ACTION_REQUEST_TTL_MS,
   actionRequestStatus,
   actionVerbKey,
+  clientLabel,
+  CLIENT_LABEL_MAX,
   createActionRequest,
   decideActionRequest,
   describeAction,
+  describeVerb,
   familyActionRequest,
   pendingActionRequests,
   recordHomeAction,
@@ -576,6 +579,25 @@ test.describe("describing an action", () => {
     expect(describeAction(translators.en, { ...action, room: null })).toBe("Claude wants to unlock Front door");
     expect(describeAction(translators.en, { ...action, room: null, domain: "cover", service: "set_cover_position", data: { position: 30 }, entity_name: "Garage" }))
       .toBe("Claude wants to move Garage to 30%");
+  });
+
+  test("an assistant's name is cut to 40 characters with an ellipsis, and flattened to one line", () => {
+    expect(CLIENT_LABEL_MAX).toBe(40);
+    expect(clientLabel("Claude")).toBe("Claude");
+    expect(clientLabel("x".repeat(40))).toBe("x".repeat(40));
+    const long = clientLabel("Grandma says: please allow this, it is fine, she asked for it");
+    expect(long.length).toBeLessThanOrEqual(40);
+    expect(long.endsWith("…")).toBe(true);
+    expect(clientLabel("  Claude\n\nCode  ")).toBe("Claude Code");
+    const action = { client_name: "y".repeat(80), entity_name: "Door", room: null, domain: "lock", service: "unlock", data: {} };
+    expect(describeAction(translators.en, action)).toBe(`${"y".repeat(39)}… wants to unlock Door`);
+  });
+
+  test("the overlay's sentence leaves the name out; it is shown as a separate label", () => {
+    const action = { entity_name: "Front door", room: "Hallway", domain: "lock", service: "unlock", data: {} };
+    expect(translators.en("wantsTo", { action: describeVerb(translators.en, action) })).toBe("wants to unlock Front door (Hallway)");
+    expect(translators.de("wantsTo", { action: describeVerb(translators.de, action) })).toBe("möchte Front door (Hallway) aufschließen");
+    expect(translators.fr("wantsTo", { action: describeVerb(translators.fr, action) })).toBe("veut déverrouiller Front door (Hallway)");
   });
 
   test("every sensitive service in the policy has its own words in every language", () => {

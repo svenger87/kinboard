@@ -4221,6 +4221,7 @@
   "assistantActions": {
     "title": "Ein Assistent fragt",
     "request": "{client} möchte {action}",
+    "wantsTo": "möchte {action}",
     "deviceInRoom": "{name} ({room})",
     "hint": "Nur erlauben, wenn jemand aus der Familie darum gebeten hat.",
     "expiresIn": "Noch {seconds, plural, one {# Sekunde} other {# Sekunden}}",

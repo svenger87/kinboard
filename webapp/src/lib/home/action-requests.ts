@@ -148,22 +148,40 @@ export interface DescribableAction {
   data: Record<string, unknown>;
 }
 
+/** How much of an assistant's self-chosen name a screen or a push shows. */
+export const CLIENT_LABEL_MAX = 40;
+
 /**
- * "Claude wants to unlock Front door (Hallway)", in the family's language.
- * Each verb carries `{device}` itself, so a language can put the device
- * where it belongs ("Haustür aufschließen").
+ * An assistant's name as shown to the family: at most 40 characters, the
+ * last an ellipsis when cut. The name is whatever the client registered
+ * itself as, so it is shown as a short label — never as a sentence that
+ * could talk the person at the screen into allowing something.
  */
-export function describeAction(t: ActionTranslator, action: DescribableAction): string {
+export function clientLabel(name: string): string {
+  const flat = name.replace(/\s+/g, " ").trim();
+  return flat.length > CLIENT_LABEL_MAX ? `${flat.slice(0, CLIENT_LABEL_MAX - 1).trimEnd()}…` : flat;
+}
+
+/** "unlock Front door (Hallway)" — the action alone, in the family's language. */
+export function describeVerb(t: ActionTranslator, action: Omit<DescribableAction, "client_name">): string {
   const position = action.data.position;
   const device = action.room
     ? t("deviceInRoom", { name: action.entity_name, room: action.room })
     : action.entity_name;
-  const verb = t(`verbs.${actionVerbKey(action.domain, action.service)}`, {
+  return t(`verbs.${actionVerbKey(action.domain, action.service)}`, {
     device,
     service: action.service,
     position: typeof position === "number" ? position : 0,
   });
-  return t("request", { client: action.client_name, action: verb });
+}
+
+/**
+ * "Claude wants to unlock Front door (Hallway)", in the family's language —
+ * for the push and other plain text. Each verb carries `{device}` itself, so
+ * a language can put the device where it belongs ("Haustür aufschließen").
+ */
+export function describeAction(t: ActionTranslator, action: DescribableAction): string {
+  return t("request", { client: clientLabel(action.client_name), action: describeVerb(t, action) });
 }
 
 // ── creating ────────────────────────────────────────────────────────────────

@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AssistantActionCard, useTickingServerNow } from "@/components/assistant-action-prompt";
+import { ActionHeadline, AssistantActionCard, useTickingServerNow } from "@/components/assistant-action-prompt";
 import { useAssistantAction } from "@/hooks/use-assistant-actions";
-import { describeAction, type ActionTranslator, type ScreenRequest } from "@/lib/home/action-requests";
+import type { ScreenRequest } from "@/lib/home/action-requests";
 import { newerRequest, secondsLeft, statusMessageKey } from "@/lib/home/action-prompt";
 
 /**
@@ -38,7 +38,7 @@ export default function AssistantActionPage({ params }: { params: Promise<{ id: 
     const key = request.status === "pending" ? "status.expired" : statusMessageKey(request);
     body = (
       <Card className="space-y-2 p-6">
-        <p className="font-display text-xl leading-tight">{describeAction(t as unknown as ActionTranslator, request)}</p>
+        <ActionHeadline request={request} className="font-display text-xl leading-tight" />
         <p role="status" className="text-muted-foreground">{t(key)}</p>
       </Card>
     );
