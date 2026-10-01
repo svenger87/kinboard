@@ -25,6 +25,12 @@ export const MAX_TIMER_SECONDS = 86_400;
 export const MAX_TIMER_LABEL = 60;
 /** Not dismissed (running or ringing) timers a family may have before an assistant is refused another. */
 export const MAX_ACTIVE_TIMERS = 10;
+/**
+ * A ringing timer stops counting against the cap this long after it ran out.
+ * One nobody dismisses (no screen shows the timers card) would otherwise hold
+ * its place for ever, and ten of them would refuse every start.
+ */
+export const STALE_RINGING_MS = 60 * 60 * 1000;
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -38,15 +44,24 @@ export async function listActiveTimers(db: TimerDb, familyId: string) {
     .order("started_at", { ascending: false });
 }
 
-/** How many of the family's timers are not dismissed. Throws on a database error. */
-export async function countActiveTimers(db: TimerDb, familyId: string): Promise<number> {
-  const { count, error } = await db
+/**
+ * How many of the family's timers count against MAX_ACTIVE_TIMERS: not
+ * dismissed, and not ringing for more than STALE_RINGING_MS. The end is
+ * `started_at + duration_seconds`, which PostgREST cannot compute in a
+ * filter, so the rows are read and counted here; a family has a handful.
+ * Throws on a database error.
+ */
+export async function countActiveTimers(db: TimerDb, familyId: string, now = new Date()): Promise<number> {
+  const { data, error } = await db
     .from("timers")
-    .select("id", { count: "exact", head: true })
+    .select("started_at, duration_seconds")
     .eq("family_id", familyId)
     .is("dismissed_at", null);
   if (error) throw error;
-  return count ?? 0;
+  const cutoff = now.getTime() - STALE_RINGING_MS;
+  return ((data ?? []) as Pick<Timer, "started_at" | "duration_seconds">[])
+    .filter((row) => Date.parse(row.started_at) + row.duration_seconds * 1000 >= cutoff)
+    .length;
 }
 
 /**
@@ -214,22 +229,28 @@ export type StartOutcome =
   | { status: "too_many"; active: number };
 
 /**
- * Start a timer for an assistant: refused once the family already has
- * MAX_ACTIVE_TIMERS not dismissed. Counted before the insert, so two calls
- * racing at 9 can both get through — a soft cap, which is all it needs to
- * be: it stops a runaway loop, not a determined caller. Throws on a
- * database error.
+ * Start a timer through the Integration API. With `capped` (an assistant's
+ * token, `context.assistant`) it is refused once the family already has
+ * MAX_ACTIVE_TIMERS that count (see countActiveTimers); a hand-made token,
+ * such as Home Assistant's, is not capped, as the panel is not. Counted
+ * before the insert, so two calls racing at 9 can both get through — a soft
+ * cap, which is all it needs to be: it stops a runaway loop, not a
+ * determined caller. Throws on a database error.
  */
-export async function startTimerForAssistant(
+export async function startIntegrationTimer(
   familyId: string,
   input: TimerInput,
+  options: { capped: boolean; now?: Date },
   db: TimerDb = createAdminClient(),
 ): Promise<StartOutcome> {
-  const active = await countActiveTimers(db, familyId);
-  if (active >= MAX_ACTIVE_TIMERS) return { status: "too_many", active };
+  const now = options.now ?? new Date();
+  if (options.capped) {
+    const active = await countActiveTimers(db, familyId, now);
+    if (active >= MAX_ACTIVE_TIMERS) return { status: "too_many", active };
+  }
   const { timer, error } = await startTimer(db, familyId, input.label, input.duration_seconds);
   if (error || !timer) throw error ?? new Error("could not start the timer");
-  return { status: "started", timer: timerView(timer, new Date()) };
+  return { status: "started", timer: timerView(timer, now) };
 }
 
 /**

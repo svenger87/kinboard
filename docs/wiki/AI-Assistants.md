@@ -120,7 +120,7 @@ change them.
 | Tool | Does |
 |---|---|
 | `list_timers` | The timers on the screens, running or ringing, with the time left |
-| `start_timer` | Start a timer of up to 24 hours, with an optional label — it counts down and rings on the screens that show the timers card, and notifies phones, like one set on the panel. At most 10 can be running or ringing at once |
+| `start_timer` | Start a timer of up to 24 hours, with an optional label — it counts down and rings on the screens that show the timers card, and notifies phones, like one set on the panel. At most 10 can be running or ringing at once; one that has rung unanswered for over an hour no longer counts |
 | `stop_timer` | Stop a timer and take it off the screens; its phone notification is cancelled |
 
 ### Birthdays
@@ -174,7 +174,7 @@ only connect assistants through the "Allow AI assistants" sign-in.
 | Tool | Does |
 |---|---|
 | `list_attention_items` | The hints the attention panel is showing right now ("Rain likely today"), most important first, in the family's language. A hint from Home Assistant, such as doors still open at bedtime, only says how many unless the assistant may also see the home (`home:read`) |
-| `dismiss_attention_item` | Take a hint off the panel, as tapping OK on it does; the screens catch up within a few minutes |
+| `dismiss_attention_item` | Take a hint off the panel, as tapping OK on it does; the screens catch up within a few minutes. The hint comes back if the situation arises again |
 
 ### Messages and energy
 

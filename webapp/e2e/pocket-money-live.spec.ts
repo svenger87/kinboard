@@ -10,14 +10,17 @@ import { decideWithdrawal } from "../src/lib/pocket-money/runs";
  * code asks for; this one proves the database does it atomically.
  *
  * Needs a stack: SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL (or
- * NEXT_PUBLIC_SUPABASE_URL), e.g. Kong on :8130 here. Skipped without them.
+ * NEXT_PUBLIC_SUPABASE_URL), e.g. Kong on :8130 here. Skipped without them,
+ * unless FAMILY_CODE says a stack is there; CI's smoke job (e2e.yml) runs it.
  * It works only in a family of its own, `claude-pm-live`, which it creates and
  * deletes again (people and goals, which the soft-delete triggers keep, are
  * purged by id), including whatever an interrupted run left behind.
  */
 
 const HAS_STACK = !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
-test.skip(!HAS_STACK, "needs SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
+// FAMILY_CODE promises a stack (e2e.yml sets it), so there a missing key fails
+// in beforeAll rather than skipping the whole file green.
+test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
 test.describe.configure({ mode: "serial" });
 
 const FAMILY = "c1a0de00-0009-4000-8000-00000000f001";
@@ -155,6 +158,40 @@ test.describe("a withdrawal request approved twice at once is booked once", () =
     expect((await state()).txns).toEqual([]);
     const { data: reqs } = await db.from("pocket_money_withdrawal_requests").select("status").eq("account_id", ACCOUNT);
     expect(reqs.map((r: { status: string }) => r.status)).toEqual(["pending", "pending"]);
+  });
+});
+
+test.describe("a booking never takes the balance below zero", () => {
+  test("an overdraw is refused and writes nothing", async () => {
+    await reset(500);
+    expect(await bookPocketMoney(rpc(), { familyId: FAMILY, accountId: ACCOUNT, amountCents: -501, type: "withdrawal" }))
+      .toEqual({ ok: false, error: "insufficient_funds" });
+    expect(await bookPocketMoney(rpc(), { familyId: FAMILY, accountId: ACCOUNT, amountCents: -501, type: "adjustment" }))
+      .toEqual({ ok: false, error: "insufficient_funds" });
+    const after = await state();
+    expect(after.balance_cents).toBe(500);
+    expect(after.txns).toEqual([]);
+  });
+
+  test("ten withdrawals racing for five withdrawals' worth: five booked, the balance at zero", async () => {
+    await reset(500);
+    const answers = await Promise.all(Array.from({ length: 10 }, () =>
+      bookPocketMoney(rpc(), { familyId: FAMILY, accountId: ACCOUNT, amountCents: -100, type: "withdrawal" })));
+    expect(answers.filter((a) => a.ok)).toHaveLength(5);
+    expect(answers.filter((a) => !a.ok && a.error === "insufficient_funds")).toHaveLength(5);
+    const after = await state();
+    expect(after.balance_cents).toBe(0);
+    expect(after.txns).toHaveLength(5);
+  });
+
+  test("a request decided twice in turn: the second is already_decided, one booking", async () => {
+    await reset(1_000);
+    const id = await newRequest(300);
+    expect(await approve(id)).toMatchObject({ status: 200 });
+    expect(await approve(id)).toEqual({ status: 409, body: { error: "already_decided" } });
+    const after = await state();
+    expect(after.txns).toEqual([{ amount_cents: -300, type: "withdrawal" }]);
+    expect(after.balance_cents).toBe(700);
   });
 });
 

@@ -123,14 +123,36 @@ with `reason: insufficient_funds`; the family is told so in words that do not
 mention Home Assistant. Creating a child's withdrawal request refuses a
 `related_goal_id` that is not a live goal of that account (400).
 
+### 3.2 Upgrading a live install
+
+Two steps for self-hosters, after the migrations have run:
+
+- **Restart the realtime container** (`docker compose restart realtime`).
+  `migration_zzzzz_action_request_kind.sql` adds `kind` to a table realtime
+  already streams; a realtime that was running across the migration keeps
+  the old row shape until it restarts.
+- **Reload every household screen, or let it sit idle, before the first
+  pocket-money request.** A screen still running the previous build words a
+  confirmation from `entity_name`, `domain` and `service`, which a
+  `pocket_money` row leaves empty: it would show a generic line with no
+  amount and no child, yet still offer the PIN field. The screens take the
+  new build on their own once idle (`pwa-provider.tsx`), and a request
+  expires after two minutes, so the window is short — but what is approved
+  must be what was read (RFC-011). Do this before connecting an assistant
+  with `pocket_money:write`, or before its first booking request.
+
 ## 4. Boundaries
 
 - Recipes: the family's own, never binned ones; external recipe search
   (Chefkoch) is not exposed. Recipe text is data, never instructions.
-- Timers: a new timer is refused with 429 `too_many_timers` while the family
-  has 10 timers not dismissed (running or ringing), whoever started them —
-  the Integration API cannot tell an assistant's timer from a person's
-  without a migration; at most 24 h each.
+- Timers: an assistant's token (OAuth) is refused a new timer with 429
+  `too_many_timers` while the family has 10 timers not dismissed (running
+  or ringing), whoever started them — the Integration API cannot tell an
+  assistant's timer from a person's without a migration. A timer that has
+  rung for more than an hour without anyone dismissing it no longer counts,
+  so a household with no screen showing the timers card is not locked out.
+  A hand-made token (Home Assistant) is not capped, as the panel is not. At
+  most 24 h each.
 - Recycle bin: only types an assistant can delete (tasks, notes, meal
   entries, birthdays); restore only, never purge (§2.1).
 - Timetable: read only; "school on day X" respects school holidays.
@@ -231,7 +253,9 @@ this build doesn't know — keeps its `item_key`, `rule_id` and priority, but
 its title is rendered from numeric parameters only ("2 still open") and
 `detail` is null, so no entity id or device name reaches a `family:read`
 token. Dismissal goes through RFC-001's `dismiss_attention` service
-(`tasks:write`), called in process.
+(`tasks:write`), called in process. Like acknowledging a message it is not
+destructive and takes nothing from the edit/delete budget: the hint stays
+off while the situation lasts and comes back if it arises again.
 
 ## 6. Fixes found by the survey
 

@@ -1,7 +1,7 @@
 import { test, expect, request as pwRequest, type APIRequestContext, type APIResponse } from "@playwright/test";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { Client } from "@modelcontextprotocol/client";
 import {
   callTool, connectAssistant, disconnectAssistant, mcpClient, newConnectState, psql, psqlRow, sqlText,
@@ -265,6 +265,24 @@ test("timers: start, list, stop; the 11th not-dismissed timer is 429", async () 
   const capped = await json(await integ("POST", "/timers", { duration_seconds: 60 }), 429);
   expect(capped.code).toBe("too_many_timers");
   expect(one(`SELECT count(*) FROM timers WHERE family_id = '${famA}' AND dismissed_at IS NULL`)).toBe("10");
+
+  // The cap is an assistant's: a token made by hand (Home Assistant's) starts
+  // an eleventh, as the panel would.
+  const manual = `kbi_${P}${randomBytes(16).toString("hex")}`;
+  psql(`INSERT INTO integration_tokens (family_id, name, token_hash, scopes) VALUES ('${famA}', '${P}ha', '${createHash("sha256").update(manual).digest("hex")}', '{timers:write}')`);
+  const byHand = await api.fetch("/api/integration/v1/timers", {
+    method: "POST",
+    headers: { authorization: `Bearer ${manual}`, "idempotency-key": randomUUID() },
+    data: { duration_seconds: 60 },
+  });
+  await json(byHand, 201);
+  expect(one(`SELECT count(*) FROM timers WHERE family_id = '${famA}' AND dismissed_at IS NULL`)).toBe("11");
+
+  // One that rang more than an hour ago and was never dismissed stops
+  // counting: with two of the eleven made stale, the assistant may start one.
+  psql(`UPDATE timers SET started_at = now() - interval '2 hours' WHERE id IN (SELECT id FROM timers WHERE family_id = '${famA}' AND dismissed_at IS NULL AND label LIKE '${P}screen %' ORDER BY label LIMIT 2)`);
+  await json(await integ("POST", "/timers", { duration_seconds: 60 }), 201);
+  await json(await integ("POST", "/timers", { duration_seconds: 60 }), 429);
 });
 
 // ── recycle bin ────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { test, type Page } from "@playwright/test";
 
 /**
  * Give a page a family session without going through the join screen.
@@ -69,28 +69,53 @@ export async function establishSession(
   */
   await page.goto("/join", { waitUntil: "domcontentloaded" });
 
-  const failure = await page.evaluate(
-    async ({ code, name }) => {
-      const res = await fetch("/api/session/join", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          joinCode: code,
-          hardwareId: `e2e-${name}`,
-          deviceName: name,
-        }),
-      });
-      if (!res.ok) return `join failed: ${res.status} ${(await res.text()).slice(0, 200)}`;
-      const data = await res.json();
-      const state = { state: { family: data.family, device: data.device }, version: 0 };
-      document.cookie =
-        "family-calendar-storage=" +
-        encodeURIComponent(JSON.stringify(state)) +
-        "; path=/; max-age=86400";
-      return null;
-    },
-    { code: familyCode, name: deviceName },
-  );
+  /*
+    Joining is rate limited to 10 per minute per IP (session/join). The CI
+    smoke run joins from one IP for every device name across a couple of
+    dozen spec files, and once the list grew past that budget a later spec
+    failed with "429 too many attempts". Wait out the Retry-After and try
+    again rather than fail: the limit is the product working, not the
+    test's subject.
+  */
+  let failure: string | null = "join was never attempted";
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const result = await page.evaluate(
+      async ({ code, name }) => {
+        const res = await fetch("/api/session/join", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            joinCode: code,
+            hardwareId: `e2e-${name}`,
+            deviceName: name,
+          }),
+        });
+        if (res.status === 429) {
+          return { retryAfter: Number(res.headers.get("retry-after")) || 60, error: null };
+        }
+        if (!res.ok) {
+          return { retryAfter: 0, error: `join failed: ${res.status} ${(await res.text()).slice(0, 200)}` };
+        }
+        const data = await res.json();
+        const state = { state: { family: data.family, device: data.device }, version: 0 };
+        document.cookie =
+          "family-calendar-storage=" +
+          encodeURIComponent(JSON.stringify(state)) +
+          "; path=/; max-age=86400";
+        return { retryAfter: 0, error: null };
+      },
+      { code: familyCode, name: deviceName },
+    );
+    if (!result.retryAfter) {
+      failure = result.error;
+      break;
+    }
+    failure = `join failed: 429 after ${attempt + 1} attempts`;
+    const waitMs = (result.retryAfter + 1) * 1000;
+    // The wait is the limiter's, not the test's: give the test that much more time.
+    test.info().setTimeout(test.info().timeout + waitMs);
+    await page.waitForTimeout(waitMs);
+  }
 
   if (failure) throw new Error(`establishSession: ${failure}`);
 

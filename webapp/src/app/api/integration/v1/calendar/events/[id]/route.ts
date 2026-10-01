@@ -10,7 +10,7 @@ import {
   syncUpdatedCalendarEvent,
   type StoredCalendarEvent,
 } from "@/lib/calendar-write-through";
-import { EVENT_COLUMNS, loadFamilyEvent, type EventQueryClient } from "@/lib/family-event-scope";
+import { EVENT_COLUMNS, loadFamilyEvent } from "@/lib/family-event-scope";
 import { isRecurrenceInstance } from "@/lib/caldav-serialize";
 import { parseEventPatch } from "@/lib/integration-event-input";
 import { familyTimeZone } from "@/lib/family-time";
@@ -85,7 +85,7 @@ export async function PATCH(
     }
 
     try {
-      const found = await loadFamilyEvent(createAdminClient() as unknown as EventQueryClient, context.familyId, id);
+      const found = await loadFamilyEvent(createAdminClient(), context.familyId, id);
       if (!found) return notFound();
       const { event, calendar } = found;
       if (calendarWriteMode(calendar) === "caldav" && isRecurrenceInstance(event.google_event_id)) {
@@ -147,7 +147,7 @@ export async function DELETE(
     if (!UUID_RE.test(id)) return notFound();
 
     try {
-      const found = await loadFamilyEvent(createAdminClient() as unknown as EventQueryClient, context.familyId, id);
+      const found = await loadFamilyEvent(createAdminClient(), context.familyId, id);
       if (!found) return notFound();
       const { event, calendar } = found;
 

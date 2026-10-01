@@ -11,14 +11,17 @@ import { searchEvents, type SearchDb } from "../src/lib/integration-event-search
  *
  * Needs a stack: SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL (or
  * NEXT_PUBLIC_SUPABASE_URL) for its PostgREST, e.g. Kong on :8130 here.
- * Skipped without them. It creates one calendar, `claude-search-live`, in
+ * Skipped without them, unless FAMILY_CODE says a stack is there; CI's smoke
+ * job (e2e.yml) runs it. It creates one calendar, `claude-search-live`, in
  * the first family, puts its probe events there and searches only that
  * calendar; the calendar and, by cascade, its events are deleted
  * afterwards, including any left over from an interrupted run.
  */
 
 const HAS_STACK = !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
-test.skip(!HAS_STACK, "needs SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
+// FAMILY_CODE promises a stack (e2e.yml sets it), so there a missing key fails
+// in beforeAll rather than skipping the whole file green.
+test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
 test.describe.configure({ mode: "serial" });
 
 const CALENDAR_NAME = "claude-search-live";
