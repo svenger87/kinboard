@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
 import { mintFamilyToken } from "@/lib/family-jwt";
-import { generateJoinCode } from "@/lib/utils";
 import { hitLimit, clientIp } from "@/lib/rate-limit";
-import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { insertFamilyWithRegion } from "@/lib/family-create";
 
 export const dynamic = "force-dynamic";
 
@@ -47,47 +46,13 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // join_code is UNIQUE; retry on collision rather than failing the setup.
-  // Same pattern as useCreateFamily and the import route.
-  let family: { id: string } | null = null;
-  let lastError: string | null = null;
-
-  for (let attempt = 0; attempt < 5 && !family; attempt++) {
-    const { data, error } = await supabase
-      .from("families")
-      .insert({ name: familyName, join_code: generateJoinCode() })
-      .select()
-      .single();
-
-    if (!error) {
-      family = data as { id: string };
-      break;
-    }
-    // 23505 is unique_violation — a code collision, worth retrying.
-    if ((error as { code?: string }).code !== "23505") {
-      lastError = error.message;
-      break;
-    }
+  // The family and its "no holiday region yet" row (RFC-014 §4.2), or
+  // neither: see insertFamilyWithRegion for why one never exists alone.
+  const created = await insertFamilyWithRegion(supabase, familyName);
+  if ("error" in created) {
+    return NextResponse.json({ error: created.error }, { status: 500 });
   }
-
-  if (!family) {
-    return NextResponse.json(
-      { error: lastError ?? "could not create family" },
-      { status: 500 },
-    );
-  }
-
-  // RFC-014 §4.2: a new family has no holiday region until someone picks
-  // one in the setup wizard. This explicit unset row is what keeps the
-  // holiday_region migration -- which runs on every boot -- from giving it
-  // Niedersachsen's holidays at the next restart. Best effort: a family
-  // must not fail to be created over it.
-  const { error: regionError } = await (supabase as any)
-    .from("settings")
-    .insert({ family_id: family.id, key: SETTINGS_KEYS.holidayRegion, value: { code: null, chosen: false } });
-  if (regionError) {
-    console.error("[session/create] could not write holiday_region:", regionError.message);
-  }
+  const { family } = created;
 
   const userAgent = request.headers.get("user-agent");
 

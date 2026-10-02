@@ -134,33 +134,6 @@ export function useValidateStoredFamily(familyId: string | undefined) {
   });
 }
 
-export function useCreateFamily() {
-  const supabase = createClient();
-  const queryClient = useQueryClient();
-  const { setFamily } = useFamilyStore();
-
-  return useMutation({
-    mutationFn: async (name: string) => {
-      // Generate join code
-      const joinCode = generateJoinCode();
-
-       
-      const { data, error } = await (supabase as any)
-        .from("families")
-        .insert({ name, join_code: joinCode })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as Family;
-    },
-    onSuccess: (family) => {
-      setFamily(family);
-      queryClient.invalidateQueries({ queryKey: ["family"] });
-    },
-  });
-}
-
 export function useRegisterDevice() {
   const supabase = createClient();
   const { setDevice } = useFamilyStore();

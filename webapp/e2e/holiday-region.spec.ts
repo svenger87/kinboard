@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { legacyHolidayRegion, withHolidayRegion } from "../src/lib/holidays/region";
 import { familyHolidayRegion } from "../src/lib/family-time";
 import { SETTINGS_KEYS } from "../src/lib/settings-keys";
+import { insertFamilyWithRegion } from "../src/lib/family-create";
 import { codeOnly } from "./source-helpers";
 
 /** RFC-014 §4.2: the holiday region is its own setting, and nothing loses the region it had. */
@@ -67,9 +68,66 @@ test("familyHolidayRegion reads this family's row only, validated", async () => 
   await expect(familyHolidayRegion(OURS, settingsDb([], true))).rejects.toBeTruthy();
 });
 
-test("a new family starts with no region, so the backfill cannot give it one", () => {
+/** A fake admin client for insertFamilyWithRegion that records every write. */
+function familyDb({ familyError, regionError }: { familyError?: { code?: string; message: string }; regionError?: boolean } = {}) {
+  const writes: string[] = [];
+  return {
+    writes,
+    from(table: string) {
+      return {
+        insert(row: Record<string, unknown>) {
+          writes.push(`insert ${table} ${row.name}`);
+          return {
+            select: () => ({
+              single: async () =>
+                familyError ? { data: null, error: familyError } : { data: { id: OURS, name: row.name }, error: null },
+            }),
+          };
+        },
+        async upsert(row: Record<string, unknown>, options: { onConflict: string }) {
+          writes.push(`upsert ${table} ${row.family_id} ${row.key} ${JSON.stringify(row.value)} on ${options.onConflict}`);
+          return { error: regionError ? { message: "settings failed" } : null };
+        },
+        delete() {
+          return {
+            async eq(column: string, value: unknown) {
+              writes.push(`delete ${table} ${column}=${value}`);
+              return { error: null };
+            },
+          };
+        },
+      };
+    },
+  };
+}
+
+test("a new family is created with no region, so the backfill cannot give it one", async () => {
+  const db = familyDb();
+  expect(await insertFamilyWithRegion(db, "Ours")).toEqual({ family: { id: OURS, name: "Ours" } });
+  expect(db.writes).toEqual([
+    "insert families Ours",
+    `upsert settings ${OURS} holiday_region {"code":null,"chosen":false} on family_id,key`,
+  ]);
+});
+
+test("a family whose region row cannot be written is not created", async () => {
+  const db = familyDb({ regionError: true });
+  expect(await insertFamilyWithRegion(db, "Ours")).toEqual({ error: "could not create family" });
+  expect(db.writes.at(-1)).toBe(`delete families id=${OURS}`);
+});
+
+test("a family that cannot be inserted writes nothing else", async () => {
+  const db = familyDb({ familyError: { code: "42501", message: "denied" } });
+  expect(await insertFamilyWithRegion(db, "Ours")).toEqual({ error: "denied" });
+  expect(db.writes).toEqual(["insert families Ours"]);
+});
+
+test("session/create goes through insertFamilyWithRegion and fails with it", () => {
+  // The route's behaviour against a real stack is holiday-region-live.spec.ts;
+  // this keeps the wiring guarded where there is no stack.
   const route = codeOnly(readFileSync(join(process.cwd(), "src/app/api/session/create/route.ts"), "utf8"));
-  expect(route).toMatch(/key: SETTINGS_KEYS\.holidayRegion,\s*value: \{ code: null, chosen: false \}/);
+  expect(route).toMatch(/const created = await insertFamilyWithRegion\(supabase, familyName\);\s*if \("error" in created\) \{\s*return NextResponse\.json\(\{ error: created\.error \}, \{ status: 500 \}\);/);
+  expect(route).not.toMatch(/from\("families"\)\s*\.insert/);
 });
 
 test("an import adds the region before the id map is built", () => {

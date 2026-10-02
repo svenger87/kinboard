@@ -9,12 +9,15 @@
 -- Every family gets the region it effectively had, so nothing it sees
 -- changes: no row or `de` -> DE-NI, `uk` -> GB-ENG (the list was England and
 -- Wales), `us` -> US (federal only), `nl` -> NL, `fr` -> FR. Any other value
--- left the old client without a list at all; it becomes the default, DE-NI.
+-- (unreachable from the UI) broke the old widget; it becomes the default,
+-- DE-NI. This CASE and LEGACY_REGIONS in src/lib/holidays/region.ts must
+-- agree; e2e/holiday-region-migration.spec.ts checks one against the other.
 -- `chosen: false` records that nobody picked it: the Heute-Motor asks once
 -- (rule `holiday-region`) and Settings -> Holidays offers to keep it.
 --
 -- A family created from this release on already has
--- { "code": null, "chosen": false } from /api/session/create, so this
+-- { "code": null, "chosen": false } from /api/session/create (which does not
+-- create a family without it, src/lib/family-create.ts), so this
 -- backfill cannot hand a new family a region it never had. ON CONFLICT DO
 -- NOTHING keeps that row and every row a family or an earlier run wrote:
 -- migrations run twice here and on every boot, and every pass after the

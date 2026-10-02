@@ -319,9 +319,9 @@ export async function POST(request: NextRequest) {
 
   // ---- Create the new family row FIRST — every child table's family_id
   // (or transitive parent) FK requires it to exist before any child insert.
-  // Join code: same generation pattern as useCreateFamily/useRegenerateJoinCode
-  // (src/hooks/use-supabase-queries.ts) — 6-char A-Z0-9 alphabet, retry on
-  // Postgres unique-violation (23505).
+  // Join code: same generation pattern as /api/session/create and
+  // useRegenerateJoinCode (src/hooks/use-supabase-queries.ts) — 6-char
+  // A-Z0-9 alphabet, retry on Postgres unique-violation (23505).
   let joinCode = generateJoinCode();
   let attempts = 0;
   for (;;) {

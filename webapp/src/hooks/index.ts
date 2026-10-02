@@ -44,7 +44,6 @@ export { useRealtime, useRealtimeTable, useRealtimeSync } from "./use-realtime";
 export {
   queryKeys,
   useFamilyByJoinCode,
-  useCreateFamily,
   useRegisterDevice,
   useRestoreDeviceSession,
   useFindDeviceByFingerprint,
