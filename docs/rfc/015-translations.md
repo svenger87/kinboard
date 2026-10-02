@@ -261,17 +261,21 @@ Projects":
 
 A public Kinboard project would grant every Crowdin customer a royalty-free
 licence to exploit the English copy and every translation. Under PolyForm
-Noncommercial, with commercial licences on offer, the project should not make
+Noncommercial, where commercial use needs a separate licence, the project should not make
 that grant, unless `messages/` moves to a permissive licence anyway (§6.2).
 
-**The OSS programme** lists nine conditions. Two fail on their face: "The
-project is licensed under an approved license from an open-source initiative"
-and "You do not have any commercial products related to the open-source project
-you are requesting a license for." The pricing page says the programme is for
-"non-profit projects". **An exception is implausible.** To ask anyway, use the
+**The OSS programme** lists nine conditions. One fails on its face: "The
+project is licensed under an approved license from an open-source initiative".
+A second, "You do not have any commercial products related to the open-source
+project you are requesting a license for", is open to reading: Kinboard sells
+nothing, but README, NOTICE and CONTRIBUTING say commercial use needs a
+separate licence from the copyright holder, which Crowdin may read as a
+dual-licensing model. The pricing page says the programme is for "non-profit
+projects". **An exception is unlikely** because of the licence condition alone. To ask anyway, use the
 OSS form (licence "Other", plus the free-text description) or
 crowdin.com/contacts, and ask in writing: (1) can a PolyForm Noncommercial
-project with dual commercial licensing get the OSS plan; (2) if not, can a
+project that sells nothing, but whose terms say commercial use needs a
+separate licence, get the OSS plan; (2) if not, can a
 written agreement exclude the project from §12.6; (3) can the free plan's
 translation-memory donation be switched off?
 
@@ -393,9 +397,13 @@ PolyForm does not cover that folder. Translations are then contributed under it.
   where FSF recognition counts (Weblate).
 - *What it does not change:* every platform judges the project, not a folder.
   Crowdin requires that "the **project** is licensed under…", and separately
-  that there are no related commercial products, which still fails. Transifex
+  that there are no related commercial products, which is at best ambiguous
+  (Kinboard sells nothing, but offers a separate commercial licence on
+  request). Transifex
   requires "publicly available **source codes** licensed under an OSI-approved
-  license" and "no … commercialization model", which still fails. POEditor
+  license" and "no … commercialization model"; the first still fails, and the
+  second depends on whether Transifex counts a commercial licence that is only
+  offered, never sold. POEditor
   covers "Open Source **software projects**", and the software stays PolyForm.
   Weblate's "your libre project" is the one case where a component holding only
   MIT JSON might be judged differently. Ask; don't assume.
