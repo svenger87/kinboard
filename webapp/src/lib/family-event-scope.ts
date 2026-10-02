@@ -1,5 +1,6 @@
 import { calendarWriteMode, type StoredCalendarEvent, type WritableCalendar } from "@/lib/calendar-write-through";
 import type { createAdminClient } from "@/lib/supabase/server";
+import { isVisibleCalendar } from "@/lib/google-calendar-reconcile";
 
 /**
  * Family ownership for calendars and events — one module for every route
@@ -26,7 +27,8 @@ export type FamilyEventDb = ReturnType<typeof createAdminClient>;
 export const EVENT_COLUMNS =
   "id, calendar_id, title, description, location, start_at, end_at, all_day, google_event_id, caldav_href, caldav_etag";
 
-const WRITABLE_CALENDAR_COLUMNS = "id, google_calendar_id, ics_url, caldav_url, caldav_server_url, caldav_read_only";
+const WRITABLE_CALENDAR_COLUMNS =
+  "id, google_calendar_id, ics_url, caldav_url, caldav_server_url, caldav_read_only, sync_enabled";
 
 /**
  * The shared core: the event `id` and its calendar, but only when that
@@ -130,5 +132,7 @@ export async function loadFamilyEvent(
     true,
   );
   if (!found || calendarWriteMode(found.calendar) === "read_only") return null;
+  // An unticked Google calendar is off every list, so not editable either.
+  if (!isVisibleCalendar(found.calendar as { google_calendar_id?: string | null; sync_enabled?: boolean | null })) return null;
   return found;
 }
