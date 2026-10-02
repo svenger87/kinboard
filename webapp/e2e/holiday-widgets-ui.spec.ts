@@ -265,13 +265,9 @@ test("a holiday calendar that has the day already is not doubled", async ({ page
   }
 });
 
-test("with Holidays switched off, nothing is listed and school holidays are not fetched", async ({ page }) => {
+test("with Holidays switched off, no holiday is listed in the events widget or the week overview", async ({ page }) => {
   put("calendar_display", { showHolidays: false, showTasks: false, tasksAsEvents: false });
   try {
-    let schoolReads = 0;
-    page.on("request", (req) => {
-      if (/\/rest\/v1\/school_holidays\b/.test(req.url())) schoolReads++;
-    });
     let settingsReads = 0;
     await page.route(/\/rest\/v1\/settings\?.*key=eq\.calendar_display/, (route) => {
       settingsReads++;
@@ -285,7 +281,8 @@ test("with Holidays switched off, nothing is listed and school holidays are not 
     await expect.poll(() => settingsReads, { timeout: 15_000 }).toBeGreaterThan(0);
     await page.waitForTimeout(1_500);
     await expect(page.locator("[data-holiday]")).toHaveCount(0);
-    expect(schoolReads).toBe(0);
+    // School holidays may still be read: the timetable widget needs them to
+    // know whether there is school, which is not a display preference (#330).
   } finally {
     put("calendar_display", { showHolidays: true, showTasks: false, tasksAsEvents: false });
   }
