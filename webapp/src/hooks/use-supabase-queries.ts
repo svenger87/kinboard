@@ -1741,6 +1741,11 @@ export interface SchoolHoliday {
   ends_on: string;
   created_at: string;
   updated_at: string;
+  /** RFC-014 §5.1. Absent on rows read before the migration ran. */
+  source?: "manual" | "openholidays";
+  external_id?: string | null;
+  hidden?: boolean;
+  synced_at?: string | null;
 }
 
 export function useSchoolHolidays() {

@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { dbContainer } from "./whole-database";
 
 /**
  * The browser client reads and writes `school_holidays` directly through
@@ -37,4 +39,67 @@ test("the grant covers the writes the settings form makes", () => {
   for (const privilege of ["SELECT", "INSERT", "UPDATE", "DELETE"]) {
     expect(block, `${privilege} missing from the browser grant`).toContain(privilege);
   }
+});
+
+const syncSql = readFileSync("docker/migration_zzzzz_school_holiday_sync.sql", "utf8");
+
+test("the browser roles may write manual rows only (RFC-014 §5.1)", () => {
+  for (const cmd of ["INSERT", "UPDATE", "DELETE"]) {
+    expect(syncSql, cmd).toMatch(new RegExp(`AS RESTRICTIVE FOR ${cmd} TO anon, authenticated`));
+  }
+  expect(syncSql).toMatch(/REVOKE ALL ON FUNCTION public\.apply_school_holiday_sync\([^)]*\) FROM anon, authenticated/);
+});
+
+test.describe("through Kong, as the browser", () => {
+  const FAMILY_CODE = process.env.FAMILY_CODE ?? "";
+  test.skip(!FAMILY_CODE, "needs FAMILY_CODE and a running stack");
+
+  test("a family can add a manual row, but not a synced one, and cannot touch a synced one", async ({ page }) => {
+    const psql = (sql: string) =>
+      execFileSync("docker", ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-tA", "-q", "-c", sql], { encoding: "utf8" }).trim();
+
+    await page.goto("/join", { waitUntil: "domcontentloaded" });
+    const env = await page.evaluate(() => (window as unknown as { __ENV: Record<string, string> }).__ENV);
+    const joined = await page.evaluate(async (code) => {
+      const res = await fetch("/api/session/join", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ joinCode: code, hardwareId: "e2e-claude-grants", deviceName: "claude-grants" }),
+      });
+      return res.json();
+    }, FAMILY_CODE);
+    const familyId: string = joined.family.id;
+    const rest = (method: string, path: string, data?: unknown) =>
+      page.request.fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${path}`, {
+        method,
+        headers: {
+          apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${joined.token}`,
+          "content-type": "application/json",
+          Prefer: "return=representation",
+        },
+        data,
+      });
+
+    try {
+      const mine = await rest("POST", "school_holidays", { family_id: familyId, name: "claude-manual", starts_on: "2031-01-01", ends_on: "2031-01-02" });
+      expect(mine.status()).toBe(201);
+
+      const forged = await rest("POST", "school_holidays", {
+        family_id: familyId, name: "claude-forged", starts_on: "2031-02-01", ends_on: "2031-02-02",
+        source: "openholidays", external_id: "claude-forged",
+      });
+      expect(forged.status()).toBe(403);
+
+      psql(`SELECT public.apply_school_holiday_sync('${familyId}', '[{"external_id":"claude-synced","name":"claude-synced","starts_on":"2031-03-01","ends_on":"2031-03-02"}]'::jsonb, '2031-03-01', '2031-03-02', false);`);
+      const edit = await rest("PATCH", "school_holidays?external_id=eq.claude-synced", { name: "edited", hidden: true });
+      expect(await edit.json()).toEqual([]);
+      const remove = await rest("DELETE", "school_holidays?external_id=eq.claude-synced");
+      expect(await remove.json()).toEqual([]);
+      expect(psql(`SELECT name || '|' || hidden FROM school_holidays WHERE external_id = 'claude-synced';`)).toBe("claude-synced|false");
+    } finally {
+      psql(`DELETE FROM school_holidays WHERE family_id = '${familyId}' AND name LIKE 'claude-%';`);
+      psql(`DELETE FROM devices WHERE hardware_id LIKE 'e2e-claude-%';`);
+    }
+  });
 });

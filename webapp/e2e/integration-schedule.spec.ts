@@ -437,7 +437,7 @@ test.describe("OpenAPI", () => {
   });
 });
 
-test.describe("public holidays (RFC-014 §6.3)", () => {
+test.describe("holiday sources (RFC-014 §5, §6)", () => {
   const region = (code: string) => ({ family_id: OURS, key: "holiday_region", value: { code, chosen: false } });
   const locale = (l: string) => ({ family_id: OURS, key: "locale", value: l });
   const theirs = { family_id: THEIRS, key: "holiday_region", value: { code: "DE-NI", chosen: true } };
@@ -510,5 +510,35 @@ test.describe("public holidays (RFC-014 §6.3)", () => {
     expect(schoolTomorrowSensor(await schoolOn(OURS, "2026-12-25", TZ, {}, db))).toMatchObject({
       count: 0, school_day: false, reason: "holiday",
     });
+  });
+  test("a synced row is a break, named after the family's own entry and calendars, before a public holiday", async () => {
+    const synced = { family_id: OURS, name: "Weihnachtsferien NI", starts_on: "2026-12-23", ends_on: "2027-01-06", source: "openholidays", hidden: false };
+    const own = household({ settings: [region("DE-NI"), locale("de")], school_holidays: [synced] });
+    expect((await schoolOn(OURS, "2026-12-25", TZ, {}, own.db)).holiday).toBe("Weihnachtsferien NI");
+    const both = household({
+      settings: [region("DE-NI"), locale("de")],
+      school_holidays: [synced, { family_id: OURS, name: "Unsere Ferien", starts_on: "2026-12-24", ends_on: "2026-12-31" }],
+    });
+    expect((await schoolOn(OURS, "2026-12-25", TZ, {}, both.db)).holiday).toBe("Unsere Ferien");
+  });
+
+  test("a hidden synced row is no break", async () => {
+    const { db } = household({
+      school_holidays: [{ family_id: OURS, name: "Herbstferien", starts_on: MONDAY, ends_on: TUESDAY, source: "openholidays", hidden: true }],
+    });
+    expect((await schoolOn(OURS, MONDAY, TZ, {}, db)).school_day).toBe(true);
+  });
+
+  test("breaks come in precedence order: manual, calendar, openholidays, public holiday", async () => {
+    const { db } = household({
+      settings: [region("DE-NI"), locale("en")],
+      school_holidays: [
+        { family_id: OURS, name: "synced", starts_on: "2026-12-25", ends_on: "2026-12-25", source: "openholidays", hidden: false },
+        { family_id: OURS, name: "mine", starts_on: "2026-12-25", ends_on: "2026-12-25" },
+      ],
+      events: [{ calendar_id: CAL(1), title: "calendar", all_day: true, start_at: "2026-12-25T12:00:00.000Z", end_at: "2026-12-25T12:00:00.000Z" }],
+    });
+    const sources = (await fetchSchoolBreaks(OURS, "2026-12-25", "2026-12-25", TZ, db)).map((b) => b.source);
+    expect(sources).toEqual(["manual", "calendar", "openholidays", "public_holiday"]);
   });
 });

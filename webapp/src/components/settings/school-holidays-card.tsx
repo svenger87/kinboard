@@ -34,7 +34,11 @@ function formatHolidayRange(startsOn: string, endsOn: string): string {
  */
 export function SchoolHolidaysCard() {
   const t = useTranslations("settings.schedule");
-  const { data: schoolHolidays = [] } = useSchoolHolidays();
+  // Synced rows are listed, read-only, by the sync section (RFC-014 §5);
+  // this card edits the family's own, which are the only rows RLS lets the
+  // browser change.
+  const { data: allHolidays = [] } = useSchoolHolidays();
+  const schoolHolidays = allHolidays.filter((h) => (h.source ?? "manual") === "manual");
   const createHoliday = useCreateSchoolHoliday();
   const updateHoliday = useUpdateSchoolHoliday();
   const deleteHoliday = useDeleteSchoolHoliday();

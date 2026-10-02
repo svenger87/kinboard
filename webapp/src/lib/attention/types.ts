@@ -100,7 +100,7 @@ export interface SignalSchoolBreak {
   startsOn: string;
   endsOn: string;
   /** Where it came from, so a rule's evidence can say which. Public holidays are computed (RFC-014 §6.3). */
-  source: "manual" | "calendar" | "public_holiday";
+  source: "manual" | "calendar" | "openholidays" | "public_holiday";
 }
 
 /**
