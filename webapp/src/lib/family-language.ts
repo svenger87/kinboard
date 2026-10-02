@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES, type Locale } from "@/i18n/locales";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import { resolveRegion } from "@/lib/holidays/region";
+import { parseRegionSetting, resolveRegion } from "@/lib/holidays/region";
 import { familyHolidayRegion } from "@/lib/family-time";
 
 /**
@@ -72,4 +72,43 @@ export async function familyContentLanguage(
   if (isSupported(saved)) return saved;
   const region = await familyHolidayRegion(familyId, db);
   return resolveFamilyLanguage(saved, region?.code);
+}
+
+/** Families per query in familyContentLanguages: 200 UUIDs keep the URL near 8 KB. */
+export const LANGUAGE_BATCH = 200;
+
+/**
+ * familyContentLanguage for many families: one query per LANGUAGE_BATCH
+ * families, reading `locale` and `holiday_region` together, instead of up to
+ * two per family. Same rule, so the cron compares against the language
+ * syncFamily will actually fetch in. Every family asked for is in the answer.
+ * Throws on a database error.
+ */
+export async function familyContentLanguages(
+  familyIds: string[],
+  db: ReturnType<typeof createAdminClient> = createAdminClient(),
+): Promise<Map<string, Locale>> {
+  const ids = [...new Set(familyIds)];
+  const saved = new Map<string, { locale?: unknown; region?: unknown }>();
+  for (let i = 0; i < ids.length; i += LANGUAGE_BATCH) {
+    const chunk = ids.slice(i, i + LANGUAGE_BATCH);
+    const { data, error } = await (db as any)
+      .from("settings")
+      .select("family_id, key, value")
+      .in("family_id", chunk)
+      .in("key", [SETTINGS_KEYS.locale, SETTINGS_KEYS.holidayRegion]);
+    if (error) throw error;
+    for (const row of (data ?? []) as { family_id: string; key: string; value: unknown }[]) {
+      const entry = saved.get(String(row.family_id)) ?? {};
+      if (row.key === SETTINGS_KEYS.locale) entry.locale = row.value;
+      else entry.region = row.value;
+      saved.set(String(row.family_id), entry);
+    }
+  }
+  return new Map(
+    ids.map((id) => {
+      const entry = saved.get(id);
+      return [id, resolveFamilyLanguage(entry?.locale, parseRegionSetting(entry?.region)?.code ?? null)] as const;
+    }),
+  );
 }

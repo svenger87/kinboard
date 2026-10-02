@@ -1,7 +1,8 @@
 import { defaultGroup, defaultSchoolRegion, topLevel, type PendingPick, type RegionOption } from "./school-region";
+import { backingOff } from "./limit";
 import { parseSyncSetting, syncFamily, type SchoolSyncDeps, type SchoolSyncSetting, type SyncOutcome } from "./sync";
 
-const FRESH = { last_success_at: null, last_error_at: null, last_error: null } as const;
+const FRESH = { last_success_at: null, last_error_at: null, last_error: null, language: null } as const;
 
 /** What a family with a chosen, covered region has before anyone touched the switch (§5.4): on. */
 export function defaultSyncSetting(derived: { region: string | null; group: string | null; pending: PendingPick }): SchoolSyncSetting {
@@ -34,6 +35,33 @@ export async function fetchIfReady(
   const limited = limit();
   if (limited.limited) return { status: "rate-limited", retryAfterMs: limited.retryAfterMs };
   return syncFamily(familyId, deps);
+}
+
+/**
+ * What changing the family's language does to the synced names: fetch them
+ * again in `language`, now, if the family's names were fetched in another
+ * one -- under the same once-a-minute limit as the card's Refresh. Null when
+ * there is nothing to do: the install or the switch is off, there is nothing
+ * synced to rename yet (no setting, something to pick, never succeeded), the
+ * names are already in `language`, or the family is backing off after a
+ * failure. Whatever this does not fetch -- rate-limited, backing off, failed
+ * -- the cron's language rule (isDue) fetches at its next run.
+ *
+ * Asked by /api/locale for every POST that names a family, which the join
+ * page sends for each device that joins: re-picking the same language
+ * neither fetches nor uses up the limit.
+ */
+export async function syncAfterLanguageChange(
+  familyId: string,
+  language: string,
+  deps: SchoolSyncDeps,
+  limit: () => { limited: boolean; retryAfterMs: number },
+): Promise<RouteSyncOutcome | null> {
+  if (!deps.installEnabled) return null;
+  const setting = await deps.store.setting(familyId);
+  if (!setting || !readyToFetch(setting) || !setting.last_success_at) return null;
+  if (setting.language === language || backingOff(setting, deps.now())) return null;
+  return fetchIfReady(familyId, setting, deps, limit);
 }
 
 /**

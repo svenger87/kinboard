@@ -161,6 +161,10 @@ COMMIT;
 -- The five-argument version from before the race fix (never released). A
 -- no-op on every run after the first.
 DROP FUNCTION IF EXISTS public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN);
+-- The eight-argument version from before p_language (released in
+-- v1.13.0-rc.2): replaced, not left callable beside the new one. A no-op on
+-- every run after the first.
+DROP FUNCTION IF EXISTS public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ);
 
 CREATE OR REPLACE FUNCTION public.apply_school_holiday_sync(
   p_family_id     UUID,
@@ -173,7 +177,11 @@ CREATE OR REPLACE FUNCTION public.apply_school_holiday_sync(
   p_expect_region TEXT,
   p_expect_group  TEXT,
   -- Recorded as last_success_at, in the same transaction as the rows.
-  p_synced_at     TIMESTAMPTZ
+  p_synced_at     TIMESTAMPTZ,
+  -- The language the rows' names were fetched in, recorded as `language`
+  -- with last_success_at. The cron compares it with the family's language
+  -- now: a family whose language changed is due at once, not a week later.
+  p_language      TEXT
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -208,6 +216,11 @@ BEGIN
   ELSE
     IF p_synced_at IS NULL THEN
       RAISE EXCEPTION 'p_synced_at is required';
+    END IF;
+    -- A success without a language would read as "fetched in no language"
+    -- and make the family due on every run.
+    IF p_language IS NULL OR p_language !~ '^[a-z]{2}$' THEN
+      RAISE EXCEPTION 'p_language must be a two-letter language code';
     END IF;
     -- Rows are always fetched for a region. Without one there is nothing
     -- to check the family's choice against, and the check below would pass
@@ -274,6 +287,7 @@ BEGIN
     UPDATE public.settings
        SET value = value || jsonb_build_object(
              'last_success_at', to_char(p_synced_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+             'language', p_language,
              'last_error_at', NULL,
              'last_error', NULL)
      WHERE family_id = p_family_id
@@ -284,9 +298,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ) FROM anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ) TO service_role;
+REVOKE ALL ON FUNCTION public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ, TEXT) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ, TEXT) TO service_role;
 
 -- A failed sync notes why on the family's setting: the two error fields,
 -- merged in one statement, so a switch flipped meanwhile is never written

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import {
   LOCALE_COOKIE,
   SUPPORTED_LOCALES,
@@ -7,6 +7,9 @@ import {
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { liveSchoolSyncDeps } from "@/lib/school-sync/live";
+import { syncAfterLanguageChange } from "@/lib/school-sync/reconcile";
+import { syncLimited } from "@/lib/school-sync/limit";
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
@@ -65,12 +68,25 @@ export async function POST(request: NextRequest) {
         .select("id", { count: "exact", head: true })
         .eq("id", familyId);
       if (count) {
-        await (supabase as any)
+        const { error } = await (supabase as any)
           .from("settings")
           .upsert(
             { family_id: familyId, key: SETTINGS_KEYS.locale, value: locale },
             { onConflict: "family_id,key" },
           );
+        if (error) throw error;
+        // Synced school holidays are named in the family's language. Fetch
+        // them again in the new one -- after the response, so the switch is
+        // never held up by OpenHolidays (up to ten seconds). Whatever this
+        // does not fetch (rate-limited, failing) the next daily cron run
+        // does: the recorded language no longer matches.
+        after(async () => {
+          try {
+            await syncAfterLanguageChange(familyId, locale, liveSchoolSyncDeps(), () => syncLimited(familyId));
+          } catch (err) {
+            console.error("[api/locale] Failed to re-sync school holidays in the new language:", err);
+          }
+        });
       }
     } catch (error) {
       console.error("[api/locale] Failed to persist family locale setting:", error);

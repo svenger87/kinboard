@@ -12,7 +12,7 @@ import type { HolidayRegionSetting } from "../src/lib/holidays/region";
  */
 
 const NOW = new Date("2026-10-02T10:00:00Z");
-const FRESH = { last_success_at: null, last_error_at: null, last_error: null };
+const FRESH = { last_success_at: null, last_error_at: null, last_error: null, language: null };
 const ON = (region: string, extra: Partial<SchoolSyncSetting> = {}): SchoolSyncSetting => ({
   enabled: true, region, group: null, pending: null, ...FRESH, ...extra,
 });
@@ -29,17 +29,24 @@ class CronStore implements SchoolSyncStore {
     const region = this.settings.get(f)?.region ?? null;
     return this.regions.get(f) ?? (region ? { code: region, chosen: true } : null);
   }
-  async language() { return "de"; }
+  /** The language each family would fetch in now; "de" unless a spec says otherwise. */
+  langs = new Map<string, string>();
+  languageCalls: string[][] = [];
+  async language(f: string) { return this.langs.get(f) ?? "de"; }
+  async languages(ids: string[]) {
+    this.languageCalls.push(ids);
+    return new Map(ids.map((id) => [id, this.langs.get(id) ?? "de"]));
+  }
   async timeZone() { return "Europe/Berlin"; }
   async setting(f: string) { return this.settings.get(f) ?? null; }
   async saveSetting(f: string, s: SchoolSyncSetting) { this.settings.set(f, s); }
   async deleteSetting(f: string) { this.settings.delete(f); }
   async futureSyncedCount() { return 0; }
-  async apply(f: string, _rows: FetchedBreak[], _w: { from: string; to: string }, expect: { region: string; group: string | null }, at: string) {
+  async apply(f: string, _rows: FetchedBreak[], _w: { from: string; to: string }, expect: { region: string; group: string | null }, at: string, language: string) {
     const c = this.settings.get(f);
     if (!c || !c.enabled || c.pending !== null || c.region !== expect.region || c.group !== expect.group) return { superseded: true };
     this.applied.push(f);
-    this.settings.set(f, { ...c, last_success_at: at, last_error_at: null, last_error: null });
+    this.settings.set(f, { ...c, last_success_at: at, last_error_at: null, last_error: null, language });
     return { superseded: false };
   }
   async recordError(f: string, at: string, message: string) {
@@ -146,8 +153,8 @@ test("SCHOOL_HOLIDAY_SYNC=off: nothing is listed, saved or fetched", async () =>
 test("the hour's back-off after a failure still holds, and a week-old success is due again", async () => {
   const store = new CronStore();
   store.settings.set("failing", ON("DE-NI", { last_error_at: "2026-10-02T09:30:00.000Z", last_error: "down" }));
-  store.settings.set("fresh", ON("DE-BY", { last_success_at: "2026-10-01T10:00:00.000Z" }));
-  store.settings.set("stale", ON("DE-HH", { last_success_at: "2026-09-20T10:00:00.000Z" }));
+  store.settings.set("fresh", ON("DE-BY", { last_success_at: "2026-10-01T10:00:00.000Z", language: "de" }));
+  store.settings.set("stale", ON("DE-HH", { last_success_at: "2026-09-20T10:00:00.000Z", language: "de" }));
   const { deps, calls } = cronDeps(store);
   expect(await runSchoolSyncCron(deps)).toEqual({ due: 1, synced: 1, failed: 0, skipped: 0, adopted: 0 });
   expect(store.applied).toEqual(["stale"]);
@@ -171,4 +178,80 @@ test("a failure to list the switched-on families is the route's 500", async () =
   store.enabledFamilies = async () => { throw new Error("db down"); };
   const { deps } = cronDeps(store);
   await expect(runSchoolSyncCron(deps)).rejects.toThrow("db down");
+});
+
+/*
+ * Prod, v1.13.0-rc.4: a German family's rows were fetched in English before
+ * rc.3 and kept "Autumn Holidays", because the cron only looked at the week.
+ * The language a success fetched in is recorded; one that differs from the
+ * family's now makes it due at the next daily run.
+ */
+test.describe("a language change makes a family due", () => {
+  const RECENT = "2026-10-01T10:00:00.000Z";
+
+  test("a setting with no recorded language (every install before this) is fetched once, then left alone", async () => {
+    const store = new CronStore();
+    store.settings.set("legacy", ON("DE-NI", { last_success_at: RECENT }));
+    const { deps, calls } = cronDeps(store);
+    expect(await runSchoolSyncCron(deps)).toEqual({ due: 1, synced: 1, failed: 0, skipped: 0, adopted: 0 });
+    expect(calls).toHaveLength(1);
+    expect(new URL(calls[0]).searchParams.get("languageIsoCode")).toBe("DE");
+    expect(store.settings.get("legacy")).toMatchObject({ language: "de", last_success_at: NOW.toISOString() });
+    expect(await runSchoolSyncCron(deps)).toMatchObject({ due: 0, synced: 0 });
+    expect(calls).toHaveLength(1);
+  });
+
+  test("names fetched in another language are due within the week", async () => {
+    const store = new CronStore();
+    store.settings.set("switched", ON("DE-NI", { last_success_at: RECENT, language: "en" }));
+    store.settings.set("to-english", ON("DE-BY", { last_success_at: RECENT, language: "de" }));
+    store.langs.set("to-english", "en");
+    const { deps, calls } = cronDeps(store);
+    expect(await runSchoolSyncCron(deps)).toEqual({ due: 2, synced: 2, failed: 0, skipped: 0, adopted: 0 });
+    expect(calls.map((u) => new URL(u).searchParams.get("languageIsoCode")).sort()).toEqual(["DE", "EN"]);
+    expect(store.settings.get("switched")?.language).toBe("de");
+    expect(store.settings.get("to-english")?.language).toBe("en");
+  });
+
+  test("the same language within the week is not due", async () => {
+    const store = new CronStore();
+    store.settings.set("current", ON("DE-NI", { last_success_at: RECENT, language: "de" }));
+    const { deps, calls } = cronDeps(store);
+    expect(await runSchoolSyncCron(deps)).toEqual({ due: 0, synced: 0, failed: 0, skipped: 0, adopted: 0 });
+    expect(calls).toEqual([]);
+  });
+
+  test("the hour's back-off still holds for a language mismatch, and costs no language lookup", async () => {
+    const store = new CronStore();
+    store.settings.set("failing", ON("DE-NI", { last_success_at: "2026-09-30T10:00:00.000Z", language: "en", last_error_at: "2026-10-02T09:30:00.000Z", last_error: "down" }));
+    store.settings.set("current", ON("DE-BY", { last_success_at: RECENT, language: "de" }));
+    const { deps, calls } = cronDeps(store);
+    expect(await runSchoolSyncCron(deps)).toMatchObject({ due: 0 });
+    expect(calls).toEqual([]);
+    expect(store.languageCalls).toEqual([["current"]]);
+  });
+
+  test("the languages are read in one batch for the whole run, not per family", async () => {
+    const store = new CronStore();
+    for (const f of ["a", "b", "c"]) store.settings.set(f, ON("DE-NI", { last_success_at: RECENT, language: "de" }));
+    let single = 0;
+    store.language = async () => { single++; return "de"; };
+    const { deps } = cronDeps(store);
+    await runSchoolSyncCron(deps);
+    expect(store.languageCalls).toEqual([["a", "b", "c"]]);
+    expect(single).toBe(0);
+  });
+
+  test("a failed language lookup falls back to the week, and the run goes on", async () => {
+    const store = new CronStore();
+    store.settings.set("mismatch", ON("DE-NI", { last_success_at: RECENT, language: "en" }));
+    store.settings.set("stale", ON("DE-HH", { last_success_at: "2026-09-20T10:00:00.000Z", language: "de" }));
+    store.languages = async () => { throw new Error("db down"); };
+    const logs: string[] = [];
+    const { deps } = cronDeps(store);
+    deps.log = (m) => { logs.push(m); };
+    expect(await runSchoolSyncCron(deps)).toEqual({ due: 1, synced: 1, failed: 0, skipped: 0, adopted: 0 });
+    expect(store.applied).toEqual(["stale"]);
+    expect(logs.join("\n")).toContain("could not read the families' languages (db down)");
+  });
 });

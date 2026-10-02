@@ -28,6 +28,12 @@ export interface SchoolSyncSetting {
   last_success_at: string | null;
   last_error_at: string | null;
   last_error: string | null;
+  /**
+   * The language the last successful sync fetched names in (`de`, `en`), or
+   * null when none recorded one (every setting from before rc.5, and a fresh
+   * status). The cron re-fetches a family whose language is no longer this.
+   */
+  language: string | null;
 }
 
 const SettingSchema = z.object({
@@ -38,16 +44,23 @@ const SettingSchema = z.object({
   last_success_at: z.string().nullable(),
   last_error_at: z.string().nullable(),
   last_error: z.string().max(500).nullable(),
+  // Absent on every setting saved before it existed: read as null.
+  language: z.string().min(1).max(16).nullish(),
 });
 
 export function parseSyncSetting(value: unknown): SchoolSyncSetting | null {
   const parsed = SettingSchema.safeParse(value);
-  return parsed.success ? parsed.data : null;
+  return parsed.success ? { ...parsed.data, language: parsed.data.language ?? null } : null;
 }
 
 export interface SchoolSyncStore {
   holidayRegion(familyId: string): Promise<HolidayRegionSetting | null>;
   language(familyId: string): Promise<string>;
+  /**
+   * language() for many families in a few queries, for the cron. A family
+   * missing from the answer has no language the cron can compare.
+   */
+  languages(familyIds: string[]): Promise<Map<string, string>>;
   /** The zone the family's "today" is in. */
   timeZone(familyId: string): Promise<string>;
   setting(familyId: string): Promise<SchoolSyncSetting | null>;
@@ -59,7 +72,8 @@ export interface SchoolSyncStore {
    * One transaction, under the family's lock: if the family still holds
    * `expect` (switched on, that region and group, nothing pending), upsert
    * `rows`, delete synced rows missing from them inside `window`, and record
-   * `syncedAt` as the last success. Otherwise write nothing: superseded.
+   * `syncedAt` as the last success and `language` as the language the names
+   * were fetched in. Otherwise write nothing: superseded.
    */
   apply(
     familyId: string,
@@ -67,6 +81,7 @@ export interface SchoolSyncStore {
     window: { from: string; to: string },
     expect: { region: string; group: string | null },
     syncedAt: string,
+    language: string,
   ): Promise<{ superseded: boolean }>;
   /**
    * Merge last_error_at and last_error into the setting as it is now; nothing
@@ -115,10 +130,23 @@ export function installEnabled(env: Record<string, string | undefined> = process
   return (env.SCHOOL_HOLIDAY_SYNC ?? "").trim().toLowerCase() !== "off";
 }
 
-/** Enabled, nothing left to pick, and no success in the last week. A failing family stays due. */
-export function isDue(setting: SchoolSyncSetting, now: Date): boolean {
+/**
+ * Enabled, nothing left to pick, and either no success in the last week or
+ * names fetched in another language than `language`, the one a sync would
+ * fetch in now. A failing family stays due.
+ *
+ * The language rule is what carries a language change to the names: without
+ * it, rows fetched in English stay English for up to a week after the family
+ * switches to German (prod, v1.13.0-rc.4). A setting with no recorded
+ * language counts as fetched in another one, so every install from before
+ * the field re-fetches once. `language` null means the cron could not find
+ * out (a database error): only the week counts then, rather than a fetch
+ * every day for a reason nobody can see.
+ */
+export function isDue(setting: SchoolSyncSetting, now: Date, language: string | null): boolean {
   if (!setting.enabled || !setting.region || setting.pending !== null) return false;
   if (!setting.last_success_at) return true;
+  if (language !== null && setting.language !== language) return true;
   return now.getTime() - Date.parse(setting.last_success_at) > SYNC_EVERY_MS;
 }
 
@@ -161,7 +189,7 @@ export async function syncFamily(familyId: string, deps: SchoolSyncDeps): Promis
     // the binding check is apply's, under the lock, in the same transaction
     // as the write and the success timestamp.
     if (!sameChoice(await deps.store.setting(familyId), setting)) return { status: "skipped", reason: "superseded" };
-    const applied = await deps.store.apply(familyId, rows, window, { region: setting.region, group: setting.group }, now.toISOString());
+    const applied = await deps.store.apply(familyId, rows, window, { region: setting.region, group: setting.group }, now.toISOString(), language);
     if (applied.superseded) return { status: "skipped", reason: "superseded" };
     return { status: "synced", rows: rows.length };
   } catch (err) {

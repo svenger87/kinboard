@@ -19,10 +19,10 @@ import { codeOnly } from "./source-helpers";
 
 /** RFC-014 §5.2, §5.4 and §6.2: the switch, its default, and which changes empty the synced rows. */
 
-const FRESH = { last_success_at: null, last_error_at: null, last_error: null };
+const FRESH = { last_success_at: null, last_error_at: null, last_error: null, language: null };
 const SYNCED: SchoolSyncSetting = {
   enabled: true, region: "DE-NI", group: null, pending: null,
-  last_success_at: "2026-09-30T00:00:00.000Z", last_error_at: null, last_error: null,
+  last_success_at: "2026-09-30T00:00:00.000Z", last_error_at: null, last_error: null, language: "de",
 };
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 
@@ -168,7 +168,7 @@ test("the cron route is behind CRON_SECRET, honours the off switch, and only syn
   // The run itself (e2e/school-sync-cron.spec.ts drives it with a fake store).
   const cron = codeOnly(read("src/lib/school-sync/cron.ts"));
   expect(cron).toContain("if (!deps.installEnabled)");
-  expect(cron).toContain("isDue(setting, now)");
+  expect(cron).toContain("isDue(setting, now, languages.get(familyId) ?? null)");
   // One family's thrown error does not end the run for the rest.
   expect(cron).toMatch(/try \{\s*const outcome = await syncFamily\(familyId, deps\)/);
 });
@@ -192,16 +192,17 @@ class RouteStore implements SchoolSyncStore {
   constructor(public region: HolidayRegionSetting, public current: SchoolSyncSetting | null = null) {}
   async holidayRegion() { return this.region; }
   async language() { return "de"; }
+  async languages(ids: string[]) { return new Map(ids.map((id) => [id, "de"])); }
   async timeZone() { return "Europe/Zurich"; }
   async setting() { return this.current; }
   async saveSetting(_: string, s: SchoolSyncSetting) { this.current = s; }
   async deleteSetting() { this.current = null; }
   async futureSyncedCount() { return 0; }
-  async apply(_: string, rows: FetchedBreak[], __: { from: string; to: string }, expect: { region: string; group: string | null }, syncedAt: string) {
+  async apply(_: string, rows: FetchedBreak[], __: { from: string; to: string }, expect: { region: string; group: string | null }, syncedAt: string, language: string) {
     const c = this.current;
     if (!c || !c.enabled || c.pending !== null || c.region !== expect.region || c.group !== expect.group) return { superseded: true };
     this.applied.push(rows);
-    this.current = { ...c, last_success_at: syncedAt, last_error_at: null, last_error: null };
+    this.current = { ...c, last_success_at: syncedAt, last_error_at: null, last_error: null, language };
     return { superseded: false };
   }
   async recordError() {}
@@ -335,7 +336,13 @@ test("both session routes fetch through fetchIfReady, and the region route repor
   expect(region).not.toContain("syncFamily(");
   expect(region).toContain('outcome = { status: "failed", error: INTERNAL_SYNC_ERROR }');
   const cron = codeOnly(read("src/lib/school-sync/cron.ts"));
-  expect(cron).toContain("isDue(setting, now) && !backingOff(setting, now)");
+  expect(cron).toContain("families.filter(({ setting }) => !backingOff(setting, now))");
+  expect(cron).toContain("isDue(setting, now, languages.get(familyId) ?? null)");
+  // A language change re-fetches through the same limiter, after the response.
+  const locale = codeOnly(read("src/app/api/locale/route.ts"));
+  expect(locale).toContain("syncAfterLanguageChange(familyId, locale, liveSchoolSyncDeps(), () => syncLimited(familyId))");
+  expect(locale).toMatch(/after\(async \(\) => \{\s*try \{\s*await syncAfterLanguageChange/);
+  expect(locale).not.toContain("syncFamily(");
   const store = codeOnly(read("src/lib/school-sync/store.ts"));
   expect(store).toContain('.eq("value->>enabled", "true")');
   expect(store).toContain(".range(from, from + ENABLED_PAGE - 1)");

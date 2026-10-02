@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyHolidayRegion, familyTimeZone } from "@/lib/family-time";
-import { familyContentLanguage } from "@/lib/family-language";
+import { familyContentLanguage, familyContentLanguages } from "@/lib/family-language";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import type { FetchedBreak } from "./openholidays";
 import { parseSyncSetting, type SchoolSyncSetting, type SchoolSyncStore } from "./sync";
@@ -26,6 +26,7 @@ export function liveSchoolSyncStore(db: ReturnType<typeof createAdminClient> = c
     replace: boolean,
     expect: { region: string; group: string | null } | null,
     syncedAt: string | null,
+    language: string | null,
   ): Promise<{ superseded: boolean }> => {
     const { data, error } = await sb.rpc("apply_school_holiday_sync", {
       p_family_id: familyId,
@@ -36,6 +37,7 @@ export function liveSchoolSyncStore(db: ReturnType<typeof createAdminClient> = c
       p_expect_region: expect?.region ?? null,
       p_expect_group: expect?.group ?? null,
       p_synced_at: syncedAt,
+      p_language: language,
     });
     if (error) throw error;
     return { superseded: (data as { superseded?: unknown } | null)?.superseded === true };
@@ -48,6 +50,8 @@ export function liveSchoolSyncStore(db: ReturnType<typeof createAdminClient> = c
     // "Christmas Day". A database error throws: the sync records it rather
     // than fetching names in a language nobody chose.
     language: (familyId) => familyContentLanguage(familyId, db),
+    // The same rule for the cron's whole list, in a query per 200 families.
+    languages: (familyIds) => familyContentLanguages(familyIds, db),
     timeZone: (familyId) => familyTimeZone(familyId, db),
     async setting(familyId) {
       const { data, error } = await sb
@@ -79,9 +83,9 @@ export function liveSchoolSyncStore(db: ReturnType<typeof createAdminClient> = c
       if (error) throw error;
       return count ?? 0;
     },
-    apply: (familyId, rows, window, expect, syncedAt) => apply(familyId, rows, window, false, expect, syncedAt),
+    apply: (familyId, rows, window, expect, syncedAt, language) => apply(familyId, rows, window, false, expect, syncedAt, language),
     async clear(familyId) {
-      await apply(familyId, [], { from: "1970-01-01", to: "1970-01-01" }, true, null, null);
+      await apply(familyId, [], { from: "1970-01-01", to: "1970-01-01" }, true, null, null, null);
     },
     async recordError(familyId, at, message, expect) {
       const { error } = await sb.rpc("record_school_holiday_sync_error", {

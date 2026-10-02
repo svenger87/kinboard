@@ -39,10 +39,26 @@ async function adoptDefaults(deps: SchoolSyncDeps): Promise<{ familyId: string; 
 }
 
 /**
+ * The language each family would fetch in now, in a few queries for the
+ * whole list. A failure is logged and answers an empty map: the run goes on
+ * with the week-old rule alone, as before the language was recorded.
+ */
+async function currentLanguages(deps: SchoolSyncDeps, familyIds: string[]): Promise<Map<string, string>> {
+  if (familyIds.length === 0) return new Map();
+  try {
+    return await deps.store.languages(familyIds);
+  } catch (err) {
+    deps.log(`[school-sync] could not read the families' languages (${(err as Error)?.message ?? String(err)})`);
+    return new Map();
+  }
+}
+
+/**
  * One run of the weekly sync (RFC-014 §5.2), for the cron route: every
  * switched-on family, plus the ones whose default nobody saved, that has not
- * synced for a week and is not backing off after a failure. One family at a
- * time; one family's error never stops the run. Listing the switched-on
+ * synced for a week -- or whose names were fetched in another language than
+ * the family's now -- and is not backing off after a failure. One family at
+ * a time; one family's error never stops the run. Listing the switched-on
  * families failing throws: the route answers 500.
  */
 export async function runSchoolSyncCron(deps: SchoolSyncDeps): Promise<SchoolSyncCronResult> {
@@ -53,7 +69,10 @@ export async function runSchoolSyncCron(deps: SchoolSyncDeps): Promise<SchoolSyn
 
   const seen = new Set<string>();
   const families = [...enabled, ...adopted].filter(({ familyId }) => !seen.has(familyId) && !!seen.add(familyId));
-  const due = families.filter(({ setting }) => isDue(setting, now) && !backingOff(setting, now));
+  // Back-off first, so a failing family costs no language lookup either.
+  const candidates = families.filter(({ setting }) => !backingOff(setting, now));
+  const languages = await currentLanguages(deps, candidates.map(({ familyId }) => familyId));
+  const due = candidates.filter(({ familyId, setting }) => isDue(setting, now, languages.get(familyId) ?? null));
   const counts = { due: due.length, synced: 0, failed: 0, skipped: 0, adopted: adopted.length };
   for (const { familyId } of due) {
     try {

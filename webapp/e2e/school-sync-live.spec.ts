@@ -27,7 +27,7 @@ test.describe.configure({ mode: "serial" });
 
 const NOW = new Date("2026-10-02T10:00:00Z");
 const ON: SchoolSyncSetting = {
-  enabled: true, region: "DE-NI", group: null, pending: null, last_success_at: null, last_error_at: null, last_error: null,
+  enabled: true, region: "DE-NI", group: null, pending: null, last_success_at: null, last_error_at: null, last_error: null, language: null,
 };
 const NI = readFileSync(join(process.cwd(), "e2e/fixtures/openholidays/school-de-ni.json"), "utf8");
 const jsonResponse = (body: string) => new Response(body, { status: 200, headers: { "content-type": "application/json" } });
@@ -236,4 +236,69 @@ test("the cron saves the default for a chosen family that has no sync setting, a
   expect((await real.setting(chosen))?.enabled).toBe(true);
   // And the next run finds nothing to adopt and nothing due.
   expect(await runSchoolSyncCron(deps)).toEqual({ due: 0, synced: 0, failed: 0, skipped: 0, adopted: 0 });
+});
+
+/*
+ * Prod, v1.13.0-rc.4: a DE-NI family synced in English before rc.3 kept
+ * "Autumn Holidays" -- its last success was a day old, so the weekly cron
+ * left it alone. On the real store and function: the recorded language no
+ * longer matching makes it due, and the re-sync renames the rows in place.
+ */
+test("the cron re-fetches names synced in English for a German family, and renames them in place", async () => {
+  const code = `SL${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+  const { data, error } = await db.from("families").insert({ name: "claude-school-sync-live", join_code: code }).select("id").single();
+  if (error) throw error;
+  const german = data.id as string;
+  others.push(german);
+  const ins = await db.from("settings").insert([
+    { family_id: german, key: "holiday_region", value: { code: "DE-NI", chosen: true } },
+    { family_id: german, key: "school_holiday_sync", value: ON },
+  ]);
+  if (ins.error) throw ins.error;
+  const real = liveSchoolSyncStore(db);
+  const english: Record<string, string> = { Herbstferien: "Autumn Holidays", Weihnachtsferien: "Christmas Holidays", Osterferien: "Easter Holidays" };
+  const fixture = JSON.parse(NI) as { id: string; startDate: string; endDate: string; name: { text: string }[] }[];
+  // What prod held: the fixture's breaks, fetched in English a day before.
+  const yesterday = new Date(NOW.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  await real.apply(
+    german,
+    fixture.map((r) => ({ externalId: r.id, name: english[r.name[0].text] ?? r.name[0].text, startsOn: r.startDate, endsOn: r.endDate })),
+    { from: "2026-09-01", to: "2029-08-31" },
+    { region: "DE-NI", group: null },
+    yesterday,
+    "en",
+  );
+  const named = async () => {
+    const { data: rows, error: e } = await db.from("school_holidays").select("id, external_id, name").eq("family_id", german).eq("source", "openholidays").order("starts_on");
+    if (e) throw e;
+    return rows as { id: string; external_id: string; name: string }[];
+  };
+  const before = await named();
+  expect(before.map((r) => r.name)).toContain("Autumn Holidays");
+  expect(await real.setting(german)).toMatchObject({ last_success_at: yesterday, language: "en" });
+  expect(await real.languages([german])).toEqual(new Map([[german, "de"]]));
+
+  const scoped: SchoolSyncStore = {
+    ...real,
+    enabledFamilies: async () => (await real.enabledFamilies()).filter((f) => f.familyId === german),
+    unsetFamilies: async () => [],
+  };
+  const languages: (string | null)[] = [];
+  const deps: SchoolSyncDeps = {
+    fetch: async (url) => { languages.push(new URL(url).searchParams.get("languageIsoCode")); return jsonResponse(NI); },
+    store: scoped, now: () => NOW, installEnabled: true,
+    userAgent: "Kinboard/test (+https://github.com/svenger87/kinboard)", log: () => {},
+  };
+  expect(await runSchoolSyncCron(deps)).toEqual({ due: 1, synced: 1, failed: 0, skipped: 0, adopted: 0 });
+  expect(languages).toEqual(["DE"]);
+  const after = await named();
+  expect(after.map((r) => r.name)).not.toContain("Autumn Holidays");
+  expect(after.map((r) => r.name)).toContain("Herbstferien");
+  expect(after.map((r) => r.name)).toContain("Weihnachtsferien");
+  // Renamed, not replaced: the same rows, by external id.
+  expect(after.map((r) => `${r.id}:${r.external_id}`)).toEqual(before.map((r) => `${r.id}:${r.external_id}`));
+  expect(await real.setting(german)).toMatchObject({ last_success_at: NOW.toISOString(), language: "de" });
+  // Names in the family's language now: the next run leaves it alone.
+  expect(await runSchoolSyncCron(deps)).toEqual({ due: 0, synced: 0, failed: 0, skipped: 0, adopted: 0 });
+  expect(languages).toHaveLength(1);
 });
