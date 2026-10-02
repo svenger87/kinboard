@@ -573,12 +573,16 @@ release as Phase 2**, never after it.
   reading the diff on every bump. AT, CH and the 31 data-only countries have
   only spot checks or none, so they are less protected than the five with an
   oracle.
-- **OpenHolidays is one small company** (STÜBER SYSTEMS GmbH), with no stated
-  terms, rate limit or uptime. The data repo was last changed 2026-04-13, the
-  server 2025-12-11. Cached rows cover one to three years. **Open, and
-  recommended:** write to the operator before Phase 2 ships, describe the
-  request pattern, and ask whether they want an identifying `User-Agent`. If
-  they object, §5.4's default becomes OFF everywhere.
+- **OpenHolidays is one small company** (STÜBER SYSTEMS GmbH). Use is
+  settled: its FAQ says the project is open data, "its use is free of charge
+  and also permitted in commercial projects", with the processed data under
+  the ODbL. What it doesn't state is a rate limit or an uptime commitment.
+  The data repo was last changed 2026-04-13, the server 2025-12-11. Cached
+  rows cover one to three years, so an outage only means no new rows. The
+  sync identifies itself with a `User-Agent` such as
+  `Kinboard/<version> (+https://github.com/svenger87/kinboard)` and keeps the
+  request pattern in §5.2 (one request per family per week, spread over the
+  day), so the load is easy for the operator to see and small.
 - **Regional half days and sub-regions.** DE and AT Heiligabend and Silvester
   are half days from 14:00 (`bank`, marked but not off). Augsburg (`DE-BY`
   region `A`), Catholic Bavarian municipalities (`KATH`) and Swiss communes sit
@@ -612,7 +616,8 @@ release as Phase 2**, never after it.
   picked data sizes.
 - CC BY-SA 3.0: <https://creativecommons.org/licenses/by-sa/3.0/legalcode>;
   ISC: <https://opensource.org/licenses/ISC>
-- OpenHolidays API: <https://www.openholidaysapi.org/en/>; data
+- OpenHolidays API: <https://www.openholidaysapi.org/en/>; FAQ (free use, commercial
+  use permitted) <https://www.openholidaysapi.org/en/faq/>; data
   <https://github.com/openpotato/openholidaysapi.data> (ODbL-1.0); server
   <https://github.com/openpotato/openholidaysapi> (AGPL-3.0); sources
   <https://www.openholidaysapi.org/en/sources-europe/>. `/Countries`,
