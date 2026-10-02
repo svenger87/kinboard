@@ -102,7 +102,9 @@ test.describe("rendered, with the routes stubbed", () => {
   // The PWA service worker answers fetches before page.route sees them.
   test.use({ serviceWorkers: "block" });
 
-  test.afterEach(() => {
+  // afterAll, not afterEach: establishSession replays the first join's cookies
+  // for every later test, so deleting the device between tests signs them out.
+  test.afterAll(() => {
     execFileSync(
       "docker",
       ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-tA", "-q", "-c",
@@ -172,6 +174,11 @@ test.describe("rendered, with the routes stubbed", () => {
     await expect(page.getByTestId("synced-holidays")).not.toContainText("claude-manual");
 
     await expect(page.locator("#school-sync-switch")).toBeChecked();
+    // An error newer than the last success is told after it, in the live region.
+    await expect(page.getByRole("status").filter({ hasText: /OpenHolidays/ })).toHaveText(
+      /^(Last updated .+ · couldn't reach OpenHolidays on .+|Zuletzt aktualisiert am .+ · OpenHolidays war am .+ nicht erreichbar|Mis à jour le .+ · OpenHolidays injoignable le .+)$/,
+    );
+    await expect(page.locator("#school-sync-switch")).toHaveAttribute("aria-describedby", "school-sync-description");
     for (const id of ["#school-sync-region", "#school-sync-child", "#school-sync-group"]) await expect(page.locator(id)).toBeVisible();
     await expect(page.locator("#school-sync-child")).toContainText("Maloja");
     await expect(page.getByRole("link", { name: /Open Database License/ })).toHaveAttribute(
@@ -191,6 +198,65 @@ test.describe("rendered, with the routes stubbed", () => {
 
     await page.getByRole("button", { name: /^(Refresh now|Jetzt aktualisieren|Actualiser)$/ }).click();
     await expect.poll(() => hits.refresh).toBe(1);
+    // An empty body is Refresh now, so the refresh wording, not the after-a-pick one.
+    await expect(page.getByText(/^(Just refreshed\. Try again in a minute\.|Gerade aktualisiert\. .+|Actualisé à l’instant\. .+|Actualisé à l'instant\. .+)$/)).toBeVisible();
+    for (const [name, n] of Object.entries(hits)) expect(n, name).toBeGreaterThan(0);
+  });
+
+  test("Dutch groups are holiday regions; Refresh waits for one", async ({ page }) => {
+    const hits = { status: 0, options: 0 };
+    await page.route(/\/api\/school-holidays\/sync$/, (route) => {
+      hits.status++;
+      return route.fulfill({
+        json: {
+          installEnabled: true, covered: true, chosen: true,
+          setting: { enabled: true, region: "NL-GE", group: null, pending: "group", last_success_at: null, last_error_at: null, last_error: null },
+        },
+      });
+    });
+    await page.route(/\/api\/school-holidays\/options/, (route) => {
+      hits.options++;
+      return route.fulfill({
+        json: {
+          subdivisions: [{ code: "NL-GE", name: "Gelderland" }],
+          children: [],
+          groups: [{ code: "NL-MI", name: "Regio Midden" }, { code: "NL-NO", name: "Regio Noord" }, { code: "NL-ZU", name: "Regio Zuid" }],
+        },
+      });
+    });
+    await establishSession(page, familyCode!, "claude-school-sync-ui");
+    await page.goto("/settings/holidays", { waitUntil: "domcontentloaded" });
+
+    await expect(page.locator("#school-sync-group")).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('label[for="school-sync-group"]')).toHaveText(/^(Holiday region|Ferienregion|Région de vacances)$/);
+    await expect(page.getByRole("status").filter({ hasText: /holiday region|Ferienregion|région de vacances/ })).toHaveText(
+      /^(Pick your holiday region to start\.|Wähle eure Ferienregion, um zu starten\.|Choisissez votre région de vacances pour commencer\.)$/,
+    );
+    await expect(page.getByRole("button", { name: /^(Refresh now|Jetzt aktualisieren|Actualiser)$/ })).toBeDisabled();
+    for (const [name, n] of Object.entries(hits)) expect(n, name).toBeGreaterThan(0);
+  });
+
+  test("a failed options load says so instead of leaving the selects blank", async ({ page }) => {
+    const hits = { status: 0, options: 0 };
+    await page.route(/\/api\/school-holidays\/sync$/, (route) => {
+      hits.status++;
+      return route.fulfill({
+        json: {
+          installEnabled: true, covered: true, chosen: true,
+          setting: { enabled: true, region: "DE-NI", group: null, pending: null, last_success_at: null, last_error_at: null, last_error: null },
+        },
+      });
+    });
+    await page.route(/\/api\/school-holidays\/options/, (route) => {
+      hits.options++;
+      return route.fulfill({ status: 502, json: { error: "unreachable", code: "openholidays_unreachable" } });
+    });
+    await establishSession(page, familyCode!, "claude-school-sync-ui");
+    await page.goto("/settings/holidays", { waitUntil: "domcontentloaded" });
+
+    // React Query retries a failed query three times with back-off (~7 s) before isError.
+    await expect(page.getByTestId("school-sync-options-error")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("school-sync-options-error")).toHaveText(/OpenHolidays/);
     for (const [name, n] of Object.entries(hits)) expect(n, name).toBeGreaterThan(0);
   });
 });

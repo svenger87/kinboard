@@ -33,6 +33,7 @@ const external = (href: string) =>
  */
 export default function HolidaySettingsPage() {
   const t = useTranslations("settings.holidays");
+  const tSync = useTranslations("settings.holidays.sync");
   const tHolidays = useTranslations("holidays");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
@@ -42,7 +43,10 @@ export default function HolidaySettingsPage() {
 
   async function save(code: string) {
     try {
-      await saveRegion.mutateAsync(code);
+      const { outcome } = await saveRegion.mutateAsync(code);
+      // The pick also fetched the school holidays, or tried to (RFC-014 §5.4).
+      if (outcome?.status === "failed") toast.error(tSync("syncFailed"));
+      if (outcome?.status === "rate-limited") toast(tSync("rateLimitedAfterPick"));
     } catch {
       toast.error(t("saveError"));
     }

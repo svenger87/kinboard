@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSchoolHolidays } from "@/hooks/use-supabase-queries";
+import { useToday } from "@/hooks/use-today";
 import { useSchoolHolidaySync, useSchoolRegionOptions, useUpdateSchoolHolidaySync } from "@/hooks/use-school-holiday-sync";
 
 const external = (href: string) =>
@@ -24,6 +25,13 @@ const external = (href: string) =>
 
 /** `CH-GR-ML` → `CH-GR` (kept here: lib/school-sync is server-only). */
 const topLevel = (code: string) => code.split("-").slice(0, 2).join("-");
+
+/** Countries whose OpenHolidays groups are holiday regions, not school types (NL: Regio Noord, Midden, Zuid). */
+const REGION_GROUPS = new Set(["NL"]);
+
+/** A local calendar day, `YYYY-MM-DD`: rows are local days, so UTC would keep yesterday's break until 02:00 CEST. */
+const localDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 /**
  * School holidays from OpenHolidays (RFC-014 §5): the switch, the school
@@ -40,13 +48,17 @@ export function SchoolHolidaySyncSection() {
   const { data: holidays = [] } = useSchoolHolidays();
   const setting = status?.setting ?? null;
   const parent = setting?.region ? topLevel(setting.region) : null;
-  const { data: options } = useSchoolRegionOptions(parent, !!setting?.enabled);
+  const { data: options, isError: optionsFailed } = useSchoolRegionOptions(parent, !!setting?.enabled);
+  // useToday rolls over at local midnight, so a kiosk left open drops a break the day after it ends.
+  const todayMs = useToday();
 
   const synced = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    const horizon = new Date(Date.now() + 365 * 86_400_000).toISOString().slice(0, 10);
-    return holidays.filter((h) => h.source === "openholidays" && !h.hidden && h.ends_on >= today && h.starts_on <= horizon);
-  }, [holidays]);
+    const today = new Date(todayMs);
+    const horizon = new Date(todayMs);
+    horizon.setFullYear(horizon.getFullYear() + 1);
+    const [from, to] = [localDay(today), localDay(horizon)];
+    return holidays.filter((h) => h.source === "openholidays" && !h.hidden && h.ends_on >= from && h.starts_on <= to);
+  }, [holidays, todayMs]);
 
   if (!status || !status.installEnabled || !status.covered) return null;
 
@@ -54,7 +66,8 @@ export function SchoolHolidaySyncSection() {
     try {
       const result = await update.mutateAsync(body);
       if (result.outcome?.status === "failed") toast.error(t("syncFailed"));
-      if (result.outcome?.status === "rate-limited") toast(t("rateLimited"));
+      // Refresh now is an empty body; a pick that could not fetch yet is not a refresh.
+      if (result.outcome?.status === "rate-limited") toast(t(Object.keys(body).length === 0 ? "rateLimited" : "rateLimitedAfterPick"));
     } catch {
       toast.error(t("saveError"));
     }
@@ -64,9 +77,11 @@ export function SchoolHolidaySyncSection() {
   const date = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(locale);
   const range = (from: string, to: string) => (from === to ? date(from) : `${date(from)} – ${date(to)}`);
 
+  const regionGroups = REGION_GROUPS.has((setting?.region ?? parent ?? "").split("-")[0]);
+
   let statusLine: string;
   if (setting?.pending === "region") statusLine = t("pendingRegion");
-  else if (setting?.pending === "group") statusLine = t("pendingGroup");
+  else if (setting?.pending === "group") statusLine = t(regionGroups ? "pendingHolidayRegion" : "pendingGroup");
   else if (setting?.last_success_at) {
     statusLine = t("lastUpdated", { date: day(setting.last_success_at) });
     if (setting.last_error_at && setting.last_error_at > setting.last_success_at) {
@@ -87,10 +102,13 @@ export function SchoolHolidaySyncSection() {
           <Label htmlFor="school-sync-switch" className="font-semibold">
             {t("title")}
           </Label>
-          <p className="mt-0.5 text-sm text-muted-foreground">{t("description")}</p>
+          <p id="school-sync-description" className="mt-0.5 text-sm text-muted-foreground">
+            {t("description")}
+          </p>
         </div>
         <Switch
           id="school-sync-switch"
+          aria-describedby="school-sync-description"
           checked={!!setting?.enabled}
           disabled={update.isPending || !status.chosen}
           onCheckedChange={(on) => change({ enabled: on })}
@@ -136,10 +154,10 @@ export function SchoolHolidaySyncSection() {
             )}
             {groups.length > 0 && (
               <div className="flex min-w-0 flex-col gap-2">
-                <Label htmlFor="school-sync-group">{t("groupLabel")}</Label>
+                <Label htmlFor="school-sync-group">{t(regionGroups ? "holidayRegionLabel" : "groupLabel")}</Label>
                 <Select value={setting.group ?? ""} onValueChange={(v) => change({ group: v })} disabled={update.isPending}>
                   <SelectTrigger id="school-sync-group" className="w-full min-w-0">
-                    <SelectValue placeholder={t("groupPlaceholder")} />
+                    <SelectValue placeholder={t(regionGroups ? "holidayRegionPlaceholder" : "groupPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {groups.map((g) => (
@@ -153,8 +171,17 @@ export function SchoolHolidaySyncSection() {
             )}
           </div>
 
+          {optionsFailed && (
+            <p className="mt-3 text-sm text-destructive" data-testid="school-sync-options-error">
+              {t("optionsError")}
+            </p>
+          )}
+
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <p className="min-w-0 flex-1 basis-56 text-sm text-muted-foreground">{statusLine}</p>
+            {/* role="status": a Refresh or a pick changes this line, and a screen reader hears it. */}
+            <p role="status" className="min-w-0 flex-1 basis-56 text-sm text-muted-foreground">
+              {statusLine}
+            </p>
             <Button size="sm" variant="outline" onClick={() => change({})} disabled={update.isPending || setting.pending !== null}>
               <RefreshCw className="mr-1 size-4" aria-hidden="true" />
               {t("refresh")}

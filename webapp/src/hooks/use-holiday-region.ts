@@ -5,7 +5,7 @@ import { queryKeys, useSetting } from "./use-supabase-queries";
 import { useFamilyStore } from "@/stores/family-store";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { parseRegionSetting, type HolidayRegionSetting } from "@/lib/holidays/region";
-import { schoolSyncKeys } from "./use-school-holiday-sync";
+import { schoolSyncKeys, type SchoolSyncResult } from "./use-school-holiday-sync";
 
 export interface HolidayRegionState {
   /** The region to compute holidays for; null until someone picks one -- show none then. */
@@ -39,19 +39,20 @@ export function useSaveHolidayRegion() {
         body: JSON.stringify({ code }),
       });
       if (!res.ok) throw new Error("Failed to save the holiday region");
-      return (await res.json()) as { region: HolidayRegionSetting };
+      // `outcome` is what the sync did with the pick (RFC-014 §5.4): the caller reports a failure or a deferred fetch.
+      return (await res.json()) as { region: HolidayRegionSetting; outcome: SchoolSyncResult["outcome"] };
     },
     onSuccess: ({ region }) => {
-      // The response is the stored row: show it at once, so the picker never
-      // falls back to the old region between the save and the refetch. The
-      // refetch is returned, so the mutation stays pending (and the picker
-      // disabled) until it lands.
       const familyId = family?.id ?? "";
       // Picking a region turns the sync on or replaces its rows (RFC-014 §5.4),
       // in the same request: refetch both. Not awaited -- the picker waits only
       // for its own row.
       queryClient.invalidateQueries({ queryKey: schoolSyncKeys.status(familyId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.schoolHolidays(familyId) });
+      // The response is the stored row: show it at once, so the picker never
+      // falls back to the old region between the save and the refetch. The
+      // refetch is returned, so the mutation stays pending (and the picker
+      // disabled) until it lands.
       const queryKey = queryKeys.settings(family?.id ?? "", SETTINGS_KEYS.holidayRegion);
       queryClient.setQueryData(queryKey, region);
       return queryClient.invalidateQueries({ queryKey });
