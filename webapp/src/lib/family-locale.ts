@@ -13,9 +13,9 @@ function isSupportedLocale(value: unknown): value is Locale {
 // that have no request cookie. Falls back to "de" — the pre-existing
 // hardcoded language of all server-generated notifications, so unset
 // installs behave exactly as before.
-export async function getFamilyLocale(familyId: string): Promise<string> {
+export async function getFamilyLocale(familyId: string, db: ReturnType<typeof createAdminClient> = createAdminClient()): Promise<string> {
   try {
-    const supabase = createAdminClient();
+    const supabase = db;
 
     const { data } = await (supabase as any)
       .from("settings")

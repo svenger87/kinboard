@@ -1,7 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { isSchoolBreakOn, type SignalSchoolBreak } from "@/lib/attention/types";
 import { timetabledChildren } from "@/lib/timetabled-children";
-import { addDays } from "@/lib/family-time";
+import { addDays, familyHolidayRegion } from "@/lib/family-time";
+import { getFamilyLocale } from "@/lib/family-locale";
+import { getTranslator } from "@/lib/notifications/messages";
+import { holidayLabel, type HolidayTranslator } from "@/lib/holidays/label";
+import { publicHolidayBreaks } from "@/lib/holidays/school";
 
 /**
  * The school timetable and "is there school on day X", shared by every
@@ -49,6 +53,8 @@ export function dayOfWeekOf(day: string): number {
  *    in any country and needs no feed to exist for the family's own school.
  * 2. Events on a calendar flagged `is_holidays` — the ICS path, for anyone
  *    whose authority publishes a feed.
+ * 3. Public holidays in the family's region (RFC-014 §6.3) -- computed, never
+ *    stored, and last, so the family's own words name a day first (§6.2).
  *
  * Both reduce to the same inclusive `YYYY-MM-DD` range, so a reader cannot
  * tell them apart and does not have to. Throws on a failed query; the
@@ -104,6 +110,16 @@ export async function fetchSchoolBreaks(
       endsOn: lastDayCovered(row, timeZone),
       source: "calendar",
     });
+  }
+
+  // No region (a new family that skipped the wizard's first step): no public
+  // holidays. The region read throws like the queries above, so a reader
+  // that cannot look reports it rather than claiming a school day.
+  const region = await familyHolidayRegion(familyId, db);
+  if (region?.code) {
+    const locale = await getFamilyLocale(familyId, db);
+    const t = getTranslator(locale, "holidays") as unknown as HolidayTranslator;
+    breaks.push(...publicHolidayBreaks(region.code, from, to, locale, (h) => holidayLabel(h, t)));
   }
 
   return breaks;

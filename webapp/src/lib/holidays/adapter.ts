@@ -4,7 +4,7 @@ import data from "./data/holidays.json";
 import type { Holiday } from "./types";
 import { resolveRegion } from "./region";
 import { CURATED } from "./curated";
-import { overrideFor } from "./overrides";
+import { overrideFor, PUBLIC_HOLIDAYS_KEEP_SCHOOL_OPEN } from "./overrides";
 
 /**
  * date-holidays, mapped onto #319's concepts (RFC-014 §4.4). Synchronous and
@@ -216,4 +216,24 @@ export function subdivisionOptions(
   return states
     .map((code) => ({ code, name: names[code] ? subdivisionLabel(names[code]) : code }))
     .sort((a, b) => a.name.localeCompare(b.name, locale));
+}
+
+/**
+ * The days a region has no school because of a public holiday (RFC-014
+ * §6.3): every day off, the weekday a day off is taken instead, and every
+ * date-holidays `school` day (Buß- und Bettag in Bavaria, Good Friday in the
+ * Netherlands), shown on the calendar or not. None in the US.
+ */
+export function schoolClosures(region: string, year: number, locale: string = "en"): { date: Date; holiday: Holiday }[] {
+  const resolved = resolveRegion(region);
+  if (!resolved || PUBLIC_HOLIDAYS_KEEP_SCHOOL_OPEN.includes(resolved.country)) return [];
+  const current = regionYear(region, year, locale);
+  if (!current) return [];
+  const out: { date: Date; holiday: Holiday }[] = [];
+  for (const day of current.days) {
+    if (day.holiday.dayOff || day.type === "school") out.push({ date: day.holiday.date, holiday: day.holiday });
+  }
+  const daysOff = current.days.filter((d) => d.holiday.dayOff).map((d) => d.holiday);
+  for (const [holiday, date] of observedDays(region, year, daysOff, locale)) out.push({ date, holiday });
+  return out;
 }

@@ -25,3 +25,10 @@ export const OVERRIDES: readonly HolidayOverride[] = [
 export function overrideFor(country: string, englishName: string): HolidayOverride | undefined {
   return OVERRIDES.find((o) => o.country === country && o.englishName === englishName);
 }
+
+/**
+ * Countries where a public holiday does not mean no school (RFC-014 §6.3):
+ * US districts set their own calendars, and many schools are open on
+ * Columbus Day and Veterans Day.
+ */
+export const PUBLIC_HOLIDAYS_KEEP_SCHOOL_OPEN: readonly string[] = ["US"];

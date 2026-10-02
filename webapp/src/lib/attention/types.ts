@@ -91,8 +91,8 @@ export interface SignalSchoolBreak {
   /** Inclusive local calendar days, `YYYY-MM-DD`. */
   startsOn: string;
   endsOn: string;
-  /** Where it came from, so a rule's evidence can say which. */
-  source: "manual" | "calendar";
+  /** Where it came from, so a rule's evidence can say which. Public holidays are computed (RFC-014 §6.3). */
+  source: "manual" | "calendar" | "public_holiday";
 }
 
 /**
