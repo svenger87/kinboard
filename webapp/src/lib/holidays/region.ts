@@ -106,10 +106,10 @@ export function countryForTimeZone(zone: string | null | undefined): string | nu
  * mapping, for restores): `de`, nothing or anything unknown is
  * Niedersachsen, the only German list there was. Never chosen.
  */
-export function legacyHolidayRegion(holidayCountry: unknown): HolidayRegionSetting {
+export function legacyHolidayRegion(legacyCountry: unknown): HolidayRegionSetting {
   const code =
-    typeof holidayCountry === "string" && Object.prototype.hasOwnProperty.call(LEGACY_REGIONS, holidayCountry)
-      ? LEGACY_REGIONS[holidayCountry]
+    typeof legacyCountry === "string" && Object.prototype.hasOwnProperty.call(LEGACY_REGIONS, legacyCountry)
+      ? LEGACY_REGIONS[legacyCountry]
       : LEGACY_REGIONS.de;
   return { code, chosen: false };
 }

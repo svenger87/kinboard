@@ -30,7 +30,7 @@ export function HolidayWidget({ maxItems = 3, className = "" }: HolidayWidgetPro
   const dateLocale = getDateFnsLocale(locale);
   // Re-render at midnight so the countdown moves on without a reload.
   const today = useToday();
-  const { region, isLoading } = useHolidayRegion();
+  const { region, isLoading, isError } = useHolidayRegion();
 
   // No region yet (a new family that skipped the wizard step): no holidays,
   // rather than a country's that may not be theirs (RFC-014 §4.2).
@@ -110,7 +110,9 @@ export function HolidayWidget({ maxItems = 3, className = "" }: HolidayWidgetPro
               <p className="text-sm">{t("emptyState")}</p>
             </div>
           )}
-          {region === null && !isLoading && (
+          {/* Only when the region is known to be unset: a read that failed says
+              nothing about it, and must not ask a family that chose one to choose. */}
+          {region === null && !isLoading && !isError && (
             <Link
               href="/settings/holidays"
               className="flex flex-col items-center justify-center gap-1 py-4 text-center text-muted-foreground hover:text-foreground"

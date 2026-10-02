@@ -11,13 +11,15 @@ export interface HolidayRegionState {
   region: string | null;
   setting: HolidayRegionSetting | null;
   isLoading: boolean;
+  /** The setting could not be read (offline start, a failed request): the region is unknown, not unset. */
+  isError: boolean;
 }
 
 /** The family's holiday region (RFC-014 §4.2). Nothing reads the UI locale to choose it. */
 export function useHolidayRegion(): HolidayRegionState {
-  const { data, isLoading } = useSetting<unknown>(SETTINGS_KEYS.holidayRegion, null);
+  const { data, isLoading, isError } = useSetting<unknown>(SETTINGS_KEYS.holidayRegion, null);
   const setting = parseRegionSetting(data);
-  return { region: setting?.code ?? null, setting, isLoading };
+  return { region: setting?.code ?? null, setting, isLoading, isError };
 }
 
 /** Save the family's holiday region through its one writer, PUT /api/holidays/region. */

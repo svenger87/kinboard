@@ -1,4 +1,4 @@
-import { getHolidays, type CountryCode, type Holiday } from "@/lib/holidays";
+import { getHolidays, type Holiday } from "@/lib/holidays";
 import { toLocalDateKey } from "@/lib/local-date";
 import {
   isRecurring,
@@ -106,12 +106,12 @@ export function taskMarkersByDay(
 }
 
 /** Day key -> the built-in public holiday on it, for every year the range touches, named in `locale`. */
-export function holidaysByDay(country: CountryCode, from: Date, to: Date, locale: string = "en"): Map<string, Holiday> {
+export function holidaysByDay(region: string, from: Date, to: Date, locale: string = "en"): Map<string, Holiday> {
   const fromKey = toLocalDateKey(from);
   const toKey = toLocalDateKey(to);
   const out = new Map<string, Holiday>();
   for (let year = from.getFullYear(); year <= to.getFullYear(); year++) {
-    for (const holiday of getHolidays(country, year, locale)) {
+    for (const holiday of getHolidays(region, year, locale)) {
       const key = toLocalDateKey(holiday.date);
       if (key >= fromKey && key <= toKey && !out.has(key)) out.set(key, holiday);
     }
