@@ -198,11 +198,18 @@ test.describe("month view day button label", () => {
     const holidayName = await holidayDot.getAttribute("title");
 
     const expectedDate = format(new Date(2026, 9, 3), "PPPP", { locale: enUS });
-    const expectedTasks = pluralMessage(en.calendar.markers.tasksDueCount, TASK_TITLES.length);
-    const expectedLabel = `${expectedDate} · ${holidayName} · ${expectedTasks}`;
+    const prefix = `${expectedDate} · ${holidayName} · `;
 
-    await expect(dayButton).toHaveAttribute("aria-label", expectedLabel, { timeout: 15_000 });
-    await expect(dayButton).toHaveAttribute("title", expectedLabel, { timeout: 15_000 });
+    // The family may have its own tasks due that day (a daily chore, say), so
+    // the count is at least our two rather than exactly two. Read it back and
+    // check the text is the right plural for that number.
+    await expect(dayButton).toHaveAttribute("aria-label", new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`), { timeout: 15_000 });
+    const label = (await dayButton.getAttribute("aria-label")) ?? "";
+    const due = Number(/(\d+)/.exec(label.slice(prefix.length))?.[1] ?? "0");
+    expect(due, label).toBeGreaterThanOrEqual(TASK_TITLES.length);
+    const expectedLabel = prefix + pluralMessage(en.calendar.markers.tasksDueCount, due);
+    expect(label).toBe(expectedLabel);
+    await expect(dayButton).toHaveAttribute("title", expectedLabel);
   });
 });
 
