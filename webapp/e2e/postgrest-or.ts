@@ -6,6 +6,11 @@
  * `eq.<value>`, each optionally negated with `not.`. Anything else throws, so
  * a fake can never quietly accept a filter it does not understand and pass a
  * test by matching everything.
+ *
+ * `get` returns `undefined` for "there is no such row" -- an event whose
+ * embedded calendar does not exist. With `!inner`, PostgREST drops that
+ * parent, so the whole filter fails; it must not read the missing column as
+ * NULL and pass `google_calendar_id.is.null`.
  */
 export function matchesOr(expr: string, get: (column: string) => unknown): boolean {
   const terms = expr.split(",");
@@ -14,7 +19,9 @@ export function matchesOr(expr: string, get: (column: string) => unknown): boole
     const m = /^([a-z_]+)\.(not\.)?(is|eq)\.(.+)$/.exec(term);
     if (!m) throw new Error(`unsupported or term: ${term}`);
     const [, column, not, op, raw] = m;
-    const actual = get(column) ?? null;
+    const found = get(column);
+    if (found === undefined) return false;
+    const actual = found;
     let hit: boolean;
     if (op === "is") {
       if (raw === "null") hit = actual === null;

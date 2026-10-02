@@ -18,7 +18,7 @@ import { fetchSchoolBreaks } from "../src/lib/school-days";
  */
 
 const HAS_STACK = !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
-test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
+test.skip(!HAS_STACK, "needs SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
 test.describe.configure({ mode: "serial" });
 
 const PREFIX = "claude-google-reconcile";
@@ -51,9 +51,13 @@ async function calendar(key: string, row: Record<string, unknown>) {
   cal[key] = data.id;
 }
 
+/** `local-only:<calendar>` puts an event with no google_event_id into a Google calendar. */
 async function event(key: string, title: string, day: string) {
+  const localOnly = key.startsWith("local-only:");
+  const calendarKey = localOnly ? key.slice("local-only:".length) : key;
   const { error } = await db.from("events").insert({
-    calendar_id: cal[key], title, all_day: true, google_event_id: key.startsWith("g-") ? `${key}-${title}` : null,
+    calendar_id: cal[calendarKey], title, all_day: true,
+    google_event_id: !localOnly && key.startsWith("g-") ? `${key}-${title}` : null,
     start_at: `${day}T12:00:00Z`, end_at: `${day}T12:00:00Z`,
   });
   if (error) throw error;
@@ -87,6 +91,7 @@ test.beforeAll(async () => {
   await calendar("g-theirs", { family_id: theirs, name: "Feiertage", google_calendar_id: FEIERTAGE, is_holidays: true });
   await event("g-feiertage", "Reformationstag", "2026-10-31");
   await event("g-feiertage", "Tag der Deutschen Einheit", "2026-10-03");
+  await event("local-only:g-feiertage", "Made in Kinboard", "2026-10-20");
   await event("g-familie", "Oma", "2026-10-05");
   await event("ics", "Herbstferien", "2026-10-12");
   await event("local", "Elternabend", "2026-10-07");
@@ -100,7 +105,8 @@ test.afterAll(async () => {
 test("unticking deletes the events, switches the row off and keeps its flags", async () => {
   const result = await reconcileGoogleCalendars(db, ours, [FAMILIE]);
   expect(result).toEqual({ disabled: 1, enabled: 0, deletedEvents: 2 });
-  expect(await eventTitles("g-feiertage")).toEqual([]);
+  // Google's copies are gone; the one made in Kinboard is not.
+  expect(await eventTitles("g-feiertage")).toEqual(["Made in Kinboard"]);
   expect(await row("g-feiertage")).toMatchObject({ sync_enabled: false, is_holidays: true, color: "#0b8043" });
 
   // Nothing else moved: the ticked Google calendar, the ICS feed, the local
@@ -141,15 +147,26 @@ test("the read filter is real PostgREST and drops a switched-off calendar's even
   expect(names).not.toContain("Weihnachten");
   expect(names).not.toContain("Reformationstag");
 
+  expect(names).not.toContain("Made in Kinboard");
+
   // And the next reconcile clears the stray.
   expect((await reconcileGoogleCalendars(db, ours, [FAMILIE])).deletedEvents).toBe(1);
-  expect(await eventTitles("g-feiertage")).toEqual([]);
+  expect(await eventTitles("g-feiertage")).toEqual(["Made in Kinboard"]);
 });
 
 test("ticking it again switches it back on as it was", async () => {
   const result = await reconcileGoogleCalendars(db, ours, [FAMILIE, FEIERTAGE]);
   expect(result).toEqual({ disabled: 0, enabled: 1, deletedEvents: 0 });
   expect(await row("g-feiertage")).toMatchObject({ sync_enabled: true, is_holidays: true, color: "#0b8043" });
+
+  // The Kinboard-only event is visible again with its calendar.
+  const { data: events, error } = await db
+    .from("events")
+    .select("title, calendar:calendars!inner(family_id)")
+    .eq("calendar.family_id", ours)
+    .or(VISIBLE_CALENDARS, { referencedTable: "calendar" });
+  expect(error).toBeNull();
+  expect((events as { title: string }[]).map((e) => e.title)).toContain("Made in Kinboard");
 });
 
 test("nothing ticked switches off every Google calendar and nothing else", async () => {

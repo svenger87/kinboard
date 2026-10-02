@@ -191,11 +191,14 @@ export async function POST(request: NextRequest) {
     const reconciled = await reconcileGoogleCalendars(supabase, family_id, enabled_calendars);
     return NextResponse.json({ success: true, ...reconciled });
   } catch (reconcileError) {
-    // The setting is saved; the next sync reconciles again.
+    // Success, with a warning, not an error: the setting IS saved, and it is
+    // what every sync reconciles from, so the cleanup happens at the next
+    // one. A 500 here made the page revert the checkbox over a saved setting,
+    // and the next toggle then sent the reverted list and silently undid it.
     console.error("Error reconciling Google calendars:", reconcileError);
-    return NextResponse.json(
-      { error: "Saved, but could not remove the unticked calendars' events" },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: true,
+      warning: "reconcile_failed",
+    });
   }
 }

@@ -4,6 +4,7 @@ import { matchesOr } from "./postgrest-or";
 import {
   VISIBLE_CALENDARS,
   isVisibleCalendar,
+  mergeReconnectedGoogleSettings,
   planGoogleCalendarReconcile,
   reconcileGoogleCalendars,
 } from "../src/lib/google-calendar-reconcile";
@@ -112,6 +113,8 @@ function household() {
     events: [
       { id: "e-tag-der-einheit", calendar_id: "cal-feiertage", google_event_id: "g1", title: "Tag der Deutschen Einheit", all_day: true, start_at: "2026-10-03T12:00:00Z", end_at: "2026-10-03T12:00:00Z" },
       { id: "e-reformation", calendar_id: "cal-feiertage", google_event_id: "g2", title: "Reformationstag", all_day: true, start_at: "2026-10-31T12:00:00Z", end_at: "2026-10-31T12:00:00Z" },
+      // Created in Kinboard, never pushed to Google (the push failed): only Kinboard has it.
+      { id: "e-kinboard-only", calendar_id: "cal-feiertage", google_event_id: null, title: "Schulfest", all_day: true, start_at: "2026-10-16T12:00:00Z", end_at: "2026-10-16T12:00:00Z" },
       { id: "e-familie", calendar_id: "cal-familie", google_event_id: "g3", title: "Oma", all_day: false, start_at: "2026-10-05T15:00:00Z", end_at: "2026-10-05T16:00:00Z" },
       { id: "e-abfuhr", calendar_id: "cal-abfuhr", google_event_id: "g4", title: "Restmüll", all_day: true, start_at: "2026-10-06T12:00:00Z", end_at: "2026-10-06T12:00:00Z" },
       { id: "e-ics", calendar_id: "cal-ics", google_event_id: null, title: "Herbstferien", all_day: true, start_at: "2026-10-12T12:00:00Z", end_at: "2026-10-24T12:00:00Z" },
@@ -130,7 +133,8 @@ test.describe("reconcileGoogleCalendars", () => {
     const result = await reconcileGoogleCalendars(db, OURS, [FAMILIE, ABFUHR]);
 
     expect(result).toEqual({ disabled: 1, enabled: 0, deletedEvents: 2 });
-    expect(tables.events.filter((e) => e.calendar_id === "cal-feiertage")).toEqual([]);
+    // Google's copies go; the event that exists only in Kinboard stays.
+    expect(ids(tables.events.filter((e) => e.calendar_id === "cal-feiertage"))).toEqual(["e-kinboard-only"]);
     // The row stays, switched off, with everything the family set on it.
     expect(cal(tables, "cal-feiertage")).toMatchObject({ sync_enabled: false, is_holidays: true, color: "#0b8043" });
   });
@@ -144,6 +148,9 @@ test.describe("reconcileGoogleCalendars", () => {
     expect(cal(tables, "cal-feiertage")).toMatchObject({
       sync_enabled: true, is_holidays: true, is_waste_collection: false, color: "#0b8043",
     });
+    // The event only Kinboard had was kept, and is a school break again with its calendar.
+    const breaks = await fetchSchoolBreaks(OURS, "2026-10-01", "2026-10-31", "Europe/Berlin", db as SchoolDb);
+    expect(breaks.map((b) => b.name)).toContain("Schulfest");
   });
 
   test("the calendars still ticked, and every non-Google calendar, are untouched", async () => {
@@ -155,6 +162,7 @@ test.describe("reconcileGoogleCalendars", () => {
       expect(cal(tables, id), id).toEqual(cal(before, id));
     }
     expect(ids(tables.events)).toEqual(ids(before.events).filter((id: unknown) => id !== "e-tag-der-einheit" && id !== "e-reformation"));
+    expect(cal(tables, "cal-theirs")).toEqual(cal(before, "cal-theirs"));
   });
 
   test("another family on the same Google calendar is untouched", async () => {
@@ -174,7 +182,7 @@ test.describe("reconcileGoogleCalendars", () => {
     const result = await reconcileGoogleCalendars(db, OURS, []);
 
     expect(result).toEqual({ disabled: 3, enabled: 0, deletedEvents: 4 });
-    expect(ids(tables.events)).toEqual(["e-ics", "e-local", "e-theirs"]);
+    expect(ids(tables.events)).toEqual(["e-ics", "e-kinboard-only", "e-local", "e-theirs"]);
     expect(cal(tables, "cal-ics").sync_enabled).toBe(true);
     expect(cal(tables, "cal-local").sync_enabled).toBe(false);
   });
@@ -182,7 +190,9 @@ test.describe("reconcileGoogleCalendars", () => {
   test("a setting without a list is not a decision to untick everything", async () => {
     const { db, tables, log } = household();
     const before = JSON.parse(JSON.stringify(tables));
-    for (const missing of [undefined, null, "x", {}]) {
+    // A list with a non-id in it is not filtered down to its strings, which
+    // would untick everything else: it is not a list we can act on.
+    for (const missing of [undefined, null, "x", {}, [FAMILIE, { id: ABFUHR }], [42]]) {
       expect(await reconcileGoogleCalendars(db, OURS, missing)).toEqual({ disabled: 0, enabled: 0, deletedEvents: 0 });
     }
     expect(tables).toEqual(before);
@@ -232,10 +242,88 @@ test.describe("which calendars are on screen", () => {
     for (const { want, ...row } of rows) expect(isVisibleCalendar(row), JSON.stringify(row)).toBe(want);
   });
 
+  test("an event whose calendar does not exist fails the filter, as with !inner", () => {
+    expect(matchesOr(VISIBLE_CALENDARS, () => undefined)).toBe(false);
+  });
+
   test("the PostgREST filter says the same as the JavaScript rule", () => {
     for (const { want, ...row } of rows) {
       expect(matchesOr(VISIBLE_CALENDARS, (c) => (row as Row)[c]), JSON.stringify(row)).toBe(want);
     }
+  });
+});
+
+test.describe("reconnecting Google", () => {
+  const CONNECTION = {
+    access_token: "new-access", refresh_token: "new-refresh", expiry_date: 1_900_000_000_000,
+    token_type: "Bearer", email: "familie@example.test", connected_at: "2026-10-02T12:00:00Z",
+  };
+  const STORED = {
+    email: "familie@example.test",
+    enabled_calendars: [FAMILIE, ABFUHR],
+    mapping_rules: [{ id: "r1", person_id: "p-1", match_type: "contains", pattern: "Mara", priority: 1 }],
+    auto_sync: true,
+    last_sync: "2026-10-01T08:00:00Z",
+    needs_reauth: true,
+    auto_sync_error: "Token refresh failed",
+    connected_at: "2026-01-01T00:00:00Z",
+  };
+
+  test("keeps the ticked calendars, mapping rules and auto-sync, and replaces the connection", () => {
+    const merged = mergeReconnectedGoogleSettings(STORED, CONNECTION);
+    expect(merged).toMatchObject({
+      enabled_calendars: [FAMILIE, ABFUHR],
+      mapping_rules: STORED.mapping_rules,
+      auto_sync: true,
+      last_sync: STORED.last_sync,
+      ...CONNECTION,
+      needs_reauth: false,
+      auto_sync_error: null,
+    });
+  });
+
+  test("so the first tick afterwards does not untick everything else", async () => {
+    // The old callback stored the connection alone. The page then showed no
+    // calendar ticked, and ticking one saved a one-calendar list.
+    const { db, tables } = household();
+    const merged = mergeReconnectedGoogleSettings(STORED, CONNECTION);
+    const firstTick = [...(merged.enabled_calendars as string[]), FEIERTAGE];
+    await reconcileGoogleCalendars(db, OURS, firstTick);
+    expect(cal(tables, "cal-abfuhr").sync_enabled).toBe(true);
+    expect(tables.events.some((e) => e.id === "e-abfuhr")).toBe(true);
+  });
+
+  test("a different Google account starts with nothing ticked, which reconcile leaves alone", async () => {
+    const merged = mergeReconnectedGoogleSettings(STORED, { ...CONNECTION, email: "other@example.test" });
+    expect(merged).not.toHaveProperty("enabled_calendars");
+    expect(merged).toMatchObject({ mapping_rules: STORED.mapping_rules, auto_sync: true });
+    const { db, tables } = household();
+    const before = JSON.parse(JSON.stringify(tables));
+    await reconcileGoogleCalendars(db, OURS, merged.enabled_calendars);
+    expect(tables).toEqual(before);
+  });
+
+  test("the same account in different case is the same account", () => {
+    const merged = mergeReconnectedGoogleSettings(STORED, { ...CONNECTION, email: "Familie@Example.test" });
+    expect(merged.enabled_calendars).toEqual([FAMILIE, ABFUHR]);
+  });
+
+  test("a first connect has nothing to keep", () => {
+    for (const nothing of [null, undefined, "x", []]) {
+      expect(mergeReconnectedGoogleSettings(nothing, CONNECTION)).toEqual({
+        ...CONNECTION, needs_reauth: false, auto_sync_error: null,
+      });
+    }
+  });
+
+  test("the callback merges into the stored setting rather than replacing it", () => {
+    const s = codeOnly(readFileSync("src/app/api/google/callback/route.ts", "utf8"));
+    const read = s.indexOf('.eq("key", "google_calendar")');
+    const merge = s.indexOf("mergeReconnectedGoogleSettings(existing?.value,");
+    const upsert = s.indexOf(".upsert(");
+    expect(read, "the callback does not read the stored setting").toBeGreaterThan(0);
+    expect(merge, "the callback does not merge").toBeGreaterThan(read);
+    expect(upsert).toBeGreaterThan(merge);
   });
 });
 
@@ -249,6 +337,8 @@ test.describe("school days", () => {
     const after = await fetchSchoolBreaks(OURS, "2026-10-01", "2026-10-31", "Europe/Berlin", db as SchoolDb);
     expect(after.map((b) => b.name)).not.toContain("Reformationstag");
     expect(after.map((b) => b.name)).not.toContain("Tag der Deutschen Einheit");
+    // Kept, but hidden with its calendar.
+    expect(after.map((b) => b.name)).not.toContain("Schulfest");
     // The ICS holiday feed is still a holiday feed.
     expect(after.map((b) => b.name)).toContain("Herbstferien");
   });
@@ -273,6 +363,14 @@ test.describe("it is wired in where the maintainer ruled", () => {
     const reconcile = s.indexOf("reconcileGoogleCalendars(supabase, family_id, enabled_calendars)");
     expect(save, "the settings update is not where it was").toBeGreaterThan(0);
     expect(reconcile, "POST /api/google/calendars does not reconcile").toBeGreaterThan(save);
+  });
+
+  test("a failed reconcile after a successful save is not reported as a failed save", () => {
+    // The page reverts the checkbox on any non-2xx, over a setting that was saved.
+    const s = src("src/app/api/google/calendars/route.ts");
+    const failure = s.slice(s.indexOf("} catch (reconcileError) {"));
+    expect(failure).toContain('warning: "reconcile_failed"');
+    expect(failure.slice(0, failure.indexOf("\n  }\n"))).not.toMatch(/status:\s*5\d\d/);
   });
 
   for (const [route, family] of [
