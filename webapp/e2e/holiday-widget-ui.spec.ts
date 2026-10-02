@@ -59,7 +59,8 @@ test.afterEach(() => {
       if (value) put(key, value);
       else psql(`DELETE FROM settings WHERE family_id = '${familyId}' AND key = '${key}'`);
     }
-    psql(`DELETE FROM devices WHERE hardware_id LIKE 'e2e-claude-%'`);
+    // This spec's own devices only: other specs may be mid-run with theirs.
+    psql(`DELETE FROM devices WHERE hardware_id LIKE 'e2e-claude-holiday-widget-%'`);
   } finally {
     releaseWholeDatabase();
   }
@@ -94,6 +95,18 @@ test("without a region, the widget links to Settings → Holidays", async ({ pag
       }),
     )
     .toBe(1);
+  // Centred, the way a person scrolls to read it -- not flush with the bottom
+  // edge, where an element screenshot would put it, under the fixed nav.
+  await card.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  // Present is not the same as seen: whatever is painted at the middle of the
+  // explanation must be part of this card, not a fixed bar laid over it.
+  const hit = await link.locator("p").evaluate((text) => {
+    const r = text.getBoundingClientRect();
+    const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    const card = text.closest(".accent-border-top");
+    return { inCard: !!top && !!card && card.contains(top), top: top ? `${top.tagName}.${top.className}`.slice(0, 120) : null };
+  });
+  expect(hit.inCard, `the explanation is covered by ${hit.top}`).toBe(true);
   await card.screenshot({ path: testInfo.outputPath(`widget-noregion-${testInfo.project.name}.png`) });
 
   await link.click();
