@@ -31,10 +31,15 @@ test.skip(SKIP_WITHOUT_DATABASE, "no database container reachable, and no FAMILY
 test.beforeEach(acquireWholeDatabase);
 test.afterEach(releaseWholeDatabase);
 
+const SETTING = {
+  enabled: true, region: "DE-NI", group: null, pending: null, last_success_at: null, last_error_at: null, last_error: null,
+};
 const families: string[] = [];
 function makeFamily(): string {
   const id = psql(`INSERT INTO families (name, join_code) VALUES ('school-sync-test', 'SS' || upper(substr(md5(random()::text), 1, 8))) RETURNING id;`);
   families.push(id);
+  // Switched on for DE-NI: the function writes only for a choice the family holds.
+  psql(`INSERT INTO settings (family_id, key, value) VALUES ('${id}', 'school_holiday_sync', '${JSON.stringify(SETTING)}'::jsonb);`);
   return id;
 }
 test.afterAll(async () => {
@@ -47,8 +52,9 @@ test.afterAll(async () => {
 });
 
 type Row = { external_id: string; name: string; starts_on: string; ends_on: string };
+const ARGS = (replace: boolean) => (replace ? "true, NULL, NULL, NULL" : "false, 'DE-NI', NULL, now()");
 const sync = (family: string, rows: Row[], replace = false, from = "2026-09-01", to = "2029-08-31") =>
-  psql(`SELECT public.apply_school_holiday_sync('${family}', '${JSON.stringify(rows).replace(/'/g, "''")}'::jsonb, '${from}', '${to}', ${replace});`);
+  psql(`SELECT public.apply_school_holiday_sync('${family}', '${JSON.stringify(rows).replace(/'/g, "''")}'::jsonb, '${from}', '${to}', ${ARGS(replace)});`);
 /** Every row of the family, as text, in a fixed order: "byte-identical" means this string. */
 const table = (family: string) =>
   psql(`SELECT string_agg(concat_ws('|', source, coalesce(external_id, '-'), name, starts_on, ends_on, hidden, updated_at), E'\\n' ORDER BY source, name, starts_on)
@@ -68,7 +74,7 @@ test("a manual row cannot carry an external id, and a synced row must", () => {
 
 test("first sync inserts; an identical second one changes nothing a family can see", () => {
   const family = makeFamily();
-  expect(JSON.parse(sync(family, [HERBST, WEIHNACHT]))).toEqual({ deleted: 0, upserted: 2 });
+  expect(JSON.parse(sync(family, [HERBST, WEIHNACHT]))).toEqual({ superseded: false, deleted: 0, upserted: 2 });
   const before = table(family);
   sync(family, [HERBST, WEIHNACHT]);
   expect(table(family)).toBe(before);
@@ -117,6 +123,42 @@ test("one family's sync cannot reach another family's rows", () => {
   expect(table(theirs)).toBe(before);
 });
 
+test("a sync for a choice the family no longer holds writes nothing, and records nothing", () => {
+  const family = makeFamily();
+  manual(family, HERBST.name, HERBST.starts_on, HERBST.ends_on);
+  const before = table(family);
+  const setting = () => psql(`SELECT value::text FROM settings WHERE family_id = '${family}' AND key = 'school_holiday_sync';`);
+  const call = (region: string, group: string) =>
+    psql(`SELECT public.apply_school_holiday_sync('${family}', '${JSON.stringify([HERBST])}'::jsonb, '2026-09-01', '2029-08-31', false, ${region}, ${group}, now());`);
+  expect(call("'DE-HB'", "NULL")).toContain('"superseded": true');
+  expect(call("'DE-NI'", "'DE-NI-X'")).toContain('"superseded": true');
+  for (const change of ['{"enabled": false}', '{"pending": "group"}', '"not an object"']) {
+    psql(`UPDATE settings SET value = ${change.startsWith('"') ? `'${change}'::jsonb` : `value || '${change}'::jsonb`} WHERE family_id = '${family}' AND key = 'school_holiday_sync';`);
+    const now = setting();
+    expect(call("'DE-NI'", "NULL"), change).toContain('"superseded": true');
+    expect(setting(), change).toBe(now);
+    psql(`UPDATE settings SET value = '${JSON.stringify(SETTING)}'::jsonb WHERE family_id = '${family}' AND key = 'school_holiday_sync';`);
+  }
+  psql(`DELETE FROM settings WHERE family_id = '${family}' AND key = 'school_holiday_sync';`);
+  expect(call("'DE-NI'", "NULL")).toContain('"superseded": true');
+  expect(table(family)).toBe(before);
+});
+
+test("a success is recorded with the rows; an error is merged into the setting as it is", () => {
+  const family = makeFamily();
+  const setting = () => JSON.parse(psql(`SELECT value::text FROM settings WHERE family_id = '${family}' AND key = 'school_holiday_sync';`));
+  psql(`SELECT public.record_school_holiday_sync_error('${family}', '2026-10-01T08:00:00Z', 'OpenHolidays answered 502');`);
+  expect(setting()).toEqual({ ...SETTING, last_error_at: "2026-10-01T08:00:00.000Z", last_error: "OpenHolidays answered 502" });
+  psql(`SELECT public.apply_school_holiday_sync('${family}', '${JSON.stringify([HERBST])}'::jsonb, '2026-09-01', '2029-08-31', false, 'DE-NI', NULL, '2026-10-02T10:00:00.123Z');`);
+  expect(setting()).toEqual({ ...SETTING, last_success_at: "2026-10-02T10:00:00.123Z" });
+  psql(`UPDATE settings SET value = value || '{"enabled": false}'::jsonb WHERE family_id = '${family}' AND key = 'school_holiday_sync';`);
+  psql(`SELECT public.record_school_holiday_sync_error('${family}', '2026-10-03T08:00:00Z', '${"x".repeat(600)}');`);
+  expect(setting()).toMatchObject({ enabled: false, last_error_at: "2026-10-03T08:00:00.000Z", last_error: "x".repeat(500) });
+  psql(`DELETE FROM settings WHERE family_id = '${family}' AND key = 'school_holiday_sync';`);
+  expect(psql(`SELECT public.record_school_holiday_sync_error('${family}', now(), 'x');`)).toBe("f");
+  expect(psql(`SELECT count(*) FROM settings WHERE family_id = '${family}';`)).toBe("0");
+});
+
 test("a bad row fails the whole write, leaving the table as it was", () => {
   const family = makeFamily();
   sync(family, [HERBST]);
@@ -126,11 +168,17 @@ test("a bad row fails the whole write, leaving the table as it was", () => {
 });
 
 test("only the service role may call the function", () => {
-  const signature = "public.apply_school_holiday_sync(uuid, jsonb, date, date, boolean)";
-  for (const role of ["anon", "authenticated"]) {
-    expect(psql(`SELECT has_function_privilege('${role}', '${signature}', 'EXECUTE');`), role).toBe("f");
+  for (const signature of [
+    "public.apply_school_holiday_sync(uuid, jsonb, date, date, boolean, text, text, timestamptz)",
+    "public.record_school_holiday_sync_error(uuid, timestamptz, text)",
+  ]) {
+    for (const role of ["anon", "authenticated"]) {
+      expect(psql(`SELECT has_function_privilege('${role}', '${signature}', 'EXECUTE');`), `${role} ${signature}`).toBe("f");
+    }
+    expect(psql(`SELECT has_function_privilege('service_role', '${signature}', 'EXECUTE');`), signature).toBe("t");
   }
-  expect(psql(`SELECT has_function_privilege('service_role', '${signature}', 'EXECUTE');`)).toBe("t");
+  // The pre-fix five-argument version is gone, not left callable beside it.
+  expect(psql(`SELECT count(*) FROM pg_proc WHERE proname = 'apply_school_holiday_sync';`)).toBe("1");
 });
 
 test("the browser roles are held to manual rows by restrictive policies", () => {
@@ -202,7 +250,7 @@ for (const dropPolicies of [false, true]) {
 test("the service role still syncs, and a family's synced rows go with the family", () => {
   const family = makeFamily();
   const out = psql(`BEGIN; SET LOCAL ROLE service_role;
-    SELECT public.apply_school_holiday_sync('${family}', '${JSON.stringify([HERBST])}'::jsonb, '2026-09-01', '2029-08-31', false);
+    SELECT public.apply_school_holiday_sync('${family}', '${JSON.stringify([HERBST])}'::jsonb, '2026-09-01', '2029-08-31', ${ARGS(false)});
     UPDATE school_holidays SET hidden = true WHERE family_id = '${family}' AND external_id = 'oh-herbst';
     COMMIT;`);
   expect(out).toContain('"upserted": 1');
@@ -237,7 +285,7 @@ test("two syncs for one family take turns", async () => {
   const key = (f: string) => `hashtextextended('school_holiday_sync:' || '${f}', 0)`;
   // Connection A syncs and holds its transaction open.
   const a = spawn("docker", ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-tA", "-q", "-v", "ON_ERROR_STOP=1", "-c",
-    `BEGIN; SELECT public.apply_school_holiday_sync('${family}', '${JSON.stringify([HERBST])}'::jsonb, '2026-09-01', '2029-08-31', false); SELECT pg_sleep(4); COMMIT;`]);
+    `BEGIN; SELECT public.apply_school_holiday_sync('${family}', '${JSON.stringify([HERBST])}'::jsonb, '2026-09-01', '2029-08-31', ${ARGS(false)}); SELECT pg_sleep(4); COMMIT;`]);
   const done = new Promise<number>((resolve) => a.on("exit", (code) => resolve(code ?? -1)));
   try {
     const held = () => psql(`SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND granted AND objsubid = 1
@@ -246,9 +294,9 @@ test("two syncs for one family take turns", async () => {
     expect(held()).toBe("1");
     // Connection B: the same family's sync waits for A (and gives up here
     // after half a second); another family's does not.
-    expect(() => psql(`SET lock_timeout = '500ms'; SELECT public.apply_school_holiday_sync('${family}', '[]'::jsonb, '2026-09-01', '2029-08-31', true);`))
+    expect(() => psql(`SET lock_timeout = '500ms'; SELECT public.apply_school_holiday_sync('${family}', '[]'::jsonb, '2026-09-01', '2029-08-31', ${ARGS(true)});`))
       .toThrow(/lock timeout/);
-    expect(psql(`SET lock_timeout = '500ms'; SELECT public.apply_school_holiday_sync('${other}', '[]'::jsonb, '2026-09-01', '2029-08-31', true);`))
+    expect(psql(`SET lock_timeout = '500ms'; SELECT public.apply_school_holiday_sync('${other}', '[]'::jsonb, '2026-09-01', '2029-08-31', ${ARGS(true)});`))
       .toContain('"deleted": 0');
   } finally {
     expect(await done).toBe(0);

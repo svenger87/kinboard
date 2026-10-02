@@ -100,7 +100,10 @@ test.describe("through Kong, as the browser", () => {
       });
       expect(forged.status()).toBe(403);
 
-      psql(`SELECT public.apply_school_holiday_sync('${familyId}', '[{"external_id":"${synced}","name":"${synced}","starts_on":"2031-03-01","ends_on":"2031-03-02"}]'::jsonb, '2031-03-01', '2031-03-02', false);`);
+      // A synced row, put there as the owner: the function would want the
+      // family's sync switched on for exactly this region, which this shared
+      // family's setting need not be.
+      psql(`INSERT INTO school_holidays (family_id, source, external_id, name, starts_on, ends_on, synced_at) VALUES ('${familyId}', 'openholidays', '${synced}', '${synced}', '2031-03-01', '2031-03-02', now());`);
       const edit = await rest("PATCH", `school_holidays?external_id=eq.${synced}`, { name: "edited", hidden: true });
       expect(await edit.json()).toEqual([]);
       const remove = await rest("DELETE", `school_holidays?external_id=eq.${synced}`);

@@ -128,6 +128,42 @@ for (const [label, answer] of [
   });
 }
 
+for (const [label, change] of [
+  ["switched off", { enabled: false }],
+  ["moved to another region", { region: "DE-HB" }],
+  ["given a group to pick", { pending: "group" }],
+] as const) {
+  test(`a family ${label} after the early look but before the write gets nothing written`, async () => {
+    const before = await table();
+    const setting = (await store.setting(family))!;
+    const real = store.apply.bind(store);
+    // The route's change commits in the gap between syncFamily's own re-read
+    // and the function call; only the function's check under the lock can
+    // see it.
+    store.apply = async (...args) => {
+      await store.saveSetting(family, { ...setting, ...change });
+      return real(...args);
+    };
+    try {
+      const { outcome } = run(() => jsonResponse(NI));
+      expect(await outcome).toEqual({ status: "skipped", reason: "superseded" });
+    } finally {
+      store.apply = real;
+    }
+    expect(await table()).toBe(before);
+    expect(await store.setting(family)).toEqual({ ...setting, ...change });
+    await store.saveSetting(family, setting);
+  });
+}
+
+test("a success after failures clears the error, and only the status moves", async () => {
+  const before = (await store.setting(family))!;
+  expect(before.last_error).toBeTruthy();
+  const { outcome } = run(() => jsonResponse(NI));
+  expect(await outcome).toEqual({ status: "synced", rows: 8 });
+  expect(await store.setting(family)).toEqual({ ...before, last_success_at: NOW.toISOString(), last_error_at: null, last_error: null });
+});
+
 test("a break gone from the answer goes; the family's row with the same name and dates stays", async () => {
   const withoutHerbst = (JSON.parse(NI) as { name: { text: string }[] }[]).filter((r) => r.name[0].text !== "Herbstferien");
   const { outcome } = run(() => jsonResponse(JSON.stringify(withoutHerbst)));

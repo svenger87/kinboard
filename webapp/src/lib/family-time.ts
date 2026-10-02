@@ -14,8 +14,11 @@ import { parseRegionSetting, type HolidayRegionSetting } from "@/lib/holidays/re
  * container's, or a recurring task completed at 11pm Berlin time marks the
  * wrong day done.
  */
-export async function familyTimeZone(familyId: string): Promise<string> {
-  const { data } = await (createAdminClient() as any)
+export async function familyTimeZone(
+  familyId: string,
+  db: ReturnType<typeof createAdminClient> = createAdminClient(),
+): Promise<string> {
+  const { data } = await (db as any)
     .from("settings")
     .select("value")
     .eq("family_id", familyId)

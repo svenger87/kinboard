@@ -6,6 +6,7 @@ import {
   isDue,
   parseSyncSetting,
   syncFamily,
+  INTERNAL_SYNC_ERROR,
   type SchoolSyncDeps,
   type SchoolSyncSetting,
   type SchoolSyncStore,
@@ -27,27 +28,45 @@ const ROW = (id: string, from: string, to: string) => ({
   subdivisions: [{ code: "DE-NI" }],
 });
 
+/** Mirrors apply_school_holiday_sync and record_school_holiday_sync_error: check, write and status in one step. */
 class FakeStore implements SchoolSyncStore {
   applied: FetchedBreak[][] = [];
+  windows: { from: string; to: string }[] = [];
   cleared = 0;
   future = 0;
+  zone = "Europe/Berlin";
   constructor(public current: SchoolSyncSetting | null, public region: HolidayRegionSetting | null = { code: "DE-NI", chosen: true }) {}
   async holidayRegion() { return this.region; }
   async language() { return "de"; }
+  async timeZone() { return this.zone; }
   async setting() { return this.current; }
   async saveSetting(_: string, s: SchoolSyncSetting) { this.current = s; }
   async deleteSetting() { this.current = null; }
   async futureSyncedCount() { return this.future; }
-  async apply(_: string, rows: FetchedBreak[]) { this.applied.push(rows); }
+  async apply(_: string, rows: FetchedBreak[], window: { from: string; to: string }, expect: { region: string; group: string | null }, syncedAt: string) {
+    const c = this.current;
+    if (!c || !c.enabled || c.pending !== null || c.region !== expect.region || c.group !== expect.group) return { superseded: true };
+    this.applied.push(rows);
+    this.windows.push(window);
+    this.current = { ...c, last_success_at: syncedAt, last_error_at: null, last_error: null };
+    return { superseded: false };
+  }
+  async recordError(_: string, at: string, message: string) {
+    if (this.current) this.current = { ...this.current, last_error_at: at, last_error: message };
+  }
   async clear() { this.cleared++; }
   async enabledFamilies() { return this.current?.enabled ? [{ familyId: "f", setting: this.current }] : []; }
 }
 
-function deps(store: FakeStore, answer: () => Response | Promise<Response>, installOn = true) {
+function deps(store: FakeStore, answer: () => Response | Promise<Response>, installOn = true, now = NOW) {
   const calls: string[] = [];
+  const logs: string[] = [];
   const fetch: SyncFetch = async (url) => { calls.push(url); return answer(); };
-  const d: SchoolSyncDeps = { fetch, store, now: () => NOW, installEnabled: installOn, userAgent: "Kinboard/test (+https://github.com/svenger87/kinboard)", log: () => {} };
-  return { d, calls };
+  const d: SchoolSyncDeps = {
+    fetch, store, now: () => now, installEnabled: installOn, userAgent: "Kinboard/test (+https://github.com/svenger87/kinboard)",
+    log: (m) => { logs.push(m); },
+  };
+  return { d, calls, logs };
 }
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 
@@ -176,14 +195,68 @@ test("an answer that only had other regions' rows counts as empty, so future row
   expect(store.current?.last_error).toMatch(/no school holidays/);
 });
 
-test("a database error while applying is a failure, recorded, not thrown", async () => {
+test("a database error while applying is a failure, recorded, not thrown, and its detail stays in the log", async () => {
   const store = new FakeStore(ON);
   store.apply = async () => { throw { message: "permission denied for function apply_school_holiday_sync", code: "42501" }; };
-  const { d } = deps(store, () => json([ROW("a", "2026-10-12", "2026-10-24")]));
+  const { d, logs } = deps(store, () => json([ROW("a", "2026-10-12", "2026-10-24")]));
   const outcome = await syncFamily("f", d);
-  expect(outcome).toMatchObject({ status: "failed" });
-  expect(store.current?.last_error).toMatch(/permission denied/);
+  expect(outcome).toEqual({ status: "failed", error: INTERNAL_SYNC_ERROR });
+  expect(store.current?.last_error).toBe(INTERNAL_SYNC_ERROR);
   expect(store.current?.last_success_at).toBeNull();
+  expect(logs.join("\n")).toMatch(/permission denied/);
+});
+
+for (const where of ["setting", "holidayRegion", "timeZone"] as const) {
+  test(`a database error reading the ${where} is a recorded failure, never a throw`, async () => {
+    const store = new FakeStore(ON);
+    const real = store[where].bind(store);
+    let first = true;
+    // Only the first read fails, so the error can still be recorded.
+    (store as unknown as Record<string, unknown>)[where] = async (...args: unknown[]) => {
+      if (first) { first = false; throw { message: "connection reset", code: "08006" }; }
+      return (real as (...a: unknown[]) => unknown)(...args);
+    };
+    const { d, calls } = deps(store, () => json([]));
+    expect(await syncFamily("f", d)).toEqual({ status: "failed", error: INTERNAL_SYNC_ERROR });
+    expect(calls).toEqual([]);
+    expect(store.current).toMatchObject({ enabled: true, last_error_at: NOW.toISOString(), last_error: INTERNAL_SYNC_ERROR });
+  });
+}
+
+test("a failure to record the error is logged, and the sync still resolves", async () => {
+  const store = new FakeStore(ON);
+  store.recordError = async () => { throw new Error("connection reset"); };
+  const { d, logs } = deps(store, () => new Response("", { status: 502 }));
+  expect(await syncFamily("f", d)).toMatchObject({ status: "failed" });
+  expect(logs.join("\n")).toMatch(/could not record the error/);
+});
+
+test("today is the family's day: just before midnight UTC it is already tomorrow in Berlin", async () => {
+  const store = new FakeStore(ON);
+  const { d, calls } = deps(store, () => json([ROW("a", "2026-10-12", "2026-10-24")]), true, new Date("2026-10-01T23:30:00Z"));
+  await syncFamily("f", d);
+  expect(new URL(calls[0]).searchParams.get("validFrom")).toBe("2026-09-02");
+  store.zone = "UTC";
+  const utc = deps(store, () => json([ROW("a", "2026-10-12", "2026-10-24")]), true, new Date("2026-10-01T23:30:00Z"));
+  await syncFamily("f", utc.d);
+  expect(new URL(utc.calls[0]).searchParams.get("validFrom")).toBe("2026-09-01");
+});
+
+test("a switch flipped after the early look but before the write is caught by apply's own check", async () => {
+  const store = new FakeStore({ ...ON, enabled: false });
+  // Every read says "on"; only apply sees the row as it is under the lock.
+  store.setting = async () => ON;
+  const { d } = deps(store, () => json([ROW("a", "2026-10-12", "2026-10-24")]));
+  expect(await syncFamily("f", d)).toEqual({ status: "skipped", reason: "superseded" });
+  expect(store.applied).toEqual([]);
+  expect(store.current).toEqual({ ...ON, enabled: false });
+});
+
+test("a success clears an earlier error", async () => {
+  const store = new FakeStore({ ...ON, last_error_at: "2026-09-30T00:00:00.000Z", last_error: "OpenHolidays answered 502" });
+  const { d } = deps(store, () => json([ROW("a", "2026-10-12", "2026-10-24")]));
+  expect((await syncFamily("f", d)).status).toBe("synced");
+  expect(store.current).toEqual({ ...ON, last_success_at: NOW.toISOString() });
 });
 
 for (const [label, change] of [
@@ -233,9 +306,9 @@ test("the live fetch is safeFetch with the running version in the User-Agent and
   }) as typeof fetch;
   try {
     const signal = AbortSignal.timeout(10_000);
-    // .invalid never resolves, so nothing leaves the machine; safeFetch's
-    // address check lets an unresolvable name through to fetch.
-    await liveSchoolSyncFetch("https://openholidays.invalid/SchoolHolidays", { headers: { Accept: "application/json" }, signal });
+    // TEST-NET-3: a public literal, so safeFetch lets it through to the
+    // stubbed fetch, and looking up a literal sends no DNS query.
+    await liveSchoolSyncFetch("https://203.0.113.1/SchoolHolidays", { headers: { Accept: "application/json" }, signal });
     // A private address is refused before fetch is called: safeFetch, not fetch.
     await expect(liveSchoolSyncFetch("http://10.0.0.1/SchoolHolidays", { headers: {}, signal })).rejects.toThrow(/not a public address/);
   } finally {

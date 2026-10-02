@@ -10,9 +10,11 @@ export function schoolSyncUserAgent(version: string): string {
 }
 
 /**
- * The same version next.config.mjs inlines from package.json at build time.
- * What goes on the wire is set by liveSchoolSyncFetch from readCurrentVersion,
- * the read /api/version-check and the Integration API use, so the three agree.
+ * `deps.userAgent`: the same version next.config.mjs inlines from
+ * package.json at build time. It only reaches the wire through an injected
+ * fake fetch (the specs); on the live path liveSchoolSyncFetch replaces the
+ * header with one built from readCurrentVersion, the read /api/version-check
+ * and the Integration API use, so the three agree.
  */
 export const SCHOOL_SYNC_USER_AGENT = schoolSyncUserAgent(process.env.NEXT_PUBLIC_APP_VERSION ?? "dev");
 

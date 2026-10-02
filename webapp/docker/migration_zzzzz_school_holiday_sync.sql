@@ -158,12 +158,22 @@ CREATE POLICY school_holidays_manual_delete ON public.school_holidays
 
 COMMIT;
 
+-- The five-argument version from before the race fix (never released). A
+-- no-op on every run after the first.
+DROP FUNCTION IF EXISTS public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN);
+
 CREATE OR REPLACE FUNCTION public.apply_school_holiday_sync(
-  p_family_id   UUID,
-  p_rows        JSONB,
-  p_window_from DATE,
-  p_window_to   DATE,
-  p_replace     BOOLEAN DEFAULT FALSE
+  p_family_id     UUID,
+  p_rows          JSONB,
+  p_window_from   DATE,
+  p_window_to     DATE,
+  p_replace       BOOLEAN,
+  -- The school region and group the rows were fetched for (ignored when
+  -- p_replace): the sync writes only if the family still holds that choice.
+  p_expect_region TEXT,
+  p_expect_group  TEXT,
+  -- Recorded as last_success_at, in the same transaction as the rows.
+  p_synced_at     TIMESTAMPTZ
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -173,6 +183,7 @@ AS $$
 DECLARE
   v_deleted  INTEGER := 0;
   v_upserted INTEGER := 0;
+  v_setting  JSONB;
 BEGIN
   IF p_family_id IS NULL THEN
     RAISE EXCEPTION 'p_family_id is required';
@@ -189,13 +200,37 @@ BEGIN
 
   IF p_replace THEN
     -- Switched off, or a new school region: every synced row goes, hidden
-    -- flags included (§6.2).
+    -- flags included (§6.2). The routes save the new setting first, so a
+    -- sync that locks after this sees it and writes nothing.
     DELETE FROM public.school_holidays
      WHERE family_id = p_family_id
        AND source = 'openholidays';
   ELSE
-    -- Gone from a response that covered it: deleted. A row that ended before
-    -- the window stays as history.
+    IF p_synced_at IS NULL THEN
+      RAISE EXCEPTION 'p_synced_at is required';
+    END IF;
+    -- The request took up to ten seconds. If the family switched off, picked
+    -- another region or group, or still has one to pick, this answer is for a
+    -- choice nobody holds any more: write nothing. FOR UPDATE holds the row
+    -- until commit, so the switch cannot flip between this check and the write.
+    SELECT value INTO v_setting
+      FROM public.settings
+     WHERE family_id = p_family_id
+       AND key = 'school_holiday_sync'
+       FOR UPDATE;
+    IF v_setting IS NULL
+       OR jsonb_typeof(v_setting) IS DISTINCT FROM 'object'
+       OR v_setting->'enabled' IS DISTINCT FROM 'true'::jsonb
+       OR COALESCE(v_setting->'pending', 'null'::jsonb) <> 'null'::jsonb
+       OR v_setting->>'region' IS DISTINCT FROM p_expect_region
+       OR v_setting->>'group'  IS DISTINCT FROM p_expect_group THEN
+      RETURN jsonb_build_object('superseded', true);
+    END IF;
+
+    -- Gone from a response that covered it: deleted. "Covered" is overlap: the
+    -- API answers every row that touches validFrom..validTo, so a row that
+    -- straddles the window's start and is missing has really gone. A row that
+    -- ended before the window stays as history.
     DELETE FROM public.school_holidays s
      WHERE s.family_id = p_family_id
        AND s.source = 'openholidays'
@@ -227,12 +262,56 @@ BEGIN
     END;
   GET DIAGNOSTICS v_upserted = ROW_COUNT;
 
-  RETURN jsonb_build_object('deleted', v_deleted, 'upserted', v_upserted);
+  -- Success is recorded with the rows: merged, so only the status moves.
+  -- The timestamp has JavaScript's toISOString() shape, as the app writes.
+  IF NOT p_replace THEN
+    UPDATE public.settings
+       SET value = value || jsonb_build_object(
+             'last_success_at', to_char(p_synced_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+             'last_error_at', NULL,
+             'last_error', NULL)
+     WHERE family_id = p_family_id
+       AND key = 'school_holiday_sync';
+  END IF;
+
+  RETURN jsonb_build_object('superseded', false, 'deleted', v_deleted, 'upserted', v_upserted);
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN) FROM anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN) TO service_role;
+REVOKE ALL ON FUNCTION public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_school_holiday_sync(UUID, JSONB, DATE, DATE, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ) TO service_role;
+
+-- A failed sync notes why on the family's setting: the two error fields,
+-- merged in one statement, so a switch flipped meanwhile is never written
+-- back. Nothing happens when the setting is gone.
+CREATE OR REPLACE FUNCTION public.record_school_holiday_sync_error(
+  p_family_id UUID,
+  p_at        TIMESTAMPTZ,
+  p_error     TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF p_family_id IS NULL OR p_at IS NULL THEN
+    RAISE EXCEPTION 'p_family_id and p_at are required';
+  END IF;
+  UPDATE public.settings
+     SET value = value || jsonb_build_object(
+           'last_error_at', to_char(p_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+           'last_error', left(COALESCE(p_error, ''), 500))
+   WHERE family_id = p_family_id
+     AND key = 'school_holiday_sync'
+     AND jsonb_typeof(value) = 'object';
+  RETURN FOUND;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.record_school_holiday_sync_error(UUID, TIMESTAMPTZ, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.record_school_holiday_sync_error(UUID, TIMESTAMPTZ, TEXT) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_school_holiday_sync_error(UUID, TIMESTAMPTZ, TEXT) TO service_role;
 
 NOTIFY pgrst, 'reload schema';

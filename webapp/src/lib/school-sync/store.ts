@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
-import { familyHolidayRegion } from "@/lib/family-time";
+import { familyHolidayRegion, familyTimeZone } from "@/lib/family-time";
 import { getFamilyLocale } from "@/lib/family-locale";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import type { FetchedBreak } from "./openholidays";
@@ -9,23 +9,38 @@ import { parseSyncSetting, type SchoolSyncSetting, type SchoolSyncStore } from "
  * The sync's store, on the admin client. Every query names the family; the
  * only write to school_holidays is the apply_school_holiday_sync function
  * (migration_zzzzz_school_holiday_sync.sql), which cannot match a manual row.
+ * The sync's status goes through that function (success, with the rows) and
+ * record_school_holiday_sync_error (failure): both merge into the setting
+ * as it is, so neither can write back a switch flipped meanwhile.
  */
 export function liveSchoolSyncStore(db: ReturnType<typeof createAdminClient> = createAdminClient()): SchoolSyncStore {
   // The generated types predate school_holidays.source and the function (Task 10, nit 7).
   const sb = db as any;
-  const apply = async (familyId: string, rows: FetchedBreak[], window: { from: string; to: string }, replace: boolean) => {
-    const { error } = await sb.rpc("apply_school_holiday_sync", {
+  const apply = async (
+    familyId: string,
+    rows: FetchedBreak[],
+    window: { from: string; to: string },
+    replace: boolean,
+    expect: { region: string; group: string | null } | null,
+    syncedAt: string | null,
+  ): Promise<{ superseded: boolean }> => {
+    const { data, error } = await sb.rpc("apply_school_holiday_sync", {
       p_family_id: familyId,
       p_rows: rows.map((r) => ({ external_id: r.externalId, name: r.name, starts_on: r.startsOn, ends_on: r.endsOn })),
       p_window_from: window.from,
       p_window_to: window.to,
       p_replace: replace,
+      p_expect_region: expect?.region ?? null,
+      p_expect_group: expect?.group ?? null,
+      p_synced_at: syncedAt,
     });
     if (error) throw error;
+    return { superseded: (data as { superseded?: unknown } | null)?.superseded === true };
   };
   return {
     holidayRegion: (familyId) => familyHolidayRegion(familyId, db),
     language: (familyId) => getFamilyLocale(familyId, db),
+    timeZone: (familyId) => familyTimeZone(familyId, db),
     async setting(familyId) {
       const { data, error } = await sb
         .from("settings")
@@ -56,8 +71,14 @@ export function liveSchoolSyncStore(db: ReturnType<typeof createAdminClient> = c
       if (error) throw error;
       return count ?? 0;
     },
-    apply: (familyId, rows, window) => apply(familyId, rows, window, false),
-    clear: (familyId) => apply(familyId, [], { from: "1970-01-01", to: "1970-01-01" }, true),
+    apply: (familyId, rows, window, expect, syncedAt) => apply(familyId, rows, window, false, expect, syncedAt),
+    async clear(familyId) {
+      await apply(familyId, [], { from: "1970-01-01", to: "1970-01-01" }, true, null, null);
+    },
+    async recordError(familyId, at, message) {
+      const { error } = await sb.rpc("record_school_holiday_sync_error", { p_family_id: familyId, p_at: at, p_error: message });
+      if (error) throw error;
+    },
     async enabledFamilies() {
       const { data, error } = await sb.from("settings").select("family_id, value").eq("key", SETTINGS_KEYS.schoolHolidaySync);
       if (error) throw error;
