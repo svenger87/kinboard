@@ -226,8 +226,11 @@ export function MonthView({
                       className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                     />
 
-                    {/* Day Number */}
-                    <div className="relative z-10 flex items-center gap-0.5 mb-0.5 min-w-0">
+                    {/* Day Number. Like everything drawn over the day-selection
+                        button except the event chips, it lets taps through
+                        (pointer-events-none): a tap on the date number -- the
+                        obvious place -- used to land here and do nothing. */}
+                    <div className="pointer-events-none relative z-10 flex items-center gap-0.5 mb-0.5 min-w-0">
                       <span
                         className={`
                           inline-flex items-center justify-center size-5 sm:size-6 rounded-full text-3xs sm:text-xs font-medium tabular-nums shrink-0
@@ -295,7 +298,7 @@ export function MonthView({
                         the event dots below rather than running off the cell. */}
                     {taskColors.length > 0 && (
                       <div
-                        className="sm:hidden relative z-10 flex flex-wrap justify-center gap-0.5 mb-0.5"
+                        className="pointer-events-none sm:hidden relative z-10 flex flex-wrap justify-center gap-0.5 mb-0.5"
                         role="img"
                         aria-label={t("markers.tasksDue")}
                       >
@@ -316,7 +319,7 @@ export function MonthView({
 
                     {/* Events - inline in cell. z-10 keeps chips above the
                         day-selection button that now sits behind the content. */}
-                    <div className="relative z-10 flex flex-col gap-px">
+                    <div className="pointer-events-none relative z-10 flex flex-col gap-px">
                       {/* Desktop: show event chips */}
                       <div className="hidden sm:flex sm:flex-col sm:gap-px">
                         {visibleEvents.map((event) => {
@@ -338,7 +341,7 @@ export function MonthView({
                                       onSelectEvent(event);
                                     }
                                   }}
-                                  className="cursor-pointer transition-opacity hover:opacity-80"
+                                  className="pointer-events-auto cursor-pointer transition-opacity hover:opacity-80"
                                 >
                                   <EventPill
                                     title={event.title}

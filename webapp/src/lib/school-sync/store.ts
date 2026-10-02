@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyHolidayRegion, familyTimeZone } from "@/lib/family-time";
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "@/i18n/locales";
+import { familyContentLanguage } from "@/lib/family-language";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import type { FetchedBreak } from "./openholidays";
 import { parseSyncSetting, type SchoolSyncSetting, type SchoolSyncStore } from "./sync";
@@ -42,22 +42,12 @@ export function liveSchoolSyncStore(db: ReturnType<typeof createAdminClient> = c
   };
   return {
     holidayRegion: (familyId) => familyHolidayRegion(familyId, db),
-    // The family's `locale`, else English: the language fetchSchoolBreaks
-    // names public holidays in, so a schedule never mixes "Herbstferien"
-    // with "Christmas Day". (getFamilyLocale falls back to German, for the
-    // notifications that always were.) A database error throws: the sync
-    // records it rather than fetching names in a language nobody chose.
-    async language(familyId) {
-      const { data, error } = await sb
-        .from("settings")
-        .select("value")
-        .eq("family_id", familyId)
-        .eq("key", SETTINGS_KEYS.locale)
-        .maybeSingle();
-      if (error) throw error;
-      const saved = data?.value;
-      return typeof saved === "string" && (SUPPORTED_LOCALES as readonly string[]).includes(saved) ? saved : DEFAULT_LOCALE;
-    },
+    // The family's `locale`, else its region's language, else English
+    // (familyContentLanguage): the language fetchSchoolBreaks names public
+    // holidays in, so a schedule never mixes "Herbstferien" with
+    // "Christmas Day". A database error throws: the sync records it rather
+    // than fetching names in a language nobody chose.
+    language: (familyId) => familyContentLanguage(familyId, db),
     timeZone: (familyId) => familyTimeZone(familyId, db),
     async setting(familyId) {
       const { data, error } = await sb
