@@ -1,3 +1,4 @@
+import { postJoin } from "./session";
 import { test, expect, request as pwRequest, type APIRequestContext, type APIResponse } from "@playwright/test";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
@@ -185,7 +186,7 @@ test.beforeAll(async () => {
   ids.foreignChild = insert(`INSERT INTO people (family_id, name, is_child) VALUES ('${famB}', '${P}Other', true) RETURNING id`);
 
   api = await pwRequest.newContext({ baseURL: BASE });
-  const join = await api.post("/api/session/join", { data: { joinCode: code, hardwareId: `${P}api-${Date.now()}`, deviceName: `${P}api` } });
+  const join = await postJoin(api, { joinCode: code, hardwareId: `${P}api-${Date.now()}`, deviceName: `${P}api` });
   expect(join.ok(), await join.text()).toBe(true);
   state.familyId = famA;
   conn = await connectAssistant(api, BASE, state, { scopes: SCOPES, clientName: `${P}live`, newPin: PIN });

@@ -1,3 +1,4 @@
+import { postJoin } from "./session";
 /**
  * Shared e2e helpers.
  *
@@ -114,11 +115,9 @@ export function joinFamilyViaApi(
   familyCode: string,
   deviceName: string,
 ): Promise<APIResponse> {
-  return request.post("/api/session/join", {
-    data: {
+  return postJoin(request, {
       joinCode: familyCode,
       deviceName,
       hardwareId: `e2e-${randomUUID()}`,
-    },
-  });
+    });
 }

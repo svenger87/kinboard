@@ -1,4 +1,4 @@
-import { test, type Page } from "@playwright/test";
+import { test, type APIRequestContext, type APIResponse, type Page } from "@playwright/test";
 
 /**
  * Give a page a family session without going through the join screen.
@@ -120,4 +120,24 @@ export async function establishSession(
   if (failure) throw new Error(`establishSession: ${failure}`);
 
   cachedCookiesByDevice.set(deviceName, await page.context().cookies());
+}
+
+/**
+ * POST /api/session/join from a request context, waiting out the join rate
+ * limit (10 per minute per IP) the way establishSession does. The CI smoke run
+ * joins from one IP for every spec, so a spec that joins late in the run can
+ * meet a 429 that has nothing to do with what it tests.
+ */
+export async function postJoin(
+  request: APIRequestContext,
+  data: Record<string, unknown>,
+): Promise<APIResponse> {
+  let res = await request.post("/api/session/join", { data });
+  for (let attempt = 0; attempt < 3 && res.status() === 429; attempt++) {
+    const waitMs = ((Number(res.headers()["retry-after"]) || 60) + 1) * 1000;
+    test.info().setTimeout(test.info().timeout + waitMs);
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    res = await request.post("/api/session/join", { data });
+  }
+  return res;
 }
