@@ -57,22 +57,33 @@ export function localDay(dateString: string): Date {
 }
 
 const SUNDAY_PROBE = Array.from({ length: 28 }, (_, i) => 2001 + i);
-const sundays = new Map<string, boolean>();
+const sundayNames = new Map<string, ReadonlySet<string>>();
 
 /**
  * Is this holiday only ever a Sunday -- Easter, Whit Sunday, the Swiss
  * Bettag? Probed over a full 28-year weekday cycle; two occurrences at
  * least, so a one-off that lands on a Sunday does not count (plan ruling 11).
+ * The 28 years are parsed once per region, for every name at once.
  */
 function alwaysSunday(country: string, state: string | null, englishName: string): boolean {
-  const key = `${country}|${state ?? ""}|${englishName}`;
-  const known = sundays.get(key);
-  if (known !== undefined) return known;
-  const p = parser(country, state, ["en"]);
-  const hits = SUNDAY_PROBE.flatMap((y) => p.getHolidays(y).filter((h) => !h.substitute && h.name === englishName));
-  const result = hits.length >= 2 && hits.every((h) => localDay(h.date).getDay() === 0);
-  sundays.set(key, result);
-  return result;
+  const key = `${country}|${state ?? ""}`;
+  let names = sundayNames.get(key);
+  if (!names) {
+    const p = parser(country, state, ["en"]);
+    const seen = new Map<string, { count: number; allSunday: boolean }>();
+    for (const y of SUNDAY_PROBE) {
+      for (const h of p.getHolidays(y)) {
+        if (h.substitute) continue;
+        const entry = seen.get(h.name) ?? { count: 0, allSunday: true };
+        entry.count += 1;
+        entry.allSunday &&= localDay(h.date).getDay() === 0;
+        seen.set(h.name, entry);
+      }
+    }
+    names = new Set([...seen].filter(([, e]) => e.count >= 2 && e.allSunday).map(([name]) => name));
+    sundayNames.set(key, names);
+  }
+  return names.has(englishName);
 }
 
 const years = new Map<string, RegionYear>();

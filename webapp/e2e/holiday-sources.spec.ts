@@ -1,10 +1,11 @@
 import { test, expect } from "@playwright/test";
+import type { Holiday } from "../src/lib/holidays";
 import { getHolidays, getObservances, nextHolidays } from "../src/lib/holidays";
 import { getDeHolidays } from "./fixtures/holidays-oracle/de";
 import { getFrHolidays } from "./fixtures/holidays-oracle/fr";
 import { getNlHolidays } from "./fixtures/holidays-oracle/nl";
 import { getUkHolidays } from "./fixtures/holidays-oracle/uk";
-import { getUsHolidays } from "./fixtures/holidays-oracle/us";
+import { getUsHolidays, getUsObservances } from "./fixtures/holidays-oracle/us";
 import { oracleObservedDays } from "./fixtures/holidays-oracle/observed";
 
 /**
@@ -12,7 +13,8 @@ import { oracleObservedDays } from "./fixtures/holidays-oracle/observed";
  * lists for every year 2020-2035 -- dates, dayOff and the weekday a day off
  * is taken -- or list the difference here with its reason. Every date is a
  * local calendar day: run this file under TZ=UTC, Europe/Berlin,
- * America/Los_Angeles and Pacific/Auckland.
+ * America/Los_Angeles and Pacific/Auckland. CI runs it in the runner's zone
+ * and again under America/Los_Angeles and Pacific/Auckland (ci.yml).
  */
 
 const key = (date: Date | null) =>
@@ -26,32 +28,63 @@ const YEARS = Array.from({ length: 16 }, (_, i) => 2020 + i);
 /** Every way the adapter departs from #319 in 2020-2035, and why. date-holidays is right in each. */
 const EXPECTED_DIFFERENCES: Record<string, string> = {
   "uk 2020-05-04 only-oracle": "VE Day 2020: the Early May bank holiday moved to Friday 8 May by proclamation",
-  "uk 2020-05-08 only-adapter": "VE Day 2020, the moved Early May bank holiday",
+  "uk 2020-05-08 only-adapter dayOff=true nameKey=ukEarlyMayBankHoliday": "VE Day 2020, the moved Early May bank holiday",
   "uk 2022-05-30 only-oracle": "2022: the Spring bank holiday moved to Thursday 2 June for the Platinum Jubilee",
-  "uk 2022-06-02 only-adapter": "the moved Spring bank holiday, 2022",
-  "uk 2022-06-03 only-adapter": "Platinum Jubilee bank holiday, 2022",
-  "uk 2022-09-19 only-adapter": "State funeral of Queen Elizabeth II, 2022",
-  "uk 2023-05-08 only-adapter": "Coronation of King Charles III, 2023",
+  "uk 2022-06-02 only-adapter dayOff=true nameKey=ukSpringBankHoliday": "the moved Spring bank holiday, 2022",
+  "uk 2022-06-03 only-adapter dayOff=true nameKey=ukPlatinumJubilee": "Platinum Jubilee bank holiday, 2022",
+  "uk 2022-09-19 only-adapter dayOff=true nameKey=ukStateFuneral": "State funeral of Queen Elizabeth II, 2022",
+  "uk 2023-05-08 only-adapter dayOff=true nameKey=ukCoronation": "Coronation of King Charles III, 2023",
   "us 2020-06-19 only-oracle": "Juneteenth became a federal holiday in 2021",
 };
 
+/** One line per holiday: everything the oracle pins except the date. */
+const fields = (h: { dayOff: boolean; nameKey: string; emoji: string }) =>
+  `dayOff=${h.dayOff} nameKey=${h.nameKey} emoji=${h.emoji}`;
+
+/** Keyed by local day; a second holiday on the same day is a difference of its own, never last-wins. */
+function byDay(list: readonly Holiday[], code: Legacy, side: string, out: string[]): Map<string, Holiday> {
+  const map = new Map<string, Holiday>();
+  for (const h of list) {
+    const day = key(h.date)!;
+    if (map.has(day)) out.push(`${code} ${day} same-day-${side}`);
+    map.set(day, h);
+  }
+  return map;
+}
+
 function differences(code: Legacy, year: number): string[] {
-  const adapter = new Map(getHolidays(code, year).map((h) => [key(h.date)!, h]));
-  const oracle = new Map(ORACLE[code](year).map((h) => [key(h.date)!, h]));
   const out: string[] = [];
+  const adapter = byDay(getHolidays(code, year), code, "adapter", out);
+  const oracle = byDay(ORACLE[code](year), code, "oracle", out);
   for (const [day, h] of oracle) {
     const a = adapter.get(day);
     if (!a) out.push(`${code} ${day} only-oracle`);
     else if (a.dayOff !== h.dayOff) out.push(`${code} ${day} dayOff`);
     else if (a.nameKey !== h.nameKey) out.push(`${code} ${day} nameKey ${a.nameKey} != ${h.nameKey}`);
+    else if (a.emoji !== h.emoji) out.push(`${code} ${day} emoji ${a.emoji} != ${h.emoji}`);
   }
-  for (const day of adapter.keys()) if (!oracle.has(day)) out.push(`${code} ${day} only-adapter`);
+  // An accepted extra day is pinned by what it is, not only by its date.
+  for (const [day, a] of adapter) {
+    if (!oracle.has(day)) out.push(`${code} ${day} only-adapter dayOff=${a.dayOff} nameKey=${a.nameKey}`);
+  }
   return out;
 }
 
 test("the adapter reproduces #319 for 2020-2035, apart from the listed differences", () => {
   const found = LEGACY.flatMap((code) => YEARS.flatMap((year) => differences(code, year)));
   expect(found.sort()).toEqual(Object.keys(EXPECTED_DIFFERENCES).sort());
+});
+
+test("the countdown's observances match #319 for 2020-2035", () => {
+  // #319 had observances for the US only; the other four had none.
+  const oracle = (code: Legacy, year: number) => (code === "us" ? getUsObservances(year) : []);
+  const line = (h: Holiday) => `${key(h.date)} ${fields(h)}`;
+  for (const code of LEGACY) {
+    for (const year of YEARS) {
+      const adapter = getObservances(code, year).map(line).sort();
+      expect(adapter, `${code} ${year}`).toEqual(oracle(code, year).map(line).sort());
+    }
+  }
 });
 
 test("the weekday a day off is taken matches #319 for 2020-2035", () => {

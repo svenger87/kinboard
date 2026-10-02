@@ -290,6 +290,14 @@ jobs:
       # functions and source assertions, and runs here in seconds.
       - name: Run the stack-free specs
         run: npx playwright test $(ls e2e/*.spec.ts | grep -vE '/(smoke|secrets|setup|restore|health-endpoint|visual-audit)\.spec\.ts$' | tr '\n' ' ')
+      # Built-in holidays are local calendar days (RFC-014 §4.6). The runner is
+      # UTC, where a day read through an instant cannot slip; west and far east
+      # of it, it would. One project is enough: these are pure functions.
+      - name: Holiday dates hold west and east of UTC
+        run: |
+          for tz in America/Los_Angeles Pacific/Auckland; do
+            TZ=$tz npx playwright test e2e/holiday-sources.spec.ts e2e/holiday-countdown.spec.ts --project=desktop || exit 1
+          done
 
   build:
     name: Production build

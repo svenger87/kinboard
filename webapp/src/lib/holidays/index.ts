@@ -26,6 +26,12 @@ export function getHolidays(country: CountryCode, year: number, locale: string =
   return regionYear(country, year, locale)?.days.filter((d) => d.inCalendar).map((d) => d.holiday) ?? [];
 }
 
+/**
+ * @deprecated No caller since `german-holidays.ts` went (RFC-014 Phase 1
+ * Task 2); the countdown uses `nextHolidays`. Kept because the plan lists it
+ * in this module's interface. Removing it, and `./utils` with it, is a
+ * controller decision.
+ */
 export function getUpcomingHolidays(country: CountryCode, daysAhead: number = 14, locale: string = "en"): Holiday[] {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
