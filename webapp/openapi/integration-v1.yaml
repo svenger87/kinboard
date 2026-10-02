@@ -1012,9 +1012,11 @@ paths:
         Read only. Without `day`: each child with lessons and their lessons
         per weekday, Monday first. With `day` (a date in the family's time
         zone): who has school that day and which lessons. `school_day` is
-        `false` when a school holiday covers the day — one typed in under
-        the timetable's holidays, or an event on a calendar marked as
-        holidays — with `reason: holiday` and the holiday's name, or else on
+        `false` when a school holiday covers the day — one the family typed
+        in, an event on a calendar marked as holidays, a school holiday
+        synced from OpenHolidays, or a public holiday in the family's region
+        (not in the US, where districts set their own calendars) — with
+        `reason: holiday` and the holiday's name, or else on
         a Saturday or Sunday with `reason: weekend`; `children` is then
         empty. A holiday takes precedence over the weekend.
 

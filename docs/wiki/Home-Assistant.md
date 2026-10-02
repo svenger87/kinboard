@@ -132,7 +132,7 @@ used — which is exactly what you want to know *after* revoking something.
 ## What Home Assistant gets
 
 - **Sensors** — the next appointment, whose birthday is next, which children
-  have school tomorrow (nobody during school holidays or at the weekend), what's for dinner today and tomorrow, open and overdue
+  have school tomorrow (nobody during school holidays, on public holidays outside the US, or at the weekend), what's for dinner today and tomorrow, open and overdue
   tasks, shopping items, and each child's pocket money.
 - **A calendar** — `calendar.kinboard_family`, including events that merely
   overlap the window being viewed, so a week's holiday appears on every day of

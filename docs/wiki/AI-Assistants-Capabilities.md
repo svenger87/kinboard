@@ -65,7 +65,7 @@ settings. See [Calendar](Calendar).
 
 | Tool | What it does | Permission | Notes |
 |---|---|---|---|
-| `get_school_timetable` | The children's timetable: lessons per weekday with times, subject and room. For a given date: who has school and which lessons | `family:read` | Reads. During school holidays (entered under **Settings → School schedule**, or from a calendar marked as holidays) and at weekends it says there is no school, and why. Can be narrowed to one child |
+| `get_school_timetable` | The children's timetable: lessons per weekday with times, subject and room. For a given date: who has school and which lessons | `family:read` | Reads. During school holidays (entered under **Settings → Holidays**, synced from OpenHolidays, from a calendar marked as holidays, or a public holiday in your region outside the US) and at weekends it says there is no school, and why. Can be narrowed to one child |
 
 > "Does anyone have school on Monday?" · "Hat am Montag jemand Schule?"
 >

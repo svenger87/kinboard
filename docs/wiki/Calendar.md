@@ -93,7 +93,15 @@ The link is a shared secret: anyone who has it can read your family's events (ti
 
 ## Holidays
 
-The holidays widget is country-aware: pick your country in **Settings → Language** (Germany, US, UK, Netherlands, or France; existing families default to Germany). Add a Google Calendar with the "holidays" flag to override or augment further. See [Themes → Locales](Themes#locales) for the country picker.
+Public holidays follow the country and state picked under **Settings → Holidays** (or in the setup wizard's first step): 38 countries, with every German Land, Austrian Bundesland and Swiss canton, from the maintained date-holidays data. Holidays that apply to only part of a state or canton (Augsburg's Peace Festival, a Swiss commune's own days) aren't included; add them as school holidays, or mark a calendar that has them as holidays. School holidays live on the same page: your own entries, any calendar marked as holidays, and — where OpenHolidays covers the country — school holidays fetched for your region.
+
+### School holidays from OpenHolidays
+
+Once someone picks where the family lives, in a country the [OpenHolidays API](https://www.openholidaysapi.org) covers (every offered country except the UK and the US), Kinboard fetches that region's school holidays about once a week, and **Refresh now** fetches them straight away. The request goes to `openholidaysapi.org` and carries only the country, the region and the school type, never anything about the family. The switch on the same page turns it off for your family and removes the fetched holidays; your own entries and holiday calendars are never touched by the sync, on or off. The data is from OpenHolidays under the [ODbL](https://opendatacommons.org/licenses/odbl/1-0/).
+
+Self-hosters can turn the sync off for the whole install with `SCHOOL_HOLIDAY_SYNC=off` in `webapp/docker/.env` (then `docker compose up -d webapp`). Nothing is fetched after that and the controls disappear, but school holidays fetched before it stay and keep counting as no school: they are still correct, and a failed fetch keeps them the same way. They go when the family picks a different region.
+
+Known gaps in OpenHolidays' data, not Kinboard's: Zürich (`CH-ZH`) has no Sportferien, and the Graubünden Region Maloja (`CH-GR-ML`) has only its autumn and Christmas breaks. Add the missing weeks as your own school holidays.
 
 ## Calendar mapping rule editor
 

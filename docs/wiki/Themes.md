@@ -55,7 +55,7 @@ Kinboard ships **English (en)**, **German (de)**, and **French (fr)** out of the
 
 **Settings → Language** has a picker — no browser console needed. It sets a `NEXT_LOCALE` cookie for the current device (so each device can run its own language) and also saves a family-level default, used only when a server-side process without a request cookie needs a language — push notification text and cron-generated messages.
 
-The same Settings → Language page also has a **country picker** for holidays — Germany, US, UK, Netherlands, or France — independent of the UI locale (a German-speaking family living in the US can pick `de` for the UI and `us` for holidays). Existing families default to Germany. See [Calendar → Holidays](Calendar#holidays).
+Public holidays have their own page, **Settings → Holidays**, independent of the UI locale: a German-speaking family can live in Vienna or Zürich. See [Calendar → Holidays](Calendar#holidays).
 
 ### Architecture
 
@@ -133,7 +133,7 @@ For inline-styled chunks, use `t.rich()` with named tags:
 ## German-specific gotchas
 
 - The original repo was German-first; many internal IDs in DB still use German keys (e.g. `obst_gemuese` for the fruits-and-vegetables shopping category). Don't rename these — they're stable identifiers; only the displayed labels are translated.
-- Holidays live in `webapp/src/lib/holidays/<country-code>.ts` (`de`, `us`, `uk`, `nl`, `fr` today), one file per country, selected via the Settings → Language country picker. Add a new country by dropping in another `<country-code>.ts` provider and registering it in `webapp/src/lib/holidays/index.ts`.
+- Holidays come from the bundled date-holidays data (`webapp/src/lib/holidays/`, regenerated with `npm run holidays:data` from the pinned package); Kinboard's own names, emoji and deliberate differences live in `curated.ts` and `overrides.ts`.
 
 ## Related
 

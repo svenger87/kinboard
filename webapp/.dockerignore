@@ -5,8 +5,11 @@
 node_modules
 .next
 
-# Test artifacts
-e2e/results
+# Tests, their artifacts and their fixtures. e2e is excluded whole: the
+# recorded OpenHolidays fixture (e2e/fixtures/openholidays/) is ODbL data
+# kept for tests only, and no snapshot of it may reach an image (RFC-014
+# §5.5). e2e/licence-files.spec.ts checks this line is here.
+e2e
 playwright-report
 test-results
 

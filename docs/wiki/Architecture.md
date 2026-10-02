@@ -75,7 +75,7 @@ A 30,000-foot view of how the pieces fit together. Read this once before you cha
 │   │   ├── stores/              # Zustand stores
 │   │   ├── lib/
 │   │   │   ├── supabase/        # Client / server / admin helpers
-│   │   │   ├── german-holidays.ts
+│   │   │   ├── holidays/        # date-holidays adapter, regions, curated names
 │   │   │   ├── shopping-categories.ts
 │   │   │   ├── unsplash-defaults.ts
 │   │   │   └── utils.ts         # Including monthly-theme logic
