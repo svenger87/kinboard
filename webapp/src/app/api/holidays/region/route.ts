@@ -5,8 +5,8 @@ import { resolveRegion, type HolidayRegionSetting } from "@/lib/holidays/region"
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { logApiError } from "@/lib/api-error";
 import { liveSchoolSyncDeps } from "@/lib/school-sync/live";
-import { reconcileOnRegionPick } from "@/lib/school-sync/reconcile";
-import { syncFamily, type SchoolSyncSetting, type SyncOutcome } from "@/lib/school-sync/sync";
+import { fetchIfReady, reconcileOnRegionPick, type RouteSyncOutcome } from "@/lib/school-sync/reconcile";
+import { INTERNAL_SYNC_ERROR, type SchoolSyncSetting } from "@/lib/school-sync/sync";
 import { syncLimited } from "@/lib/school-sync/limit";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +46,9 @@ export async function PUT(request: NextRequest) {
   // logged and reported in the card; it never undoes the region the family
   // just picked.
   let sync: SchoolSyncSetting | null = null;
-  let outcome: SyncOutcome | null = null;
+  // Null only where there is no sync (uncovered country, install off).
+  // "rate-limited" and the skipped reasons tell the card what happens next.
+  let outcome: RouteSyncOutcome | null = null;
   try {
     const existing = await deps.store.setting(familyId);
     const result = reconcileOnRegionPick(previous?.code ?? null, resolved.code, existing, deps.installEnabled);
@@ -56,11 +58,14 @@ export async function PUT(request: NextRequest) {
     else if (existing) await deps.store.deleteSetting(familyId);
     if (result.clear) await deps.store.clear(familyId);
     sync = result.setting;
-    if (sync?.enabled && sync.region && sync.pending === null && !syncLimited(familyId).limited) {
-      outcome = await syncFamily(familyId, deps);
+    if (result.setting) {
+      outcome = await fetchIfReady(familyId, result.setting, deps, () => syncLimited(familyId));
+      sync = await deps.store.setting(familyId);
     }
   } catch (err) {
     await logApiError("holidays/region/sync", err);
+    // The region is saved; the sync is not. Re-picking the region repairs it.
+    outcome = { status: "failed", error: INTERNAL_SYNC_ERROR };
   }
 
   return NextResponse.json({ region, sync, outcome });

@@ -1,7 +1,58 @@
-import { defaultGroup, defaultSchoolRegion, type PendingPick, type RegionOption } from "./school-region";
-import type { SchoolSyncSetting } from "./sync";
+import { defaultGroup, defaultSchoolRegion, topLevel, type PendingPick, type RegionOption } from "./school-region";
+import { parseSyncSetting, syncFamily, type SchoolSyncDeps, type SchoolSyncSetting, type SyncOutcome } from "./sync";
 
 const FRESH = { last_success_at: null, last_error_at: null, last_error: null } as const;
+
+/** What a family with a chosen, covered region has before anyone touched the switch (§5.4): on. */
+export function defaultSyncSetting(derived: { region: string | null; group: string | null; pending: PendingPick }): SchoolSyncSetting {
+  return { enabled: true, region: derived.region, group: derived.group, pending: derived.pending, ...FRESH };
+}
+
+/** Switched on, a region, nothing left to pick: a fetch would actually happen. */
+export function readyToFetch(setting: SchoolSyncSetting): boolean {
+  return setting.enabled && setting.region !== null && setting.pending === null;
+}
+
+/** What a session route answers for the fetch it did, skipped, or was not allowed yet. */
+export type RouteSyncOutcome = SyncOutcome | { status: "rate-limited"; retryAfterMs: number };
+
+/**
+ * Fetch now if the setting is ready, under the once-a-minute limit (§5.2).
+ * The limit is only asked -- and so only used up -- when a request would
+ * really go out: picking a province and then its group, or a canton and then
+ * its Region, fetches on the second step, not "rate-limited" by the first.
+ */
+export async function fetchIfReady(
+  familyId: string,
+  setting: SchoolSyncSetting,
+  deps: SchoolSyncDeps,
+  limit: () => { limited: boolean; retryAfterMs: number },
+): Promise<RouteSyncOutcome> {
+  if (!setting.enabled) return { status: "skipped", reason: "disabled" };
+  if (setting.region === null || setting.pending === "region") return { status: "skipped", reason: "needs-region" };
+  if (setting.pending === "group") return { status: "skipped", reason: "needs-group" };
+  const limited = limit();
+  if (limited.limited) return { status: "rate-limited", retryAfterMs: limited.retryAfterMs };
+  return syncFamily(familyId, deps);
+}
+
+/**
+ * A backup's sync setting, as /api/import restores it: the family's choice
+ * (switch, region, group, what is pending) without the old status, so the
+ * restored family is due at once rather than up to a week later. Null for a
+ * value that is not a sync setting; import drops that row.
+ */
+export function restoredSyncSetting(value: unknown): SchoolSyncSetting | null {
+  const setting = parseSyncSetting(value);
+  return setting ? { ...setting, ...FRESH } : null;
+}
+
+/** Does the stored school region still belong to the public-holiday region it was derived for? */
+function agrees(existing: SchoolSyncSetting, derived: { country: string; region: string | null }): boolean {
+  if (existing.region === null) return true;
+  if (derived.region === null) return existing.region.split("-")[0] === derived.country;
+  return topLevel(existing.region) === topLevel(derived.region);
+}
 
 /**
  * What picking the public-holiday region `next` does to the sync (§5.4,
@@ -20,12 +71,12 @@ export function reconcileOnRegionPick(
   if (!derived) return { setting: null, clear: existing !== null };
   if (!existing) {
     if (!installOn) return { setting: null, clear: false };
-    return {
-      setting: { enabled: true, region: derived.region, group: derived.group, pending: derived.pending, ...FRESH },
-      clear: false,
-    };
+    return { setting: defaultSyncSetting(derived), clear: false };
   }
-  if (previous === next) return { setting: existing, clear: false };
+  // Confirming the same region keeps the family's choice -- unless the
+  // setting no longer belongs to it: a region saved by an earlier request
+  // whose sync update failed. Re-picking the region repairs that.
+  if (previous === next && agrees(existing, derived)) return { setting: existing, clear: false };
   return {
     setting: { ...existing, region: derived.region, group: derived.group, pending: derived.pending, ...FRESH },
     clear: true,
@@ -56,9 +107,9 @@ export function applySyncChange(
   derived: { region: string | null; group: string | null; pending: PendingPick },
   options: RegionOptions | null,
 ): { setting: SchoolSyncSetting; clear: boolean } | { error: "invalid_region" | "invalid_group" } {
-  let next: SchoolSyncSetting = existing ?? {
-    enabled: false, region: derived.region, group: derived.group, pending: derived.pending, ...FRESH,
-  };
+  // No row yet with a chosen, covered region (the route checks both) is the
+  // default, which is on (§5.4): a Refresh must not save it as off.
+  let next: SchoolSyncSetting = existing ?? defaultSyncSetting(derived);
   let clear = false;
   if (change.enabled === false) {
     next = { ...next, enabled: false };

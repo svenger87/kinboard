@@ -13,6 +13,9 @@ import { parseSyncSetting, type SchoolSyncSetting, type SchoolSyncStore } from "
  * record_school_holiday_sync_error (failure): both merge into the setting
  * as it is, so neither can write back a switch flipped meanwhile.
  */
+/** Rows per page when the cron lists switched-on families. */
+export const ENABLED_PAGE = 1000;
+
 export function liveSchoolSyncStore(db: ReturnType<typeof createAdminClient> = createAdminClient()): SchoolSyncStore {
   // The generated types predate school_holidays.source and the function (Task 10, nit 7).
   const sb = db as any;
@@ -80,9 +83,21 @@ export function liveSchoolSyncStore(db: ReturnType<typeof createAdminClient> = c
       if (error) throw error;
     },
     async enabledFamilies() {
-      const { data, error } = await sb.from("settings").select("family_id, value").eq("key", SETTINGS_KEYS.schoolHolidaySync);
-      if (error) throw error;
-      return ((data ?? []) as { family_id: string; value: unknown }[])
+      // Switched-on rows only, in pages: PostgREST caps a select at 1000 rows.
+      const rows: { family_id: string; value: unknown }[] = [];
+      for (let from = 0; ; from += ENABLED_PAGE) {
+        const { data, error } = await sb
+          .from("settings")
+          .select("family_id, value")
+          .eq("key", SETTINGS_KEYS.schoolHolidaySync)
+          .eq("value->>enabled", "true")
+          .order("family_id")
+          .range(from, from + ENABLED_PAGE - 1);
+        if (error) throw error;
+        rows.push(...((data ?? []) as { family_id: string; value: unknown }[]));
+        if ((data ?? []).length < ENABLED_PAGE) break;
+      }
+      return rows
         .map((row) => ({ familyId: String(row.family_id), setting: parseSyncSetting(row.value) }))
         .filter((r): r is { familyId: string; setting: SchoolSyncSetting } => r.setting?.enabled === true);
     },

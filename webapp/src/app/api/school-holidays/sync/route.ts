@@ -4,8 +4,7 @@ import { requireSession } from "@/lib/require-session";
 import { logApiError } from "@/lib/api-error";
 import { hasOpenHolidays, resolveRegion } from "@/lib/holidays/region";
 import { liveSchoolSyncDeps } from "@/lib/school-sync/live";
-import { syncFamily, type SyncOutcome } from "@/lib/school-sync/sync";
-import { applySyncChange, type RegionOptions } from "@/lib/school-sync/reconcile";
+import { applySyncChange, defaultSyncSetting, fetchIfReady, type RegionOptions } from "@/lib/school-sync/reconcile";
 import { defaultSchoolRegion, topLevel } from "@/lib/school-sync/school-region";
 import { schoolRegionOptions } from "@/lib/school-sync/options";
 import { SyncError } from "@/lib/school-sync/openholidays";
@@ -30,11 +29,15 @@ export async function GET(request: NextRequest) {
   try {
     const region = await deps.store.holidayRegion(familyId);
     const country = region?.code ? (resolveRegion(region.code)?.country ?? null) : null;
+    const chosen = region?.chosen === true;
+    // No row with a chosen, covered region is the default, which is on
+    // (§5.4); the card shows it as such, and the next change saves it.
+    const derived = deps.installEnabled && chosen && region?.code ? defaultSchoolRegion(region.code) : null;
     return NextResponse.json({
       installEnabled: deps.installEnabled,
       covered: country !== null && hasOpenHolidays(country),
-      chosen: region?.chosen === true,
-      setting: await deps.store.setting(familyId),
+      chosen,
+      setting: (await deps.store.setting(familyId)) ?? (derived ? defaultSyncSetting(derived) : null),
     });
   } catch (err) {
     await logApiError("school-holidays/sync", err);
@@ -88,11 +91,9 @@ export async function POST(request: NextRequest) {
     await deps.store.saveSetting(familyId, change.setting);
     if (change.clear) await deps.store.clear(familyId);
 
-    let outcome: SyncOutcome | { status: "rate-limited"; retryAfterMs: number } = { status: "skipped", reason: "disabled" };
-    if (change.setting.enabled) {
-      const limit = syncLimited(familyId);
-      outcome = limit.limited ? { status: "rate-limited", retryAfterMs: limit.retryAfterMs } : await syncFamily(familyId, deps);
-    }
+    // Only a setting that would really fetch asks the once-a-minute limit,
+    // so the first step of a two-step pick does not use it up.
+    const outcome = await fetchIfReady(familyId, change.setting, deps, () => syncLimited(familyId));
     return NextResponse.json({ setting: await deps.store.setting(familyId), outcome });
   } catch (err) {
     await logApiError("school-holidays/sync", err);

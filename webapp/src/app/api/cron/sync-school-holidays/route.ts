@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { logApiError } from "@/lib/api-error";
 import { liveSchoolSyncDeps } from "@/lib/school-sync/live";
 import { isDue, syncFamily } from "@/lib/school-sync/sync";
+import { backingOff } from "@/lib/school-sync/limit";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
 
-  const due = families.filter(({ setting }) => isDue(setting, now));
+  const due = families.filter(({ setting }) => isDue(setting, now) && !backingOff(setting, now));
   const counts = { due: due.length, synced: 0, failed: 0, skipped: 0 };
   for (const { familyId } of due) {
     // One family's error -- a database hiccup syncFamily did not catch --

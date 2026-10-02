@@ -1,10 +1,20 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { applySyncChange, reconcileOnRegionPick, type RegionOptions } from "../src/lib/school-sync/reconcile";
+import {
+  applySyncChange,
+  fetchIfReady,
+  reconcileOnRegionPick,
+  restoredSyncSetting,
+  type RegionOptions,
+  type SyncChange,
+} from "../src/lib/school-sync/reconcile";
 import { resetOptionsCache, schoolRegionOptions } from "../src/lib/school-sync/options";
-import type { SchoolSyncSetting } from "../src/lib/school-sync/sync";
-import type { SyncFetch } from "../src/lib/school-sync/openholidays";
+import { backingOff, syncLimited } from "../src/lib/school-sync/limit";
+import { defaultSchoolRegion } from "../src/lib/school-sync/school-region";
+import type { SchoolSyncDeps, SchoolSyncSetting, SchoolSyncStore } from "../src/lib/school-sync/sync";
+import type { FetchedBreak, SyncFetch } from "../src/lib/school-sync/openholidays";
+import type { HolidayRegionSetting } from "../src/lib/holidays/region";
 import { codeOnly } from "./source-helpers";
 
 /** RFC-014 §5.2, §5.4 and §6.2: the switch, its default, and which changes empty the synced rows. */
@@ -167,4 +177,160 @@ test("the job is wired like sync-ics, and operators can switch it off", () => {
   expect(compose).toMatch(/SCHOOL_HOLIDAY_SYNC: \$\{SCHOOL_HOLIDAY_SYNC:-\}/);
   expect(read("docker/ofelia.demo.ini")).toMatch(/\[job-exec "sync-school-holidays"\]\nschedule = @every 10m/);
   expect(read("docker/.env.example")).toMatch(/^SCHOOL_HOLIDAY_SYNC=$/m);
+});
+
+// ---- Fix round 1 -----------------------------------------------------------
+
+/** Mirrors the store contract the session routes use (and apply's re-check). */
+class RouteStore implements SchoolSyncStore {
+  applied: FetchedBreak[][] = [];
+  cleared = 0;
+  constructor(public region: HolidayRegionSetting, public current: SchoolSyncSetting | null = null) {}
+  async holidayRegion() { return this.region; }
+  async language() { return "de"; }
+  async timeZone() { return "Europe/Zurich"; }
+  async setting() { return this.current; }
+  async saveSetting(_: string, s: SchoolSyncSetting) { this.current = s; }
+  async deleteSetting() { this.current = null; }
+  async futureSyncedCount() { return 0; }
+  async apply(_: string, rows: FetchedBreak[], __: { from: string; to: string }, expect: { region: string; group: string | null }, syncedAt: string) {
+    const c = this.current;
+    if (!c || !c.enabled || c.pending !== null || c.region !== expect.region || c.group !== expect.group) return { superseded: true };
+    this.applied.push(rows);
+    this.current = { ...c, last_success_at: syncedAt, last_error_at: null, last_error: null };
+    return { superseded: false };
+  }
+  async recordError() {}
+  async clear() { this.cleared++; }
+  async enabledFamilies() { return []; }
+}
+
+/** What POST /api/school-holidays/sync does with a change, minus HTTP: the route's own steps, in its order. */
+async function post(familyId: string, store: RouteStore, change: SyncChange, options: RegionOptions | null, deps: SchoolSyncDeps, limits: string[]) {
+  const derived = defaultSchoolRegion(store.region.code!)!;
+  const result = applySyncChange(await store.setting(), change, derived, options);
+  if ("error" in result) throw new Error(result.error);
+  await store.saveSetting(familyId, result.setting);
+  if (result.clear) await store.clear();
+  return fetchIfReady(familyId, result.setting, deps, () => { limits.push(familyId); return syncLimited(familyId); });
+}
+
+function routeDeps(store: RouteStore, body: unknown): { deps: SchoolSyncDeps; calls: string[] } {
+  const calls: string[] = [];
+  const fetch: SyncFetch = async (url) => {
+    calls.push(url);
+    return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  return {
+    calls,
+    deps: {
+      fetch, store, now: () => new Date("2026-10-02T10:00:00Z"), installEnabled: true,
+      userAgent: "Kinboard/test (+https://github.com/svenger87/kinboard)", log: () => {},
+    },
+  };
+}
+
+test.describe("a two-step pick fetches on the second step (review #1)", () => {
+  test("a Dutch province, then its group", async () => {
+    const family = `claude-nl-${Date.now()}`;
+    const store = new RouteStore({ code: "NL", chosen: true });
+    const { deps, calls } = routeDeps(store, []);
+    const limits: string[] = [];
+    const GE: RegionOptions = {
+      subdivisions: [{ code: "NL-GE", name: "Gelderland" }],
+      children: [],
+      groups: [{ code: "NL-MI", name: "midden" }, { code: "NL-NO", name: "noord" }],
+    };
+    expect(await post(family, store, { region: "NL-GE" }, GE, deps, limits)).toEqual({ status: "skipped", reason: "needs-group" });
+    expect(limits).toEqual([]);
+    expect(await post(family, store, { group: "NL-MI" }, GE, deps, limits)).toEqual({ status: "synced", rows: 0 });
+    expect(limits).toHaveLength(1);
+    expect(calls).toHaveLength(1);
+    expect(store.current).toMatchObject({ enabled: true, region: "NL-GE", group: "NL-MI", pending: null, last_success_at: "2026-10-02T10:00:00.000Z" });
+    // And the minute is now used: a Refresh right after is limited, without a request.
+    expect(await post(family, store, {}, null, deps, limits)).toMatchObject({ status: "rate-limited" });
+    expect(calls).toHaveLength(1);
+  });
+
+  test("Graubünden, then one of its Regions", async () => {
+    const family = `claude-gr-${Date.now()}`;
+    const store = new RouteStore({ code: "CH-GR", chosen: true });
+    const { deps, calls } = routeDeps(store, JSON.parse(read("e2e/fixtures/openholidays/school-ch-gr-ml.json")));
+    const limits: string[] = [];
+    const GR: RegionOptions = {
+      subdivisions: [{ code: "CH-GR", name: "Graubünden" }],
+      children: [{ code: "CH-GR-ML", name: "Maloja" }],
+      groups: [{ code: "CH-GR-VS", name: "Volksschule" }],
+    };
+    // A Refresh before the Region is picked: nothing to fetch, nothing used up.
+    expect(await post(family, store, {}, null, deps, limits)).toEqual({ status: "skipped", reason: "needs-region" });
+    expect(await post(family, store, { region: "CH-GR" }, GR, deps, limits)).toEqual({ status: "skipped", reason: "needs-region" });
+    expect(limits).toEqual([]);
+    const second = await post(family, store, { region: "CH-GR-ML" }, GR, deps, limits);
+    expect(second.status).toBe("synced");
+    expect((second as { rows: number }).rows).toBeGreaterThan(0);
+    expect(calls).toHaveLength(1);
+    expect(store.current).toMatchObject({ region: "CH-GR-ML", group: "CH-GR-VS", pending: null });
+  });
+
+  test("off asks no limit; a limited fetch says so", async () => {
+    const store = new RouteStore({ code: "DE-NI", chosen: true });
+    const { deps, calls } = routeDeps(store, []);
+    const never = () => { throw new Error("asked the limit"); };
+    expect(await fetchIfReady("f", { ...SYNCED, enabled: false }, deps, never)).toEqual({ status: "skipped", reason: "disabled" });
+    expect(await fetchIfReady("f", SYNCED, deps, () => ({ limited: true, retryAfterMs: 1234 }))).toEqual({ status: "rate-limited", retryAfterMs: 1234 });
+    expect(calls).toEqual([]);
+  });
+});
+
+test("no row with a chosen, covered region is the default, on: a Refresh saves it on (review #2)", () => {
+  const NI = { region: "DE-NI", group: null, pending: null } as const;
+  expect(applySyncChange(null, {}, NI, null)).toEqual({ setting: { enabled: true, ...NI, ...FRESH }, clear: false });
+  expect(applySyncChange(null, { enabled: false }, NI, null)).toMatchObject({ setting: { enabled: false } });
+});
+
+test("re-picking the same region repairs a sync that still names another (review #3)", () => {
+  // The region was saved as DE-BY; the sync update that should have followed failed.
+  expect(reconcileOnRegionPick("DE-BY", "DE-BY", SYNCED, true)).toEqual({
+    setting: { enabled: true, region: "DE-BY", group: null, pending: null, ...FRESH }, clear: true,
+  });
+  // A switched-off family stays off while being repaired.
+  expect(reconcileOnRegionPick("DE-BY", "DE-BY", { ...SYNCED, enabled: false }, true).setting).toMatchObject({ enabled: false, region: "DE-BY" });
+  // A choice the card made inside the region is kept.
+  const maloja = { ...SYNCED, region: "CH-GR-ML", group: "CH-GR-VS" };
+  expect(reconcileOnRegionPick("CH-GR", "CH-GR", maloja, true)).toEqual({ setting: maloja, clear: false });
+  const gelderland = { ...SYNCED, region: "NL-GE", group: "NL-MI" };
+  expect(reconcileOnRegionPick("NL", "NL", gelderland, true)).toEqual({ setting: gelderland, clear: false });
+});
+
+test("the cron leaves a failing family alone for an hour, and a reseeded one not at all", () => {
+  const now = new Date("2026-10-02T10:00:00Z");
+  const failed = (at: string, success: string | null = null) => ({ ...SYNCED, last_success_at: success, last_error_at: at, last_error: "down" });
+  expect(backingOff(failed("2026-10-02T09:30:00Z"), now)).toBe(true);
+  expect(backingOff(failed("2026-10-02T08:59:00Z"), now)).toBe(false);
+  expect(backingOff(failed("2026-10-02T09:30:00Z", "2026-10-02T09:40:00Z"), now)).toBe(false);
+  expect(backingOff({ ...SYNCED, ...FRESH }, now)).toBe(false);
+});
+
+test("a restored backup keeps the family's choice and drops the old status", () => {
+  const old = { ...SYNCED, region: "CH-ZH", group: "CH-ZH-VS", last_error_at: "2026-09-01T00:00:00Z", last_error: "down" };
+  expect(restoredSyncSetting(old)).toEqual({ ...old, ...FRESH });
+  expect(restoredSyncSetting({ enabled: "yes" })).toBeNull();
+  expect(codeOnly(read("src/app/api/import/route.ts"))).toContain("restoredSyncSetting(row.value)");
+});
+
+test("both session routes fetch through fetchIfReady, and the region route reports what happened", () => {
+  const sync = codeOnly(read("src/app/api/school-holidays/sync/route.ts"));
+  expect(sync.match(/syncLimited\(/g)).toHaveLength(1);
+  expect(sync).toContain("fetchIfReady(familyId, change.setting, deps, () => syncLimited(familyId))");
+  expect(sync).not.toContain("syncFamily(");
+  const region = codeOnly(read("src/app/api/holidays/region/route.ts"));
+  expect(region).toContain("fetchIfReady(familyId, result.setting, deps, () => syncLimited(familyId))");
+  expect(region).not.toContain("syncFamily(");
+  expect(region).toContain('outcome = { status: "failed", error: INTERNAL_SYNC_ERROR }');
+  const cron = codeOnly(read("src/app/api/cron/sync-school-holidays/route.ts"));
+  expect(cron).toContain("isDue(setting, now) && !backingOff(setting, now)");
+  const store = codeOnly(read("src/lib/school-sync/store.ts"));
+  expect(store).toContain('.eq("value->>enabled", "true")');
+  expect(store).toContain(".range(from, from + ENABLED_PAGE - 1)");
 });

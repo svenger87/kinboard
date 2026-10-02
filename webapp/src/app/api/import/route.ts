@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
 import { SECRET_FIELDS, splitSecrets } from "@/lib/integration-secrets";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { restoredSyncSetting } from "@/lib/school-sync/reconcile";
 import { withHolidayRegion } from "@/lib/holidays/region";
 import { clientIp, hitLimit } from "@/lib/rate-limit";
 
@@ -304,6 +305,14 @@ export async function POST(request: NextRequest) {
   for (const row of payload.data.settings ?? []) {
     if (!isRecord(row) || typeof row.key !== "string") continue;
     if (row.key === SETTINGS_KEYS.settingsPin) continue;
+    // RFC-014 §5: the family's sync choice comes back, its status does not --
+    // the restored family has none of the backup's synced rows' history and
+    // is due at once. A value that is not a sync setting is dropped.
+    if (row.key === SETTINGS_KEYS.schoolHolidaySync) {
+      const restored = restoredSyncSetting(row.value);
+      if (restored) settingsRows.push({ ...row, value: restored });
+      continue;
+    }
     if (secretKeys.has(row.key)) {
       const { publicValue, secretValue } = splitSecrets(row.key, row.value);
       if (secretValue && Object.keys(secretValue).length > 0) {
