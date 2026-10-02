@@ -5,6 +5,7 @@ import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import type { PersonMappingRule } from "@/lib/calendar-person-matcher";
 import { familyPersonIds, syncedEventPersonId } from "@/lib/google-sync-person";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
+import { reconcileGoogleCalendars } from "@/lib/google-calendar-reconcile";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -134,12 +135,22 @@ export async function POST(request: NextRequest) {
   const enabledCalendars = settings.enabled_calendars || [];
   const mappingRules = settings.mapping_rules || [];
 
+  // Before anything else, and before the early return below: a family that
+  // unticked its last calendar is exactly the one with events to remove.
+  let reconciled;
+  try {
+    reconciled = await reconcileGoogleCalendars(supabase, family_id, settings.enabled_calendars);
+  } catch (reconcileError) {
+    console.error("Error reconciling Google calendars:", reconcileError);
+    return NextResponse.json({ error: "Sync failed" }, { status: 500 });
+  }
+
   if (enabledCalendars.length === 0) {
     return NextResponse.json({
       synced: 0,
       created: 0,
       updated: 0,
-      deleted: 0,
+      deleted: reconciled.deletedEvents,
       message: "No calendars enabled",
     });
   }
@@ -172,7 +183,7 @@ export async function POST(request: NextRequest) {
     const googleEventIds = new Set<string>();
     let created = 0;
     let updated = 0;
-    let deleted = 0;
+    let deleted = reconciled.deletedEvents;
 
     for (const googleCalendarId of enabledCalendars) {
       try {

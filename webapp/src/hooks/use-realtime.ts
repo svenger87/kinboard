@@ -22,6 +22,7 @@ const REALTIME_REAUTH_INTERVAL_MS = 20 * 60 * 1000;
 type TableName =
   | "people"
   | "events"
+  | "calendars"
   | "todos"
   | "shopping_items"
   | "subjects"
@@ -47,6 +48,7 @@ type TableName =
 const ALL_TABLES: TableName[] = [
   "people",
   "events",
+  "calendars",
   "todos",
   "shopping_items",
   "subjects",
@@ -106,6 +108,17 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           });
           break;
         case "events":
+          queryClient.invalidateQueries({
+            queryKey: ["events", family.id],
+          });
+          break;
+        case "calendars":
+          // A calendar switched off (an unticked Google calendar) leaves the
+          // calendar list, and the events query embeds each calendar's
+          // colour and holiday/waste flags, so both are refetched.
+          queryClient.invalidateQueries({
+            queryKey: ["calendars", family.id],
+          });
           queryClient.invalidateQueries({
             queryKey: ["events", family.id],
           });

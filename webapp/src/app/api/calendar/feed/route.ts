@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 import { getStoredSecrets, upsertSecrets } from "@/lib/integration-secrets";
 import { buildIcsCalendar, ExportEvent } from "@/lib/ics-export";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
@@ -42,6 +43,8 @@ export async function GET(request: NextRequest) {
       .from("events")
       .select("*, calendar:calendars!inner(family_id,name)")
       .eq("calendar.family_id", familyId)
+      // Not an unticked Google calendar (lib/google-calendar-reconcile.ts).
+      .or(VISIBLE_CALENDARS, { referencedTable: "calendar" })
       .order("id")
       .range(from, to)
   );

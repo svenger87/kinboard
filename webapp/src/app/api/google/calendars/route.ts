@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
+import { reconcileGoogleCalendars } from "@/lib/google-calendar-reconcile";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -183,5 +184,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ success: true });
+  // Unticking used to stop at the setting: the calendar's row and all its
+  // events stayed on every screen. Switch the unticked rows off and delete
+  // their events now rather than at the next sync (lib/google-calendar-reconcile.ts).
+  try {
+    const reconciled = await reconcileGoogleCalendars(supabase, family_id, enabled_calendars);
+    return NextResponse.json({ success: true, ...reconciled });
+  } catch (reconcileError) {
+    // Success, with a warning, not an error: the setting IS saved, and it is
+    // what every sync reconciles from, so the cleanup happens at the next
+    // one. A 500 here made the page revert the checkbox over a saved setting,
+    // and the next toggle then sent the reverted list and silently undid it.
+    console.error("Error reconciling Google calendars:", reconcileError);
+    return NextResponse.json({
+      success: true,
+      warning: "reconcile_failed",
+    });
+  }
 }

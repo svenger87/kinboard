@@ -166,6 +166,7 @@ export interface Database {
           google_calendar_id: string | null;
           person_id: string | null;
           color: string;
+          sync_enabled: boolean | null;
           is_holidays: boolean;
           is_waste_collection: boolean;
           created_at: string;
@@ -185,6 +186,7 @@ export interface Database {
           google_calendar_id?: string | null;
           person_id?: string | null;
           color: string;
+          sync_enabled?: boolean | null;
           is_holidays?: boolean;
           is_waste_collection?: boolean;
           created_at?: string;
@@ -204,6 +206,7 @@ export interface Database {
           google_calendar_id?: string | null;
           person_id?: string | null;
           color?: string;
+          sync_enabled?: boolean | null;
           is_holidays?: boolean;
           is_waste_collection?: boolean;
           created_at?: string;

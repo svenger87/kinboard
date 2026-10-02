@@ -9,6 +9,7 @@ import {
   prunableCalendars,
   type CalendarFetch,
 } from "@/lib/google-sync-prune";
+import { reconcileGoogleCalendars } from "@/lib/google-calendar-reconcile";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -70,8 +71,19 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
   const enabledCalendars = settings.enabled_calendars || [];
   const mappingRules = settings.mapping_rules || [];
 
+  // Before anything else, and before the early return below: a family that
+  // unticked its last calendar is exactly the one with events to remove. This
+  // is also what cleans up rows left behind before unticking did anything.
+  let reconciled;
+  try {
+    reconciled = await reconcileGoogleCalendars(supabase, familyId, settings.enabled_calendars);
+  } catch (reconcileError) {
+    console.error(`[google-sync-cron] Error reconciling calendars for family ${familyId}:`, reconcileError);
+    return { familyId, success: false, error: "Could not reconcile unticked calendars" };
+  }
+
   if (enabledCalendars.length === 0) {
-    return { familyId, success: true, synced: 0, created: 0, updated: 0, deleted: 0 };
+    return { familyId, success: true, synced: 0, created: 0, updated: 0, deleted: reconciled.deletedEvents };
   }
 
   // Create OAuth client
@@ -165,7 +177,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
     const fetches: CalendarFetch[] = [];
     let created = 0;
     let updated = 0;
-    let deleted = 0;
+    let deleted = reconciled.deletedEvents;
 
     for (const googleCalendarId of enabledCalendars) {
       try {

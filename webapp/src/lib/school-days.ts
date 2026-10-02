@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
+import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 import { isSchoolBreakOn, type SignalSchoolBreak } from "@/lib/attention/types";
 import { timetabledChildren } from "@/lib/timetabled-children";
 import { addDays } from "@/lib/family-time";
@@ -87,6 +88,9 @@ export async function fetchSchoolBreaks(
       .select("title, start_at, end_at, all_day, calendars!inner(family_id, is_holidays)")
       .eq("calendars.family_id", familyId)
       .eq("calendars.is_holidays", true)
+      // An unticked Google holiday calendar decides nothing, even in the
+      // moment before its events are deleted (lib/google-calendar-reconcile.ts).
+      .or(VISIBLE_CALENDARS, { referencedTable: "calendars" })
       .lte("start_at", `${to}T23:59:59Z`)
       .gte("end_at", `${from}T00:00:00Z`),
     (db as any)

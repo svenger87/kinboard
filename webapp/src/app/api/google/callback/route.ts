@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
 import { splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { mergeReconnectedGoogleSettings } from "@/lib/google-calendar-reconcile";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -102,14 +103,31 @@ export async function GET(request: NextRequest) {
     // Store tokens in Supabase settings
     const supabase = createAdminClient();
 
-    const googleSettings = {
+    // A reconnect keeps what the family chose -- ticked calendars, mapping
+    // rules, auto-sync -- and replaces only the connection. Replacing the
+    // whole setting made the first tick after a reconnect untick every other
+    // calendar (lib/google-calendar-reconcile.ts).
+    const { data: existing, error: existingError } = await (supabase as any)
+      .from("settings")
+      .select("value")
+      .eq("family_id", familyId)
+      .eq("key", "google_calendar")
+      .maybeSingle();
+    if (existingError) {
+      console.error("Error reading Google settings:", existingError);
+      return NextResponse.redirect(
+        new URL("/settings/google?error=save_failed", request.url)
+      );
+    }
+
+    const googleSettings = mergeReconnectedGoogleSettings(existing?.value, {
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       expiry_date: tokens.expiry_date,
       token_type: tokens.token_type || "Bearer",
       email: userEmail,
       connected_at: new Date().toISOString(),
-    };
+    });
 
     // Split tokens into the secrets table; everything else stays in settings.
     const { publicValue, secretValue } = splitSecrets("google_calendar", googleSettings);
