@@ -137,10 +137,25 @@ END $$;
 -- a filter and can't multiply rows.
 -- ---------------------------------------------------------------------------
 
+-- families gets one policy per command the browser actually issues — it reads
+-- its own row and updates it (rename, new join code) — and none for INSERT or
+-- DELETE. Creating a family goes through /api/session/create and deleting one
+-- through DELETE /api/family, which asks for the family's name first; both use
+-- the service role. A FOR ALL policy here used to let a family token delete
+-- its own family directly, skipping that confirmation.
+-- migration_zzzzzz_families_server_only.sql revokes the matching grants.
+--
+-- The policy names end in `_family_scope` so the clean-up loop at the top of
+-- this file leaves them alone on the next boot.
 ALTER TABLE public.families ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS families_family_scope ON public.families;
-CREATE POLICY families_family_scope ON public.families
-  FOR ALL
+DROP POLICY IF EXISTS families_select_family_scope ON public.families;
+CREATE POLICY families_select_family_scope ON public.families
+  FOR SELECT
+  USING (id = public.current_family_id());
+DROP POLICY IF EXISTS families_update_family_scope ON public.families;
+CREATE POLICY families_update_family_scope ON public.families
+  FOR UPDATE
   USING (id = public.current_family_id())
   WITH CHECK (id = public.current_family_id());
 
