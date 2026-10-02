@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 import { formatEventTime } from "@/lib/notifications/format";
 
 export const dynamic = "force-dynamic";
@@ -102,6 +103,8 @@ export async function POST(request: NextRequest) {
       .from("events")
       .select("id, calendar_id, title, start_at, calendars!inner(family_id)")
       .eq("calendars.family_id", familyId)
+      // Not an unticked Google calendar (lib/google-calendar-reconcile.ts).
+      .or(VISIBLE_CALENDARS, { referencedTable: "calendars" })
       .eq("all_day", false)
       .gte("start_at", rangeStart.toISOString())
       .lte("start_at", rangeEnd.toISOString());

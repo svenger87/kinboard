@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
+import { reconcileGoogleCalendars } from "@/lib/google-calendar-reconcile";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -183,5 +184,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ success: true });
+  // Unticking used to stop at the setting: the calendar's row and all its
+  // events stayed on every screen. Switch the unticked rows off and delete
+  // their events now rather than at the next sync (lib/google-calendar-reconcile.ts).
+  try {
+    const reconciled = await reconcileGoogleCalendars(supabase, family_id, enabled_calendars);
+    return NextResponse.json({ success: true, ...reconciled });
+  } catch (reconcileError) {
+    // The setting is saved; the next sync reconciles again.
+    console.error("Error reconciling Google calendars:", reconcileError);
+    return NextResponse.json(
+      { error: "Saved, but could not remove the unticked calendars' events" },
+      { status: 500 }
+    );
+  }
 }

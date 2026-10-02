@@ -8,6 +8,7 @@ import { invalidateFamilyToken, primeFamilyToken } from "@/lib/supabase/family-t
 import { useFamilyStore } from "@/stores/family-store";
 import { getDeviceId, persistDeviceId, getDeviceFingerprint } from "@/lib/device-id";
 import { eventPushTarget } from "@/lib/local-calendars";
+import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 import type {
   Database,
   Family,
@@ -704,6 +705,8 @@ export function useCalendars() {
         .from("calendars")
         .select("*")
         .eq("family_id", requireFamilyId(family))
+        // Not an unticked Google calendar (lib/google-calendar-reconcile.ts).
+        .or(VISIBLE_CALENDARS)
         .order("name");
 
       if (error) throw error;
@@ -1138,7 +1141,12 @@ export function useEvents(startDate?: string, endDate?: string, options?: { enab
           *,
           calendar:calendars!inner(family_id, person_id, color, name, is_holidays, is_waste_collection)
         `)
-        .eq("calendar.family_id", requireFamilyId(family));
+        .eq("calendar.family_id", requireFamilyId(family))
+        // Every dashboard widget, the screensaver and /calendar read events
+        // through here: nothing from an unticked Google calendar
+        // (lib/google-calendar-reconcile.ts), even in the moment between
+        // unticking and its events being deleted.
+        .or(VISIBLE_CALENDARS, { referencedTable: "calendar" });
 
       if (startDate && endDate) {
         // Include events that overlap the range (not just start within it)
@@ -1174,6 +1182,7 @@ export function useEventById(id?: string) {
         `)
         .eq("id", id as string)
         .eq("calendar.family_id", requireFamilyId(family))
+        .or(VISIBLE_CALENDARS, { referencedTable: "calendar" })
         .maybeSingle();
 
       if (error) throw error;

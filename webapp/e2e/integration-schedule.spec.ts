@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { matchesOr } from "./postgrest-or";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import yaml from "js-yaml";
@@ -40,7 +41,7 @@ const TUESDAY = "2026-10-06";
 const SATURDAY = "2026-10-10";
 
 type Row = Record<string, unknown>;
-type Filter = [op: "eq" | "in" | "isnull" | "lte" | "gte", column: string, value?: unknown];
+type Filter = [op: "eq" | "in" | "isnull" | "lte" | "gte" | "or", column: string, value?: unknown];
 
 function fakeDb(tables: Record<string, Row[]>) {
   const queries: Array<{ table: string; filters: Filter[] }> = [];
@@ -55,6 +56,8 @@ function fakeDb(tables: Record<string, Row[]>) {
   };
   const matches = (table: string, filters: Filter[]) => (row: Row) =>
     filters.every(([op, column, v]) => {
+      // `or` carries the embedding's prefix ("calendars." or "") as its column.
+      if (op === "or") return matchesOr(String(v), (c) => value(table, row, `${column}${c}`));
       const actual = value(table, row, column);
       if (op === "isnull") return actual === null;
       if (op === "eq") return actual === v;
@@ -81,6 +84,10 @@ function fakeDb(tables: Record<string, Row[]>) {
         select() { return chain; },
         eq(column: string, v: unknown) { filters.push(["eq", column, v]); return chain; },
         in(column: string, v: unknown[]) { filters.push(["in", column, v]); return chain; },
+        or(expr: string, opts?: { referencedTable?: string }) {
+          filters.push(["or", opts?.referencedTable ? `${opts.referencedTable}.` : "", expr]);
+          return chain;
+        },
         is(column: string, v: unknown) {
           if (v !== null) throw new Error(`unsupported is(${column}, ${String(v)})`);
           filters.push(["isnull", column]);

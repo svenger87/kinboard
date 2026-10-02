@@ -167,6 +167,9 @@ export function useUpdateEnabledCalendars() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["google-calendar-status", family?.id] });
       queryClient.invalidateQueries({ queryKey: ["google-events", family?.id] });
+      // The route switches unticked calendars off and deletes their events.
+      queryClient.invalidateQueries({ queryKey: ["events", family?.id] });
+      queryClient.invalidateQueries({ queryKey: ["calendars", family?.id] });
     },
   });
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { createAdminClient } from "@/lib/supabase/server";
+import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 import { toLocalDateKey } from "@/lib/local-date";
 import { resolveDayContext } from "@/lib/attention/engine";
 import { detectWasteType } from "@/lib/waste-types";
@@ -221,7 +222,8 @@ export async function GET(request: NextRequest) {
       const [calendars, shopping, todos, meals, school, birthdays, people, mealsTomorrow, purses, wasteCalendars, goals, attention] =
         await Promise.all([
 
-        (supabase as any).from("calendars").select("id").eq("family_id", familyId),
+        // Not an unticked Google calendar (lib/google-calendar-reconcile.ts).
+        (supabase as any).from("calendars").select("id").eq("family_id", familyId).or(VISIBLE_CALENDARS),
 
         (supabase as any)
           .from("shopping_items")
@@ -289,7 +291,8 @@ export async function GET(request: NextRequest) {
           .from("calendars")
           .select("id")
           .eq("family_id", familyId)
-          .eq("is_waste_collection", true),
+          .eq("is_waste_collection", true)
+          .or(VISIBLE_CALENDARS),
 
         // Goals hang off an ACCOUNT, not off a family or a person: there is
         // no family_id or person_id column on pocket_money_goals. Filtering on

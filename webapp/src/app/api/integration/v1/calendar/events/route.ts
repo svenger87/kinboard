@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { createAdminClient } from "@/lib/supabase/server";
+import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 import { logApiError } from "@/lib/api-error";
 import {
   findStoredResult, fingerprintRequest, storeResult, validateIdempotencyKey,
@@ -105,7 +106,9 @@ export async function GET(request: NextRequest) {
       const { data: calendars } = await (supabase as any)
         .from("calendars")
         .select("id")
-        .eq("family_id", context.familyId);
+        .eq("family_id", context.familyId)
+        // Not an unticked Google calendar (lib/google-calendar-reconcile.ts).
+        .or(VISIBLE_CALENDARS);
 
       const calendarIds = ((calendars ?? []) as { id: string }[]).map((c) => c.id);
       if (calendarIds.length === 0) {
@@ -188,6 +191,8 @@ export async function POST(request: NextRequest) {
         .select("id, google_calendar_id, ics_url, caldav_url, caldav_server_url, caldav_read_only")
         .eq("id", event.calendarId)
         .eq("family_id", context.familyId)
+        // An unticked Google calendar is not offered, so not writable either.
+        .or(VISIBLE_CALENDARS)
         .maybeSingle();
       if (calendarError) throw calendarError;
       if (!calendar || calendarWriteMode(calendar as WritableCalendar) === "read_only") {

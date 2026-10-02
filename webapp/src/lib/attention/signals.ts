@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
+import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 import {
   DEFAULT_PACK_ITEMS,
   PACK_ITEMS_SETTING_KEY,
@@ -105,7 +106,9 @@ async function fetchEvents(familyId: string, now: Date): Promise<SignalEvent[]> 
   const { data: calendars } = await (supabase as any)
     .from("calendars")
     .select("id")
-    .eq("family_id", familyId);
+    .eq("family_id", familyId)
+    // Not an unticked Google calendar (lib/google-calendar-reconcile.ts).
+    .or(VISIBLE_CALENDARS);
   const calendarIds = (calendars ?? []).map((c: { id: string }) => c.id);
   if (calendarIds.length === 0) return [];
 

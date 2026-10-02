@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { createAdminClient } from "@/lib/supabase/server";
+import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 import { logApiError } from "@/lib/api-error";
 import { calendarWriteMode, type WritableCalendar } from "@/lib/calendar-write-mode";
 
@@ -14,6 +15,8 @@ export async function GET(request: NextRequest) {
         .from("calendars")
         .select("id, name, person_id, google_calendar_id, ics_url, caldav_url, caldav_server_url, caldav_read_only")
         .eq("family_id", context.familyId)
+        // Not an unticked Google calendar (lib/google-calendar-reconcile.ts).
+        .or(VISIBLE_CALENDARS)
         .order("name", { ascending: true })
         .limit(500);
       if (error) throw error;
