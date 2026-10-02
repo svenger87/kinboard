@@ -32,8 +32,14 @@ import {
 } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { personText, personTint } from "@/lib/person-color";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { format } from "date-fns";
 import { useSchedules, usePeople } from "@/hooks";
+import { useSchoolBreaks } from "@/hooks/use-school-days";
+import { addDays, toLocalDateKey } from "@/lib/local-date";
+import { dayOfWeekOf, nextSchoolDay, NEXT_SCHOOL_DAY_HORIZON, schoolDayStatusOn } from "@/lib/school-day-rule";
+import { holidayEndPattern, keyToDate } from "@/lib/holiday-entries";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useSetting } from "@/hooks";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { DEFAULT_SCHEDULE_WIDGET_SETTINGS, type ScheduleWidgetSettings } from "@/types/widgets";
@@ -157,6 +163,7 @@ export function ScheduleWidget({
   // weather widget uses for sunrise and sunset.
   const { formatWallClock } = useTimeFormat();
   const t = useTranslations("scheduleWidget");
+  const locale = useLocale();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const { data: people, isLoading: loadingPeople } = usePeople();
@@ -171,13 +178,24 @@ export function ScheduleWidget({
   const { data: schedules, isLoading: loadingSchedules } = useSchedules(personId);
   const { data: widgetSettings } = useSetting<ScheduleWidgetSettings>(SETTINGS_KEYS.scheduleWidget, DEFAULT_SCHEDULE_WIDGET_SETTINGS);
 
+  // Which days have no school: the server's rule (lib/school-day-rule.ts),
+  // fed the family's holidays, from today to as far as the next-school-day
+  // preview looks. The device's local date, as the rest of the widget uses.
+  const todayKey = toLocalDateKey(currentTime);
+  const { breaks, isLoading: loadingBreaks } = useSchoolBreaks(
+    todayKey,
+    addDays(todayKey, NEXT_SCHOOL_DAY_HORIZON),
+  );
+
   // Update every minute
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(interval);
   }, []);
 
-  if (loadingSchedules || loadingPeople) {
+  // Waiting for the holidays too: lessons first and a day off a moment later
+  // would flash a timetable nobody has today.
+  if (loadingSchedules || loadingPeople || loadingBreaks) {
     return <ScheduleWidgetSkeleton />;
   }
 
@@ -202,23 +220,29 @@ export function ScheduleWidget({
     );
   }
 
-  // Get the current day of week
-  // JavaScript getDay(): 0=Sunday, 1=Monday...6=Saturday
-  // Database day_of_week: 1=Monday, 2=Tuesday...5=Friday (1-based)
-  const jsDay = currentTime.getDay();
+  // day_of_week is JavaScript's: 0 = Sunday … 6 = Saturday.
   const nowTime = `${currentTime.getHours().toString().padStart(2, "0")}:${currentTime.getMinutes().toString().padStart(2, "0")}`;
   const tomorrowFrom = widgetSettings?.tomorrowFrom ?? DEFAULT_SCHEDULE_WIDGET_SETTINGS.tomorrowFrom!;
   const previewNextDay = tomorrowFrom !== "off" && nowTime >= tomorrowFrom;
-  let dbDay = jsDay === 0 || jsDay === 6 ? -1 : jsDay;
-  if (previewNextDay && schedules?.length) {
-    for (let offset = 1; offset <= 7; offset++) {
-      const nextDay = (jsDay + offset) % 7;
-      if (schedules.some((schedule) => schedule.day_of_week === nextDay && Array.isArray(schedule.time_slots) && schedule.time_slots.length > 0)) {
-        dbDay = nextDay;
-        break;
-      }
-    }
-  }
+
+  // Today, by the same rule as the server's "school tomorrow": a weekend, a
+  // school break, a holiday-calendar event or a public holiday is no school.
+  const today = schoolDayStatusOn(todayKey, breaks);
+  let dbDay = today.school_day ? dayOfWeekOf(todayKey) : -1;
+
+  // In the evening, the next day there is school and this child has lessons:
+  // past the weekend, and past every holiday and break, not just Saturday and Sunday.
+  const hasLessons = (dow: number) =>
+    !!schedules?.some((schedule) => schedule.day_of_week === dow && Array.isArray(schedule.time_slots) && schedule.time_slots.length > 0);
+  const next = previewNextDay && schedules?.length ? nextSchoolDay(todayKey, breaks, { hasLessons }) : null;
+  if (next) dbDay = dayOfWeekOf(next.date);
+  const nextLabel = !next
+    ? null
+    : next.date === addDays(todayKey, 1)
+      ? t("nextSchoolDay")
+      : t("nextSchoolDayOn", {
+          date: format(keyToDate(next.date), holidayEndPattern(locale), { locale: getDateFnsLocale(locale) }),
+        });
 
   // Find schedule for today
   const todayScheduleData = schedules?.find((s) => s.day_of_week === dbDay);
@@ -242,8 +266,9 @@ export function ScheduleWidget({
   const timeNow = `${currentTime.getHours().toString().padStart(2, "0")}:${currentTime.getMinutes().toString().padStart(2, "0")}`;
   const schoolOver = lastSlot && timeNow > lastSlot.end;
 
-  // Weekend or no schedule (using JavaScript day)
-  const isWeekend = dbDay === -1;
+  // A day off, unless the evening preview has moved on to the next school day.
+  const dayOff = next ? null : today.school_day ? null : today;
+  const isWeekend = dayOff?.reason === "weekend";
   const noScheduleToday = todaySchedule.length === 0;
 
   return (
@@ -325,10 +350,17 @@ export function ScheduleWidget({
           </div>
         </CardHeader>
         <CardContent>
-          {previewNextDay && !noScheduleToday && (
-            <p className="mb-3 text-sm font-medium text-primary">{t("nextSchoolDay")}</p>
+          {nextLabel && !noScheduleToday && (
+            <p className="mb-3 text-sm font-medium text-primary" data-next-school-day={next?.date}>{nextLabel}</p>
           )}
-          {isWeekend ? (
+          {dayOff?.reason === "holiday" ? (
+            /* A holiday or a school break: named, never the weekday's lessons */
+            <div className="text-center py-4" data-day-off={dayOff.date}>
+              <PartyPopper className="size-8 mx-auto mb-2 text-primary/60" strokeWidth={1.75} />
+              <p className="font-medium break-words line-clamp-2">{dayOff.holiday || t("noSchoolToday")}</p>
+              {dayOff.holiday ? <p className="text-sm text-muted-foreground">{t("noSchoolToday")}</p> : null}
+            </div>
+          ) : isWeekend ? (
             /* Weekend */
             <div className="text-center py-4">
               <PartyPopper className="size-8 mx-auto mb-2 text-primary/60" strokeWidth={1.75} />
@@ -340,7 +372,7 @@ export function ScheduleWidget({
               <GraduationCap className="size-8 mx-auto mb-2 text-primary/20" />
               <p className="text-muted-foreground text-sm">{t("noScheduleToday")}</p>
             </div>
-          ) : (widgetSettings?.equalSize ?? false) || previewNextDay ? (
+          ) : (widgetSettings?.equalSize ?? false) || next ? (
             <div className="space-y-2">
               {todaySchedule.map((slot) => {
                 const SubjectIcon = getSubjectIcon(slot.subject);

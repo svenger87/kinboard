@@ -3887,6 +3887,7 @@
   },
   "scheduleWidget": {
     "nextSchoolDay": "Nächster Schultag",
+    "nextSchoolDayOn": "Nächster Schultag: {date}",
     "loadingAria": "Stundenplan wird geladen",
     "title": "Stundenplan",
     "noChildTitle": "Kein Kind eingerichtet",
@@ -3895,6 +3896,7 @@
     "viewAllAria": "Vollständigen Stundenplan anzeigen",
     "viewAllTooltip": "Stundenplan anzeigen",
     "weekend": "Wochenende!",
+    "noSchoolToday": "Heute keine Schule",
     "noScheduleToday": "Kein Stundenplan eingerichtet",
     "schoolOver": "Schule ist aus!",
     "nowBadge": "Jetzt",
