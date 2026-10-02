@@ -299,7 +299,7 @@ check_data_dir_filesystem() {
 # container, the scheduler is recreated after it; otherwise it is left alone.
 # $1: the webapp container id from before `up -d`.
 webapp_container() {
-  $COMPOSE $COMPOSE_FILES ps -q webapp 2>/dev/null | head -n1 || true
+  $COMPOSE $COMPOSE_FILES ps -aq webapp 2>/dev/null | head -n1 || true
 }
 recreate_scheduler_if_webapp_changed() {
   local before="$1" after

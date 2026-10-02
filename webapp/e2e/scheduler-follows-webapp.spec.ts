@@ -42,7 +42,7 @@ function run(script: (typeof SCRIPTS)[number], before: string, after: string, se
          docker() {
            echo "docker $*" >> "$CALLS"
            case "$*" in
-             *"ps -q webapp"*) [ -n "$AFTER" ] && echo "$AFTER" ;;
+             *"ps -aq webapp"*) [ -n "$AFTER" ] && echo "$AFTER" ;;
              *"config --services"*) printf '%s\\n' $SERVICES ;;
            esac
            return 0

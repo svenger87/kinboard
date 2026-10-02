@@ -247,7 +247,7 @@ take_backup() {
 
 webapp_container() {
   # shellcheck disable=SC2086
-  docker compose $COMPOSE_FILES ps -q webapp 2>/dev/null | head -n1
+  docker compose $COMPOSE_FILES ps -aq webapp 2>/dev/null | head -n1
 }
 
 # $1: the webapp container id from before `up -d` (empty if none ran).
