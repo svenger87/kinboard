@@ -1,0 +1,505 @@
+{
+  "countries": {
+    "AD": {
+      "zones": [
+        "Europe/Andorra"
+      ],
+      "subdivisions": [
+        "03",
+        "07"
+      ],
+      "openHolidays": true
+    },
+    "AL": {
+      "zones": [
+        "Europe/Tirane"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "AT": {
+      "zones": [
+        "Europe/Vienna"
+      ],
+      "subdivisions": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9"
+      ],
+      "openHolidays": true
+    },
+    "BE": {
+      "zones": [
+        "Europe/Brussels"
+      ],
+      "subdivisions": [
+        "BRU",
+        "DE",
+        "VLG",
+        "WAL"
+      ],
+      "openHolidays": true
+    },
+    "BG": {
+      "zones": [
+        "Europe/Sofia"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "BR": {
+      "zones": [
+        "America/Sao_Paulo",
+        "America/Noronha",
+        "America/Belem",
+        "America/Fortaleza",
+        "America/Recife",
+        "America/Araguaina",
+        "America/Maceio",
+        "America/Bahia",
+        "America/Campo_Grande",
+        "America/Cuiaba",
+        "America/Santarem",
+        "America/Porto_Velho",
+        "America/Boa_Vista",
+        "America/Manaus",
+        "America/Eirunepe",
+        "America/Rio_Branco"
+      ],
+      "subdivisions": [
+        "AC",
+        "AL",
+        "AM",
+        "AP",
+        "BA",
+        "CE",
+        "DF",
+        "ES",
+        "GO",
+        "MA",
+        "MG",
+        "MS",
+        "MT",
+        "PA",
+        "PB",
+        "PE",
+        "PI",
+        "PR",
+        "RJ",
+        "RN",
+        "RO",
+        "RR",
+        "RS",
+        "SC",
+        "SE",
+        "SP",
+        "TO"
+      ],
+      "openHolidays": true
+    },
+    "BY": {
+      "zones": [
+        "Europe/Minsk"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "CH": {
+      "zones": [
+        "Europe/Zurich"
+      ],
+      "subdivisions": [
+        "ZH",
+        "BE",
+        "LU",
+        "UR",
+        "SZ",
+        "OW",
+        "NW",
+        "GL",
+        "ZG",
+        "FR",
+        "SO",
+        "BS",
+        "BL",
+        "SH",
+        "AR",
+        "AI",
+        "SG",
+        "GR",
+        "AG",
+        "TG",
+        "TI",
+        "VD",
+        "VS",
+        "NE",
+        "GE",
+        "JU"
+      ],
+      "openHolidays": true
+    },
+    "CZ": {
+      "zones": [
+        "Europe/Prague"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "DE": {
+      "zones": [
+        "Europe/Berlin"
+      ],
+      "subdivisions": [
+        "BB",
+        "BE",
+        "BW",
+        "BY",
+        "HB",
+        "HE",
+        "HH",
+        "MV",
+        "NI",
+        "NW",
+        "RP",
+        "SH",
+        "SL",
+        "SN",
+        "ST",
+        "TH"
+      ],
+      "openHolidays": true
+    },
+    "EE": {
+      "zones": [
+        "Europe/Tallinn"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "ES": {
+      "zones": [
+        "Europe/Madrid",
+        "Africa/Ceuta",
+        "Atlantic/Canary"
+      ],
+      "subdivisions": [
+        "AN",
+        "AR",
+        "AS",
+        "CB",
+        "CE",
+        "CL",
+        "CM",
+        "CN",
+        "CT",
+        "EX",
+        "GA",
+        "IB",
+        "MC",
+        "MD",
+        "ML",
+        "NC",
+        "PV",
+        "RI",
+        "VC"
+      ],
+      "openHolidays": true
+    },
+    "FR": {
+      "zones": [
+        "Europe/Paris"
+      ],
+      "subdivisions": [
+        "57",
+        "67",
+        "68",
+        "YT",
+        "MQ",
+        "GP",
+        "GF",
+        "RE",
+        "MF",
+        "BL"
+      ],
+      "openHolidays": true
+    },
+    "GB": {
+      "zones": [
+        "Europe/London"
+      ],
+      "subdivisions": [
+        "ALD",
+        "ENG",
+        "NIR",
+        "SCT",
+        "WLS"
+      ],
+      "openHolidays": false
+    },
+    "HR": {
+      "zones": [],
+      "subdivisions": [
+        "17",
+        "19"
+      ],
+      "openHolidays": true
+    },
+    "HU": {
+      "zones": [
+        "Europe/Budapest"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "IE": {
+      "zones": [
+        "Europe/Dublin"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "IT": {
+      "zones": [
+        "Europe/Rome"
+      ],
+      "subdivisions": [
+        "32"
+      ],
+      "openHolidays": true
+    },
+    "LI": {
+      "zones": [],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "LT": {
+      "zones": [
+        "Europe/Vilnius"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "LU": {
+      "zones": [
+        "Europe/Luxembourg"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "LV": {
+      "zones": [
+        "Europe/Riga"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "MC": {
+      "zones": [
+        "Europe/Monaco"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "MD": {
+      "zones": [
+        "Europe/Chisinau"
+      ],
+      "subdivisions": [
+        "CA",
+        "CU"
+      ],
+      "openHolidays": true
+    },
+    "MT": {
+      "zones": [
+        "Europe/Malta"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "MX": {
+      "zones": [
+        "America/Mexico_City",
+        "America/Cancun",
+        "America/Merida",
+        "America/Monterrey",
+        "America/Matamoros",
+        "America/Mazatlan",
+        "America/Chihuahua",
+        "America/Ojinaga",
+        "America/Hermosillo",
+        "America/Tijuana",
+        "America/Santa_Isabel",
+        "America/Bahia_Banderas"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "NL": {
+      "zones": [
+        "Europe/Amsterdam"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "PL": {
+      "zones": [
+        "Europe/Warsaw"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "PT": {
+      "zones": [
+        "Europe/Lisbon",
+        "Atlantic/Madeira",
+        "Atlantic/Azores"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "RO": {
+      "zones": [
+        "Europe/Bucharest"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "RS": {
+      "zones": [
+        "Europe/Belgrade"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "SE": {
+      "zones": [
+        "Europe/Stockholm"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "SI": {
+      "zones": [],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "SK": {
+      "zones": [
+        "Europe/Bratislava"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "SM": {
+      "zones": [],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "US": {
+      "zones": [
+        "America/New_York",
+        "America/Detroit",
+        "America/Kentucky/Louisville",
+        "America/Kentucky/Monticello",
+        "America/Indiana/Indianapolis",
+        "America/Indiana/Vincennes",
+        "America/Indiana/Winamac",
+        "America/Indiana/Marengo",
+        "America/Indiana/Petersburg",
+        "America/Indiana/Vevay",
+        "America/Chicago",
+        "America/Indiana/Tell_City",
+        "America/Indiana/Knox",
+        "America/Menominee",
+        "America/North_Dakota/Center",
+        "America/North_Dakota/New_Salem",
+        "America/North_Dakota/Beulah",
+        "America/Denver",
+        "America/Boise",
+        "America/Phoenix",
+        "America/Los_Angeles",
+        "America/Metlakatla",
+        "America/Anchorage",
+        "America/Juneau",
+        "America/Sitka",
+        "America/Yakutat",
+        "America/Nome",
+        "America/Adak",
+        "Pacific/Honolulu"
+      ],
+      "subdivisions": [
+        "AL",
+        "AK",
+        "AZ",
+        "AR",
+        "CA",
+        "CO",
+        "CT",
+        "DE",
+        "DC",
+        "FL",
+        "GA",
+        "HI",
+        "ID",
+        "IL",
+        "IN",
+        "IA",
+        "KS",
+        "KY",
+        "LA",
+        "ME",
+        "MD",
+        "MA",
+        "MI",
+        "MN",
+        "MS",
+        "MO",
+        "MT",
+        "NE",
+        "NV",
+        "NH",
+        "NJ",
+        "NM",
+        "NY",
+        "NC",
+        "ND",
+        "OH",
+        "OK",
+        "OR",
+        "PA",
+        "RI",
+        "SC",
+        "SD",
+        "TN",
+        "TX",
+        "UT",
+        "VT",
+        "VA",
+        "WA",
+        "WV",
+        "WI",
+        "WY"
+      ],
+      "openHolidays": false
+    },
+    "VA": {
+      "zones": [],
+      "subdivisions": [],
+      "openHolidays": true
+    },
+    "ZA": {
+      "zones": [
+        "Africa/Johannesburg"
+      ],
+      "subdivisions": [],
+      "openHolidays": true
+    }
+  }
+}
