@@ -18,6 +18,8 @@
 #   4. docker compose up -d                — recreates only services
 #      whose image changed. The webapp's entrypoint re-applies all
 #      migration_*.sql on boot (idempotent).
+#   4b. docker compose up -d --force-recreate cron — only when step 4
+#      recreated the webapp: ofelia reads job labels only at start.
 #   5. docker restart kinboard-kong        — Kong's DB-less mode doesn't
 #      fully reload from `kong reload`. Only kicked if kong.yml's mtime
 #      is newer than kong's container start time.
@@ -228,6 +230,45 @@ take_backup() {
   return 0
 }
 
+# ---------------------------------------------------------------------------
+# The scheduler follows a new webapp.
+#
+# ofelia (the `cron` service) reads its jobs from the webapp container's
+# labels once, when it starts, and never looks again. `up -d` recreates the
+# webapp when its image changes, but not `cron`, whose own definition did
+# not -- so a job a release adds is never scheduled, and nothing says so
+# (RFC-014's weekly school-holiday sync, v1.13). So whenever the webapp
+# container is a new one, the scheduler is recreated after it.
+#
+# Idempotent: a run that left the webapp alone leaves the scheduler alone,
+# and recreating it twice is the same as once. A stack without `cron` is
+# skipped.
+# ---------------------------------------------------------------------------
+
+webapp_container() {
+  # shellcheck disable=SC2086
+  docker compose $COMPOSE_FILES ps -q webapp 2>/dev/null | head -n1
+}
+
+# $1: the webapp container id from before `up -d` (empty if none ran).
+recreate_scheduler_if_webapp_changed() {
+  before="$1"
+  after="$(webapp_container)"
+  if [ -z "$after" ] || [ "$before" = "$after" ]; then
+    log "webapp not recreated; scheduler left as it is"
+    return 0
+  fi
+  # shellcheck disable=SC2086
+  if ! docker compose $COMPOSE_FILES config --services 2>/dev/null | grep -x cron >/dev/null; then
+    log "webapp recreated; this stack has no cron service to refresh"
+    return 0
+  fi
+  log "webapp recreated; recreating cron so the scheduler reads its job labels again"
+  # shellcheck disable=SC2086
+  docker compose $COMPOSE_FILES up -d --no-deps --no-build --force-recreate cron >>"$LOG_FILE" 2>&1 \
+    || log "WARN: could not recreate cron; run: docker compose \$CF up -d --force-recreate cron"
+}
+
 cd "$PROJECT_DIR"
 
 log "=== self-update fired ==="
@@ -348,9 +389,13 @@ fi
 SERVICES=$(docker compose $COMPOSE_FILES config --services 2>/dev/null \
             | grep -vE '^(webhook|diun)$' \
             | tr '\n' ' ')
+WEBAPP_BEFORE="$(webapp_container)"
 log "docker compose $COMPOSE_FILES up -d --no-build $SERVICES"
 # shellcheck disable=SC2086
 docker compose $COMPOSE_FILES up -d --no-build $SERVICES >>"$LOG_FILE" 2>&1
+
+# 4b. The scheduler, when the webapp is new (see recreate_scheduler_if_webapp_changed).
+recreate_scheduler_if_webapp_changed "$WEBAPP_BEFORE"
 
 # 5. Kong restart — only if kong.yml changed during this run.
 KONG_AFTER="$(stat -c %Y kong.yml 2>/dev/null || echo 0)"

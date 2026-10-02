@@ -292,6 +292,30 @@ check_data_dir_filesystem() {
   return 0
 }
 
+# ofelia (the `cron` service) reads its jobs from the webapp container's
+# labels once, at start. `up -d` recreates the webapp when its image or
+# definition changed but leaves `cron` running with the old job list, so a
+# job a release adds would never run. So when `up` made a new webapp
+# container, the scheduler is recreated after it; otherwise it is left alone.
+# $1: the webapp container id from before `up -d`.
+webapp_container() {
+  $COMPOSE $COMPOSE_FILES ps -q webapp 2>/dev/null | head -n1 || true
+}
+recreate_scheduler_if_webapp_changed() {
+  local before="$1" after
+  after="$(webapp_container)"
+  if [[ -z "$after" || "$before" == "$after" ]]; then
+    return 0
+  fi
+  # grep reads to the end (no -q): under pipefail, compose dying of SIGPIPE
+  # after an early exit would read as "no cron".
+  if ! $COMPOSE $COMPOSE_FILES config --services 2>/dev/null | grep -x cron >/dev/null; then
+    return 0
+  fi
+  echo "→ webapp recreated; recreating cron so the scheduler reads its jobs again"
+  $COMPOSE $COMPOSE_FILES up -d --no-deps --force-recreate cron
+}
+
 case "$cmd" in
   up)
     check_data_dir_filesystem || exit 1
@@ -338,7 +362,9 @@ case "$cmd" in
     # The one-shot db-init service (docker-compose.yml) aligns role
     # passwords before auth/rest/storage/realtime start, so we just bring
     # the stack up and apply migrations.
+    webapp_before="$(webapp_container)"
     $COMPOSE $COMPOSE_FILES up -d
+    recreate_scheduler_if_webapp_changed "$webapp_before"
     wait_for_migrations
     $COMPOSE $COMPOSE_FILES ps
     ;;

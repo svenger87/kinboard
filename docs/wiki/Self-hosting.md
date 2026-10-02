@@ -374,6 +374,8 @@ cd webapp/docker
 ./start.sh restart   # rebuilds webapp + restarts webapp + cron
 ```
 
+The scheduler (`cron`, ofelia) reads its jobs from the webapp container's labels only when it starts, so whenever the webapp container is recreated, `cron` has to be recreated after it or a job a release adds never runs. `./start.sh restart` always does this, and `./start.sh up` and the Diun self-update do it whenever they recreated the webapp. If you recreate the webapp some other way (`docker compose up -d webapp`), follow it with `docker compose up -d --no-deps --force-recreate cron`, with the same `-f` files.
+
 Schema changes ship as new files in `webapp/docker/migrations/` (idempotent — safe to re-apply). **You do not normally need to run them**: the webapp container applies every migration when it starts, so pulling a new image and restarting is enough, and it refuses to start rather than serve against a half-applied schema.
 
 The manual path is still there for when the container could not do it — no `POSTGRES_PASSWORD` in the webapp's environment, say:
@@ -435,7 +437,8 @@ The recommended path is the **Diun + webhook overlay** (`docker-compose.diun.yml
 3. `docker compose -f docker-compose.yml -f docker-compose.image.yml pull --ignore-buildable` — pulls the new GHCR image(s); skips the locally-built webhook image.
    **Name both files.** `docker compose` only auto-loads `docker-compose.yml` and `docker-compose.override.yml`; the published image lives in `docker-compose.image.yml`. Leave it out and compose silently falls back to `build:` and rebuilds from whatever source is on disk — which looks like a successful upgrade that changes nothing. `./start.sh up` adds the overlay for you.
 4. `docker compose up -d` (with webhook + diun excluded — see below) — recreates only services whose image changed; the webapp's entrypoint re-applies all `migration_*.sql` on boot (idempotent)
-5. `docker restart kinboard-kong` — only when `kong.yml`'s mtime moved during the run
+5. `docker compose up -d --no-deps --force-recreate cron` — only when step 4 recreated the webapp, because the scheduler reads its jobs from the webapp's labels only when it starts
+6. `docker restart kinboard-kong` — only when `kong.yml`'s mtime moved during the run
 
 Two containers do this:
 - **Diun** (`crazymax/diun`) — image notifier. Polls GHCR every 30 min, detects new digests on services labeled `diun.enable=true`, fires a webhook. Read-only docker socket.
