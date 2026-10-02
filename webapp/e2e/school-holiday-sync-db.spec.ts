@@ -146,3 +146,80 @@ test("the browser roles are held to manual rows by restrictive policies", () => 
     FROM pg_policies WHERE tablename = 'school_holidays' AND policyname LIKE 'school_holidays_manual_%';`);
   expect(policies).toBe("school_holidays_manual_delete:RESTRICTIVE:DELETE,school_holidays_manual_insert:RESTRICTIVE:INSERT,school_holidays_manual_update:RESTRICTIVE:UPDATE");
 });
+
+test("only a synced row can be hidden", () => {
+  const family = makeFamily();
+  expect(() => psql(`INSERT INTO school_holidays (family_id, name, starts_on, ends_on, hidden) VALUES ('${family}', 'x', '2026-10-01', '2026-10-02', true);`))
+    .toThrow(/school_holidays_hidden_synced_only/);
+  manual(family, "Mine", "2026-10-01", "2026-10-02");
+  expect(() => psql(`UPDATE school_holidays SET hidden = true WHERE family_id = '${family}';`)).toThrow(/school_holidays_hidden_synced_only/);
+});
+
+/**
+ * As the browser: `authenticated` with the family's claim, the way PostgREST
+ * runs a request. Everything runs inside one transaction that is rolled back.
+ * `dropPolicies` simulates the boot window, when migration_zz_row_level_security.sql
+ * has swept the restrictive policies and this file has not yet put them back.
+ */
+const asBrowser = (family: string, sql: string, dropPolicies = false) =>
+  psql(`BEGIN;
+    ${dropPolicies ? ["insert", "update", "delete"].map((c) => `DROP POLICY school_holidays_manual_${c} ON public.school_holidays;`).join(" ") : ""}
+    SET LOCAL ROLE authenticated;
+    SELECT set_config('request.jwt.claims', '{"family_id":"${family}","role":"authenticated"}', true) IS NULL;
+    ${sql}
+    ROLLBACK;`);
+
+for (const dropPolicies of [false, true]) {
+  const when = dropPolicies ? "while the policies are missing" : "with the policies in place";
+
+  test(`the browser writes its own manual rows ${when}`, () => {
+    const family = makeFamily();
+    const out = asBrowser(family, `
+      INSERT INTO school_holidays (family_id, name, starts_on, ends_on) VALUES ('${family}', 'browser', '2026-10-01', '2026-10-02');
+      UPDATE school_holidays SET name = 'browser-edited' WHERE family_id = '${family}' AND name = 'browser';
+      DELETE FROM school_holidays WHERE family_id = '${family}' AND name = 'browser-edited';
+      SELECT 'manual-ok';`, dropPolicies);
+    expect(out).toContain("manual-ok");
+  });
+
+  test(`the browser cannot forge, adopt, edit or delete a synced row ${when}`, () => {
+    const family = makeFamily();
+    sync(family, [HERBST]);
+    manual(family, "Mine", "2026-11-01", "2026-11-02");
+    const before = table(family);
+    const refused = dropPolicies ? /only manual rows/ : /row-level security|only manual rows/;
+    expect(() => asBrowser(family, `INSERT INTO school_holidays (family_id, name, starts_on, ends_on, source, external_id) VALUES ('${family}', 'forged', '2026-10-01', '2026-10-02', 'openholidays', 'forged');`, dropPolicies)).toThrow(refused);
+    expect(() => asBrowser(family, `UPDATE school_holidays SET source = 'openholidays', external_id = 'adopted' WHERE family_id = '${family}' AND name = 'Mine';`, dropPolicies)).toThrow(refused);
+    for (const write of [
+      `UPDATE school_holidays SET hidden = true WHERE external_id = 'oh-herbst' AND family_id = '${family}'`,
+      `UPDATE school_holidays SET name = 'renamed' WHERE external_id = 'oh-herbst' AND family_id = '${family}'`,
+      `DELETE FROM school_holidays WHERE external_id = 'oh-herbst' AND family_id = '${family}'`,
+    ]) {
+      if (dropPolicies) {
+        expect(() => asBrowser(family, `${write};`, dropPolicies), write).toThrow(/only manual rows/);
+      } else {
+        // The restrictive USING hides the row: nothing to change, nothing changed.
+        expect(asBrowser(family, `WITH w AS (${write} RETURNING 1) SELECT 'touched:' || count(*) FROM w;`), write).toContain("touched:0");
+      }
+    }
+    expect(table(family)).toBe(before);
+    expect(psql(`SELECT count(*) FROM pg_policies WHERE tablename = 'school_holidays' AND policyname LIKE 'school_holidays_manual_%';`)).toBe("3");
+  });
+}
+
+test("the service role still syncs, and a family's synced rows go with the family", () => {
+  const family = makeFamily();
+  const out = psql(`BEGIN; SET LOCAL ROLE service_role;
+    SELECT public.apply_school_holiday_sync('${family}', '${JSON.stringify([HERBST])}'::jsonb, '2026-09-01', '2029-08-31', false);
+    UPDATE school_holidays SET hidden = true WHERE family_id = '${family}' AND external_id = 'oh-herbst';
+    COMMIT;`);
+  expect(out).toContain('"upserted": 1');
+  expect(psql(`SELECT hidden FROM school_holidays WHERE family_id = '${family}';`)).toBe("t");
+  psql(`DELETE FROM families WHERE id = '${family}';`);
+  expect(psql(`SELECT count(*) FROM school_holidays WHERE family_id = '${family}';`)).toBe("0");
+});
+
+test("two syncs for one family take turns", () => {
+  const body = psql(`SELECT prosrc FROM pg_proc WHERE proname = 'apply_school_holiday_sync';`);
+  expect(body).toMatch(/pg_advisory_xact_lock\(hashtextextended\('school_holiday_sync:' \|\| p_family_id::text, 0\)\)/);
+});

@@ -54,20 +54,29 @@ test.describe("through Kong, as the browser", () => {
   const FAMILY_CODE = process.env.FAMILY_CODE ?? "";
   test.skip(!FAMILY_CODE, "needs FAMILY_CODE and a running stack");
 
-  test("a family can add a manual row, but not a synced one, and cannot touch a synced one", async ({ page }) => {
+  test("a family can add a manual row, but not a synced one, and cannot touch a synced one", async ({ page }, testInfo) => {
+    // Nothing is rendered, so one project is enough -- and the sync call below
+    // deletes synced rows in its window, which a second project running at
+    // the same time would have in the same place.
+    test.skip(testInfo.project.name !== "desktop", "a database check; desktop only");
+    // Ids of this run alone, so a parallel run of this or another live spec
+    // keeps its session and its rows.
+    const run = `${testInfo.project.name}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const hardwareId = `e2e-claude-grants-${run}`;
+    const synced = `claude-synced-${run}`;
     const psql = (sql: string) =>
       execFileSync("docker", ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-tA", "-q", "-c", sql], { encoding: "utf8" }).trim();
 
     await page.goto("/join", { waitUntil: "domcontentloaded" });
     const env = await page.evaluate(() => (window as unknown as { __ENV: Record<string, string> }).__ENV);
-    const joined = await page.evaluate(async (code) => {
+    const joined = await page.evaluate(async ({ code, hardwareId }) => {
       const res = await fetch("/api/session/join", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ joinCode: code, hardwareId: "e2e-claude-grants", deviceName: "claude-grants" }),
+        body: JSON.stringify({ joinCode: code, hardwareId, deviceName: "claude-grants" }),
       });
       return res.json();
-    }, FAMILY_CODE);
+    }, { code: FAMILY_CODE, hardwareId });
     const familyId: string = joined.family.id;
     const rest = (method: string, path: string, data?: unknown) =>
       page.request.fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${path}`, {
@@ -82,24 +91,24 @@ test.describe("through Kong, as the browser", () => {
       });
 
     try {
-      const mine = await rest("POST", "school_holidays", { family_id: familyId, name: "claude-manual", starts_on: "2031-01-01", ends_on: "2031-01-02" });
+      const mine = await rest("POST", "school_holidays", { family_id: familyId, name: `claude-manual-${run}`, starts_on: "2031-01-01", ends_on: "2031-01-02" });
       expect(mine.status()).toBe(201);
 
       const forged = await rest("POST", "school_holidays", {
-        family_id: familyId, name: "claude-forged", starts_on: "2031-02-01", ends_on: "2031-02-02",
-        source: "openholidays", external_id: "claude-forged",
+        family_id: familyId, name: `claude-forged-${run}`, starts_on: "2031-02-01", ends_on: "2031-02-02",
+        source: "openholidays", external_id: `claude-forged-${run}`,
       });
       expect(forged.status()).toBe(403);
 
-      psql(`SELECT public.apply_school_holiday_sync('${familyId}', '[{"external_id":"claude-synced","name":"claude-synced","starts_on":"2031-03-01","ends_on":"2031-03-02"}]'::jsonb, '2031-03-01', '2031-03-02', false);`);
-      const edit = await rest("PATCH", "school_holidays?external_id=eq.claude-synced", { name: "edited", hidden: true });
+      psql(`SELECT public.apply_school_holiday_sync('${familyId}', '[{"external_id":"${synced}","name":"${synced}","starts_on":"2031-03-01","ends_on":"2031-03-02"}]'::jsonb, '2031-03-01', '2031-03-02', false);`);
+      const edit = await rest("PATCH", `school_holidays?external_id=eq.${synced}`, { name: "edited", hidden: true });
       expect(await edit.json()).toEqual([]);
-      const remove = await rest("DELETE", "school_holidays?external_id=eq.claude-synced");
+      const remove = await rest("DELETE", `school_holidays?external_id=eq.${synced}`);
       expect(await remove.json()).toEqual([]);
-      expect(psql(`SELECT name || '|' || hidden FROM school_holidays WHERE external_id = 'claude-synced';`)).toBe("claude-synced|false");
+      expect(psql(`SELECT name || '|' || hidden FROM school_holidays WHERE external_id = '${synced}';`)).toBe(`${synced}|false`);
     } finally {
-      psql(`DELETE FROM school_holidays WHERE family_id = '${familyId}' AND name LIKE 'claude-%';`);
-      psql(`DELETE FROM devices WHERE hardware_id LIKE 'e2e-claude-%';`);
+      psql(`DELETE FROM school_holidays WHERE family_id = '${familyId}' AND name LIKE 'claude-%-${run}';`);
+      psql(`DELETE FROM devices WHERE hardware_id = '${hardwareId}';`);
     }
   });
 });

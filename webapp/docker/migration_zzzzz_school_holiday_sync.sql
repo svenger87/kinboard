@@ -15,6 +15,22 @@
 -- pattern. The family-scope policy still comes from that file; Postgres ANDs
 -- restrictive policies with it.
 --
+-- WHY A TRIGGER AS WELL
+--
+-- These are the repo's first RESTRICTIVE policies, and a gap in a
+-- restrictive policy *allows* rather than denies. Between that file's sweep
+-- and this file running, on every boot, PostgREST is up and the browser is
+-- held by family scope alone: a tab could plant an 'openholidays' row or
+-- adopt one, and the next sync would treat it as its own.
+-- school_holidays_browser_manual_only is a trigger, which the sweep does not
+-- touch, and it is replaced in place (CREATE OR REPLACE TRIGGER), so it is
+-- never absent. It holds every role RLS holds -- anything that is neither
+-- superuser nor BYPASSRLS, i.e. anon and authenticated through PostgREST --
+-- to the same rule the policies state. The service role (the sync, the
+-- session routes' admin client) and the migration runner pass. The policies
+-- stay: with them a synced row is simply invisible to a browser write (0
+-- rows, as before); the trigger is what answers if they are ever missing.
+--
 -- WHY A FUNCTION
 --
 -- The sync writes a whole response or nothing (§5.2). apply_school_holiday_sync
@@ -22,6 +38,11 @@
 -- transaction, and every statement in it names source = 'openholidays': a
 -- row the family typed in cannot match, whatever its name or dates. Only the
 -- service role may call it.
+--
+-- Two syncs for one family (a region change through the session route and a
+-- cron run that fetched the old region) take a per-family advisory lock, so
+-- one finishes before the other starts and the family never ends up with
+-- both regions' rows.
 --
 -- Idempotent throughout: migrations run twice here and on every boot.
 
@@ -32,13 +53,27 @@ ALTER TABLE public.school_holidays ADD COLUMN IF NOT EXISTS synced_at TIMESTAMPT
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'school_holidays_source_valid') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conname = 'school_holidays_source_valid'
+                    AND conrelid = 'public.school_holidays'::regclass) THEN
     ALTER TABLE public.school_holidays
       ADD CONSTRAINT school_holidays_source_valid CHECK (source IN ('manual', 'openholidays'));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'school_holidays_external_id_matches_source') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conname = 'school_holidays_external_id_matches_source'
+                    AND conrelid = 'public.school_holidays'::regclass) THEN
     ALTER TABLE public.school_holidays
       ADD CONSTRAINT school_holidays_external_id_matches_source CHECK ((source = 'manual') = (external_id IS NULL));
+  END IF;
+  -- Only a fetched row can be hidden (§6.2 hides fetched rows; "copy as my
+  -- own" hides the original). A hidden manual row would vanish from the
+  -- schedule while still listed in the card with nothing to say why. Added
+  -- validated: every row before this file is manual and not hidden.
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conname = 'school_holidays_hidden_synced_only'
+                    AND conrelid = 'public.school_holidays'::regclass) THEN
+    ALTER TABLE public.school_holidays
+      ADD CONSTRAINT school_holidays_hidden_synced_only CHECK (source <> 'manual' OR NOT hidden);
   END IF;
 END $$;
 
@@ -50,6 +85,43 @@ CREATE UNIQUE INDEX IF NOT EXISTS school_holidays_external_idx
 -- a fetched row and the next sync would quietly undo it -- or a hostile one
 -- could plant "synced" rows the sync would then treat as its own.
 ALTER TABLE public.school_holidays ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.school_holidays_browser_manual_only()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+-- INVOKER on purpose: current_user must be the role making the write.
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  -- Whoever RLS does not bind (superuser, BYPASSRLS: service_role, postgres,
+  -- supabase_admin) passes. A foreign-key cascade runs as the table owner,
+  -- so deleting a family still takes its synced rows with it.
+  IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles
+              WHERE rolname = current_user AND (rolsuper OR rolbypassrls)) THEN
+    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+  END IF;
+  IF TG_OP IN ('UPDATE', 'DELETE') AND OLD.source IS DISTINCT FROM 'manual' THEN
+    RAISE EXCEPTION 'school_holidays: only manual rows can be changed here'
+      USING ERRCODE = '42501';
+  END IF;
+  IF TG_OP IN ('INSERT', 'UPDATE') AND NEW.source IS DISTINCT FROM 'manual' THEN
+    RAISE EXCEPTION 'school_holidays: only manual rows can be written here'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.school_holidays_browser_manual_only() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.school_holidays_browser_manual_only() FROM anon, authenticated;
+
+CREATE OR REPLACE TRIGGER school_holidays_browser_manual_only
+  BEFORE INSERT OR UPDATE OR DELETE ON public.school_holidays
+  FOR EACH ROW EXECUTE FUNCTION public.school_holidays_browser_manual_only();
+
+-- One transaction, so the three policies are never half-replaced.
+BEGIN;
 
 DROP POLICY IF EXISTS school_holidays_manual_insert ON public.school_holidays;
 CREATE POLICY school_holidays_manual_insert ON public.school_holidays
@@ -67,6 +139,8 @@ CREATE POLICY school_holidays_manual_delete ON public.school_holidays
   AS RESTRICTIVE FOR DELETE TO anon, authenticated
   USING (source = 'manual');
 
+COMMIT;
+
 CREATE OR REPLACE FUNCTION public.apply_school_holiday_sync(
   p_family_id   UUID,
   p_rows        JSONB,
@@ -83,6 +157,15 @@ DECLARE
   v_deleted  INTEGER := 0;
   v_upserted INTEGER := 0;
 BEGIN
+  IF p_family_id IS NULL THEN
+    RAISE EXCEPTION 'p_family_id is required';
+  END IF;
+  -- One sync per family at a time, until this transaction ends.
+  PERFORM pg_advisory_xact_lock(hashtextextended('school_holiday_sync:' || p_family_id::text, 0));
+
+  IF p_window_from IS NULL OR p_window_to IS NULL OR p_window_from > p_window_to THEN
+    RAISE EXCEPTION 'the sync window must be two dates in order';
+  END IF;
   IF jsonb_typeof(p_rows) IS DISTINCT FROM 'array' THEN
     RAISE EXCEPTION 'p_rows must be a JSON array';
   END IF;
