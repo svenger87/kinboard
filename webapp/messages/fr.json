@@ -3886,6 +3886,7 @@
   },
   "scheduleWidget": {
     "nextSchoolDay": "Prochain jour d’école",
+    "nextSchoolDayOn": "Prochain jour d’école : {date}",
     "loadingAria": "Chargement de l'emploi du temps",
     "title": "Emploi du temps",
     "noChildTitle": "Aucun enfant configuré",
@@ -3894,6 +3895,7 @@
     "viewAllAria": "Voir l'emploi du temps complet",
     "viewAllTooltip": "Afficher l'emploi du temps",
     "weekend": "Week-end !",
+    "noSchoolToday": "Pas d’école aujourd’hui",
     "noScheduleToday": "Aucun emploi du temps configuré",
     "schoolOver": "L'école est finie !",
     "nowBadge": "Maintenant",

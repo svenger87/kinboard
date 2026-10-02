@@ -3886,6 +3886,7 @@
   },
   "scheduleWidget": {
     "nextSchoolDay": "Next school day",
+    "nextSchoolDayOn": "Next school day: {date}",
     "loadingAria": "Loading schedule",
     "title": "Schedule",
     "noChildTitle": "No child set up",
@@ -3894,6 +3895,7 @@
     "viewAllAria": "View full schedule",
     "viewAllTooltip": "Show schedule",
     "weekend": "Weekend!",
+    "noSchoolToday": "No school today",
     "noScheduleToday": "No schedule set up",
     "schoolOver": "School is out!",
     "nowBadge": "Now",

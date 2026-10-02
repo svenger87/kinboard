@@ -1126,14 +1126,32 @@ async function pushToCaldav(
 
 export type EventWithCalendar = Event &{ calendar: { family_id: string; person_id: string | null; color: string; name: string; is_holidays: boolean; is_waste_collection: boolean } };
 
-export function useEvents(startDate?: string, endDate?: string, options?: { enabled?: boolean }) {
+export function useEvents(
+  startDate?: string,
+  endDate?: string,
+  options?: {
+    enabled?: boolean;
+    /**
+     * Only events on calendars flagged `is_holidays`: what decides a school
+     * day (lib/school-day-rule.ts), without fetching months of everything else.
+     */
+    holidayCalendarsOnly?: boolean;
+  },
+) {
   const supabase = createClient();
   const { family } = useFamilyStore();
+  const holidaysOnly = options?.holidayCalendarsOnly ?? false;
 
   return useQuery({
+    // Under ["events", familyId] either way, so realtime and every mutation
+    // that invalidates events refetch this one too.
     queryKey: startDate && endDate
-      ? queryKeys.eventsByDate(family?.id ?? "", startDate, endDate)
-      : queryKeys.events(family?.id ?? ""),
+      ? holidaysOnly
+        ? [...queryKeys.eventsByDate(family?.id ?? "", startDate, endDate), "holiday-calendars"]
+        : queryKeys.eventsByDate(family?.id ?? "", startDate, endDate)
+      : holidaysOnly
+        ? [...queryKeys.events(family?.id ?? ""), "holiday-calendars"]
+        : queryKeys.events(family?.id ?? ""),
     queryFn: async () => {
       let query = supabase
         .from("events")
@@ -1147,6 +1165,7 @@ export function useEvents(startDate?: string, endDate?: string, options?: { enab
         // (lib/google-calendar-reconcile.ts), even in the moment between
         // unticking and its events being deleted.
         .or(VISIBLE_CALENDARS, { referencedTable: "calendar" });
+      if (holidaysOnly) query = query.eq("calendar.is_holidays", true);
 
       if (startDate && endDate) {
         // Include events that overlap the range (not just start within it)

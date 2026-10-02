@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { isValidTimeZone, zonedWallTimeToUtc } from "@/lib/integration-event-input";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { parseRegionSetting, type HolidayRegionSetting } from "@/lib/holidays/region";
+import { addDays } from "@/lib/local-date";
 
 /**
  * The zone that turns an all-day date into instants, and that answers "what
@@ -50,12 +51,12 @@ export function familyMidnight(now: Date, timeZone: string): Date {
   return zonedWallTimeToUtc(day, 0, timeZone);
 }
 
-/** A calendar date `n` days from `day` (`YYYY-MM-DD`). Date arithmetic only — no zone, no DST. */
-export function addDays(day: string, n: number): string {
-  const d = new Date(`${day}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
+/**
+ * A calendar date `n` days from `day` (`YYYY-MM-DD`). Date arithmetic only —
+ * no zone, no DST. Lives in lib/local-date so the browser can use it too
+ * (lib/school-day-rule.ts runs on both sides).
+ */
+export { addDays };
 
 /**
  * The family's today and tomorrow at `now`, as `YYYY-MM-DD`. The family

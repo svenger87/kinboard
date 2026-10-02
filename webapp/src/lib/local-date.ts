@@ -23,3 +23,14 @@ export function toLocalDateKey(date: Date = new Date()): string {
 export function todayKey(): string {
   return toLocalDateKey();
 }
+
+/**
+ * `day` (a `YYYY-MM-DD` calendar date) moved by `n` days, as a calendar
+ * date. Anchored at noon UTC, so no zone's daylight-saving change can land
+ * it on the day before or after.
+ */
+export function addDays(day: string, n: number): string {
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}

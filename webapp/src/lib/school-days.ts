@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
-import { isSchoolBreakOn, type SignalSchoolBreak } from "@/lib/attention/types";
+import type { SignalSchoolBreak } from "@/lib/attention/types";
 import { timetabledChildren } from "@/lib/timetabled-children";
 import { addDays } from "@/lib/family-time";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
@@ -8,7 +8,17 @@ import { resolveFamilyLanguage } from "@/lib/family-language";
 import { parseRegionSetting } from "@/lib/holidays/region";
 import { getTranslator } from "@/lib/notifications/messages";
 import { holidayLabel, type HolidayTranslator } from "@/lib/holidays/label";
-import { publicHolidayBreaks } from "@/lib/holidays/school";
+import {
+  WEEKDAYS,
+  dayOfWeekOf,
+  holidayCalendarBreaks,
+  lastDayCovered,
+  localDayString,
+  schoolBreaks,
+  schoolDayStatusOn,
+  type SchoolDayStatus,
+  type Weekday,
+} from "@/lib/school-day-rule";
 
 /**
  * The school timetable and "is there school on day X", shared by every
@@ -21,32 +31,18 @@ import { publicHolidayBreaks } from "@/lib/holidays/school";
  * Assistant sensor announced school every evening of the summer break while
  * the wall display stayed rightly quiet.
  *
+ * The rule itself, "which days have no school", is lib/school-day-rule.ts,
+ * which the timetable widget runs in the browser too: this file loads the
+ * family's rows and hands them over, so the two cannot disagree (#330).
+ *
  * Every query runs with the service role, which bypasses RLS, so the family
  * boundary is the explicit `family_id` filters here or nowhere.
  */
 
 export type SchoolDb = ReturnType<typeof createAdminClient>;
 
-/** `schedules.day_of_week` order: 0 = Sunday, as its CHECK constraint allows. */
-export const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
-export type Weekday = (typeof WEEKDAYS)[number];
-
-/** Local `YYYY-MM-DD` of an instant in `timeZone`. */
-export function localDayString(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(instant);
-}
-
-export { addDays };
-
-/** 0 = Sunday … 6 = Saturday, of a calendar date. */
-export function dayOfWeekOf(day: string): number {
-  return new Date(`${day}T12:00:00Z`).getUTCDay();
-}
+export { addDays, WEEKDAYS, dayOfWeekOf, lastDayCovered, localDayString };
+export type { SchoolDayStatus, Weekday };
 
 /**
  * School holiday periods overlapping `from`..`to` (local `YYYY-MM-DD`,
@@ -105,40 +101,6 @@ export async function fetchSchoolBreaks(
   // look reports it rather than claiming a school day.
   if (settings.error) throw settings.error;
 
-  // The family's own rows, then a feed they chose, then data fetched for
-  // them, then public holidays: isSchoolBreakOn takes the first match, so
-  // this order is what names a day (RFC-014 §6.2).
-  const manual: SignalSchoolBreak[] = [];
-  const synced: SignalSchoolBreak[] = [];
-  for (const row of stored.data ?? []) {
-    if (!row?.starts_on || !row?.ends_on) continue;
-    // A range the family hid is not a break (§6.2).
-    if (row.hidden === true) continue;
-    const source = row.source === "openholidays" ? "openholidays" : "manual";
-    (source === "manual" ? manual : synced).push({
-      name: String(row.name ?? ""),
-      startsOn: String(row.starts_on),
-      endsOn: String(row.ends_on),
-      source,
-    });
-  }
-
-  const calendar: SignalSchoolBreak[] = [];
-  for (const row of calendarEvents.data ?? []) {
-    if (!row?.start_at || !row?.end_at) continue;
-    const start = new Date(row.start_at);
-    const end = new Date(row.end_at);
-    if (end.getTime() < start.getTime()) continue;
-    calendar.push({
-      name: String(row.title ?? ""),
-      startsOn: localDayString(start, timeZone),
-      endsOn: lastDayCovered(row, timeZone),
-      source: "calendar",
-    });
-  }
-
-  const breaks: SignalSchoolBreak[] = [...manual, ...calendar, ...synced];
-
   // No region (a new family that skipped the wizard's first step): no public
   // holidays. The names are said on the family's behalf, so they follow
   // resolveFamilyLanguage, as synced names and the Integration API do: the
@@ -147,44 +109,24 @@ export async function fetchSchoolBreaks(
   const setting = (key: string) =>
     ((settings.data ?? []) as { key: string; value: unknown }[]).find((r) => r?.key === key)?.value;
   const region = parseRegionSetting(setting(SETTINGS_KEYS.holidayRegion));
-  if (region?.code) {
-    const locale = resolveFamilyLanguage(setting(SETTINGS_KEYS.locale), region.code);
-    const t = getTranslator(locale, "holidays") as unknown as HolidayTranslator;
-    breaks.push(...publicHolidayBreaks(region.code, from, to, locale, (h) => holidayLabel(h, t)));
-  }
+  const locale = region?.code ? resolveFamilyLanguage(setting(SETTINGS_KEYS.locale), region.code) : "en";
+  // Only read when there is a region: without one, nothing is named.
+  let t: HolidayTranslator | null = null;
+  const translator = () => (t ??= getTranslator(locale, "holidays") as unknown as HolidayTranslator);
 
-  return breaks;
-}
-
-/**
- * The last day an event covers, as a local `YYYY-MM-DD`: the day of the last
- * millisecond before `end_at`, or the start's day for a zero-length event.
- *
- * Every writer today stores an all-day event's `end_at` INCLUSIVELY: ICS and
- * CalDAV imports (`allDayEndAnchor` in ics-fetcher.ts) and Google sync at
- * 12:00 UTC of the last day, the app's own calendar and the Integration API
- * at local 23:59:59.999 of the last day — one millisecond earlier is the same
- * day for both. This once subtracted a whole day from every all-day end, from
- * the time imports stored iCalendar's exclusive DTEND verbatim, and that cost
- * every imported holiday its last day and dropped single-day ones altogether.
- * A legacy row in that exclusive form ends exactly at local midnight, and one
- * millisecond earlier is its real last day, so it still reads right; so does
- * a timed event that ends at midnight.
- */
-export function lastDayCovered(row: { start_at: string; end_at: string }, timeZone: string): string {
-  const start = new Date(row.start_at).getTime();
-  const end = new Date(row.end_at).getTime();
-  return localDayString(new Date(end > start ? end - 1 : start), timeZone);
-}
-
-export interface SchoolDayStatus {
-  date: string;
-  weekday: Weekday;
-  school_day: boolean;
-  /** Why not: a holiday period covers the day, or it is a Saturday or Sunday. */
-  reason: "holiday" | "weekend" | null;
-  /** The holiday's own name, when `reason` is `holiday`. */
-  holiday: string | null;
+  // The order that names a day, and which rows count, are the shared rule's
+  // (lib/school-day-rule.ts) -- the timetable widget runs the same code.
+  return schoolBreaks(
+    {
+      region: region?.code ?? null,
+      schoolHolidays: stored.data ?? [],
+      holidayCalendarDays: holidayCalendarBreaks(calendarEvents.data ?? [], timeZone),
+      locale,
+      label: (h) => holidayLabel(h, translator()),
+    },
+    from,
+    to,
+  );
 }
 
 /**
@@ -202,17 +144,8 @@ export async function schoolDayStatus(
   timeZone: string,
   db: SchoolDb = createAdminClient(),
 ): Promise<SchoolDayStatus> {
-  const dow = dayOfWeekOf(day);
   const breaks = await fetchSchoolBreaks(familyId, addDays(day, -1), addDays(day, 1), timeZone, db);
-  const hit = isSchoolBreakOn(breaks, day);
-  const weekend = dow === 0 || dow === 6;
-  return {
-    date: day,
-    weekday: WEEKDAYS[dow],
-    school_day: !hit && !weekend,
-    reason: hit ? "holiday" : weekend ? "weekend" : null,
-    holiday: hit ? hit.name : null,
-  };
+  return schoolDayStatusOn(day, breaks);
 }
 
 export interface TimetableSlot {
