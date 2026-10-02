@@ -3827,7 +3827,8 @@
     "dayOff": "Day off",
     "dayOffOn": "Day off {date}",
     "viewCalendarAria": "Open the calendar",
-    "emptyState": "No holidays coming up"
+    "emptyState": "No holidays coming up",
+    "noRegion": "Choose your country under Settings → Holidays to see the next holidays."
   },
   "scheduleWidget": {
     "nextSchoolDay": "Next school day",

@@ -5,7 +5,6 @@ export const SETTINGS_KEYS = {
   weatherLocation: "weather_location",
   weatherUnits: "weather_units",
   defaultCalendarId: "default_calendar_id",
-  holidayCountry: "holiday_country",
   // RFC-014 §4.2: { code, chosen }. Replaces holiday_country, which is kept
   // one release, read by nothing, then dropped.
   holidayRegion: "holiday_region",

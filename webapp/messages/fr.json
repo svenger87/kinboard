@@ -3827,7 +3827,8 @@
     "dayOff": "Chômé",
     "dayOffOn": "Chômé le {date}",
     "viewCalendarAria": "Ouvrir le calendrier",
-    "emptyState": "Aucun jour férié à venir"
+    "emptyState": "Aucun jour férié à venir",
+    "noRegion": "Choisissez votre pays dans Paramètres → Jours fériés pour voir les prochains jours fériés."
   },
   "scheduleWidget": {
     "nextSchoolDay": "Prochain jour d’école",

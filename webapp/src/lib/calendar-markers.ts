@@ -105,13 +105,13 @@ export function taskMarkersByDay(
   return out;
 }
 
-/** Day key -> the built-in public holiday on it, for every year the range touches. */
-export function holidaysByDay(country: CountryCode, from: Date, to: Date): Map<string, Holiday> {
+/** Day key -> the built-in public holiday on it, for every year the range touches, named in `locale`. */
+export function holidaysByDay(country: CountryCode, from: Date, to: Date, locale: string = "en"): Map<string, Holiday> {
   const fromKey = toLocalDateKey(from);
   const toKey = toLocalDateKey(to);
   const out = new Map<string, Holiday>();
   for (let year = from.getFullYear(); year <= to.getFullYear(); year++) {
-    for (const holiday of getHolidays(country, year)) {
+    for (const holiday of getHolidays(country, year, locale)) {
       const key = toLocalDateKey(holiday.date);
       if (key >= fromKey && key <= toKey && !out.has(key)) out.set(key, holiday);
     }

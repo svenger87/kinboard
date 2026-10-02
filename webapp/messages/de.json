@@ -3827,7 +3827,8 @@
     "dayOff": "Frei",
     "dayOffOn": "Frei am {date}",
     "viewCalendarAria": "Kalender öffnen",
-    "emptyState": "Keine Feiertage in Sicht"
+    "emptyState": "Keine Feiertage in Sicht",
+    "noRegion": "Wähle unter Einstellungen → Feiertage dein Land, um die nächsten Feiertage zu sehen."
   },
   "scheduleWidget": {
     "nextSchoolDay": "Nächster Schultag",

@@ -8,11 +8,10 @@ import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { WidgetCard } from "@/components/widget-card";
-import { useSetting, useToday } from "@/hooks";
+import { useHolidayRegion, useToday } from "@/hooks";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
-import { DEFAULT_COUNTRY, daysUntilHoliday, nextHolidays, type CountryCode } from "@/lib/holidays";
+import { daysUntilHoliday, nextHolidays } from "@/lib/holidays";
 import { holidayLabel } from "@/lib/holidays/label";
-import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 interface HolidayWidgetProps {
   maxItems?: number;
@@ -20,21 +19,24 @@ interface HolidayWidgetProps {
 }
 
 /**
- * The next holidays for the family's country (Settings -> Language), each with
+ * The next holidays for the family's country (Settings -> Holidays), each with
  * the days left. A palm tree marks the ones that are a day off -- and, for one
  * that falls on a weekend and is taken on a weekday instead, which weekday.
  */
 export function HolidayWidget({ maxItems = 3, className = "" }: HolidayWidgetProps) {
   const t = useTranslations("holidayWidget");
   const tHolidays = useTranslations("holidays");
-  const dateLocale = getDateFnsLocale(useLocale());
+  const locale = useLocale();
+  const dateLocale = getDateFnsLocale(locale);
   // Re-render at midnight so the countdown moves on without a reload.
   const today = useToday();
-  const { data: country } = useSetting<CountryCode>(SETTINGS_KEYS.holidayCountry, DEFAULT_COUNTRY);
+  const { region, isLoading } = useHolidayRegion();
 
+  // No region yet (a new family that skipped the wizard step): no holidays,
+  // rather than a country's that may not be theirs (RFC-014 §4.2).
   const holidays = useMemo(
-    () => nextHolidays(country ?? DEFAULT_COUNTRY, new Date(today), maxItems),
-    [country, today, maxItems],
+    () => (region ? nextHolidays(region, new Date(today), maxItems, locale) : []),
+    [region, today, maxItems, locale],
   );
 
   const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
@@ -102,11 +104,20 @@ export function HolidayWidget({ maxItems = 3, className = "" }: HolidayWidgetPro
               </motion.div>
             );
           })}
-          {holidays.length === 0 && (
+          {holidays.length === 0 && region !== null && (
             <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
               <CalendarHeart className="size-8 mb-2 opacity-20" />
               <p className="text-sm">{t("emptyState")}</p>
             </div>
+          )}
+          {region === null && !isLoading && (
+            <Link
+              href="/settings/holidays"
+              className="flex flex-col items-center justify-center gap-1 py-4 text-center text-muted-foreground hover:text-foreground"
+            >
+              <CalendarHeart className="size-8 mb-1 opacity-20" />
+              <p className="text-sm">{t("noRegion")}</p>
+            </Link>
           )}
         </motion.div>
       </WidgetCard>

@@ -28,6 +28,16 @@ const nextConfig = {
     .map((h) => h.trim())
     .filter(Boolean),
   output: 'standalone',
+  // RFC-014 plan ruling 4: date-holidays-parser reaches moment-timezone
+  // through caldate, and its default build carries ~730 KB of zone data.
+  // The holiday adapter calls setTimezone(undefined), so no zone is ever
+  // looked up; the browser gets moment-timezone's data-less core instead.
+  // Server bundles keep the full build.
+  turbopack: {
+    resolveAlias: {
+      "moment-timezone": { browser: "./node_modules/moment-timezone/moment-timezone.js" },
+    },
+  },
   env: { NEXT_PUBLIC_APP_VERSION: appVersion },
   // node-ical (used by /api/calendar/test-ics + /api/cron/sync-ics) has
   // transitive deps that evaluate BigInt-using code during Next's static
