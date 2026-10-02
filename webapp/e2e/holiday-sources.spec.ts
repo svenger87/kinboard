@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import type { Holiday } from "../src/lib/holidays";
 import { getHolidays, getObservances, nextHolidays } from "../src/lib/holidays";
+import { cachedSizes, MAX_CACHED_PARSERS, MAX_CACHED_YEARS, regionYear } from "../src/lib/holidays/adapter";
 import { getDeHolidays } from "./fixtures/holidays-oracle/de";
 import { getFrHolidays } from "./fixtures/holidays-oracle/fr";
 import { getNlHolidays } from "./fixtures/holidays-oracle/nl";
@@ -184,4 +185,22 @@ test("names follow the UI language, with English and then the native name behind
   expect(de.name).toBe("Mariä Empfängnis");
   const fr = getHolidays("AT-9", 2026, "fr").find((h) => key(h.date) === "2026-05-01")!;
   expect(fr.name).toBe("Staatsfeiertag"); // no French or English name upstream: the native one
+});
+
+test("the year cache is capped, so arbitrary years asked through the Integration API cannot grow it for good (final review #12)", () => {
+  const first = regionYear("DE-NI", 2026, "en");
+  for (let y = 1000; y < 1000 + MAX_CACHED_YEARS + 50; y++) regionYear("DE-NI", y, "en");
+  // 2026 was pushed out by the flood; asked again, it is worked out again, the same.
+  expect(cachedSizes().years).toBeLessThanOrEqual(MAX_CACHED_YEARS);
+  expect(cachedSizes().parsers).toBeLessThanOrEqual(MAX_CACHED_PARSERS);
+  const again = regionYear("DE-NI", 2026, "en");
+  expect(again?.days.map((d) => [d.englishName, d.holiday.date.getTime()])).toEqual(
+    first?.days.map((d) => [d.englishName, d.holiday.date.getTime()]),
+  );
+  // A year in use stays: asking for it again moves it to the back of the queue.
+  const kept = regionYear("DE-NI", 2027, "en");
+  for (let y = 3000; y < 3250; y++) regionYear("DE-NI", y, "en");
+  expect(regionYear("DE-NI", 2027, "en")).toBe(kept);
+  for (let y = 4000; y < 4300; y++) regionYear("DE-NI", y, "en");
+  expect(regionYear("DE-NI", 2027, "en")).toBe(kept);
 });

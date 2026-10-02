@@ -2232,6 +2232,9 @@
         "syncFailed": "Couldn't fetch the school holidays. The ones you have are unchanged.",
         "saveError": "Couldn't save. Try again.",
         "optionsError": "Couldn't load the school regions from OpenHolidays. Try again later.",
+        "installOff": "This Kinboard no longer fetches school holidays from OpenHolidays. The ones fetched before still count as school holidays.",
+        "removeSynced": "Remove fetched holidays",
+        "removedSynced": "The fetched school holidays are gone. Your own entries stay.",
         "sourceBadge": "OpenHolidays",
         "sentNote": "Kinboard sends OpenHolidays your country, region and school type, never anything about your family.",
         "odbl": "Contains information from <oh>OpenHolidays API</oh>, which is made available here under the <odbl>Open Database License (ODbL)</odbl>.",
@@ -2675,7 +2678,7 @@
         },
         "holiday-region": {
           "title": "Which state are you in?",
-          "description": "Once, if nobody has picked where the family lives: asks for the country and state, so holidays and school days are right."
+          "description": "Once if nobody has picked where the family lives, and once more if only the country was picked: asks for the state, so holidays and school days are right."
         }
       }
     },
@@ -4270,6 +4273,10 @@
         "migrated": {
           "title": "Which state are you in?",
           "detail": "Public holidays and school days depend on where you live. Pick your country and state under Settings → Holidays."
+        },
+        "country": {
+          "title": "Which state are you in?",
+          "detail": "Only the holidays of the whole country are shown. Pick your state under Settings → Holidays for its own holidays and school holidays."
         }
       }
     }

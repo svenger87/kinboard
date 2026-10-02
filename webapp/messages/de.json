@@ -2232,6 +2232,9 @@
         "syncFailed": "Die Schulferien konnten nicht abgerufen werden. Die vorhandenen bleiben unverändert.",
         "saveError": "Speichern fehlgeschlagen. Versuch es noch einmal.",
         "optionsError": "Die Schulregionen konnten nicht von OpenHolidays geladen werden. Versuch es später noch einmal.",
+        "installOff": "Dieses Kinboard ruft keine Schulferien mehr von OpenHolidays ab. Die bereits abgerufenen zählen weiter als Schulferien.",
+        "removeSynced": "Abgerufene Ferien entfernen",
+        "removedSynced": "Die abgerufenen Schulferien sind entfernt. Eure eigenen Einträge bleiben.",
         "sourceBadge": "OpenHolidays",
         "sentNote": "Kinboard schickt OpenHolidays euer Land, eure Region und die Schulart, nie etwas über eure Familie.",
         "odbl": "Enthält Informationen der <oh>OpenHolidays API</oh>, die hier unter der <odbl>Open Database License (ODbL)</odbl> bereitgestellt werden.",
@@ -2675,7 +2678,7 @@
         },
         "holiday-region": {
           "title": "In welchem Bundesland wohnt ihr?",
-          "description": "Einmalig, wenn noch niemand den Wohnort gewählt hat: fragt nach Land und Bundesland, damit Feiertage und schulfreie Tage stimmen."
+          "description": "Einmal, wenn noch niemand den Wohnort gewählt hat, und noch einmal, wenn nur das Land gewählt wurde: fragt nach dem Bundesland, damit Feiertage und schulfreie Tage stimmen."
         }
       }
     },
@@ -4270,6 +4273,10 @@
         "migrated": {
           "title": "In welchem Bundesland wohnt ihr?",
           "detail": "Feiertage und schulfreie Tage hängen davon ab, wo ihr wohnt. Wähle unter Einstellungen → Feiertage euer Land und Bundesland."
+        },
+        "country": {
+          "title": "In welchem Bundesland wohnt ihr?",
+          "detail": "Es werden nur die Feiertage des ganzen Landes angezeigt. Wähle unter Einstellungen → Feiertage euer Bundesland, damit auch dessen Feiertage und Schulferien dazukommen."
         }
       }
     }

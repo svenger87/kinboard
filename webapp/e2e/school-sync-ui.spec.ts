@@ -20,8 +20,24 @@ test("the section sits on Settings → Holidays, above the family's own card", (
 
 test("it is shown only where a sync can exist, and the switch waits for a chosen region", () => {
   const s = section();
-  expect(s).toContain("!status.installEnabled || !status.covered");
+  expect(s).toContain("if (status.installEnabled && !status.covered) return null;");
   expect(s).toMatch(/disabled=\{[^}]*!status\.chosen/);
+});
+
+test("with the install switched off, rows fetched before stay visible, attributed and removable (final review #3)", () => {
+  const s = section();
+  expect(s).toContain("if (!status.installEnabled && !anySynced) return null;");
+  const off = s.slice(s.indexOf("if (!status.installEnabled) {"), s.indexOf("const regionGroups"));
+  for (const part of ["{syncedList}", "{attribution}", "change({ enabled: false })"]) expect(off, part).toContain(part);
+  // Nothing in it reaches OpenHolidays: no switch, no region, no Refresh.
+  for (const part of ["<Switch", "<Select", 'change({})']) expect(off, part).not.toContain(part);
+  // The route lets exactly that one change through, and fetches nothing for it.
+  const route = codeOnly(read("src/app/api/school-holidays/sync/route.ts"));
+  expect(route).toContain("change.enabled === false && change.region === undefined && change.group === undefined");
+  const offBranch = route.slice(route.indexOf("if (!deps.installEnabled) {"), route.indexOf("const holiday = await"));
+  expect(offBranch).toContain("if (!isSwitchOff(body.data)) {");
+  expect(offBranch).toContain("deps.store.clear(familyId)");
+  expect(offBranch).not.toMatch(/fetchIfReady|syncFamily|schoolRegionOptions/);
 });
 
 test("synced rows are read-only and carry the ODbL attribution", () => {
@@ -200,6 +216,50 @@ test.describe("rendered, with the routes stubbed", () => {
     await expect.poll(() => hits.refresh).toBe(1);
     // An empty body is Refresh now, so the refresh wording, not the after-a-pick one.
     await expect(page.getByText(/^(Just refreshed\. Try again in a minute\.|Gerade aktualisiert\. .+|Actualisé à l’instant\. .+|Actualisé à l'instant\. .+)$/)).toBeVisible();
+    for (const [name, n] of Object.entries(hits)) expect(n, name).toBeGreaterThan(0);
+  });
+
+  test("with the install switched off, the rows fetched before are listed, attributed and can be removed", async ({ page }) => {
+    const hits = { status: 0, rows: 0, remove: 0 };
+    let removed = false;
+    await page.route(/\/api\/school-holidays\/sync$/, async (route) => {
+      if (route.request().method() === "POST") {
+        hits.remove++;
+        expect(route.request().postDataJSON()).toEqual({ enabled: false });
+        removed = true;
+        return route.fulfill({ json: { setting: null, outcome: { status: "skipped", reason: "install-off" } } });
+      }
+      hits.status++;
+      return route.fulfill({
+        json: {
+          installEnabled: false, covered: true, chosen: true,
+          setting: { enabled: true, region: "DE-NI", group: null, pending: null, last_success_at: null, last_error_at: null, last_error: null },
+        },
+      });
+    });
+    await page.route(/\/api\/school-holidays\/options/, () => { throw new Error("the options must not be asked for while the install is off"); });
+    await page.route(/\/rest\/v1\/school_holidays/, (route) => {
+      hits.rows++;
+      const row = { id: "00000000-0000-4000-8000-000000000011", family_id: "x", name: "Herbstferien", starts_on: iso(10), ends_on: iso(20),
+        source: "openholidays", external_id: "oh-11", hidden: false, synced_at: null, created_at: iso(0), updated_at: iso(0) };
+      return route.fulfill({ json: removed ? [] : [row] });
+    });
+    await establishSession(page, familyCode!, "claude-school-sync-ui");
+    await page.goto("/settings/holidays", { waitUntil: "domcontentloaded" });
+
+    const card = page.getByTestId("school-sync-install-off");
+    await expect(card).toBeVisible({ timeout: 20_000 });
+    await expect(card.getByTestId("synced-holidays").locator("li")).toHaveCount(1);
+    await expect(card.getByTestId("synced-holidays").locator("li")).toHaveAttribute("title", /Open Database License \(ODbL\)/);
+    await expect(card.getByRole("link", { name: /Open Database License/ })).toBeVisible();
+    await expect(card.getByRole("switch")).toHaveCount(0);
+    await expect(card.getByRole("combobox")).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+
+    await card.getByRole("button", { name: /^(Remove fetched holidays|Abgerufene Ferien entfernen|Supprimer les vacances récupérées)$/ }).click();
+    await expect.poll(() => hits.remove).toBe(1);
+    // No synced row left: the card goes.
+    await expect(card).toHaveCount(0, { timeout: 10_000 });
     for (const [name, n] of Object.entries(hits)) expect(n, name).toBeGreaterThan(0);
   });
 

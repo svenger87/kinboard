@@ -32,6 +32,31 @@ export interface RegionYear {
 
 const SUBSTITUTE_SUFFIX = / \(substitute day\)$/;
 
+/**
+ * The memo caches below live as long as the server process. The Integration
+ * API's `/schedule?day=` lets a token holder ask for any year, and each new
+ * one would add an entry for good, so the two keyed by something a caller
+ * picks are capped: past the cap the oldest entry goes. A dropped entry is
+ * only recomputed.
+ */
+export const MAX_CACHED_YEARS = 500;
+export const MAX_CACHED_PARSERS = 200;
+
+function remember<K, V>(cache: Map<K, V>, key: K, value: V, max: number): void {
+  // A Map iterates in insertion order: re-inserting moves the key to the end.
+  if (cache.has(key)) cache.delete(key);
+  else if (cache.size >= max) {
+    const oldest = cache.keys().next();
+    if (!oldest.done) cache.delete(oldest.value);
+  }
+  cache.set(key, value);
+}
+
+/** For the specs: how many entries the capped caches hold. */
+export function cachedSizes(): { years: number; parsers: number } {
+  return { years: years.size, parsers: parsers.size };
+}
+
 const parsers = new Map<string, Holidays>();
 
 function parser(country: string, state: string | null, languages: string[]): Holidays {
@@ -45,7 +70,7 @@ function parser(country: string, state: string | null, languages: string[]): Hol
     // timezone and runs every date through moment-timezone, which is both a
     // timezone dependency §4.1 forbids and ~730 KB the browser need not load.
     p.setTimezone(undefined);
-    parsers.set(key, p);
+    remember(parsers, key, p, MAX_CACHED_PARSERS);
   }
   return p;
 }
@@ -98,7 +123,11 @@ export function regionYear(region: string, year: number, locale: string = "en"):
   if (!resolved) return null;
   const cacheKey = `${resolved.code}|${year}|${locale}`;
   const cached = years.get(cacheKey);
-  if (cached) return cached;
+  if (cached) {
+    // Most recently used goes last, so the cap drops years nobody asks for.
+    remember(years, cacheKey, cached, MAX_CACHED_YEARS);
+    return cached;
+  }
 
   const { country, state } = resolved;
   const english = parser(country, state, ["en"]).getHolidays(year);
@@ -143,7 +172,7 @@ export function regionYear(region: string, year: number, locale: string = "en"):
   }
 
   const result: RegionYear = { days, substitutes };
-  years.set(cacheKey, result);
+  remember(years, cacheKey, result, MAX_CACHED_YEARS);
   return result;
 }
 

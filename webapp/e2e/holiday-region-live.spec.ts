@@ -16,7 +16,8 @@ import { POST as importBackup } from "../src/app/api/import/route";
  * NEXT_PUBLIC_SUPABASE_URL), e.g. Kong on :8130 here. Skipped without them,
  * unless FAMILY_CODE says a stack is there. Every family it makes is deleted
  * again (devices and settings cascade), including the device row
- * `e2e-claude-holiday-region`.
+ * `e2e-claude-holiday-region`, and also after a failed assertion: each id is
+ * noted before the status is checked, and families are swept by name too.
  */
 
 const HAS_STACK = !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
@@ -31,9 +32,16 @@ test.beforeAll(() => {
   db = createAdminClient();
 });
 
+// Whatever happened in the tests: by id for every family a route answered
+// with, and by name for one a route made before failing (a 500 that still
+// created it has no id to push).
 test.afterAll(async () => {
-  if (made.length) await db.from("families").delete().in("id", made);
-  await db.from("devices").delete().eq("hardware_id", HARDWARE_ID);
+  try {
+    if (made.length) await db.from("families").delete().in("id", made);
+    await db.from("families").delete().like("name", "claude-holiday-region%");
+  } finally {
+    await db.from("devices").delete().eq("hardware_id", HARDWARE_ID);
+  }
 });
 
 function post(path: string, body: unknown): NextRequest {
@@ -49,8 +57,8 @@ test("a family made by /api/session/create has no region, explicitly", async () 
     post("/api/session/create", { familyName: "claude-holiday-region-create", deviceName: "claude-holiday-region", hardwareId: HARDWARE_ID }),
   );
   const json = await res.json();
+  if (json.family?.id) made.push(json.family.id);
   expect(res.status, JSON.stringify(json)).toBe(200);
-  made.push(json.family.id);
 
   expect(await familyHolidayRegion(json.family.id, db)).toEqual({ code: null, chosen: false });
 });
@@ -66,8 +74,8 @@ async function restore(settings: unknown[]): Promise<string> {
     }),
   );
   const json = await res.json();
+  if (json.family_id) made.push(json.family_id);
   expect(res.status, JSON.stringify(json)).toBe(200);
-  made.push(json.family_id);
   return json.family_id;
 }
 

@@ -16,18 +16,26 @@ import { countryForTimeZone } from "@/lib/holidays/region";
  * none (nothing writes that setting today -- plan ruling 7); never from the
  * language, because a German-speaking family may live in Vienna or Zürich.
  * Skipping leaves the region unset: no holidays rather than wrong ones.
+ *
+ * Nothing is guessed, and Next waits, until both settings have loaded: a
+ * guess from this device's zone saved by a quick Next would otherwise beat
+ * the family's own timezone, or overwrite a region already saved. A guessed
+ * bare country saved as it is gets the board's one-time "Which state are
+ * you in?" (the holiday-region rule asks once more for a country-only pick).
  */
 export default function SetupRegionPage() {
   const t = useTranslations("setup.region");
-  const { setting } = useHolidayRegion();
-  const { data: familyZone } = useSetting<unknown>("timezone", null);
+  const { setting, isLoading: regionLoading } = useHolidayRegion();
+  const { data: familyZone, isLoading: zoneLoading } = useSetting<unknown>("timezone", null);
+  const settled = !regionLoading && !zoneLoading;
   const saveRegion = useSaveHolidayRegion();
   const [picked, setPicked] = useState<string | null>(null);
 
   const guess = useMemo(() => {
+    if (!settled) return null;
     const zone = typeof familyZone === "string" ? familyZone : Intl.DateTimeFormat().resolvedOptions().timeZone;
     return countryForTimeZone(zone);
-  }, [familyZone]);
+  }, [familyZone, settled]);
 
   const value = picked ?? setting?.code ?? guess;
 
@@ -56,7 +64,7 @@ export default function SetupRegionPage() {
           )}
         </CardContent>
       </Card>
-      <WizardStepFooter nextHref="/setup/people" onNextClick={handleNext} disabled={saveRegion.isPending} />
+      <WizardStepFooter nextHref="/setup/people" onNextClick={handleNext} disabled={saveRegion.isPending || (!settled && picked === null)} />
     </>
   );
 }

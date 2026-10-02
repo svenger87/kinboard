@@ -2232,6 +2232,9 @@
         "syncFailed": "Impossible de récupérer les vacances scolaires. Celles déjà présentes restent inchangées.",
         "saveError": "Échec de l'enregistrement. Réessayez.",
         "optionsError": "Impossible de charger les régions scolaires depuis OpenHolidays. Réessayez plus tard.",
+        "installOff": "Ce Kinboard ne récupère plus les vacances scolaires d’OpenHolidays. Celles déjà récupérées comptent toujours comme vacances scolaires.",
+        "removeSynced": "Supprimer les vacances récupérées",
+        "removedSynced": "Les vacances scolaires récupérées ont été supprimées. Vos propres saisies sont conservées.",
         "sourceBadge": "OpenHolidays",
         "sentNote": "Kinboard envoie à OpenHolidays votre pays, votre région et votre type d'école, jamais rien sur votre famille.",
         "odbl": "Contient des informations de l’<oh>API OpenHolidays</oh>, mises à disposition ici sous la licence <odbl>Open Database License (ODbL)</odbl>.",
@@ -2675,7 +2678,7 @@
         },
         "holiday-region": {
           "title": "Dans quelle région habitez-vous ?",
-          "description": "Une seule fois, si personne n'a choisi où vit la famille : demande le pays et la région, pour que les jours fériés et les jours sans école soient justes."
+          "description": "Une fois si personne n'a choisi où vit la famille, et une fois encore si seul le pays a été choisi : demande la région, pour que les jours fériés et les jours sans école soient justes."
         }
       }
     },
@@ -4270,6 +4273,10 @@
         "migrated": {
           "title": "Dans quelle région habitez-vous ?",
           "detail": "Les jours fériés et les jours sans école dépendent de l'endroit où vous habitez. Choisissez votre pays et votre région dans Paramètres → Jours fériés."
+        },
+        "country": {
+          "title": "Dans quelle région habitez-vous ?",
+          "detail": "Seuls les jours fériés de tout le pays sont affichés. Choisissez votre région dans Paramètres → Jours fériés pour avoir aussi ses jours fériés et ses vacances scolaires."
         }
       }
     }

@@ -27,3 +27,10 @@ test("setup state reports a chosen region", () => {
   expect(route).toContain('"holiday_region"');
   expect(route).toContain("has_holiday_region:");
 });
+
+test("nothing is guessed, and Next waits, until the family's timezone and region have loaded (final review #6)", () => {
+  const page = read("src/app/setup/region/page.tsx");
+  expect(page).toContain("const settled = !regionLoading && !zoneLoading;");
+  expect(page).toMatch(/const guess = useMemo\(\(\) => \{\s*if \(!settled\) return null;/);
+  expect(page).toMatch(/<WizardStepFooter[^>]*disabled=\{saveRegion\.isPending \|\| \(!settled && picked === null\)\}/);
+});

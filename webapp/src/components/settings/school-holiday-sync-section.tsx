@@ -37,8 +37,10 @@ const localDay = (d: Date) =>
  * School holidays from OpenHolidays (RFC-014 §5): the switch, the school
  * region, area and school type, the status, Refresh now, the synced rows
  * (read-only until §6.4's hide and copy-as-mine), what is sent, and the ODbL
- * attribution (§8). Not rendered where no sync can exist: GB, the US, an
- * uncovered country, or an install with SCHOOL_HOLIDAY_SYNC=off.
+ * attribution (§8). Not rendered where no sync can exist: GB, the US or an
+ * uncovered country. On an install with SCHOOL_HOLIDAY_SYNC=off, rows fetched
+ * before still count, so while there are any the card still lists them, with
+ * the attribution, and offers to remove them -- and nothing else.
  */
 export function SchoolHolidaySyncSection() {
   const t = useTranslations("settings.holidays.sync");
@@ -48,7 +50,7 @@ export function SchoolHolidaySyncSection() {
   const { data: holidays = [] } = useSchoolHolidays();
   const setting = status?.setting ?? null;
   const parent = setting?.region ? topLevel(setting.region) : null;
-  const { data: options, isError: optionsFailed } = useSchoolRegionOptions(parent, !!setting?.enabled);
+  const { data: options, isError: optionsFailed } = useSchoolRegionOptions(parent, !!setting?.enabled && !!status?.installEnabled);
   // useToday rolls over at local midnight, so a kiosk left open drops a break the day after it ends.
   const todayMs = useToday();
 
@@ -60,11 +62,10 @@ export function SchoolHolidaySyncSection() {
     return holidays.filter((h) => h.source === "openholidays" && !h.hidden && h.ends_on >= from && h.starts_on <= to);
   }, [holidays, todayMs]);
 
-  if (!status || !status.installEnabled || !status.covered) return null;
-
   async function change(body: { enabled?: boolean; region?: string; group?: string }) {
     try {
       const result = await update.mutateAsync(body);
+      if (result.outcome?.status === "skipped" && result.outcome.reason === "install-off") toast(t("removedSynced"));
       if (result.outcome?.status === "failed") toast.error(t("syncFailed"));
       // Refresh now is an empty body; a pick that could not fetch yet is not a refresh.
       if (result.outcome?.status === "rate-limited") toast(t(Object.keys(body).length === 0 ? "rateLimited" : "rateLimitedAfterPick"));
@@ -73,9 +74,61 @@ export function SchoolHolidaySyncSection() {
     }
   }
 
+  if (!status) return null;
+  // Any synced row, past or hidden included: removing them is what is on offer.
+  const anySynced = holidays.some((h) => h.source === "openholidays");
+  if (!status.installEnabled && !anySynced) return null;
+  if (status.installEnabled && !status.covered) return null;
+
   const day = (iso: string) => new Date(iso).toLocaleDateString(locale, { day: "numeric", month: "short" });
   const date = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(locale);
   const range = (from: string, to: string) => (from === to ? date(from) : `${date(from)} – ${date(to)}`);
+
+  const syncedList =
+    synced.length > 0 ? (
+      <ul className="mt-4 flex flex-col gap-2" data-testid="synced-holidays">
+        {synced.map((h) => (
+          <li
+            key={h.id}
+            title={t("odblTitle")}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/30 p-3"
+          >
+            <div className="min-w-0 flex-1 basis-40">
+              <p className="break-words text-sm font-medium hyphens-auto">{h.name}</p>
+              <p className="text-xs text-muted-foreground">{range(h.starts_on, h.ends_on)}</p>
+            </div>
+            <Badge variant="outline" className="shrink-0">
+              {t("sourceBadge")}
+            </Badge>
+          </li>
+        ))}
+      </ul>
+    ) : null;
+
+  const attribution = (
+    <p className="mt-2 text-xs text-muted-foreground">
+      {t.rich("odbl", {
+        oh: external("https://www.openholidaysapi.org"),
+        odbl: external("https://opendatacommons.org/licenses/odbl/1-0/"),
+      })}
+    </p>
+  );
+
+  if (!status.installEnabled) {
+    return (
+      <Card className="p-4" data-testid="school-sync-install-off">
+        <p className="font-semibold">{t("title")}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t("installOff")}</p>
+        {syncedList}
+        <div className="mt-4">
+          <Button size="sm" variant="outline" onClick={() => change({ enabled: false })} disabled={update.isPending}>
+            {t("removeSynced")}
+          </Button>
+        </div>
+        {attribution}
+      </Card>
+    );
+  }
 
   const regionGroups = REGION_GROUPS.has((setting?.region ?? parent ?? "").split("-")[0]);
 
@@ -188,35 +241,12 @@ export function SchoolHolidaySyncSection() {
             </Button>
           </div>
 
-          {synced.length > 0 && (
-            <ul className="mt-4 flex flex-col gap-2" data-testid="synced-holidays">
-              {synced.map((h) => (
-                <li
-                  key={h.id}
-                  title={t("odblTitle")}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/30 p-3"
-                >
-                  <div className="min-w-0 flex-1 basis-40">
-                    <p className="break-words text-sm font-medium hyphens-auto">{h.name}</p>
-                    <p className="text-xs text-muted-foreground">{range(h.starts_on, h.ends_on)}</p>
-                  </div>
-                  <Badge variant="outline" className="shrink-0">
-                    {t("sourceBadge")}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          )}
+          {syncedList}
         </>
       )}
 
       <p className="mt-4 text-xs text-muted-foreground">{t("sentNote")}</p>
-      <p className="mt-2 text-xs text-muted-foreground">
-        {t.rich("odbl", {
-          oh: external("https://www.openholidaysapi.org"),
-          odbl: external("https://opendatacommons.org/licenses/odbl/1-0/"),
-        })}
-      </p>
+      {attribution}
     </Card>
   );
 }

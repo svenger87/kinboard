@@ -78,9 +78,10 @@ test("Settings → Holidays offers cantons for Switzerland and fits the screen",
   // "Keep this" records that someone chose the migrated region, and goes.
   const keep = page.getByRole("button", { name: /^(Keep this|Beibehalten|Conserver)$/ });
   await expect(keep).toBeVisible();
-  // Retried: against a dev server that is still compiling other routes, the
-  // first click can land on a page that is about to be remounted, and no
-  // request goes out. Keeping twice is the same as keeping once.
+  // Retried: under `next dev` (on-demand compilation), the first click can
+  // land on a page that is about to be remounted while other routes compile,
+  // and no request goes out. Inert against the CI `next start` build, where
+  // nothing compiles on demand. Keeping twice is the same as keeping once.
   await expect(async () => {
     if (await keep.isVisible()) await keep.click({ timeout: 2_000 });
     await expect(keep).toHaveCount(0, { timeout: 5_000 });

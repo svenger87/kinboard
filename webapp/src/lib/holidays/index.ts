@@ -1,6 +1,5 @@
 import type { Holiday } from "./types";
 import { differenceInCalendarDays } from "date-fns";
-import { addDays } from "./utils";
 import { observedDays, regionYear } from "./adapter";
 
 /**
@@ -21,23 +20,6 @@ export const COUNTRIES: readonly CountryCode[] = ["de", "us", "uk", "nl", "fr"];
 /** The public holidays the calendar marks, and the marked non-public days, in date order. */
 export function getHolidays(country: CountryCode, year: number, locale: string = "en"): Holiday[] {
   return regionYear(country, year, locale)?.days.filter((d) => d.inCalendar).map((d) => d.holiday) ?? [];
-}
-
-/**
- * @deprecated No caller since `german-holidays.ts` went (RFC-014 Phase 1
- * Task 2); the countdown uses `nextHolidays`. Kept because the plan lists it
- * in this module's interface. Removing it, and `./utils` with it, is a
- * controller decision.
- */
-export function getUpcomingHolidays(country: CountryCode, daysAhead: number = 14, locale: string = "en"): Holiday[] {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const cutoff = addDays(today, daysAhead);
-  const year = today.getFullYear();
-  const holidays = [...getHolidays(country, year, locale), ...getHolidays(country, year + 1, locale)];
-  return holidays
-    .filter((h) => h.date >= today && h.date <= cutoff)
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
 /**

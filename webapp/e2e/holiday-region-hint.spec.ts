@@ -28,6 +28,21 @@ test("asks a family with no region at all, in other words", () => {
   expect(asked(signals({ code: null, chosen: false }))[0]?.messageKey).toBe("holiday-region.unset");
 });
 
+test("asks once more, under its own key, when only the country was chosen (final review #6)", () => {
+  // The wizard's guess saved with one tap on Next: national holidays only.
+  const items = asked(signals({ code: "DE", chosen: true }));
+  expect(items).toHaveLength(1);
+  expect(items[0]).toMatchObject({ key: "holiday-region-state", messageKey: "holiday-region.country", evidence: { region: "DE" } });
+  expect(asked(signals({ code: "AT", chosen: true }))[0]?.key).toBe("holiday-region-state");
+  // A country with no states to pick has nothing to ask.
+  expect(asked(signals({ code: "NL", chosen: true }))).toEqual([]);
+  for (const l of ["en", "de", "fr"]) {
+    const hints = JSON.parse(readFileSync(join(process.cwd(), `messages/${l}.json`), "utf8")).attention.hints["holiday-region"];
+    expect(hints.country.title, l).toBe(hints.migrated.title);
+    expect(hints.country.detail, l).toBeTruthy();
+  }
+});
+
 test("is quiet once chosen, when the setting can't be read, without a row, and with no state to pick", () => {
   expect(asked(signals({ code: "DE-BY", chosen: true }))).toEqual([]);
   expect(asked(signals(undefined))).toEqual([]);

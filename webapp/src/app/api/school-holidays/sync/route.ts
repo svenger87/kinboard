@@ -20,6 +20,11 @@ const Change = z
   })
   .strict();
 
+/** `{ enabled: false }` and nothing else: the one change that needs no OpenHolidays. */
+function isSwitchOff(change: z.infer<typeof Change>): boolean {
+  return change.enabled === false && change.region === undefined && change.group === undefined;
+}
+
 /** The card's view of the sync: may it exist here, and what is it set to. */
 export async function GET(request: NextRequest) {
   const auth = await requireSession(request);
@@ -60,7 +65,22 @@ export async function POST(request: NextRequest) {
 
   const deps = liveSchoolSyncDeps();
   if (!deps.installEnabled) {
-    return NextResponse.json({ error: "the school-holiday sync is off on this install", code: "sync_off" }, { status: 403 });
+    // Rows fetched before the operator switched the sync off stay and keep
+    // counting. Switching off -- which only removes them, and fetches
+    // nothing -- is still the family's to do; everything else is refused.
+    if (!isSwitchOff(body.data)) {
+      return NextResponse.json({ error: "the school-holiday sync is off on this install", code: "sync_off" }, { status: 403 });
+    }
+    try {
+      const existing = await deps.store.setting(familyId);
+      // The setting first, then the rows, as below.
+      if (existing) await deps.store.saveSetting(familyId, { ...existing, enabled: false });
+      await deps.store.clear(familyId);
+      return NextResponse.json({ setting: await deps.store.setting(familyId), outcome: { status: "skipped", reason: "install-off" } });
+    } catch (err) {
+      await logApiError("school-holidays/sync", err);
+      return NextResponse.json({ error: "could not change the sync" }, { status: 500 });
+    }
   }
 
   try {

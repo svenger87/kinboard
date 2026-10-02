@@ -416,17 +416,36 @@ const holidayRegion: Rule = {
   id: "holiday-region",
   title: "Which state are you in?",
   description:
-    "Once, for a family whose holiday region nobody has picked: asks for the country and state, so public holidays and school days match where it lives.",
+    "Once, for a family whose holiday region nobody has picked, and once more if only the country was picked: asks for the country and state, so public holidays and school days match where it lives.",
   // No `contexts`: asked at any time, so it is never resolved at a context
   // boundary and re-raised. Answered once, answered for good.
   once: true,
   evaluate(signals) {
     const region = signals.holidayRegion;
     // Undefined: unreadable. Null: no row. Neither is worth asking about.
-    if (!region || region.chosen) return [];
-    const country = region.code ? (resolveRegion(region.code)?.country ?? null) : null;
+    if (!region) return [];
+    const resolved = region.code ? resolveRegion(region.code) : null;
+    const country = resolved?.country ?? null;
     // A country with no state worth picking (the Netherlands) has nothing to ask.
     if (country !== null && subdivisionsOf(country).length === 0) return [];
+    if (region.chosen) {
+      // Someone chose, but only the country -- often the setup wizard's
+      // guess, saved with one tap on Next: national holidays only, and a
+      // school sync still waiting for a state. Asked once too, under its own
+      // key, so a family that answered the first question is asked this one.
+      if (!resolved || resolved.state !== null) return [];
+      return [
+        {
+          key: "holiday-region-state",
+          title: "Which state are you in?",
+          detail: "Only the holidays of the whole country are shown. Pick your state under Settings → Holidays for its own holidays and school holidays.",
+          messageKey: "holiday-region.country",
+          params: {},
+          evidence: { region: resolved.code },
+          priority: 90,
+        },
+      ];
+    }
     const unset = region.code === null;
     return [
       {
