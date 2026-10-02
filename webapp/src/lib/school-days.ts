@@ -3,7 +3,7 @@ import { isSchoolBreakOn, type SignalSchoolBreak } from "@/lib/attention/types";
 import { timetabledChildren } from "@/lib/timetabled-children";
 import { addDays } from "@/lib/family-time";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "@/i18n/locales";
+import { resolveFamilyLanguage } from "@/lib/family-language";
 import { parseRegionSetting } from "@/lib/holidays/region";
 import { getTranslator } from "@/lib/notifications/messages";
 import { holidayLabel, type HolidayTranslator } from "@/lib/holidays/label";
@@ -136,16 +136,15 @@ export async function fetchSchoolBreaks(
   const breaks: SignalSchoolBreak[] = [...manual, ...calendar, ...synced];
 
   // No region (a new family that skipped the wizard's first step): no public
-  // holidays. The names are said on the family's behalf, so they follow the
-  // Integration API's `familyLanguage()`: the `locale` setting, or English --
-  // not the German default push notifications keep for older installs.
+  // holidays. The names are said on the family's behalf, so they follow
+  // resolveFamilyLanguage, as synced names and the Integration API do: the
+  // `locale` setting, else the region's language, else English -- not the
+  // German default push notifications keep for older installs.
   const setting = (key: string) =>
     ((settings.data ?? []) as { key: string; value: unknown }[]).find((r) => r?.key === key)?.value;
   const region = parseRegionSetting(setting(SETTINGS_KEYS.holidayRegion));
   if (region?.code) {
-    const saved = setting(SETTINGS_KEYS.locale);
-    const locale =
-      typeof saved === "string" && (SUPPORTED_LOCALES as readonly string[]).includes(saved) ? saved : DEFAULT_LOCALE;
+    const locale = resolveFamilyLanguage(setting(SETTINGS_KEYS.locale), region.code);
     const t = getTranslator(locale, "holidays") as unknown as HolidayTranslator;
     breaks.push(...publicHolidayBreaks(region.code, from, to, locale, (h) => holidayLabel(h, t)));
   }

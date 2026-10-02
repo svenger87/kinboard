@@ -23,11 +23,13 @@ const item = (over: Row): Row => ({
   priority: 100, first_seen_at: "2026-10-01T06:00:00Z", state: "active", resolved_at: null, ...over,
 });
 
-/** `locale` null: the family has no locale setting. */
-function fakeDb(locale: unknown = "de") {
+/** `locale` null: the family has no locale setting. `region`: its holiday_region code, if any. */
+function fakeDb(locale: unknown = "de", region: string | null = null) {
   const tables: Record<string, Row[]> = {
     settings: [
       ...(locale === null ? [] : [{ family_id: OURS, key: "locale", value: locale }]),
+      ...(region === null ? [] : [{ family_id: OURS, key: "holiday_region", value: { code: region, chosen: false } }]),
+      { family_id: THEIRS, key: "holiday_region", value: { code: "DE-NI", chosen: true } },
       { family_id: THEIRS, key: "locale", value: "fr" },
     ],
     attention_items: [
@@ -96,12 +98,27 @@ test.describe("GET /attention", () => {
     for (const never of ["acknowledged", "snoozed", "resolved", "foreign"]) expect(keys).not.toContain(never);
   });
 
-  test("English when the family has no locale or an unknown one", async () => {
+  // Changed deliberately with the holiday-names fix: this pinned English for
+  // every family without a `locale` row, which only the language switcher
+  // writes. Titles now follow the same rule as holiday and school names --
+  // saved locale, else the holiday region's language, else English -- so a
+  // German family's assistant hears German. No region still means English.
+  test("English when the family has no locale or an unknown one, and no region that says otherwise", async () => {
     expect(await familyLanguage(OURS, fakeDb(null))).toBe("en");
     expect(await familyLanguage(OURS, fakeDb("xx"))).toBe("en");
+    expect(await familyLanguage(OURS, fakeDb(null, "GB-ENG"))).toBe("en");
     expect(await familyLanguage(THEIRS, fakeDb("de"))).toBe("fr");
     const en = await listAttentionItems(OURS, false, fakeDb(null));
     expect(en.items[0].title).toBe("Oma has a birthday today");
+  });
+
+  test("with no saved locale, the holiday region's language; a saved one wins", async () => {
+    expect(await familyLanguage(OURS, fakeDb(null, "DE-NI"))).toBe("de");
+    expect(await familyLanguage(OURS, fakeDb("xx", "FR"))).toBe("fr");
+    expect(await familyLanguage(OURS, fakeDb("en", "DE-NI"))).toBe("en");
+    const de = await listAttentionItems(OURS, false, fakeDb(null, "DE-NI"));
+    expect(de.locale).toBe("de");
+    expect(de.items[0].title).not.toBe("Oma has a birthday today");
   });
 
   test("a translation that cannot be formatted falls back to the stored English", () => {
