@@ -158,7 +158,8 @@
       "birthdayTurns": "{name} fête ses {age} ans",
       "birthdayToday": "Aujourd'hui !",
       "birthdayDays": "{count, plural, one {# jour} other {# jours}}",
-      "photoCreditUnsplash": "Photo : {photographer} / Unsplash"
+      "photoCreditUnsplash": "Photo : {photographer} / Unsplash",
+      "holidayUntil": "jusqu'au {date}"
     },
     "pwa": {
       "updateTitle": "Mise à jour disponible",
@@ -2489,8 +2490,8 @@
     "calendarDisplay": {
       "title": "Afficher dans le calendrier",
       "description": "Des repères sur chaque jour, en plus des événements. S'applique à tous les appareils de la famille.",
-      "holidaysLabel": "Jours fériés",
-      "holidaysHint": "Un point ambré sur le jour, et le nom du jour férié quand la place le permet. Le pays vient de Paramètres → Langue.",
+      "holidaysLabel": "Jours fériés et vacances",
+      "holidaysHint": "Dans le calendrier, un point ambré sur les jours fériés et leur nom quand la place le permet. Le widget Événements, l'Aperçu de la semaine et l'économiseur d'écran affichent aussi les jours fériés et les vacances scolaires. La région et les vacances scolaires viennent de Paramètres → Jours fériés.",
       "tasksLabel": "Tâches",
       "tasksHint": "Un point de la couleur de la personne chaque jour où une tâche est due. Les tâches récurrentes sont marquées chaque jour où elles reviennent.",
       "tasksAsEventsLabel": "Traiter les tâches comme des événements",
@@ -3839,7 +3840,9 @@
     "dayAria": "{date} – {count, plural, one {# entrée} other {# entrées}}",
     "legendEvents": "Événements",
     "legendTodos": "Tâches",
-    "legendBirthdays": "Anniversaires"
+    "legendBirthdays": "Anniversaires",
+    "holidaySpan": "{from} – {to}",
+    "holidaysAria": "Jours fériés et vacances cette semaine"
   },
   "upcomingEvents": {
     "loadingAria": "Chargement des événements",
@@ -3855,7 +3858,8 @@
     "inMinutes": "· dans {minutes} min",
     "allDayBadge": "Toute la journée",
     "emptyState": "Aucun événement à venir",
-    "moreCount": "+{count} autres"
+    "moreCount": "+{count} autres",
+    "holidayUntil": "jusqu'au {date}"
   },
   "birthdayWidget": {
     "loadingAria": "Chargement des anniversaires",

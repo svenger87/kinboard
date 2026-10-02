@@ -158,7 +158,8 @@
       "birthdayTurns": "{name} turns {age}",
       "birthdayToday": "Today!",
       "birthdayDays": "{count, plural, one {# day} other {# days}}",
-      "photoCreditUnsplash": "Photo: {photographer} / Unsplash"
+      "photoCreditUnsplash": "Photo: {photographer} / Unsplash",
+      "holidayUntil": "until {date}"
     },
     "pwa": {
       "updateTitle": "Update available",
@@ -2489,8 +2490,8 @@
     "calendarDisplay": {
       "title": "Show on the calendar",
       "description": "Marks on each day besides events. Applies to every device in the family.",
-      "holidaysLabel": "Public holidays",
-      "holidaysHint": "An amber dot on the day, and the holiday's name where there is room. The country comes from Settings → Language.",
+      "holidaysLabel": "Holidays",
+      "holidaysHint": "On the calendar, an amber dot on public holidays and the name where there is room. The Events widget, the Week overview and the screensaver also list public and school holidays. The region and the school holidays come from Settings → Holidays.",
       "tasksLabel": "Tasks",
       "tasksHint": "A dot in the person's color on each day a task is due. Repeating tasks are marked on every day they come round.",
       "tasksAsEventsLabel": "Treat tasks as events",
@@ -3839,7 +3840,9 @@
     "dayAria": "{date} – {count, plural, one {# entry} other {# entries}}",
     "legendEvents": "Events",
     "legendTodos": "Tasks",
-    "legendBirthdays": "Birthdays"
+    "legendBirthdays": "Birthdays",
+    "holidaySpan": "{from} – {to}",
+    "holidaysAria": "Holidays this week"
   },
   "upcomingEvents": {
     "loadingAria": "Loading events",
@@ -3855,7 +3858,8 @@
     "inMinutes": "· in {minutes} min",
     "allDayBadge": "All day",
     "emptyState": "No upcoming events",
-    "moreCount": "+{count} more"
+    "moreCount": "+{count} more",
+    "holidayUntil": "until {date}"
   },
   "birthdayWidget": {
     "loadingAria": "Loading birthdays",

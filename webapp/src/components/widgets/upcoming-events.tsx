@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
-import { useEvents, usePeople, useSetting, useTodos, useToday } from "@/hooks";
+import { useEvents, useHolidayEntries, usePeople, useSetting, useTodos, useToday } from "@/hooks";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import {
   DEFAULT_CALENDAR_DISPLAY,
@@ -18,6 +18,8 @@ import {
   taskOccurrences,
   type CalendarDisplaySettings,
 } from "@/lib/calendar-markers";
+import { entryListDay, HOLIDAY_COLOR, holidayEndPattern, keyToDate } from "@/lib/holiday-entries";
+import { toLocalDateKey } from "@/lib/local-date";
 import { WidgetCard } from "@/components/widget-card";
 import { EventPill } from "@/components/event-pill";
 import { useTimeFormat } from "@/hooks/use-time-format";
@@ -83,6 +85,10 @@ export function UpcomingEvents({
   }, [today]);
 
   const { data: events, isLoading, isError } = useEvents(startDate, endDate);
+  // Public and school holidays, behind the calendar's holiday switch; one a
+  // holiday calendar already lists is not listed twice.
+  const todayKey = toLocalDateKey(new Date(today));
+  const { entries: holidays } = useHolidayEntries(todayKey, toLocalDateKey(new Date(endDate)), events);
   const { data: people } = usePeople();
   const { data: calendarDisplay } = useSetting<CalendarDisplaySettings>(
     SETTINGS_KEYS.calendarDisplay,
@@ -102,14 +108,39 @@ export function UpcomingEvents({
       start: new Date(event.start_at),
       color: person?.color || event.calendar?.color || "#3b82f6",
       allDay: event.all_day,
+      holiday: false,
     };
   }), [events, people]);
+
+  // Holidays are all-day items. A school break already under way is filed
+  // under today, with the day it ends, so it is not lost before the window.
+  const holidayEvents = useMemo(
+    () =>
+      holidays.map((h) => ({
+        id: h.id,
+        title: [
+          h.emoji ? `${h.emoji} ${h.title}` : h.title,
+          h.endKey > h.startKey
+            ? t("holidayUntil", { date: format(keyToDate(h.endKey), holidayEndPattern(locale), { locale: dateLocale }) })
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        start: entryListDay(h, todayKey),
+        color: HOLIDAY_COLOR,
+        allDay: true,
+        holiday: true,
+      })),
+    [holidays, todayKey, t, dateLocale, locale],
+  );
 
   // With tasks treated as events, each task joins the list once, at its next
   // occurrence in the window, as an all-day item. Listing every repeat would
   // let one daily chore fill all the slots and push the real events out.
   const displayEvents = useMemo(() => {
-    if (!tasksAsEvents) return calendarEvents;
+    // Holidays first: on a tie the sort keeps them ahead of the day's events.
+    const withHolidays = [...holidayEvents, ...calendarEvents].sort((a, b) => a.start.getTime() - b.start.getTime());
+    if (!tasksAsEvents) return withHolidays;
     const tasks = nextTaskOccurrences(
       taskOccurrences(todos ?? [], people ?? [], new Date(startDate), new Date(endDate), "hsl(var(--muted-foreground))"),
     ).map((o) => ({
@@ -120,9 +151,10 @@ export function UpcomingEvents({
       start: o.date,
       color: o.color,
       allDay: true,
+      holiday: false,
     }));
-    return [...calendarEvents, ...tasks].sort((a, b) => a.start.getTime() - b.start.getTime());
-  }, [calendarEvents, tasksAsEvents, todos, people, startDate, endDate, tCalendar]);
+    return [...withHolidays, ...tasks].sort((a, b) => a.start.getTime() - b.start.getTime());
+  }, [calendarEvents, holidayEvents, tasksAsEvents, todos, people, startDate, endDate, tCalendar]);
 
   if (isLoading) {
     return <UpcomingEventsSkeleton />;
@@ -191,7 +223,7 @@ export function UpcomingEvents({
               const showSeparator = dayLabel !== lastDayLabel;
               lastDayLabel = dayLabel;
               return (
-                <motion.div key={event.id} variants={item}>
+                <motion.div key={event.id} variants={item} data-holiday={event.holiday ? "true" : undefined}>
                   {showSeparator && (
                     <div className="mb-1.5 mt-2 flex items-center gap-2 first:mt-0">
                       <span className="text-kiosk-label text-2xs">{dayLabel}</span>
@@ -203,6 +235,7 @@ export function UpcomingEvents({
                     title={event.title}
                     color={event.color}
                     time={event.allDay ? undefined : formatTime(event.start)}
+                    className={event.holiday ? "bg-amber-400/10" : undefined}
                   />
                 </motion.div>
               );

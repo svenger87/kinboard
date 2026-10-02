@@ -19,7 +19,7 @@ import {
 } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
-import { useEvents, useTodos, useBirthdays, useSetting } from "@/hooks";
+import { useEvents, useTodos, useBirthdays, useSetting, useHolidayEntries } from "@/hooks";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { toLocalDateKey } from "@/lib/local-date";
 import {
@@ -27,6 +27,7 @@ import {
   taskDayKeys,
   type CalendarDisplaySettings,
 } from "@/lib/calendar-markers";
+import { entryCoversDay, holidayEndPattern, keyToDate, type HolidayEntry } from "@/lib/holiday-entries";
 
 function parseBirthdayDate(dateStr: string): Date {
   return parseISO(dateStr + "T12:00:00");
@@ -66,6 +67,9 @@ function WeekOverviewSkeleton() {
   );
 }
 
+/** Holidays named under the grid; a week rarely has more. */
+const MAX_HOLIDAY_LINES = 3;
+
 interface WeekOverviewWidgetProps {
   className?: string;
 }
@@ -89,6 +93,9 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
     DEFAULT_CALENDAR_DISPLAY,
   );
   const tasksAsEvents = calendarDisplay?.tasksAsEvents ?? false;
+  // The seven days shown, today first. One a holiday calendar already marks
+  // is not marked twice.
+  const { entries: holidays } = useHolidayEntries(startStr, format(addDays(today, 6), "yyyy-MM-dd"), events);
 
   const isLoading = loadingEvents || loadingTodos || loadingBirthdays;
 
@@ -131,6 +138,8 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
       });
 
       const totalItems = dayEvents.length + dayTodos.length + dayBirthdays.length;
+      const dayHolidays = holidays.filter((h) => entryCoversDay(h, dayKey));
+      const publicHoliday = dayHolidays.find((h) => h.kind === "public") ?? null;
 
       days.push({
         date: day,
@@ -142,16 +151,27 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
         birthdayCount: dayBirthdays.length,
         totalItems,
         hasBirthday: dayBirthdays.length > 0,
+        publicHoliday,
+        schoolBreak: dayHolidays.some((h) => h.kind === "school"),
+        holidayNames: dayHolidays.map((h) => h.title),
       });
     }
     return days;
-  }, [events, todos, birthdays, today, weekEnd, t, dateLocale, tasksAsEvents]);
+  }, [events, todos, birthdays, today, weekEnd, t, dateLocale, tasksAsEvents, holidays]);
 
   if (isLoading) {
     return <WeekOverviewSkeleton />;
   }
 
   const totalWeekEvents = weekDays.reduce((acc, d) => acc + d.totalItems, 0);
+  const weekHasHoliday = holidays.length > 0;
+  // "Today", a weekday, or -- for a break -- the span it has left in the week.
+  const holidayDayLabel = (h: HolidayEntry) => {
+    const first = h.startKey < startStr ? today : keyToDate(h.startKey);
+    const firstLabel = isSameDay(first, today) ? t("today") : format(first, "EE", { locale: dateLocale });
+    if (h.endKey <= h.startKey) return firstLabel;
+    return t("holidaySpan", { from: firstLabel, to: format(keyToDate(h.endKey), holidayEndPattern(locale), { locale: dateLocale }) });
+  };
   const maxItems = Math.max(...weekDays.map((d) => d.totalItems), 1);
 
   return (
@@ -177,7 +197,11 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
               key={day.date.toISOString()}
               href={`/calendar?date=${format(day.date, "yyyy-MM-dd")}`}
               className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-lg"
-              aria-label={t("dayAria", { date: format(day.date, "EEEE, d. MMMM", { locale: dateLocale }), count: day.totalItems })}
+              aria-label={[
+                t("dayAria", { date: format(day.date, "EEEE, d. MMMM", { locale: dateLocale }), count: day.totalItems }),
+                ...day.holidayNames,
+              ].join(" – ")}
+              title={day.holidayNames.length > 0 ? day.holidayNames.join(" · ") : undefined}
             >
             <motion.div
               initial={{ opacity: 0, y: 8 }}
@@ -200,17 +224,26 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
                 {day.dayName}
               </span>
 
-              {/* Day number circle */}
+              {/* Day number circle. A public holiday rings it in amber, the
+                  colour the calendar gives holidays, with its emoji. */}
               <div
+                data-holiday={day.publicHoliday ? "public" : undefined}
                 className={`relative size-8 flex items-center justify-center rounded-full text-sm font-semibold ${
                   day.isToday
                     ? "bg-primary text-primary-foreground"
                     : day.hasBirthday
                     ? "bg-pink-500/20 text-pink-400"
+                    : day.publicHoliday
+                    ? "bg-amber-400/15 text-amber-400"
                     : "text-foreground"
-                }`}
+                } ${day.publicHoliday ? "ring-1 ring-amber-400/70" : ""}`}
               >
                 {day.dayNumber}
+                {day.publicHoliday?.emoji && (
+                  <span className="absolute -top-0.5 -left-0.5 text-3xs" aria-hidden="true">
+                    {day.publicHoliday.emoji}
+                  </span>
+                )}
                 {day.hasBirthday && (
                   <span className="absolute -top-0.5 -right-0.5 text-3xs">
                     🎂
@@ -248,10 +281,38 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
                   <span className="text-3xs text-muted-foreground/40">—</span>
                 )}
               </div>
+
+              {/* A school break: an amber band under each of its days, so a
+                  week of holidays reads as one stretch. Room is kept for it
+                  whenever the week has a holiday, so the cells stay level. */}
+              {weekHasHoliday && (
+                <div
+                  data-holiday={day.schoolBreak ? "school" : undefined}
+                  className={`h-1 w-full rounded-full ${day.schoolBreak ? "bg-amber-400/60" : ""}`}
+                />
+              )}
             </motion.div>
             </Link>
           ))}
         </div>
+
+        {/* The week's holidays by name: the cells have no room for one. */}
+        {holidays.length > 0 && (
+          <ul className="mt-3 flex flex-col gap-1" aria-label={t("holidaysAria")}>
+            {holidays.slice(0, MAX_HOLIDAY_LINES).map((h) => (
+              <li
+                key={h.id}
+                data-holiday={h.kind}
+                className="flex min-w-0 items-baseline gap-1.5 text-xs text-amber-400"
+              >
+                <span className="shrink-0 tabular-nums text-amber-400/80">{holidayDayLabel(h)}</span>
+                <span className="min-w-0 break-words font-medium">
+                  {h.emoji ? `${h.emoji} ${h.title}` : h.title}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {/* Legend */}
         <div className="flex items-center justify-center gap-4 mt-3 text-3xs text-muted-foreground">

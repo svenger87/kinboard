@@ -158,7 +158,8 @@
       "birthdayTurns": "{name} wird {age}",
       "birthdayToday": "Heute!",
       "birthdayDays": "{count, plural, one {# Tag} other {# Tage}}",
-      "photoCreditUnsplash": "Foto: {photographer} / Unsplash"
+      "photoCreditUnsplash": "Foto: {photographer} / Unsplash",
+      "holidayUntil": "bis {date}"
     },
     "pwa": {
       "updateTitle": "Update verfügbar",
@@ -2489,8 +2490,8 @@
     "calendarDisplay": {
       "title": "Im Kalender anzeigen",
       "description": "Markierungen an jedem Tag, zusätzlich zu Terminen. Gilt für alle Geräte der Familie.",
-      "holidaysLabel": "Feiertage",
-      "holidaysHint": "Ein bernsteinfarbener Punkt am Tag und der Name des Feiertags, wo Platz ist. Das Land kommt aus Einstellungen → Sprache.",
+      "holidaysLabel": "Feiertage und Ferien",
+      "holidaysHint": "Im Kalender ein bernsteinfarbener Punkt an Feiertagen und der Name, wo Platz ist. Das Widget Termine, die Wochenübersicht und der Bildschirmschoner zeigen auch Feiertage und Schulferien. Region und Schulferien kommen aus Einstellungen → Feiertage.",
       "tasksLabel": "Aufgaben",
       "tasksHint": "Ein Punkt in der Farbe der Person an jedem Tag, an dem eine Aufgabe fällig ist. Wiederkehrende Aufgaben werden an jedem Tag markiert, an dem sie wieder anstehen.",
       "tasksAsEventsLabel": "Aufgaben wie Termine behandeln",
@@ -3839,7 +3840,9 @@
     "dayAria": "{date} – {count, plural, one {# Eintrag} other {# Einträge}}",
     "legendEvents": "Termine",
     "legendTodos": "Aufgaben",
-    "legendBirthdays": "Geburtstage"
+    "legendBirthdays": "Geburtstage",
+    "holidaySpan": "{from} – {to}",
+    "holidaysAria": "Feiertage und Ferien diese Woche"
   },
   "upcomingEvents": {
     "loadingAria": "Termine werden geladen",
@@ -3855,7 +3858,8 @@
     "inMinutes": "· in {minutes} Min.",
     "allDayBadge": "Ganztägig",
     "emptyState": "Keine anstehenden Termine",
-    "moreCount": "+{count} weitere"
+    "moreCount": "+{count} weitere",
+    "holidayUntil": "bis {date}"
   },
   "birthdayWidget": {
     "loadingAria": "Geburtstage werden geladen",
