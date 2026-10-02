@@ -492,6 +492,13 @@ export interface Database {
           ends_on: string;
           created_at: string;
           updated_at: string;
+          /** `manual`: typed in by the family. `openholidays`: written by the sync only (RFC-014 §5.1). */
+          source: "manual" | "openholidays";
+          /** OpenHolidays' id for a synced row; null exactly when `source` is `manual`. */
+          external_id: string | null;
+          /** Only a synced row can be hidden. */
+          hidden: boolean;
+          synced_at: string | null;
         };
         Insert: {
           id?: string;
@@ -501,6 +508,10 @@ export interface Database {
           ends_on: string;
           created_at?: string;
           updated_at?: string;
+          source?: "manual" | "openholidays";
+          external_id?: string | null;
+          hidden?: boolean;
+          synced_at?: string | null;
         };
         Update: {
           id?: string;
@@ -510,6 +521,10 @@ export interface Database {
           ends_on?: string;
           created_at?: string;
           updated_at?: string;
+          source?: "manual" | "openholidays";
+          external_id?: string | null;
+          hidden?: boolean;
+          synced_at?: string | null;
         };
         Relationships: [];
       };
