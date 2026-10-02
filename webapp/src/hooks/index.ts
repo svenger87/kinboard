@@ -395,6 +395,7 @@ export type {
 export { useSetupState, useMarkSetupCompleted } from "./use-setup-state";
 export type { SetupState } from "./use-setup-state";
 export { useHolidayRegion } from "./use-holiday-region";
+export { useSaveHolidayRegion } from "./use-holiday-region";
 export type { HolidayRegionState } from "./use-holiday-region";
 
 // Vehicle Hooks

@@ -18,9 +18,6 @@ export type CountryCode = string;
  */
 export const COUNTRIES: readonly CountryCode[] = ["de", "us", "uk", "nl", "fr"];
 
-/** @deprecated Removed with its last reader in RFC-014 Phase 1 Task 6. */
-export const DEFAULT_COUNTRY: CountryCode = "de";
-
 /** The public holidays the calendar marks, and the marked non-public days, in date order. */
 export function getHolidays(country: CountryCode, year: number, locale: string = "en"): Holiday[] {
   return regionYear(country, year, locale)?.days.filter((d) => d.inCalendar).map((d) => d.holiday) ?? [];

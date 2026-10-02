@@ -28,6 +28,9 @@ const DEDICATED_ROUTE_KEYS: Record<string, string> = {
   [SETTINGS_KEYS.settingsPin]: "/api/pin",
   // Needs the settings unlock too, and turning it off revokes assistants.
   [SETTINGS_KEYS.assistantsEnabled]: "/api/assistants",
+  // RFC-014: picking a region is also what turns the school-holiday sync on,
+  // so it is written in one server-side step (plan ruling 20).
+  [SETTINGS_KEYS.holidayRegion]: "/api/holidays/region",
 };
 
 function dedicatedRoute(key: unknown): NextResponse | null {

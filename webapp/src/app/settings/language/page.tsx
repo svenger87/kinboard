@@ -3,9 +3,9 @@
 import { motion } from "framer-motion";
 import { Languages } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
@@ -19,7 +19,6 @@ import {
 import { useSetting, useUpdateSetting } from "@/hooks";
 import { DEFAULT_WEEK_START, type WeekStartPreference } from "@/hooks/use-week-start";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import { COUNTRIES, DEFAULT_COUNTRY, type CountryCode } from "@/lib/holidays";
 import { LOCALES } from "@/i18n/locales";
 import { postLocale } from "@/lib/locale-client";
 import { useFamilyStore } from "@/stores/family-store";
@@ -30,11 +29,6 @@ export default function LanguageSettingsPage() {
   const router = useRouter();
   const { family } = useFamilyStore();
   const [pending, setPending] = useState<string | null>(null);
-
-  const { data: savedCountry } = useSetting<CountryCode>("holiday_country", DEFAULT_COUNTRY);
-  const country: CountryCode = savedCountry ?? DEFAULT_COUNTRY;
-  const updateSetting = useUpdateSetting<CountryCode>();
-  const [countrySaving, setCountrySaving] = useState(false);
 
   async function pick(code: string) {
     if (pending) return;
@@ -72,18 +66,6 @@ export default function LanguageSettingsPage() {
       console.error(e);
     } finally {
       setWeekStartSaving(false);
-    }
-  }
-
-  async function pickCountry(code: CountryCode) {
-    if (code === country || countrySaving) return;
-    setCountrySaving(true);
-    try {
-      await updateSetting.mutateAsync({ key: "holiday_country", value: code });
-    } catch {
-      toast.error(t("countryError"));
-    } finally {
-      setCountrySaving(false);
     }
   }
 
@@ -129,26 +111,15 @@ export default function LanguageSettingsPage() {
             transition={{ delay: 0.2 }}
           >
             <Card className="p-6">
-              <div className="mb-4">
-                <p className="font-medium text-sm">{t("countryLabel")}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{t("countryDescription")}</p>
-              </div>
-              <Select
-                value={country}
-                onValueChange={(v) => pickCountry(v as CountryCode)}
-                disabled={countrySaving}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map((code) => (
-                    <SelectItem key={code} value={code}>
-                      {t(`country_${code}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <p className="text-sm text-muted-foreground">
+                {t.rich("holidaysMoved", {
+                  link: (chunks) => (
+                    <Link href="/settings/holidays" className="underline underline-offset-2 hover:text-foreground">
+                      {chunks}
+                    </Link>
+                  ),
+                })}
+              </p>
             </Card>
           </motion.div>
 

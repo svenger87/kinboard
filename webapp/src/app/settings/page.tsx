@@ -9,6 +9,7 @@ import {
   Bell,
   Boxes,
   Calendar,
+  CalendarHeart,
   Camera,
   Car,
   Check,
@@ -469,6 +470,12 @@ export default function SettingsPage() {
           label: t("itemScheduleLabel"),
           description: t("itemScheduleDescription"),
           href: "/settings/schedule",
+        },
+        {
+          icon: CalendarHeart,
+          label: t("itemHolidaysLabel"),
+          description: t("itemHolidaysDescription"),
+          href: "/settings/holidays",
         },
         {
           icon: Trash2,

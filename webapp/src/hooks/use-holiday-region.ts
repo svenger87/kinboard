@@ -1,6 +1,8 @@
 "use client";
 
-import { useSetting } from "./use-supabase-queries";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys, useSetting } from "./use-supabase-queries";
+import { useFamilyStore } from "@/stores/family-store";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { parseRegionSetting, type HolidayRegionSetting } from "@/lib/holidays/region";
 
@@ -16,4 +18,26 @@ export function useHolidayRegion(): HolidayRegionState {
   const { data, isLoading } = useSetting<unknown>(SETTINGS_KEYS.holidayRegion, null);
   const setting = parseRegionSetting(data);
   return { region: setting?.code ?? null, setting, isLoading };
+}
+
+/** Save the family's holiday region through its one writer, PUT /api/holidays/region. */
+export function useSaveHolidayRegion() {
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+  return useMutation({
+    mutationFn: async (code: string) => {
+      const res = await fetch("/api/holidays/region", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      if (!res.ok) throw new Error("Failed to save the holiday region");
+      return (await res.json()) as { region: HolidayRegionSetting };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.settings(family?.id ?? "", SETTINGS_KEYS.holidayRegion),
+      });
+    },
+  });
 }
