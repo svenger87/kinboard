@@ -111,6 +111,7 @@ import {
   useSetting,
   useUpdateSetting,
   useGoogleCalendarStatus,
+  useHolidayEntries,
   useKeyboardShortcuts,
   useSwipeNavigation,
   queryKeys,
@@ -130,6 +131,7 @@ import {
   type CalendarDisplaySettings,
 } from "@/lib/calendar-markers";
 import { toLocalDateKey } from "@/lib/local-date";
+import { schoolBreaks, schoolBreaksOn, schoolBreakText } from "@/lib/calendar-school-breaks";
 import { useHolidayRegion } from "@/hooks/use-holiday-region";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { useWeekStart } from "@/hooks/use-week-start";
@@ -323,6 +325,22 @@ export default function CalendarPage() {
         : undefined,
     [showHolidayMarkers, holidayRegion, dateRange.start, dateRange.end, locale],
   );
+
+  // School breaks, from the source the widgets use (#329): behind the same
+  // switch, hidden rows left out, and a break a calendar already lists (a
+  // holiday calendar with "Herbstferien" on its first day) dropped in favour
+  // of that calendar's event. The range reaches the day panel's day too,
+  // which is today when nothing is selected and can lie outside the month
+  // being browsed.
+  const panelDayKey = toLocalDateKey(selectedDate ?? new Date());
+  const gridFromKey = toLocalDateKey(new Date(dateRange.start));
+  const gridToKey = toLocalDateKey(new Date(dateRange.end));
+  const { entries: holidayEntryList } = useHolidayEntries(
+    panelDayKey < gridFromKey ? panelDayKey : gridFromKey,
+    panelDayKey > gridToKey ? panelDayKey : gridToKey,
+    eventsData,
+  );
+  const schoolBreakEntries = useMemo(() => schoolBreaks(holidayEntryList), [holidayEntryList]);
 
   // Every task occurrence the calendar can show, computed once for the grid's
   // dots and the side panel's lists: the grid's own range, and -- with tasks
@@ -1121,6 +1139,7 @@ export default function CalendarPage() {
                   onSelectDate={setSelectedDate}
                   onSelectEvent={openEventDetail}
                   holidayMarkers={holidayMarkers}
+                  schoolBreaks={schoolBreakEntries}
                   taskMarkers={taskMarkers}
                 />
               ) : (
@@ -1131,6 +1150,7 @@ export default function CalendarPage() {
                   onSelectDate={setSelectedDate}
                   onSelectEvent={openEventDetail}
                   holidayMarkers={holidayMarkers}
+                  schoolBreaks={schoolBreakEntries}
                   taskMarkers={taskMarkers}
                 />
               )}
@@ -1164,14 +1184,32 @@ export default function CalendarPage() {
                   {(() => {
                     const holidays = holidayRegion ? getHolidays(holidayRegion, displayDate.getFullYear(), locale) : [];
                     const holiday = holidays.find((h) => isSameDay(h.date, displayDate));
-                    if (holiday) {
-                      return (
-                        <Badge variant="outline" className="mt-1.5 text-xs border-amber-500/40 text-amber-400">
-                          {holiday.emoji} {holidayLabel(holiday, tHolidays)}
-                        </Badge>
-                      );
-                    }
-                    return null;
+                    // The school break the day falls in, with its days, next
+                    // to the public holiday: a dashed amber outline where the
+                    // holiday's is solid, as the grid gives it a band, not a dot.
+                    const breaks = schoolBreaksOn(schoolBreakEntries, toLocalDateKey(displayDate));
+                    if (!holiday && breaks.length === 0) return null;
+                    return (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5 min-w-0">
+                        {holiday && (
+                          <Badge variant="outline" className="text-xs border-amber-500/40 text-amber-400">
+                            {holiday.emoji} {holidayLabel(holiday, tHolidays)}
+                          </Badge>
+                        )}
+                        {breaks.map(({ entry }) => (
+                          <Badge
+                            key={entry.id}
+                            variant="outline"
+                            data-school-break={entry.title}
+                            title={t("schoolHolidayLabel")}
+                            className="max-w-full whitespace-normal break-words text-left text-xs border-dashed border-amber-500/50 bg-amber-400/10 text-amber-400"
+                          >
+                            <span className="sr-only">{t("schoolHolidayLabel")}: </span>
+                            {schoolBreakText(entry, locale)}
+                          </Badge>
+                        ))}
+                      </div>
+                    );
                   })()}
                 </div>
 

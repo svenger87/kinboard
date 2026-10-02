@@ -23,6 +23,8 @@ import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { toLocalDateKey } from "@/lib/local-date";
 import type { Holiday } from "@/lib/holidays";
 import { holidayLabel } from "@/lib/holidays/label";
+import { normalizeHolidayName, type HolidayEntry } from "@/lib/holiday-entries";
+import { schoolBreaksOn } from "@/lib/calendar-school-breaks";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Trash2 } from "lucide-react";
@@ -57,6 +59,8 @@ interface MonthViewProps {
   onSelectEvent: (event: CalendarEvent) => void;
   /** Built-in public holidays by local day key; absent when the option is off. */
   holidayMarkers?: Map<string, Holiday>;
+  /** School breaks (useHolidayEntries' school entries); absent or empty when the option is off. */
+  schoolBreaks?: HolidayEntry[];
   /** Person colours with a task due, by local day key; absent when the option is off. */
   taskMarkers?: Map<string, string[]>;
 }
@@ -81,6 +85,7 @@ export function MonthView({
   onSelectDate,
   onSelectEvent,
   holidayMarkers,
+  schoolBreaks,
   taskMarkers,
 }: MonthViewProps) {
   const { formatTime } = useTimeFormat();
@@ -189,6 +194,11 @@ export function MonthView({
                 const dayKey = toLocalDateKey(day);
                 const holiday = holidayMarkers?.get(dayKey);
                 const taskColors = taskMarkers?.get(dayKey) ?? [];
+                const breaks = schoolBreaks ? schoolBreaksOn(schoolBreaks, dayKey) : [];
+                // A break is named where it begins, and again at the start
+                // of each week row it continues into, as a multi-day bar is
+                // in any calendar.
+                const namedBreak = breaks.find((b) => b.first || dayIndex === 0);
                 const visibleEvents = dayEvents.slice(0, MAX_EVENTS_PER_CELL);
                 const overflowCount = dayEvents.length - MAX_EVENTS_PER_CELL;
 
@@ -199,14 +209,21 @@ export function MonthView({
                 // name(s), and the tasks-due count the corner badge shows
                 // from sm up. Dedup in case a calendar-sourced holiday
                 // event and a built-in holiday marker name the same day
-                // the same thing.
-                const holidayNames = Array.from(
-                  new Set(
-                    [holidayEvent?.title, holiday ? holidayLabel(holiday, tHolidays) : undefined].filter(
-                      (name): name is string => Boolean(name)
-                    )
-                  )
-                );
+                // the same thing, or a school break and a holiday calendar's
+                // event of the same name.
+                const holidayNames: string[] = [];
+                const seenNames = new Set<string>();
+                for (const name of [
+                  holidayEvent?.title,
+                  holiday ? holidayLabel(holiday, tHolidays) : undefined,
+                  ...breaks.map((b) => b.entry.title),
+                ]) {
+                  if (!name) continue;
+                  const normalized = normalizeHolidayName(name);
+                  if (seenNames.has(normalized)) continue;
+                  seenNames.add(normalized);
+                  holidayNames.push(name);
+                }
                 const dayButtonLabel = [
                   format(day, "PPPP", { locale: dateLocale }),
                   holidayNames.join(", "),
@@ -251,6 +268,7 @@ export function MonthView({
                       aria-pressed={isSelected ? true : undefined}
                       className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                     />
+
 
                     {/* Day Number. Like everything drawn over the day-selection
                         button except the event chips, it lets taps through
@@ -319,6 +337,20 @@ export function MonthView({
                         </span>
                       )}
                     </div>
+
+                    {/* The break's name where it begins, from sm up, on a
+                        line of its own under the number: beside it, with a
+                        holiday dot and five people's task dots, "Vacances de
+                        la Toussaint" was down to "V…". Two lines at most,
+                        broken between words. */}
+                    {namedBreak && (
+                      <div
+                        data-school-break-name={namedBreak.entry.title}
+                        className="pointer-events-none hidden sm:block relative z-10 mb-0.5 px-0.5 min-w-0 text-3xs leading-tight text-amber-400"
+                      >
+                        <span className="line-clamp-2 break-words">{namedBreak.entry.title}</span>
+                      </div>
+                    )}
 
                     {/* Phone: the task dots on their own row, wrapping like
                         the event dots below rather than running off the cell. */}
@@ -415,6 +447,22 @@ export function MonthView({
                         </div>
                       )}
                     </div>
+                    {/* School break: an amber band along the top of each of
+                        its days, rounded where the break begins and ends, so
+                        the weeks off read as one bar across the grid. A band,
+                        not the public holiday's dot. Above the day button but
+                        letting taps through, like the rest of the cell. Last in the
+                        cell: it is placed absolutely, and the number row stays
+                        the button's next sibling. */}
+                    {breaks.length > 0 && (
+                      <div
+                        aria-hidden="true"
+                        data-school-break-band={breaks.map((b) => b.entry.title).join("|")}
+                        className={`pointer-events-none absolute top-0 z-10 h-[3px] sm:h-1 bg-amber-400/70 ${
+                          breaks.some((b) => b.first) ? "left-1 rounded-l-full" : "left-0"
+                        } ${breaks.some((b) => b.last) ? "right-1 rounded-r-full" : "right-0"}`}
+                      />
+                    )}
                   </motion.div>
                 );
               })}

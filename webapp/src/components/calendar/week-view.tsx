@@ -22,6 +22,8 @@ import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { toLocalDateKey } from "@/lib/local-date";
 import type { Holiday } from "@/lib/holidays";
 import { holidayLabel } from "@/lib/holidays/label";
+import type { HolidayEntry } from "@/lib/holiday-entries";
+import { schoolBreakRange, schoolBreaksOn } from "@/lib/calendar-school-breaks";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { personStrongTint, personText } from "@/lib/person-color";
@@ -55,6 +57,8 @@ interface WeekViewProps {
   onSelectEvent: (event: CalendarEvent) => void;
   /** Built-in public holidays by local day key; absent when the option is off. */
   holidayMarkers?: Map<string, Holiday>;
+  /** School breaks (useHolidayEntries' school entries); absent or empty when the option is off. */
+  schoolBreaks?: HolidayEntry[];
   /** Person colours with a task due, by local day key; absent when the option is off. */
   taskMarkers?: Map<string, string[]>;
 }
@@ -71,6 +75,7 @@ export function WeekView({
   onSelectDate,
   onSelectEvent,
   holidayMarkers,
+  schoolBreaks,
   taskMarkers,
 }: WeekViewProps) {
   const { formatTime, formatHourLabel, use24Hour } = useTimeFormat();
@@ -107,6 +112,12 @@ export function WeekView({
   const allDayAndMultiDayEvents = useMemo(() => {
     return events.filter((e) => e.allDay || isMultiDayEvent(e));
   }, [events]);
+
+  // The week's school breaks, per day, for the all-day row.
+  const breaksByDay = weekDays.map((day) =>
+    schoolBreaks ? schoolBreaksOn(schoolBreaks, toLocalDateKey(day)) : [],
+  );
+  const weekHasBreak = breaksByDay.some((breaks) => breaks.length > 0);
 
   // Get timed events for a specific day (single-day events only)
   const getTimedEventsForDay = (day: Date) => {
@@ -230,7 +241,7 @@ export function WeekView({
       </div>
 
       {/* All-day and multi-day events row */}
-      {allDayAndMultiDayEvents.length > 0 && (
+      {(allDayAndMultiDayEvents.length > 0 || weekHasBreak) && (
         <div className="grid grid-cols-[2.5rem_repeat(7,1fr)] sm:grid-cols-[4rem_repeat(7,1fr)] border-b border-border/30 pb-2 mb-2">
           <div className="text-3xs sm:text-xs text-muted-foreground py-1">
             {t("weekView.allDayLabel")}
@@ -238,7 +249,44 @@ export function WeekView({
           {weekDays.map((day, dayIndex) => {
             const dayEvents = getAllDayEventsForDay(day);
             return (
-              <div key={day.toISOString()} className="px-0.5 flex flex-col gap-0.5">
+              <div key={day.toISOString()} className="px-0.5 flex flex-col gap-0.5 min-w-0">
+                {/* A school break: one amber strip across its days, above
+                    the week's events, named where it begins and on the
+                    week's first day when it began before. Not an event --
+                    there is nothing to open -- so not a button; the
+                    break's days are on the strip's title and, for a screen
+                    reader, on its first segment. The segments meet edge to
+                    edge (the column's own padding, no more): overlapping
+                    like the event bars do, the see-through amber doubled
+                    into a seam at every day. */}
+                {breaksByDay[dayIndex].map(({ entry, first, last }) => {
+                  const named = first || dayIndex === 0;
+                  const range = schoolBreakRange(entry, locale);
+                  return (
+                    <div
+                      key={entry.id}
+                      data-school-break={entry.title}
+                      title={`${entry.title} · ${range}`}
+                      aria-hidden={named ? undefined : true}
+                      className={`text-xs px-1.5 py-1 sm:py-0.5 truncate font-semibold border-y border-dashed border-amber-400/60 bg-amber-400/15 text-amber-400 ${
+                        first && last ? "rounded border-x" :
+                        first ? "rounded-l border-l -mr-0.5" :
+                        last ? "rounded-r border-r -ml-0.5" :
+                        "-mx-0.5"
+                      }`}
+                    >
+                      {named ? (
+                        <>
+                          <span className="sr-only">{t("schoolHolidayLabel")}: </span>
+                          {entry.title}
+                          <span className="sr-only"> · {range}</span>
+                        </>
+                      ) : (
+                        "\u00A0"
+                      )}
+                    </div>
+                  );
+                })}
                 {dayEvents.slice(0, 3).map((event) => {
                   const isStart = isSameDay(event.start, day);
                   const isEnd = isSameDay(event.end, day);
