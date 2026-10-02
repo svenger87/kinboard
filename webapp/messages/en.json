@@ -2642,6 +2642,10 @@
         "nothing-planned-for-dinner": {
           "title": "No dinner planned",
           "description": "In the evening, says if tomorrow has nothing planned to eat."
+        },
+        "holiday-region": {
+          "title": "Which state are you in?",
+          "description": "Once, if nobody has picked where the family lives: asks for the country and state, so holidays and school days are right."
         }
       }
     },
@@ -4176,6 +4180,7 @@
     "rule": "Rule",
     "disableRule": "Stop showing this hint",
     "snoozed": "Later today",
+    "choose": "Choose",
     "hints": {
       "leave-soon": {
         "title": "{what}",
@@ -4226,6 +4231,16 @@
       "lock-up-before-bed": {
         "title": "{count, plural, one {# still open} other {# still open}}",
         "detail": "{entities}"
+      },
+      "holiday-region": {
+        "unset": {
+          "title": "Which state are you in?",
+          "detail": "No public holidays are shown yet. Pick your country and state under Settings → Holidays."
+        },
+        "migrated": {
+          "title": "Which state are you in?",
+          "detail": "Public holidays and school days depend on where you live. Pick your country and state under Settings → Holidays."
+        }
       }
     }
   },

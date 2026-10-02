@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { collectSignals, resetSignalCaches, type CollectOptions } from "./signals";
-import { evaluate, resolveDayContext, type EvaluatedItem, type FamilyRuleState } from "./engine";
-import { RULES } from "./rules";
+import { answerStillHolds, evaluate, resolveDayContext, type EvaluatedItem, type FamilyRuleState } from "./engine";
+import { RULES, RULES_BY_ID } from "./rules";
 
 /**
  * Running the Heute-Motor and reconciling what it says with what is stored.
@@ -151,19 +151,25 @@ export async function runAttentionForFamily(
   const candidates = proposed.filter((i) => !existing.has(i.key));
   let fresh = candidates;
   if (candidates.length > 0) {
+    // Fetched without a time bound and filtered below: a `once` rule's answer
+    // holds for good, every other rule's for ANSWERED_LOOKBACK_MS. Keys carry
+    // their day, so this stays a handful of rows.
     const { data: answeredRows } = await (supabase as any)
       .from("attention_items")
-      .select("item_key")
+      .select("item_key, rule_id, resolved_at")
       .eq("family_id", familyId)
       .in(
         "item_key",
         candidates.map((i) => i.key)
       )
       .in("state", ["acknowledged", "dismissed"])
-      .not("resolved_at", "is", null)
-      .gte("resolved_at", new Date(now.getTime() - ANSWERED_LOOKBACK_MS).toISOString());
+      .not("resolved_at", "is", null);
 
-    const answered = new Set(((answeredRows ?? []) as { item_key: string }[]).map((r) => r.item_key));
+    const answered = new Set(
+      ((answeredRows ?? []) as { item_key: string; rule_id: string; resolved_at: string }[])
+        .filter((r) => answerStillHolds(RULES_BY_ID[r.rule_id], new Date(r.resolved_at), now, ANSWERED_LOOKBACK_MS))
+        .map((r) => r.item_key),
+    );
     fresh = candidates.filter((i) => !answered.has(i.key));
     result.suppressed = candidates.length - fresh.length;
   }

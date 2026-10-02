@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { AlertCircle, Check, Clock, Info, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +30,9 @@ import {
  */
 
 const SNOOZE_MINUTES = 60;
+
+/** Hints answered somewhere else get a button that goes there. */
+const RULE_LINKS: Record<string, string> = { "holiday-region": "/settings/holidays" };
 
 function evidenceLines(item: AttentionItem): string[] {
   const lines: string[] = [];
@@ -96,6 +100,11 @@ export function AttentionWidget() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 pl-8">
+                {RULE_LINKS[item.rule_id] && (
+                  <Button size="sm" variant="outline" className="h-9" asChild>
+                    <Link href={RULE_LINKS[item.rule_id]}>{t("choose")}</Link>
+                  </Button>
+                )}
                 {/* Sized for a thumb on a wall tablet, not a mouse. */}
                 <Button
                   size="sm"

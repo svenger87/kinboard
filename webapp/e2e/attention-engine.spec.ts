@@ -184,8 +184,8 @@ test.describe("a family without Home Assistant still gets value", () => {
 
   test("most of the shipped rules need nothing beyond Kinboard's own data", () => {
     const needsIntegration = ["take-an-umbrella", "lock-up-before-bed"];
-    expect(RULES.length).toBe(10);
-    expect(RULES.filter((r) => !needsIntegration.includes(r.id)).length).toBe(8);
+    expect(RULES.length).toBe(11);
+    expect(RULES.filter((r) => !needsIntegration.includes(r.id)).length).toBe(9);
   });
 });
 

@@ -133,3 +133,18 @@ export function evaluate(
     (a, b) => a.priority - b.priority || a.key.localeCompare(b.key)
   );
 }
+
+/**
+ * Does an answer (acknowledged or dismissed) on an item that resolved at
+ * `resolvedAt` still keep the same key from being raised at `now`? For a
+ * `once` rule, always.
+ */
+export function answerStillHolds(
+  rule: Pick<Rule, "once"> | undefined,
+  resolvedAt: Date,
+  now: Date,
+  lookbackMs: number,
+): boolean {
+  if (rule?.once) return true;
+  return resolvedAt.getTime() >= now.getTime() - lookbackMs;
+}

@@ -1,6 +1,7 @@
 import type { ProposedItem, Rule, Signals } from "./types";
 import { isSchoolBreakOn } from "./types";
 import { localMinutes } from "./engine";
+import { resolveRegion, subdivisionsOf } from "@/lib/holidays/region";
 
 /**
  * The ten rules Kinboard ships with (plan §Phase 3).
@@ -411,6 +412,38 @@ const lockUpBeforeBed: Rule = {
  * Shipped in a fixed order so the set is reviewable as a list, and so two
  * evaluations cannot differ because of iteration order.
  */
+const holidayRegion: Rule = {
+  id: "holiday-region",
+  title: "Which state are you in?",
+  description:
+    "Once, for a family whose holiday region nobody has picked: asks for the country and state, so public holidays and school days match where it lives.",
+  // No `contexts`: asked at any time, so it is never resolved at a context
+  // boundary and re-raised. Answered once, answered for good.
+  once: true,
+  evaluate(signals) {
+    const region = signals.holidayRegion;
+    // Undefined: unreadable. Null: no row. Neither is worth asking about.
+    if (!region || region.chosen) return [];
+    const country = region.code ? (resolveRegion(region.code)?.country ?? null) : null;
+    // A country with no state worth picking (the Netherlands) has nothing to ask.
+    if (country !== null && subdivisionsOf(country).length === 0) return [];
+    const unset = region.code === null;
+    return [
+      {
+        key: "holiday-region",
+        title: "Which state are you in?",
+        detail: unset
+          ? "No public holidays are shown yet. Pick your country and state under Settings → Holidays."
+          : "Public holidays and school days depend on where you live. Pick your country and state under Settings → Holidays.",
+        messageKey: region.code === null ? "holiday-region.unset" : "holiday-region.migrated",
+        params: {},
+        evidence: { region: region.code ?? "none" },
+        priority: 90,
+      },
+    ];
+  },
+};
+
 export const RULES: Rule[] = [
   birthdayToday,
   leaveSoon,
@@ -422,6 +455,7 @@ export const RULES: Rule[] = [
   birthdaySoon,
   shoppingBeforeTheWeekend,
   nothingPlannedForDinner,
+  holidayRegion,
 ];
 
 export const RULES_BY_ID: Record<string, Rule> = Object.fromEntries(

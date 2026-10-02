@@ -2642,6 +2642,10 @@
         "nothing-planned-for-dinner": {
           "title": "Aucun repas prévu",
           "description": "Le soir, signale que rien n'est prévu pour demain."
+        },
+        "holiday-region": {
+          "title": "Dans quelle région habitez-vous ?",
+          "description": "Une seule fois, si personne n'a choisi où vit la famille : demande le pays et la région, pour que les jours fériés et les jours sans école soient justes."
         }
       }
     },
@@ -4176,6 +4180,7 @@
     "rule": "Règle",
     "disableRule": "Ne plus afficher ce conseil",
     "snoozed": "Plus tard",
+    "choose": "Choisir",
     "hints": {
       "leave-soon": {
         "title": "{what}",
@@ -4226,6 +4231,16 @@
       "lock-up-before-bed": {
         "title": "{count, plural, one {# encore ouvert} other {# encore ouverts}}",
         "detail": "{entities}"
+      },
+      "holiday-region": {
+        "unset": {
+          "title": "Dans quelle région habitez-vous ?",
+          "detail": "Aucun jour férié n'est encore affiché. Choisissez votre pays et votre région dans Paramètres → Jours fériés."
+        },
+        "migrated": {
+          "title": "Dans quelle région habitez-vous ?",
+          "detail": "Les jours fériés et les jours sans école dépendent de l'endroit où vous habitez. Choisissez votre pays et votre région dans Paramètres → Jours fériés."
+        }
       }
     }
   },

@@ -6,6 +6,7 @@ import {
   type PackItemConfig,
 } from "@/lib/schedule-pack-items";
 import { fetchHome, fetchWeather } from "./external-signals";
+import { familyHolidayRegion } from "@/lib/family-time";
 import { fetchSchoolBreaks as fetchSchoolBreaksBetween, loadTimetables, localDayString } from "@/lib/school-days";
 import type {
   SignalBirthday,
@@ -52,7 +53,7 @@ export async function collectSignals(
   const now = options.now ?? new Date();
   const timeZone = options.timeZone ?? (await familyTimeZone(familyId)) ?? "Europe/Berlin";
 
-  const [events, todos, lessons, schoolBreaks, meals, birthdays, shoppingItemCount, weather, home] = await Promise.all([
+  const [events, todos, lessons, schoolBreaks, meals, birthdays, shoppingItemCount, weather, home, holidayRegion] = await Promise.all([
     fetchEvents(familyId, now).catch(() => [] as SignalEvent[]),
     fetchTodos(familyId).catch(() => [] as SignalTodo[]),
     fetchLessons(familyId).catch(() => [] as SignalLesson[]),
@@ -66,12 +67,13 @@ export async function collectSignals(
     // so a change in there can never take the whole board down.
     fetchWeather(familyId).catch(() => undefined),
     fetchHome(familyId).catch(() => undefined),
+    familyHolidayRegion(familyId).catch(() => undefined),
   ]);
 
   // weather and home stay optional: a household with neither configured loses
-  // nothing, because eight of the ten shipped rules use neither and the other
+  // nothing, because nine of the eleven shipped rules use neither and the other
   // two degrade to silence.
-  return { now, timeZone, events, todos, lessons, schoolBreaks, meals, birthdays, shoppingItemCount, weather, home };
+  return { now, timeZone, events, todos, lessons, schoolBreaks, meals, birthdays, shoppingItemCount, weather, home, holidayRegion };
 }
 
 async function familyTimeZone(familyId: string): Promise<string | null> {

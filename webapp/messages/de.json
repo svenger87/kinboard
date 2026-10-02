@@ -2642,6 +2642,10 @@
         "nothing-planned-for-dinner": {
           "title": "Kein Essen geplant",
           "description": "Abends: meldet, wenn für morgen nichts geplant ist."
+        },
+        "holiday-region": {
+          "title": "In welchem Bundesland wohnt ihr?",
+          "description": "Einmalig, wenn noch niemand den Wohnort gewählt hat: fragt nach Land und Bundesland, damit Feiertage und schulfreie Tage stimmen."
         }
       }
     },
@@ -4176,6 +4180,7 @@
     "rule": "Regel",
     "disableRule": "Diesen Hinweis nicht mehr zeigen",
     "snoozed": "Später heute",
+    "choose": "Auswählen",
     "hints": {
       "leave-soon": {
         "title": "{what}",
@@ -4226,6 +4231,16 @@
       "lock-up-before-bed": {
         "title": "{count, plural, one {# noch offen} other {# noch offen}}",
         "detail": "{entities}"
+      },
+      "holiday-region": {
+        "unset": {
+          "title": "In welchem Bundesland wohnt ihr?",
+          "detail": "Es werden noch keine Feiertage angezeigt. Wähle unter Einstellungen → Feiertage euer Land und Bundesland."
+        },
+        "migrated": {
+          "title": "In welchem Bundesland wohnt ihr?",
+          "detail": "Feiertage und schulfreie Tage hängen davon ab, wo ihr wohnt. Wähle unter Einstellungen → Feiertage euer Land und Bundesland."
+        }
       }
     }
   },
