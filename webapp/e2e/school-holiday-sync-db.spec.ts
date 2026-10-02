@@ -318,11 +318,13 @@ test("deleting a family takes its synced rows even when the owner does not bypas
   manual(family, "Mine", "2026-11-01", "2026-11-02");
   // ALTER ROLE is transactional: the owner loses BYPASSRLS only inside this
   // rolled-back transaction. supabase_admin, because postgres may not alter itself.
+  // The family is deleted as service_role, the way DELETE /api/family does it:
+  // browsers hold no DELETE on families. The cascade into school_holidays runs
+  // as the table owner whoever deletes the parent, which is what this checks.
   const out = execFileSync("docker", ["exec", "-i", dbContainer(), "psql", "-U", "supabase_admin", "-d", "postgres", "-tA", "-q", "-v", "ON_ERROR_STOP=1", "-c",
     `BEGIN;
      ALTER ROLE postgres NOBYPASSRLS;
-     SET LOCAL ROLE authenticated;
-     SELECT set_config('request.jwt.claims', '{"family_id":"${family}","role":"authenticated"}', true) IS NULL;
+     SET LOCAL ROLE service_role;
      DELETE FROM families WHERE id = '${family}';
      RESET ROLE;
      SELECT 'left:' || count(*) FROM school_holidays WHERE family_id = '${family}';
