@@ -105,6 +105,7 @@ import {
   Megaphone,
   Info,
   Backpack,
+  PartyPopper,
   type LucideIcon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -118,11 +119,17 @@ import { personText } from "@/lib/person-color";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { format } from "date-fns";
 import { useSchedules, usePeople, useSubjects, useSetting, useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
 import type { Person, Subject } from "@/types/database";
 import { DEFAULT_PACK_ITEMS, type PackItemConfig } from "@/lib/schedule-pack-items";
 import { useTimeFormat } from "@/hooks/use-time-format";
+import { useSchoolBreaks } from "@/hooks/use-school-days";
+import { addDays, toLocalDateKey } from "@/lib/local-date";
+import { dayOfWeekOf, nextSchoolDay, NEXT_SCHOOL_DAY_HORIZON, schoolDayStatusOn, type SchoolDayStatus } from "@/lib/school-day-rule";
+import { holidayEndPattern, keyToDate } from "@/lib/holiday-entries";
+import { getDateFnsLocale } from "@/lib/date-fns-locale";
 
 interface TimeSlot {
   period: number;
@@ -176,6 +183,9 @@ export default function SchedulePage() {
   useSwipeNavigation();
 
   const t = useTranslations("schedule");
+  // The day-off and next-school-day wording is the timetable widget's own.
+  const tWidget = useTranslations("scheduleWidget");
+  const locale = useLocale();
   const router = useRouter();
   const DAYS = [
     t("days.monday"),
@@ -240,9 +250,29 @@ export default function SchedulePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Get current day (0=Monday, 4=Friday, -1=Weekend)
+  // Which days have no school: the same rule (lib/school-day-rule.ts), fed the
+  // same rows, as the timetable widget and the server's "school tomorrow".
+  // The device's local date, as the rest of the page uses. The week shown is
+  // this one on a weekday and the coming one at the weekend (the one the pack
+  // list and the preview already point at), so the breaks start at its Monday
+  // and reach as far as the next school day can be.
   const jsDay = currentTime.getDay();
-  const currentDayIndex = jsDay === 0 || jsDay === 6 ? -1 : jsDay - 1;
+  const todayKey = toLocalDateKey(currentTime);
+  const isWeekday = jsDay >= 1 && jsDay <= 5;
+  const weekMonday = isWeekday ? addDays(todayKey, 1 - jsDay) : addDays(todayKey, jsDay === 6 ? 2 : 1);
+  const { breaks, isLoading: loadingBreaks } = useSchoolBreaks(
+    isWeekday ? weekMonday : todayKey,
+    addDays(todayKey, NEXT_SCHOOL_DAY_HORIZON),
+  );
+  const today = schoolDayStatusOn(todayKey, breaks);
+  // A holiday or a school break today, named; null on a school day or an ordinary weekend.
+  const todayOff = today.reason === "holiday" ? today : null;
+  // The visible week, Monday to Friday, with the days that have no school.
+  const weekStatus: SchoolDayStatus[] = DAYS.map((_, i) => schoolDayStatusOn(addDays(weekMonday, i), breaks));
+
+  // Today's column (0 = Monday … 4 = Friday), or -1: a weekend, or a day off,
+  // whose lessons are not on today and must not be highlighted as current.
+  const currentDayIndex = today.school_day ? jsDay - 1 : -1;
 
   // Check if current time is within a period
   const getCurrentPeriodForDay = (dayIndex: number) => {
@@ -307,11 +337,31 @@ export default function SchedulePage() {
     [subjectStats]
   );
 
-  // Get tomorrow's subjects for pack reminders. Day-label computation is
-  // outside the memo so locale changes flow through immediately.
-  const isReminderWeekend = jsDay === 0 || jsDay === 6;
-  const reminderTargetDay = (isReminderWeekend || jsDay === 5) ? 0 : jsDay;
-  const reminderDayLabel = DAYS[reminderTargetDay];
+  // The next day there is school and this child has lessons, by the widget's
+  // rule: past the weekend, and past every public holiday, school break and
+  // holiday-calendar day. Both the pack list and the preview are for that
+  // day, so on the Friday before the autumn break they say "Tue 27 Oct"
+  // rather than asking to pack for a Monday nobody is at school.
+  const hasLessons = (dow: number) =>
+    !!schedules?.some((s) => s.day_of_week === dow && Array.isArray(s.time_slots) && s.time_slots.length > 0);
+  const next = schedules?.length ? nextSchoolDay(todayKey, breaks, { hasLessons }) : null;
+  // How to name it, as before for an ordinary weekend ("Monday", from Friday
+  // to Sunday) or tomorrow, and by its date when days off lie in between.
+  const nextIsComingMonday =
+    !!next && next.weekday === "monday" && (jsDay === 5 || !isWeekday) && next.date <= addDays(todayKey, 3);
+  const nextKind: "tomorrow" | "monday" | "date" | null = !next
+    ? null
+    : nextIsComingMonday
+      ? "monday"
+      : next.date === addDays(todayKey, 1)
+        ? "tomorrow"
+        : "date";
+  const nextDateLabel = next
+    ? format(keyToDate(next.date), holidayEndPattern(locale), { locale: getDateFnsLocale(locale) })
+    : "";
+  // Grid column of that day (0 = Monday); -1 when there is none in sight.
+  const reminderTargetDay = next ? dayOfWeekOf(next.date) - 1 : -1;
+  const reminderDayLabel = reminderTargetDay >= 0 ? DAYS[reminderTargetDay] : "";
 
   const packReminders = useMemo(() => {
     const slots = grid[reminderTargetDay] || {};
@@ -338,8 +388,9 @@ export default function SchedulePage() {
     return reminders;
   }, [grid, reminderTargetDay, packItems, getSubjectIcon, getSubjectColor]);
 
-  // Loading state
-  if (loadingPeople || loadingSchedules) {
+  // Loading state. Waiting for the holidays too: lessons highlighted first and
+  // a day off a moment later would flash a timetable nobody has today.
+  if (loadingPeople || loadingSchedules || loadingBreaks) {
     return (
       <main id="main-content" className="min-h-page relative overflow-hidden">
         <div className="page-gradient" />
@@ -411,7 +462,13 @@ export default function SchedulePage() {
         <PageHeader
           icon={GraduationCap}
           title={t("title")}
-          subtitle={currentDayIndex >= 0 ? DAYS[currentDayIndex] : t("subtitleWeekend")}
+          subtitle={
+            todayOff
+              ? todayOff.holiday || tWidget("noSchoolToday")
+              : isWeekday
+                ? DAYS[jsDay - 1]
+                : t("subtitleWeekend")
+          }
           backHref="/"
           className="mb-8"
           actions={
@@ -456,6 +513,28 @@ export default function SchedulePage() {
             </>
           }
         />
+
+        {/* A day off today: named, instead of a progress strip through lessons nobody has */}
+        {todayOff && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+            className="mb-4"
+          >
+            <Card className="overflow-hidden" data-day-off={todayOff.date}>
+              <div className="p-4 flex items-center gap-3">
+                <PartyPopper className="size-6 shrink-0 text-primary/60" strokeWidth={1.75} />
+                <div className="min-w-0">
+                  <p className="font-medium break-words">{todayOff.holiday || tWidget("noSchoolToday")}</p>
+                  {todayOff.holiday ? (
+                    <p className="text-sm text-muted-foreground">{tWidget("noSchoolToday")}</p>
+                  ) : null}
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        )}
 
         {/* Today's Progress Strip */}
         {currentDayIndex >= 0 && maxPeriods > 0 && (() => {
@@ -605,6 +684,7 @@ export default function SchedulePage() {
               <div className="md:hidden flex flex-col gap-4">
                 {DAYS.map((day, dayIndex) => {
                   const isToday = dayIndex === currentDayIndex;
+                  const off = weekStatus[dayIndex]?.reason === "holiday" ? weekStatus[dayIndex] : null;
                   const daySlots = Array.from({ length: maxPeriods }, (_, i) => i + 1)
                     .map((period) => ({ period, slot: grid[dayIndex]?.[period] }))
                     .filter(({ slot }) => !!slot);
@@ -615,18 +695,26 @@ export default function SchedulePage() {
                     <Card
                       key={day}
                       className={`overflow-hidden ${isToday ? "ring-2 ring-primary/50" : ""}`}
+                      data-week-day={weekStatus[dayIndex]?.date}
+                      data-week-day-off={off ? "true" : undefined}
                     >
                       <div className={`px-4 py-2.5 border-b border-border/50 ${isToday ? "bg-primary/10" : ""}`}>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2">
                           <span className={`font-medium text-sm ${isToday ? "text-primary" : "text-muted-foreground"}`}>
                             {day}
                           </span>
                           {isToday && (
                             <Badge variant="secondary" className="text-3xs px-1.5">{t("todayBadge")}</Badge>
                           )}
+                          {off && (
+                            <Badge variant="secondary" className="text-3xs px-1.5 min-w-0 max-w-[65%] gap-1">
+                              <PartyPopper className="size-3 shrink-0" strokeWidth={1.75} />
+                              <span className="truncate">{off.holiday || t("noSchool")}</span>
+                            </Badge>
+                          )}
                         </div>
                       </div>
-                      <div className="divide-y divide-border/30">
+                      <div className={`divide-y divide-border/30 ${off ? "opacity-50" : ""}`}>
                         {daySlots.map(({ period, slot }) => {
                           if (!slot) return null;
                           const isCurrentPeriod = getCurrentPeriodForDay(dayIndex) === period;
@@ -685,18 +773,29 @@ export default function SchedulePage() {
                         <th className="p-3 text-left text-xs font-medium text-muted-foreground border-b border-border/50 w-20">
                           <Clock className="size-4" />
                         </th>
-                        {DAYS.map((day, index) => (
-                          <th
-                            key={day}
-                            className={`p-3 text-center text-sm font-medium border-b border-border/50 ${
-                              index === currentDayIndex
-                                ? "text-primary bg-primary/5"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            {day}
-                          </th>
-                        ))}
+                        {DAYS.map((day, index) => {
+                          const off = weekStatus[index]?.reason === "holiday" ? weekStatus[index] : null;
+                          return (
+                            <th
+                              key={day}
+                              data-week-day={weekStatus[index]?.date}
+                              data-week-day-off={off ? "true" : undefined}
+                              className={`p-3 text-center text-sm font-medium border-b border-border/50 ${
+                                index === currentDayIndex
+                                  ? "text-primary bg-primary/5"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {day}
+                              {off && (
+                                <span className="mt-0.5 flex items-center justify-center gap-1 text-3xs font-normal">
+                                  <PartyPopper className="size-3 shrink-0" strokeWidth={1.75} />
+                                  <span className="truncate">{off.holiday || t("noSchool")}</span>
+                                </span>
+                              )}
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
@@ -721,13 +820,14 @@ export default function SchedulePage() {
                               const slot = grid[dayIndex]?.[period];
                               const isCurrentPeriod = getCurrentPeriodForDay(dayIndex) === period;
                               const isToday = dayIndex === currentDayIndex;
+                              const isOff = weekStatus[dayIndex]?.reason === "holiday";
 
                               return (
                                 <td
                                   key={dayIndex}
                                   className={`p-2 align-top ${
                                     isToday ? "bg-primary/5" : ""
-                                  }`}
+                                  } ${isOff ? "opacity-50" : ""}`}
                                 >
                                   {slot ? (
                                     <motion.div
@@ -795,7 +895,7 @@ export default function SchedulePage() {
         </motion.div>
 
         {/* Pack for tomorrow — interactive, session-local checklist (ephemeral by design) */}
-        {maxPeriods > 0 && packReminders.length > 0 && (
+        {maxPeriods > 0 && next && packReminders.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -806,12 +906,20 @@ export default function SchedulePage() {
               <div className="bg-gradient-to-br from-primary to-primary/80 px-4 py-4 text-primary-foreground">
                 <div className="flex items-center gap-2">
                   <Backpack className="size-5" strokeWidth={1.75} />
-                  <h2 className="text-lg font-semibold">
-                    {isReminderWeekend ? t("packForMonday") : t("packForTomorrow")}
+                  <h2 className="text-lg font-semibold" data-pack-for={next?.date}>
+                    {nextKind === "monday"
+                      ? t("packForMonday")
+                      : nextKind === "tomorrow"
+                        ? t("packForTomorrow")
+                        : t("packForDate", { date: nextDateLabel })}
                   </h2>
                 </div>
                 <p className="text-kiosk-label mt-1 text-primary-foreground/80">
-                  {(isReminderWeekend ? t("packListMonday") : t("packListTomorrow", { day: reminderDayLabel }))}
+                  {nextKind === "monday"
+                    ? t("packListMonday")
+                    : nextKind === "tomorrow"
+                      ? t("packListTomorrow", { day: reminderDayLabel })
+                      : t("packListDate", { date: nextDateLabel })}
                 </p>
               </div>
               <CardContent className="space-y-2 p-4 pt-4">
@@ -840,11 +948,9 @@ export default function SchedulePage() {
         )}
 
         {/* Tomorrow's Schedule Preview */}
-        {maxPeriods > 0 && (() => {
-          const tomorrowIndex = jsDay === 0 ? 0 : jsDay === 6 ? 0 : jsDay; // if weekend, show Monday
-          const isWeekend = jsDay === 0 || jsDay === 6;
-          const targetDay = isWeekend ? 0 : tomorrowIndex;
-          const dayLabel = DAYS[targetDay];
+        {maxPeriods > 0 && next && (() => {
+          // The next school day this child has lessons, as the pack list above.
+          const targetDay = reminderTargetDay;
           const tomorrowSlots = Array.from({ length: maxPeriods }, (_, i) => i + 1)
             .map((period) => grid[targetDay]?.[period])
             .filter(Boolean) as TimeSlot[];
@@ -862,8 +968,12 @@ export default function SchedulePage() {
                 <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Calendar className="size-4 text-primary" strokeWidth={1.75} />
-                    <h2 className="text-xl font-medium">
-                      {isWeekend ? t("tomorrowMonday") : t("tomorrowDay", { day: dayLabel })}
+                    <h2 className="text-xl font-medium" data-next-school-day={next.date}>
+                      {nextKind === "monday"
+                        ? t("tomorrowMonday")
+                        : nextKind === "tomorrow"
+                          ? t("tomorrowDay", { day: reminderDayLabel })
+                          : tWidget("nextSchoolDayOn", { date: nextDateLabel })}
                     </h2>
                   </div>
                   <Badge variant="outline" className="text-xs">
