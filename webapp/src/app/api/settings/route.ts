@@ -31,6 +31,8 @@ const DEDICATED_ROUTE_KEYS: Record<string, string> = {
   // RFC-014: picking a region is also what turns the school-holiday sync on,
   // so it is written in one server-side step (plan ruling 20).
   [SETTINGS_KEYS.holidayRegion]: "/api/holidays/region",
+  // RFC-014 §5: the switch and the school region empty or refill synced rows.
+  [SETTINGS_KEYS.schoolHolidaySync]: "/api/school-holidays/sync",
 };
 
 function dedicatedRoute(key: unknown): NextResponse | null {

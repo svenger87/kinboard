@@ -4,6 +4,10 @@ import { requireSession } from "@/lib/require-session";
 import { resolveRegion, type HolidayRegionSetting } from "@/lib/holidays/region";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { logApiError } from "@/lib/api-error";
+import { liveSchoolSyncDeps } from "@/lib/school-sync/live";
+import { reconcileOnRegionPick } from "@/lib/school-sync/reconcile";
+import { syncFamily, type SchoolSyncSetting, type SyncOutcome } from "@/lib/school-sync/sync";
+import { syncLimited } from "@/lib/school-sync/limit";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +29,8 @@ export async function PUT(request: NextRequest) {
   if (!resolved) {
     return NextResponse.json({ error: "code must be an offered region", code: "invalid_request" }, { status: 400 });
   }
+  const deps = liveSchoolSyncDeps();
+  const previous = await deps.store.holidayRegion(familyId).catch(() => null);
 
   const region: HolidayRegionSetting = { code: resolved.code, chosen: true };
   const { error } = await (createAdminClient() as any)
@@ -35,5 +41,27 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "could not save the region" }, { status: 500 });
   }
 
-  return NextResponse.json({ region });
+  // §5.4: picking a region is what turns the school-holiday sync on, and a
+  // new region replaces what was synced for the old one. A failure here is
+  // logged and reported in the card; it never undoes the region the family
+  // just picked.
+  let sync: SchoolSyncSetting | null = null;
+  let outcome: SyncOutcome | null = null;
+  try {
+    const existing = await deps.store.setting(familyId);
+    const result = reconcileOnRegionPick(previous?.code ?? null, resolved.code, existing, deps.installEnabled);
+    // The setting first, then the rows, so a sync in flight sees the change
+    // before it writes and cannot bring the old region's rows back.
+    if (result.setting) await deps.store.saveSetting(familyId, result.setting);
+    else if (existing) await deps.store.deleteSetting(familyId);
+    if (result.clear) await deps.store.clear(familyId);
+    sync = result.setting;
+    if (sync?.enabled && sync.region && sync.pending === null && !syncLimited(familyId).limited) {
+      outcome = await syncFamily(familyId, deps);
+    }
+  } catch (err) {
+    await logApiError("holidays/region/sync", err);
+  }
+
+  return NextResponse.json({ region, sync, outcome });
 }

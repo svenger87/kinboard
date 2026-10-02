@@ -450,6 +450,12 @@ services:
       ofelia.job-exec.sync-caldav.schedule: "0 15,45 * * * *"
       ofelia.job-exec.sync-caldav.command: "/usr/local/bin/sync-caldav"
       ofelia.job-exec.sync-caldav.no-overlap: "true"
+      # RFC-014 §5.2: daily, counted from container start so installs spread
+      # across the day; the route fetches only for families whose last sync is
+      # more than a week old.
+      ofelia.job-exec.sync-school-holidays.schedule: "@every 24h"
+      ofelia.job-exec.sync-school-holidays.command: "/usr/local/bin/sync-school-holidays"
+      ofelia.job-exec.sync-school-holidays.no-overlap: "true"
       ofelia.job-exec.pocket-money-accrue-interest.schedule: "0 30 0 * * *"
       ofelia.job-exec.pocket-money-accrue-interest.command: "/usr/local/bin/pocket-money-accrue-interest"
       ofelia.job-exec.pocket-money-accrue-interest.no-overlap: "true"
@@ -515,6 +521,9 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       CRON_SECRET: ${CRON_SECRET}
+      # School holidays from the OpenHolidays API (RFC-014 §5). "off" turns
+      # the sync off for the whole install: no request leaves the server.
+      SCHOOL_HOLIDAY_SYNC: ${SCHOOL_HOLIDAY_SYNC:-}
       # go2rtc for camera WebRTC streaming (internal Docker network)
       GO2RTC_URL: http://go2rtc:1984
       # Web Push Notifications (VAPID)
