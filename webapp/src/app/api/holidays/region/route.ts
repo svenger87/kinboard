@@ -8,7 +8,10 @@ import { logApiError } from "@/lib/api-error";
 export const dynamic = "force-dynamic";
 
 /**
- * The only writer of `holiday_region` (RFC-014 §4.2; plan ruling 20).
+ * The only writer of `holiday_region` a family's devices can call (RFC-014
+ * §4.2; plan ruling 20). Creating a family writes its "no region" row, and
+ * /api/import restores a backup's (ruling 8); neither reaches an existing
+ * family.
  * Picking or keeping a region records that someone in the family chose it.
  * The family comes from the session, never from the body.
  */

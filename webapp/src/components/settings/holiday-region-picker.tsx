@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { OFFERED_COUNTRIES, regionCode, resolveRegion, subdivisionsOf } from "@/lib/holidays/region";
-import { subdivisionNames } from "@/lib/holidays/adapter";
+import { subdivisionOptions } from "@/lib/holidays/adapter";
 
 const WHOLE_COUNTRY = "__whole__";
 
@@ -21,7 +21,8 @@ interface Props {
 /**
  * Country, then state or canton (RFC-014 §4.2, §4.3). Countries come from
  * the generated list and are named by the browser in the UI language;
- * states by date-holidays. State or canton level only: sub-regions are a
+ * states by date-holidays, without its "Kanton"/"Canton de" prefix so the
+ * list is alphabetical and type-to-search works. State or canton level only: sub-regions are a
  * documented gap.
  */
 export function HolidayRegionPicker({ value, onChange, disabled, idPrefix = "holiday-region" }: Props) {
@@ -40,10 +41,7 @@ export function HolidayRegionPicker({ value, onChange, disabled, idPrefix = "hol
 
   const states = useMemo(() => {
     if (!country) return [];
-    const names = subdivisionNames(country, locale);
-    return subdivisionsOf(country)
-      .map((code) => ({ code, name: names[code] ?? code }))
-      .sort((a, b) => a.name.localeCompare(b.name, locale));
+    return subdivisionOptions(country, subdivisionsOf(country), locale);
   }, [country, locale]);
 
   return (

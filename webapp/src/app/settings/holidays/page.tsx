@@ -48,7 +48,9 @@ export default function HolidaySettingsPage() {
   }
 
   const preview = useMemo(
-    () => (region ? nextHolidays(region, new Date(today), 5, locale).filter((h) => h.dayOff) : []),
+    // Ask for more than five: marked days that are not off (Christmas Eve,
+    // Leopold in Lower Austria) are dropped, and five should remain.
+    () => (region ? nextHolidays(region, new Date(today), 15, locale).filter((h) => h.dayOff).slice(0, 5) : []),
     [region, today, locale],
   );
 
@@ -64,7 +66,9 @@ export default function HolidaySettingsPage() {
           className="flex flex-col gap-4"
         >
           <Card className="p-6">
-            <p className="font-medium text-sm">{t("regionLabel")}</p>
+            <h2 id="holiday-region-heading" className="font-medium text-sm">
+              {t("regionLabel")}
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5 mb-4">{t("regionDescription")}</p>
             <HolidayRegionPicker value={setting?.code ?? null} onChange={save} disabled={saveRegion.isPending} />
 

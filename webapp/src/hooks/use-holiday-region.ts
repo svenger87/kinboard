@@ -22,7 +22,7 @@ export function useHolidayRegion(): HolidayRegionState {
   return { region: setting?.code ?? null, setting, isLoading, isError };
 }
 
-/** Save the family's holiday region through its one writer, PUT /api/holidays/region. */
+/** Save the family's holiday region through PUT /api/holidays/region, the only route a device can write it with. */
 export function useSaveHolidayRegion() {
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
@@ -36,10 +36,14 @@ export function useSaveHolidayRegion() {
       if (!res.ok) throw new Error("Failed to save the holiday region");
       return (await res.json()) as { region: HolidayRegionSetting };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.settings(family?.id ?? "", SETTINGS_KEYS.holidayRegion),
-      });
+    onSuccess: ({ region }) => {
+      // The response is the stored row: show it at once, so the picker never
+      // falls back to the old region between the save and the refetch. The
+      // refetch is returned, so the mutation stays pending (and the picker
+      // disabled) until it lands.
+      const queryKey = queryKeys.settings(family?.id ?? "", SETTINGS_KEYS.holidayRegion);
+      queryClient.setQueryData(queryKey, region);
+      return queryClient.invalidateQueries({ queryKey });
     },
   });
 }

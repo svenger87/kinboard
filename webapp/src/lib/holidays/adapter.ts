@@ -189,3 +189,31 @@ export function subdivisionNames(country: string, locale: string): Record<string
   }
   return names;
 }
+
+/**
+ * The word date-holidays puts in front of a state's name: "Kanton Zürich",
+ * "Canton d'Uri", "Canton of Bern", "Hansestadt Bremen", "Land Salzburg",
+ * "Département Moselle". Sorted with it, every canton starts with the same
+ * word, so the list is out of order ("Canton d'Uri" before "Canton de Bâle")
+ * and a select's type-to-search finds nothing.
+ */
+const STATE_PREFIX =
+  /^(?:(?:Kanton|Canton (?:of|des|de|du)|Hansestadt|Land|Département(?: et région d'outre-mer)?)\s+|Canton d['’])/u;
+
+/** "Kanton Zürich" → "Zürich". A name that is only the prefix is kept as it is. */
+export function subdivisionLabel(name: string): string {
+  const stripped = name.replace(STATE_PREFIX, "");
+  return stripped.length > 0 ? stripped : name;
+}
+
+/** `states` of `country` (pass `subdivisionsOf(country)`), named in `locale` without the prefix, in that locale's alphabetical order. */
+export function subdivisionOptions(
+  country: string,
+  states: readonly string[],
+  locale: string,
+): { code: string; name: string }[] {
+  const names = subdivisionNames(country, locale);
+  return states
+    .map((code) => ({ code, name: names[code] ? subdivisionLabel(names[code]) : code }))
+    .sort((a, b) => a.name.localeCompare(b.name, locale));
+}

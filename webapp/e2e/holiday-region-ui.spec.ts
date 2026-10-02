@@ -33,7 +33,9 @@ test.afterEach(() => {
         ? `UPDATE settings SET value = '${saved.replace(/'/g, "''")}'::jsonb WHERE family_id = '${familyId}' AND key = 'holiday_region'`
         : `DELETE FROM settings WHERE family_id = '${familyId}' AND key = 'holiday_region'`,
     );
-    psql(`DELETE FROM devices WHERE hardware_id LIKE 'e2e-claude-%'`);
+    // Only this spec's device: other specs running against the same stack
+    // keep their sessions.
+    psql(`DELETE FROM devices WHERE hardware_id LIKE 'e2e-claude-holidays-ui%'`);
   } finally {
     releaseWholeDatabase();
   }
@@ -43,6 +45,12 @@ const overflow = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
 test("Settings → Holidays offers cantons for Switzerland and fits the screen", async ({ page }) => {
+  // The migrated, never-chosen value: what "Keep this" is for. The demo
+  // family starts with a chosen region, so set it rather than rely on it.
+  psql(
+    `INSERT INTO settings (family_id, key, value) VALUES ('${familyId}', 'holiday_region', '{"code":"DE-NI","chosen":false}'::jsonb)
+     ON CONFLICT (family_id, key) DO UPDATE SET value = EXCLUDED.value`,
+  );
   await establishSession(page, familyCode!, "claude-holidays-ui");
   // No realtime: its settings broadcast would refresh the region on this
   // device too, and hide a save that forgot to invalidate the query.
@@ -58,6 +66,20 @@ test("Settings → Holidays offers cantons for Switzerland and fits the screen",
   await expect(page.locator("#holiday-region-country")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("heading", { name: /School holidays|Schulferien|Vacances scolaires/ })).toBeVisible();
   expect(await overflow(page)).toBeLessThanOrEqual(0);
+
+  // "Keep this" records that someone chose the migrated region, and goes.
+  const keep = page.getByRole("button", { name: /^(Keep this|Beibehalten|Conserver)$/ });
+  await expect(keep).toBeVisible();
+  // Retried: against a dev server that is still compiling other routes, the
+  // first click can land on a page that is about to be remounted, and no
+  // request goes out. Keeping twice is the same as keeping once.
+  await expect(async () => {
+    if (await keep.isVisible()) await keep.click({ timeout: 2_000 });
+    await expect(keep).toHaveCount(0, { timeout: 5_000 });
+  }).toPass({ timeout: 30_000 });
+  expect(psql(`SELECT value::text FROM settings WHERE family_id = '${familyId}' AND key = 'holiday_region'`)).toBe(
+    '{"code": "DE-NI", "chosen": true}',
+  );
 
   await page.locator("#holiday-region-country").click();
   await page.getByRole("option", { name: /^(Switzerland|Schweiz|Suisse)$/ }).click();
