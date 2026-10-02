@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   MAX_RANGE_DAYS,
   SchoolHolidayRowSchema,
+  TIMEOUT_MS,
   SyncError,
   fetchSchoolHolidays,
   rowApplies,
@@ -24,7 +25,13 @@ import {
   topLevel,
 } from "../src/lib/school-sync/school-region";
 
-/** RFC-014 §5.2–§5.3 against recorded responses (ODbL, see the fixture's README). */
+/**
+ * RFC-014 §5.2–§5.3 against recorded responses (ODbL, see the fixture's README).
+ *
+ * The date assertions only catch a local-time parse when the process is off
+ * UTC, and CI runs on UTC; "dates survive any timezone" therefore re-runs
+ * them under explicit zones on either side of UTC.
+ */
 
 const fixture = (name: string): unknown =>
   JSON.parse(readFileSync(join(process.cwd(), "e2e/fixtures/openholidays", name), "utf8"));
@@ -56,13 +63,52 @@ test("no request spans more than 1,095 days (the API's limit)", () => {
 
 test("one request, identified, with a timeout, sending only country, region and dates", async () => {
   const f = fakeFetch(() => json(fixture("school-de-ni.json")));
-  const breaks = await fetchSchoolHolidays(NI, WINDOW, "de", DEPS(f.fetch));
+  // Record the duration every AbortSignal.timeout() is created with.
+  const timeouts: number[] = [];
+  const original = AbortSignal.timeout;
+  AbortSignal.timeout = (ms: number) => {
+    timeouts.push(ms);
+    return original.call(AbortSignal, ms);
+  };
+  let breaks;
+  try {
+    breaks = await fetchSchoolHolidays(NI, WINDOW, "de", DEPS(f.fetch));
+  } finally {
+    AbortSignal.timeout = original;
+  }
   expect(f.calls).toHaveLength(1);
   expect(f.calls[0].init.headers["User-Agent"]).toMatch(/^Kinboard\/\S+ \(\+https:\/\/github\.com\/svenger87\/kinboard\)$/);
+  expect(TIMEOUT_MS).toBe(10_000);
+  expect(timeouts).toEqual([TIMEOUT_MS]);
   expect(f.calls[0].init.signal).toBeInstanceOf(AbortSignal);
+  expect(f.calls[0].init.signal.aborted).toBe(false);
   expect(breaks.length).toBe(rows("school-de-ni.json").length);
   expect(breaks.find((b) => b.startsOn === "2026-07-02")).toMatchObject({ name: "Sommerferien", endsOn: "2026-08-12" });
-  expect(breaks.every((b) => /^[0-9a-f-]{36}$/.test(b.externalId))).toBe(true);
+  // The external id is the API's own, so a re-sync updates rather than duplicates.
+  expect(breaks.map((b) => b.externalId)).toEqual(rows("school-de-ni.json").map((r) => r.id));
+});
+
+test("a break is named in the family's language, else in the first one given", async () => {
+  const row = {
+    id: "two-languages", startDate: "2026-10-12", endDate: "2026-10-23", type: "School", nationwide: true,
+    name: [{ language: "EN", text: "Autumn holidays" }, { language: "DE", text: "Herbstferien" }],
+  };
+  const named = async (language: string) =>
+    (await fetchSchoolHolidays(NI, WINDOW, language, DEPS(fakeFetch(() => json([row])).fetch)))[0].name;
+  expect(await named("de")).toBe("Herbstferien");
+  expect(await named("en")).toBe("Autumn holidays");
+  expect(await named("fr")).toBe("Autumn holidays");
+});
+
+test("a row scoped to an ancestor of the family's region is kept; a lookalike code is not", () => {
+  const base = { id: "a", startDate: "2026-10-10", endDate: "2026-10-25", type: "School", name: [{ language: "DE", text: "x" }], nationwide: false };
+  const maloja: SchoolRegion = { country: "CH", region: "CH-GR-ML", group: null };
+  expect(rowApplies({ ...base, subdivisions: [{ code: "CH-GR" }] }, maloja)).toBe(true);
+  expect(rowApplies({ ...base, subdivisions: [{ code: "CH" }] }, maloja)).toBe(true);
+  expect(rowApplies({ ...base, subdivisions: [{ code: "CH-G" }] }, maloja)).toBe(false);
+  expect(rowApplies({ ...base, subdivisions: [{ code: "CH-GR-MS" }] }, maloja)).toBe(false);
+  // A child of the family's region is not the region.
+  expect(rowApplies({ ...base, subdivisions: [{ code: "CH-GR-ML-X" }] }, maloja)).toBe(false);
 });
 
 test("BackToSchool and EndOfLessons rows are never holidays", () => {
@@ -125,6 +171,11 @@ test("a picked public-holiday region implies a school region where it can", () =
   expect(defaultSchoolRegion("CH-ZH")).toEqual({ country: "CH", region: "CH-ZH", group: "CH-ZH-VS", pending: null });
   expect(defaultSchoolRegion("CH-VD")).toEqual({ country: "CH", region: "CH-VD", group: null, pending: null });
   expect(defaultSchoolRegion("CH-GR")).toEqual({ country: "CH", region: "CH-GR", group: null, pending: "region" });
+  // The Swiss lookup sets, as read from live data on 2026-10-02.
+  for (const canton of ["CH-ZH", "CH-BE", "CH-SO", "CH-AR"]) {
+    expect(defaultSchoolRegion(canton)).toEqual({ country: "CH", region: canton, group: `${canton}-VS`, pending: null });
+  }
+  expect(defaultSchoolRegion("CH-AI")).toEqual({ country: "CH", region: "CH-AI", group: null, pending: "region" });
   expect(defaultSchoolRegion("NL")).toEqual({ country: "NL", region: null, group: null, pending: "region" });
   expect(defaultSchoolRegion("DE")).toEqual({ country: "DE", region: null, group: null, pending: "region" });
   expect(defaultSchoolRegion("GB-ENG")).toBeNull();
@@ -143,14 +194,17 @@ test("groups apply to their subdivisions, their ancestors and their descendants"
   expect(applicableGroups("DE-MV", de).map((g) => g.code).sort()).toEqual(["DE-MV-ABS", "DE-MV-BBS"]);
   expect(applicableGroups("DE-NI", de)).toEqual([]);
   expect(defaultGroup(applicableGroups("DE-MV", de))).toBe("DE-MV-ABS");
-  const nl = [
-    { code: "NL-MI", name: "midden", subdivisions: ["NL-UT-UT", "NL-GE-AR"] },
-    { code: "NL-NO", name: "noord", subdivisions: ["NL-GE-AP"] },
-    { code: "NL-ZU", name: "zuid", subdivisions: ["NL-LI-MA"] },
-  ];
-  expect(applicableGroups("NL-GE", nl).map((g) => g.code)).toEqual(["NL-MI", "NL-NO"]);
+  // NL, from the recorded /Groups: Utrecht is mostly midden, but Eemnes is
+  // noord, so a Utrecht family picks; Limburg is wholly zuid, Drenthe noord.
+  const nl = parseGroups(fixture("groups-nl.json"), "nl");
+  const nlCodes = (region: string) => applicableGroups(region, nl).map((g) => g.code).sort();
+  expect(nlCodes("NL-UT")).toEqual(["NL-MI", "NL-NO"]);
+  expect(defaultGroup(applicableGroups("NL-UT", nl))).toBeNull();
+  expect(nlCodes("NL-GE")).toEqual(["NL-MI", "NL-NO", "NL-ZU"]);
   expect(defaultGroup(applicableGroups("NL-GE", nl))).toBeNull();
-  expect(defaultGroup(applicableGroups("NL-UT", nl))).toBe("NL-MI");
+  expect(nlCodes("NL-LI")).toEqual(["NL-ZU"]);
+  expect(defaultGroup(applicableGroups("NL-LI", nl))).toBe("NL-ZU");
+  expect(defaultGroup(applicableGroups("NL-DR", nl))).toBe("NL-NO");
   expect(topLevel("CH-GR-ML")).toBe("CH-GR");
   expect(topLevel("AT-WI")).toBe("AT-WI");
 });
@@ -162,7 +216,14 @@ for (const [label, answer, kind] of [
   ["invalid JSON", () => new Response("[{", { status: 200, headers: { "content-type": "application/json" } }), "json"],
   ["a schema mismatch", () => json([{ id: 1, startDate: "soon" }]), "schema"],
   ["a reversed range", () => json([{ id: "x", startDate: "2026-10-10", endDate: "2026-10-01", type: "School", name: [{ language: "DE", text: "x" }], nationwide: true }]), "schema"],
+  ["an impossible date", () => json([{ id: "x", startDate: "2026-02-30", endDate: "2026-03-02", type: "School", name: [{ language: "DE", text: "x" }], nationwide: true }]), "schema"],
+  ["a month that does not exist", () => json([{ id: "x", startDate: "2026-12-30", endDate: "2026-13-01", type: "School", name: [{ language: "DE", text: "x" }], nationwide: true }]), "schema"],
+  ["a duplicate id", () => json([
+    { id: "same", startDate: "2026-10-10", endDate: "2026-10-12", type: "School", name: [{ language: "DE", text: "x" }], nationwide: true },
+    { id: "same", startDate: "2026-12-23", endDate: "2027-01-05", type: "School", name: [{ language: "DE", text: "y" }], nationwide: true },
+  ]), "schema"],
   ["over 1 MB", () => new Response("x".repeat(1_000_001), { status: 200, headers: { "content-type": "application/json" } }), "too-large"],
+  ["a declared length over 1 MB", () => new Response("[]", { status: 200, headers: { "content-type": "application/json", "content-length": "2000000" } }), "too-large"],
 ] as const) {
   test(`${label} is an error, before anything could be written`, async () => {
     const f = fakeFetch(answer as () => Response);
@@ -180,3 +241,57 @@ test("a network failure and a timeout are errors with their own kinds", async ()
   })).catch((e) => e);
   expect((slow as SyncError).kind).toBe("timeout");
 });
+
+test("a leap day is a date; the 29th of February in a common year is not", () => {
+  const row = (startDate: string) => ({ id: "x", startDate, endDate: startDate, type: "School", name: [{ language: "DE", text: "x" }], nationwide: true });
+  expect(SchoolHolidayRowSchema.safeParse(row("2028-02-29")).success).toBe(true);
+  expect(SchoolHolidayRowSchema.safeParse(row("2027-02-29")).success).toBe(false);
+});
+
+/**
+ * The request shapes the sync sends that differ from the ones first
+ * recorded, each checked live once on 2026-10-02 (README):
+ * - NL-UT (the family's province) answered byte-for-byte what NL-UT-UT did,
+ *   so school-nl-ut-ut.json stands for both and is filtered by group;
+ * - CH-GR-ML (a Graubünden Region) answered only Maloja's rows;
+ * - AT-KÄ, percent-encoded, answered 200 with Kärnten's rows.
+ */
+test("the shapes the sync sends: a Graubünden Region, an Austrian Land with an umlaut", () => {
+  const ml: SchoolRegion = { country: "CH", region: "CH-GR-ML", group: "CH-GR-VS" };
+  expect(kept("school-ch-gr-ml.json", ml)).toEqual(["2026-10-10 2026-10-25", "2026-12-23 2027-01-05"]);
+  // The same answer as filtering the canton-wide query for Maloja.
+  expect(kept("school-ch-gr-ml.json", ml)).toEqual(kept("school-ch-gr.json", ml));
+
+  const ka = defaultSchoolRegion("AT-2");
+  expect(ka).toEqual({ country: "AT", region: "AT-KÄ", group: null, pending: null });
+  const url = schoolHolidaysUrl(ka!, { from: "2026-08-01", to: "2027-07-31" }, "de");
+  expect(url).toContain("subdivisionCode=AT-K%C3%84");
+  expect(new URL(url).searchParams.get("subdivisionCode")).toBe("AT-KÄ");
+  const kaRows = rows("school-at-ka.json");
+  expect(kaRows.length).toBeGreaterThan(0);
+  const kaKept = kept("school-at-ka.json", ka!);
+  expect(kaKept).toHaveLength(kaRows.length);
+  expect(kaKept).toContain("2027-02-08 2027-02-13"); // Semesterferien, Kärnten's own
+  expect(kaKept).toContain("2026-10-27 2026-10-31"); // Herbstferien, nationwide
+
+  const utrecht = kept("school-nl-ut-ut.json", { country: "NL", region: "NL-UT", group: "NL-NO" });
+  expect(utrecht).toContain("2026-07-04 2026-08-16");
+  expect(utrecht).not.toContain("2026-07-18 2026-08-30"); // midden
+});
+
+for (const [zone, januaryOffset] of [["Pacific/Auckland", -780], ["America/Los_Angeles", 480]] as const) {
+  test(`dates survive the ${zone} timezone`, async () => {
+    const before = process.env.TZ;
+    process.env.TZ = zone;
+    try {
+      expect(new Date(2026, 0, 1).getTimezoneOffset()).toBe(januaryOffset); // the zone took effect
+      expect(syncWindow("2026-10-02")).toEqual({ from: "2026-09-02", to: "2029-09-01" });
+      const breaks = await fetchSchoolHolidays(NI, WINDOW, "de", DEPS(fakeFetch(() => json(fixture("school-de-ni.json"))).fetch));
+      expect(breaks.map((b) => `${b.startsOn} ${b.endsOn}`)).toEqual(rows("school-de-ni.json").map((r) => `${r.startDate} ${r.endDate}`));
+      expect(breaks.find((b) => b.startsOn === "2026-07-02")).toMatchObject({ endsOn: "2026-08-12" });
+    } finally {
+      if (before === undefined) delete process.env.TZ;
+      else process.env.TZ = before;
+    }
+  });
+}

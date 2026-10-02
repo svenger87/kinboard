@@ -48,14 +48,15 @@ export class SyncError extends Error {
   }
 }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const Ref = z.object({ code: z.string().min(1).max(40) });
 
 export const SchoolHolidayRowSchema = z
   .object({
     id: z.string().min(1).max(100),
-    startDate: z.string().regex(DATE),
-    endDate: z.string().regex(DATE),
+    // A real calendar date, not just its shape: 2026-02-30 would otherwise
+    // reach Postgres' DATE cast and fail there as a database error.
+    startDate: z.iso.date(),
+    endDate: z.iso.date(),
     type: z.string(),
     name: z.array(z.object({ language: z.string(), text: z.string().min(1).max(200) })).min(1),
     nationwide: z.boolean(),
@@ -66,7 +67,15 @@ export const SchoolHolidayRowSchema = z
 
 export type SchoolHolidayRow = z.infer<typeof SchoolHolidayRowSchema>;
 
-const ResponseSchema = z.array(SchoolHolidayRowSchema).max(2000);
+/**
+ * Ids are unique within one answer: the store upserts on (family, external
+ * id), and Postgres refuses to touch the same row twice in one statement.
+ * Which of two rows to keep is not ours to guess, so the answer is refused.
+ */
+const ResponseSchema = z
+  .array(SchoolHolidayRowSchema)
+  .max(2000)
+  .refine((rows) => new Set(rows.map((r) => r.id)).size === rows.length, { message: "duplicate id" });
 
 /** 30 days back, and as far ahead as the API allows. */
 export function syncWindow(today: string): { from: string; to: string } {
