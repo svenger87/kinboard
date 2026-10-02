@@ -21,13 +21,21 @@ function psql(sql: string): string {
 
 let familyId = "";
 let saved = "";
+let savedSync = "";
 test.beforeEach(async () => {
   await acquireWholeDatabase();
   familyId = psql(`SELECT id FROM families WHERE join_code = '${familyCode}'`);
   saved = psql(`SELECT value::text FROM settings WHERE family_id = '${familyId}' AND key = 'holiday_region'`);
+  savedSync = psql(`SELECT value::text FROM settings WHERE family_id = '${familyId}' AND key = 'school_holiday_sync'`);
 });
 test.afterEach(() => {
   try {
+    psql(`DELETE FROM school_holidays WHERE family_id = '${familyId}' AND (source = 'openholidays' OR name LIKE 'claude-%')`);
+    psql(
+      savedSync
+        ? `UPDATE settings SET value = '${savedSync.replace(/'/g, "''")}'::jsonb WHERE family_id = '${familyId}' AND key = 'school_holiday_sync'`
+        : `DELETE FROM settings WHERE family_id = '${familyId}' AND key = 'school_holiday_sync'`,
+    );
     psql(
       saved
         ? `UPDATE settings SET value = '${saved.replace(/'/g, "''")}'::jsonb WHERE family_id = '${familyId}' AND key = 'holiday_region'`
@@ -121,4 +129,47 @@ test("the wizard's region step preselects from the timezone and fits a phone", a
   await expect(page.locator("#setup-region-state")).toBeVisible();
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   await context.close();
+});
+
+test("picking a Land turns the sync on; switching it off removes only what was synced", async ({ page }) => {
+  test.skip(process.env.OPENHOLIDAYS_LIVE !== "1", "set OPENHOLIDAYS_LIVE=1 to fetch from the real API");
+  test.setTimeout(180_000);
+  psql(`DELETE FROM settings WHERE family_id = '${familyId}' AND key = 'school_holiday_sync'`);
+  // Start from an uncovered country: the picker saves only a change, and the
+  // family may already hold DE-NI.
+  psql(
+    `INSERT INTO settings (family_id, key, value) VALUES ('${familyId}', 'holiday_region', '{"code":"US","chosen":true}'::jsonb)
+     ON CONFLICT (family_id, key) DO UPDATE SET value = EXCLUDED.value`,
+  );
+  psql(`INSERT INTO school_holidays (family_id, name, starts_on, ends_on) VALUES ('${familyId}', 'claude-manual', '2026-10-12', '2026-10-24')`);
+  // Its own device name: the first test's afterEach deleted that device, and
+  // establishSession would replay its cookies (see the wizard test).
+  await establishSession(page, familyCode!, "claude-holidays-ui-sync");
+  await page.goto("/settings/holidays", { waitUntil: "domcontentloaded" });
+
+  await page.locator("#holiday-region-country").click();
+  await page.getByRole("option", { name: /^(Germany|Deutschland|Allemagne)$/ }).click();
+  await page.locator("#holiday-region-state").click();
+  await page.getByRole("option", { name: /Niedersachsen/ }).click();
+
+  await expect(page.locator("#school-sync-switch")).toBeChecked();
+  const synced = page.getByTestId("synced-holidays").locator("li");
+  // The sync is limited to one fetch a minute per family, and the Settings
+  // test above may have just used it (its Zürich pick fetches): the pick then
+  // answers "rate-limited" and leaves the rows to Refresh now. A limited
+  // request does not count against the limit, so retrying is safe.
+  const refresh = page.getByRole("button", { name: /^(Refresh now|Jetzt aktualisieren|Actualiser)$/ });
+  await expect(async () => {
+    if ((await synced.count()) === 0 && (await refresh.isEnabled())) await refresh.click({ timeout: 2_000 });
+    await expect(synced.first()).toBeVisible({ timeout: 10_000 });
+  }).toPass({ timeout: 100_000, intervals: [5_000] });
+  await expect(synced.first()).toHaveAttribute("title", /Open Database License \(ODbL\)/);
+  await expect(page.getByRole("link", { name: /Open Database License/ })).toHaveAttribute("href", "https://opendatacommons.org/licenses/odbl/1-0/");
+  expect(await overflow(page)).toBeLessThanOrEqual(0);
+
+  await page.locator("#school-sync-switch").click();
+  await expect(page.locator("#school-sync-switch")).not.toBeChecked();
+  await expect(page.getByTestId("synced-holidays")).toHaveCount(0);
+  expect(psql(`SELECT count(*) FROM school_holidays WHERE family_id = '${familyId}' AND source = 'openholidays'`)).toBe("0");
+  expect(psql(`SELECT count(*) FROM school_holidays WHERE family_id = '${familyId}' AND name = 'claude-manual'`)).toBe("1");
 });

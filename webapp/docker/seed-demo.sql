@@ -647,7 +647,12 @@ INSERT INTO public.settings (family_id, key, value) VALUES
     ('00000000-0000-0000-0000-000000000001', 'weather_location', '{"type":"city","city":"Hamburg"}'::jsonb),
     -- RFC-014: the demo lives in Hamburg and has picked it, so visitors are
     -- not asked "Which state are you in?".
-    ('00000000-0000-0000-0000-000000000001', 'holiday_region', '{"code":"DE-HH","chosen":true}'::jsonb)
+    ('00000000-0000-0000-0000-000000000001', 'holiday_region', '{"code":"DE-HH","chosen":true}'::jsonb),
+    -- RFC-014 §8: the sync is on for the demo, so the OpenHolidays rows and
+    -- the ODbL line are where visitors see them. Empty status: the demo's
+    -- hourly reset recreates the family, and ofelia.demo.ini fetches again.
+    ('00000000-0000-0000-0000-000000000001', 'school_holiday_sync',
+     '{"enabled":true,"region":"DE-HH","group":null,"pending":null,"last_success_at":null,"last_error_at":null,"last_error":null}'::jsonb)
 ON CONFLICT (family_id, key) DO UPDATE SET value = EXCLUDED.value;
 
 -- `enabled_plugins` is deliberately absent: a plugin missing from that blob

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { HolidayRegionPicker } from "@/components/settings/holiday-region-picker";
 import { SchoolHolidaysCard } from "@/components/settings/school-holidays-card";
+import { SchoolHolidaySyncSection } from "@/components/settings/school-holiday-sync-section";
 import { useHolidayRegion, useSaveHolidayRegion, useToday } from "@/hooks";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { nextHolidays } from "@/lib/holidays";
@@ -106,6 +107,8 @@ export default function HolidaySettingsPage() {
               })}
             </p>
           </Card>
+
+          <SchoolHolidaySyncSection />
 
           <SchoolHolidaysCard />
         </motion.div>

@@ -5,6 +5,7 @@ import { queryKeys, useSetting } from "./use-supabase-queries";
 import { useFamilyStore } from "@/stores/family-store";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { parseRegionSetting, type HolidayRegionSetting } from "@/lib/holidays/region";
+import { schoolSyncKeys } from "./use-school-holiday-sync";
 
 export interface HolidayRegionState {
   /** The region to compute holidays for; null until someone picks one -- show none then. */
@@ -22,7 +23,11 @@ export function useHolidayRegion(): HolidayRegionState {
   return { region: setting?.code ?? null, setting, isLoading, isError };
 }
 
-/** Save the family's holiday region through PUT /api/holidays/region, the only route a device can write it with. */
+/**
+ * Save the family's holiday region through PUT /api/holidays/region, the only
+ * route a device can write it with. The route also reconciles the school-holiday
+ * sync in the same request, so the sync status and the school holidays refetch too.
+ */
 export function useSaveHolidayRegion() {
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
@@ -41,6 +46,12 @@ export function useSaveHolidayRegion() {
       // falls back to the old region between the save and the refetch. The
       // refetch is returned, so the mutation stays pending (and the picker
       // disabled) until it lands.
+      const familyId = family?.id ?? "";
+      // Picking a region turns the sync on or replaces its rows (RFC-014 §5.4),
+      // in the same request: refetch both. Not awaited -- the picker waits only
+      // for its own row.
+      queryClient.invalidateQueries({ queryKey: schoolSyncKeys.status(familyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.schoolHolidays(familyId) });
       const queryKey = queryKeys.settings(family?.id ?? "", SETTINGS_KEYS.holidayRegion);
       queryClient.setQueryData(queryKey, region);
       return queryClient.invalidateQueries({ queryKey });
