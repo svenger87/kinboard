@@ -64,6 +64,28 @@ test.describe("migrations", () => {
   });
 });
 
+// Server-side helpers that delete a family with the service-role client they are
+// handed. Each must be imported only from API routes; the test below checks it.
+const SERVER_ONLY_FAMILY_DELETERS = [join(SRC, "lib", "family-create.ts")];
+
+test("server-side family deleters are only imported from API routes", () => {
+  const api = join(SRC, "app", "api");
+  for (const file of SERVER_ONLY_FAMILY_DELETERS) {
+    const mod = "@/" + file.slice(SRC.length + 1).replace(/\.tsx?$/, "");
+    const importers: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) walk(path);
+        else if (/\.(ts|tsx)$/.test(name) && path !== file && readFileSync(path, "utf8").includes(`"${mod}"`)) importers.push(path);
+      }
+    };
+    walk(SRC);
+    expect(importers.length, `${mod} has no importers`).toBeGreaterThan(0);
+    for (const path of importers) expect(path.startsWith(api + "/"), `${path} imports ${mod}`).toBe(true);
+  }
+});
+
 test("no browser code deletes a family", () => {
   const offenders: string[] = [];
   const walk = (dir: string) => {
@@ -73,7 +95,7 @@ test("no browser code deletes a family", () => {
         // API routes run on the server with the service role.
         if (path === join(SRC, "app", "api")) continue;
         walk(path);
-      } else if (/\.(ts|tsx)$/.test(name)) {
+      } else if (/\.(ts|tsx)$/.test(name) && !SERVER_ONLY_FAMILY_DELETERS.includes(path)) {
         const code = codeOnly(readFileSync(path, "utf8"));
         if (/\.from\(\s*["']families["']\s*\)\s*\.delete\(/.test(code)) offenders.push(path);
       }
