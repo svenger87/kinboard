@@ -12,8 +12,8 @@
  * A hint is stored with an English `title`/`detail` and, for rows raised
  * since translations existed, a `message_key` with `params`. The widget
  * says it in the device's language; an assistant has no device, so it is
- * said here in the family's language (the `locale` setting, English when
- * unset), falling back to the stored English exactly as the widget does
+ * said here in the family's language (the `locale` setting, else the
+ * holiday region's language, else English: familyContentLanguage), falling back to the stored English exactly as the widget does
  * when a key has no translation.
  *
  * Hints from a rule built on Home Assistant states (`sensitive` in
@@ -31,8 +31,8 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/server";
-import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES, type Locale } from "@/i18n/locales";
+import { type Locale } from "@/i18n/locales";
+import { familyContentLanguage } from "@/lib/family-language";
 import { getTranslator } from "@/lib/notifications/messages";
 import { RULES_BY_ID } from "@/lib/attention/rules";
 
@@ -61,18 +61,13 @@ export interface AttentionView {
   first_seen_at: string;
 }
 
-/** The family's language for text said on its behalf: its `locale` setting, or English. Throws on a database error. */
+/**
+ * The family's language for text said on its behalf: its `locale` setting,
+ * else its holiday region's language, else English -- the rule holiday and
+ * school names follow (familyContentLanguage). Throws on a database error.
+ */
 export async function familyLanguage(familyId: string, db: AttentionDb = createAdminClient()): Promise<Locale> {
-  const { data, error } = await (db as any)
-    .from("settings")
-    .select("value")
-    .eq("family_id", familyId)
-    .eq("key", SETTINGS_KEYS.locale)
-    .maybeSingle();
-  if (error) throw error;
-  const value = data?.value;
-  return typeof value === "string" && (SUPPORTED_LOCALES as readonly string[]).includes(value)
-    ? (value as Locale) : DEFAULT_LOCALE;
+  return familyContentLanguage(familyId, db);
 }
 
 /**

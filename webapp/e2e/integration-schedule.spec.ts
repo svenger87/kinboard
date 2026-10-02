@@ -492,11 +492,27 @@ test.describe("holiday sources (RFC-014 §5, §6)", () => {
     expect((await schoolOn(OURS, "2026-12-25", TZ, {}, db)).holiday).toBe("Ferien (ICS)");
   });
 
-  test("a family with no saved language gets English names, not German", async () => {
+  // Task 8: an English-speaking family with no saved language must not get
+  // the German names push notifications default to.
+  test("a UK family with no saved language gets English names, not German", async () => {
     const { db } = household({ settings: [region("GB-ENG")] });
     expect(await schoolOn(OURS, "2026-12-25", TZ, {}, db)).toMatchObject({ school_day: false, holiday: "Christmas Day" });
+  });
+
+  // Prod, v1.13.0-rc.2: a DE-NI family with no `locale` row (only the
+  // language switcher writes one) got English names.
+  test("a German or French family with no saved language gets its region's language", async () => {
     const de = household({ settings: [region("DE-NI")] });
-    expect((await schoolOn(OURS, "2026-12-25", TZ, {}, de.db)).holiday).toBe("Christmas Day");
+    expect((await schoolOn(OURS, "2026-12-25", TZ, {}, de.db)).holiday).toBe("1. Weihnachtstag");
+    const fr = household({ settings: [region("FR")] });
+    expect((await schoolOn(OURS, "2026-12-25", TZ, {}, fr.db)).holiday).toBe("Noël");
+  });
+
+  test("a saved language wins over the region's", async () => {
+    const en = household({ settings: [region("DE-NI"), locale("en")] });
+    expect((await schoolOn(OURS, "2026-12-25", TZ, {}, en.db)).holiday).toBe("Christmas Day");
+    const de = household({ settings: [region("GB-ENG"), locale("de")] });
+    expect((await schoolOn(OURS, "2026-12-25", TZ, {}, de.db)).holiday).toBe("1. Weihnachtstag");
   });
 
   test("an unreadable region is an error, not a school day", async () => {

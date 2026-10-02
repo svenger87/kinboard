@@ -16,6 +16,7 @@ import type { HolidayRegionSetting } from "../src/lib/holidays/region";
 import { liveSchoolSyncFetch } from "../src/lib/school-sync/live";
 import { liveSchoolSyncStore } from "../src/lib/school-sync/store";
 import { codeOnly } from "./source-helpers";
+import { COUNTRY_LANGUAGE, regionLanguage } from "../src/lib/family-language";
 
 /** RFC-014 §5.2 and §9, against a fake store and a counting fake fetch (§12). */
 
@@ -38,7 +39,7 @@ class FakeStore implements SchoolSyncStore {
   zone = "Europe/Berlin";
   constructor(public current: SchoolSyncSetting | null, public region: HolidayRegionSetting | null = { code: "DE-NI", chosen: true }) {}
   async holidayRegion() { return this.region; }
-  async language() { return "de"; }
+  async language(_familyId?: string) { return "de"; }
   async timeZone() { return this.zone; }
   async setting() { return this.current; }
   async saveSetting(_: string, s: SchoolSyncSetting) { this.current = s; }
@@ -347,13 +348,87 @@ test("the live fetch is safeFetch with the running version in the User-Agent and
   });
 });
 
-test("synced names are in the family's language, else English -- as public holidays are (final review #7)", async () => {
-  const db = (value: unknown, error: unknown = null) => {
-    const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: value === undefined ? null : { value }, error }) };
-    return { from: () => chain } as unknown as Parameters<typeof liveSchoolSyncStore>[0];
+/**
+ * The language synced names are fetched in (prod, v1.13.0-rc.2: a DE-NI
+ * family with no saved `locale` got English school-holiday names, because
+ * the `locale` row is only written by the language switcher). The saved
+ * `locale` wins; else the holiday region's country; else English.
+ */
+test.describe("the language synced names are fetched in", () => {
+  type Settings = Record<string, unknown>;
+  const settingsDb = (rows: Settings, error: { key: string; message: string } | null = null) => {
+    const make = () => {
+      let key: unknown;
+      const chain = {
+        select: () => chain,
+        eq: (column: string, value: unknown) => { if (column === "key") key = value; return chain; },
+        maybeSingle: async () => {
+          if (error && error.key === key) return { data: null, error: { message: error.message } };
+          return { data: typeof key === "string" && key in rows ? { value: rows[key] } : null, error: null };
+        },
+      };
+      return chain;
+    };
+    return { from: () => make() } as unknown as Parameters<typeof liveSchoolSyncStore>[0];
   };
-  expect(await liveSchoolSyncStore(db(undefined)).language("f")).toBe("en");
-  expect(await liveSchoolSyncStore(db("fr")).language("f")).toBe("fr");
-  expect(await liveSchoolSyncStore(db("xx")).language("f")).toBe("en");
-  await expect(liveSchoolSyncStore(db(undefined, { message: "down" })).language("f")).rejects.toMatchObject({ message: "down" });
+  const region = (code: string, chosen = true) => ({ holiday_region: { code, chosen } });
+  const language = (rows: Settings) => liveSchoolSyncStore(settingsDb(rows)).language("f");
+
+  test("a German family with no saved language syncs in German (the prod report)", async () => {
+    const live = liveSchoolSyncStore(settingsDb(region("DE-NI")));
+    const store = new FakeStore(ON);
+    store.language = (familyId: string) => live.language(familyId);
+    const { d, calls } = deps(store, () => new Response("[]", { status: 200, headers: { "content-type": "application/json" } }));
+    await syncFamily("f", d);
+    expect(calls).toHaveLength(1);
+    expect(new URL(calls[0]).searchParams.get("languageIsoCode")).toBe("DE");
+    // The backfilled, never-chosen region counts too.
+    expect(await language(region("DE-NI", false))).toBe("de");
+  });
+
+  test("UK and US families get English; French, Austrian, Swiss and Belgian families their region's language", async () => {
+    expect(await language(region("GB-ENG"))).toBe("en");
+    expect(await language(region("US-CA"))).toBe("en");
+    expect(await language(region("FR"))).toBe("fr");
+    expect(await language(region("BE"))).toBe("fr");
+    expect(await language(region("AT-9"))).toBe("de");
+    expect(await language(region("CH-ZH"))).toBe("de");
+    expect(await language(region("NL"))).toBe("en");
+  });
+
+  test("a saved language always wins over the region", async () => {
+    expect(await language({ ...region("DE-NI"), locale: "en" })).toBe("en");
+    expect(await language({ ...region("GB-ENG"), locale: "de" })).toBe("de");
+    expect(await language({ ...region("DE-NI"), locale: "fr" })).toBe("fr");
+  });
+
+  test("no region, or a language Kinboard does not ship and no region, is English", async () => {
+    expect(await language({})).toBe("en");
+    expect(await language({ locale: "xx" })).toBe("en");
+    expect(await language({ holiday_region: { code: "ZZ-99", chosen: true } })).toBe("en");
+    // An unshipped saved language does not hide the region.
+    expect(await language({ ...region("DE-NI"), locale: "xx" })).toBe("de");
+  });
+
+  test("a failed read throws rather than guessing", async () => {
+    await expect(liveSchoolSyncStore(settingsDb(region("DE-NI"), { key: "locale", message: "down" })).language("f")).rejects.toMatchObject({ message: "down" });
+    await expect(liveSchoolSyncStore(settingsDb({}, { key: "holiday_region", message: "down" })).language("f")).rejects.toMatchObject({ message: "down" });
+    // A saved language needs no region, so an unreadable region does not matter then.
+    expect(await liveSchoolSyncStore(settingsDb({ locale: "de" }, { key: "holiday_region", message: "down" })).language("f")).toBe("de");
+  });
+
+  test("the country map is small and explicit", () => {
+    expect(COUNTRY_LANGUAGE).toEqual({ DE: "de", AT: "de", LI: "de", CH: "de", FR: "fr", MC: "fr", LU: "fr", BE: "fr" });
+    expect(regionLanguage("LI")).toBe("de");
+    expect(regionLanguage("MC")).toBe("fr");
+    expect(regionLanguage("LU")).toBe("fr");
+    expect(regionLanguage(null)).toBeNull();
+  });
+
+  test("the region picker's names are fetched in the same language as the sync's", () => {
+    for (const route of ["options", "sync"]) {
+      const source = codeOnly(readFileSync(join(process.cwd(), `src/app/api/school-holidays/${route}/route.ts`), "utf8"));
+      expect(source, route).toMatch(/schoolRegionOptions\([^;]*deps\.store\.language\(familyId\)|const language = await deps\.store\.language\(familyId\);[\s\S]*schoolRegionOptions\([^;]*language/);
+    }
+  });
 });
