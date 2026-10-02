@@ -24,12 +24,25 @@
 -- adopt one, and the next sync would treat it as its own.
 -- school_holidays_browser_manual_only is a trigger, which the sweep does not
 -- touch, and it is replaced in place (CREATE OR REPLACE TRIGGER), so it is
--- never absent. It holds every role RLS holds -- anything that is neither
--- superuser nor BYPASSRLS, i.e. anon and authenticated through PostgREST --
--- to the same rule the policies state. The service role (the sync, the
--- session routes' admin client) and the migration runner pass. The policies
--- stay: with them a synced row is simply invisible to a browser write (0
--- rows, as before); the trigger is what answers if they are ever missing.
+-- never absent. It holds any role that is neither superuser nor BYPASSRLS --
+-- anon and authenticated through PostgREST -- to the same rule the policies
+-- state. The service role (the sync, the session routes' admin client) and
+-- the migration runner pass. The policies stay: with them a synced row is
+-- simply invisible to a browser write (0 rows, as before); the trigger is
+-- what answers if they are ever missing.
+--
+-- Two things it does not do:
+--
+-- * It trusts current_user. It is exactly as strong as RLS, no stronger: a
+--   SECURITY DEFINER function that writes this table, or an INVOKER RPC that
+--   runs SQL its caller supplies, would get past both. Today there is
+--   neither; keep it that way.
+-- * It does not depend on who owns the table. A foreign-key cascade (deleting
+--   a family, /api/import's rollback) runs as the owner, which RLS never
+--   binds but this trigger would if the owner lacked BYPASSRLS. So a DELETE
+--   fired from inside another trigger (pg_trigger_depth() > 1) whose family
+--   row is already gone passes whoever runs it: verified on PG 15 that,
+--   inside the cascade, the parent row is no longer visible.
 --
 -- WHY A FUNCTION
 --
@@ -94,12 +107,16 @@ SECURITY INVOKER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
-  -- Whoever RLS does not bind (superuser, BYPASSRLS: service_role, postgres,
-  -- supabase_admin) passes. A foreign-key cascade runs as the table owner,
-  -- so deleting a family still takes its synced rows with it.
+  -- Superuser or BYPASSRLS (service_role, postgres, supabase_admin) passes.
   IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles
               WHERE rolname = current_user AND (rolsuper OR rolbypassrls)) THEN
     RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+  END IF;
+  -- The family is being deleted (an ON DELETE CASCADE from families): its
+  -- rows go with it, synced or not, whatever role the cascade runs as.
+  IF TG_OP = 'DELETE' AND pg_trigger_depth() > 1
+     AND NOT EXISTS (SELECT 1 FROM public.families WHERE id = OLD.family_id) THEN
+    RETURN OLD;
   END IF;
   IF TG_OP IN ('UPDATE', 'DELETE') AND OLD.source IS DISTINCT FROM 'manual' THEN
     RAISE EXCEPTION 'school_holidays: only manual rows can be changed here'

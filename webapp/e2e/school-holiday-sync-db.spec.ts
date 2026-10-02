@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { execFileSync } from "child_process";
+import { execFileSync, spawn } from "child_process";
 import {
   acquireWholeDatabase,
   releaseWholeDatabase,
@@ -58,14 +58,6 @@ const manual = (family: string, name: string, from: string, to: string) =>
 
 const HERBST: Row = { external_id: "oh-herbst", name: "Herbstferien", starts_on: "2026-10-12", ends_on: "2026-10-24" };
 const WEIHNACHT: Row = { external_id: "oh-weihnacht", name: "Weihnachtsferien", starts_on: "2026-12-23", ends_on: "2027-01-06" };
-
-test("the migration is idempotent and every existing row is manual", () => {
-  const family = makeFamily();
-  manual(family, "Sommerferien", "2026-07-02", "2026-08-12");
-  applyMigration();
-  applyMigration();
-  expect(psql(`SELECT source || '|' || hidden || '|' || coalesce(external_id, '-') FROM school_holidays WHERE family_id = '${family}';`)).toBe("manual|false|-");
-});
 
 test("a manual row cannot carry an external id, and a synced row must", () => {
   const family = makeFamily();
@@ -219,7 +211,62 @@ test("the service role still syncs, and a family's synced rows go with the famil
   expect(psql(`SELECT count(*) FROM school_holidays WHERE family_id = '${family}';`)).toBe("0");
 });
 
-test("two syncs for one family take turns", () => {
-  const body = psql(`SELECT prosrc FROM pg_proc WHERE proname = 'apply_school_holiday_sync';`);
-  expect(body).toMatch(/pg_advisory_xact_lock\(hashtextextended\('school_holiday_sync:' \|\| p_family_id::text, 0\)\)/);
+test("deleting a family takes its synced rows even when the owner does not bypass RLS", () => {
+  const family = makeFamily();
+  sync(family, [HERBST]);
+  manual(family, "Mine", "2026-11-01", "2026-11-02");
+  // ALTER ROLE is transactional: the owner loses BYPASSRLS only inside this
+  // rolled-back transaction. supabase_admin, because postgres may not alter itself.
+  const out = execFileSync("docker", ["exec", "-i", dbContainer(), "psql", "-U", "supabase_admin", "-d", "postgres", "-tA", "-q", "-v", "ON_ERROR_STOP=1", "-c",
+    `BEGIN;
+     ALTER ROLE postgres NOBYPASSRLS;
+     SET LOCAL ROLE authenticated;
+     SELECT set_config('request.jwt.claims', '{"family_id":"${family}","role":"authenticated"}', true) IS NULL;
+     DELETE FROM families WHERE id = '${family}';
+     RESET ROLE;
+     SELECT 'left:' || count(*) FROM school_holidays WHERE family_id = '${family}';
+     ROLLBACK;`], { encoding: "utf8" });
+  expect(out).toContain("left:0");
+  // Outside a cascade the same delete is still the browser's to be refused.
+  expect(() => asBrowser(family, `DELETE FROM school_holidays WHERE external_id = 'oh-herbst' AND family_id = '${family}';`, true)).toThrow(/only manual rows/);
 });
+
+test("two syncs for one family take turns", async () => {
+  const family = makeFamily();
+  const other = makeFamily();
+  const key = (f: string) => `hashtextextended('school_holiday_sync:' || '${f}', 0)`;
+  // Connection A syncs and holds its transaction open.
+  const a = spawn("docker", ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-tA", "-q", "-v", "ON_ERROR_STOP=1", "-c",
+    `BEGIN; SELECT public.apply_school_holiday_sync('${family}', '${JSON.stringify([HERBST])}'::jsonb, '2026-09-01', '2029-08-31', false); SELECT pg_sleep(4); COMMIT;`]);
+  const done = new Promise<number>((resolve) => a.on("exit", (code) => resolve(code ?? -1)));
+  try {
+    const held = () => psql(`SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND granted AND objsubid = 1
+      AND ((classid::bigint << 32) | objid::bigint) = ${key(family)};`);
+    for (let i = 0; i < 50 && held() !== "1"; i++) await new Promise((r) => setTimeout(r, 100));
+    expect(held()).toBe("1");
+    // Connection B: the same family's sync waits for A (and gives up here
+    // after half a second); another family's does not.
+    expect(() => psql(`SET lock_timeout = '500ms'; SELECT public.apply_school_holiday_sync('${family}', '[]'::jsonb, '2026-09-01', '2029-08-31', true);`))
+      .toThrow(/lock timeout/);
+    expect(psql(`SET lock_timeout = '500ms'; SELECT public.apply_school_holiday_sync('${other}', '[]'::jsonb, '2026-09-01', '2029-08-31', true);`))
+      .toContain('"deleted": 0');
+  } finally {
+    expect(await done).toBe(0);
+  }
+  expect(psql(`SELECT count(*) FROM school_holidays WHERE family_id = '${family}';`)).toBe("1");
+});
+
+/*
+ * Last on purpose. It re-applies the migration, which would quietly repair a
+ * trigger, constraint or policy someone removed by hand to see a test above
+ * go red. The tests in this file run in order on one worker, under the
+ * whole-database lock, so running it last is enough.
+ */
+test("the migration is idempotent and every existing row is manual", () => {
+  const family = makeFamily();
+  manual(family, "Sommerferien", "2026-07-02", "2026-08-12");
+  applyMigration();
+  applyMigration();
+  expect(psql(`SELECT source || '|' || hidden || '|' || coalesce(external_id, '-') FROM school_holidays WHERE family_id = '${family}';`)).toBe("manual|false|-");
+});
+
