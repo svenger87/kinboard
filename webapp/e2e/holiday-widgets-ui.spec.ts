@@ -119,10 +119,15 @@ async function open(page: Page, locale: Locale, device: string, width: number, s
   // or it covers the widgets halfway through.
   put("screensaver", { screensaverTimeout: screensaver ? 2 : 0 });
   await page.setViewportSize({ width, height: width < 500 ? 844 : 810 });
-  await page.clock.setFixedTime(NOW);
   const base = test.info().project.use.baseURL ?? process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
-  await page.context().addCookies([{ name: "NEXT_LOCALE", value: locale, url: base }]);
   await establishSession(page, joinCode, `${DEVICE()}${device}`);
+  await page.context().addCookies([{ name: "NEXT_LOCALE", value: locale, url: base }]);
+  // The clock goes on after the join, never before. establishSession can sit
+  // on /join for up to a minute waiting out the join rate limit, and a fake
+  // clock installed before that wait starts the next page's performance.now()
+  // that far ahead of WebKit's animation timeline: framer-motion then schedules
+  // the route fade-in a minute into the future, and the page stays at opacity 0.
+  await page.clock.setFixedTime(NOW);
   // A phone gets no screensaver unless the device is a kiosk.
   if (screensaver) psql(`UPDATE devices SET is_kiosk = true WHERE hardware_id = 'e2e-${DEVICE()}${device}'`);
   put("locale", locale);

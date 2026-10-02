@@ -125,12 +125,26 @@ test.afterAll(() => {
 type Locale = "de" | "fr";
 const DATE_LOCALES = { de, fr };
 
-async function open(page: Page, locale: Locale, device: string, width: number, date = "2026-10-15") {
+/**
+ * One device for the whole spec, joined once per worker and its cookies
+ * replayed (establishSession caches them by name). Joining is limited to ten
+ * a minute per IP and the CI WebKit step joins every spec from one: with a
+ * device per test this spec alone took 14, and the specs after it sat out
+ * the limit on /join.
+ */
+const SPEC_DEVICE = () => `${DEVICE()}screen`;
+
+async function open(page: Page, locale: Locale, _device: string, width: number, date = "2026-10-15") {
   await page.setViewportSize({ width, height: width < 500 ? 844 : 900 });
-  await page.clock.setFixedTime(NOW);
   const base = test.info().project.use.baseURL ?? process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+  await establishSession(page, joinCode, SPEC_DEVICE());
   await page.context().addCookies([{ name: "NEXT_LOCALE", value: locale, url: base }]);
-  await establishSession(page, joinCode, `${DEVICE()}${device}`);
+  // The clock goes on after the join, never before. establishSession can sit
+  // on /join for up to a minute waiting out the join rate limit, and a fake
+  // clock installed before that wait starts the next page's performance.now()
+  // that far ahead of WebKit's animation timeline: framer-motion then schedules
+  // the route fade-in a minute into the future, and the page stays at opacity 0.
+  await page.clock.setFixedTime(NOW);
   put("locale", locale);
   await page.goto(`/calendar?date=${date}`, { waitUntil: "domcontentloaded" });
 }

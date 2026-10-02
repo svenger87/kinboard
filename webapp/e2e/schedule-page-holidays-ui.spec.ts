@@ -148,10 +148,15 @@ async function countReads(page: Page) {
 
 async function open(page: Page, locale: Locale, device: string, width: number, at: string) {
   await page.setViewportSize({ width, height: width < 500 ? 844 : 900 });
-  await page.clock.setFixedTime(new Date(at));
   const base = test.info().project.use.baseURL ?? process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
-  await page.context().addCookies([{ name: "NEXT_LOCALE", value: locale, url: base }]);
   await establishSession(page, joinCode, `${DEVICE()}${device}`);
+  await page.context().addCookies([{ name: "NEXT_LOCALE", value: locale, url: base }]);
+  // The clock goes on after the join, never before. establishSession can sit
+  // on /join for up to a minute waiting out the join rate limit, and a fake
+  // clock installed before that wait starts the next page's performance.now()
+  // that far ahead of WebKit's animation timeline: framer-motion then schedules
+  // the route fade-in a minute into the future, and the page stays at opacity 0.
+  await page.clock.setFixedTime(new Date(at));
   put("locale", locale);
   await page.goto("/schedule", { waitUntil: "domcontentloaded" });
   // The grid is there once the page has its lessons and its holidays.
