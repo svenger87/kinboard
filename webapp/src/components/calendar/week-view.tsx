@@ -21,6 +21,7 @@ import {
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { toLocalDateKey } from "@/lib/local-date";
 import type { Holiday } from "@/lib/holidays";
+import { holidayLabel } from "@/lib/holidays/label";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { personStrongTint, personText } from "@/lib/person-color";
@@ -200,8 +201,8 @@ export function WeekView({
                     <span
                       className="size-1.5 sm:size-2 rounded-full bg-amber-400"
                       role="img"
-                      aria-label={tHolidays(holiday.nameKey)}
-                      title={tHolidays(holiday.nameKey)}
+                      aria-label={holidayLabel(holiday, tHolidays)}
+                      title={holidayLabel(holiday, tHolidays)}
                     />
                   )}
                   {taskColors.length > 0 && (

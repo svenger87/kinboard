@@ -119,6 +119,7 @@ import {
 import { matchPersonForEvent } from "@/lib/calendar-person-matcher";
 import { layoutDayEvents } from "@/lib/calendar-layout";
 import { getHolidays, type CountryCode } from "@/lib/holidays";
+import { holidayLabel } from "@/lib/holidays/label";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import {
   DEFAULT_CALENDAR_DISPLAY,
@@ -1166,7 +1167,7 @@ export default function CalendarPage() {
                     if (holiday) {
                       return (
                         <Badge variant="outline" className="mt-1.5 text-xs border-amber-500/40 text-amber-400">
-                          {holiday.emoji} {tHolidays(holiday.nameKey)}
+                          {holiday.emoji} {holidayLabel(holiday, tHolidays)}
                         </Badge>
                       );
                     }
@@ -1324,7 +1325,7 @@ export default function CalendarPage() {
                             return (
                               <div className="text-center py-4 px-3 mb-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
                                 <span className="text-2xl">{holiday.emoji}</span>
-                                <p className="text-sm font-medium text-amber-400 mt-1">{tHolidays(holiday.nameKey)}</p>
+                                <p className="text-sm font-medium text-amber-400 mt-1">{holidayLabel(holiday, tHolidays)}</p>
                                 <p className="text-xs text-amber-400/60 mt-0.5">{t("holidayLabel")}</p>
                               </div>
                             );

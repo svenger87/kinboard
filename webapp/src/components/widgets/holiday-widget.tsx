@@ -11,6 +11,7 @@ import { WidgetCard } from "@/components/widget-card";
 import { useSetting, useToday } from "@/hooks";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { DEFAULT_COUNTRY, daysUntilHoliday, nextHolidays, type CountryCode } from "@/lib/holidays";
+import { holidayLabel } from "@/lib/holidays/label";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 interface HolidayWidgetProps {
@@ -69,7 +70,7 @@ export function HolidayWidget({ maxItems = 3, className = "" }: HolidayWidgetPro
             const isSoon = daysUntil > 0 && daysUntil <= 7;
             return (
               <motion.div
-                key={`${holiday.nameKey}-${holiday.date.getTime()}`}
+                key={`${holiday.nameKey || holiday.name}-${holiday.date.getTime()}`}
                 variants={item}
                 // Wraps on a narrow card -- four columns on a 1024px landscape
                 // panel make it ~220px -- so the countdown drops below the name
@@ -80,7 +81,7 @@ export function HolidayWidget({ maxItems = 3, className = "" }: HolidayWidgetPro
                   {holiday.emoji}
                 </span>
                 <div className="min-w-[6.5rem] flex-1">
-                  <p className="line-clamp-2 hyphens-auto break-words text-sm font-medium leading-snug">{tHolidays(holiday.nameKey)}</p>
+                  <p className="line-clamp-2 hyphens-auto break-words text-sm font-medium leading-snug">{holidayLabel(holiday, tHolidays)}</p>
                   <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground tabular-nums">
                     <span className="whitespace-nowrap">{day(holiday.date)}</span>
                     {holiday.dayOff && (

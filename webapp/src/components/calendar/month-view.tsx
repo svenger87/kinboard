@@ -22,6 +22,7 @@ import {
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { toLocalDateKey } from "@/lib/local-date";
 import type { Holiday } from "@/lib/holidays";
+import { holidayLabel } from "@/lib/holidays/label";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Trash2 } from "lucide-react";
@@ -249,12 +250,12 @@ export function MonthView({
                           <span
                             className="size-1.5 sm:size-2 rounded-full bg-amber-400 shrink-0"
                             role="img"
-                            aria-label={tHolidays(holiday.nameKey)}
-                            title={tHolidays(holiday.nameKey)}
+                            aria-label={holidayLabel(holiday, tHolidays)}
+                            title={holidayLabel(holiday, tHolidays)}
                           />
                           {!holidayEvent && (
                             <span className="hidden sm:inline flex-1 min-w-0 text-3xs text-amber-400 truncate leading-none">
-                              {tHolidays(holiday.nameKey)}
+                              {holidayLabel(holiday, tHolidays)}
                             </span>
                           )}
                         </>
