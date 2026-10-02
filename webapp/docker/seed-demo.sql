@@ -644,7 +644,10 @@ INSERT INTO public.settings (family_id, key, value) VALUES
     ('00000000-0000-0000-0000-000000000001', 'currency', '"EUR"'::jsonb),
     ('00000000-0000-0000-0000-000000000001', 'locale', '"en"'::jsonb),
     ('00000000-0000-0000-0000-000000000001', 'weather_units', '"metric"'::jsonb),
-    ('00000000-0000-0000-0000-000000000001', 'weather_location', '{"type":"city","city":"Hamburg"}'::jsonb)
+    ('00000000-0000-0000-0000-000000000001', 'weather_location', '{"type":"city","city":"Hamburg"}'::jsonb),
+    -- RFC-014: the demo lives in Hamburg and has picked it, so visitors are
+    -- not asked "Which state are you in?".
+    ('00000000-0000-0000-0000-000000000001', 'holiday_region', '{"code":"DE-HH","chosen":true}'::jsonb)
 ON CONFLICT (family_id, key) DO UPDATE SET value = EXCLUDED.value;
 
 -- `enabled_plugins` is deliberately absent: a plugin missing from that blob

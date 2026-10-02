@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { isValidTimeZone, zonedWallTimeToUtc } from "@/lib/integration-event-input";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { parseRegionSetting, type HolidayRegionSetting } from "@/lib/holidays/region";
 
 /**
  * The zone that turns an all-day date into instants, and that answers "what
@@ -60,4 +62,26 @@ export function addDays(day: string, n: number): string {
 export function familyDays(now: Date, timeZone: string): { today: string; tomorrow: string } {
   const today = familyDateKey(now, timeZone);
   return { today, tomorrow: addDays(today, 1) };
+}
+
+/**
+ * The family's `holiday_region` (RFC-014 §4.2), validated: null when the
+ * family has no row, `{ code: null }` when the row names no offered region.
+ * Throws on a failed read, as fetchSchoolBreaks does, so a caller can tell
+ * "no region" from "could not look". Filtered by family: the admin client
+ * bypasses RLS.
+ */
+export async function familyHolidayRegion(
+  familyId: string,
+  db: ReturnType<typeof createAdminClient> = createAdminClient(),
+): Promise<HolidayRegionSetting | null> {
+  const { data, error } = await (db as any)
+    .from("settings")
+    .select("value")
+    .eq("family_id", familyId)
+    .eq("key", SETTINGS_KEYS.holidayRegion)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return parseRegionSetting(data.value) ?? { code: null, chosen: false };
 }

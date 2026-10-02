@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
 import { SECRET_FIELDS, splitSecrets } from "@/lib/integration-secrets";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { withHolidayRegion } from "@/lib/holidays/region";
 import { clientIp, hitLimit } from "@/lib/rate-limit";
 
 // POST /api/import — restore a family from a Kinboard backup file
@@ -263,6 +264,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: validated.error }, { status: validated.status });
   }
   const { payload } = validated;
+  // RFC-014 §4.2: a backup from before holiday_region existed carries only
+  // holiday_country (or nothing, meaning Germany). Give the restored family
+  // the region it effectively had, as the migration does for live ones.
+  // Added before the id map below, so the row is remapped like any other.
+  payload.data.settings = withHolidayRegion(payload.data.settings ?? [], () => crypto.randomUUID());
 
   const supabase = createAdminClient();
   const db = supabase as any;

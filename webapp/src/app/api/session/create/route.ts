@@ -4,6 +4,7 @@ import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/sessi
 import { mintFamilyToken } from "@/lib/family-jwt";
 import { generateJoinCode } from "@/lib/utils";
 import { hitLimit, clientIp } from "@/lib/rate-limit";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,18 @@ export async function POST(request: NextRequest) {
       { error: lastError ?? "could not create family" },
       { status: 500 },
     );
+  }
+
+  // RFC-014 §4.2: a new family has no holiday region until someone picks
+  // one in the setup wizard. This explicit unset row is what keeps the
+  // holiday_region migration -- which runs on every boot -- from giving it
+  // Niedersachsen's holidays at the next restart. Best effort: a family
+  // must not fail to be created over it.
+  const { error: regionError } = await (supabase as any)
+    .from("settings")
+    .insert({ family_id: family.id, key: SETTINGS_KEYS.holidayRegion, value: { code: null, chosen: false } });
+  if (regionError) {
+    console.error("[session/create] could not write holiday_region:", regionError.message);
   }
 
   const userAgent = request.headers.get("user-agent");

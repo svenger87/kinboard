@@ -100,3 +100,29 @@ export function countryForTimeZone(zone: string | null | undefined): string | nu
   if (!zone) return null;
   return ZONE_TO_COUNTRY.get(zone) ?? null;
 }
+
+/**
+ * The region a legacy `holiday_country` value meant (the migration's
+ * mapping, for restores): `de`, nothing or anything unknown is
+ * Niedersachsen, the only German list there was. Never chosen.
+ */
+export function legacyHolidayRegion(holidayCountry: unknown): HolidayRegionSetting {
+  const code =
+    typeof holidayCountry === "string" && Object.prototype.hasOwnProperty.call(LEGACY_REGIONS, holidayCountry)
+      ? LEGACY_REGIONS[holidayCountry]
+      : LEGACY_REGIONS.de;
+  return { code, chosen: false };
+}
+
+/**
+ * A backup's settings rows, with a `holiday_region` row added when it has
+ * none -- a backup made before RFC-014 -- derived from its `holiday_country`.
+ */
+export function withHolidayRegion(rows: readonly unknown[], newId: () => string): unknown[] {
+  const records = rows.filter(
+    (r): r is Record<string, unknown> => typeof r === "object" && r !== null && !Array.isArray(r),
+  );
+  if (records.some((r) => r.key === "holiday_region")) return [...rows];
+  const country = records.find((r) => r.key === "holiday_country")?.value;
+  return [...rows, { id: newId(), key: "holiday_region", value: legacyHolidayRegion(country) }];
+}
