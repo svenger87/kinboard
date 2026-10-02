@@ -2768,6 +2768,7 @@
     },
     "markers": {
       "tasksDue": "Fällige Aufgaben",
+      "tasksDueCount": "{count, plural, one {# fällige Aufgabe} other {# Aufgaben fällig}}",
       "taskTitle": "✓ {title}",
       "taskTitleWithPerson": "✓ {title} · {person}"
     }

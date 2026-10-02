@@ -2768,6 +2768,7 @@
     },
     "markers": {
       "tasksDue": "Tâches à faire",
+      "tasksDueCount": "{count, plural, one {# tâche à faire} other {# tâches à faire}}",
       "taskTitle": "✓ {title}",
       "taskTitleWithPerson": "✓ {title} · {person}"
     }

@@ -192,6 +192,31 @@ export function MonthView({
                 const visibleEvents = dayEvents.slice(0, MAX_EVENTS_PER_CELL);
                 const overflowCount = dayEvents.length - MAX_EVENTS_PER_CELL;
 
+                // The day-selection button covers the whole cell and the
+                // content above it is pointer-events-none, so hover and
+                // screen-reader users only get information that lives on
+                // this button's accessible name -- the date, any holiday
+                // name(s), and the tasks-due count the corner badge shows
+                // from sm up. Dedup in case a calendar-sourced holiday
+                // event and a built-in holiday marker name the same day
+                // the same thing.
+                const holidayNames = Array.from(
+                  new Set(
+                    [holidayEvent?.title, holiday ? holidayLabel(holiday, tHolidays) : undefined].filter(
+                      (name): name is string => Boolean(name)
+                    )
+                  )
+                );
+                const dayButtonLabel = [
+                  format(day, "PPPP", { locale: dateLocale }),
+                  holidayNames.join(", "),
+                  taskColors.length > 0
+                    ? t("markers.tasksDueCount", { count: taskColors.length })
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
+
                 return (
                   // The cell is a plain container, not a button. It used to be
                   // a <button> with the event chips (role="button") rendered
@@ -221,7 +246,8 @@ export function MonthView({
                     <button
                       type="button"
                       onClick={() => onSelectDate(day)}
-                      aria-label={format(day, "PPPP", { locale: dateLocale })}
+                      aria-label={dayButtonLabel}
+                      title={dayButtonLabel}
                       aria-pressed={isSelected ? true : undefined}
                       className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                     />

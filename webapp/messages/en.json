@@ -2768,6 +2768,7 @@
     },
     "markers": {
       "tasksDue": "Tasks due",
+      "tasksDueCount": "{count, plural, one {# task due} other {# tasks due}}",
       "taskTitle": "✓ {title}",
       "taskTitleWithPerson": "✓ {title} · {person}"
     }
