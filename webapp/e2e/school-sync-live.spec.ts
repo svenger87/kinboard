@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createAdminClient } from "../src/lib/supabase/server";
 import { liveSchoolSyncStore } from "../src/lib/school-sync/store";
+import { runSchoolSyncCron } from "../src/lib/school-sync/cron";
 import { syncFamily, type SchoolSyncDeps, type SchoolSyncSetting, type SchoolSyncStore } from "../src/lib/school-sync/sync";
 import type { SyncFetch } from "../src/lib/school-sync/openholidays";
 
@@ -88,8 +89,10 @@ test.beforeAll(async () => {
   if (manual.error) throw manual.error;
 });
 
+const others: string[] = [];
 test.afterAll(async () => {
-  if (family) await db.from("families").delete().eq("id", family);
+  const ids = [family, ...others].filter(Boolean);
+  if (ids.length) await db.from("families").delete().in("id", ids);
 });
 
 let manualBefore = "";
@@ -183,4 +186,54 @@ test("with nothing synced, an empty answer is just empty", async () => {
   const { outcome } = run(() => jsonResponse("[]"));
   expect(await outcome).toEqual({ status: "synced", rows: 0 });
   expect(JSON.stringify(await rows("manual"))).toBe(manualBefore);
+});
+
+test("a failure is recorded only on the choice it was for (final review #4)", async () => {
+  const before = (await store.setting(family))!;
+  await store.recordError(family, "2026-10-02T11:00:00.000Z", "down", { region: "DE-HB", group: null });
+  expect(await store.setting(family)).toEqual(before);
+  await store.recordError(family, "2026-10-02T11:00:00.000Z", "down", { region: "DE-NI", group: null });
+  expect(await store.setting(family)).toMatchObject({ last_error_at: "2026-10-02T11:00:00.000Z", last_error: "down" });
+});
+
+test("the cron saves the default for a chosen family that has no sync setting, and syncs it (final review #2)", async () => {
+  const make = async (region: unknown) => {
+    const code = `SL${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+    const { data, error } = await db.from("families").insert({ name: "claude-school-sync-live", join_code: code }).select("id").single();
+    if (error) throw error;
+    others.push(data.id);
+    const r = await db.from("settings").insert({ family_id: data.id, key: "holiday_region", value: region });
+    if (r.error) throw r.error;
+    return data.id as string;
+  };
+  const chosen = await make({ code: "DE-NI", chosen: true });
+  const unchosen = await make({ code: "DE-NI", chosen: false });
+  const ours = new Set([chosen, unchosen]);
+  // The real store and its RPC, limited to this spec's families so no other
+  // family on the stack is touched.
+  const real = liveSchoolSyncStore(db);
+  const unset = await real.unsetFamilies();
+  expect(unset).toContainEqual({ familyId: chosen, holidayRegion: "DE-NI" });
+  expect(unset.map((f) => f.familyId)).not.toContain(unchosen);
+  const scoped: SchoolSyncStore = {
+    ...real,
+    enabledFamilies: async () => (await real.enabledFamilies()).filter((f) => ours.has(f.familyId)),
+    unsetFamilies: async () => unset.filter((f) => ours.has(f.familyId)),
+  };
+  let calls = 0;
+  const deps: SchoolSyncDeps = {
+    fetch: async () => { calls++; return jsonResponse(NI); }, store: scoped, now: () => NOW, installEnabled: true,
+    userAgent: "Kinboard/test (+https://github.com/svenger87/kinboard)", log: () => {},
+  };
+  expect(await runSchoolSyncCron(deps)).toEqual({ due: 1, synced: 1, failed: 0, skipped: 0, adopted: 1 });
+  expect(calls).toBe(1);
+  expect(await real.setting(chosen)).toMatchObject({ enabled: true, region: "DE-NI", last_success_at: NOW.toISOString() });
+  expect(await real.setting(unchosen)).toBeNull();
+  const { count } = await db.from("school_holidays").select("id", { head: true, count: "exact" }).eq("family_id", chosen).eq("source", "openholidays");
+  expect(count).toBe(8);
+  // A second insert of the default does not overwrite what is there now.
+  expect(await real.saveSettingIfAbsent(chosen, { ...ON, enabled: false })).toBe(false);
+  expect((await real.setting(chosen))?.enabled).toBe(true);
+  // And the next run finds nothing to adopt and nothing due.
+  expect(await runSchoolSyncCron(deps)).toEqual({ due: 0, synced: 0, failed: 0, skipped: 0, adopted: 0 });
 });

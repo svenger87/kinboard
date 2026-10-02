@@ -161,9 +161,13 @@ test("the routes take the family from the session and fetch at most once a minut
 });
 
 test("the cron route is behind CRON_SECRET, honours the off switch, and only syncs families that are due", () => {
-  const cron = codeOnly(read("src/app/api/cron/sync-school-holidays/route.ts"));
-  expect(cron).toContain("`Bearer ${CRON_SECRET}`");
-  expect(cron).toContain("deps.installEnabled");
+  const route = codeOnly(read("src/app/api/cron/sync-school-holidays/route.ts"));
+  expect(route).toContain("`Bearer ${CRON_SECRET}`");
+  expect(route).toContain("deps.installEnabled");
+  expect(route).toContain("runSchoolSyncCron(deps)");
+  // The run itself (e2e/school-sync-cron.spec.ts drives it with a fake store).
+  const cron = codeOnly(read("src/lib/school-sync/cron.ts"));
+  expect(cron).toContain("if (!deps.installEnabled)");
   expect(cron).toContain("isDue(setting, now)");
   // One family's thrown error does not end the run for the rest.
   expect(cron).toMatch(/try \{\s*const outcome = await syncFamily\(familyId, deps\)/);
@@ -203,6 +207,8 @@ class RouteStore implements SchoolSyncStore {
   async recordError() {}
   async clear() { this.cleared++; }
   async enabledFamilies() { return []; }
+  async unsetFamilies() { return []; }
+  async saveSettingIfAbsent() { return false; }
 }
 
 /** What POST /api/school-holidays/sync does with a change, minus HTTP: the route's own steps, in its order. */
@@ -328,7 +334,7 @@ test("both session routes fetch through fetchIfReady, and the region route repor
   expect(region).toContain("fetchIfReady(familyId, result.setting, deps, () => syncLimited(familyId))");
   expect(region).not.toContain("syncFamily(");
   expect(region).toContain('outcome = { status: "failed", error: INTERNAL_SYNC_ERROR }');
-  const cron = codeOnly(read("src/app/api/cron/sync-school-holidays/route.ts"));
+  const cron = codeOnly(read("src/lib/school-sync/cron.ts"));
   expect(cron).toContain("isDue(setting, now) && !backingOff(setting, now)");
   const store = codeOnly(read("src/lib/school-sync/store.ts"));
   expect(store).toContain('.eq("value->>enabled", "true")');

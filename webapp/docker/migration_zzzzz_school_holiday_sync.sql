@@ -209,6 +209,12 @@ BEGIN
     IF p_synced_at IS NULL THEN
       RAISE EXCEPTION 'p_synced_at is required';
     END IF;
+    -- Rows are always fetched for a region. Without one there is nothing
+    -- to check the family's choice against, and the check below would pass
+    -- for a setting that has no region either.
+    IF p_expect_region IS NULL THEN
+      RAISE EXCEPTION 'p_expect_region is required';
+    END IF;
     -- The request took up to ten seconds. If the family switched off, picked
     -- another region or group, or still has one to pick, this answer is for a
     -- choice nobody holds any more: write nothing. FOR UPDATE holds the row
@@ -285,10 +291,26 @@ GRANT EXECUTE ON FUNCTION public.apply_school_holiday_sync(UUID, JSONB, DATE, DA
 -- A failed sync notes why on the family's setting: the two error fields,
 -- merged in one statement, so a switch flipped meanwhile is never written
 -- back. Nothing happens when the setting is gone.
+--
+-- p_expect_region and p_expect_group are the choice the failed request was
+-- for. The request can take ten seconds; if the family switched off or
+-- picked another region or group meanwhile, the failure describes a choice
+-- nobody holds, and recording it would show "error" on the new one and keep
+-- the cron away from it for an hour. So it is recorded only while the
+-- family still holds that choice, switched on. A NULL p_expect_region means
+-- the failure came before the setting was read (a database error): there is
+-- no choice to compare, and it is recorded as before.
+
+-- The three-argument version from before the check (never released). A
+-- no-op on every run after the first.
+DROP FUNCTION IF EXISTS public.record_school_holiday_sync_error(UUID, TIMESTAMPTZ, TEXT);
+
 CREATE OR REPLACE FUNCTION public.record_school_holiday_sync_error(
-  p_family_id UUID,
-  p_at        TIMESTAMPTZ,
-  p_error     TEXT
+  p_family_id     UUID,
+  p_at            TIMESTAMPTZ,
+  p_error         TEXT,
+  p_expect_region TEXT,
+  p_expect_group  TEXT
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -305,13 +327,53 @@ BEGIN
            'last_error', left(COALESCE(p_error, ''), 500))
    WHERE family_id = p_family_id
      AND key = 'school_holiday_sync'
-     AND jsonb_typeof(value) = 'object';
+     AND jsonb_typeof(value) = 'object'
+     AND (p_expect_region IS NULL
+          OR (value->'enabled' = 'true'::jsonb
+              AND value->>'region' IS NOT DISTINCT FROM p_expect_region
+              AND value->>'group'  IS NOT DISTINCT FROM p_expect_group));
   RETURN FOUND;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.record_school_holiday_sync_error(UUID, TIMESTAMPTZ, TEXT) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.record_school_holiday_sync_error(UUID, TIMESTAMPTZ, TEXT) FROM anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.record_school_holiday_sync_error(UUID, TIMESTAMPTZ, TEXT) TO service_role;
+REVOKE ALL ON FUNCTION public.record_school_holiday_sync_error(UUID, TIMESTAMPTZ, TEXT, TEXT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.record_school_holiday_sync_error(UUID, TIMESTAMPTZ, TEXT, TEXT, TEXT) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_school_holiday_sync_error(UUID, TIMESTAMPTZ, TEXT, TEXT, TEXT) TO service_role;
+
+-- The families the weekly cron would otherwise never see: a region someone
+-- chose and no sync setting at all. That is the default, which is on
+-- (RFC-014 §5.4) and which the card shows as on, but only a change saves it.
+-- A family ends up here when it picked its region while the install had
+-- SCHOOL_HOLIDAY_SYNC=off, when a restored or hand-made family has a chosen
+-- region and no setting, or when saving the region worked and saving the
+-- setting after it did not. The cron saves the default for each (only if
+-- there is still no row) and syncs it like any other.
+--
+-- Whether OpenHolidays covers the region is the app's call
+-- (defaultSchoolRegion), not this function's. Read-only; service role only.
+CREATE OR REPLACE FUNCTION public.school_holiday_sync_unset_families()
+RETURNS TABLE (family_id UUID, holiday_region TEXT)
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+  SELECT r.family_id, r.value->>'code'
+    FROM public.settings r
+   WHERE r.key = 'holiday_region'
+     AND jsonb_typeof(r.value) = 'object'
+     AND r.value->'chosen' = 'true'::jsonb
+     AND r.value->>'code' IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1 FROM public.settings s
+        WHERE s.family_id = r.family_id
+          AND s.key = 'school_holiday_sync'
+     )
+   ORDER BY r.family_id;
+$$;
+
+REVOKE ALL ON FUNCTION public.school_holiday_sync_unset_families() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.school_holiday_sync_unset_families() FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.school_holiday_sync_unset_families() TO service_role;
 
 NOTIFY pgrst, 'reload schema';

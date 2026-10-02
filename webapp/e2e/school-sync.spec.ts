@@ -14,6 +14,7 @@ import {
 import type { FetchedBreak, SyncFetch } from "../src/lib/school-sync/openholidays";
 import type { HolidayRegionSetting } from "../src/lib/holidays/region";
 import { liveSchoolSyncFetch } from "../src/lib/school-sync/live";
+import { liveSchoolSyncStore } from "../src/lib/school-sync/store";
 import { codeOnly } from "./source-helpers";
 
 /** RFC-014 §5.2 and §9, against a fake store and a counting fake fetch (§12). */
@@ -51,11 +52,20 @@ class FakeStore implements SchoolSyncStore {
     this.current = { ...c, last_success_at: syncedAt, last_error_at: null, last_error: null };
     return { superseded: false };
   }
-  async recordError(_: string, at: string, message: string) {
-    if (this.current) this.current = { ...this.current, last_error_at: at, last_error: message };
+  async recordError(_: string, at: string, message: string, expect: { region: string | null; group: string | null } | null) {
+    const c = this.current;
+    if (!c) return;
+    if (expect !== null && expect.region !== null && (!c.enabled || c.region !== expect.region || c.group !== expect.group)) return;
+    this.current = { ...c, last_error_at: at, last_error: message };
   }
   async clear() { this.cleared++; }
   async enabledFamilies() { return this.current?.enabled ? [{ familyId: "f", setting: this.current }] : []; }
+  async unsetFamilies() { return []; }
+  async saveSettingIfAbsent(_: string, s: SchoolSyncSetting) {
+    if (this.current) return false;
+    this.current = s;
+    return true;
+  }
 }
 
 function deps(store: FakeStore, answer: () => Response | Promise<Response>, installOn = true, now = NOW) {
@@ -223,6 +233,19 @@ for (const where of ["setting", "holidayRegion", "timeZone"] as const) {
   });
 }
 
+test("a slow failure for the old region is not recorded on the new one (final review #4)", async () => {
+  const store = new FakeStore({ ...ON, last_success_at: "2026-09-30T00:00:00.000Z" });
+  const recorded: unknown[] = [];
+  const record = store.recordError.bind(store);
+  store.recordError = async (...args) => { recorded.push(args[3]); return record(...args); };
+  const BY = { ...ON, region: "DE-BY", last_success_at: null };
+  // The family picks Bavaria while the request for Lower Saxony is out; then it fails.
+  const { d } = deps(store, () => { store.current = BY; return new Response("", { status: 502 }); });
+  expect((await syncFamily("f", d)).status).toBe("failed");
+  expect(recorded).toEqual([{ region: "DE-NI", group: null }]);
+  expect(store.current).toEqual(BY);
+});
+
 test("a failure to record the error is logged, and the sync still resolves", async () => {
   const store = new FakeStore(ON);
   store.recordError = async () => { throw new Error("connection reset"); };
@@ -276,14 +299,15 @@ for (const [label, change] of [
   });
 }
 
-test("a failure while the switch was turned off records the error without turning it back on", async () => {
+test("a failure while the switch was turned off neither turns it back on nor marks it as failing", async () => {
   const store = new FakeStore(ON);
   const { d } = deps(store, () => {
     store.current = { ...store.current!, enabled: false };
     return new Response("", { status: 503 });
   });
   expect((await syncFamily("f", d)).status).toBe("failed");
-  expect(store.current).toMatchObject({ enabled: false, last_error_at: NOW.toISOString() });
+  // Final review #4: the error was for a choice the family no longer holds.
+  expect(store.current).toMatchObject({ enabled: false, last_error_at: null });
 });
 
 test("a failure after the setting was deleted does not bring it back", async () => {
@@ -321,4 +345,15 @@ test("the live fetch is safeFetch with the running version in the User-Agent and
     Accept: "application/json",
     "User-Agent": `Kinboard/${version} (+https://github.com/svenger87/kinboard)`,
   });
+});
+
+test("synced names are in the family's language, else English -- as public holidays are (final review #7)", async () => {
+  const db = (value: unknown, error: unknown = null) => {
+    const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: value === undefined ? null : { value }, error }) };
+    return { from: () => chain } as unknown as Parameters<typeof liveSchoolSyncStore>[0];
+  };
+  expect(await liveSchoolSyncStore(db(undefined)).language("f")).toBe("en");
+  expect(await liveSchoolSyncStore(db("fr")).language("f")).toBe("fr");
+  expect(await liveSchoolSyncStore(db("xx")).language("f")).toBe("en");
+  await expect(liveSchoolSyncStore(db(undefined, { message: "down" })).language("f")).rejects.toMatchObject({ message: "down" });
 });

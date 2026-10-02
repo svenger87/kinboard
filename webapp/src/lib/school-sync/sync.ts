@@ -68,11 +68,25 @@ export interface SchoolSyncStore {
     expect: { region: string; group: string | null },
     syncedAt: string,
   ): Promise<{ superseded: boolean }>;
-  /** Merge last_error_at and last_error into the setting as it is now; nothing if it is gone. */
-  recordError(familyId: string, at: string, message: string): Promise<void>;
+  /**
+   * Merge last_error_at and last_error into the setting as it is now; nothing
+   * if it is gone. `expect` is the choice the failed request was for: when
+   * given, the error is recorded only while the family still holds it,
+   * switched on -- a slow failure for an old region must not mark the new
+   * one as failing. Null when the failure came before the setting was read.
+   */
+  recordError(familyId: string, at: string, message: string, expect: { region: string | null; group: string | null } | null): Promise<void>;
   /** Delete every synced row (switched off, or a new school region). Manual rows stay. */
   clear(familyId: string): Promise<void>;
   enabledFamilies(): Promise<{ familyId: string; setting: SchoolSyncSetting }[]>;
+  /**
+   * Families with a chosen public-holiday region and no sync setting at all:
+   * the default, on, that nothing has saved yet (§5.4). The cron saves it for
+   * the covered ones and syncs them.
+   */
+  unsetFamilies(): Promise<{ familyId: string; holidayRegion: string }[]>;
+  /** Save `setting` only if the family has none; true when it was saved. A concurrent pick's row wins. */
+  saveSettingIfAbsent(familyId: string, setting: SchoolSyncSetting): Promise<boolean>;
 }
 
 export interface SchoolSyncDeps {
@@ -119,8 +133,10 @@ export const INTERNAL_SYNC_ERROR = "the school-holiday sync could not save the h
 export async function syncFamily(familyId: string, deps: SchoolSyncDeps): Promise<SyncOutcome> {
   if (!deps.installEnabled) return { status: "skipped", reason: "install-off" };
   const now = deps.now();
+  // Outside the try, so a failure can say which choice it was for.
+  let setting: SchoolSyncSetting | null = null;
   try {
-    const setting = await deps.store.setting(familyId);
+    setting = await deps.store.setting(familyId);
     if (!setting?.enabled) return { status: "skipped", reason: "disabled" };
     const holidayRegion = await deps.store.holidayRegion(familyId);
     const country = holidayRegion?.code ? (resolveRegion(holidayRegion.code)?.country ?? null) : null;
@@ -153,7 +169,8 @@ export async function syncFamily(familyId: string, deps: SchoolSyncDeps): Promis
     deps.log(`[school-sync] family ${familyId}: ${detail}`);
     const message = err instanceof SyncError ? err.message : INTERNAL_SYNC_ERROR;
     try {
-      await deps.store.recordError(familyId, now.toISOString(), message.slice(0, 500));
+      const expect = setting ? { region: setting.region, group: setting.group } : null;
+      await deps.store.recordError(familyId, now.toISOString(), message.slice(0, 500), expect);
     } catch (recordErr) {
       // The rows are as they were; failing to note why must not throw.
       deps.log(`[school-sync] family ${familyId}: could not record the error (${(recordErr as Error)?.message ?? String(recordErr)})`);

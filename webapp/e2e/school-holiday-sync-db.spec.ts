@@ -147,16 +147,67 @@ test("a sync for a choice the family no longer holds writes nothing, and records
 test("a success is recorded with the rows; an error is merged into the setting as it is", () => {
   const family = makeFamily();
   const setting = () => JSON.parse(psql(`SELECT value::text FROM settings WHERE family_id = '${family}' AND key = 'school_holiday_sync';`));
-  psql(`SELECT public.record_school_holiday_sync_error('${family}', '2026-10-01T08:00:00Z', 'OpenHolidays answered 502');`);
+  const recordError = (at: string, error: string, expect = "'DE-NI', NULL") =>
+    psql(`SELECT public.record_school_holiday_sync_error('${family}', ${at}, '${error}', ${expect});`);
+  recordError("'2026-10-01T08:00:00Z'", "OpenHolidays answered 502");
   expect(setting()).toEqual({ ...SETTING, last_error_at: "2026-10-01T08:00:00.000Z", last_error: "OpenHolidays answered 502" });
   psql(`SELECT public.apply_school_holiday_sync('${family}', '${JSON.stringify([HERBST])}'::jsonb, '2026-09-01', '2029-08-31', false, 'DE-NI', NULL, '2026-10-02T10:00:00.123Z');`);
   expect(setting()).toEqual({ ...SETTING, last_success_at: "2026-10-02T10:00:00.123Z" });
+  // Without a choice to compare (the failure came before the setting was read) it is merged as it is.
   psql(`UPDATE settings SET value = value || '{"enabled": false}'::jsonb WHERE family_id = '${family}' AND key = 'school_holiday_sync';`);
-  psql(`SELECT public.record_school_holiday_sync_error('${family}', '2026-10-03T08:00:00Z', '${"x".repeat(600)}');`);
+  recordError("'2026-10-03T08:00:00Z'", "x".repeat(600), "NULL, NULL");
   expect(setting()).toMatchObject({ enabled: false, last_error_at: "2026-10-03T08:00:00.000Z", last_error: "x".repeat(500) });
   psql(`DELETE FROM settings WHERE family_id = '${family}' AND key = 'school_holiday_sync';`);
-  expect(psql(`SELECT public.record_school_holiday_sync_error('${family}', now(), 'x');`)).toBe("f");
+  expect(recordError("now()", "x")).toBe("f");
   expect(psql(`SELECT count(*) FROM settings WHERE family_id = '${family}';`)).toBe("0");
+});
+
+test("an error for a choice the family no longer holds is not recorded (final review #4)", () => {
+  const family = makeFamily();
+  const setting = () => psql(`SELECT value::text FROM settings WHERE family_id = '${family}' AND key = 'school_holiday_sync';`);
+  const recordError = (expect: string) =>
+    psql(`SELECT public.record_school_holiday_sync_error('${family}', '2026-10-01T08:00:00Z', 'down', ${expect});`);
+  const before = setting();
+  // Another region, another group, or switched off since the request went out.
+  expect(recordError("'DE-HB', NULL")).toBe("f");
+  expect(recordError("'DE-NI', 'DE-NI-X'")).toBe("f");
+  psql(`UPDATE settings SET value = value || '{"enabled": false}'::jsonb WHERE family_id = '${family}' AND key = 'school_holiday_sync';`);
+  const off = setting();
+  expect(recordError("'DE-NI', NULL")).toBe("f");
+  expect(setting()).toBe(off);
+  psql(`UPDATE settings SET value = '${JSON.stringify(SETTING)}'::jsonb WHERE family_id = '${family}' AND key = 'school_holiday_sync';`);
+  expect(setting()).toBe(before);
+  // The choice it was for: recorded.
+  expect(recordError("'DE-NI', NULL")).toBe("t");
+  expect(JSON.parse(setting())).toMatchObject({ last_error_at: "2026-10-01T08:00:00.000Z", last_error: "down" });
+});
+
+test("a sync that writes rows must name the region they are for (final review #5)", () => {
+  const family = makeFamily();
+  const before = table(family);
+  expect(() => psql(`SELECT public.apply_school_holiday_sync('${family}', '${JSON.stringify([HERBST])}'::jsonb, '2026-09-01', '2029-08-31', false, NULL, NULL, now());`))
+    .toThrow(/p_expect_region is required/);
+  expect(table(family)).toBe(before);
+  // A replace (switch off, new region) needs none.
+  expect(psql(`SELECT public.apply_school_holiday_sync('${family}', '[]'::jsonb, '1970-01-01', '1970-01-01', true, NULL, NULL, NULL);`)).toContain('"superseded": false');
+});
+
+test("families with a chosen region and no sync setting are listed for the cron (final review #2)", () => {
+  const made: string[] = [];
+  const listed = () => psql(`SELECT string_agg(family_id || '=' || holiday_region, ',') FROM public.school_holiday_sync_unset_families() WHERE family_id = ANY(ARRAY[${made.map((f) => `'${f}'::uuid`).join(",")}]);`);
+  const region = (value: string) => {
+    const id = psql(`INSERT INTO families (name, join_code) VALUES ('school-sync-test', 'SS' || upper(substr(md5(random()::text), 1, 8))) RETURNING id;`);
+    families.push(id);
+    made.push(id);
+    psql(`INSERT INTO settings (family_id, key, value) VALUES ('${id}', 'holiday_region', '${value}'::jsonb);`);
+    return id;
+  };
+  const chosen = region('{"code": "DE-NI", "chosen": true}');
+  region('{"code": "DE-NI", "chosen": false}');
+  region('{"code": null, "chosen": true}');
+  const withSetting = region('{"code": "DE-BY", "chosen": true}');
+  psql(`INSERT INTO settings (family_id, key, value) VALUES ('${withSetting}', 'school_holiday_sync', '${JSON.stringify({ ...SETTING, enabled: false })}'::jsonb);`);
+  expect(listed()).toBe(`${chosen}=DE-NI`);
 });
 
 test("a bad row fails the whole write, leaving the table as it was", () => {
@@ -170,7 +221,8 @@ test("a bad row fails the whole write, leaving the table as it was", () => {
 test("only the service role may call the function", () => {
   for (const signature of [
     "public.apply_school_holiday_sync(uuid, jsonb, date, date, boolean, text, text, timestamptz)",
-    "public.record_school_holiday_sync_error(uuid, timestamptz, text)",
+    "public.record_school_holiday_sync_error(uuid, timestamptz, text, text, text)",
+    "public.school_holiday_sync_unset_families()",
   ]) {
     for (const role of ["anon", "authenticated"]) {
       expect(psql(`SELECT has_function_privilege('${role}', '${signature}', 'EXECUTE');`), `${role} ${signature}`).toBe("f");
@@ -179,6 +231,7 @@ test("only the service role may call the function", () => {
   }
   // The pre-fix five-argument version is gone, not left callable beside it.
   expect(psql(`SELECT count(*) FROM pg_proc WHERE proname = 'apply_school_holiday_sync';`)).toBe("1");
+  expect(psql(`SELECT count(*) FROM pg_proc WHERE proname = 'record_school_holiday_sync_error';`)).toBe("1");
 });
 
 test("the browser roles are held to manual rows by restrictive policies", () => {
