@@ -57,6 +57,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **An AI assistant could book pocket money without the PIN.** Home Assistant's `add_pocket_money` service books straight away, and an assistant connection holding the tasks permission could call it. It now refuses every connection made through "Allow AI assistants", before reading anything; assistants ask for bookings that a family member allows on a screen with the settings PIN. A token created by hand for Home Assistant books as before.
 
+- **Only the server deletes a family.** Deleting a family was possible directly through the database API as well as through Settings, where it asks for the family's name first. The database now lets a screen read its own family and change its name or join code, but not create or delete a family; deleting goes only through Settings, and creating only through the join screen, as before. Nothing changes for households using the app.
+
 ## [1.12.1] - 2026-09-30
 
 ### Changed
