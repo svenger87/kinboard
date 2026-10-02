@@ -1,15 +1,5 @@
 export interface Holiday {
-  /**
-   * The `holidays` translation key, for countries Kinboard curates (RFC-014
-   * §4.3). Empty when Kinboard has none: `name` is shown instead.
-   */
   nameKey: string;
-  /**
-   * The name date-holidays gives it in the language asked for, falling back
-   * to English and then to the native name. Shown when `nameKey` is empty or
-   * untranslated (holidayLabel).
-   */
-  name?: string;
   date: Date;
   emoji: string;
   /**
