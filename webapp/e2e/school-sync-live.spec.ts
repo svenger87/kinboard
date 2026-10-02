@@ -1,0 +1,150 @@
+import { test, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { createAdminClient } from "../src/lib/supabase/server";
+import { liveSchoolSyncStore } from "../src/lib/school-sync/store";
+import { syncFamily, type SchoolSyncDeps, type SchoolSyncSetting, type SchoolSyncStore } from "../src/lib/school-sync/sync";
+import type { SyncFetch } from "../src/lib/school-sync/openholidays";
+
+/**
+ * RFC-014 §5.2 and §9 end to end: syncFamily on the real store, against a
+ * real database, with the recorded fixture behind a fake fetch -- nothing
+ * here reaches OpenHolidays. school-sync.spec.ts covers the same logic with
+ * a fake store; this proves what lands in school_holidays: a manual row with
+ * the same name and dates as a fetched one survives every sync path, and
+ * every failure leaves the family's rows byte-identical.
+ *
+ * Needs a stack: SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL (or
+ * NEXT_PUBLIC_SUPABASE_URL), e.g. Kong on :8130 here. Skipped without them,
+ * unless FAMILY_CODE says a stack is there. The family it makes is deleted
+ * again; settings and school_holidays cascade.
+ */
+
+const HAS_STACK = !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
+test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
+test.describe.configure({ mode: "serial" });
+
+const NOW = new Date("2026-10-02T10:00:00Z");
+const ON: SchoolSyncSetting = {
+  enabled: true, region: "DE-NI", group: null, pending: null, last_success_at: null, last_error_at: null, last_error: null,
+};
+const NI = readFileSync(join(process.cwd(), "e2e/fixtures/openholidays/school-de-ni.json"), "utf8");
+const jsonResponse = (body: string) => new Response(body, { status: 200, headers: { "content-type": "application/json" } });
+
+let db: any;
+let store: SchoolSyncStore;
+let family = "";
+
+/** Every row of the family, as text, in a fixed order: "byte-identical" means this string. */
+async function table(): Promise<string> {
+  const { data, error } = await db
+    .from("school_holidays")
+    .select("id, source, external_id, name, starts_on, ends_on, hidden, synced_at, updated_at")
+    .eq("family_id", family)
+    .order("source")
+    .order("starts_on")
+    .order("name");
+  if (error) throw error;
+  return JSON.stringify(data);
+}
+async function rows(source: "manual" | "openholidays") {
+  const { data, error } = await db
+    .from("school_holidays")
+    .select("id, name, starts_on, ends_on, updated_at")
+    .eq("family_id", family)
+    .eq("source", source)
+    .order("starts_on");
+  if (error) throw error;
+  return data as { id: string; name: string; starts_on: string; ends_on: string; updated_at: string }[];
+}
+
+function run(answer: () => Response | Promise<Response>) {
+  let calls = 0;
+  const fetch: SyncFetch = async () => { calls++; return answer(); };
+  const deps: SchoolSyncDeps = {
+    fetch, store, now: () => NOW, installEnabled: true,
+    userAgent: "Kinboard/test (+https://github.com/svenger87/kinboard)", log: () => {},
+  };
+  return { outcome: syncFamily(family, deps), calls: () => calls };
+}
+
+test.beforeAll(async () => {
+  db = createAdminClient();
+  store = liveSchoolSyncStore(db);
+  const code = `SL${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+  const { data, error } = await db.from("families").insert({ name: "claude-school-sync-live", join_code: code }).select("id").single();
+  if (error) throw error;
+  family = data.id;
+  const settings = await db.from("settings").insert([
+    { family_id: family, key: "holiday_region", value: { code: "DE-NI", chosen: true } },
+    { family_id: family, key: "school_holiday_sync", value: ON },
+  ]);
+  if (settings.error) throw settings.error;
+  // The same name and dates as the fixture's Herbstferien, and one of the family's own.
+  const manual = await db.from("school_holidays").insert([
+    { family_id: family, name: "Herbstferien", starts_on: "2026-10-12", ends_on: "2026-10-24" },
+    { family_id: family, name: "Brückentag", starts_on: "2026-11-02", ends_on: "2026-11-02" },
+  ]);
+  if (manual.error) throw manual.error;
+});
+
+test.afterAll(async () => {
+  if (family) await db.from("families").delete().eq("id", family);
+});
+
+let manualBefore = "";
+
+test("a sync writes the fixture's breaks next to the family's own, and leaves those as they were", async () => {
+  manualBefore = JSON.stringify(await rows("manual"));
+  const { outcome, calls } = run(() => jsonResponse(NI));
+  expect(await outcome).toEqual({ status: "synced", rows: 8 });
+  expect(calls()).toBe(1);
+  const synced = await rows("openholidays");
+  expect(synced).toHaveLength(8);
+  expect(synced.filter((r) => r.name === "Herbstferien" && r.starts_on === "2026-10-12")).toHaveLength(1);
+  expect(JSON.stringify(await rows("manual"))).toBe(manualBefore);
+  expect(await store.futureSyncedCount(family, "2026-10-02")).toBe(7);
+  expect((await store.setting(family))?.last_success_at).toBe(NOW.toISOString());
+  expect((await store.enabledFamilies()).map((f) => f.familyId)).toContain(family);
+});
+
+for (const [label, answer] of [
+  ["DNS or a refused connection", () => { throw new TypeError("fetch failed"); }],
+  ["a timeout", () => { throw Object.assign(new Error("timeout"), { name: "TimeoutError" }); }],
+  ["a 5xx", () => new Response("", { status: 502 })],
+  ["a 4xx", () => new Response("", { status: 404 })],
+  ["HTML instead of JSON", () => new Response("<html></html>", { status: 200, headers: { "content-type": "text/html" } })],
+  ["invalid JSON", () => jsonResponse("{")],
+  ["a schema mismatch", () => jsonResponse(JSON.stringify({ rows: [] }))],
+  ["an empty answer", () => jsonResponse("[]")],
+  ["an answer over 1 MB", () => jsonResponse(`[${" ".repeat(1_000_001)}]`)],
+] as const) {
+  test(`${label} leaves every row byte-identical`, async () => {
+    const before = await table();
+    const { outcome } = run(answer as () => Response);
+    expect((await outcome).status).toBe("failed");
+    expect(await table()).toBe(before);
+    expect(await store.setting(family)).toMatchObject({ last_success_at: NOW.toISOString(), last_error_at: NOW.toISOString() });
+  });
+}
+
+test("a break gone from the answer goes; the family's row with the same name and dates stays", async () => {
+  const withoutHerbst = (JSON.parse(NI) as { name: { text: string }[] }[]).filter((r) => r.name[0].text !== "Herbstferien");
+  const { outcome } = run(() => jsonResponse(JSON.stringify(withoutHerbst)));
+  expect(await outcome).toEqual({ status: "synced", rows: 7 });
+  expect((await rows("openholidays")).map((r) => r.name)).not.toContain("Herbstferien");
+  expect(JSON.stringify(await rows("manual"))).toBe(manualBefore);
+});
+
+test("clearing removes every synced row and only those", async () => {
+  await store.clear(family);
+  expect(await rows("openholidays")).toEqual([]);
+  expect(JSON.stringify(await rows("manual"))).toBe(manualBefore);
+  expect(await store.futureSyncedCount(family, "2026-10-02")).toBe(0);
+});
+
+test("with nothing synced, an empty answer is just empty", async () => {
+  const { outcome } = run(() => jsonResponse("[]"));
+  expect(await outcome).toEqual({ status: "synced", rows: 0 });
+  expect(JSON.stringify(await rows("manual"))).toBe(manualBefore);
+});

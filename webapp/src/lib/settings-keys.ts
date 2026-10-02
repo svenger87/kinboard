@@ -8,6 +8,9 @@ export const SETTINGS_KEYS = {
   // RFC-014 §4.2: { code, chosen }. Replaces holiday_country, which is kept
   // one release, read by nothing, then dropped.
   holidayRegion: "holiday_region",
+  // RFC-014 §5.1: { enabled, region, group, pending, last_success_at,
+  // last_error_at, last_error }. Written only by the server (plan ruling 20).
+  schoolHolidaySync: "school_holiday_sync",
   theme: "theme",
   widgetVisibility: "widget_visibility",
   scheduleWidget: "schedule_widget",
