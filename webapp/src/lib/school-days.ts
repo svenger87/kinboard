@@ -1,8 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { isSchoolBreakOn, type SignalSchoolBreak } from "@/lib/attention/types";
 import { timetabledChildren } from "@/lib/timetabled-children";
-import { addDays, familyHolidayRegion } from "@/lib/family-time";
-import { getFamilyLocale } from "@/lib/family-locale";
+import { addDays } from "@/lib/family-time";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "@/i18n/locales";
+import { parseRegionSetting } from "@/lib/holidays/region";
 import { getTranslator } from "@/lib/notifications/messages";
 import { holidayLabel, type HolidayTranslator } from "@/lib/holidays/label";
 import { publicHolidayBreaks } from "@/lib/holidays/school";
@@ -47,7 +49,7 @@ export function dayOfWeekOf(day: string): number {
 
 /**
  * School holiday periods overlapping `from`..`to` (local `YYYY-MM-DD`,
- * inclusive), from the two places a family can express them.
+ * inclusive), from the three places they come from.
  *
  * 1. `school_holidays` — typed in by hand. The primary path, because it works
  *    in any country and needs no feed to exist for the family's own school.
@@ -56,7 +58,7 @@ export function dayOfWeekOf(day: string): number {
  * 3. Public holidays in the family's region (RFC-014 §6.3) -- computed, never
  *    stored, and last, so the family's own words name a day first (§6.2).
  *
- * Both reduce to the same inclusive `YYYY-MM-DD` range, so a reader cannot
+ * All reduce to the same inclusive `YYYY-MM-DD` range, so a reader cannot
  * tell them apart and does not have to. Throws on a failed query; the
  * Heute-Motor catches that and degrades to "term time", while the
  * Integration API reports it rather than claiming a school day it could not
@@ -69,7 +71,7 @@ export async function fetchSchoolBreaks(
   timeZone: string,
   db: SchoolDb = createAdminClient(),
 ): Promise<SignalSchoolBreak[]> {
-  const [manual, calendarEvents] = await Promise.all([
+  const [manual, calendarEvents, settings] = await Promise.all([
     (db as any)
       .from("school_holidays")
       .select("name, starts_on, ends_on")
@@ -83,9 +85,17 @@ export async function fetchSchoolBreaks(
       .eq("calendars.is_holidays", true)
       .lte("start_at", `${to}T23:59:59Z`)
       .gte("end_at", `${from}T00:00:00Z`),
+    (db as any)
+      .from("settings")
+      .select("key, value")
+      .eq("family_id", familyId)
+      .in("key", [SETTINGS_KEYS.holidayRegion, SETTINGS_KEYS.locale]),
   ]);
   if (manual.error) throw manual.error;
   if (calendarEvents.error) throw calendarEvents.error;
+  // The region read throws like the queries above, so a reader that cannot
+  // look reports it rather than claiming a school day.
+  if (settings.error) throw settings.error;
 
   const breaks: SignalSchoolBreak[] = [];
 
@@ -113,11 +123,16 @@ export async function fetchSchoolBreaks(
   }
 
   // No region (a new family that skipped the wizard's first step): no public
-  // holidays. The region read throws like the queries above, so a reader
-  // that cannot look reports it rather than claiming a school day.
-  const region = await familyHolidayRegion(familyId, db);
+  // holidays. The names are said on the family's behalf, so they follow the
+  // Integration API's `familyLanguage()`: the `locale` setting, or English --
+  // not the German default push notifications keep for older installs.
+  const setting = (key: string) =>
+    ((settings.data ?? []) as { key: string; value: unknown }[]).find((r) => r?.key === key)?.value;
+  const region = parseRegionSetting(setting(SETTINGS_KEYS.holidayRegion));
   if (region?.code) {
-    const locale = await getFamilyLocale(familyId, db);
+    const saved = setting(SETTINGS_KEYS.locale);
+    const locale =
+      typeof saved === "string" && (SUPPORTED_LOCALES as readonly string[]).includes(saved) ? saved : DEFAULT_LOCALE;
     const t = getTranslator(locale, "holidays") as unknown as HolidayTranslator;
     breaks.push(...publicHolidayBreaks(region.code, from, to, locale, (h) => holidayLabel(h, t)));
   }
