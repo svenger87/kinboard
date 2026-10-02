@@ -100,3 +100,25 @@ test("Settings → Holidays offers cantons for Switzerland and fits the screen",
   await page.getByRole("option", { name: /^(Netherlands|Niederlande|Pays-Bas)$/ }).click();
   await expect(page.locator("#holiday-region-state")).toHaveCount(0);
 });
+
+test("the wizard's region step preselects from the timezone and fits a phone", async ({ browser }) => {
+  const context = await browser.newContext({ timezoneId: "Europe/Vienna", viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  // A distinct device name from the Settings test above: establishSession
+  // caches cookies per name for the worker's lifetime, and that test's
+  // afterEach deletes its device row, so reusing the same name here would
+  // replay a cookie for a device that no longer exists ("session was reset").
+  await establishSession(page, familyCode!, "claude-holidays-ui-wizard");
+  // No region yet, and no family timezone: the device's zone decides. The
+  // beforeEach/afterEach pair puts the row back.
+  psql(`UPDATE settings SET value = '{"code":null,"chosen":false}'::jsonb WHERE family_id = '${familyId}' AND key = 'holiday_region'`);
+  psql(`DELETE FROM settings WHERE family_id = '${familyId}' AND key = 'timezone'`);
+  await page.goto("/setup/region", { waitUntil: "domcontentloaded" });
+  // First paint waits on the setup-state redirect check plus two settings
+  // reads; against a dev server compiling on demand that is slower than the
+  // default 5s (same reason the Settings test above uses 20s).
+  await expect(page.locator("#setup-region-country")).toContainText(/Austria|Österreich|Autriche/, { timeout: 20_000 });
+  await expect(page.locator("#setup-region-state")).toBeVisible();
+  expect(await overflow(page)).toBeLessThanOrEqual(0);
+  await context.close();
+});

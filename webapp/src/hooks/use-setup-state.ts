@@ -6,6 +6,7 @@ import { useFamilyStore } from "@/stores/family-store";
 export interface SetupState {
   setup_completed: boolean;
   has_family: boolean;
+  has_holiday_region: boolean;
   has_people: boolean;
   has_calendar: boolean;
   has_home_assistant: boolean;

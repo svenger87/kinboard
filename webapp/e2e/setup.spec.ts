@@ -13,13 +13,21 @@ test.describe("Setup wizard happy path", () => {
   test.skip(!FRESH, "SETUP_E2E_FRESH_STACK=1 not set — skipping (would mutate data)");
   test.describe.configure({ mode: "serial" });
 
-  test("/join → create family → land on /setup/people", async ({ page }) => {
+  test("/join → create family → land on /setup/region", async ({ page }) => {
     await page.goto("/join");
     // Fresh-install mode: tabs are hidden, create form is the only one visible.
     await page.locator('input[id="create-family-name"]').fill("Smoke Family");
     await page.locator('input[id="create-device-name"]').fill("Smoke Device");
     await page.getByRole("button", { name: /erstellen|create/i }).click();
-    await expect(page).toHaveURL(/\/setup\/people$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/setup\/region$/, { timeout: 15_000 });
+  });
+
+  test("pick a country, continue → /setup/people", async ({ page }) => {
+    await page.goto("/setup/region");
+    await page.locator("#setup-region-country").click();
+    await page.getByRole("option", { name: /^(Germany|Deutschland)$/ }).click();
+    await page.getByRole("button", { name: /weiter|continue/i }).click();
+    await expect(page).toHaveURL(/\/setup\/people$/, { timeout: 10_000 });
   });
 
   test("add a person, continue → /setup/homeassistant", async ({ page }) => {

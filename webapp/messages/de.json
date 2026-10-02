@@ -3893,12 +3893,19 @@
     "checklist": {
       "title": "Kinboard-Einrichtung abschließen",
       "progress": "{done} von {total} erledigt",
+      "item_region": "Wohnort wählen (für Feiertage)",
       "item_people": "Familienmitglieder hinzufügen",
       "item_calendar": "Kalender verbinden",
       "item_weather": "Wetter-Standort festlegen",
       "item_homeassistant": "Home Assistant verbinden (optional)",
       "resume": "Einrichtung fortsetzen",
       "finish": "Abschließen"
+    },
+    "region": {
+      "title": "Wo wohnt ihr?",
+      "description": "Feiertage und schulfreie Tage hängen von Land und Bundesland ab. Kinboard zeigt die, die bei euch gelten.",
+      "preselectedHint": "Aus deiner Zeitzone vorgeschlagen. Ändere es, wenn es nicht stimmt.",
+      "saveError": "Der Wohnort konnte nicht gespeichert werden. Versuch es noch einmal."
     },
     "people": {
       "title": "Wer gehört zur Familie?",

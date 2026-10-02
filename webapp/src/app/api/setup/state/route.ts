@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { parseRegionSetting } from "@/lib/holidays/region";
 
 // Reports how far through setup a family is — which reveals whether a family
 // exists at that id, whether it has people and calendars, and whether Home
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     sb.from("families").select("setup_completed").eq("id", familyId).maybeSingle(),
     sb.from("people").select("id", { count: "exact", head: true }).eq("family_id", familyId),
     sb.from("calendars").select("id", { count: "exact", head: true }).eq("family_id", familyId),
-    sb.from("settings").select("key, value").eq("family_id", familyId).in("key", ["weather_location"]),
+    sb.from("settings").select("key, value").eq("family_id", familyId).in("key", ["weather_location", "holiday_region"]),
   ]);
 
   if (familyR.error) {
@@ -45,8 +46,8 @@ export async function GET(request: NextRequest) {
     console.error("setup/state: calendars query failed:", calendarsR.error);
   }
   if (settingsR.error) {
-    // The batch query only covers weather_location — a skippable wizard
-    // step read straight from `settings`. Home Assistant's access_token
+    // The batch query covers weather_location and holiday_region — skippable
+    // wizard steps read straight from `settings`. Home Assistant's access_token
     // now lives in integration_secrets, so it's fetched separately below
     // via getMergedSetting (server-only, secrets merged in). Log the
     // failure and treat weather as unconfigured rather than 500ing the
@@ -57,11 +58,13 @@ export async function GET(request: NextRequest) {
 
   const settingsRows = (settingsR.data ?? []) as Array<{ key: string; value: unknown }>;
   const wx = settingsRows.find((s) => s.key === "weather_location")?.value as { city?: string; lat?: number; lon?: number } | undefined;
+  const region = parseRegionSetting(settingsRows.find((s) => s.key === "holiday_region")?.value);
   const ha = await getMergedSetting<{ url?: string; access_token?: string }>(familyId, "home_assistant");
 
   return NextResponse.json({
     setup_completed: !!familyR.data?.setup_completed,
     has_family: !!familyR.data,
+    has_holiday_region: region?.chosen === true,
     has_people: (peopleR.count ?? 0) > 0,
     has_calendar: (calendarsR.count ?? 0) > 0,
     has_home_assistant: !!(ha?.url && ha?.access_token),

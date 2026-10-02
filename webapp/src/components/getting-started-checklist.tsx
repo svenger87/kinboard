@@ -47,6 +47,7 @@ export function GettingStartedChecklist() {
   if (!ready || !state || state.setup_completed) return null;
 
   const items = [
+    { key: "region", done: state.has_holiday_region, href: "/setup/region" },
     { key: "people", done: state.has_people, href: "/setup/people" },
     { key: "calendar", done: state.has_calendar, href: "/setup/calendar" },
     { key: "weather", done: state.has_weather_location, href: "/setup/weather" },

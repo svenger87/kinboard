@@ -3893,12 +3893,19 @@
     "checklist": {
       "title": "Terminer la configuration de Kinboard",
       "progress": "{done} sur {total} terminé(s)",
+      "item_region": "Choisir où vous habitez (pour les jours fériés)",
       "item_people": "Ajouter les membres de votre famille",
       "item_calendar": "Connecter un calendrier",
       "item_weather": "Définir votre emplacement météo",
       "item_homeassistant": "Connecter Home Assistant (optionnel)",
       "resume": "Reprendre l'installation",
       "finish": "Terminer"
+    },
+    "region": {
+      "title": "Où habitez-vous ?",
+      "description": "Les jours fériés et les jours sans école dépendent de votre pays et de votre région. Kinboard affiche ceux de chez vous.",
+      "preselectedHint": "Proposé d'après votre fuseau horaire. Modifiez-le s'il est faux.",
+      "saveError": "Impossible d'enregistrer votre lieu de résidence. Réessayez."
     },
     "people": {
       "title": "Qui compose votre famille ?",

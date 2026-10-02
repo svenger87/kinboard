@@ -3893,12 +3893,19 @@
     "checklist": {
       "title": "Finish setting up Kinboard",
       "progress": "{done} of {total} done",
+      "item_region": "Choose where you live (for holidays)",
       "item_people": "Add your family members",
       "item_calendar": "Connect a calendar",
       "item_weather": "Set your weather location",
       "item_homeassistant": "Connect Home Assistant (optional)",
       "resume": "Resume setup",
       "finish": "Finish"
+    },
+    "region": {
+      "title": "Where do you live?",
+      "description": "Public holidays and days without school depend on your country and state. Kinboard shows the ones for where you live.",
+      "preselectedHint": "Suggested from your time zone. Change it if it's wrong.",
+      "saveError": "Couldn't save where you live. Try again."
     },
     "people": {
       "title": "Who's in your family?",
