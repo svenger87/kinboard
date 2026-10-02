@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { useRealtimeStatusStore } from "@/stores/realtime-status-store";
 import { queryKeys } from "./use-supabase-queries";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { actionChangeMatters } from "@/lib/home/action-prompt";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
@@ -155,12 +156,24 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
             queryKey: queryKeys.notes(family.id),
           });
           break;
-        case "settings":
+        case "settings": {
           // Invalidate all settings queries
           queryClient.invalidateQueries({
             queryKey: ["settings", family.id],
           });
+          // school_holidays is not in the publication. The rows a sync writes
+          // come with an update to the school_holiday_sync setting in the same
+          // transaction, and a new region with its holiday_region row: either
+          // one refetches the rows, so open screens follow a sync or a region
+          // change. A delete carries no key, so it refetches too.
+          const key = ((payload.new as Record<string, unknown>)?.key ?? null) as string | null;
+          if (key === null || key === SETTINGS_KEYS.schoolHolidaySync || key === SETTINGS_KEYS.holidayRegion) {
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.schoolHolidays(family.id),
+            });
+          }
           break;
+        }
         case "recipes":
           queryClient.invalidateQueries({
             queryKey: ["recipes", family.id],

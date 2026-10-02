@@ -1,3 +1,4 @@
+import { postJoin } from "./session";
 import { test, expect, request as pwRequest } from "@playwright/test";
 import { createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "child_process";
@@ -73,7 +74,7 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
   const api = await pwRequest.newContext({ baseURL: BASE });
 
   // A joined browser: the session cookie the consent API needs.
-  const join = await api.post("/api/session/join", { data: { joinCode: FAMILY_CODE, hardwareId: `claude-mcp-${Date.now()}`, deviceName: "claude-mcp-test" } });
+  const join = await postJoin(api, { joinCode: FAMILY_CODE, hardwareId: `claude-mcp-${Date.now()}`, deviceName: "claude-mcp-test" });
   expect(join.ok(), await join.text()).toBe(true);
 
   // Never print or write down the join code or any PIN; only ids and counts.
@@ -113,7 +114,7 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
   // so the same request id 404s for it — a consent link pasted elsewhere
   // (chat, a shared screen) cannot be approved in someone else's browser.
   const other = await pwRequest.newContext({ baseURL: BASE });
-  const otherJoin = await other.post("/api/session/join", { data: { joinCode: FAMILY_CODE, hardwareId: `claude-mcp-othercookie-${Date.now()}`, deviceName: "claude-mcp-test" } });
+  const otherJoin = await postJoin(other, { joinCode: FAMILY_CODE, hardwareId: `claude-mcp-othercookie-${Date.now()}`, deviceName: "claude-mcp-test" });
   expect(otherJoin.ok(), await otherJoin.text()).toBe(true);
   const otherGet = await other.get(`/api/oauth/consent?request=${requestId}`);
   expect(otherGet.status()).toBe(404);
@@ -228,7 +229,7 @@ test("an assistant connects, uses a tool, refreshes, and is cut off by revocatio
   // entered the PIN is refused — for the switch, for removing the PIN, and
   // for writing it through the generic settings route.
   const locked = await pwRequest.newContext({ baseURL: BASE });
-  const lockedJoin = await locked.post("/api/session/join", { data: { joinCode: FAMILY_CODE, hardwareId: `claude-mcp-locked-${Date.now()}`, deviceName: "claude-mcp-test" } });
+  const lockedJoin = await postJoin(locked, { joinCode: FAMILY_CODE, hardwareId: `claude-mcp-locked-${Date.now()}`, deviceName: "claude-mcp-test" });
   expect(lockedJoin.ok(), await lockedJoin.text()).toBe(true);
   for (const [path, method, data] of [
     ["/api/assistants", "post", { enabled: false }],

@@ -397,6 +397,8 @@ export type { SetupState } from "./use-setup-state";
 export { useHolidayRegion } from "./use-holiday-region";
 export { useSaveHolidayRegion } from "./use-holiday-region";
 export type { HolidayRegionState } from "./use-holiday-region";
+export { useHolidayEntries } from "./use-holiday-entries";
+export type { HolidayEntriesState } from "./use-holiday-entries";
 export { useSchoolHolidaySync, useUpdateSchoolHolidaySync, useSchoolRegionOptions, schoolSyncKeys } from "./use-school-holiday-sync";
 export type { SchoolSyncStatus, SchoolSyncResult } from "./use-school-holiday-sync";
 

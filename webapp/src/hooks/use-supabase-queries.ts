@@ -1757,7 +1757,12 @@ export interface SchoolHoliday {
   synced_at?: string | null;
 }
 
-export function useSchoolHolidays() {
+/**
+ * Every school-holiday row of the family -- typed in and synced, hidden ones
+ * included: Settings filters to manual rows for its card, and the event lists
+ * drop hidden ones (lib/holiday-entries).
+ */
+export function useSchoolHolidays(options?: { enabled?: boolean; refetchInterval?: number | false }) {
   const supabase = createClient();
   const { family } = useFamilyStore();
 
@@ -1773,7 +1778,8 @@ export function useSchoolHolidays() {
       if (error) throw error;
       return data as SchoolHoliday[];
     },
-    enabled: !!family?.id,
+    enabled: (options?.enabled ?? true) && !!family?.id,
+    refetchInterval: options?.refetchInterval ?? false,
   });
 }
 

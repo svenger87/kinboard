@@ -5,16 +5,18 @@ import { useTranslations, useLocale } from "next-intl";
 import { getIntlLocale } from "@/i18n/intl-locale";
 import { useClock } from "@/hooks/use-clock";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useBirthdays, useEvents, usePeople, usePhotoSource, useNews, useEnergyConfig, useTeslaConfig, useHomeAssistantEntityStates, useToday, useWeather, type NewsItem } from "@/hooks";
+import { useBirthdays, useEvents, useHolidayEntries, usePeople, usePhotoSource, useNews, useEnergyConfig, useTeslaConfig, useHomeAssistantEntityStates, useToday, useWeather, type NewsItem } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { useFamilyStore } from "@/stores/family-store";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
 import { PersonAvatar } from "@/components/person-avatar";
-import { Cake, Calendar, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Battery, Zap, Car } from "lucide-react";
+import { Cake, Calendar, GraduationCap, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Battery, Zap, Car } from "lucide-react";
 import { format, differenceInDays, setYear, isPast, addYears, isToday, isTomorrow, addDays, startOfDay, endOfDay, parseISO } from "date-fns";
 import { type Locale } from "date-fns/locale";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { hasBirthYear } from "@/lib/birthday";
+import { entryListDay, HOLIDAY_COLOR, holidayEndPattern, keyToDate } from "@/lib/holiday-entries";
+import { toLocalDateKey } from "@/lib/local-date";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { choosePhotoFit, aspectOf } from "@/lib/photo-fit";
 
@@ -251,6 +253,10 @@ export function Screensaver({ photos }: ScreensaverProps) {
     };
   }, [today]);
   const { data: events } = useEvents(startDate, endDate);
+  // Public and school holidays in the same window, behind the calendar's
+  // holiday switch; one a holiday calendar already lists is not listed twice.
+  const todayKey = toLocalDateKey(new Date(today));
+  const { entries: holidays } = useHolidayEntries(todayKey, toLocalDateKey(new Date(endDate)), events);
 
   // Fetch photos from configured source (Immich or Unsplash)
   const { photos: sourcePhotos } = usePhotoSource();
@@ -611,10 +617,24 @@ export function Screensaver({ photos }: ScreensaverProps) {
       .slice(0, 3);
   }, [birthdays, people, today]);
 
-  // Process upcoming events
+  // Process upcoming events. Holidays are all-day items among them, counted
+  // against the same four rows; a break already under way is filed under
+  // today, with the day it ends.
   const upcomingEvents = useMemo(() => {
-    if (!events) return [];
-    return events
+    const holidayItems = holidays.map((h) => ({
+      id: h.id,
+      title: h.emoji ? `${h.emoji} ${h.title}` : h.title,
+      start: entryListDay(h, todayKey),
+      allDay: true,
+      location: null as string | null,
+      color: HOLIDAY_COLOR,
+      personName: null as string | null,
+      personColor: null as string | null,
+      personAvatar: null as string | null,
+      holiday: h.kind,
+      until: h.endKey > h.startKey ? format(keyToDate(h.endKey), holidayEndPattern(locale), { locale: dateLocale }) : null,
+    }));
+    const eventItems = (events ?? [])
       .map((event) => {
         const personId = event.person_id || event.calendar?.person_id;
         const person = personId ? people?.find((p) => p.id === personId) : undefined;
@@ -628,10 +648,15 @@ export function Screensaver({ photos }: ScreensaverProps) {
           personName: person?.name ?? null,
           personColor: person?.color ?? null,
           personAvatar: person?.avatar_url ?? null,
+          holiday: null,
+          until: null,
         };
-      })
+      });
+    // Holidays first, so on a tie the sort (stable) keeps them ahead.
+    return [...holidayItems, ...eventItems]
+      .sort((a, b) => a.start.getTime() - b.start.getTime())
       .slice(0, 4);
-  }, [events, people]);
+  }, [events, people, holidays, todayKey, locale, dateLocale]);
 
   return (
     <div
@@ -1010,9 +1035,23 @@ export function Screensaver({ photos }: ScreensaverProps) {
               {upcomingEvents.map((event) => (
                 <div
                   key={event.id}
+                  data-holiday={event.holiday ?? undefined}
                   className="flex items-center gap-2 landscape:lg:gap-3 bg-black/40 rounded-lg px-3 py-1.5 landscape:lg:px-4 landscape:lg:py-2 gpu-blur"
                 >
-                  {event.personName ? (
+                  {event.holiday ? (
+                    // The calendar's holiday amber, with the holiday's emoji
+                    // or, for a school break, a cap.
+                    <div
+                      className="size-8 rounded-full flex items-center justify-center shrink-0 bg-amber-400/25"
+                      aria-hidden="true"
+                    >
+                      {event.holiday === "school" ? (
+                        <GraduationCap className="size-4 text-amber-300" />
+                      ) : (
+                        <Calendar className="size-4 text-amber-300" />
+                      )}
+                    </div>
+                  ) : event.personName ? (
                     <PersonAvatar
                       name={event.personName}
                       color={event.personColor ?? event.color}
@@ -1027,11 +1066,18 @@ export function Screensaver({ photos }: ScreensaverProps) {
                     />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className={`text-white font-medium truncate ${largeDetails ? "text-xl" : "text-sm"}`}>
+                    {/* A holiday's name wraps, two lines at most, rather
+                        than being cut: it is the whole of the row. */}
+                    <p
+                      className={`text-white font-medium ${event.holiday ? "line-clamp-2 break-words" : "truncate"} ${largeDetails ? "text-xl" : "text-sm"}`}
+                    >
                       {event.title}
                     </p>
                     <div className={`flex items-center gap-2 text-white/50 ${largeDetails ? "text-base" : "text-xs"}`}>
-                      <span>{formatEventTime(event.start, event.allDay, eventLabels, dateLocale, formatTime)}</span>
+                      <span>
+                        {formatEventTime(event.start, event.allDay, eventLabels, dateLocale, formatTime)}
+                        {event.until && ` · ${t("holidayUntil", { date: event.until })}`}
+                      </span>
                       {event.location && (
                         <span className="flex items-center gap-1 truncate">
                           <MapPin className="size-3 shrink-0" />

@@ -1,3 +1,4 @@
+import { postJoin } from "./session";
 import { test, expect, request as pwRequest, webkit, type APIRequestContext, type APIResponse } from "@playwright/test";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
@@ -159,7 +160,7 @@ test.beforeAll(async () => {
   test.setTimeout(120_000);
   startedAt = psql("SELECT now()");
   api = await pwRequest.newContext({ baseURL: BASE });
-  const join = await api.post("/api/session/join", { data: { joinCode: FAMILY_CODE, hardwareId: `${P}api-${Date.now()}`, deviceName: `${P}api` } });
+  const join = await postJoin(api, { joinCode: FAMILY_CODE, hardwareId: `${P}api-${Date.now()}`, deviceName: `${P}api` });
   expect(join.ok(), await join.text()).toBe(true);
   state.familyId = psql(`SELECT id FROM families WHERE join_code = ${sqlText(FAMILY_CODE!)}`);
 
@@ -452,7 +453,7 @@ test("home: catalogue only, run or confirm, approve with the PIN, deny without i
   // A screen that never entered the PIN cannot allow it, but can refuse it.
   const bystander = await pwRequest.newContext({ baseURL: BASE });
   try {
-    const joined = await bystander.post("/api/session/join", { data: { joinCode: FAMILY_CODE, hardwareId: `${P}bystander-${Date.now()}`, deviceName: `${P}bystander` } });
+    const joined = await postJoin(bystander, { joinCode: FAMILY_CODE, hardwareId: `${P}bystander-${Date.now()}`, deviceName: `${P}bystander` });
     expect(joined.ok(), await joined.text()).toBe(true);
     const noPin = await decide(bystander, unclassified.json.request_id, { decision: "approve" });
     expect(noPin.status, JSON.stringify(noPin.body)).toBe(400);
