@@ -48,6 +48,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { IntegrationStatusRow } from "@/components/integration-status-row";
 import { useRealtimeStatusStore } from "@/stores/realtime-status-store";
 import { usePushServerConfigured } from "@/hooks/use-push-notifications";
@@ -734,9 +735,17 @@ export default function SettingsPage() {
                   <p className="text-sm text-muted-foreground mb-1">
                     {t("joinCodeLabel")}
                   </p>
-                  <p className="text-3xl font-mono tracking-[0.3em] font-medium">
-                    {family.join_code}
-                  </p>
+                  {/* A stored family without its code is repaired by the
+                      family check in AuthGuard within one round trip, so
+                      hold the code's place rather than drawing a blank that
+                      reads as "this family has no code". */}
+                  {family.join_code ? (
+                    <p className="text-3xl font-mono tracking-[0.3em] font-medium" data-testid="family-join-code">
+                      {family.join_code}
+                    </p>
+                  ) : (
+                    <Skeleton className="h-9 w-48 my-px" aria-hidden data-testid="family-join-code-pending" />
+                  )}
                   <p className="text-xs text-muted-foreground mt-1">
                     {family.join_code_expires_at
                       ? t("joinCodeExpiresAt", {
@@ -754,6 +763,7 @@ export default function SettingsPage() {
                     size="icon"
                     aria-label={t("copyJoinCodeAria")}
                     onClick={copyJoinCode}
+                    disabled={!family.join_code}
                   >
                     {copied ? (
                       <Check className="size-4 text-success" />

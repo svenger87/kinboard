@@ -8,6 +8,7 @@ import { invalidateFamilyToken, primeFamilyToken } from "@/lib/supabase/family-t
 import { useFamilyStore } from "@/stores/family-store";
 import { getDeviceId, persistDeviceId, getDeviceFingerprint } from "@/lib/device-id";
 import { eventPushTarget } from "@/lib/local-calendars";
+import { storedRowIsStale } from "@/lib/stored-row";
 import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 import type {
   Database,
@@ -99,16 +100,28 @@ export function useFamilyByJoinCode(joinCode: string) {
   });
 }
 
-// Verifies the family ID still exists in the database. Used by AuthGuard
-// to detect orphan sessions — when a self-hoster wipes the DB but the
-// browser still has a stored family in cookie, every subsequent API
-// call FK-violates and the UI gets stuck. This query gives a clean
-// "stored ID is dead, clear the session and bounce to /join" signal.
+// Verifies the family ID still exists in the database, and repairs the stored
+// copy of it. Used by AuthGuard to detect orphan sessions — when a self-hoster
+// wipes the DB but the browser still has a stored family in cookie, every
+// subsequent API call FK-violates and the UI gets stuck. This query gives a
+// clean "stored ID is dead, clear the session and bounce to /join" signal.
+//
+// It reads the whole row, not just `id`, and writes it into the store when
+// the stored copy differs. The store is written once at sign-in and nothing
+// else refetches it, so a device that was ever handed a partial family kept
+// it for as long as its session lived: /api/session/resume answered with
+// `families(id, name)` until #271, and a device resumed that way showed its
+// family card in Settings with a blank where the code belongs — after #271
+// too, because that fix only changed what *future* resumes return. Checking
+// `id` alone confirmed the family existed and repaired nothing.
+//
+// RLS (`families_select_family_scope`) limits the read to this device's own
+// family, so `*` hands out nothing the session could not already see.
 //
 // Returns:
 //   data === true    → family still exists, session is valid
 //   data === false   → family no longer in DB, session is orphan
-//   data === null    → no familyId provided (skip the check)
+//   data === null    → no familyId provided, or the check failed (skip)
 export function useValidateStoredFamily(familyId: string | undefined) {
   const supabase = createClient();
   return useQuery({
@@ -117,17 +130,27 @@ export function useValidateStoredFamily(familyId: string | undefined) {
       if (!familyId) return null;
       const { data, error } = await supabase
         .from("families")
-        .select("id")
+        .select("*")
         .eq("id", familyId)
         .maybeSingle();
       if (error) {
         // Don't false-positive on transient network/RLS errors — those
-        // shouldn't kick the user out. Return null and let the next
-        // refetch try again.
+        // shouldn't kick the user out, nor touch the stored family. Return
+        // null and let the next refetch try again.
         console.warn("[useValidateStoredFamily] check failed:", error.message);
         return null;
       }
-      return data !== null;
+      if (data === null) return false;
+
+      // Only write when something differs: the store persists to a cookie,
+      // and an unconditional setFamily would hand every subscriber a new
+      // object on every check. The id guard keeps a check that was in flight
+      // across a sign-out or a family switch from writing the old family back.
+      const { family: stored, setFamily } = useFamilyStore.getState();
+      if (stored?.id === familyId && storedRowIsStale(stored, data)) {
+        setFamily(data as Family);
+      }
+      return true;
     },
     enabled: !!familyId,
     staleTime: 5 * 60 * 1000, // recheck once every 5 min
@@ -476,12 +499,16 @@ export function useUpdateDeviceLastSeen() {
       // Only when something actually differs, so the store — and the cookie it
       // persists to — is not rewritten every sixty seconds for a timestamp
       // this device wrote itself.
+      //
+      // The row is the whole of it (`select("*")`), so it replaces the stored
+      // copy rather than being merged into it: that is what repairs a device
+      // that was stored partially — `/api/session/resume` handed out
+      // `{ id, name }` until #271, and lost `is_kiosk` that way. The compare
+      // goes by value, because `fingerprint_history` is an array and differed
+      // by reference on every beat, which rewrote the cookie every minute.
       const current = useFamilyStore.getState().device;
       if (!current || current.id !== row.id) return;
-      const changed = (Object.keys(row) as (keyof Device)[]).some(
-        (k) => k !== "last_seen" && row[k] !== current[k],
-      );
-      if (changed) setDevice({ ...current, ...row });
+      if (storedRowIsStale(current, row, ["last_seen"])) setDevice(row);
     },
   });
 }
@@ -560,9 +587,12 @@ export function useQuickRejoin() {
         throw new Error("could not sign this device back in");
       }
 
+      // Whole rows: the route has returned `families(*)` and the full device
+      // since #271. This was typed as `{ id, name }` from when it really was
+      // that, and the casts below made a partial store write look intended.
       const { family, device, token, expiresAt } = (await response.json()) as {
-        family: { id: string; name: string };
-        device: { id: string; name: string };
+        family: Family;
+        device: Device;
         token: string | null;
         expiresAt: number | null;
       };
@@ -579,8 +609,8 @@ export function useQuickRejoin() {
       // it where the next visit will find it.
       await persistDeviceId(hardwareId);
 
-      setFamily(family as Family);
-      setDevice(device as never);
+      setFamily(family);
+      setDevice(device);
 
       // People are family-scoped and the session now exists, so this reads
       // through the normal authenticated path rather than needing the route to
