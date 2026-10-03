@@ -12,7 +12,7 @@ export function getUsHolidays(year: number): Holiday[] {
     // 3rd Monday of January
     { nameKey: "usMlkDay", date: nthWeekdayOfMonth(year, 0, 1, 3), emoji: "✊", dayOff: true },
     // 3rd Monday of February
-    { nameKey: "usPresidentsDay", date: nthWeekdayOfMonth(year, 1, 1, 3), emoji: "🇺🇸", dayOff: true },
+    { nameKey: "usPresidentsDay", date: nthWeekdayOfMonth(year, 1, 1, 3), emoji: "🎩", dayOff: true },
     // Last Monday of May
     { nameKey: "usMemorialDay", date: lastWeekdayOfMonth(year, 4, 1), emoji: "🎖️", dayOff: true },
     { nameKey: "usJuneteenth", date: new Date(year, 5, 19), emoji: "✊", dayOff: true },

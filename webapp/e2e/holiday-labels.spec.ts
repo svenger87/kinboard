@@ -17,6 +17,15 @@ const translator = (locale: string): HolidayTranslator => {
 };
 const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+// Windows draws no flag emoji: Edge shows the letters "DE" for 🇩🇪.
+test("no curated emoji is a flag, which Windows shows as two letters", () => {
+  for (const [country, curated] of Object.entries(CURATED)) {
+    for (const [name, { emoji }] of Object.entries(curated.names)) {
+      expect(/[\u{1F1E6}-\u{1F1FF}]/u.test(emoji), `${country} ${name}: ${emoji}`).toBe(false);
+    }
+  }
+});
+
 test("every curated name has a translation in English, German and French", () => {
   for (const locale of LOCALES) {
     const table = messages(locale);

@@ -21,7 +21,7 @@ export function getDeHolidays(year: number): Holiday[] {
     { nameKey: "christiHimmelfahrt", date: addDays(easter, 39), emoji: "⛅", dayOff: true },
     { nameKey: "pfingstsonntag", date: addDays(easter, 49), emoji: "🕊️", dayOff: false },
     { nameKey: "pfingstmontag", date: addDays(easter, 50), emoji: "🕊️", dayOff: true },
-    { nameKey: "tagDerDeutschenEinheit", date: new Date(year, 9, 3), emoji: "🇩🇪", dayOff: true },
+    { nameKey: "tagDerDeutschenEinheit", date: new Date(year, 9, 3), emoji: "🤝", dayOff: true },
     { nameKey: "reformationstag", date: new Date(year, 9, 31), emoji: "📜", dayOff: true },
     { nameKey: "heiligabend", date: new Date(year, 11, 24), emoji: "🎄", dayOff: false },
     { nameKey: "weihnachten1", date: new Date(year, 11, 25), emoji: "🎁", dayOff: true },

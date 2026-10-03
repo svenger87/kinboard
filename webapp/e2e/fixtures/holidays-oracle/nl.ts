@@ -23,7 +23,7 @@ export function getNlHolidays(year: number): Holiday[] {
     { nameKey: "nlGoedeVrijdag", date: addDays(easter, -2), emoji: "✝️", dayOff: false },
     { nameKey: "nlEerstePaasdag", date: easter, emoji: "🐣", dayOff: false },
     { nameKey: "nlTweedePaasdag", date: addDays(easter, 1), emoji: "🐰", dayOff: true },
-    { nameKey: "nlKoningsdag", date: kingsDay, emoji: "🇳🇱", dayOff: true },
+    { nameKey: "nlKoningsdag", date: kingsDay, emoji: "👑", dayOff: true },
     { nameKey: "nlBevrijdingsdag", date: new Date(year, 4, 5), emoji: "🕊️", dayOff: liberationDayOff },
     { nameKey: "nlHemelvaartsdag", date: addDays(easter, 39), emoji: "⛅", dayOff: true },
     { nameKey: "nlEerstePinksterdag", date: addDays(easter, 49), emoji: "🕊️", dayOff: false },
