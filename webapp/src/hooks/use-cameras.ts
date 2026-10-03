@@ -21,8 +21,9 @@ async function fetchCameraSettings(familyId: string): Promise<CameraSettings> {
   }
 }
 
-// Hook to get camera settings
-export function useCameraSettings() {
+// Hook to get camera settings. `enabled: false` reads only what is already
+// cached, for a caller that needs the list only some of the time.
+export function useCameraSettings({ enabled = true }: { enabled?: boolean } = {}) {
   const { family } = useFamilyStore();
 
   return useQuery({
@@ -31,7 +32,7 @@ export function useCameraSettings() {
       if (!family?.id) return { cameras: [] };
       return fetchCameraSettings(family.id);
     },
-    enabled: !!family?.id,
+    enabled: enabled && !!family?.id,
     staleTime: 30000,
   });
 }
@@ -66,8 +67,8 @@ function useCurrentCameras() {
 }
 
 // Hook to get all enabled cameras
-export function useCameras() {
-  const { data: settings, isLoading, error, refetch } = useCameraSettings();
+export function useCameras(options: { enabled?: boolean } = {}) {
+  const { data: settings, isLoading, error, refetch } = useCameraSettings(options);
 
   const cameras = settings?.cameras
     ?.filter((cam) => cam.enabled)

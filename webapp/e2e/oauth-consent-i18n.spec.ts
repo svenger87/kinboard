@@ -62,6 +62,14 @@ test("countdowns and marking a message seen are named where they are granted, in
   expect(fr.oauthConsent.scope_announcements_write).toMatch(/vu/);
 });
 
+test("the announcements scope says it can put a camera on the wall displays, in every language", () => {
+  // show_camera (#335) shares announcements:write, so an assistant holding it
+  // can take over every wall display; the consent page has to say so.
+  expect(en.oauthConsent.scope_announcements_write).toMatch(/show a camera on the wall displays/);
+  expect(de.oauthConsent.scope_announcements_write).toMatch(/Kamera/);
+  expect(fr.oauthConsent.scope_announcements_write).toMatch(/caméra/);
+});
+
 test("the vehicles scope names charge level and range, in every language", () => {
   expect(en.oauthConsent.scope_vehicles_read).toBe("See your vehicles' charge level, range and charging status");
   expect(de.oauthConsent.scope_vehicles_read).toMatch(/Ladestand/);

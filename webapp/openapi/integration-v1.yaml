@@ -763,6 +763,33 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
+  /cameras:
+    get:
+      tags: [state]
+      summary: The family's cameras, as show_camera takes them
+      description: |
+        Every enabled camera from Settings → Cameras, in the order the
+        settings page shows them: its id and its name, and nothing else. A
+        camera's stream URL names the household's network and often carries
+        its credentials, so it never leaves the server.
+
+        `show_camera` takes either the `id` or the exact `name`.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: The family's cameras
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cameras]
+                properties:
+                  cameras:
+                    type: array
+                    items: { $ref: "#/components/schemas/CameraRef" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
   /recipes:
     get:
       tags: [state]
@@ -2142,6 +2169,12 @@ paths:
         token is refused with `403`: assistants ask at
         `POST /pocket-money/bookings`, which a family member confirms with
         the settings PIN. Tokens created in Settings are unaffected.
+
+        `show_camera` puts a camera on the wall displays and pushes it to
+        every phone. It needs `announcements:write`, like a message to the
+        screens, and has a budget of its own on top of the per-token write
+        limit: 5 calls in 10 minutes per token, `429` past that. Neither a
+        replay nor a call answered `400` counts against it.
       parameters:
         - name: service
           in: path
@@ -2167,9 +2200,11 @@ paths:
 
                 - `add_pocket_money` — `AddPocketMoneyArgs`
                 - `dismiss_attention` — `DismissAttentionArgs`
+                - `show_camera` — `ShowCameraArgs`
               anyOf:
                 - $ref: "#/components/schemas/AddPocketMoneyArgs"
                 - $ref: "#/components/schemas/DismissAttentionArgs"
+                - $ref: "#/components/schemas/ShowCameraArgs"
                 - type: object
             examples:
               add_pocket_money:
@@ -2178,7 +2213,15 @@ paths:
               dismiss_attention:
                 summary: dismiss_attention, as Home Assistant sends it
                 value: { attention_id: "lock-up-before-bed:2026-10-01" }
+              show_camera:
+                summary: show_camera, from a doorbell automation
+                value: { camera: "Front door", duration: 60 }
       responses:
+        "200":
+          description: "`show_camera`: the camera is on the screens until `ends_at`."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShowCameraResult" }
         "201":
           description: Created
           content:
@@ -2554,6 +2597,7 @@ components:
         - create_note
         - show_announcement
         - activate_context
+        - show_camera
         - dismiss_attention
         - add_pocket_money
         - refresh_integration
@@ -2594,6 +2638,54 @@ components:
           maxLength: 200
           deprecated: true
           description: Alias for `reason`.
+
+    CameraRef:
+      type: object
+      description: A camera as the Integration API knows it. Never its stream URL.
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+
+    ShowCameraArgs:
+      type: object
+      description: |
+        Arguments for `show_camera`. Puts a camera on the wall displays in the
+        full-screen camera view, live and muted, until the time is up or
+        somebody closes it there; every phone gets a push that opens the same
+        camera. A second call while it is up replaces it: the time starts
+        again, or the camera changes. The time runs on the server's clock, so
+        a screen that catches up late shows only what is left.
+      required: [camera]
+      properties:
+        camera:
+          type: string
+          description: |
+            A camera's `id` or exact `name`, as `GET /cameras` lists them.
+            Never guessed: a name two cameras share, or a near miss, is a `400`.
+        duration:
+          type: integer
+          minimum: 5
+          maximum: 300
+          default: 60
+          description: Seconds on screen. A string of digits is accepted too.
+        target_devices:
+          type: array
+          items: { type: string }
+          description: |
+            The screens that show it, by device id or exact name. Defaults to
+            every kiosk device — the wall displays. Phones get the push either
+            way; this only picks who shows the camera full screen.
+
+    ShowCameraResult:
+      type: object
+      required: [camera, screens, ends_at]
+      properties:
+        camera: { $ref: "#/components/schemas/CameraRef" }
+        screens:
+          type: integer
+          description: How many screens were asked to show it. `0` is not an error — the push still goes out.
+        ends_at: { type: string, format: date-time }
 
     DismissAttentionArgs:
       type: object

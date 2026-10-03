@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -83,6 +83,10 @@ function Go2rtcCard() {
   const { cameras, isLoading, error, refetch } = useCameras();
   const router = useRouter();
   const t = useTranslations("cameras");
+  // A show_camera push (#335) opens /cameras?live=<id>: straight into that
+  // camera's full-screen view, from the one connection its tile already has.
+  const [liveCameraId, setLiveCameraId] = useState<string | null>(null);
+  useEffect(() => setLiveCameraId(consumeLiveCameraParam()), []);
 
   if (isLoading) {
     return <CamerasSkeleton />;
@@ -123,9 +127,25 @@ function Go2rtcCard() {
       <CameraGrid
         cameras={cameras}
         columns={cameras.length === 1 ? 1 : cameras.length <= 4 ? 2 : 3}
+        openCameraId={liveCameraId}
       />
     </motion.div>
   );
+}
+
+/**
+ * `?live=<id>`, read once and dropped from the URL, as `?message=` is, so a
+ * reload or a link copied from the address bar doesn't keep reopening it.
+ */
+function consumeLiveCameraParam(): string | null {
+  if (typeof window === "undefined") return null;
+  const url = new URL(window.location.href);
+  const id = url.searchParams.get("live");
+  if (id) {
+    url.searchParams.delete("live");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  }
+  return id;
 }
 
 // ============================================================================

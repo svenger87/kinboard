@@ -9,6 +9,15 @@ import {
   storeResult,
   validateIdempotencyKey,
 } from "@/lib/integration-idempotency";
+import { hitLimit } from "@/lib/rate-limit";
+import {
+  SHOW_CAMERA_RATE_LIMIT,
+  SHOW_CAMERA_RATE_WINDOW_MS,
+  parseTakeoverDuration,
+  readCameraRefs,
+  resolveCamera,
+  resolveTargetDevices,
+} from "@/lib/camera-takeover";
 import { addShoppingItemFromText } from "@/lib/shopping-enrich";
 import { createServiceTask } from "@/lib/integration-tasks";
 import { addPocketMoneyService } from "@/lib/pocket-money/service";
@@ -28,6 +37,8 @@ export const dynamic = "force-dynamic";
  * the Home Assistant component's const.py.
  */
 
+type HandlerResult = { status: number; response: Record<string, unknown>; headers?: Record<string, string> };
+
 type Handler = (args: {
   familyId: string;
   body: Record<string, unknown>;
@@ -37,11 +48,48 @@ type Handler = (args: {
   // a spec can hand the real handler a recording stand-in and send it exactly
   // what Home Assistant sends. Untyped, like the admin client everywhere else.
   db: any;
-}) => Promise<{ status: number; response: Record<string, unknown> }>;
+  /**
+   * Spends one call of the service's own budget (`ServiceDef.rateLimit`) and
+   * returns the 429 to answer with when it is used up, or null to go ahead.
+   * A service with a budget calls it once it has validated the call and
+   * before it writes anything, so a call that was going to be refused anyway
+   * — a misspelt camera — doesn't use up the household's allowance. Absent
+   * means no budget applies (a spec calling a handler directly).
+   */
+  admit?: () => HandlerResult | null;
+}) => Promise<HandlerResult>;
 
 interface ServiceDef {
   scope: IntegrationScope;
   handle: Handler;
+  /**
+   * A budget of its own on top of the per-token write limit, for a service
+   * that interrupts the house rather than adding a row to a list. Only a call
+   * that will actually run spends it: the handler spends it through `admit`
+   * after validating, so a 400 doesn't, and a replay never reaches the
+   * handler at all — the same rule as on messages.
+   */
+  rateLimit?: { limit: number; windowMs: number };
+}
+
+/**
+ * The `admit` a handler is given: spends one call of `def.rateLimit` for this
+ * token and service, or does nothing for a service without one. Exported for
+ * the spec.
+ */
+export function serviceAdmission(def: ServiceDef, tokenId: string, service: string): () => HandlerResult | null {
+  const budget = def.rateLimit;
+  if (!budget) return () => null;
+  return () => {
+    const limit = hitLimit(`integration:${tokenId}:service:${service}`, budget.limit, budget.windowMs);
+    if (!limit.limited) return null;
+    return {
+      status: 429,
+      response: { error: `too many \`${service}\` calls — slow down`, code: "rate_limited" },
+      // At least 1: a Retry-After of 0 invites the immediate retry being throttled.
+      headers: { "retry-after": String(Math.max(1, Math.ceil(limit.retryAfterMs / 1000))) },
+    };
+  };
 }
 
 /** Trim, reject empty, and bound — free text reaching a database column. */
@@ -167,6 +215,93 @@ export const SERVICES: Record<string, ServiceDef> = {
   },
 
   /**
+   * Put a camera on the wall displays for a minute (#335): the doorbell rang,
+   * and whoever walks up to a screen sees who is there without tapping
+   * through to Cameras. Under `announcements:write` rather than a scope of
+   * its own — it is the same kind of power as a message to the screens, and
+   * every new scope means every token has to be reconnected.
+   *
+   * Two writes, like a message. The family's one `camera_takeovers` row,
+   * which the screens pick up over realtime and show until `ends_at`; a
+   * second call replaces it, restarting the time or switching the camera. And
+   * a push for the phones through the notification queue rather than inline,
+   * so each device's quiet hours apply to it. Only quiet hours: there is no
+   * per-type switch for camera pushes in the notification settings, so a
+   * device that gets pushes at all gets this one. The queue runs every 30
+   * seconds, so a phone can hear about the doorbell up to that much after
+   * the screens — and if the camera has already gone back by the time the
+   * queue gets to it, the push is dropped rather than sent late.
+   */
+  show_camera: {
+    scope: "announcements:write",
+    rateLimit: { limit: SHOW_CAMERA_RATE_LIMIT, windowMs: SHOW_CAMERA_RATE_WINDOW_MS },
+    handle: async ({ familyId, body, db, admit }) => {
+      const duration = parseTakeoverDuration(body.duration);
+      if (!duration.ok) {
+        return { status: 400, response: { error: duration.error, code: "invalid_request" } };
+      }
+      const camera = resolveCamera(await readCameraRefs(db, familyId), body.camera);
+      if (!camera.ok) {
+        return { status: 400, response: { error: camera.error, code: "invalid_request" } };
+      }
+      const { data: devices, error: devicesError } = await db
+        .from("devices")
+        .select("id, name, is_kiosk")
+        .eq("family_id", familyId);
+      if (devicesError) throw devicesError;
+      const targets = resolveTargetDevices(devices ?? [], body.target_devices);
+      if (!targets.ok) {
+        return { status: 400, response: { error: targets.error, code: "invalid_request" } };
+      }
+
+      // Valid, so it will run: only now does it spend the budget.
+      const refused = admit?.() ?? null;
+      if (refused) return refused;
+
+      const startedAt = new Date();
+      const endsAt = new Date(startedAt.getTime() + duration.seconds * 1000);
+      const { error: takeoverError } = await db.from("camera_takeovers").upsert(
+        {
+          family_id: familyId,
+          camera_id: camera.camera.id,
+          device_ids: targets.deviceIds,
+          started_at: startedAt.toISOString(),
+          ends_at: endsAt.toISOString(),
+        },
+        { onConflict: "family_id" },
+      );
+      if (takeoverError) throw takeoverError;
+
+      // The title is a fallback for a NOT NULL column; the processor renders
+      // the real, locale-aware push from `data`, as it does for timers. A
+      // failed push must not fail the call: the screens already have it.
+      const { error: notifyError } = await db.from("scheduled_notifications").insert({
+        family_id: familyId,
+        notification_type: "camera_live",
+        scheduled_for: startedAt.toISOString(),
+        title: camera.camera.name,
+        body: null,
+        // ends_at lets the processor drop a push that would arrive after the camera has gone.
+        data: { camera_id: camera.camera.id, camera_name: camera.camera.name, ends_at: endsAt.toISOString() },
+        related_entity_type: "camera",
+        related_entity_id: null,
+      });
+      if (notifyError) {
+        console.error("[show_camera] could not queue the push:", notifyError);
+      }
+
+      return {
+        status: 200,
+        response: {
+          camera: camera.camera,
+          screens: targets.deviceIds.length,
+          ends_at: endsAt.toISOString(),
+        },
+      };
+    },
+  },
+
+  /**
    * Re-evaluate now instead of waiting for the next five-minute tick.
    *
    * For the case where an automation has just changed something the board
@@ -287,6 +422,7 @@ export async function POST(
         body,
         assistant: context.assistant,
         db: createAdminClient(),
+        admit: serviceAdmission(def, context.tokenId, service),
       });
 
       // Only successful work is remembered. A 400 is a client mistake, and
@@ -303,7 +439,7 @@ export async function POST(
         });
       }
 
-      return NextResponse.json(result.response, { status: result.status });
+      return NextResponse.json(result.response, { status: result.status, headers: result.headers });
     } catch (err) {
       await logApiError(`integration/services/${service}`, err);
       return NextResponse.json(

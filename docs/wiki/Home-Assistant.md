@@ -117,6 +117,7 @@ write at all.
 | `shopping:write` | the shopping to-do list |
 | `tasks:write` | the task to-do list, and the `create_task`, `add_pocket_money` and `dismiss_attention` actions |
 | `notes:write` | creating notes |
+| `announcements:write` | a camera on the wall displays (`show_camera`, below) |
 
 Every other permission on that page exists for AI assistants connected
 through Kinboard's built-in MCP endpoint — reading notes, writing the calendar,
@@ -174,6 +175,44 @@ for that request:
 ```bash
 docker logs kinboard-webapp 2>&1 | grep <reference>
 ```
+
+## A camera on the wall displays
+
+When the doorbell rings, an automation can put a camera on the wall displays
+for a minute — full screen, live and muted — and push it to every phone. The
+displays go back to what they were showing on their own; a tap closes it sooner.
+
+It needs a token with `announcements:write`, and `family:read` to list the
+cameras: `GET /api/integration/v1/cameras` returns each camera's id and name,
+and `show_camera` takes either. Until the integration offers it as an action, a
+`rest_command` calls it directly. Every write needs its own `Idempotency-Key`,
+so the header is a template:
+
+```yaml
+rest_command:
+  kinboard_show_camera:
+    url: "https://kinboard.example/api/integration/v1/services/show_camera"
+    method: post
+    headers:
+      authorization: !secret kinboard_token  # "Bearer <token>"
+      idempotency-key: "doorbell-{{ now().timestamp() | int }}"
+    content_type: application/json
+    payload: '{"camera": "Front door", "duration": 60}'
+```
+
+Then add `action: rest_command.kinboard_show_camera` to the doorbell automation.
+
+- `duration` is in seconds, 5 to 300; 60 when left out.
+- The wall displays are every device set up as a kiosk. `target_devices` —
+  device ids or exact names — picks others instead. Phones get the push either
+  way; quiet hours apply to it.
+- A second ring while it is up starts the time again.
+- Five calls in ten minutes per token, then `429`, so an automation stuck in a
+  loop cannot keep taking over the walls. A call answered `400` (a camera name
+  with a typo, say) does not count, and neither does a retry with the same
+  `Idempotency-Key`.
+- If the push is still waiting to go out when the camera goes back, it is
+  dropped rather than arriving late.
 
 ## For other clients
 

@@ -27,6 +27,14 @@ interface CameraViewerProps {
   showControls?: boolean;
   autoPlay?: boolean;
   className?: string;
+  /** Open the full-screen view: a notification that should land on this camera (#335). */
+  defaultFullscreen?: boolean;
+  /**
+   * Only the full-screen view, no tile: a camera put on the screen from
+   * outside rather than tapped (#335). Closing the view calls `onClose`.
+   */
+  fullscreenOnly?: boolean;
+  onClose?: () => void;
 }
 
 // Static CSS scanline overlay — no animation (ARM-GPU + reduced-motion safe).
@@ -72,12 +80,19 @@ export function CameraViewer({
   showControls = true,
   autoPlay = true,
   className = "",
+  defaultFullscreen = false,
+  fullscreenOnly = false,
+  onClose,
 }: CameraViewerProps) {
   const t = useTranslations("components.cameraViewer");
   const { family } = useFamilyStore();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [fullscreenOpen, setFullscreenOpen] = useState(fullscreenOnly || defaultFullscreen);
+  // The tile can mount before the page has read which camera to open.
+  useEffect(() => {
+    if (defaultFullscreen) setFullscreenOpen(true);
+  }, [defaultFullscreen]);
   const [isMuted, setIsMuted] = useState(true);
   // An RTSP camera starts on the snapshot and upgrades to live video if the
   // WebRTC connection comes up. See `signalingUrl` below for why both.
@@ -420,67 +435,75 @@ export function CameraViewer({
 
   return (
     <>
-      <div
-        className={`rounded-2xl border bg-card overflow-hidden transition-all hover:border-primary/30 cursor-pointer group ${className}`}
-        onClick={() => setFullscreenOpen(true)}
-      >
-        {/* Camera Preview */}
-        <div className="relative">
-          {showsLiveVideo ? (
-            <div className="w-full aspect-video bg-black relative">
-              {isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Loader2 className="size-8 animate-spin text-white/50" />
-                </div>
-              )}
-              {/* Video element - only rendered here when NOT fullscreen */}
-              {!fullscreenOpen && (
-                <video
-                  ref={setVideoRef}
-                  autoPlay
-                  playsInline
-                  muted={isMuted}
-                  className="size-full object-contain"
-                  onLoadedData={handleVideoLoaded}
-                  onError={handleVideoError}
-                />
-              )}
-              {/* Placeholder when fullscreen is open */}
-              {fullscreenOpen && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Video className="size-8 text-white/30" />
-                </div>
-              )}
-              {!fullscreenOpen && <ScanlineOverlay />}
-            </div>
-          ) : (
-            renderStream(false)
-          )}
+      {!fullscreenOnly && (
+        <div
+          className={`rounded-2xl border bg-card overflow-hidden transition-all hover:border-primary/30 cursor-pointer group ${className}`}
+          onClick={() => setFullscreenOpen(true)}
+        >
+          {/* Camera Preview */}
+          <div className="relative">
+            {showsLiveVideo ? (
+              <div className="w-full aspect-video bg-black relative">
+                {isLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Loader2 className="size-8 animate-spin text-white/50" />
+                  </div>
+                )}
+                {/* Video element - only rendered here when NOT fullscreen */}
+                {!fullscreenOpen && (
+                  <video
+                    ref={setVideoRef}
+                    autoPlay
+                    playsInline
+                    muted={isMuted}
+                    className="size-full object-contain"
+                    onLoadedData={handleVideoLoaded}
+                    onError={handleVideoError}
+                  />
+                )}
+                {/* Placeholder when fullscreen is open */}
+                {fullscreenOpen && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Video className="size-8 text-white/30" />
+                  </div>
+                )}
+                {!fullscreenOpen && <ScanlineOverlay />}
+              </div>
+            ) : (
+              renderStream(false)
+            )}
 
-          {/* LIVE pill — only when the picture is actually live; see showsLivePill */}
-          {showsLivePill({ streamType: stream_type, rtspLive, isLoading, error }) && (
-            <LivePill label={t("live")} />
-          )}
+            {/* LIVE pill — only when the picture is actually live; see showsLivePill */}
+            {showsLivePill({ streamType: stream_type, rtspLive, isLoading, error }) && (
+              <LivePill label={t("live")} />
+            )}
 
-          {/* Name overlay over the video */}
-          {!error && (
-            <div className="absolute bottom-0 inset-x-0 p-2 pt-6 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
-              <span className="text-sm font-medium text-white truncate block">{name}</span>
-            </div>
-          )}
+            {/* Name overlay over the video */}
+            {!error && (
+              <div className="absolute bottom-0 inset-x-0 p-2 pt-6 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
+                <span className="text-sm font-medium text-white truncate block">{name}</span>
+              </div>
+            )}
 
-          {/* Fullscreen hint */}
-          {showControls && !error && (
-            <div className="absolute bottom-2 right-2 p-1.5 rounded-md bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity">
-              <Maximize2 className="size-4" />
-            </div>
-          )}
+            {/* Fullscreen hint */}
+            {showControls && !error && (
+              <div className="absolute bottom-2 right-2 p-1.5 rounded-md bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                <Maximize2 className="size-4" />
+              </div>
+            )}
+          </div>
+
         </div>
-
-      </div>
+      )}
 
       {/* Fullscreen Dialog */}
-      <Dialog open={fullscreenOpen} onOpenChange={setFullscreenOpen}>
+      <Dialog
+        open={fullscreenOpen}
+        onOpenChange={(open) => {
+          setFullscreenOpen(open);
+          if (!open) onClose?.();
+        }}
+      >
         <DialogContent className="sm:max-w-5xl max-h-[95vh] p-0">
           <DialogHeader className="p-4 pb-0 pr-12">
             <div className="flex items-center justify-between">
@@ -626,9 +649,11 @@ function AutoRefreshSnapshot({
 interface CameraGridProps {
   cameras: CameraConfig[];
   columns?: 1 | 2 | 3 | 4;
+  /** The camera whose full-screen view opens on arrival, e.g. from a show_camera push (#335). */
+  openCameraId?: string | null;
 }
 
-export function CameraGrid({ cameras, columns = 2 }: CameraGridProps) {
+export function CameraGrid({ cameras, columns = 2, openCameraId = null }: CameraGridProps) {
   const t = useTranslations("components.cameraViewer");
   const gridCols = {
     1: "grid-cols-1",
@@ -652,7 +677,7 @@ export function CameraGrid({ cameras, columns = 2 }: CameraGridProps) {
   return (
     <div className={`grid ${gridCols[columns]} gap-4`}>
       {cameras.map((camera) => (
-        <CameraViewer key={camera.id} camera={camera} />
+        <CameraViewer key={camera.id} camera={camera} defaultFullscreen={camera.id === openCameraId} />
       ))}
     </div>
   );

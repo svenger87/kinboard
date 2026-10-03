@@ -5,6 +5,7 @@ import { formatEventTime } from "@/lib/notifications/format";
 import { getPushTranslator } from "@/lib/notifications/messages";
 import { getFamilyLocale } from "@/lib/family-locale";
 import { recordHeartbeat } from "@/lib/heartbeat";
+import { endedCameraPushes } from "@/lib/camera-takeover";
 import type { PushSubscription, NotificationPreferences } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -215,7 +216,14 @@ export async function POST(request: NextRequest) {
   // at whichever table related_entity_type names), so there's no cascade to
   // lean on. Check the event is still there, and still starts when this row
   // was written for, right before sending.
-  const { kept: pending, stale } = await dropStaleEventReminders(supabase, allPending);
+  const { kept: current, stale: staleReminders } = await dropStaleEventReminders(supabase, allPending);
+
+  // A camera push says the camera is live on the screens now. Once the
+  // takeover it announces has ended that is no longer true, so a tick that
+  // runs late — or a worker that was down for a while — drops it instead.
+  const endedCameras = endedCameraPushes(current, new Date());
+  const pending = current.filter((n) => !endedCameras.includes(n.id));
+  const stale = [...staleReminders, ...endedCameras];
 
   if (stale.length > 0) {
     // Marked processed rather than deleted: the row is the record that a
@@ -228,7 +236,10 @@ export async function POST(request: NextRequest) {
     if (staleError) {
       console.error("[process-notifications] Failed to retire stale reminders:", staleError);
     } else {
-      console.log(`[process-notifications] Retired ${stale.length} reminder(s) for events that were deleted or moved`);
+      console.log(
+        `[process-notifications] Retired ${staleReminders.length} reminder(s) for events that were deleted or moved` +
+          (endedCameras.length > 0 ? ` and ${endedCameras.length} camera push(es) whose takeover had ended` : ""),
+      );
     }
   }
 
@@ -528,6 +539,23 @@ function buildNotificationPayload(
         body,
         tag: "meal-prep-reminder",
         url: "/meals",
+      };
+    }
+
+    case "camera_live": {
+      // Enqueued by show_camera (#335), one row per call. When two calls land
+      // in one tick — two rings — the newest is the camera the screens show
+      // now. The title at insert time is a fallback for a NOT NULL column.
+      const n = notifications[notifications.length - 1];
+      const camera = (n.data?.camera_name as string | undefined) || n.title;
+      const cameraId = n.data?.camera_id as string | undefined;
+      return {
+        title: t("cameraLiveTitle", { camera }),
+        body: t("cameraLiveBody"),
+        // One tag for all of them: a second ring replaces the first push
+        // rather than stacking another under it.
+        tag: "camera-live",
+        url: cameraId ? `/cameras?live=${encodeURIComponent(cameraId)}` : "/cameras",
       };
     }
 
