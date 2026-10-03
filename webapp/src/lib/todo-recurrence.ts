@@ -1,4 +1,5 @@
 import { toLocalDateKey } from "@/lib/local-date";
+import { isScheduled, isTurnOpen, type TurnFields } from "@/lib/todo-turns";
 
 /**
  * A recurring todo is never marked `completed` — ticking it writes
@@ -16,7 +17,7 @@ import { toLocalDateKey } from "@/lib/local-date";
  * which is why the page and the badge disagreed with each other.
  */
 
-export interface RecurringFields {
+export interface RecurringFields extends TurnFields {
   completed?: boolean;
   recurrence?: string | null;
   last_completed?: string | null;
@@ -196,6 +197,8 @@ export function isRecurringTaskDue(
   timeZone?: string | null,
 ): boolean {
   if (!isRecurring(todo)) return false;
+  // Taking turns or tracked (#341): due while the open day is not done.
+  if (isScheduled(todo)) return isTurnOpen(todo, dayKeyIn(now, timeZone));
   const weekdays = recurrenceWeekdays(todo.recurrence);
   if (weekdays) return isWeekdayTaskDue(todo, weekdays, now, timeZone);
   // Never done — due since it was created.

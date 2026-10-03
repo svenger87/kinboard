@@ -465,6 +465,11 @@ services:
       ofelia.job-exec.pocket-money-process-allowance.schedule: "0 0 * * * *"
       ofelia.job-exec.pocket-money-process-allowance.command: "/usr/local/bin/pocket-money-process-allowance"
       ofelia.job-exec.pocket-money-process-allowance.no-overlap: "true"
+      # #341: a task's due day closes when its next one arrives -- at the
+      # family's midnight for a daily task -- so the pass runs often.
+      ofelia.job-exec.close-task-days.schedule: "@every 15m"
+      ofelia.job-exec.close-task-days.command: "/usr/local/bin/close-task-days"
+      ofelia.job-exec.close-task-days.no-overlap: "true"
       ofelia.job-exec.purge-recycle-bin.schedule: "0 30 3 * * *"
       ofelia.job-exec.purge-recycle-bin.command: "/usr/local/bin/purge-recycle-bin"
       ofelia.job-exec.purge-recycle-bin.no-overlap: "true"

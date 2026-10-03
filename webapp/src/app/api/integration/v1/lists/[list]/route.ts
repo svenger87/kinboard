@@ -156,7 +156,7 @@ export async function POST(
       // repetition, priority, icon and points (lib/integration-tasks.ts).
       // A refusal there is a 400 and, like every 400, is not remembered
       // against the key.
-      const result = await createListTask(createAdminClient(), context.familyId, body);
+      const result = await createListTask(createAdminClient({ actor: "integration" }), context.familyId, body);
       if (result.status < 400) {
         await storeResult({
           familyId: context.familyId,

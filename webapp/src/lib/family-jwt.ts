@@ -64,7 +64,7 @@ export interface FamilyToken {
  * open the option of revoking anon's table grants entirely later, as defence
  * in depth behind the policies.
  */
-export function mintFamilyToken(familyId: string): FamilyToken {
+export function mintFamilyToken(familyId: string, deviceId?: string | null): FamilyToken {
   const issuedAt = Math.floor(Date.now() / 1000);
   const expiresAt = issuedAt + FAMILY_TOKEN_TTL_SECONDS;
 
@@ -73,6 +73,10 @@ export function mintFamilyToken(familyId: string): FamilyToken {
     role: "authenticated",
     // What current_family_id() reads in every policy.
     family_id: familyId,
+    // Which screen is acting, for the task log (todo_actor() in
+    // migration_zzzzzy_todo_turns.sql). Informational only: no policy reads
+    // it, and the database checks it names a device of this family.
+    ...(deviceId ? { device_id: deviceId } : {}),
     iss: "kinboard",
     iat: issuedAt,
     exp: expiresAt,

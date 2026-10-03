@@ -95,7 +95,24 @@ test("every family-scoped table is under row-level security", () => {
     "todo_point_awards",
     "oauth_authorization_requests",
     "assistant_action_requests",
+    "todo_occurrences", "todo_events",
   ]);
+
+  // - todo_occurrences / todo_events (#341): their own RLS + a family-scoped
+  //   SELECT-only policy, REVOKE ALL from anon/authenticated and only SELECT
+  //   given back, in migration_zzzzzy_todo_turns.sql. Every write is a
+  //   trigger's, run as its owner: a screen must not write itself a history.
+  const turnsSql = codeOnly(
+    readFileSync(join(DOCKER, "migration_zzzzzy_todo_turns.sql"), "utf8"),
+    { sql: true },
+  );
+  for (const table of ["todo_occurrences", "todo_events"]) {
+    expect(turnsSql).toMatch(new RegExp(`ALTER TABLE public\\.${table} ENABLE ROW LEVEL SECURITY;`, "i"));
+    expect(turnsSql).toMatch(new RegExp(`CREATE POLICY ${table}_family_read ON public\\.${table}\\s+FOR SELECT USING \\(family_id = public\\.current_family_id\\(\\)\\);`, "i"));
+    expect(turnsSql).toMatch(new RegExp(`REVOKE ALL ON TABLE public\\.${table} FROM authenticated;`, "i"));
+    expect(turnsSql).not.toMatch(new RegExp(`GRANT\\s+(?:ALL|INSERT|UPDATE|DELETE)[^;]*${table} TO (?:anon|authenticated)`, "i"));
+  }
+  expect("migration_zzzzzy_todo_turns.sql" > "migration_zz_row_level_security.sql").toBe(true);
 
   const actionsSql = codeOnly(
     readFileSync(join(DOCKER, "migration_zzzz_assistant_actions.sql"), "utf8"),

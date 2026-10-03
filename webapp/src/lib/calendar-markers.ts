@@ -6,6 +6,15 @@ import {
   recurringDueDayKeys,
   type RecurringFields,
 } from "@/lib/todo-recurrence";
+import {
+  currentDay,
+  dayStatus,
+  isScheduled,
+  scheduledDueDays,
+  turnPerson,
+  type DayStatus,
+  type WrittenDay,
+} from "@/lib/todo-turns";
 
 /**
  * What the calendar marks on a day besides events. Family-wide, and both off
@@ -55,11 +64,38 @@ const keyOf = (n: number): string => new Date(n * 86_400_000).toISOString().slic
  * the task list shows it, not today. Custom days are the exception, in the
  * list as here: they count from the day the task was made.
  */
-export function taskDayKeys(todo: MarkerTodo, from: Date, to: Date, now: Date = new Date()): string[] {
+export function taskDayKeys(
+  todo: MarkerTodo,
+  from: Date,
+  to: Date,
+  now: Date = new Date(),
+  written?: ReadonlyMap<string, WrittenDay>,
+): string[] {
   if (todo.deleted_at || todo.completed) return [];
   const fromN = dayNumber(toLocalDateKey(from));
   const toN = dayNumber(toLocalDateKey(to));
   if (toN < fromN) return [];
+
+  // Taking turns or tracked (#341): the schedule's own days. A tracked task
+  // shows its history too, from the day tracking started; one that is not
+  // tracked shows the open day and what comes after, without the open day
+  // once it is done, as any repeating task drops off when ticked.
+  if (isScheduled(todo)) {
+    const today = toLocalDateKey(now);
+    const open = currentDay(todo, today);
+    const fromKey = keyOf(fromN);
+    const toKey = keyOf(toN);
+    if (todo.track_completion) {
+      const since = todo.tracking_started_day && todo.tracking_started_day > fromKey ? todo.tracking_started_day : fromKey;
+      const days = new Set(since <= toKey ? scheduledDueDays(todo, since, toKey) : []);
+      for (const row of written?.values() ?? []) if (row.day >= fromKey && row.day <= toKey) days.add(row.day);
+      return [...days].sort();
+    }
+    const first = open && open < today ? open : today;
+    return scheduledDueDays(todo, first > fromKey ? first : fromKey, toKey).filter(
+      (day) => !(day === open && todo.last_completed_day === open) && (day >= today || day === open),
+    );
+  }
 
   if (!isRecurring(todo)) {
     if (!todo.due_date) return [];
@@ -105,6 +141,49 @@ export function taskMarkersByDay(
   return out;
 }
 
+/** One person's dot on a day: done when every tracked task of theirs that day was, missed when any was not. */
+export interface TaskDot {
+  color: string;
+  status?: "done" | "missed";
+}
+
+/**
+ * taskMarkersByDay, with how each person's day went (#341): a dot is
+ * "missed" when any of that person's tracked tasks that day was not done,
+ * "done" when every task of theirs that day is a tracked one that was, and
+ * plain otherwise -- something still to do.
+ */
+export function taskDotsByDay(
+  occurrences: readonly { dayKey: string; personId: string | null; status?: DayStatus }[],
+  people: readonly { id: string; color: string }[],
+  unassignedColor: string,
+): Map<string, TaskDot[]> {
+  const colors = taskMarkersByDay(occurrences, people, unassignedColor);
+  const known = new Set(people.map((p) => p.id));
+  const colorOf = (id: string | null) =>
+    (id && known.has(id) && people.find((p) => p.id === id)?.color) || unassignedColor;
+  const statuses = new Map<string, DayStatus[]>();
+  for (const o of occurrences) {
+    const key = `${o.dayKey}|${colorOf(o.personId)}`;
+    const list = statuses.get(key) ?? [];
+    list.push(o.status ?? "upcoming");
+    statuses.set(key, list);
+  }
+  const out = new Map<string, TaskDot[]>();
+  for (const [day, list] of colors) {
+    out.set(
+      day,
+      list.map((color) => {
+        const s = statuses.get(`${day}|${color}`) ?? [];
+        if (s.includes("missed")) return { color, status: "missed" as const };
+        if (s.length > 0 && s.every((x) => x === "done")) return { color, status: "done" as const };
+        return { color };
+      }),
+    );
+  }
+  return out;
+}
+
 /** Day key -> the built-in public holiday on it, for every year the range touches, named in `locale`. */
 export function holidaysByDay(region: string, from: Date, to: Date, locale: string = "en"): Map<string, Holiday> {
   const fromKey = toLocalDateKey(from);
@@ -132,6 +211,8 @@ export interface TaskOccurrence {
   personId: string | null;
   /** Shown next to the title: who the task is for. */
   personName: string | null;
+  /** How the day stands, for a task that tracks whether it was done (#341). */
+  status?: DayStatus;
 }
 
 export const TASK_EVENT_PREFIX = "task:";
@@ -152,21 +233,28 @@ export function taskOccurrences(
   to: Date,
   unassignedColor: string,
   now: Date = new Date(),
+  history?: ReadonlyMap<string, ReadonlyMap<string, WrittenDay>>,
 ): TaskOccurrence[] {
   const byId = new Map(people.map((p) => [p.id, p]));
+  const today = toLocalDateKey(now);
   const out: TaskOccurrence[] = [];
   for (const todo of todos) {
-    for (const dayKey of taskDayKeys(todo, from, to, now)) {
+    const written = history?.get(todo.id);
+    const scheduled = isScheduled(todo);
+    for (const dayKey of taskDayKeys(todo, from, to, now, written)) {
       const [y, m, d] = dayKey.split("-").map(Number);
+      // A rotating task is that day's person's, past and future.
+      const personId = scheduled ? turnPerson(todo, dayKey, written) : todo.person_id ?? null;
       out.push({
         id: `${TASK_EVENT_PREFIX}${todo.id}:${dayKey}`,
         todoId: todo.id,
         title: todo.title,
         dayKey,
         date: new Date(y, m - 1, d),
-        color: (todo.person_id && byId.get(todo.person_id)?.color) || unassignedColor,
-        personId: todo.person_id ?? null,
-        personName: (todo.person_id && byId.get(todo.person_id)?.name) || null,
+        color: (personId && byId.get(personId)?.color) || unassignedColor,
+        personId,
+        personName: (personId && byId.get(personId)?.name) || null,
+        ...(scheduled && todo.track_completion ? { status: dayStatus(todo, dayKey, today, written) } : {}),
       });
     }
   }
@@ -188,10 +276,11 @@ export function taskOccurrencesIn(
   ranges: readonly (readonly [Date, Date])[],
   unassignedColor: string,
   now: Date = new Date(),
+  history?: ReadonlyMap<string, ReadonlyMap<string, WrittenDay>>,
 ): TaskOccurrence[] {
   const byId = new Map<string, TaskOccurrence>();
   for (const [from, to] of ranges) {
-    for (const o of taskOccurrences(todos, people, from, to, unassignedColor, now)) byId.set(o.id, o);
+    for (const o of taskOccurrences(todos, people, from, to, unassignedColor, now, history)) byId.set(o.id, o);
   }
   return [...byId.values()].sort((a, b) => a.dayKey.localeCompare(b.dayKey) || a.title.localeCompare(b.title));
 }

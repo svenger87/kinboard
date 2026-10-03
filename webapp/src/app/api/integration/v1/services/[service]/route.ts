@@ -421,7 +421,7 @@ export async function POST(
         familyId: context.familyId,
         body,
         assistant: context.assistant,
-        db: createAdminClient(),
+        db: createAdminClient({ actor: "integration" }),
         admit: serviceAdmission(def, context.tokenId, service),
       });
 

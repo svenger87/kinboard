@@ -58,7 +58,7 @@ export async function PATCH(
       return NextResponse.json({ error: `unknown list \`${list}\``, code: "not_found" }, { status: 404 });
     }
     const def = LISTS[list];
-    const supabase = createAdminClient();
+    const supabase = createAdminClient({ actor: "integration" });
 
     let body: Record<string, unknown>;
     try {
@@ -105,7 +105,7 @@ export async function PATCH(
         try {
           const { data: taskRow, error: taskErr } = await (supabase as any)
             .from("todos")
-            .select("recurrence")
+            .select("recurrence, rotation_person_ids, track_completion")
             .eq("id", item)
             .eq("family_id", context.familyId)
             .is("deleted_at", null)
@@ -119,7 +119,7 @@ export async function PATCH(
           // new one, as the edit and the tick would be if made one after the
           // other.
           const result = completionUpdate(
-            { recurrence: extras.value.recurrence ?? taskRow.recurrence },
+            { ...taskRow, recurrence: extras.value.recurrence ?? taskRow.recurrence },
             status,
             new Date(),
             await familyTimeZone(context.familyId),
@@ -206,6 +206,14 @@ export async function PATCH(
 
       const { data, error } = await query.select("id").maybeSingle();
 
+      // A task that takes turns can only be ticked for its open day; before
+      // its schedule starts there is none (migration_zzzzzy_todo_turns.sql).
+      if (error && (error as { hint?: string }).hint === "no_open_turn") {
+        return NextResponse.json(
+          { error: "this task has no turn open yet", code: "conflict" },
+          { status: 409 },
+        );
+      }
       if (error) throw error;
       if (!data) {
         return NextResponse.json({ error: "no such item", code: "not_found" }, { status: 404 });
@@ -234,7 +242,7 @@ export async function DELETE(
     const def = LISTS[list];
 
     try {
-      const supabase = createAdminClient();
+      const supabase = createAdminClient({ actor: "integration" });
       // Plain DELETE either way. For tasks the soft-delete trigger turns this
       // into a move to the recycle bin, which is exactly what deleting a task
       // in Kinboard does — so removing one from Home Assistant is recoverable,

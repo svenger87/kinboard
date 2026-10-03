@@ -107,6 +107,19 @@ import {
   recurrenceWeekdays,
 } from "@/lib/todo-recurrence";
 import { WeekdayPicker, useWeekdaysLabel } from "@/components/weekday-picker";
+import { TodoTurnFields, TurnStrip } from "@/components/todo-turn-fields";
+import { useTodoHistory } from "@/hooks/use-todo-history";
+import {
+  currentDay,
+  dayKeyOf,
+  dayNumber,
+  isScheduled,
+  isTurnOpen,
+  keepsSchedule,
+  nextTurnDay,
+  recentDays,
+  todayPerson,
+} from "@/lib/todo-turns";
 import type { Todo } from "@/types/database";
 
 // Priority types and config
@@ -173,6 +186,9 @@ export default function TodosPage() {
   const [newTaskDays, setNewTaskDays] = useState<number[]>([]);
   const [newTaskIcon, setNewTaskIcon] = useState("");
   const [newTaskPoints, setNewTaskPoints] = useState(0);
+  // Taking turns and tracking (#341): the rotation, or null when off.
+  const [newTaskTurns, setNewTaskTurns] = useState<string[] | null>(null);
+  const [newTaskTrack, setNewTaskTrack] = useState(false);
   const [filterPerson, setFilterPerson] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "completed">("all");
   const [filterRecurrence, setFilterRecurrence] = useState<"all" | "recurring" | "once">("all");
@@ -192,11 +208,25 @@ export default function TodosPage() {
     type === "custom" ? formatRecurrenceDays(days) ?? "once" : type;
   const [editIcon, setEditIcon] = useState("");
   const [editPoints, setEditPoints] = useState(0);
+  const [editTurns, setEditTurns] = useState<string[] | null>(null);
+  const [editTrack, setEditTrack] = useState(false);
+  // The two options only mean anything on a repeating task; a rotation with
+  // nobody in it is no rotation.
+  const turnFields = (type: RecurrenceType, turns: string[] | null, track: boolean) =>
+    type === "once"
+      ? { rotation_person_ids: null, track_completion: false }
+      : { rotation_person_ids: turns && turns.length > 0 ? turns : null, track_completion: track };
 
   // Fetch data from Supabase
   const { data: todos, isLoading: loadingTodos, error: todosError, refetch: refetchTodos } = useTodos();
   const { data: people, isLoading: loadingPeople, error: peopleError, refetch: refetchPeople } = usePeople();
   const { data: pointAwards = [] } = useTodoPoints();
+  const todayKey = toLocalDateKey();
+  const { data: todoHistory } = useTodoHistory(
+    dayKeyOf(dayNumber(todayKey) - 7 * 31),
+    todayKey,
+    { enabled: (todos ?? []).some((task) => task.track_completion) },
+  );
   const createTodo = useCreateTodo();
   const updateTodo = useUpdateTodo();
   const deleteTodo = useDeleteTodo();
@@ -224,6 +254,7 @@ export default function TodosPage() {
         recurrence: storedRecurrence(newTaskRecurrence, newTaskDays),
         icon: newTaskIcon || null,
         points: newTaskPoints,
+        ...turnFields(newTaskRecurrence, newTaskTurns, newTaskTrack),
       });
 
       setNewTaskTitle("");
@@ -234,6 +265,8 @@ export default function TodosPage() {
       setNewTaskDays([]);
       setNewTaskIcon("");
       setNewTaskPoints(0);
+      setNewTaskTurns(null);
+      setNewTaskTrack(false);
       setDialogOpen(false);
     } catch {
       toast.error(t("createFailed"));
@@ -267,6 +300,8 @@ export default function TodosPage() {
     setEditDays(pickedDays ?? []);
     setEditIcon(todo.icon || "");
     setEditPoints(todo.points || 0);
+    setEditTurns(todo.rotation_person_ids?.length ? todo.rotation_person_ids : null);
+    setEditTrack(Boolean(todo.track_completion));
     setEditDialogOpen(true);
   };
 
@@ -283,6 +318,7 @@ export default function TodosPage() {
         recurrence: storedRecurrence(editRecurrence, editDays),
         icon: editIcon || null,
         points: editPoints,
+        ...turnFields(editRecurrence, editTurns, editTrack),
       });
 
       setEditDialogOpen(false);
@@ -292,8 +328,22 @@ export default function TodosPage() {
     }
   };
 
-  const handleToggleTask = async (id: string, completed: boolean, recurrence?: string) => {
+  const handleToggleTask = async (task: Todo) => {
+    const { id, completed, recurrence } = task;
     try {
+      if (isScheduled(task)) {
+        // Taking turns or tracked: a tick marks the open day done, and a
+        // second one takes it back while the day is open. The database
+        // decides which day that is; our own day goes with it.
+        const done = currentDay(task, todayKey) !== null && !isTurnOpen(task, todayKey);
+        await updateTodo.mutateAsync({
+          id,
+          last_completed: done ? null : new Date().toISOString(),
+          last_completed_day: todayKey,
+          completed: false,
+        });
+        return;
+      }
       // For recurring tasks, update last_completed instead of marking as completed
       if (recurrence && recurrence !== "once") {
         await updateTodo.mutateAsync({
@@ -308,8 +358,8 @@ export default function TodosPage() {
           completed: !completed,
         });
       }
-    } catch {
-      toast.error(t("toggleFailed"));
+    } catch (err) {
+      toast.error((err as { hint?: string })?.hint === "no_open_turn" ? t("noTurnOpen") : t("toggleFailed"));
     }
   };
 
@@ -351,12 +401,22 @@ export default function TodosPage() {
 
   const getPersonById = (id: string | null) =>
     people?.find((p) => p.id === id);
+  // A rotating task is today's person's.
+  const personOf = (task: Todo) => todayPerson(task, todayKey);
 
 
   // Get effective due date considering recurrence
-  const getEffectiveDueDate = (todo: { recurrence?: string | null; last_completed?: string | null; due_date?: string | null; created_at?: string | null }): Date | null => {
+  const getEffectiveDueDate = (todo: Todo): Date | null => {
     if (!todo.recurrence || todo.recurrence === "once") {
       return todo.due_date ? new Date(todo.due_date) : null;
+    }
+
+    // Taking turns or tracked: the open day while it is not done, else the next.
+    if (isScheduled(todo)) {
+      const day = nextTurnDay(todo, todayKey);
+      if (!day) return null;
+      const [y, m, d] = day.split("-").map(Number);
+      return new Date(y, m - 1, d);
     }
 
     // Picked weekdays: the first picked day since it was last done or made.
@@ -384,13 +444,14 @@ export default function TodosPage() {
 
   // Filter tasks (memoized)
   const filteredTasks = useMemo(() => (todos || []).filter((task) => {
-    if (filterPerson !== "all" && task.person_id !== filterPerson) return false;
+    if (filterPerson !== "all" && personOf(task) !== filterPerson) return false;
     if (filterStatus === "active" && task.completed) return false;
     if (filterStatus === "completed" && !task.completed) return false;
     if (filterRecurrence === "recurring" && (!task.recurrence || task.recurrence === "once")) return false;
     if (filterRecurrence === "once" && task.recurrence && task.recurrence !== "once") return false;
     return true;
-  }), [todos, filterPerson, filterStatus, filterRecurrence]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- personOf reads todayKey, which is today
+  }), [todos, filterPerson, filterStatus, filterRecurrence, todayKey]);
 
   // Sort: incomplete first, then by priority, then by due date (memoized)
   const sortedTasks = useMemo(() => [...filteredTasks].sort((a, b) => {
@@ -411,7 +472,8 @@ export default function TodosPage() {
       return aEffectiveDue.getTime() - bEffectiveDue.getTime();
     }
     return aEffectiveDue ? -1 : 1;
-  }), [filteredTasks]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- getEffectiveDueDate reads todayKey, which is today
+  }), [filteredTasks, todayKey]);
 
   const { totalCount, completedCount, activeCount, recurringCount } = useMemo(() => {
     const all = todos || [];
@@ -635,24 +697,28 @@ export default function TodosPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="flex flex-col gap-2">
                         <Label>{t("fieldAssignTo")}</Label>
-                        <Select value={newTaskPerson} onValueChange={setNewTaskPerson}>
-                          <SelectTrigger>
-                            <SelectValue placeholder={t("fieldOptional")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(people || []).map((person) => (
-                              <SelectItem key={person.id} value={person.id}>
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className="size-3 rounded-full"
-                                    style={{ backgroundColor: person.color }}
-                                  />
-                                  {person.name}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {newTaskTurns !== null && newTaskRecurrence !== "once" ? (
+                          <p className="text-sm text-muted-foreground py-2">{t("assignTurnsNote")}</p>
+                        ) : (
+                          <Select value={newTaskPerson} onValueChange={setNewTaskPerson}>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t("fieldOptional")} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(people || []).map((person) => (
+                                <SelectItem key={person.id} value={person.id}>
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="size-3 rounded-full"
+                                      style={{ backgroundColor: person.color }}
+                                    />
+                                    {person.name}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
 
                       <div className="flex flex-col gap-2">
@@ -737,7 +803,7 @@ export default function TodosPage() {
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <Label>{t("fieldDueDate")}</Label>
+                        <Label>{keepsSchedule({ recurrence: newTaskRecurrence === "custom" ? "days:MO" : newTaskRecurrence, rotation_person_ids: newTaskTurns, track_completion: newTaskTrack }) ? t("fieldStart") : t("fieldDueDate")}</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
@@ -761,6 +827,10 @@ export default function TodosPage() {
                         </Popover>
                       </div>
                     </div>
+
+                    {newTaskRecurrence !== "once" && (
+                      <TodoTurnFields people={people ?? []} turns={newTaskTurns} onTurnsChange={setNewTaskTurns} track={newTaskTrack} onTrackChange={setNewTaskTrack} />
+                    )}
 
                     <TodoDecorationFields icon={newTaskIcon} points={newTaskPoints} onIconChange={setNewTaskIcon} onPointsChange={setNewTaskPoints} />
 
@@ -1021,7 +1091,9 @@ export default function TodosPage() {
                         <Card className={`p-1.5 border-l-2 ${section.borderClass}`}>
                           <div className="flex flex-col gap-0.5">
                             {section.tasks.map((task) => {
-                              const person = getPersonById(task.person_id);
+                              const person = getPersonById(personOf(task));
+                              const strip = recentDays(task, todayKey, todoHistory?.get(task.id));
+                              const turnDone = isScheduled(task) && currentDay(task, todayKey) !== null && !isTurnOpen(task, todayKey);
                               const effectiveDue = getEffectiveDueDate(task);
                               const isOverdue = effectiveDue && !task.completed && effectiveDue < now;
                               const isRecurring = task.recurrence && task.recurrence !== "once";
@@ -1048,12 +1120,12 @@ export default function TodosPage() {
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <button
-                                        onClick={() => handleToggleTask(task.id, task.completed, task.recurrence || undefined)}
+                                        onClick={() => handleToggleTask(task)}
                                         className="shrink-0 -m-2.5 p-2.5 rounded-full"
                                         disabled={updateTodo.isPending}
-                                        aria-label={task.completed ? t("toggleAriaIncomplete", { title: task.title }) : t("toggleAriaComplete", { title: task.title })}
+                                        aria-label={task.completed || turnDone ? t("toggleAriaIncomplete", { title: task.title }) : t("toggleAriaComplete", { title: task.title })}
                                       >
-                                        {task.completed ? (
+                                        {task.completed || turnDone ? (
                                           <CheckCircle2 className="size-6 text-success" />
                                         ) : isRecurring ? (
                                           <Repeat className={`size-6 ${isDue ? "text-month-primary" : "text-muted-foreground"} hover:text-foreground transition-colors`} />
@@ -1063,7 +1135,7 @@ export default function TodosPage() {
                                       </button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      {isRecurring ? t("toggleTooltipRecurring") : t("toggleTooltip")}
+                                      {turnDone ? t("toggleTooltipUndo") : isRecurring ? t("toggleTooltipRecurring") : t("toggleTooltip")}
                                     </TooltipContent>
                                   </Tooltip>
 
@@ -1127,6 +1199,16 @@ export default function TodosPage() {
                                           {person.name}
                                         </Badge>
                                       )}
+                                      {(task.rotation_person_ids?.length ?? 0) > 1 && (
+                                        <span className="flex items-center gap-0.5" title={t("turnsBetween", { names: (task.rotation_person_ids ?? []).map((id) => getPersonById(id)?.name).filter(Boolean).join(", ") })}>
+                                          <Repeat2 className="size-3 text-muted-foreground" aria-hidden="true" />
+                                          {(task.rotation_person_ids ?? []).map((id) => (
+                                            <span key={id} className="size-2 rounded-full" style={{ backgroundColor: getPersonById(id)?.color }} />
+                                          ))}
+                                          <span className="sr-only">{t("turnsBetween", { names: (task.rotation_person_ids ?? []).map((id) => getPersonById(id)?.name).filter(Boolean).join(", ") })}</span>
+                                        </span>
+                                      )}
+                                      <TurnStrip days={strip} people={people ?? []} />
                                       {effectiveDue && (() => {
                                         const today = new Date();
                                         const dueDate = new Date(effectiveDue);
@@ -1218,24 +1300,28 @@ export default function TodosPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-2">
                   <Label>{t("fieldAssignTo")}</Label>
-                  <Select value={editPerson} onValueChange={setEditPerson}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("fieldOptional")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(people || []).map((person) => (
-                        <SelectItem key={person.id} value={person.id}>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="size-3 rounded-full"
-                              style={{ backgroundColor: person.color }}
-                            />
-                            {person.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {editTurns !== null && editRecurrence !== "once" ? (
+                    <p className="text-sm text-muted-foreground py-2">{t("assignTurnsNote")}</p>
+                  ) : (
+                    <Select value={editPerson} onValueChange={setEditPerson}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("fieldOptional")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(people || []).map((person) => (
+                          <SelectItem key={person.id} value={person.id}>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="size-3 rounded-full"
+                                style={{ backgroundColor: person.color }}
+                              />
+                              {person.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -1318,7 +1404,7 @@ export default function TodosPage() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <Label>{t("fieldDueDate")}</Label>
+                  <Label>{keepsSchedule({ recurrence: editRecurrence === "custom" ? "days:MO" : editRecurrence, rotation_person_ids: editTurns, track_completion: editTrack }) ? t("fieldStart") : t("fieldDueDate")}</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -1342,6 +1428,10 @@ export default function TodosPage() {
                   </Popover>
                 </div>
               </div>
+
+              {editRecurrence !== "once" && (
+                <TodoTurnFields people={people ?? []} turns={editTurns} onTurnsChange={setEditTurns} track={editTrack} onTrackChange={setEditTrack} />
+              )}
 
               <TodoDecorationFields icon={editIcon} points={editPoints} onIconChange={setEditIcon} onPointsChange={setEditPoints} />
 

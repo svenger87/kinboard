@@ -31,6 +31,8 @@ import { Trash2 } from "lucide-react";
 import { EventPill } from "@/components/event-pill";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { useWeekStart } from "@/hooks/use-week-start";
+import { TaskDotMark } from "@/components/calendar/task-dot";
+import type { TaskDot } from "@/lib/calendar-markers";
 import {
   Tooltip,
   TooltipContent,
@@ -62,7 +64,7 @@ interface MonthViewProps {
   /** School breaks (useHolidayEntries' school entries); absent or empty when the option is off. */
   schoolBreaks?: HolidayEntry[];
   /** Person colours with a task due, by local day key; absent when the option is off. */
-  taskMarkers?: Map<string, string[]>;
+  taskMarkers?: Map<string, TaskDot[]>;
 }
 
 const MAX_EVENTS_PER_CELL = 3;
@@ -194,6 +196,7 @@ export function MonthView({
                 const dayKey = toLocalDateKey(day);
                 const holiday = holidayMarkers?.get(dayKey);
                 const taskColors = taskMarkers?.get(dayKey) ?? [];
+                const missedCount = taskColors.filter((dot) => dot.status === "missed").length;
                 const breaks = schoolBreaks ? schoolBreaksOn(schoolBreaks, dayKey) : [];
                 // A break is named where it begins, and again at the start
                 // of each week row it continues into, as a multi-day bar is
@@ -230,6 +233,7 @@ export function MonthView({
                   taskColors.length > 0
                     ? t("markers.tasksDueCount", { count: taskColors.length })
                     : "",
+                  missedCount > 0 ? t("markers.tasksMissedCount", { count: missedCount }) : "",
                 ]
                   .filter(Boolean)
                   .join(" · ");
@@ -322,12 +326,8 @@ export function MonthView({
                           aria-label={t("markers.tasksDue")}
                           title={t("markers.tasksDue")}
                         >
-                          {taskColors.slice(0, MAX_TASK_DOTS).map((color, i) => (
-                            <span
-                              key={`${color}-${i}`}
-                              className="size-2 rounded-full"
-                              style={{ backgroundColor: color }}
-                            />
+                          {taskColors.slice(0, MAX_TASK_DOTS).map((dot, i) => (
+                            <TaskDotMark key={`${dot.color}-${i}`} dot={dot} className="size-2" />
                           ))}
                           {taskColors.length > MAX_TASK_DOTS && (
                             <span className="text-3xs text-muted-foreground leading-none">
@@ -360,13 +360,9 @@ export function MonthView({
                         role="img"
                         aria-label={t("markers.tasksDue")}
                       >
-                        {taskColors.slice(0, MAX_TASK_DOTS).map((color, i) => (
-                          <span
-                            key={`${color}-${i}`}
-                            className="size-1.5 rounded-full"
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
+                        {taskColors.slice(0, MAX_TASK_DOTS).map((dot, i) => (
+                            <TaskDotMark key={`${dot.color}-${i}`} dot={dot} className="size-1.5" />
+                          ))}
                         {taskColors.length > MAX_TASK_DOTS && (
                           <span className="text-3xs text-muted-foreground leading-none">
                             +{taskColors.length - MAX_TASK_DOTS}

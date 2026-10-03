@@ -2051,6 +2051,14 @@ paths:
         `status: needs_action` on a recurring task is refused with `409` — the
         UI itself has no "undo" for a day already marked done.
 
+        A recurring task whose people take turns, or that tracks whether it
+        was done, is the exception: it keeps a fixed schedule, and both
+        statuses apply to its open due day. `completed` marks that day done
+        (refused with `409` before the schedule's first day, when no day is
+        open yet); `needs_action` takes the day's "done" back, with its
+        points, while the day is still open. A day already closed can no
+        longer be changed.
+
         `person_id` (tasks only) assigns or unassigns the task; it must be a
         person in the same family, or `null`. `recurrence`, `priority`, `icon`
         and `points` (tasks only) take the same values as on create.
@@ -2117,7 +2125,9 @@ paths:
         "409":
           description: |
             A recurring task on the `tasks` list cannot be reopened with
-            `status: needs_action`.
+            `status: needs_action`, unless it takes turns or tracks whether
+            it was done; and such a task cannot be completed before its
+            first due day.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }

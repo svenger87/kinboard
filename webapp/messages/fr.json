@@ -661,7 +661,26 @@
       "monthly": "Mensuelle",
       "custom": "Jours choisis",
       "weekdays": "En semaine"
-    }
+    },
+    "turnsLabel": "Chacun son tour",
+    "turnsHint": "Choisissez qui participe, dans l'ordre. Chaque jour prévu revient à la personne suivante, que le tour précédent ait été fait ou non.",
+    "turnsOrder": "Ordre des tours",
+    "turnsMoveUp": "Monter {name}",
+    "turnsMoveDown": "Descendre {name}",
+    "turnsRemove": "Retirer {name} des tours",
+    "turnsAdd": "Ajouter une personne aux tours",
+    "turnsEmpty": "Touchez les personnes qui se relaient, la première d'abord.",
+    "trackLabel": "Suivre si c'est fait",
+    "trackHint": "Chaque jour prévu passé est affiché comme fait ou non fait, dans la liste et le calendrier.",
+    "assignTurnsNote": "À tour de rôle — voir plus bas",
+    "fieldStart": "Commence",
+    "dayDone": "Fait",
+    "dayMissed": "Pas fait",
+    "dayOpen": "Encore ouvert",
+    "recentDays": "Les derniers jours prévus",
+    "noTurnOpen": "Les tours de cette tâche n'ont pas encore commencé",
+    "toggleTooltipUndo": "Fait pour ce tour — touchez pour annuler",
+    "turnsBetween": "À tour de rôle : {names}"
   },
   "meals": {
     "title": "Planification des repas",
@@ -2699,7 +2718,50 @@
       }
     },
     "diagnosticsBundleLabel": "Version chargée",
-    "diagnosticsBundleStale": "{version} — appuyez pour mettre à jour"
+    "diagnosticsBundleStale": "{version} — appuyez pour mettre à jour",
+    "itemTaskLogLabel": "Journal des tâches",
+    "itemTaskLogDescription": "Qui a coché quoi, et quand",
+    "taskLog": {
+      "title": "Journal des tâches",
+      "subtitle": "Chaque coche et décoche, et chaque tâche créée, modifiée, supprimée ou restaurée",
+      "retentionHeading": "Conserver le journal",
+      "retentionBody": "Les entrées plus anciennes sont supprimées lors du nettoyage nocturne. Le calendrier garde de toute façon comment chaque jour s'est terminé.",
+      "keepForever": "Pour toujours",
+      "oneYear": "Un an",
+      "days": "{count} jours",
+      "retentionSaved": "Enregistré",
+      "retentionFailed": "Impossible d'enregistrer la durée de conservation",
+      "loadFailed": "Impossible de charger le journal des tâches.",
+      "retry": "Réessayer",
+      "emptyTitle": "Rien dans le journal",
+      "emptyDescription": "Les tâches cochées, modifiées et supprimées apparaissent ici.",
+      "untitled": "Une tâche",
+      "kind": {
+        "created": "créée",
+        "edited": "modifiée",
+        "completed": "cochée",
+        "uncompleted": "décochée",
+        "deleted": "supprimée",
+        "restored": "restaurée"
+      },
+      "field": {
+        "title": "titre",
+        "person": "personne",
+        "due_date": "date",
+        "priority": "priorité",
+        "recurrence": "répétition",
+        "icon": "icône",
+        "points": "points",
+        "rotation": "tours",
+        "tracking": "suivi"
+      },
+      "sourceIntegration": "Home Assistant ou une autre intégration",
+      "sourceServer": "Kinboard lui-même",
+      "sourceUnknownDevice": "Un écran",
+      "forDay": "pour {day}",
+      "turnOf": "tour de {name}",
+      "showMore": "Afficher plus"
+    }
   },
   "calendar": {
     "caldavToast": {
@@ -2787,7 +2849,8 @@
       "tasksDue": "Tâches à faire",
       "tasksDueCount": "{count, plural, one {# tâche à faire} other {# tâches à faire}}",
       "taskTitle": "✓ {title}",
-      "taskTitleWithPerson": "✓ {title} · {person}"
+      "taskTitleWithPerson": "✓ {title} · {person}",
+      "tasksMissedCount": "{count, plural, one {# pas faite} other {# pas faites}}"
     }
   },
   "weather": {
@@ -3796,7 +3859,8 @@
     "overdue": "En retard",
     "today": "Aujourd'hui",
     "emptyState": "Tout est terminé !",
-    "moreCount": "+{count} autres"
+    "moreCount": "+{count} autres",
+    "toastNoTurnOpen": "Les tours de cette tâche n'ont pas encore commencé"
   },
   "shoppingWidget": {
     "loadingAria": "Chargement de la liste de courses",

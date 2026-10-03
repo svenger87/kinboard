@@ -661,7 +661,26 @@
       "monthly": "Monthly",
       "custom": "Custom days",
       "weekdays": "Weekdays"
-    }
+    },
+    "turnsLabel": "Take turns",
+    "turnsHint": "Pick who takes part, in order. Each due day goes to the next person, whether or not the last turn was done.",
+    "turnsOrder": "Order of turns",
+    "turnsMoveUp": "Move {name} up",
+    "turnsMoveDown": "Move {name} down",
+    "turnsRemove": "Take {name} out of the turns",
+    "turnsAdd": "Add a person to the turns",
+    "turnsEmpty": "Tap the people who take turns, first one first.",
+    "trackLabel": "Track whether it was done",
+    "trackHint": "Every past due day is shown as done or not done, in the list and the calendar.",
+    "assignTurnsNote": "Taking turns — see below",
+    "fieldStart": "Starts",
+    "dayDone": "Done",
+    "dayMissed": "Not done",
+    "dayOpen": "Still open",
+    "recentDays": "The last due days",
+    "noTurnOpen": "This task's turns haven't started yet",
+    "toggleTooltipUndo": "Done for this turn — tap to take it back",
+    "turnsBetween": "Turns: {names}"
   },
   "meals": {
     "title": "Meal planning",
@@ -2699,7 +2718,50 @@
       }
     },
     "diagnosticsBundleLabel": "Running bundle",
-    "diagnosticsBundleStale": "{version} — tap to update"
+    "diagnosticsBundleStale": "{version} — tap to update",
+    "itemTaskLogLabel": "Task log",
+    "itemTaskLogDescription": "Who ticked what, and when",
+    "taskLog": {
+      "title": "Task log",
+      "subtitle": "Every tick and un-tick, and every task created, edited, deleted or restored",
+      "retentionHeading": "Keep the log for",
+      "retentionBody": "Entries older than this are removed in the nightly clean-up. The calendar keeps how each day ended either way.",
+      "keepForever": "For good",
+      "oneYear": "A year",
+      "days": "{count} days",
+      "retentionSaved": "Saved",
+      "retentionFailed": "Could not save how long the log is kept",
+      "loadFailed": "Could not load the task log.",
+      "retry": "Try again",
+      "emptyTitle": "Nothing logged yet",
+      "emptyDescription": "Ticks, edits and deletions of tasks show up here.",
+      "untitled": "A task",
+      "kind": {
+        "created": "created",
+        "edited": "edited",
+        "completed": "ticked off",
+        "uncompleted": "un-ticked",
+        "deleted": "deleted",
+        "restored": "restored"
+      },
+      "field": {
+        "title": "title",
+        "person": "assignee",
+        "due_date": "date",
+        "priority": "priority",
+        "recurrence": "repeat",
+        "icon": "icon",
+        "points": "points",
+        "rotation": "turns",
+        "tracking": "tracking"
+      },
+      "sourceIntegration": "Home Assistant or another integration",
+      "sourceServer": "Kinboard itself",
+      "sourceUnknownDevice": "A screen",
+      "forDay": "for {day}",
+      "turnOf": "{name}'s turn",
+      "showMore": "Show more"
+    }
   },
   "calendar": {
     "caldavToast": {
@@ -2787,7 +2849,8 @@
       "tasksDue": "Tasks due",
       "tasksDueCount": "{count, plural, one {# task due} other {# tasks due}}",
       "taskTitle": "✓ {title}",
-      "taskTitleWithPerson": "✓ {title} · {person}"
+      "taskTitleWithPerson": "✓ {title} · {person}",
+      "tasksMissedCount": "{count, plural, one {# not done} other {# not done}}"
     }
   },
   "weather": {
@@ -3796,7 +3859,8 @@
     "overdue": "Overdue",
     "today": "Today",
     "emptyState": "All done!",
-    "moreCount": "+{count} more"
+    "moreCount": "+{count} more",
+    "toastNoTurnOpen": "This task's turns haven't started yet"
   },
   "shoppingWidget": {
     "loadingAria": "Loading shopping list",

@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { token, expiresAt } = mintFamilyToken(result.session.familyId);
+  const { token, expiresAt } = mintFamilyToken(result.session.familyId, result.session.deviceId);
 
   return NextResponse.json(
     {

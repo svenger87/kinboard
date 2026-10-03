@@ -661,7 +661,26 @@
       "monthly": "Monatlich",
       "custom": "Eigene Tage",
       "weekdays": "Wochentags"
-    }
+    },
+    "turnsLabel": "Abwechseln",
+    "turnsHint": "Wähle, wer mitmacht, in Reihenfolge. Jeder fällige Tag geht an die nächste Person – egal, ob die Runde davor erledigt wurde.",
+    "turnsOrder": "Reihenfolge",
+    "turnsMoveUp": "{name} nach oben",
+    "turnsMoveDown": "{name} nach unten",
+    "turnsRemove": "{name} aus dem Wechsel nehmen",
+    "turnsAdd": "Person zum Wechsel hinzufügen",
+    "turnsEmpty": "Tippe die Personen an, die sich abwechseln – die erste zuerst.",
+    "trackLabel": "Festhalten, ob es erledigt wurde",
+    "trackHint": "Jeder vergangene fällige Tag wird als erledigt oder nicht erledigt angezeigt, in der Liste und im Kalender.",
+    "assignTurnsNote": "Im Wechsel – siehe unten",
+    "fieldStart": "Beginnt",
+    "dayDone": "Erledigt",
+    "dayMissed": "Nicht erledigt",
+    "dayOpen": "Noch offen",
+    "recentDays": "Die letzten fälligen Tage",
+    "noTurnOpen": "Der Wechsel dieser Aufgabe hat noch nicht begonnen",
+    "toggleTooltipUndo": "Für diese Runde erledigt – tippen zum Zurücknehmen",
+    "turnsBetween": "Im Wechsel: {names}"
   },
   "meals": {
     "title": "Mahlzeitenplanung",
@@ -2699,7 +2718,50 @@
       }
     },
     "diagnosticsBundleLabel": "Geladene Version",
-    "diagnosticsBundleStale": "{version} — zum Aktualisieren tippen"
+    "diagnosticsBundleStale": "{version} — zum Aktualisieren tippen",
+    "itemTaskLogLabel": "Aufgaben-Protokoll",
+    "itemTaskLogDescription": "Wer was wann abgehakt hat",
+    "taskLog": {
+      "title": "Aufgaben-Protokoll",
+      "subtitle": "Jedes Abhaken und Zurücknehmen, und jede angelegte, geänderte, gelöschte oder wiederhergestellte Aufgabe",
+      "retentionHeading": "Protokoll aufbewahren für",
+      "retentionBody": "Ältere Einträge werden bei der nächtlichen Bereinigung entfernt. Wie jeder Tag ausgegangen ist, zeigt der Kalender so oder so.",
+      "keepForever": "Für immer",
+      "oneYear": "Ein Jahr",
+      "days": "{count} Tage",
+      "retentionSaved": "Gespeichert",
+      "retentionFailed": "Aufbewahrungsdauer konnte nicht gespeichert werden",
+      "loadFailed": "Das Protokoll konnte nicht geladen werden.",
+      "retry": "Erneut versuchen",
+      "emptyTitle": "Noch nichts protokolliert",
+      "emptyDescription": "Abgehakte, geänderte und gelöschte Aufgaben erscheinen hier.",
+      "untitled": "Eine Aufgabe",
+      "kind": {
+        "created": "angelegt",
+        "edited": "geändert",
+        "completed": "abgehakt",
+        "uncompleted": "zurückgenommen",
+        "deleted": "gelöscht",
+        "restored": "wiederhergestellt"
+      },
+      "field": {
+        "title": "Titel",
+        "person": "Zuständig",
+        "due_date": "Datum",
+        "priority": "Priorität",
+        "recurrence": "Wiederholung",
+        "icon": "Symbol",
+        "points": "Punkte",
+        "rotation": "Wechsel",
+        "tracking": "Festhalten"
+      },
+      "sourceIntegration": "Home Assistant oder eine andere Integration",
+      "sourceServer": "Kinboard selbst",
+      "sourceUnknownDevice": "Ein Bildschirm",
+      "forDay": "für {day}",
+      "turnOf": "{name} war dran",
+      "showMore": "Mehr anzeigen"
+    }
   },
   "calendar": {
     "caldavToast": {
@@ -2787,7 +2849,8 @@
       "tasksDue": "Fällige Aufgaben",
       "tasksDueCount": "{count, plural, one {# fällige Aufgabe} other {# Aufgaben fällig}}",
       "taskTitle": "✓ {title}",
-      "taskTitleWithPerson": "✓ {title} · {person}"
+      "taskTitleWithPerson": "✓ {title} · {person}",
+      "tasksMissedCount": "{count, plural, one {# nicht erledigt} other {# nicht erledigt}}"
     }
   },
   "weather": {
@@ -3796,7 +3859,8 @@
     "overdue": "Überfällig",
     "today": "Heute",
     "emptyState": "Alles erledigt!",
-    "moreCount": "+{count} weitere"
+    "moreCount": "+{count} weitere",
+    "toastNoTurnOpen": "Der Wechsel dieser Aufgabe hat noch nicht begonnen"
   },
   "shoppingWidget": {
     "loadingAria": "Einkaufsliste wird geladen",

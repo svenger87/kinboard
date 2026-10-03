@@ -1525,6 +1525,8 @@ export function useCreateTodo() {
       recurrence?: string;
       icon?: string | null;
       points?: number;
+      rotation_person_ids?: string[] | null;
+      track_completion?: boolean;
     }) => {
        
       const { data, error } = await (supabase as any)
@@ -1539,6 +1541,8 @@ export function useCreateTodo() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.todos(requireFamilyId(family)) });
       queryClient.invalidateQueries({ queryKey: ["todo-point-awards", requireFamilyId(family)] });
+      queryClient.invalidateQueries({ queryKey: ["todo-history", requireFamilyId(family)] });
+      queryClient.invalidateQueries({ queryKey: ["todo-events", requireFamilyId(family)] });
     },
   });
 }
@@ -1564,6 +1568,8 @@ export function useUpdateTodo() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.todos(requireFamilyId(family)) });
       queryClient.invalidateQueries({ queryKey: ["todo-point-awards", requireFamilyId(family)] });
+      queryClient.invalidateQueries({ queryKey: ["todo-history", requireFamilyId(family)] });
+      queryClient.invalidateQueries({ queryKey: ["todo-events", requireFamilyId(family)] });
     },
   });
 }
@@ -1581,6 +1587,7 @@ export function useDeleteTodo() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.todos(requireFamilyId(family)) });
+      queryClient.invalidateQueries({ queryKey: ["todo-events", requireFamilyId(family)] });
     },
   });
 }

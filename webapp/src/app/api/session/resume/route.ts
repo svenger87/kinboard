@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
   // optimisation lost, not a resume denied.
   let familyToken: { token: string; expiresAt: number } | null = null;
   try {
-    familyToken = mintFamilyToken(row.family_id);
+    familyToken = mintFamilyToken(row.family_id, row.id);
   } catch (err) {
     console.error("[session/resume] could not mint a family token:", err);
   }

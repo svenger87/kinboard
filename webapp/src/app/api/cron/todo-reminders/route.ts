@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendPushToMultiple, isVapidConfigured, DatabaseSubscription } from "@/lib/push-sender";
 import type { PushSubscription, NotificationPreferences } from "@/types/database";
-import { isWeekdayTaskDue, recurrenceWeekdays } from "@/lib/todo-recurrence";
+import { dayKeyIn, isWeekdayTaskDue, recurrenceWeekdays } from "@/lib/todo-recurrence";
+import { isScheduled, isTurnOpen, type TurnFields } from "@/lib/todo-turns";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ const RECURRENCE_DAYS: Record<string, number> = {
   monthly: 30,
 };
 
-interface TodoRow {
+interface TodoRow extends TurnFields {
   id: string;
   family_id: string;
   title: string;
@@ -36,6 +37,9 @@ function isTodoDue(todo: TodoRow, timeZone?: string | null): boolean {
     const dueDate = new Date(todo.due_date);
     return dueDate <= today;
   }
+
+  // Taking turns or tracked (#341): due while the open day is not done.
+  if (isScheduled(todo)) return isTurnOpen(todo, dayKeyIn(now, timeZone));
 
   // Picked weekdays: the shared rule, on the family's own calendar day. Not in
   // RECURRENCE_DAYS, so without this branch such a task never reminded at all.

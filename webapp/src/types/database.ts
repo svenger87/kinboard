@@ -367,6 +367,12 @@ export interface Database {
           last_completed_day: string | null;
           icon: string | null;
           points: number;
+          rotation_person_ids: string[] | null;
+          track_completion: boolean;
+          tracking_started_day: string | null;
+          schedule_start_day: string | null;
+          carry_day: string | null;
+          deleted_at?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -383,6 +389,8 @@ export interface Database {
           last_completed_day?: string | null;
           icon?: string | null;
           points?: number;
+          rotation_person_ids?: string[] | null;
+          track_completion?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -399,9 +407,42 @@ export interface Database {
           last_completed_day?: string | null;
           icon?: string | null;
           points?: number;
+          rotation_person_ids?: string[] | null;
+          track_completion?: boolean;
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
+      };
+      todo_occurrences: {
+        Row: {
+          id: string;
+          family_id: string;
+          todo_id: string;
+          day: string;
+          person_id: string | null;
+          status: "open" | "done" | "missed";
+          completed_at: string | null;
+          created_at: string;
+        };
+        Insert: { [key: string]: never };
+        Update: { [key: string]: never };
+        Relationships: [];
+      };
+      todo_events: {
+        Row: {
+          id: string;
+          family_id: string;
+          todo_id: string | null;
+          kind: "created" | "edited" | "completed" | "uncompleted" | "deleted" | "restored";
+          at: string;
+          device_id: string | null;
+          person_id: string | null;
+          day: string | null;
+          detail: { title?: string; source?: "device" | "integration" | "server"; fields?: string[] };
+        };
+        Insert: { [key: string]: never };
+        Update: { [key: string]: never };
         Relationships: [];
       };
       todo_point_awards: {
@@ -1557,6 +1598,8 @@ export type Room = Database["public"]["Tables"]["rooms"]["Row"];
 export type RoomInsert = Database["public"]["Tables"]["rooms"]["Insert"];
 export type Event = Database["public"]["Tables"]["events"]["Row"];
 export type Todo = Database["public"]["Tables"]["todos"]["Row"];
+export type TodoOccurrence = Database["public"]["Tables"]["todo_occurrences"]["Row"];
+export type TodoEvent = Database["public"]["Tables"]["todo_events"]["Row"];
 export type ShoppingItem = Database["public"]["Tables"]["shopping_items"]["Row"];
 export type Subject = Database["public"]["Tables"]["subjects"]["Row"];
 export type Schedule = Database["public"]["Tables"]["schedules"]["Row"];

@@ -31,6 +31,8 @@ import { layoutDayEvents, visibleHourRange } from "@/lib/calendar-layout";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { useWeekStart } from "@/hooks/use-week-start";
+import { TaskDotMark } from "@/components/calendar/task-dot";
+import type { TaskDot } from "@/lib/calendar-markers";
 import {
   Tooltip,
   TooltipContent,
@@ -60,7 +62,7 @@ interface WeekViewProps {
   /** School breaks (useHolidayEntries' school entries); absent or empty when the option is off. */
   schoolBreaks?: HolidayEntry[];
   /** Person colours with a task due, by local day key; absent when the option is off. */
-  taskMarkers?: Map<string, string[]>;
+  taskMarkers?: Map<string, TaskDot[]>;
 }
 
 const HOUR_HEIGHT = 60; // pixels per hour
@@ -223,9 +225,9 @@ export function WeekView({
                       aria-label={t("markers.tasksDue")}
                       title={t("markers.tasksDue")}
                     >
-                      {taskColors.slice(0, MAX_TASK_DOTS).map((color, i) => (
-                        <span key={`${color}-${i}`} className="size-1.5 sm:size-2 rounded-full" style={{ backgroundColor: color }} />
-                      ))}
+                      {taskColors.slice(0, MAX_TASK_DOTS).map((dot, i) => (
+                            <TaskDotMark key={`${dot.color}-${i}`} dot={dot} className="size-1.5 sm:size-2" />
+                          ))}
                       {taskColors.length > MAX_TASK_DOTS && (
                         <span className="text-3xs text-muted-foreground leading-none">
                           +{taskColors.length - MAX_TASK_DOTS}

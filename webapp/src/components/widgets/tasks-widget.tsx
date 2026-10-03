@@ -23,6 +23,7 @@ import { WidgetCard } from "@/components/widget-card";
 import { ChecklistItem } from "@/components/checklist-item";
 import { comparePriority } from "@/lib/todo-priority";
 import { isTodoOpen } from "@/lib/todo-recurrence";
+import { todayPerson } from "@/lib/todo-turns";
 import { PersonAvatar } from "@/components/person-avatar";
 
 interface TasksWidgetProps {
@@ -116,8 +117,9 @@ export function TasksWidget({
         });
         toast.success(t("toastDoneOneTime"));
       }
-    } catch {
-      toast.error(t("toastUpdateFailed"));
+    } catch (err) {
+      // A task taking turns cannot be ticked before its first day.
+      toast.error((err as { hint?: string })?.hint === "no_open_turn" ? t("toastNoTurnOpen") : t("toastUpdateFailed"));
     }
   };
 
@@ -181,7 +183,8 @@ export function TasksWidget({
         )}
         <motion.div variants={container} initial="hidden" animate="show" className="flex flex-col gap-2">
           {displayTodos.map((todo) => {
-            const person = getPersonName(todo.person_id);
+            // A rotating task is today's person's.
+            const person = getPersonName(todayPerson(todo, toLocalDateKey()));
             const overdue = isOverdue(todo);
             const dueToday = isDueToday(todo);
             return (

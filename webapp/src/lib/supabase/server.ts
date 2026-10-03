@@ -36,8 +36,13 @@ export async function createClient() {
 }
 
 // Admin client with service role key - bypasses RLS
-// Use for API routes that need direct database access
-export function createAdminClient() {
+// Use for API routes that need direct database access.
+//
+// `actor` names who is acting, for the task log: the Integration API passes
+// "integration", which the database reads from the request headers
+// (todo_actor() in migration_zzzzzy_todo_turns.sql). Without it a write
+// with this key is logged as the server's.
+export function createAdminClient(options?: { actor?: "integration" }) {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -50,5 +55,6 @@ export function createAdminClient() {
       autoRefreshToken: false,
       persistSession: false,
     },
+    ...(options?.actor ? { global: { headers: { "x-kinboard-actor": options.actor } } } : {}),
   });
 }

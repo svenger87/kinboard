@@ -126,11 +126,13 @@ import {
   DEFAULT_CALENDAR_DISPLAY,
   holidaysByDay,
   isTaskEventId,
-  taskMarkersByDay,
+  taskDotsByDay,
   taskOccurrencesIn,
   type CalendarDisplaySettings,
 } from "@/lib/calendar-markers";
 import { toLocalDateKey } from "@/lib/local-date";
+import type { DayStatus } from "@/lib/todo-turns";
+import { useTodoHistory } from "@/hooks/use-todo-history";
 import { schoolBreaks, schoolBreaksOn, schoolBreakText } from "@/lib/calendar-school-breaks";
 import { useHolidayRegion } from "@/hooks/use-holiday-region";
 import { useTimeFormat } from "@/hooks/use-time-format";
@@ -318,6 +320,12 @@ export default function CalendarPage() {
   const showTaskMarkers = calendarDisplay?.showTasks ?? false;
   const tasksAsEvents = calendarDisplay?.tasksAsEvents ?? false;
   const { data: todos } = useTodos({ enabled: showTaskMarkers || tasksAsEvents });
+  // How each past day of a tracked task went (#341), for the grid on screen.
+  const { data: todoHistory } = useTodoHistory(
+    toLocalDateKey(new Date(dateRange.start)),
+    toLocalDateKey(new Date(dateRange.end)),
+    { enabled: (showTaskMarkers || tasksAsEvents) && (todos ?? []).some((task) => task.track_completion) },
+  );
   const holidayMarkers = useMemo(
     () =>
       showHolidayMarkers && holidayRegion
@@ -347,14 +355,18 @@ export default function CalendarPage() {
   // treated as events -- the selected day (today when none) and the week after
   // it, which the panel lists and which can lie outside the month being
   // browsed. No name in the title: the panel badges the person already.
-  const taskEvents = useMemo<CalendarEvent[]>(() => {
-    if (!showTaskMarkers && !tasksAsEvents) return [];
+  // With how each tracked day went, by event id, for the grid's dots.
+  const { taskEvents, taskStatusById } = useMemo(() => {
+    const statuses = new Map<string, DayStatus>();
+    if (!showTaskMarkers && !tasksAsEvents) return { taskEvents: [] as CalendarEvent[], taskStatusById: statuses };
     const ranges: [Date, Date][] = [[new Date(dateRange.start), new Date(dateRange.end)]];
     if (tasksAsEvents) {
       const panelDay = startOfDay(selectedDate ?? new Date());
       ranges.push([panelDay, addDays(panelDay, 8)]);
     }
-    return taskOccurrencesIn(todos ?? [], people ?? [], ranges, TASK_UNASSIGNED_COLOR).map((o) => ({
+    const events = taskOccurrencesIn(todos ?? [], people ?? [], ranges, TASK_UNASSIGNED_COLOR, new Date(), todoHistory).map((o): CalendarEvent => {
+      if (o.status) statuses.set(o.id, o.status);
+      return {
       id: o.id,
       title: t("markers.taskTitle", { title: o.title }),
       start: o.date,
@@ -362,8 +374,10 @@ export default function CalendarPage() {
       allDay: true,
       color: o.color,
       person_id: o.personId ?? undefined,
-    }));
-  }, [showTaskMarkers, tasksAsEvents, todos, people, dateRange.start, dateRange.end, selectedDate, t]);
+      };
+    });
+    return { taskEvents: events, taskStatusById: statuses };
+  }, [showTaskMarkers, tasksAsEvents, todos, people, dateRange.start, dateRange.end, selectedDate, t, todoHistory]);
   const { data: googleStatus } = useGoogleCalendarStatus();
   const updateSetting = useUpdateSetting<string>();
   const createEvent = useCreateEvent();
@@ -474,13 +488,17 @@ export default function CalendarPage() {
   const taskMarkers = useMemo(
     () =>
       showTaskMarkers
-        ? taskMarkersByDay(
-            visibleTaskEvents.map((e) => ({ dayKey: toLocalDateKey(e.start), personId: e.person_id ?? null })),
+        ? taskDotsByDay(
+            visibleTaskEvents.map((e) => ({
+              dayKey: toLocalDateKey(e.start),
+              personId: e.person_id ?? null,
+              status: taskStatusById.get(e.id),
+            })),
             people ?? [],
             TASK_UNASSIGNED_COLOR,
           )
         : undefined,
-    [showTaskMarkers, visibleTaskEvents, people],
+    [showTaskMarkers, visibleTaskEvents, people, taskStatusById],
   );
   // The side panel's lists: events, plus tasks when they are treated as
   // events. The grid keeps visibleEvents, with tasks only as dots.

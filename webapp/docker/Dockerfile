@@ -162,6 +162,9 @@ RUN echo '#!/bin/sh' > /usr/local/bin/pocket-money-process-allowance && \
     chmod +x /usr/local/bin/pocket-money-process-allowance
 
 # Add recycle-bin purge cron script
+RUN echo '#!/bin/sh' > /usr/local/bin/close-task-days && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/close-task-days' >> /usr/local/bin/close-task-days && \
+    chmod +x /usr/local/bin/close-task-days
 RUN echo '#!/bin/sh' > /usr/local/bin/purge-recycle-bin && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/purge-recycle-bin' >> /usr/local/bin/purge-recycle-bin && \
     chmod +x /usr/local/bin/purge-recycle-bin

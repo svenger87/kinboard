@@ -69,7 +69,11 @@ export interface ListItem {
 }
 
 /** The extra todo columns a recurring task's status is derived from. */
-export const RECURRENCE_COLUMNS = ["recurrence", "last_completed", "created_at"] as const;
+export const RECURRENCE_COLUMNS = [
+  "recurrence", "last_completed", "created_at",
+  // Taking turns and tracking (#341): a scheduled task is done while its open day is.
+  "last_completed_day", "rotation_person_ids", "track_completion", "schedule_start_day", "carry_day",
+] as const;
 
 /**
  * Map a database row to the wire shape.
@@ -93,6 +97,11 @@ export function toListItem(
     recurrence: (row.recurrence as string | null | undefined) ?? null,
     last_completed: (row.last_completed as string | null | undefined) ?? null,
     created_at: (row.created_at as string | null | undefined) ?? null,
+    last_completed_day: (row.last_completed_day as string | null | undefined) ?? null,
+    rotation_person_ids: (row.rotation_person_ids as string[] | null | undefined) ?? null,
+    track_completion: row.track_completion === true,
+    schedule_start_day: (row.schedule_start_day as string | null | undefined) ?? null,
+    carry_day: (row.carry_day as string | null | undefined) ?? null,
   };
   const done = def.table === "todos" && isRecurring(task)
     ? !isTodoOpen(task, at.now, at.timeZone)

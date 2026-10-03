@@ -24,6 +24,8 @@ import { usePeople, useTodos, useEvents } from "@/hooks";
 import type { Person, Todo, Event } from "@/types/database";
 import { format, startOfDay, addDays, endOfDay, isAfter } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
+import { todayPerson } from "@/lib/todo-turns";
+import { toLocalDateKey } from "@/lib/local-date";
 
 interface FamilyMembersProps {
   className?: string;
@@ -119,7 +121,7 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
 
   const getMemberStatus = (personId: string) => {
     const personTodos = todos?.filter(
-      (t) => t.person_id === personId && !t.completed
+      (t) => todayPerson(t, toLocalDateKey()) === personId && !t.completed
     );
     // Check event's person_id first, then fall back to calendar's person_id
     const personEvents = upcomingEvents?.filter(
@@ -203,7 +205,7 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
       {/* Person Details Dialog */}
       <PersonDetailsDialog
         person={selectedPerson}
-        todos={todos?.filter((t) => t.person_id === selectedPerson?.id && !t.completed) || []}
+        todos={todos?.filter((t) => todayPerson(t, toLocalDateKey()) === selectedPerson?.id && !t.completed) || []}
         events={upcomingEvents?.filter((e) => (e.person_id || e.calendar?.person_id) === selectedPerson?.id) || []}
         onClose={() => setSelectedPerson(null)}
       />

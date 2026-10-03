@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
   // stop a family being created.
   let familyToken: { token: string; expiresAt: number } | null = null;
   try {
-    familyToken = mintFamilyToken(family.id);
+    familyToken = mintFamilyToken(family.id, (device as { id: string }).id);
   } catch (err) {
     console.error("[session/create] could not mint a family token:", err);
   }

@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
   // misconfiguration into "nobody can join", which is how it first surfaced.
   let familyToken: { token: string; expiresAt: number } | null = null;
   try {
-    familyToken = mintFamilyToken(family.id);
+    familyToken = mintFamilyToken(family.id, device.id);
   } catch (err) {
     console.error("[session/join] could not mint a family token:", err);
   }
