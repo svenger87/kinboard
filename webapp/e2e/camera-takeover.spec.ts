@@ -12,6 +12,12 @@ import {
   endedCameraPushes,
   listableCameras,
   parseTakeoverDuration,
+  readCameraListing,
+  readCameraRefs,
+  checkCameraDoorbells,
+  doorbellEntityId,
+  takenDoorbells,
+  DOORBELL_DOMAINS,
   resolveCamera,
   resolveTargetDevices,
   takeoverCamera,
@@ -19,6 +25,7 @@ import {
   type CameraTakeoverRow,
 } from "../src/lib/camera-takeover";
 import { screensaverAllowed } from "../src/lib/screensaver-gate";
+import { splitSecrets } from "../src/lib/integration-secrets";
 
 /**
  * show_camera (#335): Home Assistant puts a camera on the wall displays for a
@@ -48,9 +55,9 @@ const SEED: Record<string, Row[]> = {
       key: "cameras",
       value: {
         cameras: [
-          { id: "cam-garden", name: "Garden", stream_type: "rtsp", stream_url: "rtsp://user:secret@10.0.0.5/garden", enabled: true, position: 2 },
-          { id: "cam-door", name: "Front door", stream_type: "rtsp", stream_url: "rtsp://user:secret@10.0.0.5/door", auth: { username: "u", password: "p", type: "basic" }, enabled: true, position: 1 },
-          { id: "cam-old", name: "Old", stream_type: "mjpeg", stream_url: "http://10.0.0.9/old", enabled: false, position: 0 },
+          { id: "cam-garden", name: "Garden", stream_type: "rtsp", stream_url: "rtsp://user:secret@10.0.0.5/garden", enabled: true, position: 2, doorbell_entity_id: "light.garden_path" },
+          { id: "cam-door", name: "Front door", stream_type: "rtsp", stream_url: "rtsp://user:secret@10.0.0.5/door", auth: { username: "u", password: "p", type: "basic" }, enabled: true, position: 1, doorbell_entity_id: "binary_sensor.front_door_ding" },
+          { id: "cam-old", name: "Old", stream_type: "mjpeg", stream_url: "http://10.0.0.9/old", enabled: false, position: 0, doorbell_entity_id: "event.back_door" },
         ],
       },
     },
@@ -151,11 +158,12 @@ test.describe("show_camera: the rules", () => {
     }
   });
 
-  test("the camera list is enabled cameras in settings order, id and name only", () => {
+  test("the camera list is enabled cameras in settings order, id, name and doorbell only", () => {
     const listed = listableCameras((SEED.settings[0].value as { cameras: never[] }).cameras);
     expect(listed).toEqual([
-      { id: "cam-door", name: "Front door" },
-      { id: "cam-garden", name: "Garden" },
+      { id: "cam-door", name: "Front door", doorbell_entity_id: "binary_sensor.front_door_ding" },
+      // A light is not a doorbell: whatever is stored, it leaves as null.
+      { id: "cam-garden", name: "Garden", doorbell_entity_id: null },
     ]);
     expect(JSON.stringify(listed)).not.toContain("rtsp");
     expect(listableCameras(undefined)).toEqual([]);
@@ -365,5 +373,174 @@ test.describe("show_camera: the wiring", () => {
       expect(push.cameraLiveTitle, locale).toContain("{camera}");
       expect(String(push.cameraLiveBody).length, locale).toBeGreaterThan(0);
     }
+  });
+});
+
+test.describe("a camera's doorbell (the pairs the Home Assistant integration reads)", () => {
+  const read = (...path: string[]) => readFileSync(join(__dirname, "..", ...path), "utf8");
+
+  test("only a well-formed id in the four doorbell domains leaves the server; anything else is null", () => {
+    expect(DOORBELL_DOMAINS).toEqual(["binary_sensor", "event", "button", "input_button"]);
+    for (const good of [
+      "binary_sensor.front_door_ding",
+      "event.doorbell",
+      "button.ring",
+      "input_button.door_bell_2",
+    ]) {
+      expect(doorbellEntityId(good), good).toBe(good);
+    }
+    for (const bad of [
+      "light.porch",
+      "camera.front_door",
+      "sensor.doorbell",
+      "binary_sensor.",
+      "binary_sensor",
+      ".front_door",
+      "Binary_sensor.front",
+      "binary_sensor.Front_Door",
+      "binary_sensor.front-door",
+      " binary_sensor.front",
+      "binary_sensor.front ",
+      "binary_sensor.front\n",
+      "binary_sensor.front.door",
+      "binary_sensor.front?x=1",
+      "rtsp://user:secret@10.0.0.5/door",
+      "",
+      42,
+      true,
+      {},
+      ["binary_sensor.front"],
+      undefined,
+      null,
+    ]) {
+      expect(doorbellEntityId(bad), JSON.stringify(bad)).toBeNull();
+    }
+  });
+
+  test("GET /cameras reads the setting into id, name and doorbell, and nothing that could carry a secret", async () => {
+    const leaky = [
+      { id: "cam-door", name: "Front door", stream_type: "rtsp", stream_url: "rtsp://user:secret@10.0.0.5/door", snapshot_url: "http://admin:hunter2@10.0.0.5/snap.jpg", auth: { username: "u", password: "hunter2", type: "digest" }, webrtc_config: { turn_password: "turnpass" }, enabled: true, position: 0, doorbell_entity_id: "event.front_door" },
+      // A doorbell field someone tried to smuggle a URL through.
+      { id: "cam-yard", name: "Yard", stream_type: "rtsp", stream_url: "rtsp://x", enabled: true, position: 1, doorbell_entity_id: "binary_sensor.x\nrtsp://user:secret@10.0.0.5" },
+      { id: "cam-side", name: "Side", stream_type: "rtsp", stream_url: "rtsp://x", enabled: true, position: 2 },
+      { id: "cam-off", name: "Off", stream_type: "rtsp", stream_url: "rtsp://x", enabled: false, position: 3, doorbell_entity_id: "button.off" },
+    ];
+    const { db } = fakeDb({ settings: [{ family_id: FAMILY, key: "cameras", value: { cameras: leaky } }] });
+    const listed = await readCameraListing(db, FAMILY);
+    expect(listed).toEqual([
+      { id: "cam-door", name: "Front door", doorbell_entity_id: "event.front_door" },
+      { id: "cam-yard", name: "Yard", doorbell_entity_id: null },
+      // Never set: null, present, not missing — the integration can rely on the key.
+      { id: "cam-side", name: "Side", doorbell_entity_id: null },
+      // A disabled camera is not listed, its doorbell with it.
+    ]);
+    for (const camera of listed) expect(Object.keys(camera).sort()).toEqual(["doorbell_entity_id", "id", "name"]);
+    const wire = JSON.stringify({ cameras: listed });
+    for (const secret of ["rtsp", "http", "secret", "hunter2", "turnpass", "10.0.0.5", "password", "auth"]) {
+      expect(wire, secret).not.toContain(secret);
+    }
+    // Another family's cameras are not this family's.
+    expect(await readCameraListing(fakeDb(SEED).db, OTHER_FAMILY)).toEqual([
+      { id: "cam-theirs", name: "Theirs", doorbell_entity_id: null },
+    ]);
+  });
+
+  test("show_camera still resolves and answers with the plain ref", async () => {
+    expect(await readCameraRefs(fakeDb(SEED).db, FAMILY)).toEqual([
+      { id: "cam-door", name: "Front door" },
+      { id: "cam-garden", name: "Garden" },
+    ]);
+    const { status, response } = await call({ camera: "Front door" });
+    expect(status).toBe(200);
+    expect(response.camera).toEqual({ id: "cam-door", name: "Front door" });
+  });
+
+  test("the endpoint serves the listing under `cameras`, behind family:read", () => {
+    const route = read("src", "app", "api", "integration", "v1", "cameras", "route.ts");
+    expect(route).toMatch(/withIntegrationAuth\(request, "family:read"/);
+    expect(route).toMatch(/const cameras = await readCameraListing\(/);
+    expect(route).toMatch(/NextResponse\.json\(\{ cameras \}\)/);
+  });
+
+  test("a save may give a bell to one camera only, and only a real doorbell id", () => {
+    expect(checkCameraDoorbells([
+      { id: "a", name: "Front door", doorbell_entity_id: "binary_sensor.front" },
+      { id: "b", name: "Garden", doorbell_entity_id: null },
+      { id: "c", name: "Side" },
+      { id: "d", name: "Back", doorbell_entity_id: "event.back" },
+    ])).toEqual({ ok: true });
+    // Not a cameras list at all is not this rule's business.
+    expect(checkCameraDoorbells(undefined)).toEqual({ ok: true });
+
+    const twice = checkCameraDoorbells([
+      { id: "a", name: "Front door", doorbell_entity_id: "binary_sensor.front" },
+      { id: "b", name: "Hall", doorbell_entity_id: "binary_sensor.front" },
+    ]);
+    expect(twice.ok).toBe(false);
+    expect(!twice.ok && twice.error).toContain('"Front door"');
+
+    for (const bad of ["light.porch", "binary_sensor.Front", "", 7, "event."]) {
+      const refused = checkCameraDoorbells([{ id: "a", name: "Front door", doorbell_entity_id: bad }]);
+      expect(refused.ok, JSON.stringify(bad)).toBe(false);
+    }
+  });
+
+  test("the picker greys out bells other cameras have, by name, but never the one being edited", () => {
+    const cameras = [
+      { id: "a", name: "Front door", doorbell_entity_id: "binary_sensor.front" },
+      { id: "b", name: "Garden", doorbell_entity_id: "event.garden" },
+      { id: "c", name: "Side", doorbell_entity_id: null },
+      { id: "d", name: "Junk", doorbell_entity_id: "light.porch" },
+    ];
+    expect([...takenDoorbells(cameras, null)]).toEqual([
+      ["binary_sensor.front", "Front door"],
+      ["event.garden", "Garden"],
+    ]);
+    expect([...takenDoorbells(cameras, "a")]).toEqual([["event.garden", "Garden"]]);
+    expect(takenDoorbells(undefined, null).size).toBe(0);
+  });
+
+  test("the doorbell is stored with the camera: a settings save keeps it in the row, not with the secrets", () => {
+    const { publicValue, secretValue } = splitSecrets("cameras", {
+      cameras: [{ id: "a", name: "Front door", auth: { username: "u", password: "p", type: "basic" }, doorbell_entity_id: "binary_sensor.front" }],
+    });
+    expect((publicValue as { cameras: { doorbell_entity_id?: string }[] }).cameras[0].doorbell_entity_id).toBe("binary_sensor.front");
+    expect(JSON.stringify(secretValue ?? {})).not.toContain("binary_sensor");
+  });
+
+  test("the settings save refuses a bad or doubled doorbell before writing anything", () => {
+    const route = read("src", "app", "api", "settings", "route.ts");
+    const put = route.slice(route.indexOf("export async function PUT"), route.indexOf("export async function DELETE"));
+    expect(put).toMatch(/if \(key === SETTINGS_KEYS\.cameras\) \{\s*const doorbells = checkCameraDoorbells\(value\?\.cameras\)/);
+    expect(put).toMatch(/status: 400/);
+    const check = put.indexOf("checkCameraDoorbells(");
+    expect(check).toBeGreaterThan(put.indexOf("familyMatchesSession("));
+    expect(check).toBeLessThan(put.indexOf("upsertSecrets("));
+    expect(check).toBeLessThan(put.indexOf('.from("settings")'));
+  });
+
+  test("the dialog saves the doorbell with the camera and offers only the four domains", () => {
+    const form = read("src", "plugins", "cameras", "drivers", "go2rtc.tsx");
+    expect(form.match(/doorbell_entity_id: doorbellId,/g)?.length).toBe(2);
+    expect(form).toMatch(/DOORBELL_DOMAINS as readonly string\[\]\)\.includes\(e\.domain\)/);
+    expect(form).toMatch(/disabled=\{!haConnected\}/);
+    expect(form).toContain("Home-Assistant#doorbell--camera");
+    // The wiki section the link points at exists under that anchor.
+    expect(read("..", "docs", "wiki", "Home-Assistant.md")).toMatch(/^## Doorbell → camera$/m);
+  });
+
+  test("the doorbell field speaks every language", () => {
+    for (const locale of ["en", "de", "fr"]) {
+      const cams = JSON.parse(read("messages", `${locale}.json`)).settings.cameras;
+      for (const key of ["doorbellLabel", "doorbellNone", "doorbellHint", "doorbellNotConnected", "doorbellTaken", "doorbellBadge", "doorbellDocsLink"]) {
+        expect(String(cams[key] ?? "").length, `${locale}.${key}`).toBeGreaterThan(0);
+      }
+      expect(cams.doorbellHint, locale).toContain("1.2.0");
+      expect(cams.doorbellHint, locale).toContain("announcements:write");
+      expect(cams.doorbellTaken, locale).toContain("{camera}");
+    }
+    expect(JSON.parse(read("messages", "de.json")).settings.cameras.doorbellLabel).toBe(
+      "Auf den Bildschirmen zeigen, wenn es klingelt",
+    );
   });
 });

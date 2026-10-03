@@ -17,6 +17,7 @@ import {
   GripVertical,
   Power,
   PowerOff,
+  Bell,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,13 @@ import {
   useDeleteCamera,
 } from "@/hooks";
 import { useRooms } from "@/hooks/use-rooms-table";
-import type { CameraConfig, CameraSettings, CameraStreamType } from "@/types/home-assistant";
+import { useHomeAssistantEntities, useHomeAssistantStatus } from "@/hooks/use-home-assistant";
+import { EntitySelector } from "@/components/home-assistant/entity-selector";
+import { DOORBELL_DOMAINS, doorbellEntityId, takenDoorbells } from "@/lib/camera-takeover";
+import type { CameraConfig, CameraSettings, CameraStreamType, HAEntity } from "@/types/home-assistant";
+
+/** The wiki section the doorbell field's help links to. */
+const DOORBELL_DOCS_URL = "https://github.com/svenger87/kinboard/wiki/Home-Assistant#doorbell--camera";
 import type { CameraDriver } from "./types";
 
 // ============================================================================
@@ -176,8 +183,28 @@ function Go2rtcConfigForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [roomId, setRoomId] = useState<string | null>(null);
+  const [doorbellId, setDoorbellId] = useState<string | null>(null);
 
   const cameras = settings?.cameras || [];
+
+  // The doorbell picker lists Home Assistant's bells, so it needs a connected
+  // Home Assistant; without one it stays on screen, disabled, and says why.
+  // Entities are fetched only while the dialog is open.
+  const { data: haStatus, isPending: haStatusPending } = useHomeAssistantStatus();
+  const haConnected = !!haStatus?.url && !!haStatus?.access_token;
+  const { data: haEntities = [] } = useHomeAssistantEntities(undefined, haConnected && dialogOpen);
+  const doorbellEntities = haEntities.filter((e) =>
+    (DOORBELL_DOMAINS as readonly string[]).includes(e.domain),
+  );
+  // A saved bell Home Assistant no longer lists (renamed, removed, or HA not
+  // connected) is still shown as the current choice, by its id, so opening the
+  // dialog never makes it look as if there were none.
+  if (doorbellId && !doorbellEntities.some((e) => e.entity_id === doorbellId)) {
+    doorbellEntities.unshift(placeholderEntity(doorbellId));
+  }
+  // One bell shows one camera: a bell another camera has is listed, greyed
+  // out, with that camera's name.
+  const takenBells = takenDoorbells(cameras, editingCamera?.id);
 
   const resetForm = () => {
     setName("");
@@ -190,6 +217,7 @@ function Go2rtcConfigForm() {
     setUsername("");
     setPassword("");
     setRoomId(null);
+    setDoorbellId(null);
     setError("");
     setEditingCamera(null);
   };
@@ -210,6 +238,7 @@ function Go2rtcConfigForm() {
     setUsername(camera.auth?.username || "");
     setPassword(camera.auth?.password || "");
     setRoomId(camera.room_id ?? null);
+    setDoorbellId(doorbellEntityId(camera.doorbell_entity_id));
     setError("");
     setDialogOpen(true);
   };
@@ -225,6 +254,10 @@ function Go2rtcConfigForm() {
     }
     if (authEnabled && (!username.trim() || !password.trim())) {
       setError(t("errorCredentialsRequired"));
+      return;
+    }
+    if (doorbellId && takenBells.has(doorbellId)) {
+      setError(t("doorbellTaken", { camera: takenBells.get(doorbellId) ?? "" }));
       return;
     }
 
@@ -243,6 +276,7 @@ function Go2rtcConfigForm() {
             snapshot_url: snapshotUrl.trim() || undefined,
             auth: authConfig,
             room_id: roomId,
+            doorbell_entity_id: doorbellId,
           },
         });
       } else {
@@ -253,6 +287,7 @@ function Go2rtcConfigForm() {
           snapshot_url: snapshotUrl.trim() || undefined,
           auth: authConfig,
           room_id: roomId,
+          doorbell_entity_id: doorbellId,
           enabled: true,
         });
       }
@@ -329,6 +364,17 @@ function Go2rtcConfigForm() {
                           <Badge variant="outline" className="text-xs">
                             {camera.stream_type.toUpperCase()}
                           </Badge>
+                          {doorbellEntityId(camera.doorbell_entity_id) && (
+                            <span
+                              role="img"
+                              data-testid="camera-doorbell-indicator"
+                              aria-label={t("doorbellBadge", { doorbell: camera.doorbell_entity_id! })}
+                              title={t("doorbellBadge", { doorbell: camera.doorbell_entity_id! })}
+                              className="shrink-0 text-muted-foreground"
+                            >
+                              <Bell className="size-3.5" aria-hidden="true" />
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground truncate">
                           {camera.stream_url}
@@ -493,6 +539,43 @@ function Go2rtcConfigForm() {
               </div>
             )}
 
+            <EntitySelector
+              id="camera-doorbell"
+              label={t("doorbellLabel")}
+              value={doorbellId ?? undefined}
+              onChange={(value) => setDoorbellId(value || null)}
+              entities={doorbellEntities}
+              disabled={!haConnected}
+              unavailableReason={(entity) => {
+                const owner = takenBells.get(entity.entity_id);
+                return owner !== undefined ? t("doorbellTaken", { camera: owner }) : undefined;
+              }}
+              searchPlaceholder={t("doorbellSearchPlaceholder")}
+              noneLabel={t("doorbellNone")}
+              selectPlaceholder={t("doorbellSelectPlaceholder")}
+              moreCountLabel={(count) => t("doorbellMoreCount", { count })}
+              description={
+                <>
+                  {!haConnected && !haStatusPending && (
+                    <p className="mb-1 text-foreground" data-testid="camera-doorbell-not-connected">
+                      {t("doorbellNotConnected")}
+                    </p>
+                  )}
+                  <p>
+                    {t("doorbellHint")}{" "}
+                    <a
+                      href={DOORBELL_DOCS_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      {t("doorbellDocsLink")}
+                    </a>
+                  </p>
+                </>
+              }
+            />
+
             <div className="flex flex-col gap-2">
               <Label htmlFor="stream-type">{t("streamTypeLabel")}</Label>
               <Select value={streamType} onValueChange={(v) => setStreamType(v as CameraStreamType)}>
@@ -633,6 +716,18 @@ function Go2rtcConfigForm() {
       </Dialog>
     </div>
   );
+}
+
+/** A saved doorbell Home Assistant does not list (any more), shown by its id. */
+function placeholderEntity(entityId: string): HAEntity {
+  return {
+    entity_id: entityId,
+    domain: entityId.split(".")[0],
+    name: entityId,
+    state: "unavailable",
+    attributes: {},
+    last_changed: "",
+  };
 }
 
 // ============================================================================

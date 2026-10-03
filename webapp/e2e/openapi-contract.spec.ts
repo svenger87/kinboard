@@ -5,6 +5,7 @@ import { ACTION_STATUS_SCOPES } from "../src/lib/home/action-requests";
 import yaml from "js-yaml";
 import { API_ERROR_CODES } from "../src/lib/api-error";
 import { INTEGRATION_SCOPES } from "../src/lib/integration-auth";
+import { DOORBELL_DOMAINS, DOORBELL_ENTITY_PATTERN } from "../src/lib/camera-takeover";
 import {
   DEFERRED_SERVICES,
   IMPLEMENTED_SERVICES,
@@ -182,5 +183,30 @@ test.describe("the spec says the things a consumer has to get right", () => {
     };
     const limit = get.parameters.find((p) => p.name === "limit");
     expect(limit?.schema?.maximum).toBe(200);
+  });
+
+  test("GET /cameras lists each camera's doorbell with the server's own rule, and nothing else", () => {
+    // The Home Assistant integration codes against this shape: a doorbell
+    // pattern here looser or stricter than the server's would let one side
+    // accept what the other refuses.
+    const schemas = spec.components.schemas as Record<
+      string,
+      { required?: string[]; properties?: Record<string, { type?: unknown; pattern?: string; $ref?: string }> }
+    >;
+    const get = (spec.paths["/cameras"] as Record<string, unknown>).get as {
+      responses: { "200": { content: { "application/json": { schema: { properties: { cameras: { items: { $ref: string } } } } } } } };
+    };
+    expect(get.responses["200"].content["application/json"].schema.properties.cameras.items.$ref).toBe(
+      "#/components/schemas/CameraListing",
+    );
+    const listing = schemas.CameraListing;
+    expect(Object.keys(listing.properties ?? {}).sort()).toEqual(["doorbell_entity_id", "id", "name"]);
+    expect(listing.required?.sort()).toEqual(["doorbell_entity_id", "id", "name"]);
+    const bell = listing.properties!.doorbell_entity_id;
+    expect(bell.type).toEqual(["string", "null"]);
+    expect(bell.pattern).toBe(DOORBELL_ENTITY_PATTERN.source);
+    for (const domain of DOORBELL_DOMAINS) expect(bell.pattern).toContain(domain);
+    // show_camera still answers with the plain ref.
+    expect(Object.keys(schemas.CameraRef.properties ?? {}).sort()).toEqual(["id", "name"]);
   });
 });

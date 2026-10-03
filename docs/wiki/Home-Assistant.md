@@ -182,11 +182,15 @@ When the doorbell rings, an automation can put a camera on the wall displays
 for a minute — full screen, live and muted — and push it to every phone. The
 displays go back to what they were showing on their own; a tap closes it sooner.
 
+The simplest way is to pick the doorbell on the camera itself and let the
+integration do the rest — see [Doorbell → camera](#doorbell--camera) below.
+Without the integration, or for an automation of your own, `show_camera` can be
+called directly.
+
 It needs a token with `announcements:write`, and `family:read` to list the
-cameras: `GET /api/integration/v1/cameras` returns each camera's id and name,
-and `show_camera` takes either. Until the integration offers it as an action, a
-`rest_command` calls it directly. Every write needs its own `Idempotency-Key`,
-so the header is a template:
+cameras: `GET /api/integration/v1/cameras` returns each camera's id, name and
+doorbell, and `show_camera` takes the id or the name. A `rest_command` calls it.
+Every write needs its own `Idempotency-Key`, so the header is a template:
 
 ```yaml
 rest_command:
@@ -213,6 +217,66 @@ Then add `action: rest_command.kinboard_show_camera` to the doorbell automation.
   `Idempotency-Key`.
 - If the push is still waiting to go out when the camera goes back, it is
   dropped rather than arriving late.
+
+## Doorbell → camera
+
+Tell Kinboard which doorbell belongs to which camera, and the Kinboard
+integration for Home Assistant puts that camera on the wall displays whenever
+the bell rings — no automation to write.
+
+### In Kinboard
+
+1. Settings → Cameras, then add a camera or edit one.
+2. Under **Show on the screens when this rings**, pick the doorbell. The list
+   shows Home Assistant's `binary_sensor`, `event`, `button` and
+   `input_button` entities — most doorbells are a `binary_sensor` (a wired or
+   Ring/Nest-style bell) or an `event` (Reolink, UniFi Protect and newer
+   integrations).
+3. Save. A small bell next to the camera in the list shows it has one.
+
+Home Assistant has to be connected (Settings → Home Assistant) for the list to
+fill; until it is, the field is there but greyed out. A bell belongs to one
+camera: one that another camera already has is greyed out with that camera's
+name. Set it to **None** to stop.
+
+Kinboard itself never listens to Home Assistant. It only stores the pair; the
+integration reads it.
+
+### What the integration does
+
+The integration reads the pairs from `GET /api/integration/v1/cameras`, watches
+those entities, and when one rings calls `show_camera` for its camera: the wall
+displays show it full screen for a minute and every phone gets a push, exactly
+as described [above](#a-camera-on-the-wall-displays).
+
+It needs:
+
+- **integration version 1.2.0 or newer** — older versions ignore the pairing;
+- a token with **`announcements:write`** ("send messages") as well as
+  `family:read`. A token made before you wanted this can't be given more
+  permissions; create a new one and reconfigure the integration in Home Assistant with it.
+
+What "rings" means depends on the entity: a `binary_sensor` turning on, a new
+`event`, a `button` or `input_button` being pressed.
+
+### Without the integration
+
+Use the `rest_command` from [A camera on the wall displays](#a-camera-on-the-wall-displays)
+and trigger it from the doorbell yourself:
+
+```yaml
+automation:
+  - alias: "Doorbell shows the front door camera"
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.front_door_ding
+        to: "on"
+    actions:
+      - action: rest_command.kinboard_show_camera
+```
+
+Leave the doorbell field on **None** in that case, or the integration (if you
+add it later) and your automation would both fire.
 
 ## For other clients
 

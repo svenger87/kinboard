@@ -769,11 +769,15 @@ paths:
       summary: The family's cameras, as show_camera takes them
       description: |
         Every enabled camera from Settings → Cameras, in the order the
-        settings page shows them: its id and its name, and nothing else. A
-        camera's stream URL names the household's network and often carries
-        its credentials, so it never leaves the server.
+        settings page shows them: its id, its name and the Home Assistant
+        doorbell that shows it, and nothing else. A camera's stream URL names
+        the household's network and often carries its credentials, so it never
+        leaves the server. A disabled camera is not listed.
 
-        `show_camera` takes either the `id` or the exact `name`.
+        `show_camera` takes either the `id` or the exact `name`. The Kinboard
+        integration for Home Assistant reads `doorbell_entity_id` and calls
+        `show_camera` with that camera when the bell rings; Kinboard itself
+        does not watch Home Assistant.
       x-required-scope: family:read
       responses:
         "200":
@@ -786,7 +790,7 @@ paths:
                 properties:
                   cameras:
                     type: array
-                    items: { $ref: "#/components/schemas/CameraRef" }
+                    items: { $ref: "#/components/schemas/CameraListing" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
@@ -2646,6 +2650,27 @@ components:
       properties:
         id: { type: string }
         name: { type: string }
+
+    CameraListing:
+      type: object
+      description: |
+        A camera as `GET /cameras` lists it: its `CameraRef` plus the doorbell
+        chosen for it in Settings → Cameras. Never its stream URL or
+        credentials.
+      required: [id, name, doorbell_entity_id]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        doorbell_entity_id:
+          type: [string, "null"]
+          pattern: "^(binary_sensor|event|button|input_button)\\.[a-z0-9_]+$"
+          description: |
+            The Home Assistant entity that shows this camera when it rings —
+            a `binary_sensor`, `event`, `button` or `input_button` — or `null`
+            when none is set. One entity belongs to at most one camera. A
+            stored value that is not a well-formed id in those domains is
+            listed as `null`, never passed through.
+          examples: ["binary_sensor.front_door_ding"]
 
     ShowCameraArgs:
       type: object

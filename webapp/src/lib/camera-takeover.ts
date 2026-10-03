@@ -44,6 +44,85 @@ export interface CameraRef {
   name: string;
 }
 
+/**
+ * A camera as `GET /cameras` lists it: a `CameraRef` plus the doorbell that
+ * shows it. The Kinboard integration for Home Assistant reads these pairs and
+ * calls `show_camera` when that bell rings; Kinboard itself never listens to
+ * Home Assistant. `show_camera` still answers with a plain `CameraRef`.
+ */
+export interface CameraListing extends CameraRef {
+  doorbell_entity_id: string | null;
+}
+
+/**
+ * What can ring: a doorbell is a `binary_sensor` (most wired bells), an
+ * `event` (Reolink, UniFi Protect and newer integrations), or a `button` /
+ * `input_button` (a helper an automation presses). The picker offers these
+ * domains and nothing else, and the server refuses anything else.
+ */
+export const DOORBELL_DOMAINS = ["binary_sensor", "event", "button", "input_button"] as const;
+export const DOORBELL_ENTITY_PATTERN = /^(binary_sensor|event|button|input_button)\.[a-z0-9_]+$/;
+
+/**
+ * A camera's doorbell as the integration is given it: a well-formed entity id
+ * in one of the four domains, or null. Settings saves refuse anything else,
+ * but a row written before that rule, or by hand, is not trusted to have been
+ * through it — whatever leaves the server is checked here, on the way out.
+ */
+export function doorbellEntityId(raw: unknown): string | null {
+  return typeof raw === "string" && DOORBELL_ENTITY_PATTERN.test(raw) ? raw : null;
+}
+
+/**
+ * The rule a save of the `cameras` setting must pass: every doorbell set is a
+ * well-formed id in one of the four domains, and no bell is given to two
+ * cameras — one ring shows one camera, so the integration never has to pick.
+ * Absent or null means "no doorbell". The error names both cameras so the
+ * person who hits it knows which one to change.
+ */
+export function checkCameraDoorbells(
+  cameras: unknown,
+): { ok: true } | { ok: false; error: string } {
+  if (!Array.isArray(cameras)) return { ok: true };
+  const owner = new Map<string, string>();
+  for (const camera of cameras) {
+    if (!camera || typeof camera !== "object") continue;
+    const raw = (camera as { doorbell_entity_id?: unknown }).doorbell_entity_id;
+    if (raw === undefined || raw === null) continue;
+    const name = String((camera as { name?: unknown }).name ?? (camera as { id?: unknown }).id ?? "?");
+    if (doorbellEntityId(raw) === null) {
+      return {
+        ok: false,
+        error: `"${name}": doorbell_entity_id must be a ${DOORBELL_DOMAINS.join(", ")} entity id, or null`,
+      };
+    }
+    const taken = owner.get(raw as string);
+    if (taken !== undefined) {
+      return { ok: false, error: `${raw} already shows "${taken}"; a doorbell shows one camera` };
+    }
+    owner.set(raw as string, name);
+  }
+  return { ok: true };
+}
+
+/**
+ * The cameras that already have each doorbell, for the picker: which bells to
+ * offer as taken, and by whom. The camera being edited is left out, so its own
+ * bell stays selectable.
+ */
+export function takenDoorbells(
+  cameras: readonly Partial<Pick<CameraConfig, "id" | "name" | "doorbell_entity_id">>[] | null | undefined,
+  editingId: string | null | undefined,
+): Map<string, string> {
+  const taken = new Map<string, string>();
+  for (const c of cameras ?? []) {
+    if (c.id === editingId) continue;
+    const bell = doorbellEntityId(c.doorbell_entity_id);
+    if (bell && !taken.has(bell)) taken.set(bell, c.name ?? "");
+  }
+  return taken;
+}
+
 /** A device as `target_devices` can name it. */
 export interface DeviceRef {
   id: string;
@@ -140,25 +219,33 @@ export function resolveTargetDevices(
 
 /**
  * The cameras a family has set up, enabled ones in the order the settings page
- * shows them: id and name, and nothing else. A camera's stream URL names the
- * household's network and often carries its credentials, so it is dropped
- * here rather than trusted to be left out by whoever serialises the result.
+ * shows them: id, name and doorbell, and nothing else. A camera's stream URL
+ * names the household's network and often carries its credentials, so it is
+ * dropped here rather than trusted to be left out by whoever serialises the
+ * result — the output is built field by field, never spread from the input.
  */
 export function listableCameras(
-  cameras: readonly Partial<Pick<CameraConfig, "id" | "name" | "enabled" | "position">>[] | null | undefined,
-): CameraRef[] {
+  cameras:
+    | readonly Partial<Pick<CameraConfig, "id" | "name" | "enabled" | "position" | "doorbell_entity_id">>[]
+    | null
+    | undefined,
+): CameraListing[] {
   return [...(cameras ?? [])]
     .filter((c) => c.enabled !== false && typeof c.id === "string" && typeof c.name === "string")
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-    .map((c) => ({ id: c.id as string, name: c.name as string }));
+    .map((c) => ({
+      id: c.id as string,
+      name: c.name as string,
+      doorbell_entity_id: doorbellEntityId(c.doorbell_entity_id),
+    }));
 }
 
 /**
- * The family's cameras as `listableCameras` gives them. Read from the raw
- * `cameras` setting on purpose: once saved, a camera's password lives in
- * integration_secrets, and nothing here needs it.
+ * The family's cameras as `listableCameras` gives them, for `GET /cameras`.
+ * Read from the raw `cameras` setting on purpose: once saved, a camera's
+ * password lives in integration_secrets, and nothing here needs it.
  */
-export async function readCameraRefs(db: any, familyId: string): Promise<CameraRef[]> {
+export async function readCameraListing(db: any, familyId: string): Promise<CameraListing[]> {
   const { data, error } = await db
     .from("settings")
     .select("value")
@@ -167,6 +254,11 @@ export async function readCameraRefs(db: any, familyId: string): Promise<CameraR
     .maybeSingle();
   if (error) throw error;
   return listableCameras((data?.value as { cameras?: CameraConfig[] } | null | undefined)?.cameras);
+}
+
+/** The same cameras as `show_camera` resolves and answers with them: id and name. */
+export async function readCameraRefs(db: any, familyId: string): Promise<CameraRef[]> {
+  return (await readCameraListing(db, familyId)).map(({ id, name }) => ({ id, name }));
 }
 
 /**

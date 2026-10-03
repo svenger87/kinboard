@@ -588,6 +588,14 @@ export interface CameraConfig {
    * drops back to /cameras only.
    */
   room_id?: string | null;
+  /**
+   * The Home Assistant doorbell that puts this camera on the wall displays:
+   * a `binary_sensor.`, `event.`, `button.` or `input_button.` entity id.
+   * Kinboard never listens to Home Assistant; the Kinboard integration reads
+   * this from `GET /api/integration/v1/cameras` and calls `show_camera` when
+   * it rings. One bell shows at most one camera (checkCameraDoorbells).
+   */
+  doorbell_entity_id?: string | null;
 }
 
 export interface CameraSettings {

@@ -12,6 +12,7 @@ import {
 } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { checkCameraDoorbells } from "@/lib/camera-takeover";
 
 // Every verb here reads or writes one family's settings row, and the family
 // was picked entirely by the caller. That covered integration config — Home
@@ -122,6 +123,16 @@ export async function PUT(request: NextRequest) {
 
   if (!familyMatchesSession(auth.session, family_id)) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
+  }
+
+  // A camera's doorbell is read by the Home Assistant integration, which calls
+  // show_camera when it rings: a malformed id, or one bell on two cameras,
+  // would be stored here and acted on there. Refused before anything is written.
+  if (key === SETTINGS_KEYS.cameras) {
+    const doorbells = checkCameraDoorbells(value?.cameras);
+    if (!doorbells.ok) {
+      return NextResponse.json({ error: doorbells.error }, { status: 400 });
+    }
   }
 
   const supabase = createAdminClient();

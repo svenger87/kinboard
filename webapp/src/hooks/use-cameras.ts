@@ -97,7 +97,13 @@ export function useSaveCameraSettings() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to save camera settings");
+        // The server names what it refused — a doorbell another camera
+        // already has, say — so that, not a generic failure, is what the
+        // dialog shows.
+        const body = await response.json().catch(() => null);
+        throw new Error(
+          typeof body?.error === "string" ? body.error : "Failed to save camera settings",
+        );
       }
 
       return response.json();

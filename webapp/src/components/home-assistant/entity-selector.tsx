@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,17 @@ import type { HAEntity } from "@/types/home-assistant";
 
 export interface EntitySelectorProps {
   label: string;
-  description: string;
+  description: ReactNode;
+  /** Ties the label to the trigger, for screen readers and for tests. */
+  id?: string;
+  /** The whole picker greyed out — e.g. nothing to pick from until Home Assistant is connected. */
+  disabled?: boolean;
+  /**
+   * A reason an entity cannot be picked, or undefined when it can. An entity
+   * with a reason is still listed, greyed out with the reason under it, so
+   * the person sees why rather than wondering where it went.
+   */
+  unavailableReason?: (entity: HAEntity) => string | undefined;
   value: string | undefined;
   onChange: (value: string) => void;
   entities: HAEntity[];
@@ -42,6 +52,9 @@ export interface EntitySelectorProps {
 export function EntitySelector({
   label,
   description,
+  id,
+  disabled,
+  unavailableReason,
   value,
   onChange,
   entities,
@@ -99,10 +112,17 @@ export function EntitySelector({
 
   return (
     <div className="flex flex-col gap-2">
-      <Label>{label}</Label>
-      <Select value={value || "__none__"} onValueChange={handleChange}>
-        <SelectTrigger>
-          <SelectValue placeholder={selectPlaceholder} />
+      <Label htmlFor={id}>{label}</Label>
+      <Select value={value || "__none__"} onValueChange={handleChange} disabled={disabled}>
+        <SelectTrigger id={id}>
+          {/*
+            The name alone in the closed picker. Left to itself the trigger
+            repeats the whole item — name, id and any note — which does not
+            fit one line.
+          */}
+          <SelectValue placeholder={selectPlaceholder}>
+            {value ? (currentEntity?.name ?? value) : noneLabel}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <div className="flex items-center px-2 pb-2">
@@ -127,16 +147,20 @@ export function EntitySelector({
               return a.name.localeCompare(b.name);
             })
             .slice(0, 100)
-            .map((entity) => (
-              <SelectItem key={entity.entity_id} value={entity.entity_id}>
-                <div className="flex flex-col">
-                  <span>{entity.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {entity.entity_id}
-                  </span>
-                </div>
-              </SelectItem>
-            ))}
+            .map((entity) => {
+              const reason = unavailableReason?.(entity);
+              return (
+                <SelectItem key={entity.entity_id} value={entity.entity_id} disabled={!!reason}>
+                  <div className="flex flex-col">
+                    <span>{entity.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {entity.entity_id}
+                    </span>
+                    {reason && <span className="text-xs text-muted-foreground">{reason}</span>}
+                  </div>
+                </SelectItem>
+              );
+            })}
           {filteredEntities.length > 100 && (
             <div className="px-2 py-1 text-xs text-muted-foreground">
               {moreCountLabel(filteredEntities.length - 100)}
@@ -144,7 +168,7 @@ export function EntitySelector({
           )}
         </SelectContent>
       </Select>
-      <p className="text-xs text-muted-foreground">{description}</p>
+      <div className="text-xs text-muted-foreground">{description}</div>
     </div>
   );
 }
