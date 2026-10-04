@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dbContainer } from "./whole-database";
+import { postJoin } from "./session";
 
 /**
  * The browser client reads and writes `school_holidays` directly through
@@ -69,14 +70,11 @@ test.describe("through Kong, as the browser", () => {
 
     await page.goto("/join", { waitUntil: "domcontentloaded" });
     const env = await page.evaluate(() => (window as unknown as { __ENV: Record<string, string> }).__ENV);
-    const joined = await page.evaluate(async ({ code, hardwareId }) => {
-      const res = await fetch("/api/session/join", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ joinCode: code, hardwareId, deviceName: "claude-grants" }),
-      });
-      return res.json();
-    }, { code: FAMILY_CODE, hardwareId });
+    // Through postJoin, which waits out a 429: the CI run joins from one IP for
+    // every spec, and a single plain fetch here failed on the join limit alone.
+    const joinRes = await postJoin(page.request, { joinCode: FAMILY_CODE, hardwareId, deviceName: "claude-grants" });
+    expect(joinRes.ok(), await joinRes.text()).toBe(true);
+    const joined = await joinRes.json();
     const familyId: string = joined.family.id;
     const rest = (method: string, path: string, data?: unknown) =>
       page.request.fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${path}`, {

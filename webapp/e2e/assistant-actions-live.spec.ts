@@ -476,18 +476,18 @@ test("home: catalogue only, run or confirm, approve with the PIN, deny without i
   try {
     const context = await browser.newContext({ baseURL: BASE, serviceWorkers: "block", viewport: { width: 1440, height: 810 } });
     const page = await context.newPage();
-    await page.goto("/join", { waitUntil: "domcontentloaded" });
-    const failure = await page.evaluate(async ({ code, hardwareId }) => {
-      const res = await fetch("/api/session/join", {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ joinCode: code, hardwareId, deviceName: hardwareId }),
-      });
-      if (!res.ok) return `join failed: ${res.status}`;
-      const data = await res.json();
-      document.cookie = "family-calendar-storage=" + encodeURIComponent(JSON.stringify({ state: { family: data.family, device: data.device }, version: 0 })) + "; path=/; max-age=86400";
-      return null;
-    }, { code: FAMILY_CODE!, hardwareId: `${P}webkit-${Date.now()}` });
-    expect(failure).toBeNull();
+    // postJoin waits out a 429 from the join limit; page.request shares the
+    // context's cookies, so the session cookie lands where the page needs it.
+    // The client store cookie AuthGuard reads is added alongside.
+    const hardwareId = `${P}webkit-${Date.now()}`;
+    const joined = await postJoin(page.request, { joinCode: FAMILY_CODE!, hardwareId, deviceName: hardwareId });
+    expect(joined.ok(), await joined.text()).toBe(true);
+    const data = await joined.json();
+    await context.addCookies([{
+      name: "family-calendar-storage",
+      value: encodeURIComponent(JSON.stringify({ state: { family: data.family, device: data.device }, version: 0 })),
+      url: BASE,
+    }]);
     // Opened first, so the page is compiled and listening before the request exists.
     await page.goto("/calendar", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("assistant-action-overlay")).toHaveCount(0);

@@ -992,7 +992,12 @@ export default function MealPlannerPage() {
         {/* Background */}
         <div className="page-gradient" />
 
-        <div className="relative z-10 p-4 md:p-8 max-w-7xl mx-auto safe-area-inset">
+        {/* `has-fab` reserves room under the last day for the phone's add
+            button. Without it the last day of the week ended at the bottom of
+            the scroll with its meals' option menus underneath the FAB, so they
+            could not be tapped: a Monday-start household lost Sunday's menu,
+            a Sunday-start one Saturday's. Same fix as the dashboard (KB-04). */}
+        <div className="has-fab relative z-10 p-4 md:p-8 max-w-7xl mx-auto safe-area-inset">
           <PageHeader
             icon={Calendar}
             title={t("title")}
