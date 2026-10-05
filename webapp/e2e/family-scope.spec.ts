@@ -138,7 +138,9 @@ test("no dynamic API route uses the admin client without a family filter", () =>
   const unscoped = routes.filter((file) => {
     const source = readFileSync(file, "utf8");
     if (!source.includes("createAdminClient")) return false;
-    return !/family_id|familyIdFrom|rowInFamily|accountInFamily/.test(source);
+    // `auth.session.familyId`: the family is the session's own, handed to the
+    // query or to a database function that filters on it (p_family_id).
+    return !/family_id|familyIdFrom|rowInFamily|accountInFamily|auth\.session\.familyId/.test(source);
   });
 
   expect(unscoped.map((f) => f.slice(root.length + 1))).toEqual([]);

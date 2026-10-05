@@ -1393,6 +1393,72 @@ export interface Database {
         };
         Relationships: [];
       };
+      point_rewards: {
+        Row: {
+          id: string;
+          family_id: string;
+          title: string;
+          cost_points: number;
+          icon: string | null;
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          title: string;
+          cost_points: number;
+          icon?: string | null;
+          active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          cost_points?: number;
+          icon?: string | null;
+          active?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      point_redemptions: {
+        Row: {
+          id: string;
+          family_id: string;
+          account_id: string;
+          reward_id: string | null;
+          title: string;
+          icon: string | null;
+          cost_points: number;
+          status: "pending" | "approved" | "denied";
+          requested_by_device_id: string | null;
+          decided_at: string | null;
+          decided_by_device_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          account_id: string;
+          reward_id?: string | null;
+          title: string;
+          icon?: string | null;
+          cost_points: number;
+          status?: "pending" | "approved" | "denied";
+          requested_by_device_id?: string | null;
+          decided_at?: string | null;
+          decided_by_device_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          status?: "pending" | "approved" | "denied";
+          decided_at?: string | null;
+          decided_by_device_id?: string | null;
+        };
+        Relationships: [];
+      };
       pocket_money_accounts: {
         Row: {
           id: string;
@@ -1414,6 +1480,7 @@ export interface Database {
           lifetime_saved_cents: number;
           last_seen_tier: number;
           best_tier: number;
+          reward_mode: "money" | "points";
           created_at: string;
           updated_at: string;
         };
@@ -1437,6 +1504,7 @@ export interface Database {
           lifetime_saved_cents?: number;
           last_seen_tier?: number;
           best_tier?: number;
+          reward_mode?: "money" | "points";
           created_at?: string;
           updated_at?: string;
         };
@@ -1460,6 +1528,7 @@ export interface Database {
           lifetime_saved_cents?: number;
           last_seen_tier?: number;
           best_tier?: number;
+          reward_mode?: "money" | "points";
           created_at?: string;
           updated_at?: string;
         };
@@ -1662,6 +1731,8 @@ export type PocketMoneyGoalInsert = Database["public"]["Tables"]["pocket_money_g
 export type PocketMoneyGoalUpdate = Database["public"]["Tables"]["pocket_money_goals"]["Update"];
 export type PocketMoneyWithdrawalRequest = Database["public"]["Tables"]["pocket_money_withdrawal_requests"]["Row"];
 export type PocketMoneyWithdrawalRequestInsert = Database["public"]["Tables"]["pocket_money_withdrawal_requests"]["Insert"];
+export type PointReward = Database["public"]["Tables"]["point_rewards"]["Row"];
+export type PointRedemption = Database["public"]["Tables"]["point_redemptions"]["Row"];
 
 // Recipe instruction type
 export interface RecipeInstruction {

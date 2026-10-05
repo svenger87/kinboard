@@ -4,6 +4,7 @@ import type { PocketMoneyAccountUpdate } from "@/types/database";
 import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { familyIdFrom, rowInFamily, accountInFamily } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { requireSettingsUnlock } from "@/lib/settings-pin";
 
 export const dynamic = "force-dynamic";
 
@@ -85,10 +86,23 @@ export async function PATCH(
     }
     update.avatar_species = body.avatar_species;
   }
+  // What the avatar grows with (discussion #349). A parent's choice, so it
+  // takes the settings PIN even though the rest of this route does not: the
+  // child's own screen writes last_seen_tier here.
+  if (body.reward_mode !== undefined) {
+    if (body.reward_mode !== "money" && body.reward_mode !== "points") {
+      return NextResponse.json({ error: "reward_mode must be money or points" }, { status: 400 });
+    }
+    const locked = await requireSettingsUnlock(auth.session);
+    if (locked) return locked;
+    update.reward_mode = body.reward_mode;
+  }
   if (body.last_seen_tier !== undefined) update.last_seen_tier = body.last_seen_tier;
   // The avatar's high-water mark. Client-written because it's derived
-  // from the balance the client just rendered; the route clamps it to a
-  // valid stage so a bad value can't push the badge past stage 8.
+  // from the balance (or, in points mode, the points) the client just
+  // rendered; the route clamps it to a valid stage so a bad value can't push
+  // the badge past stage 8, and the database never lets it go down
+  // (pocket_money_accounts_best_tier_climbs).
   if (body.best_tier !== undefined) {
     update.best_tier = Math.min(8, Math.max(1, Math.floor(Number(body.best_tier) || 1)));
   }

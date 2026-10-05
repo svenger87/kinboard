@@ -56,8 +56,12 @@ test.describe("migrations", () => {
     const self = "migration_zzzzzz_families_server_only.sql";
     const touching = readdirSync(DOCKER)
       .filter((f) => /^migration.*\.sql$/.test(f) && f !== self)
+      // A foreign key to families (`REFERENCES public.families(id)`) grants
+      // nothing on it, so a later table that belongs to a family need not
+      // sort before the revoke; anything else naming the table does.
       .filter((f) => /\bpublic\.families\b|\bON\s+families\b|\bTABLE\s+families\b/i.test(
-        codeOnly(readFileSync(join(DOCKER, f), "utf8"), { sql: true })))
+        codeOnly(readFileSync(join(DOCKER, f), "utf8"), { sql: true })
+          .replace(/\bREFERENCES\s+public\.families\s*\(\s*id\s*\)/gi, "")))
       .sort();
     expect(touching).toContain("migration_zz_row_level_security.sql");
     for (const f of touching) expect(f < self, `${f} sorts after ${self}`).toBe(true);
