@@ -31,6 +31,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { useTodoPoints } from "@/hooks/use-todo-points";
+import { pointsTotal } from "@/lib/todo-points";
 import { TodoDecorationFields } from "@/components/todo-decoration-fields";
 import { showUndoToast } from "@/lib/undo-toast";
 import Link from "next/link";
@@ -861,7 +862,7 @@ export default function TodosPage() {
               {people?.filter((person) => person.is_child).map((person) => (
                 <div key={person.id} className="rounded-xl border border-border bg-card px-4 py-2 text-sm">
                   <span className="font-medium">{person.name}</span>
-                  <span className="ml-2 text-primary tabular-nums">⭐ {pointAwards.filter((award) => award.person_id === person.id).reduce((sum, award) => sum + award.points, 0)} {t("pointsUnit")}</span>
+                  <span className="ml-2 text-primary tabular-nums">⭐ {pointsTotal(pointAwards, person.id)} {t("pointsUnit")}</span>
                 </div>
               ))}
             </div>

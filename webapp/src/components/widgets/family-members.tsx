@@ -21,6 +21,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { usePeople, useTodos, useEvents } from "@/hooks";
+import { useTodoPoints } from "@/hooks/use-todo-points";
+import { pointsTotal, showsPoints } from "@/lib/todo-points";
 import type { Person, Todo, Event } from "@/types/database";
 import { format, startOfDay, addDays, endOfDay, isAfter } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
@@ -74,6 +76,7 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
   const t = useTranslations("familyMembers");
   const { data: people, isLoading: loadingPeople, isError: peopleError } = usePeople();
   const { data: todos } = useTodos();
+  const { data: pointAwards = [] } = useTodoPoints();
 
   // Only fetch upcoming events (today + next 7 days)
   const today = startOfDay(new Date());
@@ -207,6 +210,11 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
         person={selectedPerson}
         todos={todos?.filter((t) => todayPerson(t, toLocalDateKey()) === selectedPerson?.id && !t.completed) || []}
         events={upcomingEvents?.filter((e) => (e.person_id || e.calendar?.person_id) === selectedPerson?.id) || []}
+        points={
+          selectedPerson && showsPoints(selectedPerson, pointAwards, todos)
+            ? pointsTotal(pointAwards, selectedPerson.id)
+            : null
+        }
         onClose={() => setSelectedPerson(null)}
       />
     </TooltipProvider>
@@ -217,10 +225,12 @@ interface PersonDetailsDialogProps {
   person: Person | null;
   todos: Todo[];
   events: Event[];
+  /** The child's collected task points, or null when the profile shows none. */
+  points: number | null;
   onClose: () => void;
 }
 
-function PersonDetailsDialog({ person, todos, events, onClose }: PersonDetailsDialogProps) {
+function PersonDetailsDialog({ person, todos, events, points, onClose }: PersonDetailsDialogProps) {
   const t = useTranslations("familyMembers");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
@@ -290,6 +300,18 @@ function PersonDetailsDialog({ person, todos, events, onClose }: PersonDetailsDi
               <p className="text-lg font-semibold" style={{ color: person.color }}>{todos.length}</p>
               <p className="text-2xs text-muted-foreground">{t("statTodos")}</p>
             </div>
+            {points !== null && (
+              <div
+                data-testid="profile-points"
+                className="flex-1 rounded-xl px-3 py-2 text-center"
+                style={{ backgroundColor: `${person.color}15` }}
+              >
+                <p className="text-lg font-semibold tabular-nums" style={{ color: person.color }}>
+                  <span aria-hidden="true">⭐ </span>{points}
+                </p>
+                <p className="text-2xs text-muted-foreground">{t("statPoints")}</p>
+              </div>
+            )}
           </div>
         </div>
 

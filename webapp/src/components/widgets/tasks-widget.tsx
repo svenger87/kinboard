@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useTodos, useUpdateTodo, usePeople, useSetting } from "@/hooks";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useTodoPoints } from "@/hooks/use-todo-points";
+import { pointsTotal } from "@/lib/todo-points";
 import { toast } from "sonner";
 import type { Todo } from "@/types/database";
 import { WidgetCard } from "@/components/widget-card";
@@ -176,7 +177,7 @@ export function TasksWidget({
           <div className="flex flex-wrap gap-2">
             {people?.filter((person) => person.is_child).map((person) => (
               <span key={person.id} className="rounded-md bg-primary/10 px-2 py-1 text-xs text-primary">
-                {person.name} · ⭐ {pointAwards.filter((award) => award.person_id === person.id).reduce((sum, award) => sum + award.points, 0)}
+                {person.name} · ⭐ {pointsTotal(pointAwards, person.id)}
               </span>
             ))}
           </div>
