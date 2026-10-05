@@ -442,7 +442,10 @@ export async function POST(request: NextRequest) {
     // migration_vehicles.sql / migration_tickers.sql / migration_pocket_money.sql.
     // Deleting the new family row is therefore sufficient to wipe
     // everything inserted so far; no child table needs an explicit delete.
-    await db.from("families").delete().eq("id", newFamilyId);
+    // It goes through delete_family, which sets kinboard.hard_delete: a plain
+    // delete has the recycle bin's triggers bin the cascaded rows instead of
+    // deleting them, leaving them behind with no family (#344).
+    await db.rpc("delete_family", { p_family_id: newFamilyId });
   }
 
   for (const tableSpec of TABLE_SPECS) {

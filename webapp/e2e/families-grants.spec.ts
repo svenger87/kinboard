@@ -68,6 +68,21 @@ test.describe("migrations", () => {
 // handed. Each must be imported only from API routes; the test below checks it.
 const SERVER_ONLY_FAMILY_DELETERS = [join(SRC, "lib", "family-create.ts")];
 
+// A family is deleted through delete_family(), never a plain delete: only the
+// function sets kinboard.hard_delete, without which the recycle bin's triggers
+// leave the family's rows behind (#344). Granted to the service role alone.
+const PLAIN_FAMILY_DELETE = /\.from\(\s*["']families["']\s*\)\s*\.delete\(/;
+const DELETE_FAMILY_RPC = /\.rpc\(\s*["']delete_family["']/;
+
+test("each allow-listed deleter deletes through delete_family", () => {
+  for (const file of SERVER_ONLY_FAMILY_DELETERS) {
+    const code = codeOnly(readFileSync(file, "utf8"));
+    // Guard the guard: an entry that no longer deletes a family is stale.
+    expect(code, `${file} no longer calls delete_family`).toMatch(DELETE_FAMILY_RPC);
+    expect(code, `${file} deletes a family with a plain delete`).not.toMatch(PLAIN_FAMILY_DELETE);
+  }
+});
+
 test("server-side family deleters are only imported from API routes", () => {
   const api = join(SRC, "app", "api");
   for (const file of SERVER_ONLY_FAMILY_DELETERS) {
@@ -97,7 +112,7 @@ test("no browser code deletes a family", () => {
         walk(path);
       } else if (/\.(ts|tsx)$/.test(name) && !SERVER_ONLY_FAMILY_DELETERS.includes(path)) {
         const code = codeOnly(readFileSync(path, "utf8"));
-        if (/\.from\(\s*["']families["']\s*\)\s*\.delete\(/.test(code)) offenders.push(path);
+        if (PLAIN_FAMILY_DELETE.test(code) || DELETE_FAMILY_RPC.test(code)) offenders.push(path);
       }
     }
   };

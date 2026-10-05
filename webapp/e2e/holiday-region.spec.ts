@@ -88,15 +88,12 @@ function familyDb({ familyError, regionError }: { familyError?: { code?: string;
           writes.push(`upsert ${table} ${row.family_id} ${row.key} ${JSON.stringify(row.value)} on ${options.onConflict}`);
           return { error: regionError ? { message: "settings failed" } : null };
         },
-        delete() {
-          return {
-            async eq(column: string, value: unknown) {
-              writes.push(`delete ${table} ${column}=${value}`);
-              return { error: null };
-            },
-          };
-        },
       };
+    },
+    // The rollback goes through delete_family (#344), never a plain delete.
+    async rpc(fn: string, args: Record<string, unknown>) {
+      writes.push(`rpc ${fn} ${JSON.stringify(args)}`);
+      return { data: true, error: null };
     },
   };
 }
@@ -113,7 +110,7 @@ test("a new family is created with no region, so the backfill cannot give it one
 test("a family whose region row cannot be written is not created", async () => {
   const db = familyDb({ regionError: true });
   expect(await insertFamilyWithRegion(db, "Ours")).toEqual({ error: "could not create family" });
-  expect(db.writes.at(-1)).toBe(`delete families id=${OURS}`);
+  expect(db.writes.at(-1)).toBe(`rpc delete_family {"p_family_id":"${OURS}"}`);
 });
 
 test("a family that cannot be inserted writes nothing else", async () => {

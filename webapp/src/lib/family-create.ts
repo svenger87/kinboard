@@ -59,7 +59,8 @@ export async function insertFamilyWithRegion(
     );
   if (regionError) {
     console.error("[family-create] could not write holiday_region, removing the family:", regionError.message);
-    const { error: rollbackError } = await db.from("families").delete().eq("id", family.id);
+    // delete_family, so the recycle bin's triggers let the cascades through (#344).
+    const { error: rollbackError } = await db.rpc("delete_family", { p_family_id: family.id });
     if (rollbackError) {
       console.error("[family-create] could not remove the family again:", rollbackError.message);
     }
