@@ -602,47 +602,131 @@ KINBOARD_TAG=1.6.0-rc.1
 
 ### Reverse-proxied via Cloudflare Tunnel
 
-A tunnel gives you HTTPS from outside without opening a port. It needs the same split Traefik does: **the browser talks to two services**, the webapp and the API gateway (Kong). Pointing the tunnel only at the webapp (`:3001`) is the usual mistake. The page then loads, but every request for data fails, because the browser can't reach the API from outside.
+A Cloudflare Tunnel makes Kinboard reachable at `https://kinboard.example.com` from anywhere, without opening a port on your router. You get HTTPS for free, and with it push notifications and "Add to Home Screen" as a real app.
 
-**1. One hostname, two routes.** In the tunnel's configuration, under Zero Trust → Networks → Tunnels → *Public hostnames*, or in `config.yml` for a locally managed tunnel, send the API paths to Kong and everything else to the webapp:
+**Read this first.** The browser talks to *two* parts of Kinboard: the webapp (port `3001`), and the API gateway Kong (port `8100`), which every piece of data comes from. A tunnel that only points at `3001` shows the page but never loads any data. The steps below send both through one address.
+
+You need a domain whose DNS is managed by Cloudflare (a free plan is enough) and a running Kinboard.
+
+#### Step 1: Create the tunnel
+
+1. Open the [Cloudflare dashboard](https://one.dash.cloudflare.com/) → **Zero Trust** → **Networks** → **Tunnels** → **Create a tunnel**.
+2. Choose **Cloudflared**, give it a name such as `kinboard`, and click **Save tunnel**.
+3. Under *Choose your environment*, pick **Docker**. Cloudflare shows a command with a long token after `--token`. **Copy only the token.** You need it in step 2. Don't run the command, and leave this page open.
+
+#### Step 2: Run cloudflared next to Kinboard
+
+1. In `webapp/docker/.env`, add the token:
+
+   ```
+   TUNNEL_TOKEN=eyJhIjoi...   # the token from step 1
+   ```
+
+2. Create `webapp/docker/docker-compose.override.yml`, or add to it if you already have one:
+
+   ```yaml
+   services:
+     cloudflared:
+       image: cloudflare/cloudflared:latest
+       container_name: kinboard-cloudflared
+       restart: unless-stopped
+       command: tunnel --no-autoupdate run
+       environment:
+         TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+       networks:
+         - kinboard
+   ```
+
+   It joins Kinboard's own Docker network, so it can reach the webapp and Kong by name.
+
+3. Start it. Pass the same `-f` files you always use, plus the override:
+
+   ```bash
+   cd webapp/docker
+   docker compose -f docker-compose.yml -f docker-compose.override.yml up -d cloudflared
+   ```
+
+   If you use `./start.sh`, add `-f docker-compose.override.yml` to `COMPOSE_FILES` in `.env` so the override keeps being used (see [Compose file overlay](#compose-file-overlay)).
+
+4. Back in the Cloudflare dashboard, the tunnel's *Connectors* list should show one connector as **Connected** within a few seconds. Click **Next**.
+
+#### Step 3: Add the two routes
+
+Under **Public Hostname**, add **two** entries with the same hostname, **in this order**:
+
+| # | Subdomain / Domain | Path | Service type | URL |
+|---|---|---|---|---|
+| 1 | `kinboard` / `example.com` | `^/(rest\|auth\|storage\|realtime)/` | HTTP | `kinboard-kong:8000` |
+| 2 | `kinboard` / `example.com` | *(empty)* | HTTP | `kinboard-webapp:3000` |
+
+Cloudflare checks entries from top to bottom, so the one with the path must come first. If the list shows them the other way round, delete entry 2 and add it again so it ends up below.
+
+Using a config file instead of the dashboard? The same routes look like this:
 
 ```yaml
 ingress:
   - hostname: kinboard.example.com
     path: ^/(rest|auth|storage|realtime)/
-    service: http://<server-ip>:8100   # Kong
+    service: http://kinboard-kong:8000
   - hostname: kinboard.example.com
-    service: http://<server-ip>:3001   # webapp
+    service: http://kinboard-webapp:3000
   - service: http_status:404
 ```
 
-In the dashboard, these are two public hostnames with the same name: the first with the path `^/(rest|auth|storage|realtime)/`, the second with none. If `cloudflared` runs as a container on Kinboard's Docker network, use `http://kinboard-kong:8000` and `http://kinboard-webapp:3000` instead. Realtime uses a WebSocket, which tunnels pass through without extra settings.
+If you changed `PROJECT_NAME` in `.env`, the containers are called `<PROJECT_NAME>-kong` and `<PROJECT_NAME>-webapp`. If `cloudflared` runs on another machine, use `http://<server-ip>:8100` and `http://<server-ip>:3001` instead.
 
-**2. Tell Kinboard its public address.** In `webapp/docker/.env`:
+#### Step 4: Tell Kinboard its new address
 
-```
-SITE_URL=https://kinboard.example.com
-API_EXTERNAL_URL=https://kinboard.example.com
-ADDITIONAL_REDIRECT_URLS=https://kinboard.example.com
-```
+1. In `webapp/docker/.env`, set all three to the public address, with no port and no trailing slash:
 
-Then follow [Changing the URL later](#changing-the-url-later): re-run `./setup.sh` so Kong accepts the new origin, restart Kong, and restart the webapp. Without that step the browser console shows `blocked by CORS policy`.
+   ```
+   SITE_URL=https://kinboard.example.com
+   API_EXTERNAL_URL=https://kinboard.example.com
+   ADDITIONAL_REDIRECT_URLS=https://kinboard.example.com
+   ```
 
-**3. Screens on the LAN.** Every screen now loads its data from `https://kinboard.example.com`, so a kiosk on the LAN should open that address too, not `http://<server-ip>:3001`. Kong accepts only the origin in `SITE_URL`, so a screen on the LAN address gets CORS errors. If a screen has to stay on the LAN address, add that origin by hand under each `cors` block in `webapp/docker/kong.yml`, next to the `# webapp_origin` line, and restart Kong. A re-run of `setup.sh` leaves extra lines alone.
+2. From the repo root, run `./setup.sh`, the plain re-run, **not** `--force`. It tells Kong to accept requests from the new address.
+3. Restart Kong and the webapp:
 
-**4. Cloudflare Access (a login or certificate in front).** Access works, because the webapp and the API share one hostname and therefore one Access cookie. Some callers can't log in, though, so give them a *Bypass* policy, or a service token where the caller supports one:
+   ```bash
+   docker restart kinboard-kong
+   cd webapp/docker && ./start.sh restart
+   ```
 
-| Path | Who calls it |
-|---|---|
-| `/api/integration/*` | Home Assistant and other Integration API clients (they send their own `kbi_` token) |
-| `/api/mcp`, `/api/oauth/*`, `/.well-known/*` | AI assistants (ChatGPT, Claude), which bring their own OAuth. The consent page at `/oauth/consent` stays behind Access, since you open it yourself. |
-| `/api/health` | uptime checks |
+#### Step 5: Check it
 
-A wall display shouldn't sit behind a login that expires: once its Access session runs out (24 hours by default), it shows Cloudflare's login page instead of the board. Give kiosks a long session, a client certificate (mTLS), or keep them on the LAN address as in step 3.
+1. Open `https://kinboard.example.com` on your phone with Wi-Fi switched off, so the request really comes from outside.
+2. Join with the family code. Your calendar, tasks and so on should appear.
+3. If the page loads but stays empty, open the browser console (on a computer: F12):
+   - `blocked by CORS policy`: step 4 wasn't completed. Run `setup.sh` and restart Kong.
+   - `404` or `ERR_` on `/rest/v1/...`: the route from step 3 is missing or below the catch-all.
+   - Nothing loads at all: check `docker logs kinboard-cloudflared`.
 
-**What doesn't go through a tunnel:** WebRTC camera streams use UDP, which a tunnel doesn't carry, so live WebRTC video only works on the LAN.
+#### Step 6: Screens at home
 
-HTTPS through the tunnel also gives you push notifications and "Add to Home Screen" as a real app, which a plain `http://` LAN address can't (see [Notifications](Notifications#requirements-read-this-first)).
+From now on, every screen loads its data from `https://kinboard.example.com`. **Open that address on the wall display too**, not `http://<server-ip>:3001`. A screen on the old LAN address gets CORS errors, because Kong only accepts the address in `SITE_URL`.
+
+If a screen really has to stay on the LAN address, add its address in `webapp/docker/kong.yml` below each line that ends in `# webapp_origin`, for example `- http://192.168.1.20:3001`, and restart Kong. `setup.sh` leaves such extra lines alone.
+
+#### Optional: a login in front (Cloudflare Access)
+
+With Access, anyone opening Kinboard first has to log in to Cloudflare or present a client certificate. This works because the webapp and the API share one address, and so one Access cookie.
+
+1. **Zero Trust** → **Access** → **Applications** → **Add an application** → **Self-hosted**, for `kinboard.example.com`, with a policy that allows your family's email addresses.
+2. Some callers can't log in. Add a second application for these paths with a **Bypass** policy:
+
+   | Path | Who calls it |
+   |---|---|
+   | `/api/integration/*` | Home Assistant and other Integration API clients (they bring their own `kbi_` token) |
+   | `/api/mcp`, `/api/oauth/*`, `/.well-known/*` | AI assistants such as ChatGPT and Claude, which bring their own OAuth |
+   | `/api/health` | uptime checks |
+
+   The consent page an assistant opens, `/oauth/consent`, stays behind the login, because you open it yourself.
+3. **Wall displays:** an Access login expires (after 24 hours by default), and the screen then shows Cloudflare's login page instead of the board. Give your kiosks a long session duration, a client certificate (mTLS), or keep them on the LAN address as in step 6.
+
+#### What doesn't go through a tunnel
+
+Live WebRTC camera streams use UDP, which a tunnel doesn't carry, so they only play on the LAN.
 
 ## Pitfalls and gotchas
 
