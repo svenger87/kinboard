@@ -2540,6 +2540,15 @@
       "tasksAsEventsLabel": "Traiter les tâches comme des événements",
       "tasksAsEventsHint": "Les tâches apparaissent aussi parmi les événements : dans le widget Événements, l'Aperçu de la semaine et la liste du jour du calendrier. Dans les listes à venir, une tâche récurrente n'apparaît qu'à sa prochaine occurrence."
     },
+    "calendarSyncRange": {
+      "title": "Portée de synchronisation",
+      "description": "Jusqu'où à l'avance les flux ICS et les calendriers CalDAV chargent les événements, pour chaque calendrier des deux sources.",
+      "label": "Charger le calendrier à l'avance sur",
+      "option60": "2 mois",
+      "option180": "6 mois",
+      "option365": "1 an",
+      "hint": "Une portée plus longue veut dire plus d'événements à synchroniser chaque fois — sans problème pour la plupart des flux, mais utile à savoir si le vôtre est volumineux."
+    },
     "caldav": {
       "title": "Calendriers CalDAV",
       "subtitle": "Synchronisation bidirectionnelle avec Nextcloud, Radicale, Fastmail, iCloud et autres",

@@ -2540,6 +2540,15 @@
       "tasksAsEventsLabel": "Aufgaben wie Termine behandeln",
       "tasksAsEventsHint": "Aufgaben erscheinen auch zwischen den Terminen: im Widget Termine, in der Wochenübersicht und in der Tagesliste des Kalenders. In Vorschau-Listen zeigt eine wiederkehrende Aufgabe nur ihr nächstes Mal."
     },
+    "calendarSyncRange": {
+      "title": "Synchronisationszeitraum",
+      "description": "Wie weit im Voraus ICS-Feeds und CalDAV-Kalender Termine laden, für jeden Kalender aus beiden Quellen.",
+      "label": "Kalender im Voraus laden",
+      "option60": "2 Monate",
+      "option180": "6 Monate",
+      "option365": "1 Jahr",
+      "hint": "Ein längerer Zeitraum bedeutet mehr Termine bei jeder Synchronisation — für die meisten Feeds kein Problem, aber gut zu wissen bei einem großen."
+    },
     "caldav": {
       "title": "CalDAV-Kalender",
       "subtitle": "Bidirektionale Synchronisation mit Nextcloud, Radicale, Fastmail, iCloud und anderen",
