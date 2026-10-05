@@ -109,6 +109,7 @@ export async function decideRedemption(
     case "not_found": return { status: 404, body: { error: "not found" } };
     case "already_decided": return { status: 409, body: { error: "already_decided" } };
     case "insufficient_points": return { status: 409, body: { error: "insufficient_points", balance: answer.balance } };
+    case "not_points_mode": return { status: 409, body: { error: "not_points_mode" } };
     default: return { status: 500, body: { error: "unexpected answer from decide_point_redemption" } };
   }
 }

@@ -28,6 +28,11 @@ export interface PointTotals {
   pending: number;
   /** earned - spent, never below zero. */
   balance: number;
+  /**
+   * spent - earned when a task was un-ticked after its points were spent:
+   * paid back from the next points earned before any can be spent.
+   */
+  owed: number;
   /** What a new request may still use: the balance less what is waiting. */
   available: number;
 }
@@ -45,7 +50,7 @@ export function pointTotals(earned: number, redemptions: readonly RedemptionLike
     else if (r.status === "pending") pending += r.cost_points;
   }
   const balance = Math.max(0, earned - spent);
-  return { earned, spent, pending, balance, available: Math.max(0, balance - pending) };
+  return { earned, spent, pending, balance, owed: Math.max(0, spent - earned), available: Math.max(0, balance - pending) };
 }
 
 /** The stage a number of earned points reaches. */
@@ -76,8 +81,9 @@ export interface AvatarStage {
  * best_tier remembers the highest one (unchanged from before).
  *
  * Points: the stage follows the points EARNED, so a reward bought never
- * shrinks it -- and it never shows less than best_tier, so a stage reached
- * with money stays reached after the switch. A child who was at stage 5 with
+ * shrinks it, and a task un-ticked takes it back down -- and it never shows
+ * less than best_tier, which only money mode writes (pointsStageWrites), so a
+ * stage reached with money stays reached after the switch. A child who was at stage 5 with
  * money starts points mode at stage 5 and grows once their points pass stage
  * 6's threshold; going back to an egg for switching would be a punishment for
  * nothing.
@@ -115,3 +121,30 @@ export const REWARD_COST_MIN = 1;
 export const REWARD_COST_MAX = 10_000;
 export const REWARD_TITLE_MAX = 80;
 export const REWARD_ICON_MAX = 16;
+
+/**
+ * What the pocket-money page records after showing a stage, and whether it
+ * celebrates. last_seen_tier follows the shown stage both ways (so a stage
+ * reached again is celebrated again); best_tier is written in money mode only.
+ * In points mode the stage is the points' own, so writing it into best_tier
+ * would freeze it: tick, hatch, un-tick, and the chick would stay. A switch to
+ * points that only brings back a stage reached with money is not celebrated.
+ */
+export function pointsStageWrites(args: {
+  stage: AvatarStage;
+  lastSeenTier: number;
+  storedBestTier: number | null | undefined;
+}): { celebrate: boolean; update: { last_seen_tier?: number; best_tier?: number } } {
+  const { stage, lastSeenTier } = args;
+  const storedBest = args.storedBestTier ?? 1;
+  const update: { last_seen_tier?: number; best_tier?: number } = {};
+  let celebrate = false;
+  if (stage.tier > lastSeenTier) {
+    celebrate = !(stage.mode === "points" && stage.tier <= storedBest);
+    update.last_seen_tier = stage.tier;
+  } else if (stage.tier < lastSeenTier) {
+    update.last_seen_tier = stage.tier;
+  }
+  if (stage.mode === "money" && stage.tier > storedBest) update.best_tier = stage.tier;
+  return { celebrate, update };
+}

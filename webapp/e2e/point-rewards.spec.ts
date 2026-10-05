@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
-import { codeOnly } from "./source-helpers";
+import { browserWriteGrants, codeOnly } from "./source-helpers";
 import { TIER_THRESHOLDS_CENTS, TIER_THRESHOLDS_POINTS } from "../src/lib/pocket-money/types";
 import { tierFromBalance } from "../src/lib/pocket-money/interest";
-import { avatarStage, pointTotals, rewardProgress, tierFromPoints } from "../src/lib/pocket-money/points";
+import { avatarStage, pointsStageWrites, pointTotals, rewardProgress, tierFromPoints } from "../src/lib/pocket-money/points";
 import { decideRedemption, parseReward, requestRedemption } from "../src/lib/pocket-money/rewards";
 import type { RpcClient } from "../src/lib/pocket-money/booking";
 
@@ -24,12 +24,21 @@ test.describe("the points balance", () => {
       { cost_points: 30, status: "pending" },
       { cost_points: 100, status: "denied" },
     ]);
-    expect(totals).toEqual({ earned: 120, spent: 50, pending: 30, balance: 70, available: 40 });
+    expect(totals).toEqual({ earned: 120, spent: 50, pending: 30, balance: 70, owed: 0, available: 40 });
   });
 
   test("never goes below zero, even after a spent task is un-ticked", () => {
     expect(pointTotals(20, [{ cost_points: 50, status: "approved" }])).toMatchObject({ balance: 0, available: 0 });
     expect(pointTotals(0, [{ cost_points: 5, status: "pending" }])).toMatchObject({ balance: 0, available: 0 });
+  });
+
+  test("a shortfall is owed and paid back from later points", () => {
+    const spent = [{ cost_points: 60, status: "approved" as const }];
+    // Earned 100, spent 60, then a 50-point task un-ticked: 10 owed.
+    expect(pointTotals(50, spent)).toMatchObject({ balance: 0, owed: 10 });
+    // The next 10 points pay it back; the balance is still 0.
+    expect(pointTotals(60, spent)).toMatchObject({ balance: 0, owed: 0 });
+    expect(pointTotals(65, spent)).toMatchObject({ balance: 5, owed: 0 });
   });
 
   test("progress toward a reward is capped at 100", () => {
@@ -73,6 +82,30 @@ test.describe("the stage in points mode", () => {
     expect(stage.tier).toBe(5);
     expect(stage.best).toBe(5);
     expect(stage.next).toEqual({ tier: 6, at: TIER_THRESHOLDS_POINTS[5] });
+  });
+
+  test("in points mode a stage is never written to best_tier, so un-ticking takes it back", () => {
+    // Tick: 50 points hatch the egg. Celebrated, last_seen moves, best_tier not.
+    const hatched = avatarStage({ mode: "points", balanceCents: 0, earnedPoints: 50, storedBestTier: 1 });
+    expect(pointsStageWrites({ stage: hatched, lastSeenTier: 1, storedBestTier: 1 }))
+      .toEqual({ celebrate: true, update: { last_seen_tier: 2 } });
+    // Un-tick: back to the egg, because nothing froze stage 2.
+    const back = avatarStage({ mode: "points", balanceCents: 0, earnedPoints: 0, storedBestTier: 1 });
+    expect(back.tier).toBe(1);
+    expect(pointsStageWrites({ stage: back, lastSeenTier: 2, storedBestTier: 1 }))
+      .toEqual({ celebrate: false, update: { last_seen_tier: 1 } });
+  });
+
+  test("in money mode best_tier still records the highest stage", () => {
+    const stage = avatarStage({ mode: "money", balanceCents: 400, earnedPoints: 0, storedBestTier: 2 });
+    expect(pointsStageWrites({ stage, lastSeenTier: 2, storedBestTier: 2 }))
+      .toEqual({ celebrate: true, update: { last_seen_tier: 4, best_tier: 4 } });
+  });
+
+  test("switching to points that only brings back a money stage is not celebrated", () => {
+    const stage = avatarStage({ mode: "points", balanceCents: 0, earnedPoints: 0, storedBestTier: 5 });
+    expect(pointsStageWrites({ stage, lastSeenTier: 3, storedBestTier: 5 }))
+      .toEqual({ celebrate: false, update: { last_seen_tier: 5 } });
   });
 
   test("the top stage has no next one", () => {
@@ -136,6 +169,7 @@ test.describe("the database's answers, as HTTP", () => {
     expect(await decide({ ok: false, error: "already_decided", status: "approved" })).toEqual({ status: 409, body: { error: "already_decided" } });
     expect(await decide({ ok: false, error: "insufficient_points", balance: 10 })).toEqual({ status: 409, body: { error: "insufficient_points", balance: 10 } });
     expect(await decide({ ok: false, error: "not_found" })).toEqual({ status: 404, body: { error: "not found" } });
+    expect(await decide({ ok: false, error: "not_points_mode" })).toEqual({ status: 409, body: { error: "not_points_mode" } });
     expect((await decide({ ok: false, error: "???" })).status).toBe(500);
   });
 
@@ -195,7 +229,7 @@ test.describe("who may write", () => {
       expect(sql).toMatch(new RegExp(`REVOKE ALL ON TABLE public\\.${table} FROM anon;`));
       expect(sql).toMatch(new RegExp(`REVOKE ALL ON TABLE public\\.${table} FROM authenticated;`));
       expect(sql).toMatch(new RegExp(`GRANT SELECT ON TABLE public\\.${table} TO authenticated;`));
-      expect(sql).not.toMatch(new RegExp(`GRANT\\s+(?:ALL|INSERT|UPDATE|DELETE)[^;]*${table} TO (?:anon|authenticated)`));
+      expect(browserWriteGrants(sql, table), table).toEqual([]);
       expect(sql).toMatch(new RegExp(`ALTER PUBLICATION supabase_realtime ADD TABLE public\\.${table};`));
     }
     for (const fn of ["point_account_totals", "request_point_redemption", "decide_point_redemption"]) {
@@ -203,12 +237,28 @@ test.describe("who may write", () => {
     }
     expect(sql).toMatch(/REVOKE ALL ON FUNCTION %s FROM authenticated/);
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION %s TO service_role/);
-    // best_tier only climbs, in the database.
-    expect(sql).toMatch(/NEW\.best_tier := GREATEST\(COALESCE\(OLD\.best_tier, 1\), COALESCE\(NEW\.best_tier, 1\)\);/);
+    // best_tier only climbs, and never past stage 8, in the database.
+    expect(sql).toMatch(/NEW\.best_tier := LEAST\(8, GREATEST\(LEAST\(8, COALESCE\(OLD\.best_tier, 1\)\), COALESCE\(NEW\.best_tier, 1\), 1\)\);/);
+    expect(sql).toMatch(/CHECK \(best_tier BETWEEN 1 AND 8\)/);
+    // The account is locked before the redemption, the order a delete cascades in.
+    const decide = sql.slice(sql.indexOf("FUNCTION public.decide_point_redemption("));
+    expect(decide.indexOf("FOR UPDATE OF a")).toBeGreaterThan(0);
+    expect(decide.indexOf("FOR UPDATE OF a")).toBeLessThan(decide.indexOf("FROM public.point_redemptions\n   WHERE id = p_redemption_id AND family_id = p_family_id FOR UPDATE"));
   });
 
-  test("the migration sorts after every other one", () => {
+  test("the migration sorts after the ones it builds on", () => {
+    // Not necessarily last: a later migration may follow it.
     const files = readdirSync(join(ROOT, "docker")).filter((f) => /^migration.*\.sql$/.test(f)).sort();
-    expect(files[files.length - 1]).toBe("migration_zzzzzzz_point_rewards.sql");
+    const at = files.indexOf("migration_zzzzzzz_point_rewards.sql");
+    expect(at).toBeGreaterThanOrEqual(0);
+    for (const before of [
+      "migration_pocket_money.sql",
+      "migration_pocket_money_best_tier.sql",
+      "migration_zz_row_level_security.sql",
+      "migration_zzz_todo_points.sql",
+    ]) {
+      expect(files.indexOf(before), before).toBeGreaterThanOrEqual(0);
+      expect(files.indexOf(before), before).toBeLessThan(at);
+    }
   });
 });

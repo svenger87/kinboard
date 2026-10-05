@@ -2494,7 +2494,8 @@
       "rewardActiveLabel": "Active",
       "rewardActiveAria": "{title} peut être échangée",
       "rewardDeleteAria": "Supprimer {title}",
-      "rewardAdd": "Ajouter"
+      "rewardAdd": "Ajouter",
+      "errorNotPointsMode": "L'avatar de cet enfant grandit maintenant avec l'argent : la récompense ne peut pas être accordée ; la demande reste en attente. Refuse-la ou remets l'enfant sur les points des tâches."
     },
     "news": {
       "title": "Sources d'actualités",
@@ -4328,7 +4329,8 @@
     "rewardRequested": "{title} demandé : en attente d'un parent",
     "rewardNotEnoughPoints": "Pas encore assez de points pour ça.",
     "rewardRequestFailed": "Cela n'a pas fonctionné. Réessaie.",
-    "moneyHeading": "Argent"
+    "moneyHeading": "Argent",
+    "pointsOwedLabel": "{count, plural, one {Encore # point à rattraper : une tâche a été annulée après que ses points ont été dépensés} other {Encore # points à rattraper : une tâche a été annulée après que ses points ont été dépensés}}"
   },
   "connectivity": {
     "title": "Serveur injoignable",

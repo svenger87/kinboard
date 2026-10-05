@@ -24,14 +24,20 @@
 --
 -- computed here (point_account_totals) and mirrored in
 -- webapp/src/lib/pocket-money/points.ts. Nothing to keep in step: an award
--- written or taken back by the task triggers moves it at once. It can dip
--- below zero only if a task is un-ticked after its points were spent, and the
--- max() keeps it at zero.
+-- written or taken back by the task triggers moves it at once.
 --
--- APPROVING is one transaction (decide_point_redemption): the redemption row
--- is locked and must still be pending, then the account row is locked, which
--- queues every other decision for the same child behind this one, and only
--- then is the balance read. Two devices approving the same request: one
+-- A SHORTFALL IS PAID BACK FROM LATER POINTS. If a task is un-ticked after
+-- its points were spent, earned can drop below spent. The balance shows 0,
+-- not a negative number, but the difference is still owed and the next
+-- points earned pay it off first: earned 100, spent 60, a 50-point task
+-- un-ticked -> earned 50, balance 0, owed 10; the next 10 points earned leave
+-- the balance at 0, and only the points after that can be spent.
+--
+-- APPROVING is one transaction (decide_point_redemption): the child's account
+-- row is locked first -- the order a delete of the account cascades in, so
+-- the two cannot deadlock -- which queues every other decision for the same
+-- child behind this one; then the redemption row, which must still be
+-- pending; and only then is the balance read. Two devices approving the same request: one
 -- approves, the other is told already_decided. Two requests that together
 -- exceed the balance: one approved, the other refused with nothing written.
 -- A refusal leaves the request pending -- unlike a withdrawal, which is
@@ -59,14 +65,18 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- best_tier is the highest stage a child ever reached. The screens write it
--- (the stage is derived from what they show), so until now a write could also
--- lower it. With two ways to grow, a stage reached with money must survive a
--- switch to points and back: the database keeps the higher of the two.
+-- best_tier is the highest stage a child ever reached WITH MONEY. The screens
+-- write it (the stage is derived from what they show), so until now a write
+-- could also lower it, or raise it past the last stage. A stage reached with
+-- money must survive a switch to points and back, so the database keeps the
+-- higher of the two -- and never more than stage 8, the last one
+-- (TIER_THRESHOLDS_* in webapp/src/lib/pocket-money/types.ts). In points mode
+-- the stage comes from the points earned and is never written here, so a
+-- task un-ticked takes the stage back down with it.
 CREATE OR REPLACE FUNCTION public.pocket_money_best_tier_only_climbs() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 BEGIN
-  NEW.best_tier := GREATEST(COALESCE(OLD.best_tier, 1), COALESCE(NEW.best_tier, 1));
+  NEW.best_tier := LEAST(8, GREATEST(LEAST(8, COALESCE(OLD.best_tier, 1)), COALESCE(NEW.best_tier, 1), 1));
   RETURN NEW;
 END $$;
 
@@ -74,6 +84,17 @@ DROP TRIGGER IF EXISTS pocket_money_accounts_best_tier_climbs ON public.pocket_m
 CREATE TRIGGER pocket_money_accounts_best_tier_climbs
   BEFORE UPDATE OF best_tier ON public.pocket_money_accounts
   FOR EACH ROW EXECUTE FUNCTION public.pocket_money_best_tier_only_climbs();
+
+-- Any value already out of range is brought back into it (the trigger above
+-- clamps a stored 99 to 8), and then a CHECK holds every row to 1..8,
+-- including a new account's.
+UPDATE public.pocket_money_accounts SET best_tier = best_tier WHERE best_tier NOT BETWEEN 1 AND 8;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'pocket_money_accounts_best_tier_range') THEN
+    ALTER TABLE public.pocket_money_accounts
+      ADD CONSTRAINT pocket_money_accounts_best_tier_range CHECK (best_tier BETWEEN 1 AND 8);
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- 2. The tables
@@ -197,7 +218,8 @@ BEGIN
     FROM public.point_redemptions WHERE account_id = p_account_id;
   RETURN jsonb_build_object(
     'earned', v_earned, 'spent', v_spent, 'pending', v_pending,
-    'balance', GREATEST(0, v_earned - v_spent));
+    'balance', GREATEST(0, v_earned - v_spent),
+    'owed', GREATEST(0, v_spent - v_earned));
 END $$;
 
 -- A child asks for a reward. The account is locked so two requests from one
@@ -247,12 +269,16 @@ END $$;
 --   { ok: false, error: 'not_found' }                 no such redemption in this family
 --   { ok: false, error: 'already_decided', status }   nothing changed
 --   { ok: false, error: 'insufficient_points', balance }  nothing changed, still pending
+--   { ok: false, error: 'not_points_mode' }   approving only: the child's avatar
+--       grows with money now; nothing changed, the request stays pending so a
+--       parent can deny it or switch the child back. Denying always works.
 CREATE OR REPLACE FUNCTION public.decide_point_redemption(
   p_family_id UUID, p_redemption_id UUID, p_decision TEXT, p_device_id UUID DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, pg_temp AS $$
 DECLARE
   v_req public.point_redemptions;
+  v_mode TEXT;
   v_device UUID;
   v_totals JSONB;
   v_balance BIGINT;
@@ -260,6 +286,17 @@ BEGIN
   IF p_decision NOT IN ('approved', 'denied') THEN
     RAISE EXCEPTION 'decision must be approved or denied' USING ERRCODE = '22023';
   END IF;
+
+  -- The account first, then the request: the order a delete of the account
+  -- cascades in, so the two cannot deadlock. Every decision for this child
+  -- queues here, so the balance read below already counts any approval that
+  -- went before.
+  SELECT a.reward_mode INTO v_mode
+    FROM public.pocket_money_accounts a
+    JOIN public.point_redemptions r ON r.account_id = a.id
+   WHERE r.id = p_redemption_id AND r.family_id = p_family_id
+     FOR UPDATE OF a;
+  IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'error', 'not_found'); END IF;
 
   SELECT * INTO v_req FROM public.point_redemptions
    WHERE id = p_redemption_id AND family_id = p_family_id FOR UPDATE;
@@ -278,9 +315,10 @@ BEGIN
     RETURN jsonb_build_object('ok', true, 'status', 'denied');
   END IF;
 
-  -- Every decision for this child queues here, so the balance read below
-  -- already counts any approval that went before.
-  PERFORM 1 FROM public.pocket_money_accounts WHERE id = v_req.account_id FOR UPDATE;
+  IF v_mode <> 'points' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'not_points_mode');
+  END IF;
+
   v_totals := public.point_account_totals(p_family_id, v_req.account_id);
   v_balance := (v_totals->>'balance')::BIGINT;
   IF v_totals IS NULL OR v_balance < v_req.cost_points THEN

@@ -2494,7 +2494,8 @@
       "rewardActiveLabel": "Aktiv",
       "rewardActiveAria": "{title} kann eingelöst werden",
       "rewardDeleteAria": "{title} löschen",
-      "rewardAdd": "Hinzufügen"
+      "rewardAdd": "Hinzufügen",
+      "errorNotPointsMode": "Der Avatar dieses Kindes wächst jetzt mit Geld, darum kann die Belohnung nicht genehmigt werden; die Anfrage wartet weiter. Lehne sie ab oder stelle das Kind wieder auf Aufgabenpunkte um."
     },
     "news": {
       "title": "Nachrichtenquellen",
@@ -4328,7 +4329,8 @@
     "rewardRequested": "{title} angefragt: wartet auf die Eltern",
     "rewardNotEnoughPoints": "Dafür reichen die Punkte noch nicht.",
     "rewardRequestFailed": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
-    "moneyHeading": "Geld"
+    "moneyHeading": "Geld",
+    "pointsOwedLabel": "{count, plural, one {Noch # Punkt aufzuholen: eine Aufgabe wurde zurückgenommen, nachdem ihre Punkte ausgegeben waren} other {Noch # Punkte aufzuholen: eine Aufgabe wurde zurückgenommen, nachdem ihre Punkte ausgegeben waren}}"
   },
   "connectivity": {
     "title": "Server nicht erreichbar",

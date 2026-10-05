@@ -64,7 +64,7 @@ async function pending(cost: number): Promise<string> {
   return data.id;
 }
 
-async function totals(): Promise<{ earned: number; spent: number; pending: number; balance: number }> {
+async function totals(): Promise<{ earned: number; spent: number; pending: number; balance: number; owed: number }> {
   const { data, error } = await db.rpc("point_account_totals", { p_family_id: FAMILY, p_account_id: ACCOUNT });
   if (error) throw error;
   return data;
@@ -109,7 +109,7 @@ test.describe("a reward approved twice at once is booked once", () => {
       expect(answers.map((a) => a.status).sort(), `round ${round}`).toEqual([200, 409]);
       expect(answers.find((a) => a.status === 409)!.body).toEqual({ error: "already_decided" });
       expect(await statusOf(id)).toBe("approved");
-      expect(await totals()).toEqual({ earned: 100, spent: 60, pending: 0, balance: 40 });
+      expect(await totals()).toEqual({ earned: 100, spent: 60, pending: 0, balance: 40, owed: 0 });
     }
   });
 
@@ -142,7 +142,7 @@ test.describe("the balance never goes below zero", () => {
     const id = await pending(60);
     expect(await approve(id)).toEqual({ status: 409, body: { error: "insufficient_points", balance: 30 } });
     expect(await statusOf(id)).toBe("pending");
-    expect(await totals()).toEqual({ earned: 30, spent: 0, pending: 60, balance: 30 });
+    expect(await totals()).toEqual({ earned: 30, spent: 0, pending: 60, balance: 30, owed: 0 });
   });
 
   test("two requests that together exceed the balance, approved at once: one approved, one refused", async () => {
@@ -182,6 +182,31 @@ test.describe("the balance never goes below zero", () => {
     await db.from("point_rewards").update({ active: true }).eq("id", REWARD);
   });
 
+  test("points taken back after they were spent are owed, and paid back from later ones", async () => {
+    await reset(100);
+    expect(await approve(await pending(60))).toMatchObject({ status: 200 });
+    // A 50-point task un-ticked: earned 50, spent 60.
+    await db.from("todo_point_awards").update({ points: 50 }).eq("person_id", CHILD);
+    expect(await totals()).toMatchObject({ earned: 50, balance: 0, owed: 10 });
+    // The next 10 points pay it back: still nothing to spend.
+    await db.from("todo_point_awards").update({ points: 60 }).eq("person_id", CHILD);
+    expect(await totals()).toMatchObject({ balance: 0, owed: 0 });
+    const id = await pending(1);
+    expect(await approve(id)).toEqual({ status: 409, body: { error: "insufficient_points", balance: 0 } });
+  });
+
+  test("a child switched back to money: approving is refused and the request keeps waiting; denying works", async () => {
+    await reset(100);
+    const id = await pending(10);
+    await db.from("pocket_money_accounts").update({ reward_mode: "money" }).eq("id", ACCOUNT);
+    expect(await approve(id)).toEqual({ status: 409, body: { error: "not_points_mode" } });
+    expect(await statusOf(id)).toBe("pending");
+    expect((await totals()).spent).toBe(0);
+    expect(await decideRedemption(rpc(), { familyId: FAMILY, redemptionId: id, decision: "denied", deviceId: null }))
+      .toMatchObject({ status: 200 });
+    expect(await statusOf(id)).toBe("denied");
+  });
+
   test("another family's request or reward is not found", async () => {
     await reset(100);
     const id = await pending(10);
@@ -193,12 +218,22 @@ test.describe("the balance never goes below zero", () => {
   });
 });
 
-test.describe("best_tier only climbs", () => {
+test.describe("best_tier only climbs, and never past the last stage", () => {
+  const bestTier = async () =>
+    (await db.from("pocket_money_accounts").select("best_tier").eq("id", ACCOUNT).single()).data.best_tier;
+
   test("a lower value written to it is ignored", async () => {
     await db.from("pocket_money_accounts").update({ best_tier: 5 }).eq("id", ACCOUNT);
     await db.from("pocket_money_accounts").update({ best_tier: 2 }).eq("id", ACCOUNT);
-    const { data } = await db.from("pocket_money_accounts").select("best_tier").eq("id", ACCOUNT).single();
-    expect(data.best_tier).toBe(5);
+    expect(await bestTier()).toBe(5);
+  });
+
+  test("a value past stage 8 is held at 8, and a new account can't start out of range", async () => {
+    await db.from("pocket_money_accounts").update({ best_tier: 99 }).eq("id", ACCOUNT);
+    expect(await bestTier()).toBe(8);
+    const { error } = await db.from("pocket_money_accounts")
+      .insert({ family_id: OTHER_FAMILY, person_id: CHILD, best_tier: 99 });
+    expect(error?.code).toBe("23514");
   });
 });
 
@@ -244,6 +279,6 @@ test.describe("a browser's token reads its family's rows and writes nothing", ()
     expect(await statusOf(id)).toBe("pending");
     const { data: rewards } = await db.from("point_rewards").select("cost_points").in("id", [REWARD, BIG_REWARD]).order("cost_points");
     expect(rewards).toEqual([{ cost_points: 60 }, { cost_points: 500 }]);
-    expect(await totals()).toEqual({ earned: 100, spent: 0, pending: 10, balance: 100 });
+    expect(await totals()).toEqual({ earned: 100, spent: 0, pending: 10, balance: 100, owed: 0 });
   });
 });

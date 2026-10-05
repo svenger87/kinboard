@@ -76,6 +76,13 @@ export function RewardsPanel({
           {" · "}
           {t("pointsEarnedLabel", { count: totals.earned })}
         </p>
+        {totals.owed > 0 && (
+          // A task was un-ticked after its points were spent: the next points
+          // earned pay that back first.
+          <p className="text-xs text-amber-400" data-testid="points-owed">
+            {t("pointsOwedLabel", { count: totals.owed })}
+          </p>
+        )}
       </div>
 
       {pending.length > 0 && (

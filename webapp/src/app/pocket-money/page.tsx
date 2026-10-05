@@ -43,7 +43,7 @@ import {
   usePointTotals,
 } from "@/hooks";
 import { RewardsPanel } from "@/components/pocket-money/rewards-panel";
-import { avatarStage } from "@/lib/pocket-money/points";
+import { avatarStage, pointsStageWrites } from "@/lib/pocket-money/points";
 import { AmountDialog } from "@/components/pocket-money/amount-dialog";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import { formatCents } from "@/lib/pocket-money/format";
@@ -125,18 +125,14 @@ export default function PocketMoneyPage() {
   useEffect(() => {
     if (!active) return;
     if (pointsMode && !pointsReady) return;
-    const currentTier = stage.tier;
-    const update: { last_seen_tier?: number; best_tier?: number } = {};
-
-    if (currentTier > active.last_seen_tier) {
-      if (!(pointsMode && currentTier <= (active.best_tier ?? 1))) setCelebration("evolution");
-      update.last_seen_tier = currentTier;
-    } else if (currentTier < active.last_seen_tier) {
-      // Silent: dropping a stage is not something to animate at a child.
-      update.last_seen_tier = currentTier;
-    }
-
-    if (currentTier > (active.best_tier ?? 1)) update.best_tier = currentTier;
+    // best_tier is written in money mode only: in points mode the stage is
+    // the points' own and must be able to go back down (pointsStageWrites).
+    const { celebrate, update } = pointsStageWrites({
+      stage,
+      lastSeenTier: active.last_seen_tier,
+      storedBestTier: active.best_tier,
+    });
+    if (celebrate) setCelebration("evolution");
 
     if (Object.keys(update).length > 0) {
       updateAccount.mutateAsync({ id: active.id, update }).catch(console.error);

@@ -34,6 +34,7 @@ function errorText(err: unknown, t: (key: string) => string): string {
   if (code === "pin_required") return t("errorPinRequired");
   if (code === "already_decided") return t("errorAlreadyDecided");
   if (code === "insufficient_points") return t("errorInsufficientPoints");
+  if (code === "not_points_mode") return t("errorNotPointsMode");
   return t("errorGeneric");
 }
 

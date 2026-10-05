@@ -2494,7 +2494,8 @@
       "rewardActiveLabel": "Active",
       "rewardActiveAria": "{title} can be redeemed",
       "rewardDeleteAria": "Delete {title}",
-      "rewardAdd": "Add"
+      "rewardAdd": "Add",
+      "errorNotPointsMode": "This child's avatar now grows with money, so the reward can't be approved; the request is still waiting. Deny it, or switch the child back to task points."
     },
     "news": {
       "title": "News sources",
@@ -4328,7 +4329,8 @@
     "rewardRequested": "Asked for {title}: waiting for a parent",
     "rewardNotEnoughPoints": "Not enough points for that yet.",
     "rewardRequestFailed": "That didn't work. Please try again.",
-    "moneyHeading": "Money"
+    "moneyHeading": "Money",
+    "pointsOwedLabel": "{count, plural, one {# point still to make up: a task was taken back after its points were spent} other {# points still to make up: a task was taken back after its points were spent}}"
   },
   "connectivity": {
     "title": "Can't reach the server",
