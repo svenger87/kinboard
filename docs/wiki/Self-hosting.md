@@ -602,9 +602,47 @@ KINBOARD_TAG=1.6.0-rc.1
 
 ### Reverse-proxied via Cloudflare Tunnel
 
-- Same as the LAN-only setup but with a `cloudflared` tunnel pointing at `http://<nas-ip>:3001`.
-- No port-forwarding required.
-- Cloudflare Access can add a login layer in front of `/join` if you want public-internet exposure with auth.
+A tunnel gives you HTTPS from outside without opening a port. It needs the same split Traefik does: **the browser talks to two services**, the webapp and the API gateway (Kong). Pointing the tunnel only at the webapp (`:3001`) is the usual mistake. The page then loads, but every request for data fails, because the browser can't reach the API from outside.
+
+**1. One hostname, two routes.** In the tunnel's configuration, under Zero Trust → Networks → Tunnels → *Public hostnames*, or in `config.yml` for a locally managed tunnel, send the API paths to Kong and everything else to the webapp:
+
+```yaml
+ingress:
+  - hostname: kinboard.example.com
+    path: ^/(rest|auth|storage|realtime)/
+    service: http://<server-ip>:8100   # Kong
+  - hostname: kinboard.example.com
+    service: http://<server-ip>:3001   # webapp
+  - service: http_status:404
+```
+
+In the dashboard, these are two public hostnames with the same name: the first with the path `^/(rest|auth|storage|realtime)/`, the second with none. If `cloudflared` runs as a container on Kinboard's Docker network, use `http://kinboard-kong:8000` and `http://kinboard-webapp:3000` instead. Realtime uses a WebSocket, which tunnels pass through without extra settings.
+
+**2. Tell Kinboard its public address.** In `webapp/docker/.env`:
+
+```
+SITE_URL=https://kinboard.example.com
+API_EXTERNAL_URL=https://kinboard.example.com
+ADDITIONAL_REDIRECT_URLS=https://kinboard.example.com
+```
+
+Then follow [Changing the URL later](#changing-the-url-later): re-run `./setup.sh` so Kong accepts the new origin, restart Kong, and restart the webapp. Without that step the browser console shows `blocked by CORS policy`.
+
+**3. Screens on the LAN.** Every screen now loads its data from `https://kinboard.example.com`, so a kiosk on the LAN should open that address too, not `http://<server-ip>:3001`. Kong accepts only the origin in `SITE_URL`, so a screen on the LAN address gets CORS errors. If a screen has to stay on the LAN address, add that origin by hand under each `cors` block in `webapp/docker/kong.yml`, next to the `# webapp_origin` line, and restart Kong. A re-run of `setup.sh` leaves extra lines alone.
+
+**4. Cloudflare Access (a login or certificate in front).** Access works, because the webapp and the API share one hostname and therefore one Access cookie. Some callers can't log in, though, so give them a *Bypass* policy, or a service token where the caller supports one:
+
+| Path | Who calls it |
+|---|---|
+| `/api/integration/*` | Home Assistant and other Integration API clients (they send their own `kbi_` token) |
+| `/api/mcp`, `/api/oauth/*`, `/.well-known/*` | AI assistants (ChatGPT, Claude), which bring their own OAuth. The consent page at `/oauth/consent` stays behind Access, since you open it yourself. |
+| `/api/health` | uptime checks |
+
+A wall display shouldn't sit behind a login that expires: once its Access session runs out (24 hours by default), it shows Cloudflare's login page instead of the board. Give kiosks a long session, a client certificate (mTLS), or keep them on the LAN address as in step 3.
+
+**What doesn't go through a tunnel:** WebRTC camera streams use UDP, which a tunnel doesn't carry, so live WebRTC video only works on the LAN.
+
+HTTPS through the tunnel also gives you push notifications and "Add to Home Screen" as a real app, which a plain `http://` LAN address can't (see [Notifications](Notifications#requirements-read-this-first)).
 
 ## Pitfalls and gotchas
 
