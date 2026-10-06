@@ -26,8 +26,10 @@ import type { ReactNode, SVGProps } from "react";
 import type { AvatarTier } from "../types";
 import { STYLES, paletteFromColors, shade, tint, type DrawnStyle, type Palette, type SpeciesColors, type StyleSpec } from "./styles";
 import type { CreatureLook } from "./look";
+import type { CreatureMood } from "@/lib/creature-mood";
 
-export type CreatureMood = "happy" | "sleepy";
+/** "normal", "happy" (today's tasks done) or "sleepy" (the family's night): lib/creature-mood.ts. */
+export type { CreatureMood };
 
 export const GOLD = "#FFC83D";
 
@@ -150,12 +152,12 @@ function Defs({ ctx }: { ctx: DrawContext }) {
 
 /**
  * Two eyes: round with highlights and blinking, sparkly (a star in each), or
- * happy (two smiling arcs) as the child chose -- or two closed arcs when
- * sleepy, whatever was chosen.
+ * happy (two smiling arcs) as the child chose -- two closed arcs when
+ * sleepy, and the smiling arcs when happy, whatever was chosen.
  */
 export function eyes(ctx: DrawContext, mood: CreatureMood, x1: number, x2: number, y: number, r: number, color?: string): ReactNode {
   const ink = color ?? ctx.st.pal.eye;
-  const kind = mood === "sleepy" ? "sleepy" : (ctx.look.eyes ?? "round");
+  const kind = mood === "sleepy" ? "sleepy" : mood === "happy" ? "happy" : (ctx.look.eyes ?? "round");
   if (kind === "sleepy" || kind === "happy") {
     const up = kind === "happy";
     const arc = (x: number) => (
@@ -345,6 +347,28 @@ function sparkles(st: StyleSpec): ReactNode {
     />
   );
   return <>{star(34, 46, 6)}{star(168, 36, 4.5)}{star(176, 96, 3.5)}</>;
+}
+
+/**
+ * The happy mood's sparkle: three small four-pointed stars around the head,
+ * still. Never animated, so a happy creature on a wall display costs nothing
+ * after it is drawn. Clear of storybook's own stars and of the sleepy "z"s.
+ */
+function happySparkle(): ReactNode {
+  const star = (x: number, y: number, s: number, fill: string) => (
+    <path
+      key={`${x}-${y}`}
+      d={`M ${x} ${y - s} Q ${x + s * 0.18} ${y - s * 0.18} ${x + s} ${y} Q ${x + s * 0.18} ${y + s * 0.18} ${x} ${y + s} Q ${x - s * 0.18} ${y + s * 0.18} ${x - s} ${y} Q ${x - s * 0.18} ${y - s * 0.18} ${x} ${y - s} Z`}
+      fill={fill}
+    />
+  );
+  return (
+    <g data-mood="happy" className="creature-happy-sparkle">
+      {star(44, 74, 8, GOLD)}
+      {star(156, 58, 6.5, "#FF8FC0")}
+      {star(162, 104, 5, GOLD)}
+    </g>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -622,8 +646,9 @@ export function drawCreature({ art, style, tier, mood, uid, cracked = false, loo
       {/* The prototype's --ground token, in Kinboard's own colours. */}
       <ellipse cx="100" cy="184" rx={shadowW} ry="7" className="creature-ground" />
       {st.sticker ? <g filter={`url(#${uid}-sticker)`}>{inner}</g> : inner}
+      {mood === "happy" && happySparkle()}
       {mood === "sleepy" && tier > 1 && (
-        <g className="creature-zzz">
+        <g className="creature-zzz" data-mood="sleepy">
           <text x="146" y="58" fontFamily="Fredoka, ui-rounded, sans-serif" fontWeight="700" fontSize="18" className="creature-zzz-text">z</text>
           <text x="158" y="42" fontFamily="Fredoka, ui-rounded, sans-serif" fontWeight="700" fontSize="13" className="creature-zzz-text">z</text>
         </g>

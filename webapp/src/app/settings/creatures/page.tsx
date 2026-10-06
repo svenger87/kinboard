@@ -29,7 +29,8 @@ import {
 } from "@/hooks";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { RedemptionInbox, RewardCatalogue } from "@/components/pocket-money/rewards-settings";
-import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
+import { CreatureAvatar, type CreatureAvatarProps } from "@/components/pocket-money/creature-avatar";
+import { useCreatureMood } from "@/hooks/use-creature-mood";
 import { ChangeCreatureSheet } from "@/components/pocket-money/change-creature-sheet";
 import { AvatarStylePicker } from "@/components/pocket-money/avatar-style-picker";
 import { SpeciesPicker } from "@/components/pocket-money/species-picker";
@@ -163,7 +164,8 @@ function ChildCreatureCard({
     <Card className="p-4 space-y-3" data-testid={`creature-card-${kid.id}`}>
       <div className="flex items-center gap-3">
         {creature && on && (
-          <CreatureAvatar
+          <ChildCreature
+            personId={kid.id}
             species={creature.species}
             tier={tier}
             style={creature.style}
@@ -299,4 +301,10 @@ function ChildCreatureCard({
       )}
     </Card>
   );
+}
+
+/** The child's creature as it is now, mood and all (lib/creature-mood.ts). */
+function ChildCreature({ personId, ...avatar }: CreatureAvatarProps & { personId: string }) {
+  const mood = useCreatureMood(personId);
+  return <CreatureAvatar {...avatar} mood={mood} />;
 }

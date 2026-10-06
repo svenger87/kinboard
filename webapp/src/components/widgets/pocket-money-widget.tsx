@@ -8,6 +8,7 @@ import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmente
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
+import { useCreatureMood } from "@/hooks/use-creature-mood";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople, usePointTotals, useCreatures, activeCreatureOf } from "@/hooks";
 import { creatureStage } from "@/lib/creatures/stage";
@@ -96,6 +97,8 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
   const { data: creatures } = useCreatures();
   const creature = activeCreatureOf(creatures, account.person_id);
   const { totalsFor } = usePointTotals();
+  // Sleepy at night, happy once today's tasks are done; still, either way.
+  const mood = useCreatureMood(account.person_id);
   const points = totalsFor(account.person_id);
   const stage = creatureStage({
     creature: creature ?? { grows_with: "money", best_tier: 1 },
@@ -130,6 +133,7 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
           tier={stage.tier}
           style={creature.style}
           look={readLook(creature.look)}
+          mood={mood}
           size={56}
           animated={false}
           label={t(`species.${creature.species}.tier${stage.tier}` as never)}
