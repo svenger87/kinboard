@@ -907,6 +907,12 @@ html[data-screensaver] nav {
 @keyframes creature-zzz { 0% { opacity: 0; transform: translate(0, 6px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(10px, -16px); } }
 .creature-animated .creature-tail-sway { transform-origin: 95% 70%; animation: creature-sway 3.6s ease-in-out infinite; }
 @keyframes creature-sway { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(6deg); } }
+/* The axolotl's gills wave from where they join the head; the robot's lights blink. */
+.creature-animated .creature-gill { transform-origin: 100% 50%; animation: creature-gill 2.2s ease-in-out infinite; }
+.creature-animated .creature-gill-r { transform-origin: 0% 50%; animation: creature-gill 2.2s ease-in-out infinite; }
+@keyframes creature-gill { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-7deg); } }
+.creature-animated .creature-led { animation: creature-led 1.6s steps(2) infinite; }
+@keyframes creature-led { 50% { opacity: 0.25; } }
 
 /* One-shot reactions: a tap, an egg shaking, a new stage arriving. */
 .creature-hop { animation: creature-hop 520ms cubic-bezier(.3, 1.6, .5, 1); }
@@ -930,7 +936,7 @@ html[data-screensaver] nav {
 @keyframes creature-float-up { from { transform: translate(0, 0) scale(0.6); opacity: 1; } to { transform: translate(var(--creature-dx, 0px), -110px) scale(1.15); opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .creature-breathe, .creature-blink, .creature-flap, .creature-wobble, .creature-zzz, .creature-tail-sway,
+  .creature-breathe, .creature-blink, .creature-flap, .creature-wobble, .creature-zzz, .creature-tail-sway, .creature-gill, .creature-gill-r, .creature-led,
   .creature-hop, .creature-shake, .creature-pop, .creature-grow-out, .creature-flash, .creature-particle, .creature-img-in {
     animation: none !important;
   }

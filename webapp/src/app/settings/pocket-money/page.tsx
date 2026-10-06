@@ -38,7 +38,9 @@ import {
   RewardCatalogue,
   RewardModeSelect,
 } from "@/components/pocket-money/rewards-settings";
-import type { AvatarSpecies } from "@/lib/pocket-money/types";
+import type { AvatarSpecies, AvatarTier } from "@/lib/pocket-money/types";
+import { hasDrawnArt } from "@/lib/pocket-money/creatures";
+import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { formatCents } from "@/lib/pocket-money/format";
@@ -642,16 +644,25 @@ function AccountInbox({
 
 interface CreateAccountKid { id: string; name: string }
 
-// Each species card shows the species name + the full evolution strip
-// (every stage SVG) so parents and kids see the journey before they
-// pick. Adding a species to avatars.json auto-populates this picker.
-const SPECIES_PREVIEWS: ReadonlyArray<{
-  id: AvatarSpecies;
-  stageSrcs: ReadonlyArray<string>;
-}> = avatarCatalog.species.map((s) => ({
-  id: s.id,
-  stageSrcs: s.stages.map((st) => st.src),
-}));
+// Each species card shows the species name + the full evolution strip so
+// parents and kids see the journey before they pick: drawn species in their
+// Gumdrop drawing (still), the others as their classic pictures. Adding a
+// species to avatars.json auto-populates this picker.
+const SPECIES_PREVIEWS: ReadonlyArray<AvatarSpecies> = avatarCatalog.species.map((s) => s.id);
+const PREVIEW_TIERS: ReadonlyArray<AvatarTier> = [1, 2, 3, 4, 5, 6, 7, 8];
+
+function SpeciesStage({ species, tier, size }: { species: AvatarSpecies; tier: AvatarTier; size: number }) {
+  return (
+    <CreatureAvatar
+      species={species}
+      tier={tier}
+      style={hasDrawnArt(species) ? "gumdrop" : "classic"}
+      size={size}
+      animated={false}
+      label=""
+    />
+  );
+}
 
 function CreateAccountCard({
   kid,
@@ -672,9 +683,7 @@ function CreateAccountCard({
   const stageLabel = (s: AvatarSpecies, tier: number): string =>
     tPM(`species.${s}.tier${tier}` as never);
 
-  const pickedPreview = picked
-    ? SPECIES_PREVIEWS.find((p) => p.id === picked)
-    : null;
+  const pickedPreview = picked && SPECIES_PREVIEWS.includes(picked) ? picked : null;
 
   return (
     <Card className="p-4 space-y-3">
@@ -685,12 +694,13 @@ function CreateAccountCard({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {SPECIES_PREVIEWS.map((preview) => {
-          const isPicked = picked === preview.id;
+          const isPicked = picked === preview;
           return (
             <button
-              key={preview.id}
+              key={preview}
               type="button"
-              onClick={() => setPicked(preview.id)}
+              data-species={preview}
+              onClick={() => setPicked(preview)}
               className={`flex flex-col items-start gap-2 rounded-lg border-2 p-3 transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
                 isPicked
                   ? "border-primary bg-primary/5 ring-2 ring-primary/30"
@@ -699,18 +709,11 @@ function CreateAccountCard({
               aria-pressed={isPicked}
             >
               <span className="text-sm font-semibold">
-                {speciesLabel(preview.id)}
+                {speciesLabel(preview)}
               </span>
               <div className="flex w-full items-center justify-between gap-1">
-                {preview.stageSrcs.map((src, i) => (
-                  <img
-                    key={src}
-                    src={src}
-                    alt=""
-                    width={28}
-                    height={28}
-                    className={i === 0 ? "" : "opacity-80"}
-                  />
+                {PREVIEW_TIERS.map((tier) => (
+                  <SpeciesStage key={tier} species={preview} tier={tier} size={28} />
                 ))}
               </div>
             </button>
@@ -722,18 +725,18 @@ function CreateAccountCard({
         <div className="rounded-lg border border-border bg-accent/30 p-3 space-y-2">
           <p className="text-xs font-medium text-muted-foreground">
             {t("speciesPreviewTitle", {
-              species: speciesLabel(pickedPreview.id),
+              species: speciesLabel(pickedPreview),
             })}
           </p>
           <div className="flex items-start gap-2 overflow-x-auto">
-            {pickedPreview.stageSrcs.map((src, i) => (
+            {PREVIEW_TIERS.map((tier) => (
               <div
-                key={src}
+                key={tier}
                 className="flex flex-col items-center gap-1 min-w-[64px]"
               >
-                <img src={src} alt="" width={40} height={40} />
+                <SpeciesStage species={pickedPreview} tier={tier} size={40} />
                 <span className="text-3xs text-muted-foreground text-center leading-tight">
-                  {stageLabel(pickedPreview.id, i + 1)}
+                  {stageLabel(pickedPreview, tier)}
                 </span>
               </div>
             ))}

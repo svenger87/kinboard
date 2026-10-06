@@ -9,8 +9,9 @@ import { acquireWholeDatabase, dbContainer, releaseWholeDatabase } from "./whole
  * The drawn avatars on the screens: a child changes their own avatar's look
  * from their page with no PIN, taps it and it hops, a parent sees and changes
  * the same choice under Settings behind the PIN, the profile shows it, a stage
- * gained plays the hatching scene, and a species without drawings offers only
- * Classic. Needs FAMILY_CODE and a running stack.
+ * gained plays the hatching scene, a species without drawings offers only
+ * Classic, the workshop's creatures are drawn on the child's page, and the
+ * species picker offers all of them. Needs FAMILY_CODE and a running stack.
  *
  * Set AVATAR_SHOTS=<dir> to keep screenshots of each screen.
  */
@@ -200,12 +201,12 @@ test("a stage gained in a drawn look plays the hatching scene; from the egg, the
 test("a species without drawings offers only Classic, and the child's page offers no look to change", async ({ page }) => {
   test.setTimeout(120_000);
   await establishSession(page, familyCode!, DEVICE);
-  psql(`UPDATE pocket_money_accounts SET avatar_species = 'cat', avatar_style = 'sticker' WHERE id = '${accountId}'`);
+  psql(`UPDATE pocket_money_accounts SET avatar_species = 'wizard', avatar_style = 'sticker' WHERE id = '${accountId}'`);
 
   await goto(page, `/pocket-money?child=${childId}`);
   const avatar = page.getByRole("button", { name: /^(Tap|.* antippen|Toucher) / });
   // A stored drawn look on an undrawn species is the classic picture.
-  await expect(avatar.locator('img[data-avatar-style="classic"]')).toHaveAttribute("src", "/pocket-money/avatars/cat-5.svg", { timeout: 30_000 });
+  await expect(avatar.locator('img[data-avatar-style="classic"]')).toHaveAttribute("src", "/pocket-money/avatars/wizard-5.svg", { timeout: 30_000 });
   await expect(page.getByTestId("change-look")).toHaveCount(0);
 
   await goto(page, "/settings/pocket-money");
@@ -220,5 +221,69 @@ test("a species without drawings offers only Classic, and the child's page offer
   // Shown as what it looks like, Classic -- not as the stored choice it cannot show.
   await expect(card.getByRole("radio", { checked: true })).toHaveAttribute("data-style", "classic");
   await card.scrollIntoViewIfNeeded();
-  await shot(card, "settings-picker-cat");
+  await shot(card, "settings-picker-wizard");
+});
+
+test("the new creatures: drawn and moving on the child's page; a drawn-only one stands still in Classic", async ({ page }) => {
+  test.setTimeout(120_000);
+  await establishSession(page, familyCode!, DEVICE);
+  const avatar = page.getByRole("button", { name: /^(Tap|.* antippen|Toucher) / });
+  for (const species of ["rex", "unicorn", "princess", "prince", "cat", "fox", "robot", "stego"]) {
+    psql(`UPDATE pocket_money_accounts SET avatar_species = '${species}', avatar_style = 'sticker' WHERE id = '${accountId}'`);
+    await goto(page, `/pocket-money?child=${childId}`);
+    const svg = avatar.locator(`svg[data-species="${species}"][data-avatar-style="sticker"][data-tier="5"]`);
+    await expect(svg).toBeVisible({ timeout: 30_000 });
+    await expect(avatar.locator("svg.creature-animated")).toHaveCount(1);
+    await expect(page.getByTestId("change-look")).toBeVisible();
+    await shot(avatar, `child-${species}-sticker`);
+  }
+  psql(`UPDATE pocket_money_accounts SET avatar_species = 'princess', avatar_style = 'classic' WHERE id = '${accountId}'`);
+  await goto(page, `/pocket-money?child=${childId}`);
+  await expect(avatar.locator('svg[data-species="princess"][data-avatar-style="classic"]')).toBeVisible({ timeout: 30_000 });
+  await expect(avatar.locator("img")).toHaveCount(0);
+  await expect(avatar.locator("svg.creature-animated")).toHaveCount(0);
+  await shot(avatar, "child-princess-classic");
+});
+
+test("the species picker offers all fourteen drawn and the classic three, and a new creature starts in Gumdrop", async ({ page }) => {
+  test.setTimeout(120_000);
+  const kidName = `${TAG}-kid2`;
+  let kidId = "";
+  await acquireWholeDatabase();
+  try {
+    kidId = psql(`INSERT INTO people (family_id, name, is_child) VALUES ('${familyId}', '${kidName}', true) RETURNING id`);
+  } finally {
+    releaseWholeDatabase();
+  }
+  try {
+    await establishSession(page, familyCode!, DEVICE);
+    await goto(page, "/settings/pocket-money");
+    const digits = page.locator('input[inputmode="numeric"]');
+    await expect(digits.first()).toBeVisible({ timeout: 30_000 });
+    for (let i = 0; i < PIN.length; i++) await digits.nth(i).fill(PIN[i]);
+    const card = page.locator("div").filter({ has: page.getByText(kidName, { exact: false }) }).filter({ has: page.locator("button[data-species]") }).last();
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    const drawn = ["dragon", "cat", "axolotl", "owl", "robot", "unicorn", "fox", "penguin", "bunny", "rex", "trike", "stego", "princess", "prince"];
+    for (const species of drawn) {
+      const option = card.locator(`button[data-species="${species}"]`);
+      await expect(option).toBeVisible();
+      await expect(option.locator('svg[data-avatar-style="gumdrop"]')).toHaveCount(8);
+    }
+    for (const species of ["astronaut", "plant", "wizard"]) await expect(card.locator(`button[data-species="${species}"] img`)).toHaveCount(8);
+    await card.locator('button[data-species="unicorn"]').click();
+    await expect(card.getByText(/Star Egg|Sternenei|Œuf étoilé/)).toBeVisible();
+    await card.scrollIntoViewIfNeeded();
+    await shot(card, "settings-species-picker");
+    await card.getByRole("button", { name: /^(Create as|Als|Créer).*(Unicorn|Einhorn|Licorne)/ }).click();
+    await expect.poll(() => psql(`SELECT avatar_species || '|' || avatar_style FROM pocket_money_accounts WHERE person_id = '${kidId}'`), { timeout: 15_000 }).toBe("unicorn|gumdrop");
+  } finally {
+    await acquireWholeDatabase();
+    try {
+      psql(`DELETE FROM pocket_money_accounts WHERE person_id = '${kidId}'`);
+      // Twice: the first delete only moves a person to the recycle bin.
+      for (let i = 0; i < 2; i++) psql(`DELETE FROM people WHERE id = '${kidId}'`);
+    } finally {
+      releaseWholeDatabase();
+    }
+  }
 });

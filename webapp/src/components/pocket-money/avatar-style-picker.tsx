@@ -7,6 +7,7 @@ import {
   AVATAR_STYLES,
   STYLES,
   effectiveStyle,
+  hasClassicArt,
   hasDrawnArt,
   isDrawnStyle,
   type AvatarStyle,
@@ -38,6 +39,8 @@ export function AvatarStylePicker({ species, tier, value, onChange, disabled, ch
   const t = useTranslations("pocketMoney");
   const drawn = hasDrawnArt(species);
   const current = effectiveStyle(species, value);
+  // A creature that only exists drawn: Classic is its Gumdrop drawing, still.
+  const classicStill = drawn && !hasClassicArt(species);
 
   return (
     <div className="space-y-2">
@@ -74,6 +77,9 @@ export function AvatarStylePicker({ species, tier, value, onChange, disabled, ch
               )}
               <span className="text-sm font-medium leading-tight">{t(`avatarStyles.${style}`)}</span>
               {!available && <span className="text-2xs leading-tight text-muted-foreground">{t("avatarStyleComingSoon")}</span>}
+              {style === "classic" && classicStill && (
+                <span className="text-2xs leading-tight text-muted-foreground">{t("avatarStyleClassicStill")}</span>
+              )}
               {selected && (
                 <span className="absolute right-1.5 top-1.5 rounded-full bg-primary p-0.5 text-primary-foreground">
                   <Check className="size-3" aria-hidden="true" />

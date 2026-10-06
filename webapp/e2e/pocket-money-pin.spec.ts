@@ -265,4 +265,31 @@ test.describe("live: the decide route 403s a device that never entered the PIN",
     });
     expect(create.status(), await create.text()).toBe(201);
   });
+
+  test("with the PIN, a parent may pick any of the new creatures; an unknown one is refused", async () => {
+    const verify = await api.post("/api/pin", { data: { family_id: famId, action: "verify", pin: "4711" } });
+    expect((await verify.json()).valid).toBe(true);
+    for (const species of ["rex", "unicorn", "princess", "prince", "cat", "axolotl", "owl", "robot", "fox", "penguin", "bunny", "trike", "stego"]) {
+      const res = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_species: species } });
+      expect(res.status(), `${species}: ${await res.text()}`).toBe(200);
+      expect(psql(`SELECT avatar_species FROM pocket_money_accounts WHERE id = '${accountId}'`)).toBe(species);
+    }
+    const bogus = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_species: "griffin" } });
+    expect(bogus.status(), await bogus.text()).toBe(400);
+    expect(psql(`SELECT avatar_species FROM pocket_money_accounts WHERE id = '${accountId}'`)).toBe("stego");
+  });
+
+  test("a new account for a creature with no classic pictures starts in Gumdrop; the dragon still starts on Classic", async () => {
+    const kidA = psqlRow(`INSERT INTO people (family_id, name, is_child) VALUES ('${famId}', '${P}kid-a', true) RETURNING id`);
+    const kidB = psqlRow(`INSERT INTO people (family_id, name, is_child) VALUES ('${famId}', '${P}kid-b', true) RETURNING id`);
+    const kidC = psqlRow(`INSERT INTO people (family_id, name, is_child) VALUES ('${famId}', '${P}kid-c', true) RETURNING id`);
+    const unicorn = await api.post("/api/pocket-money/accounts", { data: { family_id: famId, person_id: kidA, avatar_species: "unicorn" } });
+    expect(unicorn.status(), await unicorn.text()).toBe(201);
+    expect((await unicorn.json()).account.avatar_style).toBe("gumdrop");
+    const dragon = await api.post("/api/pocket-money/accounts", { data: { family_id: famId, person_id: kidB, avatar_species: "dragon" } });
+    expect(dragon.status(), await dragon.text()).toBe(201);
+    expect((await dragon.json()).account.avatar_style).toBe("classic");
+    const bogus = await api.post("/api/pocket-money/accounts", { data: { family_id: famId, person_id: kidC, avatar_species: "griffin" } });
+    expect(bogus.status(), await bogus.text()).toBe(400);
+  });
 });

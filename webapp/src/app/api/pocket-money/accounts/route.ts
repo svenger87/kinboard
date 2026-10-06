@@ -4,6 +4,7 @@ import type { PocketMoneyAccountInsert } from "@/types/database";
 import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
+import { hasClassicArt } from "@/lib/pocket-money/creatures/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -131,6 +132,10 @@ export async function POST(request: NextRequest) {
       allowance_day_of_week: body.allowance_day_of_week ?? 0,
       max_balance_eligible_cents: body.max_balance_eligible_cents ?? 50_000,
       avatar_species: species,
+      // A creature that only exists drawn (the workshop's) starts in Gumdrop,
+      // moving; on Classic it would stand still. Dragon and cat start on
+      // Classic, as they always have.
+      ...(hasClassicArt(species) ? {} : { avatar_style: "gumdrop" }),
     })
     .select()
     .single();

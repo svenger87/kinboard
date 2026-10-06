@@ -13,7 +13,7 @@
 
 import type { ReactNode } from "react";
 import type { AvatarTier } from "../types";
-import { bodyFill, eyes, strokeOf, type CreatureMood, type DrawContext, type SpeciesArt } from "./skeleton";
+import { bodyFill, crown, eyes, strokeOf, wings, type CreatureMood, type DrawContext, type SpeciesArt } from "./skeleton";
 
 function head(ctx: DrawContext, stage: number, mood: CreatureMood, cx: number, cy: number, r: number): ReactNode {
   const { st } = ctx;
@@ -42,14 +42,7 @@ function head(ctx: DrawContext, stage: number, mood: CreatureMood, cx: number, c
       <path key="horn2-r" d={`M ${cx + r * 0.9} ${cy - r * 0.15} L ${cx + r * 1.32} ${cy - r * 0.45} L ${cx + r * 0.95} ${cy + r * 0.12} Z`} fill={p.horn} {...s} />,
     );
   }
-  if (stage === 8) {
-    const top = cy - r * 1.05;
-    const crownStroke = st.stroke ? strokeOf(st, 3) : { stroke: "#E0A419", strokeWidth: 2, strokeLinejoin: "round" as const };
-    parts.push(
-      <path key="crown" data-part="crown" d={`M ${cx - 20} ${top + 4} L ${cx - 20} ${top - 14} L ${cx - 10} ${top - 4} L ${cx} ${top - 18} L ${cx + 10} ${top - 4} L ${cx + 20} ${top - 14} L ${cx + 20} ${top + 4} Z`} fill="#FFC83D" {...crownStroke} />,
-      <circle key="crown-gem" cx={cx} cy={top - 4} r="3.4" fill="#FF5C8A" />,
-    );
-  }
+  if (stage === 8) parts.push(crown(ctx, cx, cy - r * 1.05));
   parts.push(<circle key="skull" cx={cx} cy={cy} r={r} fill={bodyFill(ctx)} {...s} />);
 
   // snout: grows longer from the Crocodile on
@@ -82,23 +75,6 @@ function head(ctx: DrawContext, stage: number, mood: CreatureMood, cx: number, c
   return <>{parts}</>;
 }
 
-function wing(ctx: DrawContext, big: boolean): ReactNode {
-  const { st } = ctx;
-  const p = st.pal;
-  const k = big ? 1 : 0.62;
-  const P = (x: number, y: number) => `${100 - (100 - x) * k} ${120 - (120 - y) * k}`;
-  return (
-    <g className="creature-part creature-flap">
-      <path
-        d={`M ${P(84, 118)} C ${P(58, 82)} ${P(34, 66)} ${P(18, 72)} C ${P(30, 84)} ${P(24, 96)} ${P(36, 102)} C ${P(28, 110)} ${P(36, 120)} ${P(50, 120)} C ${P(50, 128)} ${P(62, 132)} ${P(84, 128)} Z`}
-        fill={p.wing}
-        {...strokeOf(st)}
-      />
-      <path d={`M ${P(80, 116)} C ${P(60, 92)} ${P(44, 82)} ${P(32, 82)} C ${P(44, 96)} ${P(52, 110)} ${P(78, 122)} Z`} fill={p.wingIn} opacity="0.85" />
-    </g>
-  );
-}
-
 function fullBody(ctx: DrawContext, stage: AvatarTier, mood: CreatureMood): ReactNode {
   const { st } = ctx;
   const p = st.pal;
@@ -111,12 +87,7 @@ function fullBody(ctx: DrawContext, stage: AvatarTier, mood: CreatureMood): Reac
         <path d="M 78 158 Q 40 166 30 140 Q 26 128 36 126 Q 44 150 80 146 Z" fill={fill} {...s} />
         {stage >= 6 && <path d="M 36 128 L 22 118 L 30 134 Z" fill={p.spot} {...s} />}
       </g>
-      {stage >= 5 && (
-        <g data-part="wings">
-          {wing(ctx, stage >= 6)}
-          <g transform="translate(200 0) scale(-1 1)">{wing(ctx, stage >= 6)}</g>
-        </g>
-      )}
+      {stage >= 5 && wings(ctx, stage >= 6, p.wing, p.wingIn)}
       <g className="creature-part creature-breathe">
         <ellipse cx="82" cy="174" rx="13" ry="8" fill={fill} {...s} />
         <ellipse cx="118" cy="174" rx="13" ry="8" fill={fill} {...s} />

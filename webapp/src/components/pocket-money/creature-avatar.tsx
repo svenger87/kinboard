@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { AvatarSpecies, AvatarTier } from "@/lib/pocket-money/types";
 import {
   classicAvatarSrc,
+  classicIsDrawn,
   drawCreature,
   effectiveStyle,
   speciesArt,
@@ -124,7 +125,8 @@ export function useParticles() {
  * A child's pocket-money avatar, in their chosen style.
  *
  * Drawn styles render an inline SVG from lib/pocket-money/creatures; classic,
- * and any species not drawn yet, render the classic picture exactly as before.
+ * and any species not drawn yet, render the classic picture exactly as before;
+ * a species with no classic pictures shows its Gumdrop drawing, still.
  */
 export function CreatureAvatar({
   species,
@@ -145,6 +147,11 @@ export function CreatureAvatar({
   const uid = `cr${useId().replace(/[^A-Za-z0-9]/g, "")}`;
   const shown = effectiveStyle(species, style);
   const art = speciesArt(species);
+  // A creature that only exists drawn has no classic picture: Classic is its
+  // Gumdrop drawing, standing still.
+  const stillDrawing = classicIsDrawn(species, style);
+  const drawnStyle = shown === "classic" ? (stillDrawing ? "gumdrop" : null) : shown;
+  const moving = animated && !stillDrawing;
   const name = label ?? `${species} stage ${tier}`;
   // Inside a button that names it (a tappable avatar, a picker option), the
   // picture itself says nothing, or a screen reader reads it twice.
@@ -153,7 +160,7 @@ export function CreatureAvatar({
   const { burst, layer } = useParticles();
 
   const picture =
-    shown === "classic" || !art ? (
+    drawnStyle === null || !art ? (
       <img
         key={`${species}-${tier}`}
         src={classicAvatarSrc(species, tier)}
@@ -171,12 +178,13 @@ export function CreatureAvatar({
         role={decorative ? undefined : "img"}
         aria-label={decorative ? undefined : name}
         aria-hidden={decorative ? true : undefined}
-        className={`creature-svg${animated ? " creature-animated" : ""}`}
+        className={`creature-svg${moving ? " creature-animated" : ""}`}
         data-avatar-style={shown}
+        data-species={species}
         data-tier={tier}
         overflow="visible"
       >
-        {drawCreature({ art, style: shown, tier, mood, uid, cracked, look })}
+        {drawCreature({ art, style: drawnStyle, tier, mood, uid, cracked, look })}
       </svg>
     );
 

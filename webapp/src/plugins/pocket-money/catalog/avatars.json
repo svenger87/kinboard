@@ -3,6 +3,7 @@
     {
       "id": "dragon",
       "labelKey": "species.dragon.label",
+      "drawn": true,
       "stages": [
         { "tier": 1, "nameKey": "species.dragon.tier1", "src": "/pocket-money/avatars/dragon-1.svg" },
         { "tier": 2, "nameKey": "species.dragon.tier2", "src": "/pocket-money/avatars/dragon-2.svg" },
@@ -17,6 +18,7 @@
     {
       "id": "cat",
       "labelKey": "species.cat.label",
+      "drawn": true,
       "stages": [
         { "tier": 1, "nameKey": "species.cat.tier1", "src": "/pocket-money/avatars/cat-1.svg" },
         { "tier": 2, "nameKey": "species.cat.tier2", "src": "/pocket-money/avatars/cat-2.svg" },
@@ -26,6 +28,186 @@
         { "tier": 6, "nameKey": "species.cat.tier6", "src": "/pocket-money/avatars/cat-6.svg" },
         { "tier": 7, "nameKey": "species.cat.tier7", "src": "/pocket-money/avatars/cat-7.svg" },
         { "tier": 8, "nameKey": "species.cat.tier8", "src": "/pocket-money/avatars/cat-8.svg" }
+      ]
+    },
+    {
+      "id": "axolotl",
+      "labelKey": "species.axolotl.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.axolotl.tier1" },
+        { "tier": 2, "nameKey": "species.axolotl.tier2" },
+        { "tier": 3, "nameKey": "species.axolotl.tier3" },
+        { "tier": 4, "nameKey": "species.axolotl.tier4" },
+        { "tier": 5, "nameKey": "species.axolotl.tier5" },
+        { "tier": 6, "nameKey": "species.axolotl.tier6" },
+        { "tier": 7, "nameKey": "species.axolotl.tier7" },
+        { "tier": 8, "nameKey": "species.axolotl.tier8" }
+      ]
+    },
+    {
+      "id": "owl",
+      "labelKey": "species.owl.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.owl.tier1" },
+        { "tier": 2, "nameKey": "species.owl.tier2" },
+        { "tier": 3, "nameKey": "species.owl.tier3" },
+        { "tier": 4, "nameKey": "species.owl.tier4" },
+        { "tier": 5, "nameKey": "species.owl.tier5" },
+        { "tier": 6, "nameKey": "species.owl.tier6" },
+        { "tier": 7, "nameKey": "species.owl.tier7" },
+        { "tier": 8, "nameKey": "species.owl.tier8" }
+      ]
+    },
+    {
+      "id": "robot",
+      "labelKey": "species.robot.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.robot.tier1" },
+        { "tier": 2, "nameKey": "species.robot.tier2" },
+        { "tier": 3, "nameKey": "species.robot.tier3" },
+        { "tier": 4, "nameKey": "species.robot.tier4" },
+        { "tier": 5, "nameKey": "species.robot.tier5" },
+        { "tier": 6, "nameKey": "species.robot.tier6" },
+        { "tier": 7, "nameKey": "species.robot.tier7" },
+        { "tier": 8, "nameKey": "species.robot.tier8" }
+      ]
+    },
+    {
+      "id": "unicorn",
+      "labelKey": "species.unicorn.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.unicorn.tier1" },
+        { "tier": 2, "nameKey": "species.unicorn.tier2" },
+        { "tier": 3, "nameKey": "species.unicorn.tier3" },
+        { "tier": 4, "nameKey": "species.unicorn.tier4" },
+        { "tier": 5, "nameKey": "species.unicorn.tier5" },
+        { "tier": 6, "nameKey": "species.unicorn.tier6" },
+        { "tier": 7, "nameKey": "species.unicorn.tier7" },
+        { "tier": 8, "nameKey": "species.unicorn.tier8" }
+      ]
+    },
+    {
+      "id": "fox",
+      "labelKey": "species.fox.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.fox.tier1" },
+        { "tier": 2, "nameKey": "species.fox.tier2" },
+        { "tier": 3, "nameKey": "species.fox.tier3" },
+        { "tier": 4, "nameKey": "species.fox.tier4" },
+        { "tier": 5, "nameKey": "species.fox.tier5" },
+        { "tier": 6, "nameKey": "species.fox.tier6" },
+        { "tier": 7, "nameKey": "species.fox.tier7" },
+        { "tier": 8, "nameKey": "species.fox.tier8" }
+      ]
+    },
+    {
+      "id": "penguin",
+      "labelKey": "species.penguin.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.penguin.tier1" },
+        { "tier": 2, "nameKey": "species.penguin.tier2" },
+        { "tier": 3, "nameKey": "species.penguin.tier3" },
+        { "tier": 4, "nameKey": "species.penguin.tier4" },
+        { "tier": 5, "nameKey": "species.penguin.tier5" },
+        { "tier": 6, "nameKey": "species.penguin.tier6" },
+        { "tier": 7, "nameKey": "species.penguin.tier7" },
+        { "tier": 8, "nameKey": "species.penguin.tier8" }
+      ]
+    },
+    {
+      "id": "bunny",
+      "labelKey": "species.bunny.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.bunny.tier1" },
+        { "tier": 2, "nameKey": "species.bunny.tier2" },
+        { "tier": 3, "nameKey": "species.bunny.tier3" },
+        { "tier": 4, "nameKey": "species.bunny.tier4" },
+        { "tier": 5, "nameKey": "species.bunny.tier5" },
+        { "tier": 6, "nameKey": "species.bunny.tier6" },
+        { "tier": 7, "nameKey": "species.bunny.tier7" },
+        { "tier": 8, "nameKey": "species.bunny.tier8" }
+      ]
+    },
+    {
+      "id": "rex",
+      "labelKey": "species.rex.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.rex.tier1" },
+        { "tier": 2, "nameKey": "species.rex.tier2" },
+        { "tier": 3, "nameKey": "species.rex.tier3" },
+        { "tier": 4, "nameKey": "species.rex.tier4" },
+        { "tier": 5, "nameKey": "species.rex.tier5" },
+        { "tier": 6, "nameKey": "species.rex.tier6" },
+        { "tier": 7, "nameKey": "species.rex.tier7" },
+        { "tier": 8, "nameKey": "species.rex.tier8" }
+      ]
+    },
+    {
+      "id": "trike",
+      "labelKey": "species.trike.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.trike.tier1" },
+        { "tier": 2, "nameKey": "species.trike.tier2" },
+        { "tier": 3, "nameKey": "species.trike.tier3" },
+        { "tier": 4, "nameKey": "species.trike.tier4" },
+        { "tier": 5, "nameKey": "species.trike.tier5" },
+        { "tier": 6, "nameKey": "species.trike.tier6" },
+        { "tier": 7, "nameKey": "species.trike.tier7" },
+        { "tier": 8, "nameKey": "species.trike.tier8" }
+      ]
+    },
+    {
+      "id": "stego",
+      "labelKey": "species.stego.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.stego.tier1" },
+        { "tier": 2, "nameKey": "species.stego.tier2" },
+        { "tier": 3, "nameKey": "species.stego.tier3" },
+        { "tier": 4, "nameKey": "species.stego.tier4" },
+        { "tier": 5, "nameKey": "species.stego.tier5" },
+        { "tier": 6, "nameKey": "species.stego.tier6" },
+        { "tier": 7, "nameKey": "species.stego.tier7" },
+        { "tier": 8, "nameKey": "species.stego.tier8" }
+      ]
+    },
+    {
+      "id": "princess",
+      "labelKey": "species.princess.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.princess.tier1" },
+        { "tier": 2, "nameKey": "species.princess.tier2" },
+        { "tier": 3, "nameKey": "species.princess.tier3" },
+        { "tier": 4, "nameKey": "species.princess.tier4" },
+        { "tier": 5, "nameKey": "species.princess.tier5" },
+        { "tier": 6, "nameKey": "species.princess.tier6" },
+        { "tier": 7, "nameKey": "species.princess.tier7" },
+        { "tier": 8, "nameKey": "species.princess.tier8" }
+      ]
+    },
+    {
+      "id": "prince",
+      "labelKey": "species.prince.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.prince.tier1" },
+        { "tier": 2, "nameKey": "species.prince.tier2" },
+        { "tier": 3, "nameKey": "species.prince.tier3" },
+        { "tier": 4, "nameKey": "species.prince.tier4" },
+        { "tier": 5, "nameKey": "species.prince.tier5" },
+        { "tier": 6, "nameKey": "species.prince.tier6" },
+        { "tier": 7, "nameKey": "species.prince.tier7" },
+        { "tier": 8, "nameKey": "species.prince.tier8" }
       ]
     },
     {

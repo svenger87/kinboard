@@ -3,7 +3,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CreatureAvatar } from "../src/components/pocket-money/creature-avatar";
 import {
+  AVATAR_CATALOG,
   AVATAR_STYLES,
+  classicIsDrawn,
+  hasClassicArt,
   DRAWN_STYLES,
   effectiveStyle,
   hasDrawnArt,
@@ -110,8 +113,10 @@ test.describe("ids are unique per instance", () => {
 });
 
 test.describe("what is not drawn is the classic picture", () => {
-  test("classic shows the classic SVG for every species and stage", () => {
-    for (const s of avatarCatalog.species) {
+  test("classic shows the classic SVG for every species that has one, every stage", () => {
+    const pictured = AVATAR_CATALOG.filter((s) => hasClassicArt(s.id));
+    expect(pictured.map((s) => s.id).sort()).toEqual(["astronaut", "cat", "dragon", "plant", "wizard"]);
+    for (const s of pictured) {
       for (const tier of TIERS) {
         const html = render({ species: s.id, tier, style: "classic" });
         expect(html).toContain(`<img`);
@@ -121,9 +126,26 @@ test.describe("what is not drawn is the classic picture", () => {
     }
   });
 
+  test("a creature with no classic pictures is, in Classic, its Gumdrop drawing standing still", () => {
+    const drawnOnly = AVATAR_CATALOG.filter((s) => !hasClassicArt(s.id)).map((s) => s.id);
+    expect(drawnOnly.length).toBe(12);
+    for (const species of drawnOnly) {
+      for (const tier of TIERS) {
+        const html = render({ species, tier, style: "classic" });
+        expect(html, `${species} ${tier}`).not.toContain("<img");
+        expect(html).toContain('data-avatar-style="classic"');
+        expect(html).not.toContain("creature-animated");
+        expect(html).toBe(render({ species, tier, style: "gumdrop", animated: false }).replace('data-avatar-style="gumdrop"', 'data-avatar-style="classic"'));
+        expect(classicIsDrawn(species, "classic")).toBe(true);
+        expect(classicIsDrawn(species, "sticker")).toBe(false);
+      }
+    }
+    for (const species of ["dragon", "cat", "astronaut"]) expect(classicIsDrawn(species, "classic")).toBe(false);
+  });
+
   test("a species without drawings is classic in every style", () => {
     const undrawn = avatarCatalog.species.map((s) => s.id).filter((id) => !hasDrawnArt(id));
-    expect(undrawn.sort()).toEqual(["astronaut", "cat", "plant", "wizard"]);
+    expect(undrawn.sort()).toEqual(["astronaut", "plant", "wizard"]);
     for (const species of undrawn) {
       for (const style of AVATAR_STYLES) {
         const html = render({ species, tier: 3, style });

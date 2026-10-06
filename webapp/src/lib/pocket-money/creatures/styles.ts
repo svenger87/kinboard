@@ -31,6 +31,8 @@ export function isDrawnStyle(value: unknown): value is DrawnStyle {
 
 export interface Palette {
   body: string;
+  /** Storybook only: the near stop of the body's radial gradient (the body colour when unset). */
+  bodyHi?: string;
   /** Storybook only: the far stop of the body's radial gradient. */
   body2?: string;
   belly: string;
@@ -42,6 +44,11 @@ export interface Palette {
   eye: string;
   shell: string;
   shellSpot: string;
+  /** The creature's third colour: ears, mane, crest, gills, a scarf. */
+  accent?: string;
+  /** People only: skin tone and hair colour. */
+  skin?: string;
+  hair?: string;
 }
 
 export interface StyleSpec {
@@ -78,3 +85,64 @@ export const STYLES: Record<DrawnStyle, StyleSpec> = {
     glow: true,
   },
 };
+
+// ---------------------------------------------------------------------------
+// A creature's own colours
+// ---------------------------------------------------------------------------
+
+/**
+ * The colours a creature is drawn in whatever the style: the workshop's
+ * creatures (all but the dragon, which keeps a palette per style) have their
+ * own body, tummy and accent, and the style only changes outlines, the
+ * sticker edge and the lighting. A person has a skin tone and a hair colour
+ * instead of an accent.
+ */
+export interface SpeciesColors {
+  body: string;
+  belly: string;
+  accent: string;
+  skin?: string;
+  hair?: string;
+}
+
+const EYE = "#2A2438";
+const CHEEK = "#FF8FA3";
+const HORN = "#FFC857";
+const SHELL = "#FFF7E3";
+
+function channels(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [n >> 16, (n >> 8) & 255, n & 255];
+}
+const toHex = (v: number[]) => "#" + v.map((x) => x.toString(16).padStart(2, "0")).join("").toUpperCase();
+
+/** Darker by a fraction (the workshop's shade()). */
+export function shade(hex: string, f: number): string {
+  return toHex(channels(hex).map((v) => Math.max(0, Math.min(255, Math.round(v * (1 - f))))));
+}
+
+/** Lighter by a fraction, towards white (the workshop's tint()). */
+export function tint(hex: string, f: number): string {
+  return toHex(channels(hex).map((v) => Math.round(v + (255 - v) * f)));
+}
+
+/** A whole palette from a creature's own colours, as the workshop derives it. */
+export function paletteFromColors(c: SpeciesColors): Palette {
+  return {
+    body: c.body,
+    bodyHi: tint(c.body, 0.12),
+    body2: shade(c.body, 0.32),
+    belly: c.belly,
+    wing: c.accent,
+    wingIn: tint(c.accent, 0.45),
+    horn: HORN,
+    spot: shade(c.body, 0.22),
+    cheek: CHEEK,
+    eye: EYE,
+    shell: SHELL,
+    shellSpot: tint(c.accent, 0.45),
+    accent: c.accent,
+    skin: c.skin,
+    hair: c.hair,
+  };
+}

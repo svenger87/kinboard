@@ -69,9 +69,11 @@ Each child's avatar can be drawn in one of four looks:
 
 **What the drawn looks do.** They breathe, blink, beat their wings and sway their tails; tapping the avatar makes it hop and send up hearts, and an egg wobbles. When the avatar reaches a new stage, the egg shakes, cracks and hatches, or a later stage flashes and the new one pops out with a burst of stars. Classic keeps the glow it always had. All motion stops for anyone whose device asks to reduce motion. The stages sheet, the dashboard widget and the child's profile show the avatar in the same look, without the motion. The motion uses only movement and fading, which a Raspberry Pi wall display handles easily.
 
-**Which species are drawn.** So far, the dragon. For the other species the three drawn looks are greyed out with *Coming for this species*, and the child's page shows no **Change look** button. If a drawn look is stored for a species that has no drawings (set before the species was changed, say), that species shows its classic picture until its drawings arrive.
+**Which species are drawn.** Fourteen: the dragon, cat, axolotl, owl, robot, unicorn, fox, penguin, bunny, T-Rex, triceratops, stegosaurus, princess and prince. Each starts somewhere of its own -- a spotted egg, a star egg (unicorn), a jelly egg (axolotl), a basket (cat, bunny), a box of parts (robot), a pile of leaves (fox) or a crown on a cushion (princess, prince) -- and grows its own way, with a crown at stage 8. The astronaut, plant and wizard keep their classic pictures: for them the three drawn looks are greyed out with *Coming for this species*, and the child's page shows no **Change look** button. A drawn look stored for one of those shows the classic picture until its drawings arrive.
 
-**The drawings are Kinboard's own.** They are drawn in code (`webapp/src/lib/pocket-money/creatures/`) and do not come from an asset pack, so there is no third-party licence attached to them. A new species is one file there: it draws its own body and hatchling's head on a shared skeleton, and the egg, the looks' colours and the motion come with it.
+**Classic for the new creatures.** Twelve of the fourteen never had classic pictures. For them *Classic* is their Gumdrop drawing standing still (the picker says *Standing still*), and a new account for one of them starts in Gumdrop, so it moves from the first day. Dragon and cat accounts start on Classic, as before.
+
+**The drawings are Kinboard's own.** They are drawn in code (`webapp/src/lib/pocket-money/creatures/`) and do not come from an asset pack, so there is no third-party licence attached to them. A new species is one file there: it draws its own head parts, tail and body changes on a shared skeleton, and its beginning, the looks' outlines and lighting, and the motion come with it.
 
 The choice is stored in `pocket_money_accounts.avatar_style` (`webapp/docker/migration_zzzzzzzz_pocket_money_avatar_style.sql`), which the database holds to the four values. A family export carries it, and restoring a backup made before this column existed gives every child Classic.
 
@@ -129,7 +131,8 @@ The set of stages and lifetime-saved thresholds is shared across all species and
 - Sibling co-op goals
 - Multi-currency per family
 - Custom parent-uploaded avatar art (catalog SVGs are designer-replaceable per file in `webapp/public/pocket-money/avatars/`)
-- Drawn looks for the cat, astronaut, plant and wizard, and a child's own colours, pattern, eyes, accessory or name for their avatar -- planned
+- Drawn looks for the astronaut, plant and wizard, and a child's own colours, pattern, eyes, accessory or name for their avatar -- planned
+- Changing a child's creature once the account exists: it is picked when the account is set up
 
 ## Disabling the plugin
 
