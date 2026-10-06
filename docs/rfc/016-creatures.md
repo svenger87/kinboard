@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted 2026-10-06 (first batch, §3). Step 1 is #363; Steps 2 and 3 follow |
+| **Status** | Accepted 2026-10-06 (all fourteen creatures, §3). Step 1 is #363; Steps 2 and 3 follow |
 | **Date** | 2026-10-06 |
 | **Depends on** | the pocket-money plugin, points mode (#353), server-only pocket-money writes (#361) |
 
@@ -78,9 +78,8 @@ shades) and **hair colour** to the editor (§4), so a child can make them look
 like themselves. Any child can pick either; nothing in Kinboard ties them to
 boys or girls.
 
-**First batch** (decided 2026-10-06): **Dragon** (Step 1), **T-Rex**,
-**Unicorn**, **Princess**, **Prince** and **Cat**. The others follow one PR at
-a time.
+**All fourteen ship together** (decided 2026-10-06): the dragon in Step 1, and
+the other thirteen in one Step 2 PR.
 
 Today's astronaut, plant and wizard stay in the *Classic* style (today's
 pictures). Choosing a drawn style for them shows "coming for this creature",
@@ -182,7 +181,7 @@ anyone who asks their device to reduce motion.
 
 ## 7. Open questions
 
-1. ~~Which creatures~~: decided, first batch in §3.
+1. ~~Which creatures~~: decided, all fourteen (§3).
 2. **Classic**: is it kept for good, or retired once every creature is drawn?
 3. **Who picks the style when a child has none yet**: the family's default
    (one setting), or always Classic until the child chooses?
