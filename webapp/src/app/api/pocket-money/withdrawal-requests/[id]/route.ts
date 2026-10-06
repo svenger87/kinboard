@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyIdFrom } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { requireSettingsUnlock } from "@/lib/settings-pin";
 import type { RpcClient } from "@/lib/pocket-money/booking";
 import { decideWithdrawal } from "@/lib/pocket-money/runs";
 
@@ -33,6 +34,12 @@ export async function PATCH(
   if (!familyMatchesSession(auth.session, familyId)) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
+
+  // Approving or denying is the parent's decision, not the requester's — a
+  // child's own device could otherwise approve the request it just made by
+  // calling this route directly, skipping the settings PIN screen entirely.
+  const locked = await requireSettingsUnlock(auth.session);
+  if (locked) return locked;
 
   if (body.status !== "approved" && body.status !== "denied") {
     return NextResponse.json(

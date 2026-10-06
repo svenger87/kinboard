@@ -1,6 +1,7 @@
 import { useFamilyStore } from "@/stores/family-store";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePocketMoneyAccounts } from "./use-pocket-money-accounts";
+import { isPinRequired, relockSettings } from "@/lib/pin-session";
 import type {
   PocketMoneyWithdrawalRequest,
   PocketMoneyWithdrawalRequestInsert,
@@ -70,12 +71,20 @@ export function useDecideWithdrawalRequest() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status, parent_decided_by_person_id, family_id: family?.id }),
       });
+      // The server wants the PIN again (RFC-010 §3.5): PinGuard re-prompts
+      // and says why, so this is not an error to toast as well.
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return false;
+      }
       if (!r.ok) {
         const err = (await r.json().catch(() => ({}))) as { error?: string };
         throw new Error(err.error ?? `decide: ${r.status}`);
       }
+      return true;
     },
-    onSuccess: () => {
+    onSuccess: (decided) => {
+      if (!decided) return;
       qc.invalidateQueries({ queryKey: [KEY] });
       // Cross-invalidate the accounts query — an approved withdrawal
       // changes balance_cents. Keep this string in sync with the KEY

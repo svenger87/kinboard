@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
+import { isPinRequired, relockSettings } from "@/lib/pin-session";
 import type {
   PocketMoneyAccount,
   PocketMoneyAccountInsert,
@@ -62,13 +63,20 @@ export function useCreatePocketMoneyAccount() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...input, family_id: family?.id }),
       });
+      // The server wants the PIN again (RFC-010 §3.5): PinGuard re-prompts
+      // and says why, so this is not an error to toast as well.
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return null;
+      }
       if (!r.ok) {
         const err = (await r.json().catch(() => ({}))) as { error?: string };
         throw new Error(err.error ?? `create: ${r.status}`);
       }
       return ((await r.json()) as { account: PocketMoneyAccount }).account;
     },
-    onSuccess: () => {
+    onSuccess: (account) => {
+      if (!account) return;
       qc.invalidateQueries({ queryKey: [KEY, family?.id] });
     },
   });
@@ -89,10 +97,18 @@ export function useUpdatePocketMoneyAccount() {
         // silently, as did the avatar-stage tracking on every page load.
         body: JSON.stringify({ ...update, family_id: family?.id }),
       });
+      // Only the protected fields (allowance, interest, currency, species)
+      // trigger this on the server — the per-page-load avatar-stage write
+      // never does, so this never relocks a kid's own screen.
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return null;
+      }
       if (!r.ok) throw new Error(`update: ${r.status}`);
       return ((await r.json()) as { account: PocketMoneyAccount }).account;
     },
     onSuccess: (saved) => {
+      if (!saved) return;
       qc.invalidateQueries({ queryKey: [KEY, family?.id] });
       qc.invalidateQueries({ queryKey: [KEY, "one", saved.id] });
     },
@@ -108,9 +124,15 @@ export function useDeletePocketMoneyAccount() {
         `/api/pocket-money/accounts/${id}?family_id=${family?.id ?? ""}`,
         { method: "DELETE" },
       );
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return false;
+      }
       if (!r.ok) throw new Error(`delete: ${r.status}`);
+      return true;
     },
-    onSuccess: () => {
+    onSuccess: (deleted) => {
+      if (!deleted) return;
       qc.invalidateQueries({ queryKey: [KEY, family?.id] });
     },
   });
@@ -147,13 +169,18 @@ export function useCreatePocketMoneyTransaction() {
           family_id: family?.id,
         }),
       });
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return null;
+      }
       if (!r.ok) {
         const err = (await r.json().catch(() => ({}))) as { error?: string };
         throw new Error(err.error ?? `txn: ${r.status}`);
       }
       return r.json();
     },
-    onSuccess: (_, vars) => {
+    onSuccess: (result, vars) => {
+      if (!result) return;
       qc.invalidateQueries({ queryKey: [KEY, "transactions", vars.accountId] });
       qc.invalidateQueries({ queryKey: [KEY, "one", vars.accountId] });
       qc.invalidateQueries({ queryKey: [KEY] });
