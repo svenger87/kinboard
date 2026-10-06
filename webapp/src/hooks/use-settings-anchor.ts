@@ -36,7 +36,12 @@ export function useSettingsAnchor() {
 
     const open = () => {
       cancelAnimationFrame(frame);
-      const anchor = decodeURIComponent(window.location.hash.slice(1));
+      let anchor = "";
+      try {
+        anchor = decodeURIComponent(window.location.hash.slice(1));
+      } catch {
+        return; // A malformed hash (%E0%A4%A) names no section; leave the page as it is.
+      }
       if (!anchor) return;
       const selector = `[data-setting="${CSS.escape(anchor)}"]`;
       const started = performance.now();
