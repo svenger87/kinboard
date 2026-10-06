@@ -455,6 +455,16 @@ export {
   useCreateWithdrawalRequest,
   useDecideWithdrawalRequest,
 } from "./use-pocket-money-withdrawal-requests";
+export {
+  usePointRewards,
+  usePointRedemptions,
+  usePendingRedemptionCount,
+  usePointTotals,
+  useSaveReward,
+  useDeleteReward,
+  useRequestRedemption,
+  useDecideRedemption,
+} from "./use-point-rewards";
 
 export { useWeekStart, weekStartForLocale, DEFAULT_WEEK_START } from "./use-week-start";
 export type { WeekStartPreference, WeekStartsOn } from "./use-week-start";

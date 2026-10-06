@@ -36,6 +36,7 @@ import { clientIp, hitLimit } from "@/lib/rate-limit";
 //   families → vehicles / tickers (standalone, family-scoped)
 //   people → pocket_money_accounts → pocket_money_goals →
 //     pocket_money_transactions / pocket_money_withdrawal_requests
+//   point_rewards; pocket_money_accounts → point_redemptions
 //   settings (family_id only)
 //
 // NEVER imported (matches export's NEVER-exported list): families.join_code
@@ -90,7 +91,7 @@ function spec(table: string, overrides: Partial<TableSpec> = {}): TableSpec {
 }
 
 // Insertion order — every table GET /api/export writes under `data` MUST
-// appear here (self-review requirement, Task 3 Step 4). 25 tables, same
+// appear here (self-review requirement, Task 3 Step 4). 27 tables, same
 // count as the export payload's `data` keys.
 const TABLE_SPECS: TableSpec[] = [
   spec("people"),
@@ -147,6 +148,14 @@ const TABLE_SPECS: TableSpec[] = [
     hasFamilyId: false,
     requiredFks: ["account_id"],
     nullableFks: ["parent_decided_by_person_id", "related_goal_id"],
+  }),
+  spec("point_rewards"),
+  // Devices are never carried over, so who asked and who decided is lost;
+  // the request, its cost and its status are what the balance needs.
+  spec("point_redemptions", {
+    requiredFks: ["account_id"],
+    nullableFks: ["reward_id"],
+    forceNullColumns: ["requested_by_device_id", "decided_by_device_id"],
   }),
   spec("settings", { settingValueFks: [SETTINGS_KEYS.defaultCalendarId] }),
 ];

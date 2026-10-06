@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
+import { isPinRequired, relockSettings } from "@/lib/pin-session";
 import type {
   PocketMoneyAccount,
   PocketMoneyAccountInsert,
@@ -89,7 +90,14 @@ export function useUpdatePocketMoneyAccount() {
         // silently, as did the avatar-stage tracking on every page load.
         body: JSON.stringify({ ...update, family_id: family?.id }),
       });
-      if (!r.ok) throw new Error(`update: ${r.status}`);
+      if (!r.ok) {
+        // Changing what the avatar grows with needs the settings PIN.
+        if (await isPinRequired(r)) {
+          relockSettings();
+          throw new Error("pin_required");
+        }
+        throw new Error(`update: ${r.status}`);
+      }
       return ((await r.json()) as { account: PocketMoneyAccount }).account;
     },
     onSuccess: (saved) => {

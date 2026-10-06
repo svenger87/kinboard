@@ -239,6 +239,14 @@ test("a route that still takes family_id checks it against the session", () => {
     // `subdivision` -- an OpenHolidays code, never a family.
     "school-holidays/sync/route.ts",
     "school-holidays/options/route.ts",
+    // Rewards bought with task points (#349). The regex matches the
+    // `family_id` column and the `familyId` argument, both taken from
+    // auth.session.familyId; the requests carry only ids, a reward's fields
+    // and `{ status }` / `{ reward_id }` -- never a family id.
+    "pocket-money/rewards/route.ts",
+    "pocket-money/rewards/[id]/route.ts",
+    "pocket-money/redemptions/[id]/route.ts",
+    "pocket-money/accounts/[id]/redemptions/route.ts",
   ]);
 
   const missing: string[] = [];

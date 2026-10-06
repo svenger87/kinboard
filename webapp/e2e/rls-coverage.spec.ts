@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
-import { codeOnly } from "./source-helpers";
+import { browserWriteGrants, codeOnly } from "./source-helpers";
 
 /**
  * Every family-scoped table must be in `direct_tables`.
@@ -96,6 +96,7 @@ test("every family-scoped table is under row-level security", () => {
     "oauth_authorization_requests",
     "assistant_action_requests",
     "todo_occurrences", "todo_events",
+    "point_rewards", "point_redemptions",
   ]);
 
   // - todo_occurrences / todo_events (#341): their own RLS + a family-scoped
@@ -110,9 +111,26 @@ test("every family-scoped table is under row-level security", () => {
     expect(turnsSql).toMatch(new RegExp(`ALTER TABLE public\\.${table} ENABLE ROW LEVEL SECURITY;`, "i"));
     expect(turnsSql).toMatch(new RegExp(`CREATE POLICY ${table}_family_read ON public\\.${table}\\s+FOR SELECT USING \\(family_id = public\\.current_family_id\\(\\)\\);`, "i"));
     expect(turnsSql).toMatch(new RegExp(`REVOKE ALL ON TABLE public\\.${table} FROM authenticated;`, "i"));
-    expect(turnsSql).not.toMatch(new RegExp(`GRANT\\s+(?:ALL|INSERT|UPDATE|DELETE)[^;]*${table} TO (?:anon|authenticated)`, "i"));
+    expect(browserWriteGrants(turnsSql, table), table).toEqual([]);
   }
   expect("migration_zzzzzy_todo_turns.sql" > "migration_zz_row_level_security.sql").toBe(true);
+
+  // - point_rewards / point_redemptions (#349): their own RLS + a
+  //   family-scoped SELECT-only policy, REVOKE ALL from anon/authenticated and
+  //   only SELECT given back, in migration_zzzzzzz_point_rewards.sql. Every
+  //   write goes through a server route on the service role: a child's screen
+  //   must not be able to approve its own reward.
+  const rewardsSql = codeOnly(
+    readFileSync(join(DOCKER, "migration_zzzzzzz_point_rewards.sql"), "utf8"),
+    { sql: true },
+  );
+  for (const table of ["point_rewards", "point_redemptions"]) {
+    expect(rewardsSql).toMatch(new RegExp(`ALTER TABLE public\\.${table} ENABLE ROW LEVEL SECURITY;`, "i"));
+    expect(rewardsSql).toMatch(new RegExp(`CREATE POLICY ${table}_family_read ON public\\.${table}\\s+FOR SELECT USING \\(family_id = public\\.current_family_id\\(\\)\\);`, "i"));
+    expect(rewardsSql).toMatch(new RegExp(`REVOKE ALL ON TABLE public\\.${table} FROM authenticated;`, "i"));
+    expect(browserWriteGrants(rewardsSql, table), table).toEqual([]);
+  }
+  expect("migration_zzzzzzz_point_rewards.sql" > "migration_zz_row_level_security.sql").toBe(true);
 
   const actionsSql = codeOnly(
     readFileSync(join(DOCKER, "migration_zzzz_assistant_actions.sql"), "utf8"),
@@ -123,7 +141,7 @@ test("every family-scoped table is under row-level security", () => {
   expect(actionsSql).toMatch(/REVOKE ALL ON TABLE public\.assistant_action_requests FROM anon;/i);
   expect(actionsSql).toMatch(/REVOKE ALL ON TABLE public\.assistant_action_requests FROM authenticated;/i);
   expect(actionsSql).toMatch(/GRANT SELECT ON TABLE public\.assistant_action_requests TO authenticated;/i);
-  expect(actionsSql).not.toMatch(/GRANT\s+(?:ALL|INSERT|UPDATE|DELETE)[^;]*assistant_action_requests TO (?:anon|authenticated)/i);
+  expect(browserWriteGrants(actionsSql, "assistant_action_requests")).toEqual([]);
   // Sorts after the RLS migration, whose clean-up loop drops non-`_family_scope` policies.
   expect("migration_zzzz_assistant_actions.sql" > "migration_zz_row_level_security.sql").toBe(true);
 

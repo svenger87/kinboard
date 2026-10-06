@@ -10,20 +10,16 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import {
-  TIER_THRESHOLDS_CENTS,
-  type AvatarSpecies,
-  type AvatarTier,
-} from "@/lib/pocket-money/types";
-import { tierFromBalance, effectiveBestTier } from "@/lib/pocket-money/interest";
+import type { AvatarSpecies, AvatarTier } from "@/lib/pocket-money/types";
+import type { AvatarStage } from "@/lib/pocket-money/points";
 import { formatCents } from "@/lib/pocket-money/format";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   species: AvatarSpecies;
-  balanceCents: number;
-  bestTier: number;
+  /** What the avatar shows, in money or points mode (avatarStage). */
+  stage: AvatarStage;
   currency: string;
 }
 
@@ -31,21 +27,21 @@ export function StagesSheet({
   open,
   onOpenChange,
   species,
-  balanceCents,
-  bestTier,
+  stage,
   currency,
 }: Props) {
   const t = useTranslations("pocketMoney");
-  const currentTier = tierFromBalance(balanceCents);
+  const currentTier = stage.tier;
   // Stages above the current one but at or below the best-ever mark
   // are shown as previously reached rather than locked — the kid did
   // earn them, they just spent back down.
-  const bestReached = effectiveBestTier(balanceCents, bestTier);
+  const bestReached = stage.best;
 
-  // Build the stage list from TIER_THRESHOLDS_CENTS so adding/removing
-  // tiers in lib/pocket-money/types.ts is the single source of truth.
+  // Build the stage list from the mode's thresholds (TIER_THRESHOLDS_CENTS
+  // or TIER_THRESHOLDS_POINTS in lib/pocket-money/types.ts), so adding or
+  // removing tiers there is the single source of truth.
   const stages: ReadonlyArray<{ tier: AvatarTier; threshold: number }> =
-    TIER_THRESHOLDS_CENTS.map((threshold, i) => ({
+    stage.thresholds.map((threshold, i) => ({
       tier: (i + 1) as AvatarTier,
       threshold,
     }));
@@ -55,7 +51,9 @@ export function StagesSheet({
       <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{t("stagesSheetTitle")}</SheetTitle>
-          <SheetDescription>{t("stagesSheetDescription")}</SheetDescription>
+          <SheetDescription>
+            {stage.mode === "points" ? t("stagesSheetDescriptionPoints") : t("stagesSheetDescription")}
+          </SheetDescription>
         </SheetHeader>
 
         <ul className="mt-6 space-y-3">
@@ -106,9 +104,9 @@ export function StagesSheet({
                   <p className="text-sm text-muted-foreground">
                     {threshold === 0
                       ? t("stagesStartingThreshold")
-                      : t("stagesThreshold", {
-                          amount: formatCents(threshold, currency),
-                        })}
+                      : stage.mode === "points"
+                        ? t("stagesThresholdPoints", { count: threshold })
+                        : t("stagesThreshold", { amount: formatCents(threshold, currency) })}
                   </p>
                 </div>
                 <div className="shrink-0">

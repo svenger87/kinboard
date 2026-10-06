@@ -31,7 +31,13 @@ import {
   useWithdrawalRequests,
   useDecideWithdrawalRequest,
   usePeople,
+  usePointTotals,
 } from "@/hooks";
+import {
+  RedemptionInbox,
+  RewardCatalogue,
+  RewardModeSelect,
+} from "@/components/pocket-money/rewards-settings";
 import type { AvatarSpecies } from "@/lib/pocket-money/types";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
@@ -131,6 +137,9 @@ export default function PocketMoneySettingsPage() {
   const kidsWithoutAccount = kids.filter((k) => !accountedPersonIds.has(k.id));
 
   const days = useLocalizedDayNames();
+  const { totalsFor } = usePointTotals();
+  const nameOf = (personId: string) =>
+    people.find((p) => p.id === personId)?.name ?? personId.slice(0, 8);
 
   return (
     <main
@@ -174,6 +183,8 @@ export default function PocketMoneySettingsPage() {
           </Card>
         )}
 
+        <RedemptionInbox accounts={accounts} nameOf={nameOf} />
+
         {accounts.map((acct) => (
           <AccountInbox
             key={`inbox-${acct.id}`}
@@ -184,6 +195,8 @@ export default function PocketMoneySettingsPage() {
 
         {accounts.map((acct) => {
           const kidPerson = people.find((p) => p.id === acct.person_id);
+          const pointsMode = acct.reward_mode === "points";
+          const points = totalsFor(acct.person_id, acct.id);
           return (
             <Card key={acct.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -191,6 +204,13 @@ export default function PocketMoneySettingsPage() {
                   <h3 className="font-semibold">
                     {kidPerson?.name ?? acct.person_id.slice(0, 8)}
                   </h3>
+                  {pointsMode && (
+                    <p className="text-sm text-muted-foreground tabular-nums" data-testid="account-points-summary">
+                      {t("pointsSummary", { balance: points.balance, earned: points.earned })}
+                    </p>
+                  )}
+                  {/* In points mode the money line shows only when there is money. */}
+                  {(!pointsMode || acct.balance_cents > 0 || acct.weekly_allowance_cents > 0) && (
                   <p className="text-sm text-muted-foreground">
                     {formatCents(acct.balance_cents, acct.currency)} ·{" "}
                     {t("aprSummaryLabel", { pct: (acct.apr_bps / 100).toFixed(1) })} ·{" "}
@@ -199,6 +219,7 @@ export default function PocketMoneySettingsPage() {
                       days: acct.allowance_interval_days ?? 7,
                     })}
                   </p>
+                  )}
                   {/* The schedule is only trustworthy if you can see when
                       it next fires. Without this a correctly-working
                       fortnightly allowance is indistinguishable from a
@@ -247,6 +268,30 @@ export default function PocketMoneySettingsPage() {
                 </Button>
               </div>
 
+              <div className="pt-3 border-t border-border">
+                <RewardModeSelect
+                  account={acct}
+                  childName={kidPerson?.name ?? ""}
+                  disabled={update.isPending}
+                  onChange={(mode) =>
+                    update
+                      .mutateAsync({ id: acct.id, update: { reward_mode: mode } })
+                      .catch((err) =>
+                        toast.error(
+                          err instanceof Error && err.message === "pin_required"
+                            ? t("errorPinRequired")
+                            : t("errorGeneric"),
+                        ),
+                      )
+                  }
+                />
+              </div>
+
+              {(() => {
+                // A child in points mode needs no money set up, so the money
+                // settings fold away -- still there for a family that uses both.
+                const money = (
+                  <>
               {/* Allowance first: it's the setting a parent actually
                   revisits. Interest is set once and forgotten, so it
                   sits below under its own heading rather than
@@ -395,6 +440,19 @@ export default function PocketMoneySettingsPage() {
                 allowanceIntervalDays={acct.allowance_interval_days ?? 7}
                 currency={acct.currency}
               />
+                  </>
+                );
+                return pointsMode ? (
+                  <details className="pt-3 border-t border-border group">
+                    <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+                      {t("moneySettingsSummary")}
+                    </summary>
+                    <div className="space-y-3 pt-3">{money}</div>
+                  </details>
+                ) : (
+                  money
+                );
+              })()}
             </Card>
           );
         })}
@@ -411,6 +469,8 @@ export default function PocketMoneySettingsPage() {
             isPending={create.isPending}
           />
         ))}
+
+        {accounts.length > 0 && <RewardCatalogue />}
 
         {kids.length === 0 && (
           <Card className="p-6 text-center text-sm text-muted-foreground">

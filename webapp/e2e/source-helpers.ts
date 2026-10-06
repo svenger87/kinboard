@@ -34,3 +34,32 @@ export function codeOnly(source: string, { sql = false }: { sql?: boolean } = {}
     })
     .join("\n");
 }
+
+/**
+ * The GRANT statements in `sql` that give a browser role (anon,
+ * authenticated, or PUBLIC, which both inherit) a write privilege on
+ * public.<table>: any of ALL, INSERT, UPDATE, DELETE or TRUNCATE anywhere in
+ * the privilege list, the table anywhere in the target list (or every table
+ * in the schema), and the role anywhere in the grantee list. A regex over the
+ * statement as a whole missed `GRANT SELECT, INSERT ... TO authenticated` and
+ * `TO service_role, authenticated`.
+ *
+ * Reads statements as written; a GRANT built at run time with format() and
+ * %I is out of its reach.
+ */
+export function browserWriteGrants(sql: string, table: string): string[] {
+  const found: string[] = [];
+  const statements = sql.matchAll(
+    /\bGRANT\s+([\s\S]*?)\s+ON\s+(?:TABLE\s+)?([\s\S]*?)\s+TO\s+([\s\S]*?)(?:\s+WITH\s+GRANT\s+OPTION)?\s*;/gi,
+  );
+  for (const [statement, privileges, targets, grantees] of statements) {
+    if (!/\b(?:ALL|INSERT|UPDATE|DELETE|TRUNCATE)\b/i.test(privileges)) continue;
+    const onTable =
+      /^ALL\s+TABLES\s+IN\s+SCHEMA\s+public$/i.test(targets.trim()) ||
+      targets.split(",").some((t) => t.trim().replace(/"/g, "").replace(/^public\./i, "").toLowerCase() === table);
+    if (!onTable) continue;
+    if (!grantees.split(",").some((g) => /^(?:anon|authenticated|public)$/i.test(g.trim()))) continue;
+    found.push(statement.replace(/\s+/g, " "));
+  }
+  return found;
+}

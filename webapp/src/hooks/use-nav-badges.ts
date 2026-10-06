@@ -5,6 +5,7 @@ import { useTodos, useBirthdays } from "@/hooks/use-supabase-queries";
 import { useToday } from "@/hooks/use-today";
 import { parseBirthdayDate, getDaysUntilBirthday } from "@/lib/birthday";
 import { usePendingWithdrawalCount } from "@/hooks/use-pocket-money-withdrawal-requests";
+import { usePendingRedemptionCount } from "@/hooks/use-point-rewards";
 import { isTodoOpen } from "@/lib/todo-recurrence";
 
 export type NavBadges = Record<string, number>;
@@ -18,6 +19,8 @@ export function useNavBadges(): NavBadges {
   // which nobody opens routinely — without a badge a child's request
   // can sit unseen for days and read as being ignored.
   const pendingWithdrawals = usePendingWithdrawalCount();
+  // Rewards asked for with task points wait on a parent the same way.
+  const pendingRedemptions = usePendingRedemptionCount();
 
   return useMemo(() => {
     const badges: NavBadges = {};
@@ -40,10 +43,10 @@ export function useNavBadges(): NavBadges {
       badges["/birthdays"] = birthdaysToday;
     }
 
-    if (pendingWithdrawals > 0) {
-      badges["/pocket-money"] = pendingWithdrawals;
+    if (pendingWithdrawals + pendingRedemptions > 0) {
+      badges["/pocket-money"] = pendingWithdrawals + pendingRedemptions;
     }
 
     return badges;
-  }, [todos, birthdays, today, pendingWithdrawals]);
+  }, [todos, birthdays, today, pendingWithdrawals, pendingRedemptions]);
 }
