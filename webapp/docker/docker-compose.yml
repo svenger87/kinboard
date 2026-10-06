@@ -529,6 +529,9 @@ services:
       # School holidays from the OpenHolidays API (RFC-014 §5). "off" turns
       # the sync off for the whole install: no request leaves the server.
       SCHOOL_HOLIDAY_SYNC: ${SCHOOL_HOLIDAY_SYNC:-}
+      # Join/create attempts per client per minute. Unset keeps the production
+      # caps (10 and 5); CI raises it because its tests join from one IP.
+      SESSION_RATE_LIMIT_PER_MINUTE: ${SESSION_RATE_LIMIT_PER_MINUTE:-}
       # go2rtc for camera WebRTC streaming (internal Docker network)
       GO2RTC_URL: http://go2rtc:1984
       # Web Push Notifications (VAPID)

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
 import { mintFamilyToken } from "@/lib/family-jwt";
-import { hitLimit, clientIp } from "@/lib/rate-limit";
+import { hitLimit, sessionAttemptLimit, clientIp } from "@/lib/rate-limit";
 import { insertFamilyWithRegion } from "@/lib/family-create";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   // burns join-code generation. Tighter than join: nobody legitimately creates
   // families in a loop.
   const ip = clientIp(request);
-  const limit = hitLimit(`create:ip:${ip}`, 5, 60_000);
+  const limit = hitLimit(`create:ip:${ip}`, sessionAttemptLimit(5), 60_000);
   if (limit.limited) {
     return NextResponse.json(
       { error: "too many attempts, slow down" },

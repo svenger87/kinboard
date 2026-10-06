@@ -45,6 +45,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Operators can raise the join limit for automated tests.** `SESSION_RATE_LIMIT_PER_MINUTE` in `.env` raises the cap on joining and creating a family per client (10 and 5 a minute by default). It can never go below those caps; leave it empty on a real install.
 - **The holiday country moved from Settings → Language to Settings → Holidays, and the school holidays moved with it from Settings → School schedule.** Both old pages link there. Nothing changes until someone picks: every existing family keeps exactly the public holidays it had.
 
 - **Connecting an assistant offers permissions it didn't ask for.** ChatGPT and other assistants can keep asking for the permissions they knew about when they were first added, so a reconnect never picked up a newer one such as reading the car's charge level. The Kinboard page that opens when you connect now also lists every other permission, unticked, under "Also available"; tick any you want the assistant to have, and confirm with the settings PIN as before.

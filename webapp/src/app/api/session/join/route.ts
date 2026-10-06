@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
 import { mintFamilyToken } from "@/lib/family-jwt";
-import { hitLimit, clientIp } from "@/lib/rate-limit";
+import { hitLimit, sessionAttemptLimit, clientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -46,8 +46,8 @@ export async function POST(request: NextRequest) {
   // spoofable in x-forwarded-for — also cap per hardware id, which the request
   // supplies but which a single attacker cannot fan out cheaply.
   const ip = clientIp(request);
-  const byIp = hitLimit(`join:ip:${ip}`, 10, 60_000);
-  const byHw = hitLimit(`join:hw:${hardwareId}`, 10, 60_000);
+  const byIp = hitLimit(`join:ip:${ip}`, sessionAttemptLimit(10), 60_000);
+  const byHw = hitLimit(`join:hw:${hardwareId}`, sessionAttemptLimit(10), 60_000);
   if (byIp.limited || byHw.limited) {
     const retryAfter = Math.ceil(Math.max(byIp.retryAfterMs, byHw.retryAfterMs) / 1000);
     return NextResponse.json(
