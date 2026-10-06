@@ -70,3 +70,18 @@ export function sweepIdle(windowMs: number): void {
 function nowMs(): number {
   return Date.now();
 }
+
+/**
+ * How many join and family-create attempts one client may make per minute.
+ * `limit` is the production value; `SESSION_RATE_LIMIT_PER_MINUTE` raises it
+ * for an install that needs more, which in practice is CI: the end-to-end
+ * suite joins dozens of test devices from one IP and kept tripping the
+ * production cap (429s in the WebKit runs). Anything that isn't a whole number
+ * from 1 to 10000 is ignored and the production value stays.
+ */
+export function sessionAttemptLimit(limit: number): number {
+  const raw = process.env.SESSION_RATE_LIMIT_PER_MINUTE;
+  if (!raw || !/^\d+$/.test(raw)) return limit;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 1 && n <= 10_000 ? Math.max(n, limit) : limit;
+}

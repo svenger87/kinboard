@@ -30,7 +30,7 @@ jobs:
   smoke:
     name: Boot stack + smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 25  # cold cache: ~10-15 min; warm: ~5-7 min
+    timeout-minutes: 40  # cold cache plus the WebKit layout run: ~25-30 min
     defaults:
       run:
         working-directory: webapp
@@ -99,6 +99,9 @@ jobs:
           # from .env.example; drop it so the file has exactly one value.
           sed -i '/^SCHOOL_HOLIDAY_SYNC=/d' .env
           echo "SCHOOL_HOLIDAY_SYNC=off" >> .env
+          # Every spec joins its own device from the runner's one IP; the
+          # production cap of 10 joins a minute made the WebKit run flaky.
+          echo "SESSION_RATE_LIMIT_PER_MINUTE=1000" >> .env
 
       - name: Boot stack with demo overlay
         working-directory: ${{ github.workspace }}/webapp/docker
