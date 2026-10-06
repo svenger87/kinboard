@@ -38,6 +38,7 @@ import { DEFAULT_WIDGET_VISIBILITY, DEFAULT_SCHEDULE_WIDGET_SETTINGS } from "@/t
 import { useHomeLayout } from "@/hooks/use-home-layout";
 import type { WidgetVisibility, ScheduleWidgetSettings } from "@/types/widgets";
 import { useWidgetOrder, mergeWidgetOrder } from "@/hooks/use-widget-order";
+import { TimerPresetsEditor } from "@/components/settings/timer-presets-editor";
 
 interface WidgetConfig {
   key: keyof WidgetVisibility;
@@ -274,6 +275,7 @@ export default function WidgetSettingsPage() {
                             />}
                         </div>
                       )}
+                      {widget.key === "timers" && <TimerPresetsEditor disabled={!enabled} />}
                       {widget.key === "tasks" && (
                         <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/40 pt-3">
                           <p className="text-sm font-medium">{t("largeTasksLabel")}</p>

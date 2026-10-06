@@ -22,6 +22,7 @@ import { AuthGuard } from "@/components/auth-guard";
 import { clearUnlock, isSettingsPath } from "@/lib/pin-session";
 import { PWAProvider } from "@/components/pwa-provider";
 import { KioskProvider } from "@/components/kiosk-provider";
+import { TimerAlarm } from "@/components/timer-alarm";
 import { ThemeSettingsProvider } from "@/components/theme-settings-provider";
 import { usePathname } from "next/navigation";
 import { ShellChrome } from "@/components/shell-chrome";
@@ -266,6 +267,7 @@ export function Providers({ children }: { children: ReactNode }) {
                         </PageShell>
                         <ShellChrome />
                         <RealtimeStatusPill />
+                        <TimerAlarm />
                         <KeyboardShortcutsDialog />
                       </ScreensaverProvider>
                     </ErrorBoundary>

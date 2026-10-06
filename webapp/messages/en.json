@@ -1204,6 +1204,17 @@
       "timersDescription": "Kitchen timers with one-tap presets — everyone on this screen can see what's counting down",
       "timersPreview1": "04:12 left",
       "timersPreview2": "Tap a preset to start one",
+      "timersPresetsLabel": "Preset times",
+      "timersPresetsDescription": "The buttons that start a timer, in minutes, on every screen. Up to {max}.",
+      "timersPresetsRemove": "Remove {minutes} min",
+      "timersPresetsMinutes": "Minutes",
+      "timersPresetsAddLabel": "Preset time to add, in minutes",
+      "timersPresetsAdd": "Add",
+      "timersPresetsRange": "Enter whole minutes, from 1 to {max}.",
+      "timersPresetsAlready": "{minutes} min is already a preset.",
+      "timersPresetsFull": "That's the most there can be ({max}). Remove one to add another.",
+      "timersPresetsReset": "Reset to defaults",
+      "timersPresetsSaveFailed": "Could not save the preset times",
       "mediaLabel": "Media",
       "mediaDescription": "What's playing right now, with playback controls",
       "mediaPreview1": "🎵 Now Playing — Track Name",
@@ -4467,7 +4478,9 @@
     "paused": "Paused",
     "pauseFailed": "Could not pause that timer",
     "resumeFailed": "Could not resume that timer",
-    "startFailed": "Could not start that timer"
+    "startFailed": "Could not start that timer",
+    "soundOff": "Sound is off until someone touches this screen",
+    "soundOffShort": "Tap for sound"
   },
   "media": {
     "title": "Media",
