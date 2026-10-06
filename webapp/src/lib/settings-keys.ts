@@ -14,6 +14,9 @@ export const SETTINGS_KEYS = {
   theme: "theme",
   widgetVisibility: "widget_visibility",
   scheduleWidget: "schedule_widget",
+  // { presets: number[] }, the timer widget's buttons in whole minutes;
+  // absent means 3, 5, 10 and 15 (lib/timer-presets.ts).
+  timerWidget: "timer_widget",
   countdowns: "countdowns",
   taskDisplay: "task_display",
   calendarDisplay: "calendar_display",

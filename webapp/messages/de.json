@@ -1204,6 +1204,17 @@
       "timersDescription": "Küchentimer mit Presets — ein Tipp genügt, und jeder an diesem Bildschirm sieht, was gerade runterzählt",
       "timersPreview1": "Noch 04:12",
       "timersPreview2": "Zum Starten ein Preset antippen",
+      "timersPresetsLabel": "Preset-Zeiten",
+      "timersPresetsDescription": "Die Tasten, die einen Timer starten, in Minuten, auf jedem Bildschirm. Bis zu {max}.",
+      "timersPresetsRemove": "{minutes} Min. entfernen",
+      "timersPresetsMinutes": "Minuten",
+      "timersPresetsAddLabel": "Preset-Zeit zum Hinzufügen, in Minuten",
+      "timersPresetsAdd": "Hinzufügen",
+      "timersPresetsRange": "Ganze Minuten eingeben, von 1 bis {max}.",
+      "timersPresetsAlready": "{minutes} Min. ist schon ein Preset.",
+      "timersPresetsFull": "Mehr als {max} gehen nicht. Entferne eins, um ein anderes hinzuzufügen.",
+      "timersPresetsReset": "Zurücksetzen",
+      "timersPresetsSaveFailed": "Die Preset-Zeiten konnten nicht gespeichert werden",
       "mediaLabel": "Medien",
       "mediaDescription": "Was gerade läuft, mit Wiedergabesteuerung",
       "mediaPreview1": "🎵 Läuft gerade — Titelname",
@@ -4560,7 +4571,9 @@
     "paused": "Pausiert",
     "pauseFailed": "Timer konnte nicht pausiert werden",
     "resumeFailed": "Timer konnte nicht fortgesetzt werden",
-    "startFailed": "Timer konnte nicht gestartet werden"
+    "startFailed": "Timer konnte nicht gestartet werden",
+    "soundOff": "Ton aus, bis jemand diesen Bildschirm berührt",
+    "soundOffShort": "Tippen für Ton"
   },
   "media": {
     "title": "Medien",
