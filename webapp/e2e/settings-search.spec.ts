@@ -39,14 +39,19 @@ test.describe("search", () => {
 
   test("'ferien' finds the school holidays by their German synonym, in any case", () => {
     // "Ferien" is the school holidays, not public holidays ("Feiertage"), so
-    // the first hit is a school-holiday section of the Holidays page.
+    // the first hit is the school-holiday list. Not the OpenHolidays sync
+    // section: that one renders nothing when the install switches the sync
+    // off or the region isn't covered (the US, the UK), so a family there
+    // would land on a section that isn't on the page.
     const items = searchable("de");
     for (const q of ["ferien", "Ferien", "FERIEN"]) {
       const first = searchSettings(items, q)[0];
       expect(first?.href, q).toBe("/settings/holidays");
-      expect(first?.anchor, q).toMatch(/^school-/);
+      expect(first?.anchor, q).toBe("school-holidays");
     }
     expect(ids(searchSettings(items, "feiertage"))[0]).toBe("holidays");
+    // The sync section is still found by what it does.
+    expect(searchSettings(items, "openholidays")[0]?.anchor).toBe("school-sync");
   });
 
   test("'pin' puts the settings PIN first, in every language", () => {
