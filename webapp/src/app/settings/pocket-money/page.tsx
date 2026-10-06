@@ -38,11 +38,12 @@ import {
   RewardCatalogue,
   RewardModeSelect,
 } from "@/components/pocket-money/rewards-settings";
-import type { AvatarSpecies, AvatarTier } from "@/lib/pocket-money/types";
-import { hasDrawnArt, readLook } from "@/lib/pocket-money/creatures";
+import type { AvatarSpecies } from "@/lib/pocket-money/types";
+import { readLook } from "@/lib/pocket-money/creatures";
 import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
+import { SpeciesPicker } from "@/components/pocket-money/species-picker";
+import { ChangeCreatureSheet } from "@/components/pocket-money/change-creature-sheet";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
-import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { formatCents } from "@/lib/pocket-money/format";
 import { BalanceForecast } from "@/components/pocket-money/balance-forecast";
 import { AvatarStylePicker } from "@/components/pocket-money/avatar-style-picker";
@@ -133,6 +134,7 @@ export default function PocketMoneySettingsPage() {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [depositTarget, setDepositTarget] = useState<string | null>(null);
   const [withdrawTarget, setWithdrawTarget] = useState<string | null>(null);
+  const [creatureTarget, setCreatureTarget] = useState<string | null>(null);
   const activeAcct = (target: string | null) =>
     target ? accounts.find((a) => a.id === target) : undefined;
 
@@ -202,6 +204,13 @@ export default function PocketMoneySettingsPage() {
           const kidPerson = people.find((p) => p.id === acct.person_id);
           const pointsMode = acct.reward_mode === "points";
           const points = totalsFor(acct.person_id, acct.id);
+          // The child's stage now: from money or points, and never below best_tier.
+          const tier = avatarStage({
+            mode: acct.reward_mode,
+            balanceCents: acct.balance_cents,
+            earnedPoints: points.earned,
+            storedBestTier: acct.best_tier,
+          }).tier;
           return (
             <Card key={acct.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -292,6 +301,36 @@ export default function PocketMoneySettingsPage() {
                 />
               </div>
 
+              {/* The creature itself: a parent's choice, behind the settings
+                  PIN (the server checks it too). Changing it keeps the stage,
+                  the style and the look; the child's own page has no such
+                  switch (RFC-016 §4.1). */}
+              <div className="pt-3 border-t border-border flex items-center gap-3" data-testid={`creature-${acct.id}`}>
+                <CreatureAvatar
+                  species={acct.avatar_species}
+                  tier={tier}
+                  style={acct.avatar_style}
+                  look={readLook(acct.avatar_look)}
+                  size={48}
+                  animated={false}
+                  label=""
+                />
+                <div className="min-w-0 flex-1">
+                  <Label>{t("creatureLabel")}</Label>
+                  <p className="text-sm text-muted-foreground" data-testid="creature-current">
+                    {tPM(`species.${acct.avatar_species}.label` as never)}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-testid="change-creature"
+                  onClick={() => setCreatureTarget(acct.id)}
+                >
+                  {t("changeCreature")}
+                </Button>
+              </div>
+
               {/* How the avatar is drawn: four small pictures of this child's
                   own avatar at its current stage. The child can change it on
                   their own page too, so it takes no PIN. */}
@@ -302,14 +341,7 @@ export default function PocketMoneySettingsPage() {
                 </p>
                 <AvatarStylePicker
                   species={acct.avatar_species}
-                  tier={
-                    avatarStage({
-                      mode: acct.reward_mode,
-                      balanceCents: acct.balance_cents,
-                      earnedPoints: points.earned,
-                      storedBestTier: acct.best_tier,
-                    }).tier
-                  }
+                  tier={tier}
                   value={acct.avatar_style}
                   look={readLook(acct.avatar_look)}
                   childName={kidPerson?.name ?? ""}
@@ -513,6 +545,38 @@ export default function PocketMoneySettingsPage() {
           </Card>
         )}
 
+        {(() => {
+          const acct = activeAcct(creatureTarget);
+          if (!acct) return null;
+          return (
+            <ChangeCreatureSheet
+              key={acct.id}
+              open
+              onOpenChange={(o) => !o && setCreatureTarget(null)}
+              childName={nameOf(acct.person_id)}
+              current={acct.avatar_species}
+              avatarStyle={acct.avatar_style}
+              look={readLook(acct.avatar_look)}
+              saving={update.isPending}
+              // Only the species: the stage (money or points, best_tier), the
+              // style and the look are left exactly as they are.
+              onSave={(species) =>
+                update
+                  .mutateAsync({ id: acct.id, update: { avatar_species: species } })
+                  .then(() => true)
+                  .catch((err) => {
+                    toast.error(
+                      err instanceof Error && err.message === "pin_required"
+                        ? t("errorPinRequired")
+                        : t("errorGeneric"),
+                    );
+                    return false;
+                  })
+              }
+            />
+          );
+        })()}
+
         <AmountDialog
           open={Boolean(depositTarget)}
           onOpenChange={(o) => !o && setDepositTarget(null)}
@@ -645,26 +709,6 @@ function AccountInbox({
 
 interface CreateAccountKid { id: string; name: string }
 
-// Each species card shows the species name + the full evolution strip so
-// parents and kids see the journey before they pick: drawn species in their
-// Gumdrop drawing (still), the others as their classic pictures. Adding a
-// species to avatars.json auto-populates this picker.
-const SPECIES_PREVIEWS: ReadonlyArray<AvatarSpecies> = avatarCatalog.species.map((s) => s.id);
-const PREVIEW_TIERS: ReadonlyArray<AvatarTier> = [1, 2, 3, 4, 5, 6, 7, 8];
-
-function SpeciesStage({ species, tier, size }: { species: AvatarSpecies; tier: AvatarTier; size: number }) {
-  return (
-    <CreatureAvatar
-      species={species}
-      tier={tier}
-      style={hasDrawnArt(species) ? "gumdrop" : "classic"}
-      size={size}
-      animated={false}
-      label=""
-    />
-  );
-}
-
 function CreateAccountCard({
   kid,
   onCreate,
@@ -678,13 +722,9 @@ function CreateAccountCard({
   const tPM = useTranslations("pocketMoney");
   const [picked, setPicked] = useState<AvatarSpecies | null>(null);
 
-  // Plain function — not a hook — so it's safe to call inside .map() below.
+  // Plain function — not a hook — so it's safe to call inside JSX below.
   const speciesLabel = (s: AvatarSpecies): string =>
     tPM(`species.${s}.label` as never);
-  const stageLabel = (s: AvatarSpecies, tier: number): string =>
-    tPM(`species.${s}.tier${tier}` as never);
-
-  const pickedPreview = picked && SPECIES_PREVIEWS.includes(picked) ? picked : null;
 
   return (
     <Card className="p-4 space-y-3">
@@ -693,57 +733,9 @@ function CreateAccountCard({
       </p>
       <p className="text-xs text-muted-foreground">{t("speciesPickerHint")}</p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {SPECIES_PREVIEWS.map((preview) => {
-          const isPicked = picked === preview;
-          return (
-            <button
-              key={preview}
-              type="button"
-              data-species={preview}
-              onClick={() => setPicked(preview)}
-              className={`flex flex-col items-start gap-2 rounded-lg border-2 p-3 transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
-                isPicked
-                  ? "border-primary bg-primary/5 ring-2 ring-primary/30"
-                  : "border-border hover:bg-accent/50"
-              }`}
-              aria-pressed={isPicked}
-            >
-              <span className="text-sm font-semibold">
-                {speciesLabel(preview)}
-              </span>
-              <div className="flex w-full items-center justify-between gap-1">
-                {PREVIEW_TIERS.map((tier) => (
-                  <SpeciesStage key={tier} species={preview} tier={tier} size={28} />
-                ))}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {pickedPreview && (
-        <div className="rounded-lg border border-border bg-accent/30 p-3 space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">
-            {t("speciesPreviewTitle", {
-              species: speciesLabel(pickedPreview),
-            })}
-          </p>
-          <div className="flex items-start gap-2 overflow-x-auto">
-            {PREVIEW_TIERS.map((tier) => (
-              <div
-                key={tier}
-                className="flex flex-col items-center gap-1 min-w-[64px]"
-              >
-                <SpeciesStage species={pickedPreview} tier={tier} size={40} />
-                <span className="text-3xs text-muted-foreground text-center leading-tight">
-                  {stageLabel(pickedPreview, tier)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Each species with its whole evolution strip, so parents and kids
+          see the journey before they pick. */}
+      <SpeciesPicker picked={picked} onPick={setPicked} />
 
       <Button
         className="w-full"

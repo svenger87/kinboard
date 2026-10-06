@@ -1,0 +1,301 @@
+import { test, expect, request as pwRequest, type APIRequestContext } from "@playwright/test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { randomBytes } from "node:crypto";
+import { IntlMessageFormat } from "intl-messageformat";
+import { NextIntlClientProvider } from "next-intl";
+import { SpeciesPicker, SPECIES_IDS } from "../src/components/pocket-money/species-picker";
+import { readLook, validateLook } from "../src/lib/pocket-money/creatures";
+import avatarCatalog from "../src/plugins/pocket-money/catalog/avatars.json";
+import en from "../messages/en.json";
+import de from "../messages/de.json";
+import fr from "../messages/fr.json";
+import { establishSession, postJoin } from "./session";
+import { psql, psqlRow, sqlText } from "./helpers/assistant-connect";
+
+/**
+ * A parent changes a child's creature after the account exists: Settings ->
+ * Pocket money -> the child's card -> Change creature. The species is a
+ * parent's choice, so it takes the settings PIN, on the server as well as in
+ * the browser; the stage (money or points, best_tier), the style and the look
+ * stay exactly as they were. The child's own page has no such switch
+ * (RFC-016 §4.1).
+ */
+
+const SRC = join(__dirname, "..", "src");
+const read = (rel: string) => readFileSync(join(SRC, rel), "utf8");
+const ROUTE = "app/api/pocket-money/accounts/[id]/route.ts";
+const SETTINGS = "app/settings/pocket-money/page.tsx";
+const KID_PAGE = "app/pocket-money/page.tsx";
+
+const LOCALES = { en, de, fr } as const;
+type Messages = typeof en;
+const pmSettings = (m: Messages) => m.settings.pocketMoney as Record<string, string>;
+
+// ── the route ────────────────────────────────────────────────────────────
+
+test("the species is behind the PIN, and only the catalog's species are taken", () => {
+  const source = read(ROUTE);
+  const list = source.slice(source.indexOf("const PIN_PROTECTED_FIELDS"), source.indexOf("] as const"));
+  expect(list).toContain(`"avatar_species"`);
+  expect(source).toMatch(/PIN_PROTECTED_FIELDS\.some\([\s\S]{0,200}?requireSettingsUnlock/);
+  // The allow-list is the catalog itself, so the new creatures are in it.
+  expect(source).toMatch(/new Set\(\s*avatarCatalog\.species\.map/);
+  for (const id of ["rex", "trike", "stego", "princess", "prince", "unicorn", "fox", "penguin", "bunny", "axolotl", "owl", "robot"]) {
+    expect(avatarCatalog.species.map((s) => s.id), id).toContain(id);
+  }
+});
+
+test("changing the species writes the species and nothing else", () => {
+  // The block that takes avatar_species must not touch the stage, the style
+  // or the look: progress and looks are kept by not writing them at all.
+  const source = read(ROUTE);
+  const block = source.slice(source.indexOf("body.avatar_species !== undefined"), source.indexOf("body.reward_mode !== undefined"));
+  expect(block).toContain("update.avatar_species = body.avatar_species");
+  expect(block).not.toMatch(/update\.(best_tier|last_seen_tier|avatar_style|avatar_look|balance_cents|lifetime_saved_cents)\b/);
+});
+
+// ── the look across species ─────────────────────────────────────────────
+
+test("a princess's skin, hair and hairstyle stay valid on a T-Rex, so switching back restores them", () => {
+  // validateLook does not know the species: a person-only key on a creature
+  // is stored and simply not drawn. If it refused them, a parent switching a
+  // princess to a T-Rex and back would lose the child's choices.
+  const look = { name: "Funkel", body: "#FF8FC0", belly: "#FFF1A8", skin: "#D9A27A", hair: "#C97C3C", hairstyle: "ponytail", pattern: "hearts", eyes: "sparkly", acc: "bow" };
+  const r = validateLook(look);
+  expect(r.ok).toBe(true);
+  expect(r.ok && r.look).toEqual(look);
+  expect(readLook(look)).toEqual(look);
+});
+
+// ── the settings control ────────────────────────────────────────────────
+
+test("Settings -> Pocket money has Change creature per child, saving only the species", () => {
+  const source = read(SETTINGS);
+  expect(source).toContain(`data-testid="change-creature"`);
+  expect(source).toContain("<ChangeCreatureSheet");
+  // Only the species goes to the server: nothing that would reset the stage,
+  // the style or the look.
+  expect(source).toMatch(/update: \{ avatar_species: species \} \}/);
+  // A lapsed unlock says so, like the other pocket-money settings.
+  const sheetCall = source.slice(source.indexOf("<ChangeCreatureSheet"), source.indexOf("<AmountDialog"));
+  expect(sheetCall).toContain(`"pin_required"`);
+  expect(sheetCall).toContain(`t("errorPinRequired")`);
+  // The setup card and the change sheet use the same picker.
+  expect(source).toContain("<SpeciesPicker picked={picked} onPick={setPicked} />");
+  expect(read("components/pocket-money/change-creature-sheet.tsx")).toContain("<SpeciesPicker");
+});
+
+test("the child's own page has no species switch", () => {
+  const source = read(KID_PAGE);
+  expect(source).not.toMatch(/avatar_species\s*:/);
+  expect(source).not.toContain("SpeciesPicker");
+  expect(source).not.toContain("ChangeCreatureSheet");
+});
+
+test("the picker shows every creature in the child's style and colours, the current one marked", () => {
+  const look = { body: "#56B6E8", name: "Funkel" };
+  const html = renderToStaticMarkup(
+    createElement(
+      NextIntlClientProvider,
+      { locale: "en", messages: en, timeZone: "UTC" },
+      createElement(SpeciesPicker, { picked: "rex", onPick: () => {}, avatarStyle: "sticker", look, current: "dragon" }),
+    ),
+  );
+  for (const id of SPECIES_IDS) expect(html, id).toContain(`data-species="${id}"`);
+  expect(SPECIES_IDS.length).toBe(avatarCatalog.species.length);
+  // The current creature carries "Now", once.
+  expect(html.match(/>Now</g)?.length).toBe(1);
+  const dragonCard = html.slice(html.indexOf('data-species="dragon"'), html.indexOf('data-species="cat"'));
+  expect(dragonCard).toContain(">Now<");
+  // The picked one is pressed, and its stages are named below.
+  expect(html).toMatch(/aria-pressed="true" data-species="rex"|data-species="rex"[^>]*aria-pressed="true"/);
+  expect(html).toContain("T-Rex evolution stages");
+  // Drawn in the child's colours: their body colour is in the drawings.
+  expect(html.toUpperCase()).toContain("#56B6E8");
+});
+
+// ── the copy ────────────────────────────────────────────────────────────
+
+test("the hint no longer calls the creature a one-time choice, in any language", () => {
+  for (const [loc, m] of Object.entries(LOCALES)) {
+    const hint = pmSettings(m as Messages).speciesPickerHint;
+    expect(hint, loc).not.toMatch(/one-time|einmalig|choix unique/i);
+  }
+});
+
+test("the confirmation reads naturally for every creature, in every language", () => {
+  const confirm = (loc: keyof typeof LOCALES, who: string, species: string) => {
+    const m = LOCALES[loc] as Messages;
+    const label = (m.pocketMoney.species as Record<string, { label: string }>)[species].label;
+    return String(new IntlMessageFormat(pmSettings(m).changeCreatureConfirm, loc).format({ who, species, label }));
+  };
+  expect(confirm("en", "Funkel", "rex")).toBe("Funkel becomes a T-Rex. Stage and look stay.");
+  expect(confirm("en", "Funkel", "owl")).toBe("Funkel becomes an Owl. Stage and look stay.");
+  expect(confirm("de", "Funkel", "rex")).toBe("Funkel wird zum T-Rex. Stufe und Aussehen bleiben.");
+  expect(confirm("de", "Funkel", "bunny")).toBe("Funkel wird zum Hasen. Stufe und Aussehen bleiben.");
+  expect(confirm("fr", "Funkel", "unicorn")).toBe("Funkel se transforme en licorne. Le stade et l'apparence restent.");
+  // Every species has its own German and French form, not the fallback.
+  for (const s of SPECIES_IDS) {
+    expect(confirm("de", "X", s), s).not.toContain("zu:");
+    expect(confirm("fr", "X", s), s).toMatch(/^X se transforme en \S/);
+  }
+});
+
+// ── live: the route, and the screen ─────────────────────────────────────
+
+const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+const P = "claude-creature-change-";
+const LOOK = { name: "Funkel", body: "#FF8FC0", belly: "#FFF1A8", skin: "#D9A27A", hair: "#C97C3C", hairstyle: "ponytail", pattern: "hearts", eyes: "sparkly", acc: "bow" };
+
+test.describe("live: changing a child's creature", () => {
+  test.skip(!process.env.FAMILY_CODE, "needs FAMILY_CODE and a running stack");
+  test.describe.configure({ mode: "serial" });
+  // The PWA service worker answers fetches before page.route sees them.
+  test.use({ serviceWorkers: "block" });
+
+  let api: APIRequestContext;
+  let famId = "";
+  let code = "";
+  let childId = "";
+  let accountId = "";
+
+  const purge = () => {
+    if (!famId) return;
+    psql(`DELETE FROM pocket_money_transactions WHERE account_id IN (SELECT id FROM pocket_money_accounts WHERE family_id = ${sqlText(famId)})`);
+    psql(`DELETE FROM pocket_money_accounts WHERE family_id = ${sqlText(famId)}`);
+    for (let i = 0; i < 2; i++) psql(`DELETE FROM people WHERE family_id = ${sqlText(famId)}`);
+    psql(`DELETE FROM integration_secrets WHERE family_id = ${sqlText(famId)}`);
+    psql(`DELETE FROM devices WHERE family_id = ${sqlText(famId)}`);
+    psql(`DELETE FROM families WHERE id = ${sqlText(famId)}`);
+  };
+  /** Everything a species change must leave alone, as one string. */
+  const kept = () =>
+    psql(`SELECT concat_ws('|', balance_cents, lifetime_saved_cents, best_tier, last_seen_tier, reward_mode, avatar_style, avatar_look::text)
+          FROM pocket_money_accounts WHERE id = '${accountId}'`);
+  const species = () => psql(`SELECT avatar_species FROM pocket_money_accounts WHERE id = '${accountId}'`);
+  const lock = () => psql(`UPDATE device_sessions SET settings_unlocked_until = NULL WHERE family_id = '${famId}'`);
+
+  test.beforeAll(async () => {
+    test.setTimeout(90_000);
+    for (const id of psql(`SELECT string_agg(id::text, ',') FROM families WHERE name LIKE '${P}%'`).split(",").filter(Boolean)) {
+      famId = id;
+      purge();
+    }
+    code = `CC${randomBytes(4).toString("hex").toUpperCase()}`;
+    famId = psqlRow(`INSERT INTO families (name, join_code, setup_completed) VALUES ('${P}family', '${code}', true) RETURNING id`);
+    childId = psqlRow(`INSERT INTO people (family_id, name, is_child) VALUES ('${famId}', 'Mia', true) RETURNING id`);
+    // A child well along: stage 6 reached, the money spent back down since,
+    // in the Sticker style, a princess with her own look.
+    accountId = psqlRow(`INSERT INTO pocket_money_accounts
+      (family_id, person_id, currency, balance_cents, lifetime_saved_cents, best_tier, last_seen_tier, avatar_species, avatar_style, avatar_look)
+      VALUES ('${famId}', '${childId}', 'EUR', 700, 30000, 6, 6, 'princess', 'sticker', ${sqlText(JSON.stringify(LOOK))}::jsonb) RETURNING id`);
+
+    api = await pwRequest.newContext({ baseURL: BASE });
+    const join = await postJoin(api, { joinCode: code, hardwareId: `${P}api`, deviceName: `${P}api` });
+    expect(join.ok(), await join.text()).toBe(true);
+    const setPin = await api.post("/api/pin", { data: { family_id: famId, action: "set", pin: "4711" } });
+    expect(setPin.ok(), await setPin.text()).toBe(true);
+  });
+
+  test.afterAll(async () => {
+    purge();
+    psql(`DELETE FROM devices WHERE hardware_id LIKE '${P}%' OR hardware_id LIKE 'e2e-${P}%'`);
+    await api?.dispose();
+    expect(psql(`SELECT count(*) FROM families WHERE name LIKE '${P}%'`)).toBe("0");
+    expect(psql(`SELECT count(*) FROM devices WHERE hardware_id LIKE '%${P}%'`)).toBe("0");
+  });
+
+  test("without the PIN a species change is 403 pin_required and writes nothing", async () => {
+    lock();
+    const before = kept();
+    const res = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_species: "rex" } });
+    expect(res.status(), await res.text()).toBe(403);
+    expect((await res.json()).error).toBe("pin_required");
+    expect(species()).toBe("princess");
+    expect(kept()).toBe(before);
+  });
+
+  test("with the PIN, an unknown species is 400", async () => {
+    const verify = await api.post("/api/pin", { data: { family_id: famId, action: "verify", pin: "4711" } });
+    expect((await verify.json()).valid).toBe(true);
+    const res = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_species: "griffin" } });
+    expect(res.status(), await res.text()).toBe(400);
+    expect(species()).toBe("princess");
+  });
+
+  test("with the PIN, the princess becomes a T-Rex: stage, style and look untouched", async () => {
+    const before = kept();
+    expect(before).toContain("|6|6|money|sticker|");
+    const res = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_species: "rex" } });
+    expect(res.status(), await res.text()).toBe(200);
+    expect(species()).toBe("rex");
+    expect(kept()).toBe(before);
+    // and back: her skin, hair and hairstyle were kept all along
+    const back = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_species: "princess" } });
+    expect(back.status(), await back.text()).toBe(200);
+    expect(JSON.parse(psql(`SELECT avatar_look::text FROM pocket_money_accounts WHERE id = '${accountId}'`))).toEqual(LOOK);
+    expect(kept()).toBe(before);
+  });
+
+  test("on the screen: Change creature, a confirmation, and only the species changes", async ({ page }) => {
+    test.setTimeout(180_000);
+    // No PIN for this part: the settings page opens without one, so the
+    // test is about the control, not the PIN pad (the server gate is above).
+    const removed = await api.post("/api/pin", { data: { family_id: famId, action: "remove" } });
+    expect(removed.ok(), await removed.text()).toBe(true);
+    psql(`UPDATE pocket_money_accounts SET avatar_species = 'princess' WHERE id = '${accountId}'`);
+    const before = kept();
+
+    await establishSession(page, code, `${P}ui`);
+    await page.goto("/settings/pocket-money", { waitUntil: "domcontentloaded" });
+    const card = page.getByTestId(`creature-${accountId}`);
+    await expect(card.getByTestId("creature-current")).toHaveText("Princess", { timeout: 60_000 });
+    await card.getByTestId("change-creature").click();
+    const sheet = page.getByTestId("change-creature-sheet");
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByTestId("change-creature-save")).toBeDisabled();
+    await sheet.locator('button[data-species="rex"]').click();
+    await expect(sheet.getByTestId("change-creature-confirm")).toHaveText("Funkel becomes a T-Rex. Stage and look stay.");
+    // Set CREATURE_SHOTS=<file.png> to keep a picture of the sheet.
+    if (process.env.CREATURE_SHOTS) await page.screenshot({ path: process.env.CREATURE_SHOTS });
+    await sheet.getByTestId("change-creature-save").click();
+    await expect(sheet).toBeHidden();
+    await expect(card.getByTestId("creature-current")).toHaveText("T-Rex");
+    expect(species()).toBe("rex");
+    expect(kept()).toBe(before);
+  });
+
+  test("on the screen: a lapsed unlock says so and keeps the sheet open", async ({ page }) => {
+    test.setTimeout(120_000);
+    let hits = 0;
+    await page.context().route("**/api/pocket-money/accounts/*", async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      hits++;
+      await route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ error: "pin_required" }) });
+    });
+    await establishSession(page, code, `${P}ui`);
+    await page.goto("/settings/pocket-money", { waitUntil: "domcontentloaded" });
+    const card = page.getByTestId(`creature-${accountId}`);
+    await expect(card.getByTestId("creature-current")).toHaveText("T-Rex", { timeout: 60_000 });
+    await card.getByTestId("change-creature").click();
+    const sheet = page.getByTestId("change-creature-sheet");
+    await sheet.locator('button[data-species="owl"]').click();
+    await sheet.getByTestId("change-creature-save").click();
+    await expect(page.getByText(en.settings.pocketMoney.errorPinRequired)).toBeVisible();
+    await expect(sheet).toBeVisible();
+    expect(hits).toBeGreaterThan(0);
+    expect(species()).toBe("rex");
+  });
+
+  test("the child's own page offers no species switch", async ({ page }) => {
+    test.setTimeout(120_000);
+    await establishSession(page, code, `${P}ui`);
+    await page.goto(`/pocket-money?child=${childId}`, { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("change-look")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("change-creature")).toHaveCount(0);
+    await expect(page.getByTestId("species-picker")).toHaveCount(0);
+  });
+});

@@ -67,6 +67,8 @@ Each child's avatar can be drawn in one of four looks:
 
 **Who picks it.** The child, on their own `/pocket-money` page: **Change look** under the avatar opens the look editor (below), which includes the four styles as small pictures of their own avatar at its current stage. It needs no settings PIN, because it is the child's own avatar and changes nothing but the drawing. Parents see and change the style under Settings → Pocket money → the child's card → **Look**. The species is still a parent's choice and still needs the PIN.
 
+**Changing the creature.** A parent can switch a child's creature at any time under Settings → Pocket money → the child's card → **Change creature**: every creature is shown with its eight stages, drawn in the child's own style and colours, and the sheet says what will happen (*Funkel becomes a T-Rex. Stage and look stay.*) before anything is saved. Only the species changes. The stage still comes from the money or points and the best stage reached, so nothing is lost; the style stays; and the look keeps everything that still applies -- the name, the colours, the pattern, the eyes, the accessory. A princess's or prince's skin tone, hair colour and hairstyle stay stored while another creature is chosen, unused, and come back if the child is switched back. It needs the settings PIN, on the server as well, and the child's own page has no such switch: the creature stays a parent's choice (RFC-016 §4.1).
+
 **The look editor.** Besides the style, a child can give the creature a name (up to 16 characters, shown above it on their page) and choose its body colour, tummy colour and the colour of its wings, ears and fins, a pattern (plain, spots, stripes, hearts), eyes (round, sparkly, happy) and an accessory (bow, party hat, sunglasses, flower). For the princess and the prince the colours are the outfit, the trim and the hair, plus a skin tone (five) and a hairstyle (short, long, ponytail, curls). *Surprise me* picks a random look, *Start over* brings back the creature's own colours and keeps the name. The preview follows every choice; nothing is stored until **Save**. Colours come from fixed sets, so every combination still looks good, and the server refuses anything outside them. The stage still comes only from money or points: the look can change any time without touching progress.
 
 The look is stored in `pocket_money_accounts.avatar_look` (`webapp/docker/migration_zzzzzzzzz_pocket_money_avatar_look.sql`), `{}` meaning the creature's own look. A family export carries it; a restored look the editor would refuse becomes `{}`. The name stays on the family's own screens: the Integration API, Home Assistant and AI assistants never see it.
@@ -123,8 +125,9 @@ The plugin ships with five species (dragon, cat, astronaut, plant, wizard) but t
 1. **Drop 8 SVG files into `webapp/public/pocket-money/avatars/`** named `<id>-1.svg` through `<id>-8.svg`. Each represents the avatar at one tier (stage 1 = starting, stage 8 = max). Any SVG works; sourcing from a CC-permissive emoji pack like Noto Emoji is the easy path.
 2. **Add an entry to `webapp/src/plugins/pocket-money/catalog/avatars.json`** under the `species` array — copy the existing dragon entry and change the `id` + `src` paths.
 3. **Add 9 i18n keys** to `webapp/messages/en.json` and `de.json`: `pocketMoney.species.<id>.{label, tier1, tier2, …, tier8}`. Keep EN+DE in lockstep (the CI parity check enforces it).
+4. **Give it its own words in "becomes a …"**: `settings.pocketMoney.changeCreatureConfirm` picks the article (en), the dative form (de, *zum Hasen*) and the noun (fr) per species. `e2e/creature-change.spec.ts` fails until the new id has its own branch in de and fr.
 
-The new species automatically shows up in the create-account picker at `/settings/pocket-money`, in the kid-view stage caption, in the stages sheet, and is accepted by the API. Existing accounts on other species are untouched.
+The new species automatically shows up in the create-account picker and the *Change creature* sheet at `/settings/pocket-money`, in the kid-view stage caption, in the stages sheet, and is accepted by the API. Existing accounts on other species are untouched.
 
 The set of stages and lifetime-saved thresholds is shared across all species and lives at `webapp/src/lib/pocket-money/types.ts` (`TIER_THRESHOLDS_CENTS`). Species must currently have exactly that many stages.
 
@@ -136,7 +139,6 @@ The set of stages and lifetime-saved thresholds is shared across all species and
 - Multi-currency per family
 - Custom parent-uploaded avatar art (catalog SVGs are designer-replaceable per file in `webapp/public/pocket-money/avatars/`)
 - Drawn looks for the astronaut, plant and wizard -- planned
-- Changing a child's creature once the account exists: it is picked when the account is set up
 
 ## Disabling the plugin
 
