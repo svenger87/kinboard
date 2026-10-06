@@ -18,6 +18,7 @@ import {
   Settings,
   PiggyBank,
   Music,
+  Gift,
 } from "lucide-react";
 
 /**
@@ -76,6 +77,8 @@ export const NAV_ITEMS = [
   { href: "/calendar", icon: CalendarDays, labelKey: "calendar" },
   { href: "/schedule", icon: GraduationCap, labelKey: "schedule" },
   { href: "/todos", icon: CheckSquare, labelKey: "todos" },
+  // Shown only once a child has a creature (RFC-017 §8.1, useVisibleNavItems).
+  { href: "/rewards", icon: Gift, labelKey: "rewards" },
   { href: "/shopping", icon: ShoppingCart, labelKey: "shopping" },
   { href: "/recipes", icon: ChefHat, labelKey: "recipes" },
   { href: "/meals", icon: UtensilsCrossed, labelKey: "meals" },

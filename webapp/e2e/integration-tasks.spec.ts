@@ -9,7 +9,7 @@ import {
   type TaskDb,
 } from "../src/lib/integration-tasks";
 import { parseRecurrence } from "../src/lib/todo-recurrence";
-import { TODO_ICONS } from "../src/lib/todo-icons";
+import { LEGACY_TODO_ICONS } from "../src/lib/todo-icons";
 import { codeOnly } from "./source-helpers";
 
 /**
@@ -100,13 +100,14 @@ test.describe("the other task fields", () => {
     for (const p of ["urgent", 50, null, "HIGH"]) expect(parseTaskExtras({ priority: p }).ok, String(p)).toBe(false);
   });
 
-  test("icon is one of the form's nine, or none", () => {
-    expect(TODO_ICONS).toHaveLength(9);
-    for (const icon of TODO_ICONS) expect(parseTaskExtras({ icon })).toEqual({ ok: true, value: { icon } });
+  test("icon is one emoji, or none; the form's old nine still pass", () => {
+    expect(LEGACY_TODO_ICONS).toHaveLength(9);
+    for (const icon of LEGACY_TODO_ICONS) expect(parseTaskExtras({ icon })).toEqual({ ok: true, value: { icon } });
+    expect(parseTaskExtras({ icon: "🍦" })).toEqual({ ok: true, value: { icon: "🍦" } });
     expect(parseTaskExtras({ icon: null })).toEqual({ ok: true, value: { icon: null } });
     expect(parseTaskExtras({ icon: "" })).toEqual({ ok: true, value: { icon: null } });
-    // The bin without its variation selector is a different string.
-    for (const bad of ["🎉", "\u{1F5D1}", "broom", 1]) expect(parseTaskExtras({ icon: bad }).ok, String(bad)).toBe(false);
+    // The bin without its variation selector is the text character, not the emoji.
+    for (const bad of ["\u{1F5D1}", "🇩🇪", "🧹🧹", "broom", 1]) expect(parseTaskExtras({ icon: bad }).ok, String(bad)).toBe(false);
   });
 
   test("points are a whole number from 0 to 10000", () => {

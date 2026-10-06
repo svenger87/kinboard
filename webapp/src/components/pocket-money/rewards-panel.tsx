@@ -160,6 +160,7 @@ export function RewardsPanel({
                 ) : (
                   <X className="size-4 text-muted-foreground shrink-0" aria-label={t("rewardDenied")} />
                 )}
+                <RewardIcon icon={r.icon} className="text-base" />
                 <span className="truncate">{r.title}</span>
                 <span className="ml-auto tabular-nums text-muted-foreground">⭐ {r.cost_points}</span>
               </li>

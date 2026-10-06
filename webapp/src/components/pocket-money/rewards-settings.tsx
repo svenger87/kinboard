@@ -17,7 +17,8 @@ import {
   useSaveReward,
 } from "@/hooks/use-point-rewards";
 import { RewardIcon } from "@/components/pocket-money/rewards-panel";
-import { REWARD_COST_MAX, REWARD_COST_MIN, REWARD_ICON_MAX, REWARD_TITLE_MAX } from "@/lib/pocket-money/points";
+import { REWARD_COST_MAX, REWARD_COST_MIN, REWARD_TITLE_MAX } from "@/lib/pocket-money/points";
+import { EmojiIconField } from "@/components/emoji-picker";
 import type { PointReward } from "@/types/database";
 
 /** Server codes turned into something a parent can act on. */
@@ -107,13 +108,11 @@ function RewardRow({ reward }: { reward: PointReward }) {
 
   return (
     <li className="grid grid-cols-[3.5rem_1fr_5.5rem] items-center gap-2 sm:grid-cols-[3.5rem_1fr_6rem_auto_auto]" data-testid="reward-row">
-      <Input
-        aria-label={t("rewardIconLabel")}
-        defaultValue={reward.icon ?? ""}
-        maxLength={REWARD_ICON_MAX}
-        className="text-center"
-        onBlur={(e) => {
-          const icon = e.target.value.trim() || null;
+      <EmojiIconField
+        value={reward.icon}
+        label={t("rewardIconLabel")}
+        className="w-full"
+        onChange={(icon) => {
           if (icon !== reward.icon) patch({ icon });
         }}
       />
@@ -226,13 +225,12 @@ export function RewardCatalogue() {
       >
         <div className="space-y-1">
           <Label htmlFor="new-reward-icon" className="text-xs">{t("rewardIconLabel")}</Label>
-          <Input
+          <EmojiIconField
             id="new-reward-icon"
-            value={icon}
-            maxLength={REWARD_ICON_MAX}
-            placeholder="🎬"
-            className="text-center"
-            onChange={(e) => setIcon(e.target.value)}
+            value={icon || null}
+            label={t("rewardIconLabel")}
+            className="w-full"
+            onChange={(next) => setIcon(next ?? "")}
           />
         </div>
         <div className="space-y-1">

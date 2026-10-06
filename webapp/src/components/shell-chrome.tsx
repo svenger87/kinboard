@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { noteRoute } from "@/lib/app-start";
 import { isNoNavPath } from "@/lib/constants";
 import { MobileNav } from "@/components/mobile-nav";
 import { DesktopNav } from "@/components/desktop-nav";
@@ -14,6 +16,12 @@ import { DesktopNav } from "@/components/desktop-nav";
  */
 export function ShellChrome() {
   const pathname = usePathname();
+  // Ends the app's start on the first route change (lib/app-start.ts): a
+  // child's own device opens on their Rewards page, but Home stays the
+  // dashboard once they are in.
+  useEffect(() => {
+    noteRoute(pathname);
+  }, [pathname]);
 
   if (isNoNavPath(pathname)) {
     return null;

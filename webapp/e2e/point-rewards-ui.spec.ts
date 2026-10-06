@@ -154,5 +154,5 @@ test("a child redeems with points, the decision needs the PIN, and what is left 
   const tile = dialog.getByTestId("profile-points");
   await expect(tile).toContainText("20");
   await expect(tile).toContainText(/Points to spend|Punkte zum Einlösen/);
-  await expect(dialog.getByTestId("profile-rewards-link")).toHaveAttribute("href", `/pocket-money?child=${childId}`);
+  await expect(dialog.getByTestId("profile-rewards-link")).toHaveAttribute("href", `/rewards?child=${childId}`);
 });

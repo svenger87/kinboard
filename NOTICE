@@ -52,6 +52,13 @@ see webapp/src/lib/holidays/data/LICENSE (in the Docker image:
 /app/licenses/date-holidays-LICENSE). The PolyForm Noncommercial License
 does not apply to this data.
 
+Emoji names and keywords (the task and reward icon picker): emojibase-data,
+© Miles Johnson, under the MIT License, derived from the Unicode CLDR
+annotations (© Unicode, Inc., Unicode License v3); see
+webapp/src/lib/emoji/data/LICENSE (in the Docker image:
+/app/licenses/emojibase-LICENSE). The PolyForm Noncommercial License does
+not apply to this data.
+
 School holiday data, when a family turns on the optional sync, is fetched
 at runtime from the OpenHolidays API (https://www.openholidaysapi.org) under
 the Open Database License 1.0 (https://opendatacommons.org/licenses/odbl/1-0/)

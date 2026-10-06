@@ -32,6 +32,13 @@ import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { useTodoPoints } from "@/hooks/use-todo-points";
 import { pointsTotal } from "@/lib/todo-points";
+import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
+import { useCreatures, activeCreatureOf } from "@/hooks/use-creatures";
+import { usePocketMoneyAccounts } from "@/hooks/use-pocket-money-accounts";
+import { useCreatureMood } from "@/hooks/use-creature-mood";
+import { creatureStage } from "@/lib/creatures/stage";
+import { readLook } from "@/lib/pocket-money/creatures/look";
+import type { Creature, Person } from "@/types/database";
 import { TodoDecorationFields } from "@/components/todo-decoration-fields";
 import { showUndoToast } from "@/lib/undo-toast";
 import Link from "next/link";
@@ -161,6 +168,62 @@ function TodosSkeleton() {
   );
 }
 
+/**
+ * A child in the tasks page's points row: their creature small beside the
+ * name (RFC-017 §4) -- static, it moves only to cheer when one of their tasks
+ * is ticked off, here or on any other screen -- and their points.
+ */
+function ChildChip({
+  person,
+  creature,
+  earned,
+  showPoints,
+  pointsUnit,
+  creatureAria,
+}: {
+  person: Person;
+  creature: Creature | undefined;
+  earned: number;
+  showPoints: boolean;
+  pointsUnit: string;
+  creatureAria: string;
+}) {
+  const { data: accounts } = usePocketMoneyAccounts();
+  const mood = useCreatureMood(creature ? person.id : null);
+  const stage = creature
+    ? creatureStage({ creature, account: accounts?.find((a) => a.person_id === person.id), earnedPoints: earned })
+    : null;
+  return (
+    <div
+      className="flex min-w-0 items-center gap-2 rounded-xl border border-border bg-card py-1.5 pl-2 pr-4 text-sm"
+      data-testid="todo-child"
+      data-person={person.id}
+    >
+      {creature && stage ? (
+        <ReactingCreature
+          personId={person.id}
+          compactStageUp
+          species={creature.species}
+          tier={stage.tier}
+          style={creature.style}
+          look={readLook(creature.look)}
+          mood={mood}
+          size={36}
+          animated={false}
+          label={creatureAria}
+          className="shrink-0"
+        />
+      ) : (
+        <span className="w-2" aria-hidden="true" />
+      )}
+      <span className="min-w-0 truncate font-medium">{person.name}</span>
+      {showPoints && (
+        <span className="shrink-0 text-primary tabular-nums">⭐ {earned} {pointsUnit}</span>
+      )}
+    </div>
+  );
+}
+
 export default function TodosPage() {
   // Enable keyboard shortcuts and swipe navigation
   useKeyboardShortcuts();
@@ -223,6 +286,9 @@ export default function TodosPage() {
   const { data: todos, isLoading: loadingTodos, error: todosError, refetch: refetchTodos } = useTodos();
   const { data: people, isLoading: loadingPeople, error: peopleError, refetch: refetchPeople } = usePeople();
   const { data: pointAwards = [] } = useTodoPoints();
+  // Each child's creature, beside their name in the points row (RFC-017 §4),
+  // cheering on their own ticks (stores/creature-reactions.ts).
+  const { data: creatures } = useCreatures();
   const todayKey = toLocalDateKey();
   const { data: todoHistory } = useTodoHistory(
     dayKeyOf(dayNumber(todayKey) - 7 * 31),
@@ -863,16 +929,32 @@ export default function TodosPage() {
             }
           />
 
-          {(pointAwards.length > 0 || todos?.some((task) => task.points > 0)) && (
-            <div className="mb-6 flex flex-wrap gap-2" aria-label={t("pointsHeading")}>
-              {people?.filter((person) => person.is_child).map((person) => (
-                <div key={person.id} className="rounded-xl border border-border bg-card px-4 py-2 text-sm">
-                  <span className="font-medium">{person.name}</span>
-                  <span className="ml-2 text-primary tabular-nums">⭐ {pointsTotal(pointAwards, person.id)} {t("pointsUnit")}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          {(() => {
+            // One chip per child: their points, once the family uses points,
+            // and their creature beside the name when one is switched on. A
+            // family with creatures but no points yet still sees the
+            // creatures; the children without one are left out then.
+            const showPoints = pointAwards.length > 0 || Boolean(todos?.some((task) => task.points > 0));
+            const chips = (people ?? []).filter(
+              (person) => person.is_child && (showPoints || activeCreatureOf(creatures, person.id)),
+            );
+            if (chips.length === 0) return null;
+            return (
+              <div className="mb-6 flex flex-wrap gap-2" aria-label={t("pointsHeading")} data-testid="todo-children">
+                {chips.map((person) => (
+                  <ChildChip
+                    key={person.id}
+                    person={person}
+                    creature={activeCreatureOf(creatures, person.id)}
+                    earned={pointsTotal(pointAwards, person.id)}
+                    showPoints={showPoints}
+                    pointsUnit={t("pointsUnit")}
+                    creatureAria={t("creatureAria", { name: person.name })}
+                  />
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Overview Stat Cards */}
           {!isLoading && !error && (todos || []).length > 0 && (() => {

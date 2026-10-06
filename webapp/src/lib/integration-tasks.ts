@@ -12,7 +12,7 @@
 
 import type { createAdminClient } from "@/lib/supabase/server";
 import { parseRecurrence } from "@/lib/todo-recurrence";
-import { isTodoIcon, TODO_ICONS } from "@/lib/todo-icons";
+import { todoIcon } from "@/lib/todo-icons";
 import { itemDue, itemSummary } from "@/lib/integration-lists";
 
 export type TaskDb = ReturnType<typeof createAdminClient>;
@@ -73,7 +73,7 @@ export interface TaskExtras {
  * leave it alone).
  *
  * recurrence: see parseRecurrence. priority: high, medium or low. icon: one
- * of TODO_ICONS, or null / "" for none. points: a whole number 0..10000 —
+ * emoji (lib/todo-icons.ts), or null / "" for none. points: a whole number 0..10000 —
  * the column's own check — accepted whoever the task is for, though the
  * database only ever awards them to a child.
  */
@@ -98,8 +98,8 @@ export function parseTaskExtras(body: Record<string, unknown>): Outcome<TaskExtr
   if ("icon" in body) {
     const icon = body.icon;
     if (icon === null || icon === "") out.icon = null;
-    else if (isTodoIcon(icon)) out.icon = icon;
-    else return bad(`\`icon\` must be one of ${TODO_ICONS.join(" ")}, or null`);
+    else if (todoIcon(icon)) out.icon = todoIcon(icon);
+    else return bad("`icon` must be a single emoji (flags excepted), or null");
   }
   if ("points" in body) {
     const points = body.points;

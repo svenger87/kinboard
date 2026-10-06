@@ -122,6 +122,11 @@ export function rewardProgress(balance: number, cost: number): number {
 export const REWARD_COST_MIN = 1;
 export const REWARD_COST_MAX = 10_000;
 export const REWARD_TITLE_MAX = 80;
+/**
+ * point_rewards.icon's database check, in code points. The icon is one emoji
+ * now (lib/emoji/validate.ts); the longest the picker offers has 10, which
+ * e2e/emoji-picker.spec.ts holds under this.
+ */
 export const REWARD_ICON_MAX = 16;
 
 /**

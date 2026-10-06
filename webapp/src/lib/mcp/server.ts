@@ -17,7 +17,7 @@ import { GET as mealPlan, POST as addMealRoute } from "@/app/api/integration/v1/
 import { DELETE as removeMealRoute } from "@/app/api/integration/v1/meals/[id]/route";
 import { MEAL_TYPES } from "@/lib/integration-meal-input";
 import { MAX_TASK_POINTS, TASK_PRIORITIES } from "@/lib/integration-tasks";
-import { TODO_ICONS } from "@/lib/todo-icons";
+import { isTodoIcon } from "@/lib/todo-icons";
 import { parseRecurrence } from "@/lib/todo-recurrence";
 import { POST as service } from "@/app/api/integration/v1/services/[service]/route";
 import { GET as energy } from "@/app/api/integration/v1/energy/current/route";
@@ -161,7 +161,8 @@ const taskRecurrence = z.string().trim()
   .refine((value) => parseRecurrence(value) !== null, "once, daily, weekly, biweekly, monthly, or days: with weekday codes such as days:MO,WE,FR")
   .describe("How the task repeats: once (the default, no repeat), daily, weekly, biweekly, monthly, or on picked weekdays as days: with iCalendar codes MO TU WE TH FR SA SU, e.g. days:MO,WE,FR.");
 const taskPriority = z.enum(TASK_PRIORITIES).describe("high, medium (the default) or low.");
-const taskIcon = z.enum(TODO_ICONS).describe("A picture shown on the task; only these icons exist.");
+const taskIcon = z.string().refine((value) => isTodoIcon(value), "a single emoji, flags excepted")
+  .describe("A picture shown on the task: one emoji, such as 🧹 or 🐾 (any emoji but a flag).");
 const taskPoints = z.number().int().min(0).max(MAX_TASK_POINTS)
   .describe(`Points for completing it, 0 to ${MAX_TASK_POINTS}. Points are awarded only when the task is assigned to a child; on anyone else's task they are stored but never awarded.`);
 const EVENT_PERSON_NOTE = "person_id (from list_people) says who the event is for; on a Google calendar it is stored with the event in Google too, so the next sync keeps it. Clearing it on a Google calendar that has its own person, or whose mapping rules match the event, gives the event that person again at the next sync; a CalDAV calendar's next sync assigns it from the calendar's own settings again.";

@@ -420,7 +420,8 @@
     "pocketMoney": "Argent de poche",
     "more": "Plus",
     "photos": "Photos",
-    "media": "Média"
+    "media": "Média",
+    "rewards": "Récompenses"
   },
   "cameras": {
     "title": "Caméras",
@@ -681,7 +682,8 @@
     "recentDays": "Les derniers jours prévus",
     "noTurnOpen": "Les tours de cette tâche n'ont pas encore commencé",
     "toggleTooltipUndo": "Fait pour ce tour — touchez pour annuler",
-    "turnsBetween": "À tour de rôle : {names}"
+    "turnsBetween": "À tour de rôle : {names}",
+    "creatureAria": "Créature de {name}"
   },
   "meals": {
     "title": "Planification des repas",
@@ -1224,7 +1226,11 @@
       "messagesLabel": "Messages",
       "messagesDescription": "Dites quelque chose à la maison depuis n'importe où — le message s'affiche sur tous les autres écrans jusqu'à ce que quelqu'un confirme l'avoir vu",
       "messagesPreview1": "De retour à 18 h",
-      "messagesPreview2": "En attente que quelqu'un le voie"
+      "messagesPreview2": "En attente que quelqu'un le voie",
+      "creaturesLabel": "Créatures",
+      "creaturesDescription": "Les créatures de tous les enfants côte à côte, qui applaudissent quand une tâche est cochée. Touchez-en une pour les récompenses de l'enfant",
+      "creaturesPreview1": "🐉 Mia — Bébé dragon — ⭐ 42",
+      "creaturesPreview2": "Immobile au mur, ne bouge que pour applaudir"
     },
     "navigation": {
       "title": "Navigation",
@@ -1485,7 +1491,13 @@
       "presenceHelpStep5BulletDelay": "<bold>Délai :</bold> Temps d'attente après la dernière détection (10s – 5min)",
       "presenceHelpTip": "<bold>Astuce :</bold> Le capteur signale son état environ toutes les secondes. S'il affiche “Pas de connexion” dans les paramètres, vérifiez que le script s'exécute et utilise le bon ID d'appareil.",
       "kioskToggleAria": "Mode kiosque pour {name}",
-      "presenceToggleAria": "Capteur de présence pour {name}"
+      "presenceToggleAria": "Capteur de présence pour {name}",
+      "belongsToLabel": "Appartient à",
+      "belongsToAria": "À qui appartient {name}",
+      "belongsToNobody": "La famille",
+      "belongsToHint": "L'appareil d'un enfant s'ouvre sur sa créature et ses récompenses. Un kiosque s'ouvre toujours sur le tableau de bord.",
+      "belongsToKioskNote": "Kiosque : s'ouvre sur le tableau de bord",
+      "belongsToFailed": "Impossible d'enregistrer à qui appartient l'appareil"
     },
     "cameras": {
       "title": "Caméras",
@@ -2508,7 +2520,7 @@
       "errorPinRequired": "Saisis à nouveau le code PIN des réglages, puis réessaie.",
       "errorInsufficientPoints": "Il n'y a plus assez de points ; la demande reste en attente.",
       "rewardsTitle": "Récompenses contre des points",
-      "rewardsDescription": "Les enfants qui ont une créature voient les récompenses actives sur leur page d'argent de poche et peuvent en demander une avec leurs points. Tu l'accordes ici.",
+      "rewardsDescription": "Les enfants qui ont une créature voient les récompenses actives sur la page Récompenses et peuvent en demander une avec leurs points. Tu l'accordes ici.",
       "rewardIconLabel": "Icône",
       "rewardTitleLabel": "Récompense",
       "rewardTitlePlaceholder": "Soirée cinéma",
@@ -4035,7 +4047,7 @@
     "statusNothing": "Rien à signaler",
     "loadFailed": "Impossible de charger la famille",
     "statPointsToSpend": "Points à dépenser",
-    "rewardsShortcut": "Récompenses"
+    "rewardsShortcut": "Vers les récompenses"
   },
   "tasksWidget": {
     "loadingAria": "Chargement des tâches",
@@ -5019,5 +5031,41 @@
     },
     "denyHint": "Tout le monde peut refuser. Pour autoriser, il faut le code PIN des réglages.",
     "close": "Fermer"
+  },
+  "creaturesWidget": {
+    "title": "Créatures",
+    "empty": "Aucun enfant n'a encore de créature. Un parent l'active pour chaque enfant dans Réglages → Créatures et récompenses.",
+    "emptyCta": "Activer une créature",
+    "openAria": "Créature et récompenses de {name}"
+  },
+  "rewardsPage": {
+    "title": "Récompenses",
+    "manage": "Gérer",
+    "chooseChild": "La créature de qui",
+    "emptyTitle": "Pas encore de créatures",
+    "emptyDescription": "Dès qu'un parent active une créature pour un enfant, elle vit ici, avec les récompenses que ses points de tâches permettent d'obtenir.",
+    "emptyCta": "Créatures et récompenses",
+    "stageProgressAria": "{percent} % du chemin vers le stade suivant"
+  },
+  "emojiPicker": {
+    "searchLabel": "Rechercher un emoji",
+    "searchPlaceholder": "Rechercher, p. ex. glace",
+    "recent": "Utilisés récemment",
+    "categories": "Catégories",
+    "results": "{count, plural, =0 {Aucun emoji} one {# emoji} other {# emoji}}",
+    "noResults": "Rien trouvé. Essayez un autre mot.",
+    "loading": "Chargement des emoji…",
+    "loadFailed": "Impossible de charger les emoji.",
+    "skinTone": "Couleur de peau",
+    "tone0": "Couleur de peau par défaut",
+    "tone1": "Peau claire",
+    "tone2": "Peau moyennement claire",
+    "tone3": "Peau légèrement mate",
+    "tone4": "Peau mate",
+    "tone5": "Peau foncée",
+    "chooseIcon": "{label} : choisir un emoji",
+    "changeIcon": "{label} : {icon}, modifier",
+    "clear": "Aucune icône",
+    "none": "–"
   }
 }

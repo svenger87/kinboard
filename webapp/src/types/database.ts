@@ -98,6 +98,8 @@ export interface Database {
           hardware_id: string | null;
           fingerprint: string | null;
           fingerprint_history: string[];
+          /** Who the device belongs to (RFC-017 §8.2); written only by PATCH /api/devices/[id]. */
+          person_id: string | null;
         };
         Insert: {
           id?: string;

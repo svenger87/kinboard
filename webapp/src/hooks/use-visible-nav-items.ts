@@ -5,6 +5,8 @@ import { useIsPluginEnabled } from "./use-enabled-plugins";
 import { useNavOrder } from "./use-nav-order";
 import { useHiddenNavItems } from "./use-hidden-nav-items";
 import { useSubjects, useSchedules } from "./use-supabase-queries";
+import { useCreatures } from "./use-creatures";
+import { rewardsNavVisible } from "@/lib/creatures/surfaces";
 import { PLUGINS } from "@/plugins/registry";
 import type { NavGatingContext } from "@/plugins/types";
 
@@ -23,6 +25,11 @@ const HA_DEPENDENT_HREFS = new Set(["/home-automation"]);
 // subject_id FK (see init.sql), so deleting all subjects after building a
 // schedule leaves orphaned-but-real schedule data with subjects.length===0.
 const SCHEDULE_HREF = "/schedule";
+
+// The Rewards page (RFC-017 §8.1): only once a child of the family has a
+// creature switched on. Core, not a plugin -- creatures and rewards need no
+// pocket money -- so it is gated here rather than by a plugin predicate.
+const REWARDS_HREF = "/rewards";
 
 /**
  * Returns NAV_ITEMS filtered to only what's actually usable for the
@@ -48,6 +55,7 @@ export function useVisibleNavItems(includeUserHidden = false): typeof NAV_ITEMS 
   const hiddenItems = useHiddenNavItems();
   const { data: subjects, isPending: subjectsPending } = useSubjects();
   const { data: schedules, isPending: schedulesPending } = useSchedules();
+  const { data: creatures } = useCreatures();
 
   // Call every plugin's useOwnDataCount in stable registry order.
   // PLUGINS is module-level + readonly (see plugins/registry.ts), so
@@ -75,6 +83,8 @@ export function useVisibleNavItems(includeUserHidden = false): typeof NAV_ITEMS 
       if (haPending) return false;
       return haConnected;
     }
+
+    if (item.href === REWARDS_HREF) return rewardsNavVisible(creatures);
 
     if (item.href === SCHEDULE_HREF) {
       if (subjectsPending || schedulesPending) return true; // avoid flicker-hide while loading

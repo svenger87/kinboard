@@ -100,6 +100,7 @@
     "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.20",
     "date-holidays": "3.37.0",
+    "emojibase-data": "17.0.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.2.4",
     "postcss": "^8.5.18",

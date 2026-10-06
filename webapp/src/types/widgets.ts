@@ -13,6 +13,7 @@ export interface WidgetVisibility {
   vehicles: boolean;
   stonks: boolean;
   pocketMoney: boolean;
+  creatures: boolean;
   photos: boolean;
   timers: boolean;
   media: boolean;
@@ -23,7 +24,7 @@ export interface WidgetVisibility {
 export const DEFAULT_WIDGET_ORDER: (keyof WidgetVisibility)[] = [
   "weather", "upcomingEvents", "schedule", "birthday", "holidays", "weekOverview",
   "mealPlan", "wasteCollection", "tasks", "shopping", "notes",
-  "vehicles", "stonks", "pocketMoney", "photos", "timers", "media", "messages",
+  "vehicles", "stonks", "pocketMoney", "creatures", "photos", "timers", "media", "messages",
   "countdown",
 ];
 
@@ -51,6 +52,11 @@ export const DEFAULT_WIDGET_VISIBILITY: WidgetVisibility = {
   vehicles: false,
   stonks: false,
   pocketMoney: false,
+  // Opt-in like pocket money (RFC-017 §4): it has nothing to show until a
+  // parent switches a child's creature on, and a card asking for that would
+  // sit on the dashboard of every family that never will. Settings -> Widgets
+  // switches it on; the empty card says where creatures come from.
+  creatures: false,
   // Opt-in: it needs a photo source connected before it can show anything.
   photos: false,
   // On by default: unlike the media player it needs no setup to be useful,

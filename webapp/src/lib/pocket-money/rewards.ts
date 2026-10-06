@@ -9,7 +9,8 @@
 
 import { UUID } from "@/lib/home/action-requests";
 import type { RpcClient } from "./booking";
-import { REWARD_COST_MAX, REWARD_COST_MIN, REWARD_ICON_MAX, REWARD_TITLE_MAX } from "./points";
+import { REWARD_COST_MAX, REWARD_COST_MIN, REWARD_TITLE_MAX } from "./points";
+import { canonicalEmoji } from "@/lib/emoji/validate";
 
 export interface RewardInput {
   title?: unknown;
@@ -31,6 +32,8 @@ export interface RewardFields {
  */
 export function parseReward(
   body: RewardInput, partial: boolean,
+  /** An edit: the reward's icon as stored, accepted back unchanged whatever it is. */
+  keep: { storedIcon?: string | null } = {},
 ): { ok: true; fields: RewardFields } | { ok: false; error: string } {
   const fields: RewardFields = {};
   if (body.title !== undefined || !partial) {
@@ -48,11 +51,16 @@ export function parseReward(
     fields.cost_points = cost;
   }
   if (body.icon !== undefined) {
-    if (body.icon === null || body.icon === "") fields.icon = null;
-    else if (typeof body.icon === "string" && body.icon.trim().length > 0 && body.icon.trim().length <= REWARD_ICON_MAX) {
-      fields.icon = body.icon.trim();
+    // One emoji from the picker's set (lib/emoji/validate.ts). The icon used
+    // to be a free text field, so a reward may hold an icon that is not one:
+    // sent back unchanged with an edit, it is kept, never refused.
+    const icon = typeof body.icon === "string" ? body.icon.trim() : body.icon;
+    if (icon === null || icon === "") fields.icon = null;
+    else if (typeof icon === "string" && canonicalEmoji(icon)) fields.icon = canonicalEmoji(icon);
+    else if (typeof icon === "string" && keep.storedIcon != null && icon === keep.storedIcon) {
+      fields.icon = icon;
     } else {
-      return { ok: false, error: `icon must be at most ${REWARD_ICON_MAX} characters` };
+      return { ok: false, error: "icon must be a single emoji (flags excepted)" };
     }
   }
   if (body.active !== undefined) {

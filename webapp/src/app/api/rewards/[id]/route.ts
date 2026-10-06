@@ -17,7 +17,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!UUID.test(id)) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  const parsed = parseReward(body ?? {}, true);
+  // An icon sent along is checked against the emoji set -- unless it is the
+  // one the reward already has, which may predate the picker.
+  let storedIcon: string | null = null;
+  if (typeof body?.icon === "string") {
+    const { data: current } = await (createAdminClient() as any)
+      .from("point_rewards")
+      .select("icon")
+      .eq("id", id)
+      .eq("family_id", auth.session.familyId)
+      .maybeSingle();
+    storedIcon = (current?.icon as string | null | undefined) ?? null;
+  }
+  const parsed = parseReward(body ?? {}, true, { storedIcon });
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   const { data, error } = await (createAdminClient() as any)

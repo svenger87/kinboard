@@ -43,8 +43,14 @@ export function useNavBadges(): NavBadges {
       badges["/birthdays"] = birthdaysToday;
     }
 
-    if (pendingWithdrawals + pendingRedemptions > 0) {
-      badges["/pocket-money"] = pendingWithdrawals + pendingRedemptions;
+    if (pendingWithdrawals > 0) {
+      badges["/pocket-money"] = pendingWithdrawals;
+    }
+    // Reward requests are the child's, not their pocket-money account's
+    // (RFC-017): they wait on the Rewards page's item, which every family
+    // with a creature has -- a request needs one -- pocket money or not.
+    if (pendingRedemptions > 0) {
+      badges["/rewards"] = pendingRedemptions;
     }
 
     return badges;

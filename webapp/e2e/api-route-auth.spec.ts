@@ -257,6 +257,11 @@ test("a route that still takes family_id checks it against the session", () => {
     // the account is looked up in auth.session.familyId; the body carries
     // only `{ reward_id }`.
     "pocket-money/accounts/[id]/redemptions/route.ts",
+    // Who a device belongs to (RFC-017 §8.2). The regex matches the local
+    // `familyId`, taken from auth.session.familyId, which both the device and
+    // the person are looked up in; the body carries only `{ person_id }`
+    // (lib/device-owner.ts refuses any other field).
+    "devices/[id]/route.ts",
   ]);
 
   const missing: string[] = [];

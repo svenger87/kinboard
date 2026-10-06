@@ -13,6 +13,7 @@ import { VehiclesWidget } from "@/components/widgets/vehicles-widget";
 import { StonksWidget } from "@/components/widgets/stonks-widget";
 import { PhotosWidget } from "@/components/widgets/photos-widget";
 import { PocketMoneyWidget } from "@/components/widgets/pocket-money-widget";
+import { CreaturesWidget } from "@/components/widgets/creatures-widget";
 import { TimerWidget } from "@/components/widgets/timer-widget";
 import { CountdownWidget } from "@/components/widgets/countdown-widget";
 import { MediaPlayerWidget } from "@/components/widgets/media-player-widget";
@@ -41,6 +42,7 @@ import {
 import { timetabledChildren } from "@/lib/timetabled-children";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useHomeLayout } from "@/hooks/use-home-layout";
+import { useStartRedirect } from "@/hooks/use-device-owner";
 import { mergeWidgetOrder, useWidgetOrder } from "@/hooks/use-widget-order";
 import type { WidgetKey } from "@/hooks/use-widget-order";
 import {
@@ -116,6 +118,7 @@ export default function DashboardPage() {
     vehicles: <VehiclesWidget />,
     stonks: <StonksWidget />,
     pocketMoney: <PocketMoneyWidget />,
+    creatures: <CreaturesWidget />,
     photos: <PhotosWidget />,
     timers: <TimerWidget />,
     media: <MediaPlayerWidget />,
@@ -129,6 +132,14 @@ export default function DashboardPage() {
 
   // Enable swipe navigation on touch devices
   useSwipeNavigation();
+
+  // A child's own device opens on their Rewards page (RFC-017 §8.2): only
+  // when the app was opened here, never when Home was tapped. Holds the first
+  // paint on such a device until it knows where it is going.
+  const start = useStartRedirect();
+  if (start === "wait") {
+    return <main id="main-content" className="min-h-page" aria-busy="true" data-testid="dashboard-start-wait" />;
+  }
 
   return (
     // No `min-h-page` here: the inner container already sets

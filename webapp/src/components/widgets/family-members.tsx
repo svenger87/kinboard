@@ -26,7 +26,7 @@ import { useTodoPoints } from "@/hooks/use-todo-points";
 import { pointsTotal, showsPoints } from "@/lib/todo-points";
 import { usePocketMoneyAccounts } from "@/hooks/use-pocket-money-accounts";
 import { usePointTotals } from "@/hooks/use-point-rewards";
-import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
+import { rewardsHref } from "@/lib/device-owner";
 import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
 import { creatureStage } from "@/lib/creatures/stage";
 import { activeCreatureOf, useCreatures } from "@/hooks/use-creatures";
@@ -88,9 +88,8 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
   const { data: people, isLoading: loadingPeople, isError: peopleError } = usePeople();
   const { data: todos } = useTodos();
   const { data: pointAwards = [] } = useTodoPoints();
-  // A child with a creature (RFC-017): the profile shows it, and -- when it
-  // grows with points -- the points left to spend and a way to the rewards.
-  const pocketMoneyOn = useIsPluginEnabled("pocket-money");
+  // A child with a creature (RFC-017): the profile shows it, the points left
+  // to spend and a way to their Rewards page.
   const { data: accounts = [] } = usePocketMoneyAccounts();
   const { data: creatures } = useCreatures();
   const { totalsFor } = usePointTotals();
@@ -242,17 +241,16 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
         })()}
         points={(() => {
           if (!selectedPerson) return null;
+          // A child with a creature (RFC-017): the points they have to spend,
+          // whatever the creature grows with -- rewards are bought with
+          // points either way -- and the way to their Rewards page, which
+          // needs no pocket-money account.
           const creature = selectedPerson.is_child ? activeCreatureOf(creatures, selectedPerson.id) : undefined;
-          const account = accounts.find((a) => a.person_id === selectedPerson.id);
-          const growsWithPoints =
-            creature && creatureStage({ creature, account, earnedPoints: 0 }).mode === "points";
-          if (creature && growsWithPoints) {
+          if (creature) {
             return {
               value: totalsFor(selectedPerson.id).balance,
               spendable: true,
-              // The rewards are on the child's pocket-money page until the
-              // rewards page of RFC-017 step 2 exists.
-              rewardsHref: pocketMoneyOn && account ? `/pocket-money?child=${selectedPerson.id}` : null,
+              rewardsHref: rewardsHref(selectedPerson.id),
             };
           }
           return showsPoints(selectedPerson, pointAwards, todos)
@@ -275,7 +273,7 @@ interface PersonDetailsDialogProps {
    * rewards.
    */
   points: { value: number; spendable: boolean; rewardsHref: string | null } | null;
-  /** The child's pocket-money avatar, or null with no plugin or no account. */
+  /** The child's creature, or null when none is switched on. */
   petAvatar: { species: string; style: string | null | undefined; look: CreatureLook; tier: AvatarTier } | null;
   onClose: () => void;
 }

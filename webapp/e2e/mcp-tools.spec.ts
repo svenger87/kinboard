@@ -165,9 +165,12 @@ test.describe("task fields on create_task and update_task", () => {
       const base = name === "create_task" ? { title: "x" } : { task_id: PERSON };
       const s = schemaOf(name).inputSchema;
       expect(() => s.parse({ ...base, recurrence: "days:MO,WE", priority: "medium", icon: "⭐", points: 10_000 })).not.toThrow();
+      // Any single emoji the picker offers, not just the form's old nine.
+      expect(() => s.parse({ ...base, icon: "🎉" })).not.toThrow();
       for (const bad of [
         { recurrence: "days:" }, { recurrence: "yearly" }, { recurrence: "days:MO,XX" },
-        { priority: "urgent" }, { icon: "🎉" }, { points: 10_001 }, { points: -1 }, { points: 1.5 },
+        { priority: "urgent" }, { icon: "🇩🇪" }, { icon: "🧹🧹" }, { icon: "broom" },
+        { points: 10_001 }, { points: -1 }, { points: 1.5 },
         { person_id: "mia" },
       ]) {
         expect(() => s.parse({ ...base, ...bad }), `${name} ${JSON.stringify(bad)}`).toThrow();

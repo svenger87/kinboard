@@ -38,7 +38,15 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/page-header";
 import { useFamilyStore } from "@/stores/family-store";
-import { useDevices, useUpdateDevice, useDeleteDevice } from "@/hooks/use-supabase-queries";
+import { useDevices, useUpdateDevice, useDeleteDevice, usePeople } from "@/hooks/use-supabase-queries";
+import { useSetDeviceOwner } from "@/hooks/use-device-owner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { Device } from "@/types/database";
 
 function getDeviceType(userAgent: string | null): string {
@@ -76,6 +84,8 @@ export default function DevicesSettingsPage() {
   const { data: devices, isLoading, error, refetch } = useDevices();
   const updateDevice = useUpdateDevice();
   const deleteDevice = useDeleteDevice();
+  const setOwner = useSetDeviceOwner();
+  const { data: people = [] } = usePeople();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -138,6 +148,17 @@ export default function DevicesSettingsPage() {
       await updateDevice.mutateAsync({ id, has_presence_sensor: hasPresenceSensor });
     } catch {
       toast.error(t("settingFailed"));
+    }
+  };
+
+  // Who a device belongs to (RFC-017 §8.2). Its own route, behind the
+  // settings PIN on the server; "pin_required" puts the PIN screen back up.
+  const handleSetOwner = async (id: string, personId: string | null) => {
+    try {
+      await setOwner.mutateAsync({ id, personId });
+    } catch (err) {
+      if (err instanceof Error && err.message === "pin_required") return;
+      toast.error(t("belongsToFailed"));
     }
   };
 
@@ -267,6 +288,11 @@ export default function DevicesSettingsPage() {
                               </Badge>
                             )}
                           </div>
+                          {device.is_kiosk && device.person_id && (
+                            <p className="mt-0.5 text-xs text-muted-foreground" data-testid="device-owner-kiosk-note">
+                              {t("belongsToKioskNote")}
+                            </p>
+                          )}
                           <div className="flex items-center gap-2 mt-0.5">
                             {deviceIsOnline ? (
                               <Wifi className="size-3 text-success" />
@@ -313,7 +339,34 @@ export default function DevicesSettingsPage() {
                     </div>
 
                     {!isEditing && (
-                    <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-4">
+                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-4">
+                    {/* Belongs to (RFC-017 §8.2): a child's own device opens
+                        on their creature. A kiosk keeps the dashboard. */}
+                    <Select
+                      value={device.person_id ?? "none"}
+                      onValueChange={(v) => handleSetOwner(device.id, v === "none" ? null : v)}
+                      disabled={setOwner.isPending}
+                    >
+                      <SelectTrigger
+                        className="h-9 w-auto min-w-0 max-w-[16rem] gap-1.5"
+                        aria-label={t("belongsToAria", { name: device.name })}
+                        data-testid="device-owner"
+                      >
+                        <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">{t("belongsToLabel")}</span>
+                        <span className="min-w-0 truncate">
+                          <SelectValue />
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{t("belongsToNobody")}</SelectItem>
+                        {people.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
                     {/* Kiosk Toggle */}
                     {!isEditing && (
                       <TooltipProvider>
@@ -424,6 +477,7 @@ export default function DevicesSettingsPage() {
           className="text-sm text-muted-foreground text-center mt-6 flex flex-col gap-3"
         >
           <p>{t("infoText")}</p>
+          <p>{t("belongsToHint")}</p>
 
           {/* Presence Sensor Help */}
           <Dialog>

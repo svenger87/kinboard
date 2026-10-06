@@ -420,7 +420,8 @@
     "pocketMoney": "Taschengeld",
     "more": "Mehr",
     "photos": "Fotos",
-    "media": "Medien"
+    "media": "Medien",
+    "rewards": "Belohnungen"
   },
   "cameras": {
     "title": "Kameras",
@@ -681,7 +682,8 @@
     "recentDays": "Die letzten fälligen Tage",
     "noTurnOpen": "Der Wechsel dieser Aufgabe hat noch nicht begonnen",
     "toggleTooltipUndo": "Für diese Runde erledigt – tippen zum Zurücknehmen",
-    "turnsBetween": "Im Wechsel: {names}"
+    "turnsBetween": "Im Wechsel: {names}",
+    "creatureAria": "Kreatur von {name}"
   },
   "meals": {
     "title": "Mahlzeitenplanung",
@@ -1224,7 +1226,11 @@
       "messagesLabel": "Nachrichten",
       "messagesDescription": "Sag von unterwegs etwas nach Hause — es erscheint auf allen anderen Bildschirmen, bis jemand bestätigt, dass er es gesehen hat",
       "messagesPreview1": "Bin um 6 zurück",
-      "messagesPreview2": "Wartet darauf, dass jemand sie sieht"
+      "messagesPreview2": "Wartet darauf, dass jemand sie sieht",
+      "creaturesLabel": "Kreaturen",
+      "creaturesDescription": "Die Kreaturen aller Kinder nebeneinander, sie jubeln, wenn eine Aufgabe erledigt ist. Antippen öffnet die Belohnungen des Kindes",
+      "creaturesPreview1": "🐉 Mia — Babydrache — ⭐ 42",
+      "creaturesPreview2": "Ruhig an der Wand, bewegt sich nur zum Jubeln"
     },
     "navigation": {
       "title": "Navigation",
@@ -1485,7 +1491,13 @@
       "presenceHelpStep5BulletDelay": "<bold>Verzögerung:</bold> Wartezeit nach letzter Erkennung (10s - 5min)",
       "presenceHelpTip": "<bold>Tipp:</bold> Der Sensor meldet alle ~1 Sekunde seinen Status. Bei „Keine Verbindung“ in den Einstellungen prüfe, ob das Skript läuft und die richtige Geräte-ID verwendet.",
       "kioskToggleAria": "Kiosk-Modus für {name}",
-      "presenceToggleAria": "Anwesenheitssensor für {name}"
+      "presenceToggleAria": "Anwesenheitssensor für {name}",
+      "belongsToLabel": "Gehört",
+      "belongsToAria": "Wem {name} gehört",
+      "belongsToNobody": "Der Familie",
+      "belongsToHint": "Das eigene Gerät eines Kindes öffnet sich bei seiner Kreatur und seinen Belohnungen. Kiosk-Geräte öffnen immer das Dashboard.",
+      "belongsToKioskNote": "Kiosk: öffnet das Dashboard",
+      "belongsToFailed": "Konnte nicht speichern, wem das Gerät gehört"
     },
     "cameras": {
       "title": "Kameras",
@@ -2508,7 +2520,7 @@
       "errorPinRequired": "Bitte die Einstellungs-PIN erneut eingeben und dann noch einmal versuchen.",
       "errorInsufficientPoints": "Dafür reichen die Punkte nicht mehr; die Anfrage wartet weiter.",
       "rewardsTitle": "Belohnungen für Aufgabenpunkte",
-      "rewardsDescription": "Kinder mit einer Kreatur sehen die aktiven Belohnungen auf ihrer Taschengeld-Seite und können eine mit ihren Aufgabenpunkten anfragen. Du gibst sie hier frei.",
+      "rewardsDescription": "Kinder mit einer Kreatur sehen die aktiven Belohnungen auf der Seite Belohnungen und können eine mit ihren Aufgabenpunkten anfragen. Du gibst sie hier frei.",
       "rewardIconLabel": "Symbol",
       "rewardTitleLabel": "Belohnung",
       "rewardTitlePlaceholder": "Kinoabend",
@@ -4035,7 +4047,7 @@
     "statusNothing": "Alles erledigt",
     "loadFailed": "Familie konnte nicht geladen werden",
     "statPointsToSpend": "Punkte zum Einlösen",
-    "rewardsShortcut": "Belohnungen"
+    "rewardsShortcut": "Zu den Belohnungen"
   },
   "tasksWidget": {
     "loadingAria": "Aufgaben werden geladen",
@@ -5019,5 +5031,41 @@
     },
     "denyHint": "Ablehnen kann jeder. Zum Erlauben braucht es die Einstellungs-PIN.",
     "close": "Schließen"
+  },
+  "creaturesWidget": {
+    "title": "Kreaturen",
+    "empty": "Noch kein Kind hat eine Kreatur. Eltern schalten sie für jedes Kind unter Einstellungen → Kreaturen & Belohnungen ein.",
+    "emptyCta": "Kreatur einschalten",
+    "openAria": "Kreatur und Belohnungen von {name}"
+  },
+  "rewardsPage": {
+    "title": "Belohnungen",
+    "manage": "Verwalten",
+    "chooseChild": "Wessen Kreatur",
+    "emptyTitle": "Noch keine Kreaturen",
+    "emptyDescription": "Sobald Eltern einem Kind eine Kreatur einschalten, wohnt sie hier – mit den Belohnungen, die es sich mit Aufgabenpunkten holen kann.",
+    "emptyCta": "Kreaturen & Belohnungen",
+    "stageProgressAria": "{percent} % des Wegs zur nächsten Stufe"
+  },
+  "emojiPicker": {
+    "searchLabel": "Emoji suchen",
+    "searchPlaceholder": "Suchen, z. B. Eis",
+    "recent": "Zuletzt verwendet",
+    "categories": "Kategorien",
+    "results": "{count, plural, =0 {Keine Emoji} one {# Emoji} other {# Emoji}}",
+    "noResults": "Nichts gefunden. Probier ein anderes Wort.",
+    "loading": "Emoji werden geladen …",
+    "loadFailed": "Die Emoji konnten nicht geladen werden.",
+    "skinTone": "Hautfarbe",
+    "tone0": "Standard-Hautfarbe",
+    "tone1": "Helle Hautfarbe",
+    "tone2": "Mittelhelle Hautfarbe",
+    "tone3": "Mittlere Hautfarbe",
+    "tone4": "Mitteldunkle Hautfarbe",
+    "tone5": "Dunkle Hautfarbe",
+    "chooseIcon": "{label}: Emoji auswählen",
+    "changeIcon": "{label}: {icon}, ändern",
+    "clear": "Kein Icon",
+    "none": "–"
   }
 }

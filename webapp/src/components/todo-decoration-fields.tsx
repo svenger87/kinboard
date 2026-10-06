@@ -4,7 +4,7 @@ import { useId } from "react";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TODO_ICONS } from "@/lib/todo-icons";
+import { EmojiIconField } from "@/components/emoji-picker";
 
 export function TodoDecorationFields({
   icon,
@@ -19,13 +19,14 @@ export function TodoDecorationFields({
 }) {
   const t = useTranslations("todos");
   const pointsId = useId();
+  const iconId = useId();
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-2">
-        <Label>{t("fieldIcon")}</Label>
-        <div className="flex flex-wrap gap-1">
-          <button type="button" onClick={() => onIconChange("")} aria-pressed={!icon} className={`rounded-md px-2 text-sm ${!icon ? "ring-1 ring-primary" : ""}`}>–</button>
-          {TODO_ICONS.map((choice) => <button key={choice} type="button" onClick={() => onIconChange(choice)} aria-label={choice} aria-pressed={icon === choice} className={`rounded-md p-1 text-xl ${icon === choice ? "bg-primary/20 ring-1 ring-primary" : "bg-muted/30"}`}>{choice}</button>)}
+        <Label htmlFor={iconId}>{t("fieldIcon")}</Label>
+        {/* Any emoji (the shared picker, components/emoji-picker.tsx), or none. */}
+        <div>
+          <EmojiIconField id={iconId} value={icon || null} onChange={(next) => onIconChange(next ?? "")} label={t("fieldIcon")} />
         </div>
       </div>
       <div className="space-y-2">

@@ -420,7 +420,8 @@
     "pocketMoney": "Pocket Money",
     "more": "More",
     "photos": "Photos",
-    "media": "Media"
+    "media": "Media",
+    "rewards": "Rewards"
   },
   "cameras": {
     "title": "Cameras",
@@ -681,7 +682,8 @@
     "recentDays": "The last due days",
     "noTurnOpen": "This task's turns haven't started yet",
     "toggleTooltipUndo": "Done for this turn — tap to take it back",
-    "turnsBetween": "Turns: {names}"
+    "turnsBetween": "Turns: {names}",
+    "creatureAria": "{name}'s creature"
   },
   "meals": {
     "title": "Meal planning",
@@ -1224,7 +1226,11 @@
       "messagesLabel": "Messages",
       "messagesDescription": "Say something to the house from anywhere — it shows on every other screen until somebody says they have seen it",
       "messagesPreview1": "Back by 6",
-      "messagesPreview2": "Waiting for someone to see this"
+      "messagesPreview2": "Waiting for someone to see this",
+      "creaturesLabel": "Creatures",
+      "creaturesDescription": "Every child's creature side by side, cheering when a task is ticked off. Tap one for that child's rewards",
+      "creaturesPreview1": "🐉 Mia — Baby dragon — ⭐ 42",
+      "creaturesPreview2": "Still on the wall; moves only to cheer"
     },
     "navigation": {
       "title": "Navigation",
@@ -1485,7 +1491,13 @@
       "presenceHelpStep5BulletDelay": "<bold>Delay:</bold> Wait time after last detection (10s – 5min)",
       "presenceHelpTip": "<bold>Tip:</bold> The sensor reports its status roughly every second. If it shows “No connection” in settings, check that the script is running and uses the correct device ID.",
       "kioskToggleAria": "Kiosk mode for {name}",
-      "presenceToggleAria": "Presence sensor for {name}"
+      "presenceToggleAria": "Presence sensor for {name}",
+      "belongsToLabel": "Belongs to",
+      "belongsToAria": "Who {name} belongs to",
+      "belongsToNobody": "The family",
+      "belongsToHint": "A child's own device opens on their creature and rewards. Kiosks always open on the dashboard.",
+      "belongsToKioskNote": "Kiosk: opens on the dashboard",
+      "belongsToFailed": "Could not save who the device belongs to"
     },
     "cameras": {
       "title": "Cameras",
@@ -2508,7 +2520,7 @@
       "errorPinRequired": "Enter the settings PIN again, then try once more.",
       "errorInsufficientPoints": "Not enough points for that any more; the request is still waiting.",
       "rewardsTitle": "Rewards for task points",
-      "rewardsDescription": "Children with a creature see the active rewards on their pocket-money page and can ask for one with their task points. You approve it here.",
+      "rewardsDescription": "Children with a creature see the active rewards on the Rewards page and can ask for one with their task points. You approve it here.",
       "rewardIconLabel": "Icon",
       "rewardTitleLabel": "Reward",
       "rewardTitlePlaceholder": "Movie night",
@@ -4035,7 +4047,7 @@
     "statusNothing": "All clear",
     "loadFailed": "Couldn't load your family",
     "statPointsToSpend": "Points to spend",
-    "rewardsShortcut": "Rewards"
+    "rewardsShortcut": "To the rewards"
   },
   "tasksWidget": {
     "loadingAria": "Loading tasks",
@@ -5019,5 +5031,41 @@
     },
     "denyHint": "Anyone can deny. Allowing needs the settings PIN.",
     "close": "Close"
+  },
+  "creaturesWidget": {
+    "title": "Creatures",
+    "empty": "No child has a creature yet. A parent switches one on for each child under Settings → Creatures & rewards.",
+    "emptyCta": "Switch on a creature",
+    "openAria": "{name}'s creature and rewards"
+  },
+  "rewardsPage": {
+    "title": "Rewards",
+    "manage": "Manage",
+    "chooseChild": "Whose creature",
+    "emptyTitle": "No creatures yet",
+    "emptyDescription": "Once a parent switches on a creature for a child, it lives here with the rewards their task points buy.",
+    "emptyCta": "Creatures & rewards",
+    "stageProgressAria": "{percent}% of the way to the next stage"
+  },
+  "emojiPicker": {
+    "searchLabel": "Search emoji",
+    "searchPlaceholder": "Search, e.g. ice cream",
+    "recent": "Recently used",
+    "categories": "Categories",
+    "results": "{count, plural, =0 {No emoji} one {# emoji} other {# emoji}}",
+    "noResults": "Nothing found. Try another word.",
+    "loading": "Loading emoji…",
+    "loadFailed": "The emoji could not be loaded.",
+    "skinTone": "Skin tone",
+    "tone0": "Default skin tone",
+    "tone1": "Light skin tone",
+    "tone2": "Medium-light skin tone",
+    "tone3": "Medium skin tone",
+    "tone4": "Medium-dark skin tone",
+    "tone5": "Dark skin tone",
+    "chooseIcon": "{label}: choose an emoji",
+    "changeIcon": "{label}: {icon}, change",
+    "clear": "No icon",
+    "none": "–"
   }
 }

@@ -200,7 +200,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # is webapp/NOTICE, a copy of the repository's (the build context is webapp/).
 COPY --from=builder /app/NOTICE ./licenses/NOTICE
 COPY --from=builder /app/src/lib/holidays/data/LICENSE ./licenses/date-holidays-LICENSE
-RUN test -f ./licenses/NOTICE && test -f ./licenses/date-holidays-LICENSE
+COPY --from=builder /app/src/lib/emoji/data/LICENSE ./licenses/emojibase-LICENSE
+RUN test -f ./licenses/NOTICE && test -f ./licenses/date-holidays-LICENSE && test -f ./licenses/emojibase-LICENSE
 
 # Bake migrations + entrypoint script into the image. The entrypoint
 # applies migrations against the db before exec'ing the Next.js

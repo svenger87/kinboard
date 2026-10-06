@@ -1,14 +1,27 @@
 /**
- * The icons a task may carry: the picker on the task form offers exactly
- * these, and the Integration API accepts nothing else, so an assistant cannot
- * put an icon on a task that the form could not have put there.
+ * The icons a task may carry: any single emoji the picker offers (the full
+ * Unicode set without flags, lib/emoji/validate.ts). The task form picks from
+ * exactly that set, and the Integration API and the MCP server accept nothing
+ * else, so an assistant cannot put an icon on a task that the form could not
+ * have put there.
  *
- * Exact strings, variation selectors included ("🗑️" is U+1F5D1 U+FE0F).
+ * Server-side: it pulls in the emoji set. The form imports the picker, not this.
  */
-export const TODO_ICONS = ["🧹", "🗑️", "🧺", "🍽️", "📚", "🪥", "🐾", "🌱", "⭐"] as const;
 
-export type TodoIcon = (typeof TODO_ICONS)[number];
+import { canonicalEmoji, isEmojiIcon } from "@/lib/emoji/validate";
 
-export function isTodoIcon(value: unknown): value is TodoIcon {
-  return typeof value === "string" && (TODO_ICONS as readonly string[]).includes(value);
+/**
+ * The nine icons the task form offered before the emoji picker. Every task
+ * stored since has one of these or none; each is still a valid icon, so no
+ * old task fails an edit (e2e/emoji-picker.spec.ts).
+ */
+export const LEGACY_TODO_ICONS = ["🧹", "🗑️", "🧺", "🍽️", "📚", "🪥", "🐾", "🌱", "⭐"] as const;
+
+export function isTodoIcon(value: unknown): value is string {
+  return isEmojiIcon(value);
+}
+
+/** The icon as stored: the fully qualified emoji, or null when it is not one. */
+export function todoIcon(value: unknown): string | null {
+  return canonicalEmoji(value);
 }
