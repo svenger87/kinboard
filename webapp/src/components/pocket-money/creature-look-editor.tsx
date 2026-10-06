@@ -14,7 +14,7 @@ import {
   EYE_SHAPES,
   HAIRSTYLES,
   LOOK_SWATCHES,
-  NAME_MAX,
+  clampName,
   PATTERNS,
   STYLES,
   cleanName,
@@ -50,9 +50,11 @@ type ColorKey = "body" | "belly" | "accent" | "hair" | "skin";
  *
  * Every choice is a draft shown at once on the live preview, which pops on
  * each change; nothing is stored until Save. One write per visit, not one per
- * tap: every write reaches every screen of the family over realtime, and a
- * child trying ten colours would flicker the wall display ten times. It also
- * makes Surprise me and Start over safe to try -- Cancel undoes them.
+ * tap: pocket_money_accounts is not in the supabase_realtime publication, so
+ * the family's other screens pick a change up when they next refetch the
+ * accounts, and a child trying ten colours should not leave whichever of ten
+ * half-made looks a screen happened to fetch. It also makes Surprise me and
+ * Start over safe to try -- Cancel undoes them.
  */
 export function CreatureLookEditor({ species, tier, style, look, childName, saving, onSave, onCancel }: Props) {
   const t = useTranslations("pocketMoney");
@@ -107,7 +109,10 @@ export function CreatureLookEditor({ species, tier, style, look, childName, savi
                 title={t(`lookColors.${COLOR_NAMES[hex.toUpperCase()]}` as never)}
                 data-color={hex}
                 onClick={() => set(key, hex)}
-                className={`size-10 rounded-full border-[3px] border-background transition active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                className={`size-10 rounded-full border-[3px] border-background transition active:scale-95 focus-visible:outline-dashed focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-foreground ${
+                  // Selected is a solid ring in the accent colour; focus is a
+                  // dashed outline in the text colour, further out, so the
+                  // two never look alike and both show when they coincide.
                   pressed ? "ring-[3px] ring-primary" : "ring-2 ring-border"
                 }`}
                 style={{ background: hex }}
@@ -180,10 +185,11 @@ export function CreatureLookEditor({ species, tier, style, look, childName, savi
           <Input
             id={`${ids}-name`}
             value={draft.name ?? ""}
-            maxLength={NAME_MAX}
+            // Counted as the server counts it (graphemes, lib/.../look.ts), not
+            // in UTF-16 units as maxLength would: 👨‍👩‍👧‍👦 is one character.
             autoComplete="off"
             placeholder={t("lookEditor.namePlaceholder")}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            onChange={(e) => setDraft({ ...draft, name: clampName(e.target.value) })}
             className="max-w-xs text-base"
             data-testid="look-name"
           />

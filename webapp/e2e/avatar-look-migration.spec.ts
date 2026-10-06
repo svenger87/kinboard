@@ -11,7 +11,7 @@ import {
 } from "./whole-database";
 
 /**
- * migration_zzzzzzzzz_pocket_money_avatar_look.sql: every account gets
+ * migration_zzzzzzzz_pocket_money_avatar_style_look.sql: every account gets
  * avatar_look '{}' -- the creature's own look, so nothing changes until a
  * child picks something -- and the column only ever holds a JSON object.
  *
@@ -20,7 +20,7 @@ import {
  * migration twice, probe the CHECK, roll everything back.
  */
 
-const FILE = "migration_zzzzzzzzz_pocket_money_avatar_look.sql";
+const FILE = "migration_zzzzzzzz_pocket_money_avatar_style_look.sql";
 const DIR = join(process.cwd(), "docker");
 const MIGRATION = readFileSync(join(DIR, FILE), "utf8");
 

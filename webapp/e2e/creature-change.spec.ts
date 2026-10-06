@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from "@playwright/test";
-import { createElement } from "react";
+import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -57,6 +57,19 @@ test("changing the species writes the species and nothing else", () => {
   expect(block).not.toMatch(/update\.(best_tier|last_seen_tier|avatar_style|avatar_look|balance_cents|lifetime_saved_cents)\b/);
 });
 
+test("a body that is not JSON, or not an object, is a 400 checked after the session", () => {
+  const source = read(ROUTE);
+  const patch = source.slice(source.indexOf("export async function PATCH"), source.indexOf("export async function DELETE"));
+  const session = patch.indexOf("requireSession(request)");
+  const parse = patch.indexOf("await request.json()");
+  expect(session).toBeGreaterThan(-1);
+  expect(parse).toBeGreaterThan(session);
+  expect(patch.slice(parse - 40, parse)).toContain("try {");
+  expect(patch).toMatch(/parsed === null \|\| Array\.isArray\(parsed\)[\s\S]{0,120}status: 400/);
+  // and nothing reads the body before that
+  expect(patch.slice(0, parse)).not.toMatch(/body\[|body\./);
+});
+
 // ── the look across species ─────────────────────────────────────────────
 
 test("a princess's skin, hair and hairstyle stay valid on a T-Rex, so switching back restores them", () => {
@@ -97,10 +110,12 @@ test("the child's own page has no species switch", () => {
 
 test("the picker shows every creature in the child's style and colours, the current one marked", () => {
   const look = { body: "#56B6E8", name: "Funkel" };
+  const intlProps: Omit<ComponentProps<typeof NextIntlClientProvider>, "children"> = { locale: "en", messages: en, timeZone: "UTC" };
   const html = renderToStaticMarkup(
     createElement(
       NextIntlClientProvider,
-      { locale: "en", messages: en, timeZone: "UTC" },
+      // Checked without children, which come as the third argument.
+      intlProps as ComponentProps<typeof NextIntlClientProvider>,
       createElement(SpeciesPicker, { picked: "rex", onPick: () => {}, avatarStyle: "sticker", look, current: "dragon" }),
     ),
   );
@@ -216,6 +231,21 @@ test.describe("live: changing a child's creature", () => {
     expect((await res.json()).error).toBe("pin_required");
     expect(species()).toBe("princess");
     expect(kept()).toBe(before);
+  });
+
+  test("a body that is not JSON, or JSON null, is 400 rather than 500", async () => {
+    for (const raw of ["{", "null", "[]", "42", ""]) {
+      const res = await api.patch(`/api/pocket-money/accounts/${accountId}?family_id=${famId}`, {
+        headers: { "content-type": "application/json" },
+        data: raw,
+      });
+      expect(res.status(), `${JSON.stringify(raw)}: ${await res.text()}`).toBe(400);
+    }
+    // and without a session it is still the session's 401 first
+    const anon = await pwRequest.newContext({ baseURL: BASE });
+    const res = await anon.patch(`/api/pocket-money/accounts/${accountId}?family_id=${famId}`, { headers: { "content-type": "application/json" }, data: "{" });
+    expect(res.status()).toBe(401);
+    await anon.dispose();
   });
 
   test("with the PIN, an unknown species is 400", async () => {

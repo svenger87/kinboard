@@ -72,12 +72,23 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const body = (await request.json()) as Partial<PocketMoneyAccountUpdate> & {
-    family_id?: string;
-  };
 
   const auth = await requireSession(request);
   if (!auth.ok) return auth.response;
+
+  // A body that is not JSON, or is JSON but not an object (null, a number,
+  // an array), is the caller's mistake: 400, not the 500 a throw from
+  // request.json() or a property read on null used to give.
+  let parsed: unknown;
+  try {
+    parsed = await request.json();
+  } catch {
+    return NextResponse.json({ error: "body must be JSON" }, { status: 400 });
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return NextResponse.json({ error: "body must be an object" }, { status: 400 });
+  }
+  const body = parsed as Partial<PocketMoneyAccountUpdate> & { family_id?: string };
 
   const familyId = familyIdFrom(request, body);
   if (!familyId) {

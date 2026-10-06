@@ -6,8 +6,9 @@
  * Everything is chosen from the fixed sets below, the creature workshop's,
  * so every combination still looks good and the eyes stay readable on every
  * body. The server refuses anything else (validateLook, used by
- * PATCH /api/pocket-money/accounts/[id]); a restore drops an invalid look to
- * {} (restorableLook), since a cosmetic field must never fail a restore.
+ * PATCH /api/pocket-money/accounts/[id]); a restore and the screens keep the
+ * valid keys of a stored look and drop the rest (restorableLook), since a
+ * cosmetic field must never fail a restore.
  *
  * `{}` is the creature's own colours. Every key is optional, so a new option
  * later needs no migration. No React here: the API route imports it.
@@ -69,17 +70,58 @@ const COLOR_KEYS = new Set(["body", "belly", "accent", "skin", "hair"]);
 export const LOOK_KEYS: ReadonlyArray<keyof CreatureLook> = ["name", "body", "belly", "accent", "skin", "hair", "hairstyle", "pattern", "eyes", "acc"];
 
 /**
- * A name as it is stored: line breaks and tabs become spaces, other control
- * and format characters (bidi overrides, zero-width spaces) are removed, white space collapsed and trimmed,
- * at most NAME_MAX characters (code points, so an emoji is not cut in half).
+ * The most a raw name may be before it is cleaned. The route refuses more
+ * with a 400 rather than run the cleaning over a megabyte of text.
+ */
+export const NAME_RAW_MAX = 256;
+
+/**
+ * Bidi controls (U+202A-U+202E, U+2066-U+2069), the zero-width space and the
+ * BOM: invisible, and the first can turn the text around it backwards. Not
+ * all of \p{Cf}: the zero-width joiner holds 👨‍👩‍👧‍👦 together, and the
+ * non-joiner is part of how Persian is written.
+ */
+const BIDI_AND_ZERO_WIDTH = /[\u202A-\u202E\u2066-\u2069\u200B\uFEFF]/g;
+/** Characters that draw nothing: a name made only of these is no name. */
+const INVISIBLE = /[\s\u3164\u2800\u115F\u1160\uFFA0\u200C\u200D\u2060]/gu;
+
+const segmenter: { segment(s: string): Iterable<{ segment: string }> } | null =
+  typeof Intl !== "undefined" && "Segmenter" in Intl ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : null;
+
+/**
+ * What a person sees as characters: 👍🏽, ❤️, 🇩🇪 and 👨‍👩‍👧‍👦 are one each.
+ * Code points where Intl.Segmenter is missing (an old browser), which can
+ * only make a name shorter there, never longer than the server allows.
+ */
+export function graphemes(s: string): string[] {
+  return segmenter ? Array.from(segmenter.segment(s), (g) => g.segment) : Array.from(s);
+}
+
+/**
+ * At most NAME_MAX characters as a person counts them, as the name field
+ * types. Not cleaned or trimmed, so a space can still be typed between words.
+ */
+export function clampName(s: string): string {
+  const g = graphemes(s);
+  return g.length > NAME_MAX ? g.slice(0, NAME_MAX).join("") : s;
+}
+
+/**
+ * A name as it is stored: line breaks and tabs become spaces; other control
+ * characters, bidi controls, the zero-width space and the BOM are removed;
+ * white space is collapsed and trimmed; at most NAME_MAX graphemes, so an
+ * emoji with a skin tone, a flag or a family is never cut in half. A name of
+ * nothing but white space and invisible fillers (U+3164, U+2800, ...) is "".
  */
 export function cleanName(raw: string): string {
   const stripped = raw
     .replace(/[\t\n\r\v\f\u2028\u2029]/g, " ")
-    .replace(/[\p{Cc}\p{Cf}]/gu, "")
+    .replace(/\p{Cc}/gu, "")
+    .replace(BIDI_AND_ZERO_WIDTH, "")
     .replace(/\s+/g, " ")
     .trim();
-  return Array.from(stripped).slice(0, NAME_MAX).join("").trim();
+  if (stripped.replace(INVISIBLE, "") === "") return "";
+  return graphemes(stripped).slice(0, NAME_MAX).join("").trim();
 }
 
 export type LookResult = { ok: true; look: CreatureLook } | { ok: false; error: string };
@@ -98,6 +140,7 @@ export function validateLook(input: unknown): LookResult {
     if (!(LOOK_KEYS as ReadonlyArray<string>).includes(key)) return { ok: false, error: `unknown avatar_look key: ${key}` };
     if (typeof value !== "string") return { ok: false, error: `avatar_look.${key} must be a string` };
     if (key === "name") {
+      if (value.length > NAME_RAW_MAX) return { ok: false, error: "avatar_look.name is too long" };
       const name = cleanName(value);
       if (name) look.name = name;
       continue;
@@ -109,13 +152,25 @@ export function validateLook(input: unknown): LookResult {
   return { ok: true, look: look as CreatureLook };
 }
 
-/** A stored look as a restore should write it: the look if valid, {} otherwise. */
+/**
+ * A stored look as the screens show it and a restore writes it: every key
+ * the editor knows with a value from its set, and nothing else. One bad key
+ * -- from a newer version after a rollback, or a newer backup -- drops only
+ * itself, so the name and the colours survive. Anything not an object is {}.
+ * The PATCH stays strict (validateLook): a client sending a bad key is out of
+ * date, and is told so.
+ */
 export function restorableLook(value: unknown): CreatureLook {
-  const r = validateLook(value);
-  return r.ok ? r.look : {};
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  const look: CreatureLook = {};
+  for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+    const one = validateLook({ [key]: v });
+    if (one.ok) Object.assign(look, one.look);
+  }
+  return look;
 }
 
-/** A stored look as the screens read it: anything invalid is the creature's own look. */
+/** A stored look as the screens read it: see restorableLook. */
 export function readLook(value: unknown): CreatureLook {
   return restorableLook(value);
 }

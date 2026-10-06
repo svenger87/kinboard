@@ -33,7 +33,7 @@ test.describe("the file", () => {
     const at = files.indexOf(FILE);
     expect(at).toBeGreaterThan(-1);
     // The look (Step 3) builds on the style and sorts after it on purpose.
-    const LOOK = "migration_zzzzzzzzz_pocket_money_avatar_look.sql";
+    const LOOK = "migration_zzzzzzzz_pocket_money_avatar_style_look.sql";
     expect(files.indexOf(LOOK)).toBeGreaterThan(at);
     const touching = files.filter((f) => f !== FILE && f !== LOOK && /pocket_money_accounts/.test(readFileSync(join(DIR, f), "utf8")));
     for (const other of touching.filter((f) => /ALTER TABLE (public\.)?pocket_money_accounts/.test(readFileSync(join(DIR, f), "utf8")))) {

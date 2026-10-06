@@ -1,5 +1,11 @@
--- migration_zzzzzzzzz_pocket_money_avatar_look.sql
+-- migration_zzzzzzzz_pocket_money_avatar_style_look.sql
 -- A child's own look for their pocket-money creature (RFC-016 §4).
+--
+-- The name sorts it right after migration_zzzzzzzz_pocket_money_avatar_style
+-- .sql, which it builds on, and before migration_zzzzzzzz_pocket_money_server
+-- _only.sql (#361): that one revokes browser writes on every pocket_money_*
+-- table and must sort after every migration that names one
+-- (e2e/pocket-money-grants.spec.ts).
 --
 --   pocket_money_accounts.avatar_look   JSONB, '{}' by default
 --

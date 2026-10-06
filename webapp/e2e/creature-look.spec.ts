@@ -15,7 +15,11 @@ import {
   LOOK_SWATCHES,
   NAME_MAX,
   PATTERNS,
+  NAME_RAW_MAX,
+  clampName,
   cleanName,
+  graphemes,
+  readLook,
   restorableLook,
   resolveStyle,
   speciesArt,
@@ -85,7 +89,7 @@ test.describe("validation: every key, only from its set", () => {
     refused({ pattern: "Spots" });
   });
 
-  test("the name: trimmed, control and format characters removed, at most 16 characters", () => {
+  test("the name: trimmed, controls and bidi overrides removed, at most 16 characters", () => {
     expect(ok({ name: "  Funkel  " })).toEqual({ name: "Funkel" });
     expect(ok({ name: "Fun\nkel\t\u0000" })).toEqual({ name: "Fun kel" });
     expect(ok({ name: "a‮b​c" })).toEqual({ name: "abc" });
@@ -95,6 +99,65 @@ test.describe("validation: every key, only from its set", () => {
     expect(ok({ name: "\u0007" })).toEqual({});
     expect(cleanName("Mo  the   dragon")).toBe("Mo the dragon");
     expect(ok({ name: "<b>Rex</b>" })).toEqual({ name: "<b>Rex</b>" }); // text, rendered as text
+  });
+
+  test("a raw name over 256 UTF-16 units is refused before any cleaning", () => {
+    expect(refused({ name: "x".repeat(NAME_RAW_MAX + 1) })).toBe("avatar_look.name is too long");
+    // even when it would clean down to nothing, or to a short name
+    refused({ name: " ".repeat(NAME_RAW_MAX + 1) });
+    refused({ name: "Rex" + "\u200B".repeat(NAME_RAW_MAX) });
+    expect(ok({ name: "x".repeat(NAME_RAW_MAX) }).name).toBe("x".repeat(NAME_MAX));
+  });
+
+  test("the name counts what a person sees: emoji with a skin tone, a selector, a flag or a family are one each", () => {
+    const thumbs = "👍🏽", heart = "❤️", flag = "🇩🇪", family = "👨‍👩‍👧‍👦";
+    for (const g of [thumbs, heart, flag, family]) {
+      expect(graphemes(g), g).toHaveLength(1);
+      const name = ok({ name: g.repeat(20) }).name!;
+      expect(graphemes(name), g).toHaveLength(NAME_MAX);
+      expect(name, g).toBe(g.repeat(NAME_MAX)); // never cut in half
+    }
+    expect(ok({ name: `Mo ${family}` }).name).toBe(`Mo ${family}`);
+  });
+
+  test("the name keeps the joiners writing needs, and drops only bidi controls, ZWSP and the BOM", () => {
+    // ZWJ holds the family together; ZWNJ is part of Persian spelling.
+    expect(ok({ name: "👨‍👩‍👧" }).name).toBe("👨\u200D👩\u200D👧");
+    expect(ok({ name: "می\u200Cخواهم" }).name).toBe("می\u200Cخواهم");
+    for (const c of ["\u202A", "\u202B", "\u202C", "\u202D", "\u202E", "\u2066", "\u2067", "\u2068", "\u2069", "\u200B", "\uFEFF"]) {
+      expect(ok({ name: `Re${c}x` }).name, c.codePointAt(0)!.toString(16)).toBe("Rex");
+    }
+  });
+
+  test("a name of only white space and invisible fillers is no name", () => {
+    for (const filler of ["\u3164", "\u2800", "\u115F", "\u1160", "\uFFA0", "\u3164 \u2800", " \u200D ", "\u200B\u3164"]) {
+      expect(ok({ name: filler }), JSON.stringify(filler)).toEqual({});
+    }
+    // a filler next to a real character is that character's business
+    expect(ok({ name: "A\u3164" }).name).toBe("A\u3164");
+  });
+
+  test("the editor's name field counts like the server: graphemes, no maxLength", () => {
+    const family = "👨‍👩‍👧‍👦";
+    expect(clampName(family.repeat(20))).toBe(family.repeat(NAME_MAX));
+    expect(clampName("Mo the ")).toBe("Mo the "); // a trailing space can still be typed
+    for (const raw of ["x".repeat(40), "👍🏽".repeat(30), `${family} ${family}`]) {
+      expect(cleanName(clampName(raw)), raw).toBe(cleanName(raw));
+    }
+    const editor = readFileSync(join(process.cwd(), "src/components/pocket-money/creature-look-editor.tsx"), "utf8");
+    const input = editor.slice(editor.indexOf('data-testid="look-name"') - 700, editor.indexOf('data-testid="look-name"'));
+    expect(input).toContain("clampName(e.target.value)");
+    expect(input).not.toMatch(/maxLength=/);
+  });
+
+  test("a focused swatch looks different from the selected one", () => {
+    const editor = readFileSync(join(process.cwd(), "src/components/pocket-money/creature-look-editor.tsx"), "utf8");
+    const swatch = editor.slice(editor.indexOf("data-color={hex}"), editor.indexOf("style={{ background: hex }}"));
+    // selected: a solid ring in the accent colour; focus: a dashed outline in the text colour
+    expect(swatch).toContain('pressed ? "ring-[3px] ring-primary"');
+    expect(swatch).toContain("focus-visible:outline-dashed");
+    expect(swatch).toContain("focus-visible:outline-foreground");
+    expect(swatch).not.toMatch(/focus-visible:ring-primary/);
   });
 
   test("unknown keys are refused, not dropped", () => {
@@ -122,6 +185,18 @@ test.describe("export and import", () => {
     const look = { name: "Funkel", body: "#FF8A5B", pattern: "hearts", acc: "bow" };
     expect(restorableLook(look)).toEqual(look);
     for (const bad of [null, undefined, "x", [], { body: "#000000" }, { wings: "#56B6E8" }, { name: 3 }]) expect(restorableLook(bad)).toEqual({});
+  });
+
+  test("one bad key drops only itself: the name and colours survive a rollback or a newer backup", () => {
+    // as a newer version might have stored it: a new key, a new accessory, a
+    // colour from a later palette
+    const stored = { name: "Funkel", body: "#FF8A5B", belly: "#DDF7E8", acc: "crown", wings: "#56B6E8", pattern: "hearts", eyes: 7, hair: "#C97C3C", skin: "#123456" };
+    const kept = { name: "Funkel", body: "#FF8A5B", belly: "#DDF7E8", pattern: "hearts", hair: "#C97C3C" };
+    expect(readLook(stored)).toEqual(kept);
+    expect(restorableLook(stored)).toEqual(kept);
+    expect(readLook({ name: "x".repeat(NAME_RAW_MAX + 1), body: "#FF8A5B" })).toEqual({ body: "#FF8A5B" });
+    // while the PATCH stays strict about the very same look
+    expect(validateLook(stored).ok).toBe(false);
   });
 
   test("the import normalises it on every account row, and the export takes the whole row", () => {
@@ -165,19 +240,61 @@ test.describe("the look stays on the family's own screens", () => {
     ...files("src/lib/mcp"),
     ...files("src/app/api/mcp"),
     ...files("src/app/api/homeassistant"),
+    // What leaves the house as a push or a notification, and the jobs that send it.
+    ...files("src/lib/notifications"),
+    ...files("src/app/api/cron"),
+    join(process.cwd(), "src/lib/push-sender.ts"),
     ...readdirSync(join(process.cwd(), "src/lib"))
       .filter((f) => /^integration-.*\.ts$/.test(f))
       .map((f) => join(process.cwd(), "src/lib", f)),
   ];
 
-  test("no Integration API, MCP or Home Assistant code reads avatar_look or a whole account row", () => {
-    expect(outward.length).toBeGreaterThan(10);
-    for (const f of outward) {
-      const s = readFileSync(f, "utf8");
-      expect(s, f).not.toContain("avatar_look");
-      // a select("*") on the accounts would carry the look (and its name) along
-      expect(s, f).not.toMatch(/pocket_money_accounts["'`]\)\s*\.select\(\s*["'`]\*/);
+  /**
+   * Every way a file could carry the look out: naming it, a whole account
+   * row from a query on pocket_money_accounts (select("*"), a select string
+   * with a *, or .select() with no columns, which returns the whole row after
+   * an insert or update), or the accounts embedded whole in another query
+   * (pocket_money_accounts(*), with or without a !hint).
+   */
+  const violations = (source: string): string[] => {
+    const found: string[] = [];
+    if (source.includes("avatar_look")) found.push("names avatar_look");
+    for (const m of source.matchAll(/\.from\(\s*["'`]pocket_money_accounts["'`]\s*\)/g)) {
+      const rest = source.slice(m.index! + m[0].length);
+      const chain = rest.slice(0, rest.search(/;|\n\s*\n/) === -1 ? rest.length : rest.search(/;|\n\s*\n/));
+      if (/\.select\(\s*\)/.test(chain)) found.push("pocket_money_accounts .select() with no columns");
+      for (const sel of chain.matchAll(/\.select\(\s*(["'`])([\s\S]*?)\1/g)) {
+        if (sel[2].includes("*")) found.push(`pocket_money_accounts .select("${sel[2]}")`);
+      }
     }
+    if (/pocket_money_accounts\s*(?:![\w]+\s*)?\(\s*\*/.test(source)) found.push("pocket_money_accounts(*) embedded");
+    return found;
+  };
+
+  test("no outward code -- Integration API, MCP, Home Assistant, push, notifications, cron -- reads avatar_look or a whole account row", () => {
+    expect(outward.length).toBeGreaterThan(30);
+    expect(outward.some((f) => f.endsWith("push-sender.ts"))).toBe(true);
+    expect(outward.some((f) => f.includes("/api/cron/process-allowance/"))).toBe(true);
+    expect(outward.some((f) => f.includes("/lib/notifications/"))).toBe(true);
+    for (const f of outward) expect(violations(readFileSync(f, "utf8")), f).toEqual([]);
+  });
+
+  test("the guard goes red on each way of leaking the look", () => {
+    const crafted: Array<[string, string]> = [
+      ["named", `const x = row.avatar_look;`],
+      ["star", `await db.from("pocket_money_accounts").select("*").eq("id", id);`],
+      ["star among columns", `await db.from('pocket_money_accounts').select('id, *').eq("id", id);`],
+      ["bare select after update", `await db.from("pocket_money_accounts")\n  .update({ x: 1 })\n  .eq("id", id)\n  .select()\n  .single();`],
+      ["embedded", `await db.from("people").select("id, name, pocket_money_accounts(*)");`],
+      ["embedded with hint", `await db.from("people").select("id, pocket_money_accounts!person_id ( * )");`],
+    ];
+    for (const [what, source] of crafted) expect(violations(source).length, what).toBeGreaterThan(0);
+    // and stays green on what the outward code does do
+    for (const ok of [
+      `await db.from("pocket_money_accounts").select("id, person_id, balance_cents, currency");`,
+      `await db.from("calendar_events").insert(rows).select();`,
+      `await db.from("people").select("id, pocket_money_accounts(id, balance_cents)");`,
+    ]) expect(violations(ok), ok).toEqual([]);
   });
 });
 
