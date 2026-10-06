@@ -51,7 +51,7 @@ export default function StonksSettingsPage() {
         <p className="text-sm text-muted-foreground">{t("intro")}</p>
 
         {/* Add symbol */}
-        <Card className="p-5 space-y-4">
+        <Card id="add-symbol" data-setting="add-symbol" className="p-5 space-y-4">
           <div>
             <h3 className="font-medium mb-2">{t("addHeading")}</h3>
             <div className="relative">
@@ -122,7 +122,7 @@ export default function StonksSettingsPage() {
         </Card>
 
         {/* Watchlist */}
-        <div className="space-y-2">
+        <div id="watchlist" data-setting="watchlist" className="space-y-2">
           <h3 className="font-medium">{t("watchlistHeading")}</h3>
           {isPending ? (
             <Skeleton className="h-20 w-full" />

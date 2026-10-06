@@ -84,7 +84,7 @@ export default function TaskLogPage() {
       <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-col gap-6">
         <PageHeader icon={History} title={t("title")} subtitle={t("subtitle")} />
 
-        <Card className="flex flex-col gap-3 p-6">
+        <Card id="retention" data-setting="retention" className="flex flex-col gap-3 p-6">
           <h2 className="font-medium">{t("retentionHeading")}</h2>
           <p className="text-sm text-muted-foreground">{t("retentionBody")}</p>
           <div className="flex flex-wrap gap-2">

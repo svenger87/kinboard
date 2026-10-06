@@ -106,7 +106,7 @@ export default function NavigationSettingsPage() {
           {t(isKiosk ? "fixedItemsHintKiosk" : "fixedItemsHint")}
         </p>
 
-        <Card className="flex items-center justify-between gap-4 p-4">
+        <Card id="settings-icon" data-setting="settings-icon" className="flex items-center justify-between gap-4 p-4">
           <div>
             <p className="font-medium">{t("settingsIconOnly")}</p>
             <p className="text-sm text-muted-foreground">{t("settingsIconOnlyHint")}</p>

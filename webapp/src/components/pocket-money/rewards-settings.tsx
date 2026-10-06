@@ -263,7 +263,7 @@ export function RewardCatalogue() {
   };
 
   return (
-    <Card className="p-4 space-y-3" data-testid="reward-catalogue">
+    <Card id="rewards" data-setting="rewards" className="p-4 space-y-3" data-testid="reward-catalogue">
       <div>
         <h3 className="font-semibold flex items-center gap-2">
           <Gift className="size-4" />

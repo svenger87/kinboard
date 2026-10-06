@@ -335,7 +335,7 @@ export default function PhotoSettingsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card>
+          <Card id="source" data-setting="source">
             <div className="p-6">
               <h2 className="font-medium mb-4">{t("sourceHeading")}</h2>
               <RadioGroup
@@ -545,7 +545,7 @@ export default function PhotoSettingsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <Card>
+                <Card id="albums" data-setting="albums">
                   <div className="p-6">
                     <div className="flex items-center gap-3 mb-4">
                       <ImageIcon className="size-5 text-primary" />
@@ -669,7 +669,7 @@ export default function PhotoSettingsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <Card>
+                <Card id="search-terms" data-setting="search-terms">
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">

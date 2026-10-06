@@ -101,7 +101,7 @@ export function SchoolHolidaysCard() {
 
   return (
     <>
-      <Card className="p-4">
+      <Card id="school-holidays" data-setting="school-holidays" className="p-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <CalendarOff className="size-4 text-muted-foreground" />

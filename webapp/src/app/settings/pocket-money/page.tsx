@@ -158,7 +158,7 @@ export default function PocketMoneySettingsPage() {
 
         <p className="text-sm text-muted-foreground">{t("intro")}</p>
 
-        <Card className="p-4">
+        <Card id="currency" data-setting="currency" className="p-4">
           <div className="mb-3">
             <p className="font-medium text-sm">{t("currencyLabel")}</p>
             <p className="text-xs text-muted-foreground mt-0.5">

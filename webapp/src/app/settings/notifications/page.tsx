@@ -118,7 +118,7 @@ export default function NotificationSettingsPage() {
         )}
 
         {/* Push Subscription Status */}
-        <motion.div
+        <motion.div id="push" data-setting="push"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -237,7 +237,7 @@ export default function NotificationSettingsPage() {
         </motion.div>
 
         {/* Shopping Notifications */}
-        <motion.div
+        <motion.div id="shopping" data-setting="shopping"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -292,7 +292,7 @@ export default function NotificationSettingsPage() {
         </motion.div>
 
         {/* Todo Notifications */}
-        <motion.div
+        <motion.div id="tasks" data-setting="tasks"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
@@ -347,7 +347,7 @@ export default function NotificationSettingsPage() {
         </motion.div>
 
         {/* Calendar Reminders */}
-        <motion.div
+        <motion.div id="calendar" data-setting="calendar"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.28 }}
@@ -410,7 +410,7 @@ export default function NotificationSettingsPage() {
         </motion.div>
 
         {/* Birthday Reminders */}
-        <motion.div
+        <motion.div id="birthdays" data-setting="birthdays"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.29 }}
@@ -473,7 +473,7 @@ export default function NotificationSettingsPage() {
         </motion.div>
 
         {/* Quiet Hours */}
-        <motion.div
+        <motion.div id="quiet-hours" data-setting="quiet-hours"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
