@@ -8,6 +8,7 @@ import {
 } from "@/lib/caldav-credentials";
 import { syncCaldavCalendar, getMappingRules } from "@/lib/caldav-sync";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -159,6 +160,7 @@ export async function POST(request: NextRequest) {
       person_id: payload.person_id,
     },
     await getMappingRules(payload.family_id),
+    await familyCalendarSyncFutureDays(payload.family_id, supabase),
   );
 
   return NextResponse.json({ ok: true, calendar, sync });

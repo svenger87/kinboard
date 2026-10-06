@@ -8,6 +8,12 @@ import {
 import { caldavExternalId, CALDAV_ID_PREFIX } from "@/lib/caldav-serialize";
 import { getCaldavCredentials } from "@/lib/caldav-credentials";
 import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
+import { icsSyncWindow } from "@/lib/ics-fetcher";
+import {
+  DEFAULT_CALENDAR_SYNC_RANGE_DAYS,
+  type CalendarSyncRangeDays,
+} from "@/lib/calendar-sync-range";
+import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";
 
 /**
  * Per-calendar CalDAV sync. Shared by:
@@ -49,6 +55,7 @@ export interface CaldavCalendarRow {
 export async function syncCaldavCalendar(
   calendar: CaldavCalendarRow,
   mappingRules: PersonMappingRule[],
+  futureDays: CalendarSyncRangeDays = DEFAULT_CALENDAR_SYNC_RANGE_DAYS,
 ): Promise<CaldavSyncResult> {
   const supabase = createAdminClient();
   const calendarId = calendar.id;
@@ -122,7 +129,7 @@ export async function syncCaldavCalendar(
 
   let events;
   try {
-    events = await fetchCaldavEvents(client, calendar.caldav_url);
+    events = await fetchCaldavEvents(client, calendar.caldav_url, icsSyncWindow(new Date(), futureDays));
   } catch (err) {
     return fail(
       err instanceof CaldavAuthError
@@ -255,11 +262,12 @@ export async function syncFamilyCaldavCalendars(familyId: string) {
   }
 
   const mappingRules = await getMappingRules(familyId);
+  const futureDays = await familyCalendarSyncFutureDays(familyId, supabase);
 
   return summarize(
     calendars as CaldavCalendarRow[],
     await Promise.allSettled(
-      (calendars as CaldavCalendarRow[]).map((cal) => syncCaldavCalendar(cal, mappingRules)),
+      (calendars as CaldavCalendarRow[]).map((cal) => syncCaldavCalendar(cal, mappingRules, futureDays)),
     ),
   );
 }
@@ -286,14 +294,22 @@ export async function syncAllCaldavCalendars() {
   // One settings lookup per family, not per calendar — a family with six
   // Nextcloud calendars would otherwise re-read the same row six times.
   const rulesByFamily = new Map<string, PersonMappingRule[]>();
+  const futureDaysByFamily = new Map<string, CalendarSyncRangeDays>();
   for (const familyId of new Set(rows.map((c) => c.family_id))) {
     rulesByFamily.set(familyId, await getMappingRules(familyId));
+    futureDaysByFamily.set(familyId, await familyCalendarSyncFutureDays(familyId, supabase));
   }
 
   return summarize(
     rows,
     await Promise.allSettled(
-      rows.map((cal) => syncCaldavCalendar(cal, rulesByFamily.get(cal.family_id) ?? [])),
+      rows.map((cal) =>
+        syncCaldavCalendar(
+          cal,
+          rulesByFamily.get(cal.family_id) ?? [],
+          futureDaysByFamily.get(cal.family_id),
+        ),
+      ),
     ),
   );
 }

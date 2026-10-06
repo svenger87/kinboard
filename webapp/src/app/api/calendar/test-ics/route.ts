@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchIcsCalendar } from "@/lib/ics-fetcher";
 import { requireSession } from "@/lib/require-session";
+import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";
 
 // Force Node.js runtime + dynamic — node-ical's transitive deps (http,
 // https, fs) are Node-only and Next's static page-data collector fails
@@ -30,7 +31,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await fetchIcsCalendar(url.trim());
+    // The test fetch uses the family's own sync range so the event count it
+    // reports matches what a real sync would load — a feed that only has
+    // events four months out would otherwise test as empty against the
+    // fixed 60-day default while actually syncing fine once this setting
+    // is raised.
+    const futureDays = await familyCalendarSyncFutureDays(auth.session.familyId);
+    const result = await fetchIcsCalendar(url.trim(), null, futureDays);
 
     if (result.notModified) {
       return NextResponse.json({

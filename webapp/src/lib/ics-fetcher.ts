@@ -21,9 +21,16 @@ const MAX_ICS_BYTES = 5 * 1024 * 1024; // 5 MB
 
 /**
  * The sync window every iCalendar-shaped source is scoped to: 30 days of
- * history through 60 days ahead. Shared with the CalDAV path (see
- * lib/caldav-client.ts) so a family's events table has one retention
- * story regardless of which provider a calendar came from.
+ * history, fixed, through a configurable number of days ahead. Shared with
+ * the CalDAV path (see lib/caldav-client.ts) so a family's events table has
+ * one retention story regardless of which provider a calendar came from.
+ *
+ * The future side is a per-family setting (discussion #349 —
+ * `calendar_sync_range` / SETTINGS_KEYS.calendarSyncRange, see
+ * lib/calendar-sync-range.ts) so a feed that is a school year or a season of
+ * fixtures doesn't get truncated at two months. `ICS_WINDOW_FUTURE_DAYS` is
+ * only the default used when a family hasn't picked, or picked something
+ * invalid.
  */
 export const ICS_WINDOW_PAST_DAYS = 30;
 export const ICS_WINDOW_FUTURE_DAYS = 60;
@@ -33,11 +40,14 @@ export interface IcsWindow {
   end: Date;
 }
 
-export function icsSyncWindow(now: Date = new Date()): IcsWindow {
+export function icsSyncWindow(
+  now: Date = new Date(),
+  futureDays: number = ICS_WINDOW_FUTURE_DAYS,
+): IcsWindow {
   const start = new Date(now);
   start.setDate(start.getDate() - ICS_WINDOW_PAST_DAYS);
   const end = new Date(now);
-  end.setDate(end.getDate() + ICS_WINDOW_FUTURE_DAYS);
+  end.setDate(end.getDate() + futureDays);
   return { start, end };
 }
 
@@ -46,14 +56,15 @@ export function icsSyncWindow(now: Date = new Date()): IcsWindow {
  * shares calendars as webcal links), respects ETag for conditional GETs,
  * caps response size at 5 MB to avoid memory blowups on misconfigured sources.
  *
- * Returns parsed events scoped to a 60-day window (-30 days through +60 days
- * from now) to keep the events table from growing unboundedly for calendars
- * that include long histories. Recurring events that land in the window are
- * expanded; events outside are skipped.
+ * Returns parsed events scoped to a window (-30 days through `futureDays`
+ * ahead of now, default 60) to keep the events table from growing
+ * unboundedly for calendars that include long histories. Recurring events
+ * that land in the window are expanded; events outside are skipped.
  */
 export async function fetchIcsCalendar(
   rawUrl: string,
   previousEtag?: string | null,
+  futureDays: number = ICS_WINDOW_FUTURE_DAYS,
 ): Promise<IcsFetchResult> {
   // webcal:// is iCloud's "subscribe via Calendar.app" scheme. For HTTPS
   // fetches we rewrite to https:// — same content, fetchable URL.
@@ -101,7 +112,7 @@ export async function fetchIcsCalendar(
 
   assertLooksLikeCalendar(text, response);
 
-  const events = parseIcsEvents(text);
+  const events = parseIcsEvents(text, icsSyncWindow(new Date(), futureDays));
   const newEtag = response.headers.get("etag");
 
   return { events, etag: newEtag, notModified: false };

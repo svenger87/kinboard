@@ -14,6 +14,7 @@ import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { isFamilyTimeZone } from "@/lib/integration-event-input";
 import { checkCameraDoorbells } from "@/lib/camera-takeover";
+import { isCalendarSyncRangeDays, CALENDAR_SYNC_RANGE_DAYS } from "@/lib/calendar-sync-range";
 
 // Every verb here reads or writes one family's settings row, and the family
 // was picked entirely by the caller. That covered integration config — Home
@@ -145,6 +146,17 @@ export async function PUT(request: NextRequest) {
   if (key === SETTINGS_KEYS.timezone && !isFamilyTimeZone(value)) {
     return NextResponse.json(
       { error: "timezone must be an IANA zone name such as Europe/Berlin; delete the setting for the server's own" },
+      { status: 400 }
+    );
+  }
+
+  // Exactly three choices (see lib/calendar-sync-range.ts) — a stray value
+  // here would otherwise be stored, read back by every sync path through
+  // normalizeCalendarSyncRangeDays, and silently treated as 60 anyway. Refuse
+  // it instead of storing a number nothing honours.
+  if (key === SETTINGS_KEYS.calendarSyncRange && !isCalendarSyncRangeDays(value)) {
+    return NextResponse.json(
+      { error: `calendar_sync_range must be one of: ${CALENDAR_SYNC_RANGE_DAYS.join(", ")}` },
       { status: 400 }
     );
   }
