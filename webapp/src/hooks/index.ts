@@ -467,6 +467,14 @@ export {
   useRequestRedemption,
   useDecideRedemption,
 } from "./use-point-rewards";
+export {
+  useCreatures,
+  activeCreatureOf,
+  useSwitchOnCreature,
+  useUpdateCreature,
+  CREATURES_KEY,
+} from "./use-creatures";
+export type { CreatureChange } from "./use-creatures";
 
 export { useWeekStart, weekStartForLocale, DEFAULT_WEEK_START } from "./use-week-start";
 export type { WeekStartPreference, WeekStartsOn } from "./use-week-start";

@@ -28,7 +28,8 @@ import { usePocketMoneyAccounts } from "@/hooks/use-pocket-money-accounts";
 import { usePointTotals } from "@/hooks/use-point-rewards";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
-import { avatarStage } from "@/lib/pocket-money/points";
+import { creatureStage } from "@/lib/creatures/stage";
+import { activeCreatureOf, useCreatures } from "@/hooks/use-creatures";
 import { readLook, type CreatureLook } from "@/lib/pocket-money/creatures/look";
 import type { AvatarTier } from "@/lib/pocket-money/types";
 import { Button } from "@/components/ui/button";
@@ -86,10 +87,11 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
   const { data: people, isLoading: loadingPeople, isError: peopleError } = usePeople();
   const { data: todos } = useTodos();
   const { data: pointAwards = [] } = useTodoPoints();
-  // A child whose avatar grows with points (discussion #349): the profile
-  // shows the points left to spend and a way to the rewards.
+  // A child with a creature (RFC-017): the profile shows it, and -- when it
+  // grows with points -- the points left to spend and a way to the rewards.
   const pocketMoneyOn = useIsPluginEnabled("pocket-money");
   const { data: accounts = [] } = usePocketMoneyAccounts();
+  const { data: creatures } = useCreatures();
   const { totalsFor } = usePointTotals();
 
   // Only fetch upcoming events (today + next 7 days)
@@ -225,29 +227,31 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
         todos={todos?.filter((t) => todayPerson(t, toLocalDateKey()) === selectedPerson?.id && !t.completed) || []}
         events={upcomingEvents?.filter((e) => (e.person_id || e.calendar?.person_id) === selectedPerson?.id) || []}
         petAvatar={(() => {
-          // The child's pocket-money avatar, in their own look, whatever the
-          // account counts in -- the same account lookup as the points tile.
-          if (!selectedPerson?.is_child || !pocketMoneyOn) return null;
-          const account = accounts.find((a) => a.person_id === selectedPerson.id);
-          if (!account) return null;
-          const stage = avatarStage({
-            mode: account.reward_mode,
-            balanceCents: account.balance_cents,
-            earnedPoints: totalsFor(selectedPerson.id, account.id).earned,
-            storedBestTier: account.best_tier,
+          // The child's creature, in their own look, growing with what it
+          // grows with -- the same lookup as the points tile.
+          if (!selectedPerson?.is_child) return null;
+          const creature = activeCreatureOf(creatures, selectedPerson.id);
+          if (!creature) return null;
+          const stage = creatureStage({
+            creature,
+            account: accounts.find((a) => a.person_id === selectedPerson.id),
+            earnedPoints: totalsFor(selectedPerson.id).earned,
           });
-          return { species: account.avatar_species, style: account.avatar_style, look: readLook(account.avatar_look), tier: stage.tier };
+          return { species: creature.species, style: creature.style, look: readLook(creature.look), tier: stage.tier };
         })()}
         points={(() => {
           if (!selectedPerson) return null;
-          const account = pocketMoneyOn
-            ? accounts.find((a) => a.person_id === selectedPerson.id && a.reward_mode === "points")
-            : undefined;
-          if (account && selectedPerson.is_child) {
+          const creature = selectedPerson.is_child ? activeCreatureOf(creatures, selectedPerson.id) : undefined;
+          const account = accounts.find((a) => a.person_id === selectedPerson.id);
+          const growsWithPoints =
+            creature && creatureStage({ creature, account, earnedPoints: 0 }).mode === "points";
+          if (creature && growsWithPoints) {
             return {
-              value: totalsFor(selectedPerson.id, account.id).balance,
+              value: totalsFor(selectedPerson.id).balance,
               spendable: true,
-              rewardsHref: `/pocket-money?child=${selectedPerson.id}`,
+              // The rewards are on the child's pocket-money page until the
+              // rewards page of RFC-017 step 2 exists.
+              rewardsHref: pocketMoneyOn && account ? `/pocket-money?child=${selectedPerson.id}` : null,
             };
           }
           return showsPoints(selectedPerson, pointAwards, todos)

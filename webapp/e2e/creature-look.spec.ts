@@ -199,26 +199,33 @@ test.describe("export and import", () => {
     expect(validateLook(stored).ok).toBe(false);
   });
 
-  test("the import normalises it on every account row, and the export takes the whole row", () => {
+  test("the import normalises it on every account and creature row, and the export takes the whole rows", () => {
     const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
     const imp = read("src/app/api/import/route.ts");
     const spec = imp.slice(imp.indexOf('spec("pocket_money_accounts"'), imp.indexOf('spec("pocket_money_goals"'));
     expect(spec).toContain("row.avatar_look = restorableLook(row.avatar_look)");
+    const creatures = imp.slice(imp.indexOf('spec("creatures"'), imp.indexOf('spec("settings"'));
+    expect(creatures).toContain("row.look = restorableLook(row.look)");
     const exp = read("src/app/api/export/route.ts");
     expect(exp).toMatch(/from\("pocket_money_accounts"\)\.select\("\*"\)/);
+    expect(exp).toMatch(/from\("creatures"\)\.select\("\*"\)/);
   });
 });
 
-test.describe("the account PATCH", () => {
-  const src = readFileSync(join(process.cwd(), "src/app/api/pocket-money/accounts/[id]/route.ts"), "utf8");
+test.describe("the creature PATCH (RFC-017; the account PATCH until then)", () => {
+  const src = readFileSync(join(process.cwd(), "src/lib/creatures/rules.ts"), "utf8");
 
   test("validates the look with validateLook and 400s on a refusal, with no PIN of its own", () => {
-    const block = src.slice(src.indexOf("body.avatar_look !== undefined"), src.indexOf("body.last_seen_tier !== undefined"));
-    expect(block).toContain("validateLook(body.avatar_look)");
-    expect(block).toMatch(/status: 400/);
-    expect(block).not.toContain("requireSettingsUnlock");
-    const list = src.slice(src.indexOf("const PIN_PROTECTED_FIELDS"), src.indexOf("] as const"));
-    expect(list).not.toContain("avatar_look");
+    const block = src.slice(src.indexOf("input.look !== undefined"), src.indexOf("input.best_tier !== undefined"));
+    expect(block).toContain("validateLook(input.look)");
+    expect(block).toMatch(/ok: false, error/);
+    const parental = /PARENTAL_FIELDS = \[([^\]]*)\]/.exec(src)?.[1] ?? "";
+    expect(parental).not.toContain("look");
+    const route = readFileSync(join(process.cwd(), "src/app/api/creatures/[personId]/route.ts"), "utf8");
+    expect(route).toMatch(/if \(!parsed\.ok\) return NextResponse\.json\(\{ error: parsed\.error \}, \{ status: 400 \}\)/);
+    // The account no longer takes it at all.
+    const account = readFileSync(join(process.cwd(), "src/app/api/pocket-money/accounts/[id]/route.ts"), "utf8");
+    expect(account.slice(account.indexOf("MOVED_TO_CREATURES = ["))).toContain('"avatar_look"');
   });
 });
 
@@ -259,15 +266,19 @@ test.describe("the look stays on the family's own screens", () => {
   const violations = (source: string): string[] => {
     const found: string[] = [];
     if (source.includes("avatar_look")) found.push("names avatar_look");
-    for (const m of source.matchAll(/\.from\(\s*["'`]pocket_money_accounts["'`]\s*\)/g)) {
-      const rest = source.slice(m.index! + m[0].length);
-      const chain = rest.slice(0, rest.search(/;|\n\s*\n/) === -1 ? rest.length : rest.search(/;|\n\s*\n/));
-      if (/\.select\(\s*\)/.test(chain)) found.push("pocket_money_accounts .select() with no columns");
-      for (const sel of chain.matchAll(/\.select\(\s*(["'`])([\s\S]*?)\1/g)) {
-        if (sel[2].includes("*")) found.push(`pocket_money_accounts .select("${sel[2]}")`);
+    // The look lives on the creature since RFC-017, and on the account until
+    // a later release drops the column: a whole row of either carries it.
+    for (const table of ["pocket_money_accounts", "creatures"]) {
+      for (const m of source.matchAll(new RegExp(`\\.from\\(\\s*["'\`]${table}["'\`]\\s*\\)`, "g"))) {
+        const rest = source.slice(m.index! + m[0].length);
+        const chain = rest.slice(0, rest.search(/;|\n\s*\n/) === -1 ? rest.length : rest.search(/;|\n\s*\n/));
+        if (/\.select\(\s*\)/.test(chain)) found.push(`${table} .select() with no columns`);
+        for (const sel of chain.matchAll(/\.select\(\s*(["'`])([\s\S]*?)\1/g)) {
+          if (sel[2].includes("*") || /\blook\b/.test(sel[2])) found.push(`${table} .select("${sel[2]}")`);
+        }
       }
+      if (new RegExp(`\\b${table}\\s*(?:![\\w]+\\s*)?\\(\\s*\\*`).test(source)) found.push(`${table}(*) embedded`);
     }
-    if (/pocket_money_accounts\s*(?:![\w]+\s*)?\(\s*\*/.test(source)) found.push("pocket_money_accounts(*) embedded");
     return found;
   };
 
@@ -287,6 +298,10 @@ test.describe("the look stays on the family's own screens", () => {
       ["bare select after update", `await db.from("pocket_money_accounts")\n  .update({ x: 1 })\n  .eq("id", id)\n  .select()\n  .single();`],
       ["embedded", `await db.from("people").select("id, name, pocket_money_accounts(*)");`],
       ["embedded with hint", `await db.from("people").select("id, pocket_money_accounts!person_id ( * )");`],
+      ["creature star", `await db.from("creatures").select("*").eq("person_id", id);`],
+      ["creature look column", `await db.from("creatures").select("species, look").eq("person_id", id);`],
+      ["creature bare select", `await db.from("creatures")\n  .update({ best_tier: 2 })\n  .select()\n  .single();`],
+      ["creature embedded", `await db.from("people").select("id, creatures(*)");`],
     ];
     for (const [what, source] of crafted) expect(violations(source).length, what).toBeGreaterThan(0);
     // and stays green on what the outward code does do
@@ -294,6 +309,7 @@ test.describe("the look stays on the family's own screens", () => {
       `await db.from("pocket_money_accounts").select("id, person_id, balance_cents, currency");`,
       `await db.from("calendar_events").insert(rows).select();`,
       `await db.from("people").select("id, pocket_money_accounts(id, balance_cents)");`,
+      `await db.from("creatures").select("person_id, species, grows_with");`,
     ]) expect(violations(ok), ok).toEqual([]);
   });
 });

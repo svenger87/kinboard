@@ -1435,7 +1435,10 @@ export interface Database {
         Row: {
           id: string;
           family_id: string;
-          account_id: string;
+          /** The child who asked (RFC-017). */
+          person_id: string;
+          /** The child's pocket-money account, when they have one; kept one release for a rollback. */
+          account_id: string | null;
           reward_id: string | null;
           title: string;
           icon: string | null;
@@ -1449,7 +1452,8 @@ export interface Database {
         Insert: {
           id?: string;
           family_id: string;
-          account_id: string;
+          person_id: string;
+          account_id?: string | null;
           reward_id?: string | null;
           title: string;
           icon?: string | null;
@@ -1464,6 +1468,51 @@ export interface Database {
           status?: "pending" | "approved" | "denied";
           decided_at?: string | null;
           decided_by_device_id?: string | null;
+        };
+        Relationships: [];
+      };
+      creatures: {
+        Row: {
+          /** One creature per child (RFC-017 §3.1). */
+          person_id: string;
+          family_id: string;
+          species: string;
+          style: "classic" | "gumdrop" | "sticker" | "storybook";
+          /** A child's own look (lib/pocket-money/creatures/look.ts); {} is the creature's own. */
+          look: Json;
+          best_tier: number;
+          last_seen_tier: number;
+          grows_with: "points" | "money";
+          shop_enabled: boolean;
+          /** Off keeps the creature, at its stage, for when it is switched back on. */
+          enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          person_id: string;
+          family_id: string;
+          species?: string;
+          style?: "classic" | "gumdrop" | "sticker" | "storybook";
+          look?: Json;
+          best_tier?: number;
+          last_seen_tier?: number;
+          grows_with?: "points" | "money";
+          shop_enabled?: boolean;
+          enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          species?: string;
+          style?: "classic" | "gumdrop" | "sticker" | "storybook";
+          look?: Json;
+          best_tier?: number;
+          last_seen_tier?: number;
+          grows_with?: "points" | "money";
+          shop_enabled?: boolean;
+          enabled?: boolean;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -1748,6 +1797,10 @@ export type PocketMoneyWithdrawalRequest = Database["public"]["Tables"]["pocket_
 export type PocketMoneyWithdrawalRequestInsert = Database["public"]["Tables"]["pocket_money_withdrawal_requests"]["Insert"];
 export type PointReward = Database["public"]["Tables"]["point_rewards"]["Row"];
 export type PointRedemption = Database["public"]["Tables"]["point_redemptions"]["Row"];
+
+// A child's creature (RFC-017): core, not pocket money.
+export type Creature = Database["public"]["Tables"]["creatures"]["Row"];
+export type CreatureUpdate = Database["public"]["Tables"]["creatures"]["Update"];
 
 // Recipe instruction type
 export interface RecipeInstruction {

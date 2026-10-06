@@ -1039,6 +1039,8 @@
     "itemStonksDescription": "Investitions-Watchlist verwalten",
     "itemPocketMoneyLabel": "Taschengeld",
     "itemPocketMoneyDescription": "Kinderkonten, Taschengelder und Zinsen verwalten",
+    "itemCreaturesLabel": "Kreaturen & Belohnungen",
+    "itemCreaturesDescription": "Die Kreatur jedes Kindes, Aufgabenpunkte und die Belohnungen dafür",
     "itemWidgetsLabel": "Widgets",
     "itemWidgetsDescription": "Dashboard-Widgets ein-/ausblenden",
     "itemNavigationLabel": "Navigation",
@@ -2506,7 +2508,7 @@
       "errorPinRequired": "Bitte die Einstellungs-PIN erneut eingeben und dann noch einmal versuchen.",
       "errorInsufficientPoints": "Dafür reichen die Punkte nicht mehr; die Anfrage wartet weiter.",
       "rewardsTitle": "Belohnungen für Aufgabenpunkte",
-      "rewardsDescription": "Kinder, deren Avatar mit Aufgabenpunkten wächst, sehen die aktiven Belohnungen auf der Taschengeld-Seite und können eine anfragen. Freigegeben wird hier.",
+      "rewardsDescription": "Kinder mit einer Kreatur sehen die aktiven Belohnungen auf ihrer Taschengeld-Seite und können eine mit ihren Aufgabenpunkten anfragen. Du gibst sie hier frei.",
       "rewardIconLabel": "Symbol",
       "rewardTitleLabel": "Belohnung",
       "rewardTitlePlaceholder": "Kinoabend",
@@ -2516,7 +2518,10 @@
       "rewardActiveAria": "{title} kann eingelöst werden",
       "rewardDeleteAria": "{title} löschen",
       "rewardAdd": "Hinzufügen",
-      "errorNotPointsMode": "Der Avatar dieses Kindes wächst jetzt mit Geld, darum kann die Belohnung nicht genehmigt werden; die Anfrage wartet weiter. Lehne sie ab oder stelle das Kind wieder auf Aufgabenpunkte um."
+      "errorNotPointsMode": "Der Avatar dieses Kindes wächst jetzt mit Geld, darum kann die Belohnung nicht genehmigt werden; die Anfrage wartet weiter. Lehne sie ab oder stelle das Kind wieder auf Aufgabenpunkte um.",
+      "creaturesLinkTitle": "Kreaturen & Belohnungen",
+      "creaturesLinkDescription": "Kreaturen, Aufgabenpunkte und Belohnungen haben jetzt eine eigene Seite.",
+      "errorNoCreature": "Für dieses Kind ist keine Kreatur eingeschaltet."
     },
     "news": {
       "title": "Nachrichtenquellen",
@@ -2824,6 +2829,31 @@
       "forDay": "für {day}",
       "turnOf": "{name} war dran",
       "showMore": "Mehr anzeigen"
+    },
+    "creatures": {
+      "title": "Kreaturen & Belohnungen",
+      "intro": "Schalte für ein Kind eine Kreatur ein: Sie wächst mit den erledigten Aufgaben, und mit den Aufgabenpunkten gibt es die Belohnungen unten. Taschengeld ist dafür nicht nötig.",
+      "noKidsHint": "Markiere unter Personen ein Familienmitglied als Kind, um ihm eine Kreatur zu geben.",
+      "off": "Keine Kreatur",
+      "switchAria": "Kreatur für {name}",
+      "speciesLabel": "Kreatur",
+      "speciesHint": "Beim Wechsel bleiben Stufe, Stil und Aussehen erhalten.",
+      "changeSpecies": "Ändern",
+      "growsWithLabel": "Wächst mit",
+      "growsWithAria": "Womit die Kreatur von {name} wächst",
+      "growsWithPoints": "Aufgabenpunkten",
+      "growsWithMoney": "gespartem Geld ({currency})",
+      "growsWithPointsHint": "Sie wächst mit jedem gesammelten Aufgabenpunkt und schrumpft nie, auch nicht, wenn Punkte für eine Belohnung ausgegeben werden.",
+      "growsWithMoneyHint": "Sie wächst mit dem im Taschengeld gesparten Geld, wie bisher.",
+      "growsWithMoneyUnavailable": "Gespartes Geld steht zur Wahl, sobald Taschengeld eingeschaltet ist und das Kind ein Konto hat.",
+      "shopLabel": "Laden",
+      "shopHint": "Das Kind kann mit Punkten Sachen für seine Kreatur kaufen. Kommt bald.",
+      "errorPinRequired": "Gib die Einstellungs-PIN erneut ein, um das zu ändern.",
+      "errorMoneyUnavailable": "Gespartes Geld braucht eingeschaltetes Taschengeld und ein Konto für dieses Kind.",
+      "errorGeneric": "Das hat nicht geklappt. Bitte versuch es noch einmal.",
+      "pickHint": "Such eine Kreatur aus. Sie beginnt als Ei und wächst von da an.",
+      "switchOn": "Einschalten",
+      "switchOnAs": "Als {species} einschalten"
     }
   },
   "settingsSearch": {
@@ -2912,10 +2942,12 @@
       "stonks_add-symbol": "Symbol hinzufügen, Ticker, Aktie, ETF, suchen",
       "stonks_watchlist": "Watchlist, Beobachtungsliste, Aktien, entfernen, Spitzname",
       "pocket-money_currency": "Währung, Euro, Dollar, Pfund, Geld",
-      "pocket-money_rewards": "Belohnungen, Punkte, Aufgabenpunkte, einlösen, Preise, Prämien",
       "google_auto-sync": "automatische Synchronisierung, Intervall, Google synchronisieren, wie oft",
       "google_calendars": "Kalender, Google-Kalender, welche Kalender, aktivieren, Farben",
-      "google_person-mapping": "Personenzuordnung, Person zuordnen, wer, Familienmitglied, Regeln"
+      "google_person-mapping": "Personenzuordnung, Person zuordnen, wer, Familienmitglied, Regeln",
+      "creatures": "Kreatur, Kreaturen, Drache, Haustier, Avatar, Belohnung, Belohnungen, Punkte, Aufgabenpunkte, Laden, wachsen",
+      "creatures_children": "Kreatur, einschalten, Art, Drache, wächst mit, Punkte, Geld, Laden",
+      "creatures_rewards": "Belohnungen, Punkte, Aufgabenpunkte, einlösen, Preise, Prämien"
     }
   },
   "calendar": {

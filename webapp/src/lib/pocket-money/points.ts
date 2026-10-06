@@ -1,9 +1,11 @@
 /**
- * Points mode (discussion #349): the avatar grows with task points, and points
- * buy rewards from the family's catalogue. The database is the authority --
- * point_account_totals() and decide_point_redemption() in
- * docker/migration_zzzzzzz_point_rewards.sql -- and this file is its mirror
- * for the screens.
+ * Points mode (discussion #349): the creature grows with task points, and
+ * points buy rewards from the family's catalogue. Per child since RFC-017: a
+ * child's points are theirs, with or without a pocket-money account. The
+ * database is the authority -- point_person_totals() and
+ * decide_point_redemption() in
+ * docker/migration_zzzzzzzz_pocket_money_creatures_out.sql -- and this file is
+ * its mirror for the screens.
  */
 
 import {

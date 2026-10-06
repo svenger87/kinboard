@@ -121,11 +121,13 @@ export function publishCreatureReaction(input: PublishInput, now = Date.now()): 
 // importing its queryKeys back would make a cycle.
 const PEOPLE_KEY = (familyId: string) => ["people", familyId];
 const AWARDS_KEY = (familyId: string) => ["todo-point-awards", familyId];
+const CREATURES_KEY = (familyId: string) => ["creatures", familyId];
 const ACCOUNTS_KEY = (familyId: string) => ["pocket-money-accounts", familyId];
 
 interface PersonLike { id: string; is_child?: boolean | null }
 interface AwardLike { person_id: string; points: number }
-interface AccountLike { person_id: string; reward_mode?: string | null; best_tier?: number | null }
+interface CreatureLike { person_id: string; enabled?: boolean | null; grows_with?: string | null; best_tier?: number | null }
+interface AccountLike { person_id: string }
 
 /**
  * Compare the task as this screen had it with the row that just arrived, and
@@ -147,10 +149,18 @@ export function reactToTaskChange(
   const earnedBefore = awards
     ? awards.reduce((sum, a) => (a.person_id === tick.personId ? sum + a.points : sum), 0)
     : null;
-  const account = queryClient
-    .getQueryData<AccountLike[]>(ACCOUNTS_KEY(familyId))
-    ?.find((a) => a.person_id === tick.personId);
-  const stage = account ? { mode: account.reward_mode, storedBestTier: account.best_tier } : null;
+  // The child's creature (RFC-017): what it grows with and its best stage. A
+  // creature growing with money grows with points once its account is gone,
+  // as the screens show it (lib/creatures/stage.ts).
+  const creature = queryClient
+    .getQueryData<CreatureLike[]>(CREATURES_KEY(familyId))
+    ?.find((c) => c.person_id === tick.personId && c.enabled !== false);
+  const hasAccount = Boolean(
+    queryClient.getQueryData<AccountLike[]>(ACCOUNTS_KEY(familyId))?.some((a) => a.person_id === tick.personId),
+  );
+  const stage = creature
+    ? { mode: creature.grows_with === "money" && hasAccount ? "money" : "points", storedBestTier: creature.best_tier }
+    : null;
   return publishCreatureReaction({ ...tick, earnedBefore, stage });
 }
 

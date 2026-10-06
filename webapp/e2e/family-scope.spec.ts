@@ -120,8 +120,7 @@ test.describe("familyIdFrom", () => {
 });
 
 const SESSION_FAMILY_RPC_ROUTES = new Set([
-  "pocket-money/accounts/[id]/redemptions/route.ts",
-  "pocket-money/redemptions/[id]/route.ts",
+  "rewards/redemptions/[id]/route.ts",
 ]);
 
 test("no dynamic API route uses the admin client without a family filter", () => {
@@ -144,9 +143,10 @@ test("no dynamic API route uses the admin client without a family filter", () =>
     const source = readFileSync(file, "utf8");
     if (!source.includes("createAdminClient")) return false;
     if (/family_id|familyIdFrom|rowInFamily|accountInFamily/.test(source)) return false;
-    // Two routes hand the session's own family to a database function that
-    // filters on it (p_family_id in migration_zzzzzzz_point_rewards.sql), so no
-    // family_id appears in their source. Named, so a new route cannot pass on
+    // A route that hands the session's own family to a database function
+    // that filters on it (p_family_id in
+    // migration_zzzzzzzz_pocket_money_creatures_out.sql), so no family_id
+    // appears in its source. Named, so a new route cannot pass on
     // `auth.session.familyId` alone.
     const rel = file.slice(root.length + 1);
     if (SESSION_FAMILY_RPC_ROUTES.has(rel) && source.includes("familyId: auth.session.familyId")) return false;

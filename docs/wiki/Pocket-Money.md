@@ -2,6 +2,8 @@
 
 Per-kid virtual pocket-money accounts with configurable interest, saving goals, and an avatar that evolves as the kid saves. Self-hosted, no fintech, no monthly fee. Built as the fifth SurfacePlugin.
 
+> **Creatures and rewards have moved.** A child's creature (the avatar below), task points and the rewards they buy are no longer part of pocket money: they are switched on and set up under **Settings → Creatures & rewards**, and they work without this plugin. See [[Creatures & rewards|Creatures-and-Rewards]]. Pocket money keeps the euros: allowance, interest, goals and withdrawals. The creature still shows on the child's Pocket money page next to the money. Where this page says *Settings → Pocket money* for the creature, its look, *Avatar grows with* or the rewards, read *Settings → Creatures & rewards*.
+
 ## What you need
 
 Nothing. The plugin is purely local — no external bank API. Parents control everything from `/settings/pocket-money`.
@@ -9,7 +11,7 @@ Nothing. The plugin is purely local — no external bank API. Parents control ev
 ## First-run setup
 
 1. Toggle a person on `/settings/people` to "Is a child". Existing rows default to false.
-2. Open `/settings/pocket-money` and tap **Create** next to the kid's name.
+2. Open `/settings/pocket-money` and tap **Create** next to the kid's name. (A creature for the child is switched on separately, under Settings → Creatures & rewards.)
 3. Set the APR (default 10%), weekly allowance, allowance day-of-week, interest commit day-of-week, max-eligible balance cap.
 4. The `/pocket-money` page now shows up; the kid can add goals, propose spends, and watch their avatar grow.
 
@@ -71,7 +73,7 @@ Each child's avatar can be drawn in one of four looks:
 
 **The look editor.** Besides the style, a child can give the creature a name (up to 16 characters, shown above it on their page) and choose its body colour, tummy colour and the colour of its wings, ears and fins, a pattern (plain, spots, stripes, hearts), eyes (round, sparkly, happy) and an accessory (bow, party hat, sunglasses, flower). For the princess and the prince the colours are the outfit, the trim and the hair, plus a skin tone (five) and a hairstyle (short, long, ponytail, curls). *Surprise me* picks a random look, *Start over* brings back the creature's own colours and keeps the name. The preview follows every choice; nothing is stored until **Save**. Colours come from fixed sets, so every combination still looks good, and the server refuses anything outside them. The stage still comes only from money or points: the look can change any time without touching progress.
 
-The look is stored in `pocket_money_accounts.avatar_look` (`webapp/docker/migration_zzzzzzzz_pocket_money_avatar_style_look.sql`), `{}` meaning the creature's own look. A family export carries it. A stored or restored look keeps every key the editor knows with a value from its set and drops only the others, so a rollback or a newer backup keeps the name and the colours; the PATCH itself refuses any look with a bad key. The name is counted as a person sees it (an emoji with a skin tone, a flag or 👨‍👩‍👧‍👦 is one of the 16 characters), bidi controls, zero-width spaces and the BOM are removed, joiners stay, and a name of only blanks and invisible fillers is no name; more than 256 raw characters is refused. The name stays on the family's own screens: the Integration API, Home Assistant and AI assistants never see it.
+The look is stored in `creatures.look` (until RFC-017 in `pocket_money_accounts.avatar_look`, `webapp/docker/migration_zzzzzzzz_pocket_money_avatar_style_look.sql`), `{}` meaning the creature's own look. A family export carries it. A stored or restored look keeps every key the editor knows with a value from its set and drops only the others, so a rollback or a newer backup keeps the name and the colours; the PATCH itself refuses any look with a bad key. The name is counted as a person sees it (an emoji with a skin tone, a flag or 👨‍👩‍👧‍👦 is one of the 16 characters), bidi controls, zero-width spaces and the BOM are removed, joiners stay, and a name of only blanks and invisible fillers is no name; more than 256 raw characters is refused. The name stays on the family's own screens: the Integration API, Home Assistant and AI assistants never see it.
 
 **What the drawn looks do.** They breathe, blink, beat their wings and sway their tails; tapping the avatar makes it hop and send up hearts, and an egg wobbles. When the avatar reaches a new stage, the egg shakes, cracks and hatches, or a later stage flashes and the new one pops out with a burst of stars. Classic keeps the glow it always had. All motion stops for anyone whose device asks to reduce motion. The stages sheet, the dashboard widget and the child's profile show the avatar in the same look, without the motion. The motion uses only movement and fading, which a Raspberry Pi wall display handles easily.
 
@@ -83,7 +85,7 @@ The look is stored in `pocket_money_accounts.avatar_look` (`webapp/docker/migrat
 
 **The drawings are Kinboard's own.** They are drawn in code (`webapp/src/lib/pocket-money/creatures/`) and do not come from an asset pack, so there is no third-party licence attached to them. A new species is one file there: it draws its own head parts, tail and body changes on a shared skeleton, and its beginning, the looks' outlines and lighting, and the motion come with it.
 
-The choice is stored in `pocket_money_accounts.avatar_style` (`webapp/docker/migration_zzzzzzzz_pocket_money_avatar_style.sql`), which the database holds to the four values. A family export carries it, and restoring a backup made before this column existed gives every child Classic.
+The choice is stored in `creatures.style` (until RFC-017 in `pocket_money_accounts.avatar_style`, `webapp/docker/migration_zzzzzzzz_pocket_money_avatar_style.sql`), which the database holds to the four values. A family export carries it, and restoring a backup made before this column existed gives every child Classic.
 
 ## Saving goals
 
@@ -114,7 +116,7 @@ The thresholds live in `webapp/src/lib/pocket-money/types.ts` (`TIER_THRESHOLDS_
 
 **Rewards.** Settings → Pocket money → **Rewards for task points**: a title, a cost from 1 to 10000 points, an optional emoji, and an *Active* switch. The catalogue is shared by every child in the family; inactive rewards are hidden from the children. Editing needs the settings PIN.
 
-**Redeeming.** On `/pocket-money`, a child in points mode sees their points, every active reward with how far they are toward it, and **Redeem** on those they can afford. Redeeming asks a parent; nothing is spent yet. The request appears under *Rewards waiting for approval* in Settings → Pocket money and on the navigation badge, like a withdrawal request. **Approve** spends the points; **Deny** spends nothing. A request can't be approved once the child has been switched back to euros; it keeps waiting until a parent denies it or switches the child back. Both need the settings PIN, checked on the server, so a child's own screen can't approve its own request. Approving is one database transaction: two devices approving at once book it once, and an approval the points no longer cover is refused and the request keeps waiting (points keep coming in, so a parent can approve it later or deny it). The reward's title and cost are copied into the request, so editing the catalogue later changes neither what is waiting nor what was spent.
+**Redeeming.** On `/pocket-money`, a child in points mode sees their points, every active reward with how far they are toward it, and **Redeem** on those they can afford. Redeeming asks a parent; nothing is spent yet. The request appears under *Rewards waiting for approval* in Settings → Pocket money and on the navigation badge, like a withdrawal request. **Approve** spends the points; **Deny** spends nothing. What the creature grows with does not matter for a request since RFC-017: the points are the child's either way. Both need the settings PIN, checked on the server, so a child's own screen can't approve its own request. Approving is one database transaction: two devices approving at once book it once, and an approval the points no longer cover is refused and the request keeps waiting (points keep coming in, so a parent can approve it later or deny it). The reward's title and cost are copied into the request, so editing the catalogue later changes neither what is waiting nor what was spent.
 
 **The child's profile.** Tapping a child in points mode on the dashboard shows the points left to spend and a **Rewards** button to their page.
 

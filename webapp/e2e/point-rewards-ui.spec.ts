@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { execFileSync } from "child_process";
+import { seedCreature, type CreatureSeed } from "./helpers/creature-seed";
 import { establishSession } from "./session";
 import { acquireWholeDatabase, dbContainer, releaseWholeDatabase } from "./whole-database";
 
@@ -31,6 +32,7 @@ let childName = "";
 let accountId = "";
 let createdAccount = false;
 let hadPin = false;
+let creature: CreatureSeed | null = null;
 
 test.beforeAll(async () => {
   await acquireWholeDatabase();
@@ -44,7 +46,8 @@ test.beforeAll(async () => {
       accountId = psql(`INSERT INTO pocket_money_accounts (family_id, person_id) VALUES ('${familyId}', '${childId}') RETURNING id`);
       createdAccount = true;
     }
-    psql(`UPDATE pocket_money_accounts SET reward_mode = 'points' WHERE id = '${accountId}'`);
+    // A creature growing with points (RFC-017; reward_mode on the account until then).
+    creature = seedCreature(psql, familyId, childId, { grows_with: "points" });
     psql(`INSERT INTO todo_point_awards (family_id, person_id, todo_id, completion_key, points)
       VALUES ('${familyId}', '${childId}', NULL, '${TAG}', 120)`);
     psql(`INSERT INTO point_rewards (family_id, title, cost_points, icon) VALUES
@@ -65,7 +68,7 @@ test.afterAll(async () => {
     psql(`DELETE FROM point_rewards WHERE family_id = '${familyId}' AND title LIKE '${TAG}%'`);
     psql(`DELETE FROM todo_point_awards WHERE family_id = '${familyId}' AND completion_key = '${TAG}'`);
     if (createdAccount) psql(`DELETE FROM pocket_money_accounts WHERE id = '${accountId}'`);
-    else if (accountId) psql(`UPDATE pocket_money_accounts SET reward_mode = 'money' WHERE id = '${accountId}'`);
+    creature?.restore();
     if (!hadPin) psql(`DELETE FROM integration_secrets WHERE family_id = '${familyId}' AND key = 'settings_pin'`);
     psql(`DELETE FROM devices WHERE hardware_id LIKE 'e2e-${DEVICE}%'`);
   } finally {
@@ -111,7 +114,7 @@ test("a child redeems with points, the decision needs the PIN, and what is left 
   // The first request compiles the route under `next dev`: allow for it.
   await expect(page.getByTestId("redemptions-pending")).toContainText(`${TAG} movie night`, { timeout: 30_000 });
   const redemption = psql(`SELECT id || '|' || status || '|' || cost_points FROM point_redemptions
-    WHERE account_id = '${accountId}' AND title LIKE '${TAG}%'`);
+    WHERE person_id = '${childId}' AND title LIKE '${TAG}%'`);
   const [redemptionId, status, cost] = redemption.split("|");
   expect([status, cost]).toEqual(["pending", "100"]);
   await expect(page.getByTestId("points-balance")).toContainText("120");
@@ -119,20 +122,21 @@ test("a child redeems with points, the decision needs the PIN, and what is left 
   await expect(movie.getByRole("button", { name: REDEEM })).toBeDisabled();
 
   // The child's own screen cannot approve it: no settings unlock, no decision.
-  const refused = await page.request.patch(`/api/pocket-money/redemptions/${redemptionId}`, { data: { status: "approved" } });
+  const refused = await page.request.patch(`/api/rewards/redemptions/${redemptionId}`, { data: { status: "approved" } });
   expect(refused.status()).toBe(403);
   expect(await refused.json()).toEqual({ error: "pin_required" });
   expect(psql(`SELECT status FROM point_redemptions WHERE id = '${redemptionId}'`)).toBe("pending");
 
   // A parent: Settings asks for the PIN, then the request waits in the inbox.
-  await goto(page, "/settings/pocket-money");
+  // Settings -> Creatures & rewards since RFC-017.
+  await goto(page, "/settings/creatures");
   const digits = page.locator('input[inputmode="numeric"]');
   await expect(digits.first()).toBeVisible({ timeout: 30_000 });
   for (let i = 0; i < PIN.length; i++) await digits.nth(i).fill(PIN[i]);
   const inbox = page.getByTestId("redemption-inbox");
   await expect(inbox).toContainText(`${TAG} movie night`, { timeout: 30_000 });
   await expect(inbox).toContainText(childName);
-  await expect(page.getByTestId("account-points-summary")).toBeVisible();
+  await expect(page.getByTestId(`creature-card-${childId}`).getByTestId("creature-points-summary")).toBeVisible();
   await inbox.getByRole("button", { name: APPROVE }).first().click();
   await expect(inbox).toBeHidden({ timeout: 15_000 });
   expect(psql(`SELECT status || '|' || (decided_by_device_id IS NOT NULL) FROM point_redemptions WHERE id = '${redemptionId}'`))

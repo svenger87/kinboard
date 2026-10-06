@@ -1,9 +1,10 @@
 /**
- * Rewards bought with task points (discussion #349): the catalogue's input
+ * Rewards bought with task points (discussion #349; core since RFC-017, so
+ * per child and with no pocket-money account needed): the catalogue's input
  * rules, and the two database calls -- a child's request and a parent's
  * decision -- turned into HTTP answers. The rules themselves are in
- * docker/migration_zzzzzzz_point_rewards.sql; the client comes in as a
- * parameter so a spec can hand it the real admin client or a fake.
+ * docker/migration_zzzzzzzz_pocket_money_creatures_out.sql; the client comes
+ * in as a parameter so a spec can hand it the real admin client or a fake.
  */
 
 import { UUID } from "@/lib/home/action-requests";
@@ -64,16 +65,16 @@ export function parseReward(
 
 type Answer = { status: number; body: Record<string, unknown> };
 
-/** A child asks for a reward: request_point_redemption, as an HTTP answer. */
+/** A child asks for a reward: request_person_point_redemption, as an HTTP answer. */
 export async function requestRedemption(
   client: RpcClient,
-  input: { familyId: string; accountId: string; rewardId: string; deviceId: string | null },
+  input: { familyId: string; personId: string; rewardId: string; deviceId: string | null },
 ): Promise<Answer> {
-  if (!UUID.test(input.accountId)) return { status: 404, body: { error: "not found" } };
+  if (!UUID.test(input.personId)) return { status: 404, body: { error: "not found" } };
   if (!UUID.test(input.rewardId)) return { status: 404, body: { error: "no_reward" } };
-  const { data, error } = await client.rpc("request_point_redemption", {
+  const { data, error } = await client.rpc("request_person_point_redemption", {
     p_family_id: input.familyId,
-    p_account_id: input.accountId,
+    p_person_id: input.personId,
     p_reward_id: input.rewardId,
     p_device_id: input.deviceId,
   });
@@ -83,10 +84,10 @@ export async function requestRedemption(
   switch (answer?.error) {
     case "not_found": return { status: 404, body: { error: "not found" } };
     case "no_reward": return { status: 404, body: { error: "no_reward" } };
-    case "not_points_mode": return { status: 409, body: { error: "not_points_mode" } };
+    case "no_creature": return { status: 409, body: { error: "no_creature" } };
     case "insufficient_points":
       return { status: 409, body: { error: "insufficient_points", balance: answer.balance, pending: answer.pending } };
-    default: return { status: 500, body: { error: "unexpected answer from request_point_redemption" } };
+    default: return { status: 500, body: { error: "unexpected answer from request_person_point_redemption" } };
   }
 }
 
@@ -109,7 +110,6 @@ export async function decideRedemption(
     case "not_found": return { status: 404, body: { error: "not found" } };
     case "already_decided": return { status: 409, body: { error: "already_decided" } };
     case "insufficient_points": return { status: 409, body: { error: "insufficient_points", balance: answer.balance } };
-    case "not_points_mode": return { status: 409, body: { error: "not_points_mode" } };
     default: return { status: 500, body: { error: "unexpected answer from decide_point_redemption" } };
   }
 }

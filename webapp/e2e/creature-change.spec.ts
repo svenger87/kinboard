@@ -16,8 +16,8 @@ import { establishSession, postJoin } from "./session";
 import { psql, psqlRow, sqlText } from "./helpers/assistant-connect";
 
 /**
- * A parent changes a child's creature after the account exists: Settings ->
- * Pocket money -> the child's card -> Change creature. The species is a
+ * A parent changes a child's creature: Settings -> Creatures & rewards (Pocket
+ * money until RFC-017) -> the child's card -> Change. The species is a
  * parent's choice, so it takes the settings PIN, on the server as well as in
  * the browser; the stage (money or points, best_tier), the style and the look
  * stay exactly as they were. The child's own page has no such switch
@@ -26,8 +26,9 @@ import { psql, psqlRow, sqlText } from "./helpers/assistant-connect";
 
 const SRC = join(__dirname, "..", "src");
 const read = (rel: string) => readFileSync(join(SRC, rel), "utf8");
-const ROUTE = "app/api/pocket-money/accounts/[id]/route.ts";
-const SETTINGS = "app/settings/pocket-money/page.tsx";
+const ROUTE = "app/api/creatures/[personId]/route.ts";
+const RULES = "lib/creatures/rules.ts";
+const SETTINGS = "app/settings/creatures/page.tsx";
 const KID_PAGE = "app/pocket-money/page.tsx";
 
 const LOCALES = { en, de, fr } as const;
@@ -37,37 +38,34 @@ const pmSettings = (m: Messages) => m.settings.pocketMoney as Record<string, str
 // ── the route ────────────────────────────────────────────────────────────
 
 test("the species is behind the PIN, and only the catalog's species are taken", () => {
-  const source = read(ROUTE);
-  const list = source.slice(source.indexOf("const PIN_PROTECTED_FIELDS"), source.indexOf("] as const"));
-  expect(list).toContain(`"avatar_species"`);
-  expect(source).toMatch(/PIN_PROTECTED_FIELDS\.some\([\s\S]{0,200}?requireSettingsUnlock/);
+  const rules = read(RULES);
+  const parental = /PARENTAL_FIELDS = \[([^\]]*)\]/.exec(rules)?.[1] ?? "";
+  expect(parental).toContain(`"species"`);
+  expect(read(ROUTE)).toMatch(/if \(parsed\.parental\) \{\s*const locked = await requireSettingsUnlock/);
   // The allow-list is the catalog itself, so the new creatures are in it.
-  expect(source).toMatch(/new Set\(\s*avatarCatalog\.species\.map/);
+  expect(rules).toMatch(/new Set\(avatarCatalog\.species\.map/);
   for (const id of ["rex", "trike", "stego", "princess", "prince", "unicorn", "fox", "penguin", "bunny", "axolotl", "owl", "robot"]) {
     expect(avatarCatalog.species.map((s) => s.id), id).toContain(id);
   }
 });
 
 test("changing the species writes the species and nothing else", () => {
-  // The block that takes avatar_species must not touch the stage, the style
-  // or the look: progress and looks are kept by not writing them at all.
-  const source = read(ROUTE);
-  const block = source.slice(source.indexOf("body.avatar_species !== undefined"), source.indexOf("body.reward_mode !== undefined"));
-  expect(block).toContain("update.avatar_species = body.avatar_species");
-  expect(block).not.toMatch(/update\.(best_tier|last_seen_tier|avatar_style|avatar_look|balance_cents|lifetime_saved_cents)\b/);
+  // The block that takes species must not touch the stage, the style or the
+  // look: progress and looks are kept by not writing them at all.
+  const rules = read(RULES);
+  const block = rules.slice(rules.indexOf("input.species !== undefined"), rules.indexOf("input.grows_with !== undefined"));
+  expect(block).toContain("patch.species = input.species");
+  expect(block).not.toMatch(/patch\.(best_tier|last_seen_tier|style|look)\b/);
 });
 
 test("a body that is not JSON, or not an object, is a 400 checked after the session", () => {
-  const source = read(ROUTE);
-  const patch = source.slice(source.indexOf("export async function PATCH"), source.indexOf("export async function DELETE"));
+  const patch = read(ROUTE);
   const session = patch.indexOf("requireSession(request)");
   const parse = patch.indexOf("await request.json()");
   expect(session).toBeGreaterThan(-1);
   expect(parse).toBeGreaterThan(session);
   expect(patch.slice(parse - 40, parse)).toContain("try {");
-  expect(patch).toMatch(/parsed === null \|\| Array\.isArray\(parsed\)[\s\S]{0,120}status: 400/);
-  // and nothing reads the body before that
-  expect(patch.slice(0, parse)).not.toMatch(/body\[|body\./);
+  expect(read(RULES)).toMatch(/body === null \|\| Array\.isArray\(body\)[\s\S]{0,120}body must be an object/);
 });
 
 // ── the look across species ─────────────────────────────────────────────
@@ -85,25 +83,26 @@ test("a princess's skin, hair and hairstyle stay valid on a T-Rex, so switching 
 
 // ── the settings control ────────────────────────────────────────────────
 
-test("Settings -> Pocket money has Change creature per child, saving only the species", () => {
+test("Settings -> Creatures & rewards has Change per child, saving only the species", () => {
   const source = read(SETTINGS);
   expect(source).toContain(`data-testid="change-creature"`);
   expect(source).toContain("<ChangeCreatureSheet");
   // Only the species goes to the server: nothing that would reset the stage,
   // the style or the look.
-  expect(source).toMatch(/update: \{ avatar_species: species \} \}/);
-  // A lapsed unlock says so, like the other pocket-money settings.
-  const sheetCall = source.slice(source.indexOf("<ChangeCreatureSheet"), source.indexOf("<AmountDialog"));
-  expect(sheetCall).toContain(`"pin_required"`);
-  expect(sheetCall).toContain(`t("errorPinRequired")`);
-  // The setup card and the change sheet use the same picker.
-  expect(source).toContain("<SpeciesPicker picked={picked} onPick={setPicked} />");
+  expect(source).toMatch(/onSave=\{\(species\) => change\(\{ species \}\)\}/);
+  // A lapsed unlock says so.
+  expect(source).toMatch(/code === "pin_required"\) return t\("errorPinRequired"\)/);
   expect(read("components/pocket-money/change-creature-sheet.tsx")).toContain("<SpeciesPicker");
+  // Pocket money keeps the euros only (RFC-017).
+  const pm = read("app/settings/pocket-money/page.tsx");
+  expect(pm).not.toContain("ChangeCreatureSheet");
+  expect(pm).not.toContain("SpeciesPicker");
+  expect(pm).toContain(`href="/settings/creatures"`);
 });
 
 test("the child's own page has no species switch", () => {
   const source = read(KID_PAGE);
-  expect(source).not.toMatch(/avatar_species\s*:/);
+  expect(source).not.toMatch(/avatar_species\s*:|change:\s*\{[^}]*\bspecies\b/);
   expect(source).not.toContain("SpeciesPicker");
   expect(source).not.toContain("ChangeCreatureSheet");
 });
@@ -181,6 +180,7 @@ test.describe("live: changing a child's creature", () => {
     if (!famId) return;
     psql(`DELETE FROM pocket_money_transactions WHERE account_id IN (SELECT id FROM pocket_money_accounts WHERE family_id = ${sqlText(famId)})`);
     psql(`DELETE FROM pocket_money_accounts WHERE family_id = ${sqlText(famId)}`);
+    psql(`DELETE FROM creatures WHERE family_id = ${sqlText(famId)}`);
     for (let i = 0; i < 2; i++) psql(`DELETE FROM people WHERE family_id = ${sqlText(famId)}`);
     psql(`DELETE FROM integration_secrets WHERE family_id = ${sqlText(famId)}`);
     psql(`DELETE FROM devices WHERE family_id = ${sqlText(famId)}`);
@@ -188,9 +188,9 @@ test.describe("live: changing a child's creature", () => {
   };
   /** Everything a species change must leave alone, as one string. */
   const kept = () =>
-    psql(`SELECT concat_ws('|', balance_cents, lifetime_saved_cents, best_tier, last_seen_tier, reward_mode, avatar_style, avatar_look::text)
-          FROM pocket_money_accounts WHERE id = '${accountId}'`);
-  const species = () => psql(`SELECT avatar_species FROM pocket_money_accounts WHERE id = '${accountId}'`);
+    psql(`SELECT concat_ws('|', a.balance_cents, a.lifetime_saved_cents, c.best_tier, c.last_seen_tier, c.grows_with, c.style, c.look::text)
+          FROM pocket_money_accounts a JOIN creatures c ON c.person_id = a.person_id WHERE a.id = '${accountId}'`);
+  const species = () => psql(`SELECT species FROM creatures WHERE person_id = '${childId}'`);
   const lock = () => psql(`UPDATE device_sessions SET settings_unlocked_until = NULL WHERE family_id = '${famId}'`);
 
   test.beforeAll(async () => {
@@ -207,6 +207,8 @@ test.describe("live: changing a child's creature", () => {
     accountId = psqlRow(`INSERT INTO pocket_money_accounts
       (family_id, person_id, currency, balance_cents, lifetime_saved_cents, best_tier, last_seen_tier, avatar_species, avatar_style, avatar_look)
       VALUES ('${famId}', '${childId}', 'EUR', 700, 30000, 6, 6, 'princess', 'sticker', ${sqlText(JSON.stringify(LOOK))}::jsonb) RETURNING id`);
+    // Her creature, as the RFC-017 migration derives it from that account.
+    psql(`SELECT public.creatures_from_accounts('${famId}')`);
 
     api = await pwRequest.newContext({ baseURL: BASE });
     const join = await postJoin(api, { joinCode: code, hardwareId: `${P}api`, deviceName: `${P}api` });
@@ -226,7 +228,7 @@ test.describe("live: changing a child's creature", () => {
   test("without the PIN a species change is 403 pin_required and writes nothing", async () => {
     lock();
     const before = kept();
-    const res = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_species: "rex" } });
+    const res = await api.patch(`/api/creatures/${childId}`, { data: { species: "rex" } });
     expect(res.status(), await res.text()).toBe(403);
     expect((await res.json()).error).toBe("pin_required");
     expect(species()).toBe("princess");
@@ -235,7 +237,7 @@ test.describe("live: changing a child's creature", () => {
 
   test("a body that is not JSON, or JSON null, is 400 rather than 500", async () => {
     for (const raw of ["{", "null", "[]", "42", ""]) {
-      const res = await api.patch(`/api/pocket-money/accounts/${accountId}?family_id=${famId}`, {
+      const res = await api.patch(`/api/creatures/${childId}`, {
         headers: { "content-type": "application/json" },
         data: raw,
       });
@@ -243,7 +245,7 @@ test.describe("live: changing a child's creature", () => {
     }
     // and without a session it is still the session's 401 first
     const anon = await pwRequest.newContext({ baseURL: BASE });
-    const res = await anon.patch(`/api/pocket-money/accounts/${accountId}?family_id=${famId}`, { headers: { "content-type": "application/json" }, data: "{" });
+    const res = await anon.patch(`/api/creatures/${childId}`, { headers: { "content-type": "application/json" }, data: "{" });
     expect(res.status()).toBe(401);
     await anon.dispose();
   });
@@ -251,7 +253,7 @@ test.describe("live: changing a child's creature", () => {
   test("with the PIN, an unknown species is 400", async () => {
     const verify = await api.post("/api/pin", { data: { family_id: famId, action: "verify", pin: "4711" } });
     expect((await verify.json()).valid).toBe(true);
-    const res = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_species: "griffin" } });
+    const res = await api.patch(`/api/creatures/${childId}`, { data: { species: "griffin" } });
     expect(res.status(), await res.text()).toBe(400);
     expect(species()).toBe("princess");
   });
@@ -259,14 +261,14 @@ test.describe("live: changing a child's creature", () => {
   test("with the PIN, the princess becomes a T-Rex: stage, style and look untouched", async () => {
     const before = kept();
     expect(before).toContain("|6|6|money|sticker|");
-    const res = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_species: "rex" } });
+    const res = await api.patch(`/api/creatures/${childId}`, { data: { species: "rex" } });
     expect(res.status(), await res.text()).toBe(200);
     expect(species()).toBe("rex");
     expect(kept()).toBe(before);
     // and back: her skin, hair and hairstyle were kept all along
-    const back = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_species: "princess" } });
+    const back = await api.patch(`/api/creatures/${childId}`, { data: { species: "princess" } });
     expect(back.status(), await back.text()).toBe(200);
-    expect(JSON.parse(psql(`SELECT avatar_look::text FROM pocket_money_accounts WHERE id = '${accountId}'`))).toEqual(LOOK);
+    expect(JSON.parse(psql(`SELECT look::text FROM creatures WHERE person_id = '${childId}'`))).toEqual(LOOK);
     expect(kept()).toBe(before);
   });
 
@@ -276,12 +278,12 @@ test.describe("live: changing a child's creature", () => {
     // test is about the control, not the PIN pad (the server gate is above).
     const removed = await api.post("/api/pin", { data: { family_id: famId, action: "remove" } });
     expect(removed.ok(), await removed.text()).toBe(true);
-    psql(`UPDATE pocket_money_accounts SET avatar_species = 'princess' WHERE id = '${accountId}'`);
+    psql(`UPDATE creatures SET species = 'princess' WHERE person_id = '${childId}'`);
     const before = kept();
 
     await establishSession(page, code, `${P}ui`);
-    await page.goto("/settings/pocket-money", { waitUntil: "domcontentloaded" });
-    const card = page.getByTestId(`creature-${accountId}`);
+    await page.goto("/settings/creatures", { waitUntil: "domcontentloaded" });
+    const card = page.getByTestId(`creature-card-${childId}`);
     await expect(card.getByTestId("creature-current")).toHaveText("Princess", { timeout: 60_000 });
     await card.getByTestId("change-creature").click();
     const sheet = page.getByTestId("change-creature-sheet");
@@ -301,20 +303,20 @@ test.describe("live: changing a child's creature", () => {
   test("on the screen: a lapsed unlock says so and keeps the sheet open", async ({ page }) => {
     test.setTimeout(120_000);
     let hits = 0;
-    await page.context().route("**/api/pocket-money/accounts/*", async (route) => {
+    await page.context().route("**/api/creatures/*", async (route) => {
       if (route.request().method() !== "PATCH") return route.continue();
       hits++;
       await route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ error: "pin_required" }) });
     });
     await establishSession(page, code, `${P}ui`);
-    await page.goto("/settings/pocket-money", { waitUntil: "domcontentloaded" });
-    const card = page.getByTestId(`creature-${accountId}`);
+    await page.goto("/settings/creatures", { waitUntil: "domcontentloaded" });
+    const card = page.getByTestId(`creature-card-${childId}`);
     await expect(card.getByTestId("creature-current")).toHaveText("T-Rex", { timeout: 60_000 });
     await card.getByTestId("change-creature").click();
     const sheet = page.getByTestId("change-creature-sheet");
     await sheet.locator('button[data-species="owl"]').click();
     await sheet.getByTestId("change-creature-save").click();
-    await expect(page.getByText(en.settings.pocketMoney.errorPinRequired)).toBeVisible();
+    await expect(page.getByText(en.settings.creatures.errorPinRequired)).toBeVisible();
     await expect(sheet).toBeVisible();
     expect(hits).toBeGreaterThan(0);
     expect(species()).toBe("rex");

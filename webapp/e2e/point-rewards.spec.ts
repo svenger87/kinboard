@@ -169,23 +169,25 @@ test.describe("the database's answers, as HTTP", () => {
     expect(await decide({ ok: false, error: "already_decided", status: "approved" })).toEqual({ status: 409, body: { error: "already_decided" } });
     expect(await decide({ ok: false, error: "insufficient_points", balance: 10 })).toEqual({ status: 409, body: { error: "insufficient_points", balance: 10 } });
     expect(await decide({ ok: false, error: "not_found" })).toEqual({ status: 404, body: { error: "not found" } });
-    expect(await decide({ ok: false, error: "not_points_mode" })).toEqual({ status: 409, body: { error: "not_points_mode" } });
+    // Points are core since RFC-017: what the creature grows with no longer
+    // stops an approval, so the database never answers not_points_mode.
+    expect((await decide({ ok: false, error: "not_points_mode" })).status).toBe(500);
     expect((await decide({ ok: false, error: "???" })).status).toBe(500);
   });
 
   test("a request", async () => {
     const ask = (data: unknown) =>
-      requestRedemption(fake(data), { familyId: ID, accountId: ID, rewardId: ID, deviceId: null });
+      requestRedemption(fake(data), { familyId: ID, personId: ID, rewardId: ID, deviceId: null });
     expect((await ask({ ok: true, redemption: { id: ID } })).status).toBe(201);
     expect(await ask({ ok: false, error: "insufficient_points", balance: 5, pending: 0 })).toEqual({ status: 409, body: { error: "insufficient_points", balance: 5, pending: 0 } });
-    expect(await ask({ ok: false, error: "not_points_mode" })).toEqual({ status: 409, body: { error: "not_points_mode" } });
+    expect(await ask({ ok: false, error: "no_creature" })).toEqual({ status: 409, body: { error: "no_creature" } });
     expect((await ask({ ok: false, error: "no_reward" })).status).toBe(404);
   });
 
   test("an id that is not a uuid never reaches the database", async () => {
     const client = fake({ ok: true });
     expect((await decideRedemption(client, { familyId: ID, redemptionId: "1 or 1=1", decision: "approved", deviceId: null })).status).toBe(404);
-    expect((await requestRedemption(client, { familyId: ID, accountId: "x", rewardId: ID, deviceId: null })).status).toBe(404);
+    expect((await requestRedemption(client, { familyId: ID, personId: "x", rewardId: ID, deviceId: null })).status).toBe(404);
     expect(client.calls).toEqual([]);
   });
 });
@@ -193,9 +195,9 @@ test.describe("the database's answers, as HTTP", () => {
 test.describe("who may write", () => {
   test("deciding, and keeping the catalogue, take the settings PIN; the family is the session's", () => {
     for (const path of [
-      "src/app/api/pocket-money/redemptions/[id]/route.ts",
-      "src/app/api/pocket-money/rewards/route.ts",
-      "src/app/api/pocket-money/rewards/[id]/route.ts",
+      "src/app/api/rewards/redemptions/[id]/route.ts",
+      "src/app/api/rewards/route.ts",
+      "src/app/api/rewards/[id]/route.ts",
     ]) {
       const src = codeOnly(read(path));
       const handlers = src.match(/export async function (POST|PATCH|DELETE)/g) ?? [];
@@ -208,17 +210,20 @@ test.describe("who may write", () => {
   });
 
   test("a child's request needs a session but no PIN, and books nothing itself", () => {
-    const src = codeOnly(read("src/app/api/pocket-money/accounts/[id]/redemptions/route.ts"));
+    const src = codeOnly(read("src/app/api/rewards/redemptions/route.ts"));
     expect(src).toContain("await requireSession(request)");
     expect(src).not.toContain("requireSettingsUnlock");
     expect(src).toContain("requestRedemption(");
+    // Per child, in the session's family (RFC-017).
+    expect(src).toContain("personId: body.person_id");
+    expect(src).toContain("familyId: auth.session.familyId");
   });
 
-  test("switching a child's mode takes the PIN; the rest of the account route is as before", () => {
-    const src = codeOnly(read("src/app/api/pocket-money/accounts/[id]/route.ts"));
-    const block = src.slice(src.indexOf("body.reward_mode !== undefined"), src.indexOf("body.last_seen_tier !== undefined"));
-    expect(block).toContain("await requireSettingsUnlock(auth.session)");
-    expect(block).toMatch(/"money" && body\.reward_mode !== "points"/);
+  test("what a creature grows with takes the PIN, on the creature now; the account refuses it", () => {
+    const rules = codeOnly(read("src/lib/creatures/rules.ts"));
+    expect(/PARENTAL_FIELDS = \[([^\]]*)\]/.exec(rules)?.[1]).toContain('"grows_with"');
+    const account = codeOnly(read("src/app/api/pocket-money/accounts/[id]/route.ts"));
+    expect(account.slice(account.indexOf("MOVED_TO_CREATURES = ["))).toContain('"reward_mode"');
   });
 
   test("the tables are read-only to the browser, family-scoped, published, and the functions are the service role's", () => {
@@ -244,6 +249,24 @@ test.describe("who may write", () => {
     const decide = sql.slice(sql.indexOf("FUNCTION public.decide_point_redemption("));
     expect(decide.indexOf("FOR UPDATE OF a")).toBeGreaterThan(0);
     expect(decide.indexOf("FOR UPDATE OF a")).toBeLessThan(decide.indexOf("FROM public.point_redemptions\n   WHERE id = p_redemption_id AND family_id = p_family_id FOR UPDATE"));
+  });
+
+  test("per child since RFC-017: the balance, the request and the decision lock the child, not an account", () => {
+    const sql = codeOnly(read("docker/migration_zzzzzzzz_pocket_money_creatures_out.sql"), { sql: true });
+    const totals = sql.slice(sql.indexOf("FUNCTION public.point_person_totals("), sql.indexOf("FUNCTION public.point_account_totals("));
+    expect(totals).toMatch(/FROM public\.todo_point_awards\s+WHERE person_id = p_person_id/);
+    expect(totals).toMatch(/FROM public\.point_redemptions WHERE person_id = p_person_id/);
+    expect(totals).toContain("GREATEST(0, v_earned - v_spent)");
+    expect(totals).not.toContain("pocket_money_accounts");
+    // The decision takes the child's lock before the request's row lock.
+    const decide = sql.slice(sql.indexOf("FUNCTION public.decide_point_redemption("));
+    expect(decide.indexOf("point_lock_person(v_person)")).toBeGreaterThan(0);
+    expect(decide.indexOf("point_lock_person(v_person)")).toBeLessThan(decide.indexOf("FOR UPDATE"));
+    expect(decide).toContain("point_person_totals(p_family_id, v_req.person_id)");
+    // rc.13's names stay as wrappers for one release.
+    for (const fn of ["point_person_totals", "point_account_totals", "request_person_point_redemption", "request_point_redemption", "decide_point_redemption", "creatures_from_accounts"]) {
+      expect(sql).toContain(`'public.${fn}(`);
+    }
   });
 
   test("the migration sorts after the ones it builds on", () => {

@@ -177,7 +177,8 @@ test.describe("the store", () => {
     const qc = new QueryClient();
     qc.setQueryData(["people", familyId], [{ id: KID, is_child: true }, { id: PARENT, is_child: false }]);
     qc.setQueryData(["todo-point-awards", familyId], [{ person_id: KID, points: 45 }, { person_id: SIB, points: 99 }]);
-    qc.setQueryData(["pocket-money-accounts", familyId], [{ person_id: KID, reward_mode: "points", best_tier: 1 }]);
+    // The child's creature (RFC-017): it says what the creature grows with.
+    qc.setQueryData(["creatures", familyId], [{ person_id: KID, enabled: true, grows_with: "points", best_tier: 1 }]);
     return qc;
   }
 

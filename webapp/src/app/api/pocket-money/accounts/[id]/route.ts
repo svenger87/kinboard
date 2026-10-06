@@ -1,26 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { PocketMoneyAccountUpdate } from "@/types/database";
-import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
-import { familyIdFrom, rowInFamily, accountInFamily } from "@/lib/family-scope";
+import { familyIdFrom } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
-import { isAvatarStyle } from "@/lib/pocket-money/creatures/styles";
-import { validateLook } from "@/lib/pocket-money/creatures/look";
 
 export const dynamic = "force-dynamic";
 
-const VALID_SPECIES: ReadonlySet<string> = new Set(
-  avatarCatalog.species.map((s) => s.id),
-);
-
 /**
- * This PATCH also carries the kid-side avatar fields: the stage tracking
- * (last_seen_tier, best_tier), written on every visit to /pocket-money, and
- * the avatar's look (avatar_style, avatar_look), which the child picks on their own page --
- * so a child's own device must reach them with no PIN. Everything else here is a
- * parental setting — allowance, interest, currency, the avatar species picked
- * at setup — so the PIN check is per-field, not on the route as a whole.
+ * The money settings, every one a parent's: allowance, interest, currency.
+ * The PIN check is per-field so that a body naming none of them -- nothing
+ * left to write -- answers 400, not 403.
  */
 const PIN_PROTECTED_FIELDS = [
   "currency",
@@ -30,7 +20,22 @@ const PIN_PROTECTED_FIELDS = [
   "allowance_interval_days",
   "max_balance_eligible_cents",
   "interest_committed_day_of_week",
+] as const;
+
+/**
+ * The creature's fields, which lived on the account until RFC-017 and are now
+ * on `creatures`, written through /api/creatures/[personId]. The account
+ * columns stay one release for a rollback, but nothing writes them any more:
+ * a body that names one is refused, so a caller that still sends them hears
+ * about it instead of writing a column nobody reads.
+ */
+const MOVED_TO_CREATURES = [
   "avatar_species",
+  "avatar_style",
+  "avatar_look",
+  "best_tier",
+  "last_seen_tier",
+  "reward_mode",
 ] as const;
 
 // GET /api/pocket-money/accounts/[id]
@@ -99,6 +104,14 @@ export async function PATCH(
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
+  const moved = MOVED_TO_CREATURES.filter((field) => (body as Record<string, unknown>)[field] !== undefined);
+  if (moved.length > 0) {
+    return NextResponse.json(
+      { error: `moved to /api/creatures/[personId]: ${moved.join(", ")}` },
+      { status: 400 },
+    );
+  }
+
   if (PIN_PROTECTED_FIELDS.some((field) => body[field] !== undefined)) {
     const locked = await requireSettingsUnlock(auth.session);
     if (locked) return locked;
@@ -114,55 +127,6 @@ export async function PATCH(
   if (body.allowance_interval_days !== undefined) update.allowance_interval_days = body.allowance_interval_days;
   if (body.max_balance_eligible_cents !== undefined) update.max_balance_eligible_cents = body.max_balance_eligible_cents;
   if (body.interest_committed_day_of_week !== undefined) update.interest_committed_day_of_week = body.interest_committed_day_of_week;
-  if (body.avatar_species !== undefined) {
-    if (!VALID_SPECIES.has(body.avatar_species)) {
-      return NextResponse.json(
-        { error: `unknown avatar_species: ${body.avatar_species}` },
-        { status: 400 },
-      );
-    }
-    update.avatar_species = body.avatar_species;
-  }
-  // What the avatar grows with (discussion #349). A parent's choice, so it
-  // takes the settings PIN even though the rest of this route does not: the
-  // child's own screen writes last_seen_tier here.
-  if (body.reward_mode !== undefined) {
-    if (body.reward_mode !== "money" && body.reward_mode !== "points") {
-      return NextResponse.json({ error: "reward_mode must be money or points" }, { status: 400 });
-    }
-    const locked = await requireSettingsUnlock(auth.session);
-    if (locked) return locked;
-    update.reward_mode = body.reward_mode;
-  }
-  // How the avatar is drawn. The child's own choice, made on their own page,
-  // so no PIN -- like the stage tracking below. Only the four known values;
-  // the database's CHECK says the same (migration_zzzzzzzz_pocket_money_avatar_style.sql).
-  if (body.avatar_style !== undefined) {
-    if (!isAvatarStyle(body.avatar_style)) {
-      return NextResponse.json({ error: `unknown avatar_style: ${String(body.avatar_style)}` }, { status: 400 });
-    }
-    update.avatar_style = body.avatar_style;
-  }
-  // The child's own look for their creature: colours, pattern, eyes, an
-  // accessory, a name (RFC-016 §4). No PIN, like the style. Only the editor's
-  // fixed sets: unknown keys and values outside them are refused, not stored,
-  // and the name is cleaned and cut to 16 characters (lib/.../look.ts). The
-  // whole look is replaced; {} is the creature's own.
-  if (body.avatar_look !== undefined) {
-    const look = validateLook(body.avatar_look);
-    if (!look.ok) return NextResponse.json({ error: look.error }, { status: 400 });
-    update.avatar_look = look.look as PocketMoneyAccountUpdate["avatar_look"];
-  }
-  if (body.last_seen_tier !== undefined) update.last_seen_tier = body.last_seen_tier;
-  // The avatar's high-water mark. Client-written because it's derived
-  // from the balance (or, in points mode, the points) the client just
-  // rendered; the route clamps it to a valid stage so a bad value can't push
-  // the badge past stage 8, and the database never lets it go down
-  // (pocket_money_accounts_best_tier_climbs).
-  if (body.best_tier !== undefined) {
-    update.best_tier = Math.min(8, Math.max(1, Math.floor(Number(body.best_tier) || 1)));
-  }
-
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: "no updatable fields provided" }, { status: 400 });
   }

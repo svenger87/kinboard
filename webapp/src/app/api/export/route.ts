@@ -20,7 +20,9 @@ import { familyMatchesSession, requireSession } from "@/lib/require-session";
 //   families → tickers (standalone, family-scoped)
 //   people → pocket_money_accounts → pocket_money_goals /
 //     pocket_money_transactions / pocket_money_withdrawal_requests
-//   families → point_rewards; pocket_money_accounts → point_redemptions
+//   families → point_rewards; people → point_redemptions (per child since
+//     RFC-017; account_id kept, nullable, for one release)
+//   people → creatures (RFC-017; keyed by person_id, no id of its own)
 //
 // NEVER included: families.join_code, devices, push_subscriptions,
 // notification_preferences, scheduled_notifications, notification_logs,
@@ -205,6 +207,11 @@ export async function GET(request: NextRequest) {
     const point_redemptions = await fetchAll(db, (q, from, to) =>
       q.from("point_redemptions").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
+    // Each child's creature (RFC-017), switched on or off: off keeps the
+    // creature, so a restore must keep it too.
+    const creatures = await fetchAll(db, (q, from, to) =>
+      q.from("creatures").select("*").eq("family_id", familyId).order("person_id").range(from, to)
+    );
 
     const rawSettings = await fetchAll(db, (q, from, to) =>
       q.from("settings").select("*").eq("family_id", familyId).order("id").range(from, to)
@@ -273,6 +280,7 @@ export async function GET(request: NextRequest) {
         pocket_money_withdrawal_requests,
         point_rewards,
         point_redemptions,
+        creatures,
         settings,
       },
     };

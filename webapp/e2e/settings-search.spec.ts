@@ -149,6 +149,8 @@ test.describe("the settings menu comes from the registry", () => {
         "/settings/holidays",
         "/settings/recycle-bin",
         "/settings/task-log",
+        // RFC-017: creatures and rewards left pocket money for a page of their own.
+        "/settings/creatures",
       ],
       sectionDisplay: [
         "/settings/widgets",

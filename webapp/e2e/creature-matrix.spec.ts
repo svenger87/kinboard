@@ -249,11 +249,14 @@ test.describe("the catalogue, the allow-lists and the names", () => {
     for (const s of AVATAR_CATALOG) expect(s.stages.map((st) => st.tier)).toEqual(TIERS);
   });
 
-  test("both account routes take their allow-list from the catalogue", () => {
-    for (const route of ["src/app/api/pocket-money/accounts/route.ts", "src/app/api/pocket-money/accounts/[id]/route.ts"]) {
-      const src = readFileSync(join(process.cwd(), route), "utf8");
-      expect(src, route).toMatch(/VALID_SPECIES[^=]*=\s*new Set\(\s*avatarCatalog\.species\.map\(\(s\) => s\.id\)/);
-      expect(src, route).toContain("VALID_SPECIES.has(");
+  test("the creature routes take their allow-list from the catalogue", () => {
+    // Since RFC-017 the species lives on the creature; both routes that take
+    // one (switching on, changing) check it through lib/creatures/rules.ts.
+    const rules = readFileSync(join(process.cwd(), "src/lib/creatures/rules.ts"), "utf8");
+    expect(rules).toMatch(/SPECIES[^=]*=\s*new Set\(avatarCatalog\.species\.map\(\(s\) => s\.id\)\)/);
+    expect(rules).toContain("SPECIES.has(");
+    for (const route of ["src/app/api/creatures/route.ts", "src/lib/creatures/rules.ts"]) {
+      expect(readFileSync(join(process.cwd(), route), "utf8"), route).toContain("isSpecies(");
     }
   });
 

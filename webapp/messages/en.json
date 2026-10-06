@@ -1039,6 +1039,8 @@
     "itemStonksDescription": "Manage your investment watchlist",
     "itemPocketMoneyLabel": "Pocket Money",
     "itemPocketMoneyDescription": "Manage kids' accounts, allowances, and interest",
+    "itemCreaturesLabel": "Creatures & rewards",
+    "itemCreaturesDescription": "Each child's creature, task points and the rewards they buy",
     "itemWidgetsLabel": "Widgets",
     "itemWidgetsDescription": "Show / hide dashboard widgets",
     "itemNavigationLabel": "Navigation",
@@ -2506,7 +2508,7 @@
       "errorPinRequired": "Enter the settings PIN again, then try once more.",
       "errorInsufficientPoints": "Not enough points for that any more; the request is still waiting.",
       "rewardsTitle": "Rewards for task points",
-      "rewardsDescription": "Children whose avatar grows with task points see the active rewards on the pocket-money page and can ask for one. You approve it here.",
+      "rewardsDescription": "Children with a creature see the active rewards on their pocket-money page and can ask for one with their task points. You approve it here.",
       "rewardIconLabel": "Icon",
       "rewardTitleLabel": "Reward",
       "rewardTitlePlaceholder": "Movie night",
@@ -2516,7 +2518,10 @@
       "rewardActiveAria": "{title} can be redeemed",
       "rewardDeleteAria": "Delete {title}",
       "rewardAdd": "Add",
-      "errorNotPointsMode": "This child's avatar now grows with money, so the reward can't be approved; the request is still waiting. Deny it, or switch the child back to task points."
+      "errorNotPointsMode": "This child's avatar now grows with money, so the reward can't be approved; the request is still waiting. Deny it, or switch the child back to task points.",
+      "creaturesLinkTitle": "Creatures & rewards",
+      "creaturesLinkDescription": "Creatures, task points and rewards now have their own page.",
+      "errorNoCreature": "This child has no creature switched on."
     },
     "news": {
       "title": "News sources",
@@ -2824,6 +2829,31 @@
       "forDay": "for {day}",
       "turnOf": "{name}'s turn",
       "showMore": "Show more"
+    },
+    "creatures": {
+      "title": "Creatures & rewards",
+      "intro": "Switch on a creature for a child: it grows with the tasks they tick off, and their task points buy the rewards below. No pocket money needed.",
+      "noKidsHint": "Mark a family member as a child under People to give them a creature.",
+      "off": "No creature",
+      "switchAria": "Creature for {name}",
+      "speciesLabel": "Creature",
+      "speciesHint": "Changing it keeps the stage, the style and the look.",
+      "changeSpecies": "Change",
+      "growsWithLabel": "Grows with",
+      "growsWithAria": "What {name}'s creature grows with",
+      "growsWithPoints": "Task points",
+      "growsWithMoney": "Saved money ({currency})",
+      "growsWithPointsHint": "It grows with every task point earned and never shrinks; spending points on a reward doesn't make it smaller.",
+      "growsWithMoneyHint": "It grows with the money saved in pocket money, as before.",
+      "growsWithMoneyUnavailable": "Saved money is an option once pocket money is on and this child has an account.",
+      "shopLabel": "Shop",
+      "shopHint": "Lets the child buy things for their creature with points. Coming soon.",
+      "errorPinRequired": "Enter the settings PIN again to change this.",
+      "errorMoneyUnavailable": "Saved money needs pocket money switched on and an account for this child.",
+      "errorGeneric": "That didn't work. Please try again.",
+      "pickHint": "Pick a creature. It starts as an egg and grows from there.",
+      "switchOn": "Switch on",
+      "switchOnAs": "Switch on as {species}"
     }
   },
   "settingsSearch": {
@@ -2912,10 +2942,12 @@
       "stonks_add-symbol": "add symbol, ticker, stock, share, ETF, search",
       "stonks_watchlist": "watchlist, stocks, shares, remove, nickname",
       "pocket-money_currency": "currency, euro, dollar, pound, money",
-      "pocket-money_rewards": "rewards, points, task points, redeem, prizes, treats",
       "google_auto-sync": "automatic sync, sync interval, Google sync, how often",
       "google_calendars": "calendars, Google calendars, which calendars, enable, colours",
-      "google_person-mapping": "person mapping, assign person, who, family member, rules"
+      "google_person-mapping": "person mapping, assign person, who, family member, rules",
+      "creatures": "creature, creatures, dragon, pet, avatar, rewards, points, task points, shop, grows",
+      "creatures_children": "creature, switch on, species, dragon, grows with, points, money, shop",
+      "creatures_rewards": "rewards, points, task points, redeem, prizes, treats"
     }
   },
   "calendar": {

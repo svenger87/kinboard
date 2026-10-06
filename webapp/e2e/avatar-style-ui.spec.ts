@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { execFileSync } from "child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { seedCreature, type CreatureSeed } from "./helpers/creature-seed";
 import { establishSession } from "./session";
 import { acquireWholeDatabase, dbContainer, releaseWholeDatabase } from "./whole-database";
 
@@ -36,7 +37,7 @@ let childId = "";
 let childName = "";
 let accountId = "";
 let createdAccount = false;
-let original = "";
+let creature: CreatureSeed | null = null;
 let hadPin = false;
 
 test.beforeAll(async () => {
@@ -51,13 +52,10 @@ test.beforeAll(async () => {
       accountId = psql(`INSERT INTO pocket_money_accounts (family_id, person_id) VALUES ('${familyId}', '${childId}') RETURNING id`);
       createdAccount = true;
     }
-    original = psql(`SELECT avatar_species || '|' || avatar_style || '|' || reward_mode || '|' || last_seen_tier
-      FROM pocket_money_accounts WHERE id = '${accountId}'`);
-    // Points mode, so the visits below never raise best_tier (money mode
-    // writes it, and it only climbs): 650 points is stage 5, the Drake, the
-    // first with wings.
-    psql(`UPDATE pocket_money_accounts SET avatar_species = 'dragon', avatar_style = 'classic', reward_mode = 'points', last_seen_tier = 5
-      WHERE id = '${accountId}'`);
+    // The child's creature (RFC-017), growing with points, so the visits below
+    // never raise best_tier (money mode writes it, and it only climbs): 650
+    // points is stage 5, the Drake, the first with wings.
+    creature = seedCreature(psql, familyId, childId, { species: "dragon", style: "classic", grows_with: "points", last_seen_tier: 5 });
     psql(`INSERT INTO todo_point_awards (family_id, person_id, todo_id, completion_key, points)
       VALUES ('${familyId}', '${childId}', NULL, '${TAG}', 650)`);
     hadPin = psql(`SELECT count(*) FROM integration_secrets WHERE family_id = '${familyId}' AND key = 'settings_pin'`) !== "0";
@@ -73,12 +71,8 @@ test.afterAll(async () => {
   try {
     if (!familyId) return;
     psql(`DELETE FROM todo_point_awards WHERE family_id = '${familyId}' AND completion_key = '${TAG}'`);
+    creature?.restore();
     if (createdAccount) psql(`DELETE FROM pocket_money_accounts WHERE id = '${accountId}'`);
-    else if (original) {
-      const [species, style, mode, seen] = original.split("|");
-      psql(`UPDATE pocket_money_accounts SET avatar_species = '${species}', avatar_style = '${style}', reward_mode = '${mode}', last_seen_tier = ${seen}
-        WHERE id = '${accountId}'`);
-    }
     if (!hadPin) psql(`DELETE FROM integration_secrets WHERE family_id = '${familyId}' AND key = 'settings_pin'`);
     psql(`DELETE FROM devices WHERE hardware_id LIKE 'e2e-${DEVICE}%' OR hardware_id LIKE '${DEVICE}%'`);
   } finally {
@@ -104,7 +98,7 @@ async function shot(target: Page | Locator, name: string) {
   await target.screenshot({ path: join(SHOTS, `${name}.png`) });
 }
 
-const style = () => psql(`SELECT avatar_style FROM pocket_money_accounts WHERE id = '${accountId}'`);
+const style = () => psql(`SELECT style FROM creatures WHERE person_id = '${childId}'`);
 
 test("a child changes their own look with no PIN, a parent sees it behind the PIN, and the profile shows it", async ({ page }) => {
   test.setTimeout(240_000);
@@ -155,11 +149,11 @@ test("a child changes their own look with no PIN, a parent sees it behind the PI
   await page.keyboard.press("Escape");
 
   // A parent: Settings asks for the PIN, and shows the same choice.
-  await goto(page, "/settings/pocket-money");
+  await goto(page, "/settings/creatures");
   const digits = page.locator('input[inputmode="numeric"]');
   await expect(digits.first()).toBeVisible({ timeout: 30_000 });
   for (let i = 0; i < PIN.length; i++) await digits.nth(i).fill(PIN[i]);
-  const card = page.getByTestId(`avatar-style-${accountId}`);
+  const card = page.getByTestId(`avatar-style-${childId}`);
   await expect(card).toBeVisible({ timeout: 30_000 });
   await expect(card.getByRole("radio", { checked: true })).toHaveAttribute("data-style", "sticker");
   await card.scrollIntoViewIfNeeded();
@@ -180,7 +174,7 @@ test("a child changes their own look with no PIN, a parent sees it behind the PI
 test("a stage gained in a drawn look plays the hatching scene; from the egg, the egg cracks first", async ({ page }) => {
   test.setTimeout(120_000);
   await establishSession(page, familyCode!, DEVICE);
-  psql(`UPDATE pocket_money_accounts SET avatar_style = 'gumdrop', last_seen_tier = 1 WHERE id = '${accountId}'`);
+  creature!.set(`style = 'gumdrop', last_seen_tier = 1`);
 
   await goto(page, `/pocket-money?child=${childId}`);
   const scene = page.getByTestId("hatching-scene");
@@ -192,10 +186,10 @@ test("a stage gained in a drawn look plays the hatching scene; from the egg, the
   await expect(scene.locator(".creature-particle").first()).toBeAttached();
   await shot(page, "hatching-new-stage");
   await expect(scene).toBeHidden({ timeout: 10_000 });
-  await expect.poll(() => psql(`SELECT last_seen_tier FROM pocket_money_accounts WHERE id = '${accountId}'`)).toBe("5");
+  await expect.poll(() => psql(`SELECT last_seen_tier FROM creatures WHERE person_id = '${childId}'`)).toBe("5");
 
   // From a hatched stage: the flash, then the new one.
-  psql(`UPDATE pocket_money_accounts SET last_seen_tier = 4 WHERE id = '${accountId}'`);
+  creature!.set(`last_seen_tier = 4`);
   await goto(page, `/pocket-money?child=${childId}`);
   await expect(scene).toBeVisible({ timeout: 30_000 });
   await expect(scene.locator('[data-phase="new"] svg[data-tier="5"]')).toBeVisible({ timeout: 5_000 });
@@ -204,7 +198,7 @@ test("a stage gained in a drawn look plays the hatching scene; from the egg, the
 test("a species without drawings offers only Classic, and the child's page offers no look to change", async ({ page }) => {
   test.setTimeout(120_000);
   await establishSession(page, familyCode!, DEVICE);
-  psql(`UPDATE pocket_money_accounts SET avatar_species = 'wizard', avatar_style = 'sticker' WHERE id = '${accountId}'`);
+  creature!.set(`species = 'wizard', style = 'sticker'`);
 
   await goto(page, `/pocket-money?child=${childId}`);
   const avatar = page.getByRole("button", { name: /^(Tap|.* antippen|Toucher) / });
@@ -212,11 +206,11 @@ test("a species without drawings offers only Classic, and the child's page offer
   await expect(avatar.locator('img[data-avatar-style="classic"]')).toHaveAttribute("src", "/pocket-money/avatars/wizard-5.svg", { timeout: 30_000 });
   await expect(page.getByTestId("change-look")).toHaveCount(0);
 
-  await goto(page, "/settings/pocket-money");
+  await goto(page, "/settings/creatures");
   const digits = page.locator('input[inputmode="numeric"]');
   await expect(digits.first()).toBeVisible({ timeout: 30_000 });
   for (let i = 0; i < PIN.length; i++) await digits.nth(i).fill(PIN[i]);
-  const card = page.getByTestId(`avatar-style-${accountId}`);
+  const card = page.getByTestId(`avatar-style-${childId}`);
   await expect(card).toBeVisible({ timeout: 30_000 });
   await expect(card.locator('[data-style="classic"]')).toBeEnabled();
   for (const s of ["gumdrop", "sticker", "storybook"]) await expect(card.locator(`[data-style="${s}"]`)).toBeDisabled();
@@ -232,7 +226,7 @@ test("the new creatures: drawn and moving on the child's page; a drawn-only one 
   await establishSession(page, familyCode!, DEVICE);
   const avatar = page.getByRole("button", { name: /^(Tap|.* antippen|Toucher) / });
   for (const species of ["rex", "unicorn", "princess", "prince", "cat", "fox", "robot", "stego"]) {
-    psql(`UPDATE pocket_money_accounts SET avatar_species = '${species}', avatar_style = 'sticker' WHERE id = '${accountId}'`);
+    creature!.set(`species = '${species}', style = 'sticker'`);
     await goto(page, `/pocket-money?child=${childId}`);
     const svg = avatar.locator(`svg[data-species="${species}"][data-avatar-style="sticker"][data-tier="5"]`);
     await expect(svg).toBeVisible({ timeout: 30_000 });
@@ -240,7 +234,7 @@ test("the new creatures: drawn and moving on the child's page; a drawn-only one 
     await expect(page.getByTestId("change-look")).toBeVisible();
     await shot(avatar, `child-${species}-sticker`);
   }
-  psql(`UPDATE pocket_money_accounts SET avatar_species = 'princess', avatar_style = 'classic' WHERE id = '${accountId}'`);
+  creature!.set(`species = 'princess', style = 'classic'`);
   await goto(page, `/pocket-money?child=${childId}`);
   await expect(avatar.locator('svg[data-species="princess"][data-avatar-style="classic"]')).toBeVisible({ timeout: 30_000 });
   await expect(avatar.locator("img")).toHaveCount(0);
@@ -260,12 +254,15 @@ test("the species picker offers all fourteen drawn and the classic three, and a 
   }
   try {
     await establishSession(page, familyCode!, DEVICE);
-    await goto(page, "/settings/pocket-money");
+    await goto(page, "/settings/creatures");
     const digits = page.locator('input[inputmode="numeric"]');
     await expect(digits.first()).toBeVisible({ timeout: 30_000 });
     for (let i = 0; i < PIN.length; i++) await digits.nth(i).fill(PIN[i]);
-    const card = page.locator("div").filter({ has: page.getByText(kidName, { exact: false }) }).filter({ has: page.locator("button[data-species]") }).last();
+    // Settings -> Creatures & rewards (RFC-017): switching a creature on for a
+    // child who never had one asks which.
+    const card = page.getByTestId(`creature-card-${kidId}`);
     await expect(card).toBeVisible({ timeout: 30_000 });
+    await card.getByTestId("creature-switch").click();
     const drawn = ["dragon", "cat", "axolotl", "owl", "robot", "unicorn", "fox", "penguin", "bunny", "rex", "trike", "stego", "princess", "prince"];
     for (const species of drawn) {
       const option = card.locator(`button[data-species="${species}"]`);
@@ -277,12 +274,14 @@ test("the species picker offers all fourteen drawn and the classic three, and a 
     await expect(card.getByText(/Star Egg|Sternenei|Œuf étoilé/)).toBeVisible();
     await card.scrollIntoViewIfNeeded();
     await shot(card, "settings-species-picker");
-    await card.getByRole("button", { name: /^(Create as|Als|Créer).*(Unicorn|Einhorn|Licorne)/ }).click();
-    await expect.poll(() => psql(`SELECT avatar_species || '|' || avatar_style FROM pocket_money_accounts WHERE person_id = '${kidId}'`), { timeout: 15_000 }).toBe("unicorn|gumdrop");
+    await card.getByRole("button", { name: /^(Switch on as|Als|Activer).*(Unicorn|Einhorn|Licorne)/ }).click();
+    await expect.poll(() => psql(`SELECT species || '|' || style FROM creatures WHERE person_id = '${kidId}'`), { timeout: 15_000 }).toBe("unicorn|gumdrop");
+    // No pocket-money account was needed, or made.
+    expect(psql(`SELECT count(*) FROM pocket_money_accounts WHERE person_id = '${kidId}'`)).toBe("0");
   } finally {
     await acquireWholeDatabase();
     try {
-      psql(`DELETE FROM pocket_money_accounts WHERE person_id = '${kidId}'`);
+      psql(`DELETE FROM creatures WHERE person_id = '${kidId}'`);
       // Twice: the first delete only moves a person to the recycle bin.
       for (let i = 0; i < 2; i++) psql(`DELETE FROM people WHERE id = '${kidId}'`);
     } finally {

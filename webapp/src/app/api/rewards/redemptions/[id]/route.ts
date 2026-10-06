@@ -8,13 +8,13 @@ import { decideRedemption } from "@/lib/pocket-money/rewards";
 export const dynamic = "force-dynamic";
 
 /**
- * PATCH /api/pocket-money/redemptions/[id]  body: { status: "approved" | "denied" }
+ * PATCH /api/rewards/redemptions/[id]  body: { status: "approved" | "denied" }
  *
  * A parent's decision on a child's reward request (discussion #349), checked
  * against the settings PIN on the server: a child's own screen, which can make
  * the request, must not be able to approve it. Decided in one transaction
  * (decide_point_redemption): the request must still be pending, the child's
- * decisions are queued one after the other, and approving is refused with
+ * decisions are queued one after the other (per child since RFC-017), and approving is refused with
  * nothing written when the points do not cover it. Approved twice at once:
  * one 200, one 409 already_decided. The deciding device is recorded.
  */

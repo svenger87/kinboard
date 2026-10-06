@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { seedCreature, type CreatureSeed } from "./helpers/creature-seed";
 import { establishSession } from "./session";
 import { acquireWholeDatabase, dbContainer, releaseWholeDatabase } from "./whole-database";
 
@@ -35,7 +36,7 @@ let familyId = "";
 let childId = "";
 let accountId = "";
 let createdAccount = false;
-let original = "";
+let creature: CreatureSeed | null = null;
 
 test.beforeAll(async () => {
   await acquireWholeDatabase();
@@ -48,10 +49,9 @@ test.beforeAll(async () => {
       accountId = psql(`INSERT INTO pocket_money_accounts (family_id, person_id) VALUES ('${familyId}', '${childId}') RETURNING id`);
       createdAccount = true;
     }
-    original = psql(`SELECT json_build_object('species', avatar_species, 'style', avatar_style, 'look', avatar_look, 'mode', reward_mode, 'seen', last_seen_tier)::text
-      FROM pocket_money_accounts WHERE id = '${accountId}'`);
-    // Points mode at stage 6, so no visit raises best_tier and no celebration plays.
-    psql(`UPDATE pocket_money_accounts SET reward_mode = 'points', last_seen_tier = 6, avatar_look = '{}' WHERE id = '${accountId}'`);
+    // The child's creature (RFC-017), growing with points at stage 6, so no
+    // visit raises best_tier and no celebration plays.
+    creature = seedCreature(psql, familyId, childId, { grows_with: "points", last_seen_tier: 6, look: "{}" });
     psql(`INSERT INTO todo_point_awards (family_id, person_id, todo_id, completion_key, points) VALUES ('${familyId}', '${childId}', NULL, '${TAG}', 1100)`);
   } finally {
     releaseWholeDatabase();
@@ -63,12 +63,8 @@ test.afterAll(async () => {
   try {
     if (!familyId) return;
     psql(`DELETE FROM todo_point_awards WHERE family_id = '${familyId}' AND completion_key = '${TAG}'`);
+    creature?.restore();
     if (createdAccount) psql(`DELETE FROM pocket_money_accounts WHERE id = '${accountId}'`);
-    else if (original) {
-      const o = JSON.parse(original);
-      psql(`UPDATE pocket_money_accounts SET avatar_species = '${o.species}', avatar_style = '${o.style}', avatar_look = '${JSON.stringify(o.look).replace(/'/g, "''")}',
-        reward_mode = '${o.mode}', last_seen_tier = ${o.seen} WHERE id = '${accountId}'`);
-    }
     psql(`DELETE FROM devices WHERE hardware_id LIKE 'e2e-${DEVICE}%' OR hardware_id LIKE '${DEVICE}%'`);
   } finally {
     releaseWholeDatabase();
@@ -81,7 +77,7 @@ async function shot(page: Page, name: string) {
   await page.screenshot({ path: join(SHOTS, `${name}.png`) });
 }
 
-const stored = () => JSON.parse(psql(`SELECT avatar_look::text FROM pocket_money_accounts WHERE id = '${accountId}'`));
+const stored = () => JSON.parse(psql(`SELECT look::text FROM creatures WHERE person_id = '${childId}'`));
 
 async function openEditor(page: Page) {
   await page.goto(`/pocket-money?child=${childId}`, { waitUntil: "domcontentloaded" });
@@ -108,7 +104,7 @@ for (const [label, width, height] of [["phone", 390, 844], ["tablet", 820, 1180]
   test(`a fox's look, chosen by the child with no PIN (${label})`, async ({ page }) => {
     test.setTimeout(180_000);
     await page.setViewportSize({ width, height });
-    psql(`UPDATE pocket_money_accounts SET avatar_species = 'fox', avatar_style = 'gumdrop', avatar_look = '{}' WHERE id = '${accountId}'`);
+    creature!.set(`species = 'fox', style = 'gumdrop', look = '{}'`);
     await establishSession(page, familyCode!, DEVICE);
     const editor = await openEditor(page);
     const preview = editor.locator('svg[data-species="fox"]').first();
@@ -167,7 +163,7 @@ for (const [label, width, height] of [["phone", 390, 844], ["tablet", 820, 1180]
 test("the princess's editor: outfit, trim, hair and skin, and hairstyles (phone)", async ({ page }) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 390, height: 844 });
-  psql(`UPDATE pocket_money_accounts SET avatar_species = 'princess', avatar_style = 'sticker', avatar_look = '{"name":"Lia"}' WHERE id = '${accountId}'`);
+  creature!.set(`species = 'princess', style = 'sticker', look = '{"name":"Lia"}'`);
   await establishSession(page, familyCode!, DEVICE);
   const editor = await openEditor(page);
   for (const h of [/^(Outfit colour|Kleiderfarbe|Couleur de la tenue)$/, /^(Trim colour|Besatzfarbe|Couleur des bordures)$/, /^(Hair colour|Haarfarbe|Couleur des cheveux)$/, /^(Skin tone|Hautfarbe|Couleur de peau)$/, /^(Hairstyle|Frisur|Coiffure)$/]) {

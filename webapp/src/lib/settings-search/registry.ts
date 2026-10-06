@@ -29,6 +29,7 @@ import {
   Puzzle,
   Rss,
   Server,
+  Sparkles,
   ShoppingCart,
   Ticket,
   Trash2,
@@ -116,6 +117,8 @@ const catalogue = page({ id: "catalogue", href: "/settings/catalogue", section: 
 const schedule = page({ id: "schedule", href: "/settings/schedule", section: "sectionFamily", labelKey: "settings.itemScheduleLabel", descriptionKey: "settings.itemScheduleDescription", icon: GraduationCap, menu: true });
 const holidays = page({ id: "holidays", href: "/settings/holidays", section: "sectionFamily", labelKey: "settings.itemHolidaysLabel", descriptionKey: "settings.itemHolidaysDescription", icon: CalendarHeart, menu: true });
 const recycleBin = page({ id: "recycle-bin", href: "/settings/recycle-bin", section: "sectionFamily", labelKey: "settings.itemRecycleBinLabel", descriptionKey: "settings.itemRecycleBinDescription", icon: Trash2, menu: true });
+// Core since RFC-017: a child's creature and the rewards need no plugin.
+const creatures = page({ id: "creatures", href: "/settings/creatures", section: "sectionFamily", labelKey: "settings.itemCreaturesLabel", descriptionKey: "settings.itemCreaturesDescription", icon: Sparkles, menu: true });
 const taskLog = page({ id: "task-log", href: "/settings/task-log", section: "sectionFamily", labelKey: "settings.itemTaskLogLabel", descriptionKey: "settings.itemTaskLogDescription", icon: History, menu: true });
 
 const widgets = page({ id: "widgets", href: "/settings/widgets", section: "sectionDisplay", labelKey: "settings.itemWidgetsLabel", descriptionKey: "settings.itemWidgetsDescription", icon: LayoutGrid, menu: true });
@@ -161,6 +164,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   holidays,
   recycleBin,
   taskLog,
+  creatures,
   widgets,
   hints,
   navigation,
@@ -282,6 +286,9 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   ]),
   ...sectionsOf(pocketMoney, [
     { anchor: "currency", labelKey: "settings.pocketMoney.currencyLabel" },
+  ]),
+  ...sectionsOf(creatures, [
+    { anchor: "children", labelKey: "settings.creatures.speciesLabel", descriptionKey: "settings.creatures.intro" },
     { anchor: "rewards", labelKey: "settings.pocketMoney.rewardsTitle", descriptionKey: "settings.pocketMoney.rewardsDescription" },
   ]),
   ...sectionsOf(google, [

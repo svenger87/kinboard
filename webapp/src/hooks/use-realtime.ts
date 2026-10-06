@@ -49,7 +49,8 @@ type TableName =
   | "assistant_action_requests"
   | "todo_occurrences"
   | "point_rewards"
-  | "point_redemptions";
+  | "point_redemptions"
+  | "creatures";
 
 const ALL_TABLES: TableName[] = [
   "people",
@@ -80,6 +81,7 @@ const ALL_TABLES: TableName[] = [
   "todo_occurrences",
   "point_rewards",
   "point_redemptions",
+  "creatures",
 ];
 
 interface UseRealtimeOptions {
@@ -165,6 +167,11 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
         case "point_redemptions":
           // A child's request, or a parent's decision on another screen.
           queryClient.invalidateQueries({ queryKey: ["point-redemptions", family.id] });
+          break;
+        case "creatures":
+          // A creature switched on or off, re-dressed, or its stage recorded
+          // on another screen (RFC-017).
+          queryClient.invalidateQueries({ queryKey: ["creatures", family.id] });
           break;
         case "shopping_items":
           queryClient.invalidateQueries({

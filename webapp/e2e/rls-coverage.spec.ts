@@ -97,6 +97,7 @@ test("every family-scoped table is under row-level security", () => {
     "assistant_action_requests",
     "todo_occurrences", "todo_events",
     "point_rewards", "point_redemptions",
+    "creatures",
   ]);
 
   // - todo_occurrences / todo_events (#341): their own RLS + a family-scoped
@@ -131,6 +132,26 @@ test("every family-scoped table is under row-level security", () => {
     expect(browserWriteGrants(rewardsSql, table), table).toEqual([]);
   }
   expect("migration_zzzzzzz_point_rewards.sql" > "migration_zz_row_level_security.sql").toBe(true);
+
+  // - creatures (RFC-017): its own RLS + a family-scoped SELECT-only policy
+  //   that also hides a binned child's creature, REVOKE ALL from
+  //   anon/authenticated and only SELECT given back, in
+  //   migration_zzzzzzzz_pocket_money_creatures_out.sql. Every write is a
+  //   server route on the service role: a child's screen must not switch its
+  //   own creature on, or grow it, past the PIN. The same file re-creates the
+  //   point_redemptions read policy, still family-scoped.
+  const creaturesFile = "migration_zzzzzzzz_pocket_money_creatures_out.sql";
+  const creaturesSql = codeOnly(readFileSync(join(DOCKER, creaturesFile), "utf8"), { sql: true });
+  expect(creaturesSql).toMatch(/ALTER TABLE public\.creatures ENABLE ROW LEVEL SECURITY;/i);
+  expect(creaturesSql).toMatch(/CREATE POLICY creatures_family_read ON public\.creatures\s+FOR SELECT USING \(family_id = public\.current_family_id\(\) AND/i);
+  expect(creaturesSql).toMatch(/REVOKE ALL ON TABLE public\.creatures FROM anon;/i);
+  expect(creaturesSql).toMatch(/REVOKE ALL ON TABLE public\.creatures FROM authenticated;/i);
+  expect(creaturesSql).toMatch(/GRANT SELECT ON TABLE public\.creatures TO authenticated;/i);
+  expect(browserWriteGrants(creaturesSql, "creatures")).toEqual([]);
+  expect(creaturesSql).toMatch(/CREATE POLICY point_redemptions_family_read ON public\.point_redemptions\s+FOR SELECT USING \(family_id = public\.current_family_id\(\) AND/i);
+  expect(browserWriteGrants(creaturesSql, "point_redemptions")).toEqual([]);
+  expect(creaturesFile > "migration_zz_row_level_security.sql").toBe(true);
+  expect(creaturesFile > "migration_zzzzzzz_point_rewards.sql").toBe(true);
 
   // - pocket_money_* keep their FOR ALL `_family_scope` policies (above), but
   //   migration_zzzzzzzz_pocket_money_server_only.sql REVOKEs INSERT, UPDATE,

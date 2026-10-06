@@ -20,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { Json, PocketMoneyGoal } from "@/types/database";
+import type { PocketMoneyGoal } from "@/types/database";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
 import type { StageUp } from "@/lib/pocket-money/creature-reactions";
@@ -45,15 +45,18 @@ import {
   usePocketMoneyGoals,
   usePocketMoneyAccountTransactions,
   useCreateWithdrawalRequest,
-  useUpdatePocketMoneyAccount,
   useWithdrawalRequests,
   usePeople,
   usePointRewards,
   usePointRedemptions,
   usePointTotals,
+  useCreatures,
+  activeCreatureOf,
+  useUpdateCreature,
 } from "@/hooks";
 import { RewardsPanel } from "@/components/pocket-money/rewards-panel";
-import { avatarStage, pointsStageWrites } from "@/lib/pocket-money/points";
+import { pointsStageWrites } from "@/lib/pocket-money/points";
+import { creatureStage } from "@/lib/creatures/stage";
 import { AmountDialog } from "@/components/pocket-money/amount-dialog";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import { formatCents } from "@/lib/pocket-money/format";
@@ -113,7 +116,7 @@ export default function PocketMoneyPage() {
   const { data: goals = [] } = usePocketMoneyGoals(active?.id);
   const { data: transactions = [] } = usePocketMoneyAccountTransactions(active?.id);
   const createWithdrawalRequest = useCreateWithdrawalRequest();
-  const updateAccount = useUpdatePocketMoneyAccount();
+  const updateCreature = useUpdateCreature();
   const updateGoal = useUpdatePocketMoneyGoal();
   const deleteGoal = useDeletePocketMoneyGoal();
   // Pending spend requests for the active account — drives the
@@ -123,19 +126,24 @@ export default function PocketMoneyPage() {
     "pending",
   );
 
-  // Points mode (discussion #349): the avatar grows with the task points the
-  // child has earned, and points buy rewards.
+  // The child's creature (RFC-017): its own row, switched on by a parent,
+  // growing with the task points the child has earned or -- as before, for a
+  // child whose creature was set to it -- with the money in this account.
+  // Points buy rewards. A child without a creature sees the money only.
+  // Waits for the creatures before the first paint, so a child's creature does
+  // not pop in after their money; a failed read shows the money alone.
+  const { data: creatures, isPending: creaturesPending } = useCreatures();
+  const creature = activeCreatureOf(creatures, active?.person_id);
   const { ready: pointsReady, totalsFor } = usePointTotals();
   const { data: rewards = [] } = usePointRewards();
   const { data: redemptions = [] } = usePointRedemptions();
-  const pointsMode = active?.reward_mode === "points";
-  const points = active ? totalsFor(active.person_id, active.id) : null;
-  const stage = avatarStage({
-    mode: active?.reward_mode,
-    balanceCents: active?.balance_cents ?? 0,
+  const points = active ? totalsFor(active.person_id) : null;
+  const stage = creatureStage({
+    creature: creature ?? { grows_with: "money", best_tier: 1 },
+    account: active,
     earnedPoints: points?.earned ?? 0,
-    storedBestTier: active?.best_tier,
   });
+  const pointsMode = Boolean(creature) && stage.mode === "points";
 
   // Celebrate a promotion, and record the high-water mark.
   //
@@ -152,22 +160,22 @@ export default function PocketMoneyPage() {
   // and a switch from money to points that only brings back a stage reached
   // before is recorded without a celebration.
   useEffect(() => {
-    if (!active) return;
+    if (!active || !creature) return;
     if (pointsMode && !pointsReady) return;
     // best_tier is written in money mode only: in points mode the stage is
     // the points' own and must be able to go back down (pointsStageWrites).
     const { celebrate, update } = pointsStageWrites({
       stage,
-      lastSeenTier: active.last_seen_tier,
-      storedBestTier: active.best_tier,
+      lastSeenTier: creature.last_seen_tier,
+      storedBestTier: creature.best_tier,
     });
-    if (celebrate) celebrateStage(active.person_id, active.last_seen_tier ?? stage.tier - 1, stage.tier);
+    if (celebrate) celebrateStage(active.person_id, creature.last_seen_tier ?? stage.tier - 1, stage.tier);
 
     if (Object.keys(update).length > 0) {
-      updateAccount.mutateAsync({ id: active.id, update }).catch(console.error);
+      updateCreature.mutateAsync({ personId: creature.person_id, change: update }).catch(console.error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active?.id, active?.balance_cents, stage.tier, pointsMode, pointsReady]);
+  }, [active?.id, creature?.person_id, active?.balance_cents, stage.tier, pointsMode, pointsReady]);
 
   // Stable callback so re-renders don't reset CelebrationOverlay's
   // dismissal timer mid-animation.
@@ -256,7 +264,7 @@ export default function PocketMoneyPage() {
   const primaryGoal = goals.find((g) => g.is_primary && g.status === "active");
   const secondaryGoals = goals.filter((g) => !g.is_primary && g.status === "active");
 
-  if (isPending) {
+  if (isPending || creaturesPending) {
     return (
       <main id="main-content" className="p-8 max-w-2xl mx-auto space-y-3">
         <Skeleton className="h-10 w-48" />
@@ -282,7 +290,9 @@ export default function PocketMoneyPage() {
   if (!active) return null;
 
   const activePerson = people.find((p) => p.id === active.person_id);
-  const activeLook = readLook(active.avatar_look);
+  const activeLook = readLook(creature?.look);
+  const species = creature?.species ?? "dragon";
+  const creatureStyle = creature?.style ?? "classic";
 
   // A child in points mode needs no money set up: the money part of the page
   // shows only when there is money to show.
@@ -357,7 +367,7 @@ export default function PocketMoneyPage() {
       <div className="flex flex-col items-center text-center space-y-3">
         {/* The creature's name, the child's own, above it -- shown only here,
             on the family's own screens. */}
-        {activeLook.name && (
+        {creature && activeLook.name && (
           <p className="text-2xl font-bold leading-tight" data-testid="creature-name">
             {activeLook.name}
           </p>
@@ -365,20 +375,24 @@ export default function PocketMoneyPage() {
         {/* The child's own avatar: tapping it makes it hop and send up
             hearts (an egg shakes). The look is theirs to change, no PIN.
             It cheers when one of the child's tasks is ticked off anywhere,
-            and a new stage reached that way plays the celebration. */}
+            and a new stage reached that way plays the celebration. A child
+            without a creature (RFC-017: a parent switches it on) sees their
+            money only. */}
+        {creature && (
         <ReactingCreature
           personId={active.person_id}
           onStageUp={({ from, to }: StageUp) => celebrateStage(active.person_id, from, to)}
-          species={active.avatar_species}
+          species={species}
           tier={currentTier}
-          style={active.avatar_style}
+          style={creatureStyle}
           look={activeLook}
           size={220}
           tappable
-          label={t(`species.${active.avatar_species}.tier${currentTier}` as never)}
-          tapLabel={t("tapAvatarAria", { stage: t(`species.${active.avatar_species}.tier${currentTier}` as never) })}
+          label={t(`species.${species}.tier${currentTier}` as never)}
+          tapLabel={t("tapAvatarAria", { stage: t(`species.${species}.tier${currentTier}` as never) })}
         />
-        {hasDrawnArt(active.avatar_species) && (
+        )}
+        {creature && hasDrawnArt(species) && (
           <Button
             variant="ghost"
             size="sm"
@@ -399,6 +413,7 @@ export default function PocketMoneyPage() {
               isn't legible to a kid (or parent) on first glance. The whole
               caption is tappable; opens the stages sheet so the kid can see
               the full evolution journey + thresholds. */}
+          {creature && (
           <button
             type="button"
             onClick={() => setStagesSheetOpen(true)}
@@ -409,7 +424,7 @@ export default function PocketMoneyPage() {
             aria-label={t("stagesSheetOpenAria")}
           >
             <p className="text-xl font-bold flex items-center gap-2">
-              {t(`species.${active.avatar_species}.tier${currentTier}` as never)}
+              {t(`species.${species}.tier${currentTier}` as never)}
               {showBestBadge && (
                 <span
                   className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300"
@@ -417,7 +432,7 @@ export default function PocketMoneyPage() {
                 >
                   <Star className="size-3 fill-current" />
                   {t("bestStageBadge", {
-                    stage: t(`species.${active.avatar_species}.tier${bestTier}` as never),
+                    stage: t(`species.${species}.tier${bestTier}` as never),
                   })}
                 </span>
               )}
@@ -426,7 +441,7 @@ export default function PocketMoneyPage() {
               if (stage.next === null) {
                 return <p className="text-base font-medium text-muted-foreground">{t("maxStageHint")}</p>;
               }
-              const nextStage = t(`species.${active.avatar_species}.tier${stage.next.tier}` as never);
+              const nextStage = t(`species.${species}.tier${stage.next.tier}` as never);
               return (
                 <p className="text-base font-medium text-muted-foreground">
                   {stage.mode === "points"
@@ -439,16 +454,17 @@ export default function PocketMoneyPage() {
               );
             })()}
           </button>
+          )}
         </div>
         {!pointsMode && moneySummary}
       </div>
 
       {pointsMode && points && (
         <RewardsPanel
-          accountId={active.id}
+          personId={active.person_id}
           totals={points}
           rewards={rewards}
-          redemptions={redemptions.filter((r) => r.account_id === active.id)}
+          redemptions={redemptions.filter((r) => r.person_id === active.person_id)}
         />
       )}
 
@@ -591,8 +607,8 @@ export default function PocketMoneyPage() {
         kind={celebration}
         onDone={handleCelebrationDone}
         creature={{
-          species: active.avatar_species,
-          style: active.avatar_style,
+          species,
+          style: creatureStyle,
           look: activeLook,
           from: celebrationFrom,
           to: celebrationTo ?? currentTier,
@@ -606,20 +622,20 @@ export default function PocketMoneyPage() {
             <SheetDescription>{t("changeLookDescription")}</SheetDescription>
           </SheetHeader>
           <div className="mt-4">
-            {lookSheetOpen && (
+            {lookSheetOpen && creature && (
               <CreatureLookEditor
                 // A fresh draft each time the sheet opens, or per child.
                 key={active.id}
-                species={active.avatar_species}
+                species={species}
                 tier={currentTier}
-                style={active.avatar_style}
+                style={creatureStyle}
                 look={activeLook}
                 childName={activePerson?.name ?? ""}
-                saving={updateAccount.isPending}
+                saving={updateCreature.isPending}
                 onCancel={() => setLookSheetOpen(false)}
                 onSave={({ style, look }: { style: AvatarStyle; look: CreatureLook }) =>
-                  updateAccount
-                    .mutateAsync({ id: active.id, update: { avatar_style: style, avatar_look: look as Json } })
+                  updateCreature
+                    .mutateAsync({ personId: creature.person_id, change: { style, look } })
                     .then(() => setLookSheetOpen(false))
                     .catch(() => toast.error(t("avatarStyleSaveFailed")))
                 }
@@ -632,8 +648,8 @@ export default function PocketMoneyPage() {
       <StagesSheet
         open={stagesSheetOpen}
         onOpenChange={setStagesSheetOpen}
-        species={active.avatar_species}
-        avatarStyle={active.avatar_style}
+        species={species}
+        avatarStyle={creatureStyle}
         look={activeLook}
         stage={stage}
         currency={active.currency}

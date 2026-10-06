@@ -7,7 +7,7 @@ import { UUID } from "@/lib/home/action-requests";
 
 export const dynamic = "force-dynamic";
 
-/** PATCH /api/pocket-money/rewards/[id] -- edit a reward; needs the settings PIN. */
+/** PATCH /api/rewards/[id] -- edit a reward; needs the settings PIN. */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const auth = await requireSession(request);
@@ -33,7 +33,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 /**
- * DELETE /api/pocket-money/rewards/[id] -- remove a reward; needs the settings
+ * DELETE /api/rewards/[id] -- remove a reward; needs the settings
  * PIN. Requests already made keep their own copy of its title and cost.
  */
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

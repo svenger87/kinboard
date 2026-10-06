@@ -50,6 +50,7 @@
 - [[Screensaver]]
 - [[People & devices|People-and-Devices]]
 - [[Recycle bin|Recycle-Bin]]
+- [[Creatures & rewards|Creatures-and-Rewards]]
 - [[Notifications]]
 - [[Themes]]
 

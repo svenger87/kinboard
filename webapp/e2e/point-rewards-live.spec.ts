@@ -7,9 +7,11 @@ import { decideRedemption, requestRedemption } from "../src/lib/pocket-money/rew
 
 /**
  * Rewards bought with task points (discussion #349), against PostgreSQL
- * through PostgREST (docker/migration_zzzzzzz_point_rewards.sql), in the
- * style of pocket-money-live.spec.ts: approved twice books once, the balance
- * never goes below zero, and a browser's token can read but not write.
+ * through PostgREST (docker/migration_zzzzzzz_point_rewards.sql, per child
+ * since migration_zzzzzzzz_pocket_money_creatures_out.sql), in the style of
+ * pocket-money-live.spec.ts: approved twice books once, the balance never
+ * goes below zero, no pocket-money account is needed, and a browser's token
+ * can read but not write.
  *
  * Needs a stack: SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL (or
  * NEXT_PUBLIC_SUPABASE_URL), plus NEXT_PUBLIC_SUPABASE_ANON_KEY and JWT_SECRET
@@ -27,6 +29,8 @@ test.describe.configure({ mode: "serial" });
 const FAMILY = "c1a0de00-0010-4000-8000-00000000f001";
 const OTHER_FAMILY = "c1a0de00-0010-4000-8000-00000000f002";
 const CHILD = "c1a0de00-0010-4000-8000-00000000f0a1";
+/** A child with a creature and no pocket-money account (RFC-017). */
+const CHILD2 = "c1a0de00-0010-4000-8000-00000000f0a2";
 const ACCOUNT = "c1a0de00-0010-4000-8000-00000000f0c1";
 const REWARD = "c1a0de00-0010-4000-8000-00000000f0d1";
 const BIG_REWARD = "c1a0de00-0010-4000-8000-00000000f0d2";
@@ -38,34 +42,35 @@ const rpc = () => db as RpcClient;
 async function purge() {
   await db.from("families").delete().in("id", [FAMILY, OTHER_FAMILY]);
   // The cascade stops at the soft-delete trigger on people: delete twice to purge.
-  for (let i = 0; i < 2; i++) await db.from("people").delete().eq("id", CHILD);
+  for (let i = 0; i < 2; i++) await db.from("people").delete().in("id", [CHILD, CHILD2]);
 }
 
-/** The child has earned exactly `points`, has no requests, and is in points mode. */
-async function reset(points: number) {
-  await db.from("point_redemptions").delete().eq("account_id", ACCOUNT);
-  await db.from("todo_point_awards").delete().eq("person_id", CHILD);
+/** The child has earned exactly `points`, has no requests, and has a creature growing with points. */
+async function reset(points: number, child = CHILD) {
+  await db.from("point_redemptions").delete().eq("person_id", child);
+  await db.from("todo_point_awards").delete().eq("person_id", child);
   if (points > 0) {
     const { error } = await db.from("todo_point_awards").insert({
-      family_id: FAMILY, person_id: CHILD, todo_id: null, completion_key: "claude-pt-live", points,
+      family_id: FAMILY, person_id: child, todo_id: null, completion_key: "claude-pt-live", points,
     });
     if (error) throw error;
   }
-  const { error } = await db.from("pocket_money_accounts").update({ reward_mode: "points" }).eq("id", ACCOUNT);
+  const { error } = await db.from("creatures")
+    .upsert({ person_id: child, family_id: FAMILY, enabled: true, grows_with: "points" }, { onConflict: "person_id" });
   if (error) throw error;
 }
 
 /** A pending request written by hand, past the request's own check. */
-async function pending(cost: number): Promise<string> {
+async function pending(cost: number, child = CHILD): Promise<string> {
   const { data, error } = await db.from("point_redemptions")
-    .insert({ family_id: FAMILY, account_id: ACCOUNT, title: "claude-pt-live", cost_points: cost })
+    .insert({ family_id: FAMILY, person_id: child, title: "claude-pt-live", cost_points: cost })
     .select("id").single();
   if (error) throw error;
   return data.id;
 }
 
-async function totals(): Promise<{ earned: number; spent: number; pending: number; balance: number; owed: number }> {
-  const { data, error } = await db.rpc("point_account_totals", { p_family_id: FAMILY, p_account_id: ACCOUNT });
+async function totals(child = CHILD): Promise<{ earned: number; spent: number; pending: number; balance: number; owed: number }> {
+  const { data, error } = await db.rpc("point_person_totals", { p_family_id: FAMILY, p_person_id: child });
   if (error) throw error;
   return data;
 }
@@ -77,8 +82,8 @@ async function statusOf(id: string): Promise<string> {
 
 const approve = (redemptionId: string) =>
   decideRedemption(rpc(), { familyId: FAMILY, redemptionId, decision: "approved", deviceId: null });
-const ask = (rewardId: string) =>
-  requestRedemption(rpc(), { familyId: FAMILY, accountId: ACCOUNT, rewardId, deviceId: null });
+const ask = (rewardId: string, child = CHILD) =>
+  requestRedemption(rpc(), { familyId: FAMILY, personId: child, rewardId, deviceId: null });
 
 test.beforeAll(async () => {
   db = createAdminClient();
@@ -87,6 +92,7 @@ test.beforeAll(async () => {
     ["families", { id: FAMILY, name: "claude-pt-live", join_code: "CLAUDEPTLV" }],
     ["families", { id: OTHER_FAMILY, name: "claude-pt-live-other", join_code: "CLAUDEPTLO" }],
     ["people", { id: CHILD, family_id: FAMILY, name: "claude-pt-child", is_child: true }],
+    ["people", { id: CHILD2, family_id: FAMILY, name: "claude-pt-child2", is_child: true }],
     ["pocket_money_accounts", { id: ACCOUNT, family_id: FAMILY, person_id: CHILD, balance_cents: 0 }],
     ["point_rewards", { id: REWARD, family_id: FAMILY, title: "claude-pt-reward", cost_points: 60 }],
     ["point_rewards", { id: BIG_REWARD, family_id: FAMILY, title: "claude-pt-big", cost_points: 500 }],
@@ -161,7 +167,7 @@ test.describe("the balance never goes below zero", () => {
     expect((await ask(REWARD)).status).toBe(201);
     expect(await ask(REWARD)).toEqual({ status: 409, body: { error: "insufficient_points", balance: 100, pending: 60 } });
     expect((await ask(BIG_REWARD)).status).toBe(409);
-    const { data } = await db.from("point_redemptions").select("title, cost_points, status").eq("account_id", ACCOUNT);
+    const { data } = await db.from("point_redemptions").select("title, cost_points, status").eq("person_id", CHILD);
     expect(data).toEqual([{ title: "claude-pt-reward", cost_points: 60, status: "pending" }]);
   });
 
@@ -172,11 +178,17 @@ test.describe("the balance never goes below zero", () => {
     expect(answers.filter((a) => a.status === 409)).toHaveLength(9);
   });
 
-  test("a child whose avatar grows with money cannot ask, nor for an inactive reward", async () => {
+  test("a child without a creature switched on cannot ask, nor for an inactive reward", async () => {
     await reset(1_000);
-    await db.from("pocket_money_accounts").update({ reward_mode: "money" }).eq("id", ACCOUNT);
-    expect(await ask(REWARD)).toEqual({ status: 409, body: { error: "not_points_mode" } });
-    await db.from("pocket_money_accounts").update({ reward_mode: "points" }).eq("id", ACCOUNT);
+    await db.from("creatures").update({ enabled: false }).eq("person_id", CHILD);
+    expect(await ask(REWARD)).toEqual({ status: 409, body: { error: "no_creature" } });
+    await db.from("creatures").delete().eq("person_id", CHILD);
+    expect(await ask(REWARD)).toEqual({ status: 409, body: { error: "no_creature" } });
+    await reset(1_000);
+    // What it grows with does not matter: the points are the child's either way.
+    await db.from("creatures").update({ grows_with: "money" }).eq("person_id", CHILD);
+    expect((await ask(REWARD)).status).toBe(201);
+    await reset(1_000);
     await db.from("point_rewards").update({ active: false }).eq("id", REWARD);
     expect(await ask(REWARD)).toEqual({ status: 404, body: { error: "no_reward" } });
     await db.from("point_rewards").update({ active: true }).eq("id", REWARD);
@@ -195,16 +207,15 @@ test.describe("the balance never goes below zero", () => {
     expect(await approve(id)).toEqual({ status: 409, body: { error: "insufficient_points", balance: 0 } });
   });
 
-  test("a child switched back to money: approving is refused and the request keeps waiting; denying works", async () => {
+  test("a creature switched to money: approving still works, the points are the child's", async () => {
     await reset(100);
     const id = await pending(10);
-    await db.from("pocket_money_accounts").update({ reward_mode: "money" }).eq("id", ACCOUNT);
-    expect(await approve(id)).toEqual({ status: 409, body: { error: "not_points_mode" } });
-    expect(await statusOf(id)).toBe("pending");
-    expect((await totals()).spent).toBe(0);
-    expect(await decideRedemption(rpc(), { familyId: FAMILY, redemptionId: id, decision: "denied", deviceId: null }))
+    await db.from("creatures").update({ grows_with: "money" }).eq("person_id", CHILD);
+    expect(await approve(id)).toEqual({ status: 200, body: { ok: true, status: "approved", balance: 90 } });
+    const other = await pending(10);
+    expect(await decideRedemption(rpc(), { familyId: FAMILY, redemptionId: other, decision: "denied", deviceId: null }))
       .toMatchObject({ status: 200 });
-    expect(await statusOf(id)).toBe("denied");
+    expect(await statusOf(other)).toBe("denied");
   });
 
   test("another family's request or reward is not found", async () => {
@@ -212,8 +223,58 @@ test.describe("the balance never goes below zero", () => {
     const id = await pending(10);
     expect(await decideRedemption(rpc(), { familyId: OTHER_FAMILY, redemptionId: id, decision: "approved", deviceId: null }))
       .toEqual({ status: 404, body: { error: "not found" } });
-    expect(await requestRedemption(rpc(), { familyId: OTHER_FAMILY, accountId: ACCOUNT, rewardId: REWARD, deviceId: null }))
+    expect(await requestRedemption(rpc(), { familyId: OTHER_FAMILY, personId: CHILD, rewardId: REWARD, deviceId: null }))
       .toEqual({ status: 404, body: { error: "not found" } });
+    expect(await statusOf(id)).toBe("pending");
+  });
+});
+
+test.describe("per child, no pocket-money account needed (RFC-017)", () => {
+  test("a child with a creature and no account asks, is approved, and has their own balance", async () => {
+    await reset(80, CHILD2);
+    await reset(0);
+    expect((await ask(REWARD, CHILD2)).status).toBe(201);
+    const { data } = await db.from("point_redemptions").select("id, account_id").eq("person_id", CHILD2).single();
+    expect(data.account_id).toBeNull();
+    expect(await approve(data.id)).toEqual({ status: 200, body: { ok: true, status: "approved", balance: 20 } });
+    expect(await totals(CHILD2)).toEqual({ earned: 80, spent: 60, pending: 0, balance: 20, owed: 0 });
+    // The other child's points are untouched.
+    expect(await totals()).toEqual({ earned: 0, spent: 0, pending: 0, balance: 0, owed: 0 });
+  });
+
+  test("a child's request carries their account too, when they have one, so rc.13 still adds it up", async () => {
+    await reset(100);
+    expect((await ask(REWARD)).status).toBe(201);
+    const { data } = await db.from("point_redemptions").select("account_id").eq("person_id", CHILD).single();
+    expect(data.account_id).toBe(ACCOUNT);
+    const { data: old } = await db.rpc("point_account_totals", { p_family_id: FAMILY, p_account_id: ACCOUNT });
+    expect(old).toEqual(await totals());
+  });
+
+  test("rc.13 after a rollback: a row with only the account gets its child, and the old request function still works", async () => {
+    await reset(100);
+    const { data, error } = await db.from("point_redemptions")
+      .insert({ family_id: FAMILY, account_id: ACCOUNT, title: "claude-pt-rc13", cost_points: 5 })
+      .select("person_id").single();
+    expect(error).toBeNull();
+    expect(data.person_id).toBe(CHILD);
+    const { data: answer } = await db.rpc("request_point_redemption", {
+      p_family_id: FAMILY, p_account_id: ACCOUNT, p_reward_id: REWARD, p_device_id: null,
+    });
+    expect(answer.ok).toBe(true);
+    expect(answer.redemption.person_id).toBe(CHILD);
+  });
+
+  test("deleting the pocket-money account keeps the child's requests", async () => {
+    await reset(100);
+    const id = await pending(10);
+    const acct = "c1a0de00-0010-4000-8000-00000000f0c9";
+    await db.from("pocket_money_accounts").insert({ id: acct, family_id: FAMILY, person_id: CHILD2, balance_cents: 0 });
+    const other = await pending(10, CHILD2);
+    expect((await db.from("point_redemptions").select("account_id").eq("id", other).single()).data.account_id).toBe(acct);
+    await db.from("pocket_money_accounts").delete().eq("id", acct);
+    expect((await db.from("point_redemptions").select("account_id").eq("id", other).single()).data.account_id).toBeNull();
+    expect(await statusOf(other)).toBe("pending");
     expect(await statusOf(id)).toBe("pending");
   });
 });
@@ -233,6 +294,20 @@ test.describe("best_tier only climbs, and never past the last stage", () => {
     expect(await bestTier()).toBe(8);
     const { error } = await db.from("pocket_money_accounts")
       .insert({ family_id: OTHER_FAMILY, person_id: CHILD, best_tier: 99 });
+    expect(error?.code).toBe("23514");
+  });
+
+  const creatureBest = async () =>
+    (await db.from("creatures").select("best_tier").eq("person_id", CHILD).single()).data.best_tier;
+
+  test("on the creature too: a lower value is ignored, past 8 is held at 8, a new one can't start out of range", async () => {
+    await reset(0);
+    await db.from("creatures").update({ best_tier: 5 }).eq("person_id", CHILD);
+    await db.from("creatures").update({ best_tier: 2 }).eq("person_id", CHILD);
+    expect(await creatureBest()).toBe(5);
+    await db.from("creatures").update({ best_tier: 99 }).eq("person_id", CHILD);
+    expect(await creatureBest()).toBe(8);
+    const { error } = await db.from("creatures").insert({ family_id: FAMILY, person_id: CHILD2, best_tier: 99 });
     expect(error?.code).toBe("23514");
   });
 });
@@ -256,6 +331,8 @@ test.describe("a browser's token reads its family's rows and writes nothing", ()
     const theirs = browser(OTHER_FAMILY);
     expect((await theirs.from("point_rewards").select("id").eq("id", REWARD)).data).toEqual([]);
     expect((await theirs.from("point_redemptions").select("id").eq("id", id)).data).toEqual([]);
+    expect((await mine.from("creatures").select("person_id").eq("person_id", CHILD)).data).toHaveLength(1);
+    expect((await theirs.from("creatures").select("person_id").eq("person_id", CHILD)).data).toEqual([]);
   });
 
   test("writes: no insert, update or delete, and no function, even in its own family", async () => {
@@ -264,13 +341,19 @@ test.describe("a browser's token reads its family's rows and writes nothing", ()
     const mine = browser(FAMILY);
     const attempts = [
       await mine.from("point_redemptions").update({ status: "approved" }).eq("id", id),
-      await mine.from("point_redemptions").insert({ family_id: FAMILY, account_id: ACCOUNT, title: "x", cost_points: 1, status: "approved" }),
+      await mine.from("point_redemptions").insert({ family_id: FAMILY, person_id: CHILD, title: "x", cost_points: 1, status: "approved" }),
       await mine.from("point_redemptions").delete().eq("id", id),
       await mine.from("point_rewards").insert({ family_id: FAMILY, title: "x", cost_points: 1 }),
       await mine.from("point_rewards").update({ cost_points: 1 }).eq("id", REWARD),
       await mine.from("point_rewards").delete().eq("id", REWARD),
       await mine.rpc("decide_point_redemption", { p_family_id: FAMILY, p_redemption_id: id, p_decision: "approved", p_device_id: null }),
       await mine.rpc("request_point_redemption", { p_family_id: FAMILY, p_account_id: ACCOUNT, p_reward_id: REWARD, p_device_id: null }),
+      await mine.rpc("request_person_point_redemption", { p_family_id: FAMILY, p_person_id: CHILD, p_reward_id: REWARD, p_device_id: null }),
+      await mine.rpc("point_person_totals", { p_family_id: FAMILY, p_person_id: CHILD }),
+      await mine.rpc("creatures_from_accounts", { p_family_id: FAMILY }),
+      await mine.from("creatures").update({ best_tier: 8, enabled: true }).eq("person_id", CHILD),
+      await mine.from("creatures").insert({ family_id: FAMILY, person_id: CHILD2 }),
+      await mine.from("creatures").delete().eq("person_id", CHILD),
     ];
     for (const [i, res] of attempts.entries()) {
       expect(res.error, `attempt ${i}`).not.toBeNull();

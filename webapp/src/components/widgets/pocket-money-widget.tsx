@@ -9,8 +9,8 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
-import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople, usePointTotals } from "@/hooks";
-import { avatarStage } from "@/lib/pocket-money/points";
+import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople, usePointTotals, useCreatures, activeCreatureOf } from "@/hooks";
+import { creatureStage } from "@/lib/creatures/stage";
 import { readLook } from "@/lib/pocket-money/creatures/look";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { PluginDiscoverCard } from "./plugin-discover-card";
@@ -90,17 +90,19 @@ function PersonName({ accountPersonId }: { accountPersonId: string }) {
 function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
   const t = useTranslations("pocketMoney");
   const { data: goals = [] } = usePocketMoneyGoals(account.id);
-  // Points mode (discussion #349): the stage follows the task points earned,
-  // and the widget shows the points to spend instead of the money.
+  // The child's creature (RFC-017), when one is switched on: growing with
+  // the task points earned -- and then the widget shows the points to spend
+  // instead of the money -- or with the money in this account.
+  const { data: creatures } = useCreatures();
+  const creature = activeCreatureOf(creatures, account.person_id);
   const { totalsFor } = usePointTotals();
-  const pointsMode = account.reward_mode === "points";
-  const points = totalsFor(account.person_id, account.id);
-  const stage = avatarStage({
-    mode: account.reward_mode,
-    balanceCents: account.balance_cents,
+  const points = totalsFor(account.person_id);
+  const stage = creatureStage({
+    creature: creature ?? { grows_with: "money", best_tier: 1 },
+    account,
     earnedPoints: points.earned,
-    storedBestTier: account.best_tier,
   });
+  const pointsMode = Boolean(creature) && stage.mode === "points";
   const primary = goals.find((g) => g.is_primary && g.status === "active");
   const nextAllowance =
     account.weekly_allowance_cents > 0
@@ -120,18 +122,22 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
           Pi does not redraw a breathing dragon for nobody. It moves only
           while it cheers for a task ticked off, a second and a half, and a
           new stage reached that way hatches right here. */}
-      <ReactingCreature
-        personId={account.person_id}
-        compactStageUp
-        species={account.avatar_species}
-        tier={stage.tier}
-        style={account.avatar_style}
-        look={readLook(account.avatar_look)}
-        size={56}
-        animated={false}
-        label={t(`species.${account.avatar_species}.tier${stage.tier}` as never)}
-        className="shrink-0"
-      />
+      {creature ? (
+        <ReactingCreature
+          personId={account.person_id}
+          compactStageUp
+          species={creature.species}
+          tier={stage.tier}
+          style={creature.style}
+          look={readLook(creature.look)}
+          size={56}
+          animated={false}
+          label={t(`species.${creature.species}.tier${stage.tier}` as never)}
+          className="shrink-0"
+        />
+      ) : (
+        <PiggyBank className="size-10 shrink-0 text-month-primary" aria-hidden="true" />
+      )}
       <div className="flex-1 min-w-0">
         <p className="text-2xl font-bold tabular-nums">
           {pointsMode ? (

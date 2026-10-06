@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarClock, PiggyBank, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { CalendarClock, ChevronRight, PiggyBank, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,23 +32,10 @@ import {
   useWithdrawalRequests,
   useDecideWithdrawalRequest,
   usePeople,
-  usePointTotals,
 } from "@/hooks";
-import {
-  RedemptionInbox,
-  RewardCatalogue,
-  RewardModeSelect,
-} from "@/components/pocket-money/rewards-settings";
-import type { AvatarSpecies } from "@/lib/pocket-money/types";
-import { readLook } from "@/lib/pocket-money/creatures";
-import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
-import { SpeciesPicker } from "@/components/pocket-money/species-picker";
-import { ChangeCreatureSheet } from "@/components/pocket-money/change-creature-sheet";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import { formatCents } from "@/lib/pocket-money/format";
 import { BalanceForecast } from "@/components/pocket-money/balance-forecast";
-import { AvatarStylePicker } from "@/components/pocket-money/avatar-style-picker";
-import { avatarStage } from "@/lib/pocket-money/points";
 import { AmountDialog } from "@/components/pocket-money/amount-dialog";
 import { toast } from "sonner";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
@@ -93,7 +81,6 @@ function decideError(err: unknown, t: (key: string) => string): string {
 
 export default function PocketMoneySettingsPage() {
   const t = useTranslations("settings.pocketMoney");
-  const tPM = useTranslations("pocketMoney");
   const locale = useLocale();
   const { data: accounts = [] } = usePocketMoneyAccounts();
   const { data: people = [] } = usePeople();
@@ -134,7 +121,6 @@ export default function PocketMoneySettingsPage() {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [depositTarget, setDepositTarget] = useState<string | null>(null);
   const [withdrawTarget, setWithdrawTarget] = useState<string | null>(null);
-  const [creatureTarget, setCreatureTarget] = useState<string | null>(null);
   const activeAcct = (target: string | null) =>
     target ? accounts.find((a) => a.id === target) : undefined;
 
@@ -144,9 +130,6 @@ export default function PocketMoneySettingsPage() {
   const kidsWithoutAccount = kids.filter((k) => !accountedPersonIds.has(k.id));
 
   const days = useLocalizedDayNames();
-  const { totalsFor } = usePointTotals();
-  const nameOf = (personId: string) =>
-    people.find((p) => p.id === personId)?.name ?? personId.slice(0, 8);
 
   return (
     <main
@@ -190,7 +173,22 @@ export default function PocketMoneySettingsPage() {
           </Card>
         )}
 
-        <RedemptionInbox accounts={accounts} nameOf={nameOf} />
+        {/* Creatures, task points and rewards moved out of pocket money
+            (RFC-017): this page keeps the euros. */}
+        <Link
+          href="/settings/creatures"
+          className="block rounded-xl border border-border p-4 transition hover:bg-white/[0.04]"
+          data-testid="creatures-link"
+        >
+          <span className="flex items-center gap-3">
+            <Sparkles className="size-5 shrink-0 text-month-primary" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">{t("creaturesLinkTitle")}</span>
+              <span className="block text-xs text-muted-foreground">{t("creaturesLinkDescription")}</span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+          </span>
+        </Link>
 
         {accounts.map((acct) => (
           <AccountInbox
@@ -202,15 +200,6 @@ export default function PocketMoneySettingsPage() {
 
         {accounts.map((acct) => {
           const kidPerson = people.find((p) => p.id === acct.person_id);
-          const pointsMode = acct.reward_mode === "points";
-          const points = totalsFor(acct.person_id, acct.id);
-          // The child's stage now: from money or points, and never below best_tier.
-          const tier = avatarStage({
-            mode: acct.reward_mode,
-            balanceCents: acct.balance_cents,
-            earnedPoints: points.earned,
-            storedBestTier: acct.best_tier,
-          }).tier;
           return (
             <Card key={acct.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -218,13 +207,6 @@ export default function PocketMoneySettingsPage() {
                   <h3 className="font-semibold">
                     {kidPerson?.name ?? acct.person_id.slice(0, 8)}
                   </h3>
-                  {pointsMode && (
-                    <p className="text-sm text-muted-foreground tabular-nums" data-testid="account-points-summary">
-                      {t("pointsSummary", { balance: points.balance, earned: points.earned })}
-                    </p>
-                  )}
-                  {/* In points mode the money line shows only when there is money. */}
-                  {(!pointsMode || acct.balance_cents > 0 || acct.weekly_allowance_cents > 0) && (
                   <p className="text-sm text-muted-foreground">
                     {formatCents(acct.balance_cents, acct.currency)} ·{" "}
                     {t("aprSummaryLabel", { pct: (acct.apr_bps / 100).toFixed(1) })} ·{" "}
@@ -233,7 +215,6 @@ export default function PocketMoneySettingsPage() {
                       days: acct.allowance_interval_days ?? 7,
                     })}
                   </p>
-                  )}
                   {/* The schedule is only trustworthy if you can see when
                       it next fires. Without this a correctly-working
                       fortnightly allowance is indistinguishable from a
@@ -282,83 +263,7 @@ export default function PocketMoneySettingsPage() {
                 </Button>
               </div>
 
-              <div className="pt-3 border-t border-border">
-                <RewardModeSelect
-                  account={acct}
-                  childName={kidPerson?.name ?? ""}
-                  disabled={update.isPending}
-                  onChange={(mode) =>
-                    update
-                      .mutateAsync({ id: acct.id, update: { reward_mode: mode } })
-                      .catch((err) =>
-                        toast.error(
-                          err instanceof Error && err.message === "pin_required"
-                            ? t("errorPinRequired")
-                            : t("errorGeneric"),
-                        ),
-                      )
-                  }
-                />
-              </div>
-
-              {/* The creature itself: a parent's choice, behind the settings
-                  PIN (the server checks it too). Changing it keeps the stage,
-                  the style and the look; the child's own page has no such
-                  switch (RFC-016 §4.1). */}
-              <div className="pt-3 border-t border-border flex items-center gap-3" data-testid={`creature-${acct.id}`}>
-                <CreatureAvatar
-                  species={acct.avatar_species}
-                  tier={tier}
-                  style={acct.avatar_style}
-                  look={readLook(acct.avatar_look)}
-                  size={48}
-                  animated={false}
-                  label=""
-                />
-                <div className="min-w-0 flex-1">
-                  <Label>{t("creatureLabel")}</Label>
-                  <p className="text-sm text-muted-foreground" data-testid="creature-current">
-                    {tPM(`species.${acct.avatar_species}.label` as never)}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  data-testid="change-creature"
-                  onClick={() => setCreatureTarget(acct.id)}
-                >
-                  {t("changeCreature")}
-                </Button>
-              </div>
-
-              {/* How the avatar is drawn: four small pictures of this child's
-                  own avatar at its current stage. The child can change it on
-                  their own page too, so it takes no PIN. */}
-              <div className="pt-3 border-t border-border space-y-1" data-testid={`avatar-style-${acct.id}`}>
-                <Label>{tPM("avatarStyleLabel")}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {tPM("avatarStyleHint", { name: kidPerson?.name ?? "" })}
-                </p>
-                <AvatarStylePicker
-                  species={acct.avatar_species}
-                  tier={tier}
-                  value={acct.avatar_style}
-                  look={readLook(acct.avatar_look)}
-                  childName={kidPerson?.name ?? ""}
-                  disabled={update.isPending}
-                  onChange={(style) =>
-                    update
-                      .mutateAsync({ id: acct.id, update: { avatar_style: style } })
-                      .catch(() => toast.error(tPM("avatarStyleSaveFailed")))
-                  }
-                />
-              </div>
-
-              {(() => {
-                // A child in points mode needs no money set up, so the money
-                // settings fold away -- still there for a family that uses both.
-                const money = (
-                  <>
+              <>
               {/* Allowance first: it's the setting a parent actually
                   revisits. Interest is set once and forgotten, so it
                   sits below under its own heading rather than
@@ -507,19 +412,7 @@ export default function PocketMoneySettingsPage() {
                 allowanceIntervalDays={acct.allowance_interval_days ?? 7}
                 currency={acct.currency}
               />
-                  </>
-                );
-                return pointsMode ? (
-                  <details className="pt-3 border-t border-border group">
-                    <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
-                      {t("moneySettingsSummary")}
-                    </summary>
-                    <div className="space-y-3 pt-3">{money}</div>
-                  </details>
-                ) : (
-                  money
-                );
-              })()}
+              </>
             </Card>
           );
         })}
@@ -528,54 +421,20 @@ export default function PocketMoneySettingsPage() {
           <CreateAccountCard
             key={kid.id}
             kid={kid}
-            onCreate={(species) =>
+            onCreate={() =>
               create
-                .mutateAsync({ person_id: kid.id, avatar_species: species, currency })
+                .mutateAsync({ person_id: kid.id, currency })
                 .catch(() => toast.error(t("errorGeneric")))
             }
             isPending={create.isPending}
           />
         ))}
 
-        {accounts.length > 0 && <RewardCatalogue />}
-
         {kids.length === 0 && (
           <Card className="p-6 text-center text-sm text-muted-foreground">
             {t("noKidsHint")}
           </Card>
         )}
-
-        {(() => {
-          const acct = activeAcct(creatureTarget);
-          if (!acct) return null;
-          return (
-            <ChangeCreatureSheet
-              key={acct.id}
-              open
-              onOpenChange={(o) => !o && setCreatureTarget(null)}
-              childName={nameOf(acct.person_id)}
-              current={acct.avatar_species}
-              avatarStyle={acct.avatar_style}
-              look={readLook(acct.avatar_look)}
-              saving={update.isPending}
-              // Only the species: the stage (money or points, best_tier), the
-              // style and the look are left exactly as they are.
-              onSave={(species) =>
-                update
-                  .mutateAsync({ id: acct.id, update: { avatar_species: species } })
-                  .then(() => true)
-                  .catch((err) => {
-                    toast.error(
-                      err instanceof Error && err.message === "pin_required"
-                        ? t("errorPinRequired")
-                        : t("errorGeneric"),
-                    );
-                    return false;
-                  })
-              }
-            />
-          );
-        })()}
 
         <AmountDialog
           open={Boolean(depositTarget)}
@@ -715,37 +574,21 @@ function CreateAccountCard({
   isPending,
 }: {
   kid: CreateAccountKid;
-  onCreate: (species: AvatarSpecies) => void;
+  onCreate: () => void;
   isPending: boolean;
 }) {
   const t = useTranslations("settings.pocketMoney");
-  const tPM = useTranslations("pocketMoney");
-  const [picked, setPicked] = useState<AvatarSpecies | null>(null);
 
-  // Plain function — not a hook — so it's safe to call inside JSX below.
-  const speciesLabel = (s: AvatarSpecies): string =>
-    tPM(`species.${s}.label` as never);
-
+  // The euros only. A creature is switched on separately, under Settings ->
+  // Creatures & rewards (RFC-017).
   return (
     <Card className="p-4 space-y-3">
       <p className="text-sm font-medium">
         {t("createAccountForKid", { name: kid.name })}
       </p>
-      <p className="text-xs text-muted-foreground">{t("speciesPickerHint")}</p>
-
-      {/* Each species with its whole evolution strip, so parents and kids
-          see the journey before they pick. */}
-      <SpeciesPicker picked={picked} onPick={setPicked} />
-
-      <Button
-        className="w-full"
-        disabled={!picked || isPending}
-        onClick={() => picked && onCreate(picked)}
-      >
+      <Button className="w-full" disabled={isPending} onClick={onCreate}>
         <Plus className="size-4 mr-1" />
-        {picked
-          ? t("createWithSpecies", { species: speciesLabel(picked) })
-          : t("create")}
+        {t("create")}
       </Button>
     </Card>
   );

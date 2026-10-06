@@ -34,12 +34,13 @@ export function RewardIcon({ icon, className = "" }: { icon: string | null; clas
  * "Einlösen", which asks a parent. Nothing is spent until a parent approves.
  */
 export function RewardsPanel({
-  accountId,
+  personId,
   totals,
   rewards,
   redemptions,
 }: {
-  accountId: string;
+  /** The child (RFC-017: rewards are per child, no pocket-money account needed). */
+  personId: string;
   totals: PointTotals;
   rewards: PointReward[];
   /** This child's requests, newest first. */
@@ -56,7 +57,7 @@ export function RewardsPanel({
 
   const redeem = (reward: PointReward) => {
     request
-      .mutateAsync({ accountId, rewardId: reward.id })
+      .mutateAsync({ personId, rewardId: reward.id })
       .then(() => toast.success(t("rewardRequested", { title: reward.title })))
       .catch((err: unknown) => {
         const code = err instanceof Error ? err.message : "";
@@ -107,7 +108,7 @@ export function RewardsPanel({
       {active.length === 0 ? (
         <Card className="p-4 text-sm text-muted-foreground">
           {t("rewardsEmpty")}{" "}
-          <Link href="/settings/pocket-money" className="underline underline-offset-2">
+          <Link href="/settings/creatures#rewards" className="underline underline-offset-2">
             {t("rewardsEmptyLink")}
           </Link>
         </Card>

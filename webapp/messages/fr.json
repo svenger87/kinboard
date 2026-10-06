@@ -1039,6 +1039,8 @@
     "itemStonksDescription": "Gérer votre liste de suivi d'investissements",
     "itemPocketMoneyLabel": "Argent de poche",
     "itemPocketMoneyDescription": "Gérer les comptes des enfants, l'argent de poche et les intérêts",
+    "itemCreaturesLabel": "Créatures et récompenses",
+    "itemCreaturesDescription": "La créature de chaque enfant, les points de tâches et les récompenses",
     "itemWidgetsLabel": "Widgets",
     "itemWidgetsDescription": "Afficher / masquer les widgets du tableau de bord",
     "itemNavigationLabel": "Navigation",
@@ -2506,7 +2508,7 @@
       "errorPinRequired": "Saisis à nouveau le code PIN des réglages, puis réessaie.",
       "errorInsufficientPoints": "Il n'y a plus assez de points ; la demande reste en attente.",
       "rewardsTitle": "Récompenses contre des points",
-      "rewardsDescription": "Les enfants dont l'avatar grandit avec les points voient les récompenses actives sur la page Argent de poche et peuvent en demander une. Tu l'accordes ici.",
+      "rewardsDescription": "Les enfants qui ont une créature voient les récompenses actives sur leur page d'argent de poche et peuvent en demander une avec leurs points. Tu l'accordes ici.",
       "rewardIconLabel": "Icône",
       "rewardTitleLabel": "Récompense",
       "rewardTitlePlaceholder": "Soirée cinéma",
@@ -2516,7 +2518,10 @@
       "rewardActiveAria": "{title} peut être échangée",
       "rewardDeleteAria": "Supprimer {title}",
       "rewardAdd": "Ajouter",
-      "errorNotPointsMode": "L'avatar de cet enfant grandit maintenant avec l'argent : la récompense ne peut pas être accordée ; la demande reste en attente. Refuse-la ou remets l'enfant sur les points des tâches."
+      "errorNotPointsMode": "L'avatar de cet enfant grandit maintenant avec l'argent : la récompense ne peut pas être accordée ; la demande reste en attente. Refuse-la ou remets l'enfant sur les points des tâches.",
+      "creaturesLinkTitle": "Créatures et récompenses",
+      "creaturesLinkDescription": "Les créatures, les points de tâches et les récompenses ont maintenant leur propre page.",
+      "errorNoCreature": "Aucune créature n'est activée pour cet enfant."
     },
     "news": {
       "title": "Sources d'actualités",
@@ -2824,6 +2829,31 @@
       "forDay": "pour {day}",
       "turnOf": "tour de {name}",
       "showMore": "Afficher plus"
+    },
+    "creatures": {
+      "title": "Créatures et récompenses",
+      "intro": "Active une créature pour un enfant : elle grandit avec les tâches cochées, et ses points de tâches s'échangent contre les récompenses ci-dessous. Pas besoin d'argent de poche.",
+      "noKidsHint": "Indique qu'un membre de la famille est un enfant dans Personnes pour lui donner une créature.",
+      "off": "Pas de créature",
+      "switchAria": "Créature de {name}",
+      "speciesLabel": "Créature",
+      "speciesHint": "Le changement garde le stade, le style et l'apparence.",
+      "changeSpecies": "Changer",
+      "growsWithLabel": "Grandit avec",
+      "growsWithAria": "Ce qui fait grandir la créature de {name}",
+      "growsWithPoints": "Les points des tâches",
+      "growsWithMoney": "L'argent économisé ({currency})",
+      "growsWithPointsHint": "Elle grandit avec chaque point gagné et ne rétrécit jamais, même quand des points sont échangés contre une récompense.",
+      "growsWithMoneyHint": "Elle grandit avec l'argent économisé dans l'argent de poche, comme avant.",
+      "growsWithMoneyUnavailable": "L'argent économisé devient possible quand l'argent de poche est activé et que l'enfant a un compte.",
+      "shopLabel": "Boutique",
+      "shopHint": "L'enfant peut acheter des choses pour sa créature avec ses points. Bientôt disponible.",
+      "errorPinRequired": "Saisis à nouveau le code PIN des réglages pour modifier ceci.",
+      "errorMoneyUnavailable": "L'argent économisé nécessite l'argent de poche activé et un compte pour cet enfant.",
+      "errorGeneric": "Cela n'a pas fonctionné. Merci de réessayer.",
+      "pickHint": "Choisis une créature. Elle commence comme un œuf et grandit ensuite.",
+      "switchOn": "Activer",
+      "switchOnAs": "Activer : {species}"
     }
   },
   "settingsSearch": {
@@ -2912,10 +2942,12 @@
       "stonks_add-symbol": "ajouter un symbole, ticker, action, ETF, rechercher",
       "stonks_watchlist": "liste de suivi, actions, supprimer, surnom",
       "pocket-money_currency": "devise, monnaie, euro, dollar, livre, argent",
-      "pocket-money_rewards": "récompenses, points, points de tâches, échanger, cadeaux",
       "google_auto-sync": "synchronisation automatique, intervalle, synchroniser Google, fréquence",
       "google_calendars": "calendriers, agendas Google, quels calendriers, activer, couleurs",
-      "google_person-mapping": "attribution des personnes, attribuer, qui, membre de la famille, règles"
+      "google_person-mapping": "attribution des personnes, attribuer, qui, membre de la famille, règles",
+      "creatures": "créature, créatures, dragon, animal, avatar, récompense, récompenses, points, points de tâches, boutique, grandir",
+      "creatures_children": "créature, activer, espèce, dragon, grandit avec, points, argent, boutique",
+      "creatures_rewards": "récompenses, points, points de tâches, échanger, cadeaux"
     }
   },
   "calendar": {

@@ -7,10 +7,11 @@ import { parseReward } from "@/lib/pocket-money/rewards";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/pocket-money/rewards -- a reward for the family's catalogue
- * (discussion #349). The family is the session's; the catalogue is a parent's
- * to keep, so this needs the settings PIN, like the rest of Settings.
- * Screens read the catalogue straight from point_rewards (family-scoped RLS).
+ * POST /api/rewards -- a reward for the family's catalogue (discussion #349;
+ * core since RFC-017, no pocket money needed). The family is the session's;
+ * the catalogue is a parent's to keep, so this needs the settings PIN, like
+ * the rest of Settings. Screens read the catalogue straight from
+ * point_rewards (family-scoped RLS).
  */
 export async function POST(request: NextRequest) {
   const auth = await requireSession(request);

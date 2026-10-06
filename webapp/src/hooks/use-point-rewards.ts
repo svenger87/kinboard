@@ -10,7 +10,8 @@ import { pointsTotal } from "@/lib/todo-points";
 import { pointTotals, type PointTotals } from "@/lib/pocket-money/points";
 
 /**
- * The rewards catalogue and the children's requests (discussion #349).
+ * The rewards catalogue and the children's requests (discussion #349; core
+ * since RFC-017, per child, no pocket-money account needed).
  * Read straight from the tables (family-scoped RLS, live through realtime);
  * every write goes through a server route, which checks the settings PIN for
  * the catalogue and for a decision.
@@ -90,7 +91,7 @@ export function useSaveReward() {
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: async ({ id, draft }: { id?: string; draft: Partial<RewardDraft> }) => {
-      const r = await fetch(id ? `/api/pocket-money/rewards/${id}` : "/api/pocket-money/rewards", {
+      const r = await fetch(id ? `/api/rewards/${id}` : "/api/rewards", {
         method: id ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft),
@@ -106,7 +107,7 @@ export function useDeleteReward() {
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: async (id: string) => {
-      const r = await fetch(`/api/pocket-money/rewards/${id}`, { method: "DELETE" });
+      const r = await fetch(`/api/rewards/${id}`, { method: "DELETE" });
       if (!r.ok) throw await failure(r, "delete reward");
     },
     onSuccess: invalidate,
@@ -116,11 +117,11 @@ export function useDeleteReward() {
 export function useRequestRedemption() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: async ({ accountId, rewardId }: { accountId: string; rewardId: string }) => {
-      const r = await fetch(`/api/pocket-money/accounts/${accountId}/redemptions`, {
+    mutationFn: async ({ personId, rewardId }: { personId: string; rewardId: string }) => {
+      const r = await fetch("/api/rewards/redemptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reward_id: rewardId }),
+        body: JSON.stringify({ person_id: personId, reward_id: rewardId }),
       });
       if (!r.ok) throw await failure(r, "redeem");
       return ((await r.json()) as { redemption: PointRedemption }).redemption;
@@ -133,7 +134,7 @@ export function useDecideRedemption() {
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "approved" | "denied" }) => {
-      const r = await fetch(`/api/pocket-money/redemptions/${id}`, {
+      const r = await fetch(`/api/rewards/redemptions/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -152,17 +153,18 @@ export function useDecideRedemption() {
  * treat "not loaded yet" as "no points" -- the avatar would shrink and grow
  * back, and a celebration would fire for a stage reached long ago.
  */
-export function usePointTotals(): { ready: boolean; totalsFor: (personId: string, accountId: string) => PointTotals } {
+export function usePointTotals(): { ready: boolean; totalsFor: (personId: string) => PointTotals } {
   const awards = useTodoPoints();
   const redemptions = usePointRedemptions();
   const awardRows = awards.data ?? [];
   const redemptionRows = redemptions.data ?? [];
   return {
     ready: awards.isSuccess && redemptions.isSuccess,
-    totalsFor: (personId, accountId) =>
+    // Per child (RFC-017): the awards and the requests are both the person's.
+    totalsFor: (personId) =>
       pointTotals(
         pointsTotal(awardRows, personId),
-        redemptionRows.filter((r) => r.account_id === accountId),
+        redemptionRows.filter((r) => r.person_id === personId),
       ),
   };
 }

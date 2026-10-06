@@ -8,6 +8,7 @@ import { withHolidayRegion } from "@/lib/holidays/region";
 import { clientIp, hitLimit } from "@/lib/rate-limit";
 import { restorableAvatarStyle } from "@/lib/pocket-money/creatures/styles";
 import { restorableLook } from "@/lib/pocket-money/creatures/look";
+import { backupHasCreatures, personForOldRedemptions } from "@/lib/creatures/backup";
 
 // POST /api/import — restore a family from a Kinboard backup file
 // (Milestone D Task 3; inverts GET /api/export).
@@ -38,7 +39,10 @@ import { restorableLook } from "@/lib/pocket-money/creatures/look";
 //   families → vehicles / tickers (standalone, family-scoped)
 //   people → pocket_money_accounts → pocket_money_goals →
 //     pocket_money_transactions / pocket_money_withdrawal_requests
-//   point_rewards; pocket_money_accounts → point_redemptions
+//   point_rewards; people → point_redemptions (pocket_money_accounts too,
+//     optionally: account_id is nullable since RFC-017)
+//   people → creatures (RFC-017; a backup from before it has none, and gets
+//     them derived from its accounts by the migration's own rule)
 //   settings (family_id only)
 //
 // NEVER imported (matches export's NEVER-exported list): families.join_code
@@ -173,9 +177,23 @@ const TABLE_SPECS: TableSpec[] = [
   // Devices are never carried over, so who asked and who decided is lost;
   // the request, its cost and its status are what the balance needs.
   spec("point_redemptions", {
-    requiredFks: ["account_id"],
-    nullableFks: ["reward_id"],
+    // Per child since RFC-017. A backup from before has only account_id; the
+    // person is filled in from the backup's own accounts before this runs
+    // (personForOldRedemptions).
+    requiredFks: ["person_id"],
+    nullableFks: ["account_id", "reward_id"],
     forceNullColumns: ["requested_by_device_id", "decided_by_device_id"],
+  }),
+  // Keyed by the child: no id of its own, so person_id is remapped as an FK.
+  spec("creatures", {
+    hasOwnId: false,
+    requiredFks: ["person_id"],
+    // As on the account: a style or a look this release would refuse
+    // restores as classic or {}, never failing the restore.
+    normalize: (row) => {
+      row.style = restorableAvatarStyle(row.style);
+      row.look = restorableLook(row.look);
+    },
   }),
   spec("settings", { settingValueFks: [SETTINGS_KEYS.defaultCalendarId] }),
 ];
@@ -299,6 +317,7 @@ export async function POST(request: NextRequest) {
   // the region it effectively had, as the migration does for live ones.
   // Added before the id map below, so the row is remapped like any other.
   payload.data.settings = withHolidayRegion(payload.data.settings ?? [], () => crypto.randomUUID());
+  personForOldRedemptions(payload.data);
 
   const supabase = createAdminClient();
   const db = supabase as any;
@@ -500,6 +519,19 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+    }
+  }
+
+  // A backup from before RFC-017 has no creatures: derive them from its
+  // accounts by the migration's own rule (creatures_from_accounts in
+  // migration_zzzzzzzz_pocket_money_creatures_out.sql), so a restored child
+  // has the creature they had. A backup that carries the key -- even empty,
+  // a family with none switched on -- is taken as it is.
+  if (!backupHasCreatures(payload.data)) {
+    const { error } = await db.rpc("creatures_from_accounts", { p_family_id: newFamilyId });
+    if (error) {
+      await rollback();
+      return NextResponse.json({ error: error.message, table: "creatures" }, { status: 500 });
     }
   }
 
