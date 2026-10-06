@@ -881,3 +881,27 @@ html[data-screensaver] nav {
 
 /* Smooth selection highlight */
 ::selection { background: hsl(var(--primary) / 0.22); }
+
+/* Settings search: a result opens its section under the fixed header and
+   rings it for two seconds, so the eye lands on the right card
+   (hooks/use-settings-anchor.ts). Outline rather than box-shadow, which the
+   cards already use for elevation. */
+[data-setting] {
+  scroll-margin-top: 5rem;
+}
+.settings-anchor-highlight {
+  outline: 3px solid transparent;
+  outline-offset: 4px;
+  border-radius: 1rem;
+  animation: settings-anchor-ring 2s ease-out;
+}
+@keyframes settings-anchor-ring {
+  0%, 60% { outline-color: hsl(var(--primary)); }
+  100% { outline-color: hsl(var(--primary) / 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-anchor-highlight {
+    animation: none;
+    outline-color: hsl(var(--primary));
+  }
+}
