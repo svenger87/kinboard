@@ -22,9 +22,23 @@ import { toBrowserStorageUrl } from "../src/lib/supabase/signed-url";
  */
 
 test.describe("which API address the browser gets", () => {
-  test("Kong as the front door means the page's own origin, whatever API_EXTERNAL_URL says", () => {
-    expect(browserApiUrl({ KINBOARD_ENTRY: "kong", API_EXTERNAL_URL: "http://192.168.1.10:8100" })).toBeNull();
-    expect(browserApiUrl({ KINBOARD_ENTRY: "Kong " })).toBeNull();
+  test("Kong as the front door: the old two-port address on SITE_URL's host gives way to the page's own origin", () => {
+    // What every 1.12 install has; after the move the browser must not keep
+    // calling :8100 on one fixed host.
+    const lan = { API_EXTERNAL_URL: "http://192.168.1.10:8100", SITE_URL: "http://192.168.1.10:3001" };
+    expect(browserApiUrl({ KINBOARD_ENTRY: "kong", ...lan })).toBeNull();
+    expect(browserApiUrl({ KINBOARD_ENTRY: "Kong ", ...lan })).toBeNull();
+    expect(browserApiUrl({ KINBOARD_ENTRY: "kong" })).toBeNull();
+  });
+
+  test("a separate API host is honoured even with Kong in front", () => {
+    // A proxy may send only api.example.com to Kong and kinboard.example.com to
+    // webapp:3000; same-origin calls would land on the webapp and 404.
+    const env = { API_EXTERNAL_URL: "https://api.kinboard.example.com", SITE_URL: "https://kinboard.example.com" };
+    expect(browserApiUrl({ KINBOARD_ENTRY: "kong", ...env })).toBe("https://api.kinboard.example.com");
+    expect(browserApiUrl({ KINBOARD_ENTRY: "webapp", ...env })).toBe("https://api.kinboard.example.com");
+    // Without SITE_URL nothing says it is the same host, so it is kept.
+    expect(browserApiUrl({ KINBOARD_ENTRY: "kong", API_EXTERNAL_URL: "http://nas:8100" })).toBe("http://nas:8100");
   });
 
   test("an empty or `same-origin` API_EXTERNAL_URL means the page's own origin", () => {
@@ -94,7 +108,7 @@ test.describe("server-side code stays on the internal address", () => {
   test("SUPABASE_URL (http://kong:8000) first, never the browser's address", () => {
     expect(serverSupabaseUrl({ SUPABASE_URL: "http://kong:8000", KINBOARD_ENTRY: "kong" })).toBe("http://kong:8000");
     expect(serverSupabaseUrl({ NEXT_PUBLIC_SUPABASE_URL: "http://localhost:8130" })).toBe("http://localhost:8130");
-    expect(() => serverSupabaseUrl({ KINBOARD_ENTRY: "kong" })).toThrow();
+    expect(() => serverSupabaseUrl({ KINBOARD_ENTRY: "kong" })).toThrow(/SUPABASE_URL is not set: .*http:\/\/kong:8000/);
   });
 
   test("the server client and the proxy build on it, not on NEXT_PUBLIC_SUPABASE_URL", () => {

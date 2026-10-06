@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createAdminClient } from "../src/lib/supabase/server";
+import { dbContainer } from "./whole-database";
 
 /**
  * RFC-018 §4 against a real database: migration_zzzzzzzz_image_urls_relative.sql
@@ -79,6 +81,46 @@ test("links that are not ours, or not absolute, pass through unchanged", async (
 test("idempotent: the relative form maps to itself", async () => {
   const once = await relative(`http://192.168.1.10:8100${PATH}`);
   expect(await relative(once)).toBe(once);
+});
+
+/**
+ * The migration itself, as the webapp's entrypoint runs it: psql as
+ * `postgres`, which is not a superuser here, against real rows.
+ */
+test("the migration's UPDATE, run as postgres, rewrites only our own row, and a second run changes nothing", async () => {
+  test.skip(!process.env.FAMILY_CODE, "needs FAMILY_CODE for a family to own the rows");
+  const { data: fam } = await db.from("families").select("id").eq("join_code", process.env.FAMILY_CODE).single();
+  const ours = `http://192.168.1.10:8100${PATH}`;
+  const foreign = `https://other.supabase.co${PATH}`.replace(NAME, "e2e-relative/not-ours.png");
+  const { data: rows, error } = await db
+    .from("recipes")
+    .insert([
+      { family_id: fam.id, title: "e2e-relative ours", image_url: ours },
+      { family_id: fam.id, title: "e2e-relative foreign", image_url: foreign },
+    ])
+    .select("id, image_url");
+  expect(error).toBeNull();
+  const ids = (rows as { id: string }[]).map((r) => r.id);
+  const migration = readFileSync("docker/migration_zzzzzzzz_image_urls_relative.sql", "utf8");
+  const run = () =>
+    execFileSync("docker", ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], {
+      input: migration,
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+  const urls = async () => {
+    const { data } = await db.from("recipes").select("title, image_url").in("id", ids).order("title");
+    return (data as { title: string; image_url: string }[]).map((r) => r.image_url);
+  };
+  try {
+    run();
+    expect(await urls()).toEqual([foreign, PATH]);
+    run();
+    expect(await urls()).toEqual([foreign, PATH]);
+  } finally {
+    // Soft-delete trigger: the first delete bins, the second removes.
+    for (let i = 0; i < 2; i++) await db.from("recipes").delete().in("id", ids);
+  }
 });
 
 test("not part of the public API", async () => {

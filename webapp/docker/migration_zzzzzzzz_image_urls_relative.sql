@@ -156,4 +156,10 @@ BEGIN
       END IF;
     END IF;
   END LOOP;
+EXCEPTION
+  -- On a first boot the storage service may not have granted anything on its
+  -- tables yet (migration_zzzz_storage_write_policies.sql meets the same).
+  -- Nothing is lost: old links keep working, and this runs on every start.
+  WHEN insufficient_privilege THEN
+    RAISE NOTICE 'relative_image_urls: no rights on the storage tables yet; skipping (runs again on a later start)';
 END $$;

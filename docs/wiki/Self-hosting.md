@@ -36,7 +36,20 @@ Your install keeps working exactly as it did: until it has been moved, it has no
 
 The move happens on its own, carefully. `setup.sh` adds the route to `kong.yml`. Then the next `./start.sh up`, or the next auto-update, asks Kong for the start page from inside the stack. **Only if the webapp answers through Kong** does it write `KINBOARD_ENTRY=kong` and move port 3001 from the webapp to Kong. If anything about that fails, the install stays on the webapp, `.env` is put back exactly as it was, and the log says why (`entry: staying on webapp: ...`). Your bookmarks keep working either way: the address and port are the same, only the container behind them changes.
 
-- **To stay as you are**, add `KINBOARD_ENTRY=webapp` to `webapp/docker/.env`. Nothing moves an install that has the line.
+What the move costs: the webapp container is recreated (without its port) and Kong is recreated (with it). During an auto-update that is the same restart the new image needs anyway, so it adds nothing; Kinboard is unreachable on 3001 while the new webapp applies its migrations and starts, as on any update. Run on its own, the move takes that one restart.
+
+Not moved automatically:
+
+- an install whose `API_EXTERNAL_URL` names a **different host** than `SITE_URL`, a separate API host. A proxy (Nginx Proxy Manager, Caddy, cloudflared) may send the app's name to the webapp container and only the API's name to Kong, and that would break. Such an install keeps working as it is and can opt in;
+- an install behind Traefik (below).
+
+If the move is interrupted (the update container killed halfway), `.env` is put back from `webapp/docker/.env.pre-entry` straight away, or, if nothing could run, on the next `./start.sh up` or update, which also puts the webapp back on its port.
+
+**Firewalls:** after the move, port 3001 belongs to the Kong container. Rules that name the port on the host are unaffected; rules keyed to the webapp container (Docker `DOCKER-USER` rules by container IP, or per-container firewall tools) have to follow it to Kong.
+
+Kong waits up to 10 minutes for the webapp on a request (`read_timeout`/`write_timeout` on the front-door service), so restoring a large backup through *Settings → Backup* is not cut off at Kong's default 60 seconds.
+
+- **To stay as you are**, add `KINBOARD_ENTRY=webapp` to `webapp/docker/.env`. Nothing moves an install that has the line. A value other than `kong` or `webapp` (a typo, `Kong`) is corrected to lower case, or to `webapp`, by `setup.sh` and `./start.sh`.
 - **To move by hand**, set `KINBOARD_ENTRY=kong`, run `./setup.sh` (it adds the route if it's missing), then `docker restart kinboard-kong` and `./start.sh up`.
 - **Behind Traefik**, nothing moves automatically: Traefik reaches the containers inside the stack, so host ports don't matter to it. See [Behind Traefik](#behind-traefik) for the simpler one-route setup you can opt into.
 
@@ -90,7 +103,8 @@ All driven from `webapp/docker/.env`. The shipped `.env.example` has comments ex
 | `KINBOARD_ENTRY` | `kong` (new installs) | `kong`: Kong is the front door on `WEBAPP_PORT`. `webapp`: the layout before 1.13. See [What URL should I use?](#what-url-should-i-use) |
 | `API_EXTERNAL_URL` | *(empty)* | Empty: the browser uses the address it opened Kinboard from. Set only for a separate API host |
 | `KONG_HTTP_PORT` | `8100` | Kong's own host port, kept in both layouts |
-| `KONG_TRUSTED_IPS` | `0.0.0.0/0,::/0` | Whose `X-Forwarded-*` headers Kong passes to the webapp. Narrow it to your proxy's address if you like |
+| `KONG_TRUSTED_IPS` | private ranges (`127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7`) | Whose `X-Forwarded-*` headers Kong believes (https, the client address). Traefik, cloudflared and the LAN are covered. Behind Cloudflare's proxy **without** a tunnel (orange cloud straight to your port), add [Cloudflare's ranges](https://www.cloudflare.com/ips/), or Kinboard sees every request as plain http from Cloudflare |
+| `KONG_REAL_IP_HEADER` / `KONG_REAL_IP_RECURSIVE` | `X-Forwarded-For` / `on` | How Kong finds the client behind those proxies; it passes the result to the webapp as `X-Real-IP` for its rate limits |
 | `KONG_WORKERS` | `2` | nginx worker processes in Kong — nginx would otherwise start one per host CPU |
 | `NETWORK_SUBNET` | `10.200.0.0/24` | Internal Docker network subnet (change if it collides) |
 | `TZ` | `UTC` | Timezone passed to go2rtc |
@@ -475,7 +489,7 @@ The recommended path is the **Diun + webhook overlay** (`docker-compose.diun.yml
 4. `docker compose up -d` (with webhook + diun excluded — see below) — recreates only services whose image changed; the webapp's entrypoint re-applies all `migration_*.sql` on boot (idempotent)
 5. `docker compose up -d --no-deps --force-recreate cron` — only when step 4 recreated the webapp, because the scheduler reads its jobs from the webapp's labels only when it starts
 6. `docker restart kinboard-kong` — only when `kong.yml`'s mtime moved during the run
-7. `kinboard-entry.sh switch` — for an install with no `KINBOARD_ENTRY` in `.env`: asks Kong for the start page from inside the stack and, only if the webapp answers, writes `KINBOARD_ENTRY=kong` and moves port 3001 to Kong. Otherwise it stays on the webapp and logs why. See [Installs from before 1.13](#installs-from-before-113)
+7. `kinboard-entry.sh` — for an install with no `KINBOARD_ENTRY` in `.env`: asks Kong for the start page from inside the stack and, only if the webapp answers, writes `KINBOARD_ENTRY=kong`. That is decided before step 4, so step 4's single recreate installs the new image and moves port 3001 to Kong together; it is confirmed after step 4, with a standalone move as the fallback. Otherwise the install stays on the webapp and the log says why. See [Installs from before 1.13](#installs-from-before-113)
 
 Two containers do this:
 - **Diun** (`crazymax/diun`) — image notifier. Polls GHCR every 30 min, detects new digests on services labeled `diun.enable=true`, fires a webhook. Read-only docker socket.
@@ -739,7 +753,9 @@ From the repo root, run:
 ./setup.sh --url https://kinboard.example.com
 ```
 
-That sets `SITE_URL` (and `ADDITIONAL_REDIRECT_URLS`), the address Kinboard puts into links it hands to other apps, such as the calendar feed. `API_EXTERNAL_URL` stays empty. No restart is needed for the browser; restart the webapp so it picks up the new `SITE_URL`: `cd webapp/docker && ./start.sh up`.
+That sets `SITE_URL` (and `ADDITIONAL_REDIRECT_URLS`), the address Kinboard puts into links it hands to other apps, such as the calendar feed. Then restart the webapp so it picks up the new `SITE_URL`: `cd webapp/docker && ./start.sh up`.
+
+`API_EXTERNAL_URL` stays empty **on an install set up with 1.13 or later**. On an install from before 1.13 that still has an API address in `.env`, `--url` keeps its old meaning and sets `API_EXTERNAL_URL` to the domain too. That works (the domain is the same host as `SITE_URL`, and with Kong in front the browser then uses the page's own address anyway), but you can clear it: `./setup.sh --api-url same-origin --url https://kinboard.example.com`.
 
 #### Step 5: Check it
 

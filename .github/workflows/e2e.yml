@@ -32,7 +32,7 @@ jobs:
   smoke:
     name: Boot stack + smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 40  # cold cache plus the WebKit layout run: ~25-30 min
+    timeout-minutes: 45  # cold cache plus the WebKit layout run: ~25-30 min, plus the upgrade-path check
     defaults:
       run:
         working-directory: webapp
@@ -198,6 +198,17 @@ jobs:
           PLAYWRIGHT_DEVICE_NAME: "CI WebKit (GH Actions)"
           SAME_ORIGIN_URLS: http://localhost:3001,http://127.0.0.1:3001
         run: npx playwright test e2e/same-origin-live.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/media-widget-layout.spec.ts e2e/messages-broadcast.spec.ts e2e/automation-layout.spec.ts e2e/holiday-region-ui.spec.ts e2e/time-zone-ui.spec.ts e2e/holiday-widget-ui.spec.ts e2e/school-sync-ui.spec.ts e2e/route-transition-layout.spec.ts e2e/calendar-day-tap-layout.spec.ts e2e/holiday-widgets-ui.spec.ts e2e/timetable-holidays-ui.spec.ts e2e/schedule-page-holidays-ui.spec.ts e2e/calendar-school-holidays-ui.spec.ts e2e/settings-search-ui.spec.ts e2e/creatures-surfaces-live.spec.ts e2e/emoji-picker-ui.spec.ts --project=webkit
+
+      # RFC-018's upgrade path on a real stack: the stack is turned back into
+      # a 1.12 install (webapp on 3001, no front-door route), the webapp's own
+      # /storage passthrough is checked, then setup.sh + start.sh up must move
+      # it to Kong only after the check. Last, because it rewrites .env and
+      # kong.yml; the stack is thrown away after it.
+      - name: Upgrade path (a 1.12 install moves to Kong as the front door)
+        working-directory: ${{ github.workspace }}/webapp/docker
+        env:
+          COMPOSE_FILES: "-f docker-compose.yml -f docker-compose.demo.yml"
+        run: bash test-entry-switch.sh
 
       - name: Upload Playwright report
         if: always()

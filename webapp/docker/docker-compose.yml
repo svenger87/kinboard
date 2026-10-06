@@ -164,15 +164,21 @@ services:
       # two workers is not a compromise. Raise KONG_WORKERS if you are proxying
       # something else through the same gateway. (#252)
       KONG_NGINX_WORKER_PROCESSES: ${KONG_WORKERS:-2}
-      # Pass X-Forwarded-Proto/-Host/-Port through instead of overwriting them
-      # with Kong's own view (plain http, port 8000). With Kong in front of the
-      # webapp, a TLS proxy or tunnel ahead of Kong is what knows the request
-      # was https — the session cookie's Secure flag and the OAuth metadata
-      # depend on it. This trusts exactly what the webapp trusted when it was
-      # published itself: anyone could send those headers to it directly, and
-      # a forged one only changes the answer the forger gets. Narrow it to your
-      # proxy's address if you like.
-      KONG_TRUSTED_IPS: ${KONG_TRUSTED_IPS:-0.0.0.0/0,::/0}
+      # Whose X-Forwarded-* headers Kong passes on to the webapp instead of
+      # overwriting them with its own view (plain http, port 8000). With Kong
+      # in front of the webapp, a TLS proxy or tunnel ahead of Kong is what
+      # knows the request was https — the session cookie's Secure flag and the
+      # OAuth metadata depend on it. Private ranges only: Traefik, cloudflared
+      # and anything on the Docker networks or the LAN. A client on the
+      # internet hitting Kong directly can then forge neither the protocol nor
+      # its address. Behind Cloudflare's proxy (orange cloud) WITHOUT a tunnel,
+      # Kong sees Cloudflare's addresses: add https://www.cloudflare.com/ips/
+      # to this list, or https and the client address are lost.
+      KONG_TRUSTED_IPS: ${KONG_TRUSTED_IPS:-127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7}
+      # The client address behind those proxies: the last untrusted entry of
+      # X-Forwarded-For becomes X-Real-IP for the webapp (its rate limits).
+      KONG_REAL_IP_HEADER: ${KONG_REAL_IP_HEADER:-X-Forwarded-For}
+      KONG_REAL_IP_RECURSIVE: ${KONG_REAL_IP_RECURSIVE:-on}
     volumes:
       - ./kong.yml:/home/kong/kong.yml:ro
     networks:

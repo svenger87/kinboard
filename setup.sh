@@ -529,10 +529,12 @@ fi
 # ----------------------------------------------------------------------
 # Kong serves the app as well as the API through a catch-all route to the
 # webapp. kong.yml is the install's own file, full of its real keys, so the
-# route is merged into it as whole new lines — every existing byte stays —
-# and only when it is missing. The tracked template does not carry it: every
-# install's kong.yml differs from the template, and a template change would
-# stop `git pull --ff-only` (and with it the self-update) on all of them.
+# merge only adds the route's lines (at the indent the file uses) and checks
+# the result before it replaces the file; the steps above still rewrite their
+# own lines (keys, the CORS origin) as they always did. The tracked template
+# does not carry the route: every install's kong.yml differs from the
+# template, and a template change would stop `git pull --ff-only` (and with it
+# the self-update) on all of them.
 ENTRY_SH="$REPO_ROOT/webapp/docker/kinboard-entry.sh"
 entry_route=0
 if [[ -f "$KONG_YML" ]]; then
@@ -541,26 +543,54 @@ if [[ -f "$KONG_YML" ]]; then
   fi
 fi
 
-current_entry="$(env_get KINBOARD_ENTRY)"
+# A KINBOARD_ENTRY compose cannot use ("Kong", a typo) would break every
+# compose command; it is lower-cased, and anything else becomes webapp.
+ENV_FILE="$DOCKER_ENV" sh "$ENTRY_SH" normalise
+
+set_env_key() {
+  local k="$1" v="$2"
+  if grep -qE "^${k}=" "$DOCKER_ENV"; then
+    awk -v k="$k" -v v="$v" '$0 ~ "^"k"=" { print k"="v; next } { print }' \
+      "$DOCKER_ENV" > "$DOCKER_ENV.tmp" && mv "$DOCKER_ENV.tmp" "$DOCKER_ENV"
+  else
+    printf '%s=%s\n' "$k" "$v" >> "$DOCKER_ENV"
+  fi
+}
+
 if [[ $fresh_env -eq 1 ]]; then
   if [[ $entry_route -eq 1 ]]; then
-    awk '/^KINBOARD_ENTRY=/ { print "KINBOARD_ENTRY=kong"; next } { print }' \
-      "$DOCKER_ENV" > "$DOCKER_ENV.tmp" && mv "$DOCKER_ENV.tmp" "$DOCKER_ENV"
-    grep -qE '^KINBOARD_ENTRY=' "$DOCKER_ENV" || echo "KINBOARD_ENTRY=kong" >> "$DOCKER_ENV"
+    set_env_key KINBOARD_ENTRY kong
     echo "→ KINBOARD_ENTRY=kong: Kong answers on port 3001 with the app and its API"
   else
     # Without the route Kong would answer every page with a 404.
-    awk '/^KINBOARD_ENTRY=/ { print "KINBOARD_ENTRY=webapp"; next } { print }' \
-      "$DOCKER_ENV" > "$DOCKER_ENV.tmp" && mv "$DOCKER_ENV.tmp" "$DOCKER_ENV"
-    grep -qE '^KINBOARD_ENTRY=' "$DOCKER_ENV" || echo "KINBOARD_ENTRY=webapp" >> "$DOCKER_ENV"
+    set_env_key KINBOARD_ENTRY webapp
     echo "⚠ KINBOARD_ENTRY=webapp: kong.yml could not take the front-door route (see above)," >&2
-    echo "  so the webapp keeps port 3001 and the browser needs API_EXTERNAL_URL." >&2
+    echo "  so the webapp keeps port 3001 and the API stays on Kong's own port." >&2
   fi
-elif [[ -z "$current_entry" ]]; then
+fi
+current_entry="$(env_get KINBOARD_ENTRY)"
+
+# The webapp in front and no API address: the browser would call /rest on the
+# webapp's port, and every call would 404. Give it the address the old setup
+# would have: SITE_URL's host on Kong's port, or SITE_URL itself when a proxy
+# fronts both on one name (no port to swap).
+if [[ "$current_entry" == "webapp" && -z "$api_url" ]]; then
+  kong_port="$(env_get KONG_HTTP_PORT)"; kong_port="${kong_port:-8100}"
+  webapp_port="$(env_get WEBAPP_PORT)"; webapp_port="${webapp_port:-3001}"
+  if [[ "$site_url" =~ ^(https?://[^/]+):${webapp_port}$ ]]; then
+    api_url="${BASH_REMATCH[1]}:${kong_port}"
+  else
+    api_url="$site_url"
+  fi
+  set_env_key API_EXTERNAL_URL "$api_url"
+  echo "  API_EXTERNAL_URL=$api_url (KINBOARD_ENTRY=webapp needs a separate API address)"
+fi
+
+if [[ $fresh_env -eq 0 && -z "$current_entry" ]]; then
   echo "→ this install still answers on the webapp container (no KINBOARD_ENTRY in .env)."
   echo "  ./start.sh up and the self-update move it to Kong once a request through"
   echo "  Kong reaches the app. To stay as you are, add KINBOARD_ENTRY=webapp to .env."
-else
+elif [[ $fresh_env -eq 0 ]]; then
   echo "→ KINBOARD_ENTRY=$current_entry (from .env)"
 fi
 

@@ -53,12 +53,16 @@ test.describe("client IP", () => {
     expect(clientIp(req({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }))).toBe("203.0.113.7");
   });
 
-  test("through Kong as the front door, the browser's address, not Kong's (RFC-018)", () => {
-    // What Kong 3.9 sends the webapp, measured: a direct request carries the
-    // peer alone, one through Traefik or a tunnel the client then the proxy.
-    // x-real-ip is the immediate peer, which behind a proxy is the proxy.
-    expect(clientIp(req({ "x-forwarded-for": "192.168.1.23", "x-real-ip": "192.168.1.23" }))).toBe("192.168.1.23");
-    expect(clientIp(req({ "x-forwarded-for": "198.51.100.4, 10.231.0.7", "x-real-ip": "10.231.0.7" }))).toBe("198.51.100.4");
+  test("through Kong as the front door: Kong's X-Real-IP, which a client cannot set (RFC-018)", () => {
+    // Measured on Kong 3.9 with KONG_REAL_IP_HEADER=X-Forwarded-For and
+    // recursive on: X-Real-IP is the client resolved through trusted proxies,
+    // and X-Forwarded-For still carries whatever the client claimed first.
+    const forged = { "x-forwarded-for": "1.2.3.4, 198.51.100.4", "x-real-ip": "198.51.100.4" };
+    expect(clientIp(req(forged), "kong")).toBe("198.51.100.4");
+    expect(clientIp(req({ "x-forwarded-for": "192.168.1.23", "x-real-ip": "192.168.1.23" }), "kong")).toBe("192.168.1.23");
+    // With the webapp published itself, X-Real-IP is the client's own word.
+    expect(clientIp(req(forged), "webapp")).toBe("1.2.3.4");
+    expect(clientIp(req(forged), undefined)).toBe("1.2.3.4");
   });
 
   test("falls back to x-real-ip, then a sentinel", () => {

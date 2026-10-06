@@ -1,9 +1,10 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import yaml from "js-yaml";
+import { browserApiUrl } from "../src/lib/supabase/api-base";
 
 /**
  * RFC-018: Kong is the front door. A catch-all route in kong.yml sends every
@@ -44,9 +45,40 @@ function tmp(prefix: string): string {
   return mkdtempSync(join(tmpdir(), prefix));
 }
 
-function merge(file: string): { status: number; out: string } {
-  const r = spawnSync("sh", [ENTRY_SH, "merge", file], { encoding: "utf8" });
+function merge(file: string, env: Record<string, string> = {}): { status: number; out: string } {
+  const r = spawnSync("sh", [ENTRY_SH, "merge", file], { encoding: "utf8", env: { ...process.env, ...env } });
   return { status: r.status ?? -1, out: `${r.stdout}${r.stderr}` };
+}
+
+type KongDoc = { services: { name: string; url: string; routes: { paths: string[] }[] }[]; [k: string]: unknown };
+
+/** The installed kong.yml re-emitted in another list style. */
+function restyled(style: "0-space" | "4-space"): string {
+  // PyYAML's default dump puts a mapping's list items at the mapping's own
+  // indent; a 4-space style is the installed file with every indent doubled.
+  if (style === "0-space") return yaml.dump(yaml.load(installedKongYml()), { indent: 2, noArrayIndent: true, lineWidth: 200 });
+  return [
+    '_format_version: "2.1"',
+    "keyauth_credentials:",
+    "    - consumer: anon",
+    `      key: ${ANON}`,
+    "services:",
+    "    ## PostgREST",
+    "    - name: rest-v1",
+    "      url: http://rest:3000/",
+    "      routes:",
+    "          - name: rest-v1-route",
+    "            strip_path: true",
+    "            paths:",
+    "                - /rest/v1/",
+    "    - name: auth-v1",
+    "      url: http://auth:9999/",
+    "      routes:",
+    "          - name: auth-v1-route",
+    "            paths:",
+    "                - /auth/v1/",
+    "",
+  ].join("\n");
 }
 
 /** The route block exactly as the script inserts it. */
@@ -158,6 +190,90 @@ test.describe("merging the front-door route into an installed kong.yml", () => {
     }
   });
 
+  for (const style of ["0-space", "4-space"] as const) {
+    test(`a kong.yml written in ${style} list style gets the route at its own indent and still parses`, () => {
+      const dir = tmp("entry-merge-");
+      try {
+        const file = join(dir, "kong.yml");
+        const before = restyled(style);
+        const indent = style === "0-space" ? "" : "    ";
+        expect(before).toContain(`\n${indent}- name: rest-v1\n`);
+        writeFileSync(file, before);
+        const r = merge(file);
+        expect(r.status, r.out).toBe(0);
+        const after = readFileSync(file, "utf8");
+        expect(after).toContain(`\nservices:\n${indent}## Front door`);
+        expect(after).toContain(`\n${indent}- name: webapp-entry  # kinboard_entry\n`);
+        const a = yaml.load(before) as KongDoc;
+        const b = yaml.load(after) as KongDoc;
+        expect(b.services.length).toBe(a.services.length + 1);
+        expect(b.services.find((x) => x.name === "webapp-entry")?.routes[0].paths).toEqual(["/"]);
+        expect(b.services.filter((x) => x.name !== "webapp-entry")).toEqual(a.services);
+        for (const k of Object.keys(a)) if (k !== "services") expect(b[k]).toEqual(a[k]);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  }
+
+  test("tab indentation is refused and the file left alone", () => {
+    const dir = tmp("entry-merge-");
+    try {
+      const file = join(dir, "kong.yml");
+      const tabbed = "_format_version: \"2.1\"\nservices:\n\t- name: rest-v1\n\t  url: http://rest:3000/\n";
+      writeFileSync(file, tabbed);
+      const r = merge(file);
+      expect(r.status).not.toBe(0);
+      expect(r.out).toContain("tabs");
+      expect(readFileSync(file, "utf8")).toBe(tabbed);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  /**
+   * With the Kong image on the machine, Kong itself has the last word: a
+   * stub `docker` stands in for `kong config parse` and says no.
+   */
+  test("when `kong config parse` rejects the result, kong.yml is left as it was and no key-holding temp file remains", () => {
+    const dir = tmp("entry-merge-");
+    try {
+      const bin = join(dir, "bin");
+      mkdirSync(bin);
+      writeFileSync(join(bin, "docker"), '#!/bin/sh\ncase "$*" in "image inspect"*) exit 0 ;; run*) cat >/dev/null; echo "parse failed" >&2; exit 1 ;; esac\nexit 0\n');
+      chmodSync(join(bin, "docker"), 0o755);
+      const file = join(dir, "kong.yml");
+      const before = installedKongYml();
+      writeFileSync(file, before);
+      const r = merge(file, { PATH: `${bin}:${process.env.PATH}`, ENTRY_KONG_IMAGE: "kong:3.9.3" });
+      expect(r.status).not.toBe(0);
+      expect(r.out).toContain("did not validate");
+      expect(readFileSync(file, "utf8")).toBe(before);
+      expect(execFileSync("ls", ["-A", dir], { encoding: "utf8" }).split("\n").filter(Boolean).sort()).toEqual(["bin", "kong.yml"]);
+
+      // ...and when it accepts, that is what the merge reports.
+      writeFileSync(join(bin, "docker"), '#!/bin/sh\ncase "$*" in run*) cat >/dev/null ;; esac\nexit 0\n');
+      const ok = merge(file, { PATH: `${bin}:${process.env.PATH}`, ENTRY_KONG_IMAGE: "kong:3.9.3" });
+      expect(ok.status, ok.out).toBe(0);
+      expect(ok.out).toContain("checked by kong config parse (kong:3.9.3)");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("the merge keeps the file's mode", () => {
+    const dir = tmp("entry-merge-");
+    try {
+      const file = join(dir, "kong.yml");
+      writeFileSync(file, installedKongYml());
+      chmodSync(file, 0o640);
+      expect(merge(file).status).toBe(0);
+      expect(statSync(file).mode & 0o777).toBe(0o640);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("the tracked template is not where the route lives", () => {
     // Every install's kong.yml differs from the template (setup.sh writes its
     // keys in), so any change to the template makes `git pull --ff-only` refuse
@@ -168,9 +284,10 @@ test.describe("merging the front-door route into an installed kong.yml", () => {
 });
 
 /**
- * `switch` against a stub `docker` that plays the stack: whether Kong answers
- * `/` with the app, which host ports Kong ends up with, whether this is a
- * Traefik stack. Every docker call is recorded.
+ * The entry commands against a stub `docker` that plays the stack: whether
+ * Kong answers `/` with the app, which host ports Kong ends up with, whether
+ * this is a Traefik stack. Every docker call is recorded. `killOn` makes the
+ * stub kill the script (SIGTERM) the first time a matching call is made.
  */
 interface Stack {
   probe: "app" | "kong404" | "other200" | "fail";
@@ -179,9 +296,12 @@ interface Stack {
   traefik?: boolean;
   /** When set, the probe only passes after `restart kong`. */
   needsRestart?: boolean;
+  killOn?: string;
+  /** A .env.pre-entry left behind by an earlier run. */
+  preEntry?: string;
 }
 
-function runSwitch(env: string, kongYml: string, stack: Stack) {
+function runEntry(cmd: string, env: string, kongYml: string, stack: Stack) {
   const dir = tmp("entry-switch-");
   const bin = join(dir, "bin");
   mkdirSync(bin);
@@ -189,8 +309,12 @@ function runSwitch(env: string, kongYml: string, stack: Stack) {
   writeFileSync(calls, "");
   writeFileSync(join(dir, ".env"), env);
   writeFileSync(join(dir, "kong.yml"), kongYml);
+  if (stack.preEntry !== undefined) writeFileSync(join(dir, ".env.pre-entry"), stack.preEntry);
   const docker = `#!/bin/sh
 echo "docker $*" >> "$CALLS"
+if [ -n "$KILL_ON" ] && [ ! -f "$DIR/killed" ]; then
+  case "$*" in *"$KILL_ON"*) touch "$DIR/killed"; kill -TERM $PPID; sleep 1; exit 1 ;; esac
+fi
 case "$*" in
   *"exec -T webapp curl"*)
     if [ "$PROBE" = fail ]; then exit 7; fi
@@ -215,7 +339,7 @@ exit 0
   writeFileSync(join(bin, "docker"), docker);
   chmodSync(join(bin, "docker"), 0o755);
   try {
-    const out = execFileSync("sh", [ENTRY_SH, "switch"], {
+    const r = spawnSync("sh", [ENTRY_SH, cmd], {
       cwd: dir,
       encoding: "utf8",
       env: {
@@ -227,22 +351,30 @@ exit 0
         KONG_PORTS: stack.kongPorts ?? "8100 3001 ",
         TRAEFIK: stack.traefik ? "1" : "",
         NEEDS_RESTART: stack.needsRestart ? "1" : "",
+        KILL_ON: stack.killOn ?? "",
         ENTRY_PROBE_ATTEMPTS: "2",
+        ENTRY_CONFIRM_ATTEMPTS: "2",
         ENTRY_PROBE_INTERVAL: "0",
       },
     });
+    const files = execFileSync("ls", ["-A", dir], { encoding: "utf8" }).split("\n").filter(Boolean);
     return {
-      out,
+      status: r.status,
+      out: `${r.stdout}${r.stderr}`,
       env: readFileSync(join(dir, ".env"), "utf8"),
       calls: readFileSync(calls, "utf8").split("\n").filter(Boolean),
-      leftovers: execFileSync("ls", ["-A", dir], { encoding: "utf8" }).split("\n").filter(Boolean),
+      leftovers: files.filter((f) => !["killed", "restarted"].includes(f)),
     };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 }
+const runSwitch = (env: string, kongYml: string, stack: Stack) => runEntry("switch", env, kongYml, stack);
 
-const EXISTING_ENV = "POSTGRES_PASSWORD=s3cr3t\nAPI_EXTERNAL_URL=http://192.168.1.50:8100\nWEBAPP_PORT=3001\n";
+// What a 1.12 install looks like: the old prompt wrote both addresses on the
+// same host, Kong's port and the webapp's.
+const EXISTING_ENV =
+  "POSTGRES_PASSWORD=s3cr3t\nAPI_EXTERNAL_URL=http://192.168.1.50:8100\nSITE_URL=http://192.168.1.50:3001\nWEBAPP_PORT=3001\n";
 const WITH_ROUTE = (() => {
   const dir = tmp("entry-route-");
   try {
@@ -306,12 +438,13 @@ test.describe("moving an existing install to Kong only after the check", () => {
     expect(r.leftovers).not.toContain(".env.pre-entry");
   });
 
-  test("an explicit KINBOARD_ENTRY (the opt-out) is never touched", () => {
-    for (const value of ["webapp", "kong"]) {
-      const env = `${EXISTING_ENV}KINBOARD_ENTRY=${value}\n`;
+  test("an explicit KINBOARD_ENTRY (the opt-out) is never touched, in any form a shell accepts", () => {
+    for (const line of ["KINBOARD_ENTRY=webapp", "export KINBOARD_ENTRY=webapp", "  KINBOARD_ENTRY=webapp", 'KINBOARD_ENTRY="webapp"', "KINBOARD_ENTRY=kong"]) {
+      const env = `${EXISTING_ENV}${line}\n`;
       const r = runSwitch(env, WITH_ROUTE, { probe: "app" });
-      expect(r.env).toBe(env);
-      expect(r.calls).toEqual([]);
+      expect(r.calls.filter((c) => !c.includes(" config")), line).toEqual([]);
+      expect(r.env.match(/KINBOARD_ENTRY=/g)?.length, line).toBe(1);
+      expect(r.env, line).toMatch(/^KINBOARD_ENTRY=(webapp|kong)$/m);
     }
   });
 
@@ -322,6 +455,23 @@ test.describe("moving an existing install to Kong only after the check", () => {
     expect(r.out).toContain("behind Traefik");
   });
 
+  test("a separate API host stays on webapp: a proxy may send the app's host to webapp:3000", () => {
+    const env = "API_EXTERNAL_URL=https://api.kinboard.example.com\nSITE_URL=https://kinboard.example.com\nWEBAPP_PORT=3001\n";
+    const r = runSwitch(env, WITH_ROUTE, { probe: "app" });
+    expect(r.env).toBe(env);
+    expect(ups(r.calls)).toEqual([]);
+    expect(r.out).toContain("staying on webapp: separate API host");
+    // ...and no SITE_URL at all is not taken as "same host".
+    expect(runSwitch("API_EXTERNAL_URL=http://nas:8100\n", WITH_ROUTE, { probe: "app" }).out).toContain("separate API host");
+  });
+
+  test("the same host on another port, an empty API_EXTERNAL_URL or `same-origin` all move", () => {
+    for (const api of ["http://192.168.1.50:8100", "", "same-origin", "HTTP://192.168.1.50:8100/"]) {
+      const env = `API_EXTERNAL_URL=${api}\nSITE_URL=http://192.168.1.50:3001\n`;
+      expect(runSwitch(env, WITH_ROUTE, { probe: "app" }).env, api).toContain("KINBOARD_ENTRY=kong");
+    }
+  });
+
   test("a .env without a final newline gets the setting on a line of its own", () => {
     const env = EXISTING_ENV.trimEnd();
     const r = runSwitch(env, WITH_ROUTE, { probe: "app" });
@@ -329,28 +479,146 @@ test.describe("moving an existing install to Kong only after the check", () => {
   });
 });
 
+test.describe("a move that is interrupted", () => {
+  test("killed while Kong is being recreated: .env comes back and the webapp gets the port back", () => {
+    const r = runSwitch(EXISTING_ENV, WITH_ROUTE, { probe: "app", killOn: "up -d --no-deps --no-build kong" });
+    expect(r.status).not.toBe(0);
+    expect(r.env).toBe(EXISTING_ENV);
+    // webapp (moved off), kong (killed), then the recovery: kong lets go, webapp takes it.
+    expect(ups(r.calls)).toEqual(["webapp", "kong", "kong", "webapp"]);
+    expect(r.leftovers).not.toContain(".env.pre-entry");
+    expect(r.leftovers.some((f) => f.includes("entry-tmp"))).toBe(false);
+  });
+
+  test("killed hard (no trap runs): the next run finds .env.pre-entry and puts everything back", () => {
+    const r = runSwitch(`${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "app", preEntry: EXISTING_ENV });
+    expect(r.env).toBe(EXISTING_ENV);
+    expect(ups(r.calls)).toEqual(["kong", "webapp"]);
+    expect(r.out).toContain("did not finish");
+    expect(r.leftovers).not.toContain(".env.pre-entry");
+  });
+
+  test("before an `up`, prepare puts only .env back and leaves the containers to that up", () => {
+    const r = runEntry("prepare", `${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "app", preEntry: EXISTING_ENV });
+    expect(r.env).toBe(EXISTING_ENV);
+    expect(ups(r.calls)).toEqual([]);
+    // ...and tells the switch fallback later in the same run not to try again.
+    expect(r.leftovers).toContain(".env.entry-undone");
+  });
+
+  test("a switch after an undone move waits for the next run, once", () => {
+    const dir = tmp("entry-undone-");
+    try {
+      writeFileSync(join(dir, ".env"), EXISTING_ENV);
+      writeFileSync(join(dir, ".env.entry-undone"), "");
+      writeFileSync(join(dir, "kong.yml"), WITH_ROUTE);
+      const out = execFileSync("sh", [ENTRY_SH, "switch"], { cwd: dir, encoding: "utf8", env: { ...process.env, PATH: "/nonexistent:/usr/bin:/bin" } });
+      expect(out).toContain("trying again on the next run");
+      expect(readFileSync(join(dir, ".env"), "utf8")).toBe(EXISTING_ENV);
+      expect(execFileSync("ls", ["-A", dir], { encoding: "utf8" }).split("\n").filter(Boolean).sort()).toEqual([".env", "kong.yml"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+test.describe("deciding before the upgrade's `up` (one webapp restart, not two)", () => {
+  test("prepare writes the setting and keeps the old .env; it touches no container", () => {
+    const r = runEntry("prepare", EXISTING_ENV, WITH_ROUTE, { probe: "app" });
+    expect(r.env).toBe(`${EXISTING_ENV}KINBOARD_ENTRY=kong\n`);
+    expect(r.leftovers).toContain(".env.pre-entry");
+    expect(ups(r.calls)).toEqual([]);
+  });
+
+  test("prepare without a passing check changes nothing", () => {
+    const r = runEntry("prepare", EXISTING_ENV, WITH_ROUTE, { probe: "kong404" });
+    expect(r.env).toBe(EXISTING_ENV);
+    expect(r.leftovers).not.toContain(".env.pre-entry");
+  });
+
+  test("confirm after the up: done when Kong has the port and the app answers", () => {
+    const r = runEntry("confirm", `${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "app", preEntry: EXISTING_ENV });
+    expect(r.env).toBe(`${EXISTING_ENV}KINBOARD_ENTRY=kong\n`);
+    expect(r.leftovers).not.toContain(".env.pre-entry");
+    expect(ups(r.calls)).toEqual([]);
+  });
+
+  test("confirm after the up: otherwise .env and the old layout come back", () => {
+    const r = runEntry("confirm", `${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "kong404", preEntry: EXISTING_ENV });
+    expect(r.env).toBe(EXISTING_ENV);
+    expect(ups(r.calls)).toEqual(["kong", "webapp"]);
+    expect(r.out).toContain("staying on webapp: the webapp did not answer through Kong after the move");
+    expect(r.leftovers).toContain(".env.entry-undone");
+  });
+});
+
+test.describe("a KINBOARD_ENTRY that compose would choke on", () => {
+  for (const [line, want] of [
+    ["KINBOARD_ENTRY=Kong", "kong"],
+    ["KINBOARD_ENTRY= WEBAPP ", "webapp"],
+    ["KINBOARD_ENTRY=traefik", "webapp"],
+    ["export KINBOARD_ENTRY=kong", "kong"],
+    ["KINBOARD_ENTRY=kong\nKINBOARD_ENTRY=Kong", "kong"],
+  ] as const) {
+    test(`${JSON.stringify(line)} becomes KINBOARD_ENTRY=${want}`, () => {
+      const r = runEntry("normalise", `A=1\n${line}\nB=2\n`, WITH_ROUTE, { probe: "app" });
+      expect(r.env).toBe(`A=1\nKINBOARD_ENTRY=${want}\nB=2\n`);
+    });
+  }
+
+  test("a valid line is left byte for byte", () => {
+    const env = "A=1\nKINBOARD_ENTRY=kong\nB=2\n";
+    expect(runEntry("normalise", env, WITH_ROUTE, { probe: "app" }).env).toBe(env);
+  });
+});
+
 test.describe("the scripts that run the switch", () => {
   const selfUpdate = readFileSync("docker/kinboard-self-update.sh", "utf8");
   const start = readFileSync("docker/start.sh", "utf8");
 
-  test("the self-update switches after Kong was restarted onto the merged route", () => {
-    const restart = selfUpdate.indexOf("docker restart kinboard-kong");
-    const sw = selfUpdate.indexOf("sh ./kinboard-entry.sh switch");
-    expect(restart).toBeGreaterThan(0);
-    expect(sw).toBeGreaterThan(restart);
-    // ...and recreates the scheduler, since the switch recreates the webapp.
-    expect(selfUpdate.indexOf('recreate_scheduler_if_webapp_changed "$WEBAPP_BEFORE"', sw)).toBeGreaterThan(sw);
+  test("the self-update decides before its one `up`, confirms after it, and keeps switch as the fallback", () => {
+    const at = (needle: string, from = 0) => selfUpdate.indexOf(needle, from);
+    const normalise = at("entry normalise");
+    const pull = at("pull --ignore-buildable >>");
+    const backup = at("take_backup; then");
+    const prepare = at("entry prepare");
+    const up = at("up -d --no-build $SERVICES >>");
+    const confirm = at("entry confirm");
+    const sw = at("entry switch");
+    expect(normalise).toBeGreaterThan(0);
+    // Every compose command after the setting is normalised; the decision
+    // after the backup (an aborted upgrade must not leave .env changed) and
+    // before the only up.
+    expect(pull).toBeGreaterThan(normalise);
+    expect(prepare).toBeGreaterThan(backup);
+    expect(up).toBeGreaterThan(prepare);
+    expect(confirm).toBeGreaterThan(up);
+    expect(sw).toBeGreaterThan(confirm);
+    // ...and the scheduler follows a webapp the fallback recreated.
+    expect(at('recreate_scheduler_if_webapp_changed "$WEBAPP_BEFORE"', sw)).toBeGreaterThan(sw);
   });
 
-  test("start.sh up switches after the migrations, never failing the up", () => {
-    const wait = start.indexOf("    wait_for_migrations\n");
-    const sw = start.indexOf("sh ./kinboard-entry.sh switch || true");
-    expect(wait).toBeGreaterThan(0);
-    expect(sw).toBeGreaterThan(wait);
+  test("start.sh normalises before any compose command, decides before the up, confirms after the migrations", () => {
+    const at = (needle: string) => start.indexOf(needle);
+    expect(at("sh ./kinboard-entry.sh normalise")).toBeGreaterThan(0);
+    expect(at("sh ./kinboard-entry.sh normalise")).toBeLessThan(at("$COMPOSE $COMPOSE_FILES"));
+    // A shell copy of KINBOARD_ENTRY would beat the rewritten .env in compose.
+    expect(at("unset KINBOARD_ENTRY")).toBeGreaterThan(at("source ./.env"));
+    const prepare = at("    entry prepare\n");
+    const up = at("    $COMPOSE $COMPOSE_FILES up -d\n");
+    const wait = at("    wait_for_migrations\n");
+    const confirm = at("    entry confirm\n");
+    const sw = at("    entry switch\n");
+    expect(prepare).toBeGreaterThan(0);
+    expect(up).toBeGreaterThan(prepare);
+    expect(wait).toBeGreaterThan(up);
+    expect(confirm).toBeGreaterThan(wait);
+    expect(sw).toBeGreaterThan(confirm);
+    expect(start).toContain('sh ./kinboard-entry.sh "$@" || true');
   });
 
   test("no `grep -qv` — on the Unraid host grep is ugrep, which gets its exit status wrong", () => {
-    for (const f of ["docker/kinboard-entry.sh", "docker/kinboard-self-update.sh", "docker/start.sh", "../setup.sh"]) {
+    for (const f of ["docker/kinboard-entry.sh", "docker/kinboard-self-update.sh", "docker/start.sh", "docker/test-entry-switch.sh", "../setup.sh"]) {
       expect(readFileSync(f, "utf8"), f).not.toMatch(/grep\s+-[a-zA-Z]*q[a-zA-Z]*v|grep\s+-[a-zA-Z]*v[a-zA-Z]*q/);
     }
   });
@@ -483,13 +751,42 @@ test.describe("setup.sh", () => {
     }
   });
 
-  test("a new install whose kong.yml cannot take the route stays on webapp", () => {
+  test("a new install whose kong.yml cannot take the route stays on webapp, with an API address that works", () => {
     const root = scratchRepo();
     try {
       const kong = join(root, "webapp", "docker", "kong.yml");
       writeFileSync(kong, readFileSync(kong, "utf8").replace("\nservices:\n", "\nservices: # x\n"));
       setup(root);
-      expect(valueOf(envOf(root), "KINBOARD_ENTRY")).toBe("webapp");
+      const env = envOf(root);
+      expect(valueOf(env, "KINBOARD_ENTRY")).toBe("webapp");
+      // The outcome, not the variable: the browser is sent to Kong's own port
+      // on the page's host, which this layout publishes, not to /rest on the
+      // webapp (a 404 on every call).
+      const browser = browserApiUrl({
+        KINBOARD_ENTRY: valueOf(env, "KINBOARD_ENTRY"),
+        API_EXTERNAL_URL: valueOf(env, "API_EXTERNAL_URL"),
+        SITE_URL: valueOf(env, "SITE_URL"),
+      });
+      expect(browser).toBe(`http://localhost:${valueOf(env, "KONG_HTTP_PORT")}`);
+      // ...and a domain without a port keeps the old one-name answer.
+      setup(root, ["--url", "https://kinboard.example.com"]);
+      expect(valueOf(envOf(root), "API_EXTERNAL_URL")).toBe("https://kinboard.example.com");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a KINBOARD_ENTRY typo is fixed by setup.sh before anything reads it", () => {
+    const root = scratchRepo();
+    try {
+      setup(root);
+      const envFile = join(root, "webapp", "docker", ".env");
+      writeFileSync(envFile, readFileSync(envFile, "utf8").replace(/^KINBOARD_ENTRY=.*$/m, "export KINBOARD_ENTRY=Kong"));
+      const out = setup(root);
+      const env = envOf(root);
+      expect(env.match(/^\s*(export\s+)?KINBOARD_ENTRY=/gm)?.length).toBe(1);
+      expect(valueOf(env, "KINBOARD_ENTRY")).toBe("kong");
+      expect(out).toContain("KINBOARD_ENTRY written as KINBOARD_ENTRY=kong");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -27,22 +27,38 @@ type EnvLike = Record<string, string | undefined>;
  * The API address the browser should use, or `null` for "the address the page
  * was opened from".
  *
- * - `KINBOARD_ENTRY=kong`: same origin, whatever else is set — Kong serves the
- *   page, so the page's origin is Kong.
- * - otherwise `API_EXTERNAL_URL` (as the stack passes it), falling back to
+ * - `API_EXTERNAL_URL` (as the stack passes it), falling back to
  *   `NEXT_PUBLIC_SUPABASE_URL` where it is absent (`next dev`, a compose file
- *   from before 1.13): empty or `same-origin` means same origin, anything else
- *   is the address.
+ *   from before 1.13). Empty or `same-origin` means the page's own origin.
+ * - With `KINBOARD_ENTRY=kong`, an address on SITE_URL's host is the old
+ *   two-port layout (`http://nas:8100` next to `http://nas:3001`) and is
+ *   ignored: Kong serves the API on the page's own address now, and that is
+ *   what lets the same install work from the LAN and from outside.
+ * - An address on a DIFFERENT host than SITE_URL is a separate API host that
+ *   somebody set up on purpose — a proxy may send it, and only it, to Kong.
+ *   It is honoured in every layout; the automatic move to Kong leaves such
+ *   installs alone for the same reason (kinboard-entry.sh).
  *
  * `next dev` sets neither KINBOARD_ENTRY nor API_EXTERNAL_URL, so it keeps
  * using NEXT_PUBLIC_SUPABASE_URL from .env.local: same-origin is a property of
  * the containerised stack, not of a dev server on :3000 with Kong on :8130.
  */
 export function browserApiUrl(env: EnvLike = process.env): string | null {
-  if ((env.KINBOARD_ENTRY ?? "").trim().toLowerCase() === "kong") return null;
   const configured = (env.API_EXTERNAL_URL ?? env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
   if (!configured || configured.toLowerCase() === SAME_ORIGIN) return null;
-  return configured.replace(/\/+$/, "");
+  const url = configured.replace(/\/+$/, "");
+  if ((env.KINBOARD_ENTRY ?? "").trim().toLowerCase() === "kong" && sameHost(url, env.SITE_URL)) return null;
+  return url;
+}
+
+/** Whether two URLs name the same host, ports aside. No SITE_URL: not known to be. */
+function sameHost(a: string, b: string | undefined): boolean {
+  if (!b) return false;
+  try {
+    return new URL(a).hostname.toLowerCase() === new URL(b).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
 }
 
 /** What the root layout hands the browser in `window.__ENV`. */
@@ -86,5 +102,9 @@ export function serverSupabaseUrl(env: EnvLike = process.env): string {
   if (internal) return internal;
   const external = browserApiUrl(env);
   if (external) return external;
-  throw new Error("SUPABASE_URL is not set");
+  throw new Error(
+    "SUPABASE_URL is not set: server-side code needs Kong's internal address " +
+      "(docker-compose.yml sets SUPABASE_URL=http://kong:8000; for `next dev`, set " +
+      "SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL in .env.local)",
+  );
 }
