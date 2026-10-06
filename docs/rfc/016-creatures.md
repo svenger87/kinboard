@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft. Step 1 is in progress as its own PR; Steps 2 and 3 are proposed here |
+| **Status** | Accepted 2026-10-06 (first batch, §3). Step 1 is #363; Steps 2 and 3 follow |
 | **Date** | 2026-10-06 |
 | **Depends on** | the pocket-money plugin, points mode (#353), server-only pocket-money writes (#361) |
 
@@ -27,9 +27,10 @@ showed what it could be instead:
   glow, stars). It breathes, blinks, beats its wings and sways its tail; a tap
   makes it hop with hearts; the egg wobbles, cracks and hatches; each new stage
   pops in with stars.
-- **A creature workshop**: five creatures with their own growth story, and an
-  editor a child can use alone: colours, a pattern, eyes, an accessory and a
-  name.
+- **A creature workshop**: fourteen creatures and characters with their own
+  growth story, and an editor a child can use alone: colours, a pattern, eyes,
+  an accessory and a name; for the princess and the prince also skin tone and
+  hair colour.
 
 Everything is drawn in code from one skeleton (a body, a head and per-species
 parts), so the artwork belongs to Kinboard. There are no asset packs to
@@ -51,36 +52,47 @@ cosmetics bought with points next to the rewards from #353.
 
 Each creature has its own beginning and its own growth story. Stage 1 is the
 closed beginning, stage 2 the baby peeking out of it, stages 3–8 the growing
-creature, with a crown at stage 8.
+creature, with a crown at stage 8. Fourteen were drawn in the workshop:
 
-| Creature | Starts as | Grows | Stage names (en) |
+| Creature | Starts as | Grows | Stage 8 |
 |---|---|---|---|
-| Dragon | a spotted egg | longer snout, crest spikes, horns, wings, a spade-tipped tail, belly scales | Egg, Hatchling, Lizard, Crocodile, Drake, Dragon, Behemoth, Mighty T-Rex |
-| Cat | ears peeking out of a basket | a scarf, then a lion's mane that grows | Basket, Kitten, House Cat, Explorer, Adventurer, Lion Cub, Lion, King of the Jungle |
-| Axolotl | a jelly egg in the pond | frilly gills that grow every stage and wave; it glows at the end | Jelly Egg, Larva, Axolotl, Pond Explorer, River Swimmer, Lake Guardian, Glow Axolotl, Sea Legend |
-| Owl | an egg | ear tufts, glasses, a graduation cap | Egg, Owlet, Fledgling, Owl, Night Flyer, Scholar, Wise Owl, Grand Owl |
-| Robot | a box of parts | blinking lights, jet thrusters, shoulder plates | Box of Parts, Bolt Bot, Robot, Helper Bot, Jet Bot, Mega Bot, Titan Bot, Ultra Bot |
+| Dragon | a spotted egg | longer snout, crest spikes, horns, wings, spade tail, belly scales | Mighty T-Rex |
+| T-Rex | an egg | a ridge of spikes; teeth from stage 4 | Rex King |
+| Triceratops | an egg | the frill grows into a shield; nose horn, then two brow horns | Trike King |
+| Stegosaurus | an egg | more back plates; a spiked tail from stage 5 | Stego King |
+| Unicorn | a star egg | golden horn, rainbow mane, Pegasus wings | Celestial |
+| Cat | ears peeking out of a basket | a scarf, then a lion's mane | King of the Jungle |
+| Fox | a pile of autumn leaves | a bushy tail, then three, then five | Fox Spirit |
+| Bunny | a basket | ears longer every stage, a carrot, then it glows | Bunny King |
+| Axolotl | a jelly egg | frilly gills that grow and wave; it glows | Sea Legend |
+| Owl | an egg | ear tufts, glasses, a graduation cap | Grand Owl |
+| Penguin | an egg | a scarf, golden cheeks | Penguin King |
+| Robot | a box of parts | blinking lights, jets, shoulder plates | Ultra Bot |
+| Princess | a crown on a cushion | a tiara, a star wand, a cape | Queen |
+| Prince | a crown on a cushion | a sword, then shield and cape as a knight | King |
 
-Today's species are dragon, cat, astronaut, plant and wizard. The astronaut,
-the plant and the wizard are not round creatures: a plant grows from a seed to
-a tree, a wizard is a person. They don't fit the shared skeleton and would each
-need one of their own.
+The creatures share one skeleton (a round body, a head, per-species ears,
+tails and extras). The princess and the prince use a person skeleton: a head
+with hair, a dress or a tunic, sleeves and hands. They add **skin tone** (five
+shades) and **hair colour** to the editor (§4), so a child can make them look
+like themselves. Any child can pick either; nothing in Kinboard ties them to
+boys or girls.
 
-**Decision 1: which creatures.**
+**First batch** (decided 2026-10-06): **Dragon** (Step 1), **T-Rex**,
+**Unicorn**, **Princess**, **Prince** and **Cat**. The others follow one PR at
+a time.
 
-- **A. Add.** Dragon, cat, axolotl, owl and robot are drawn. Astronaut, plant
-  and wizard stay in the *Classic* style (today's pictures) until someone draws
-  them, and choosing a drawn style for them shows a "coming for this creature"
-  hint.
-- **B. Replace.** The three new creatures replace astronaut, plant and wizard.
-  Accounts with one of those keep Classic until a parent picks another
-  creature; the old three are no longer offered for new accounts.
-- **C. Add, and draw the rest later.** As A, with the plant and the wizard
-  scheduled as their own follow-up (a plant skeleton; a person skeleton), and
-  the astronaut redrawn as a creature in a spacesuit.
+Today's astronaut, plant and wizard stay in the *Classic* style (today's
+pictures). Choosing a drawn style for them shows "coming for this creature",
+and nobody loses the creature their child already has. The plant (seed to
+tree) and the wizard need skeletons of their own and are not scheduled.
 
-Recommendation: **C**. Nobody loses the creature their child already has, the
-new creatures arrive at once, and the old ones keep working.
+Polish noted while drawing, before each ships:
+
+- The stegosaurus's plates should stand above the shoulders, not out to the
+  sides.
+- The princess and the prince need a choice of hairstyles (short, ponytail,
+  curls).
 
 Each creature is one module under `src/lib/pocket-money/creatures/`. Its stage
 names live in en, de and fr under the existing `pocketMoney.species.<id>.tierN`
@@ -98,6 +110,8 @@ A child opens **Change look** on their own pocket-money page and changes:
 | Body colour | 10 from a fixed set |
 | Tummy colour | 6 |
 | Wings, ears and fins | 8 |
+| Skin tone (princess, prince) | 5 |
+| Hair colour (princess, prince) | 8 |
 | Pattern | plain, spots, stripes, hearts |
 | Eyes | round, sparkly, happy |
 | Accessory | none, bow, party hat, sunglasses, flower |
@@ -168,7 +182,7 @@ anyone who asks their device to reduce motion.
 
 ## 7. Open questions
 
-1. **Decision 1** (§3): which creatures.
+1. ~~Which creatures~~: decided, first batch in §3.
 2. **Classic**: is it kept for good, or retired once every creature is drawn?
 3. **Who picks the style when a child has none yet**: the family's default
    (one setting), or always Classic until the child chooses?
