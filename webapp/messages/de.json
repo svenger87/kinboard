@@ -2781,6 +2781,48 @@
       "showMore": "Mehr anzeigen"
     }
   },
+  "settingsSearch": {
+    "keywords": {
+      "people": "Familie, Personen, Mitglieder, Kinder, Eltern, Farbe, Avatar, Geburtstag",
+      "devices": "Gerät, Bildschirm, Tablet, Display, Handy, umbenennen, entfernen, abmelden, Kiosk",
+      "catalogue": "Dinge, Lichter, Lampen, Licht, Schlösser, Geräte, Smart Home, Räume, Schalter",
+      "schedule": "Stundenplan, Schule, Unterricht, Schulstunden, Fächer, Klasse, Packliste, Ranzen",
+      "holidays": "Ferien, Schulferien, Feiertage, Urlaub, freie Tage, Bundesland, Region",
+      "recycle-bin": "Papierkorb, gelöscht, wiederherstellen, rückgängig, Mülleimer",
+      "task-log": "Aufgaben-Protokoll, Verlauf, Protokoll, erledigt, abgehakt, Aufgaben, Hausarbeit, wer hat was gemacht",
+      "widgets": "Widgets, Dashboard, Startseite, Kacheln, anzeigen, ausblenden, Müll, Abfuhr, Müllabfuhr",
+      "hints": "Hinweise, Tipps, Erinnerungen, Vorschläge",
+      "navigation": "Navigation, Menü, Leiste, Reihenfolge, sortieren, ausblenden",
+      "theme": "Design, Farben, Thema, Dunkelmodus, Hell, Dunkel, Uhr, Aussehen",
+      "screensaver": "Bildschirmschoner, Ruhezustand, Timeout, Präsenz, Bewegungsmelder, Diashow, Standby",
+      "weather": "Wetter, Vorhersage, Standort, Ort, Stadt, Temperatur",
+      "notifications": "Benachrichtigungen, Mitteilungen, Push, Erinnerungen, Ruhezeiten",
+      "language": "Sprache, Englisch, Deutsch, Französisch, Übersetzung, Region",
+      "news": "Nachrichten, News, RSS, Feeds, Schlagzeilen, Quellen",
+      "plugins": "Plugins, Funktionen, Module, aktivieren, deaktivieren, Erweiterungen",
+      "calendar": "Kalender, Termine, synchronisieren, Google, iCloud, ICS, CalDAV",
+      "bring": "Bring, Einkaufen, Einkaufsliste, Einkauf",
+      "photos": "Fotos, Bilder, Diashow, Bildschirmschoner, Immich, Unsplash, iCloud, DLNA, Album",
+      "homeassistant": "Home Assistant, HA, Smart Home, Hausautomation, Token, Licht",
+      "integrations": "Tokens, API, Assistent, ChatGPT, Claude, MCP, Zugriff, Schnittstelle",
+      "vehicles": "Auto, Fahrzeug, Wagen, Tesla, E-Auto, Laden, Reichweite, Akku",
+      "energy": "Energie, Strom, Solar, PV, Photovoltaik, Batterie, Speicher, Netz",
+      "cameras": "Kamera, Kameras, Türklingel, Klingel, Überwachung, RTSP, go2rtc, Video",
+      "stonks": "Aktien, Watchlist, Anlagen, Börse, ETF, Depot",
+      "pocket-money": "Taschengeld, Kinder, Sparen, Zinsen, Geld, Konto",
+      "media-players": "Medien, Musik, Lautsprecher, Sonos, Fernseher, TV, Player",
+      "google": "Google, Google Kalender, Konto, synchronisieren",
+      "ics": "ICS, iCal, iCalendar, abonnieren, Feed, URL, iCloud, Müll, Abfuhr, Müllkalender",
+      "caldav": "CalDAV, Nextcloud, Radicale, Fastmail, iCloud, Zwei-Wege, synchronisieren, Müll, Abfuhr",
+      "local-calendars": "lokaler Kalender, neuer Kalender, eigener Kalender, offline",
+      "homeassistant-rooms": "Räume, Zimmer, Bereiche, Küche, Wohnzimmer, Schlafzimmer",
+      "index_join-code": "Familien-Code, Code, einladen, Gerät hinzufügen, beitreten, neues Gerät",
+      "index_pin": "PIN, Sperre, sperren, Passwort, Kennwort, Schutz, Kindersicherung, Sicherheit",
+      "index_data-export": "Sicherung, Backup, Export, exportieren, herunterladen, wiederherstellen, Daten",
+      "index_calendar-feed": "Kalender-Feed, ICS, abonnieren, Outlook, iPhone, Kalender teilen",
+      "index_diagnostics": "Diagnose, Version, Status, Fehlersuche, Verbindung, Probleme, Update"
+    }
+  },
   "calendar": {
     "caldavToast": {
       "pushFailed": "Termin gespeichert, aber nicht an den CalDAV-Server gesendet",

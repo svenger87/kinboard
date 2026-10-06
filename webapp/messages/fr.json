@@ -2781,6 +2781,48 @@
       "showMore": "Afficher plus"
     }
   },
+  "settingsSearch": {
+    "keywords": {
+      "people": "famille, membres, personnes, enfants, parents, couleur, avatar, anniversaire",
+      "devices": "appareil, écran, tablette, téléphone, renommer, supprimer, déconnecter, kiosque",
+      "catalogue": "objets, lumières, lampes, serrures, appareils, maison connectée, pièces, interrupteurs",
+      "schedule": "école, emploi du temps, cours, matières, classe, cartable",
+      "holidays": "vacances, vacances scolaires, jours fériés, congés, région, zone",
+      "recycle-bin": "corbeille, supprimé, restaurer, annuler, récupérer",
+      "task-log": "journal des tâches, historique, fait, coché, terminé, corvées, tâches ménagères, qui a fait quoi",
+      "widgets": "widgets, tableau de bord, accueil, tuiles, afficher, masquer, poubelles, collecte des déchets",
+      "hints": "conseils, astuces, rappels, suggestions",
+      "navigation": "navigation, menu, onglets, barre, ordre, réorganiser, masquer",
+      "theme": "design, thème, couleurs, mode sombre, mode clair, horloge, apparence",
+      "screensaver": "économiseur d'écran, veille, délai, présence, capteur de mouvement, diaporama",
+      "weather": "météo, prévisions, emplacement, ville, température",
+      "notifications": "notifications, push, alertes, rappels, heures calmes",
+      "language": "langue, anglais, allemand, français, traduction, région",
+      "news": "actualités, infos, RSS, flux, titres, sources",
+      "plugins": "plugins, fonctionnalités, modules, activer, désactiver, extensions",
+      "calendar": "calendrier, agenda, rendez-vous, synchroniser, Google, iCloud, ICS, CalDAV",
+      "bring": "Bring, courses, liste de courses, épicerie",
+      "photos": "photos, images, diaporama, économiseur d'écran, Immich, Unsplash, iCloud, DLNA, album",
+      "homeassistant": "Home Assistant, HA, maison connectée, domotique, jeton, lumières",
+      "integrations": "jetons, API, assistant, ChatGPT, Claude, MCP, accès, intégration",
+      "vehicles": "voiture, véhicule, Tesla, voiture électrique, recharge, autonomie, batterie",
+      "energy": "énergie, électricité, solaire, photovoltaïque, batterie, réseau",
+      "cameras": "caméra, caméras, sonnette, interphone, surveillance, RTSP, go2rtc, vidéo",
+      "stonks": "actions, bourse, liste de suivi, investissements, ETF, portefeuille",
+      "pocket-money": "argent de poche, enfants, épargne, intérêts, argent",
+      "media-players": "médias, musique, enceintes, Sonos, télé, lecteurs",
+      "google": "Google, Google Agenda, compte, synchroniser",
+      "ics": "ICS, iCal, iCalendar, abonner, flux, URL, iCloud, collecte des déchets, poubelles",
+      "caldav": "CalDAV, Nextcloud, Radicale, Fastmail, iCloud, synchronisation bidirectionnelle, collecte des déchets",
+      "local-calendars": "calendrier local, nouveau calendrier, propre calendrier, hors ligne",
+      "homeassistant-rooms": "pièces, zones, cuisine, salon, chambre",
+      "index_join-code": "code familial, code, inviter, ajouter un appareil, rejoindre",
+      "index_pin": "PIN, verrou, verrouiller, mot de passe, protection, sécurité, contrôle parental",
+      "index_data-export": "sauvegarde, exporter, télécharger, restaurer, JSON, données",
+      "index_calendar-feed": "flux de calendrier, ICS, abonner, Outlook, iPhone, partager le calendrier",
+      "index_diagnostics": "diagnostic, version, état, dépannage, connexion, mise à jour"
+    }
+  },
   "calendar": {
     "caldavToast": {
       "pushFailed": "Événement enregistré, mais non envoyé au serveur CalDAV",
