@@ -282,6 +282,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   ]),
   ...sectionsOf(pocketMoney, [
     { anchor: "currency", labelKey: "settings.pocketMoney.currencyLabel" },
+    { anchor: "rewards", labelKey: "settings.pocketMoney.rewardsTitle", descriptionKey: "settings.pocketMoney.rewardsDescription" },
   ]),
   ...sectionsOf(google, [
     { anchor: "auto-sync", labelKey: "settings.google.autoSyncTitle" },

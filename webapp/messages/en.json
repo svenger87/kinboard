@@ -2839,7 +2839,7 @@
       "energy": "energy, solar, PV, battery, grid, power, electricity",
       "cameras": "camera, cameras, doorbell, CCTV, security, RTSP, go2rtc, video",
       "stonks": "stocks, shares, watchlist, investments, ETF, portfolio",
-      "pocket-money": "pocket money, allowance, kids, savings, interest, money",
+      "pocket-money": "pocket money, allowance, kids, savings, interest, money, points, rewards, task points",
       "media-players": "media, music, speakers, Sonos, TV, players, cast",
       "google": "Google, Google Calendar, Gmail, sync, account",
       "ics": "ICS, iCal, iCalendar, subscribe, feed, URL, iCloud, waste collection, bins",
@@ -2892,6 +2892,7 @@
       "stonks_add-symbol": "add symbol, ticker, stock, share, ETF, search",
       "stonks_watchlist": "watchlist, stocks, shares, remove, nickname",
       "pocket-money_currency": "currency, euro, dollar, pound, money",
+      "pocket-money_rewards": "rewards, points, task points, redeem, prizes, treats",
       "google_auto-sync": "automatic sync, sync interval, Google sync, how often",
       "google_calendars": "calendars, Google calendars, which calendars, enable, colours",
       "google_person-mapping": "person mapping, assign person, who, family member, rules"

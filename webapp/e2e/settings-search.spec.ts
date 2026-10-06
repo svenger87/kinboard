@@ -209,12 +209,24 @@ const hrefOf = (pageFile: string) =>
   "/" + pageFile.slice(join(SRC, "app").length + 1).replace(/\/?page\.tsx$/, "");
 const pageFileOf = (href: string) => join(SRC, "app", href.slice(1), "page.tsx");
 
-/** A page's own source plus every components/settings file it imports. */
+/**
+ * Section components outside components/settings: a feature's own settings
+ * card, named `*-settings.tsx` (components/pocket-money/rewards-settings.tsx).
+ */
+function featureSettingsComponents(dir = join(SRC, "components")): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) return path === SETTINGS_COMPONENTS ? [] : featureSettingsComponents(path);
+    return name.endsWith("-settings.tsx") ? [path] : [];
+  });
+}
+
+/** A page's own source plus every settings component it imports. */
 function sourcesOf(pageFile: string): string[] {
   const src = read(pageFile);
-  const imported = [...src.matchAll(/from "@\/components\/settings\/([\w-]+)"/g)].map((m) =>
-    join(SETTINGS_COMPONENTS, `${m[1]}.tsx`),
-  );
+  const imported = [
+    ...src.matchAll(/from "@\/components\/(settings\/[\w-]+|[\w-]+\/[\w-]+-settings)"/g),
+  ].map((m) => join(SRC, "components", `${m[1]}.tsx`));
   return [src, ...imported.filter(existsSync).map(read)];
 }
 const anchorsIn = (src: string) => [...src.matchAll(/data-setting="([^"]+)"/g)].map((m) => m[1]);
@@ -271,6 +283,7 @@ test.describe("guards", () => {
     "app/settings/notifications/page.tsx": { count: 1, why: "the help box" },
     "app/settings/photos/page.tsx": { count: 1, why: "the help box" },
     "app/settings/pocket-money/page.tsx": { count: 2, why: "one card per child's account, and that account's requests" },
+    "components/pocket-money/rewards-settings.tsx": { count: 1, why: "the reward requests inbox, there only while one waits" },
     "app/settings/schedule/page.tsx": { count: 1, why: "the empty state shown before any child exists" },
     "app/settings/screensaver/page.tsx": { count: 1, why: "the help box" },
     "app/settings/theme/page.tsx": { count: 1, why: "a preview, not a setting" },
@@ -295,7 +308,7 @@ test.describe("guards", () => {
   };
 
   test("(d) every <h2>/<h3> in settings is a linkable section, or listed as not one", () => {
-    for (const file of [...settingsPages(), ...settingsComponents()]) {
+    for (const file of [...settingsPages(), ...settingsComponents(), ...featureSettingsComponents()]) {
       const rel = file.slice(SRC.length + 1);
       if (NO_ENTRY.some((href) => file === pageFileOf(href))) continue;
       const uncovered = uncoveredHeadings(read(file));
