@@ -41,12 +41,29 @@ function siteSaysHttps(siteUrl: string | undefined, host: string): boolean {
   }
 }
 
+/**
+ * X-Forwarded-Host, or Host when there is none. Kong (KINBOARD_ENTRY=kong,
+ * RFC-018) forwards the browser's Host untouched (preserve_host) but writes
+ * X-Forwarded-Host without the port — `localhost` for `localhost:3001` — so a
+ * forwarded host with no port takes Host's port when Host names the same host.
+ */
+function requestHost(headers: Headers): string | null {
+  const forwarded = first(headers.get("x-forwarded-host"));
+  const host = first(headers.get("host"));
+  if (!forwarded) return host;
+  if (host && !/:\d+$/.test(forwarded) && /:\d+$/.test(host)
+      && host.slice(0, host.lastIndexOf(":")).toLowerCase() === forwarded.toLowerCase()) {
+    return host;
+  }
+  return forwarded;
+}
+
 export function publicOrigin(
   headers: Headers,
   fallbackOrigin: string,
   siteUrl: string | undefined = process.env.SITE_URL,
 ): string {
-  const host = first(headers.get("x-forwarded-host")) ?? first(headers.get("host"));
+  const host = requestHost(headers);
   if (!host || !HOST.test(host)) return fallbackOrigin;
   const lower = host.toLowerCase();
   const proto = first(headers.get("x-forwarded-proto"))?.toLowerCase();
