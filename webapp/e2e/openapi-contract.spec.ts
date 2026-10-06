@@ -204,7 +204,7 @@ test.describe("the spec says the things a consumer has to get right", () => {
     expect(Object.keys(creature.properties ?? {}).sort()).toEqual(["grows_with", "next_stage", "species", "stage", "stage_name"]);
     expect(creature.additionalProperties).toBe(false);
     expect(Object.keys(schemas.ChildRewards.properties!.points.properties ?? {}).sort())
-      .toEqual(["available", "balance", "earned", "owed", "pending"]);
+      .toEqual(["available", "balance", "earned", "owed", "pending", "purchased"]);
     const everything = JSON.stringify([schemas.RewardsOverview, schemas.ChildRewards, schemas.RewardRequest]);
     expect(everything).not.toMatch(/"look"|avatar_look/);
     // The ask is a POST with an Idempotency-Key, like every other write.

@@ -2527,6 +2527,7 @@
       "pointsSummary": "⭐ {balance} à dépenser · {earned} gagnés",
       "moneySettingsSummary": "Argent (facultatif)",
       "redemptionInboxTitle": "Récompenses en attente d'accord",
+      "redemptionInboxEmpty": "Aucune demande de récompense en attente.",
       "redemptionRow": "{name} : {title} pour {count, plural, one {# point} other {# points}}",
       "errorPinRequired": "Saisis à nouveau le code PIN des réglages, puis réessaie.",
       "errorInsufficientPoints": "Il n'y a plus assez de points ; la demande reste en attente.",
@@ -2971,6 +2972,7 @@
       "google_person-mapping": "attribution des personnes, attribuer, qui, membre de la famille, règles",
       "creatures": "créature, créatures, dragon, animal, avatar, récompense, récompenses, points, points de tâches, boutique, grandir",
       "creatures_children": "créature, activer, espèce, dragon, grandit avec, points, argent, boutique",
+      "creatures_inbox": "demandes de récompense, en attente, accepter, refuser, échanger",
       "creatures_rewards": "récompenses, points, points de tâches, échanger, cadeaux"
     }
   },
@@ -4930,7 +4932,7 @@
     "scopesHeading": "Il pourra…",
     "availableHeading": "Également disponible — {client} ne l'a pas demandé",
     "availableHint": "Kinboard a ajouté ces autorisations depuis la configuration de cet assistant. Cochez celles que vous voulez lui accorder.",
-    "scope_family_read": "Lire le résumé familial, le calendrier, les membres de la famille, les tâches, la liste de courses, les repas, les recettes, l’emploi du temps, les anniversaires, les soldes d’argent de poche, les points et récompenses, les minuteurs, les comptes à rebours, les messages des écrans, les conseils et la corbeille",
+    "scope_family_read": "Lire le résumé familial, le calendrier, les membres de la famille, les tâches, la liste de courses, les repas, les recettes, l’emploi du temps, les anniversaires, les soldes d’argent de poche, les points, les récompenses ainsi que l’espèce et le stade de chaque créature, les minuteurs, les comptes à rebours, les messages des écrans, les conseils et la corbeille",
     "scope_notes_read": "Lire les notes",
     "scope_calendar_write": "Ajouter, modifier et supprimer des événements du calendrier et des comptes à rebours",
     "scope_tasks_write": "Ajouter, cocher, modifier et supprimer des tâches",
@@ -4944,7 +4946,7 @@
     "scope_vehicles_read": "Voir le niveau de charge, l'autonomie et l'état de recharge de vos véhicules",
     "scope_timers_write": "Démarrer et arrêter des minuteurs sur les écrans",
     "scope_birthdays_write": "Ajouter, modifier et supprimer des anniversaires",
-    "scope_pocket_money_write": "Demander une opération d'argent de poche ou une récompense pour un enfant — un parent valide chacune avec le code PIN des paramètres",
+    "scope_pocket_money_write": "Demander une opération d'argent de poche ou une récompense pour un enfant — un parent valide chacune avec le code PIN des paramètres. Une demande de récompense prévient les parents et réserve les points de l’enfant jusque-là",
     "pinLabel": "Code PIN des paramètres",
     "setPinIntro": "Définissez d'abord un code PIN à 4 chiffres pour les paramètres. Il protège cette autorisation et les paramètres, et vous en aurez besoin pour connecter des assistants à l'avenir.",
     "newPinLabel": "Nouveau code PIN",

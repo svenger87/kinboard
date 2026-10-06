@@ -155,7 +155,7 @@ test.describe("GET /rewards: points, creature stages, the catalogue and what wai
     expect(view.children[0]).toEqual({
       person_id: MIA,
       name: "Mia",
-      points: { balance: 110, earned: 130, owed: 0, pending: 50, available: 60 },
+      points: { balance: 110, earned: 130, owed: 0, pending: 50, available: 60, purchased: 0 },
       creature: {
         species: "dragon",
         stage: 2,
@@ -194,7 +194,14 @@ test.describe("GET /rewards: points, creature stages, the catalogue and what wai
   test("owed is passed through, and available never goes below zero", async () => {
     const { db } = fakeDb({}, { totals: { [MIA]: { earned: 10, spent: 30, pending: 20, balance: 0, owed: 20 } } });
     const mia = (await listRewards(FAMILY, db, "en")).children[0];
-    expect(mia.points).toEqual({ balance: 0, earned: 10, owed: 20, pending: 20, available: 0 });
+    expect(mia.points).toEqual({ balance: 0, earned: 10, owed: 20, pending: 20, available: 0, purchased: 0 });
+  });
+
+  test("shop purchases: passed through once point_person_totals reports them (#375), 0 before", async () => {
+    const { db } = fakeDb({}, { totals: { [MIA]: { earned: 130, spent: 20, pending: 0, balance: 80, owed: 0, purchased: 30 } } });
+    const mia = (await listRewards(FAMILY, db, "en")).children[0];
+    // The balance is the database's: earned - approved rewards - purchases.
+    expect(mia.points).toEqual({ balance: 80, earned: 130, owed: 0, pending: 0, available: 80, purchased: 30 });
   });
 
   test("the stage name is in the family's language, and a species without words falls back to the number", async () => {
@@ -473,10 +480,16 @@ test.describe("scopes: reading is family:read, asking is pocket_money:write, app
     expect(decide).toContain("await requireSettingsUnlock(auth.session)");
   });
 
-  test("an assistant's asks spend its edit budget first; a hand-made token's do not", () => {
+  test("an assistant's asks spend its edit budget, after a replay is answered and before anything is asked", () => {
     const ask = read("src", "app", "api", "integration", "v1", "rewards", "requests", "route.ts");
-    const body = ask.slice(ask.indexOf("async (context) => {") + "async (context) => {".length).trimStart();
-    expect(body.startsWith("const limited = destructiveLimitResponse(context);")).toBe(true);
+    const spend = ask.indexOf("const limited = destructiveLimitResponse(context);");
+    expect(spend).toBeGreaterThan(-1);
+    expect(ask.match(/destructiveLimitResponse\(context\)/g)).toHaveLength(1);
+    // After the replay has been answered (free) ...
+    expect(spend).toBeGreaterThan(ask.indexOf('headers: { "idempotent-replay": "true" }'));
+    // ... and before the request is made.
+    expect(spend).toBeLessThan(ask.indexOf("await requestReward("));
+    expect(ask.slice(spend)).toMatch(/^const limited = destructiveLimitResponse\(context\);\s*if \(limited\) return limited;/);
   });
 
   test("a replay with the same key answers the same request; only a 201 is remembered", () => {

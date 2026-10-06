@@ -15,7 +15,7 @@ a write permission does not include reading what it writes.
 
 | Permission | Consent page label | What it grants |
 |---|---|---|
-| `family:read` | Read the family summary, calendar, people, tasks, shopping list, meal plan, recipes, school timetable, birthdays, pocket money balances, points and rewards, timers, countdowns, screen messages, attention hints and recycle bin | Every reading tool except notes, energy, the home and vehicles. Attention hints built from Home Assistant only as a count unless `home:read` is granted too. Points and rewards include each creature's species and stage, never its name or look |
+| `family:read` | Read the family summary, calendar, people, tasks, shopping list, meal plan, recipes, school timetable, birthdays, pocket money balances, points, rewards and each creature's species and stage, timers, countdowns, screen messages, attention hints and recycle bin | Every reading tool except notes, energy, the home and vehicles. Attention hints built from Home Assistant only as a count unless `home:read` is granted too. Points and rewards include each creature's species and stage, never its name or look |
 | `notes:read` | Read notes | Reading the 100 newest notes |
 | `calendar:write` | Add, change and delete calendar events and countdowns | Adding, editing and deleting events (written through to Google or CalDAV) and saying who an event is for; adding and deleting countdowns |
 | `tasks:write` | Add, tick off, edit and delete tasks | Adding, completing, reopening, editing and deleting tasks, with assignee, repetition, priority, icon and points; restoring a deleted task; dismissing an attention hint |
@@ -29,7 +29,7 @@ a write permission does not include reading what it writes.
 | `vehicles:read` | See your vehicles' charge level, range and charging status | Reading each car's charge, range and charging status (and temperature, locks, doors, windows and odometer where reported), never its location |
 | `timers:write` | Start and stop timers on the screens | Starting and stopping kitchen timers |
 | `birthdays:write` | Add, change and delete birthdays | Adding, editing and deleting birthdays; restoring a deleted one |
-| `pocket_money:write` | Ask to book pocket money or ask for a child's reward — a parent approves each with the settings PIN | Asking for a deposit or a withdrawal, which a family member must allow; following that request. Asking for a reward for a child, which waits for a parent like the child's own request |
+| `pocket_money:write` | Ask to book pocket money or ask for a child's reward — a parent approves each with the settings PIN. A reward request notifies the parents and holds the child's points until then | Asking for a deposit or a withdrawal, which a family member must allow; following that request. Asking for a reward for a child, which waits for a parent like the child's own request |
 
 Which tool needs which permission: [What assistants can do](AI-Assistants-Capabilities#all-tools-by-permission).
 
@@ -109,9 +109,10 @@ Asking for a reward with `request_reward` is the same as the child tapping
 - **The parents' phones are told**: *"Mia would like 🎮 An hour of
   Minecraft (50 ⭐)"*; tapping it opens the requests. Devices that belong to
   a child (Settings → Devices) are left out, so a brother's tablet doesn't
-  hear what his sister asked for. When a parent answers, the child's own
-  device hears yes or not this time. Quiet hours apply, and each device has
-  a *Reward requests* switch in Settings → Notifications.
+  hear what his sister asked for, and so are wall displays (kiosks). When a
+  parent answers, the child's own device hears yes or not this time. Quiet
+  hours apply, and each device has a *Reward requests* switch in Settings →
+  Notifications.
 - **Points are held while it waits.** A request the child's points can't
   cover, counting what is already waiting, is refused straight away, as is
   one for a child without a creature.

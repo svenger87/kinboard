@@ -17,10 +17,10 @@
 -- (notification_preferences_family_scope). No column grants on this table,
 -- so the new column is writable exactly like its neighbours.
 --
--- Sorted after init.sql, which creates the table, and before
--- migration_zzzzzzzzz_device_owner.sql, which must stay the last migration
--- (e2e/creatures-surfaces.spec.ts). It names no pocket_money_* table, so where
--- it sorts against the pocket-money revoke does not matter. Idempotent.
+-- Sorted after init.sql, which creates the table. It touches neither devices
+-- nor any pocket_money_* table, so it needs no place relative to the device
+-- owner's revoke or the pocket-money revoke; the eight-z prefix keeps it in
+-- the creatures' block. Idempotent.
 
 ALTER TABLE public.notification_preferences
   ADD COLUMN IF NOT EXISTS reward_requests BOOLEAN DEFAULT true;

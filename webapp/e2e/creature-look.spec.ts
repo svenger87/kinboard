@@ -29,6 +29,8 @@ import {
   type CreatureLook,
 } from "../src/lib/pocket-money/creatures";
 import type { AvatarTier } from "../src/lib/pocket-money/types";
+import { LISTS } from "../src/lib/integration-lists";
+import { RESTORE_TYPES } from "../src/lib/integration-recycle-bin";
 import en from "../messages/en.json";
 import de from "../messages/de.json";
 import fr from "../messages/fr.json";
@@ -258,37 +260,176 @@ test.describe("the look stays on the family's own screens", () => {
   ];
 
   /**
-   * Every way a file could carry the look out: naming it, a whole account
-   * row from a query on pocket_money_accounts (select("*"), a select string
-   * with a *, or .select() with no columns, which returns the whole row after
-   * an insert or update), or the accounts embedded whole in another query
-   * (pocket_money_accounts(*), with or without a !hint).
+   * Every way a file could carry the look out, read with a small scanner
+   * rather than line regexes (a blank line, a `;` inside a string or a cast
+   * once let a query through):
+   *
+   *   - naming avatar_look at all;
+   *   - a query on a guarded table whose select is `*`, names a forbidden
+   *     column (the look, a jsonb path into it, a shop item that says what
+   *     the creature wears), is empty (the whole row back after a write), or
+   *     is not a plain string the guard can read;
+   *   - a guarded table reached any other way: `.from()` with a variable or a
+   *     cast, the table's name in a string outside `.from("...")`;
+   *   - a guarded table embedded in any select string -- `creatures(*)`,
+   *     `c:creatures(look)`, `...creatures(look->>name)`, with or without a
+   *     `!hint` -- with a forbidden column in its list;
+   *   - an RPC that is about creatures, looks or purchases, or whose name is
+   *     not a plain string.
+   *
+   * point_purchases is guarded with the creature: an item bought in the shop
+   * is worn, so its item_id tells what the creature looks like.
    */
-  const violations = (source: string): string[] => {
-    const found: string[] = [];
-    if (source.includes("avatar_look")) found.push("names avatar_look");
-    // The look lives on the creature since RFC-017, and on the account until
-    // a later release drops the column: a whole row of either carries it.
-    for (const table of ["pocket_money_accounts", "creatures"]) {
-      for (const m of source.matchAll(new RegExp(`\\.from\\(\\s*["'\`]${table}["'\`]\\s*\\)`, "g"))) {
-        const rest = source.slice(m.index! + m[0].length);
-        const chain = rest.slice(0, rest.search(/;|\n\s*\n/) === -1 ? rest.length : rest.search(/;|\n\s*\n/));
-        if (/\.select\(\s*\)/.test(chain)) found.push(`${table} .select() with no columns`);
-        for (const sel of chain.matchAll(/\.select\(\s*(["'`])([\s\S]*?)\1/g)) {
-          if (sel[2].includes("*") || /\blook\b/.test(sel[2])) found.push(`${table} .select("${sel[2]}")`);
-        }
-        // Columns from a variable or a template cannot be read here, so they
-        // are not allowed: the outward code names its columns where it reads.
-        if (/\.select\(\s*[^\s"')]/.test(chain) || /\.select\(\s*`[^`]*\$\{/.test(chain)) {
-          found.push(`${table} .select(<not a plain string>)`);
-        }
-      }
-      if (new RegExp(`\\b${table}\\s*(?:![\\w]+\\s*)?\\(\\s*\\*`).test(source)) found.push(`${table}(*) embedded`);
-    }
-    return found;
+  const GUARDED: Record<string, RegExp> = {
+    pocket_money_accounts: /\*|\bavatar_look\b|\blook\b/,
+    creatures: /\*|\blook\b/,
+    point_purchases: /\*|\bitem_id\b|\blook\b/,
   };
 
-  test("no outward code -- Integration API, MCP, Home Assistant, push, notifications, cron -- reads avatar_look or a whole account row", () => {
+  /** The index just past the string literal that opens at `i`. */
+  const skipString = (src: string, i: number): number => {
+    const q = src[i];
+    let j = i + 1;
+    while (j < src.length) {
+      if (src[j] === "\\") { j += 2; continue; }
+      if (q === "`" && src[j] === "$" && src[j + 1] === "{") {
+        let depth = 1;
+        j += 2;
+        while (j < src.length && depth > 0) {
+          if (src[j] === "'" || src[j] === '"' || src[j] === "`") { j = skipString(src, j); continue; }
+          if (src[j] === "{") depth++;
+          else if (src[j] === "}") depth--;
+          j++;
+        }
+        continue;
+      }
+      if (src[j] === q) return j + 1;
+      j++;
+    }
+    return j;
+  };
+
+  /** The index of the bracket closing the one at `open`, strings skipped. */
+  const closing = (src: string, open: number): number => {
+    const pairs: Record<string, string> = { "(": ")", "[": "]", "{": "}" };
+    const stack = [pairs[src[open]]];
+    let j = open + 1;
+    while (j < src.length && stack.length) {
+      const c = src[j];
+      if (c === "'" || c === '"' || c === "`") { j = skipString(src, j); continue; }
+      if (pairs[c]) stack.push(pairs[c]);
+      else if (c === stack[stack.length - 1]) stack.pop();
+      j++;
+    }
+    return j - 1;
+  };
+
+  /** The text of `arg` when it is exactly one plain string literal, else null. */
+  const plainString = (arg: string): string | null => {
+    const a = arg.trim();
+    if (!/^["'`]/.test(a) || skipString(a, 0) !== a.length) return null;
+    const body = a.slice(1, -1);
+    return a[0] === "`" && body.includes("${") ? null : body;
+  };
+
+  /** Every string literal in `src`, as its text. */
+  const literals = (src: string): string[] => {
+    const out: string[] = [];
+    for (let i = 0; i < src.length; i++) {
+      const c = src[i];
+      if (c === "/" && src[i + 1] === "/") { i = src.indexOf("\n", i); if (i < 0) break; continue; }
+      if (c === "/" && src[i + 1] === "*") { i = src.indexOf("*/", i + 2) + 1; if (i <= 0) break; continue; }
+      if (c === "'" || c === '"' || c === "`") {
+        const end = skipString(src, i);
+        out.push(src.slice(i + 1, end - 1));
+        i = end - 1;
+      }
+    }
+    return out;
+  };
+
+  /**
+   * The `.from()` calls with a variable that the outward code has, by file:
+   * the Integration API's lists (LISTS) and the recycle bin (RESTORE_TYPES).
+   * Allowed only in that file, under that exact expression, and only while
+   * none of the tables it can hold is guarded (checked below). Any other
+   * variable is a violation.
+   */
+  const LIST_TABLES = Object.values(LISTS).map((d) => d.table);
+  const VARIABLE_TABLES: Record<string, Record<string, readonly string[]>> = {
+    "src/app/api/integration/v1/lists/[list]/route.ts": { "def.table": LIST_TABLES },
+    "src/app/api/integration/v1/lists/[list]/[item]/route.ts": { "def.table": LIST_TABLES },
+    "src/lib/integration-recycle-bin.ts": { table: Object.values(RESTORE_TYPES).map((r) => r.table) },
+  };
+
+  const violations = (source: string, file = ""): string[] => {
+    const found: string[] = [];
+    if (source.includes("avatar_look")) found.push("names avatar_look");
+    const tables = Object.keys(GUARDED);
+
+    // .from(...): a plain string, and on a guarded table every select checked.
+    for (const m of source.matchAll(/\.from\s*\(/g)) {
+      // Array.from(...) and its kind are not queries.
+      if (/\b(?:Array|Buffer|Uint8Array|Iterator)\s*$/.test(source.slice(Math.max(0, m.index! - 20), m.index!))) continue;
+      const open = m.index! + m[0].length - 1;
+      const close = closing(source, open);
+      const table = plainString(source.slice(open + 1, close));
+      const allowed = Object.entries(VARIABLE_TABLES).find(([f]) => file.endsWith(f))?.[1] ?? {};
+      const variable = allowed[source.slice(open + 1, close).trim()];
+      if (table === null && variable && !variable.some((t) => t in GUARDED)) continue;
+      if (table === null) {
+        found.push(`.from(${source.slice(open + 1, close).trim()}): not a plain string`);
+        continue;
+      }
+      if (!tables.includes(table)) continue;
+      let pos = close + 1;
+      for (;;) {
+        const step = /^\s*(?:\?\.|\.)\s*([A-Za-z_$][\w$]*)\s*\(/.exec(source.slice(pos));
+        if (!step) break;
+        const callOpen = pos + step[0].length - 1;
+        const callClose = closing(source, callOpen);
+        if (step[1] === "select") {
+          const arg = source.slice(callOpen + 1, callClose);
+          const columns = plainString(arg);
+          if (arg.trim() === "") found.push(`${table} .select() with no columns`);
+          else if (columns === null) found.push(`${table} .select(<not a plain string>)`);
+          else if (GUARDED[table].test(columns)) found.push(`${table} .select("${columns}")`);
+        }
+        pos = callClose + 1;
+      }
+    }
+
+    for (const text of literals(source)) {
+      // The table's name as a whole string, other than in .from("..."): a
+      // variable, a map, a cast -- a way round the check above.
+      if (tables.includes(text.trim())) {
+        const quoted = new RegExp(`\\.from\\s*\\(\\s*["'\`]${text.trim()}["'\`]\\s*\\)`, "g");
+        const all = source.match(new RegExp(`["'\`]${text.trim()}["'\`]`, "g"))?.length ?? 0;
+        const inFrom = source.match(quoted)?.length ?? 0;
+        if (all > inFrom) found.push(`"${text.trim()}" outside .from("...")`);
+      }
+      // Embedded in a select: creatures(...), c:creatures(...), ...creatures(...), creatures!hint(...).
+      for (const table of tables) {
+        for (const e of text.matchAll(new RegExp(`\\b${table}\\s*(?:!\\s*[\\w]+\\s*)?\\(`, "g"))) {
+          const open = e.index! + e[0].length - 1;
+          const inner = text.slice(open + 1, closing(text, open));
+          if (GUARDED[table].test(inner)) found.push(`${table}(${inner.trim()}) embedded`);
+        }
+      }
+    }
+
+    for (const m of source.matchAll(/\.rpc\s*\(/g)) {
+      const open = m.index! + m[0].length - 1;
+      const args = source.slice(open + 1, closing(source, open));
+      const first = args.slice(0, /^\s*["'`]/.test(args) ? skipString(args, args.search(/["'`]/)) : args.length);
+      const name = plainString(first);
+      if (name === null) found.push(".rpc(<not a plain string>)");
+      else if (/creature|look|purchase/i.test(name)) found.push(`.rpc("${name}")`);
+    }
+    return [...new Set(found)];
+  };
+
+  test("no outward code -- Integration API, MCP, Home Assistant, push, notifications, cron -- reads avatar_look, a look or a whole row", () => {
     expect(outward.length).toBeGreaterThan(30);
     expect(outward.some((f) => f.endsWith("push-sender.ts"))).toBe(true);
     expect(outward.some((f) => f.includes("/api/cron/process-allowance/"))).toBe(true);
@@ -304,7 +445,14 @@ test.describe("the look stays on the family's own screens", () => {
       "src/lib/notifications/delivery.ts",
       "src/app/api/cron/process-notifications/route.ts",
     ]) expect(outward, file).toContain(join(process.cwd(), file));
-    for (const f of outward) expect(violations(readFileSync(f, "utf8")), f).toEqual([]);
+    for (const f of outward) expect(violations(readFileSync(f, "utf8"), f), f).toEqual([]);
+    // The variable tables allowed above hold no guarded table.
+    for (const byExpr of Object.values(VARIABLE_TABLES)) {
+      for (const list of Object.values(byExpr)) {
+        expect(list.length).toBeGreaterThan(0);
+        for (const t of list) expect(Object.keys(GUARDED)).not.toContain(t);
+      }
+    }
   });
 
   test("the guard goes red on each way of leaking the look", () => {
@@ -321,6 +469,28 @@ test.describe("the look stays on the family's own screens", () => {
       ["creature embedded", `await db.from("people").select("id, creatures(*)");`],
       ["creature columns from a constant", `await db.from("creatures").select(COLUMNS).eq("family_id", id);`],
       ["creature columns from a template", "await db.from(\"creatures\").select(`person_id, ${extra}`).eq(\"family_id\", id);"],
+      // From the review of #374: each of these went through the line-regex guard.
+      ["cast to any", `await db.from("creatures" as any).select("*");`],
+      ["table name in a variable", `const T = "creatures"; await db.from(T).select("*");`],
+      ["table name in a map", `const TABLES = { c: "creatures" }; await db.from(TABLES.c).select("species");`],
+      ["blank line in the chain", `await db.from("creatures")\n\n  .select("*");`],
+      ["semicolon inside a string in the chain", `await db.from("creatures").eq("x", "a;b").select("*");`],
+      ["embedded with an alias", `await db.from("people").select("id, c:creatures(*)");`],
+      ["embedded look column", `await db.from("people").select("id, creatures(look)");`],
+      ["embedded among columns", `await db.from("people").select("id, creatures(species, look)");`],
+      ["embedded jsonb path", `await db.from("people").select("name, creatures(look->>name)");`],
+      ["embedded spread", `await db.from("people").select("id, ...creatures(*)");`],
+      ["embedded with a hint", `await db.from("people").select("id, creatures!person_id(look)");`],
+      ["jsonb path on the creature", `await db.from("creatures").select("species, look->name");`],
+      ["an RPC about creatures", `await db.rpc("get_creature", { p: id });`],
+      ["an RPC by variable", `await db.rpc(FN, { p: id });`],
+      ["optional chaining", `await db.from("creatures")?.select("look");`],
+      ["purchases star", `await db.from("point_purchases").select("*").eq("person_id", id);`],
+      ["purchases item", `await db.from("point_purchases").select("person_id, item_id");`],
+      ["purchases embedded", `await db.from("people").select("id, point_purchases(item_id)");`],
+      ["purchases bare select", `await db.from("point_purchases").insert(row).select();`],
+      ["a query on a variable that only looks like Array.from", `await db.from(arr).select("*");`],
+            ["the lists' variable outside the lists' files", `await db.from(def.table).select("*");`],
     ];
     for (const [what, source] of crafted) expect(violations(source).length, what).toBeGreaterThan(0);
     // and stays green on what the outward code does do
@@ -330,6 +500,11 @@ test.describe("the look stays on the family's own screens", () => {
       `await db.from("people").select("id, pocket_money_accounts(id, balance_cents)");`,
       `await db.from("creatures").select("person_id, species, grows_with");`,
       `await db.from("creatures").select("person_id, species, grows_with, best_tier").eq("family_id", familyId).eq("enabled", true);`,
+      `await db.from("people").select("id, creatures(species, best_tier)");`,
+      `await db.from("point_purchases").select("person_id, cost_points");`,
+      `await db.rpc("point_person_totals", { p_family_id: id, p_person_id: pid });`,
+      `const ids = Array.from(new Set(rows.map((r) => r.id)));`,
+      `// the creatures (their look) stay home\nawait db.from("people").select("id");`,
     ]) expect(violations(ok), ok).toEqual([]);
   });
 });

@@ -120,7 +120,7 @@ test("GET /rewards: the database's points, each creature's stage, the catalogue 
   const totals = JSON.parse(psql(`SELECT point_person_totals('${FAMILY}', '${MIA}')::text`));
   expect(body.children[0].points).toEqual({
     balance: totals.balance, earned: totals.earned, owed: totals.owed, pending: totals.pending,
-    available: totals.balance - totals.pending,
+    available: totals.balance - totals.pending, purchased: totals.purchased ?? 0,
   });
   expect(body.children[0].creature).toEqual({
     species: "dragon", stage: 2, stage_name: "Hatchling", grows_with: "points",

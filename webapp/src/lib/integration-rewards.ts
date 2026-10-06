@@ -41,7 +41,7 @@ const liveDb = (): Db => createAdminClient() as any;
 // ── reading ──────────────────────────────────────────────────────────────────
 
 export interface ChildPoints {
-  /** What the child may spend: earned less approved rewards, never below zero. */
+  /** What the child may spend: earned − approved rewards − shop purchases, never below zero. */
   balance: number;
   /** Every task point ever awarded. */
   earned: number;
@@ -51,6 +51,11 @@ export interface ChildPoints {
   pending: number;
   /** What a new request may still use: the balance less what is waiting. */
   available: number;
+  /**
+   * Points spent in the shop, all time. point_person_totals() reports it once
+   * the shop exists (#375); before that the key is absent and this is 0.
+   */
+  purchased: number;
 }
 
 export interface NextStage {
@@ -109,7 +114,7 @@ export interface RewardsView {
 interface PersonRow { id: string; name: string; is_child: boolean | null }
 interface CreatureRow { person_id: string; species: string; grows_with: string; best_tier: number | null }
 interface AccountRow { person_id: string; balance_cents: number | null; currency: string | null }
-interface TotalsRow { earned: number; spent: number; pending: number; balance: number; owed: number }
+interface TotalsRow { earned: number; spent: number; pending: number; balance: number; owed: number; purchased?: number }
 
 function checked<T>(result: { data: T | null; error: { message: string } | null }, what: string): T {
   if (result.error) throw new Error(`Failed to read ${what}: ${result.error.message}`);
@@ -149,7 +154,7 @@ export async function listRewards(familyId: string, db: Db = liveDb(), locale?: 
     locale ? Promise.resolve(locale) : getFamilyLocale(familyId),
   ]);
   const peopleRows = checked<PersonRow[]>(people, "people");
-  const creatureRows = checked<CreatureRow[]>(creatures, "creatures");
+  const creatureRows = checked<CreatureRow[]>(creatures, "creature stages");
   const accountRows = checked<AccountRow[]>(accounts, "pocket money accounts");
   const rewardRows = checked<RewardView[]>(rewards, "rewards");
   const pendingRows = checked<Array<Omit<PendingRedemptionView, "child_name" | "requested_at"> & { created_at: string }>>(pending, "reward requests");
@@ -191,6 +196,7 @@ export async function listRewards(familyId: string, db: Db = liveDb(), locale?: 
         owed: Number(totals.owed),
         pending: pendingPoints,
         available: Math.max(0, balance - pendingPoints),
+        purchased: Number(totals.purchased ?? 0),
       },
       creature: {
         species: creature.species,

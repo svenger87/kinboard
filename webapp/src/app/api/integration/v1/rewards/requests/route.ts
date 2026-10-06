@@ -27,6 +27,8 @@ export const dynamic = "force-dynamic";
  *
  * An assistant's calls count against its 30 edits per 10 minutes
  * (lib/integration-limits.ts): each request is a push to every parent. A
+ * replay of an earlier call with the same key is answered first and costs
+ * nothing. A
  * token made by hand (Home Assistant) is not limited beyond the generic 30
  * writes a minute; its requests are bounded by the child's points anyway.
  *
@@ -35,8 +37,6 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   return withIntegrationAuth(request, "pocket_money:write", async (context) => {
-    const limited = destructiveLimitResponse(context);
-    if (limited) return limited;
     const key = validateIdempotencyKey(request.headers.get("idempotency-key"));
     if (!key.ok) {
       return NextResponse.json({ error: "An Idempotency-Key is required", code: "invalid_request" }, { status: 400 });
@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
         }
         return NextResponse.json(previous.response, { status: previous.status, headers: { "idempotent-replay": "true" } });
       }
+      // Spent only now: a replay asks for nothing new, so it costs nothing.
+      const limited = destructiveLimitResponse(context);
+      if (limited) return limited;
 
       const db = createAdminClient() as any;
       const result = await requestReward({ familyId: context.familyId, body }, { db, notifier: liveRewardNotifier(db) });

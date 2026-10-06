@@ -20,7 +20,8 @@
  * type the settings PIN. The same rule here, with one refinement that "Belongs
  * to" now makes possible: a device that belongs to a child is not a parent's,
  * so a brother's tablet is not told what his sister asked for. Devices that
- * belong to nobody, or to a grown-up, are asked, as for every approval.
+ * belong to nobody, or to a grown-up, are asked, as for every approval; a
+ * kiosk is not -- it is the family's wall screen, not anyone's phone.
  *
  * WHAT A PUSH CARRIES. The child's name and the reward's title, icon and cost
  * -- never anything of the creature: not its look, not the name the child
@@ -145,7 +146,7 @@ export function liveRewardNotifier(db: Db, now: () => Date = () => new Date()) {
 
 export type Audience =
   | { kind: "everyone" }
-  /** Every device but those that belong to a child. */
+  /** Every device but kiosks and those that belong to a child. */
   | { kind: "parents" }
   /** Only the non-kiosk devices that belong to this person. */
   | { kind: "owner"; personId: string };
@@ -182,7 +183,11 @@ export function filterAudience<S extends { device_id: string }>(
   const byId = new Map(devices.map((d) => [d.id, d]));
   if (audience.kind === "parents") {
     return subscriptions.filter((s) => {
-      const owner = byId.get(s.device_id)?.person_id;
+      const device = byId.get(s.device_id);
+      // A kiosk is the family's wall screen, which shows the request anyway
+      // (the Rewards badge) and has no parent holding it.
+      if (device?.is_kiosk) return false;
+      const owner = device?.person_id;
       return !(owner && childIds.has(owner));
     });
   }

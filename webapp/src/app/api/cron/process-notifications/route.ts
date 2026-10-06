@@ -7,7 +7,7 @@ import { getFamilyLocale } from "@/lib/family-locale";
 import { recordHeartbeat } from "@/lib/heartbeat";
 import { endedCameraPushes } from "@/lib/camera-takeover";
 import type { PushSubscription } from "@/types/database";
-import { clockTime, eligibleSubscriptions, getPreferenceColumn, type DevicePreferences } from "@/lib/notifications/delivery";
+import { clockTime, eligibleFromRead, getPreferenceColumn } from "@/lib/notifications/delivery";
 import {
   REWARD_DECIDED, REWARD_REQUESTED, audienceFor, batchKey, filterAudience, rewardPushPayload, type DeviceOwnerRow,
 } from "@/lib/notifications/rewards";
@@ -337,17 +337,14 @@ export async function POST(request: NextRequest) {
 
     // Check notification preferences
     const prefColumn = getPreferenceColumn(notificationType);
-    const { data: prefsData } = await supabase
+    const prefsRead = await supabase
       .from("notification_preferences")
       .select("device_id, quiet_hours_enabled, quiet_hours_start, quiet_hours_end" + (prefColumn ? `, ${prefColumn}` : ""))
       .eq("family_id", familyId);
 
-    const eligible = eligibleSubscriptions(
-      subscriptions,
-      (prefsData || []) as unknown as DevicePreferences[],
-      notificationType,
-      clockTime(new Date()),
-    );
+    // Unreadable preferences: nobody, as for unreadable device owners above.
+    // Quiet hours and switches cannot be honoured without them.
+    const eligible = eligibleFromRead(subscriptions, prefsRead, notificationType, clockTime(new Date()));
 
     if (eligible.length === 0) {
       processedIds.push(...notifications.map((n) => n.id));

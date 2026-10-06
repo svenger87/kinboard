@@ -76,3 +76,23 @@ export function eligibleSubscriptions<S extends { device_id: string }>(
     return !inQuietHours(prefs, currentTime);
   });
 }
+
+/**
+ * The same, from the preferences read as it came back. An unreadable
+ * preferences table means nobody, never everybody: sending anyway would
+ * ignore every device's quiet hours and switches, and a push that wakes a
+ * house at 3 a.m. cannot be unsent. Logged, so a missing push can be traced.
+ */
+export function eligibleFromRead<S extends { device_id: string }>(
+  subscriptions: readonly S[],
+  read: { data: unknown; error: unknown },
+  type: string,
+  currentTime: string,
+  log: (message: string, error: unknown) => void = (m, e) => console.error(m, e),
+): S[] {
+  if (read.error) {
+    log(`[process-notifications] Could not read notification preferences, sending ${type} to nobody:`, read.error);
+    return [];
+  }
+  return eligibleSubscriptions(subscriptions, (read.data ?? []) as DevicePreferences[], type, currentTime);
+}

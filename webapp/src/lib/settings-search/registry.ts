@@ -289,6 +289,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     { anchor: "currency", labelKey: "settings.pocketMoney.currencyLabel" },
   ]),
   ...sectionsOf(creatures, [
+    { anchor: "inbox", labelKey: "settings.pocketMoney.redemptionInboxTitle" },
     { anchor: "children", labelKey: "settings.creatures.speciesLabel", descriptionKey: "settings.creatures.intro" },
     { anchor: "rewards", labelKey: "settings.pocketMoney.rewardsTitle", descriptionKey: "settings.pocketMoney.rewardsDescription" },
   ]),

@@ -9,7 +9,7 @@ import {
   REWARD_DECIDED, REWARD_INBOX_URL, REWARD_PREFERENCE_COLUMN, REWARD_REQUESTED, audienceFor, batchKey, filterAudience,
   liveRewardNotifier, rewardDecidedRow, rewardPushPayload, rewardRequestedRow, type DeviceOwnerRow,
 } from "../src/lib/notifications/rewards";
-import { clockTime, eligibleSubscriptions, getPreferenceColumn, inQuietHours } from "../src/lib/notifications/delivery";
+import { clockTime, eligibleFromRead, eligibleSubscriptions, getPreferenceColumn, inQuietHours } from "../src/lib/notifications/delivery";
 import type { RedemptionRow } from "../src/lib/pocket-money/rewards";
 
 /**
@@ -129,9 +129,12 @@ test.describe("who gets it: the parents for a request, the child's own device fo
   const children = new Set([MIA, ENNO]);
   const ids = (s: { device_id: string }[]) => s.map((x) => x.device_id);
 
-  test("a request goes to every device but the children's own", () => {
+  test("a request goes to every device but the children's own and the kiosks", () => {
     expect(ids(filterAudience(subs, audienceFor(REWARD_REQUESTED, {}), devices, children)))
-      .toEqual(["dev-mum", "dev-wall", "dev-nobody"]);
+      .toEqual(["dev-mum", "dev-nobody"]);
+    // A kiosk that belongs to a grown-up is still the family's wall screen.
+    const grownUpsKiosk: DeviceOwnerRow[] = [{ id: "k", person_id: MUM, is_kiosk: true }];
+    expect(filterAudience([{ device_id: "k" }], { kind: "parents" }, grownUpsKiosk, children)).toEqual([]);
   });
 
   test("an answer goes only to the child's own non-kiosk device -- and to nobody without one", () => {
@@ -181,6 +184,19 @@ test.describe("quiet hours and the Rewards switch apply, per device", () => {
     expect(eligibleSubscriptions(subs, prefs, REWARD_REQUESTED, "12:00").map((s) => s.device_id)).toEqual(["a", "c", "d"]);
   });
 
+  test("unreadable preferences mean nobody, not everybody -- and it is logged", () => {
+    const logged: unknown[] = [];
+    const log = (m: string, e: unknown) => { logged.push([m, e]); };
+    for (const type of [REWARD_REQUESTED, REWARD_DECIDED, "shopping_collaborative", "calendar_reminder"]) {
+      expect(eligibleFromRead(subs, { data: null, error: { message: "down" } }, type, "12:00", log), type).toEqual([]);
+    }
+    expect(logged).toHaveLength(4);
+    // Read fine: the same answer as the rule itself, quiet hours included.
+    expect(eligibleFromRead(subs, { data: prefs, error: null }, REWARD_REQUESTED, "23:30", log).map((s) => s.device_id)).toEqual(["c", "d"]);
+    expect(eligibleFromRead(subs, { data: null, error: null }, REWARD_REQUESTED, "23:30", log)).toEqual(subs);
+    expect(logged).toHaveLength(4);
+  });
+
   test("the rule itself, unchanged: both ends quiet, windows across midnight and within a day", () => {
     const night = { device_id: "x", quiet_hours_enabled: true, quiet_hours_start: "22:00", quiet_hours_end: "07:00" };
     for (const [time, quiet] of [["21:59", false], ["22:00", true], ["03:00", true], ["07:00", true], ["07:01", false]] as const) {
@@ -198,7 +214,8 @@ test.describe("quiet hours and the Rewards switch apply, per device", () => {
     expect(route).toContain("const key = batchKey(notif);");
     expect(route).toContain("audienceFor(notificationType, notifications[0].data)");
     expect(route).toMatch(/subscriptions = filterAudience\(/);
-    expect(route).toMatch(/const eligible = eligibleSubscriptions\(\s*subscriptions,/);
+    expect(route).toMatch(/const eligible = eligibleFromRead\(subscriptions, prefsRead, notificationType,/);
+    expect(route).not.toMatch(/const \{ data: prefsData \}/);
     expect(route).toContain("case REWARD_REQUESTED:");
     expect(route).toContain("case REWARD_DECIDED:");
     // Owners unreadable: nobody, never everybody.
@@ -227,6 +244,21 @@ test.describe("what it says, and where a tap leads", () => {
     expect(REWARD_INBOX_URL).toBe("/settings/creatures#inbox");
     expect(pushT(de as typeof en)("rewardRequestedTitle", { name: "Mia", reward: "🎮 Minecraft", cost: 50 })).toBe("Mia möchte 🎮 Minecraft (50 ⭐)");
     expect(pushT(fr as typeof en)("rewardRequestedTitle", { name: "Mia", reward: "🎮 Minecraft", cost: 50 })).toBe("Mia aimerait 🎮 Minecraft (50 ⭐)");
+  });
+
+  test("the inbox link lands: the anchor the settings pages scroll to is there, waiting requests or not", () => {
+    const hash = REWARD_INBOX_URL.split("#")[1];
+    expect(hash).toBe("inbox");
+    const src = readFileSync(join(__dirname, "..", "src", "components", "pocket-money", "rewards-settings.tsx"), "utf8");
+    const inbox = src.slice(src.indexOf("export function RedemptionInbox"), src.indexOf("export function", src.indexOf("export function RedemptionInbox") + 10));
+    // use-settings-anchor looks for [data-setting="<hash>"]; both the empty state and the list carry it.
+    expect(inbox.match(/data-setting="inbox"/g)).toHaveLength(2);
+    expect(inbox).not.toMatch(/return null/);
+    const hook = readFileSync(join(__dirname, "..", "src", "hooks", "use-settings-anchor.ts"), "utf8");
+    expect(hook).toContain("[data-setting=");
+    const registry = readFileSync(join(__dirname, "..", "src", "lib", "settings-search", "registry.ts"), "utf8");
+    expect(registry).toMatch(/sectionsOf\(creatures, \[\s*\{ anchor: "inbox"/);
+    for (const dict of [en, de, fr]) expect(dict.settings.pocketMoney.redemptionInboxEmpty.length).toBeGreaterThan(5);
   });
 
   test("several requests at once: one push that lists them", () => {

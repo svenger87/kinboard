@@ -1594,7 +1594,9 @@ paths:
         cheapest first, and the requests waiting for a parent, oldest first.
 
         `points` is the database's own count (`point_person_totals`):
-        `balance` is earned less approved rewards, never below zero; `owed`
+        `balance` is earned − approved rewards − shop purchases, never
+        below zero; `purchased` is what the shop took (0 on a Kinboard
+        without the shop); `owed`
         is what was spent beyond what was earned (a task un-ticked after its
         points were spent), paid back first; `pending` is held by requests
         waiting for a parent; `available` is what a new request may still
@@ -2595,9 +2597,10 @@ components:
         name: { type: string, description: "The child's name. Never the creature's." }
         points:
           type: object
-          required: [balance, earned, owed, pending, available]
+          required: [balance, earned, owed, pending, available, purchased]
           properties:
-            balance: { type: integer, minimum: 0 }
+            balance: { type: integer, minimum: 0, description: "Earned − approved rewards − shop purchases, never below zero." }
+            purchased: { type: integer, minimum: 0, description: "Points spent in the shop, all time; 0 before the shop." }
             earned: { type: integer }
             owed: { type: integer, minimum: 0 }
             pending: { type: integer, minimum: 0 }

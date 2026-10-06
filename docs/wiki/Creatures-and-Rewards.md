@@ -59,7 +59,7 @@ A child's **points balance** is the points their tasks have earned, all time, mi
 
 Home Assistant (the *points balance*, *creature stage* and *reward requests* sensors, and the `kinboard.request_reward` action) and a connected assistant (`get_rewards`, `request_reward`) see each child's points and creature stage, the rewards and what is waiting, and can ask for a reward. Asking is the same as the child tapping **Redeem**: it waits for a parent and the PIN, and nothing outside the family's screens can approve it. The creature's name and look are never sent out.
 
-**Who is told.** A new request pushes the family's phones -- every device except those that *belong to* a child -- with *"Mia would like 🎮 An hour of Minecraft (50 ⭐)"*; a tap opens the requests at the top of Settings → Creatures & rewards. An answer pushes the child's own device, if one belongs to them. Quiet hours apply, and each device has a *Reward requests* switch in Settings → Notifications.
+**Who is told.** A new request pushes the family's phones -- every device except wall displays (kiosks) and those that *belong to* a child -- with *"Mia would like 🎮 An hour of Minecraft (50 ⭐)"*; a tap opens the requests at the top of Settings → Creatures & rewards. An answer pushes the child's own device, if one belongs to them. Quiet hours apply, and each device has a *Reward requests* switch in Settings → Notifications.
 
 ## For operators
 
