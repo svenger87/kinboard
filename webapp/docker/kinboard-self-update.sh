@@ -23,6 +23,10 @@
 #   5. docker restart kinboard-kong        — Kong's DB-less mode doesn't
 #      fully reload from `kong reload`. Only kicked if kong.yml's mtime
 #      is newer than kong's container start time.
+#   7. kinboard-entry.sh switch           — an install with no KINBOARD_ENTRY
+#      in .env moves Kong onto port 3001 as the front door (RFC-018), only
+#      after a request through Kong to / reaches the app. Otherwise it stays
+#      on the webapp and the log says why.
 #
 # Logs to /var/log/kinboard-update.log inside the webhook container —
 # bind-mount that path on the host if you want persistent logs.
@@ -419,5 +423,14 @@ if [ "$DIUN_AFTER" != "$DIUN_BEFORE" ]; then
 else
   log "diun.yml unchanged; skipping diun restart"
 fi
+
+# 7. Kong as the front door (RFC-018). An install from before KINBOARD_ENTRY
+# moves only after a request through Kong reaches the app — which is why this
+# runs after Kong was restarted onto the route setup.sh merged. Anything less
+# leaves it on the webapp, logged; .env saying kong or webapp is left alone.
+WEBAPP_BEFORE="$(webapp_container)"
+COMPOSE="docker compose" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env KONG_YML=./kong.yml \
+  sh ./kinboard-entry.sh switch 2>&1 | while IFS= read -r line; do log "$line"; done
+recreate_scheduler_if_webapp_changed "$WEBAPP_BEFORE"
 
 log "=== self-update done ==="

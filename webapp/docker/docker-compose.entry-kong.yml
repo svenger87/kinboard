@@ -1,0 +1,13 @@
+# KINBOARD_ENTRY=kong — Kong is the front door (RFC-018).
+#
+# docker-compose.yml's kong and webapp services extend this file by name:
+# `extends: file: docker-compose.entry-${KINBOARD_ENTRY:-webapp}.yml`. Kong publishes the
+# address households open (WEBAPP_PORT, 3001) and serves the app through the
+# catch-all route kinboard-entry.sh adds to kong.yml; the webapp is reachable
+# only inside the stack. Kong keeps its own port (KONG_HTTP_PORT, 8100) from
+# docker-compose.yml, so an API_EXTERNAL_URL pointing there keeps working.
+services:
+  kong:
+    ports:
+      - "${WEBAPP_PORT:-3001}:8000"
+  webapp: {}

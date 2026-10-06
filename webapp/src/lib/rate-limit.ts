@@ -43,14 +43,19 @@ export function hitLimit(key: string, limit: number, windowMs: number): { limite
 }
 
 /**
- * The client's address, as seen through Traefik.
+ * The client's address, as seen through the proxy in front of the webapp.
  *
- * x-forwarded-for is a client-controlled header, so the *first* entry is the
- * one to trust least — but Traefik appends the real peer and we read the
- * left-most, which is standard. It is a rate-limit key, not an authorization
- * decision: the worst a forged value does is let one attacker spread their
- * attempts across many keys, which is why the endpoints that use this also
- * cap the expensive side effect (a device row) on a value they control.
+ * Since RFC-018 that is usually Kong (KINBOARD_ENTRY=kong), sometimes with
+ * Traefik or a tunnel ahead of it. Each of them appends the peer it saw to
+ * x-forwarded-for, so the left-most entry is the browser's address (or what
+ * the browser claimed), never Kong's own container address — checked against
+ * Kong 3.9: a direct request arrives as "<client>", one through a proxy as
+ * "<client>, <proxy>". x-forwarded-for is a client-controlled header, so the
+ * *first* entry is the one to trust least, but it is the standard one to
+ * read. It is a rate-limit key, not an authorization decision: the worst a
+ * forged value does is let one attacker spread their attempts across many
+ * keys, which is why the endpoints that use this also cap the expensive side
+ * effect (a device row) on a value they control.
  */
 export function clientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");

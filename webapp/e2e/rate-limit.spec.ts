@@ -53,6 +53,14 @@ test.describe("client IP", () => {
     expect(clientIp(req({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }))).toBe("203.0.113.7");
   });
 
+  test("through Kong as the front door, the browser's address, not Kong's (RFC-018)", () => {
+    // What Kong 3.9 sends the webapp, measured: a direct request carries the
+    // peer alone, one through Traefik or a tunnel the client then the proxy.
+    // x-real-ip is the immediate peer, which behind a proxy is the proxy.
+    expect(clientIp(req({ "x-forwarded-for": "192.168.1.23", "x-real-ip": "192.168.1.23" }))).toBe("192.168.1.23");
+    expect(clientIp(req({ "x-forwarded-for": "198.51.100.4, 10.231.0.7", "x-real-ip": "10.231.0.7" }))).toBe("198.51.100.4");
+  });
+
   test("falls back to x-real-ip, then a sentinel", () => {
     expect(clientIp(req({ "x-real-ip": "198.51.100.9" }))).toBe("198.51.100.9");
     expect(clientIp(req({}))).toBe("unknown");

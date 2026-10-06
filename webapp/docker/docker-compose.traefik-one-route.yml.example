@@ -1,0 +1,61 @@
+# Traefik, one route (RFC-018): everything for the domain goes to Kong.
+#
+# With KINBOARD_ENTRY=kong, Kong is the front door: it sends /rest, /auth,
+# /storage and /realtime to the API and every other path to the webapp. So
+# Traefik needs one target instead of two. The two-router overlay
+# (docker-compose.traefik.yml.example) keeps working; this is the simpler
+# option, not a requirement.
+#
+#   cp docker-compose.traefik-one-route.yml.example docker-compose.traefik.yml
+#   # .env: KINBOARD_ENTRY=kong, API_EXTERNAL_URL= (empty), DOMAIN, TRAEFIK_*
+#   ./setup.sh                      # from the repo root: adds Kong's route
+#   docker restart kinboard-kong
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml" ./start.sh up
+#
+# Variables read from .env:
+#   DOMAIN                  e.g. kinboard.example.com
+#   TRAEFIK_CERT_RESOLVER   name of your Traefik cert resolver
+#   TRAEFIK_NETWORK         external network Traefik watches (default: proxy)
+
+services:
+  kong:
+    networks:
+      - kinboard
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      # The pages: everything on the domain, lowest priority.
+      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-app.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-app.entrypoints=websecure"
+      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-app.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-app.priority=1"
+      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-app.service=${PROJECT_NAME:-kinboard}-kong"
+      # The API paths: the same target, plus the gate that refuses a
+      # service_role key from the internet (pentest F3; see the two-router
+      # overlay for why). It fails open, so it cannot take the dashboard down.
+      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.rule=Host(`${DOMAIN}`) && (PathPrefix(`/rest`) || PathPrefix(`/auth`) || PathPrefix(`/storage`) || PathPrefix(`/realtime`))"
+      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.entrypoints=websecure"
+      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.priority=100"
+      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.service=${PROJECT_NAME:-kinboard}-kong"
+      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.middlewares=${PROJECT_NAME:-kinboard}-rolegate@docker"
+      - "traefik.http.middlewares.${PROJECT_NAME:-kinboard}-rolegate.forwardauth.address=http://${PROJECT_NAME:-kinboard}-webapp:3000/api/internal/rest-gate"
+      - "traefik.http.services.${PROJECT_NAME:-kinboard}-kong.loadbalancer.server.url=http://${PROJECT_NAME:-kinboard}-kong:8000"
+    # Inline rather than the anchor in docker-compose.yml: YAML anchors don't
+    # cross files.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # The rolegate above is answered by the webapp, so Traefik must reach it.
+  webapp:
+    networks:
+      - kinboard
+      - traefik
+
+networks:
+  traefik:
+    name: ${TRAEFIK_NETWORK:-proxy}
+    external: true

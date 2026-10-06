@@ -70,6 +70,10 @@ test.describe("through Kong, as the browser", () => {
 
     await page.goto("/join", { waitUntil: "domcontentloaded" });
     const env = await page.evaluate(() => (window as unknown as { __ENV: Record<string, string> }).__ENV);
+    // `same-origin` when Kong serves the app (RFC-018): the API is then at the page's own origin.
+    const apiBase = env.NEXT_PUBLIC_SUPABASE_URL === "same-origin"
+      ? await page.evaluate(() => window.location.origin)
+      : env.NEXT_PUBLIC_SUPABASE_URL;
     // Through postJoin, which waits out a 429: the CI run joins from one IP for
     // every spec, and a single plain fetch here failed on the join limit alone.
     const joinRes = await postJoin(page.request, { joinCode: FAMILY_CODE, hardwareId, deviceName: "claude-grants" });
@@ -77,7 +81,7 @@ test.describe("through Kong, as the browser", () => {
     const joined = await joinRes.json();
     const familyId: string = joined.family.id;
     const rest = (method: string, path: string, data?: unknown) =>
-      page.request.fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${path}`, {
+      page.request.fetch(`${apiBase}/rest/v1/${path}`, {
         method,
         headers: {
           apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,

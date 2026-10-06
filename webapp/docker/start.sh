@@ -366,6 +366,15 @@ case "$cmd" in
     $COMPOSE $COMPOSE_FILES up -d
     recreate_scheduler_if_webapp_changed "$webapp_before"
     wait_for_migrations
+
+    # An install from before KINBOARD_ENTRY moves to Kong as its front door
+    # (RFC-018) here, but only once a request through Kong reaches the app;
+    # anything less leaves it on the webapp and says why. No-op when .env
+    # already says kong or webapp. See kinboard-entry.sh.
+    webapp_before="$(webapp_container)"
+    COMPOSE="$COMPOSE" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env KONG_YML=./kong.yml \
+      sh ./kinboard-entry.sh switch || true
+    recreate_scheduler_if_webapp_changed "$webapp_before"
     $COMPOSE $COMPOSE_FILES ps
     ;;
   down)

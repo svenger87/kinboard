@@ -5,7 +5,7 @@ You'll need:
 - **Docker** with Compose v2 (`docker compose ...`)
 - **Node.js 20+** — `setup.sh` calls `npx web-push generate-vapid-keys` to mint the keypair that signs push notifications. If Node.js isn't on PATH, setup completes but push notifications stay disabled (everything else works); install Node.js + re-run `./setup.sh --force` later to enable.
 - ~2 GB free disk for the Supabase + webapp images, ~3 GB during a source build
-- An **interactive terminal** for `./setup.sh` (it prompts for the URL your browser will use). Piping `setup.sh` over SSH or into a script makes it skip the prompt and silently default to `localhost:8100`, which won't work for any other device on your network. If you must run it non-interactively, set `API_EXTERNAL_URL` and `SITE_URL` in `webapp/docker/.env` *before* running `./setup.sh`.
+- An interactive terminal for `./setup.sh` if you want to be asked for the optional integration keys. Without one (`--non-interactive`, over SSH, in a script) it simply skips them.
 - A free [OpenWeatherMap API key](https://openweathermap.org/api) (optional, for the weather widget)
 
 > **On Windows?** Install into your WSL filesystem, not `/mnt/c/` — PostgreSQL
@@ -20,34 +20,22 @@ git clone https://github.com/svenger87/kinboard.git
 cd kinboard
 
 # Generates webapp/docker/.env with random secrets, VAPID keys, and
-# Supabase API keys. Will ask you ONE question along the way.
+# Supabase API keys. No questions about addresses.
 ./setup.sh
 ```
 
-### The one question setup asks
+### No address to get right
 
-`setup.sh` will prompt: **"Where will you and your family open Kinboard?"** This is the URL your browser will use. Get it right or browser API calls fail with `ERR_CONNECTION_REFUSED`.
+Open Kinboard at whatever address reaches your server: `http://localhost:3001` on the same machine, `http://<your-server-LAN-IP>:3001` from phones and tablets at home (find the IP with `hostname -I`), your domain if you put it behind [Traefik](Self-hosting#behind-traefik) or a [Cloudflare Tunnel](Self-hosting#reverse-proxied-via-cloudflare-tunnel). Every device talks to Kinboard at the address it opened it from, so they can all differ.
 
-Pick what matches your setup:
+`setup.sh` prints the address it expects (this machine's LAN address at home, its public address on a cloud server, `localhost` under WSL — see [Windows (WSL) as a host](Windows-WSL-Host)) and stores it as `SITE_URL`, which is only used for links Kinboard hands to other apps, like the calendar feed. Change it with `./setup.sh --url <address>`. More in [Self-hosting → What URL should I use?](Self-hosting#what-url-should-i-use).
 
-| Your situation | Type this |
-|---|---|
-| Just trying it on this same machine | `http://localhost:8100` |
-| Windows with WSL, using it on that same PC | `http://localhost:8100` — see [Windows (WSL) as a host](Windows-WSL-Host) |
-| Home server, family will browse from phones in the house | `http://<your-server-LAN-IP>:8100` (find with `hostname -I`) |
-| Cloud server (Hetzner, DigitalOcean, etc.) | `http://<your-server-public-IP>:8100` |
-| You've set up a domain + Traefik for HTTPS | `https://kinboard.your-domain.com` |
-
-> **Don't forget the `:8100`** unless you're using Traefik. See the [URL gotchas section](Self-hosting#what-url-should-i-use-the-most-common-confusion) for more.
-
-`setup.sh` suggests a default so you can usually just press Enter: this machine's LAN address at home, its public address only when that address is actually on the machine (a cloud server), and `localhost` under WSL. Check the suggestion anyway — it is a guess about how your network is laid out.
-
-It's idempotent — re-running won't overwrite anything you've set manually, **including the address**. If you accepted a wrong one, edit `API_EXTERNAL_URL`, `SITE_URL` and `ADDITIONAL_REDIRECT_URLS` in `webapp/docker/.env` and run `./start.sh up` again; running `setup.sh` a second time will keep the old value. It:
+It's idempotent — re-running won't overwrite anything you've set manually. It:
 
 - generates `POSTGRES_PASSWORD`, `JWT_SECRET`, `SECRET_KEY_BASE`, `CRON_SECRET`
 - mints `ANON_KEY` + `SERVICE_ROLE_KEY` (Supabase JWTs signed with `JWT_SECRET` — no need to visit supabase.com)
 - runs `npx web-push generate-vapid-keys` for `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (if Node.js is installed; push notifications stay disabled otherwise)
-- substitutes the keys into `kong.yml`
+- substitutes the keys into `kong.yml`, and adds the route that makes Kong the front door on port 3001
 - copies `webapp/.env.example` to `webapp/.env.local` for dev
 
 ## 2. Bring up the stack

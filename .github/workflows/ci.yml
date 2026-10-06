@@ -178,6 +178,11 @@ jobs:
             echo "checking $f"
             bash -n "$f"
           done
+          # POSIX sh: these run inside the Alpine webhook container.
+          for f in webapp/docker/kinboard-self-update.sh webapp/docker/kinboard-entry.sh; do
+            echo "checking $f"
+            sh -n "$f"
+          done
 
   migrations:
     name: Migration order

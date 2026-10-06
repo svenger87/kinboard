@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     // Build the browser-reachable public URL. supabase.storage.getPublicUrl
     // would derive it from the admin client's internal `kong:8000` base,
     // which the browser can't resolve. publicStorageUrl uses
-    // NEXT_PUBLIC_SUPABASE_URL instead. See lib/supabase/public-url.ts.
+    // a relative path instead. See lib/supabase/public-url.ts.
     return NextResponse.json({
       url: publicStorageUrl("device-images", data.path),
       path: data.path,

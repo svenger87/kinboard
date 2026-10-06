@@ -38,6 +38,12 @@ const PRECACHE_ASSETS = [
 // the network still opens the app the user actually tapped.
 const SHOPPING_SCOPE = '/einkaufen';
 
+const API_PREFIXES = ['/rest/v1/', '/auth/v1/', '/storage/v1/', '/realtime/v1/'];
+
+function isApiPath(pathname) {
+  return API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
 function navigationFallbackFor(url) {
   return url.pathname.startsWith(SHOPPING_SCOPE) ? SHOPPING_SCOPE : '/';
 }
@@ -101,6 +107,15 @@ self.addEventListener('fetch', (event) => {
 
   // Skip API requests (don't cache dynamic data)
   if (url.pathname.startsWith('/api/')) {
+    return;
+  }
+
+  // The Supabase API, now on the page's own origin when Kong is the front
+  // door (RFC-018). It used to be cross-origin and skipped above; same-origin
+  // it would fall into the caches below — a signed photo URL is a new URL
+  // every time it is issued, so each one would be cached for good. Public
+  // bucket images are the exception: stable paths, cached like any image.
+  if (isApiPath(url.pathname) && !url.pathname.startsWith('/storage/v1/object/public/')) {
     return;
   }
 

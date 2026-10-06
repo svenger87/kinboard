@@ -5,6 +5,7 @@ import {
   newCorrelationId,
   sanitiseCorrelationId,
 } from "@/lib/correlation";
+import { serverSupabaseUrl } from "@/lib/supabase/api-base";
 
 interface CookieToSet {
   name: string;
@@ -36,8 +37,9 @@ export async function proxy(request: NextRequest) {
     },
   });
 
+  // Server side: the internal address, never the browser's (RFC-018).
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serverSupabaseUrl(),
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
