@@ -6,6 +6,7 @@ import { familyIdFrom, rowInFamily, accountInFamily } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { isAvatarStyle } from "@/lib/pocket-money/creatures/styles";
+import { validateLook } from "@/lib/pocket-money/creatures/look";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ const VALID_SPECIES: ReadonlySet<string> = new Set(
 /**
  * This PATCH also carries the kid-side avatar fields: the stage tracking
  * (last_seen_tier, best_tier), written on every visit to /pocket-money, and
- * the avatar's look (avatar_style), which the child picks on their own page --
+ * the avatar's look (avatar_style, avatar_look), which the child picks on their own page --
  * so a child's own device must reach them with no PIN. Everything else here is a
  * parental setting — allowance, interest, currency, the avatar species picked
  * at setup — so the PIN check is per-field, not on the route as a whole.
@@ -130,6 +131,16 @@ export async function PATCH(
       return NextResponse.json({ error: `unknown avatar_style: ${String(body.avatar_style)}` }, { status: 400 });
     }
     update.avatar_style = body.avatar_style;
+  }
+  // The child's own look for their creature: colours, pattern, eyes, an
+  // accessory, a name (RFC-016 §4). No PIN, like the style. Only the editor's
+  // fixed sets: unknown keys and values outside them are refused, not stored,
+  // and the name is cleaned and cut to 16 characters (lib/.../look.ts). The
+  // whole look is replaced; {} is the creature's own.
+  if (body.avatar_look !== undefined) {
+    const look = validateLook(body.avatar_look);
+    if (!look.ok) return NextResponse.json({ error: look.error }, { status: 400 });
+    update.avatar_look = look.look as PocketMoneyAccountUpdate["avatar_look"];
   }
   if (body.last_seen_tier !== undefined) update.last_seen_tier = body.last_seen_tier;
   // The avatar's high-water mark. Client-written because it's derived

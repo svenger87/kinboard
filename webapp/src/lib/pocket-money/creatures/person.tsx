@@ -5,18 +5,18 @@
  * skin and hair, a dress or a tunic, sleeves and hands. Ported from the
  * creature workshop's personBody() and the two characters' head parts.
  *
- * The hair is its own piece (hair()), drawn from a hairstyle: each character
- * has a default -- long for the princess, short for the prince -- and a
- * child's own choice slots in there and nowhere else.
+ * The hair is its own piece, drawn from a hairstyle: each character has a
+ * default -- long for the princess, short for the prince -- until a child
+ * picks short, long, a ponytail or curls in the editor.
  */
 
 import type { ReactNode } from "react";
 import { EYE, fillOf, s, type Draw, type HeadParts } from "./parts";
-import { GOLD } from "./skeleton";
+import { GOLD, hearts } from "./skeleton";
+import type { Hairstyle } from "./look";
 import { shade } from "./styles";
 
-export const HAIRSTYLES = ["short", "long", "ponytail", "curls"] as const;
-export type Hairstyle = (typeof HAIRSTYLES)[number];
+export { HAIRSTYLES, type Hairstyle } from "./look";
 
 export const skinOf = (c: Draw) => c.st.pal.skin ?? "#F2C8A0";
 export const hairOf = (c: Draw) => c.st.pal.hair ?? c.st.pal.accent ?? c.st.pal.wing;
@@ -34,6 +34,30 @@ function hairBehind(c: Draw, style: Hairstyle, cx: number, cy: number, r: number
       />
     );
   }
+  if (style === "ponytail") {
+    // gathered at the back of the head, swinging out to the side
+    return (
+      <g data-part="hair-back">
+        <path
+          d={`M ${cx + r * 0.55} ${cy - r * 0.85} Q ${cx + r * 1.45} ${cy - r * 0.75} ${cx + r * 1.3} ${cy + r * 0.25} Q ${cx + r * 1.2} ${cy + r * 0.85} ${cx + r * 0.95} ${cy + r * 1.05} Q ${cx + r * 1.02} ${cy + r * 0.4} ${cx + r * 0.75} ${cy - r * 0.2} Z`}
+          fill={hair}
+          {...s(c)}
+        />
+        <circle cx={cx + r * 0.88} cy={cy - r * 0.72} r={r * 0.13} fill="#FF5C8A" {...s(c, 2)} />
+      </g>
+    );
+  }
+  if (style === "curls") {
+    // a cloud of curls round the top and sides of the head
+    return (
+      <g data-part="hair-back">
+        {Array.from({ length: 11 }, (_, i) => {
+          const a = Math.PI * (0.92 + (i / 10) * 1.16);
+          return <circle key={i} cx={cx + Math.cos(a) * r * 0.98} cy={cy + Math.sin(a) * r * 0.98} r={r * 0.3} fill={hair} {...s(c, 2.5)} />;
+        })}
+      </g>
+    );
+  }
   return null;
 }
 
@@ -46,6 +70,27 @@ function hairFront(c: Draw, style: Hairstyle, cx: number, cy: number, r: number)
       <path
         data-part="hair"
         d={`M ${cx - r * 0.98} ${cy - r * 0.05} Q ${cx - r * 0.95} ${cy - r * 1.12} ${cx} ${cy - r * 1.1} Q ${cx + r * 0.95} ${cy - r * 1.12} ${cx + r * 0.98} ${cy - r * 0.05} Q ${cx + r * 0.7} ${cy - r * 0.55} ${cx + r * 0.1} ${cy - r * 0.62} Q ${cx - r * 0.2} ${cy - r * 0.4} ${cx - r * 0.98} ${cy - r * 0.05} Z`}
+        fill={hair}
+        {...s(c, 2.5)}
+      />
+    );
+  }
+  if (style === "curls") {
+    return (
+      <g data-part="hair">
+        {Array.from({ length: 5 }, (_, i) => {
+          const a = Math.PI * (1.15 + (i / 4) * 0.7);
+          return <circle key={i} cx={cx + Math.cos(a) * r * 0.78} cy={cy + Math.sin(a) * r * 0.78} r={r * 0.26} fill={hair} {...s(c, 2)} />;
+        })}
+      </g>
+    );
+  }
+  if (style === "ponytail") {
+    // pulled back: a smooth cap with a side parting
+    return (
+      <path
+        data-part="hair"
+        d={`M ${cx - r * 0.98} ${cy - r * 0.1} Q ${cx - r * 0.98} ${cy - r * 1.12} ${cx} ${cy - r * 1.1} Q ${cx + r * 0.98} ${cy - r * 1.12} ${cx + r * 0.98} ${cy - r * 0.1} Q ${cx + r * 0.75} ${cy - r * 0.62} ${cx - r * 0.3} ${cy - r * 0.66} Q ${cx - r * 0.75} ${cy - r * 0.55} ${cx - r * 0.98} ${cy - r * 0.1} Z`}
         fill={hair}
         {...s(c, 2.5)}
       />
@@ -69,8 +114,8 @@ const smile = (c: Draw, cx: number, cy: number, r: number) =>
 
 /** A person's head parts, with a hairstyle, and what they wear on it. */
 export function personHead(defaultHair: Hairstyle, headwear: HeadParts["front"]): HeadParts {
-  // The hairstyle is the character's default until a child chooses one.
-  const style = (_c: Draw): Hairstyle => defaultHair;
+  // The character's default until a child chooses one.
+  const style = (c: Draw): Hairstyle => c.look.hairstyle ?? defaultHair;
   return {
     behind: (c, cx, cy, r) => hairBehind(c, style(c), cx, cy, r),
     shape: (c, cx, cy, r) => (
@@ -103,6 +148,19 @@ export function personBody(c: Draw, who: "princess" | "prince"): ReactNode {
           <path d="M 60 170 Q 100 182 140 170" stroke={p.belly} strokeWidth="6" fill="none" strokeLinecap="round" />
           <ellipse cx="100" cy="120" rx="20" ry="13" fill={fill} {...s(c)} />
           <path d="M 84 128 Q 100 134 116 128" stroke={p.belly} strokeWidth="4" fill="none" strokeLinecap="round" />
+          {hearts(c, 100, 152)}
+          {c.look.pattern === "spots" && (
+            <g data-pattern="spots">
+              {[[86, 148], [112, 158], [96, 166], [120, 142]].map(([x, y]) => <circle key={`${x}-${y}`} cx={x} cy={y} r="3.5" fill={p.belly} />)}
+            </g>
+          )}
+          {c.look.pattern === "stripes" && (
+            <g data-pattern="stripes">
+              {[146, 156].map((y) => (
+                <path key={y} d={`M ${74 - (y - 146) * 0.4} ${y} Q 100 ${y + 6} ${126 + (y - 146) * 0.4} ${y}`} stroke={p.belly} strokeWidth="3" fill="none" />
+              ))}
+            </g>
+          )}
         </>
       ) : (
         <>
@@ -114,6 +172,17 @@ export function personBody(c: Draw, who: "princess" | "prince"): ReactNode {
           <path d="M 84 108 L 100 122 L 116 108" stroke={p.belly} strokeWidth="4" fill="none" strokeLinejoin="round" />
           <rect x="74" y="138" width="52" height="7" fill="#5A3A2A" />
           <rect x="95" y="136" width="10" height="11" rx="2" fill={GOLD} />
+          {hearts(c, 100, 126)}
+          {c.look.pattern === "spots" && (
+            <g data-pattern="spots">
+              {[[84, 128], [116, 124], [110, 150], [88, 150]].map(([x, y]) => <circle key={`${x}-${y}`} cx={x} cy={y} r="3.5" fill={p.belly} />)}
+            </g>
+          )}
+          {c.look.pattern === "stripes" && (
+            <g data-pattern="stripes">
+              {[80, 120].map((x) => <path key={x} d={`M ${x} 112 L ${x} 156`} stroke={p.belly} strokeWidth="3" />)}
+            </g>
+          )}
         </>
       )}
       {/* sleeves and hands */}

@@ -33,7 +33,8 @@ import { isDrawnStyle, type AvatarStyle, type DrawnStyle } from "./styles";
 
 export * from "./styles";
 export * from "./catalog";
-export { drawCreature, resolveStyle, type CreatureLook, type CreatureMood, type OriginKind, type SpeciesArt } from "./skeleton";
+export { drawCreature, resolveStyle, type CreatureMood, type OriginKind, type SpeciesArt } from "./skeleton";
+export * from "./look";
 
 const DRAWN_SPECIES: Readonly<Record<string, SpeciesArt>> = {
   dragon,

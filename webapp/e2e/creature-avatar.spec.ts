@@ -168,15 +168,16 @@ test.describe("what is not drawn is the classic picture", () => {
   });
 });
 
-test.describe("the look hook", () => {
-  test("a look's palette overrides the style's, in one place, without touching the style", () => {
+test.describe("the look, resolved in one place", () => {
+  test("a look's colours override the dragon's style palette without touching the style", () => {
     const before = STYLES.gumdrop.pal.body;
-    const resolved = resolveStyle("gumdrop", { palette: { body: "#123456" } });
-    expect(resolved.pal.body).toBe("#123456");
+    const resolved = resolveStyle("gumdrop", { body: "#FF8FC0" });
+    expect(resolved.pal.body).toBe("#FF8FC0");
     expect(resolved.pal.belly).toBe(STYLES.gumdrop.pal.belly);
     expect(STYLES.gumdrop.pal.body).toBe(before);
-    const html = render({ species: "dragon", tier: 4, style: "gumdrop", look: { palette: { body: "#123456" } } });
-    expect(html).toContain("#123456");
+    expect(resolveStyle("gumdrop", {})).toBe(STYLES.gumdrop);
+    const html = render({ species: "dragon", tier: 4, style: "gumdrop", look: { body: "#FF8FC0" } });
+    expect(html).toContain("#FF8FC0");
   });
 });
 

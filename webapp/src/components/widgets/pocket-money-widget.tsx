@@ -11,6 +11,7 @@ import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople, usePointTotals } from "@/hooks";
 import { avatarStage } from "@/lib/pocket-money/points";
+import { readLook } from "@/lib/pocket-money/creatures/look";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { PluginDiscoverCard } from "./plugin-discover-card";
 import { formatCents } from "@/lib/pocket-money/format";
@@ -121,6 +122,7 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
         species={account.avatar_species}
         tier={stage.tier}
         style={account.avatar_style}
+        look={readLook(account.avatar_look)}
         size={56}
         animated={false}
         label={t(`species.${account.avatar_species}.tier${stage.tier}` as never)}

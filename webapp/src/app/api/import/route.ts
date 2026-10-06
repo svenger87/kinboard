@@ -7,6 +7,7 @@ import { restoredSyncSetting } from "@/lib/school-sync/reconcile";
 import { withHolidayRegion } from "@/lib/holidays/region";
 import { clientIp, hitLimit } from "@/lib/rate-limit";
 import { restorableAvatarStyle } from "@/lib/pocket-money/creatures/styles";
+import { restorableLook } from "@/lib/pocket-money/creatures/look";
 
 // POST /api/import — restore a family from a Kinboard backup file
 // (Milestone D Task 3; inverts GET /api/export).
@@ -149,8 +150,12 @@ const TABLE_SPECS: TableSpec[] = [
     // A look this release does not know -- a backup from a newer one, or a
     // hand-edited file -- restores as classic instead of tripping the CHECK.
     // A backup from before the column existed has none, and gets the default.
+    // The same for a child's own look: anything the editor would refuse --
+    // an unknown key, a colour outside the sets -- restores as {}, the
+    // creature's own look, so a cosmetic field never fails a restore.
     normalize: (row) => {
       if ("avatar_style" in row) row.avatar_style = restorableAvatarStyle(row.avatar_style);
+      if ("avatar_look" in row) row.avatar_look = restorableLook(row.avatar_look);
     },
   }),
   spec("pocket_money_goals", { hasFamilyId: false, requiredFks: ["account_id"] }),

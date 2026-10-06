@@ -11,6 +11,7 @@ import {
   hasDrawnArt,
   isDrawnStyle,
   type AvatarStyle,
+  type CreatureLook,
 } from "@/lib/pocket-money/creatures";
 import { CreatureAvatar } from "./creature-avatar";
 
@@ -24,6 +25,8 @@ interface Props {
   /** Whose avatar, for the group's accessible name. */
   childName: string;
   previewSize?: number;
+  /** The child's own look, so the previews show their colours. */
+  look?: CreatureLook;
 }
 
 /**
@@ -35,7 +38,7 @@ interface Props {
  * swatch of each look's colours and "Coming for this species" -- rather than
  * letting a child pick one that would quietly look exactly like Classic.
  */
-export function AvatarStylePicker({ species, tier, value, onChange, disabled, childName, previewSize = 64 }: Props) {
+export function AvatarStylePicker({ species, tier, value, onChange, disabled, childName, previewSize = 64, look }: Props) {
   const t = useTranslations("pocketMoney");
   const drawn = hasDrawnArt(species);
   const current = effectiveStyle(species, value);
@@ -71,7 +74,7 @@ export function AvatarStylePicker({ species, tier, value, onChange, disabled, ch
               }`}
             >
               {available ? (
-                <CreatureAvatar species={species} tier={tier} style={style} size={previewSize} animated={false} label="" />
+                <CreatureAvatar species={species} tier={tier} style={style} look={look} size={previewSize} animated={false} label="" />
               ) : (
                 <StyleSwatch style={style} size={previewSize} />
               )}

@@ -16,10 +16,14 @@
 import type { ReactNode } from "react";
 import type { AvatarTier } from "../types";
 import {
+  accessory,
   bodyFill,
   cheeks,
   crown,
   eyes,
+  hearts,
+  hidesEyes,
+  pattern,
   strokeOf,
   type CreatureMood,
   type DrawContext,
@@ -74,8 +78,9 @@ export function head(c: Draw, h: HeadParts, cx: number, cy: number, r: number): 
       {h.under?.(c, cx, cy, r)}
       {h.face(c, cx, cy, r)}
       {!h.noCheeks && cheeks(c, cx, cy, r)}
-      {eyes(c, c.mood, cx - r * ex, cx + r * ex, cy + r * (h.eyeY ?? -0.12), r * (h.eyeR ?? 0.2), h.eyeColor)}
+      {!hidesEyes(c, c.mood) && eyes(c, c.mood, cx - r * ex, cx + r * ex, cy + r * (h.eyeY ?? -0.12), r * (h.eyeR ?? 0.2), h.eyeColor)}
       {h.front?.(c, cx, cy, r)}
+      {accessory(c, c.stage, cx, cy, r)}
       {c.stage === 8 && crown(c, cx, cy - r * (h.crownLift ?? 1.05))}
     </>
   );
@@ -112,8 +117,10 @@ export function animalBody(c: Draw, b: AnimalBodyParts): ReactNode {
         </>
       )}
       <ellipse cx="100" cy="138" rx="40" ry="38" fill={fill} {...s(c)} />
+      {pattern(c)}
       <ellipse cx="100" cy="145" rx="26" ry="27" fill={p.belly} {...s(c, 2.5)} />
       {b.belly?.(c)}
+      {hearts(c, 100, 146)}
       {b.arms ? (
         b.arms(c)
       ) : (

@@ -8,6 +8,7 @@
 
 import { accentOf, fillOf, s, speciesFrom } from "./parts";
 import { shade } from "./styles";
+import { hearts } from "./skeleton";
 
 const SCREEN = "#7DF9FF";
 const LIGHTS = ["#FF6B8B", "#FFC83D", "#5FD39A"];
@@ -74,6 +75,7 @@ export const robot = speciesFrom({
           />
         ))}
         <rect x="86" y="138" width="28" height="5" rx="2.5" fill={shade(p.belly, 0.2)} />
+        {hearts(c, 100, 140)}
         {c.stage >= 6 && (
           <g data-part="shoulders">
             {[-1, 1].map((d) => (

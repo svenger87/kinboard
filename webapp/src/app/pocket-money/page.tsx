@@ -20,11 +20,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { PocketMoneyGoal } from "@/types/database";
+import type { Json, PocketMoneyGoal } from "@/types/database";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
-import { AvatarStylePicker } from "@/components/pocket-money/avatar-style-picker";
-import { hasDrawnArt, type AvatarStyle } from "@/lib/pocket-money/creatures";
+import { CreatureLookEditor } from "@/components/pocket-money/creature-look-editor";
+import { hasDrawnArt, readLook, type AvatarStyle, type CreatureLook } from "@/lib/pocket-money/creatures";
 import {
   Sheet,
   SheetContent,
@@ -265,6 +265,7 @@ export default function PocketMoneyPage() {
   if (!active) return null;
 
   const activePerson = people.find((p) => p.id === active.person_id);
+  const activeLook = readLook(active.avatar_look);
 
   // A child in points mode needs no money set up: the money part of the page
   // shows only when there is money to show.
@@ -337,12 +338,20 @@ export default function PocketMoneyPage() {
       )}
 
       <div className="flex flex-col items-center text-center space-y-3">
+        {/* The creature's name, the child's own, above it -- shown only here,
+            on the family's own screens. */}
+        {activeLook.name && (
+          <p className="text-2xl font-bold leading-tight" data-testid="creature-name">
+            {activeLook.name}
+          </p>
+        )}
         {/* The child's own avatar: tapping it makes it hop and send up
             hearts (an egg shakes). The look is theirs to change, no PIN. */}
         <CreatureAvatar
           species={active.avatar_species}
           tier={currentTier}
           style={active.avatar_style}
+          look={activeLook}
           size={220}
           tappable
           label={t(`species.${active.avatar_species}.tier${currentTier}` as never)}
@@ -563,6 +572,7 @@ export default function PocketMoneyPage() {
         creature={{
           species: active.avatar_species,
           style: active.avatar_style,
+          look: activeLook,
           from: celebrationFrom,
           to: currentTier,
         }}
@@ -575,19 +585,25 @@ export default function PocketMoneyPage() {
             <SheetDescription>{t("changeLookDescription")}</SheetDescription>
           </SheetHeader>
           <div className="mt-4">
-            <AvatarStylePicker
-              species={active.avatar_species}
-              tier={currentTier}
-              value={active.avatar_style}
-              childName={activePerson?.name ?? ""}
-              previewSize={88}
-              disabled={updateAccount.isPending}
-              onChange={(style: AvatarStyle) =>
-                updateAccount
-                  .mutateAsync({ id: active.id, update: { avatar_style: style } })
-                  .catch(() => toast.error(t("avatarStyleSaveFailed")))
-              }
-            />
+            {lookSheetOpen && (
+              <CreatureLookEditor
+                // A fresh draft each time the sheet opens, or per child.
+                key={active.id}
+                species={active.avatar_species}
+                tier={currentTier}
+                style={active.avatar_style}
+                look={activeLook}
+                childName={activePerson?.name ?? ""}
+                saving={updateAccount.isPending}
+                onCancel={() => setLookSheetOpen(false)}
+                onSave={({ style, look }: { style: AvatarStyle; look: CreatureLook }) =>
+                  updateAccount
+                    .mutateAsync({ id: active.id, update: { avatar_style: style, avatar_look: look as Json } })
+                    .then(() => setLookSheetOpen(false))
+                    .catch(() => toast.error(t("avatarStyleSaveFailed")))
+                }
+              />
+            )}
           </div>
         </SheetContent>
       </Sheet>
@@ -597,6 +613,7 @@ export default function PocketMoneyPage() {
         onOpenChange={setStagesSheetOpen}
         species={active.avatar_species}
         avatarStyle={active.avatar_style}
+        look={activeLook}
         stage={stage}
         currency={active.currency}
       />

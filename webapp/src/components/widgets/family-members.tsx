@@ -29,6 +29,7 @@ import { usePointTotals } from "@/hooks/use-point-rewards";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
 import { avatarStage } from "@/lib/pocket-money/points";
+import { readLook, type CreatureLook } from "@/lib/pocket-money/creatures/look";
 import type { AvatarTier } from "@/lib/pocket-money/types";
 import { Button } from "@/components/ui/button";
 import type { Person, Todo, Event } from "@/types/database";
@@ -235,7 +236,7 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
             earnedPoints: totalsFor(selectedPerson.id, account.id).earned,
             storedBestTier: account.best_tier,
           });
-          return { species: account.avatar_species, style: account.avatar_style, tier: stage.tier };
+          return { species: account.avatar_species, style: account.avatar_style, look: readLook(account.avatar_look), tier: stage.tier };
         })()}
         points={(() => {
           if (!selectedPerson) return null;
@@ -270,7 +271,7 @@ interface PersonDetailsDialogProps {
    */
   points: { value: number; spendable: boolean; rewardsHref: string | null } | null;
   /** The child's pocket-money avatar, or null with no plugin or no account. */
-  petAvatar: { species: string; style: string | null | undefined; tier: AvatarTier } | null;
+  petAvatar: { species: string; style: string | null | undefined; look: CreatureLook; tier: AvatarTier } | null;
   onClose: () => void;
 }
 
@@ -331,6 +332,7 @@ function PersonDetailsDialog({ person, todos, events, points, petAvatar, onClose
                     species={petAvatar.species}
                     tier={petAvatar.tier}
                     style={petAvatar.style}
+                    look={petAvatar.look}
                     size={56}
                     animated={false}
                     // Inside the dialog's title: a name here would be read as part of it.

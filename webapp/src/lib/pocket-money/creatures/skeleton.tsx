@@ -24,35 +24,53 @@
 
 import type { ReactNode, SVGProps } from "react";
 import type { AvatarTier } from "../types";
-import { STYLES, paletteFromColors, type DrawnStyle, type Palette, type SpeciesColors, type StyleSpec } from "./styles";
+import { STYLES, paletteFromColors, shade, tint, type DrawnStyle, type Palette, type SpeciesColors, type StyleSpec } from "./styles";
+import type { CreatureLook } from "./look";
 
 export type CreatureMood = "happy" | "sleepy";
 
-/**
- * Choices a child may one day make about their creature's look (colours,
- * pattern, eyes, an accessory, a name). Nothing is offered yet; the type is
- * here so that when it is, it lands in resolveStyle() below and nowhere else.
- */
-export interface CreatureLook {
-  /** Overrides for single palette entries, e.g. { body: "#…" }. */
-  palette?: Partial<Palette>;
-}
+export const GOLD = "#FFC83D";
+
+export type { CreatureLook };
 
 /**
- * The one place a style (and, later, a child's look) becomes the colours and
- * effects a drawing uses. Everything below reads `ctx.st`, never STYLES.
+ * The one place a style and a child's look become the colours and effects a
+ * drawing uses. Everything below reads `ctx.st`, never STYLES.
+ *
+ * Order: the style's palette (the dragon) or the creature's own colours (the
+ * others), then the look's. A person's hair is their accent colour, so for a
+ * species with a hair colour the look's `hair` replaces it, and `accent` --
+ * a choice made for some other creature -- is ignored.
  */
 export function resolveStyle(style: DrawnStyle, look?: CreatureLook, colors?: SpeciesColors): StyleSpec {
-  // A creature with its own colours keeps them in every style; the style
-  // brings only outlines, the sticker edge and the lighting. The dragon has
-  // none and takes the style's palette, as in Step 1.
-  const base = colors ? { ...STYLES[style], pal: paletteFromColors(colors) } : STYLES[style];
-  if (!look?.palette) return base;
-  return { ...base, pal: { ...base.pal, ...look.palette } };
+  const l = look ?? {};
+  if (colors) {
+    const person = colors.hair !== undefined;
+    const hair = l.hair ?? colors.hair;
+    const merged: SpeciesColors = {
+      body: l.body ?? colors.body,
+      belly: l.belly ?? colors.belly,
+      accent: person ? (hair as string) : (l.accent ?? colors.accent),
+      skin: l.skin ?? colors.skin,
+      hair,
+    };
+    return { ...STYLES[style], pal: paletteFromColors(merged) };
+  }
+  // The dragon: its style's palette, with the look's colours worked in the
+  // way the workshop derives them.
+  const base = STYLES[style];
+  if (!l.body && !l.belly && !l.accent) return base;
+  const pal: Palette = { ...base.pal };
+  if (l.body) Object.assign(pal, { body: l.body, bodyHi: tint(l.body, 0.12), body2: shade(l.body, 0.32), spot: shade(l.body, 0.22) });
+  if (l.belly) pal.belly = l.belly;
+  if (l.accent) Object.assign(pal, { wing: l.accent, wingIn: tint(l.accent, 0.45), accent: l.accent, shellSpot: tint(l.accent, 0.45) });
+  return { ...base, pal };
 }
 
 export interface DrawContext {
   st: StyleSpec;
+  /** The child's choices; {} for the creature's own look. */
+  look: CreatureLook;
   /** A prefix unique to this drawing, for gradient and filter ids. */
   id: string;
 }
@@ -130,23 +148,142 @@ function Defs({ ctx }: { ctx: DrawContext }) {
   );
 }
 
-/** Two eyes with highlights, blinking -- or two closed arcs when sleepy. */
+/**
+ * Two eyes: round with highlights and blinking, sparkly (a star in each), or
+ * happy (two smiling arcs) as the child chose -- or two closed arcs when
+ * sleepy, whatever was chosen.
+ */
 export function eyes(ctx: DrawContext, mood: CreatureMood, x1: number, x2: number, y: number, r: number, color?: string): ReactNode {
-  const p = { ...ctx.st.pal, eye: color ?? ctx.st.pal.eye };
-  if (mood === "sleepy") {
+  const ink = color ?? ctx.st.pal.eye;
+  const kind = mood === "sleepy" ? "sleepy" : (ctx.look.eyes ?? "round");
+  if (kind === "sleepy" || kind === "happy") {
+    const up = kind === "happy";
     const arc = (x: number) => (
-      <path key={x} d={`M ${x - r} ${y} Q ${x} ${y + r * 0.9} ${x + r} ${y}`} fill="none" stroke={p.eye} strokeWidth="3.2" strokeLinecap="round" />
+      <path
+        key={x}
+        d={`M ${x - r} ${y + (up ? r * 0.3 : 0)} Q ${x} ${y + (up ? -r * 1.1 : r * 0.9)} ${x + r} ${y + (up ? r * 0.3 : 0)}`}
+        fill="none"
+        stroke={ink}
+        strokeWidth="3.2"
+        strokeLinecap="round"
+      />
     );
-    return <g>{arc(x1)}{arc(x2)}</g>;
+    return <g data-eyes={kind}>{arc(x1)}{arc(x2)}</g>;
   }
   const one = (x: number) => (
     <g key={x} className="creature-part creature-blink">
-      <ellipse cx={x} cy={y} rx={r} ry={r * 1.15} fill={p.eye} />
+      <ellipse cx={x} cy={y} rx={r} ry={r * 1.15} fill={ink} />
       <circle cx={x + r * 0.35} cy={y - r * 0.4} r={r * 0.38} fill="#FFFFFF" />
       <circle cx={x - r * 0.3} cy={y + r * 0.4} r={r * 0.16} fill="#FFFFFF" opacity="0.8" />
+      {kind === "sparkly" && (
+        <path
+          data-eyes="sparkly"
+          d={`M ${x - r * 0.15} ${y + r * 0.05} l ${r * 0.12} ${r * 0.3} l ${r * 0.3} ${r * 0.1} l ${-r * 0.3} ${r * 0.1} l ${-r * 0.12} ${r * 0.3} l ${-r * 0.12} ${-r * 0.3} l ${-r * 0.3} ${-r * 0.1} l ${r * 0.3} ${-r * 0.1} z`}
+          fill="#FFFFFF"
+        />
+      )}
     </g>
   );
   return <>{one(x1)}{one(x2)}</>;
+}
+
+/** Sunglasses cover the eyes, except when the creature sleeps. */
+export function hidesEyes(ctx: DrawContext, mood: CreatureMood): boolean {
+  return ctx.look.acc === "glasses" && mood !== "sleepy";
+}
+
+/**
+ * The accessory on a head of radius r: a bow, a party hat (not with the
+ * crown at stage 8), sunglasses or a flower. As drawn in the workshop.
+ */
+export function accessory(ctx: DrawContext, stage: number, cx: number, cy: number, r: number): ReactNode {
+  const a = ctx.look.acc;
+  const s = (w: number) => strokeOf(ctx.st, w);
+  if (a === "bow") {
+    return (
+      <g data-acc="bow" transform={`translate(${cx + r * 0.62} ${cy - r * 0.78}) rotate(18)`}>
+        <path d="M 0 0 L -13 -9 L -13 9 Z" fill="#FF5C8A" {...s(2.5)} />
+        <path d="M 0 0 L 13 -9 L 13 9 Z" fill="#FF5C8A" {...s(2.5)} />
+        <circle r="4.5" fill="#FF8FB0" {...s(2.5)} />
+      </g>
+    );
+  }
+  if (a === "hat" && stage < 8) {
+    return (
+      <g data-acc="hat" transform={`translate(${cx + r * 0.25} ${cy - r * 0.88}) rotate(14)`}>
+        <path d="M -14 4 L 0 -30 L 14 4 Z" fill="#56B6E8" {...s(2.5)} />
+        <path d="M -9 -8 L 9 -8 M -5 -18 L 5 -18" stroke={GOLD} strokeWidth="3.5" strokeLinecap="round" />
+        <circle cy="-31" r="4.5" fill={GOLD} />
+      </g>
+    );
+  }
+  if (a === "glasses") {
+    return (
+      <g data-acc="glasses">
+        <rect x={cx - r * 0.62} y={cy - r * 0.38} width={r * 0.54} height={r * 0.4} rx={r * 0.12} fill="#2A2438" opacity="0.92" />
+        <rect x={cx + r * 0.08} y={cy - r * 0.38} width={r * 0.54} height={r * 0.4} rx={r * 0.12} fill="#2A2438" opacity="0.92" />
+        <path d={`M ${cx - r * 0.08} ${cy - r * 0.22} L ${cx + r * 0.08} ${cy - r * 0.22}`} stroke="#2A2438" strokeWidth="3" />
+        <path d={`M ${cx - r * 0.5} ${cy - r * 0.3} l ${r * 0.14} 0`} stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" opacity="0.7" />
+      </g>
+    );
+  }
+  if (a === "flower") {
+    return (
+      <g data-acc="flower" transform={`translate(${cx - r * 0.7} ${cy - r * 0.7})`}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <circle key={i} cx={Math.cos(i * 1.2566) * 6} cy={Math.sin(i * 1.2566) * 6} r="5" fill="#FFF1A8" {...s(2)} />
+        ))}
+        <circle r="4" fill="#FF8A5B" />
+      </g>
+    );
+  }
+  return null;
+}
+
+/** Spots or stripes on the round body (cx 100, cy 138), a shade darker than it. */
+export function pattern(ctx: DrawContext): ReactNode {
+  const p = ctx.look.pattern;
+  const col = shade(ctx.st.pal.body, 0.18);
+  if (p === "spots") {
+    return (
+      <g data-pattern="spots">
+        <circle cx="70" cy="128" r="5" fill={col} />
+        <circle cx="131" cy="124" r="4" fill={col} />
+        <circle cx="127" cy="154" r="5.5" fill={col} />
+        <circle cx="73" cy="157" r="4" fill={col} />
+      </g>
+    );
+  }
+  if (p === "stripes") {
+    return (
+      <g data-pattern="stripes">
+        {[0, 1, 2].map((i) => (
+          <g key={i}>
+            <path d={`M ${64 + i * 2} ${122 + i * 14} q 8 3 10 9`} stroke={col} strokeWidth="5" fill="none" strokeLinecap="round" />
+            <path d={`M ${136 - i * 2} ${122 + i * 14} q -8 3 -10 9`} stroke={col} strokeWidth="5" fill="none" strokeLinecap="round" />
+          </g>
+        ))}
+      </g>
+    );
+  }
+  return null;
+}
+
+/** Three little hearts around (cx, cy), for the hearts pattern. */
+export function hearts(ctx: DrawContext, cx: number, cy: number): ReactNode {
+  if (ctx.look.pattern !== "hearts") return null;
+  return (
+    <g data-pattern="hearts">
+      {[[-9, -6], [8, 2], [-4, 12]].map(([dx, dy]) => (
+        <path
+          key={`${dx}${dy}`}
+          transform={`translate(${cx + dx} ${cy + dy}) scale(.42)`}
+          d="M0 8 C -10 0 -12 -8 -6 -11 C -2 -13 0 -9 0 -7 C 0 -9 2 -13 6 -11 C 12 -8 10 0 0 8 Z"
+          fill="#FF6B8B"
+        />
+      ))}
+    </g>
+  );
 }
 
 /** Two rosy cheeks either side of a head of radius r. */
@@ -159,8 +296,6 @@ export function cheeks(ctx: DrawContext, cx: number, cy: number, r: number): Rea
     </>
   );
 }
-
-export const GOLD = "#FFC83D";
 
 /** The crown of stage 8 (and of the cushion), its band's bottom edge at top + 4. */
 export function crown(ctx: DrawContext, cx: number, top: number, key = "crown"): ReactNode {
@@ -457,7 +592,7 @@ export interface DrawArgs {
 
 /** The contents of the creature's <svg viewBox="0 0 200 200">. */
 export function drawCreature({ art, style, tier, mood, uid, cracked = false, look }: DrawArgs): ReactNode {
-  const ctx: DrawContext = { st: resolveStyle(style, look, art.colors), id: uid };
+  const ctx: DrawContext = { st: resolveStyle(style, look, art.colors), id: uid, look: look ?? {} };
   const { st } = ctx;
   const scale = STAGE_SCALE[tier];
 

@@ -39,7 +39,7 @@ import {
   RewardModeSelect,
 } from "@/components/pocket-money/rewards-settings";
 import type { AvatarSpecies, AvatarTier } from "@/lib/pocket-money/types";
-import { hasDrawnArt } from "@/lib/pocket-money/creatures";
+import { hasDrawnArt, readLook } from "@/lib/pocket-money/creatures";
 import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
@@ -311,6 +311,7 @@ export default function PocketMoneySettingsPage() {
                     }).tier
                   }
                   value={acct.avatar_style}
+                  look={readLook(acct.avatar_look)}
                   childName={kidPerson?.name ?? ""}
                   disabled={update.isPending}
                   onChange={(style) =>

@@ -129,9 +129,12 @@ test("a child changes their own look with no PIN, a parent sees it behind the PI
 
   // No settings unlock on this device, and none is needed for the look.
   await picker.locator('[data-style="sticker"]').click();
-  await expect.poll(style, { timeout: 15_000 }).toBe("sticker");
   await expect(picker.getByRole("radio", { checked: true })).toHaveAttribute("data-style", "sticker", { timeout: 15_000 });
-  await page.keyboard.press("Escape");
+  // A draft until Save (the editor, Step 3): one write per visit.
+  expect(style()).toBe("classic");
+  await page.getByTestId("look-save").click();
+  await expect.poll(style, { timeout: 15_000 }).toBe("sticker");
+  await expect(picker).toBeHidden({ timeout: 15_000 });
   await expect(avatar.locator('svg[data-avatar-style="sticker"][data-tier="5"]')).toBeVisible({ timeout: 15_000 });
   // The big avatar breathes; the drawing has the Drake's wings.
   await expect(avatar.locator("svg.creature-animated")).toHaveCount(1);

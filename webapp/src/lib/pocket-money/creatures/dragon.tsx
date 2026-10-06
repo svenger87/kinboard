@@ -13,7 +13,7 @@
 
 import type { ReactNode } from "react";
 import type { AvatarTier } from "../types";
-import { bodyFill, crown, eyes, strokeOf, wings, type CreatureMood, type DrawContext, type SpeciesArt } from "./skeleton";
+import { accessory, bodyFill, crown, eyes, hearts, hidesEyes, pattern, strokeOf, wings, type CreatureMood, type DrawContext, type SpeciesArt } from "./skeleton";
 
 function head(ctx: DrawContext, stage: number, mood: CreatureMood, cx: number, cy: number, r: number): ReactNode {
   const { st } = ctx;
@@ -70,7 +70,8 @@ function head(ctx: DrawContext, stage: number, mood: CreatureMood, cx: number, c
   parts.push(
     <circle key="cheek-l" cx={cx - r * 0.62} cy={cy + r * 0.18} r={r * 0.15} fill={p.cheek} opacity="0.75" />,
     <circle key="cheek-r" cx={cx + r * 0.62} cy={cy + r * 0.18} r={r * 0.15} fill={p.cheek} opacity="0.75" />,
-    <g key="eyes">{eyes(ctx, mood, cx - r * 0.36, cx + r * 0.36, cy - r * 0.12, r * 0.2)}</g>,
+    <g key="eyes">{!hidesEyes(ctx, mood) && eyes(ctx, mood, cx - r * 0.36, cx + r * 0.36, cy - r * 0.12, r * 0.2)}</g>,
+    <g key="acc">{accessory(ctx, stage, cx, cy, r)}</g>,
   );
   return <>{parts}</>;
 }
@@ -92,11 +93,13 @@ function fullBody(ctx: DrawContext, stage: AvatarTier, mood: CreatureMood): Reac
         <ellipse cx="82" cy="174" rx="13" ry="8" fill={fill} {...s} />
         <ellipse cx="118" cy="174" rx="13" ry="8" fill={fill} {...s} />
         <ellipse cx="100" cy="138" rx="40" ry="38" fill={fill} {...s} />
+        {pattern(ctx)}
         <ellipse cx="100" cy="145" rx="26" ry="27" fill={p.belly} {...strokeOf(st, 2.5)} />
         {stage >= 7 &&
           [0, 1, 2].map((i) => (
             <path key={i} d={`M 84 ${136 + i * 10} Q 100 ${142 + i * 10} 116 ${136 + i * 10}`} fill="none" stroke={p.spot} strokeWidth="2.2" strokeLinecap="round" opacity="0.6" />
           ))}
+        {hearts(ctx, 100, 146)}
         <ellipse cx="66" cy="142" rx="9" ry="12" fill={fill} {...s} transform="rotate(25 66 142)" />
         <ellipse cx="134" cy="142" rx="9" ry="12" fill={fill} {...s} transform="rotate(-25 134 142)" />
         {head(ctx, stage, mood, 100, 84, 34)}

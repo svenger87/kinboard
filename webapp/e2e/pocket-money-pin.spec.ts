@@ -113,7 +113,7 @@ test("the account PATCH gates only the parental fields, not the kid-side avatar 
   expect(source).toMatch(/PIN_PROTECTED_FIELDS\.some\([\s\S]{0,200}?requireSettingsUnlock/);
   const list = source.slice(source.indexOf("const PIN_PROTECTED_FIELDS"), source.indexOf("] as const"));
   expect(list.length).toBeGreaterThan(0);
-  for (const field of ["last_seen_tier", "best_tier", "avatar_style"]) {
+  for (const field of ["last_seen_tier", "best_tier", "avatar_style", "avatar_look"]) {
     expect(
       list.includes(`"${field}"`) || list.includes(`'${field}'`),
       `${field} should not be in the protected list`,
@@ -257,6 +257,33 @@ test.describe("live: the decide route 403s a device that never entered the PIN",
     expect(species.status(), await species.text()).toBe(403);
     expect((await species.json()).error).toBe("pin_required");
     expect(psql(`SELECT avatar_species || '|' || avatar_style FROM pocket_money_accounts WHERE id = '${accountId}'`)).toBe("dragon|sticker");
+  });
+
+  test("a child changes their creature's look with no PIN, but only from the editor's sets", async () => {
+    psql(`UPDATE device_sessions SET settings_unlocked_until = NULL WHERE family_id = '${famId}'`);
+    const look = { name: "  Funkel\n", body: "#ff8a5b", belly: "#DDF7E8", accent: "#3FA877", pattern: "hearts", eyes: "sparkly", acc: "bow" };
+    const res = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_look: look } });
+    expect(res.status(), await res.text()).toBe(200);
+    const stored = JSON.parse(psql(`SELECT avatar_look::text FROM pocket_money_accounts WHERE id = '${accountId}'`));
+    expect(stored).toEqual({ name: "Funkel", body: "#FF8A5B", belly: "#DDF7E8", accent: "#3FA877", pattern: "hearts", eyes: "sparkly", acc: "bow" });
+
+    for (const bad of [{ body: "#123456" }, { wings: "#56B6E8" }, { acc: "crown" }, ["x"], "x", { name: 3 }]) {
+      const r = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_look: bad } });
+      expect(r.status(), `${JSON.stringify(bad)}: ${await r.text()}`).toBe(400);
+    }
+    // nothing of the refused ones was written
+    expect(JSON.parse(psql(`SELECT avatar_look::text FROM pocket_money_accounts WHERE id = '${accountId}'`))).toEqual(stored);
+  });
+
+  test("a look sent together with a new species still needs the PIN, and writes neither", async () => {
+    psql(`UPDATE device_sessions SET settings_unlocked_until = NULL WHERE family_id = '${famId}'`);
+    const before = psql(`SELECT avatar_species || '|' || avatar_look::text FROM pocket_money_accounts WHERE id = '${accountId}'`);
+    const res = await api.patch(`/api/pocket-money/accounts/${accountId}`, {
+      data: { family_id: famId, avatar_species: "unicorn", avatar_look: { body: "#56B6E8" } },
+    });
+    expect(res.status(), await res.text()).toBe(403);
+    expect((await res.json()).error).toBe("pin_required");
+    expect(psql(`SELECT avatar_species || '|' || avatar_look::text FROM pocket_money_accounts WHERE id = '${accountId}'`)).toBe(before);
   });
 
   test("a child's own withdrawal request still needs no PIN", async () => {

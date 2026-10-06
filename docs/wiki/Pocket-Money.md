@@ -65,7 +65,11 @@ Each child's avatar can be drawn in one of four looks:
 | **Sticker** | Thick outlines and a white sticker edge, like a collectible; the clearest at small sizes |
 | **Storybook** | Soft gradients, a gentle glow and a few stars |
 
-**Who picks it.** The child, on their own `/pocket-money` page: **Change look** under the avatar opens four small pictures of their own avatar at its current stage, and a tap chooses one. It needs no settings PIN, because it is the child's own avatar and changes nothing but the drawing. Parents see and change the same choice under Settings → Pocket money → the child's card → **Look**. The species is still a parent's choice and still needs the PIN.
+**Who picks it.** The child, on their own `/pocket-money` page: **Change look** under the avatar opens the look editor (below), which includes the four styles as small pictures of their own avatar at its current stage. It needs no settings PIN, because it is the child's own avatar and changes nothing but the drawing. Parents see and change the style under Settings → Pocket money → the child's card → **Look**. The species is still a parent's choice and still needs the PIN.
+
+**The look editor.** Besides the style, a child can give the creature a name (up to 16 characters, shown above it on their page) and choose its body colour, tummy colour and the colour of its wings, ears and fins, a pattern (plain, spots, stripes, hearts), eyes (round, sparkly, happy) and an accessory (bow, party hat, sunglasses, flower). For the princess and the prince the colours are the outfit, the trim and the hair, plus a skin tone (five) and a hairstyle (short, long, ponytail, curls). *Surprise me* picks a random look, *Start over* brings back the creature's own colours and keeps the name. The preview follows every choice; nothing is stored until **Save**. Colours come from fixed sets, so every combination still looks good, and the server refuses anything outside them. The stage still comes only from money or points: the look can change any time without touching progress.
+
+The look is stored in `pocket_money_accounts.avatar_look` (`webapp/docker/migration_zzzzzzzzz_pocket_money_avatar_look.sql`), `{}` meaning the creature's own look. A family export carries it; a restored look the editor would refuse becomes `{}`. The name stays on the family's own screens: the Integration API, Home Assistant and AI assistants never see it.
 
 **What the drawn looks do.** They breathe, blink, beat their wings and sway their tails; tapping the avatar makes it hop and send up hearts, and an egg wobbles. When the avatar reaches a new stage, the egg shakes, cracks and hatches, or a later stage flashes and the new one pops out with a burst of stars. Classic keeps the glow it always had. All motion stops for anyone whose device asks to reduce motion. The stages sheet, the dashboard widget and the child's profile show the avatar in the same look, without the motion. The motion uses only movement and fading, which a Raspberry Pi wall display handles easily.
 
@@ -131,7 +135,7 @@ The set of stages and lifetime-saved thresholds is shared across all species and
 - Sibling co-op goals
 - Multi-currency per family
 - Custom parent-uploaded avatar art (catalog SVGs are designer-replaceable per file in `webapp/public/pocket-money/avatars/`)
-- Drawn looks for the astronaut, plant and wizard, and a child's own colours, pattern, eyes, accessory or name for their avatar -- planned
+- Drawn looks for the astronaut, plant and wizard -- planned
 - Changing a child's creature once the account exists: it is picked when the account is set up
 
 ## Disabling the plugin

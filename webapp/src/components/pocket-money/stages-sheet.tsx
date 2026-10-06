@@ -12,6 +12,7 @@ import {
 import type { AvatarSpecies, AvatarTier } from "@/lib/pocket-money/types";
 import type { AvatarStage } from "@/lib/pocket-money/points";
 import { CreatureAvatar } from "./creature-avatar";
+import type { CreatureLook } from "@/lib/pocket-money/creatures/look";
 import { formatCents } from "@/lib/pocket-money/format";
 
 interface Props {
@@ -20,6 +21,8 @@ interface Props {
   species: AvatarSpecies;
   /** The account's avatar_style: every stage is shown in the child's own look. */
   avatarStyle?: string | null;
+  /** The child's own look (avatar_look). */
+  look?: CreatureLook;
   /** What the avatar shows, in money or points mode (avatarStage). */
   stage: AvatarStage;
   currency: string;
@@ -30,6 +33,7 @@ export function StagesSheet({
   onOpenChange,
   species,
   avatarStyle,
+  look,
   stage,
   currency,
 }: Props) {
@@ -87,6 +91,7 @@ export function StagesSheet({
                   species={species}
                   tier={tier}
                   style={avatarStyle}
+                  look={look}
                   size={56}
                   animated={false}
                   label=""

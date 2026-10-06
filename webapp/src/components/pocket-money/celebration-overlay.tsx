@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { AvatarSpecies, AvatarTier } from "@/lib/pocket-money/types";
 import { effectiveStyle } from "@/lib/pocket-money/creatures";
 import { CreatureAvatar, useParticles } from "./creature-avatar";
+import type { CreatureLook } from "@/lib/pocket-money/creatures/look";
 
 type CelebrationKind = "evolution" | "goal-reached" | "interest-pay";
 
@@ -20,6 +21,7 @@ interface Props {
   creature?: {
     species: AvatarSpecies;
     style: string | null | undefined;
+    look?: CreatureLook;
     from: number;
     to: number;
   };
@@ -142,7 +144,7 @@ type Phase = "egg" | "cracked" | "old" | "new";
  * flash, the old one shrinks away, the new one pops. Stars burst either way.
  * With reduced motion it simply shows the new stage.
  */
-function HatchingScene({ species, style, from, to }: NonNullable<Props["creature"]>) {
+function HatchingScene({ species, style, look, from, to }: NonNullable<Props["creature"]>) {
   const toTier = clampTier(to);
   const fromTier = from < toTier ? clampTier(from) : clampTier(toTier - 1);
   const fromEgg = fromTier === 1;
@@ -187,6 +189,7 @@ function HatchingScene({ species, style, from, to }: NonNullable<Props["creature
           species={species}
           tier={tier}
           style={style}
+          look={look}
           size={size}
           cracked={phase === "cracked"}
           label=""
