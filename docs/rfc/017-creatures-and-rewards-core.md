@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted 2026-10-06; step 1 (data move) in progress |
+| **Status** | Implemented: step 1 #370 (rc.14), step 2 #371 (rc.15); the shop (step 3) is in progress; dropping the old account columns (step 5) follows in a later release |
 | **Depends on** | RFC-016 (drawn creatures), #353 (points mode, rewards), #361 (server-only writes) |
 | **Decisions taken** | 2026-10-06 by the maintainer, §2 |
 
