@@ -466,6 +466,10 @@ export {
   useDeleteReward,
   useRequestRedemption,
   useDecideRedemption,
+  usePointPurchases,
+  useOwnedItems,
+  useBuyItem,
+  useRefundPurchase,
 } from "./use-point-rewards";
 export {
   useCreatures,

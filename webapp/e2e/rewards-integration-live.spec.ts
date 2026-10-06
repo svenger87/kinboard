@@ -53,6 +53,7 @@ function purge() {
     DELETE FROM integration_secrets WHERE family_id = '${FAMILY}';
     DELETE FROM devices WHERE family_id = '${FAMILY}' OR hardware_id IN ('e2e-${DEVICE}', 'e2e-${DEVICE}-setter');
     DELETE FROM point_redemptions WHERE family_id = '${FAMILY}';
+    DELETE FROM point_purchases WHERE family_id = '${FAMILY}';
     DELETE FROM point_rewards WHERE family_id = '${FAMILY}';
     DELETE FROM todo_point_awards WHERE family_id = '${FAMILY}';
     DELETE FROM creatures WHERE family_id = '${FAMILY}';
@@ -235,4 +236,15 @@ test("no token decides: the session route refuses a bearer token; a parent with 
   const view = await (await get("/rewards", readToken)).json();
   expect(view.pending).toEqual([]);
   expect(view.children[0].points).toMatchObject({ balance: 70, pending: 0, available: 70 });
+});
+
+test("a shop purchase comes through: purchased from point_person_totals, and the balance net of it", async () => {
+  psql(`INSERT INTO point_purchases (family_id, person_id, item_id, cost) VALUES ('${FAMILY}', '${MIA}', 'cap', 25)`);
+  const totals = JSON.parse(psql(`SELECT point_person_totals('${FAMILY}', '${MIA}')::text`));
+  expect(totals.purchased).toBe(25);
+  const view = await (await get("/rewards", readToken)).json();
+  // 120 earned - 50 approved - 25 bought.
+  expect(view.children[0].points).toEqual({ balance: 45, earned: 120, owed: 0, pending: 0, available: 45, purchased: 25 });
+  // What was bought (and so what the creature wears) is never named.
+  expect(JSON.stringify(view)).not.toContain("cap");
 });

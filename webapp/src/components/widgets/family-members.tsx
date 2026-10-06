@@ -25,7 +25,7 @@ import { usePeople, useTodos, useEvents } from "@/hooks";
 import { useTodoPoints } from "@/hooks/use-todo-points";
 import { pointsTotal, showsPoints } from "@/lib/todo-points";
 import { usePocketMoneyAccounts } from "@/hooks/use-pocket-money-accounts";
-import { usePointTotals } from "@/hooks/use-point-rewards";
+import { useOwnedItems, usePointTotals } from "@/hooks/use-point-rewards";
 import { rewardsHref } from "@/lib/device-owner";
 import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
 import { creatureStage } from "@/lib/creatures/stage";
@@ -93,6 +93,7 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
   const { data: accounts = [] } = usePocketMoneyAccounts();
   const { data: creatures } = useCreatures();
   const { totalsFor } = usePointTotals();
+  const { ownedFor } = useOwnedItems();
 
   // Only fetch upcoming events (today + next 7 days)
   const today = startOfDay(new Date());
@@ -237,7 +238,7 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
             account: accounts.find((a) => a.person_id === selectedPerson.id),
             earnedPoints: totalsFor(selectedPerson.id).earned,
           });
-          return { species: creature.species, style: creature.style, look: readLook(creature.look), tier: stage.tier };
+          return { species: creature.species, style: creature.style, look: readLook(creature.look, ownedFor(selectedPerson.id)), tier: stage.tier };
         })()}
         points={(() => {
           if (!selectedPerson) return null;

@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
 import { useCreatureMood } from "@/hooks/use-creature-mood";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
-import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople, usePointTotals, useCreatures, activeCreatureOf } from "@/hooks";
+import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople, usePointTotals, useOwnedItems, useCreatures, activeCreatureOf } from "@/hooks";
 import { creatureStage } from "@/lib/creatures/stage";
 import { readLook } from "@/lib/pocket-money/creatures/look";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
@@ -97,6 +97,7 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
   const { data: creatures } = useCreatures();
   const creature = activeCreatureOf(creatures, account.person_id);
   const { totalsFor } = usePointTotals();
+  const { ownedFor } = useOwnedItems();
   // Sleepy at night, happy once today's tasks are done; still, either way.
   const mood = useCreatureMood(account.person_id);
   const points = totalsFor(account.person_id);
@@ -132,7 +133,7 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
           species={creature.species}
           tier={stage.tier}
           style={creature.style}
-          look={readLook(creature.look)}
+          look={readLook(creature.look, ownedFor(account.person_id))}
           mood={mood}
           size={56}
           animated={false}

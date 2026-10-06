@@ -2,10 +2,10 @@
  * Points mode (discussion #349): the creature grows with task points, and
  * points buy rewards from the family's catalogue. Per child since RFC-017: a
  * child's points are theirs, with or without a pocket-money account. The
- * database is the authority -- point_person_totals() and
- * decide_point_redemption() in
- * docker/migration_zzzzzzzz_pocket_money_creatures_out.sql -- and this file is
- * its mirror for the screens.
+ * database is the authority -- point_person_totals() in
+ * docker/migration_zzzzzzzzz_point_purchases.sql, and decide_point_redemption()
+ * in docker/migration_zzzzzzzz_pocket_money_creatures_out.sql -- and this file
+ * is its mirror for the screens.
  */
 
 import {
@@ -21,17 +21,24 @@ export interface RedemptionLike {
   status: "pending" | "approved" | "denied";
 }
 
+/** A shop purchase (point_purchases): what it cost. */
+export interface PurchaseLike {
+  cost: number;
+}
+
 export interface PointTotals {
   /** Every point the child's tasks have awarded, all time. */
   earned: number;
   /** The cost of every approved redemption. */
   spent: number;
+  /** The cost of everything bought in the shop (RFC-017 §5). */
+  purchased: number;
   /** The cost of every redemption still waiting for a parent. */
   pending: number;
-  /** earned - spent, never below zero. */
+  /** earned - spent - purchased, never below zero. */
   balance: number;
   /**
-   * spent - earned when a task was un-ticked after its points were spent:
+   * spent + purchased - earned when a task was un-ticked after its points were spent:
    * paid back from the next points earned before any can be spent.
    */
   owed: number;
@@ -40,19 +47,33 @@ export interface PointTotals {
 }
 
 /**
- * A child's points. The balance is earned minus approved redemptions and never
- * goes below zero -- it could only try to after a task was un-ticked whose
- * points were already spent.
+ * A child's points. The balance is earned minus approved redemptions minus
+ * shop purchases, and never goes below zero -- it could only try to after a
+ * task was un-ticked whose points were already spent. Pending requests are
+ * held: `available` is what a new request or a purchase may still use.
  */
-export function pointTotals(earned: number, redemptions: readonly RedemptionLike[]): PointTotals {
+export function pointTotals(
+  earned: number,
+  redemptions: readonly RedemptionLike[],
+  purchases: readonly PurchaseLike[] = [],
+): PointTotals {
   let spent = 0;
   let pending = 0;
   for (const r of redemptions) {
     if (r.status === "approved") spent += r.cost_points;
     else if (r.status === "pending") pending += r.cost_points;
   }
-  const balance = Math.max(0, earned - spent);
-  return { earned, spent, pending, balance, owed: Math.max(0, spent - earned), available: Math.max(0, balance - pending) };
+  const purchased = purchases.reduce((sum, p) => sum + p.cost, 0);
+  const balance = Math.max(0, earned - spent - purchased);
+  return {
+    earned,
+    spent,
+    purchased,
+    pending,
+    balance,
+    owed: Math.max(0, spent + purchased - earned),
+    available: Math.max(0, balance - pending),
+  };
 }
 
 /** The stage a number of earned points reaches. */

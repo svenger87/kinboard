@@ -24,7 +24,7 @@ test.describe("the points balance", () => {
       { cost_points: 30, status: "pending" },
       { cost_points: 100, status: "denied" },
     ]);
-    expect(totals).toEqual({ earned: 120, spent: 50, pending: 30, balance: 70, owed: 0, available: 40 });
+    expect(totals).toEqual({ earned: 120, spent: 50, purchased: 0, pending: 30, balance: 70, owed: 0, available: 40 });
   });
 
   test("never goes below zero, even after a spent task is un-ticked", () => {

@@ -56,6 +56,12 @@ const PIN_FREE_BY_DESIGN: Record<string, string> = {
   // The same request on its old path, kept one release (RFC-017): it looks
   // the account's child up in the session's family and asks for them.
   "pocket-money/accounts/[id]/redemptions/route.ts": "a child's own request to redeem points, on its old path for one release",
+  // Buying something for their creature in the shop (RFC-017 §5) is the
+  // child's own action, paid from their own points, like asking for a
+  // reward. A parent's say is the Shop switch (creatures.shop_enabled, behind
+  // the PIN in PATCH /api/creatures/[personId]), which the purchase function
+  // checks under the child's lock.
+  "creatures/[personId]/purchases/route.ts": "a child buying an item for their creature with their own points",
   // An image candidate for a goal. No family money or settings touched.
   "pocket-money/goal-image-upload/route.ts": "uploads an image for a goal; moves no money and changes no setting",
 };
@@ -153,6 +159,20 @@ test("the account PATCH gates the money settings, and forwards the creature's ol
   expect(source).toMatch(/PIN_PROTECTED_FIELDS\.some\(.*\) \|\| \(creature\?\.ok && creature\.parental\)\) \{\s*const locked = await requireSettingsUnlock/);
   expect(source.indexOf("requireSettingsUnlock(auth.session)")).toBeLessThan(source.indexOf("applyCreaturePatch({"));
   expect(source).toMatch(/REMOVE in the release after RFC-017 step 1/);
+});
+
+test("the shop: buying is the child's, a refund is the parent's and checks the PIN before anything moves", () => {
+  // RFC-017 §5. A child buys with no PIN (PIN_FREE_BY_DESIGN above); handing
+  // points back is a parental decision, and the child's own screen must not
+  // be able to refund itself or take a sibling's item away.
+  expect(PIN_FREE_BY_DESIGN).toHaveProperty(["creatures/[personId]/purchases/route.ts"]);
+  const refund = "creatures/purchases/[id]/route.ts";
+  expect(PIN_FREE_BY_DESIGN).not.toHaveProperty([refund]);
+  const source = readFileSync(join(API, refund), "utf8");
+  const gate = source.indexOf("await requireSettingsUnlock(auth.session)");
+  expect(gate).toBeGreaterThan(source.indexOf("export async function DELETE"));
+  expect(gate).toBeLessThan(source.indexOf("refundPurchase(createAdminClient()"));
+  expect(source).toMatch(/const locked = await requireSettingsUnlock\(auth\.session\);\s*if \(locked\) return locked;/);
 });
 
 test("the creature PATCH gates only the parental fields, not the kid-side look and stage", () => {

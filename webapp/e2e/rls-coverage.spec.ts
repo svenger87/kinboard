@@ -98,6 +98,7 @@ test("every family-scoped table is under row-level security", () => {
     "todo_occurrences", "todo_events",
     "point_rewards", "point_redemptions",
     "creatures",
+    "point_purchases",
   ]);
 
   // - todo_occurrences / todo_events (#341): their own RLS + a family-scoped
@@ -152,6 +153,22 @@ test("every family-scoped table is under row-level security", () => {
   expect(browserWriteGrants(creaturesSql, "point_redemptions")).toEqual([]);
   expect(creaturesFile > "migration_zz_row_level_security.sql").toBe(true);
   expect(creaturesFile > "migration_zzzzzzz_point_rewards.sql").toBe(true);
+
+  // - point_purchases (RFC-017 §5, the creature shop): its own RLS + a
+  //   family-scoped SELECT-only policy that also hides a binned child's
+  //   purchases, REVOKE ALL from anon/authenticated and only SELECT given
+  //   back, in migration_zzzzzzzzz_point_purchases.sql. Every write is the
+  //   purchase route on the service role: a child's screen must not hand
+  //   itself an item it did not pay for.
+  const shopFile = "migration_zzzzzzzzz_point_purchases.sql";
+  const shopSql = codeOnly(readFileSync(join(DOCKER, shopFile), "utf8"), { sql: true });
+  expect(shopSql).toMatch(/ALTER TABLE public\.point_purchases ENABLE ROW LEVEL SECURITY;/i);
+  expect(shopSql).toMatch(/CREATE POLICY point_purchases_family_read ON public\.point_purchases\s+FOR SELECT USING \(family_id = public\.current_family_id\(\) AND/i);
+  expect(shopSql).toMatch(/REVOKE ALL ON TABLE public\.point_purchases FROM anon;/i);
+  expect(shopSql).toMatch(/REVOKE ALL ON TABLE public\.point_purchases FROM authenticated;/i);
+  expect(shopSql).toMatch(/GRANT SELECT ON TABLE public\.point_purchases TO authenticated;/i);
+  expect(browserWriteGrants(shopSql, "point_purchases")).toEqual([]);
+  expect(shopFile > "migration_zz_row_level_security.sql").toBe(true);
 
   // - pocket_money_* keep their FOR ALL `_family_scope` policies (above), but
   //   migration_zzzzzzzz_pocket_money_server_only.sql REVOKEs INSERT, UPDATE,

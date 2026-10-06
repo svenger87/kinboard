@@ -18,6 +18,7 @@ import { CreatureLookEditor } from "@/components/pocket-money/creature-look-edit
 import { CelebrationOverlay } from "@/components/pocket-money/celebration-overlay";
 import { StagesSheet } from "@/components/pocket-money/stages-sheet";
 import { RewardsPanel } from "@/components/pocket-money/rewards-panel";
+import { CreatureShop } from "@/components/pocket-money/creature-shop";
 import { useCreatureMood } from "@/hooks/use-creature-mood";
 import {
   usePeople,
@@ -25,6 +26,7 @@ import {
   usePointRewards,
   usePointRedemptions,
   usePointTotals,
+  useOwnedItems,
   useCreatures,
   useUpdateCreature,
   useKeyboardShortcuts,
@@ -51,8 +53,7 @@ import type { Creature, Person, PocketMoneyAccount } from "@/types/database";
  * set it to grow with the money in an account that exists.
  *
  * The page is the creature first, then the child's points and the rewards,
- * then the shop: RFC-017 step 3 puts it in the slot marked below, under the
- * rewards, without moving anything else.
+ * then the shop (RFC-017 §5), when a parent has left it on for this child.
  */
 export default function RewardsPage() {
   useKeyboardShortcuts();
@@ -148,6 +149,8 @@ function ChildRewards({ person, creature }: { person: Person; creature: Creature
   const { data: accounts = [] } = usePocketMoneyAccounts();
   const account: PocketMoneyAccount | undefined = accounts.find((a) => a.person_id === person.id);
   const { ready: pointsReady, totalsFor } = usePointTotals();
+  const { ready: ownedReady, ownedFor } = useOwnedItems();
+  const owned = ownedFor(person.id);
   const { data: rewards = [] } = usePointRewards();
   const { data: redemptions = [] } = usePointRedemptions();
   const updateCreature = useUpdateCreature();
@@ -158,7 +161,7 @@ function ChildRewards({ person, creature }: { person: Person; creature: Creature
   const pointsMode = stage.mode === "points";
   const species = creature.species;
   const style = creature.style ?? "classic";
-  const look = readLook(creature.look);
+  const look = readLook(creature.look, owned);
   const stageName = (tier: number) => tPM(`species.${species}.tier${tier}` as never);
   const currency = account?.currency ?? "EUR";
 
@@ -232,6 +235,9 @@ function ChildRewards({ person, creature }: { person: Person; creature: Creature
           <Button
             variant="ghost"
             size="sm"
+            // Waits for the purchases: the editor saves the whole look, and
+            // one opened before they load would take worn items off.
+            disabled={!ownedReady}
             onClick={() => setLookOpen(true)}
             className="text-muted-foreground"
             data-testid="change-look"
@@ -285,8 +291,25 @@ function ChildRewards({ person, creature }: { person: Person; creature: Creature
         redemptions={redemptions.filter((r) => r.person_id === person.id)}
       />
 
-      {/* RFC-017 step 3: the shop goes here -- the child's own purchases with
-          their points, under the rewards. Nothing renders until it exists. */}
+      {/* RFC-017 step 3: the shop, under the rewards, while a parent leaves
+          it on. Turned off, it is gone; what was bought stays on. */}
+      {/* It waits for the purchases (and the points), as Change look does:
+          before they load every item would offer "Buy", an owned one too. */}
+      {creature.shop_enabled && hasDrawnArt(species) && !(ownedReady && pointsReady) && (
+        <Skeleton className="h-64 w-full" data-testid="creature-shop-loading" />
+      )}
+      {creature.shop_enabled && hasDrawnArt(species) && ownedReady && pointsReady && (
+        <CreatureShop
+          personId={person.id}
+          name={look.name || person.name}
+          species={species}
+          tier={stage.tier}
+          style={style}
+          look={look}
+          owned={owned}
+          totals={totals}
+        />
+      )}
 
       <CelebrationOverlay
         kind={celebration}
@@ -307,6 +330,7 @@ function ChildRewards({ person, creature }: { person: Person; creature: Creature
                 tier={stage.tier}
                 style={style}
                 look={look}
+                owned={owned}
                 childName={person.name}
                 saving={updateCreature.isPending}
                 onCancel={() => setLookOpen(false)}

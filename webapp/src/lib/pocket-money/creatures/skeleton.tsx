@@ -27,6 +27,7 @@ import type { AvatarTier } from "../types";
 import { STYLES, paletteFromColors, shade, tint, type DrawnStyle, type Palette, type SpeciesColors, type StyleSpec } from "./styles";
 import type { CreatureLook } from "./look";
 import type { CreatureMood } from "@/lib/creature-mood";
+import { backdrop, wearing } from "./items";
 
 /** "normal", "happy" (today's tasks done) or "sleepy" (the family's night): lib/creature-mood.ts. */
 export type { CreatureMood };
@@ -189,17 +190,25 @@ export function eyes(ctx: DrawContext, mood: CreatureMood, x1: number, x2: numbe
   return <>{one(x1)}{one(x2)}</>;
 }
 
-/** Sunglasses cover the eyes, except when the creature sleeps. */
+/**
+ * Sunglasses cover the eyes, except when the creature sleeps -- and not when
+ * glasses from the shop are worn instead, which leave the eyes showing.
+ */
 export function hidesEyes(ctx: DrawContext, mood: CreatureMood): boolean {
-  return ctx.look.acc === "glasses" && mood !== "sleepy";
+  return ctx.look.acc === "glasses" && !wearing(ctx, "face") && mood !== "sleepy";
 }
 
 /**
  * The accessory on a head of radius r: a bow, a party hat (not with the
  * crown at stage 8), sunglasses or a flower. As drawn in the workshop.
+ *
+ * Something bought for the same place wins (./items.tsx): a hat, headphones
+ * or a crown of flowers from the shop replaces the bow, the party hat and the
+ * flower; glasses from the shop replace the sunglasses.
  */
 export function accessory(ctx: DrawContext, stage: number, cx: number, cy: number, r: number): ReactNode {
-  const a = ctx.look.acc;
+  const free = ctx.look.acc;
+  const a = free === "glasses" ? (wearing(ctx, "face") ? undefined : free) : wearing(ctx, "head") ? undefined : free;
   const s = (w: number) => strokeOf(ctx.st, w);
   if (a === "bow") {
     return (
@@ -637,6 +646,7 @@ export function drawCreature({ art, style, tier, mood, uid, cracked = false, loo
   return (
     <>
       <Defs ctx={ctx} />
+      {backdrop(ctx)}
       {st.glow && (
         <>
           <circle cx="100" cy="120" r="88" fill={`url(#${uid}-glow)`} />

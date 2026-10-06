@@ -4,13 +4,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { isPinRequired, relockSettings } from "@/lib/pin-session";
-import type { PointRedemption, PointReward } from "@/types/database";
+import type { PointPurchase, PointRedemption, PointReward } from "@/types/database";
 import { useTodoPoints } from "./use-todo-points";
 import { pointsTotal } from "@/lib/todo-points";
 import { pointTotals, type PointTotals } from "@/lib/pocket-money/points";
+import { ownedSet } from "@/lib/pocket-money/creatures/shop";
 
 /**
- * The rewards catalogue and the children's requests (discussion #349; core
+ * The rewards catalogue, the children's requests and their shop purchases (discussion #349; core
  * since RFC-017, per child, no pocket-money account needed).
  * Read straight from the tables (family-scoped RLS, live through realtime);
  * every write goes through a server route, which checks the settings PIN for
@@ -19,6 +20,7 @@ import { pointTotals, type PointTotals } from "@/lib/pocket-money/points";
 
 export const POINT_REWARDS_KEY = "point-rewards";
 export const POINT_REDEMPTIONS_KEY = "point-redemptions";
+export const POINT_PURCHASES_KEY = "point-purchases";
 
 export function usePointRewards() {
   const familyId = useFamilyStore((s) => s.family?.id);
@@ -52,6 +54,80 @@ export function usePointRedemptions() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as PointRedemption[];
+    },
+  });
+}
+
+/** Everything the family's children bought in the creature shop, newest first (RFC-017 §5). */
+export function usePointPurchases() {
+  const familyId = useFamilyStore((s) => s.family?.id);
+  return useQuery({
+    queryKey: [POINT_PURCHASES_KEY, familyId],
+    enabled: Boolean(familyId),
+    queryFn: async (): Promise<PointPurchase[]> => {
+      const { data, error } = await (createClient() as any)
+        .from("point_purchases")
+        .select("*")
+        .eq("family_id", familyId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as PointPurchase[];
+    },
+  });
+}
+
+const NOTHING: ReadonlySet<string> = new Set();
+
+/**
+ * What each child owns from the shop, for drawing their creature: pass
+ * `ownedFor(personId)` to readLook, which draws only owned items. Until the
+ * purchases have loaded it is the empty set, so nothing bought is drawn
+ * rather than something not bought; `ready` says when it is the real answer.
+ */
+export function useOwnedItems(): { ready: boolean; ownedFor: (personId: string) => ReadonlySet<string> } {
+  const { data, isSuccess } = usePointPurchases();
+  const byPerson = new Map<string, PointPurchase[]>();
+  for (const p of data ?? []) byPerson.set(p.person_id, [...(byPerson.get(p.person_id) ?? []), p]);
+  return {
+    ready: isSuccess,
+    ownedFor: (personId) => (byPerson.has(personId) ? ownedSet(byPerson.get(personId)) : NOTHING),
+  };
+}
+
+/** A child buys an item for their creature: no PIN, their own points. */
+export function useBuyItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ personId, itemId }: { personId: string; itemId: string }) => {
+      const r = await fetch(`/api/creatures/${personId}/purchases`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_id: itemId }),
+      });
+      if (!r.ok) throw await failure(r, "buy");
+      return ((await r.json()) as { purchase: PointPurchase }).purchase;
+    },
+    // A refused purchase changed nothing, but the screen's balance or shop
+    // switch may be stale: refetch either way.
+    onSettled: () => qc.invalidateQueries({ queryKey: [POINT_PURCHASES_KEY] }),
+  });
+}
+
+/**
+ * A parent refunds a purchase: the points come back and a worn item comes
+ * off. Needs the settings PIN.
+ */
+export function useRefundPurchase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (purchaseId: string) => {
+      const r = await fetch(`/api/creatures/purchases/${purchaseId}`, { method: "DELETE" });
+      if (!r.ok) throw await failure(r, "refund");
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: [POINT_PURCHASES_KEY] });
+      // The look may have lost the item.
+      qc.invalidateQueries({ queryKey: ["creatures"] });
     },
   });
 }
@@ -156,15 +232,19 @@ export function useDecideRedemption() {
 export function usePointTotals(): { ready: boolean; totalsFor: (personId: string) => PointTotals } {
   const awards = useTodoPoints();
   const redemptions = usePointRedemptions();
+  const purchases = usePointPurchases();
   const awardRows = awards.data ?? [];
   const redemptionRows = redemptions.data ?? [];
+  const purchaseRows = purchases.data ?? [];
   return {
-    ready: awards.isSuccess && redemptions.isSuccess,
-    // Per child (RFC-017): the awards and the requests are both the person's.
+    ready: awards.isSuccess && redemptions.isSuccess && purchases.isSuccess,
+    // Per child (RFC-017): the awards, the requests and the purchases are all
+    // the person's.
     totalsFor: (personId) =>
       pointTotals(
         pointsTotal(awardRows, personId),
         redemptionRows.filter((r) => r.person_id === personId),
+        purchaseRows.filter((p) => p.person_id === personId),
       ),
   };
 }

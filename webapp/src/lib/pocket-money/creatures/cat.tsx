@@ -6,6 +6,7 @@
  */
 
 import { accentOf, EYE, fillOf, s, speciesFrom } from "./parts";
+import { wearing } from "./items";
 
 export const cat = speciesFrom({
   origin: "basket",
@@ -50,7 +51,8 @@ export const cat = speciesFrom({
       );
     },
     front(c, cx, cy, r) {
-      if (c.stage < 5) return null;
+      // Its own scarf, unless something from the shop is worn round the neck.
+      if (c.stage < 5 || wearing(c, "neck")) return null;
       return (
         <g data-part="scarf">
           <path d={`M ${cx - r * 0.78} ${cy + r * 0.78} Q ${cx} ${cy + r * 1.12} ${cx + r * 0.78} ${cy + r * 0.78} L ${cx + r * 0.82} ${cy + r * 1.02} Q ${cx} ${cy + r * 1.36} ${cx - r * 0.82} ${cy + r * 1.02} Z`} fill={accentOf(c)} {...s(c, 3)} />

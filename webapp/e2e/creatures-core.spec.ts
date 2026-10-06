@@ -246,7 +246,7 @@ test.describe("backups across the move", () => {
   test("the export carries creatures, and the import remaps them by person and derives them for an old backup", () => {
     const exp = codeOnly(read("src/app/api/export/route.ts"));
     expect(exp).toMatch(/from\("creatures"\)\.select\("\*"\)\.eq\("family_id", familyId\)/);
-    expect(exp).toMatch(/point_redemptions,\s*creatures,\s*settings,/);
+    expect(exp).toMatch(/point_redemptions,\s*point_purchases,\s*creatures,\s*settings,/);
     const imp = codeOnly(read("src/app/api/import/route.ts"));
     const creatures = imp.slice(imp.indexOf('spec("creatures"'), imp.indexOf('spec("settings"'));
     expect(creatures).toContain("hasOwnId: false");
