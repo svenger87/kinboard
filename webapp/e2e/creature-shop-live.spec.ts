@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "../src/lib/supabase/server";
 import { mintFamilyToken } from "../src/lib/family-jwt";
 import type { RpcClient } from "../src/lib/pocket-money/booking";
-import { buyItem } from "../src/lib/creatures/purchases";
+import { buyItem, refundPurchase } from "../src/lib/creatures/purchases";
 import { decideRedemption, requestRedemption } from "../src/lib/pocket-money/rewards";
 import { pointTotals, tierFromPoints } from "../src/lib/pocket-money/points";
 import { postJoin } from "./session";
@@ -212,6 +212,61 @@ test.describe("buying", () => {
   });
 });
 
+test.describe("a parent's refund", () => {
+  const refund = (purchaseId: string, familyId = FAMILY) => refundPurchase(rpc(), { familyId, purchaseId });
+  const idOf = (item: string) => psql(`SELECT id FROM point_purchases WHERE person_id = '${KID}' AND item_id = '${item}'`);
+  const lookOf = () => psql(`SELECT look::text FROM creatures WHERE person_id = '${KID}'`);
+
+  test("gives the points back and deletes the purchase; the item can be bought again", async () => {
+    reset(100);
+    expect((await buy("wizard_hat")).status).toBe(201);
+    const id = idOf("wizard_hat");
+    expect(await refund(id)).toEqual({ status: 200, body: { refunded: expect.objectContaining({ id, item_id: "wizard_hat", cost: 40 }), balance: 100 } });
+    expect(await totals()).toMatchObject({ purchased: 0, balance: 100 });
+    expect(owned()).toBe("");
+    expect((await buy("wizard_hat")).status).toBe(201);
+  });
+
+  test("a worn item comes off in the same transaction; the other slots stay", async () => {
+    reset(300);
+    for (const item of ["cap", "monocle", "snow"]) expect((await buy(item)).status).toBe(201);
+    psql(`UPDATE creatures SET look = '{"name":"Feuer","head":"cap","face":"monocle","background":"snow"}' WHERE person_id = '${KID}'`);
+    expect((await refund(idOf("monocle"))).status).toBe(200);
+    expect(JSON.parse(lookOf())).toEqual({ name: "Feuer", head: "cap", background: "snow" });
+    expect((await refund(idOf("snow"))).status).toBe(200);
+    expect(JSON.parse(lookOf())).toEqual({ name: "Feuer", head: "cap" });
+    // an item not worn: the look is left alone
+    expect((await buy("scarf")).status).toBe(201);
+    expect((await refund(idOf("scarf"))).status).toBe(200);
+    expect(JSON.parse(lookOf())).toEqual({ name: "Feuer", head: "cap" });
+  });
+
+  test("another family's purchase, an unknown id, or one refunded twice at once: not found", async () => {
+    reset(100);
+    expect((await buy("medal")).status).toBe(201);
+    const id = idOf("medal");
+    expect(await refund(id, OTHER)).toEqual({ status: 404, body: { error: "not found" } });
+    expect(await refund("nope")).toEqual({ status: 404, body: { error: "not found" } });
+    expect(owned()).toBe("medal");
+    const answers = await Promise.all([refund(id), refund(id), refund(id)]);
+    expect(answers.map((a) => a.status).sort()).toEqual([200, 404, 404]);
+    expect(await totals()).toMatchObject({ purchased: 0, balance: 100 });
+  });
+
+  test("a refund and a purchase at once for one child are served in turn", async () => {
+    for (let round = 0; round < 5; round++) {
+      reset(60);
+      expect((await buy("starry_sky")).status).toBe(201);
+      // 0 points left; the refund frees 60, so the cape (45) is bought only after it
+      const [refunded, bought] = await Promise.all([refund(idOf("starry_sky")), buy("cape")]);
+      expect(refunded.status, `round ${round}`).toBe(200);
+      const t = await totals();
+      expect(t.balance, `round ${round}`).toBe(bought.status === 201 ? 15 : 60);
+      expect(t.owed).toBe(0);
+    }
+  });
+});
+
 test.describe("a browser's token", () => {
   const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const browser = (familyId: string) =>
@@ -233,6 +288,7 @@ test.describe("a browser's token", () => {
       await mine.from("point_purchases").update({ cost: 1 }).eq("id", id),
       await mine.from("point_purchases").delete().eq("id", id),
       await mine.rpc("purchase_person_point_item", { p_family_id: FAMILY, p_person_id: KID, p_item_id: "snow", p_cost: 1 }),
+      await mine.rpc("refund_person_point_purchase", { p_family_id: FAMILY, p_purchase_id: id }),
       await mine.rpc("point_person_totals", { p_family_id: FAMILY, p_person_id: KID }),
     ];
     for (const [i, res] of attempts.entries()) {
@@ -251,7 +307,12 @@ test.describe("a browser's token", () => {
       WHERE has_table_privilege(r, 'public.point_purchases', p)
       GROUP BY r ORDER BY 1;`).split("\n").filter(Boolean);
     expect(rows).toEqual(["authenticated:SELECT"]);
-    for (const fn of ["public.purchase_person_point_item(uuid, uuid, text, integer)", "public.point_person_totals(uuid, uuid)"]) {
+    for (const fn of [
+      "public.purchase_person_point_item(uuid, uuid, text, integer)",
+      "public.refund_person_point_purchase(uuid, uuid)",
+      "public.request_person_point_redemption(uuid, uuid, uuid, uuid)",
+      "public.point_person_totals(uuid, uuid)",
+    ]) {
       expect(psql(`SELECT has_function_privilege('authenticated', '${fn}', 'EXECUTE');`), fn).toBe("f");
       expect(psql(`SELECT has_function_privilege('anon', '${fn}', 'EXECUTE');`), fn).toBe("f");
       expect(psql(`SELECT has_function_privilege('service_role', '${fn}', 'EXECUTE');`), fn).toBe("t");
@@ -361,5 +422,28 @@ test.describe("the routes", () => {
     expect(psql(`SELECT public.point_person_totals('${restored}', '${child}')->>'balance'`)).toBe("130");
     expect(psql(`SELECT look->>'background' FROM creatures WHERE person_id = '${child}'`)).toBe("forest");
     psql(`SELECT public.delete_family('${restored}')`);
+  });
+
+  test("a refund needs the settings PIN, checked on the server before anything moves", async () => {
+    reset(100);
+    expect((await api.post(`/api/creatures/${KID}/purchases`, { data: { item_id: "cap" } })).status()).toBe(201);
+    psql(`UPDATE creatures SET look = '{"head":"cap"}' WHERE person_id = '${KID}'`);
+    const id = psql(`SELECT id FROM point_purchases WHERE person_id = '${KID}' AND item_id = 'cap'`);
+    // A family with no PIN counts as unlocked: set one, so this proves the lock, not its absence.
+    const setPin = await api.post("/api/pin", { data: { family_id: FAMILY, action: "set", pin: "4711" } });
+    expect(setPin.ok(), await setPin.text()).toBe(true);
+    psql(`UPDATE device_sessions SET settings_unlocked_until = NULL WHERE family_id = '${FAMILY}'`);
+    const locked = await api.delete(`/api/creatures/purchases/${id}`);
+    expect(locked.status()).toBe(403);
+    expect(await locked.json()).toEqual({ error: "pin_required" });
+    expect(owned()).toBe("cap");
+    expect(psql(`SELECT look->>'head' FROM creatures WHERE person_id = '${KID}'`)).toBe("cap");
+    // Unlocked: refunded, and off the creature.
+    psql(`UPDATE device_sessions SET settings_unlocked_until = now() + interval '5 minutes' WHERE family_id = '${FAMILY}'`);
+    const res = await api.delete(`/api/creatures/purchases/${id}`);
+    expect(res.status(), await res.text()).toBe(200);
+    expect(owned()).toBe("");
+    expect(psql(`SELECT look::text FROM creatures WHERE person_id = '${KID}'`)).toBe("{}");
+    psql(`DELETE FROM settings WHERE family_id = '${FAMILY}' AND key = 'settings_pin'`);
   });
 });

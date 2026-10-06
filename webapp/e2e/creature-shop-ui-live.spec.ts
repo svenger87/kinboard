@@ -82,7 +82,10 @@ test.describe("the shop on /rewards", () => {
     await expect(shop.locator('[data-testid^="shop-item-"]')).toHaveCount(19);
     await expect(card(page, "pirate_hat").locator('svg [data-item="pirate_hat"]')).toHaveCount(1);
     // 120 points is more than 100
-    await expect(card(page, "outer_space").getByTestId("shop-buy")).toBeDisabled();
+    const tooDear = card(page, "outer_space").getByTestId("shop-buy");
+    await expect(tooDear).toHaveAttribute("aria-disabled", "true");
+    await tooDear.click({ force: true });
+    await expect(page.getByTestId("shop-confirm")).toHaveCount(0);
 
     await card(page, "pirate_hat").getByTestId("shop-buy").click();
     await page.getByTestId("shop-confirm").click();
@@ -155,5 +158,71 @@ test.describe("the shop on /rewards", () => {
     await expect(list).toContainText(/Bow tie|Fliege|Nœud papillon/);
     await expect(rows.first().locator("time")).toHaveAttribute("datetime", /^\d{4}-\d{2}-\d{2}/);
     await expect(page.getByTestId(`purchases-${KID2}`)).toContainText(/Nothing bought yet|Noch nichts gekauft|Rien acheté/);
+  });
+
+  test("a parent refunds a worn item: the points come back and it comes off", async ({ page }) => {
+    test.setTimeout(120_000);
+    reset(100);
+    psql(`INSERT INTO point_purchases (family_id, person_id, item_id, cost) VALUES ('${FAMILY}', '${KID}', 'snow', 70), ('${FAMILY}', '${KID}', 'cap', 25);
+      UPDATE creatures SET look = '{"head":"cap","background":"snow"}' WHERE person_id = '${KID}';`);
+    await establishSession(page, JOIN_CODE, DEVICE);
+    await page.goto("/settings/creatures", { waitUntil: "domcontentloaded" });
+    const list = page.getByTestId(`purchases-${KID}`);
+    const snow = list.locator('[data-testid="purchase-row"][data-item="snow"]');
+    await expect(snow).toBeVisible({ timeout: 60_000 });
+    await expect(snow.getByTestId("purchase-refund")).toHaveAccessibleName(/Snow|Schnee|Neige/);
+    await snow.getByTestId("purchase-refund").click();
+    await page.getByTestId("purchase-refund-confirm").click();
+    await expect(snow).toHaveCount(0, { timeout: 30_000 });
+    expect(owned()).toBe("cap");
+    expect(JSON.parse(psql(`SELECT look::text FROM creatures WHERE person_id = '${KID}'`))).toEqual({ head: "cap" });
+    expect(psql(`SELECT public.point_person_totals('${FAMILY}', '${KID}')->>'balance'`)).toBe("75");
+  });
+
+  test("'Wear it' on the purchase toast builds on the look as it is when tapped, not as it was", async ({ page }) => {
+    test.setTimeout(120_000);
+    reset(100);
+    // A background already bought and worn.
+    psql(`INSERT INTO point_purchases (family_id, person_id, item_id, cost) VALUES ('${FAMILY}', '${KID}', 'forest', 70);
+      UPDATE creatures SET look = '{"background":"forest"}' WHERE person_id = '${KID}';`);
+    await establishSession(page, JOIN_CODE, DEVICE);
+    await page.goto(`/rewards?child=${KID}`, { waitUntil: "domcontentloaded" });
+    await expect(card(page, "forest")).toHaveAttribute("data-worn", "true", { timeout: 60_000 });
+    // Buy the cap; its toast offers "Wear it".
+    await card(page, "cap").getByTestId("shop-buy").click();
+    await page.getByTestId("shop-confirm").click();
+    const wearIt = page.locator("[data-sonner-toast]").getByRole("button", { name: /Wear it|Anziehen|Le mettre/ });
+    await expect(wearIt).toBeVisible({ timeout: 30_000 });
+    // Before tapping it, the background comes off.
+    await card(page, "forest").getByTestId("shop-wear").click();
+    await expect(card(page, "forest")).toHaveAttribute("data-worn", "false", { timeout: 30_000 });
+    await wearIt.click();
+    await expect(card(page, "cap")).toHaveAttribute("data-worn", "true", { timeout: 30_000 });
+    // The cap is on, and the background stayed off.
+    expect(JSON.parse(psql(`SELECT look::text FROM creatures WHERE person_id = '${KID}'`))).toEqual({ head: "cap" });
+  });
+});
+
+test.describe("the shop for a screen reader and a finger", () => {
+  test.use({ serviceWorkers: "block", viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("names say what a button does to which item, the reason is linked, and buttons are 44px", async ({ page }) => {
+    test.setTimeout(120_000);
+    reset(30);
+    psql(`INSERT INTO point_purchases (family_id, person_id, item_id, cost) VALUES ('${FAMILY}', '${KID}', 'monocle', 25);
+      UPDATE creatures SET look = '{"face":"monocle"}' WHERE person_id = '${KID}';`);
+    await establishSession(page, JOIN_CODE, DEVICE);
+    await page.goto(`/rewards?child=${KID}`, { waitUntil: "domcontentloaded" });
+    const shop = page.getByTestId("creature-shop");
+    await expect(shop).toBeVisible({ timeout: 60_000 });
+    const buy = page.getByTestId("shop-item-wizard_hat").getByTestId("shop-buy");
+    await expect(buy).toHaveAccessibleName(/^(Buy Wizard hat for 40 points|Zauberhut für 40 Punkte kaufen|Acheter : Chapeau de magicien pour 40 points)$/);
+    // 5 points left: the reason is what describes it
+    await expect(buy).toHaveAccessibleDescription(/(35 more points|Noch 35 Punkte|Encore 35 points)/);
+    await expect(page.getByTestId("shop-item-monocle").getByTestId("shop-wear")).toHaveAccessibleName(/^(Take off Monocle|Monokel ausziehen|Enlever : Monocle)$/);
+    await expect(page.getByTestId("shop-item-heart_glasses").getByTestId("shop-buy")).toHaveAccessibleName(/20/);
+    for (const button of await shop.locator('[data-testid="shop-buy"], [data-testid="shop-wear"]').all()) {
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
   });
 });

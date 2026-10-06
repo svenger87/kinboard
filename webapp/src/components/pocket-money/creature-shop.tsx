@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Check, ShoppingBag } from "lucide-react";
@@ -72,6 +72,9 @@ export function CreatureShop({
   const buy = useBuyItem();
   const update = useUpdateCreature();
   const [confirming, setConfirming] = useState<ShopItem | null>(null);
+  const uid = useId();
+  // At least 44px tall on a touch screen, for a child's finger.
+  const touch = "w-full [@media(pointer:coarse)]:h-11";
 
   // The previews: a drawn style (a classic picture cannot show an item), and
   // a creature grown far enough that the item reads at card size, so an
@@ -81,8 +84,19 @@ export function CreatureShop({
   const previewTier = Math.max(tier, 5) as AvatarTier;
   const itemName = (item: ShopItem) => t(`items.${item.id}` as never);
 
-  /** Put an item on, or take a slot's item off (id undefined). */
+  // The look and style as they are NOW. "Wear it" in the toast after a
+  // purchase can be tapped seconds later, after other changes (another item
+  // put on or taken off, here or on another screen): it must build on the
+  // current look, not the one the purchase started from, or it would put
+  // back what was taken off since.
+  const latest = useRef({ look, shown });
+  useEffect(() => {
+    latest.current = { look, shown };
+  });
+
+  /** Put an item on, or take a slot's item off (id undefined), on the current look. */
   const wear = (slot: ShopSlot, id: string | undefined) => {
+    const { look, shown } = latest.current;
     const next: CreatureLook = { ...look };
     if (id) next[slot] = id;
     else delete next[slot];
@@ -98,6 +112,8 @@ export function CreatureShop({
       .mutateAsync({ personId, itemId: item.id })
       .then(() =>
         toast.success(t("bought", { item: itemName(item) }), {
+          // Long enough for a child to read it and decide.
+          duration: 10_000,
           action: { label: t("wearNow"), onClick: () => wear(item.slot, item.id) },
         }),
       )
@@ -168,26 +184,40 @@ export function CreatureShop({
                           <Button
                             size="sm"
                             variant={worn ? "outline" : "default"}
-                            className="w-full"
+                            className={touch}
                             disabled={update.isPending}
                             onClick={() => wear(slot, worn ? undefined : item.id)}
+                            aria-label={t(
+                              worn
+                                ? background ? "removeBackgroundAria" : "takeOffAria"
+                                : background ? "useBackgroundAria" : "wearAria",
+                              { item: itemName(item) },
+                            )}
                             data-testid="shop-wear"
                           >
                             {worn ? t(background ? "removeBackground" : "takeOff") : t(background ? "useBackground" : "wear")}
                           </Button>
                         ) : (
                           <>
+                            {/* Not affordable: still focusable (aria-disabled, not
+                                disabled), so a screen reader reaches it and reads
+                                why, from the line below it. */}
                             <Button
                               size="sm"
-                              className="w-full"
-                              disabled={!affordable || buy.isPending}
-                              onClick={() => setConfirming(item)}
+                              className={`${touch} aria-disabled:cursor-not-allowed aria-disabled:opacity-50`}
+                              disabled={buy.isPending}
+                              aria-disabled={!affordable || undefined}
+                              onClick={() => affordable && setConfirming(item)}
+                              aria-label={t("buyAria", { item: itemName(item), count: item.cost })}
+                              aria-describedby={affordable ? undefined : `${uid}-${item.id}-missing`}
                               data-testid="shop-buy"
                             >
                               {t("buy")}
                             </Button>
                             {!affordable && (
-                              <p className="mt-1 text-xs text-muted-foreground">{t("missing", { count: item.cost - totals.available })}</p>
+                              <p id={`${uid}-${item.id}-missing`} className="mt-1 text-xs text-muted-foreground">
+                                {t("missing", { count: item.cost - totals.available })}
+                              </p>
                             )}
                           </>
                         )}

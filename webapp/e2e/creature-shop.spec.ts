@@ -20,7 +20,7 @@ import {
 import { BACKDROP } from "../src/lib/pocket-money/creatures/items";
 import { parseCreaturePatch } from "../src/lib/creatures/rules";
 import { pointTotals } from "../src/lib/pocket-money/points";
-import { buyItem } from "../src/lib/creatures/purchases";
+import { buyItem, refundPurchase } from "../src/lib/creatures/purchases";
 import type { AvatarTier } from "../src/lib/pocket-money/types";
 import { codeOnly } from "./source-helpers";
 import en from "../messages/en.json";
@@ -146,6 +146,17 @@ test.describe("buying: the price is the catalogue's", () => {
     expect(await buyItem(client, { familyId: "f", personId: PERSON, itemId: "gold_bar" })).toEqual({ status: 404, body: { error: "no_item" } });
     expect((await buyItem(client, { familyId: "f", personId: "nope", itemId: "cap" })).status).toBe(404);
     expect(calls).toEqual([]);
+  });
+
+  test("a refund names only the purchase and the session's family", async () => {
+    const { calls, client } = recorder();
+    await refundPurchase(client, { familyId: "f", purchaseId: PERSON });
+    expect(calls).toEqual([["refund_person_point_purchase", { p_family_id: "f", p_purchase_id: PERSON }]]);
+    expect(await refundPurchase(client, { familyId: "f", purchaseId: "1; drop" })).toEqual({ status: 404, body: { error: "not found" } });
+    expect(calls).toHaveLength(1);
+    const route = codeOnly(read("src/app/api/creatures/purchases/[id]/route.ts"));
+    expect(route).toContain("familyId: auth.session.familyId");
+    expect(route).toContain("requireSettingsUnlock");
   });
 
   test("the route takes only item_id from the body", () => {
@@ -315,13 +326,40 @@ test.describe("the migration", () => {
     expect(SQL).toMatch(/ALTER PUBLICATION supabase_realtime ADD TABLE public\.point_purchases;/);
   });
 
-  test("buying checks everything after the child's lock", () => {
-    const fn = SQL.slice(SQL.indexOf("FUNCTION public.purchase_person_point_item("));
+  const body = (name: string) => {
+    const fn = SQL.slice(SQL.indexOf(`FUNCTION public.${name}(`));
+    return fn.slice(0, fn.indexOf("END $$;"));
+  };
+
+  test("buying checks everything after the child's lock, the child's presence too", () => {
+    const fn = body("purchase_person_point_item");
     const lock = fn.indexOf("PERFORM public.point_lock_person(p_person_id);");
     expect(lock).toBeGreaterThan(0);
-    for (const check of ["NOT v_creature.enabled", "NOT v_creature.shop_enabled", "'already_owned'", "(v_totals->>'pending')::BIGINT < p_cost"]) {
+    for (const check of ["deleted_at IS NULL", "NOT v_creature.enabled", "NOT v_creature.shop_enabled", "'already_owned'", "(v_totals->>'pending')::BIGINT < p_cost"]) {
       expect(fn.indexOf(check), check).toBeGreaterThan(lock);
     }
+  });
+
+  test("a reward request checks the child is there under the lock too, with its signature unchanged", () => {
+    const fn = body("request_person_point_redemption");
+    expect(fn).toMatch(/^FUNCTION public\.request_person_point_redemption\(\s*p_family_id UUID, p_person_id UUID, p_reward_id UUID, p_device_id UUID DEFAULT NULL\s*\) RETURNS JSONB/);
+    const lock = fn.indexOf("PERFORM public.point_lock_person(p_person_id);");
+    expect(lock).toBeGreaterThan(0);
+    expect(fn.indexOf("deleted_at IS NULL")).toBeGreaterThan(lock);
+    // and this file's version is the one left standing
+    const files = readdirSync(join(ROOT, "docker")).filter((f) => /^migration.*\.sql$/.test(f)).sort();
+    const definers = files.filter((f) => /FUNCTION public\.request_person_point_redemption\(/.test(codeOnly(read(`docker/${f}`), { sql: true })));
+    expect(definers[definers.length - 1]).toBe(FILE);
+  });
+
+  test("a refund takes the lock, deletes the purchase and takes it out of every slot of the look", () => {
+    const fn = body("refund_person_point_purchase");
+    const lock = fn.indexOf("PERFORM public.point_lock_person(v_person);");
+    expect(lock).toBeGreaterThan(0);
+    expect(fn.indexOf("DELETE FROM public.point_purchases")).toBeGreaterThan(lock);
+    expect(fn).toMatch(/UPDATE public\.creatures c\s+SET look = c\.look - ARRAY\(/);
+    expect(fn).toContain("e.key IN ('head', 'face', 'neck', 'background') AND e.value = v_row.item_id");
+    expect(SQL).toMatch(/GRANT EXECUTE ON FUNCTION public\.refund_person_point_purchase\(UUID, UUID\) TO service_role;/);
   });
 
   test("the balance subtracts purchases, and the request and decision read it", () => {
@@ -332,6 +370,17 @@ test.describe("the migration", () => {
       const body = step1.slice(step1.indexOf(`FUNCTION public.${name}(`));
       expect(body.slice(0, body.indexOf("END $$;")), name).toContain("public.point_person_totals(");
     }
+  });
+
+  test("the shop waits for the purchases, so an owned item never flashes 'Buy'", () => {
+    const page = codeOnly(read("src/app/rewards/page.tsx"));
+    expect(page).toMatch(/ownedReady && pointsReady && \(\s*<CreatureShop/);
+  });
+
+  test("'Wear it' builds on the current look, not the one the purchase started from", () => {
+    const shop = codeOnly(read("src/components/pocket-money/creature-shop.tsx"));
+    const wear = shop.slice(shop.indexOf("const wear = "), shop.indexOf("const purchase = "));
+    expect(wear).toContain("= latest.current;");
   });
 
   test("the app subscribes to purchases", () => {

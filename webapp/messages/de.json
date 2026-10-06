@@ -2868,7 +2868,12 @@
       "switchOnAs": "Als {species} einschalten",
       "purchasesLabel": "Im Shop gekauft",
       "purchasesEmpty": "Noch nichts gekauft.",
-      "purchaseCost": "{count, plural, one {# Punkt} other {# Punkte}}"
+      "purchaseCost": "{count, plural, one {# Punkt} other {# Punkte}}",
+      "refund": "Erstatten",
+      "refundAria": "{item} erstatten",
+      "refundConfirmTitle": "{item} erstatten?",
+      "refundConfirmDescription": "{name} bekommt {count, plural, one {# Punkt} other {# Punkte}} zurück, und wenn es gerade getragen wird, wird es ausgezogen.",
+      "refundDone": "{item} erstattet: {count, plural, one {# Punkt} other {# Punkte}} zurück."
     }
   },
   "settingsSearch": {
@@ -4631,7 +4636,7 @@
     "rewardNotEnoughPoints": "Dafür reichen die Punkte noch nicht.",
     "rewardRequestFailed": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
     "moneyHeading": "Geld",
-    "pointsOwedLabel": "{count, plural, one {Noch # Punkt aufzuholen: eine Aufgabe wurde zurückgenommen, nachdem ihre Punkte ausgegeben waren} other {Noch # Punkte aufzuholen: eine Aufgabe wurde zurückgenommen, nachdem ihre Punkte ausgegeben waren}}",
+    "pointsOwedLabel": "{count, plural, one {Noch # Punkt aufzuholen, bevor wieder welche ausgegeben werden können} other {Noch # Punkte aufzuholen, bevor wieder welche ausgegeben werden können}}",
     "avatarStyleLabel": "Aussehen",
     "avatarStyleHint": "So wird der Avatar von {name} gezeichnet. Klassisch ist das bisherige Bild, die anderen zeichnet Kinboard selbst, und sie bewegen sich ein wenig.",
     "avatarStyleGroupAria": "Aussehen des Avatars von {name}",
@@ -5092,7 +5097,7 @@
     "price": "{count, plural, one {# Punkt} other {# Punkte}}",
     "missing": "{count, plural, one {Noch # Punkt} other {Noch # Punkte}}",
     "confirmTitle": "{item}",
-    "confirmDescription": "{count, plural, one {Für # Punkt kaufen?} other {Für # Punkte kaufen?}} Sie werden sofort abgezogen, und es gehört dir für immer.",
+    "confirmDescription": "{count, plural, one {Für # Punkt kaufen?} other {Für # Punkte kaufen?}} Die Punkte werden sofort abgezogen, und es gehört dir für immer.",
     "bought": "{item}: gehört jetzt dir!",
     "wearNow": "Anziehen",
     "errorNotEnough": "Dafür reichen die Punkte noch nicht.",
@@ -5122,6 +5127,11 @@
       "outer_space": "Weltall",
       "forest": "Wald",
       "snow": "Schnee"
-    }
+    },
+    "buyAria": "{item} für {count, plural, one {# Punkt} other {# Punkte}} kaufen",
+    "wearAria": "{item} anziehen",
+    "takeOffAria": "{item} ausziehen",
+    "useBackgroundAria": "{item} als Hintergrund verwenden",
+    "removeBackgroundAria": "Hintergrund {item} entfernen"
   }
 }

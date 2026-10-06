@@ -293,7 +293,12 @@ function ChildRewards({ person, creature }: { person: Person; creature: Creature
 
       {/* RFC-017 step 3: the shop, under the rewards, while a parent leaves
           it on. Turned off, it is gone; what was bought stays on. */}
-      {creature.shop_enabled && hasDrawnArt(species) && (
+      {/* It waits for the purchases (and the points), as Change look does:
+          before they load every item would offer "Buy", an owned one too. */}
+      {creature.shop_enabled && hasDrawnArt(species) && !(ownedReady && pointsReady) && (
+        <Skeleton className="h-64 w-full" data-testid="creature-shop-loading" />
+      )}
+      {creature.shop_enabled && hasDrawnArt(species) && ownedReady && pointsReady && (
         <CreatureShop
           personId={person.id}
           name={look.name || person.name}

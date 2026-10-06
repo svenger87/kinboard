@@ -2868,7 +2868,12 @@
       "switchOnAs": "Activer : {species}",
       "purchasesLabel": "Acheté à la boutique",
       "purchasesEmpty": "Rien acheté pour l'instant.",
-      "purchaseCost": "{count, plural, one {# point} other {# points}}"
+      "purchaseCost": "{count, plural, one {# point} other {# points}}",
+      "refund": "Rembourser",
+      "refundAria": "Rembourser : {item}",
+      "refundConfirmTitle": "Rembourser : {item} ?",
+      "refundConfirmDescription": "{name} récupère {count, plural, one {# point} other {# points}}, et si l'objet est porté, il est enlevé.",
+      "refundDone": "{item} remboursé : {count, plural, one {# point rendu} other {# points rendus}}."
     }
   },
   "settingsSearch": {
@@ -4631,7 +4636,7 @@
     "rewardNotEnoughPoints": "Pas encore assez de points pour ça.",
     "rewardRequestFailed": "Cela n'a pas fonctionné. Réessaie.",
     "moneyHeading": "Argent",
-    "pointsOwedLabel": "{count, plural, one {Encore # point à rattraper : une tâche a été annulée après que ses points ont été dépensés} other {Encore # points à rattraper : une tâche a été annulée après que ses points ont été dépensés}}",
+    "pointsOwedLabel": "{count, plural, one {Encore # point à rattraper avant de pouvoir en dépenser} other {Encore # points à rattraper avant de pouvoir en dépenser}}",
     "avatarStyleLabel": "Apparence",
     "avatarStyleHint": "La façon dont l'avatar de {name} est dessiné. Classique est l'image d'origine ; les autres sont dessinées par Kinboard et bougent un peu.",
     "avatarStyleGroupAria": "Apparence de l'avatar de {name}",
@@ -5122,6 +5127,11 @@
       "outer_space": "Espace",
       "forest": "Forêt",
       "snow": "Neige"
-    }
+    },
+    "buyAria": "Acheter : {item} pour {count, plural, one {# point} other {# points}}",
+    "wearAria": "Mettre : {item}",
+    "takeOffAria": "Enlever : {item}",
+    "useBackgroundAria": "Utiliser le décor : {item}",
+    "removeBackgroundAria": "Retirer le décor : {item}"
   }
 }

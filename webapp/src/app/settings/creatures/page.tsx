@@ -25,6 +25,7 @@ import {
   usePointTotals,
   usePointPurchases,
   useOwnedItems,
+  useRefundPurchase,
   useSwitchOnCreature,
   useUpdateCreature,
   type CreatureChange,
@@ -39,7 +40,17 @@ import { SpeciesPicker } from "@/components/pocket-money/species-picker";
 import { readLook, shopItem } from "@/lib/pocket-money/creatures";
 import { creatureStage } from "@/lib/creatures/stage";
 import { moneyAvailable, type GrowsWith } from "@/lib/creatures/rules";
-import type { Creature, Person, PocketMoneyAccount } from "@/types/database";
+import type { Creature, Person, PocketMoneyAccount, PointPurchase } from "@/types/database";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 /**
  * Settings -> Creatures & rewards (RFC-017). A child's creature, switched on
@@ -129,6 +140,9 @@ function ChildCreatureCard({
   const { ownedFor } = useOwnedItems();
   const { data: allPurchases = [] } = usePointPurchases();
   const purchases = allPurchases.filter((p) => p.person_id === kid.id);
+  const refund = useRefundPurchase();
+  const [refunding, setRefunding] = useState<PointPurchase | null>(null);
+  const itemName = (id: string) => (shopItem(id) ? tShop(`items.${id}` as never) : id);
   const tShop = useTranslations("shop");
   const locale = useLocale();
   const tCommon = useTranslations("common");
@@ -285,17 +299,53 @@ function ChildCreatureCard({
               <ul className="space-y-0.5 text-sm">
                 {purchases.map((p) => (
                   <li key={p.id} className="flex items-center gap-2" data-testid="purchase-row" data-item={p.item_id}>
-                    <span className="min-w-0 flex-1 truncate">
-                      {shopItem(p.item_id) ? tShop(`items.${p.item_id}` as never) : p.item_id}
-                    </span>
+                    <span className="min-w-0 flex-1 truncate">{itemName(p.item_id)}</span>
                     <span className="tabular-nums text-muted-foreground">⭐ {t("purchaseCost", { count: p.cost })}</span>
                     <time dateTime={p.created_at} className="tabular-nums text-xs text-muted-foreground">
                       {new Date(p.created_at).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })}
                     </time>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-xs [@media(pointer:coarse)]:h-11"
+                      disabled={refund.isPending}
+                      onClick={() => setRefunding(p)}
+                      aria-label={t("refundAria", { item: itemName(p.item_id) })}
+                      data-testid="purchase-refund"
+                    >
+                      {t("refund")}
+                    </Button>
                   </li>
                 ))}
               </ul>
             )}
+            <AlertDialog open={refunding !== null} onOpenChange={(open) => !open && setRefunding(null)}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("refundConfirmTitle", { item: refunding ? itemName(refunding.item_id) : "" })}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t("refundConfirmDescription", { name: kid.name, count: refunding?.cost ?? 0 })}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                  <AlertDialogAction
+                    data-testid="purchase-refund-confirm"
+                    onClick={() => {
+                      const p = refunding;
+                      setRefunding(null);
+                      if (!p) return;
+                      refund
+                        .mutateAsync(p.id)
+                        .then(() => toast.success(t("refundDone", { item: itemName(p.item_id), count: p.cost })))
+                        .catch(fail);
+                    }}
+                  >
+                    {t("refund")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
 
           {/* How it is drawn: the child can change it on their own page too,

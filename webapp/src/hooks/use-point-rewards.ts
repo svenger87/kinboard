@@ -113,6 +113,25 @@ export function useBuyItem() {
   });
 }
 
+/**
+ * A parent refunds a purchase: the points come back and a worn item comes
+ * off. Needs the settings PIN.
+ */
+export function useRefundPurchase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (purchaseId: string) => {
+      const r = await fetch(`/api/creatures/purchases/${purchaseId}`, { method: "DELETE" });
+      if (!r.ok) throw await failure(r, "refund");
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: [POINT_PURCHASES_KEY] });
+      // The look may have lost the item.
+      qc.invalidateQueries({ queryKey: ["creatures"] });
+    },
+  });
+}
+
 /** Requests waiting for a parent, family-wide: feeds the navigation badge. */
 export function usePendingRedemptionCount(): number {
   const { data = [] } = usePointRedemptions();

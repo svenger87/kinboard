@@ -2868,7 +2868,12 @@
       "switchOnAs": "Switch on as {species}",
       "purchasesLabel": "Bought in the shop",
       "purchasesEmpty": "Nothing bought yet.",
-      "purchaseCost": "{count, plural, one {# point} other {# points}}"
+      "purchaseCost": "{count, plural, one {# point} other {# points}}",
+      "refund": "Refund",
+      "refundAria": "Refund {item}",
+      "refundConfirmTitle": "Refund {item}?",
+      "refundConfirmDescription": "{name} gets {count, plural, one {# point} other {# points}} back, and if it's being worn it comes off.",
+      "refundDone": "{item} refunded: {count, plural, one {# point} other {# points}} back."
     }
   },
   "settingsSearch": {
@@ -4631,7 +4636,7 @@
     "rewardNotEnoughPoints": "Not enough points for that yet.",
     "rewardRequestFailed": "That didn't work. Please try again.",
     "moneyHeading": "Money",
-    "pointsOwedLabel": "{count, plural, one {# point still to make up: a task was taken back after its points were spent} other {# points still to make up: a task was taken back after its points were spent}}",
+    "pointsOwedLabel": "{count, plural, one {# point still to make up before the next ones can be spent} other {# points still to make up before the next ones can be spent}}",
     "avatarStyleLabel": "Look",
     "avatarStyleHint": "How {name}'s avatar is drawn. Classic is the original picture; the others are drawn by Kinboard and move a little.",
     "avatarStyleGroupAria": "Look of {name}'s avatar",
@@ -5122,6 +5127,11 @@
       "outer_space": "Outer space",
       "forest": "Forest",
       "snow": "Snow"
-    }
+    },
+    "buyAria": "Buy {item} for {count, plural, one {# point} other {# points}}",
+    "wearAria": "Wear {item}",
+    "takeOffAria": "Take off {item}",
+    "useBackgroundAria": "Use {item} as the background",
+    "removeBackgroundAria": "Remove the {item} background"
   }
 }

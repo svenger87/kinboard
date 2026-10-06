@@ -4,6 +4,7 @@
  * docker/migration_zzzzzzzzz_point_purchases.sql does every check under the
  * child's lock; this turns its answer into an HTTP one. The price comes from
  * the catalogue (lib/pocket-money/creatures/shop.ts), never from the request.
+ * A parent can refund a purchase (refundPurchase, behind the settings PIN).
  * The client is a parameter so a spec can hand it the real admin client.
  */
 
@@ -39,4 +40,24 @@ export async function buyItem(
       return { status: 409, body: { error: "insufficient_points", balance: answer.balance, pending: answer.pending } };
     default: return { status: 500, body: { error: "unexpected answer from purchase_person_point_item" } };
   }
+}
+
+/**
+ * A parent's refund: refund_person_point_purchase(), as an HTTP answer. The
+ * route checks the settings PIN before it gets here.
+ */
+export async function refundPurchase(
+  client: RpcClient,
+  input: { familyId: string; purchaseId: string },
+): Promise<Answer> {
+  if (!UUID.test(input.purchaseId)) return { status: 404, body: { error: "not found" } };
+  const { data, error } = await client.rpc("refund_person_point_purchase", {
+    p_family_id: input.familyId,
+    p_purchase_id: input.purchaseId,
+  });
+  if (error) return { status: 500, body: { error: error.message } };
+  const answer = data as { ok?: unknown; error?: unknown; refunded?: unknown; balance?: unknown } | null;
+  if (answer?.ok === true) return { status: 200, body: { refunded: answer.refunded, balance: answer.balance } };
+  if (answer?.error === "not_found") return { status: 404, body: { error: "not found" } };
+  return { status: 500, body: { error: "unexpected answer from refund_person_point_purchase" } };
 }
