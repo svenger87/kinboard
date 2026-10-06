@@ -15,6 +15,7 @@ import { EYE, fillOf, s, type Draw, type HeadParts } from "./parts";
 import { GOLD, hearts } from "./skeleton";
 import type { Hairstyle } from "./look";
 import { shade } from "./styles";
+import { wearing } from "./items";
 
 export { HAIRSTYLES, type Hairstyle } from "./look";
 
@@ -125,7 +126,8 @@ export function personHead(defaultHair: Hairstyle, headwear: HeadParts["front"])
       </>
     ),
     face: smile,
-    front: headwear,
+    // A hat from the shop is worn instead of the tiara or the circlet.
+    front: (c, cx, cy, r) => (wearing(c, "head") ? null : headwear?.(c, cx, cy, r)),
     eyeY: -0.02,
   };
 }
@@ -137,7 +139,8 @@ export function personBody(c: Draw, who: "princess" | "prince"): ReactNode {
   const fill = fillOf(c);
   return (
     <>
-      {c.stage >= 6 && (
+      {/* The cape of stage 6, unless one from the shop hangs there instead. */}
+      {c.stage >= 6 && wearing(c, "neck") !== "cape" && (
         <path data-part="cape" d="M 70 106 Q 100 98 130 106 L 148 178 Q 100 190 52 178 Z" fill={prin ? shade(p.body, 0.3) : "#D9434F"} {...s(c)} />
       )}
       {prin ? (

@@ -105,6 +105,7 @@ import {
   usePeople,
   useKeyboardShortcuts,
   useSwipeNavigation,
+  useOwnedItems,
   queryKeys,
 } from "@/hooks";
 import { comparePriority } from "@/lib/todo-priority";
@@ -189,6 +190,7 @@ function ChildChip({
   creatureAria: string;
 }) {
   const { data: accounts } = usePocketMoneyAccounts();
+  const { ownedFor } = useOwnedItems();
   const mood = useCreatureMood(creature ? person.id : null);
   const stage = creature
     ? creatureStage({ creature, account: accounts?.find((a) => a.person_id === person.id), earnedPoints: earned })
@@ -206,7 +208,7 @@ function ChildChip({
           species={creature.species}
           tier={stage.tier}
           style={creature.style}
-          look={readLook(creature.look)}
+          look={readLook(creature.look, ownedFor(person.id))}
           mood={mood}
           size={36}
           animated={false}

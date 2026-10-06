@@ -51,6 +51,7 @@ import {
   usePointRewards,
   usePointRedemptions,
   usePointTotals,
+  useOwnedItems,
   useCreatures,
   activeCreatureOf,
   useUpdateCreature,
@@ -136,6 +137,7 @@ export default function PocketMoneyPage() {
   const { data: creatures, isPending: creaturesPending } = useCreatures();
   const creature = activeCreatureOf(creatures, active?.person_id);
   const { ready: pointsReady, totalsFor } = usePointTotals();
+  const { ready: ownedReady, ownedFor } = useOwnedItems();
   const { data: rewards = [] } = usePointRewards();
   const { data: redemptions = [] } = usePointRedemptions();
   // Sleepy at night, happy once today's tasks are done: one answer for the
@@ -294,7 +296,7 @@ export default function PocketMoneyPage() {
   if (!active) return null;
 
   const activePerson = people.find((p) => p.id === active.person_id);
-  const activeLook = readLook(creature?.look);
+  const activeLook = readLook(creature?.look, ownedFor(active.person_id));
   const species = creature?.species ?? "dragon";
   const creatureStyle = creature?.style ?? "classic";
 
@@ -401,6 +403,9 @@ export default function PocketMoneyPage() {
           <Button
             variant="ghost"
             size="sm"
+            // Waits for the purchases: the editor saves the whole look, and
+            // one opened before they load would take worn items off.
+            disabled={!ownedReady}
             onClick={() => setLookSheetOpen(true)}
             className="text-muted-foreground"
             data-testid="change-look"
@@ -635,6 +640,7 @@ export default function PocketMoneyPage() {
                 tier={currentTier}
                 style={creatureStyle}
                 look={activeLook}
+                owned={ownedFor(active.person_id)}
                 childName={activePerson?.name ?? ""}
                 saving={updateCreature.isPending}
                 onCancel={() => setLookSheetOpen(false)}

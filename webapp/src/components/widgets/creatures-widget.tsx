@@ -9,7 +9,7 @@ import { WidgetCard } from "@/components/widget-card";
 import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
 import { useCreatureMood } from "@/hooks/use-creature-mood";
 import { useCreatures } from "@/hooks/use-creatures";
-import { usePointTotals } from "@/hooks/use-point-rewards";
+import { useOwnedItems, usePointTotals } from "@/hooks/use-point-rewards";
 import { usePocketMoneyAccounts } from "@/hooks/use-pocket-money-accounts";
 import { usePeople } from "@/hooks";
 import { creatureStage } from "@/lib/creatures/stage";
@@ -127,8 +127,9 @@ function CreatureCell({
   const t = useTranslations("creaturesWidget");
   const tPM = useTranslations("pocketMoney");
   const mood = useCreatureMood(person.id);
+  const { ownedFor } = useOwnedItems();
   const stage = creatureStage({ creature, account, earnedPoints: earned });
-  const look = readLook(creature.look);
+  const look = readLook(creature.look, ownedFor(person.id));
   const stageName = tPM(`species.${creature.species}.tier${stage.tier}` as never);
   const money = stage.mode === "money" && account;
 

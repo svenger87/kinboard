@@ -2859,13 +2859,16 @@
       "growsWithMoneyHint": "Elle grandit avec l'argent économisé dans l'argent de poche, comme avant.",
       "growsWithMoneyUnavailable": "L'argent économisé devient possible quand l'argent de poche est activé et que l'enfant a un compte.",
       "shopLabel": "Boutique",
-      "shopHint": "L'enfant peut acheter des choses pour sa créature avec ses points. Bientôt disponible.",
+      "shopHint": "L'enfant peut acheter des choses pour sa créature avec ses points de tâches, sans code PIN. Désactivée, la boutique disparaît ; ce qui a été acheté reste à lui et reste porté.",
       "errorPinRequired": "Saisis à nouveau le code PIN des réglages pour modifier ceci.",
       "errorMoneyUnavailable": "L'argent économisé nécessite l'argent de poche activé et un compte pour cet enfant.",
       "errorGeneric": "Cela n'a pas fonctionné. Merci de réessayer.",
       "pickHint": "Choisis une créature. Elle commence comme un œuf et grandit ensuite.",
       "switchOn": "Activer",
-      "switchOnAs": "Activer : {species}"
+      "switchOnAs": "Activer : {species}",
+      "purchasesLabel": "Acheté à la boutique",
+      "purchasesEmpty": "Rien acheté pour l'instant.",
+      "purchaseCost": "{count, plural, one {# point} other {# points}}"
     }
   },
   "settingsSearch": {
@@ -5067,5 +5070,58 @@
     "changeIcon": "{label} : {icon}, modifier",
     "clear": "Aucune icône",
     "none": "–"
+  },
+  "shop": {
+    "title": "Boutique",
+    "intro": "Dépense tes points pour offrir quelque chose à {name}. Ce que tu achètes est à toi pour toujours.",
+    "eggHint": "Les chapeaux, lunettes et accessoires pour le cou se voient dès que {name} a éclos. Les décors tout de suite.",
+    "slots": {
+      "head": "Chapeaux et plus",
+      "face": "Lunettes",
+      "neck": "Autour du cou",
+      "background": "Décors"
+    },
+    "buy": "Acheter",
+    "wear": "Mettre",
+    "takeOff": "Enlever",
+    "useBackground": "Utiliser",
+    "removeBackground": "Retirer",
+    "wearing": "Porté",
+    "inUse": "Utilisé",
+    "owned": "À toi",
+    "price": "{count, plural, one {# point} other {# points}}",
+    "missing": "{count, plural, one {Encore # point} other {Encore # points}}",
+    "confirmTitle": "{item}",
+    "confirmDescription": "{count, plural, one {L'acheter pour # point ?} other {L'acheter pour # points ?}} Ils sont dépensés tout de suite, et c'est à toi pour toujours.",
+    "bought": "{item} : c'est à toi !",
+    "wearNow": "Le mettre",
+    "errorNotEnough": "Pas encore assez de points pour ça.",
+    "errorOwned": "Tu l'as déjà.",
+    "errorShopOff": "La boutique est fermée pour le moment.",
+    "errorGeneric": "Ça n'a pas marché. Réessaie, s'il te plaît.",
+    "errorWear": "Impossible de changer ça. Réessaie, s'il te plaît.",
+    "nothingWorn": "Rien",
+    "previewAria": "{name} : {item}",
+    "items": {
+      "cap": "Casquette",
+      "wizard_hat": "Chapeau de magicien",
+      "pirate_hat": "Chapeau de pirate",
+      "headphones": "Casque audio",
+      "flower_crown": "Couronne de fleurs",
+      "space_helmet": "Casque spatial",
+      "heart_glasses": "Lunettes cœur",
+      "monocle": "Monocle",
+      "star_glasses": "Lunettes étoiles",
+      "scarf": "Écharpe",
+      "cape": "Cape",
+      "medal": "Médaille",
+      "bow_tie": "Nœud papillon",
+      "starry_sky": "Ciel étoilé",
+      "rainbow": "Arc-en-ciel",
+      "beach": "Plage",
+      "outer_space": "Espace",
+      "forest": "Forêt",
+      "snow": "Neige"
+    }
   }
 }

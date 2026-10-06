@@ -56,6 +56,12 @@ const PIN_FREE_BY_DESIGN: Record<string, string> = {
   // The same request on its old path, kept one release (RFC-017): it looks
   // the account's child up in the session's family and asks for them.
   "pocket-money/accounts/[id]/redemptions/route.ts": "a child's own request to redeem points, on its old path for one release",
+  // Buying something for their creature in the shop (RFC-017 §5) is the
+  // child's own action, paid from their own points, like asking for a
+  // reward. A parent's say is the Shop switch (creatures.shop_enabled, behind
+  // the PIN in PATCH /api/creatures/[personId]), which the purchase function
+  // checks under the child's lock.
+  "creatures/[personId]/purchases/route.ts": "a child buying an item for their creature with their own points",
   // An image candidate for a goal. No family money or settings touched.
   "pocket-money/goal-image-upload/route.ts": "uploads an image for a goal; moves no money and changes no setting",
 };

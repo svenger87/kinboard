@@ -175,8 +175,8 @@ test.describe("validation: every key, only from its set", () => {
     refused({ pattern: ["spots"] });
   });
 
-  test("the keys are exactly the editor's", () => {
-    expect([...LOOK_KEYS].sort()).toEqual(["acc", "accent", "belly", "body", "eyes", "hair", "hairstyle", "name", "pattern", "skin"]);
+  test("the keys are exactly the editor's, and the shop's four slots (RFC-017 §5)", () => {
+    expect([...LOOK_KEYS].sort()).toEqual(["acc", "accent", "background", "belly", "body", "eyes", "face", "hair", "hairstyle", "head", "name", "neck", "pattern", "skin"]);
   });
 });
 

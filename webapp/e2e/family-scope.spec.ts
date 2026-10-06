@@ -124,6 +124,9 @@ const SESSION_FAMILY_RPC_ROUTES = new Set([
   // applyCreaturePatch (lib/creatures/server.ts) filters every read and write
   // on the family it is handed.
   "creatures/[personId]/route.ts",
+  // buyItem (lib/creatures/purchases.ts) hands the session's family to
+  // purchase_person_point_item(), which filters on p_family_id.
+  "creatures/[personId]/purchases/route.ts",
 ]);
 
 test("no dynamic API route uses the admin client without a family filter", () => {

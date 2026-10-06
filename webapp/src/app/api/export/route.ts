@@ -22,6 +22,7 @@ import { familyMatchesSession, requireSession } from "@/lib/require-session";
 //     pocket_money_transactions / pocket_money_withdrawal_requests
 //   families → point_rewards; people → point_redemptions (per child since
 //     RFC-017; account_id kept, nullable, for one release)
+//   people → point_purchases (RFC-017 §5, the creature shop)
 //   people → creatures (RFC-017; keyed by person_id, no id of its own)
 //
 // NEVER included: families.join_code, devices, push_subscriptions,
@@ -207,6 +208,11 @@ export async function GET(request: NextRequest) {
     const point_redemptions = await fetchAll(db, (q, from, to) =>
       q.from("point_redemptions").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
+    // What each child bought in the creature shop (RFC-017 §5). Part of the
+    // balance like the requests, and what the creature may wear.
+    const point_purchases = await fetchAll(db, (q, from, to) =>
+      q.from("point_purchases").select("*").eq("family_id", familyId).order("id").range(from, to)
+    );
     // Each child's creature (RFC-017), switched on or off: off keeps the
     // creature, so a restore must keep it too.
     const creatures = await fetchAll(db, (q, from, to) =>
@@ -280,6 +286,7 @@ export async function GET(request: NextRequest) {
         pocket_money_withdrawal_requests,
         point_rewards,
         point_redemptions,
+        point_purchases,
         creatures,
         settings,
       },

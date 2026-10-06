@@ -69,7 +69,7 @@ async function pending(cost: number, child = CHILD): Promise<string> {
   return data.id;
 }
 
-async function totals(child = CHILD): Promise<{ earned: number; spent: number; pending: number; balance: number; owed: number }> {
+async function totals(child = CHILD): Promise<{ earned: number; spent: number; purchased: number; pending: number; balance: number; owed: number }> {
   const { data, error } = await db.rpc("point_person_totals", { p_family_id: FAMILY, p_person_id: child });
   if (error) throw error;
   return data;
@@ -115,7 +115,7 @@ test.describe("a reward approved twice at once is booked once", () => {
       expect(answers.map((a) => a.status).sort(), `round ${round}`).toEqual([200, 409]);
       expect(answers.find((a) => a.status === 409)!.body).toEqual({ error: "already_decided" });
       expect(await statusOf(id)).toBe("approved");
-      expect(await totals()).toEqual({ earned: 100, spent: 60, pending: 0, balance: 40, owed: 0 });
+      expect(await totals()).toEqual({ earned: 100, spent: 60, purchased: 0, pending: 0, balance: 40, owed: 0 });
     }
   });
 
@@ -148,7 +148,7 @@ test.describe("the balance never goes below zero", () => {
     const id = await pending(60);
     expect(await approve(id)).toEqual({ status: 409, body: { error: "insufficient_points", balance: 30 } });
     expect(await statusOf(id)).toBe("pending");
-    expect(await totals()).toEqual({ earned: 30, spent: 0, pending: 60, balance: 30, owed: 0 });
+    expect(await totals()).toEqual({ earned: 30, spent: 0, purchased: 0, pending: 60, balance: 30, owed: 0 });
   });
 
   test("two requests that together exceed the balance, approved at once: one approved, one refused", async () => {
@@ -237,9 +237,9 @@ test.describe("per child, no pocket-money account needed (RFC-017)", () => {
     const { data } = await db.from("point_redemptions").select("id, account_id").eq("person_id", CHILD2).single();
     expect(data.account_id).toBeNull();
     expect(await approve(data.id)).toEqual({ status: 200, body: { ok: true, status: "approved", balance: 20 } });
-    expect(await totals(CHILD2)).toEqual({ earned: 80, spent: 60, pending: 0, balance: 20, owed: 0 });
+    expect(await totals(CHILD2)).toEqual({ earned: 80, spent: 60, purchased: 0, pending: 0, balance: 20, owed: 0 });
     // The other child's points are untouched.
-    expect(await totals()).toEqual({ earned: 0, spent: 0, pending: 0, balance: 0, owed: 0 });
+    expect(await totals()).toEqual({ earned: 0, spent: 0, purchased: 0, pending: 0, balance: 0, owed: 0 });
   });
 
   test("a child's request carries their account too, when they have one, so rc.13 still adds it up", async () => {
@@ -362,6 +362,6 @@ test.describe("a browser's token reads its family's rows and writes nothing", ()
     expect(await statusOf(id)).toBe("pending");
     const { data: rewards } = await db.from("point_rewards").select("cost_points").in("id", [REWARD, BIG_REWARD]).order("cost_points");
     expect(rewards).toEqual([{ cost_points: 60 }, { cost_points: 500 }]);
-    expect(await totals()).toEqual({ earned: 100, spent: 0, pending: 10, balance: 100, owed: 0 });
+    expect(await totals()).toEqual({ earned: 100, spent: 0, purchased: 0, pending: 10, balance: 100, owed: 0 });
   });
 });
