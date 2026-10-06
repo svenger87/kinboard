@@ -188,6 +188,8 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   localCalendars,
   haRooms,
 
+  // The index's own cards: the join code and the data tools sit in the
+  // family group, the PIN under its "Security" heading.
   ...sectionsOf({ ...index, section: "sectionFamily" }, [
     { anchor: "join-code", labelKey: "settings.joinCodeLabel", icon: Ticket },
   ]),
@@ -198,6 +200,93 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     { anchor: "data-export", labelKey: "settings.dataCardTitle", descriptionKey: "settings.dataCardDescription", icon: DatabaseBackup },
     { anchor: "calendar-feed", labelKey: "settings.feedTitle", icon: Rss },
     { anchor: "diagnostics", labelKey: "settings.diagnosticsTitle", descriptionKey: "settings.diagnosticsDescription", icon: Activity },
+  ]),
+
+  ...sectionsOf(schedule, [
+    { anchor: "subjects", labelKey: "settings.schedule.subjectsHeading" },
+    { anchor: "packing-list", labelKey: "settings.schedule.packHeading" },
+  ]),
+  ...sectionsOf(holidays, [
+    { anchor: "region", labelKey: "settings.holidays.regionLabel", descriptionKey: "settings.holidays.regionDescription" },
+    { anchor: "school-sync", labelKey: "settings.holidays.sync.title" },
+    { anchor: "school-holidays", labelKey: "settings.schedule.holidaysHeading" },
+  ]),
+  ...sectionsOf(recycleBin, [
+    { anchor: "retention", labelKey: "settings.recycleBin.retentionHeading" },
+  ]),
+  ...sectionsOf(taskLog, [
+    { anchor: "retention", labelKey: "settings.taskLog.retentionHeading" },
+  ]),
+
+  ...sectionsOf(widgets, [
+    { anchor: "compact-home", labelKey: "settings.widgets.compactHomeLabel", descriptionKey: "settings.widgets.compactHomeDescription" },
+  ]),
+  ...sectionsOf(navigation, [
+    { anchor: "settings-icon", labelKey: "settings.navigation.settingsIconOnly", descriptionKey: "settings.navigation.settingsIconOnlyHint" },
+  ]),
+  ...sectionsOf(theme, [
+    { anchor: "monthly-theme", labelKey: "settings.theme.monthlyThemeHeading" },
+    { anchor: "palette", labelKey: "settings.theme.paletteHeading" },
+    { anchor: "appearance", labelKey: "settings.theme.appearanceHeading" },
+  ]),
+  ...sectionsOf(screensaver, [
+    { anchor: "timeout", labelKey: "settings.screensaver.timeoutHeading" },
+    { anchor: "rotation", labelKey: "settings.screensaver.rotationHeading" },
+    { anchor: "presence", labelKey: "settings.screensaver.presenceHeading" },
+  ]),
+  ...sectionsOf(weather, [
+    { anchor: "location-type", labelKey: "settings.weather.locationTypeHeading" },
+    { anchor: "location", labelKey: "settings.weather.locationCityHeading" },
+  ]),
+  ...sectionsOf(notifications, [
+    { anchor: "push", labelKey: "settings.notifications.pushStatusHeading" },
+    { anchor: "shopping", labelKey: "settings.notifications.shoppingHeading" },
+    { anchor: "tasks", labelKey: "settings.notifications.todoHeading" },
+    { anchor: "calendar", labelKey: "settings.notifications.calendarHeading" },
+    { anchor: "birthdays", labelKey: "settings.notifications.birthdayTitle" },
+    { anchor: "quiet-hours", labelKey: "settings.notifications.quietHoursHeading" },
+  ]),
+  ...sectionsOf(language, [
+    { anchor: "week-start", labelKey: "settings.language.weekStartLabel", descriptionKey: "settings.language.weekStartDescription" },
+    { anchor: "time-zone", labelKey: "settings.language.timeZoneLabel", descriptionKey: "settings.language.timeZoneDescription" },
+  ]),
+  ...sectionsOf(news, [
+    { anchor: "own-feeds", labelKey: "settings.news.customTitle" },
+    { anchor: "catalog", labelKey: "settings.news.catalogTitle" },
+  ]),
+
+  ...sectionsOf(calendar, [
+    { anchor: "display", labelKey: "settings.calendarDisplay.title" },
+    { anchor: "sync-range", labelKey: "settings.calendarSyncRange.title" },
+  ]),
+  ...sectionsOf(bring, [
+    { anchor: "active-list", labelKey: "settings.bring.activeListHeading" },
+    { anchor: "sync-settings", labelKey: "settings.bring.settingsHeading" },
+  ]),
+  ...sectionsOf(photos, [
+    { anchor: "source", labelKey: "settings.photos.sourceHeading" },
+    { anchor: "albums", labelKey: "settings.photos.albumsHeading" },
+    { anchor: "search-terms", labelKey: "settings.photos.termsHeading" },
+  ]),
+  ...sectionsOf(homeassistant, [
+    { anchor: "dashboard-cards", labelKey: "settings.homeassistant.cardsHeading" },
+  ]),
+  ...sectionsOf(integrations, [
+    { anchor: "assistants", labelKey: "settings.integrations.assistantsHeading" },
+    { anchor: "create-token", labelKey: "settings.integrations.createHeading" },
+    { anchor: "tokens", labelKey: "settings.integrations.existingHeading" },
+  ]),
+  ...sectionsOf(stonks, [
+    { anchor: "add-symbol", labelKey: "settings.stonks.addHeading" },
+    { anchor: "watchlist", labelKey: "settings.stonks.watchlistHeading" },
+  ]),
+  ...sectionsOf(pocketMoney, [
+    { anchor: "currency", labelKey: "settings.pocketMoney.currencyLabel" },
+  ]),
+  ...sectionsOf(google, [
+    { anchor: "auto-sync", labelKey: "settings.google.autoSyncTitle" },
+    { anchor: "calendars", labelKey: "settings.google.calendarsLabel" },
+    { anchor: "person-mapping", labelKey: "settings.google.mappingHeading" },
   ]),
 ];
 

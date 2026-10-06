@@ -391,7 +391,7 @@ function HomeAssistantSettingsContent() {
 
         {/* Dashboard Cards Configuration */}
         {isConnected && customDashboards.length > 0 && (
-          <Card>
+          <Card id="dashboard-cards" data-setting="dashboard-cards">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">

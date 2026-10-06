@@ -218,7 +218,7 @@ export default function BringSettingsPage() {
           {isConnected && (
             <>
               {/* List Selection */}
-              <motion.div
+              <motion.div id="active-list" data-setting="active-list"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
@@ -288,7 +288,7 @@ export default function BringSettingsPage() {
               </motion.div>
 
               {/* Sync Settings */}
-              <motion.div
+              <motion.div id="sync-settings" data-setting="sync-settings"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}

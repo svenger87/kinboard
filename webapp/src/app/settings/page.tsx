@@ -505,7 +505,7 @@ export default function SettingsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <Card className="p-6 mb-6">
+            <Card id="join-code" data-setting="join-code" className="p-6 mb-6">
               <div className="flex items-center justify-between gap-3 pb-4 mb-4 border-b border-border">
                 {editingName ? (
                   <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -666,7 +666,7 @@ export default function SettingsPage() {
         </SettingsSearch>
 
         {/* PIN Protection */}
-        <motion.div
+        <motion.div id="pin" data-setting="pin"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45 }}
@@ -875,7 +875,7 @@ export default function SettingsPage() {
           transition={{ delay: 0.65 }}
           className="mt-8"
         >
-          <Card className="p-4">
+          <Card id="data-export" data-setting="data-export" className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10">
                 <DatabaseBackup className="size-5 text-primary" strokeWidth={1.75} />
@@ -896,7 +896,7 @@ export default function SettingsPage() {
               {t("exportButton")}
             </Button>
 
-            <div className="mt-4 pt-4 border-t">
+            <div id="calendar-feed" data-setting="calendar-feed" className="mt-4 pt-4 border-t">
               <p className="font-medium text-sm">{t("feedTitle")}</p>
               <p className="text-sm text-muted-foreground mt-1">
                 {t("feedDescription")}
@@ -956,7 +956,7 @@ export default function SettingsPage() {
           transition={{ delay: 0.7 }}
           className="mt-8"
         >
-          <Card className="p-4">
+          <Card id="diagnostics" data-setting="diagnostics" className="p-4">
             <button
               type="button"
               onClick={() => setDiagnosticsOpen((open) => !open)}

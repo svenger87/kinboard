@@ -70,7 +70,7 @@ export default function HolidaySettingsPage() {
           transition={{ delay: 0.1 }}
           className="flex flex-col gap-4"
         >
-          <Card className="p-6">
+          <Card id="region" data-setting="region" className="p-6">
             <h2 id="holiday-region-heading" className="font-medium text-sm">
               {t("regionLabel")}
             </h2>
