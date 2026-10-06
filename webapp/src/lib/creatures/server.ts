@@ -8,7 +8,6 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { moneyAvailable, pluginOn } from "./rules";
 
 // The admin client is untyped for these tables, as in the other routes.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any;
 
 export interface ChildRow {
