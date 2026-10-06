@@ -3854,6 +3854,7 @@
     "summaryTooltip": "{events} events, {todos} tasks",
     "statEvents": "Events",
     "statTodos": "Tasks",
+    "statPoints": "Points",
     "childBadge": "Child",
     "openTodosHeading": "Open tasks",
     "upcomingEventsHeading": "Upcoming events",

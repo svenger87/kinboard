@@ -3,11 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
-
-interface Award {
-  person_id: string;
-  points: number;
-}
+import type { PointAward } from "@/lib/todo-points";
 
 export function useTodoPoints() {
   const familyId = useFamilyStore((state) => state.family?.id);
@@ -22,7 +18,7 @@ export function useTodoPoints() {
         .select("person_id,points")
         .eq("family_id", familyId);
       if (error) throw error;
-      return (data ?? []) as Award[];
+      return (data ?? []) as PointAward[];
     },
   });
 }

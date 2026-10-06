@@ -3854,6 +3854,7 @@
     "summaryTooltip": "{events} Termine, {todos} Aufgaben",
     "statEvents": "Termine",
     "statTodos": "Aufgaben",
+    "statPoints": "Punkte",
     "childBadge": "Kind",
     "openTodosHeading": "Offene Aufgaben",
     "upcomingEventsHeading": "Anstehende Termine",
