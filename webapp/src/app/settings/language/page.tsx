@@ -161,7 +161,7 @@ export default function LanguageSettingsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 }}
           >
-            <Card className="p-6">
+            <Card id="week-start" data-setting="week-start" className="p-6">
               <div className="mb-4">
                 <p className="font-medium text-sm">{t("weekStartLabel")}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -190,7 +190,7 @@ export default function LanguageSettingsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <Card className="p-6" data-testid="time-zone-card">
+            <Card id="time-zone" data-setting="time-zone" className="p-6" data-testid="time-zone-card">
               <div className="mb-4">
                 <p className="font-medium text-sm">{t("timeZoneLabel")}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">

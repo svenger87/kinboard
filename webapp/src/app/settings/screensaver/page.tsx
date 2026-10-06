@@ -127,7 +127,7 @@ export default function ScreensaverSettingsPage() {
         </Card>
 
         {/* Inactivity Timeout */}
-        <motion.div
+        <motion.div id="timeout" data-setting="timeout"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -170,7 +170,7 @@ export default function ScreensaverSettingsPage() {
         </motion.div>
 
         {/* Photo Rotation Interval */}
-        <motion.div
+        <motion.div id="rotation" data-setting="rotation"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
@@ -211,7 +211,7 @@ export default function ScreensaverSettingsPage() {
         </motion.div>
 
         {/* Presence Sensor Section */}
-        <motion.div
+        <motion.div id="presence" data-setting="presence"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}

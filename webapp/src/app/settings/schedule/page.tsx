@@ -838,7 +838,7 @@ export default function ScheduleSettingsPage() {
           transition={{ delay: 0.05 }}
           className="mb-6"
         >
-          <Card className="p-4">
+          <Card id="subjects" data-setting="subjects" className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold">{t("subjectsHeading")}</h2>
               <Button variant="outline" size="sm" onClick={openAddSubjectDialog}>
@@ -912,7 +912,7 @@ export default function ScheduleSettingsPage() {
           transition={{ delay: 0.075 }}
           className="mb-6"
         >
-          <Card className="p-4">
+          <Card id="packing-list" data-setting="packing-list" className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Backpack className="size-4 text-muted-foreground" />

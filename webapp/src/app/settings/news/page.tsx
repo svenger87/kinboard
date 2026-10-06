@@ -215,7 +215,7 @@ export default function NewsSettingsPage() {
 
           {/* Own feeds first: it's the part of this page people come back
               to, while the catalog is a one-time set-and-forget. */}
-          <div>
+          <div id="own-feeds" data-setting="own-feeds">
             <div className="flex items-baseline justify-between gap-3 mb-3 px-1">
               <h2 className="text-sm font-medium text-muted-foreground">
                 {t("customTitle")}
@@ -390,7 +390,7 @@ export default function NewsSettingsPage() {
             </p>
           </div>
 
-          <h2 className="text-sm font-medium text-muted-foreground pt-2 px-1">
+          <h2 id="catalog" data-setting="catalog" className="text-sm font-medium text-muted-foreground pt-2 px-1">
             {t("catalogTitle")}
           </h2>
 

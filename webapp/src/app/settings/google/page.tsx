@@ -385,7 +385,7 @@ export default function GoogleSettingsPage() {
                 transition={{ delay: 0.25 }}
                 className="mb-6"
               >
-                <Card className="p-4">
+                <Card id="auto-sync" data-setting="auto-sync" className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <RefreshCw className="size-5 text-muted-foreground" />
@@ -427,7 +427,7 @@ export default function GoogleSettingsPage() {
               </motion.div>
 
               {/* Calendars List */}
-              <motion.div
+              <motion.div id="calendars" data-setting="calendars"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
@@ -597,7 +597,7 @@ export default function GoogleSettingsPage() {
               What stays gated is everything that genuinely needs Google —
               sync status, the calendar list, auto-sync. */}
           {/* Person Mapping Rules */}
-          <motion.div
+          <motion.div id="person-mapping" data-setting="person-mapping"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}

@@ -168,7 +168,7 @@ export function CityLocationPicker({ value, onChange }: CityLocationPickerProps)
   return (
     <>
       {/* Location Type */}
-      <motion.div
+      <motion.div id="location-type" data-setting="location-type"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
@@ -202,7 +202,7 @@ export function CityLocationPicker({ value, onChange }: CityLocationPickerProps)
       </motion.div>
 
       {/* Location Input */}
-      <motion.div
+      <motion.div id="location" data-setting="location"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}

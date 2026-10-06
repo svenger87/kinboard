@@ -6,45 +6,19 @@ import { format } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import {
   Activity,
-  Bell,
-  Boxes,
-  Calendar,
-  CalendarHeart,
-  Camera,
-  Car,
   Check,
   ChevronDown,
   ChevronRight,
   ChevronUp,
-  Cloud,
   Copy,
   DatabaseBackup,
-  GraduationCap,
-  Home,
-  KeyRound,
-  Languages,
-  LayoutGrid,
-  Lightbulb,
-  LineChart,
-  ListOrdered,
   Lock,
-  Monitor,
-  Music,
-  Newspaper,
-  Palette,
   Pencil,
-  PiggyBank,
-  Puzzle,
   RefreshCw,
   Settings,
-  ShoppingCart,
   Trash2,
-  History,
-  Users,
-  Video,
   Wifi,
   X,
-  Zap,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,12 +39,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useFamilyStore } from "@/stores/family-store";
-import { useKeyboardShortcuts, useSwipeNavigation, useIsOnline, useDeleteDevice, useIsPluginEnabled, useHomeAssistantStatus, useHomeAssistantConnectionCheck, useGoogleCalendarStatus, useBringSettings, useImmichStatus, isImmichConnected, useUnsplashStatus, useDlnaStatus, useIcloudStatus, useRegenerateJoinCode, useRenameFamily, useCalendars
+import { useKeyboardShortcuts, useSwipeNavigation, useIsOnline, useDeleteDevice, useHomeAssistantStatus, useHomeAssistantConnectionCheck, useGoogleCalendarStatus, useBringSettings, useImmichStatus, isImmichConnected, useUnsplashStatus, useDlnaStatus, useIcloudStatus, useRegenerateJoinCode, useRenameFamily, useCalendars
 } from "@/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVersionCheck } from "@/hooks/use-version-check";
 import { usePWA } from "@/hooks/use-pwa";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   Dialog,
@@ -82,6 +56,9 @@ import {
 import { toast } from "sonner";
 import { isPinRequired, relockSettings } from "@/lib/pin-session";
 import { WhatsNewDialog } from "@/components/whats-new-dialog";
+import { SettingsSearch } from "@/components/settings/settings-search";
+import { MENU_SECTIONS, SETTINGS_ENTRIES, isEntryVisible } from "@/lib/settings-search/registry";
+import { useEnabledPlugins } from "@/hooks/use-enabled-plugins";
 
 // Diagnostics-only push status row. usePushServerConfigured() fires a fetch
 // on mount — isolating it here (rendered only while the diagnostics
@@ -120,7 +97,8 @@ export default function SettingsPage() {
   useSwipeNavigation();
   const t = useTranslations("settings");
   const tCommon = useTranslations("common");
-  const tMedia = useTranslations("media");
+  // Registry keys are full paths ("media.settingsTitle"), across namespaces.
+  const tAll = useTranslations();
   const { family, device, clearSession } = useFamilyStore();
   const deleteDevice = useDeleteDevice();
   const isOnline = useIsOnline();
@@ -171,12 +149,15 @@ export default function SettingsPage() {
   });
   const pinIsSet = !!pinStatus?.set;
   const [pinSaving, setPinSaving] = useState(false);
-  const vehiclesPluginEnabled = useIsPluginEnabled("vehicles");
-  const energyPluginEnabled = useIsPluginEnabled("energy");
-  const camerasPluginEnabled = useIsPluginEnabled("cameras");
-  const stonksPluginEnabled = useIsPluginEnabled("stonks");
-  const pocketMoneyPluginEnabled = useIsPluginEnabled("pocket-money");
-  const mediaPluginEnabled = useIsPluginEnabled("media");
+  // The menu's visibility rule, shared with the search: a plugin switched
+  // off hides its page in both. Same policy as useIsPluginEnabled — enabled
+  // while loading, and unless explicitly false.
+  const { data: enabledPlugins, isPending: pluginsPending } = useEnabledPlugins();
+  const pluginEnabled = useCallback(
+    (id: string) => pluginsPending || !enabledPlugins || enabledPlugins[id] !== false,
+    [pluginsPending, enabledPlugins],
+  );
+  const menuVisibility = useMemo(() => ({ pluginEnabled }), [pluginEnabled]);
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", ""]);
   const pinInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -445,191 +426,25 @@ export default function SettingsPage() {
       });
   };
 
-  const settingsSections = [
-    {
-      title: t("sectionFamily"),
-      items: [
-        {
-          icon: Users,
-          label: t("itemPeopleLabel"),
-          description: t("itemPeopleDescription"),
-          href: "/settings/people",
-        },
-        {
-          icon: Monitor,
-          label: t("itemDevicesLabel"),
-          description: device?.name || t("itemDevicesFallback"),
-          href: "/settings/devices",
-        },
-        {
-          icon: Boxes,
-          label: t("itemCatalogueLabel"),
-          description: t("itemCatalogueDescription"),
-          href: "/settings/catalogue",
-        },
-        {
-          icon: GraduationCap,
-          label: t("itemScheduleLabel"),
-          description: t("itemScheduleDescription"),
-          href: "/settings/schedule",
-        },
-        {
-          icon: CalendarHeart,
-          label: t("itemHolidaysLabel"),
-          description: t("itemHolidaysDescription"),
-          href: "/settings/holidays",
-        },
-        {
-          icon: Trash2,
-          label: t("itemRecycleBinLabel"),
-          description: t("itemRecycleBinDescription"),
-          href: "/settings/recycle-bin",
-        },
-        {
-          icon: History,
-          label: t("itemTaskLogLabel"),
-          description: t("itemTaskLogDescription"),
-          href: "/settings/task-log",
-        },
-      ],
-    },
-    {
-      title: t("sectionDisplay"),
-      items: [
-        {
-          icon: LayoutGrid,
-          label: t("itemWidgetsLabel"),
-          description: t("itemWidgetsDescription"),
-          href: "/settings/widgets",
-        },
-        {
-          icon: Lightbulb,
-          label: t("itemHintsLabel"),
-          description: t("itemHintsDescription"),
-          href: "/settings/hints",
-        },
-        {
-          icon: ListOrdered,
-          label: t("itemNavigationLabel"),
-          description: t("itemNavigationDescription"),
-          href: "/settings/navigation",
-        },
-        {
-          icon: Palette,
-          label: t("itemThemeLabel"),
-          description: t("itemThemeDescription"),
-          href: "/settings/theme",
-        },
-        {
-          icon: Monitor,
-          label: t("itemScreensaverLabel"),
-          description: t("itemScreensaverDescription"),
-          href: "/settings/screensaver",
-        },
-        {
-          icon: Cloud,
-          label: t("itemWeatherLabel"),
-          description: t("itemWeatherDescription"),
-          href: "/settings/weather",
-        },
-        {
-          icon: Bell,
-          label: t("itemNotificationsLabel"),
-          description: t("itemNotificationsDescription"),
-          href: "/settings/notifications",
-        },
-        {
-          icon: Languages,
-          label: t("itemLanguageLabel"),
-          description: t("itemLanguageDescription"),
-          href: "/settings/language",
-        },
-        {
-          icon: Newspaper,
-          label: t("itemNewsLabel"),
-          description: t("itemNewsDescription"),
-          href: "/settings/news",
-        },
-        {
-          icon: Puzzle,
-          label: t("itemPluginsLabel"),
-          description: t("itemPluginsDescription"),
-          href: "/settings/plugins",
-        },
-      ],
-    },
-    {
-      title: t("sectionIntegrations"),
-      items: [
-        {
-          icon: Calendar,
-          label: t("itemCalendarLabel"),
-          description: t("itemCalendarDescription"),
-          href: "/settings/calendar",
-        },
-        {
-          icon: ShoppingCart,
-          label: t("itemBringLabel"),
-          description: t("itemBringDescription"),
-          href: "/settings/bring",
-        },
-        {
-          icon: Camera,
-          label: t("itemPhotosLabel"),
-          description: t("itemPhotosDescription"),
-          href: "/settings/photos",
-        },
-        {
-          icon: Home,
-          label: t("itemHomeAssistantLabel"),
-          description: t("itemHomeAssistantDescription"),
-          href: "/settings/homeassistant",
-        },
-        {
-          icon: KeyRound,
-          label: t("itemIntegrationTokensLabel"),
-          description: t("itemIntegrationTokensDescription"),
-          href: "/settings/integrations",
-        },
-        ...(vehiclesPluginEnabled ? [{
-          icon: Car,
-          label: t("itemVehiclesLabel"),
-          description: t("itemVehiclesDescription"),
-          href: "/settings/vehicles",
-        }] : []),
-        ...(energyPluginEnabled ? [{
-          icon: Zap,
-          label: t("itemEnergyLabel"),
-          description: t("itemEnergyDescription"),
-          href: "/settings/energy",
-        }] : []),
-        ...(camerasPluginEnabled ? [{
-          icon: Video,
-          label: t("itemCamerasLabel"),
-          description: t("itemCamerasDescription"),
-          href: "/settings/cameras",
-        }] : []),
-        ...(stonksPluginEnabled ? [{
-          icon: LineChart,
-          label: t("itemStonksLabel"),
-          description: t("itemStonksDescription"),
-          href: "/settings/stonks",
-        }] : []),
-        ...(pocketMoneyPluginEnabled ? [{
-          icon: PiggyBank,
-          label: t("itemPocketMoneyLabel"),
-          description: t("itemPocketMoneyDescription"),
-          href: "/settings/pocket-money",
-        }] : []),
-        ...(mediaPluginEnabled ? [{
-          icon: Music,
-          label: tMedia("settingsTitle"),
-          description: tMedia("settingsDescription"),
-          href: "/settings/media-players",
-        }] : []),
-      ],
-    },
-  ];
+  // Descriptions the registry cannot know: this device's own name.
+  const descriptionOverrides = useMemo<Record<string, string>>(
+    () => (device?.name ? { devices: device.name } : ({} as Record<string, string>)),
+    [device?.name],
+  );
+  const settingsMenu = MENU_SECTIONS.map((section) => ({
+    key: section,
+    title: t(section),
+    items: SETTINGS_ENTRIES.filter(
+      (e) => e.menu && e.section === section && isEntryVisible(e, menuVisibility),
+    ).map((e) => ({
+      icon: e.icon,
+      label: tAll(e.labelKey),
+      description:
+        descriptionOverrides[e.id] ??
+        (e.descriptionKey ? tAll(e.descriptionKey) : ""),
+      href: e.href,
+    })),
+  }));
 
   // A calendar counts as connected if ANY source is set up, not just
   // Google. Reported by a tester on discussion #18: a household syncing
@@ -680,6 +495,9 @@ export default function SettingsPage() {
           </div>
         </motion.div>
 
+        {/* The search box. While it holds a query, its results take the place
+            of the join code card and the menu below it. */}
+        <SettingsSearch visibility={menuVisibility} descriptionOverrides={descriptionOverrides}>
         {/* Join Code Card */}
         {family && (
           <motion.div
@@ -687,7 +505,7 @@ export default function SettingsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <Card className="p-6 mb-6">
+            <Card id="join-code" data-setting="join-code" className="p-6 mb-6">
               <div className="flex items-center justify-between gap-3 pb-4 mb-4 border-b border-border">
                 {editingName ? (
                   <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -795,9 +613,9 @@ export default function SettingsPage() {
         )}
 
         {/* Settings Sections */}
-        {settingsSections.map((section, sectionIndex) => (
+        {settingsMenu.map((section, sectionIndex) => (
           <motion.div
-            key={section.title}
+            key={section.key}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 + sectionIndex * 0.1 }}
@@ -845,9 +663,10 @@ export default function SettingsPage() {
             </div>
           </motion.div>
         ))}
+        </SettingsSearch>
 
         {/* PIN Protection */}
-        <motion.div
+        <motion.div id="pin" data-setting="pin"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45 }}
@@ -1056,7 +875,7 @@ export default function SettingsPage() {
           transition={{ delay: 0.65 }}
           className="mt-8"
         >
-          <Card className="p-4">
+          <Card id="data-export" data-setting="data-export" className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10">
                 <DatabaseBackup className="size-5 text-primary" strokeWidth={1.75} />
@@ -1077,7 +896,7 @@ export default function SettingsPage() {
               {t("exportButton")}
             </Button>
 
-            <div className="mt-4 pt-4 border-t">
+            <div id="calendar-feed" data-setting="calendar-feed" className="mt-4 pt-4 border-t">
               <p className="font-medium text-sm">{t("feedTitle")}</p>
               <p className="text-sm text-muted-foreground mt-1">
                 {t("feedDescription")}
@@ -1137,7 +956,7 @@ export default function SettingsPage() {
           transition={{ delay: 0.7 }}
           className="mt-8"
         >
-          <Card className="p-4">
+          <Card id="diagnostics" data-setting="diagnostics" className="p-4">
             <button
               type="button"
               onClick={() => setDiagnosticsOpen((open) => !open)}

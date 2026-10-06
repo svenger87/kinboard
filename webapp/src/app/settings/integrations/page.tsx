@@ -205,7 +205,7 @@ export default function IntegrationsPage() {
         </Card>
       )}
 
-      <Card className="mb-8 p-6">
+      <Card id="assistants" data-setting="assistants" className="mb-8 p-6">
         <div className="mb-3 flex items-center justify-between gap-4">
           <h2 className="font-semibold">{t("assistantsHeading")}</h2>
           <div className="flex items-center gap-2">
@@ -240,7 +240,7 @@ export default function IntegrationsPage() {
         )}
       </Card>
 
-      <Card className="mb-8 p-6">
+      <Card id="create-token" data-setting="create-token" className="mb-8 p-6">
         <h2 className="mb-4 font-semibold">{t("createHeading")}</h2>
 
         <div className="mb-4">
@@ -282,7 +282,7 @@ export default function IntegrationsPage() {
         </Button>
       </Card>
 
-      <h2 className="mb-4 font-semibold">{t("existingHeading")}</h2>
+      <h2 id="tokens" data-setting="tokens" className="mb-4 font-semibold">{t("existingHeading")}</h2>
 
       {isPending && <Skeleton className="h-24 w-full" />}
 

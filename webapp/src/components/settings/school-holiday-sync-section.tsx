@@ -116,7 +116,7 @@ export function SchoolHolidaySyncSection() {
 
   if (!status.installEnabled) {
     return (
-      <Card className="p-4" data-testid="school-sync-install-off">
+      <Card id="school-sync" data-setting="school-sync" className="p-4" data-testid="school-sync-install-off">
         <p className="font-semibold">{t("title")}</p>
         <p className="mt-0.5 text-sm text-muted-foreground">{t("installOff")}</p>
         {syncedList}
@@ -149,7 +149,7 @@ export function SchoolHolidaySyncSection() {
   const childValue = setting?.region && setting.region !== parent ? setting.region : null;
 
   return (
-    <Card className="p-4">
+    <Card id="school-sync" data-setting="school-sync" className="p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 basis-56">
           <Label htmlFor="school-sync-switch" className="font-semibold">

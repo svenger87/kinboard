@@ -144,7 +144,7 @@ export default function WidgetSettingsPage() {
           {t("intro")}
         </p>
 
-        <Card className="mb-6 p-4">
+        <Card id="compact-home" data-setting="compact-home" className="mb-6 p-4">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="font-medium">{t("compactHomeLabel")}</p>
