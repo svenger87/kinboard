@@ -14,7 +14,7 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/server";
-import { remainingSeconds, timerState } from "@/lib/timer-math";
+import { endsAt, remainingSeconds, timerState } from "@/lib/timer-math";
 import type { Timer } from "@/types/database";
 
 /** The slice of the Supabase client used here; a test passes a fake. */
@@ -23,7 +23,7 @@ export type TimerDb = ReturnType<typeof createAdminClient>;
 /** 24 hours: RFC-012's bound for an assistant's timer. */
 export const MAX_TIMER_SECONDS = 86_400;
 export const MAX_TIMER_LABEL = 60;
-/** Not dismissed (running or ringing) timers a family may have before an assistant is refused another. */
+/** Not dismissed (running, paused or ringing) timers a family may have before an assistant is refused another. A paused timer counts. */
 export const MAX_ACTIVE_TIMERS = 10;
 /**
  * A ringing timer stops counting against the cap this long after it ran out.
@@ -34,7 +34,7 @@ export const STALE_RINGING_MS = 60 * 60 * 1000;
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
-/** Timers not yet dismissed — running or ringing — newest first. */
+/** Timers not yet dismissed — running, paused or ringing — newest first. */
 export async function listActiveTimers(db: TimerDb, familyId: string) {
   return db
     .from("timers")
@@ -46,21 +46,22 @@ export async function listActiveTimers(db: TimerDb, familyId: string) {
 
 /**
  * How many of the family's timers count against MAX_ACTIVE_TIMERS: not
- * dismissed, and not ringing for more than STALE_RINGING_MS. The end is
- * `started_at + duration_seconds`, which PostgREST cannot compute in a
+ * dismissed, and not ringing for more than STALE_RINGING_MS. A paused one
+ * always counts: it has not run out. The end is `started_at +
+ * duration_seconds + paused_seconds`, which PostgREST cannot compute in a
  * filter, so the rows are read and counted here; a family has a handful.
  * Throws on a database error.
  */
 export async function countActiveTimers(db: TimerDb, familyId: string, now = new Date()): Promise<number> {
   const { data, error } = await db
     .from("timers")
-    .select("started_at, duration_seconds")
+    .select("started_at, duration_seconds, paused_at, paused_seconds")
     .eq("family_id", familyId)
     .is("dismissed_at", null);
   if (error) throw error;
   const cutoff = now.getTime() - STALE_RINGING_MS;
-  return ((data ?? []) as Pick<Timer, "started_at" | "duration_seconds">[])
-    .filter((row) => Date.parse(row.started_at) + row.duration_seconds * 1000 >= cutoff)
+  return ((data ?? []) as Timer[])
+    .filter((row) => row.paused_at || endsAt(row) >= cutoff)
     .length;
 }
 
@@ -89,16 +90,25 @@ export async function startTimer(
 
   if (error || !timer) return { timer: null, error };
 
-  // Queue the announcement. A failure here must not fail the timer itself —
-  // the panel still counts down and still rings; only the phone push is lost.
-  //
+  await queueEndPush(db, familyId, timer as Timer);
+  return { timer, error: null };
+}
+
+/**
+ * Queue the push that announces a timer's end, at the end it has now: on
+ * start, and again on resume, when a pause has moved it.
+ *
+ * A failure here must not fail the timer itself — the panel still counts
+ * down and still rings; only the phone push is lost.
+ */
+async function queueEndPush(db: TimerDb, familyId: string, timer: Timer) {
   // `title` is written in English because `scheduled_notifications.title` is
   // `NOT NULL` and nothing has resolved the recipient's locale yet at insert
   // time — it's a sensible fallback if it's ever read directly, not what
   // gets sent. The send side (process-notifications' `case "timer"`) renders
   // the real, locale-aware push through `getPushTranslator`, and needs the
   // label on its own rather than baked into a sentence, so it goes in `data`.
-  const dueAt = new Date(Date.parse(timer.started_at) + timer.duration_seconds * 1000);
+  const dueAt = new Date(endsAt(timer));
   const { error: notifyError } = await db.from("scheduled_notifications").insert({
     family_id: familyId,
     notification_type: "timer",
@@ -112,8 +122,6 @@ export async function startTimer(
   if (notifyError) {
     console.error("[timers] could not schedule the push:", notifyError);
   }
-
-  return { timer, error: null };
 }
 
 /**
@@ -147,6 +155,63 @@ export async function dismissTimer(db: TimerDb, familyId: string, id: string) {
     .eq("family_id", familyId)
     .select()
     .single();
+}
+
+/**
+ * Pause a running timer: its clock stops at `paused_at` on every screen, and
+ * its queued push is cancelled, since the end it announced has moved. Only a
+ * running timer can be paused: the result is null for one that is missing,
+ * dismissed, already paused or already ringing. The update only applies
+ * while the row is still neither paused nor dismissed, so two screens
+ * pausing at once pause it once.
+ */
+export async function pauseTimer(db: TimerDb, familyId: string, id: string, now = new Date()) {
+  const { data: row, error } = await db.from("timers").select("*").eq("id", id).eq("family_id", familyId).maybeSingle();
+  if (error) return { timer: null, error };
+  if (!row || timerState(row as Timer, now) !== "running") return { timer: null, error: null };
+
+  const { data, error: updateError } = await db
+    .from("timers")
+    .update({ paused_at: now.toISOString() })
+    .eq("id", id)
+    .eq("family_id", familyId)
+    .is("paused_at", null)
+    .is("dismissed_at", null)
+    .select()
+    .maybeSingle();
+  if (updateError || !data) return { timer: null, error: updateError };
+  await cancelScheduledPush(db, familyId, id);
+  return { timer: data as Timer, error: null };
+}
+
+/**
+ * Resume a paused timer: the pause is added to `paused_seconds`, so the timer
+ * runs out that much later, and the push that announces its end is queued
+ * again for the new end. The result is null for a timer that is missing,
+ * dismissed or not paused. The update only applies to the pause it read
+ * (`paused_at` unchanged), so two screens resuming at once add it once.
+ */
+export async function resumeTimer(db: TimerDb, familyId: string, id: string, now = new Date()) {
+  const { data: row, error } = await db.from("timers").select("*").eq("id", id).eq("family_id", familyId).maybeSingle();
+  if (error) return { timer: null, error };
+  const paused = row as Timer | null;
+  if (!paused || paused.dismissed_at || !paused.paused_at) return { timer: null, error: null };
+
+  // Rounded down: a resumed timer never shows more time than it had when it
+  // was paused (rounding to nearest put a second back on half the time).
+  const pausedFor = Math.max(0, Math.floor((now.getTime() - Date.parse(paused.paused_at)) / 1000));
+  const { data, error: updateError } = await db
+    .from("timers")
+    .update({ paused_at: null, paused_seconds: (paused.paused_seconds ?? 0) + pausedFor })
+    .eq("id", id)
+    .eq("family_id", familyId)
+    .eq("paused_at", paused.paused_at)
+    .is("dismissed_at", null)
+    .select()
+    .maybeSingle();
+  if (updateError || !data) return { timer: null, error: updateError };
+  await queueEndPush(db, familyId, data as Timer);
+  return { timer: data as Timer, error: null };
 }
 
 /** Remove the row outright (the session route's DELETE). */
@@ -194,24 +259,26 @@ export interface TimerView {
   label: string | null;
   duration_seconds: number;
   started_at: string;
-  ends_at: string;
+  /** Null while paused: it runs out once resumed. */
+  ends_at: string | null;
   remaining_seconds: number;
-  /** `ringing`: the time is up and nobody has dismissed it yet. */
-  state: "running" | "ringing";
+  /** `ringing`: the time is up and nobody has dismissed it yet. `paused`: its time stands still. */
+  state: "running" | "paused" | "ringing";
 }
 
 type TimerRow = Pick<Timer, "id" | "label" | "duration_seconds" | "started_at" | "dismissed_at">;
 
 export function timerView(row: TimerRow, now: Date): TimerView {
   const timer = row as Timer;
+  const state = timerState(timer, now);
   return {
     id: row.id,
     label: row.label,
     duration_seconds: row.duration_seconds,
     started_at: row.started_at,
-    ends_at: new Date(Date.parse(row.started_at) + row.duration_seconds * 1000).toISOString(),
+    ends_at: timer.paused_at ? null : new Date(endsAt(timer)).toISOString(),
     remaining_seconds: remainingSeconds(timer, now),
-    state: timerState(timer, now) === "running" ? "running" : "ringing",
+    state: state === "running" || state === "paused" ? state : "ringing",
   };
 }
 
@@ -221,7 +288,10 @@ export async function readActiveTimers(familyId: string, now = new Date(), db: T
   if (error) throw error;
   return ((data ?? []) as TimerRow[])
     .map((row) => timerView(row, now))
-    .sort((a, b) => a.ends_at.localeCompare(b.ends_at));
+    // The one due soonest first; paused ones, which are due at no time yet, after them.
+    .sort((a, b) =>
+      a.ends_at && b.ends_at ? a.ends_at.localeCompare(b.ends_at) : a.ends_at ? -1 : b.ends_at ? 1 : a.remaining_seconds - b.remaining_seconds,
+    );
 }
 
 export type StartOutcome =

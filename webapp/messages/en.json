@@ -4462,6 +4462,11 @@
     "finished": "Time's up",
     "dismiss": "Dismiss",
     "stop": "Stop",
+    "pause": "Pause",
+    "resume": "Resume",
+    "paused": "Paused",
+    "pauseFailed": "Could not pause that timer",
+    "resumeFailed": "Could not resume that timer",
     "startFailed": "Could not start that timer"
   },
   "media": {

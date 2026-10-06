@@ -1006,7 +1006,7 @@ test.describe("start_timer", () => {
 
   test("surfaces the cap as a tool error", async () => {
     const { server } = buildServer(["timers:write"], () => {
-      throw new IntegrationCallError("The family already has 10 timers running or ringing", 429, "too_many_timers");
+      throw new IntegrationCallError("The family already has 10 timers running, paused or ringing", 429, "too_many_timers");
     });
     const result = await tool(server, "start_timer").handler({ duration_seconds: 60 });
     expect(result.isError).toBe(true);

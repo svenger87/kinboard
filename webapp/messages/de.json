@@ -4462,6 +4462,11 @@
     "finished": "Zeit abgelaufen",
     "dismiss": "Verstanden",
     "stop": "Stoppen",
+    "pause": "Pausieren",
+    "resume": "Fortsetzen",
+    "paused": "Pausiert",
+    "pauseFailed": "Timer konnte nicht pausiert werden",
+    "resumeFailed": "Timer konnte nicht fortgesetzt werden",
     "startFailed": "Timer konnte nicht gestartet werden"
   },
   "media": {

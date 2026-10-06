@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Timer as TimerIcon, X } from "lucide-react";
+import { Pause, Play, Timer as TimerIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WidgetCard } from "@/components/widget-card";
-import { useTimers, useStartTimer, useDismissTimer } from "@/hooks/use-timers";
+import { useTimers, useStartTimer, useDismissTimer, usePauseTimer, useResumeTimer } from "@/hooks/use-timers";
 import { remainingSeconds, timerState } from "@/lib/timer-math";
 import { applyOffset } from "@/lib/server-clock";
 import { useServerClockOffset } from "@/hooks/use-server-clock";
@@ -22,6 +22,8 @@ export function TimerWidget() {
   const { data: timers = [] } = useTimers();
   const start = useStartTimer();
   const dismiss = useDismissTimer();
+  const pause = usePauseTimer();
+  const resume = useResumeTimer();
 
   const offsetMs = useServerClockOffset();
   const [now, setNow] = useState(() => new Date());
@@ -40,12 +42,29 @@ export function TimerWidget() {
   };
 
 
+  // Pause and resume answer a tap at once, or say they could not.
+  const togglePause = async (id: string, paused: boolean) => {
+    try {
+      await (paused ? resume : pause).mutateAsync(id);
+    } catch {
+      toast.error(t(paused ? "resumeFailed" : "pauseFailed"));
+    }
+  };
+
   // One clock for every ring. Only runs while something is counting.
   const hasRunning = timers.some((x) => timerState(x, applyOffset(now, offsetMs)) === "running");
   useEffect(() => {
     if (!hasRunning) return;
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
+    // Read as it starts, not a second later: while nothing counted the clock
+    // stood still, and a timer resumed after a pause read the time it had
+    // plus the whole pause until the first tick.
+    const tick = () => setNow(new Date());
+    const first = setTimeout(tick, 0);
+    const id = setInterval(tick, 1000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(id);
+    };
   }, [hasRunning]);
 
   const serverNow = applyOffset(now, offsetMs);
@@ -84,12 +103,31 @@ export function TimerWidget() {
                 state === "finished" ? "border-destructive bg-destructive/10" : "border-border"
               }`}
             >
-              <span className="font-mono text-lg tabular-nums">
-                {state === "finished" ? t("finished") : mmss(left)}
+              {/* "Paused" under the time, where a narrow card can't cut it off
+                  the way it cut "Pasta · Paused"; the label stays the row's
+                  own child, as e2e/timer-widget-layout.spec.ts finds rows by it. */}
+              <span className="flex shrink-0 flex-col leading-tight">
+                <span className={`font-mono text-lg tabular-nums ${state === "paused" ? "text-muted-foreground" : ""}`}>
+                  {state === "finished" ? t("finished") : mmss(left)}
+                </span>
+                {state === "paused" && (
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{t("paused")}</span>
+                )}
               </span>
               <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
                 {timer.label}
               </span>
+              {(state === "running" || state === "paused") && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="min-h-[44px] min-w-[44px]"
+                  aria-label={state === "paused" ? t("resume") : t("pause")}
+                  onClick={() => void togglePause(timer.id, state === "paused")}
+                >
+                  {state === "paused" ? <Play className="size-4" /> : <Pause className="size-4" />}
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"

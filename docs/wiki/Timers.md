@@ -10,6 +10,10 @@ countdown appears immediately and is shared with every device in the family.
 Several timers can run at once, and any family device can stop one with its
 close button.
 
+To pause a running timer, tap the pause button next to it. A paused timer keeps
+its time, shows **Paused** on every device, and waits until somebody taps the
+play button. Its phone notification moves with it.
+
 When the countdown reaches zero, the row changes to **Time's up** and stays
 there until somebody selects **Dismiss**. The screensaver is held back while a
 finished timer needs attention.

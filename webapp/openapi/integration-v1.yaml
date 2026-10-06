@@ -955,7 +955,8 @@ paths:
         on the family's screens where the timers card is shown, and a push
         is queued for the phones. For an assistant's (OAuth) token, refused
         with `429` and code `too_many_timers` while the family already has
-        10 timers running or ringing — counted across everyone's timers, not
+        10 timers running, paused or ringing (a paused timer counts) —
+        counted across everyone's timers, not
         only this token's, and leaving out any that has rung for over an
         hour without being dismissed. A token made by hand in Settings (Home
         Assistant) is not capped. Every call starts a new timer.
@@ -996,7 +997,7 @@ paths:
         "429":
           description: |
             `too_many_timers` — an assistant's token, and the family already
-            has 10 timers running or ringing; stop one first. Or
+            has 10 timers running, paused or ringing; stop one first. Or
             `rate_limited`, the token's write budget.
           content:
             application/json:

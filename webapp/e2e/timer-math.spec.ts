@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { offsetFromDateHeader, applyOffset } from "../src/lib/server-clock";
-import { timerState, remainingSeconds } from "../src/lib/timer-math";
+import { endsAt, timerState, remainingSeconds } from "../src/lib/timer-math";
 import type { Timer } from "../src/types/database";
 
 /**
@@ -109,5 +109,37 @@ test.describe("timerState", () => {
     const stopped = timer({ dismissed_at: "2026-09-08T10:01:00.000Z" });
     expect(timerState(stopped, at("2026-09-08T10:00:30.000Z"))).toBe("dismissed");
     expect(timerState(stopped, at("2026-09-08T11:00:00.000Z"))).toBe("dismissed");
+  });
+});
+
+test.describe("pausing", () => {
+  test("a paused timer keeps the time it had when it was paused, long after its old end", () => {
+    // 10 minutes from 10:00, paused at 10:04: six minutes left, for as long as it stays paused.
+    const paused = timer({ paused_at: "2026-09-08T10:04:00.000Z" });
+    expect(timerState(paused, at("2026-09-08T10:05:00.000Z"))).toBe("paused");
+    expect(remainingSeconds(paused, at("2026-09-08T10:05:00.000Z"))).toBe(360);
+    expect(timerState(paused, at("2026-09-08T11:30:00.000Z"))).toBe("paused");
+    expect(remainingSeconds(paused, at("2026-09-08T11:30:00.000Z"))).toBe(360);
+  });
+
+  test("the time it spent paused moves its end", () => {
+    // Paused for two minutes in all, then resumed: due at 10:12, not 10:10.
+    const resumed = timer({ paused_seconds: 120 });
+    expect(endsAt(resumed)).toBe(Date.parse("2026-09-08T10:12:00.000Z"));
+    expect(timerState(resumed, at("2026-09-08T10:10:30.000Z"))).toBe("running");
+    expect(remainingSeconds(resumed, at("2026-09-08T10:10:30.000Z"))).toBe(90);
+    expect(timerState(resumed, at("2026-09-08T10:12:00.000Z"))).toBe("finished");
+  });
+
+  test("dismissal still wins over a pause", () => {
+    const both = timer({ paused_at: "2026-09-08T10:04:00.000Z", dismissed_at: "2026-09-08T10:06:00.000Z" });
+    expect(timerState(both, at("2026-09-08T10:07:00.000Z"))).toBe("dismissed");
+  });
+
+  test("a row read before the migration, with no pause columns, was never paused", () => {
+    const old = timer();
+    expect("paused_seconds" in old || "paused_at" in old).toBe(false);
+    expect(endsAt(old)).toBe(Date.parse("2026-09-08T10:10:00.000Z"));
+    expect(timerState(old, at("2026-09-08T10:05:00.000Z"))).toBe("running");
   });
 });

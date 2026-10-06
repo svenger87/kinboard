@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
  * (lib/timers.ts): the row, plus the queued push that announces its end.
  * `duration_seconds` 1–86400, `label` optional and at most 60 characters.
  * For an assistant's token (OAuth, `context.assistant`), refused with 429
- * `too_many_timers` once the family already has 10 timers running or
- * ringing (RFC-012) — counted across everyone's timers, so no migration is
+ * `too_many_timers` once the family already has 10 timers running, paused
+ * or ringing (RFC-012; a paused one counts) — counted across everyone's timers, so no migration is
  * needed to tell an assistant's from a person's, and leaving out any that
  * has rung for over an hour unanswered. A hand-made token (Home Assistant)
  * is not capped, as the panel is not. A create, so
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       if (outcome.status === "too_many") {
         return NextResponse.json(
           {
-            error: `The family already has ${outcome.active} timers running or ringing; at most ${MAX_ACTIVE_TIMERS}. Stop one first.`,
+            error: `The family already has ${outcome.active} timers running, paused or ringing; at most ${MAX_ACTIVE_TIMERS}. Stop one first.`,
             code: "too_many_timers",
           },
           { status: 429 },

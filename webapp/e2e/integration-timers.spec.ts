@@ -13,6 +13,8 @@ import {
   startIntegrationTimer,
   stopTimerForAssistant,
   timerView,
+  pauseTimer,
+  resumeTimer,
   type TimerDb,
 } from "../src/lib/timers";
 import { API_ERROR_CODES } from "../src/lib/api-error";
@@ -22,7 +24,7 @@ import { codeOnly } from "./source-helpers";
 
 /**
  * RFC-012 task 2: kitchen timers for assistants — list, start (capped at 10
- * running or ringing per family) and stop, sharing lib/timers.ts with the
+ * running, paused or ringing per family) and stop, sharing lib/timers.ts with the
  * session routes.
  *
  * The fake client applies the `.eq`/`.is` filters it is given to every
@@ -201,7 +203,7 @@ test.describe("starting", () => {
     await expect(startIntegrationTimer(OURS, { label: null, duration_seconds: 60 }, ASSISTANT, fakeDbFailing().db)).rejects.toBeTruthy();
   });
 
-  test(`refused once the family has ${MAX_ACTIVE_TIMERS} running or ringing; nothing is written`, async () => {
+  test(`refused once the family has ${MAX_ACTIVE_TIMERS} running, paused or ringing; nothing is written`, async () => {
     const rows = Array.from({ length: MAX_ACTIVE_TIMERS }, (_, i) => timer(i + 1, OURS, i % 2 ? { duration_seconds: 60 } : {}));
     const f = fakeDb({ timers: rows });
     expect(await startIntegrationTimer(OURS, { label: null, duration_seconds: 60 }, ASSISTANT, f.db)).toEqual({ status: "too_many", active: MAX_ACTIVE_TIMERS });
@@ -360,5 +362,102 @@ test.describe("routes", () => {
     expect(TOOL_SCOPES.start_timer).toBe("timers:write");
     expect(TOOL_SCOPES.stop_timer).toBe("timers:write");
     expect(hasScope(["family:read"], "timers:write")).toBe(false);
+  });
+});
+
+test.describe("pausing", () => {
+  const push = (n: number, family = OURS): Row => ({ family_id: family, related_entity_type: "timer", related_entity_id: T(n) });
+  const later = (seconds: number) => new Date(NOW.getTime() + seconds * 1000);
+
+  test("pause stops the clock and cancels the push; resume adds the pause and queues the push at the new end", async () => {
+    // T1: ten minutes from 11:55, due 12:05. Paused at 12:00 with five minutes left.
+    const f = fakeDb({ timers: [timer(1, OURS)], scheduled_notifications: [push(1), push(2)] });
+    const paused = await pauseTimer(f.db, OURS, T(1), NOW);
+    expect(paused).toMatchObject({ error: null, timer: { id: T(1), paused_at: NOW.toISOString() } });
+    expect(f.tables.scheduled_notifications.map((r) => r.related_entity_id)).toEqual([T(2)]);
+    expect(timerView(f.tables.timers[0] as never, later(600))).toMatchObject({ state: "paused", remaining_seconds: 300, ends_at: null });
+
+    // Resumed 90 seconds later: due 12:06:30, and the push with it.
+    const resumed = await resumeTimer(f.db, OURS, T(1), later(90));
+    expect(resumed).toMatchObject({ error: null, timer: { paused_at: null, paused_seconds: 90 } });
+    expect(f.tables.scheduled_notifications.find((r) => r.related_entity_id === T(1))).toMatchObject({
+      family_id: OURS, notification_type: "timer", related_entity_type: "timer", scheduled_for: "2026-10-01T12:06:30.000Z",
+    });
+    expect(timerView(f.tables.timers[0] as never, later(90))).toMatchObject({
+      state: "running", remaining_seconds: 300, ends_at: "2026-10-01T12:06:30.000Z",
+    });
+  });
+
+  test("a pause counts in whole seconds rounded down, so a resumed timer never gains time", async () => {
+    const f = fakeDb({ timers: [timer(1, OURS)], scheduled_notifications: [] });
+    await pauseTimer(f.db, OURS, T(1), NOW);
+    // Paused for 90.9 seconds: 90 count, so the time left can only stay or drop.
+    await resumeTimer(f.db, OURS, T(1), new Date(NOW.getTime() + 90_900));
+    expect(f.tables.timers[0]).toMatchObject({ paused_seconds: 90 });
+    expect(timerView(f.tables.timers[0] as never, new Date(NOW.getTime() + 90_900)).remaining_seconds).toBeLessThanOrEqual(300);
+  });
+
+  test("only a running timer of this family pauses, and only a paused one resumes", async () => {
+    const f = fakeDb({
+      timers: [
+        timer(1, OURS, { duration_seconds: 60 }), // ran out at 11:56: ringing
+        timer(2, OURS, { dismissed_at: "2026-10-01T11:58:00.000Z" }),
+        timer(3, OURS, { paused_at: "2026-10-01T11:59:00.000Z", paused_seconds: 0 }),
+        timer(4, THEIRS),
+        timer(5, OURS),
+        timer(6, THEIRS, { paused_at: "2026-10-01T11:59:00.000Z", paused_seconds: 0 }),
+      ],
+    });
+    for (const id of [T(1), T(2), T(3), T(4), T(99)]) {
+      expect((await pauseTimer(f.db, OURS, id, NOW)).timer, id).toBeNull();
+    }
+    for (const id of [T(1), T(2), T(5), T(6), T(99)]) {
+      expect((await resumeTimer(f.db, OURS, id, NOW)).timer, id).toBeNull();
+    }
+    expect(f.writes).toEqual([]);
+  });
+
+  test("a second pause or resume from another screen changes nothing, and each update is guarded", async () => {
+    const f = fakeDb({ timers: [timer(1, OURS)], scheduled_notifications: [push(1)] });
+    await pauseTimer(f.db, OURS, T(1), NOW);
+    expect((await pauseTimer(f.db, OURS, T(1), later(1))).timer).toBeNull();
+    await resumeTimer(f.db, OURS, T(1), later(60));
+    expect((await resumeTimer(f.db, OURS, T(1), later(61))).timer).toBeNull();
+    const [pauseUpdate, resumeUpdate, ...rest] = f.writes.filter((w) => w.table === "timers" && w.op === "update");
+    expect(rest).toEqual([]);
+    expect(pauseUpdate.filters).toEqual(expect.arrayContaining([
+      ["eq", "id", T(1)], ["eq", "family_id", OURS], ["is", "paused_at", null], ["is", "dismissed_at", null],
+    ]));
+    // Resuming applies only to the pause it read, so the pause is added once.
+    expect(resumeUpdate.filters).toEqual(expect.arrayContaining([
+      ["eq", "id", T(1)], ["eq", "family_id", OURS], ["eq", "paused_at", NOW.toISOString()], ["is", "dismissed_at", null],
+    ]));
+    expect(f.tables.timers[0]).toMatchObject({ paused_at: null, paused_seconds: 60 });
+    expect(f.tables.scheduled_notifications.filter((r) => r.related_entity_id === T(1))).toHaveLength(1);
+  });
+
+  test("an assistant reads a paused timer as paused, with no end, after the ones counting down", async () => {
+    const rows = [
+      timer(1, OURS, { paused_at: "2026-10-01T11:57:00.000Z", paused_seconds: 0 }),
+      timer(2, OURS, { duration_seconds: 900 }),
+      timer(3, OURS),
+    ];
+    expect(timerView(rows[0] as never, NOW)).toEqual({
+      id: T(1), label: "T1", duration_seconds: 600, started_at: "2026-10-01T11:55:00.000Z",
+      ends_at: null, remaining_seconds: 480, state: "paused",
+    });
+    const f = fakeDb({ timers: rows });
+    expect((await readActiveTimers(OURS, NOW, f.db)).map((v) => v.id)).toEqual([T(3), T(2), T(1)]);
+  });
+
+  test("a paused timer counts against the ten however long it stays paused; time paused delays going stale", async () => {
+    const f = fakeDb({
+      timers: [
+        timer(1, OURS, { started_at: "2026-10-01T08:00:00.000Z", paused_at: "2026-10-01T08:05:00.000Z", paused_seconds: 0 }),
+        timer(2, OURS, { started_at: "2026-10-01T10:00:00.000Z", duration_seconds: 60, paused_seconds: 3600 }),
+        timer(3, OURS, { started_at: "2026-10-01T10:00:00.000Z", duration_seconds: 60 }),
+      ],
+    });
+    expect(await countActiveTimers(f.db, OURS, NOW)).toBe(2);
   });
 });

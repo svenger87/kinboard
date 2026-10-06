@@ -118,7 +118,7 @@ and nothing happened. The answer says when to try again.
 | too many edits and deletes — slow down | 30 edits and deletes per 10 minutes per connection |
 | too many messages — slow down | 5 messages to the screens per 10 minutes |
 | too many requests — slow down | 120 reads or 30 writes a minute per token |
-| `too_many_timers` | 10 timers running or ringing for the family; stop one first |
+| `too_many_timers` | 10 timers running, paused or ringing for the family; stop one first |
 | This assistant already has requests waiting for confirmation, or has asked too often | 2 requests waiting at once, 5 new ones per 10 minutes |
 
 These counters live in the Kinboard server's memory, so restarting the

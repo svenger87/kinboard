@@ -1,10 +1,14 @@
 import type { Timer } from "@/types/database";
 
-export type TimerState = "running" | "finished" | "dismissed";
+export type TimerState = "running" | "paused" | "finished" | "dismissed";
 
-/** When the timer is due, in epoch ms. */
-function endsAt(timer: Timer): number {
-  return Date.parse(timer.started_at) + timer.duration_seconds * 1000;
+/**
+ * When the timer is due, in epoch ms: its length after it was started, plus
+ * the time it has spent paused. For a paused timer this is the end it had
+ * when it was paused; resuming moves it by the length of the pause.
+ */
+export function endsAt(timer: Timer): number {
+  return Date.parse(timer.started_at) + (timer.duration_seconds + (timer.paused_seconds ?? 0)) * 1000;
 }
 
 /**
@@ -16,13 +20,15 @@ function endsAt(timer: Timer): number {
  * must not appear to add time.
  */
 export function remainingSeconds(timer: Timer, now: Date): number {
-  const ms = endsAt(timer) - now.getTime();
+  // A paused timer's clock stopped when it was paused.
+  const at = timer.paused_at ? Date.parse(timer.paused_at) : now.getTime();
+  const ms = endsAt(timer) - at;
   const seconds = Math.ceil(ms / 1000);
   return Math.max(0, Math.min(seconds, timer.duration_seconds));
 }
 
 /**
- * Dismissal wins over everything.
+ * Dismissal wins over everything, then a pause.
  *
  * Stopping a timer before it rings sets `dismissed_at`; without checking that
  * first, the same row would turn "finished" when its duration elapsed and
@@ -34,5 +40,7 @@ export function remainingSeconds(timer: Timer, now: Date): number {
  */
 export function timerState(timer: Timer, now: Date): TimerState {
   if (timer.dismissed_at) return "dismissed";
+  // Paused before its end, so it can't have run out: it waits, on every screen.
+  if (timer.paused_at) return "paused";
   return now.getTime() >= endsAt(timer) ? "finished" : "running";
 }

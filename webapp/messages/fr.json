@@ -4462,6 +4462,11 @@
     "finished": "Temps écoulé",
     "dismiss": "Ignorer",
     "stop": "Arrêter",
+    "pause": "Mettre en pause",
+    "resume": "Reprendre",
+    "paused": "En pause",
+    "pauseFailed": "Impossible de mettre ce minuteur en pause",
+    "resumeFailed": "Impossible de reprendre ce minuteur",
     "startFailed": "Impossible de lancer ce minuteur"
   },
   "media": {
