@@ -933,6 +933,8 @@ html[data-screensaver] nav {
   .creature-breathe, .creature-blink, .creature-flap, .creature-wobble, .creature-zzz, .creature-tail-sway,
   .creature-hop, .creature-shake, .creature-pop, .creature-grow-out, .creature-flash, .creature-particle, .creature-img-in {
     animation: none !important;
+  }
+}
 
 /* Settings search: a result opens its section under the fixed header and
    rings it for two seconds, so the eye lands on the right card
