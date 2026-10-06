@@ -162,7 +162,8 @@ site_url_for() {
   fi
 }
 
-existing_api_url="$(normalise_api_url "$(env_get API_EXTERNAL_URL)")"
+existing_api_raw="$(env_get API_EXTERNAL_URL)"
+existing_api_url="$(normalise_api_url "$existing_api_raw")"
 existing_site_url="$(env_get SITE_URL)"
 cli_url="${cli_url%/}"
 
@@ -176,6 +177,17 @@ elif [[ -n "$existing_api_url" && -n "$cli_url" ]]; then
   api_url="$cli_url"
 else
   api_url="$existing_api_url"
+fi
+
+# `same-origin`, written by somebody on purpose, stays written as it was:
+# empty is what setup.sh itself picks, `same-origin` is a decision.
+api_written="$api_url"
+if [[ -z "$api_url" ]]; then
+  if [[ $cli_api_url_set -eq 1 ]]; then
+    [[ -n "$cli_api_url" ]] && api_written="same-origin"
+  elif [[ $fresh_env -eq 0 ]] && [[ -n "$existing_api_raw" ]]; then
+    api_written="same-origin"
+  fi
 fi
 
 if [[ -n "$cli_url" ]]; then
@@ -210,7 +222,7 @@ site_url="${site_url%/}"
 
 # Force-update these even on idempotent re-runs. Use awk so JWT-style chars
 # are handled; append a key the file does not have yet.
-for kv in "API_EXTERNAL_URL=$api_url" "SITE_URL=$site_url" "ADDITIONAL_REDIRECT_URLS=$site_url"; do
+for kv in "API_EXTERNAL_URL=$api_written" "SITE_URL=$site_url" "ADDITIONAL_REDIRECT_URLS=$site_url"; do
   k="${kv%%=*}"; v="${kv#*=}"
   if ! grep -qE "^${k}=" "$DOCKER_ENV"; then
     printf '%s=\n' "$k" >> "$DOCKER_ENV"
@@ -570,11 +582,20 @@ if [[ $fresh_env -eq 1 ]]; then
 fi
 current_entry="$(env_get KINBOARD_ENTRY)"
 
-# The webapp in front and no API address: the browser would call /rest on the
-# webapp's port, and every call would 404. Give it the address the old setup
-# would have: SITE_URL's host on Kong's port, or SITE_URL itself when a proxy
-# fronts both on one name (no port to swap).
-if [[ "$current_entry" == "webapp" && -z "$api_url" ]]; then
+# The webapp in front (KINBOARD_ENTRY=webapp, or no line yet, which compose
+# treats the same) and no API address: the browser would call /rest on the
+# webapp's own port, and every call would 404. Give it the address the old
+# setup would have: SITE_URL's host on Kong's port, or SITE_URL itself when a
+# proxy fronts both on one name (no port to swap).
+#
+# That is also the answer for a deliberate `same-origin` on an install not
+# moved yet: the address is on SITE_URL's host, so it works now, and once
+# Kong is the front door the browser ignores it and uses the page's own
+# address (lib/supabase/api-base.ts) — which is what `same-origin` asked for.
+# A Kong install keeps `same-origin` exactly as written, and so does one
+# behind Traefik, where one domain already serves both.
+compose_files_now="${COMPOSE_FILES:-$(env_get COMPOSE_FILES)}"
+if [[ "${current_entry:-webapp}" != "kong" && -z "$api_url" && "$compose_files_now" != *traefik* ]]; then
   kong_port="$(env_get KONG_HTTP_PORT)"; kong_port="${kong_port:-8100}"
   webapp_port="$(env_get WEBAPP_PORT)"; webapp_port="${webapp_port:-3001}"
   if [[ "$site_url" =~ ^(https?://[^/]+):${webapp_port}$ ]]; then
@@ -582,8 +603,13 @@ if [[ "$current_entry" == "webapp" && -z "$api_url" ]]; then
   else
     api_url="$site_url"
   fi
+  if [[ "$api_written" == "same-origin" ]]; then
+    echo "⚠ API_EXTERNAL_URL=same-origin only works once Kong is the front door" >&2
+    echo "  (KINBOARD_ENTRY=kong). Until then the browser uses $api_url;" >&2
+    echo "  after the move it is ignored, being on SITE_URL's host." >&2
+  fi
   set_env_key API_EXTERNAL_URL "$api_url"
-  echo "  API_EXTERNAL_URL=$api_url (KINBOARD_ENTRY=webapp needs a separate API address)"
+  echo "  API_EXTERNAL_URL=$api_url (the webapp answers on its own port, so the API needs an address)"
 fi
 
 if [[ $fresh_env -eq 0 && -z "$current_entry" ]]; then

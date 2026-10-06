@@ -23,6 +23,11 @@
 #   5. docker restart kinboard-kong        — Kong's DB-less mode doesn't
 #      fully reload from `kong reload`. Only kicked if kong.yml's mtime
 #      is newer than kong's container start time.
+#   NOTE: `docker stop` on the webhook container ends this script without
+#   any trap running (the webhook binary is PID 1 and the script is killed
+#   with the container). A move between 3c and 4a then leaves
+#   webapp/docker/.env.pre-entry behind, and the next run (or ./start.sh up)
+#   puts KINBOARD_ENTRY and the layout back: that is the backstop.
 #   3c/4a/7. kinboard-entry.sh prepare / confirm / switch — an install with
 #      no KINBOARD_ENTRY in .env moves Kong onto port 3001 as the front door
 #      (RFC-018), only after a request through Kong to / reaches the app:
@@ -416,7 +421,13 @@ entry prepare
 WEBAPP_BEFORE="$(webapp_container)"
 log "docker compose $COMPOSE_FILES up -d --no-build $SERVICES"
 # shellcheck disable=SC2086
-docker compose $COMPOSE_FILES up -d --no-build $SERVICES >>"$LOG_FILE" 2>&1
+if ! docker compose $COMPOSE_FILES up -d --no-build $SERVICES >>"$LOG_FILE" 2>&1; then
+  # A failed up must not leave a move decided in 3c (KINBOARD_ENTRY=kong)
+  # unconfirmed: put the setting and the old layout back, and back off.
+  entry recover --restart --mark
+  log "=== self-update ABORTED: docker compose up failed ==="
+  exit 1
+fi
 
 # 4a. If 3c moved the port: Kong must publish it and the app answer through
 # it, or .env and the old layout are put back.

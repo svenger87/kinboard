@@ -19,6 +19,20 @@ test-results
 docker/data
 docker/.env
 
+# Everything else in docker/ that holds an install's secrets. None of it is
+# read at build time: the image takes only docker/migration*.sql and the
+# entrypoint, and kong.yml and diun.yml reach their containers from the host
+# through bind mounts. On an install that builds from source these files carry
+# real keys (setup.sh writes them in), and `COPY . .` would bake them into a
+# builder layer — as would the copies kinboard-entry.sh makes while it edits
+# them (RFC-018): its temp files, the saved KINBOARD_ENTRY line, its state.
+docker/.env*
+docker/*.entry-tmp.*
+docker/kong.yml
+docker/kong.yml.*
+docker/diun/diun.yml
+docker/diun/*.entry-tmp.*
+
 # Next.js env files. These are for `npm run dev` and must never reach a
 # build — Next inlines NEXT_PUBLIC_* at BUILD time, so whatever is in
 # .env.local is frozen into the client bundle no matter what the container

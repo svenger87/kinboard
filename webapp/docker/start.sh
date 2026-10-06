@@ -372,9 +372,11 @@ case "$cmd" in
     # An install from before KINBOARD_ENTRY moves to Kong as its front door
     # (RFC-018), but only once a request through Kong reaches the app;
     # anything less leaves it on the webapp and says why. No-op when .env
-    # already says kong or webapp. Decided before the up when the stack is
-    # already running (so one recreate covers a new image and the port),
-    # confirmed after it, with `switch` as the fallback. See kinboard-entry.sh.
+    # already says kong or webapp. When the stack is already running, prepare
+    # decides before the up (so one recreate covers a new image and the
+    # port); when it is not, prepare does nothing and `switch` decides after
+    # the up. confirm checks a decided move after the up. See
+    # kinboard-entry.sh.
     entry() {
       COMPOSE="$COMPOSE" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env KONG_YML=./kong.yml \
         sh ./kinboard-entry.sh "$@" || true
@@ -382,7 +384,17 @@ case "$cmd" in
     entry prepare
 
     webapp_before="$(webapp_container)"
+    set +e
     $COMPOSE $COMPOSE_FILES up -d
+    up_status=$?
+    set -e
+    if [[ $up_status -ne 0 ]]; then
+      # A failed up must not leave KINBOARD_ENTRY=kong behind unconfirmed:
+      # put the setting and the old layout back, and back off.
+      entry recover --restart --mark
+      echo "error: docker compose up failed" >&2
+      exit 1
+    fi
     recreate_scheduler_if_webapp_changed "$webapp_before"
     wait_for_migrations
 

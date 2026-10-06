@@ -43,7 +43,7 @@ Not moved automatically:
 - an install whose `API_EXTERNAL_URL` names a **different host** than `SITE_URL`, a separate API host. A proxy (Nginx Proxy Manager, Caddy, cloudflared) may send the app's name to the webapp container and only the API's name to Kong, and that would break. Such an install keeps working as it is and can opt in;
 - an install behind Traefik (below).
 
-If the move is interrupted (the update container killed halfway), `.env` is put back from `webapp/docker/.env.pre-entry` straight away, or, if nothing could run, on the next `./start.sh up` or update, which also puts the webapp back on its port.
+If the move is interrupted, only the `KINBOARD_ENTRY` line is put back; everything else in `.env` stays as it is. A stopped `./start.sh` (Ctrl-C) or a failed `docker compose up` does that on the spot, together with the old layout. When nothing can run (the update container stopped with `docker stop`, a power cut), `webapp/docker/.env.pre-entry` is left behind and nothing answers on 3001 until the next `./start.sh up` or update, which restores it. After a move was undone, no new attempt is made for 24 hours (`webapp/docker/.env.entry-state`; delete it to try again now, or set `ENTRY_RETRY_AFTER` in seconds).
 
 **Firewalls:** after the move, port 3001 belongs to the Kong container. Rules that name the port on the host are unaffected; rules keyed to the webapp container (Docker `DOCKER-USER` rules by container IP, or per-container firewall tools) have to follow it to Kong.
 
@@ -104,6 +104,7 @@ All driven from `webapp/docker/.env`. The shipped `.env.example` has comments ex
 | `API_EXTERNAL_URL` | *(empty)* | Empty: the browser uses the address it opened Kinboard from. Set only for a separate API host |
 | `KONG_HTTP_PORT` | `8100` | Kong's own host port, kept in both layouts |
 | `KONG_TRUSTED_IPS` | private ranges (`127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7`) | Whose `X-Forwarded-*` headers Kong believes (https, the client address). Traefik, cloudflared and the LAN are covered. Behind Cloudflare's proxy **without** a tunnel (orange cloud straight to your port), add [Cloudflare's ranges](https://www.cloudflare.com/ips/), or Kinboard sees every request as plain http from Cloudflare |
+| | | The private-range default assumes Docker hands Kong the client's own source address. Rootless Docker, IPv6 through the userland proxy and some NAS setups show every client as a Docker-internal address instead; there, set `KONG_TRUSTED_IPS` to the proxies you really have (or `127.0.0.1/32` if none) |
 | `KONG_REAL_IP_HEADER` / `KONG_REAL_IP_RECURSIVE` | `X-Forwarded-For` / `on` | How Kong finds the client behind those proxies; it passes the result to the webapp as `X-Real-IP` for its rate limits |
 | `KONG_WORKERS` | `2` | nginx worker processes in Kong — nginx would otherwise start one per host CPU |
 | `NETWORK_SUBNET` | `10.200.0.0/24` | Internal Docker network subnet (change if it collides) |
@@ -755,7 +756,7 @@ From the repo root, run:
 
 That sets `SITE_URL` (and `ADDITIONAL_REDIRECT_URLS`), the address Kinboard puts into links it hands to other apps, such as the calendar feed. Then restart the webapp so it picks up the new `SITE_URL`: `cd webapp/docker && ./start.sh up`.
 
-`API_EXTERNAL_URL` stays empty **on an install set up with 1.13 or later**. On an install from before 1.13 that still has an API address in `.env`, `--url` keeps its old meaning and sets `API_EXTERNAL_URL` to the domain too. That works (the domain is the same host as `SITE_URL`, and with Kong in front the browser then uses the page's own address anyway), but you can clear it: `./setup.sh --api-url same-origin --url https://kinboard.example.com`.
+`API_EXTERNAL_URL` stays empty **on an install set up with 1.13 or later**. On an install from before 1.13 that still has an API address in `.env`, `--url` keeps its old meaning and sets `API_EXTERNAL_URL` to the domain too. Leave it: it is the address the browser needs while the webapp still answers on 3001, and because it is on the same host as `SITE_URL`, the browser ignores it once Kong is the front door and uses the page's own address. (Setting `same-origin` on such an install changes nothing: `setup.sh` puts a working address back until the move.)
 
 #### Step 5: Check it
 

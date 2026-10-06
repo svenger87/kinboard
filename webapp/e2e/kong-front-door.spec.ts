@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -299,6 +299,15 @@ interface Stack {
   killOn?: string;
   /** A .env.pre-entry left behind by an earlier run. */
   preEntry?: string;
+  /** A .env.entry-state (the back-off after an undone move). */
+  state?: string;
+  /** No webapp container running (`compose ps -q webapp` prints nothing). */
+  webappDown?: boolean;
+  /** Each failing probe takes a second, like a real `compose exec` would. */
+  slowProbe?: boolean;
+  /** A plain `compose up -d` fails (a pull or port error mid-upgrade). */
+  upFails?: boolean;
+  extraEnv?: Record<string, string>;
 }
 
 function runEntry(cmd: string, env: string, kongYml: string, stack: Stack) {
@@ -310,52 +319,13 @@ function runEntry(cmd: string, env: string, kongYml: string, stack: Stack) {
   writeFileSync(join(dir, ".env"), env);
   writeFileSync(join(dir, "kong.yml"), kongYml);
   if (stack.preEntry !== undefined) writeFileSync(join(dir, ".env.pre-entry"), stack.preEntry);
-  const docker = `#!/bin/sh
-echo "docker $*" >> "$CALLS"
-if [ -n "$KILL_ON" ] && [ ! -f "$DIR/killed" ]; then
-  case "$*" in *"$KILL_ON"*) touch "$DIR/killed"; kill -TERM $PPID; sleep 1; exit 1 ;; esac
-fi
-case "$*" in
-  *"exec -T webapp curl"*)
-    if [ "$PROBE" = fail ]; then exit 7; fi
-    if [ -n "$NEEDS_RESTART" ] && [ ! -f "$DIR/restarted" ]; then
-      printf 'HTTP/1.1 404 Not Found\\r\\nServer: kong/3.9.3\\r\\n\\r\\n'; exit 0
-    fi
-    if [ "$PROBE" = app ]; then
-      printf 'HTTP/1.1 200 OK\\r\\nx-correlation-id: abc123\\r\\ncontent-type: text/html\\r\\n\\r\\n'
-    elif [ "$PROBE" = other200 ]; then
-      printf 'HTTP/1.1 200 OK\\r\\ncontent-type: text/html\\r\\n\\r\\n'
-    else
-      printf 'HTTP/1.1 404 Not Found\\r\\nServer: kong/3.9.3\\r\\n\\r\\n'
-    fi ;;
-  *"restart kong"*) touch "$DIR/restarted" ;;
-  *"ps -q kong"*) echo kongcid ;;
-  *"inspect -f {{.State.StartedAt}}"*) echo "2020-01-01T00:00:00.000000000Z" ;;
-  *"inspect -f"*) echo "$KONG_PORTS" ;;
-  *" config"*) if [ -n "$TRAEFIK" ]; then echo '      traefik.enable: "true"'; else echo 'services:'; fi ;;
-esac
-exit 0
-`;
-  writeFileSync(join(bin, "docker"), docker);
-  chmodSync(join(bin, "docker"), 0o755);
+  if (stack.state !== undefined) writeFileSync(join(dir, ".env.entry-state"), stack.state);
+  writeStub(bin);
   try {
     const r = spawnSync("sh", [ENTRY_SH, cmd], {
       cwd: dir,
       encoding: "utf8",
-      env: {
-        ...process.env,
-        PATH: `${bin}:${process.env.PATH}`,
-        CALLS: calls,
-        DIR: dir,
-        PROBE: stack.probe,
-        KONG_PORTS: stack.kongPorts ?? "8100 3001 ",
-        TRAEFIK: stack.traefik ? "1" : "",
-        NEEDS_RESTART: stack.needsRestart ? "1" : "",
-        KILL_ON: stack.killOn ?? "",
-        ENTRY_PROBE_ATTEMPTS: "2",
-        ENTRY_CONFIRM_ATTEMPTS: "2",
-        ENTRY_PROBE_INTERVAL: "0",
-      },
+      env: stubEnv(dir, bin, calls, stack),
     });
     const files = execFileSync("ls", ["-A", dir], { encoding: "utf8" }).split("\n").filter(Boolean);
     return {
@@ -368,6 +338,61 @@ exit 0
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+function stubEnv(dir: string, bin: string, calls: string, stack: Stack): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    PATH: `${bin}:${process.env.PATH}`,
+    CALLS: calls,
+    DIR: dir,
+    PROBE: stack.probe,
+    KONG_PORTS: stack.kongPorts ?? "8100 3001 ",
+    TRAEFIK: stack.traefik ? "1" : "",
+    NEEDS_RESTART: stack.needsRestart ? "1" : "",
+    KILL_ON: stack.killOn ?? "",
+    WEBAPP_DOWN: stack.webappDown ? "1" : "",
+    SLOW_PROBE: stack.slowProbe ? "1" : "",
+    UP_FAILS: stack.upFails ? "1" : "",
+    ENTRY_PROBE_ATTEMPTS: "2",
+    ENTRY_CONFIRM_ATTEMPTS: "2",
+    ENTRY_PROBE_INTERVAL: "0",
+    ...(stack.extraEnv ?? {}),
+  };
+}
+
+function writeStub(bin: string) {
+  const docker = `#!/bin/sh
+echo "docker $*" >> "$CALLS"
+if [ -n "$KILL_ON" ] && [ ! -f "$DIR/killed" ]; then
+  case "$*" in *"$KILL_ON"*) touch "$DIR/killed"; kill -TERM $PPID; sleep 1; exit 1 ;; esac
+fi
+case "$*" in
+  *"exec -T webapp curl"*)
+    if [ "$PROBE" = fail ]; then [ -n "$SLOW_PROBE" ] && sleep 1; exit 7; fi
+    if [ -n "$NEEDS_RESTART" ] && [ ! -f "$DIR/restarted" ]; then
+      printf 'HTTP/1.1 404 Not Found\\r\\nServer: kong/3.9.3\\r\\n\\r\\n'; exit 0
+    fi
+    if [ "$PROBE" = app ]; then
+      printf 'HTTP/1.1 200 OK\\r\\nx-correlation-id: abc123\\r\\ncontent-type: text/html\\r\\n\\r\\n'
+    elif [ "$PROBE" = other200 ]; then
+      printf 'HTTP/1.1 200 OK\\r\\ncontent-type: text/html\\r\\n\\r\\n'
+    else
+      printf 'HTTP/1.1 404 Not Found\\r\\nServer: kong/3.9.3\\r\\n\\r\\n'
+    fi ;;
+  *"restart kong"*) touch "$DIR/restarted" ;;
+  *"up -d --no-deps"*) ;;
+  *" up -d"*) [ -n "$UP_FAILS" ] && exit 1 ;;
+  *"ps -q kong"*) echo kongcid ;;
+  *"ps -q webapp"*) [ -z "$WEBAPP_DOWN" ] && echo webcid ;;
+  *"inspect -f {{.State.StartedAt}}"*) echo "2020-01-01T00:00:00.000000000Z" ;;
+  *"inspect -f"*) echo "$KONG_PORTS" ;;
+  *" config"*) if [ -n "$TRAEFIK" ]; then echo '      traefik.enable: "true"'; else echo 'services:'; fi ;;
+esac
+exit 0
+`;
+  writeFileSync(join(bin, "docker"), docker);
+  chmodSync(join(bin, "docker"), 0o755);
 }
 const runSwitch = (env: string, kongYml: string, stack: Stack) => runEntry("switch", env, kongYml, stack);
 
@@ -434,7 +459,7 @@ test.describe("moving an existing install to Kong only after the check", () => {
     const r = runSwitch(EXISTING_ENV, WITH_ROUTE, { probe: "app", kongPorts: "8100 " });
     expect(r.env).toBe(EXISTING_ENV);
     expect(ups(r.calls)).toEqual(["webapp", "kong", "kong", "webapp"]);
-    expect(r.out).toContain("staying on webapp: Kong did not get port 3001; .env restored");
+    expect(r.out).toContain("staying on webapp: Kong did not get port 3001; KINBOARD_ENTRY restored");
     expect(r.leftovers).not.toContain(".env.pre-entry");
   });
 
@@ -490,35 +515,153 @@ test.describe("a move that is interrupted", () => {
     expect(r.leftovers.some((f) => f.includes("entry-tmp"))).toBe(false);
   });
 
-  test("killed hard (no trap runs): the next run finds .env.pre-entry and puts everything back", () => {
-    const r = runSwitch(`${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "app", preEntry: EXISTING_ENV });
+  test("killed hard (no trap runs): the next run finds .env.pre-entry and puts KINBOARD_ENTRY back", () => {
+    const r = runSwitch(`${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "app", preEntry: "" });
     expect(r.env).toBe(EXISTING_ENV);
     expect(ups(r.calls)).toEqual(["kong", "webapp"]);
     expect(r.out).toContain("did not finish");
     expect(r.leftovers).not.toContain(".env.pre-entry");
+    expect(r.leftovers).toContain(".env.entry-state");
   });
 
-  test("before an `up`, prepare puts only .env back and leaves the containers to that up", () => {
-    const r = runEntry("prepare", `${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "app", preEntry: EXISTING_ENV });
+  test("the recovery restores only KINBOARD_ENTRY; what setup.sh or a person wrote since stays", () => {
+    // The move appended KINBOARD_ENTRY=kong; then setup.sh filled a new key
+    // and someone changed SITE_URL, then the run was killed.
+    const now = EXISTING_ENV.replace("SITE_URL=http://192.168.1.50:3001", "SITE_URL=https://kinboard.example.com")
+      + "KINBOARD_ENTRY=kong\nNEW_SECRET=filled-by-setup\n";
+    const want = EXISTING_ENV.replace("SITE_URL=http://192.168.1.50:3001", "SITE_URL=https://kinboard.example.com")
+      + "NEW_SECRET=filled-by-setup\n";
+    for (const cmd of ["switch", "prepare", "recover"]) {
+      // The legacy full-copy form of .env.pre-entry must not be pasted back either.
+      for (const pre of ["", EXISTING_ENV]) {
+        expect(runEntry(cmd, now, WITH_ROUTE, { probe: "app", preEntry: pre }).env, `${cmd} ${pre.length}`).toBe(want);
+      }
+    }
+  });
+
+  test("an explicit value that existed before the move is what comes back", () => {
+    const r = runEntry("recover", `${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "app", preEntry: "export KINBOARD_ENTRY=webapp\n" });
+    expect(r.env).toBe(`${EXISTING_ENV}export KINBOARD_ENTRY=webapp\n`);
+  });
+
+  test("before an `up`, prepare puts only KINBOARD_ENTRY back, leaves the containers to that up, and backs off", () => {
+    const r = runEntry("prepare", `${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "app", preEntry: "" });
     expect(r.env).toBe(EXISTING_ENV);
     expect(ups(r.calls)).toEqual([]);
-    // ...and tells the switch fallback later in the same run not to try again.
-    expect(r.leftovers).toContain(".env.entry-undone");
+    expect(r.leftovers).toContain(".env.entry-state");
+  });
+});
+
+test.describe("backing off after an undone move", () => {
+  const recent = () => `undone_at=${Math.floor(Date.now() / 1000) - 60}\n`;
+  const old = () => `undone_at=${Math.floor(Date.now() / 1000) - 2 * 86400}\n`;
+
+  test("within a day of an undone move nothing tries again, and says when it will", () => {
+    for (const cmd of ["switch", "prepare"]) {
+      const r = runEntry(cmd, EXISTING_ENV, WITH_ROUTE, { probe: "app", state: recent() });
+      expect(r.env, cmd).toBe(EXISTING_ENV);
+      expect(r.calls.filter((c) => c.includes("curl") || / up -d /.test(c)), cmd).toEqual([]);
+      expect(r.out, cmd).toMatch(/undone recently; trying again in \d+ min \(delete .*\.env\.entry-state to try now\)/);
+    }
   });
 
-  test("a switch after an undone move waits for the next run, once", () => {
-    const dir = tmp("entry-undone-");
+  test("after the window it tries again, and a confirmed move clears the state", () => {
+    const r = runSwitch(EXISTING_ENV, WITH_ROUTE, { probe: "app", state: old() });
+    expect(r.env).toBe(`${EXISTING_ENV}KINBOARD_ENTRY=kong\n`);
+    expect(r.leftovers).not.toContain(".env.entry-state");
+  });
+
+  test("a switch right after a confirmed move says the setting is there, not that something was undone", () => {
+    const r = runSwitch(`${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "app" });
+    expect(r.out).toContain("KINBOARD_ENTRY=kong is set in .env; leaving it");
+    expect(r.out).not.toContain("undone");
+  });
+});
+
+/**
+ * N2 of the re-review: ./start.sh calls `entry confirm || true` and then
+ * `entry switch`. A Ctrl-C during confirm used to restore the old layout,
+ * exit 130 "normally", and let bash carry on into switch, which moved the
+ * port straight back: four `up -d` calls. The interrupt is now re-raised, so
+ * the calling shell stops, and the back-off would stop switch anyway.
+ */
+test.describe("Ctrl-C while a move is being confirmed", () => {
+  test("puts the old layout back once, and nothing moves it again in the same run", async () => {
+    const dir = tmp("entry-sigint-");
+    const bin = join(dir, "bin");
+    mkdirSync(bin);
+    const calls = join(dir, "calls");
+    writeFileSync(calls, "");
+    writeFileSync(join(dir, ".env"), `${EXISTING_ENV}KINBOARD_ENTRY=kong\n`);
+    writeFileSync(join(dir, ".env.pre-entry"), "");
+    writeFileSync(join(dir, "kong.yml"), WITH_ROUTE);
+    writeStub(bin);
+    writeFileSync(
+      join(dir, "caller.sh"),
+      `set -euo pipefail\nentry() { sh ${JSON.stringify(ENTRY_SH)} "$@" || true; }\nentry confirm\necho CALLER-CONTINUED\nentry switch\n`,
+    );
     try {
-      writeFileSync(join(dir, ".env"), EXISTING_ENV);
-      writeFileSync(join(dir, ".env.entry-undone"), "");
-      writeFileSync(join(dir, "kong.yml"), WITH_ROUTE);
-      const out = execFileSync("sh", [ENTRY_SH, "switch"], { cwd: dir, encoding: "utf8", env: { ...process.env, PATH: "/nonexistent:/usr/bin:/bin" } });
-      expect(out).toContain("trying again on the next run");
+      const env = stubEnv(dir, bin, calls, { probe: "fail", slowProbe: true, extraEnv: { ENTRY_CONFIRM_ATTEMPTS: "30" } });
+      const child = spawn("bash", [join(dir, "caller.sh")], { cwd: dir, env, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+      let out = "";
+      child.stdout.on("data", (d) => (out += d));
+      child.stderr.on("data", (d) => (out += d));
+      // Wait until confirm is probing, then Ctrl-C the whole process group, as a terminal does.
+      for (let i = 0; i < 100 && !readFileSync(calls, "utf8").includes("curl"); i++) await new Promise((r) => setTimeout(r, 100));
+      process.kill(-child.pid!, "SIGINT");
+      await new Promise((r) => child.on("exit", r));
+      const ran = readFileSync(calls, "utf8").split("\n").filter(Boolean);
+      expect(ups(ran)).toEqual(["kong", "webapp"]);
+      expect(out).not.toContain("CALLER-CONTINUED");
       expect(readFileSync(join(dir, ".env"), "utf8")).toBe(EXISTING_ENV);
-      expect(execFileSync("ls", ["-A", dir], { encoding: "utf8" }).split("\n").filter(Boolean).sort()).toEqual([".env", "kong.yml"]);
+      const left = execFileSync("ls", ["-A", dir], { encoding: "utf8" });
+      expect(left).not.toContain(".env.pre-entry");
+      expect(left).toContain(".env.entry-state");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+/**
+ * N5 of the re-review: prepare has written KINBOARD_ENTRY=kong, then the `up`
+ * itself fails. start.sh (under set -e) must not leave that unconfirmed.
+ */
+test.describe("a failed `up` after the move was decided", () => {
+  test("./start.sh up puts KINBOARD_ENTRY and the old layout back and exits non-zero", () => {
+    const dir = tmp("entry-upfail-");
+    const bin = join(dir, "bin");
+    mkdirSync(bin);
+    const calls = join(dir, "calls");
+    writeFileSync(calls, "");
+    for (const f of ["start.sh"]) copyFileSync(join("docker", f), join(dir, f));
+    copyFileSync(ENTRY_SH, join(dir, "kinboard-entry.sh"));
+    const env = `${EXISTING_ENV}COMPOSE_FILES="-f docker-compose.yml"\nDATA_DIR=${dir}/data\n`;
+    writeFileSync(join(dir, ".env"), env);
+    writeFileSync(join(dir, "kong.yml"), WITH_ROUTE);
+    writeStub(bin);
+    try {
+      const r = spawnSync("bash", [join(dir, "start.sh"), "up"], {
+        cwd: dir,
+        encoding: "utf8",
+        env: stubEnv(dir, bin, calls, { probe: "app", upFails: true }),
+      });
+      expect(r.status).not.toBe(0);
+      expect(`${r.stdout}${r.stderr}`).toContain("docker compose up failed");
+      expect(readFileSync(join(dir, ".env"), "utf8")).toBe(env);
+      const ran = readFileSync(calls, "utf8").split("\n").filter(Boolean);
+      expect(ups(ran)).toEqual(["kong", "webapp"]);
+      const left = execFileSync("ls", ["-A", dir], { encoding: "utf8" });
+      expect(left).not.toContain(".env.pre-entry");
+      expect(left).toContain(".env.entry-state");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("the self-update does the same", () => {
+    const src = readFileSync("docker/kinboard-self-update.sh", "utf8");
+    expect(src).toMatch(/if ! docker compose \$COMPOSE_FILES up -d --no-build \$SERVICES[^\n]*; then\n(?:\s*#[^\n]*\n)*\s*entry recover --restart --mark\n/);
   });
 });
 
@@ -530,6 +673,29 @@ test.describe("deciding before the upgrade's `up` (one webapp restart, not two)"
     expect(ups(r.calls)).toEqual([]);
   });
 
+  test("prepare does not probe a stack that is not running (no three-minute wait before the first up)", () => {
+    const t0 = Date.now();
+    const r = runEntry("prepare", EXISTING_ENV, WITH_ROUTE, {
+      probe: "fail",
+      webappDown: true,
+      slowProbe: true,
+      extraEnv: { ENTRY_PROBE_ATTEMPTS: "36", ENTRY_PROBE_INTERVAL: "5" },
+    });
+    expect(r.calls.some((c) => c.includes("curl"))).toBe(false);
+    expect(r.out).toContain("the stack is not running");
+    expect(Date.now() - t0).toBeLessThan(5_000);
+  });
+
+  test("prepare probes a running stack only briefly; the full wait is for after the up", () => {
+    const r = runEntry("prepare", EXISTING_ENV, WITH_ROUTE, {
+      probe: "fail",
+      extraEnv: { ENTRY_PROBE_ATTEMPTS: "36", ENTRY_PREPARE_ATTEMPTS: "3" },
+    });
+    // One probe, then (Kong predates the route) a restart and three more.
+    expect(r.calls.filter((c) => c.includes("curl")).length).toBe(4);
+    expect(r.env).toBe(EXISTING_ENV);
+  });
+
   test("prepare without a passing check changes nothing", () => {
     const r = runEntry("prepare", EXISTING_ENV, WITH_ROUTE, { probe: "kong404" });
     expect(r.env).toBe(EXISTING_ENV);
@@ -537,18 +703,18 @@ test.describe("deciding before the upgrade's `up` (one webapp restart, not two)"
   });
 
   test("confirm after the up: done when Kong has the port and the app answers", () => {
-    const r = runEntry("confirm", `${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "app", preEntry: EXISTING_ENV });
+    const r = runEntry("confirm", `${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "app", preEntry: "" });
     expect(r.env).toBe(`${EXISTING_ENV}KINBOARD_ENTRY=kong\n`);
     expect(r.leftovers).not.toContain(".env.pre-entry");
     expect(ups(r.calls)).toEqual([]);
   });
 
   test("confirm after the up: otherwise .env and the old layout come back", () => {
-    const r = runEntry("confirm", `${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "kong404", preEntry: EXISTING_ENV });
+    const r = runEntry("confirm", `${EXISTING_ENV}KINBOARD_ENTRY=kong\n`, WITH_ROUTE, { probe: "kong404", preEntry: "" });
     expect(r.env).toBe(EXISTING_ENV);
     expect(ups(r.calls)).toEqual(["kong", "webapp"]);
     expect(r.out).toContain("staying on webapp: the webapp did not answer through Kong after the move");
-    expect(r.leftovers).toContain(".env.entry-undone");
+    expect(r.leftovers).toContain(".env.entry-state");
   });
 });
 
@@ -605,7 +771,7 @@ test.describe("the scripts that run the switch", () => {
     // A shell copy of KINBOARD_ENTRY would beat the rewritten .env in compose.
     expect(at("unset KINBOARD_ENTRY")).toBeGreaterThan(at("source ./.env"));
     const prepare = at("    entry prepare\n");
-    const up = at("    $COMPOSE $COMPOSE_FILES up -d\n");
+    const up = at("    $COMPOSE $COMPOSE_FILES up -d\n    up_status=$?\n");
     const wait = at("    wait_for_migrations\n");
     const confirm = at("    entry confirm\n");
     const sw = at("    entry switch\n");
@@ -771,6 +937,48 @@ test.describe("setup.sh", () => {
       // ...and a domain without a port keeps the old one-name answer.
       setup(root, ["--url", "https://kinboard.example.com"]);
       expect(valueOf(envOf(root), "API_EXTERNAL_URL")).toBe("https://kinboard.example.com");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("API_EXTERNAL_URL=same-origin: kept on a Kong install; on one not moved yet, a working address that the move then ignores", () => {
+    const root = scratchRepo();
+    try {
+      setup(root);
+      const envFile = join(root, "webapp", "docker", ".env");
+      const edit = (f: (e: string) => string) => writeFileSync(envFile, f(readFileSync(envFile, "utf8")));
+      const lan = (e: string) => e.replace(/^SITE_URL=.*$/m, "SITE_URL=http://192.168.1.50:3001").replace(/^ADDITIONAL_REDIRECT_URLS=.*$/m, "ADDITIONAL_REDIRECT_URLS=http://192.168.1.50:3001");
+
+      // Kong in front: a deliberate same-origin is left exactly as written.
+      edit((e) => lan(e).replace(/^API_EXTERNAL_URL=.*$/m, "API_EXTERNAL_URL=same-origin"));
+      setup(root);
+      expect(valueOf(envOf(root), "API_EXTERNAL_URL")).toBe("same-origin");
+
+      // Not moved yet (no KINBOARD_ENTRY, i.e. the webapp layout): the old
+      // address on SITE_URL's host, and a warning.
+      edit((e) => e.replace(/^KINBOARD_ENTRY=.*\n/m, ""));
+      const out = spawnSync("bash", [join(root, "setup.sh"), "--non-interactive"], {
+        cwd: root, encoding: "utf8", input: "", env: { ...process.env, PATH: `${join(root, "bin")}:${process.env.PATH}` },
+      });
+      const env = envOf(root);
+      expect(valueOf(env, "API_EXTERNAL_URL")).toBe("http://192.168.1.50:8100");
+      expect(out.stderr).toContain("same-origin only works once Kong is the front door");
+      // It works now (webapp layout: that address)...
+      const vars = { API_EXTERNAL_URL: valueOf(env, "API_EXTERNAL_URL"), SITE_URL: valueOf(env, "SITE_URL") };
+      expect(browserApiUrl({ KINBOARD_ENTRY: "webapp", ...vars })).toBe("http://192.168.1.50:8100");
+      // ...and after the move the browser uses the page's own address.
+      expect(browserApiUrl({ KINBOARD_ENTRY: "kong", ...vars })).toBeNull();
+
+      // An empty address on a not-moved install gets the same.
+      edit((e) => e.replace(/^API_EXTERNAL_URL=.*$/m, "API_EXTERNAL_URL="));
+      setup(root);
+      expect(valueOf(envOf(root), "API_EXTERNAL_URL")).toBe("http://192.168.1.50:8100");
+
+      // Behind Traefik one domain serves both: left alone.
+      edit((e) => e.replace(/^API_EXTERNAL_URL=.*$/m, "API_EXTERNAL_URL=") + 'COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml"\n');
+      setup(root);
+      expect(valueOf(envOf(root), "API_EXTERNAL_URL")).toBe("");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
