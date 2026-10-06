@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft, 2026-10-06 |
+| **Status** | Accepted 2026-10-06 (§8); implementation in progress |
 | **Prompted by** | Discussion #349 (a household running Kinboard behind a Cloudflare Tunnel) |
 
 ## 1. Why
@@ -100,10 +100,34 @@ affected columns: `recipes.image_url`, `catalogue_items.image_url`,
   byte except the added route.
 - Separate-host mode (today's behaviour) keeps passing the existing suite.
 
-## 7. Open questions
+## 7. Decisions (2026-10-06)
 
-1. Option A, B or C (§3)?
-2. Should same-origin become the default for new installs straight away, or
-   ship opt-in for one release first?
-3. With option A, do households open Kong's port (8100) for everything, or does
-   Kong move to the webapp's familiar port (3001) and the webapp move inside?
+1. **Option A**: Kong is the front door.
+2. **Same-origin is the default for new installs** straight away.
+3. **Kong takes port 3001**, the address households already know, and the
+   webapp is only reachable inside the stack.
+
+## 8. Rolling it out without breaking existing installs
+
+The port swap is the dangerous part. If an existing install's Kong moved onto
+3001 while its `kong.yml` lacked the catch-all route, every bookmark would land
+on a Kong 404, which is a full outage. So:
+
+- **The switch is a single setting**, `KINBOARD_ENTRY=kong` (new installs)
+  versus `webapp` (today's layout, the default for existing installs). It
+  decides which container publishes `WEBAPP_PORT` (3001) and whether the
+  browser uses `window.location.origin` or `API_EXTERNAL_URL`.
+- **`setup.sh` and the self-update add the catch-all route to `kong.yml` first**,
+  leaving every other line and every secret untouched. They switch an existing
+  install to `kong` only after a check confirms the route is present: a
+  request through Kong to `/` returns the app.
+- **If the check fails, the install stays on `webapp`** and logs why. Nothing
+  changes for it.
+- **Kong keeps its own port (8100) as well**, so an existing
+  `API_EXTERNAL_URL` keeps working during and after the switch.
+- **Installs behind Traefik** (the overlay routes to the containers inside the
+  stack) are unaffected by host ports. They get the simpler one-route overlay
+  as an option.
+- **In development** (`next dev` outside Docker), the browser keeps using
+  `NEXT_PUBLIC_SUPABASE_URL`; same-origin is a property of the containerised
+  stack.
