@@ -63,13 +63,20 @@ export function useCreatePocketMoneyAccount() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...input, family_id: family?.id }),
       });
+      // The server wants the PIN again (RFC-010 §3.5): PinGuard re-prompts
+      // and says why, so this is not an error to toast as well.
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return null;
+      }
       if (!r.ok) {
         const err = (await r.json().catch(() => ({}))) as { error?: string };
         throw new Error(err.error ?? `create: ${r.status}`);
       }
       return ((await r.json()) as { account: PocketMoneyAccount }).account;
     },
-    onSuccess: () => {
+    onSuccess: (account) => {
+      if (!account) return;
       qc.invalidateQueries({ queryKey: [KEY, family?.id] });
     },
   });
@@ -91,7 +98,9 @@ export function useUpdatePocketMoneyAccount() {
         body: JSON.stringify({ ...update, family_id: family?.id }),
       });
       if (!r.ok) {
-        // Changing what the avatar grows with needs the settings PIN.
+        // Allowance, interest, currency, species and the reward mode need the
+        // settings PIN on the server (#359); the per-page-load avatar-stage
+        // write never does, so a kid's own screen is never relocked.
         if (await isPinRequired(r)) {
           relockSettings();
           throw new Error("pin_required");
@@ -101,6 +110,7 @@ export function useUpdatePocketMoneyAccount() {
       return ((await r.json()) as { account: PocketMoneyAccount }).account;
     },
     onSuccess: (saved) => {
+      if (!saved) return;
       qc.invalidateQueries({ queryKey: [KEY, family?.id] });
       qc.invalidateQueries({ queryKey: [KEY, "one", saved.id] });
     },
@@ -116,9 +126,15 @@ export function useDeletePocketMoneyAccount() {
         `/api/pocket-money/accounts/${id}?family_id=${family?.id ?? ""}`,
         { method: "DELETE" },
       );
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return false;
+      }
       if (!r.ok) throw new Error(`delete: ${r.status}`);
+      return true;
     },
-    onSuccess: () => {
+    onSuccess: (deleted) => {
+      if (!deleted) return;
       qc.invalidateQueries({ queryKey: [KEY, family?.id] });
     },
   });
@@ -155,13 +171,18 @@ export function useCreatePocketMoneyTransaction() {
           family_id: family?.id,
         }),
       });
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return null;
+      }
       if (!r.ok) {
         const err = (await r.json().catch(() => ({}))) as { error?: string };
         throw new Error(err.error ?? `txn: ${r.status}`);
       }
       return r.json();
     },
-    onSuccess: (_, vars) => {
+    onSuccess: (result, vars) => {
+      if (!result) return;
       qc.invalidateQueries({ queryKey: [KEY, "transactions", vars.accountId] });
       qc.invalidateQueries({ queryKey: [KEY, "one", vars.accountId] });
       qc.invalidateQueries({ queryKey: [KEY] });

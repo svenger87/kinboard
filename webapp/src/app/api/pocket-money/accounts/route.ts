@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import type { PocketMoneyAccountInsert } from "@/types/database";
 import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { requireSettingsUnlock } from "@/lib/settings-pin";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,13 @@ export async function POST(request: NextRequest) {
   if (!familyMatchesSession(auth.session, body.family_id)) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
+
+  // Setting up a child's pocket-money account — picking the avatar, currency
+  // and starting settings — is a parent's call, made from the settings
+  // screen; the server checks for the PIN unlock rather than trusting that
+  // the screen already asked.
+  const locked = await requireSettingsUnlock(auth.session);
+  if (locked) return locked;
 
   const supabase = createAdminClient();
 

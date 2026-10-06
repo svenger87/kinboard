@@ -112,6 +112,41 @@ export function useDismissTimer() {
   });
 }
 
+/**
+ * Pause or resume (lib/timers.ts). The server's row goes into the cache at
+ * once, so the button and the frozen time change with the tap, not on the
+ * next refetch. A fetch already in flight is cancelled first: answered after
+ * this, it would put the row back as it was before the tap (see `forget`).
+ */
+function useTimerAction(action: "pause" | "resume") {
+  const qc = useQueryClient();
+  const { family } = useFamilyStore();
+  return useMutation({
+    mutationFn: async (id: string): Promise<Timer> => {
+      const r = await fetch(`/api/timers/${id}/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ family_id: family!.id }),
+      });
+      if (!r.ok) throw new Error(`${action} timer: ${r.status}`);
+      return ((await r.json()) as { timer: Timer }).timer;
+    },
+    onSuccess: async (timer) => {
+      await qc.cancelQueries({ queryKey: [KEY, family?.id] });
+      qc.setQueryData<Timer[]>([KEY, family?.id], (old) => old?.map((x) => (x.id === timer.id ? timer : x)));
+      void qc.invalidateQueries({ queryKey: [KEY, family?.id] });
+    },
+  });
+}
+
+export function usePauseTimer() {
+  return useTimerAction("pause");
+}
+
+export function useResumeTimer() {
+  return useTimerAction("resume");
+}
+
 export function useDeleteTimer() {
   const qc = useQueryClient();
   const { family } = useFamilyStore();

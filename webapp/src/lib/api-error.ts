@@ -45,7 +45,7 @@ export const API_ERROR_CODES = [
   // told 401 may reasonably stop using its token; one told 503 retries.
   "unavailable",
   "internal_error",
-  // A family already has as many timers running or ringing as an assistant
+  // A family already has as many timers running, paused or ringing as an assistant
   // may start (lib/timers.ts). 429 like rate_limited, but waiting helps only
   // slowly — a timer has to be stopped or dismissed, or ring unanswered for
   // an hour, before it stops counting.

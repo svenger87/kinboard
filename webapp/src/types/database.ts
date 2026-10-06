@@ -1366,6 +1366,10 @@ export interface Database {
           started_at: string;
           finished_at: string | null;
           dismissed_at: string | null;
+          /** Set while paused: the timer's clock stopped then. */
+          paused_at: string | null;
+          /** Time spent paused so far, whole seconds: it runs out at started_at + duration_seconds + paused_seconds. */
+          paused_seconds: number;
           created_at: string;
           updated_at: string;
         };
@@ -1377,6 +1381,8 @@ export interface Database {
           started_at?: string;
           finished_at?: string | null;
           dismissed_at?: string | null;
+          paused_at?: string | null;
+          paused_seconds?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -1388,6 +1394,8 @@ export interface Database {
           started_at?: string;
           finished_at?: string | null;
           dismissed_at?: string | null;
+          paused_at?: string | null;
+          paused_seconds?: number;
           created_at?: string;
           updated_at?: string;
         };

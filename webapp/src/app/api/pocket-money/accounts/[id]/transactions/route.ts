@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import type { PocketMoneyTransactionInsert } from "@/types/database";
 import { familyIdFrom, rowInFamily, accountInFamily } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { bookPocketMoney, type RpcClient, type TransactionType } from "@/lib/pocket-money/booking";
 
 export const dynamic = "force-dynamic";
@@ -105,6 +106,13 @@ export async function POST(
   if (!familyMatchesSession(auth.session, familyId)) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
+
+  // Posting a transaction directly (a parent's manual deposit or withdrawal
+  // on the settings screen) moves real money with no request to approve
+  // first, so it needs the same server-side settings unlock as approving
+  // one does. Nothing on the kid side calls this route.
+  const locked = await requireSettingsUnlock(auth.session);
+  if (locked) return locked;
 
   if (!(await accountInFamily(supabase, accountId, familyId))) {
     return NextResponse.json({ error: "not found" }, { status: 404 });

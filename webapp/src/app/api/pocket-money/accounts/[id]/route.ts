@@ -12,6 +12,24 @@ const VALID_SPECIES: ReadonlySet<string> = new Set(
   avatarCatalog.species.map((s) => s.id),
 );
 
+/**
+ * This PATCH also carries the kid-side avatar-stage tracking
+ * (last_seen_tier, best_tier), written on every visit to /pocket-money so a
+ * child's own device must reach it with no PIN. Everything else here is a
+ * parental setting — allowance, interest, currency, the avatar species picked
+ * at setup — so the PIN check is per-field, not on the route as a whole.
+ */
+const PIN_PROTECTED_FIELDS = [
+  "currency",
+  "apr_bps",
+  "weekly_allowance_cents",
+  "allowance_day_of_week",
+  "allowance_interval_days",
+  "max_balance_eligible_cents",
+  "interest_committed_day_of_week",
+  "avatar_species",
+] as const;
+
 // GET /api/pocket-money/accounts/[id]
 export async function GET(
   request: NextRequest,
@@ -65,6 +83,11 @@ export async function PATCH(
 
   if (!familyMatchesSession(auth.session, familyId)) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
+  }
+
+  if (PIN_PROTECTED_FIELDS.some((field) => body[field] !== undefined)) {
+    const locked = await requireSettingsUnlock(auth.session);
+    if (locked) return locked;
   }
 
   // Whitelist editable fields. balance_cents, lifetime_saved_cents,
@@ -143,6 +166,9 @@ export async function DELETE(
   if (!familyMatchesSession(auth.session, familyId)) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
+
+  const locked = await requireSettingsUnlock(auth.session);
+  if (locked) return locked;
 
   const supabase = createAdminClient();
 

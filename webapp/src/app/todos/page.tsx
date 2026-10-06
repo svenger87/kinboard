@@ -107,6 +107,7 @@ import {
   nextWeekdayDueDate,
   recurrenceWeekdays,
 } from "@/lib/todo-recurrence";
+import { matchesStatus, todoCounts } from "@/lib/todo-counts";
 import { WeekdayPicker, useWeekdaysLabel } from "@/components/weekday-picker";
 import { TodoTurnFields, TurnStrip } from "@/components/todo-turn-fields";
 import { useTodoHistory } from "@/hooks/use-todo-history";
@@ -446,8 +447,8 @@ export default function TodosPage() {
   // Filter tasks (memoized)
   const filteredTasks = useMemo(() => (todos || []).filter((task) => {
     if (filterPerson !== "all" && personOf(task) !== filterPerson) return false;
-    if (filterStatus === "active" && task.completed) return false;
-    if (filterStatus === "completed" && !task.completed) return false;
+    // Open and done as the counts above the list say (lib/todo-counts.ts).
+    if (!matchesStatus(task, filterStatus)) return false;
     if (filterRecurrence === "recurring" && (!task.recurrence || task.recurrence === "once")) return false;
     if (filterRecurrence === "once" && task.recurrence && task.recurrence !== "once") return false;
     return true;
@@ -476,15 +477,20 @@ export default function TodosPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- getEffectiveDueDate reads todayKey, which is today
   }), [filteredTasks, todayKey]);
 
-  const { totalCount, completedCount, activeCount, recurringCount } = useMemo(() => {
-    const all = todos || [];
+  // Open and done as the Home widget counts them: a recurring task done until
+  // it comes round again is done, not open (lib/todo-counts.ts). Only
+  // "Delete completed" counts ticked-off rows, which is what it removes.
+  const { totalCount, doneCount, completedCount, activeCount, recurringCount } = useMemo(() => {
+    const counts = todoCounts(todos || []);
     return {
-      totalCount: all.length,
-      completedCount: all.filter((t) => t.completed).length,
-      activeCount: all.filter((t) => !t.completed).length,
-      recurringCount: all.filter((t) => t.recurrence && t.recurrence !== "once").length,
+      totalCount: counts.total,
+      doneCount: counts.done,
+      completedCount: counts.completed,
+      activeCount: counts.open,
+      recurringCount: counts.recurring,
     };
-  }, [todos]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- isTodoOpen reads the clock; todayKey moves the counts on with the day
+  }, [todos, todayKey]);
 
   return (
     <TooltipProvider>
@@ -495,14 +501,14 @@ export default function TodosPage() {
         <div className="relative z-10 p-4 md:p-8 max-w-6xl mx-auto safe-area-inset overflow-x-hidden">
           <PageHeader
             title={t("title")}
-            subtitle={t("subtitle", { active: activeCount, recurring: recurringCount, completed: completedCount })}
+            subtitle={t("subtitle", { active: activeCount, recurring: recurringCount, completed: doneCount })}
             backHref="/"
             className="mb-8"
             iconSlot={
               <div
                 className="relative size-11 shrink-0"
                 role="img"
-                aria-label={t("progressAria", { percent: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0, completed: completedCount, total: totalCount })}
+                aria-label={t("progressAria", { percent: totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0, completed: doneCount, total: totalCount })}
               >
                 <svg viewBox="0 0 44 44" className="size-11 -rotate-90" aria-hidden="true">
                   <circle
@@ -519,7 +525,7 @@ export default function TodosPage() {
                     strokeWidth="3"
                     strokeLinecap="round"
                     strokeDasharray={`${2 * Math.PI * 18}`}
-                    strokeDashoffset={`${2 * Math.PI * 18 * (1 - (totalCount > 0 ? completedCount / totalCount : 0))}`}
+                    strokeDashoffset={`${2 * Math.PI * 18 * (1 - (totalCount > 0 ? doneCount / totalCount : 0))}`}
                     className="transition-all duration-700"
                   />
                 </svg>
@@ -527,7 +533,7 @@ export default function TodosPage() {
                   className="absolute inset-0 flex items-center justify-center text-xs font-bold text-month-primary tabular-nums"
                   aria-hidden="true"
                 >
-                  {totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0}%
+                  {totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0}%
                 </span>
               </div>
             }
@@ -883,7 +889,7 @@ export default function TodosPage() {
               return ed.toDateString() === todayStr;
             }).length;
             const recurringDueCount = allTodos.filter((t) => isRecurringTaskDue(t)).length;
-            const completionPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+            const completionPercent = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
             const statCards = [
               { label: t("statOpen"), value: activeCount, icon: ListChecks, color: "text-month-primary", bg: "bg-month-primary/10", border: "border-month-primary/20" },
@@ -910,7 +916,7 @@ export default function TodosPage() {
                     />
                   </div>
                   <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-                    {t("progressDoneCount", { completed: completedCount, total: totalCount })}
+                    {t("progressDoneCount", { completed: doneCount, total: totalCount })}
                   </span>
                 </div>
 

@@ -142,8 +142,8 @@ See [Recipes & meal planning](Recipes).
 
 | Tool | What it does | Permission | Notes |
 |---|---|---|---|
-| `list_timers` | The timers on the screens, running or ringing, with the time left, the one due soonest first | `family:read` | Reads |
-| `start_timer` | Start a timer from 1 second to 24 hours, with an optional label of up to 60 characters | `timers:write` | Adds. It counts down and rings on the screens that show the timers card, and notifies phones, like one set on the panel. Each call starts a new timer. At most 10 running or ringing at once; one that has rung unanswered for over an hour no longer counts |
+| `list_timers` | The timers on the screens, running, paused or ringing, with the time left, the one due soonest first | `family:read` | Reads |
+| `start_timer` | Start a timer from 1 second to 24 hours, with an optional label of up to 60 characters | `timers:write` | Adds. It counts down and rings on the screens that show the timers card, and notifies phones, like one set on the panel. Each call starts a new timer. At most 10 running, paused or ringing at once (a paused timer counts); one that has rung unanswered for over an hour no longer counts |
 | `stop_timer` | Stop a timer and take it off the screens | `timers:write` | Changes. Its phone notification is cancelled. A stopped timer can't be resumed |
 
 > "Set a timer for the pasta, 9 minutes." · "Setz einen Timer für die Nudeln, 9 Minuten."

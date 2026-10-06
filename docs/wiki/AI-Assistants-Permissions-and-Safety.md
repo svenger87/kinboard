@@ -158,7 +158,7 @@ down, and nothing happens.
 | Requests waiting for confirmation (home actions and pocket money together) | at most **2** waiting at once, and **5** new ones per 10 minutes |
 | Edits and deletes across tasks, shopping items, notes, calendar events and meal entries | **30** per 10 minutes |
 | Messages to the screens | **5** per 10 minutes |
-| Timers | at most **10** running or ringing for the family, whoever started them; one ringing unanswered for over an hour no longer counts. Each up to 24 hours |
+| Timers | at most **10** running, paused or ringing for the family, whoever started them; one ringing unanswered for over an hour no longer counts. Each up to 24 hours |
 | Any token, reading | 120 requests a minute |
 | Any token, writing | 30 requests a minute |
 
