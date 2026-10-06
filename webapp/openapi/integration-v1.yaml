@@ -1583,6 +1583,107 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "503": { description: "Kinboard could not check the PIN or this assistant's pending requests. Nothing was done." }
 
+  /rewards:
+    get:
+      tags: [state]
+      summary: Read the children's points, creatures and rewards
+      description: |
+        RFC-017. Every child (`is_child`) with a creature switched on, people
+        in the recycle bin left out, in the family's own order: their points
+        and their creature's stage. With the family's active rewards,
+        cheapest first, and the requests waiting for a parent, oldest first.
+
+        `points` is the database's own count (`point_person_totals`):
+        `balance` is earned − approved rewards − shop purchases, never
+        below zero; `purchased` is what the shop took (0 on a Kinboard
+        without the shop); `owed`
+        is what was spent beyond what was earned (a task un-ticked after its
+        points were spent), paid back first; `pending` is held by requests
+        waiting for a parent; `available` is what a new request may still
+        use, `balance - pending`.
+
+        The creature's `stage` runs from 1 (an egg) to 8, and `stage_name`
+        is the stage's name for that species in the family's language
+        (`locale`), as the screens show it. `next_stage` is null at the top;
+        its threshold `at` is in points earned (`unit: points`), or, for a
+        creature that grows with saved money, the pocket-money balance in
+        `currency` units (`unit: money`).
+
+        **Never** the creature's look or the name the child gave it: those
+        stay on the family's own screens. Names and titles are the family's
+        own text.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: Points, creatures, rewards and waiting requests
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RewardsOverview" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: Points and rewards could not be read. }
+
+  /rewards/requests:
+    post:
+      tags: [state]
+      summary: Ask for a reward for a child
+      description: |
+        RFC-017. Makes the same pending request the child's own "Redeem"
+        button makes, held against the child's points. **It only asks:**
+        nothing is spent until a parent approves it on a Kinboard screen
+        with the settings PIN, and a parent may decline it. The Integration
+        API cannot approve or decline a request. The parents' phones are
+        pushed (their quiet hours apply), as for the child's own request.
+
+        `child` is a person_id or a child's name, `reward` a reward's id or
+        its title (`GET /rewards`); a name or title is compared ignoring
+        case and must match exactly one. An unknown or ambiguous one is a
+        `400` with `reason` `no_child`, `ambiguous_child`, `no_reward` or
+        `ambiguous_reward` — never a 404, which would read as a Kinboard
+        without this endpoint. A child without a creature switched on
+        (`reason: no_creature`), or without enough available points
+        (`reason: insufficient_points`, with `balance` and `pending`), is a
+        `409`. After any refusal nothing was stored or pushed.
+
+        A token an assistant connected with (OAuth) counts each call
+        against its 30 edits per 10 minutes; a token made in Settings
+        (Home Assistant) only against the generic write limit.
+
+        The Idempotency-Key is required. Repeating it with the same body
+        answers the same request (`idempotent-replay`); only a `201` is
+        remembered.
+      x-required-scope: pocket_money:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [child, reward]
+              properties:
+                child: { type: string, minLength: 1, maxLength: 200, description: "A child's person_id, or their name." }
+                reward: { type: string, minLength: 1, maxLength: 200, description: "A reward's id, or its title." }
+      responses:
+        "201":
+          description: Asked; waiting for a parent
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, redemption]
+                properties:
+                  status: { type: string, enum: [pending_approval] }
+                  redemption: { $ref: "#/components/schemas/RewardRequest" }
+        "400": { description: "The body is not `{ child, reward }`, or names no child or no reward of this family, or more than one (`reason`: `no_child`, `ambiguous_child`, `no_reward`, `ambiguous_reward`). Nothing was asked." }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "409": { description: "The child has no creature switched on (`reason: no_creature`) or not enough available points (`reason: insufficient_points`), or the idempotency key was reused with different arguments. Nothing was asked." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
   /people:
     get:
       tags: [state]
@@ -2465,6 +2566,76 @@ components:
               saved: { type: number, description: "The balance counted towards it, at most the target." }
               percent: { type: integer, minimum: 0, maximum: 100 }
               is_primary: { type: boolean }
+
+    RewardsOverview:
+      type: object
+      required: [children, rewards, pending, locale]
+      properties:
+        children:
+          type: array
+          items: { $ref: "#/components/schemas/ChildRewards" }
+        rewards:
+          type: array
+          items:
+            type: object
+            required: [id, title, icon, cost_points]
+            properties:
+              id: { type: string, format: uuid }
+              title: { type: string }
+              icon: { type: [string, "null"], description: One emoji. }
+              cost_points: { type: integer, minimum: 1 }
+        pending:
+          type: array
+          items: { $ref: "#/components/schemas/RewardRequest" }
+        locale: { type: string, description: "The language stage names are in: en, de or fr." }
+
+    ChildRewards:
+      type: object
+      required: [person_id, name, points, creature]
+      properties:
+        person_id: { type: string, format: uuid }
+        name: { type: string, description: "The child's name. Never the creature's." }
+        points:
+          type: object
+          required: [balance, earned, owed, pending, available, purchased]
+          properties:
+            balance: { type: integer, minimum: 0, description: "Earned − approved rewards − shop purchases, never below zero." }
+            purchased: { type: integer, minimum: 0, description: "Points spent in the shop, all time; 0 before the shop." }
+            earned: { type: integer }
+            owed: { type: integer, minimum: 0 }
+            pending: { type: integer, minimum: 0 }
+            available: { type: integer, minimum: 0 }
+        creature:
+          type: object
+          additionalProperties: false
+          required: [species, stage, stage_name, grows_with, next_stage]
+          properties:
+            species: { type: string, description: "e.g. dragon, cat, axolotl." }
+            stage: { type: integer, minimum: 1, maximum: 8 }
+            stage_name: { type: string }
+            grows_with: { type: string, enum: [points, money] }
+            next_stage:
+              type: [object, "null"]
+              required: [stage, stage_name, at, unit]
+              properties:
+                stage: { type: integer, minimum: 2, maximum: 8 }
+                stage_name: { type: string }
+                at: { type: number, description: "Points earned, or the balance in currency units for `unit: money`." }
+                unit: { type: string, enum: [points, money] }
+                currency: { type: string, description: "ISO 4217, for `unit: money` only." }
+
+    RewardRequest:
+      type: object
+      required: [id, person_id, child_name, reward_id, title, icon, cost_points, requested_at]
+      properties:
+        id: { type: string, format: uuid }
+        person_id: { type: string, format: uuid }
+        child_name: { type: string }
+        reward_id: { type: [string, "null"], format: uuid, description: "null when the reward was deleted since." }
+        title: { type: string, description: "As it was when the child asked." }
+        icon: { type: [string, "null"] }
+        cost_points: { type: integer, minimum: 1 }
+        requested_at: { type: string, format: date-time }
 
     ActionRequest:
       type: object

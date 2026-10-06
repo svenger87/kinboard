@@ -35,6 +35,7 @@ export * from "./styles";
 export * from "./catalog";
 export { drawCreature, resolveStyle, type CreatureMood, type OriginKind, type SpeciesArt } from "./skeleton";
 export * from "./look";
+export * from "./shop";
 
 const DRAWN_SPECIES: Readonly<Record<string, SpeciesArt>> = {
   dragon,

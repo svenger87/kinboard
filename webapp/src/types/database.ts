@@ -1121,6 +1121,7 @@ export interface Database {
           quiet_hours_end: string;
           todo_reminders: boolean;
           todo_collaborative: boolean;
+          reward_requests: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -1140,6 +1141,7 @@ export interface Database {
           quiet_hours_end?: string;
           todo_reminders?: boolean;
           todo_collaborative?: boolean;
+          reward_requests?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1159,6 +1161,7 @@ export interface Database {
           quiet_hours_end?: string;
           todo_reminders?: boolean;
           todo_collaborative?: boolean;
+          reward_requests?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1471,6 +1474,29 @@ export interface Database {
           decided_at?: string | null;
           decided_by_device_id?: string | null;
         };
+        Relationships: [];
+      };
+      point_purchases: {
+        Row: {
+          id: string;
+          family_id: string;
+          /** The child who bought it (RFC-017 §5). */
+          person_id: string;
+          /** A catalogue id (lib/pocket-money/creatures/shop.ts). */
+          item_id: string;
+          /** What it cost on the day, in points. */
+          cost: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          person_id: string;
+          item_id: string;
+          cost: number;
+          created_at?: string;
+        };
+        Update: Record<string, never>;
         Relationships: [];
       };
       creatures: {
@@ -1799,6 +1825,9 @@ export type PocketMoneyWithdrawalRequest = Database["public"]["Tables"]["pocket_
 export type PocketMoneyWithdrawalRequestInsert = Database["public"]["Tables"]["pocket_money_withdrawal_requests"]["Insert"];
 export type PointReward = Database["public"]["Tables"]["point_rewards"]["Row"];
 export type PointRedemption = Database["public"]["Tables"]["point_redemptions"]["Row"];
+
+// Something a child bought in the creature shop (RFC-017 §5).
+export type PointPurchase = Database["public"]["Tables"]["point_purchases"]["Row"];
 
 // A child's creature (RFC-017): core, not pocket money.
 export type Creature = Database["public"]["Tables"]["creatures"]["Row"];

@@ -14,6 +14,7 @@
 import type { ReactNode } from "react";
 import type { AvatarTier } from "../types";
 import { accessory, bodyFill, crown, eyes, hearts, hidesEyes, pattern, strokeOf, wings, type CreatureMood, type DrawContext, type SpeciesArt } from "./skeleton";
+import { capeBehind, wearing, wornOnHead } from "./items";
 
 function head(ctx: DrawContext, stage: number, mood: CreatureMood, cx: number, cy: number, r: number): ReactNode {
   const { st } = ctx;
@@ -42,7 +43,8 @@ function head(ctx: DrawContext, stage: number, mood: CreatureMood, cx: number, c
       <path key="horn2-r" d={`M ${cx + r * 0.9} ${cy - r * 0.15} L ${cx + r * 1.32} ${cy - r * 0.45} L ${cx + r * 0.95} ${cy + r * 0.12} Z`} fill={p.horn} {...s} />,
     );
   }
-  if (stage === 8) parts.push(crown(ctx, cx, cy - r * 1.05));
+  // A hat from the shop is worn instead of the crown: the child chose it.
+  if (stage === 8 && !wearing(ctx, "head")) parts.push(crown(ctx, cx, cy - r * 1.05));
   parts.push(<circle key="skull" cx={cx} cy={cy} r={r} fill={bodyFill(ctx)} {...s} />);
 
   // snout: grows longer from the Crocodile on
@@ -72,6 +74,7 @@ function head(ctx: DrawContext, stage: number, mood: CreatureMood, cx: number, c
     <circle key="cheek-r" cx={cx + r * 0.62} cy={cy + r * 0.18} r={r * 0.15} fill={p.cheek} opacity="0.75" />,
     <g key="eyes">{!hidesEyes(ctx, mood) && eyes(ctx, mood, cx - r * 0.36, cx + r * 0.36, cy - r * 0.12, r * 0.2)}</g>,
     <g key="acc">{accessory(ctx, stage, cx, cy, r)}</g>,
+    <g key="worn">{wornOnHead(ctx, cx, cy, r, { x1: cx - r * 0.36, x2: cx + r * 0.36, y: cy - r * 0.12, r: r * 0.2 })}</g>,
   );
   return <>{parts}</>;
 }
@@ -83,6 +86,7 @@ function fullBody(ctx: DrawContext, stage: AvatarTier, mood: CreatureMood): Reac
   const fill = bodyFill(ctx);
   return (
     <>
+      {capeBehind(ctx)}
       {/* tail, behind the body; a spade tip from the Dragon on */}
       <g className="creature-part creature-tail-sway">
         <path d="M 78 158 Q 40 166 30 140 Q 26 128 36 126 Q 44 150 80 146 Z" fill={fill} {...s} />

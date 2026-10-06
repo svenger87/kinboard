@@ -9,6 +9,7 @@
 import { accentOf, s, speciesFrom } from "./parts";
 import { shade } from "./styles";
 import { GOLD } from "./skeleton";
+import { wearing } from "./items";
 
 export const owl = speciesFrom({
   origin: "egg",
@@ -29,7 +30,7 @@ export const owl = speciesFrom({
     front(c, cx, cy, r) {
       return (
         <>
-          {c.stage >= 6 && c.look.acc !== "glasses" && (
+          {c.stage >= 6 && c.look.acc !== "glasses" && !wearing(c, "face") && (
             <g data-part="glasses">
               {[-1, 1].map((d) => (
                 <circle key={d} cx={cx + d * r * 0.38} cy={cy - r * 0.08} r={r * 0.3} fill="none" stroke="#2A2438" strokeWidth="2.6" />
@@ -37,7 +38,7 @@ export const owl = speciesFrom({
               <path d={`M ${cx - r * 0.08} ${cy - r * 0.1} L ${cx + r * 0.08} ${cy - r * 0.1}`} stroke="#2A2438" strokeWidth="2.6" />
             </g>
           )}
-          {c.stage === 7 && c.look.acc !== "hat" && (
+          {c.stage === 7 && c.look.acc !== "hat" && !wearing(c, "head") && (
             <g data-part="cap" transform={`translate(${cx} ${cy - r * 0.98})`}>
               <path d="M -24 0 L 0 -10 L 24 0 L 0 10 Z" fill="#2A2438" />
               <rect x="-11" y="0" width="22" height="9" fill="#2A2438" />

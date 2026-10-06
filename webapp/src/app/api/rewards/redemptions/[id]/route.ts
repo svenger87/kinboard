@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
 import type { RpcClient } from "@/lib/pocket-money/booking";
 import { decideRedemption } from "@/lib/pocket-money/rewards";
+import { liveRewardNotifier } from "@/lib/notifications/rewards";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,9 @@ export const dynamic = "force-dynamic";
  * (decide_point_redemption): the request must still be pending, the child's
  * decisions are queued one after the other (per child since RFC-017), and approving is refused with
  * nothing written when the points do not cover it. Approved twice at once:
- * one 200, one 409 already_decided. The deciding device is recorded.
+ * one 200, one 409 already_decided. The deciding device is recorded. A
+ * decision pushes the child's own device, when one belongs to them
+ * (lib/notifications/rewards.ts).
  */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,11 +33,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: "status must be approved or denied" }, { status: 400 });
   }
 
-  const result = await decideRedemption(createAdminClient() as unknown as RpcClient, {
+  const db = createAdminClient();
+  const result = await decideRedemption(db as unknown as RpcClient, {
     familyId: auth.session.familyId,
     redemptionId: id,
     decision: body.status,
     deviceId: auth.session.deviceId,
-  });
+  }, liveRewardNotifier(db));
   return NextResponse.json(result.body, { status: result.status });
 }

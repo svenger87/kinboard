@@ -24,6 +24,9 @@ import {
   speciesArt,
   startOverLook,
   surpriseLook,
+  SHOP_SLOTS,
+  itemsIn,
+  type ShopSlot,
   type AvatarStyle,
   type CreatureLook,
 } from "@/lib/pocket-money/creatures";
@@ -35,6 +38,8 @@ interface Props {
   tier: AvatarTier;
   style: AvatarStyle | string | null | undefined;
   look: CreatureLook;
+  /** The shop items the child owns: offered in their slots (RFC-017 §5). */
+  owned?: ReadonlySet<string>;
   childName: string;
   saving?: boolean;
   onSave: (next: { style: AvatarStyle; look: CreatureLook }) => void;
@@ -56,8 +61,9 @@ type ColorKey = "body" | "belly" | "accent" | "hair" | "skin";
  * half-made looks a screen happened to fetch. It also makes Surprise me and
  * Start over safe to try -- Cancel undoes them.
  */
-export function CreatureLookEditor({ species, tier, style, look, childName, saving, onSave, onCancel }: Props) {
+export function CreatureLookEditor({ species, tier, style, look, owned, childName, saving, onSave, onCancel }: Props) {
   const t = useTranslations("pocketMoney");
+  const tShop = useTranslations("shop");
   const art = speciesArt(species);
   const person = !!art?.person;
   const [draftStyle, setDraftStyle] = useState<AvatarStyle>(() => effectiveStyle(species, style));
@@ -81,7 +87,15 @@ export function CreatureLookEditor({ species, tier, style, look, childName, savi
     if (draftStyle === "classic" && hasClassicArt(species)) setDraftStyle("gumdrop");
     setChangeCount((n) => n + 1);
   };
-  const set = <K extends keyof CreatureLook>(key: K, value: CreatureLook[K]) => change({ ...draft, [key]: value });
+  const set = <K extends keyof CreatureLook>(key: K, value: CreatureLook[K]) => {
+    const next: CreatureLook = { ...draft, [key]: value };
+    // A worn shop item wins over the free accessory for the same place, so
+    // picking the free one takes the bought one off, or the tap would show
+    // nothing.
+    if (key === "acc" && value === "glasses") delete next.face;
+    else if (key === "acc" && value !== "none") delete next.head;
+    change(next);
+  };
 
   // What the drawing shows when the look leaves a colour unset: the
   // creature's own, or for the dragon its style's.
@@ -156,6 +170,44 @@ export function CreatureLookEditor({ species, tier, style, look, childName, savi
     );
   };
 
+  // What the child bought, slot by slot: "Nothing" and each owned item. A
+  // slot with nothing bought is not shown.
+  const slotChips = (slot: ShopSlot): ReactNode => {
+    const mine = itemsIn(slot).filter((i) => owned?.has(i.id));
+    if (mine.length === 0) return null;
+    const headingId = `${ids}-${slot}`;
+    const value = draft[slot];
+    const pick = (id: string | undefined) => {
+      const next = { ...draft };
+      if (id) next[slot] = id;
+      else delete next[slot];
+      change(next);
+    };
+    const chip = (id: string | undefined, label: string) => (
+      <button
+        key={id ?? "none"}
+        type="button"
+        aria-pressed={value === id}
+        data-value={id ?? "none"}
+        onClick={() => pick(id)}
+        className={`min-h-10 rounded-full border-2 px-4 text-sm font-semibold transition active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+          value === id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:bg-accent/50"
+        }`}
+      >
+        {label}
+      </button>
+    );
+    return (
+      <section className="space-y-2" key={slot}>
+        <h3 id={headingId} className="text-sm font-semibold">{tShop(`slots.${slot}` as never)}</h3>
+        <div role="group" aria-labelledby={headingId} className="flex flex-wrap gap-2" data-testid={`look-${slot}`}>
+          {chip(undefined, tShop("nothingWorn"))}
+          {mine.map((i) => chip(i.id, tShop(`items.${i.id}` as never)))}
+        </div>
+      </section>
+    );
+  };
+
   const defaultHair = species === "princess" ? "long" : "short";
 
   return (
@@ -205,6 +257,7 @@ export function CreatureLookEditor({ species, tier, style, look, childName, savi
         {chips("pattern", PATTERNS, t("lookEditor.pattern"), "patterns", "none")}
         {chips("eyes", EYE_SHAPES, t("lookEditor.eyes"), "eyeShapes", "round")}
         {chips("acc", ACCESSORIES, t("lookEditor.accessory"), "accessories", "none")}
+        {SHOP_SLOTS.map(slotChips)}
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold">{t("lookEditor.style")}</h3>

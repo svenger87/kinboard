@@ -198,6 +198,22 @@ How the confirmation looks on the screens: [Permissions and
 safety](AI-Assistants-Permissions-and-Safety#confirmation-on-the-screens).
 See also [Pocket Money](Pocket-Money).
 
+## Points, creatures and rewards
+
+| Tool | What it does | Permission | Notes |
+|---|---|---|---|
+| `get_rewards` | For each child with a creature: the points they can spend, have earned, owe and have waiting, and their creature's species and stage, with the stage's name in your language and how far it is to the next one. Also the family's rewards and the requests waiting for a parent | `family:read` | Reads. Never the creature's name or how it looks; those stay on the family's own screens |
+| `request_reward` | Ask for a reward for a child, as the child's own *Redeem* does. The child is named by name or id, the reward by title or id | `pocket_money:write` | **Only asks.** Nothing is spent until a parent approves it with the settings PIN in Settings → Creatures & rewards, and a parent may decline it. The parents' phones are told. Refused when the child has no creature or not enough points left over after what is already waiting. An assistant can't approve or decline a request |
+
+> "How many points does Mia have?" · "Wie viele Punkte hat Mia?"
+>
+> "Mia would like an hour of Minecraft." · "Mia möchte eine Stunde Minecraft."
+>
+> "What stage is Ben's dragon at?" · "In welcher Stufe ist Bens Drache?"
+
+How a request reaches the parents: [Permissions and
+safety](AI-Assistants-Permissions-and-Safety#rewards).
+
 ## Recycle bin
 
 | Tool | What it does | Permission | Notes |
@@ -287,7 +303,7 @@ See [Vehicles](Vehicles).
 
 | Permission | Tools |
 |---|---|
-| `family:read` | `get_family_summary`, `get_next_birthday`, `list_calendar_events`, `search_calendar_events`, `list_writable_calendars`, `list_people`, `get_school_timetable`, `list_tasks`, `list_shopping_items`, `get_meal_plan`, `search_recipes`, `get_recipe`, `list_timers`, `list_birthdays`, `list_countdowns`, `list_pocket_money`, `list_deleted_items`, `list_screen_messages`, `list_attention_items` |
+| `family:read` | `get_family_summary`, `get_next_birthday`, `list_calendar_events`, `search_calendar_events`, `list_writable_calendars`, `list_people`, `get_school_timetable`, `list_tasks`, `list_shopping_items`, `get_meal_plan`, `search_recipes`, `get_recipe`, `list_timers`, `list_birthdays`, `list_countdowns`, `list_pocket_money`, `get_rewards`, `list_deleted_items`, `list_screen_messages`, `list_attention_items` |
 | `notes:read` | `list_notes` |
 | `calendar:write` | `create_calendar_event`, `update_calendar_event`, `delete_calendar_event`, `add_countdown`, `delete_countdown` |
 | `tasks:write` | `create_task`, `complete_task`, `reopen_task`, `update_task`, `delete_task`, `restore_task`, `dismiss_attention_item` |
@@ -301,6 +317,6 @@ See [Vehicles](Vehicles).
 | `vehicles:read` | `list_vehicles` |
 | `timers:write` | `start_timer`, `stop_timer` |
 | `birthdays:write` | `add_birthday`, `update_birthday`, `delete_birthday`, `restore_birthday` |
-| `pocket_money:write` | `book_pocket_money`, `get_action_status` |
+| `pocket_money:write` | `book_pocket_money`, `get_action_status`, `request_reward` |
 
-61 tools in all.
+63 tools in all.

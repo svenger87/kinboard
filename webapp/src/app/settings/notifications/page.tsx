@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bell, ShoppingCart, Moon, Send, Loader2, AlertCircle, CheckCircle2, ListTodo, CalendarClock, Cake, ChefHat } from "lucide-react";
+import { Bell, ShoppingCart, Moon, Send, Loader2, AlertCircle, CheckCircle2, ListTodo, CalendarClock, Cake, ChefHat, Gift } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -465,6 +465,42 @@ export default function NotificationSettingsPage() {
                 checked={isSubscribed && prefs.meal_prep_reminders}
                 onCheckedChange={(checked) =>
                   handlePreferenceChange("meal_prep_reminders", checked)
+                }
+                disabled={!isSubscribed || updatePreferences.isPending}
+              />
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Reward requests (RFC-017): a child asked, or a child's request was
+            answered. One switch for both, per device: a parent's phone gets
+            the first, a child's own device the second. */}
+        <motion.div id="rewards" data-setting="rewards"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.298 }}
+          className="mb-6"
+        >
+          <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+            {t("rewardsHeading")}
+          </h2>
+          <Card className={`p-4 ${!isSubscribed ? "opacity-50" : ""}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Gift className="size-5 text-primary" />
+                <div>
+                  <Label className="font-medium">{t("rewardsLabel")}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t("rewardsDescription")}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                aria-label={t("rewardsDescription")}
+                data-testid="reward-requests-switch"
+                checked={isSubscribed && prefs.reward_requests !== false}
+                onCheckedChange={(checked) =>
+                  handlePreferenceChange("reward_requests", checked)
                 }
                 disabled={!isSubscribed || updatePreferences.isPending}
               />

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { requireSession } from "@/lib/require-session";
 import type { RpcClient } from "@/lib/pocket-money/booking";
 import { requestRedemption } from "@/lib/pocket-money/rewards";
+import { liveRewardNotifier } from "@/lib/notifications/rewards";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,8 @@ export const dynamic = "force-dynamic";
  * needed. The database refuses it when the child has no creature switched
  * on, the reward is not an active one of this family, or the balance less
  * what is already waiting does not cover it (request_person_point_redemption).
+ * A request made pushes the parents' phones, this device excepted
+ * (lib/notifications/rewards.ts).
  */
 export async function POST(request: NextRequest) {
   const auth = await requireSession(request);
@@ -29,11 +32,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "reward_id required" }, { status: 400 });
   }
 
-  const result = await requestRedemption(createAdminClient() as unknown as RpcClient, {
+  const db = createAdminClient();
+  const result = await requestRedemption(db as unknown as RpcClient, {
     familyId: auth.session.familyId,
     personId: body.person_id,
     rewardId: body.reward_id,
     deviceId: auth.session.deviceId,
-  });
+  }, liveRewardNotifier(db));
   return NextResponse.json(result.body, { status: result.status });
 }

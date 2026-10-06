@@ -39,6 +39,7 @@ Per-device, in **Settings → Notifications**:
 - **Tasks — daily reminder** (8:00 AM digest of today's pending tasks)
 - **Calendar reminders** — a heads-up before an upcoming event
 - **Birthday reminders** — see [Birthday reminders](#birthday-reminders) below
+- **Reward requests** — on a parent's phone, "Mia would like 🎮 An hour of Minecraft (50 ⭐)", opening the requests in Settings → Creatures & rewards; on a child's own device, the answer to their request. See [Creatures & rewards](Creatures-and-Rewards#asking-from-home-assistant-or-an-assistant)
 
 Plus **Quiet hours** — a daily window during which no push is delivered (you still get the badge in-app the next morning).
 

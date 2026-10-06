@@ -88,9 +88,17 @@ test("the birthdays scope says add, change and delete, in every language", () =>
   expect(fr.oauthConsent.scope_birthdays_write).toMatch(/anniversaire/i);
 });
 
-test("the pocket money scope needs the PIN, in every language", () => {
-  expect(en.oauthConsent.scope_pocket_money_write).toBe("Ask to book pocket money — every booking needs the settings PIN");
+test("the pocket money scope needs the PIN, and names rewards too, in every language", () => {
+  expect(en.oauthConsent.scope_pocket_money_write).toBe("Ask to book pocket money or ask for a child's reward — a parent approves each with the settings PIN. A reward request notifies the parents and holds the child's points until then");
   for (const dict of [en, de, fr]) expect(dict.oauthConsent.scope_pocket_money_write).toMatch(/PIN/);
+  // Asking for a reward rides on this scope (no new one, so no assistant has
+  // to be connected again); the family agrees to it here, so it is named.
+  expect(de.oauthConsent.scope_pocket_money_write).toMatch(/Belohnung/);
+  expect(fr.oauthConsent.scope_pocket_money_write).toMatch(/récompense/);
+  // What a request does besides asking: it tells the parents and holds the points.
+  for (const [dict, words] of [[en, /notifies the parents.*holds the child's points/], [de, /benachrichtigt die Eltern.*Punkte/], [fr, /prévient les parents.*points/]] as const) {
+    expect(dict.oauthConsent.scope_pocket_money_write).toMatch(words);
+  }
 });
 
 // family:read grew with every assistant feature that only reads; the label is
@@ -98,9 +106,9 @@ test("the pocket money scope needs the PIN, in every language", () => {
 // four it started with.
 test("the family read scope names everything it reads, in every language", () => {
   const names: Record<"en" | "de" | "fr", RegExp[]> = {
-    en: [/calendar/, /people/, /tasks/, /shopping list/, /meal plan/, /recipes/, /school timetable/, /birthdays/, /pocket money/, /timers/, /countdowns/, /screen messages/, /attention hints/, /recycle bin/],
-    de: [/Kalender/, /Personen/, /Aufgaben/, /Einkaufsliste/, /Mahlzeiten/, /Rezepte/, /Stundenplan/, /Geburtstage/, /Taschengeld/, /Timer/, /Countdowns/, /Nachrichten/, /Hinweise/, /Papierkorb/],
-    fr: [/calendrier/, /membres/, /tâches/, /courses/, /repas/, /recettes/, /emploi du temps/, /anniversaires/, /argent de poche/, /minuteurs/, /comptes à rebours/, /messages/, /conseils/, /corbeille/],
+    en: [/calendar/, /people/, /tasks/, /shopping list/, /meal plan/, /recipes/, /school timetable/, /birthdays/, /pocket money/, /points, rewards/, /species and stage/, /timers/, /countdowns/, /screen messages/, /attention hints/, /recycle bin/],
+    de: [/Kalender/, /Personen/, /Aufgaben/, /Einkaufsliste/, /Mahlzeiten/, /Rezepte/, /Stundenplan/, /Geburtstage/, /Taschengeld/, /Belohnungen/, /Art und Stufe/, /Timer/, /Countdowns/, /Nachrichten/, /Hinweise/, /Papierkorb/],
+    fr: [/calendrier/, /membres/, /tâches/, /courses/, /repas/, /recettes/, /emploi du temps/, /anniversaires/, /argent de poche/, /récompenses/, /espèce et le stade/, /minuteurs/, /comptes à rebours/, /messages/, /conseils/, /corbeille/],
   };
   const dicts = { en, de, fr };
   for (const locale of ["en", "de", "fr"] as const) {

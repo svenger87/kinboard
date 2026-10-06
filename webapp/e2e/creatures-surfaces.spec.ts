@@ -259,9 +259,14 @@ test.describe("Belongs to is a parent's setting", () => {
     const grant = sql.indexOf("GRANT\n    INSERT");
     expect(grant).toBeGreaterThan(-1);
     expect(grant).toBeGreaterThan(sql.indexOf("REVOKE INSERT, UPDATE ON TABLE"));
-    // Sorts after every other migration, so nothing grants it back afterwards.
+    // Nothing that sorts after it grants the column back: it sorted last when
+    // it was written; the shop's migration (RFC-017 §5), after it, names no
+    // privilege on devices.
     const all = readdirSync(join(ROOT, "docker")).filter((f) => /^migration.*\.sql$/.test(f)).sort();
-    expect(all[all.length - 1]).toBe("migration_zzzzzzzzz_device_owner.sql");
+    const later = all.slice(all.indexOf("migration_zzzzzzzzz_device_owner.sql") + 1);
+    for (const f of later) {
+      expect(codeOnly(read(`docker/${f}`), { sql: true }), f).not.toMatch(/(GRANT|REVOKE)[^;]*ON (TABLE )?(public\.)?devices\b/i);
+    }
   });
 });
 
@@ -301,8 +306,8 @@ test.describe("the Rewards page", () => {
     const page = codeOnly(read("src/app/rewards/page.tsx"));
     expect(page).not.toMatch(/useIsPluginEnabled|accounts\.length === 0/);
     expect(page).toContain("<RewardsPanel");
-    // The shop of step 3 has its place marked, under the rewards.
-    expect(read("src/app/rewards/page.tsx")).toMatch(/RFC-017 step 3: the shop goes here/);
+    // The shop of step 3, under the rewards.
+    expect(page.indexOf("<CreatureShop")).toBeGreaterThan(page.indexOf("<RewardsPanel"));
   });
   test("the profile's way to the rewards goes to it", () => {
     const profile = codeOnly(read("src/components/widgets/family-members.tsx"));

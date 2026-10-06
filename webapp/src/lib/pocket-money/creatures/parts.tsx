@@ -31,6 +31,7 @@ import {
   type SpeciesArt,
 } from "./skeleton";
 import type { SpeciesColors } from "./styles";
+import { capeBehind, wearing, wornOnHead } from "./items";
 
 /** A drawing context that also knows the stage and the mood. */
 export interface Draw extends DrawContext {
@@ -71,6 +72,8 @@ export interface HeadParts {
 
 export function head(c: Draw, h: HeadParts, cx: number, cy: number, r: number): ReactNode {
   const ex = h.eyeX ?? 0.36;
+  const eyeY = cy + r * (h.eyeY ?? -0.12);
+  const eyeR = r * (h.eyeR ?? 0.2);
   return (
     <>
       {h.behind?.(c, cx, cy, r)}
@@ -78,10 +81,12 @@ export function head(c: Draw, h: HeadParts, cx: number, cy: number, r: number): 
       {h.under?.(c, cx, cy, r)}
       {h.face(c, cx, cy, r)}
       {!h.noCheeks && cheeks(c, cx, cy, r)}
-      {!hidesEyes(c, c.mood) && eyes(c, c.mood, cx - r * ex, cx + r * ex, cy + r * (h.eyeY ?? -0.12), r * (h.eyeR ?? 0.2), h.eyeColor)}
+      {!hidesEyes(c, c.mood) && eyes(c, c.mood, cx - r * ex, cx + r * ex, eyeY, eyeR, h.eyeColor)}
       {h.front?.(c, cx, cy, r)}
       {accessory(c, c.stage, cx, cy, r)}
-      {c.stage === 8 && crown(c, cx, cy - r * (h.crownLift ?? 1.05))}
+      {wornOnHead(c, cx, cy, r, { x1: cx - r * ex, x2: cx + r * ex, y: eyeY, r: eyeR })}
+      {/* A hat from the shop is worn instead of the crown: the child chose it. */}
+      {c.stage === 8 && !wearing(c, "head") && crown(c, cx, cy - r * (h.crownLift ?? 1.05))}
     </>
   );
 }
@@ -161,6 +166,7 @@ export function speciesFrom(def: SpeciesDef): SpeciesArt {
       const c = at(ctx, stage, mood);
       return (
         <>
+          {capeBehind(c)}
           {def.tail?.(c)}
           {def.wings?.(c)}
           <g className="creature-part creature-breathe">
