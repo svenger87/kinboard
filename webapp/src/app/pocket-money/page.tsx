@@ -38,13 +38,13 @@ import {
   useUpdatePocketMoneyAccount,
   useWithdrawalRequests,
   usePeople,
+  usePointRewards,
+  usePointRedemptions,
+  usePointTotals,
 } from "@/hooks";
+import { RewardsPanel } from "@/components/pocket-money/rewards-panel";
+import { avatarStage, pointsStageWrites } from "@/lib/pocket-money/points";
 import { AmountDialog } from "@/components/pocket-money/amount-dialog";
-import {
-  tierFromBalance,
-  nextTierThreshold,
-  effectiveBestTier,
-} from "@/lib/pocket-money/interest";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import { formatCents } from "@/lib/pocket-money/format";
 
@@ -70,6 +70,16 @@ export default function PocketMoneyPage() {
     if (!activeId && accounts.length > 0) setActiveId(accounts[0].id);
   }, [accounts, activeId]);
 
+  // ?child=<person id>: the shortcut on a child's profile opens their tab.
+  // Read once from the address rather than with useSearchParams, which would
+  // need a Suspense boundary around the whole page.
+  useEffect(() => {
+    if (accounts.length === 0) return;
+    const child = new URLSearchParams(window.location.search).get("child");
+    const match = child ? accounts.find((a) => a.person_id === child) : undefined;
+    if (match) setActiveId(match.id);
+  }, [accounts]);
+
   const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
   const { data: goals = [] } = usePocketMoneyGoals(active?.id);
   const { data: transactions = [] } = usePocketMoneyAccountTransactions(active?.id);
@@ -84,6 +94,20 @@ export default function PocketMoneyPage() {
     "pending",
   );
 
+  // Points mode (discussion #349): the avatar grows with the task points the
+  // child has earned, and points buy rewards.
+  const { ready: pointsReady, totalsFor } = usePointTotals();
+  const { data: rewards = [] } = usePointRewards();
+  const { data: redemptions = [] } = usePointRedemptions();
+  const pointsMode = active?.reward_mode === "points";
+  const points = active ? totalsFor(active.person_id, active.id) : null;
+  const stage = avatarStage({
+    mode: active?.reward_mode,
+    balanceCents: active?.balance_cents ?? 0,
+    earnedPoints: points?.earned ?? 0,
+    storedBestTier: active?.best_tier,
+  });
+
   // Celebrate a promotion, and record the high-water mark.
   //
   // The stage now follows the balance, so it can go down as well as up.
@@ -92,26 +116,29 @@ export default function PocketMoneyPage() {
   // spends down to 4 and saves back to 6 would get no celebration the
   // second time. `best_tier` only ever climbs; that's the whole point of
   // it.
+  //
+  // In points mode the stage follows the points earned and never shows less
+  // than best_tier, so it waits for the points to load -- "not loaded yet"
+  // read as "no points" would drop the stage and celebrate it coming back --
+  // and a switch from money to points that only brings back a stage reached
+  // before is recorded without a celebration.
   useEffect(() => {
     if (!active) return;
-    const currentTier = tierFromBalance(active.balance_cents);
-    const update: { last_seen_tier?: number; best_tier?: number } = {};
-
-    if (currentTier > active.last_seen_tier) {
-      setCelebration("evolution");
-      update.last_seen_tier = currentTier;
-    } else if (currentTier < active.last_seen_tier) {
-      // Silent: dropping a stage is not something to animate at a child.
-      update.last_seen_tier = currentTier;
-    }
-
-    if (currentTier > (active.best_tier ?? 1)) update.best_tier = currentTier;
+    if (pointsMode && !pointsReady) return;
+    // best_tier is written in money mode only: in points mode the stage is
+    // the points' own and must be able to go back down (pointsStageWrites).
+    const { celebrate, update } = pointsStageWrites({
+      stage,
+      lastSeenTier: active.last_seen_tier,
+      storedBestTier: active.best_tier,
+    });
+    if (celebrate) setCelebration("evolution");
 
     if (Object.keys(update).length > 0) {
       updateAccount.mutateAsync({ id: active.id, update }).catch(console.error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active?.id, active?.balance_cents]);
+  }, [active?.id, active?.balance_cents, stage.tier, pointsMode, pointsReady]);
 
   // Stable callback so re-renders don't reset CelebrationOverlay's
   // dismissal timer mid-animation.
@@ -126,9 +153,10 @@ export default function PocketMoneyPage() {
       .reduce((sum, tx) => sum + tx.amount_cents, 0);
   })();
 
-  // Stage + high-water mark, both driven by the current balance.
-  const currentTier = active ? tierFromBalance(active.balance_cents) : 1;
-  const bestTier = active ? effectiveBestTier(active.balance_cents, active.best_tier ?? 1) : 1;
+  // Stage + high-water mark: the balance's in money mode, the points' in
+  // points mode (avatarStage).
+  const currentTier = stage.tier;
+  const bestTier = stage.best;
   const showBestBadge = bestTier > currentTier;
 
   // When the next allowance lands. Previously nowhere in the UI, which
@@ -223,6 +251,49 @@ export default function PocketMoneyPage() {
 
   const activePerson = people.find((p) => p.id === active.person_id);
 
+  // A child in points mode needs no money set up: the money part of the page
+  // shows only when there is money to show.
+  const usesMoney =
+    !pointsMode ||
+    active.balance_cents > 0 ||
+    active.weekly_allowance_cents > 0 ||
+    goals.some((g) => g.status === "active") ||
+    pendingRequests.length > 0;
+
+  const moneySummary = (
+    <>
+        <BalanceDisplay
+          cents={active.balance_cents}
+          currency={active.currency}
+          todayInterestCents={todayInterestCents}
+        />
+
+        {/* When the next allowance lands. The single most-missed piece of
+            information on this screen: without it there is no way to tell
+            "not due yet" from "the job is broken". */}
+        {nextAllowance && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <CalendarClock className="size-3.5 shrink-0" />
+            {(() => {
+              const days = daysUntil(nextAllowance);
+              const amount = formatCents(active.weekly_allowance_cents, active.currency);
+              if (days === 0) return t("nextAllowanceToday", { amount });
+              if (days === 1) return t("nextAllowanceTomorrow", { amount });
+              return t("nextAllowanceInDays", {
+                amount,
+                days,
+                date: nextAllowance.toLocaleDateString(locale, {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                }),
+              });
+            })()}
+          </p>
+        )}
+    </>
+  );
+
   return (
     <main id="main-content" // Widens on a wall panel: with one account this left ~68% of a portrait
       // display empty (audit KB-67).
@@ -254,6 +325,7 @@ export default function PocketMoneyPage() {
         <AvatarDisplay
           species={active.avatar_species}
           balanceCents={active.balance_cents}
+          tier={currentTier}
           size={220}
         />
         <div className="flex flex-col items-center gap-0.5">
@@ -289,52 +361,43 @@ export default function PocketMoneyPage() {
               )}
             </p>
             {(() => {
-              const nextCents = nextTierThreshold(active.balance_cents);
-              if (nextCents === null) {
+              if (stage.next === null) {
                 return <p className="text-base font-medium text-muted-foreground">{t("maxStageHint")}</p>;
               }
-              const nextTier = tierFromBalance(nextCents);
+              const nextStage = t(`species.${active.avatar_species}.tier${stage.next.tier}` as never);
               return (
                 <p className="text-base font-medium text-muted-foreground">
-                  {t("nextStageHint", {
-                    stage: t(`species.${active.avatar_species}.tier${nextTier}` as never),
-                    amount: formatCents(nextCents, active.currency),
-                  })}
+                  {stage.mode === "points"
+                    ? t("nextStageHintPoints", { stage: nextStage, count: stage.next.at })
+                    : t("nextStageHint", {
+                        stage: nextStage,
+                        amount: formatCents(stage.next.at, active.currency),
+                      })}
                 </p>
               );
             })()}
           </button>
         </div>
-        <BalanceDisplay
-          cents={active.balance_cents}
-          currency={active.currency}
-          todayInterestCents={todayInterestCents}
-        />
-
-        {/* When the next allowance lands. The single most-missed piece of
-            information on this screen: without it there is no way to tell
-            "not due yet" from "the job is broken". */}
-        {nextAllowance && (
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <CalendarClock className="size-3.5 shrink-0" />
-            {(() => {
-              const days = daysUntil(nextAllowance);
-              const amount = formatCents(active.weekly_allowance_cents, active.currency);
-              if (days === 0) return t("nextAllowanceToday", { amount });
-              if (days === 1) return t("nextAllowanceTomorrow", { amount });
-              return t("nextAllowanceInDays", {
-                amount,
-                days,
-                date: nextAllowance.toLocaleDateString(locale, {
-                  weekday: "short",
-                  day: "numeric",
-                  month: "short",
-                }),
-              });
-            })()}
-          </p>
-        )}
+        {!pointsMode && moneySummary}
       </div>
+
+      {pointsMode && points && (
+        <RewardsPanel
+          accountId={active.id}
+          totals={points}
+          rewards={rewards}
+          redemptions={redemptions.filter((r) => r.account_id === active.id)}
+        />
+      )}
+
+      {usesMoney && (
+      <>
+      {pointsMode && (
+        <div className="flex flex-col items-center gap-1 border-t border-border pt-6">
+          <h2 className="text-lg font-semibold">{t("moneyHeading")}</h2>
+          {moneySummary}
+        </div>
+      )}
 
       {pendingRequests.length > 0 && (
         // A waiting request now offers the way to resolve it. The nav
@@ -407,6 +470,8 @@ export default function PocketMoneyPage() {
           {t("spend")}
         </Button>
       </div>
+      </>
+      )}
 
       <GoalAddDialog
         accountId={active.id}
@@ -466,8 +531,7 @@ export default function PocketMoneyPage() {
         open={stagesSheetOpen}
         onOpenChange={setStagesSheetOpen}
         species={active.avatar_species}
-        balanceCents={active.balance_cents}
-        bestTier={bestTier}
+        stage={stage}
         currency={active.currency}
       />
     </main>

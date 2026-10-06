@@ -58,6 +58,37 @@ Each promotion plays a once-per-event radial-burst animation. Withdrawals don't 
 
 Add via `/pocket-money` → "Add goal". Three image-lookup modes: catalog search (reuses the shopping-item catalog), URL paste, or local upload. One goal is `is_primary` and drives the kid view's progress bar; the queue auto-promotes on completion. When a goal hits 100%, the kid sees a "🎉 You can buy this!" button → creates a withdrawal request → parent confirms in the inbox at `/settings/pocket-money`. Confirmation deducts the balance and marks the goal `bought`.
 
+## Points instead of euros
+
+Some families would rather not reward chores with money. Each child can instead have their avatar grow with **task points** -- the points their tasks give when ticked off (a task's ⭐ points, see the Tasks page) -- and spend those points on rewards the parents choose.
+
+**Switching a child over.** Settings → Pocket money → the child's card → **Avatar grows with**: *Euro* (the default, everything as before) or *Task points*. The choice is per child and needs the settings PIN. A child in points mode needs no money set up: the money settings fold away under *Money (optional)*, and the pocket-money page shows money only if the child has some, an allowance, or a saving goal. Allowance and interest keep running if you set them, so a family can use both.
+
+**The points balance** is the points the child has earned, all time, minus the rewards a parent has approved. It never shows less than zero. If a task is un-ticked after its points were already spent, the difference is owed and the next points earned pay it back first: earned 100, spent 60, a 50-point task un-ticked leaves earned 50, balance 0 and 10 owed; the next 10 points earned still leave the balance at 0, and only the points after that can be spent. The child's page says how many points are still to make up. A reward that is still waiting is held back: a child can't ask for more than they have left.
+
+**The avatar in points mode** grows with the points **earned**, not the balance, so buying a reward never shrinks the pet; un-ticking a task takes its points, and any stage they brought, back. It never shows less than the best stage the child reached **with money**: a child who reached stage 5 with money starts points mode at stage 5 and grows again once their points pass stage 6. That money stage (`best_tier`) only ever climbs and never goes past stage 8 (the database refuses both), and points never write it, so switching back to euros keeps the badge too.
+
+| Stage | Points earned | Roughly, at ~50 points a week |
+|---|---|---|
+| 1 | 0 (the egg) | start |
+| 2 | 50 | the first week |
+| 3 | 150 | 3 weeks |
+| 4 | 300 | 6 weeks |
+| 5 | 600 | 3 months |
+| 6 | 1000 | 5 months |
+| 7 | 1600 | 8 months |
+| 8 | 2500 | about a year |
+
+The thresholds live in `webapp/src/lib/pocket-money/types.ts` (`TIER_THRESHOLDS_POINTS`), next to the money ones.
+
+**Rewards.** Settings → Pocket money → **Rewards for task points**: a title, a cost from 1 to 10000 points, an optional emoji, and an *Active* switch. The catalogue is shared by every child in the family; inactive rewards are hidden from the children. Editing needs the settings PIN.
+
+**Redeeming.** On `/pocket-money`, a child in points mode sees their points, every active reward with how far they are toward it, and **Redeem** on those they can afford. Redeeming asks a parent; nothing is spent yet. The request appears under *Rewards waiting for approval* in Settings → Pocket money and on the navigation badge, like a withdrawal request. **Approve** spends the points; **Deny** spends nothing. A request can't be approved once the child has been switched back to euros; it keeps waiting until a parent denies it or switches the child back. Both need the settings PIN, checked on the server, so a child's own screen can't approve its own request. Approving is one database transaction: two devices approving at once book it once, and an approval the points no longer cover is refused and the request keeps waiting (points keep coming in, so a parent can approve it later or deny it). The reward's title and cost are copied into the request, so editing the catalogue later changes neither what is waiting nor what was spent.
+
+**The child's profile.** Tapping a child in points mode on the dashboard shows the points left to spend and a **Rewards** button to their page.
+
+Points, rewards and requests are stored in `pocket_money_accounts.reward_mode`, `point_rewards` and `point_redemptions` (`webapp/docker/migration_zzzzzzz_point_rewards.sql`). Screens can read them; every write goes through the server. A family export (Settings → Backup) carries the rewards and the requests, so a restore keeps the points already spent.
+
 ## Adding a new avatar species
 
 The plugin ships with five species (dragon, cat, astronaut, plant, wizard) but the catalog is open-ended. Adding a sixth (e.g. "robot", "knight", "pirate") is a three-file change — **no DB migration, no code change, no settings UI edit**:

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Calendar, CheckSquare, GraduationCap, X , AlertCircle} from "lucide-react";
+import Link from "next/link";
+import { User, Calendar, CheckSquare, GraduationCap, X , AlertCircle, Gift} from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { PersonAvatar } from "@/components/person-avatar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -21,6 +22,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { usePeople, useTodos, useEvents } from "@/hooks";
+import { useTodoPoints } from "@/hooks/use-todo-points";
+import { pointsTotal, showsPoints } from "@/lib/todo-points";
+import { usePocketMoneyAccounts } from "@/hooks/use-pocket-money-accounts";
+import { usePointTotals } from "@/hooks/use-point-rewards";
+import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
+import { Button } from "@/components/ui/button";
 import type { Person, Todo, Event } from "@/types/database";
 import { format, startOfDay, addDays, endOfDay, isAfter } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
@@ -74,6 +81,12 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
   const t = useTranslations("familyMembers");
   const { data: people, isLoading: loadingPeople, isError: peopleError } = usePeople();
   const { data: todos } = useTodos();
+  const { data: pointAwards = [] } = useTodoPoints();
+  // A child whose avatar grows with points (discussion #349): the profile
+  // shows the points left to spend and a way to the rewards.
+  const pocketMoneyOn = useIsPluginEnabled("pocket-money");
+  const { data: accounts = [] } = usePocketMoneyAccounts();
+  const { totalsFor } = usePointTotals();
 
   // Only fetch upcoming events (today + next 7 days)
   const today = startOfDay(new Date());
@@ -207,6 +220,22 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
         person={selectedPerson}
         todos={todos?.filter((t) => todayPerson(t, toLocalDateKey()) === selectedPerson?.id && !t.completed) || []}
         events={upcomingEvents?.filter((e) => (e.person_id || e.calendar?.person_id) === selectedPerson?.id) || []}
+        points={(() => {
+          if (!selectedPerson) return null;
+          const account = pocketMoneyOn
+            ? accounts.find((a) => a.person_id === selectedPerson.id && a.reward_mode === "points")
+            : undefined;
+          if (account && selectedPerson.is_child) {
+            return {
+              value: totalsFor(selectedPerson.id, account.id).balance,
+              spendable: true,
+              rewardsHref: `/pocket-money?child=${selectedPerson.id}`,
+            };
+          }
+          return showsPoints(selectedPerson, pointAwards, todos)
+            ? { value: pointsTotal(pointAwards, selectedPerson.id), spendable: false, rewardsHref: null }
+            : null;
+        })()}
         onClose={() => setSelectedPerson(null)}
       />
     </TooltipProvider>
@@ -217,10 +246,16 @@ interface PersonDetailsDialogProps {
   person: Person | null;
   todos: Todo[];
   events: Event[];
+  /**
+   * The child's task points, or null when the profile shows none: collected
+   * all time, or -- in points mode -- left to spend, with the way to the
+   * rewards.
+   */
+  points: { value: number; spendable: boolean; rewardsHref: string | null } | null;
   onClose: () => void;
 }
 
-function PersonDetailsDialog({ person, todos, events, onClose }: PersonDetailsDialogProps) {
+function PersonDetailsDialog({ person, todos, events, points, onClose }: PersonDetailsDialogProps) {
   const t = useTranslations("familyMembers");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
@@ -290,7 +325,29 @@ function PersonDetailsDialog({ person, todos, events, onClose }: PersonDetailsDi
               <p className="text-lg font-semibold" style={{ color: person.color }}>{todos.length}</p>
               <p className="text-2xs text-muted-foreground">{t("statTodos")}</p>
             </div>
+            {points !== null && (
+              <div
+                data-testid="profile-points"
+                className="flex-1 rounded-xl px-3 py-2 text-center"
+                style={{ backgroundColor: `${person.color}15` }}
+              >
+                <p className="text-lg font-semibold tabular-nums" style={{ color: person.color }}>
+                  <span aria-hidden="true">⭐ </span>{points.value}
+                </p>
+                <p className="text-2xs text-muted-foreground">
+                  {points.spendable ? t("statPointsToSpend") : t("statPoints")}
+                </p>
+              </div>
+            )}
           </div>
+          {points?.rewardsHref && (
+            <Button asChild variant="outline" size="sm" className="mt-3 w-full">
+              <Link href={points.rewardsHref} onClick={onClose} data-testid="profile-rewards-link">
+                <Gift className="size-4 mr-2" />
+                {t("rewardsShortcut")}
+              </Link>
+            </Button>
+          )}
         </div>
 
         <div className="flex flex-col gap-4 px-6 pb-6 pt-2">

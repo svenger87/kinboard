@@ -9,7 +9,8 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { AvatarDisplay } from "@/components/pocket-money/avatar-display";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
-import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople } from "@/hooks";
+import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople, usePointTotals } from "@/hooks";
+import { avatarStage } from "@/lib/pocket-money/points";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { PluginDiscoverCard } from "./plugin-discover-card";
 import { formatCents } from "@/lib/pocket-money/format";
@@ -88,6 +89,17 @@ function PersonName({ accountPersonId }: { accountPersonId: string }) {
 function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
   const t = useTranslations("pocketMoney");
   const { data: goals = [] } = usePocketMoneyGoals(account.id);
+  // Points mode (discussion #349): the stage follows the task points earned,
+  // and the widget shows the points to spend instead of the money.
+  const { totalsFor } = usePointTotals();
+  const pointsMode = account.reward_mode === "points";
+  const points = totalsFor(account.person_id, account.id);
+  const stage = avatarStage({
+    mode: account.reward_mode,
+    balanceCents: account.balance_cents,
+    earnedPoints: points.earned,
+    storedBestTier: account.best_tier,
+  });
   const primary = goals.find((g) => g.is_primary && g.status === "active");
   const nextAllowance =
     account.weekly_allowance_cents > 0
@@ -106,14 +118,26 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
       <AvatarDisplay
         species={account.avatar_species}
         balanceCents={account.balance_cents}
+        tier={stage.tier}
         size={56}
         className="shrink-0"
       />
       <div className="flex-1 min-w-0">
-        <p className="text-2xl font-bold">
-          {formatCents(account.balance_cents, account.currency)}
+        <p className="text-2xl font-bold tabular-nums">
+          {pointsMode ? (
+            <>
+              <span aria-hidden="true">⭐ </span>
+              {points.balance}
+            </>
+          ) : (
+            formatCents(account.balance_cents, account.currency)
+          )}
         </p>
-        {primary ? (
+        {pointsMode ? (
+          <p className="text-3xs text-muted-foreground truncate">
+            {t("pointsBalanceLabel", { count: points.balance })}
+          </p>
+        ) : primary ? (
           <>
             <p className="text-3xs text-muted-foreground truncate">{primary.name}</p>
             <Progress value={progress} className="h-1.5 mt-1" />

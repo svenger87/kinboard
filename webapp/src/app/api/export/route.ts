@@ -20,6 +20,7 @@ import { familyMatchesSession, requireSession } from "@/lib/require-session";
 //   families → tickers (standalone, family-scoped)
 //   people → pocket_money_accounts → pocket_money_goals /
 //     pocket_money_transactions / pocket_money_withdrawal_requests
+//   families → point_rewards; pocket_money_accounts → point_redemptions
 //
 // NEVER included: families.join_code, devices, push_subscriptions,
 // notification_preferences, scheduled_notifications, notification_logs,
@@ -195,6 +196,15 @@ export async function GET(request: NextRequest) {
     const pocket_money_goals = await fetchAllByIds(db, "pocket_money_goals", "account_id", pocketMoneyAccountIds);
     const pocket_money_transactions = await fetchAllByIds(db, "pocket_money_transactions", "account_id", pocketMoneyAccountIds);
     const pocket_money_withdrawal_requests = await fetchAllByIds(db, "pocket_money_withdrawal_requests", "account_id", pocketMoneyAccountIds);
+    // Rewards bought with task points (migration_zzzzzzz_point_rewards.sql).
+    // The requests are what makes a points balance: without them a restore
+    // would hand back every point already spent.
+    const point_rewards = await fetchAll(db, (q, from, to) =>
+      q.from("point_rewards").select("*").eq("family_id", familyId).order("id").range(from, to)
+    );
+    const point_redemptions = await fetchAll(db, (q, from, to) =>
+      q.from("point_redemptions").select("*").eq("family_id", familyId).order("id").range(from, to)
+    );
 
     const rawSettings = await fetchAll(db, (q, from, to) =>
       q.from("settings").select("*").eq("family_id", familyId).order("id").range(from, to)
@@ -261,6 +271,8 @@ export async function GET(request: NextRequest) {
         pocket_money_goals,
         pocket_money_transactions,
         pocket_money_withdrawal_requests,
+        point_rewards,
+        point_redemptions,
         settings,
       },
     };

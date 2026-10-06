@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
-import { fetchIcsCalendar } from "@/lib/ics-fetcher";
+import { fetchIcsCalendar, ICS_WINDOW_FUTURE_DAYS } from "@/lib/ics-fetcher";
 import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
+import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";
 
 /**
  * Per-calendar ICS sync helper. Shared by:
@@ -54,6 +55,7 @@ export async function syncIcsCalendar(
   previousEtag: string | null,
   calendarPersonId: string | null,
   mappingRules: PersonMappingRule[],
+  futureDays: number = ICS_WINDOW_FUTURE_DAYS,
 ): Promise<IcsSyncResult> {
   const supabase = createAdminClient();
 
@@ -72,7 +74,7 @@ export async function syncIcsCalendar(
 
   let fetchResult;
   try {
-    fetchResult = await fetchIcsCalendar(icsUrl, effectiveEtag);
+    fetchResult = await fetchIcsCalendar(icsUrl, effectiveEtag, futureDays);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown fetch error";
     console.error(`[ics-sync] Fetch failed for calendar ${calendarId}: ${msg}`);
@@ -227,6 +229,7 @@ export async function syncFamilyIcsCalendars(familyId: string) {
     .single();
 
   const mappingRules: PersonMappingRule[] = settingsRow?.value?.mapping_rules ?? [];
+  const futureDays = await familyCalendarSyncFutureDays(familyId, supabase);
 
   const results = await Promise.allSettled(
     icsCalendars.map(
@@ -236,7 +239,7 @@ export async function syncFamilyIcsCalendars(familyId: string) {
         ics_etag: string | null;
         person_id: string | null;
       }) =>
-        syncIcsCalendar(cal.id, cal.ics_url, cal.ics_etag, cal.person_id, mappingRules),
+        syncIcsCalendar(cal.id, cal.ics_url, cal.ics_etag, cal.person_id, mappingRules, futureDays),
     ),
   );
 

@@ -8,6 +8,7 @@ import { Calendar, CalendarPlus, Rss, Server, ChevronRight, Check, AlertCircle }
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { CalendarDisplayCard } from "@/components/settings/calendar-display-card";
+import { CalendarSyncRangeCard } from "@/components/settings/calendar-sync-range-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useGoogleCalendarStatus, useCalendars } from "@/hooks";
@@ -63,6 +64,9 @@ export default function CalendarSettingsPage() {
 
       {/* What the calendar marks on a day, besides events */}
       <CalendarDisplayCard />
+
+      {/* How far ahead ICS and CalDAV calendars sync */}
+      <CalendarSyncRangeCard />
 
       {/* Google Calendar */}
       <motion.div

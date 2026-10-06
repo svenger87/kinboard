@@ -58,3 +58,31 @@ export const TIER_THRESHOLDS_CENTS: ReadonlyArray<number> = [
   8_000,    // stage 7: €80
   20_000,   // stage 8: €200
 ];
+
+/** What the avatar grows with: the money in the account, or task points. */
+export type RewardMode = "money" | "points";
+
+/**
+ * Task points that promote the avatar, for a child in points mode
+ * (discussion #349). Separate from the cent thresholds above, and counted
+ * differently: these are the points a child has EARNED, all time, not what
+ * is left after rewards -- spending points on a reward never shrinks the pet.
+ *
+ * Tuned for a child doing a handful of tasks a day at 5-10 points each, about
+ * 50 points a week: the egg hatches in the first week, stage 4 comes after
+ * about six weeks, stage 6 after about five months, and the top stage after a
+ * year or so. As with money, the steps are small at the start and the
+ * distance is at the top.
+ *
+ * Documented in docs/wiki/Pocket-Money.md ("Points instead of euros").
+ */
+export const TIER_THRESHOLDS_POINTS: ReadonlyArray<number> = [
+  0,      // stage 1: the egg
+  50,     // stage 2: hatched, about a week
+  150,    // stage 3
+  300,    // stage 4
+  600,    // stage 5
+  1_000,  // stage 6
+  1_600,  // stage 7
+  2_500,  // stage 8
+];

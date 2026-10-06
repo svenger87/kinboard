@@ -97,14 +97,16 @@ export function useUpdatePocketMoneyAccount() {
         // silently, as did the avatar-stage tracking on every page load.
         body: JSON.stringify({ ...update, family_id: family?.id }),
       });
-      // Only the protected fields (allowance, interest, currency, species)
-      // trigger this on the server — the per-page-load avatar-stage write
-      // never does, so this never relocks a kid's own screen.
-      if (await isPinRequired(r)) {
-        relockSettings();
-        return null;
+      if (!r.ok) {
+        // Allowance, interest, currency, species and the reward mode need the
+        // settings PIN on the server (#359); the per-page-load avatar-stage
+        // write never does, so a kid's own screen is never relocked.
+        if (await isPinRequired(r)) {
+          relockSettings();
+          throw new Error("pin_required");
+        }
+        throw new Error(`update: ${r.status}`);
       }
-      if (!r.ok) throw new Error(`update: ${r.status}`);
       return ((await r.json()) as { account: PocketMoneyAccount }).account;
     },
     onSuccess: (saved) => {

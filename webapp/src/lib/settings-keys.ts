@@ -19,6 +19,10 @@ export const SETTINGS_KEYS = {
   calendarDisplay: "calendar_display",
   schedulePackItems: "schedule_pack_items",
   schedulePeriods: "schedule_periods",
+  // How many days ahead ICS and CalDAV calendars sync (discussion #349).
+  // One of CALENDAR_SYNC_RANGE_DAYS in lib/calendar-sync-range.ts; missing
+  // or invalid means 60.
+  calendarSyncRange: "calendar_sync_range",
   screensaver: "screensaver",
   newsSources: "news_sources",
   newsCustomFeeds: "news_custom_feeds",

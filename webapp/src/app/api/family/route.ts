@@ -54,10 +54,13 @@ export async function DELETE(request: NextRequest) {
   }
 
 
-  const { error: deleteError } = await (supabase as any)
-    .from("families")
-    .delete()
-    .eq("id", family_id);
+  // Through delete_family, not a plain delete: it sets kinboard.hard_delete
+  // for the transaction, so the recycle bin's triggers let the cascades
+  // through. A plain delete left the family's binned rows behind, and failed
+  // outright on a task assigned to someone already in the bin (#344).
+  const { error: deleteError } = await (supabase as any).rpc("delete_family", {
+    p_family_id: family_id,
+  });
 
   if (deleteError) {
     return NextResponse.json({ error: deleteError.message }, { status: 500 });

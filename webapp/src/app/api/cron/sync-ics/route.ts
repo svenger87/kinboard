@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { syncIcsCalendar, IcsSyncResult } from "@/lib/ics-sync";
 import type { PersonMappingRule } from "@/lib/calendar-person-matcher";
+import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";
+import type { CalendarSyncRangeDays } from "@/lib/calendar-sync-range";
 
 // Force Node.js runtime + dynamic — node-ical (transitive: http, https,
 // fs) is Node-only and Next's static page-data collector fails to bundle
@@ -55,10 +57,13 @@ export async function POST(request: NextRequest) {
 
   console.log(`[sync-ics] Found ${icsCalendars.length} ICS calendar(s)`);
 
-  // Mapping rules per family (same convention as the user-triggered path
-  // — pulled from the google_calendar settings key).
+  // Mapping rules and the sync range, per family (same convention as the
+  // user-triggered path — mapping rules are pulled from the google_calendar
+  // settings key; the sync range from calendar_sync_range, see
+  // lib/calendar-sync-range.ts). One lookup per family, not per calendar.
   const familyIds = [...new Set(icsCalendars.map((c: { family_id: string }) => c.family_id))] as string[];
   const mappingRulesByFamily = new Map<string, PersonMappingRule[]>();
+  const futureDaysByFamily = new Map<string, CalendarSyncRangeDays>();
 
   for (const familyId of familyIds) {
 
@@ -71,6 +76,7 @@ export async function POST(request: NextRequest) {
 
     const rules: PersonMappingRule[] = settingsRow?.value?.mapping_rules ?? [];
     mappingRulesByFamily.set(familyId, rules);
+    futureDaysByFamily.set(familyId, await familyCalendarSyncFutureDays(familyId, supabase));
   }
 
   const results = await Promise.allSettled(
@@ -88,6 +94,7 @@ export async function POST(request: NextRequest) {
           cal.ics_etag,
           cal.person_id,
           mappingRulesByFamily.get(cal.family_id) ?? [],
+          futureDaysByFamily.get(cal.family_id),
         ),
     ),
   );

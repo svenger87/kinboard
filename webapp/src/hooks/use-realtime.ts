@@ -45,7 +45,9 @@ type TableName =
   | "catalogue_items"
   | "rooms"
   | "assistant_action_requests"
-  | "todo_occurrences";
+  | "todo_occurrences"
+  | "point_rewards"
+  | "point_redemptions";
 
 const ALL_TABLES: TableName[] = [
   "people",
@@ -74,6 +76,8 @@ const ALL_TABLES: TableName[] = [
   "rooms",
   "assistant_action_requests",
   "todo_occurrences",
+  "point_rewards",
+  "point_redemptions",
 ];
 
 interface UseRealtimeOptions {
@@ -141,6 +145,13 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           // Days written down by the quarter-hourly pass, which touches no
           // task row when it only marks a day missed.
           queryClient.invalidateQueries({ queryKey: ["todo-history", family.id] });
+          break;
+        case "point_rewards":
+          queryClient.invalidateQueries({ queryKey: ["point-rewards", family.id] });
+          break;
+        case "point_redemptions":
+          // A child's request, or a parent's decision on another screen.
+          queryClient.invalidateQueries({ queryKey: ["point-redemptions", family.id] });
           break;
         case "shopping_items":
           queryClient.invalidateQueries({

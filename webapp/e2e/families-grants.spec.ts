@@ -56,8 +56,12 @@ test.describe("migrations", () => {
     const self = "migration_zzzzzz_families_server_only.sql";
     const touching = readdirSync(DOCKER)
       .filter((f) => /^migration.*\.sql$/.test(f) && f !== self)
+      // A foreign key to families (`REFERENCES public.families(id)`) grants
+      // nothing on it, so a later table that belongs to a family need not
+      // sort before the revoke; anything else naming the table does.
       .filter((f) => /\bpublic\.families\b|\bON\s+families\b|\bTABLE\s+families\b/i.test(
-        codeOnly(readFileSync(join(DOCKER, f), "utf8"), { sql: true })))
+        codeOnly(readFileSync(join(DOCKER, f), "utf8"), { sql: true })
+          .replace(/\bREFERENCES\s+public\.families\s*\(\s*id\s*\)/gi, "")))
       .sort();
     expect(touching).toContain("migration_zz_row_level_security.sql");
     for (const f of touching) expect(f < self, `${f} sorts after ${self}`).toBe(true);
@@ -67,6 +71,21 @@ test.describe("migrations", () => {
 // Server-side helpers that delete a family with the service-role client they are
 // handed. Each must be imported only from API routes; the test below checks it.
 const SERVER_ONLY_FAMILY_DELETERS = [join(SRC, "lib", "family-create.ts")];
+
+// A family is deleted through delete_family(), never a plain delete: only the
+// function sets kinboard.hard_delete, without which the recycle bin's triggers
+// leave the family's rows behind (#344). Granted to the service role alone.
+const PLAIN_FAMILY_DELETE = /\.from\(\s*["']families["']\s*\)\s*\.delete\(/;
+const DELETE_FAMILY_RPC = /\.rpc\(\s*["']delete_family["']/;
+
+test("each allow-listed deleter deletes through delete_family", () => {
+  for (const file of SERVER_ONLY_FAMILY_DELETERS) {
+    const code = codeOnly(readFileSync(file, "utf8"));
+    // Guard the guard: an entry that no longer deletes a family is stale.
+    expect(code, `${file} no longer calls delete_family`).toMatch(DELETE_FAMILY_RPC);
+    expect(code, `${file} deletes a family with a plain delete`).not.toMatch(PLAIN_FAMILY_DELETE);
+  }
+});
 
 test("server-side family deleters are only imported from API routes", () => {
   const api = join(SRC, "app", "api");
@@ -97,7 +116,7 @@ test("no browser code deletes a family", () => {
         walk(path);
       } else if (/\.(ts|tsx)$/.test(name) && !SERVER_ONLY_FAMILY_DELETERS.includes(path)) {
         const code = codeOnly(readFileSync(path, "utf8"));
-        if (/\.from\(\s*["']families["']\s*\)\s*\.delete\(/.test(code)) offenders.push(path);
+        if (PLAIN_FAMILY_DELETE.test(code) || DELETE_FAMILY_RPC.test(code)) offenders.push(path);
       }
     }
   };
