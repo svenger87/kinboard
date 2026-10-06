@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Implemented in 1.13.0-rc.12: Step 1 #363, Step 2 #365, Step 3 #366 (with changing the creature later). Live reactions, mood and cosmetics remain open (§2) |
+| **Status** | Implemented in 1.13.0-rc.12: Step 1 #363, Step 2 #365, Step 3 #366 (with changing the creature later). Live reactions #367; mood in its own PR. Cosmetics remain open (§2) |
 | **Date** | 2026-10-06 |
 | **Depends on** | the pocket-money plugin, points mode (#353), server-only pocket-money writes (#361) |
 

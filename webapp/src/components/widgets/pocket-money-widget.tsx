@@ -8,6 +8,7 @@ import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmente
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
+import { useCreatureMood } from "@/hooks/use-creature-mood";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople, usePointTotals } from "@/hooks";
 import { avatarStage } from "@/lib/pocket-money/points";
@@ -93,6 +94,8 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
   // Points mode (discussion #349): the stage follows the task points earned,
   // and the widget shows the points to spend instead of the money.
   const { totalsFor } = usePointTotals();
+  // Sleepy at night, happy once today's tasks are done; still, either way.
+  const mood = useCreatureMood(account.person_id);
   const pointsMode = account.reward_mode === "points";
   const points = totalsFor(account.person_id, account.id);
   const stage = avatarStage({
@@ -127,6 +130,7 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
         tier={stage.tier}
         style={account.avatar_style}
         look={readLook(account.avatar_look)}
+        mood={mood}
         size={56}
         animated={false}
         label={t(`species.${account.avatar_species}.tier${stage.tier}` as never)}

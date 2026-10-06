@@ -20,6 +20,11 @@ export interface CreatureAvatarProps {
   tier: AvatarTier;
   /** The account's avatar_style. Classic, or a species without drawings, shows the classic picture. */
   style?: AvatarStyle | string | null;
+  /**
+   * "normal" unless told: the screens showing a child's creature now pass
+   * lib/creature-mood.ts's answer (sleepy at night, happy once today's tasks
+   * are done). The classic pictures have no moods and ignore it.
+   */
   mood?: CreatureMood;
   size?: number;
   /**
@@ -132,7 +137,7 @@ export function CreatureAvatar({
   species,
   tier,
   style,
-  mood = "happy",
+  mood = "normal",
   size = 200,
   animated = true,
   tappable = false,
@@ -182,6 +187,7 @@ export function CreatureAvatar({
         data-avatar-style={shown}
         data-species={species}
         data-tier={tier}
+        data-mood={mood}
         overflow="visible"
       >
         {drawCreature({ art, style: drawnStyle, tier, mood, uid, cracked, look })}

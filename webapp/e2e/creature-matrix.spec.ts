@@ -47,7 +47,7 @@ test.describe("every creature × style × stage renders", () => {
       for (const style of DRAWN_STYLES) {
         const seen = new Set<string>();
         for (const tier of TIERS) {
-          for (const mood of ["happy", "sleepy"] as const) {
+          for (const mood of ["normal", "happy", "sleepy"] as const) {
             const html = render({ species, tier, style, mood });
             const where = `${species} ${style} ${tier} ${mood}`;
             expect(html, where).toContain(`data-avatar-style="${style}"`);
@@ -64,9 +64,14 @@ test.describe("every creature × style × stage renders", () => {
             // the style's effects
             expect(html.includes("<filter"), where).toBe(style === "sticker");
             expect(html.includes("radialGradient"), where).toBe(style === "storybook");
-            if (mood === "happy") seen.add(html);
-            // eyes open from the hatchling on (sleepy closes them)
-            if (mood === "happy" && tier > 1) expect(html, where).toContain("creature-blink");
+            if (mood === "normal") seen.add(html);
+            // eyes open from the hatchling on (sleepy closes them, happy smiles them)
+            if (mood === "normal" && tier > 1) expect(html, where).toContain("creature-blink");
+            if (mood === "happy" && tier > 1) {
+              expect(html, where).toContain('data-eyes="happy"');
+              expect(html, where).not.toContain("creature-blink");
+            }
+            expect(html.includes('data-mood="happy" class="creature-happy-sparkle"'), where).toBe(mood === "happy");
             if (mood === "sleepy" && tier > 1) expect(html, where).toContain("creature-zzz");
             // the crown is stage 8's, or the cushion's at stage 1
             const origin = speciesArt(species)!.origin ?? "egg";

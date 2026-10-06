@@ -13,6 +13,7 @@ import type { AvatarSpecies, AvatarTier } from "@/lib/pocket-money/types";
 import type { AvatarStage } from "@/lib/pocket-money/points";
 import { CreatureAvatar } from "./creature-avatar";
 import type { CreatureLook } from "@/lib/pocket-money/creatures/look";
+import type { CreatureMood } from "@/lib/creature-mood";
 import { formatCents } from "@/lib/pocket-money/format";
 
 interface Props {
@@ -26,6 +27,14 @@ interface Props {
   /** What the avatar shows, in money or points mode (avatarStage). */
   stage: AvatarStage;
   currency: string;
+  /**
+   * The creature's mood now (lib/creature-mood.ts). Worn by the current
+   * stage's tile only: that one is the creature as it is right now, the same
+   * as on the page behind the sheet. The others are what it was and will be,
+   * a guide to the stages, and stay as they are drawn -- eight creatures
+   * asleep at once would read as eight stages switched off.
+   */
+  mood?: CreatureMood;
 }
 
 export function StagesSheet({
@@ -36,6 +45,7 @@ export function StagesSheet({
   look,
   stage,
   currency,
+  mood = "normal",
 }: Props) {
   const t = useTranslations("pocketMoney");
   const currentTier = stage.tier;
@@ -92,6 +102,7 @@ export function StagesSheet({
                   tier={tier}
                   style={avatarStyle}
                   look={look}
+                  mood={isCurrent ? mood : "normal"}
                   size={56}
                   animated={false}
                   label=""

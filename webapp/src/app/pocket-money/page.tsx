@@ -38,6 +38,7 @@ import { GoalCard } from "@/components/pocket-money/goal-card";
 import { GoalAddDialog } from "@/components/pocket-money/goal-add-dialog";
 import { CelebrationOverlay } from "@/components/pocket-money/celebration-overlay";
 import { StagesSheet } from "@/components/pocket-money/stages-sheet";
+import { useCreatureMood } from "@/hooks/use-creature-mood";
 import {
   useUpdatePocketMoneyGoal,
   useDeletePocketMoneyGoal,
@@ -128,6 +129,9 @@ export default function PocketMoneyPage() {
   const { ready: pointsReady, totalsFor } = usePointTotals();
   const { data: rewards = [] } = usePointRewards();
   const { data: redemptions = [] } = usePointRedemptions();
+  // Sleepy at night, happy once today's tasks are done: one answer for the
+  // creature and the stages sheet's current stage.
+  const mood = useCreatureMood(active?.person_id);
   const pointsMode = active?.reward_mode === "points";
   const points = active ? totalsFor(active.person_id, active.id) : null;
   const stage = avatarStage({
@@ -373,6 +377,7 @@ export default function PocketMoneyPage() {
           tier={currentTier}
           style={active.avatar_style}
           look={activeLook}
+          mood={mood}
           size={220}
           tappable
           label={t(`species.${active.avatar_species}.tier${currentTier}` as never)}
@@ -637,6 +642,7 @@ export default function PocketMoneyPage() {
         look={activeLook}
         stage={stage}
         currency={active.currency}
+        mood={mood}
       />
     </main>
   );

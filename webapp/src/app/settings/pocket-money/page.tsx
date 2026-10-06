@@ -40,7 +40,8 @@ import {
 } from "@/components/pocket-money/rewards-settings";
 import type { AvatarSpecies } from "@/lib/pocket-money/types";
 import { readLook } from "@/lib/pocket-money/creatures";
-import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
+import { CreatureAvatar, type CreatureAvatarProps } from "@/components/pocket-money/creature-avatar";
+import { useCreatureMood } from "@/hooks/use-creature-mood";
 import { SpeciesPicker } from "@/components/pocket-money/species-picker";
 import { ChangeCreatureSheet } from "@/components/pocket-money/change-creature-sheet";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
@@ -306,7 +307,8 @@ export default function PocketMoneySettingsPage() {
                   the style and the look; the child's own page has no such
                   switch (RFC-016 §4.1). */}
               <div className="pt-3 border-t border-border flex items-center gap-3" data-testid={`creature-${acct.id}`}>
-                <CreatureAvatar
+                <ChildCreature
+                  personId={acct.person_id}
                   species={acct.avatar_species}
                   tier={tier}
                   style={acct.avatar_style}
@@ -646,6 +648,12 @@ export default function PocketMoneySettingsPage() {
       </div>
     </main>
   );
+}
+
+/** The child's creature as it is now, mood and all (lib/creature-mood.ts). */
+function ChildCreature({ personId, ...avatar }: CreatureAvatarProps & { personId: string }) {
+  const mood = useCreatureMood(personId);
+  return <CreatureAvatar {...avatar} mood={mood} />;
 }
 
 function AccountInbox({

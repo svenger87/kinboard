@@ -28,6 +28,7 @@ import { usePocketMoneyAccounts } from "@/hooks/use-pocket-money-accounts";
 import { usePointTotals } from "@/hooks/use-point-rewards";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
+import { useCreatureMood } from "@/hooks/use-creature-mood";
 import { avatarStage } from "@/lib/pocket-money/points";
 import { readLook, type CreatureLook } from "@/lib/pocket-money/creatures/look";
 import type { AvatarTier } from "@/lib/pocket-money/types";
@@ -279,6 +280,8 @@ function PersonDetailsDialog({ person, todos, events, points, petAvatar, onClose
   const t = useTranslations("familyMembers");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
+  // The creature's mood: sleepy at night, happy once today's tasks are done.
+  const petMood = useCreatureMood(petAvatar ? person?.id : null);
   if (!person) return null;
 
   return (
@@ -334,6 +337,7 @@ function PersonDetailsDialog({ person, todos, events, points, petAvatar, onClose
                     tier={petAvatar.tier}
                     style={petAvatar.style}
                     look={petAvatar.look}
+                    mood={petMood}
                     size={56}
                     animated={false}
                     // Inside the dialog's title: a name here would be read as part of it.
