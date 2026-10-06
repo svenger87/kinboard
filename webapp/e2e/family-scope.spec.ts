@@ -121,6 +121,9 @@ test.describe("familyIdFrom", () => {
 
 const SESSION_FAMILY_RPC_ROUTES = new Set([
   "rewards/redemptions/[id]/route.ts",
+  // applyCreaturePatch (lib/creatures/server.ts) filters every read and write
+  // on the family it is handed.
+  "creatures/[personId]/route.ts",
 ]);
 
 test("no dynamic API route uses the admin client without a family filter", () => {

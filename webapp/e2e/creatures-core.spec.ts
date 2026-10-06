@@ -3,13 +3,21 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { QueryClient } from "@tanstack/react-query";
 import { clampTier, moneyAvailable, parseCreaturePatch, pluginOn, startingStyle } from "../src/lib/creatures/rules";
-import { creatureStage, effectiveGrowsWith } from "../src/lib/creatures/stage";
+import { clampStageWrites, creatureStage, effectiveGrowsWith, justifiedTiers } from "../src/lib/creatures/stage";
 import { backupHasCreatures, personForOldRedemptions } from "../src/lib/creatures/backup";
 import { pointTotals } from "../src/lib/pocket-money/points";
 import { reactToTaskChange, resetCreatureReactions, useCreatureReactions } from "../src/stores/creature-reactions";
 import { SETTINGS_ENTRIES } from "../src/lib/settings-search/registry";
 import { searchSettings, toSearchable } from "../src/lib/settings-search/search";
 import { codeOnly } from "./source-helpers";
+import { activeCreatureOf } from "../src/hooks/use-creatures";
+
+/** activeCreatureOf ignores a creature that is switched off. */
+function activeCreatureOfEnabled(): boolean {
+  const off = [{ person_id: "p", enabled: false }] as never;
+  const on = [{ person_id: "p", enabled: true }] as never;
+  return activeCreatureOf(off, "p") === undefined && activeCreatureOf(on, "p") !== undefined;
+}
 
 /**
  * RFC-017 step 1, below the database: what a creature write may carry and who
@@ -86,10 +94,10 @@ test.describe("a creature write", () => {
   });
 
   test("the route asks for money's availability before writing grows_with money", () => {
-    const src = codeOnly(read("src/app/api/creatures/[personId]/route.ts"));
-    const check = src.indexOf('parsed.patch.grows_with === "money" && !(await moneyAvailableFor(');
+    const src = codeOnly(read("src/lib/creatures/server.ts"));
+    const check = src.indexOf('patch.grows_with === "money" && !(await moneyAvailableFor(');
     expect(check).toBeGreaterThan(0);
-    expect(check).toBeLessThan(src.indexOf(".update(parsed.patch)"));
+    expect(check).toBeLessThan(src.indexOf(".update(patch)"));
   });
 });
 
@@ -108,6 +116,52 @@ test.describe("the stage, read from the creature", () => {
   test("money without an account grows with points rather than freezing", () => {
     expect(effectiveGrowsWith({ grows_with: "money", best_tier: 1 }, null)).toBe("points");
     expect(creatureStage({ creature: { grows_with: "money", best_tier: 1 }, account: null, earnedPoints: 160 }).mode).toBe("points");
+  });
+});
+
+test.describe("the stages a child's screen may record", () => {
+  test("points: the lifetime points' stage bounds best_tier; the shown stage bounds last_seen_tier", () => {
+    // 160 points is stage 3; a money stage 5 kept from before shows as 5.
+    expect(justifiedTiers({ creature: { grows_with: "points", best_tier: 1 }, account: null, earnedPoints: 160 })).toEqual({ seen: 3, best: 3 });
+    expect(justifiedTiers({ creature: { grows_with: "points", best_tier: 5 }, account: null, earnedPoints: 160 })).toEqual({ seen: 5, best: 3 });
+  });
+
+  test("money: the balance's stage bounds both", () => {
+    expect(justifiedTiers({ creature: { grows_with: "money", best_tier: 7 }, account: { balance_cents: 400 }, earnedPoints: 9_999 })).toEqual({ seen: 4, best: 4 });
+    // without the account, it grows with points
+    expect(justifiedTiers({ creature: { grows_with: "money", best_tier: 1 }, account: null, earnedPoints: 50 })).toEqual({ seen: 2, best: 2 });
+  });
+
+  test("a write above is clamped, one below or equal is kept, and other fields pass through", () => {
+    const bound = { seen: 3, best: 2 };
+    expect(clampStageWrites({ best_tier: 8, last_seen_tier: 8, style: "sticker" as const }, bound)).toEqual({ best_tier: 2, last_seen_tier: 3, style: "sticker" });
+    expect(clampStageWrites({ best_tier: 1, last_seen_tier: 3 }, bound)).toEqual({ best_tier: 1, last_seen_tier: 3 });
+    expect(clampStageWrites({ look: {} } as { look: object; best_tier?: number }, bound)).toEqual({ look: {} });
+  });
+
+  test("the one write path applies the clamp before it writes, with the growth source the write leaves", () => {
+    const src = codeOnly(read("src/lib/creatures/server.ts"));
+    const clamp = src.indexOf("patch = clampStageWrites(patch, justifiedTiers(");
+    expect(clamp).toBeGreaterThan(0);
+    expect(clamp).toBeLessThan(src.indexOf(".update(patch)"));
+    expect(src).toContain("const growsWith = patch.grows_with ?? creature.grows_with;");
+    // and both routes that write a creature use it
+    expect(read("src/app/api/creatures/[personId]/route.ts")).toContain("applyCreaturePatch({");
+    expect(read("src/app/api/pocket-money/accounts/[id]/route.ts")).toContain("applyCreaturePatch({");
+  });
+
+  test("a child in the recycle bin is not in the family, for every creature route", () => {
+    const src = codeOnly(read("src/lib/creatures/server.ts"));
+    const fn = src.slice(src.indexOf("export async function personInFamily"), src.indexOf("export async function pocketMoneyOn"));
+    expect(fn).toContain('.is("deleted_at", null)');
+  });
+});
+
+test.describe("the profile shows a creature only when it is switched on", () => {
+  test("family-members reads the creature through activeCreatureOf, for the picture and the points tile", () => {
+    const src = codeOnly(read("src/components/widgets/family-members.tsx"));
+    expect(src.match(/activeCreatureOf\(creatures, selectedPerson\.id\)/g)).toHaveLength(2);
+    expect(activeCreatureOfEnabled()).toBe(true);
   });
 });
 

@@ -182,11 +182,16 @@ BEGIN
       SELECT policyname, qual FROM pg_policies
       WHERE schemaname = 'public' AND tablename = t AND cmd = 'ALL'
     LOOP
+      -- "The owner is there", not "the owner is not binned": the subquery
+      -- runs under people's own row-level security, which already hides a
+      -- binned person from a family token, so NOT EXISTS over binned people
+      -- never found one and the account stayed visible (RFC-017 review).
+      -- EXISTS over visible, unbinned people is true only for a present owner.
       IF existing_qual IS NOT NULL AND existing_qual NOT LIKE '%people%deleted_at%' THEN
         EXECUTE format(
-          'ALTER POLICY %I ON public.%I USING ((%s) AND NOT EXISTS ('
+          'ALTER POLICY %I ON public.%I USING ((%s) AND EXISTS ('
           || 'SELECT 1 FROM public.people p WHERE p.id = public.%I.person_id '
-          || 'AND p.deleted_at IS NOT NULL))',
+          || 'AND p.deleted_at IS NULL))',
           pol, t, existing_qual, t);
       END IF;
     END LOOP;

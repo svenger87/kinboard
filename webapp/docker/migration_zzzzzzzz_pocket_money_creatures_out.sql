@@ -25,42 +25,66 @@
 -- need the PIN; a child's request does not). EXECUTE on the functions belongs
 -- to the service role only.
 --
--- ROLLBACK TO rc.13 must keep working, so nothing old is taken away:
+-- ROLLBACK TO rc.13 must keep working. What keeps it working is what this
+-- file leaves in the tables, not the functions: rc.13 re-runs its own
+-- migration_zzzzzzz_point_rewards.sql on boot, which puts back its own
+-- point_account_totals(), request_point_redemption() and
+-- decide_point_redemption() over the ones defined here. So:
+--   * point_redemptions.account_id stays, nullable now, and the
+--     point_redemptions_fill_keys trigger -- which rc.13 knows nothing about
+--     and leaves in place -- fills it from the child's account on every insert,
+--     and fills person_id from account_id. rc.13's functions insert with only
+--     account_id and read per account: the new NOT NULL never refuses them,
+--     and their sums still see the rows written here.
 --   * the account columns (avatar_species, avatar_style, avatar_look,
 --     best_tier, last_seen_tier, reward_mode) stay, with their CHECKs and the
---     best_tier trigger. The app no longer writes them; rc.13 would find them
---     as they were on the day of the upgrade, which is a valid creature.
---   * point_redemptions.account_id stays, nullable now, and is still filled in
---     whenever the child has an account (point_redemptions_fill_keys), so
---     rc.13's per-account reads still add up.
---   * point_account_totals() and request_point_redemption(), which take an
---     account, stay as thin wrappers over the per-person functions.
---     decide_point_redemption() keeps its name and arguments.
---   * a row rc.13 inserts with only account_id gets its person_id from the
---     same trigger, so the new NOT NULL never refuses it.
--- A later release drops the old columns and wrappers (RFC-017 §7 step 5).
+--     best_tier trigger. The app no longer writes them, so rc.13 finds them as
+--     they were on the day of the upgrade, which is a valid creature.
+-- What a rollback loses: anything rc.13 writes to those columns while it
+-- runs (a new account, a mode or style change) stays on the account, and the
+-- creature does not pick it up on the next upgrade -- the backfill below runs
+-- only when the table is created.
+-- A later release drops the old columns, the wrappers and the trigger
+-- (RFC-017 §7 step 5).
 --
--- Safe to run twice; it runs on every boot. The backfill runs exactly once,
+-- Safe to run twice, and twice at once: the webapp entrypoint and
+-- `./start.sh migrate` can apply the same file concurrently. The session
+-- advisory lock right below serialises two runs of this file -- the second
+-- waits, then finds everything done -- and it is released when psql ends,
+-- also when a statement fails under ON_ERROR_STOP.
+--
+-- The backfill runs exactly once,
 -- in the same statement that creates the table: after that a new
 -- pocket-money account does NOT get a creature by itself -- a parent switches
 -- one on (RFC-017 §2.1) -- so re-running the backfill on every boot would be
 -- wrong, not merely redundant.
 
+SELECT pg_advisory_lock(hashtextextended('migration_zzzzzzzz_pocket_money_creatures_out', 0));
+
 -- ---------------------------------------------------------------------------
 -- 1. creatures
 -- ---------------------------------------------------------------------------
 
--- A creature for every pocket-money account that has none (RFC-017 §3.3):
+-- A creature for every CHILD's pocket-money account that has none
+-- (RFC-017 §3.3):
 --
 --   the account's species, style, look, best_tier and last_seen_tier,
---   enabled, the shop on, and
---   grows_with = 'points' where reward_mode = 'points', else 'money'.
+--   the shop on,
+--   grows_with = 'points' where reward_mode = 'points', else 'money', and
+--   enabled = whether the family has the pocket-money plugin on.
 --
 -- §3.3 names the accounts that get one -- a drawn style, a look, a species
 -- other than the dragon, points mode -- and then the classic dragons on
 -- accounts that never touched any of it, "since they have one today". That is
--- every account: every child in the plugin sees a creature on rc.13. A child
--- with no account has none, and gets none.
+-- every child's account: every child in the plugin sees a creature on rc.13.
+-- A child with no account has none, and gets none; nor does a grown-up with
+-- an account (people.is_child false), who never had a creature on screen.
+--
+-- `enabled` follows the plugin because on rc.13 the creature showed only with
+-- pocket money on (the profile checked it too). A family that turned pocket
+-- money off sees no creature appear; it is kept, switched off, for a parent to
+-- switch on under Settings -> Creatures & rewards. The plugin is on unless the
+-- family's enabled_plugins setting says false, as in the app.
 --
 -- Used by the one-time backfill below and by /api/import for a backup made
 -- before this table existed, so both derive creatures by the same rule.
@@ -84,9 +108,12 @@ BEGIN
          LEAST(8, GREATEST(1, COALESCE(a.best_tier, 1))),
          LEAST(8, GREATEST(1, COALESCE(a.last_seen_tier, 1))),
          CASE WHEN a.reward_mode = 'points' THEN 'points' ELSE 'money' END,
-         true, true
+         true,
+         NOT EXISTS (SELECT 1 FROM public.settings s
+                      WHERE s.family_id = a.family_id AND s.key = 'enabled_plugins'
+                        AND s.value -> 'pocket-money' = 'false'::jsonb)
     FROM public.pocket_money_accounts a
-    JOIN public.people p ON p.id = a.person_id AND p.family_id = a.family_id
+    JOIN public.people p ON p.id = a.person_id AND p.family_id = a.family_id AND p.is_child
    WHERE (p_family_id IS NULL OR a.family_id = p_family_id)
      AND NOT EXISTS (SELECT 1 FROM public.creatures c WHERE c.person_id = a.person_id);
   GET DIAGNOSTICS n = ROW_COUNT;
@@ -190,6 +217,29 @@ END $$;
 ALTER TABLE public.point_redemptions
   ADD COLUMN IF NOT EXISTS person_id UUID REFERENCES public.people(id) ON DELETE CASCADE;
 
+-- The two keys kept in step for one release: a row written with only the
+-- account (rc.13, after a rollback) gets its person; a row written with only
+-- the person gets the child's account when there is one, so rc.13's
+-- per-account sums still see it. Created before the backfill and the NOT NULL
+-- below, so an rc.13 insert that lands while this file runs is filled in
+-- rather than refused.
+CREATE OR REPLACE FUNCTION public.point_redemptions_fill_keys() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+BEGIN
+  IF NEW.person_id IS NULL AND NEW.account_id IS NOT NULL THEN
+    SELECT person_id INTO NEW.person_id FROM public.pocket_money_accounts WHERE id = NEW.account_id;
+  END IF;
+  IF NEW.account_id IS NULL AND NEW.person_id IS NOT NULL THEN
+    SELECT id INTO NEW.account_id FROM public.pocket_money_accounts WHERE person_id = NEW.person_id;
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS point_redemptions_fill_keys ON public.point_redemptions;
+CREATE TRIGGER point_redemptions_fill_keys
+  BEFORE INSERT ON public.point_redemptions
+  FOR EACH ROW EXECUTE FUNCTION public.point_redemptions_fill_keys();
+
 UPDATE public.point_redemptions r
    SET person_id = a.person_id
   FROM public.pocket_money_accounts a
@@ -232,26 +282,6 @@ DROP INDEX IF EXISTS public.point_redemptions_account_status_idx;
 CREATE INDEX IF NOT EXISTS point_redemptions_person_status_idx ON public.point_redemptions (person_id, status);
 CREATE INDEX IF NOT EXISTS point_redemptions_account_idx ON public.point_redemptions (account_id) WHERE account_id IS NOT NULL;
 
--- The two keys kept in step for one release: a row written with only the
--- account (rc.13, after a rollback) gets its person; a row written with only
--- the person gets the child's account when there is one, so rc.13's
--- per-account sums still see it.
-CREATE OR REPLACE FUNCTION public.point_redemptions_fill_keys() RETURNS trigger
-LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
-BEGIN
-  IF NEW.person_id IS NULL AND NEW.account_id IS NOT NULL THEN
-    SELECT person_id INTO NEW.person_id FROM public.pocket_money_accounts WHERE id = NEW.account_id;
-  END IF;
-  IF NEW.account_id IS NULL AND NEW.person_id IS NOT NULL THEN
-    SELECT id INTO NEW.account_id FROM public.pocket_money_accounts WHERE person_id = NEW.person_id;
-  END IF;
-  RETURN NEW;
-END $$;
-
-DROP TRIGGER IF EXISTS point_redemptions_fill_keys ON public.point_redemptions;
-CREATE TRIGGER point_redemptions_fill_keys
-  BEFORE INSERT ON public.point_redemptions
-  FOR EACH ROW EXECUTE FUNCTION public.point_redemptions_fill_keys();
 
 -- Family-scoped as before; a child in the recycle bin takes their requests out
 -- of sight with them, like their creature.
@@ -264,12 +294,14 @@ CREATE POLICY point_redemptions_family_read ON public.point_redemptions
 -- 3. The balance, a request, a decision -- per person
 -- ---------------------------------------------------------------------------
 --
--- NAMES. The per-person functions get new names, and the account ones stay as
--- wrappers for one release: request_point_redemption(family, account, reward,
--- device) and a per-person version would have the same argument types, so
--- they cannot share a name, and an rc.13 image after a rollback calls the old
--- one. decide_point_redemption() is keyed on the request, not the child, so
--- it keeps its name and arguments and only its body changes.
+-- NAMES. The per-person functions get new names: request_point_redemption(
+-- family, account, reward, device) and a per-person version would have the
+-- same argument types, so they cannot share a name. The account ones stay as
+-- thin wrappers for one release, for anything of this release that still
+-- names them; they do NOT serve an rc.13 rollback, which re-creates its own
+-- versions on boot (see the top of this file). decide_point_redemption() is
+-- keyed on the request, not the child, so it keeps its name and arguments and
+-- only its body changes.
 
 -- A child's points: earned (todo_point_awards), spent (approved requests),
 -- waiting (pending requests) and the balance, max(0, earned - spent), with
@@ -299,7 +331,7 @@ BEGIN
     'owed', GREATEST(0, v_spent - v_earned));
 END $$;
 
--- rc.13's name, for one release: the account's child's points.
+-- The account's child's points, under the old name, for one release.
 CREATE OR REPLACE FUNCTION public.point_account_totals(p_family_id UUID, p_account_id UUID)
 RETURNS JSONB
 LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public, pg_temp AS $$
@@ -320,7 +352,8 @@ $$;
 
 -- A child asks for a reward. Answers:
 --   { ok: true, redemption: {...} }
---   { ok: false, error: 'not_found' }        no such child in this family
+--   { ok: false, error: 'not_found' }        no such child in this family, or
+--                                            one in the recycle bin
 --   { ok: false, error: 'no_creature' }      the child has no creature switched on
 --   { ok: false, error: 'no_reward' }        no such active reward in this family
 --   { ok: false, error: 'insufficient_points', balance, pending }
@@ -335,7 +368,8 @@ DECLARE
   v_totals JSONB;
   v_row public.point_redemptions;
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.people WHERE id = p_person_id AND family_id = p_family_id) THEN
+  IF NOT EXISTS (SELECT 1 FROM public.people
+                  WHERE id = p_person_id AND family_id = p_family_id AND deleted_at IS NULL) THEN
     RETURN jsonb_build_object('ok', false, 'error', 'not_found');
   END IF;
   PERFORM public.point_lock_person(p_person_id);
@@ -363,7 +397,7 @@ BEGIN
   RETURN jsonb_build_object('ok', true, 'redemption', to_jsonb(v_row));
 END $$;
 
--- rc.13's name, for one release: the account's child asks.
+-- The account's child asks, under the old name, for one release.
 CREATE OR REPLACE FUNCTION public.request_point_redemption(
   p_family_id UUID, p_account_id UUID, p_reward_id UUID, p_device_id UUID DEFAULT NULL
 ) RETURNS JSONB
@@ -461,5 +495,7 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
+SELECT pg_advisory_unlock(hashtextextended('migration_zzzzzzzz_pocket_money_creatures_out', 0));
 
 NOTIFY pgrst, 'reload schema';

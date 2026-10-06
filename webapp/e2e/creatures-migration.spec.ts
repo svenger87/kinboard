@@ -64,6 +64,27 @@ test.describe("the file", () => {
     expect(fn).not.toMatch(/ON CONFLICT/);
   });
 
+  test("the fill-keys trigger exists before the backfill and the NOT NULL, so an rc.13 insert mid-run is filled in", () => {
+    const trigger = SQL.indexOf("CREATE TRIGGER point_redemptions_fill_keys");
+    expect(trigger).toBeGreaterThan(SQL.indexOf("ADD COLUMN IF NOT EXISTS person_id"));
+    expect(trigger).toBeLessThan(SQL.indexOf("UPDATE public.point_redemptions r"));
+    expect(trigger).toBeLessThan(SQL.indexOf("ALTER COLUMN person_id SET NOT NULL"));
+  });
+
+  test("two runs at once are serialised by a session lock, taken first and released last", () => {
+    const lock = SQL.indexOf("SELECT pg_advisory_lock(hashtextextended('migration_zzzzzzzz_pocket_money_creatures_out', 0));");
+    expect(lock).toBeGreaterThan(0);
+    expect(lock).toBeLessThan(SQL.indexOf("CREATE OR REPLACE FUNCTION"));
+    expect(SQL.lastIndexOf("SELECT pg_advisory_unlock(hashtextextended('migration_zzzzzzzz_pocket_money_creatures_out', 0));"))
+      .toBeGreaterThan(SQL.lastIndexOf("END $$;"));
+  });
+
+  test("only children, and switched on only where the family has pocket money on", () => {
+    const fn = SQL.slice(SQL.indexOf("FUNCTION public.creatures_from_accounts("), SQL.indexOf("DO $$"));
+    expect(fn).toContain("JOIN public.people p ON p.id = a.person_id AND p.family_id = a.family_id AND p.is_child");
+    expect(fn).toMatch(/NOT EXISTS \(SELECT 1 FROM public\.settings s\s+WHERE s\.family_id = a\.family_id AND s\.key = 'enabled_plugins'\s+AND s\.value -> 'pocket-money' = 'false'::jsonb\)/);
+  });
+
   test("the old account columns stay, and nothing drops them", () => {
     expect(SQL).not.toMatch(/DROP COLUMN/i);
     expect(SQL).not.toMatch(/DROP FUNCTION/i);
@@ -86,8 +107,9 @@ test.describe("against the database", () => {
 
   test("backfill, re-key, a second run, and what a rollback to rc.13 still finds", () => {
     const fam = randomUUID();
-    const [money, points, cat, none, late] = [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()];
-    const [aMoney, aPoints, aCat, aLate] = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    const offFam = randomUUID();
+    const [money, points, cat, none, late, adult, offKid] = [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    const [aMoney, aPoints, aCat, aLate, aAdult, aOff] = [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()];
     const [rPending, rApproved] = [randomUUID(), randomUUID()];
     const creature = (p: string, tag: string) =>
       `SELECT '${tag}|' || coalesce((SELECT concat_ws('|', species, style, look::text, best_tier, last_seen_tier, grows_with, shop_enabled::text, enabled::text)
@@ -113,7 +135,17 @@ INSERT INTO public.point_redemptions (id, family_id, account_id, title, cost_poi
   ('${rPending}', '${fam}', '${aPoints}', 'claude-film', 10, 'pending'),
   ('${rApproved}', '${fam}', '${aPoints}', 'claude-zoo', 20, 'approved');
 INSERT INTO public.todo_point_awards (family_id, person_id, completion_key, points) VALUES ('${fam}', '${points}', 'claude-mig', 100);
+-- A grown-up with an account: never had a creature on screen.
+INSERT INTO public.people (id, family_id, name, is_child) VALUES ('${adult}', '${fam}', 'adult', false);
+INSERT INTO public.pocket_money_accounts (id, family_id, person_id) VALUES ('${aAdult}', '${fam}', '${adult}');
+-- A family with pocket money switched off.
+INSERT INTO public.families (id, name, join_code) VALUES ('${offFam}', 'claude-creatures-mig-off', 'CM' || upper(substr(md5(random()::text), 1, 8)));
+INSERT INTO public.settings (family_id, key, value) VALUES ('${offFam}', 'enabled_plugins', '{"pocket-money": false, "media": true}'::jsonb);
+INSERT INTO public.people (id, family_id, name, is_child) VALUES ('${offKid}', '${offFam}', 'off', true);
+INSERT INTO public.pocket_money_accounts (id, family_id, person_id, avatar_species) VALUES ('${aOff}', '${offFam}', '${offKid}', 'fox');
 ${MIGRATION}
+${creature(adult, "ADULT")}
+${creature(offKid, "OFF")}
 ${creature(money, "MONEY")}
 ${creature(points, "POINTS")}
 ${creature(cat, "CAT")}
@@ -159,8 +191,11 @@ ROLLBACK;
     expect(line("POINTS")).toBe(`unicorn|sticker|{"body": "#FF8A5B", "name": "Funkel"}|3|5|points|true|true`);
     // another species in money mode; a stage out of range clamped into 1..8
     expect(line("CAT")).toBe("cat|classic|{}|1|1|money|true|true");
-    // no account, no creature
+    // no account, no creature; a grown-up's account, no creature
     expect(line("NONE")).toBe("none");
+    expect(line("ADULT")).toBe("none");
+    // pocket money off: kept, switched off
+    expect(line("OFF")).toBe("fox|classic|{}|1|1|money|true|false");
     // the requests now belong to the child
     expect(line("KEYS")).toBe(`${rPending}=${points},${rApproved}=${points}`);
     expect(line("NN")).toBe("NO");
@@ -183,7 +218,7 @@ ROLLBACK;
     expect(line("KEPT")).toBe("4|0");
     expect(line("KEPTC")).toBe("1");
 
-    expect(psql(`SELECT count(*) FROM public.families WHERE id = '${fam}';`)).toBe("0");
+    expect(psql(`SELECT count(*) FROM public.families WHERE id IN ('${fam}', '${offFam}');`)).toBe("0");
     expect(psql(`SELECT to_regclass('public.creatures') IS NOT NULL;`)).toBe("t");
   });
 
@@ -231,9 +266,13 @@ ROLLBACK;
         ('${other}', 'claude-cr-rls2', 'CR' || upper(substr(md5(random()::text), 1, 8)));
       INSERT INTO people (id, family_id, name, is_child) VALUES ('${kid}', '${fam}', 'claude-cr-kid', true);
       INSERT INTO creatures (person_id, family_id) VALUES ('${kid}', '${fam}');
+      INSERT INTO pocket_money_accounts (family_id, person_id) VALUES ('${fam}', '${kid}');
+      INSERT INTO point_redemptions (family_id, person_id, title, cost_points) VALUES ('${fam}', '${kid}', 'claude-cr', 1);
       SET LOCAL ROLE authenticated;
       SELECT set_config('request.jwt.claims', '{"role":"authenticated","family_id":"${fam}"}', true) IS NOT NULL;
       SELECT 'mine:' || count(*) FROM creatures WHERE person_id = '${kid}';
+      SELECT 'acct:' || count(*) FROM pocket_money_accounts WHERE person_id = '${kid}';
+      SELECT 'req:' || count(*) FROM point_redemptions WHERE person_id = '${kid}';
       ${attempt("update", `UPDATE creatures SET best_tier = 8, enabled = true WHERE person_id = '${kid}'`)}
       ${attempt("insert", `INSERT INTO creatures (person_id, family_id) VALUES ('${kid}', '${fam}')`)}
       ${attempt("delete", `DELETE FROM creatures WHERE person_id = '${kid}'`)}
@@ -246,10 +285,22 @@ ROLLBACK;
       SET LOCAL ROLE authenticated;
       SELECT set_config('request.jwt.claims', '{"role":"authenticated","family_id":"${fam}"}', true) IS NOT NULL;
       SELECT 'binned:' || count(*) FROM creatures WHERE person_id = '${kid}';
+      SELECT 'binnedacct:' || count(*) FROM pocket_money_accounts WHERE person_id = '${kid}';
+      SELECT 'binnedreq:' || count(*) FROM point_redemptions WHERE person_id = '${kid}';
+      RESET ROLE;
+      SELECT 'binnedask:' || (public.request_person_point_redemption('${fam}', '${kid}', NULL, NULL)->>'error');
       ROLLBACK;`);
     expect(out).toContain("mine:1");
     expect(out).toContain("theirs:0");
     expect(out).toContain("binned:0");
+    // the same for the child's pocket-money account (migration_zzz_soft_delete.sql §3b,
+    // which said NOT EXISTS under people's own RLS and so never hid it) and requests
+    expect(out).toContain("acct:1");
+    expect(out).toContain("req:1");
+    expect(out).toContain("binnedacct:0");
+    expect(out).toContain("binnedreq:0");
+    // and a binned child cannot ask for a reward
+    expect(out).toContain("binnedask:not_found");
     const outcomes = (/results:(.*)/.exec(out)?.[1] ?? "").split(";").filter(Boolean);
     expect(outcomes).toHaveLength(4);
     expect(outcomes.filter((o) => !o.endsWith(":denied"))).toEqual([]);

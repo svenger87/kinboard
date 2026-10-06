@@ -223,7 +223,7 @@ test.describe("who may write", () => {
     const rules = codeOnly(read("src/lib/creatures/rules.ts"));
     expect(/PARENTAL_FIELDS = \[([^\]]*)\]/.exec(rules)?.[1]).toContain('"grows_with"');
     const account = codeOnly(read("src/app/api/pocket-money/accounts/[id]/route.ts"));
-    expect(account.slice(account.indexOf("MOVED_TO_CREATURES = ["))).toContain('"reward_mode"');
+    expect(account.slice(account.indexOf("MOVED_TO_CREATURES: Record"))).toContain('reward_mode: "grows_with"');
   });
 
   test("the tables are read-only to the browser, family-scoped, published, and the functions are the service role's", () => {

@@ -53,8 +53,22 @@ const PIN_FREE_BY_DESIGN: Record<string, string> = {
   // parent decides it, and that decision (rewards/redemptions/[id]) checks
   // the PIN.
   "rewards/redemptions/route.ts": "a child's own request to redeem points, not the decision on it",
+  // The same request on its old path, kept one release (RFC-017): it looks
+  // the account's child up in the session's family and asks for them.
+  "pocket-money/accounts/[id]/redemptions/route.ts": "a child's own request to redeem points, on its old path for one release",
   // An image candidate for a goal. No family money or settings touched.
   "pocket-money/goal-image-upload/route.ts": "uploads an image for a goal; moves no money and changes no setting",
+};
+
+/**
+ * Thin forwards kept for one release (RFC-017 review): an old path that hands
+ * the request to the new route, which does every check. Each must import the
+ * route it names, contain nothing but the hand-over, and say it goes away.
+ */
+const FORWARDS: Record<string, string> = {
+  "pocket-money/rewards/route.ts": "rewards/route.ts",
+  "pocket-money/rewards/[id]/route.ts": "rewards/[id]/route.ts",
+  "pocket-money/redemptions/[id]/route.ts": "rewards/redemptions/[id]/route.ts",
 };
 
 function routeFiles(root: string): string[] {
@@ -84,6 +98,7 @@ test("every mutating pocket-money, creature and reward route checks the settings
     const source = readFileSync(join(API, rel), "utf8");
     if (!MUTATING_VERB.test(source)) continue; // read-only: nothing to gate
     if (rel in PIN_FREE_BY_DESIGN) continue;
+    if (rel in FORWARDS) continue; // checked below: the target is what holds the PIN
     if (!source.includes("requireSettingsUnlock")) missing.push(rel);
   }
 
@@ -96,10 +111,27 @@ test("the kid-side allowlist is the only thing keeping those routes PIN-free", (
   // first test would pass empty and hide that the allowlist protects nothing.
   const flagged = allRoutes().filter((rel) => {
     const source = readFileSync(join(API, rel), "utf8");
-    return MUTATING_VERB.test(source) && !source.includes("requireSettingsUnlock");
+    return MUTATING_VERB.test(source) && !source.includes("requireSettingsUnlock") && !(rel in FORWARDS);
   });
 
   expect(flagged.sort()).toEqual(Object.keys(PIN_FREE_BY_DESIGN).sort());
+});
+
+test("each forward only hands over to a route that checks the PIN, and is marked for removal", () => {
+  const forwards = Object.entries(FORWARDS);
+  expect(forwards.length).toBe(3);
+  for (const [from, to] of forwards) {
+    const source = readFileSync(join(API, from), "utf8");
+    const target = readFileSync(join(API, to), "utf8");
+    expect(source, from).toContain(`from "@/app/api/${to.replace(/\/route\.ts$/, "/route")}"`);
+    expect(source, from).toMatch(/REMOVE in the release after RFC-017 step 1/);
+    // no client, no write of its own
+    expect(source, from).not.toMatch(/createAdminClient|\.from\(/);
+    for (const verb of source.match(/export function (POST|PATCH|PUT|DELETE)/g) ?? []) {
+      const name = verb.split(" ").pop()!;
+      expect(target, `${to} ${name}`).toMatch(new RegExp(`export async function ${name}[\\s\\S]*?requireSettingsUnlock`));
+    }
+  }
 });
 
 test("the kid-side allowlist names routes that exist", () => {
@@ -108,19 +140,19 @@ test("the kid-side allowlist names routes that exist", () => {
   expect(stale).toEqual([]);
 });
 
-test("the account PATCH gates the money settings, and refuses the creature's fields that moved out", () => {
-  // Until RFC-017 the account carried the creature too, and its kid-side
-  // fields went through here with no PIN. They live on `creatures` now; the
-  // account route refuses them rather than writing a column nobody reads.
+test("the account PATCH gates the money settings, and forwards the creature's old fields under the creature's rules", () => {
+  // Until RFC-017 the account carried the creature too. For one release it
+  // still takes those fields from a screen on the previous bundle, renames
+  // them and hands them to applyCreaturePatch: one PIN check covers both
+  // halves, before either is written.
   const source = readFileSync(join(API, "pocket-money/accounts/[id]/route.ts"), "utf8");
-  expect(source).toMatch(/PIN_PROTECTED_FIELDS\.some\([\s\S]{0,200}?requireSettingsUnlock/);
-  const moved = source.slice(source.indexOf("const MOVED_TO_CREATURES"), source.indexOf("] as const", source.indexOf("const MOVED_TO_CREATURES")));
-  for (const field of ["avatar_species", "avatar_style", "avatar_look", "best_tier", "last_seen_tier", "reward_mode"]) {
-    expect(moved, field).toContain(`"${field}"`);
+  const moved = source.slice(source.indexOf("MOVED_TO_CREATURES: Record"), source.indexOf("};", source.indexOf("MOVED_TO_CREATURES: Record")));
+  for (const [old, now] of [["avatar_species", "species"], ["avatar_style", "style"], ["avatar_look", "look"], ["best_tier", "best_tier"], ["last_seen_tier", "last_seen_tier"], ["reward_mode", "grows_with"]]) {
+    expect(moved, old).toContain(`${old}: "${now}"`);
   }
-  // Refused before the PIN check: a moved field is a 400 whoever sends it.
-  expect(source.indexOf("moved.length > 0")).toBeGreaterThan(0);
-  expect(source.indexOf("moved.length > 0")).toBeLessThan(source.indexOf("PIN_PROTECTED_FIELDS.some("));
+  expect(source).toMatch(/PIN_PROTECTED_FIELDS\.some\(.*\) \|\| \(creature\?\.ok && creature\.parental\)\) \{\s*const locked = await requireSettingsUnlock/);
+  expect(source.indexOf("requireSettingsUnlock(auth.session)")).toBeLessThan(source.indexOf("applyCreaturePatch({"));
+  expect(source).toMatch(/REMOVE in the release after RFC-017 step 1/);
 });
 
 test("the creature PATCH gates only the parental fields, not the kid-side look and stage", () => {
@@ -247,15 +279,6 @@ test.describe("live: the decide route 403s a device that never entered the PIN",
   };
   const creature = (cols: string) => psql(`SELECT ${cols} FROM creatures WHERE person_id = '${childId}'`);
 
-  test("the account no longer takes the creature's fields: they moved to /api/creatures", async () => {
-    lock();
-    for (const data of [{ best_tier: 2 }, { avatar_style: "sticker" }, { avatar_species: "cat" }, { reward_mode: "points" }, { avatar_look: {} }]) {
-      const res = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, ...data } });
-      expect(res.status(), `${JSON.stringify(data)}: ${await res.text()}`).toBe(400);
-    }
-    expect(psql(`SELECT avatar_style || '|' || best_tier FROM pocket_money_accounts WHERE id = '${accountId}'`)).toBe("classic|1");
-  });
-
   test("switching a child's creature on needs the PIN", async () => {
     lock();
     const res = await api.post("/api/creatures", { data: { person_id: childId } });
@@ -271,15 +294,105 @@ test.describe("live: the decide route 403s a device that never entered the PIN",
 
   test("the kid-side stage write needs no PIN, and best_tier only climbs", async () => {
     lock();
+    // 160 points: stage 3 is what the points justify.
+    psql(`INSERT INTO todo_point_awards (family_id, person_id, points, completion_key) VALUES ('${famId}', '${childId}', 160, 'claude-pin-stage')`);
     const track = await api.patch(`/api/creatures/${childId}`, { data: { best_tier: 3, last_seen_tier: 3 } });
     expect(track.status(), await track.text()).toBe(200);
     expect(creature("best_tier || '|' || last_seen_tier")).toBe("3|3");
     const down = await api.patch(`/api/creatures/${childId}`, { data: { best_tier: 1, last_seen_tier: 2 } });
     expect(down.status(), await down.text()).toBe(200);
     expect(creature("best_tier || '|' || last_seen_tier")).toBe("3|2");
-    const over = await api.patch(`/api/creatures/${childId}`, { data: { best_tier: 99 } });
-    expect(over.status(), await over.text()).toBe(200);
-    expect(creature("best_tier")).toBe("8");
+  });
+
+  test("a child's screen cannot grow its own creature: the stages are held to what the points or the money justify", async () => {
+    lock();
+    // Points: 160 earned is stage 3, whatever the screen says.
+    const high = await api.patch(`/api/creatures/${childId}`, { data: { best_tier: 8, last_seen_tier: 8 } });
+    expect(high.status(), await high.text()).toBe(200);
+    expect(creature("best_tier || '|' || last_seen_tier")).toBe("3|3");
+    // Money: the account holds 10.00 (stage 5 with money) after the approval
+    // earlier; the stage the balance reaches is the bound.
+    await unlock();
+    expect((await api.patch(`/api/creatures/${childId}`, { data: { grows_with: "money" } })).status()).toBe(200);
+    lock();
+    const balance = Number(psql(`SELECT balance_cents FROM pocket_money_accounts WHERE id = '${accountId}'`));
+    const moneyTier = [0, 50, 150, 400, 1000, 3000, 8000, 20000].filter((t) => balance >= t).length;
+    const rich = await api.patch(`/api/creatures/${childId}`, { data: { best_tier: 8, last_seen_tier: 8 } });
+    expect(rich.status(), await rich.text()).toBe(200);
+    expect(creature("best_tier")).toBe(String(Math.max(3, moneyTier)));
+    expect(creature("last_seen_tier")).toBe(String(moneyTier));
+    expect(moneyTier).toBeLessThan(8);
+    await unlock();
+    expect((await api.patch(`/api/creatures/${childId}`, { data: { grows_with: "points" } })).status()).toBe(200);
+    psql(`DELETE FROM todo_point_awards WHERE completion_key = 'claude-pin-stage'`);
+  });
+
+  test("the old account PATCH forwards the creature's fields for one release, under the creature's rules", async () => {
+    lock();
+    // kid-side: the style, no PIN
+    const style = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_style: "storybook" } });
+    expect(style.status(), await style.text()).toBe(200);
+    expect((await style.json()).account.id).toBe(accountId);
+    expect(creature("style")).toBe("storybook");
+    // the stage, clamped like the new route
+    const stage = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, best_tier: 8 } });
+    expect(stage.status(), await stage.text()).toBe(200);
+    expect(Number(creature("best_tier"))).toBeLessThan(8);
+    // parental: the species and the mode need the PIN, and a look sent with them is not written either
+    const before = creature("species || '|' || grows_with || '|' || look::text");
+    for (const data of [{ avatar_species: "cat", avatar_look: { body: "#56B6E8" } }, { reward_mode: "money" }]) {
+      const res = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, ...data } });
+      expect(res.status(), `${JSON.stringify(data)}: ${await res.text()}`).toBe(403);
+    }
+    expect(creature("species || '|' || grows_with || '|' || look::text")).toBe(before);
+    // nothing outside the editor's sets
+    const bogus = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_style: "neon" } });
+    expect(bogus.status(), await bogus.text()).toBe(400);
+    // with the PIN, the species goes to the creature; the account column stays as it was
+    await unlock();
+    const species = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_species: "cat" } });
+    expect(species.status(), await species.text()).toBe(200);
+    expect(creature("species")).toBe("cat");
+    expect(psql(`SELECT avatar_species || '|' || avatar_style FROM pocket_money_accounts WHERE id = '${accountId}'`)).toBe("dragon|classic");
+    expect((await api.patch(`/api/creatures/${childId}`, { data: { species: "dragon", style: "sticker" } })).status()).toBe(200);
+  });
+
+  test("the old reward paths forward for one release", async () => {
+    lock();
+    const add = await api.post("/api/pocket-money/rewards", { data: { title: `${P}old-path`, cost_points: 1 } });
+    expect(add.status(), await add.text()).toBe(403);
+    await unlock();
+    const added = await api.post("/api/pocket-money/rewards", { data: { title: `${P}old-path`, cost_points: 1 } });
+    expect(added.status(), await added.text()).toBe(201);
+    const id = (await added.json()).reward.id;
+    expect((await api.patch(`/api/pocket-money/rewards/${id}`, { data: { cost_points: 2 } })).status()).toBe(200);
+    psql(`INSERT INTO todo_point_awards (family_id, person_id, points, completion_key) VALUES ('${famId}', '${childId}', 5, 'claude-pin-old')`);
+    lock();
+    const ask = await api.post(`/api/pocket-money/accounts/${accountId}/redemptions`, { data: { reward_id: id } });
+    expect(ask.status(), await ask.text()).toBe(201);
+    const redemption = (await ask.json()).redemption;
+    expect(redemption.person_id).toBe(childId);
+    const decide = await api.patch(`/api/pocket-money/redemptions/${redemption.id}`, { data: { status: "denied" } });
+    expect(decide.status(), await decide.text()).toBe(403);
+    await unlock();
+    expect((await api.patch(`/api/pocket-money/redemptions/${redemption.id}`, { data: { status: "denied" } })).status()).toBe(200);
+    expect((await api.delete(`/api/pocket-money/rewards/${id}`)).status()).toBe(200);
+    psql(`DELETE FROM todo_point_awards WHERE completion_key = 'claude-pin-old'`);
+  });
+
+  test("a child in the recycle bin cannot be given a creature, and cannot redeem", async () => {
+    await unlock();
+    const binned = psqlRow(`INSERT INTO people (family_id, name, is_child) VALUES ('${famId}', '${P}kid-binned', true) RETURNING id`);
+    psql(`INSERT INTO creatures (person_id, family_id) VALUES ('${binned}', '${famId}')`);
+    psql(`INSERT INTO todo_point_awards (family_id, person_id, points, completion_key) VALUES ('${famId}', '${binned}', 100, 'claude-pin-binned')`);
+    const reward = (await (await api.post("/api/rewards", { data: { title: `${P}binned`, cost_points: 1 } })).json()).reward.id;
+    psql(`UPDATE people SET deleted_at = now() WHERE id = '${binned}'`);
+    const on = await api.post("/api/creatures", { data: { person_id: binned } });
+    expect(on.status(), await on.text()).toBe(404);
+    const ask = await api.post("/api/rewards/redemptions", { data: { person_id: binned, reward_id: reward } });
+    expect(ask.status(), await ask.text()).toBe(404);
+    expect(psql(`SELECT count(*) FROM point_redemptions WHERE person_id = '${binned}'`)).toBe("0");
+    psql(`DELETE FROM todo_point_awards WHERE completion_key = 'claude-pin-binned'`);
   });
 
   test("a child picks their creature's style with no PIN, but only one of the four", async () => {

@@ -223,9 +223,10 @@ test.describe("the creature PATCH (RFC-017; the account PATCH until then)", () =
     expect(parental).not.toContain("look");
     const route = readFileSync(join(process.cwd(), "src/app/api/creatures/[personId]/route.ts"), "utf8");
     expect(route).toMatch(/if \(!parsed\.ok\) return NextResponse\.json\(\{ error: parsed\.error \}, \{ status: 400 \}\)/);
-    // The account no longer takes it at all.
+    // The account PATCH only forwards it, for one release, through the same rules.
     const account = readFileSync(join(process.cwd(), "src/app/api/pocket-money/accounts/[id]/route.ts"), "utf8");
-    expect(account.slice(account.indexOf("MOVED_TO_CREATURES = ["))).toContain('"avatar_look"');
+    expect(account.slice(account.indexOf("MOVED_TO_CREATURES: Record"))).toContain('avatar_look: "look"');
+    expect(account).toContain("parseCreaturePatch(creatureBody)");
   });
 });
 

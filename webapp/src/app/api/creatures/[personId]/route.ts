@@ -4,7 +4,7 @@ import { requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { UUID } from "@/lib/home/action-requests";
 import { parseCreaturePatch } from "@/lib/creatures/rules";
-import { moneyAvailableFor } from "@/lib/creatures/server";
+import { applyCreaturePatch } from "@/lib/creatures/server";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +23,11 @@ export const dynamic = "force-dynamic";
  * look sent along with a new species writes neither without it.
  *
  * grows_with 'money' only where it can work: the pocket-money plugin on and
- * the child with an account there (409 money_unavailable otherwise).
- * best_tier only ever climbs, and never past 8: the database keeps the higher
- * one (creatures_best_tier_climbs). The kid-side fields need the creature
- * switched on -- a child whose creature is off has no screen that writes them.
+ * the child with an account there (409 money_unavailable otherwise). The
+ * stages a child's screen records are held to what the creature's growth
+ * source justifies right now -- a screen cannot grow its own creature -- and
+ * best_tier only ever climbs (creatures_best_tier_climbs). The kid-side fields
+ * need the creature switched on. lib/creatures/server.ts, applyCreaturePatch.
  */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ personId: string }> }) {
   const { personId } = await params;
@@ -48,32 +49,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
   if (!UUID.test(personId)) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  const familyId = auth.session.familyId;
-  const db = createAdminClient() as any;
-  const { data: creature, error: readErr } = await db
-    .from("creatures")
-    .select("person_id, enabled")
-    .eq("person_id", personId)
-    .eq("family_id", familyId)
-    .maybeSingle();
-  if (readErr) return NextResponse.json({ error: readErr.message }, { status: 500 });
-  if (!creature) return NextResponse.json({ error: "not found" }, { status: 404 });
-
-  if (!parsed.parental && !creature.enabled) {
-    return NextResponse.json({ error: "creature_off" }, { status: 409 });
-  }
-  if (parsed.patch.grows_with === "money" && !(await moneyAvailableFor(db, familyId, personId))) {
-    return NextResponse.json({ error: "money_unavailable" }, { status: 409 });
-  }
-
-  const { data, error } = await db
-    .from("creatures")
-    .update(parsed.patch)
-    .eq("person_id", personId)
-    .eq("family_id", familyId)
-    .select()
-    .maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: "not found" }, { status: 404 });
-  return NextResponse.json({ creature: data });
+  const result = await applyCreaturePatch({
+    db: createAdminClient() as any,
+    session: auth.session,
+    familyId: auth.session.familyId,
+    personId,
+    patch: parsed.patch,
+    parental: parsed.parental,
+    // Checked above, before the person id was looked at.
+    pinChecked: true,
+  });
+  return NextResponse.json(result.body, { status: result.status });
 }
