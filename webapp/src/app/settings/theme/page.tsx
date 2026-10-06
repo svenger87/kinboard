@@ -185,7 +185,7 @@ export default function ThemeSettingsPage() {
         ) : (
           <>
             {/* Theme Section */}
-            <motion.div
+            <motion.div id="monthly-theme" data-setting="monthly-theme"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
@@ -238,7 +238,7 @@ export default function ThemeSettingsPage() {
             </motion.div>
 
             {/* Neutral Palette Section */}
-            <motion.div
+            <motion.div id="palette" data-setting="palette"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
@@ -277,7 +277,7 @@ export default function ThemeSettingsPage() {
             </motion.div>
 
             {/* Appearance Section */}
-            <motion.div
+            <motion.div id="appearance" data-setting="appearance"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}

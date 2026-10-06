@@ -5,6 +5,7 @@ import * as holidays from "../src/lib/holidays";
 import { subdivisionLabel, subdivisionOptions } from "../src/lib/holidays/adapter";
 import { OFFERED_COUNTRIES, subdivisionsOf } from "../src/lib/holidays/region";
 import { codeOnly } from "./source-helpers";
+import { SETTINGS_ENTRIES } from "../src/lib/settings-search/registry";
 
 const read = (p: string) => codeOnly(readFileSync(join(process.cwd(), p), "utf8"));
 
@@ -14,7 +15,10 @@ test("Settings → Holidays exists and holds the region picker and the school-ho
   expect(page).toContain("<SchoolHolidaysCard");
   expect(page).toContain("useSaveHolidayRegion()");
   expect(page).not.toContain("useUpdateSetting");
-  expect(read("src/app/settings/page.tsx")).toContain('href: "/settings/holidays"');
+  // The settings menu is drawn from the registry's menu entries.
+  expect(
+    SETTINGS_ENTRIES.some((e) => e.href === "/settings/holidays" && e.menu && !e.anchor),
+  ).toBe(true);
 });
 
 test("holiday_region has one route devices write it through, which takes the family from the session and records the choice", () => {

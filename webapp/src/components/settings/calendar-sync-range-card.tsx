@@ -41,7 +41,7 @@ export function CalendarSyncRangeCard() {
     });
 
   return (
-    <Card className="p-5 space-y-4">
+    <Card id="sync-range" data-setting="sync-range" className="p-5 space-y-4">
       <div className="flex items-center gap-4">
         <div className="p-3 rounded-xl bg-primary/10 shrink-0">
           <CalendarRange className="size-6 text-primary" />

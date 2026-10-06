@@ -132,6 +132,24 @@ test("every family-scoped table is under row-level security", () => {
   }
   expect("migration_zzzzzzz_point_rewards.sql" > "migration_zz_row_level_security.sql").toBe(true);
 
+  // - pocket_money_* keep their FOR ALL `_family_scope` policies (above), but
+  //   migration_zzzzzzzz_pocket_money_server_only.sql REVOKEs INSERT, UPDATE,
+  //   DELETE and TRUNCATE from anon/authenticated on every one of them. Every
+  //   write is a server route on the service role: a screen must not be able to
+  //   give itself money or a stage past the PIN. No migration that runs after
+  //   the revoke may hand a browser role a write on them again.
+  const pmOnly = "migration_zzzzzzzz_pocket_money_server_only.sql";
+  const pmSql = codeOnly(readFileSync(join(DOCKER, pmOnly), "utf8"), { sql: true });
+  expect(pmSql).toMatch(/REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public\.%I FROM %I/);
+  expect(pmSql).toMatch(/LIKE 'pocket\\_money\\_%'/);
+  expect(pmOnly > "migration_zzzzzzz_point_rewards.sql").toBe(true);
+  for (const file of readdirSync(DOCKER).filter((f) => f.startsWith("migration") && f.endsWith(".sql") && f >= pmOnly)) {
+    const sql = codeOnly(readFileSync(join(DOCKER, file), "utf8"), { sql: true });
+    for (const table of ["pocket_money_accounts", "pocket_money_goals", "pocket_money_transactions", "pocket_money_withdrawal_requests"]) {
+      expect(browserWriteGrants(sql, table), `${file}: ${table}`).toEqual([]);
+    }
+  }
+
   const actionsSql = codeOnly(
     readFileSync(join(DOCKER, "migration_zzzz_assistant_actions.sql"), "utf8"),
     { sql: true },
