@@ -99,6 +99,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Image processing uses sharp 0.35.5**, which fixes a vulnerability in its bundled librsvg (CVE-2026-96889).
 - **Only Kinboard's server can change pocket money.** Any screen in the family -- a child's wall panel included -- could change a balance, a goal, a booking or the pocket-money settings (what the avatar grows with, its stage) by talking to the database directly, without the settings PIN that the Pocket money page asks for. The database now lets screens read pocket money but not write it; every change goes through Kinboard's server, which checks the PIN where one is needed. Nothing changes in the app: goals, withdrawal requests and the avatar's progress still need no PIN, as before. **Operators:** one migration, `migration_zzzzzzzz_pocket_money_server_only.sql`, applies on start; realtime needs no restart.
 - **The settings PIN is checked by the server.** Changing or removing the PIN, creating integration tokens and switching AI assistants on or off now need a device that has entered the current PIN, recorded on that device's session for fifteen minutes, and connecting an assistant asks for the PIN itself. Before, the PIN screen was the browser's own check, and a joined device could skip it. Changing the PIN ends every other device's unlock. A forgotten PIN is reset from the database, as the AI assistants wiki page describes.
 
