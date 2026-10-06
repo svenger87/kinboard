@@ -10,10 +10,10 @@ import { getCaldavCredentials } from "@/lib/caldav-credentials";
 import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
 import { icsSyncWindow } from "@/lib/ics-fetcher";
 import {
-  familyCalendarSyncFutureDays,
   DEFAULT_CALENDAR_SYNC_RANGE_DAYS,
   type CalendarSyncRangeDays,
 } from "@/lib/calendar-sync-range";
+import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";
 
 /**
  * Per-calendar CalDAV sync. Shared by:

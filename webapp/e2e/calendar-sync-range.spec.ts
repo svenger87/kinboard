@@ -114,7 +114,7 @@ test.describe("the settings route refuses anything but the three values", () => 
 test.describe("every sync caller passes the family's value", () => {
   test("lib/ics-sync.ts: the manual 'Sync now' path (syncFamilyIcsCalendars)", () => {
     const src = read("lib/ics-sync.ts");
-    expect(src).toMatch(/import\s*\{\s*familyCalendarSyncFutureDays\s*\}\s*from\s*"@\/lib\/calendar-sync-range"/);
+    expect(src).toMatch(/import\s*\{\s*familyCalendarSyncFutureDays\s*\}\s*from\s*"@\/lib\/calendar-sync-range-server"/);
     expect(src).toMatch(/const futureDays = await familyCalendarSyncFutureDays\(familyId, supabase\)/);
     // The *call site*, not the declaration below — an exact literal so a
     // regex this loose can't be satisfied by the function signature alone.
@@ -149,13 +149,13 @@ test.describe("every sync caller passes the family's value", () => {
 
   test("app/api/caldav/calendars/route.ts: the first sync a newly added calendar gets", () => {
     const src = read("app/api/caldav/calendars/route.ts");
-    expect(src).toMatch(/import\s*\{\s*familyCalendarSyncFutureDays\s*\}\s*from\s*"@\/lib\/calendar-sync-range"/);
+    expect(src).toMatch(/import\s*\{\s*familyCalendarSyncFutureDays\s*\}\s*from\s*"@\/lib\/calendar-sync-range-server"/);
     expect(src).toMatch(/syncCaldavCalendar\(\s*\{[\s\S]*?\},\s*await getMappingRules\(payload\.family_id\),\s*await familyCalendarSyncFutureDays\(payload\.family_id, supabase\),?\s*\)/);
   });
 
   test("app/api/calendar/test-ics/route.ts: the connectivity test before adding a feed", () => {
     const src = read("app/api/calendar/test-ics/route.ts");
-    expect(src).toMatch(/import\s*\{\s*familyCalendarSyncFutureDays\s*\}\s*from\s*"@\/lib\/calendar-sync-range"/);
+    expect(src).toMatch(/import\s*\{\s*familyCalendarSyncFutureDays\s*\}\s*from\s*"@\/lib\/calendar-sync-range-server"/);
     expect(src).toMatch(/const futureDays = await familyCalendarSyncFutureDays\(auth\.session\.familyId\)/);
     expect(src).toMatch(/fetchIcsCalendar\(url\.trim\(\), null, futureDays\)/);
   });
@@ -166,4 +166,12 @@ test.describe("every sync caller passes the family's value", () => {
     expect(src).toMatch(/export async function fetchIcsCalendar\(\s*[\s\S]*?futureDays: number = ICS_WINDOW_FUTURE_DAYS,?\s*\)/);
     expect(src).toMatch(/parseIcsEvents\(text, icsSyncWindow\(new Date\(\), futureDays\)\)/);
   });
+});
+
+// The settings card is a client component: the module it imports must not
+// reach next/headers through the server Supabase client, or the production
+// build fails ("You're importing a module that depends on next/headers").
+test("the client-side half imports nothing server-only", () => {
+  const src = readFileSync(join(__dirname, "../src/lib/calendar-sync-range.ts"), "utf8");
+  expect(src).not.toMatch(/supabase\/server|next\/headers/);
 });

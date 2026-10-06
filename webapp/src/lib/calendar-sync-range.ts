@@ -1,6 +1,3 @@
-import { createAdminClient } from "@/lib/supabase/server";
-import { SETTINGS_KEYS } from "@/lib/settings-keys";
-
 /**
  * How far ahead ICS and CalDAV calendars sync, per family (discussion #349).
  *
@@ -25,24 +22,4 @@ export function isCalendarSyncRangeDays(value: unknown): value is CalendarSyncRa
 /** A missing or invalid stored value means 60 — never a wider sync than asked for. */
 export function normalizeCalendarSyncRangeDays(value: unknown): CalendarSyncRangeDays {
   return isCalendarSyncRangeDays(value) ? value : DEFAULT_CALENDAR_SYNC_RANGE_DAYS;
-}
-
-/**
- * The family's configured future-days value, read server-side. Every ICS and
- * CalDAV sync path — cron and user-triggered, and the initial sync a CalDAV
- * calendar gets on creation — calls this, so a family that picked 365 gets
- * the same window no matter which path ran it. Mirrors the shape of
- * `familyTimeZone` in lib/family-time.ts.
- */
-export async function familyCalendarSyncFutureDays(
-  familyId: string,
-  db: ReturnType<typeof createAdminClient> = createAdminClient(),
-): Promise<CalendarSyncRangeDays> {
-  const { data } = await (db as any)
-    .from("settings")
-    .select("value")
-    .eq("family_id", familyId)
-    .eq("key", SETTINGS_KEYS.calendarSyncRange)
-    .maybeSingle();
-  return normalizeCalendarSyncRangeDays(data?.value);
 }

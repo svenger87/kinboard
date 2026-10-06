@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchIcsCalendar } from "@/lib/ics-fetcher";
 import { requireSession } from "@/lib/require-session";
-import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range";
+import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";
 
 // Force Node.js runtime + dynamic — node-ical's transitive deps (http,
 // https, fs) are Node-only and Next's static page-data collector fails

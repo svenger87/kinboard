@@ -8,7 +8,7 @@ import {
 } from "@/lib/caldav-credentials";
 import { syncCaldavCalendar, getMappingRules } from "@/lib/caldav-sync";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range";
+import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

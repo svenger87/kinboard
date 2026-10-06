@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { syncIcsCalendar, IcsSyncResult } from "@/lib/ics-sync";
 import type { PersonMappingRule } from "@/lib/calendar-person-matcher";
-import { familyCalendarSyncFutureDays, type CalendarSyncRangeDays } from "@/lib/calendar-sync-range";
+import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";
+import type { CalendarSyncRangeDays } from "@/lib/calendar-sync-range";
 
 // Force Node.js runtime + dynamic — node-ical (transitive: http, https,
 // fs) is Node-only and Next's static page-data collector fails to bundle

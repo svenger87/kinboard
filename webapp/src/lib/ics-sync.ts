@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { fetchIcsCalendar, ICS_WINDOW_FUTURE_DAYS } from "@/lib/ics-fetcher";
 import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
-import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range";
+import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";
 
 /**
  * Per-calendar ICS sync helper. Shared by:
