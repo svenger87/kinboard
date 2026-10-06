@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft, 2026-10-06 |
+| **Status** | Accepted 2026-10-06; step 1 (data move) in progress |
 | **Depends on** | RFC-016 (drawn creatures), #353 (points mode, rewards), #361 (server-only writes) |
 | **Decisions taken** | 2026-10-06 by the maintainer, §2 |
 
@@ -124,8 +124,12 @@ and only owned items can be worn.
    depend on where the data lives.
 5. A later release drops the old account columns.
 
-## 8. Open questions
+## 8. Answered 2026-10-06
 
-1. Does the Rewards page get its own nav item by default, or does it appear
-   only when at least one child has a creature or rewards exist?
-2. Should a child's own phone open straight to their creature?
+1. **The Rewards page appears in the navigation only once a child in the
+   family has a creature.** A family that never switches one on never sees it.
+2. **A child's own device opens straight to their creature.** Devices gain an
+   optional *Belongs to* person under Settings → Devices. A device that belongs
+   to a child with a creature starts on that child's Rewards page instead of
+   the dashboard. A kiosk ignores this, since it's the family's screen. This is
+   part of step 2.
