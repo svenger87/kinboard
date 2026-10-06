@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { SETTINGS_ENTRIES, type SettingsEntry } from "../src/lib/settings-search/registry";
+import { MENU_SECTIONS, SETTINGS_ENTRIES, isEntryVisible, type SettingsEntry } from "../src/lib/settings-search/registry";
 import { normalize, searchSettings, toSearchable, type SearchableEntry } from "../src/lib/settings-search/search";
 
 /**
@@ -115,5 +115,70 @@ test.describe("registry", () => {
 
   test("only whole pages are menu items", () => {
     for (const e of SETTINGS_ENTRIES) if (e.menu) expect(e.anchor, e.id).toBeUndefined();
+  });
+});
+
+test.describe("the settings menu comes from the registry", () => {
+  const indexSource = () => readFileSync(join(process.cwd(), "src/app/settings/page.tsx"), "utf8");
+
+  test("the index no longer keeps its own list of menu items", () => {
+    const src = indexSource();
+    expect(src).not.toMatch(/const settingsSections\s*=\s*\[/);
+    expect(src).toMatch(/import\s*\{[^}]*\bSETTINGS_ENTRIES\b[^}]*\}\s*from\s*"@\/lib\/settings-search\/registry"/);
+  });
+
+  test("the menu shows the same items, in the same groups and order, as before", () => {
+    // Read from the inline `settingsSections` array the index had before it
+    // moved to the registry (main at c1cfe4d). A page that
+    // joins the menu later is added here on purpose, in the same change.
+    const before: Record<string, string[]> = {
+      sectionFamily: [
+        "/settings/people",
+        "/settings/devices",
+        "/settings/catalogue",
+        "/settings/schedule",
+        "/settings/holidays",
+        "/settings/recycle-bin",
+        "/settings/task-log",
+      ],
+      sectionDisplay: [
+        "/settings/widgets",
+        "/settings/hints",
+        "/settings/navigation",
+        "/settings/theme",
+        "/settings/screensaver",
+        "/settings/weather",
+        "/settings/notifications",
+        "/settings/language",
+        "/settings/news",
+        "/settings/plugins",
+      ],
+      sectionIntegrations: [
+        "/settings/calendar",
+        "/settings/bring",
+        "/settings/photos",
+        "/settings/homeassistant",
+        "/settings/integrations",
+        "/settings/vehicles",
+        "/settings/energy",
+        "/settings/cameras",
+        "/settings/stonks",
+        "/settings/pocket-money",
+        "/settings/media-players",
+      ],
+    };
+    const after: Record<string, string[]> = {};
+    for (const section of MENU_SECTIONS) {
+      after[section] = SETTINGS_ENTRIES.filter((e) => e.menu && e.section === section).map((e) => e.href);
+    }
+    expect(after).toEqual(before);
+  });
+
+  test("a disabled plugin's page is hidden, and so are its sections", () => {
+    const off = { pluginEnabled: (id: string) => id !== "cameras" };
+    const hidden = SETTINGS_ENTRIES.filter((e) => !isEntryVisible(e, off)).map((e) => e.href);
+    expect(hidden.length).toBeGreaterThan(0);
+    for (const href of hidden) expect(href).toBe("/settings/cameras");
+    expect(SETTINGS_ENTRIES.every((e) => isEntryVisible(e, { pluginEnabled: () => true }))).toBe(true);
   });
 });

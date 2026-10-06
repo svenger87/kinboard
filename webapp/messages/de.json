@@ -2782,6 +2782,11 @@
     }
   },
   "settingsSearch": {
+    "placeholder": "Einstellungen durchsuchen",
+    "clear": "Suche löschen",
+    "noResults": "Keine Einstellung passt zu „{query}“",
+    "resultSection": "in {page}",
+    "resultsLabel": "Passende Einstellungen",
     "keywords": {
       "people": "Familie, Personen, Mitglieder, Kinder, Eltern, Farbe, Avatar, Geburtstag",
       "devices": "Gerät, Bildschirm, Tablet, Display, Handy, umbenennen, entfernen, abmelden, Kiosk",

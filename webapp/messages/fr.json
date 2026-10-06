@@ -2782,6 +2782,11 @@
     }
   },
   "settingsSearch": {
+    "placeholder": "Rechercher dans les paramètres",
+    "clear": "Effacer la recherche",
+    "noResults": "Aucun paramètre ne correspond à « {query} »",
+    "resultSection": "dans {page}",
+    "resultsLabel": "Paramètres correspondants",
     "keywords": {
       "people": "famille, membres, personnes, enfants, parents, couleur, avatar, anniversaire",
       "devices": "appareil, écran, tablette, téléphone, renommer, supprimer, déconnecter, kiosque",

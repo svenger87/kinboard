@@ -2782,6 +2782,11 @@
     }
   },
   "settingsSearch": {
+    "placeholder": "Search settings",
+    "clear": "Clear search",
+    "noResults": "Nothing in settings matches “{query}”",
+    "resultSection": "in {page}",
+    "resultsLabel": "Matching settings",
     "keywords": {
       "people": "family, members, person, people, kids, children, parents, colour, color, avatar, birthday",
       "devices": "device, screen, tablet, display, phone, rename, remove, sign out, kiosk",
