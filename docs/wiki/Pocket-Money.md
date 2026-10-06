@@ -54,6 +54,27 @@ Tier promotes when `lifetime_saved_cents` (cumulative deposits + interest, NOT a
 
 Each promotion plays a once-per-event radial-burst animation. Withdrawals don't downlevel — the kid keeps their progress.
 
+## Avatar style
+
+Each child's avatar can be drawn in one of four looks:
+
+| Look | What it is |
+|---|---|
+| **Classic** | The original pictures (the default, so nothing changes until someone picks another look) |
+| **Gumdrop** | Soft, round shapes with no outlines; reads well from across the room |
+| **Sticker** | Thick outlines and a white sticker edge, like a collectible; the clearest at small sizes |
+| **Storybook** | Soft gradients, a gentle glow and a few stars |
+
+**Who picks it.** The child, on their own `/pocket-money` page: **Change look** under the avatar opens four small pictures of their own avatar at its current stage, and a tap chooses one. It needs no settings PIN, because it is the child's own avatar and changes nothing but the drawing. Parents see and change the same choice under Settings → Pocket money → the child's card → **Look**. The species is still a parent's choice and still needs the PIN.
+
+**What the drawn looks do.** They breathe, blink, beat their wings and sway their tails; tapping the avatar makes it hop and send up hearts, and an egg wobbles. When the avatar reaches a new stage, the egg shakes, cracks and hatches, or a later stage flashes and the new one pops out with a burst of stars. Classic keeps the glow it always had. All motion stops for anyone whose device asks to reduce motion. The stages sheet, the dashboard widget and the child's profile show the avatar in the same look, without the motion. The motion uses only movement and fading, which a Raspberry Pi wall display handles easily.
+
+**Which species are drawn.** So far, the dragon. For the other species the three drawn looks are greyed out with *Coming for this species*, and the child's page shows no **Change look** button. If a drawn look is stored for a species that has no drawings (set before the species was changed, say), that species shows its classic picture until its drawings arrive.
+
+**The drawings are Kinboard's own.** They are drawn in code (`webapp/src/lib/pocket-money/creatures/`) and do not come from an asset pack, so there is no third-party licence attached to them. A new species is one file there: it draws its own body and hatchling's head on a shared skeleton, and the egg, the looks' colours and the motion come with it.
+
+The choice is stored in `pocket_money_accounts.avatar_style` (`webapp/docker/migration_zzzzzzzz_pocket_money_avatar_style.sql`), which the database holds to the four values. A family export carries it, and restoring a backup made before this column existed gives every child Classic.
+
 ## Saving goals
 
 Add via `/pocket-money` → "Add goal". Three image-lookup modes: catalog search (reuses the shopping-item catalog), URL paste, or local upload. One goal is `is_primary` and drives the kid view's progress bar; the queue auto-promotes on completion. When a goal hits 100%, the kid sees a "🎉 You can buy this!" button → creates a withdrawal request → parent confirms in the inbox at `/settings/pocket-money`. Confirmation deducts the balance and marks the goal `bought`.
@@ -108,6 +129,7 @@ The set of stages and lifetime-saved thresholds is shared across all species and
 - Sibling co-op goals
 - Multi-currency per family
 - Custom parent-uploaded avatar art (catalog SVGs are designer-replaceable per file in `webapp/public/pocket-money/avatars/`)
+- Drawn looks for the cat, astronaut, plant and wizard, and a child's own colours, pattern, eyes, accessory or name for their avatar -- planned
 
 ## Disabling the plugin
 

@@ -100,9 +100,10 @@ test("the kid-side allowlist names routes that exist", () => {
   expect(stale).toEqual([]);
 });
 
-test("the account PATCH gates only the parental fields, not the kid-side avatar tracking", () => {
+test("the account PATCH gates only the parental fields, not the kid-side avatar fields", () => {
   // accounts/[id]/route.ts is the one route both sides call: a child's own
-  // device writes last_seen_tier/best_tier on every visit, a parent writes
+  // device writes last_seen_tier/best_tier on every visit and avatar_style
+  // when they pick a new look, a parent writes
   // allowance/interest/currency/avatar_species from Settings. Gating the
   // whole route would 403 the kid-side write on every page load.
   const source = readFileSync(join(ROOT, "accounts/[id]/route.ts"), "utf8");
@@ -110,12 +111,21 @@ test("the account PATCH gates only the parental fields, not the kid-side avatar 
   // The call is conditional on the protected-field list, not unconditional —
   // i.e. it must not appear before the PATCH body is even inspected.
   expect(source).toMatch(/PIN_PROTECTED_FIELDS\.some\([\s\S]{0,200}?requireSettingsUnlock/);
-  for (const field of ["last_seen_tier", "best_tier"]) {
+  const list = source.slice(source.indexOf("const PIN_PROTECTED_FIELDS"), source.indexOf("] as const"));
+  expect(list.length).toBeGreaterThan(0);
+  for (const field of ["last_seen_tier", "best_tier", "avatar_style"]) {
     expect(
-      source.includes(`"${field}"`) || source.includes(`'${field}'`),
+      list.includes(`"${field}"`) || list.includes(`'${field}'`),
       `${field} should not be in the protected list`,
     ).toBe(false);
   }
+  // The species is still a parent's choice.
+  expect(list).toContain(`"avatar_species"`);
+  // And the style has no PIN check of its own further down: the block that
+  // takes it ends before the next field without calling requireSettingsUnlock.
+  const styleBlock = source.slice(source.indexOf("body.avatar_style !== undefined"), source.indexOf("body.last_seen_tier !== undefined"));
+  expect(styleBlock).toContain("isAvatarStyle");
+  expect(styleBlock).not.toContain("requireSettingsUnlock");
 });
 
 // ── live: approving without the server-side unlock is refused ─────────────
@@ -221,6 +231,32 @@ test.describe("live: the decide route 403s a device that never entered the PIN",
     });
     expect(track.status(), await track.text()).toBe(200);
     expect(psql(`SELECT best_tier FROM pocket_money_accounts WHERE id = '${accountId}'`)).toBe("2");
+  });
+
+  test("a child picks their avatar's look with no PIN, but only one of the four", async () => {
+    // Still locked: this is the kid's own screen.
+    psql(`UPDATE device_sessions SET settings_unlocked_until = NULL WHERE family_id = '${famId}'`);
+    const look = await api.patch(`/api/pocket-money/accounts/${accountId}`, {
+      data: { family_id: famId, avatar_style: "sticker" },
+    });
+    expect(look.status(), await look.text()).toBe(200);
+    expect(psql(`SELECT avatar_style FROM pocket_money_accounts WHERE id = '${accountId}'`)).toBe("sticker");
+
+    const bogus = await api.patch(`/api/pocket-money/accounts/${accountId}`, {
+      data: { family_id: famId, avatar_style: "neon" },
+    });
+    expect(bogus.status(), await bogus.text()).toBe(400);
+    expect(psql(`SELECT avatar_style FROM pocket_money_accounts WHERE id = '${accountId}'`)).toBe("sticker");
+  });
+
+  test("changing the species still needs the PIN, even sent together with a look", async () => {
+    psql(`UPDATE device_sessions SET settings_unlocked_until = NULL WHERE family_id = '${famId}'`);
+    const species = await api.patch(`/api/pocket-money/accounts/${accountId}`, {
+      data: { family_id: famId, avatar_species: "cat", avatar_style: "gumdrop" },
+    });
+    expect(species.status(), await species.text()).toBe(403);
+    expect((await species.json()).error).toBe("pin_required");
+    expect(psql(`SELECT avatar_species || '|' || avatar_style FROM pocket_money_accounts WHERE id = '${accountId}'`)).toBe("dragon|sticker");
   });
 
   test("a child's own withdrawal request still needs no PIN", async () => {

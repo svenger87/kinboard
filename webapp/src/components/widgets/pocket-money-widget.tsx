@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { AvatarDisplay } from "@/components/pocket-money/avatar-display";
+import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople, usePointTotals } from "@/hooks";
 import { avatarStage } from "@/lib/pocket-money/points";
@@ -115,11 +115,15 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
 
   return (
     <div className="flex items-center gap-3">
-      <AvatarDisplay
+      {/* Small and on the dashboard all day: static, so a wall display's
+          Pi does not redraw a breathing dragon for nobody. */}
+      <CreatureAvatar
         species={account.avatar_species}
-        balanceCents={account.balance_cents}
         tier={stage.tier}
+        style={account.avatar_style}
         size={56}
+        animated={false}
+        label={t(`species.${account.avatar_species}.tier${stage.tier}` as never)}
         className="shrink-0"
       />
       <div className="flex-1 min-w-0">

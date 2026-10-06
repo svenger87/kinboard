@@ -43,6 +43,8 @@ import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { formatCents } from "@/lib/pocket-money/format";
 import { BalanceForecast } from "@/components/pocket-money/balance-forecast";
+import { AvatarStylePicker } from "@/components/pocket-money/avatar-style-picker";
+import { avatarStage } from "@/lib/pocket-money/points";
 import { AmountDialog } from "@/components/pocket-money/amount-dialog";
 import { toast } from "sonner";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
@@ -88,6 +90,7 @@ function decideError(err: unknown, t: (key: string) => string): string {
 
 export default function PocketMoneySettingsPage() {
   const t = useTranslations("settings.pocketMoney");
+  const tPM = useTranslations("pocketMoney");
   const locale = useLocale();
   const { data: accounts = [] } = usePocketMoneyAccounts();
   const { data: people = [] } = usePeople();
@@ -283,6 +286,35 @@ export default function PocketMoneySettingsPage() {
                             : t("errorGeneric"),
                         ),
                       )
+                  }
+                />
+              </div>
+
+              {/* How the avatar is drawn: four small pictures of this child's
+                  own avatar at its current stage. The child can change it on
+                  their own page too, so it takes no PIN. */}
+              <div className="pt-3 border-t border-border space-y-1" data-testid={`avatar-style-${acct.id}`}>
+                <Label>{tPM("avatarStyleLabel")}</Label>
+                <p className="text-xs text-muted-foreground">
+                  {tPM("avatarStyleHint", { name: kidPerson?.name ?? "" })}
+                </p>
+                <AvatarStylePicker
+                  species={acct.avatar_species}
+                  tier={
+                    avatarStage({
+                      mode: acct.reward_mode,
+                      balanceCents: acct.balance_cents,
+                      earnedPoints: points.earned,
+                      storedBestTier: acct.best_tier,
+                    }).tier
+                  }
+                  value={acct.avatar_style}
+                  childName={kidPerson?.name ?? ""}
+                  disabled={update.isPending}
+                  onChange={(style) =>
+                    update
+                      .mutateAsync({ id: acct.id, update: { avatar_style: style } })
+                      .catch(() => toast.error(tPM("avatarStyleSaveFailed")))
                   }
                 />
               </div>

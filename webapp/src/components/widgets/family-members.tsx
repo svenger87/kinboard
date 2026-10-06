@@ -27,6 +27,9 @@ import { pointsTotal, showsPoints } from "@/lib/todo-points";
 import { usePocketMoneyAccounts } from "@/hooks/use-pocket-money-accounts";
 import { usePointTotals } from "@/hooks/use-point-rewards";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
+import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
+import { avatarStage } from "@/lib/pocket-money/points";
+import type { AvatarTier } from "@/lib/pocket-money/types";
 import { Button } from "@/components/ui/button";
 import type { Person, Todo, Event } from "@/types/database";
 import { format, startOfDay, addDays, endOfDay, isAfter } from "date-fns";
@@ -220,6 +223,20 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
         person={selectedPerson}
         todos={todos?.filter((t) => todayPerson(t, toLocalDateKey()) === selectedPerson?.id && !t.completed) || []}
         events={upcomingEvents?.filter((e) => (e.person_id || e.calendar?.person_id) === selectedPerson?.id) || []}
+        petAvatar={(() => {
+          // The child's pocket-money avatar, in their own look, whatever the
+          // account counts in -- the same account lookup as the points tile.
+          if (!selectedPerson?.is_child || !pocketMoneyOn) return null;
+          const account = accounts.find((a) => a.person_id === selectedPerson.id);
+          if (!account) return null;
+          const stage = avatarStage({
+            mode: account.reward_mode,
+            balanceCents: account.balance_cents,
+            earnedPoints: totalsFor(selectedPerson.id, account.id).earned,
+            storedBestTier: account.best_tier,
+          });
+          return { species: account.avatar_species, style: account.avatar_style, tier: stage.tier };
+        })()}
         points={(() => {
           if (!selectedPerson) return null;
           const account = pocketMoneyOn
@@ -252,10 +269,12 @@ interface PersonDetailsDialogProps {
    * rewards.
    */
   points: { value: number; spendable: boolean; rewardsHref: string | null } | null;
+  /** The child's pocket-money avatar, or null with no plugin or no account. */
+  petAvatar: { species: string; style: string | null | undefined; tier: AvatarTier } | null;
   onClose: () => void;
 }
 
-function PersonDetailsDialog({ person, todos, events, points, onClose }: PersonDetailsDialogProps) {
+function PersonDetailsDialog({ person, todos, events, points, petAvatar, onClose }: PersonDetailsDialogProps) {
   const t = useTranslations("familyMembers");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
@@ -297,7 +316,7 @@ function PersonDetailsDialog({ person, todos, events, points, onClose }: PersonD
                   )}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex flex-col">
+              <div className="flex flex-col flex-1 min-w-0">
                 <span className="text-xl" style={{ color: person.color }}>{person.name}</span>
                 {person.is_child && (
                   <Badge variant="outline" className="w-fit mt-1 text-xs" style={{ borderColor: `${person.color}40`, color: person.color }}>
@@ -306,6 +325,19 @@ function PersonDetailsDialog({ person, todos, events, points, onClose }: PersonD
                   </Badge>
                 )}
               </div>
+              {petAvatar && (
+                <span data-testid="profile-pet-avatar" className="shrink-0">
+                  <CreatureAvatar
+                    species={petAvatar.species}
+                    tier={petAvatar.tier}
+                    style={petAvatar.style}
+                    size={56}
+                    animated={false}
+                    // Inside the dialog's title: a name here would be read as part of it.
+                    label=""
+                  />
+                </span>
+              )}
             </DialogTitle>
           </DialogHeader>
 

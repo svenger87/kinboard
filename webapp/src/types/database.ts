@@ -1489,6 +1489,7 @@ export interface Database {
           last_seen_tier: number;
           best_tier: number;
           reward_mode: "money" | "points";
+          avatar_style: "classic" | "gumdrop" | "sticker" | "storybook";
           created_at: string;
           updated_at: string;
         };
@@ -1513,6 +1514,7 @@ export interface Database {
           last_seen_tier?: number;
           best_tier?: number;
           reward_mode?: "money" | "points";
+          avatar_style?: "classic" | "gumdrop" | "sticker" | "storybook";
           created_at?: string;
           updated_at?: string;
         };
@@ -1537,6 +1539,7 @@ export interface Database {
           last_seen_tier?: number;
           best_tier?: number;
           reward_mode?: "money" | "points";
+          avatar_style?: "classic" | "gumdrop" | "sticker" | "storybook";
           created_at?: string;
           updated_at?: string;
         };

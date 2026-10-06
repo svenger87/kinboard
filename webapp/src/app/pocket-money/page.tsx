@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
-import { CalendarClock, Clock, PiggyBank, Plus, ShoppingBag, Star } from "lucide-react";
+import { CalendarClock, Clock, Palette, PiggyBank, Plus, ShoppingBag, Star } from "lucide-react";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
@@ -22,7 +22,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { PocketMoneyGoal } from "@/types/database";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AvatarDisplay } from "@/components/pocket-money/avatar-display";
+import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
+import { AvatarStylePicker } from "@/components/pocket-money/avatar-style-picker";
+import { hasDrawnArt, type AvatarStyle } from "@/lib/pocket-money/creatures";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { BalanceDisplay } from "@/components/pocket-money/balance-display";
 import { GoalCard } from "@/components/pocket-money/goal-card";
 import { GoalAddDialog } from "@/components/pocket-money/goal-add-dialog";
@@ -65,6 +74,9 @@ export default function PocketMoneyPage() {
   const [stagesSheetOpen, setStagesSheetOpen] = useState(false);
   const [spendDialogOpen, setSpendDialogOpen] = useState(false);
   const [celebration, setCelebration] = useState<CelebrationKind | null>(null);
+  // The stage the avatar grew from, for the hatching scene a drawn look plays.
+  const [celebrationFrom, setCelebrationFrom] = useState(1);
+  const [lookSheetOpen, setLookSheetOpen] = useState(false);
 
   useEffect(() => {
     if (!activeId && accounts.length > 0) setActiveId(accounts[0].id);
@@ -132,7 +144,10 @@ export default function PocketMoneyPage() {
       lastSeenTier: active.last_seen_tier,
       storedBestTier: active.best_tier,
     });
-    if (celebrate) setCelebration("evolution");
+    if (celebrate) {
+      setCelebrationFrom(active.last_seen_tier ?? stage.tier - 1);
+      setCelebration("evolution");
+    }
 
     if (Object.keys(update).length > 0) {
       updateAccount.mutateAsync({ id: active.id, update }).catch(console.error);
@@ -322,12 +337,29 @@ export default function PocketMoneyPage() {
       )}
 
       <div className="flex flex-col items-center text-center space-y-3">
-        <AvatarDisplay
+        {/* The child's own avatar: tapping it makes it hop and send up
+            hearts (an egg shakes). The look is theirs to change, no PIN. */}
+        <CreatureAvatar
           species={active.avatar_species}
-          balanceCents={active.balance_cents}
           tier={currentTier}
+          style={active.avatar_style}
           size={220}
+          tappable
+          label={t(`species.${active.avatar_species}.tier${currentTier}` as never)}
+          tapLabel={t("tapAvatarAria", { stage: t(`species.${active.avatar_species}.tier${currentTier}` as never) })}
         />
+        {hasDrawnArt(active.avatar_species) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setLookSheetOpen(true)}
+            className="text-muted-foreground"
+            data-testid="change-look"
+          >
+            <Palette className="size-4 mr-1.5" />
+            {t("changeLook")}
+          </Button>
+        )}
         <div className="flex flex-col items-center gap-0.5">
           {activePerson?.name && (
             <p className="text-lg font-semibold text-muted-foreground">{activePerson.name}</p>
@@ -525,12 +557,46 @@ export default function PocketMoneyPage() {
         isSubmitting={createWithdrawalRequest.isPending}
       />
 
-      <CelebrationOverlay kind={celebration} onDone={handleCelebrationDone} />
+      <CelebrationOverlay
+        kind={celebration}
+        onDone={handleCelebrationDone}
+        creature={{
+          species: active.avatar_species,
+          style: active.avatar_style,
+          from: celebrationFrom,
+          to: currentTier,
+        }}
+      />
+
+      <Sheet open={lookSheetOpen} onOpenChange={setLookSheetOpen}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{t("changeLookTitle")}</SheetTitle>
+            <SheetDescription>{t("changeLookDescription")}</SheetDescription>
+          </SheetHeader>
+          <div className="mt-4">
+            <AvatarStylePicker
+              species={active.avatar_species}
+              tier={currentTier}
+              value={active.avatar_style}
+              childName={activePerson?.name ?? ""}
+              previewSize={88}
+              disabled={updateAccount.isPending}
+              onChange={(style: AvatarStyle) =>
+                updateAccount
+                  .mutateAsync({ id: active.id, update: { avatar_style: style } })
+                  .catch(() => toast.error(t("avatarStyleSaveFailed")))
+              }
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <StagesSheet
         open={stagesSheetOpen}
         onOpenChange={setStagesSheetOpen}
         species={active.avatar_species}
+        avatarStyle={active.avatar_style}
         stage={stage}
         currency={active.currency}
       />

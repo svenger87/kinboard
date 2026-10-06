@@ -5,6 +5,7 @@ import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { familyIdFrom, rowInFamily, accountInFamily } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
+import { isAvatarStyle } from "@/lib/pocket-money/creatures/styles";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +14,10 @@ const VALID_SPECIES: ReadonlySet<string> = new Set(
 );
 
 /**
- * This PATCH also carries the kid-side avatar-stage tracking
- * (last_seen_tier, best_tier), written on every visit to /pocket-money so a
- * child's own device must reach it with no PIN. Everything else here is a
+ * This PATCH also carries the kid-side avatar fields: the stage tracking
+ * (last_seen_tier, best_tier), written on every visit to /pocket-money, and
+ * the avatar's look (avatar_style), which the child picks on their own page --
+ * so a child's own device must reach them with no PIN. Everything else here is a
  * parental setting — allowance, interest, currency, the avatar species picked
  * at setup — so the PIN check is per-field, not on the route as a whole.
  */
@@ -119,6 +121,15 @@ export async function PATCH(
     const locked = await requireSettingsUnlock(auth.session);
     if (locked) return locked;
     update.reward_mode = body.reward_mode;
+  }
+  // How the avatar is drawn. The child's own choice, made on their own page,
+  // so no PIN -- like the stage tracking below. Only the four known values;
+  // the database's CHECK says the same (migration_zzzzzzzz_pocket_money_avatar_style.sql).
+  if (body.avatar_style !== undefined) {
+    if (!isAvatarStyle(body.avatar_style)) {
+      return NextResponse.json({ error: `unknown avatar_style: ${String(body.avatar_style)}` }, { status: 400 });
+    }
+    update.avatar_style = body.avatar_style;
   }
   if (body.last_seen_tier !== undefined) update.last_seen_tier = body.last_seen_tier;
   // The avatar's high-water mark. Client-written because it's derived

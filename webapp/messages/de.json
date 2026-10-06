@@ -4350,7 +4350,23 @@
     "rewardNotEnoughPoints": "Dafür reichen die Punkte noch nicht.",
     "rewardRequestFailed": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
     "moneyHeading": "Geld",
-    "pointsOwedLabel": "{count, plural, one {Noch # Punkt aufzuholen: eine Aufgabe wurde zurückgenommen, nachdem ihre Punkte ausgegeben waren} other {Noch # Punkte aufzuholen: eine Aufgabe wurde zurückgenommen, nachdem ihre Punkte ausgegeben waren}}"
+    "pointsOwedLabel": "{count, plural, one {Noch # Punkt aufzuholen: eine Aufgabe wurde zurückgenommen, nachdem ihre Punkte ausgegeben waren} other {Noch # Punkte aufzuholen: eine Aufgabe wurde zurückgenommen, nachdem ihre Punkte ausgegeben waren}}",
+    "avatarStyleLabel": "Aussehen",
+    "avatarStyleHint": "So wird der Avatar von {name} gezeichnet. Klassisch ist das bisherige Bild, die anderen zeichnet Kinboard selbst, und sie bewegen sich ein wenig.",
+    "avatarStyleGroupAria": "Aussehen des Avatars von {name}",
+    "avatarStyleComingSoon": "Kommt bald für diese Figur",
+    "avatarStyleComingSoonHint": "Die neuen Looks gibt es bisher nur für den Drachen. Für {species} bleibt es beim klassischen Bild, bis die Zeichnungen fertig sind.",
+    "avatarStyleSaveFailed": "Das neue Aussehen wurde nicht gespeichert. Versuch es noch einmal.",
+    "avatarStyles": {
+      "classic": "Klassisch",
+      "gumdrop": "Fruchtgummi",
+      "sticker": "Sticker",
+      "storybook": "Bilderbuch"
+    },
+    "changeLook": "Aussehen ändern",
+    "changeLookTitle": "Wähle ein Aussehen",
+    "changeLookDescription": "Dein Avatar bleibt derselbe und wächst weiter. Nur die Zeichnung ändert sich.",
+    "tapAvatarAria": "{stage} antippen"
   },
   "connectivity": {
     "title": "Server nicht erreichbar",

@@ -4350,7 +4350,23 @@
     "rewardNotEnoughPoints": "Pas encore assez de points pour ça.",
     "rewardRequestFailed": "Cela n'a pas fonctionné. Réessaie.",
     "moneyHeading": "Argent",
-    "pointsOwedLabel": "{count, plural, one {Encore # point à rattraper : une tâche a été annulée après que ses points ont été dépensés} other {Encore # points à rattraper : une tâche a été annulée après que ses points ont été dépensés}}"
+    "pointsOwedLabel": "{count, plural, one {Encore # point à rattraper : une tâche a été annulée après que ses points ont été dépensés} other {Encore # points à rattraper : une tâche a été annulée après que ses points ont été dépensés}}",
+    "avatarStyleLabel": "Apparence",
+    "avatarStyleHint": "La façon dont l'avatar de {name} est dessiné. Classique est l'image d'origine ; les autres sont dessinées par Kinboard et bougent un peu.",
+    "avatarStyleGroupAria": "Apparence de l'avatar de {name}",
+    "avatarStyleComingSoon": "Bientôt pour cette espèce",
+    "avatarStyleComingSoonHint": "Les nouvelles apparences n'existent pour l'instant que pour le dragon. Pour {species}, l'image classique reste en place jusqu'à ce que les dessins soient prêts.",
+    "avatarStyleSaveFailed": "La nouvelle apparence n'a pas été enregistrée. Réessaie.",
+    "avatarStyles": {
+      "classic": "Classique",
+      "gumdrop": "Bonbon",
+      "sticker": "Autocollant",
+      "storybook": "Livre d'images"
+    },
+    "changeLook": "Changer d'apparence",
+    "changeLookTitle": "Choisis une apparence",
+    "changeLookDescription": "Ton avatar reste le même et continue de grandir. Seul le dessin change.",
+    "tapAvatarAria": "Toucher {stage}"
   },
   "connectivity": {
     "title": "Serveur injoignable",

@@ -6,6 +6,7 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { restoredSyncSetting } from "@/lib/school-sync/reconcile";
 import { withHolidayRegion } from "@/lib/holidays/region";
 import { clientIp, hitLimit } from "@/lib/rate-limit";
+import { restorableAvatarStyle } from "@/lib/pocket-money/creatures/styles";
 
 // POST /api/import — restore a family from a Kinboard backup file
 // (Milestone D Task 3; inverts GET /api/export).
@@ -74,6 +75,12 @@ interface TableSpec {
    * left alone.
    */
   settingValueFks: string[];
+  /**
+   * Fixes up a column the database would refuse, where refusing it would be
+   * out of all proportion: one bad cosmetic value must not fail and roll back
+   * an entire restore. Runs on the copied row, after the id remapping.
+   */
+  normalize?: (row: Record<string, unknown>) => void;
 }
 
 function spec(table: string, overrides: Partial<TableSpec> = {}): TableSpec {
@@ -137,7 +144,15 @@ const TABLE_SPECS: TableSpec[] = [
   }),
   spec("vehicles"),
   spec("tickers"),
-  spec("pocket_money_accounts", { requiredFks: ["person_id"] }),
+  spec("pocket_money_accounts", {
+    requiredFks: ["person_id"],
+    // A look this release does not know -- a backup from a newer one, or a
+    // hand-edited file -- restores as classic instead of tripping the CHECK.
+    // A backup from before the column existed has none, and gets the default.
+    normalize: (row) => {
+      if ("avatar_style" in row) row.avatar_style = restorableAvatarStyle(row.avatar_style);
+    },
+  }),
   spec("pocket_money_goals", { hasFamilyId: false, requiredFks: ["account_id"] }),
   spec("pocket_money_transactions", {
     hasFamilyId: false,
@@ -442,6 +457,7 @@ export async function POST(request: NextRequest) {
         : null;
     }
 
+    tableSpec.normalize?.(out);
     return out;
   }
 

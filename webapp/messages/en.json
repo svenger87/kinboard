@@ -4350,7 +4350,23 @@
     "rewardNotEnoughPoints": "Not enough points for that yet.",
     "rewardRequestFailed": "That didn't work. Please try again.",
     "moneyHeading": "Money",
-    "pointsOwedLabel": "{count, plural, one {# point still to make up: a task was taken back after its points were spent} other {# points still to make up: a task was taken back after its points were spent}}"
+    "pointsOwedLabel": "{count, plural, one {# point still to make up: a task was taken back after its points were spent} other {# points still to make up: a task was taken back after its points were spent}}",
+    "avatarStyleLabel": "Look",
+    "avatarStyleHint": "How {name}'s avatar is drawn. Classic is the original picture; the others are drawn by Kinboard and move a little.",
+    "avatarStyleGroupAria": "Look of {name}'s avatar",
+    "avatarStyleComingSoon": "Coming for this species",
+    "avatarStyleComingSoonHint": "The new looks are drawn for the dragon so far. {species} keeps the classic picture until its drawings are ready.",
+    "avatarStyleSaveFailed": "The new look didn't save. Try again.",
+    "avatarStyles": {
+      "classic": "Classic",
+      "gumdrop": "Gumdrop",
+      "sticker": "Sticker",
+      "storybook": "Storybook"
+    },
+    "changeLook": "Change look",
+    "changeLookTitle": "Choose a look",
+    "changeLookDescription": "Your avatar stays the same and keeps growing. Only the drawing changes.",
+    "tapAvatarAria": "Tap {stage}"
   },
   "connectivity": {
     "title": "Can't reach the server",

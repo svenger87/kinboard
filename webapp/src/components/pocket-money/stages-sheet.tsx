@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Check, Lock, Star } from "lucide-react";
 import {
@@ -12,12 +11,15 @@ import {
 } from "@/components/ui/sheet";
 import type { AvatarSpecies, AvatarTier } from "@/lib/pocket-money/types";
 import type { AvatarStage } from "@/lib/pocket-money/points";
+import { CreatureAvatar } from "./creature-avatar";
 import { formatCents } from "@/lib/pocket-money/format";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   species: AvatarSpecies;
+  /** The account's avatar_style: every stage is shown in the child's own look. */
+  avatarStyle?: string | null;
   /** What the avatar shows, in money or points mode (avatarStage). */
   stage: AvatarStage;
   currency: string;
@@ -27,6 +29,7 @@ export function StagesSheet({
   open,
   onOpenChange,
   species,
+  avatarStyle,
   stage,
   currency,
 }: Props) {
@@ -79,13 +82,14 @@ export function StagesSheet({
                         : "border-border/50 opacity-60"
                 }`}
               >
-                <Image
-                  src={`/pocket-money/avatars/${species}-${tier}.svg`}
-                  alt=""
-                  width={56}
-                  height={56}
-                  className="shrink-0"
-                  unoptimized
+                {/* Eight at once: static, the motion is for the avatar itself. */}
+                <CreatureAvatar
+                  species={species}
+                  tier={tier}
+                  style={avatarStyle}
+                  size={56}
+                  animated={false}
+                  label=""
                 />
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold flex items-center gap-2">
