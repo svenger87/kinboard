@@ -935,7 +935,28 @@ html[data-screensaver] nav {
 .creature-particle { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; animation: creature-float-up 900ms ease-out both; }
 @keyframes creature-float-up { from { transform: translate(0, 0) scale(0.6); opacity: 1; } to { transform: translate(var(--creature-dx, 0px), -110px) scale(1.15); opacity: 0; } }
 
+/* A child's task ticked off (components/pocket-money/creature-reaction):
+   the "+N ⭐" rises over the creature and fades. With reduced motion it only
+   fades, in place. */
+.creature-reaction { position: relative; display: inline-block; flex-shrink: 0; line-height: 0; }
+.creature-reaction-label {
+  position: absolute; left: 50%; top: 4%; z-index: 1; white-space: nowrap; line-height: 1;
+  font-weight: 800; color: hsl(var(--foreground)); pointer-events: none;
+  text-shadow: 0 1px 2px hsl(var(--background) / 0.9), 0 0 6px hsl(var(--background) / 0.7);
+  transform: translate(-50%, 0); opacity: 0;
+  animation: creature-label-rise 1500ms ease-out forwards;
+}
+.creature-reaction-label svg { display: inline-block; width: 1.4em; height: 1.4em; }
+@keyframes creature-label-rise {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.8); }
+  15% { opacity: 1; transform: translate(-50%, -4px) scale(1.05); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -26px) scale(1); }
+}
+@keyframes creature-label-fade { 0% { opacity: 0; } 15%, 70% { opacity: 1; } 100% { opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
+  .creature-reaction-label { animation: creature-label-fade 1500ms linear forwards; }
   .creature-breathe, .creature-blink, .creature-flap, .creature-wobble, .creature-zzz, .creature-tail-sway, .creature-gill, .creature-gill-r, .creature-led,
   .creature-hop, .creature-shake, .creature-pop, .creature-grow-out, .creature-flash, .creature-particle, .creature-img-in {
     animation: none !important;

@@ -27,7 +27,7 @@ import { pointsTotal, showsPoints } from "@/lib/todo-points";
 import { usePocketMoneyAccounts } from "@/hooks/use-pocket-money-accounts";
 import { usePointTotals } from "@/hooks/use-point-rewards";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
-import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
+import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
 import { avatarStage } from "@/lib/pocket-money/points";
 import { readLook, type CreatureLook } from "@/lib/pocket-money/creatures/look";
 import type { AvatarTier } from "@/lib/pocket-money/types";
@@ -328,7 +328,8 @@ function PersonDetailsDialog({ person, todos, events, points, petAvatar, onClose
               </div>
               {petAvatar && (
                 <span data-testid="profile-pet-avatar" className="shrink-0">
-                  <CreatureAvatar
+                  <ReactingCreature
+                    personId={person.id}
                     species={petAvatar.species}
                     tier={petAvatar.tier}
                     style={petAvatar.style}

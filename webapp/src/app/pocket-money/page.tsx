@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
@@ -22,7 +22,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { Json, PocketMoneyGoal } from "@/types/database";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
+import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
+import type { StageUp } from "@/lib/pocket-money/creature-reactions";
 import { CreatureLookEditor } from "@/components/pocket-money/creature-look-editor";
 import { hasDrawnArt, readLook, type AvatarStyle, type CreatureLook } from "@/lib/pocket-money/creatures";
 import {
@@ -76,11 +77,27 @@ export default function PocketMoneyPage() {
   const [celebration, setCelebration] = useState<CelebrationKind | null>(null);
   // The stage the avatar grew from, for the hatching scene a drawn look plays.
   const [celebrationFrom, setCelebrationFrom] = useState(1);
+  // …and to. A tick on another screen announces the new stage before this
+  // screen's points have caught up, so it is not always the stage shown.
+  const [celebrationTo, setCelebrationTo] = useState<number | null>(null);
+  // The stage last celebrated, and when: a stage-up reached by a tick arrives
+  // twice -- with the tick (the creature's reaction) and once the points
+  // refetch (the effect below) -- and plays once.
+  const lastCelebrated = useRef<{ personId: string; to: number; at: number } | null>(null);
   const [lookSheetOpen, setLookSheetOpen] = useState(false);
 
   useEffect(() => {
     if (!activeId && accounts.length > 0) setActiveId(accounts[0].id);
   }, [accounts, activeId]);
+
+  const celebrateStage = useCallback((personId: string, from: number, to: number) => {
+    const last = lastCelebrated.current;
+    if (last && last.personId === personId && last.to === to && Date.now() - last.at < 30_000) return;
+    lastCelebrated.current = { personId, to, at: Date.now() };
+    setCelebrationFrom(from);
+    setCelebrationTo(to);
+    setCelebration("evolution");
+  }, []);
 
   // ?child=<person id>: the shortcut on a child's profile opens their tab.
   // Read once from the address rather than with useSearchParams, which would
@@ -144,10 +161,7 @@ export default function PocketMoneyPage() {
       lastSeenTier: active.last_seen_tier,
       storedBestTier: active.best_tier,
     });
-    if (celebrate) {
-      setCelebrationFrom(active.last_seen_tier ?? stage.tier - 1);
-      setCelebration("evolution");
-    }
+    if (celebrate) celebrateStage(active.person_id, active.last_seen_tier ?? stage.tier - 1, stage.tier);
 
     if (Object.keys(update).length > 0) {
       updateAccount.mutateAsync({ id: active.id, update }).catch(console.error);
@@ -157,7 +171,10 @@ export default function PocketMoneyPage() {
 
   // Stable callback so re-renders don't reset CelebrationOverlay's
   // dismissal timer mid-animation.
-  const handleCelebrationDone = useCallback(() => setCelebration(null), []);
+  const handleCelebrationDone = useCallback(() => {
+    setCelebration(null);
+    setCelebrationTo(null);
+  }, []);
 
   // Sum today's interest transactions for the "+ N today" tag.
   const todayInterestCents = (() => {
@@ -346,8 +363,12 @@ export default function PocketMoneyPage() {
           </p>
         )}
         {/* The child's own avatar: tapping it makes it hop and send up
-            hearts (an egg shakes). The look is theirs to change, no PIN. */}
-        <CreatureAvatar
+            hearts (an egg shakes). The look is theirs to change, no PIN.
+            It cheers when one of the child's tasks is ticked off anywhere,
+            and a new stage reached that way plays the celebration. */}
+        <ReactingCreature
+          personId={active.person_id}
+          onStageUp={({ from, to }: StageUp) => celebrateStage(active.person_id, from, to)}
           species={active.avatar_species}
           tier={currentTier}
           style={active.avatar_style}
@@ -574,7 +595,7 @@ export default function PocketMoneyPage() {
           style: active.avatar_style,
           look: activeLook,
           from: celebrationFrom,
-          to: currentTier,
+          to: celebrationTo ?? currentTier,
         }}
       />
 

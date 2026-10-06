@@ -8,6 +8,8 @@ import { useRealtimeStatusStore } from "@/stores/realtime-status-store";
 import { queryKeys } from "./use-supabase-queries";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { actionChangeMatters } from "@/lib/home/action-prompt";
+import { reactToTaskChange } from "@/stores/creature-reactions";
+import type { TickRow } from "@/lib/pocket-money/creature-reactions";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 /**
@@ -131,7 +133,17 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
             queryKey: ["events", family.id],
           });
           break;
-        case "todos":
+        case "todos": {
+          // A child's task ticked off on another screen: their creature
+          // cheers here. Compared with the row as this screen's cache had it,
+          // so this must run before the invalidation below refetches it.
+          if (payload.eventType === "UPDATE") {
+            const next = payload.new as unknown as TickRow;
+            const prev = queryClient
+              .getQueryData<TickRow[]>(queryKeys.todos(family.id))
+              ?.find((todo) => todo.id === next.id);
+            reactToTaskChange(queryClient, family.id, prev, next);
+          }
           queryClient.invalidateQueries({
             queryKey: queryKeys.todos(family.id),
           });
@@ -141,6 +153,7 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           queryClient.invalidateQueries({ queryKey: ["todo-history", family.id] });
           queryClient.invalidateQueries({ queryKey: ["todo-events", family.id] });
           break;
+        }
         case "todo_occurrences":
           // Days written down by the quarter-hourly pass, which touches no
           // task row when it only marks a day missed.

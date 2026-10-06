@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { invalidateFamilyToken, primeFamilyToken } from "@/lib/supabase/family-token";
 import { useFamilyStore } from "@/stores/family-store";
+import { reactToTaskChange } from "@/stores/creature-reactions";
 import { getDeviceId, persistDeviceId, getDeviceFingerprint } from "@/lib/device-id";
 import { eventPushTarget } from "@/lib/local-calendars";
 import { storedRowIsStale } from "@/lib/stored-row";
@@ -1553,6 +1554,10 @@ export function useUpdateTodo() {
   const { family } = useFamilyStore();
 
   return useMutation({
+    // The task as this screen showed it, to tell a tick from an edit.
+    onMutate: ({ id }: Partial<Todo> & { id: string }) => ({
+      before: queryClient.getQueryData<Todo[]>(queryKeys.todos(requireFamilyId(family)))?.find((t) => t.id === id),
+    }),
     mutationFn: async ({ id, ...updates }: Partial<Todo> & { id: string }) => {
        
       const { data, error } = await (supabase as any)
@@ -1565,7 +1570,12 @@ export function useUpdateTodo() {
       if (error) throw error;
       return data as Todo;
     },
-    onSuccess: () => {
+    onSuccess: (row, _vars, context) => {
+      // A child's task ticked off here: their creature cheers on this
+      // screen now, from the row the database wrote (which day a rotating
+      // task's tick landed on is its decision). Its realtime echo is then
+      // recognised as the same tick and not played again.
+      reactToTaskChange(queryClient, requireFamilyId(family), context?.before, row);
       queryClient.invalidateQueries({ queryKey: queryKeys.todos(requireFamilyId(family)) });
       queryClient.invalidateQueries({ queryKey: ["todo-point-awards", requireFamilyId(family)] });
       queryClient.invalidateQueries({ queryKey: ["todo-history", requireFamilyId(family)] });

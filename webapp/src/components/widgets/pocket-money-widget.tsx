@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
+import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople, usePointTotals } from "@/hooks";
 import { avatarStage } from "@/lib/pocket-money/points";
@@ -117,8 +117,12 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
   return (
     <div className="flex items-center gap-3">
       {/* Small and on the dashboard all day: static, so a wall display's
-          Pi does not redraw a breathing dragon for nobody. */}
-      <CreatureAvatar
+          Pi does not redraw a breathing dragon for nobody. It moves only
+          while it cheers for a task ticked off, a second and a half, and a
+          new stage reached that way hatches right here. */}
+      <ReactingCreature
+        personId={account.person_id}
+        compactStageUp
         species={account.avatar_species}
         tier={stage.tier}
         style={account.avatar_style}

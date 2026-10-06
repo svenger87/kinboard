@@ -143,8 +143,19 @@ type Phase = "egg" | "cracked" | "old" | "new";
  * and shakes again, then the new stage pops out. From any other stage: a
  * flash, the old one shrinks away, the new one pops. Stars burst either way.
  * With reduced motion it simply shows the new stage.
+ *
+ * Also the dashboard widget's compact stage-up, at the widget's size, when a
+ * tick carries a child into a new stage (creature-reaction.tsx).
  */
-function HatchingScene({ species, style, look, from, to }: NonNullable<Props["creature"]>) {
+export function HatchingScene({
+  species,
+  style,
+  look,
+  from,
+  to,
+  size = 260,
+  stars = 10,
+}: NonNullable<Props["creature"]> & { size?: number; stars?: number }) {
   const toTier = clampTier(to);
   const fromTier = from < toTier ? clampTier(from) : clampTier(toTier - 1);
   const fromEgg = fromTier === 1;
@@ -158,14 +169,13 @@ function HatchingScene({ species, style, look, from, to }: NonNullable<Props["cr
   });
   const [phase, setPhase] = useState<Phase>(reduce ? "new" : fromEgg ? "egg" : "old");
   const { burst, layer } = useParticles();
-  const size = 260;
 
   useEffect(() => {
     if (reduce) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const arrive = () => {
       setPhase("new");
-      burst("star", 10, size / 2, size * 0.42);
+      burst("star", stars, size / 2, size * 0.42);
     };
     if (fromEgg) {
       timers.push(setTimeout(() => setPhase("cracked"), 900));
@@ -174,7 +184,7 @@ function HatchingScene({ species, style, look, from, to }: NonNullable<Props["cr
       timers.push(setTimeout(arrive, 380));
     }
     return () => timers.forEach(clearTimeout);
-  }, [fromEgg, burst, reduce]);
+  }, [fromEgg, burst, reduce, size, stars]);
 
   const tier = phase === "new" ? toTier : fromTier;
   const motionClass =
