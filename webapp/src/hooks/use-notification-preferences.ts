@@ -30,6 +30,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: Omit<
   quiet_hours_end: "07:00",
   todo_reminders: true,
   todo_collaborative: true,
+  reward_requests: true,
 };
 
 /**

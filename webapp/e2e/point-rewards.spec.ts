@@ -5,7 +5,7 @@ import { browserWriteGrants, codeOnly } from "./source-helpers";
 import { TIER_THRESHOLDS_CENTS, TIER_THRESHOLDS_POINTS } from "../src/lib/pocket-money/types";
 import { tierFromBalance } from "../src/lib/pocket-money/interest";
 import { avatarStage, pointsStageWrites, pointTotals, rewardProgress, tierFromPoints } from "../src/lib/pocket-money/points";
-import { decideRedemption, parseReward, requestRedemption } from "../src/lib/pocket-money/rewards";
+import { decideRedemption, parseReward, requestRedemption, silentRewardNotifier } from "../src/lib/pocket-money/rewards";
 import type { RpcClient } from "../src/lib/pocket-money/booking";
 
 /**
@@ -164,7 +164,7 @@ const ID = "c1a0de00-0010-4000-8000-00000000aaaa";
 test.describe("the database's answers, as HTTP", () => {
   test("a decision", async () => {
     const decide = (data: unknown) =>
-      decideRedemption(fake(data), { familyId: ID, redemptionId: ID, decision: "approved", deviceId: null });
+      decideRedemption(fake(data), { familyId: ID, redemptionId: ID, decision: "approved", deviceId: null }, silentRewardNotifier);
     expect(await decide({ ok: true, status: "approved", balance: 40 })).toEqual({ status: 200, body: { ok: true, status: "approved", balance: 40 } });
     expect(await decide({ ok: false, error: "already_decided", status: "approved" })).toEqual({ status: 409, body: { error: "already_decided" } });
     expect(await decide({ ok: false, error: "insufficient_points", balance: 10 })).toEqual({ status: 409, body: { error: "insufficient_points", balance: 10 } });
@@ -177,7 +177,7 @@ test.describe("the database's answers, as HTTP", () => {
 
   test("a request", async () => {
     const ask = (data: unknown) =>
-      requestRedemption(fake(data), { familyId: ID, personId: ID, rewardId: ID, deviceId: null });
+      requestRedemption(fake(data), { familyId: ID, personId: ID, rewardId: ID, deviceId: null }, silentRewardNotifier);
     expect((await ask({ ok: true, redemption: { id: ID } })).status).toBe(201);
     expect(await ask({ ok: false, error: "insufficient_points", balance: 5, pending: 0 })).toEqual({ status: 409, body: { error: "insufficient_points", balance: 5, pending: 0 } });
     expect(await ask({ ok: false, error: "no_creature" })).toEqual({ status: 409, body: { error: "no_creature" } });
@@ -186,8 +186,8 @@ test.describe("the database's answers, as HTTP", () => {
 
   test("an id that is not a uuid never reaches the database", async () => {
     const client = fake({ ok: true });
-    expect((await decideRedemption(client, { familyId: ID, redemptionId: "1 or 1=1", decision: "approved", deviceId: null })).status).toBe(404);
-    expect((await requestRedemption(client, { familyId: ID, personId: "x", rewardId: ID, deviceId: null })).status).toBe(404);
+    expect((await decideRedemption(client, { familyId: ID, redemptionId: "1 or 1=1", decision: "approved", deviceId: null }, silentRewardNotifier)).status).toBe(404);
+    expect((await requestRedemption(client, { familyId: ID, personId: "x", rewardId: ID, deviceId: null }, silentRewardNotifier)).status).toBe(404);
     expect(client.calls).toEqual([]);
   });
 });

@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "../src/lib/supabase/server";
 import { mintFamilyToken } from "../src/lib/family-jwt";
 import type { RpcClient } from "../src/lib/pocket-money/booking";
-import { decideRedemption, requestRedemption } from "../src/lib/pocket-money/rewards";
+import { decideRedemption, requestRedemption, silentRewardNotifier } from "../src/lib/pocket-money/rewards";
 
 /**
  * Rewards bought with task points (discussion #349), against PostgreSQL
@@ -81,9 +81,9 @@ async function statusOf(id: string): Promise<string> {
 }
 
 const approve = (redemptionId: string) =>
-  decideRedemption(rpc(), { familyId: FAMILY, redemptionId, decision: "approved", deviceId: null });
+  decideRedemption(rpc(), { familyId: FAMILY, redemptionId, decision: "approved", deviceId: null }, silentRewardNotifier);
 const ask = (rewardId: string, child = CHILD) =>
-  requestRedemption(rpc(), { familyId: FAMILY, personId: child, rewardId, deviceId: null });
+  requestRedemption(rpc(), { familyId: FAMILY, personId: child, rewardId, deviceId: null }, silentRewardNotifier);
 
 test.beforeAll(async () => {
   db = createAdminClient();
@@ -125,7 +125,7 @@ test.describe("a reward approved twice at once is booked once", () => {
       const id = await pending(60);
       await Promise.all([
         approve(id),
-        decideRedemption(rpc(), { familyId: FAMILY, redemptionId: id, decision: "denied", deviceId: null }),
+        decideRedemption(rpc(), { familyId: FAMILY, redemptionId: id, decision: "denied", deviceId: null }, silentRewardNotifier),
       ]);
       const status = await statusOf(id);
       expect(["approved", "denied"]).toContain(status);
@@ -213,7 +213,7 @@ test.describe("the balance never goes below zero", () => {
     await db.from("creatures").update({ grows_with: "money" }).eq("person_id", CHILD);
     expect(await approve(id)).toEqual({ status: 200, body: { ok: true, status: "approved", balance: 90 } });
     const other = await pending(10);
-    expect(await decideRedemption(rpc(), { familyId: FAMILY, redemptionId: other, decision: "denied", deviceId: null }))
+    expect(await decideRedemption(rpc(), { familyId: FAMILY, redemptionId: other, decision: "denied", deviceId: null }, silentRewardNotifier))
       .toMatchObject({ status: 200 });
     expect(await statusOf(other)).toBe("denied");
   });
@@ -221,9 +221,9 @@ test.describe("the balance never goes below zero", () => {
   test("another family's request or reward is not found", async () => {
     await reset(100);
     const id = await pending(10);
-    expect(await decideRedemption(rpc(), { familyId: OTHER_FAMILY, redemptionId: id, decision: "approved", deviceId: null }))
+    expect(await decideRedemption(rpc(), { familyId: OTHER_FAMILY, redemptionId: id, decision: "approved", deviceId: null }, silentRewardNotifier))
       .toEqual({ status: 404, body: { error: "not found" } });
-    expect(await requestRedemption(rpc(), { familyId: OTHER_FAMILY, personId: CHILD, rewardId: REWARD, deviceId: null }))
+    expect(await requestRedemption(rpc(), { familyId: OTHER_FAMILY, personId: CHILD, rewardId: REWARD, deviceId: null }, silentRewardNotifier))
       .toEqual({ status: 404, body: { error: "not found" } });
     expect(await statusOf(id)).toBe("pending");
   });

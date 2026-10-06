@@ -49,7 +49,7 @@ export function RedemptionInbox({
   if (pending.length === 0) return null;
 
   return (
-    <Card className="p-4 space-y-2" data-testid="redemption-inbox">
+    <Card id="inbox" className="p-4 space-y-2 scroll-mt-20" data-testid="redemption-inbox">
       <h3 className="font-semibold">{t("redemptionInboxTitle")}</h3>
       {pending.map((r) => (
         <div key={r.id} className="flex flex-wrap items-center justify-between gap-2">

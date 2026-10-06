@@ -1121,6 +1121,7 @@ export interface Database {
           quiet_hours_end: string;
           todo_reminders: boolean;
           todo_collaborative: boolean;
+          reward_requests: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -1140,6 +1141,7 @@ export interface Database {
           quiet_hours_end?: string;
           todo_reminders?: boolean;
           todo_collaborative?: boolean;
+          reward_requests?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1159,6 +1161,7 @@ export interface Database {
           quiet_hours_end?: string;
           todo_reminders?: boolean;
           todo_collaborative?: boolean;
+          reward_requests?: boolean;
           created_at?: string;
           updated_at?: string;
         };

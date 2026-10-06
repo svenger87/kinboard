@@ -55,6 +55,12 @@ A child's **points balance** is the points their tasks have earned, all time, mi
 
 **Redeeming.** A child with a creature sees their points and the rewards on the Rewards page and taps **Redeem**. That only asks: the request waits under *Rewards waiting for approval* on Settings → Creatures & rewards and on the navigation badge. **Approve** spends the points, **Deny** spends nothing. Both need the settings PIN, checked on the server too, so a child's own screen can't approve its own request. Two screens approving at once book it once, and an approval the points no longer cover is refused while the request keeps waiting.
 
+## Asking from Home Assistant or an assistant
+
+Home Assistant (the *points balance*, *creature stage* and *reward requests* sensors, and the `kinboard.request_reward` action) and a connected assistant (`get_rewards`, `request_reward`) see each child's points and creature stage, the rewards and what is waiting, and can ask for a reward. Asking is the same as the child tapping **Redeem**: it waits for a parent and the PIN, and nothing outside the family's screens can approve it. The creature's name and look are never sent out.
+
+**Who is told.** A new request pushes the family's phones -- every device except those that *belong to* a child -- with *"Mia would like 🎮 An hour of Minecraft (50 ⭐)"*; a tap opens the requests at the top of Settings → Creatures & rewards. An answer pushes the child's own device, if one belongs to them. Quiet hours apply, and each device has a *Reward requests* switch in Settings → Notifications.
+
 ## For operators
 
 - The data lives in the `creatures` table, one row per child that has one (`person_id`, `species`, `style`, `look`, `best_tier`, `last_seen_tier`, `grows_with`, `shop_enabled`, `enabled`). Reward requests (`point_redemptions`) belong to a person; `account_id` stays, nullable, for one release.
@@ -64,5 +70,7 @@ A child's **points balance** is the points their tasks have earned, all time, mi
 - A rollback to v1.13.0-rc.13 keeps working: the old pocket-money columns are still there, unchanged since the upgrade, and a trigger keeps reward requests readable per account. What changes while rolled back (a new account, a mode or style change) stays on the account and is not carried over to the creature on the next upgrade.
 - In a family with the Pocket Money plugin switched off, the migration keeps each child's creature but leaves it switched off; grown-ups with an account get none.
 - A family backup carries the creatures and the requests. Restoring a backup from before this release gives each child the creature their pocket-money account had, by the same rule as the migration.
+- The reward pushes are `reward_requested` and `reward_decided` rows in `scheduled_notifications`, sent by the usual `process-notifications` job. Each device's switch is `notification_preferences.reward_requests` (default on), added by `webapp/docker/migration_zzzzzzzz_reward_notifications.sql`; nothing new streams.
+- The Integration API has `GET /api/integration/v1/rewards` (`family:read`) and `POST /api/integration/v1/rewards/requests` (`pocket_money:write`); `webapp/openapi/integration-v1.yaml` documents both.
 - **Who a device belongs to** is `devices.person_id` (nullable, cleared when the person is deleted), added by `webapp/docker/migration_zzzzzzzzz_device_owner.sql`. Only the server writes it (`PATCH /api/devices/<id>`, settings PIN): the migration narrows the browser roles' INSERT and UPDATE on `devices` to every other column. Nothing new streams, so no realtime restart is needed for it.
 - The emoji picker's names and keywords (Unicode CLDR, via the pinned `emojibase-data`, MIT) are generated into `webapp/src/lib/emoji/` by `node scripts/generate-emoji-data.mjs` and loaded from Kinboard itself, only when a picker opens: no CDN, so it works offline. Emoji newer than Unicode 15.0 are left out, since a Raspberry Pi's emoji font can't draw them yet.

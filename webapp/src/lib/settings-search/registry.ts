@@ -248,6 +248,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     { anchor: "tasks", labelKey: "settings.notifications.todoHeading" },
     { anchor: "calendar", labelKey: "settings.notifications.calendarHeading" },
     { anchor: "birthdays", labelKey: "settings.notifications.birthdayTitle" },
+    { anchor: "rewards", labelKey: "settings.notifications.rewardsLabel", descriptionKey: "settings.notifications.rewardsDescription" },
     { anchor: "quiet-hours", labelKey: "settings.notifications.quietHoursHeading" },
   ]),
   ...sectionsOf(language, [

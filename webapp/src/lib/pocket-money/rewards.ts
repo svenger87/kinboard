@@ -73,10 +73,42 @@ export function parseReward(
 
 type Answer = { status: number; body: Record<string, unknown> };
 
+/** A redemption as request_person_point_redemption returns it (to_jsonb of the row). */
+export interface RedemptionRow {
+  id: string;
+  family_id: string;
+  person_id: string;
+  reward_id: string | null;
+  title: string;
+  icon: string | null;
+  cost_points: number;
+  created_at: string;
+}
+
+/**
+ * Who hears about a request and a decision: the parents' phones when a child
+ * asks, the child's own device when a parent answers
+ * (lib/notifications/rewards.ts queues both). Required, not optional, on both
+ * calls below, so no caller -- the child's screen, the Integration API, an
+ * assistant -- can ask or decide without it. Must not throw; a push that
+ * cannot be queued never undoes the request.
+ */
+export interface RewardNotifier {
+  requested: (redemption: RedemptionRow, sourceDeviceId: string | null) => Promise<void>;
+  decided: (familyId: string, redemptionId: string, status: "approved" | "denied") => Promise<void>;
+}
+
+/** For a caller that must not notify anyone: a spec, or a backfill. */
+export const silentRewardNotifier: RewardNotifier = {
+  requested: async () => {},
+  decided: async () => {},
+};
+
 /** A child asks for a reward: request_person_point_redemption, as an HTTP answer. */
 export async function requestRedemption(
   client: RpcClient,
   input: { familyId: string; personId: string; rewardId: string; deviceId: string | null },
+  notifier: RewardNotifier,
 ): Promise<Answer> {
   if (!UUID.test(input.personId)) return { status: 404, body: { error: "not found" } };
   if (!UUID.test(input.rewardId)) return { status: 404, body: { error: "no_reward" } };
@@ -88,7 +120,12 @@ export async function requestRedemption(
   });
   if (error) return { status: 500, body: { error: error.message } };
   const answer = data as { ok?: unknown; error?: unknown; redemption?: unknown; balance?: unknown; pending?: unknown } | null;
-  if (answer?.ok === true) return { status: 201, body: { redemption: answer.redemption } };
+  if (answer?.ok === true) {
+    await notifier.requested(answer.redemption as RedemptionRow, input.deviceId).catch((err) => {
+      console.error("[rewards] could not queue the request's push:", err);
+    });
+    return { status: 201, body: { redemption: answer.redemption } };
+  }
   switch (answer?.error) {
     case "not_found": return { status: 404, body: { error: "not found" } };
     case "no_reward": return { status: 404, body: { error: "no_reward" } };
@@ -103,6 +140,7 @@ export async function requestRedemption(
 export async function decideRedemption(
   client: RpcClient,
   input: { familyId: string; redemptionId: string; decision: "approved" | "denied"; deviceId: string | null },
+  notifier: RewardNotifier,
 ): Promise<Answer> {
   if (!UUID.test(input.redemptionId)) return { status: 404, body: { error: "not found" } };
   const { data, error } = await client.rpc("decide_point_redemption", {
@@ -113,7 +151,14 @@ export async function decideRedemption(
   });
   if (error) return { status: 500, body: { error: error.message } };
   const answer = data as { ok?: unknown; error?: unknown; status?: unknown; balance?: unknown } | null;
-  if (answer?.ok === true) return { status: 200, body: { ok: true, status: answer.status, balance: answer.balance ?? null } };
+  if (answer?.ok === true) {
+    if (answer.status === "approved" || answer.status === "denied") {
+      await notifier.decided(input.familyId, input.redemptionId, answer.status).catch((err) => {
+        console.error("[rewards] could not queue the decision's push:", err);
+      });
+    }
+    return { status: 200, body: { ok: true, status: answer.status, balance: answer.balance ?? null } };
+  }
   switch (answer?.error) {
     case "not_found": return { status: 404, body: { error: "not found" } };
     case "already_decided": return { status: 409, body: { error: "already_decided" } };

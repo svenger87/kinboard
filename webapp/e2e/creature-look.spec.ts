@@ -277,6 +277,11 @@ test.describe("the look stays on the family's own screens", () => {
         for (const sel of chain.matchAll(/\.select\(\s*(["'`])([\s\S]*?)\1/g)) {
           if (sel[2].includes("*") || /\blook\b/.test(sel[2])) found.push(`${table} .select("${sel[2]}")`);
         }
+        // Columns from a variable or a template cannot be read here, so they
+        // are not allowed: the outward code names its columns where it reads.
+        if (/\.select\(\s*[^\s"')]/.test(chain) || /\.select\(\s*`[^`]*\$\{/.test(chain)) {
+          found.push(`${table} .select(<not a plain string>)`);
+        }
       }
       if (new RegExp(`\\b${table}\\s*(?:![\\w]+\\s*)?\\(\\s*\\*`).test(source)) found.push(`${table}(*) embedded`);
     }
@@ -288,6 +293,17 @@ test.describe("the look stays on the family's own screens", () => {
     expect(outward.some((f) => f.endsWith("push-sender.ts"))).toBe(true);
     expect(outward.some((f) => f.includes("/api/cron/process-allowance/"))).toBe(true);
     expect(outward.some((f) => f.includes("/lib/notifications/"))).toBe(true);
+    // Points, creatures and rewards for Home Assistant and assistants, and the
+    // reward pushes (RFC-017 follow-up): each is on the list by name, so a
+    // move out of these folders cannot take it off quietly.
+    for (const file of [
+      "src/lib/integration-rewards.ts",
+      "src/app/api/integration/v1/rewards/route.ts",
+      "src/app/api/integration/v1/rewards/requests/route.ts",
+      "src/lib/notifications/rewards.ts",
+      "src/lib/notifications/delivery.ts",
+      "src/app/api/cron/process-notifications/route.ts",
+    ]) expect(outward, file).toContain(join(process.cwd(), file));
     for (const f of outward) expect(violations(readFileSync(f, "utf8")), f).toEqual([]);
   });
 
@@ -303,6 +319,8 @@ test.describe("the look stays on the family's own screens", () => {
       ["creature look column", `await db.from("creatures").select("species, look").eq("person_id", id);`],
       ["creature bare select", `await db.from("creatures")\n  .update({ best_tier: 2 })\n  .select()\n  .single();`],
       ["creature embedded", `await db.from("people").select("id, creatures(*)");`],
+      ["creature columns from a constant", `await db.from("creatures").select(COLUMNS).eq("family_id", id);`],
+      ["creature columns from a template", "await db.from(\"creatures\").select(`person_id, ${extra}`).eq(\"family_id\", id);"],
     ];
     for (const [what, source] of crafted) expect(violations(source).length, what).toBeGreaterThan(0);
     // and stays green on what the outward code does do
@@ -311,6 +329,7 @@ test.describe("the look stays on the family's own screens", () => {
       `await db.from("calendar_events").insert(rows).select();`,
       `await db.from("people").select("id, pocket_money_accounts(id, balance_cents)");`,
       `await db.from("creatures").select("person_id, species, grows_with");`,
+      `await db.from("creatures").select("person_id, species, grows_with, best_tier").eq("family_id", familyId).eq("enabled", true);`,
     ]) expect(violations(ok), ok).toEqual([]);
   });
 });
