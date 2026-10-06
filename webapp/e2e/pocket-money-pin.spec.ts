@@ -43,6 +43,10 @@ const PIN_FREE_BY_DESIGN: Record<string, string> = {
   // Renaming, reordering, retargeting or removing a goal is the same child
   // action as creating one — none of it moves money or a setting.
   "goals/[id]/route.ts": "editing or deleting a goal is the child's own, not a parental setting",
+  // Redeeming points for a reward (#353) is the child's own request, like a
+  // withdrawal request: it books nothing until a parent decides it, and that
+  // decision (redemptions/[id]/route.ts) checks the PIN.
+  "accounts/[id]/redemptions/route.ts": "a child's own request to redeem points, not the decision on it",
   // An image candidate for a goal. No family money or settings touched.
   "goal-image-upload/route.ts": "uploads an image for a goal; moves no money and changes no setting",
 };
