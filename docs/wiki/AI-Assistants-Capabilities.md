@@ -237,7 +237,7 @@ See [Birthdays](Birthdays).
 |---|---|---|---|
 | `list_pocket_money` | Each child's pocket money: balance, what they've saved in total, their allowance, and their saving goals with how far along each one is | `family:read` | Reads. Only children with a pocket money account |
 | `book_pocket_money` | Ask to add money to a child's pocket money or take some out: 0.01 to 500 at a time, at most two decimals, with an optional note of up to 100 characters | `pocket_money:write` | Adds, **after confirmation**. Nothing is booked until a family member allows it on a Kinboard screen with the settings PIN. A withdrawal larger than the balance is refused. Once booked, a mistake needs a booking the other way |
-| `get_action_status` | What became of a booking (or a home action) that waited for confirmation | `pocket_money:write` or `home:control` | Reads. Only this connection's own requests |
+| `get_action_status` | What became of a booking, a reward decision (or a home action) that waited for confirmation | `pocket_money:write` or `home:control` | Reads. Only this connection's own requests |
 
 > "Give Enno €5 pocket money for mowing the lawn." ·
 > "Gib Enno 5 € Taschengeld fürs Rasenmähen."
@@ -252,14 +252,17 @@ See also [Pocket Money](Pocket-Money).
 
 | Tool | What it does | Permission | Notes |
 |---|---|---|---|
-| `get_rewards` | For each child with a creature: the points they can spend, have earned, owe and have waiting, and their creature's species and stage, with the stage's name in your language and how far it is to the next one. Also the family's rewards and the requests waiting for a parent | `family:read` | Reads. Never the creature's name or how it looks; those stay on the family's own screens |
-| `request_reward` | Ask for a reward for a child, as the child's own *Redeem* does. The child is named by name or id, the reward by title or id | `pocket_money:write` | **Only asks.** Nothing is spent until a parent approves it with the settings PIN in Settings → Creatures & rewards, and a parent may decline it. The parents' phones are told. Refused when the child has no creature or not enough points left over after what is already waiting. An assistant can't approve or decline a request |
+| `get_rewards` | For each child with a creature: the points they can spend, have earned, owe and have waiting, and their creature's species and stage, with the stage's name in your language and how far it is to the next one. Also the family's rewards and the requests waiting for a parent, each with its id | `family:read` | Reads. Never the creature's name or how it looks; those stay on the family's own screens |
+| `request_reward` | Ask for a reward for a child, as the child's own *Redeem* does. The child is named by name or id, the reward by title or id | `pocket_money:write` | **Only asks.** Nothing is spent until a parent approves it with the settings PIN in Settings → Creatures & rewards, and a parent may decline it. The parents' phones are told. Refused when the child has no creature or not enough points left over after what is already waiting. An assistant can't approve or decline a request itself; `decide_reward_request` asks a parent to |
+| `decide_reward_request` | Ask a parent to approve or decline one of the requests waiting for a parent, by its id from `get_rewards` | `pocket_money:write` | **After confirmation.** Nothing is approved or declined until a parent allows it on a Kinboard screen with the settings PIN; anyone at the screen may refuse it, and it expires after 2 minutes. It then counts exactly as if the parent had pressed Approve or Decline in Settings → Creatures & rewards. Refused when the request was already answered in Kinboard, when a decision on it is already waiting, or, to approve, when the child no longer has the points. Refunds stay in the app |
 
 > "How many points does Mia have?" · "Wie viele Punkte hat Mia?"
 >
 > "Mia would like an hour of Minecraft." · "Mia möchte eine Stunde Minecraft."
 >
 > "What stage is Ben's dragon at?" · "In welcher Stufe ist Bens Drache?"
+>
+> "Approve Mira's 30 minutes of tablet time." · "Genehmige Miras 30 Minuten Tablet-Zeit."
 
 How a request reaches the parents: [Permissions and
 safety](AI-Assistants-Permissions-and-Safety#rewards).
@@ -381,6 +384,6 @@ See [Vehicles](Vehicles).
 | `vehicles:read` | `list_vehicles` |
 | `timers:write` | `start_timer`, `stop_timer` |
 | `birthdays:write` | `add_birthday`, `update_birthday`, `delete_birthday`, `restore_birthday` |
-| `pocket_money:write` | `book_pocket_money`, `get_action_status`, `request_reward` |
+| `pocket_money:write` | `book_pocket_money`, `get_action_status`, `request_reward`, `decide_reward_request` |
 
 63 tools in all.

@@ -5015,7 +5015,11 @@
       "not_available": "Allowed, but Kinboard can’t do this yet, so nothing was done.",
       "insufficient_funds": "Allowed, but there isn’t enough pocket money for this, so nothing was booked.",
       "no_account": "Allowed, but this child or their pocket money account no longer exists, so nothing was booked.",
-      "booking_failed": "Allowed, but Kinboard couldn’t tell whether it was booked. Check the pocket money before trying again."
+      "booking_failed": "Allowed, but Kinboard couldn’t tell whether it was booked. Check the pocket money before trying again.",
+      "reward_already_decided": "Allowed, but this reward request had already been answered, so nothing changed.",
+      "reward_request_gone": "Allowed, but this reward request no longer exists, so nothing changed.",
+      "insufficient_points": "Allowed, but the child no longer has enough points, so the reward was not approved.",
+      "reward_decision_failed": "Allowed, but Kinboard couldn’t tell whether the decision was saved. Check Settings → Creatures & rewards before trying again."
     },
     "pageTitle": "Assistant request",
     "loading": "Loading…",
@@ -5054,10 +5058,22 @@
       "unknown": "do something this Kinboard doesn’t know",
       "pocket_money_deposit": "add {amount, number, money} to {name}’s pocket money",
       "pocket_money_withdrawal": "take {amount, number, money} out of {name}’s pocket money",
-      "pocket_money_note": "{booking} (note: “{note}”)"
+      "pocket_money_note": "{booking} (note: “{note}”)",
+      "reward_decision": "decide a reward request",
+      "reward_decision_approve": "approve {name}’s reward “{reward}” for {points, plural, one {# point} other {# points}}",
+      "reward_decision_decline": "decline {name}’s reward “{reward}” ({points, plural, one {# point} other {# points}})"
     },
     "denyHint": "Anyone can deny. Allowing needs the settings PIN.",
-    "close": "Close"
+    "close": "Close",
+    "reward": {
+      "child": "Child",
+      "reward": "Reward",
+      "cost": "Cost",
+      "costValue": "{points, plural, one {# point} other {# points}}",
+      "decision": "Decision",
+      "approve": "Approve",
+      "decline": "Decline"
+    }
   },
   "creaturesWidget": {
     "title": "Creatures",

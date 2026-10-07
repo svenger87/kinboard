@@ -1611,10 +1611,12 @@ test.describe("points, creatures and rewards (RFC-017)", () => {
     expect(result.content[0].text).toContain("not have enough points");
   });
 
-  test("no tool can approve or decline a request", () => {
+  test("no tool can approve or decline a request: decide_reward_request only asks a parent to", () => {
     const { server } = buildServer(["family:read", "pocket_money:write"]);
     const names = Object.keys(registeredTools(server));
-    expect(names.filter((n) => /reward|redemption/.test(n)).sort()).toEqual(["get_rewards", "request_reward"]);
+    expect(names.filter((n) => /reward|redemption/.test(n)).sort()).toEqual(["decide_reward_request", "get_rewards", "request_reward"]);
+    // It ends in a confirmation a parent gives with the PIN (e2e/reward-decisions.spec.ts).
+    expect(description(server, "decide_reward_request")).toContain("You do not decide it");
   });
 });
 

@@ -76,12 +76,13 @@ export function newerRequest(polled: ScreenRequest | null | undefined, decided: 
 const STATUS_REASONS: ReadonlySet<string> = new Set([
   "unknown_outcome", "not_in_catalogue", "catalogue_unavailable", "not_allowed", "not_available",
   "insufficient_funds", "no_account", "booking_failed",
+  "reward_already_decided", "reward_request_gone", "insufficient_points", "reward_decision_failed",
 ]);
 
 /**
  * The `assistantActions` key that says what became of a request. A failed
  * pocket-money booking always has a reason, so it never gets `status.failed`,
- * which is about Home Assistant.
+ * which is about Home Assistant; nor does a reward decision.
  */
 export function statusMessageKey(request: Pick<ScreenRequest, "status" | "result"> & { kind?: ScreenRequest["kind"] }): string {
   const reason = (request.result as { reason?: unknown } | null)?.reason;
@@ -89,6 +90,11 @@ export function statusMessageKey(request: Pick<ScreenRequest, "status" | "result
     && (typeof reason !== "string" || reason === "unknown_outcome")) {
     // Nothing about Home Assistant or a device: the booking may not have happened.
     return "status.booking_failed";
+  }
+  if (request.status === "failed" && request.kind === "reward_decision"
+    && (typeof reason !== "string" || reason === "unknown_outcome" || !STATUS_REASONS.has(reason))) {
+    // Nothing about Home Assistant: the decision may or may not be saved.
+    return "status.reward_decision_failed";
   }
   if (request.status === "failed" && typeof reason === "string" && STATUS_REASONS.has(reason)) {
     return `status.${reason}`;
@@ -106,7 +112,11 @@ export function statusMessageKey(request: Pick<ScreenRequest, "status" | "result
  */
 export function outcomeNoticeKey(request: Pick<ScreenRequest, "status" | "result"> & { kind?: ScreenRequest["kind"] }): string | null {
   if (request.status === "pending") return null;
-  if (request.status === "approved") return request.kind === "pocket_money" ? "status.booking_failed" : "status.unknown_outcome";
+  if (request.status === "approved") {
+    if (request.kind === "pocket_money") return "status.booking_failed";
+    if (request.kind === "reward_decision") return "status.reward_decision_failed";
+    return "status.unknown_outcome";
+  }
   return statusMessageKey(request);
 }
 

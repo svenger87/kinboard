@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { clientLabel, type ScreenRequest } from "@/lib/home/action-requests";
+import {
+  clientLabel, rewardChildLabel, rewardDecisionFrom, rewardTitleLabel, type ScreenRequest,
+} from "@/lib/home/action-requests";
 import {
   canApprove, canDeny, decisionErrorKey, isFinalError, outcomeNoticeKey, secondsLeft, visibleRequests,
 } from "@/lib/home/action-prompt";
@@ -49,6 +51,40 @@ export function ActionHeadline({
       </span>
       {t("wantsTo", { action: request.description })}
     </p>
+  );
+}
+
+/**
+ * A reward decision, laid out so it cannot be misread: whose reward, which,
+ * what it costs, and — set apart — whether Allow approves or declines it.
+ * The title and the name are the family's own text, shown as plain values
+ * (`rewardTitleLabel`, `rewardChildLabel`); any other kind renders nothing.
+ */
+export function RewardDecisionDetails({ request }: { request: ScreenRequest }) {
+  const t = useTranslations("assistantActions.reward");
+  if (request.kind !== "reward_decision") return null;
+  const decision = rewardDecisionFrom(request.data);
+  if (!decision) return null;
+  const approve = decision.decision === "approve";
+  return (
+    <dl data-reward-decision={decision.decision} className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+      <dt className="text-muted-foreground">{t("child")}</dt>
+      <dd className="min-w-0 truncate font-medium">{rewardChildLabel(decision.child_name)}</dd>
+      <dt className="text-muted-foreground">{t("reward")}</dt>
+      <dd className="min-w-0 break-words font-medium">{rewardTitleLabel(decision.reward_title)}</dd>
+      <dt className="text-muted-foreground">{t("cost")}</dt>
+      <dd className="font-medium tabular-nums">{t("costValue", { points: decision.cost_points })}</dd>
+      <dt className="text-muted-foreground">{t("decision")}</dt>
+      <dd>
+        <span
+          className={`inline-block rounded-md border px-2 py-0.5 font-semibold ${
+            approve ? "border-emerald-600/50 text-emerald-700 dark:text-emerald-400" : "border-destructive/50 text-destructive"
+          }`}
+        >
+          {approve ? t("approve") : t("decline")}
+        </span>
+      </dd>
+    </dl>
   );
 }
 
@@ -133,6 +169,7 @@ export function AssistantActionCard({
           <p className="text-sm text-muted-foreground">{t("title")}</p>
           <ActionHeadline request={request} id={`${inputId}-title`} className="font-display text-2xl leading-tight" />
           <p className="mt-1 text-sm text-muted-foreground">{t("hint")}</p>
+          <RewardDecisionDetails request={request} />
         </div>
         <p className="shrink-0 text-sm tabular-nums text-muted-foreground" aria-live="off">
           {t("expiresIn", { seconds: remaining })}

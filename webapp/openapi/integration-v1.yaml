@@ -388,13 +388,14 @@ paths:
       summary: The outcome of any request this assistant left waiting for confirmation
       description: |
         A `request_id` from a `202 pending_confirmation` of any kind — a
-        sensitive home action, or a pocket-money booking. Needs
+        sensitive home action, a pocket-money booking, or a decision on a
+        reward request. Needs
         `home:control` **or** `pocket_money:write`: either is enough. Only
         the calling token's own requests are visible; any other id,
         including another assistant's in the same family, is `404`.
 
-        The same as `GET /home/actions/{id}`, plus `kind` (`home` or
-        `pocket_money`) and `description`, the request in words as the
+        The same as `GET /home/actions/{id}`, plus `kind` (`home`,
+        `pocket_money` or `reward_decision`) and `description`, the request in words as the
         family was asked about it. `entity_id` and `service` are `null` for
         a request that is not a home action. `result.reason`
         `not_available`: approved, but this Kinboard cannot run that kind of
@@ -402,7 +403,12 @@ paths:
         `insufficient_funds` (a withdrawal larger than the balance by the
         time it was allowed) and `no_account` (the child or the account is
         gone) — nothing was booked; `booking_failed` — Kinboard could not
-        tell whether it was booked.
+        tell whether it was booked. For a reward decision:
+        `reward_already_decided` (answered in Kinboard meanwhile),
+        `reward_request_gone` (the request or the child is gone) and
+        `insufficient_points` (approving, and the points no longer cover
+        it) — nothing changed; `reward_decision_failed` — Kinboard could not
+        tell whether the decision was saved.
       x-required-scope: [home:control, pocket_money:write]
       parameters:
         - name: id
@@ -1770,7 +1776,8 @@ paths:
         button makes, held against the child's points. **It only asks:**
         nothing is spent until a parent approves it on a Kinboard screen
         with the settings PIN, and a parent may decline it. The Integration
-        API cannot approve or decline a request. The parents' phones are
+        API cannot approve or decline a request itself;
+        `POST /rewards/requests/{id}/decision` asks a parent to. The parents' phones are
         pushed (their quiet hours apply), as for the child's own request.
 
         `child` is a person_id or a child's name, `reward` a reward's id or
@@ -1821,6 +1828,89 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "409": { description: "The child has no creature switched on (`reason: no_creature`) or not enough available points (`reason: insufficient_points`), or the idempotency key was reused with different arguments. Nothing was asked." }
         "429": { $ref: "#/components/responses/RateLimited" }
+
+  /rewards/requests/{id}/decision:
+    post:
+      tags: [state]
+      summary: Ask a parent to approve or decline a reward request
+      description: |
+        **Nothing is decided by this call.** It asks a family member to
+        confirm a decision on one of the child's reward requests (`{id}`
+        from `GET /rewards`' `pending`) on a Kinboard screen with the
+        settings PIN — anyone there may deny it, and it expires after
+        2 minutes — exactly as a sensitive home action or a pocket-money
+        booking does. The answer is `202 pending_confirmation` with a
+        `request_id` to follow at `GET /actions/{id}`; only `done` there
+        means the reward request was decided. The same limits as every
+        confirmation apply, counted together: at most 2 requests waiting and
+        5 per 10 minutes per token.
+
+        Allowing it decides the reward request on the server exactly as a
+        parent's own Approve or Deny on the rewards page does: still
+        pending, and for an approval the child's points still covering it,
+        checked under the child's lock. A request answered in Kinboard
+        meanwhile ends `failed` with `result.reason: reward_already_decided`
+        and nothing changes. Refunds are not available here.
+
+        `{id}` must be a reward request of this family, of a child not in
+        the recycle bin: otherwise `404`, the same for another family's id.
+        Already approved or declined: `409` (`reason: already_decided`, with
+        `status`). Approving when the child's points no longer cover it:
+        `409` (`reason: insufficient_points`, with `balance` and
+        `cost_points`). A decision on it already waiting: `409`
+        (`reason: already_asked`).
+
+        The Idempotency-Key is required. Repeating it with the same body
+        answers the same request (`idempotent-replay`); only a `202` is
+        remembered.
+      x-required-scope: pocket_money:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approve, decline] }
+      responses:
+        "202":
+          description: Stored until a family member allows it with the settings PIN, denies it, or it expires
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, request_id, expires_at, decision, reward_request]
+                properties:
+                  status: { type: string, enum: [pending_confirmation] }
+                  request_id: { type: string, format: uuid }
+                  expires_at: { type: string, format: date-time }
+                  decision: { type: string, enum: [approve, decline] }
+                  reward_request:
+                    type: object
+                    required: [id, person_id, child_name, title, cost_points]
+                    properties:
+                      id: { type: string, format: uuid }
+                      person_id: { type: string, format: uuid }
+                      child_name: { type: string }
+                      title: { type: string }
+                      cost_points: { type: integer }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { description: "The family has no settings PIN, so nobody could allow it (`reason: pin_required`). Nothing was asked." }
+        "404": { description: "No such reward request in this family. Nothing was asked." }
+        "409": { description: "Already approved or declined (`reason: already_decided`), not enough points to approve (`reason: insufficient_points`), a decision already waiting (`reason: already_asked`), or the idempotency key reused with different arguments. Nothing was asked." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { description: "Kinboard could not check the PIN or this assistant's pending requests. Nothing was asked." }
 
   /people:
     get:
@@ -2804,7 +2894,7 @@ components:
       required: [id, kind, description, status, entity_id, service, created_at, expires_at, decided_at, result]
       properties:
         id: { type: string, format: uuid }
-        kind: { type: string, enum: [home, pocket_money] }
+        kind: { type: string, enum: [home, pocket_money, reward_decision] }
         description: { type: string, description: "The request in words, e.g. `unlock Front door (Hallway)` or `add €5.00 to Enno’s pocket money (note: “mowing the lawn”)`." }
         status: { type: string, enum: [pending, approved, denied, expired, failed, done] }
         entity_id: { type: [string, "null"] }
@@ -2819,7 +2909,7 @@ components:
             status: { type: integer, description: "Home Assistant's HTTP status for a home request; 0 when it was not reached or did not answer, and for other kinds." }
             reason:
               type: string
-              enum: [not_in_catalogue, catalogue_unavailable, not_allowed, unknown_outcome, not_available, insufficient_funds, no_account, booking_failed]
+              enum: [not_in_catalogue, catalogue_unavailable, not_allowed, unknown_outcome, not_available, insufficient_funds, no_account, booking_failed, reward_already_decided, reward_request_gone, insufficient_points, reward_decision_failed]
 
     VehicleStatus:
       type: object

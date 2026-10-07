@@ -5015,7 +5015,11 @@
       "not_available": "Erlaubt, aber das kann Kinboard noch nicht, deshalb ist nichts passiert.",
       "insufficient_funds": "Erlaubt, aber dafür reicht das Taschengeld nicht, deshalb wurde nichts gebucht.",
       "no_account": "Erlaubt, aber dieses Kind oder sein Taschengeldkonto gibt es nicht mehr, deshalb wurde nichts gebucht.",
-      "booking_failed": "Erlaubt, aber Kinboard weiß nicht, ob es gebucht wurde. Sieh beim Taschengeld nach, bevor du es noch einmal versuchst."
+      "booking_failed": "Erlaubt, aber Kinboard weiß nicht, ob es gebucht wurde. Sieh beim Taschengeld nach, bevor du es noch einmal versuchst.",
+      "reward_already_decided": "Erlaubt, aber dieser Belohnungswunsch war schon beantwortet, deshalb hat sich nichts geändert.",
+      "reward_request_gone": "Erlaubt, aber diesen Belohnungswunsch gibt es nicht mehr, deshalb hat sich nichts geändert.",
+      "insufficient_points": "Erlaubt, aber das Kind hat nicht mehr genug Punkte, deshalb wurde die Belohnung nicht genehmigt.",
+      "reward_decision_failed": "Erlaubt, aber Kinboard weiß nicht, ob die Entscheidung gespeichert wurde. Sieh unter Einstellungen → Kreaturen & Belohnungen nach, bevor du es noch einmal versuchst."
     },
     "pageTitle": "Anfrage eines Assistenten",
     "loading": "Wird geladen …",
@@ -5054,10 +5058,22 @@
       "unknown": "etwas tun, das dieses Kinboard nicht kennt",
       "pocket_money_deposit": "{name} {amount, number, money} Taschengeld gutschreiben",
       "pocket_money_withdrawal": "{amount, number, money} vom Taschengeld von {name} abbuchen",
-      "pocket_money_note": "{booking} (Notiz: „{note}“)"
+      "pocket_money_note": "{booking} (Notiz: „{note}“)",
+      "reward_decision": "über einen Belohnungswunsch entscheiden",
+      "reward_decision_approve": "die Belohnung „{reward}“ für {name} genehmigen ({points, plural, one {# Punkt} other {# Punkte}})",
+      "reward_decision_decline": "die Belohnung „{reward}“ für {name} ablehnen ({points, plural, one {# Punkt} other {# Punkte}})"
     },
     "denyHint": "Ablehnen kann jeder. Zum Erlauben braucht es die Einstellungs-PIN.",
-    "close": "Schließen"
+    "close": "Schließen",
+    "reward": {
+      "child": "Kind",
+      "reward": "Belohnung",
+      "cost": "Kosten",
+      "costValue": "{points, plural, one {# Punkt} other {# Punkte}}",
+      "decision": "Entscheidung",
+      "approve": "Genehmigen",
+      "decline": "Ablehnen"
+    }
   },
   "creaturesWidget": {
     "title": "Kreaturen",

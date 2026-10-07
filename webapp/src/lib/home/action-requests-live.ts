@@ -13,6 +13,9 @@ import { familyHasPin, verifySettingsPin } from "@/lib/settings-pin";
 import { callHaService } from "@/lib/home/ha-client";
 import { catalogueEntity } from "@/lib/home/catalogue";
 import { childPocketMoneyAccount, liveBookPocketMoney } from "@/lib/pocket-money/children";
+import { decideRedemption } from "@/lib/pocket-money/rewards";
+import { liveRewardNotifier } from "@/lib/notifications/rewards";
+import type { RpcClient } from "@/lib/pocket-money/booking";
 import { sendPushToMultiple, isVapidConfigured, type DatabaseSubscription } from "@/lib/push-sender";
 import { getPushTranslator, getTranslator } from "@/lib/notifications/messages";
 import { getFamilyLocale } from "@/lib/family-locale";
@@ -24,6 +27,7 @@ import {
   type ActionTranslator,
   type DecideDeps,
   type PushRequest,
+  type RewardRedemptionNow,
 } from "@/lib/home/action-requests";
 
 const TABLE = "assistant_action_requests";
@@ -119,7 +123,34 @@ export const liveDecideDeps: DecideDeps = {
   catalogueEntity: (familyId, entityId) => catalogueEntity(familyId, entityId),
   pocketMoneyAccount: (familyId, personId) => childPocketMoneyAccount(familyId, personId),
   bookPocketMoney: (input) => liveBookPocketMoney(input),
+  rewardRedemption: (familyId, redemptionId) => liveRewardRedemption(familyId, redemptionId),
+  // The parent's own decision, as PATCH /api/rewards/redemptions/{id} makes
+  // it: decide_point_redemption with the child's push. Reached only from
+  // decideActionRequest, after the settings PIN was checked and the request
+  // won its compare-and-swap.
+  decideRedemption: (input) => {
+    const client = createAdminClient();
+    return decideRedemption(client as unknown as RpcClient, input, liveRewardNotifier(client));
+  },
 };
+
+/**
+ * One reward request of this family, as it is now — null when there is none
+ * or its child is in the recycle bin, where the rewards page no longer shows
+ * it either. Throws when unreadable.
+ */
+async function liveRewardRedemption(familyId: string, redemptionId: string): Promise<RewardRedemptionNow | null> {
+  const { data, error } = await db()
+    .from("point_redemptions")
+    .select("id, person_id, status, cost_points, people!inner(deleted_at)")
+    .eq("id", redemptionId)
+    .eq("family_id", familyId)
+    .is("people.deleted_at", null)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to read the reward request: ${error.message}`);
+  if (!data) return null;
+  return { id: data.id, person_id: data.person_id, status: data.status, cost_points: data.cost_points };
+}
 
 /**
  * May this assistant ask the family for one more confirmation? Counts its

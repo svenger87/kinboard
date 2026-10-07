@@ -29,7 +29,7 @@ a write permission does not include reading what it writes.
 | `vehicles:read` | See your vehicles' charge level, range and charging status | Reading each car's charge, range and charging status (and temperature, locks, doors, windows and odometer where reported), never its location |
 | `timers:write` | Start and stop timers on the screens | Starting and stopping kitchen timers |
 | `birthdays:write` | Add, change and delete birthdays | Adding, editing and deleting birthdays; restoring a deleted one |
-| `pocket_money:write` | Ask to book pocket money or ask for a child's reward — a parent approves each with the settings PIN. A reward request notifies the parents and holds the child's points until then | Asking for a deposit or a withdrawal, which a family member must allow; following that request. Asking for a reward for a child, which waits for a parent like the child's own request |
+| `pocket_money:write` | Ask to book pocket money, ask for a child's reward, or ask a parent to approve or decline one — a parent confirms each with the settings PIN. A reward request notifies the parents and holds the child's points until then | Asking for a deposit or a withdrawal, which a family member must allow; following that request. Asking for a reward for a child, which waits for a parent like the child's own request. Asking a parent to approve or decline a reward request, which they confirm on a Kinboard screen |
 
 Which tool needs which permission: [What assistants can do](AI-Assistants-Capabilities#all-tools-by-permission).
 
@@ -41,12 +41,13 @@ assistant you'd let tick off and set up the children's chores.
 
 ## Confirmation on the screens
 
-Two kinds of request never run on an assistant's say-so:
+Three kinds of request never run on an assistant's say-so:
 
 - **sensitive Home Assistant actions** (see [below](#home-assistant-devices)): locks, alarm
   panels, garage doors and gates, scenes, scripts, switches that aren't
   outlets, and the rest of the list;
-- **every pocket-money booking**, deposit or withdrawal, of any amount.
+- **every pocket-money booking**, deposit or withdrawal, of any amount;
+- **every decision on a child's reward request**, approve or decline.
 
 The assistant is told that nothing has happened yet and that someone has to
 confirm it on a Kinboard screen. Then:
@@ -54,8 +55,10 @@ confirm it on a Kinboard screen. Then:
 1. **Every Kinboard screen shows it at once.** On every page of every joined
    device, over the screensaver too, a card appears: **An assistant is
    asking**, with *"Claude wants to unlock Front door (Hall)"* or *"ChatGPT
-   wants to add €5.00 to Enno's pocket money (note: "mowing the lawn")"*,
-   the line *"Only allow this if someone in the family asked for it."*, and
+   wants to add €5.00 to Enno's pocket money (note: "mowing the lawn")"*
+   or *"Claude wants to approve Mira's reward "30 minutes of tablet time"
+   for 30 points"* — a reward decision also lists the child, the reward,
+   the points and, set apart, **Approve** or **Decline** — then the line *"Only allow this if someone in the family asked for it."*, and
    a countdown of the seconds left.
 2. **Phones get a push notification** (those with notifications switched
    on): *"Claude wants to …"*, *"Open to allow it with the settings PIN, or
@@ -89,6 +92,17 @@ A few more rules:
   (*"Allowed, but there isn't enough pocket money for this, so nothing was
   booked."*). Once booked, Kinboard doesn't undo it; a mistake needs a
   booking the other way.
+- **Reward decisions:** allowing one decides the reward request on the
+  server exactly as a parent's own Approve or Decline in Settings →
+  Creatures & rewards does, and the child's device is told the same way.
+  If someone answered it in the app first, the app's answer stands and the
+  screen says so (*"Allowed, but this reward request had already been
+  answered, so nothing changed."*); if the child's points no longer cover
+  an approval, nothing is approved. **Deny** on the screen leaves the
+  reward request waiting, untouched. Refunds are only in the app.
+- **Who can allow it:** any Kinboard screen of the family, a child's own
+  tablet included, but only with the settings PIN. The PIN is what makes it
+  a parent's decision, so keep it from the children.
 - **Revoking an assistant ends its waiting requests**; nothing runs.
 - **The assistant asks what happened** with `get_action_status`. It sees
   only its own requests.
@@ -106,6 +120,13 @@ Asking for a reward with `request_reward` is the same as the child tapping
 - **It only asks.** The request waits in Settings → Creatures & rewards, at
   the top, until a parent approves or declines it with the settings PIN. No
   assistant, and no Home Assistant token, can approve or decline one.
+- **An assistant can ask a parent to decide** with `decide_reward_request`
+  (*"Approve Mira's 30 minutes of tablet time"*). That too only asks: it
+  shows up on every Kinboard screen [for confirmation](#confirmation-on-the-screens),
+  and only a parent allowing it there with the settings PIN approves or
+  declines anything. The reward's title is shown in quotes as the family
+  typed it, so a title can't pass itself off as Kinboard's own words or
+  change what is being decided.
 - **The parents' phones are told**: *"Mia would like 🎮 An hour of
   Minecraft (50 ⭐)"*; tapping it opens the requests. Devices that belong to
   a child (Settings → Devices) are left out, so a brother's tablet doesn't
@@ -181,7 +202,7 @@ down, and nothing happens.
 
 | What | Limit |
 |---|---|
-| Requests waiting for confirmation (home actions and pocket money together) | at most **2** waiting at once, and **5** new ones per 10 minutes |
+| Requests waiting for confirmation (home actions, pocket money and reward decisions together) | at most **2** waiting at once, and **5** new ones per 10 minutes |
 | Edits and deletes across tasks, shopping items, notes, calendar events and meal entries, and reward requests | **30** per 10 minutes, all together |
 | Messages to the screens | **5** per 10 minutes |
 | Timers | at most **10** running, paused or ringing for the family, whoever started them; one ringing unanswered for over an hour no longer counts. Each up to 24 hours |

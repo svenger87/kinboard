@@ -917,7 +917,7 @@ test.describe("a request carries a kind, and running it dispatches on it", () =>
   });
 
   test("the built-in map: home is the RFC-011 handler, pocket money refuses what is not a booking", async () => {
-    expect(Object.keys(ACTION_KIND_HANDLERS).sort()).toEqual(["home", "pocket_money"]);
+    expect(Object.keys(ACTION_KIND_HANDLERS).sort()).toEqual(["home", "pocket_money", "reward_decision"]);
     const { rows } = fakeStore();
     expect(await ACTION_KIND_HANDLERS.pocket_money.validate(seed(rows, pocketRow), FAMILY, {} as DecideDeps)).toBe("not_allowed");
   });
