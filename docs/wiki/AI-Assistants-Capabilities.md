@@ -76,7 +76,7 @@ settings. See [Calendar](Calendar).
 | Tool | What it does | Permission | Notes |
 |---|---|---|---|
 | `list_tasks` | The active tasks, with whether they're done and when they're due | `family:read` | Reads |
-| `create_task` | Add a task. Optionally for someone, with a due date, repeating (once, daily, weekly, every other week, monthly, or on picked weekdays), with a priority (high, medium, low), an icon and points (0 to 10,000) | `tasks:write` | Adds. The assistant is told to ask rather than invent a due date, an assignee or a repetition |
+| `create_task` | Add a task. Optionally for someone, with a due date, repeating (once, daily, weekly, every other week, monthly, or on picked weekdays), with a priority (high, medium, low), an icon and points (0 to 10,000) | `tasks:write` | Adds. The assistant never invents a due date, an assignee or a repetition; when you left them out it asks once afterwards |
 | `complete_task` | Mark a task done. A repeating task is done for today, in the family's time zone, and comes due again on its next day | `tasks:write` | Changes. A child's task with points awards them, just as ticking it off on a screen does |
 | `reopen_task` | Mark a one-off task not done again | `tasks:write` | Changes. Repeating tasks can't be reopened; Kinboard has no undo for a day already marked done |
 | `update_task` | Change a task's title, due date, assignee, repetition, priority, icon or points | `tasks:write` | Changes. A changed field's previous value is not kept |
@@ -89,6 +89,11 @@ settings. See [Calendar](Calendar).
 
 Points are awarded only when a task is assigned to a child. On a grown-up's
 task they're stored but never awarded. See [Tasks](Tasks).
+
+When you add a task without saying who it's for or when, the assistant saves it
+anyway and then asks you once, briefly, about what's missing: who it's for, a
+day if one makes sense, and points if it's for a child (never for a grown-up).
+Say "just add it" and it won't ask.
 
 ## Shopping list
 
