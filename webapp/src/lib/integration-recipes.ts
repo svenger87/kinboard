@@ -471,47 +471,33 @@ function wholeNumber(value: unknown, min: number, max: number, field: string): R
   return { ok: true, value };
 }
 
-/**
- * The POST body, checked. Every field is refused rather than dropped when it
- * is wrong: a recipe saved without the quantity the user agreed on is worse
- * than a 400 the assistant can read and fix.
- */
-export function parseRecipeCreate(body: Record<string, unknown>): Result<NewRecipe> {
-  const bad = (error: string): Result<NewRecipe> => ({ ok: false, error });
-
-  if (typeof body.title !== "string" || !body.title.trim() || body.title.trim().length > MAX_RECIPE_TITLE) {
-    return bad(`\`title\` is required, at most ${MAX_RECIPE_TITLE} characters`);
-  }
-  const description = optionalText(body.description, MAX_RECIPE_DESCRIPTION, "description");
-  if (!description.ok) return bad(description.error);
-  const servings = wholeNumber(body.servings, 1, MAX_RECIPE_SERVINGS, "servings");
-  if (!servings.ok) return bad(servings.error);
-  const prep = wholeNumber(body.prep_time_minutes, 0, MAX_RECIPE_MINUTES, "prep_time_minutes");
-  if (!prep.ok) return bad(prep.error);
-  const cook = wholeNumber(body.cook_time_minutes, 0, MAX_RECIPE_MINUTES, "cook_time_minutes");
-  if (!cook.ok) return bad(cook.error);
-
+/** `tags`, checked: names of 1..MAX_RECIPE_TAG characters, two spellings of one name kept once. */
+function parseTags(value: unknown): Result<string[]> {
   const tags: string[] = [];
-  if (body.tags !== undefined && body.tags !== null) {
-    const tagError = `\`tags\` must be a list of at most ${MAX_RECIPE_TAGS} names of 1 to ${MAX_RECIPE_TAG} characters`;
-    if (!Array.isArray(body.tags) || body.tags.length > MAX_RECIPE_TAGS) return bad(tagError);
-    const seen = new Set<string>();
-    for (const raw of body.tags) {
-      if (typeof raw !== "string" || !raw.trim() || raw.trim().length > MAX_RECIPE_TAG) return bad(tagError);
-      const name = raw.trim();
-      // The page matches tags case-insensitively; two spellings are one tag.
-      if (seen.has(name.toLowerCase())) continue;
-      seen.add(name.toLowerCase());
-      tags.push(name);
-    }
+  if (value === undefined || value === null) return { ok: true, value: tags };
+  const tagError = `\`tags\` must be a list of at most ${MAX_RECIPE_TAGS} names of 1 to ${MAX_RECIPE_TAG} characters`;
+  if (!Array.isArray(value) || value.length > MAX_RECIPE_TAGS) return { ok: false, error: tagError };
+  const seen = new Set<string>();
+  for (const raw of value) {
+    if (typeof raw !== "string" || !raw.trim() || raw.trim().length > MAX_RECIPE_TAG) return { ok: false, error: tagError };
+    const name = raw.trim();
+    // The page matches tags case-insensitively; two spellings are one tag.
+    if (seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    tags.push(name);
   }
+  return { ok: true, value: tags };
+}
 
+/** `ingredients`, checked: 1..MAX_RECIPE_INGREDIENTS, each with a name; quantity above 0 or left out. */
+function parseIngredients(value: unknown): Result<NewIngredient[]> {
+  const bad = (error: string): Result<NewIngredient[]> => ({ ok: false, error });
   const ingredientsError = `\`ingredients\` must be a list of 1 to ${MAX_RECIPE_INGREDIENTS}, each with a \`name\``;
-  if (!Array.isArray(body.ingredients) || body.ingredients.length === 0 || body.ingredients.length > MAX_RECIPE_INGREDIENTS) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_RECIPE_INGREDIENTS) {
     return bad(ingredientsError);
   }
   const ingredients: NewIngredient[] = [];
-  for (const [index, raw] of body.ingredients.entries()) {
+  for (const [index, raw] of value.entries()) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return bad(ingredientsError);
     const ing = raw as Record<string, unknown>;
     const at = `ingredients[${index}]`;
@@ -533,28 +519,67 @@ export function parseRecipeCreate(body: Record<string, unknown>): Result<NewReci
     if (!notes.ok) return bad(notes.error);
     ingredients.push({ name: ing.name.trim(), quantity, unit: unit.value, group: group.value, notes: notes.value });
   }
+  return { ok: true, value: ingredients };
+}
 
+/** `instructions`, checked: 1..MAX_RECIPE_STEPS steps of 1..MAX_RECIPE_STEP characters, in order. */
+function parseSteps(value: unknown): Result<string[]> {
   const stepsError = `\`instructions\` must be a list of 1 to ${MAX_RECIPE_STEPS} steps, each 1 to ${MAX_RECIPE_STEP} characters`;
-  if (!Array.isArray(body.instructions) || body.instructions.length === 0 || body.instructions.length > MAX_RECIPE_STEPS) {
-    return bad(stepsError);
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_RECIPE_STEPS) {
+    return { ok: false, error: stepsError };
   }
   const steps: string[] = [];
-  for (const raw of body.instructions) {
-    if (typeof raw !== "string" || !raw.trim() || raw.trim().length > MAX_RECIPE_STEP) return bad(stepsError);
+  for (const raw of value) {
+    if (typeof raw !== "string" || !raw.trim() || raw.trim().length > MAX_RECIPE_STEP) return { ok: false, error: stepsError };
     steps.push(raw.trim());
   }
+  return { ok: true, value: steps };
+}
+
+/** A title of 1..MAX_RECIPE_TITLE characters. */
+function parseTitle(value: unknown): Result<string> {
+  if (typeof value !== "string" || !value.trim() || value.trim().length > MAX_RECIPE_TITLE) {
+    return { ok: false, error: `\`title\` is required, at most ${MAX_RECIPE_TITLE} characters` };
+  }
+  return { ok: true, value: value.trim() };
+}
+
+/**
+ * The POST body, checked. Every field is refused rather than dropped when it
+ * is wrong: a recipe saved without the quantity the user agreed on is worse
+ * than a 400 the assistant can read and fix.
+ */
+export function parseRecipeCreate(body: Record<string, unknown>): Result<NewRecipe> {
+  const bad = (error: string): Result<NewRecipe> => ({ ok: false, error });
+
+  const title = parseTitle(body.title);
+  if (!title.ok) return bad(title.error);
+  const description = optionalText(body.description, MAX_RECIPE_DESCRIPTION, "description");
+  if (!description.ok) return bad(description.error);
+  const servings = wholeNumber(body.servings, 1, MAX_RECIPE_SERVINGS, "servings");
+  if (!servings.ok) return bad(servings.error);
+  const prep = wholeNumber(body.prep_time_minutes, 0, MAX_RECIPE_MINUTES, "prep_time_minutes");
+  if (!prep.ok) return bad(prep.error);
+  const cook = wholeNumber(body.cook_time_minutes, 0, MAX_RECIPE_MINUTES, "cook_time_minutes");
+  if (!cook.ok) return bad(cook.error);
+  const tags = parseTags(body.tags);
+  if (!tags.ok) return bad(tags.error);
+  const ingredients = parseIngredients(body.ingredients);
+  if (!ingredients.ok) return bad(ingredients.error);
+  const steps = parseSteps(body.instructions);
+  if (!steps.ok) return bad(steps.error);
 
   return {
     ok: true,
     value: {
-      title: body.title.trim(),
+      title: title.value,
       description: description.value,
       servings: servings.value ?? DEFAULT_SERVINGS,
       prepTimeMinutes: prep.value,
       cookTimeMinutes: cook.value,
-      tags,
-      ingredients,
-      steps,
+      tags: tags.value,
+      ingredients: ingredients.value,
+      steps: steps.value,
     },
   };
 }
@@ -657,4 +682,249 @@ export async function createRecipe(familyId: string, input: NewRecipe, db: Recip
       })),
     instructions: input.steps,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Changing a saved recipe: what the recipe page's useUpdateRecipe writes
+// (hooks/use-recipes.ts), from an assistant, with the create's checks.
+// ---------------------------------------------------------------------------
+
+/** What a PATCH may send; anything else is refused, so a misspelt field is never silently ignored. */
+export const RECIPE_UPDATE_FIELDS = [
+  "title", "description", "servings", "prep_time_minutes", "cook_time_minutes", "tags", "ingredients", "instructions",
+] as const;
+
+/**
+ * A change to a recipe. Only the fields present change. `ingredients` and
+ * `steps` replace the whole list; `tags` makes the tags exactly these (an
+ * empty list removes them all). `description` and the two times may be null
+ * to clear them.
+ */
+export interface RecipePatch {
+  title?: string;
+  description?: string | null;
+  servings?: number;
+  prepTimeMinutes?: number | null;
+  cookTimeMinutes?: number | null;
+  tags?: string[];
+  ingredients?: NewIngredient[];
+  steps?: string[];
+}
+
+/** The PATCH body, checked field by field with the create's own rules. */
+export function parseRecipeUpdate(body: Record<string, unknown>): Result<RecipePatch> {
+  const bad = (error: string): Result<RecipePatch> => ({ ok: false, error });
+  const unknown = Object.keys(body).find((key) => !(RECIPE_UPDATE_FIELDS as readonly string[]).includes(key));
+  if (unknown) return bad(`\`${unknown}\` cannot be changed here; send ${RECIPE_UPDATE_FIELDS.join(", ")}`);
+
+  const patch: RecipePatch = {};
+  if ("title" in body) {
+    const title = parseTitle(body.title);
+    if (!title.ok) return bad(title.error);
+    patch.title = title.value;
+  }
+  if ("description" in body) {
+    const description = optionalText(body.description, MAX_RECIPE_DESCRIPTION, "description");
+    if (!description.ok) return bad(description.error);
+    patch.description = description.value;
+  }
+  if ("servings" in body) {
+    const servings = wholeNumber(body.servings, 1, MAX_RECIPE_SERVINGS, "servings");
+    if (!servings.ok) return bad(servings.error);
+    if (servings.value === null) return bad(`\`servings\` must be a whole number from 1 to ${MAX_RECIPE_SERVINGS}`);
+    patch.servings = servings.value;
+  }
+  if ("prep_time_minutes" in body) {
+    const prep = wholeNumber(body.prep_time_minutes, 0, MAX_RECIPE_MINUTES, "prep_time_minutes");
+    if (!prep.ok) return bad(prep.error);
+    patch.prepTimeMinutes = prep.value;
+  }
+  if ("cook_time_minutes" in body) {
+    const cook = wholeNumber(body.cook_time_minutes, 0, MAX_RECIPE_MINUTES, "cook_time_minutes");
+    if (!cook.ok) return bad(cook.error);
+    patch.cookTimeMinutes = cook.value;
+  }
+  if ("tags" in body) {
+    if (body.tags === null) return bad(`\`tags\` must be a list; send [] to remove every tag`);
+    const tags = parseTags(body.tags);
+    if (!tags.ok) return bad(tags.error);
+    patch.tags = tags.value;
+  }
+  if ("ingredients" in body) {
+    const ingredients = parseIngredients(body.ingredients);
+    if (!ingredients.ok) return bad(ingredients.error);
+    patch.ingredients = ingredients.value;
+  }
+  if ("instructions" in body) {
+    const steps = parseSteps(body.instructions);
+    if (!steps.ok) return bad(steps.error);
+    patch.steps = steps.value;
+  }
+  if (Object.keys(patch).length === 0) {
+    return bad(`nothing to change; send any of ${RECIPE_UPDATE_FIELDS.join(", ")}`);
+  }
+  return { ok: true, value: patch };
+}
+
+const INGREDIENT_COLUMNS = "id, name, quantity, unit, group_name, notes, category, sort_order";
+
+/**
+ * Change one of the family's live recipes as the recipe page does: the row
+ * (total time again prep plus cook, steps numbered from 1, `updated_at`),
+ * the ingredients replaced as a whole list in the order given, the tags
+ * through the page's own syncRecipeTags. Null when the recipe is not this
+ * family's or is in the recycle bin.
+ *
+ * All or nothing, which the page is not (it deletes the ingredients before
+ * inserting the new ones). The new ingredients go in first, beside the old;
+ * then the row; then the tags; the old ingredients are deleted last, in one
+ * statement. A failure at any step undoes the steps before it -- the new
+ * ingredients deleted, the row and the tags put back as they were -- and the
+ * error is thrown, so a half-changed recipe is never left behind. Replacing
+ * the ingredients gives them new ids; the answer carries them.
+ */
+export async function updateRecipe(
+  familyId: string,
+  recipeId: string,
+  patch: RecipePatch,
+  db: RecipeDb = createAdminClient(),
+): Promise<RecipeDetail | null> {
+  const old = await loadRecipe(familyId, recipeId, db);
+  if (!old) return null;
+
+  const prep = patch.prepTimeMinutes !== undefined ? patch.prepTimeMinutes : old.prep_time_minutes ?? null;
+  const cook = patch.cookTimeMinutes !== undefined ? patch.cookTimeMinutes : old.cook_time_minutes ?? null;
+  const row: Record<string, unknown> = {};
+  if (patch.title !== undefined) row.title = patch.title;
+  if (patch.description !== undefined) row.description = patch.description;
+  if (patch.servings !== undefined) row.servings = patch.servings;
+  if (patch.prepTimeMinutes !== undefined || patch.cookTimeMinutes !== undefined) {
+    row.prep_time_minutes = prep;
+    row.cook_time_minutes = cook;
+    row.total_time_minutes = prep === null && cook === null ? null : (prep ?? 0) + (cook ?? 0);
+  }
+  if (patch.steps !== undefined) row.instructions = patch.steps.map((text, index) => ({ step: index + 1, text }));
+
+  // What the row held before, for putting it back.
+  const before: Record<string, unknown> = {};
+  for (const column of Object.keys(row)) before[column] = (old as unknown as Record<string, unknown>)[column] ?? null;
+  if ("instructions" in row) before.instructions = old.instructions ?? [];
+  const oldTags = tagNames(old);
+  const oldIngredientIds = (old.ingredients ?? []).map((ing) => String(ing.id));
+
+  let added: IngredientRow[] | null = null;
+  let rowChanged = false;
+  let tagsTouched = false;
+  try {
+    if (patch.ingredients) {
+      const { data, error } = await (db as any)
+        .from("recipe_ingredients")
+        .insert(patch.ingredients.map((ing, index) => ({
+          recipe_id: recipeId,
+          name: ing.name,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          group_name: ing.group,
+          notes: ing.notes,
+          category: null,
+          sort_order: index,
+        })))
+        .select(INGREDIENT_COLUMNS);
+      if (error) throw error;
+      added = (data ?? []) as IngredientRow[];
+    }
+    if (Object.keys(row).length > 0) {
+      rowChanged = true;
+      const { data, error } = await (db as any)
+        .from("recipes")
+        .update({ ...row, updated_at: new Date().toISOString() })
+        .eq("id", recipeId)
+        .eq("family_id", familyId)
+        .is("deleted_at", null)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("the recipe went away while it was being changed");
+    }
+    if (patch.tags !== undefined) {
+      tagsTouched = true;
+      await syncRecipeTags(db, familyId, recipeId, patch.tags);
+    }
+    if (patch.ingredients && oldIngredientIds.length > 0) {
+      const { error } = await (db as any)
+        .from("recipe_ingredients")
+        .delete()
+        .eq("recipe_id", recipeId)
+        .in("id", oldIngredientIds);
+      if (error) throw error;
+    }
+  } catch (err) {
+    await undoRecipeUpdate(db, familyId, recipeId, {
+      added: added?.map((ing) => String(ing.id)) ?? [],
+      row: rowChanged ? before : null,
+      tags: tagsTouched ? oldTags : null,
+    });
+    throw err;
+  }
+
+  const ingredients = added ?? old.ingredients ?? [];
+  return {
+    id: recipeId,
+    title: patch.title ?? old.title,
+    servings: patch.servings ?? servingsOf(old),
+    total_time_minutes: "total_time_minutes" in row ? (row.total_time_minutes as number | null) : old.total_time_minutes ?? null,
+    prep_time_minutes: prep,
+    cook_time_minutes: cook,
+    difficulty: old.difficulty ?? null,
+    tags: patch.tags ?? oldTags,
+    is_favorite: old.is_favorite === true,
+    image_url: old.image_url ?? null,
+    description: patch.description !== undefined ? patch.description : old.description ?? null,
+    source_url: old.source_url ?? null,
+    ingredients: [...ingredients]
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .map((ing) => ({
+        id: String(ing.id),
+        name: ing.name,
+        quantity: toNumber(ing.quantity),
+        unit: ing.unit ?? null,
+        group: ing.group_name ?? null,
+        notes: ing.notes ?? null,
+        sort_order: ing.sort_order ?? 0,
+      })),
+    instructions: patch.steps ?? parseInstructions(old.instructions).map((step) => step.text),
+  };
+}
+
+/**
+ * Put a recipe back as it was before a failed update: delete the
+ * ingredients it added, write the row's old values, set the old tags. Each
+ * step is tried on its own; a failure here is logged, and the caller throws
+ * the original error.
+ */
+async function undoRecipeUpdate(
+  db: RecipeDb,
+  familyId: string,
+  recipeId: string,
+  undo: { added: string[]; row: Record<string, unknown> | null; tags: string[] | null },
+) {
+  const attempt = async (what: string, step: () => Promise<{ error?: unknown } | void>) => {
+    try {
+      const result = await step();
+      if (result && result.error) throw result.error;
+    } catch (err) {
+      console.error(`[integration-recipes] could not undo a failed update (${what}):`, recipeId, err);
+    }
+  };
+  if (undo.added.length > 0) {
+    await attempt("ingredients", () => (db as any).from("recipe_ingredients").delete().eq("recipe_id", recipeId).in("id", undo.added));
+  }
+  if (undo.row) {
+    const row = undo.row;
+    await attempt("recipe", () => (db as any).from("recipes").update(row).eq("id", recipeId).eq("family_id", familyId));
+  }
+  if (undo.tags) {
+    const tags = undo.tags;
+    await attempt("tags", () => syncRecipeTags(db, familyId, recipeId, tags));
+  }
 }

@@ -29,6 +29,12 @@ export interface CallOptions {
   query?: Record<string, string>;
   body?: unknown;
   params?: Record<string, string>;
+  /**
+   * Send an Idempotency-Key with a PATCH too: for a route that requires one
+   * because repeating its edit is not harmless (PATCH /recipes/{id} hands out
+   * new ingredient ids each time).
+   */
+  idempotent?: boolean;
 }
 
 export class IntegrationCallError extends Error {
@@ -48,11 +54,12 @@ export async function callIntegration(handler: RouteHandler, opts: CallOptions):
     headers.set("content-type", "application/json");
     body = JSON.stringify(opts.body);
   }
-  // Idempotency-Key is a POST concern only (lib/integration-idempotency.ts):
-  // it dedupes a *create* retried with the same arguments. PATCH and DELETE
-  // are not wired into that store, and replaying an edit or delete is not
-  // "the same create happened twice" — it is a second edit or delete.
-  if (method === "POST") {
+  // Idempotency-Key is a POST concern (lib/integration-idempotency.ts): it
+  // dedupes a *create* retried with the same arguments. PATCH and DELETE are
+  // not wired into that store, and replaying an edit or delete is not "the
+  // same create happened twice" — it is a second edit or delete. The one
+  // exception asks for it with `idempotent`.
+  if (method === "POST" || opts.idempotent) {
     headers.set("idempotency-key", randomUUID());
   }
   const response = await handler(

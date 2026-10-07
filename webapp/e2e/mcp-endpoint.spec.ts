@@ -144,6 +144,18 @@ test.describe("callIntegration method and header shape", () => {
     expect(calls[0].headers.get("idempotency-key")).toBeNull();
   });
 
+  test("a PATCH that asks for it sends an Idempotency-Key, fresh each call", async () => {
+    // PATCH /recipes/{id} requires one: replacing ingredients hands out new
+    // ids, so a retried change must replay, not run again.
+    const { handler, calls } = record();
+    const opts = { origin: ORIGIN, path: "/recipes/1", params: { id: "1" }, token: TOKEN, method: "PATCH" as const, body: { title: "x" }, idempotent: true };
+    await callIntegration(handler, opts);
+    await callIntegration(handler, opts);
+    expect(calls.map((c) => c.method)).toEqual(["PATCH", "PATCH"]);
+    expect(calls[0].headers.get("idempotency-key")).toBeTruthy();
+    expect(calls[1].headers.get("idempotency-key")).not.toBe(calls[0].headers.get("idempotency-key"));
+  });
+
   test("POST sends an Idempotency-Key", async () => {
     const { handler, calls } = record();
     await callIntegration(handler, { origin: ORIGIN, path: "/lists/tasks", params: { list: "tasks" }, token: TOKEN, body: { summary: "x" } });
