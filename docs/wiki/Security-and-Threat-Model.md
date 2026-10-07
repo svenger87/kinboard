@@ -11,9 +11,16 @@ Identity is a 2-tuple:
 
 There are **no user accounts**. There is **no password protection on data access by default** beyond the join code. There is an optional 4-digit PIN gate on the `/settings/*` area (see "Settings PIN" below).
 
-**Row-Level Security is disabled on all family-scoped tables in the canonical schema.** Earlier versions shipped RLS policies keyed on `family_id`, but the application never reliably set the Postgres GUC they depended on, so the policies blocked legitimate writes more than they protected data — production has run with RLS off since shortly after launch (`webapp/docker/migration_disable_rls.sql`). **The device-cookie + join-code model described above is the actual, load-bearing security boundary** — it's enforced entirely in application code (every API route filters by `family_id`), not by Postgres. Anyone who can reach the API with a valid join code (or a `family_id`, which isn't itself a secret — it's visible in the client bundle and `localStorage`) can read and write that family's data; there is no database-level backstop if a route ever forgot to filter. See [Architecture → Row-Level Security](Architecture#row-level-security-disabled-and-why) for the technical detail.
+**The database enforces the family boundary.** The browser talks to the database API (PostgREST) directly, so row-level security is on for every family-scoped table, and every policy reads the caller's family from a `family_id` claim on the request's token:
 
-The one place Kinboard does enforce a real database-level boundary is secrets: the Supabase service-role key bypasses everything and is held only by the Next.js server process, never exposed to the browser, and integration credentials get their own locked-down table — see [Integration credentials](#integration-credentials) below.
+- **The anon key in the browser bundle reads nothing.** It is public by design and carries no family. This was not always so: until 2026-08 RLS was off, and on 2026-08-04 an unauthenticated request from outside the network read a family's join code straight from the API. `migration_zz_row_level_security.sql` closed that.
+- **A joined device gets a family-scoped token** from `/api/session/token`, exchanged for the HttpOnly device-session cookie. It lasts an hour and is refreshed automatically. Knowing a `family_id` is not enough: the token is signed with the stack's JWT secret, which never leaves the server.
+- **Within a family, the rules that matter are enforced by the server, not trusted to the screen.** The browser can't write pocket money, points, rewards, creatures, settings, or create and delete families: those tables are read-only for it, and the change goes through an API route that checks the settings PIN and the other rules. No browser role can `TRUNCATE` a table.
+- **The service-role key bypasses all of this** and is held only by the Next.js server process. API routes and cron jobs establish the family from the device session first and filter on it themselves.
+
+What RLS does **not** change: **the join code is the household's key.** Anyone who has it can join a device and get a token for that family, and then read everything the family can. RLS keeps the public key and other families out; it does not make the join code less important. Technical detail: [Architecture → Row-Level Security](Architecture#row-level-security).
+
+Integration credentials get their own locked-down table, with no browser access at all — see [Integration credentials](#integration-credentials) below.
 
 ## What this is good for
 
@@ -65,13 +72,13 @@ For the typical home deployment:
 
 Settings → **Settings PIN** sets a 4-digit code that's required to enter `/settings/*`. It's a "keep curious kids out" feature, not a real auth boundary — there's no per-user identity behind it, just a shared 4-digit code for the whole family.
 
-As of v1.4.0, the PIN is checked and stored **server-side**: the value lives in `integration_secrets` (not the anon-readable `settings` table) and verification happens in `/api/pin`, rate-limited to 5 failed attempts per minute per family. Before v1.4.0 the PIN was compared client-side against a plaintext value any device on the network could read via PostgREST — that's fixed now; existing PINs migrated automatically on upgrade.
+As of v1.4.0, the PIN is checked and stored **server-side**: the value lives in `integration_secrets` (not the `settings` table every screen of the family can read) and verification happens in `/api/pin`, rate-limited to 5 failed attempts per minute per family. Before v1.4.0 the PIN was compared client-side against a plaintext value any device on the network could read via PostgREST — that's fixed now; existing PINs migrated automatically on upgrade.
 
 Once set, the PIN persists for the browser session via `sessionStorage`. Closing the tab requires re-entry; navigating between settings sub-pages does not.
 
 ## Integration credentials
 
-OAuth tokens (Google, Home Assistant), CalDAV passwords, and API keys (Immich, Unsplash, Bring!) live in `public.integration_secrets`, a table with `anon`/`authenticated` database privileges revoked and excluded from the Realtime publication — only the server's service-role client can read it. Before v1.4.0 these lived in the same `settings` table as everything else, which is anon-readable by design (so the dashboard can live-sync); that meant any device on the network could read another family member's Google refresh token or Home Assistant long-lived token via PostgREST. Settings pages now read a merged, secret-stripped view to show "connected" status without the browser ever receiving the actual token. Existing installs migrate their previously-exposed credentials into the locked-down table automatically on upgrade — no reconnecting required.
+OAuth tokens (Google, Home Assistant), CalDAV passwords, and API keys (Immich, Unsplash, Bring!) live in `public.integration_secrets`, a table with `anon`/`authenticated` database privileges revoked and excluded from the Realtime publication — only the server's service-role client can read it. Before v1.4.0 these lived in the same `settings` table as everything else, which every screen of the family can read by design (so the dashboard can live-sync); that meant any device on the network could read another family member's Google refresh token or Home Assistant long-lived token via PostgREST. Settings pages now read a merged, secret-stripped view to show "connected" status without the browser ever receiving the actual token. Existing installs migrate their previously-exposed credentials into the locked-down table automatically on upgrade — no reconnecting required.
 
 ## How device recognition works
 

@@ -86,7 +86,7 @@ Enable the **Automatic synchronization** toggle to have the cron container poll 
 
 Settings → Google Calendar → **Disconnect**. Local synced events stay in the database; they just stop being refreshed. To remove the synced events too, delete the calendar rows in `/settings/google` first.
 
-The OAuth tokens — stored server-side only in `integration_secrets`, not the anon-readable `settings` table (see [Security-and-Threat-Model](Security-and-Threat-Model#integration-credentials)) — are deleted on disconnect.
+The OAuth tokens — stored server-side only in `integration_secrets`, not the `settings` table every screen of the family can read (see [Security-and-Threat-Model](Security-and-Threat-Model#integration-credentials)) — are deleted on disconnect.
 
 ## Troubleshooting
 

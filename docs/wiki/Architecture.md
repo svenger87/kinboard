@@ -11,32 +11,40 @@ A 30,000-foot view of how the pieces fit together. Read this once before you cha
 └────────┬─────────┘    └────────┬─────────┘    └────────┬─────────┘
          │                       │                       │
          └───────────────────────┴───────────────────────┘
-                                 │
+                                 │  one address per device:
+                                 │  the LAN address, or the
+                                 │  tunnel / Traefik name
                           ┌──────▼──────┐
-                          │   Traefik   │  ← reverse proxy, optional
-                          │   (HTTPS)   │
+                          │   Traefik   │  ← reverse proxy or tunnel,
+                          │   (HTTPS)   │    optional
                           └──────┬──────┘
                                  │
-                  ┌──────────────┴───────────────┐
-                  │                              │
-          ┌───────▼────────┐            ┌────────▼────────┐
-          │  Next.js app   │            │  Supabase Kong  │
-          │  (port 3001)   │            │  (port 8100)    │
-          │                │            │                 │
-          │  /pages        │            │  /rest    /auth │
-          │  /api/* routes │            │  /storage /realt│
-          └───────┬────────┘            └────┬───────┬────┘
-                  │                          │       │
-                  │ server-side reads        │       │ websocket
-                  │ via Kong (internal)      │       │
-                  └──────────────────────────┴───────┘
-                                                    │
-                                          ┌─────────▼──────────┐
-                                          │     PostgreSQL     │
-                                          │    + Realtime      │
-                                          │    + Storage       │
-                                          └────────────────────┘
+                       ┌─────────▼──────────┐
+                       │    Supabase Kong   │  the front door
+                       │    (port 3001)     │
+                       │                    │
+                       │  /rest  /auth      │──────────────┐
+                       │  /storage /realtime│              │
+                       │  everything else ──┼──┐           │
+                       └────────────────────┘  │           │
+                                               │           │
+                                     ┌─────────▼──────┐    │
+                                     │  Next.js app   │    │
+                                     │  (3000, inside │    │
+                                     │   the stack)   │    │
+                                     │  /pages        │    │
+                                     │  /api/* routes │    │
+                                     └───────┬────────┘    │
+                                             │ server-side │ websocket
+                                             │ via Kong    │
+                                             │ (internal)  │
+                                   ┌─────────▼─────────────▼──┐
+                                   │       PostgreSQL         │
+                                   │  + Realtime + Storage    │
+                                   └──────────────────────────┘
 ```
+
+Since 1.13 Kong is the front door ([RFC-018](https://github.com/svenger87/kinboard/blob/main/docs/rfc/018-same-origin-api.md)): the app and its API share one address, so the browser makes no cross-origin requests and a screen at home never leaves the house for data. Kong also keeps its own port, 8100, so an `API_EXTERNAL_URL` pointing there keeps working. An install with `KINBOARD_ENTRY=webapp` (including any behind Traefik that hasn't opted in) still has the older layout: the webapp answers on 3001 and the browser fetches data from `API_EXTERNAL_URL`. See [Self-hosting → How it works](Self-hosting#how-it-works).
 
 ## Frontend stack
 
@@ -49,12 +57,10 @@ A 30,000-foot view of how the pieces fit together. Read this once before you cha
 
 ## Data flow
 
-1. **All data is family-scoped.** A `family_id` UUID column exists on every row. **Row-Level Security is disabled in the canonical schema** — it was an aspirational layer in early versions that the application code never reliably set the required Postgres GUC for, so it blocked legitimate writes (notably the join flow's `INSERT` into `devices`) more often than it protected anything. The actual authorization boundary is the device-cookie + join-code model enforced in application code, not Postgres RLS. See [Database schema](#database-schema) below and [Security-and-Threat-Model](Security-and-Threat-Model) for the full threat model.
+1. **All data is family-scoped.** A `family_id` UUID column exists on every row. The browser reads and writes through PostgREST with a short-lived family-scoped token, and **row-level security** limits every query to that family; API routes establish the family from the device session and filter on it themselves. See [Row-Level Security](#row-level-security) below and [Security-and-Threat-Model](Security-and-Threat-Model) for the full threat model.
 2. **Devices join families via 6-character join codes.** Stored in `families.join_code`. Auth model is "device fingerprint + join code" — see [Security-and-Threat-Model](Security-and-Threat-Model).
 3. **Real-time updates** use Supabase Realtime (Postgres logical replication → WebSocket). The hook `use-realtime.ts` subscribes to a table and the relevant TanStack Query cache invalidates automatically.
-4. **Server-side data access** uses two Supabase clients:
-   - `createClient()` — anon-key client, used inside API routes that should still respect family scoping in their own query filters (RLS is off, so this is a naming convention, not an enforced boundary)
-   - `createAdminClient()` — service-role client, used in routes that need elevated access (`/api/setup/status`, cron endpoints, anything touching `integration_secrets`)
+4. **Server-side data access** uses the service-role client, `createAdminClient()` (`src/lib/supabase/server.ts`). It bypasses row-level security, so every API route and cron job establishes the family from the device session (or the integration token) first and filters on `family_id` itself. The anon-key `createClient()` in the same file is not used by any route: under RLS, with no family claim, it would read nothing.
 
 ## Project layout
 
@@ -84,7 +90,7 @@ A 30,000-foot view of how the pieces fit together. Read this once before you cha
 │   └── docker/                  # docker-compose stack + helpers
 │       ├── docker-compose.yml
 │       ├── docker-compose.traefik.yml.example
-│       ├── init.sql                 # Schema (RLS disabled — see Security-and-Threat-Model)
+│       ├── init.sql                 # Base schema (RLS comes from migration_zz_row_level_security.sql)
 │       ├── seed-demo.sql            # Optional demo dataset
 │       ├── start.sh                 # up/down/logs/restart/migrate/seed-demo
 │       ├── kinboard-self-update.sh  # Live-host upgrade helper (Diun webhook or by hand)
@@ -123,24 +129,25 @@ families  (id, name, join_code)
    └── settings (key, value JSONB)
 ```
 
-### Row-Level Security: disabled, and why
+### Row-Level Security
 
-Earlier versions of `init.sql` shipped RLS policies of this shape on every table:
+The browser talks to PostgREST directly, so the Next.js API is not in that request path and can't police it. The database does. Row-level security is **on** for every family-scoped table (52 of the 59 tables in `public`), and every policy resolves the caller's family from a `family_id` claim on the request's JWT:
 
-```sql
-CREATE POLICY "<table> belong to families" ON public.<table>
-  FOR ALL
-  USING (family_id IN (SELECT id FROM families WHERE join_code = current_setting('app.join_code', true)))
-  WITH CHECK (family_id IN (SELECT id FROM families WHERE join_code = current_setting('app.join_code', true)));
-```
+- **The anon key that ships in the browser bundle carries no `family_id`**, so on its own it reads nothing.
+- **A device that has joined gets a family-scoped token** from `/api/session/token`, which is gated by the HttpOnly device-session cookie. The token is signed with the stack's JWT secret, lasts an hour, and the client refreshes it well before then, so a kiosk never needs attention (`src/lib/family-jwt.ts`, `src/lib/supabase/family-token.ts`).
+- **The service role bypasses RLS.** Every API route and cron job uses it and establishes the family server-side, so RLS is the backstop for the direct-PostgREST path, not a replacement for the `family_id` filtering in the routes.
 
-This depended on the Next.js server setting an `app.join_code` GUC on every connection, sourced from a cookie. In practice the application code didn't set that GUC reliably on every code path, so the policies ended up blocking legitimate writes — most visibly the join flow's `INSERT` into `devices` for a brand-new family. Production has run with RLS disabled on all family-scoped tables since shortly after launch; `webapp/docker/migration_disable_rls.sql` brings older installs into the same state, and current `init.sql` doesn't enable RLS on fresh installs at all.
+The policies live in `webapp/docker/migration_zz_row_level_security.sql`. It sorts after every other migration on purpose: it drops any policy that isn't one of its own family-scope policies, so a later migration that creates a policy is cleaned up instead of quietly widening access.
 
-**Kinboard's actual authorization boundary is the device-cookie + join-code model**, enforced by application code filtering every query on `family_id`, not by Postgres. Anyone holding a family's join code (or the raw `family_id`, which isn't itself treated as a secret) can read and write that family's data via the API — this is a deliberate trust-a-single-household design, not an oversight. Full threat model, what this is and isn't good for, and hardening recommendations: [Security-and-Threat-Model](Security-and-Threat-Model).
+**Some tables only the server writes.** Row-level security limits a token to its own family, but within that family it would let any screen write anything, a child's wall panel included. Where a rule matters, the browser roles have no write privilege at all and the change goes through an API route that enforces it:
 
-The `families` table has no meaningful access policy beyond "join code matches" checks done in application code; `INSERT` is open (so new families can be created via `/join`). The `devices` table is filtered by `family_id` in queries for read/update/delete; `INSERT` also has no database-level family-scope check — the insert payload determines the family.
+- `families`: no insert or delete from the browser (`migration_zzzzzz_families_server_only.sql`); creating and deleting a family go through `/api/family`.
+- Pocket money, points, rewards and creatures: read-only from the browser (`migration_zzzzzzzz_pocket_money_server_only.sql` and the points/creatures migrations), so a balance, a purchase or a reward decision can't be written past the settings PIN.
+- `settings`, `device_sessions`, `todo_occurrences` and `todo_events` are written only by the server too, and `devices` is created and changed only by it (a screen can still remove a device of its own family).
 
-Secrets are the one place Kinboard does enforce a real Postgres-level boundary: OAuth tokens, API keys, and the settings PIN live in `public.integration_secrets`, which has `anon`/`authenticated` privileges **revoked** (`REVOKE ALL ... FROM anon`) — only the service-role client can read it. That's a privilege grant, not RLS, but it's actually enforced. See [Security-and-Threat-Model → Integration credentials](Security-and-Threat-Model#integration-credentials).
+**The seven tables without RLS have no browser privileges at all**: `integration_tokens`, `integration_clients`, `integration_idempotency`, the two OAuth tables, `domain_events` and `system_heartbeats`. `integration_secrets` has RLS on *and* its privileges revoked. And no browser role holds `TRUNCATE` on anything (`migration_zzzz_revoke_truncate.sql`): it isn't a row operation, so no policy would stop it emptying a table for every family on the instance.
+
+The join code is still the household's key: anyone who has it can join a device and get a token for that family. RLS stops the *public* key and other families from reaching your data; it does not make the join code less important. [Security-and-Threat-Model](Security-and-Threat-Model) covers what that means in practice.
 
 ### Soft delete
 
@@ -186,7 +193,7 @@ Applies `seed-demo.sql`, which creates a "Demo Family" (join code `DEMO01`) with
 
 Per-family settings live in the `public.settings` table as `(family_id, key, value JSONB)`. The shape is intentionally loose — the app reads with `useSetting<T>("key", default)` and writes with `useUpdateSetting`. This avoids schema migrations for settings shape changes.
 
-`settings` is anon-readable (no RLS, plus it's in the Realtime publication for live sync), so it's the wrong place for secrets. Since v1.4.0, integration credentials live in a separate server-only table instead — see [Integration credentials](#integration-credentials) below. The table here shows the non-secret shape as it exists today; fields marked *(secret, moved)* are no longer present under these keys.
+`settings` is readable by every screen of the family (it's in the Realtime publication for live sync), so it's the wrong place for secrets. Since v1.4.0, integration credentials live in a separate server-only table instead — see [Integration credentials](#integration-credentials) below. The table here shows the non-secret shape as it exists today; fields marked *(secret, moved)* are no longer present under these keys.
 
 ### Settings keys at a glance
 

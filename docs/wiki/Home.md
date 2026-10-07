@@ -49,7 +49,7 @@ The reference deployment is a wall-mounted touchscreen running in browser kiosk 
 ## Ops
 
 - **[Security-and-Threat-Model](Security-and-Threat-Model)** — what Kinboard expects of your network and what it doesn't
-- **[Architecture](Architecture#database-schema)** — tables, why RLS is off, migration story
+- **[Architecture](Architecture#database-schema)** — tables, row-level security, migration story
 - **[Notifications](Notifications)** — web push setup, server-side cron, quiet hours
 - **[Themes](Themes)** — monthly themes, EN/DE/FR
 - **[Troubleshooting](Troubleshooting)** — common breakages and fixes
