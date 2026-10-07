@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft 2026-10-07, for review |
+| **Status** | Draft 2026-10-07, for review. Tunnel and GDPR approach decided (§3.1, §9.1) |
 | **Prompted by** | Listing Kinboard in the Claude connector directory and ChatGPT's app directory; families who can't expose their Kinboard to the internet |
 
 ## 1. Why
@@ -53,6 +53,21 @@ The relay runs on the server that already hosts kinboard.app and the demo. No lo
 - **TLS ends inside the family's stack**, in `kinboard-tunnel`, with a certificate whose private key was created there and never leaves (§4). It forwards plain HTTP to Kong, the front door since RFC-018, so the app, its API and `/api/mcp` all work as they do at home.
 - **Identity.** On enrolment the instance creates an Ed25519 key pair. The tunnel authenticates to the relay by signing a fresh challenge. The relay stores only the public key and the label it assigned.
 - **The relay's own code is published** alongside Kinboard's, so its claims can be checked.
+
+### 3.1 The tunnel: frp, narrowly configured (decided 2026-10-07)
+
+| Option | Verdict |
+|---|---|
+| **[frp](https://github.com/fatedier/frp)** (Go, Apache-2.0, ~110k stars, active) | **Chosen.** Its `https` proxy type routes by SNI without terminating TLS, so the relay stays blind. A server plugin calls our API on login and on proxy creation, so the relay checks the Ed25519 challenge and that the label belongs to that instance. The control channel runs over TLS with multiplexing. On the family's side, the `https2http` client plugin terminates TLS inside `kinboard-tunnel` with the family's own certificate and forwards plain HTTP to Kong |
+| [SniTun](https://github.com/NabuCasa/snitun) (Nabu Casa, the Home Assistant cloud tunnel) | Architecturally the closest fit and proven at scale, but GPL-3.0, so we'd ship GPL software into every Kinboard stack. Small community, and its session master is Nabu Casa's own cloud, which we'd have to rebuild |
+| rathole, chisel | Route by port, not by hostname: one port per household. Doesn't scale |
+| Own framing over WebSocket | Rejected. Tunnel framing is where security bugs live |
+
+Configuration rules:
+
+- **frps:** only the `https` proxy type, with `subDomainHost = home.kinboard.app`. The plugin refuses every other type and any label that isn't the caller's. `transport.tls.force = true`.
+- **Traefik on the kinboard.app server:** a TCP router `HostSNI(*.home.kinboard.app)` with passthrough to frps. Everything else on that server is unchanged.
+- **frpc:** runs in its own `kinboard-tunnel` container, which holds the TLS key, away from the webapp. It's pinned to a release, and updates are reviewed like any dependency.
 
 ## 4. Addresses and certificates
 
@@ -123,6 +138,25 @@ Assistant traffic is small JSON. Remote use of the app adds page and photo traff
 - **Load balancing or a second server** is deferred until demand and money justify it.
 - **Single point of failure:** an update of the kinboard.app server interrupts paths B and C for a minute. That's acceptable for a free service, and stated.
 
+### 9.1 Data protection (GDPR)
+
+This is a reading, not legal advice. Path C waits for a legal check (see the last point).
+
+- **Path A:** no data reaches the project.
+- **Path B (blind relay):** the relay processes connection metadata (source IP, label, timestamps, byte counts). That is personal data, with the operator as controller and legitimate interest as the basis: running and securing the service, Art. 6(1)(f). Content is encrypted end to end, and the relay holds no key. Duties:
+  - extend kinboard.app's privacy policy with what is logged, why, and for how long (7 days);
+  - sign Hetzner's data processing agreement (AVV) for the server and the DNS zone. Both are in the EU, so there is no third-country transfer;
+  - security appropriate to the risk (Art. 32).
+
+  The families' own use of Kinboard falls under the household exemption; the relay itself does not.
+- **Path C (ChatGPT directory front):** the relay reads family content, including children's data, and passes it to OpenAI in the US at the family's request. Before launch:
+  - a full privacy notice;
+  - a short data protection impact assessment (children's data plus new technology);
+  - the third-country transfer settled;
+  - a review by a data-protection lawyer.
+
+  Path C does not ship without them.
+
 ## 10. Directories
 
 - **Claude:** submit with the URL pattern from §6 once path B exists. Requirements: titles and hints on every tool (in progress), documentation, a connector privacy policy, a support contact, an icon, and a fully populated review instance reachable from Anthropic's egress range. Ask `mcp-review@anthropic.com` beforehand about the pattern and about pocket money (a ledger entry, no money moves).
@@ -137,9 +171,6 @@ Assistant traffic is small JSON. Remote use of the app adds page and photo traff
 
 ## 12. Open questions
 
-- **Tunnel protocol:** HTTP/2 streams over one WebSocket, or an existing multiplexer such as yamux? Prefer a small, audited library over our own framing.
-- **Where `kinboard-tunnel` runs:** its own small container, or inside the webapp image? A separate container keeps the TLS key away from the webapp process.
-- **GDPR:** path B processes connection metadata only. Path C makes the relay a processor of assistant traffic, which needs a short data processing notice. Who is the controller for the free service?
 - **Label recovery:** if an instance loses its key (a restore onto new hardware), how does it reclaim its label without letting anyone else claim it? One option is a recovery code shown once at enrolment.
 - **Uptime promise:** none, or "best effort"? Settings and docs should say.
 - **Abuse contact** for the relay and its addresses.
