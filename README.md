@@ -261,6 +261,14 @@ versions and [`CHANGELOG.md`](CHANGELOG.md) for the next release. The
 [live demo](https://demo.kinboard.app) follows the release channel and resets
 its sample data hourly.
 
+**Where the real Kinboard lives.** The source is
+[github.com/svenger87/kinboard](https://github.com/svenger87/kinboard), the
+Docker image is `ghcr.io/svenger87/kinboard`, the website is
+[kinboard.app](https://kinboard.app), and the Home Assistant integration is
+[svenger87/kinboard-homeassistant](https://github.com/svenger87/kinboard-homeassistant).
+Other websites, apps and container images called Kinboard, on other domains or
+registries, are unrelated projects.
+
 Kinboard is designed for a trusted home network. Use a reverse proxy with
 authentication before exposing it to the internet. Read the
 [security model](https://github.com/svenger87/kinboard/wiki/Security-and-Threat-Model)
