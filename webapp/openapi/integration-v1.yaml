@@ -847,6 +847,66 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "502": { description: The weather provider could not be reached. }
 
+  /week-summary:
+    get:
+      tags: [state]
+      summary: A short review of the past days, and the next 7 in brief
+      description: |
+        "How did our week go?" Read only. Without `start` and `end`, the last
+        7 days up to today in the family's time zone; with them (both or
+        neither, YYYY-MM-DD, at most 31 days, `end` not after today), those
+        days.
+
+        `people`: every person not in the recycle bin, in the family's own
+        order, with `tasks_completed` from the task log — a task with turns
+        counts for whoever's turn it was, and a day ticked and taken back
+        again does not count — `tasks_missed` (due days written down as
+        missed, which only tasks with turns or completion tracking have) and
+        `most_done`, the titles done most often. Children (`is_child`) also
+        have `points`: `earned` (task points awarded in the range) and
+        `spent` (rewards approved and shop purchases in the range).
+        `unassigned_tasks_completed` counts ticks on tasks assigned to
+        nobody, or to someone no longer in the family. `task_log_complete`
+        is false when the range starts before the oldest entry the family's
+        task log keeps (Settings → Task log).
+
+        `creatures`: each child's creature that is switched on, with its
+        species and its stage (1 to 8) at the start and at the end of the
+        range, named for the species in the family's language (`locale`),
+        worked out the way the screens do. Never the creature's look or the
+        name the child gave it.
+
+        `meals`: how many meals were planned in the range and the first 21
+        (date, meal type, recipe title or note). `events`: how many events
+        took place in the range (up to now), and `notable`, at most 8 that
+        happened once; an event whose title recurs in the range is counted
+        only.
+
+        `next_week`: the 7 days after today — events (at most 10, with the
+        local start time, null for all day), birthdays (`turns` is the age,
+        null without a birth year) and countdowns.
+
+        Names, titles and event text are the family's own text: a client
+        handing them to a language model should mark them as data.
+      x-required-scope: family:read
+      parameters:
+        - name: start
+          in: query
+          schema: { type: string, format: date }
+        - name: end
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: The review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WeekSummary" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The review could not be put together. }
+
   /cameras:
     get:
       tags: [state]
@@ -3146,6 +3206,126 @@ components:
         odometer_unit: { type: [string, "null"] }
         observed_at: { type: [string, "null"], format: date-time }
 
+    WeekSummary:
+      type: object
+      required: [start, end, time_zone, locale, people, unassigned_tasks_completed, task_log_complete, creatures, meals, events, next_week]
+      properties:
+        start: { type: string, format: date }
+        end: { type: string, format: date }
+        time_zone: { type: string }
+        locale: { type: string, description: The language stage names are in. }
+        people:
+          type: array
+          items:
+            type: object
+            required: [person_id, name, is_child, tasks_completed, tasks_missed, most_done]
+            properties:
+              person_id: { type: string, format: uuid }
+              name: { type: string }
+              is_child: { type: boolean }
+              tasks_completed: { type: integer, minimum: 0 }
+              tasks_missed: { type: integer, minimum: 0 }
+              most_done:
+                type: array
+                maxItems: 3
+                items:
+                  type: object
+                  required: [title, times]
+                  properties:
+                    title: { type: string }
+                    times: { type: integer, minimum: 1 }
+              points:
+                type: object
+                description: Children only.
+                required: [earned, spent]
+                properties:
+                  earned: { type: integer, minimum: 0 }
+                  spent: { type: integer, minimum: 0 }
+        unassigned_tasks_completed: { type: integer, minimum: 0 }
+        task_log_complete: { type: boolean }
+        creatures:
+          type: array
+          items:
+            type: object
+            required: [person_id, name, species, from_stage, from_stage_name, to_stage, to_stage_name]
+            properties:
+              person_id: { type: string, format: uuid }
+              name: { type: string }
+              species: { type: string }
+              from_stage: { type: integer, minimum: 1, maximum: 8 }
+              from_stage_name: { type: string }
+              to_stage: { type: integer, minimum: 1, maximum: 8 }
+              to_stage_name: { type: string }
+        meals:
+          type: object
+          required: [count, planned]
+          properties:
+            count: { type: integer, minimum: 0 }
+            planned:
+              type: array
+              maxItems: 21
+              items:
+                type: object
+                required: [date, meal_type, title]
+                properties:
+                  date: { type: string, format: date }
+                  meal_type: { type: string, enum: [breakfast, lunch, dinner, snack] }
+                  title: { type: [string, "null"] }
+        events:
+          type: object
+          required: [count, notable]
+          properties:
+            count: { type: integer, minimum: 0 }
+            notable:
+              type: array
+              maxItems: 8
+              items:
+                type: object
+                required: [title, date, all_day]
+                properties:
+                  title: { type: string }
+                  date: { type: string, format: date }
+                  all_day: { type: boolean }
+        next_week:
+          type: object
+          required: [start, end, events, birthdays, countdowns]
+          properties:
+            start: { type: string, format: date }
+            end: { type: string, format: date }
+            events:
+              type: object
+              required: [count, list]
+              properties:
+                count: { type: integer, minimum: 0 }
+                list:
+                  type: array
+                  maxItems: 10
+                  items:
+                    type: object
+                    required: [title, date, time, all_day]
+                    properties:
+                      title: { type: string }
+                      date: { type: string, format: date }
+                      time: { type: [string, "null"], description: "HH:MM in the family's time zone; null for all day." }
+                      all_day: { type: boolean }
+            birthdays:
+              type: array
+              items:
+                type: object
+                required: [name, date, turns]
+                properties:
+                  name: { type: string }
+                  date: { type: string, format: date }
+                  turns: { type: [integer, "null"] }
+            countdowns:
+              type: array
+              items:
+                type: object
+                required: [title, date, days_until]
+                properties:
+                  title: { type: string }
+                  date: { type: string, format: date }
+                  days_until: { type: integer, minimum: 1 }
     WeatherForecast:
       type: object
       required: [location, time_zone, units, current, daily, hourly_today, fetched_at]

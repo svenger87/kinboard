@@ -2101,3 +2101,62 @@ test.describe("create_calendar_event follow-ups", () => {
     expect(I).toContain("\"just add it\"");
   });
 });
+
+test.describe("get_week_summary", () => {
+  const schema = (server: ReturnType<typeof createKinboardMcpServer>) =>
+    (registeredTools(server).get_week_summary as unknown as { inputSchema: { safeParse: (v: unknown) => { success: boolean } } }).inputSchema;
+
+  test("reads /week-summary through family:read, with no query for the default week", async () => {
+    const { server, calls } = buildServer(["family:read"], () => ({ start: "2026-10-01", end: "2026-10-07", people: [] }));
+    const t = tool(server, "get_week_summary");
+    expect(TOOL_SCOPES.get_week_summary).toBe("family:read");
+    expect(t.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
+    const result = await t.handler({});
+    expect(calls).toEqual([{ path: "/week-summary" }]);
+    expect(JSON.parse(result.content[0].text)).toMatchObject({ start: "2026-10-01", people: [] });
+  });
+
+  test("passes a chosen range as start and end", async () => {
+    const { server, calls } = buildServer(["family:read"]);
+    await tool(server, "get_week_summary").handler({ start: "2026-09-21", end: "2026-09-27" });
+    expect(calls).toEqual([{ path: "/week-summary", query: { start: "2026-09-21", end: "2026-09-27" } }]);
+  });
+
+  test("takes both dates or neither, as dates", () => {
+    const { server } = buildServer(["family:read"]);
+    const s = schema(server);
+    expect(s.safeParse({}).success).toBe(true);
+    expect(s.safeParse({ start: "2026-09-21", end: "2026-09-27" }).success).toBe(true);
+    expect(s.safeParse({ start: "2026-09-21" }).success).toBe(false);
+    expect(s.safeParse({ end: "2026-09-27" }).success).toBe(false);
+    expect(s.safeParse({ start: "21.09.2026", end: "2026-09-27" }).success).toBe(false);
+  });
+
+  test("is refused without family:read, naming it, and calls nothing", async () => {
+    const { server, calls } = buildServer(["tasks:write", "announcements:write"]);
+    const result = await tool(server, "get_week_summary").handler({});
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("family:read");
+    expect(calls).toEqual([]);
+  });
+
+  test("a refused range comes back in Kinboard's words", async () => {
+    const { server } = buildServer(["family:read"], () => {
+      throw new IntegrationCallError("`end` may not be after today (2026-10-07): a summary looks back", 400, "invalid_request");
+    });
+    const result = await tool(server, "get_week_summary").handler({ start: "2026-10-05", end: "2026-10-12" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("may not be after today");
+  });
+
+  test("the description says what each part means, that it sends nothing, and whose text it is", () => {
+    const { server } = buildServer(["family:read"]);
+    const d = (registeredTools(server).get_week_summary as unknown as { description: string }).description;
+    for (const phrase of [
+      "last 7, today included, in the family's time zone", "both or neither", "at most 31 days", "end not after today",
+      "whoever's turn it was", "a tick taken back again does not count", "tasks_missed", "points earned and spent",
+      "task_log_complete", "from_stage", "to_stage", "notable", "next_week", "birthdays", "countdowns",
+      "sends nothing anywhere", "send_message", "the family's own text",
+    ]) expect(d, phrase).toContain(phrase);
+  });
+});

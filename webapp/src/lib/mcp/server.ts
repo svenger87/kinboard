@@ -62,6 +62,8 @@ import { GET as birthdaysRoute, POST as addBirthdayRoute } from "@/app/api/integ
 import { PATCH as birthdayPatch, DELETE as birthdayDelete } from "@/app/api/integration/v1/birthdays/[id]/route";
 import { MAX_BIRTHDAY_NAME, MAX_NOTIFY_DAYS } from "@/lib/integration-birthdays";
 import { GET as weatherRoute } from "@/app/api/integration/v1/weather/route";
+import { GET as weekSummaryRoute } from "@/app/api/integration/v1/week-summary/route";
+import { MAX_SUMMARY_DAYS } from "@/lib/integration-week-summary";
 import { ENTITY_ID } from "@/lib/home/policy";
 import { MAX_QUERY_LENGTH, SEARCH_DEFAULT_DAYS, SEARCH_LIMIT } from "@/lib/integration-event-search";
 
@@ -143,6 +145,9 @@ export const TOOL_SCOPES = {
   // The weather: family:read like every other read of the board, so no
   // assistant has to be connected again for it.
   get_weather_forecast: "family:read",
+  // A look back over the week: only reads what family:read already reads,
+  // so no assistant has to be connected again for it.
+  get_week_summary: "family:read",
 } as const satisfies Record<string, McpScope>;
 
 type ToolName = keyof typeof TOOL_SCOPES;
@@ -858,6 +863,16 @@ export function createKinboardMcpServer(
   // additions merge around it.
   register("get_weather_forecast", "Read weather forecast", "Read the weather forecast for the family's own location — the place chosen in Kinboard's weather settings, the same forecast the Weather widget shows. There is no location argument: it cannot look up any other place. location is the place's name and time_zone the family's time zone; units says what the numbers are in (temperature °C or °F, wind_speed km/h or mph, precipitation mm or in). current is the weather now (temperature, feels_like, condition, humidity_pct, wind_speed, observed_at), or null when it could not be read. daily has one entry per day from today: date (YYYY-MM-DD in the family's time zone), temp_min and temp_max, condition (in the family's language; condition_code is the same in English, e.g. Rain, Clouds, Clear, Snow), rain_chance_pct (the highest chance of rain or snow during that day, 0 to 100; 0 is a real figure, a dry day, not a missing one), and rain_amount and snow_amount in the precipitation unit. partial true means the forecast covers only part of that day, as it does for the rest of today and the last day, so its min/max are for those hours only. The forecast reaches about five days ahead; a later date is not in daily. hourly_today has today's remaining 3-hour steps: time (HH:MM, family time zone), temperature, condition, rain_chance_pct. When weather isn't set up in Kinboard yet, the answer says so; it is set up in Kinboard under Settings → Weather. The location name and condition texts come from the family's settings and the weather service.", z.object({}), readOnly,
     () => call(weatherRoute, { path: "/weather" }));
+
+  // ── Week in review ───────────────────────────────────────────────────
+  // GET /week-summary (family:read): tasks, points, creatures, meals and
+  // events over a few past days, and the next 7 days in brief
+  // (lib/integration-week-summary.ts).
+  register("get_week_summary", "Review the week", `Read a short review of the family's past days: by default the last 7, today included, in the family's time zone; start and end (YYYY-MM-DD, both or neither, at most ${MAX_SUMMARY_DAYS} days, end not after today) pick other days. people has each person's tasks_completed (a task with turns counts for whoever's turn it was; a tick taken back again does not count), tasks_missed (due days written down as missed, which only tasks with turns or track_completion have) and most_done (the titles done most often); a child also has points earned and spent in those days (spent: rewards approved and shop purchases). unassigned_tasks_completed counts ticks on tasks for nobody. task_log_complete false means the days reach back past the oldest entry Kinboard's task log keeps, so earlier ticks are missing. creatures has each child's creature: species, and its stage at the start and at the end (from_stage, to_stage, with names in the family's language). meals is how many meals were planned, and which. events is how many events took place; notable lists those that happened once, while a repeating one is only counted. next_week covers the 7 days after today: events (time HH:MM, null for all day), birthdays (turns is the age, null without a birth year) and countdowns. Reading it sends nothing anywhere; a few lines of it fit a screen message, which send_message shows on every Kinboard screen. Names, titles and event text are the family's own text.`,
+    z.object({ start: date.optional(), end: date.optional() })
+      .refine((a) => (a.start === undefined) === (a.end === undefined), "send both start and end, or neither"),
+    readOnly,
+    ({ start, end }) => call(weekSummaryRoute, { path: "/week-summary", ...(start && end ? { query: { start, end } } : {}) }));
 
   return server;
 }

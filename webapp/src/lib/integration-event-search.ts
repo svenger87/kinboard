@@ -1,6 +1,7 @@
 import { familyDateKey } from "@/lib/family-time";
 import { zonedWallTimeToUtc } from "@/lib/integration-event-input";
 import type { createAdminClient } from "@/lib/supabase/server";
+import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 
 /**
  * The real admin client, not a narrowed interface: a method the client
@@ -82,7 +83,7 @@ export function defaultSearchWindow(now: Date, timeZone: string): { start: Date;
   };
 }
 
-type ListedEvent = { id: string; start_at: string } & Record<string, unknown>;
+export type ListedEvent = { id: string; start_at: string } & Record<string, unknown>;
 
 /**
  * Events in `calendarIds` overlapping `[start, end)` whose title, location
@@ -126,4 +127,48 @@ export async function searchEvents(
   return [...byId.values()]
     .sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at) || a.id.localeCompare(b.id))
     .slice(0, SEARCH_LIMIT);
+}
+
+/**
+ * The ids of the family's calendars whose events Kinboard shows: not an
+ * unticked Google calendar (lib/google-calendar-reconcile.ts). Events carry
+ * no family of their own, so every read of them starts here. Throws on a
+ * database error.
+ */
+export async function familyCalendarIds(db: SearchDb, familyId: string): Promise<string[]> {
+  const { data, error } = await (db as any)
+    .from("calendars")
+    .select("id")
+    .eq("family_id", familyId)
+    .or(VISIBLE_CALENDARS);
+  if (error) throw error;
+  return ((data ?? []) as { id: string }[]).map((c) => c.id);
+}
+
+/** The most events one range read returns. */
+export const RANGE_LIMIT = 500;
+
+/**
+ * Events in `calendarIds` overlapping `[start, end)`, earliest first, at
+ * most RANGE_LIMIT. Overlap, not containment: an event that started
+ * yesterday and ends tomorrow belongs in today's window. Throws on a
+ * database error.
+ */
+export async function eventsOverlapping(
+  db: SearchDb,
+  calendarIds: string[],
+  start: Date,
+  end: Date,
+): Promise<ListedEvent[]> {
+  if (calendarIds.length === 0) return [];
+  const { data, error } = await (db as any)
+    .from("events")
+    .select(LISTED_EVENT_COLUMNS)
+    .in("calendar_id", calendarIds)
+    .lt("start_at", end.toISOString())
+    .gt("end_at", start.toISOString())
+    .order("start_at", { ascending: true })
+    .limit(RANGE_LIMIT);
+  if (error) throw error;
+  return (data ?? []) as ListedEvent[];
 }

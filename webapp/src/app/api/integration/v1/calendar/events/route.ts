@@ -11,7 +11,7 @@ import { parseEventInput } from "@/lib/integration-event-input";
 import { familyTimeZone } from "@/lib/family-time";
 import { familyPersonId } from "@/lib/integration-tasks";
 import {
-  LISTED_EVENT_COLUMNS, defaultSearchWindow, parseSearchQuery, searchEvents,
+  defaultSearchWindow, eventsOverlapping, familyCalendarIds, parseSearchQuery, searchEvents,
 } from "@/lib/integration-event-search";
 
 export const dynamic = "force-dynamic";
@@ -103,14 +103,7 @@ export async function GET(request: NextRequest) {
       // Events are scoped by calendar, not directly by family, so the family's
       // calendars come first. Doing it in two queries rather than an embedded
       // filter keeps the family check explicit and impossible to misread.
-      const { data: calendars } = await (supabase as any)
-        .from("calendars")
-        .select("id")
-        .eq("family_id", context.familyId)
-        // Not an unticked Google calendar (lib/google-calendar-reconcile.ts).
-        .or(VISIBLE_CALENDARS);
-
-      const calendarIds = ((calendars ?? []) as { id: string }[]).map((c) => c.id);
+      const calendarIds = await familyCalendarIds(supabase, context.familyId);
       if (calendarIds.length === 0) {
         return NextResponse.json({ events: [] });
       }
@@ -122,21 +115,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ events });
       }
 
-      // Overlap, not containment: an event that started yesterday and ends
-      // tomorrow belongs in today's window. Filtering on start_at alone would
-      // drop exactly the long events a calendar most needs to show.
-      const { data, error } = await (supabase as any)
-        .from("events")
-        .select(LISTED_EVENT_COLUMNS)
-        .in("calendar_id", calendarIds)
-        .lt("start_at", range.end!.toISOString())
-        .gt("end_at", range.start!.toISOString())
-        .order("start_at", { ascending: true })
-        .limit(500);
-
-      if (error) throw error;
-
-      return NextResponse.json({ events: data ?? [] });
+      const data = await eventsOverlapping(supabase, calendarIds, range.start!, range.end!);
+      return NextResponse.json({ events: data });
     } catch (err) {
       await logApiError("integration/calendar/events", err);
       return NextResponse.json(

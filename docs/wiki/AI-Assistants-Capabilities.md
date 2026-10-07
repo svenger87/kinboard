@@ -35,6 +35,20 @@ See [Prompt injection](AI-Assistants-Permissions-and-Safety#text-in-your-data-is
 >
 > "When is the next birthday?" · "Wer hat als Nächstes Geburtstag?"
 
+### Looking back on the week
+
+| Tool | What it does | Permission | Notes |
+|---|---|---|---|
+| `get_week_summary` | A short review of the past days, the last 7 unless you name others (up to 31): per person the tasks done and missed, each child's points earned and spent, which creatures grew a stage, the meals planned and the events that took place; then the next 7 days' events, birthdays and countdowns in brief | `family:read` | Reads. A chore the kids take turns at counts for whoever's turn it was; a tick taken back doesn't count. Missed days exist only for tasks with turns or *Track whether it was done*. Days are your family's days. Never shows a creature's name or look |
+
+> "How did our week go?" · "Wie war unsere Woche?"
+>
+> "How did the kids do with their chores last week? Put it on the screens." · "Wie liefen die Aufgaben der Kinder letzte Woche? Zeig es auf den Bildschirmen."
+
+The review only reads. It reaches the screens only when you ask, through
+`send_message`, which needs the permission to send a message to your
+family's screens (`announcements:write`).
+
 ## Calendar
 
 | Tool | What it does | Permission | Notes |
@@ -399,7 +413,7 @@ See [Vehicles](Vehicles).
 
 | Permission | Tools |
 |---|---|
-| `family:read` | `get_family_summary`, `get_next_birthday`, `list_calendar_events`, `search_calendar_events`, `list_writable_calendars`, `list_people`, `get_school_timetable`, `list_tasks`, `list_shopping_items`, `get_meal_plan`, `search_recipes`, `get_recipe`, `list_timers`, `list_birthdays`, `list_countdowns`, `list_pocket_money`, `get_rewards`, `list_deleted_items`, `list_screen_messages`, `list_attention_items`, `get_weather_forecast` |
+| `family:read` | `get_family_summary`, `get_next_birthday`, `list_calendar_events`, `search_calendar_events`, `list_writable_calendars`, `list_people`, `get_school_timetable`, `list_tasks`, `list_shopping_items`, `get_meal_plan`, `search_recipes`, `get_recipe`, `list_timers`, `list_birthdays`, `list_countdowns`, `list_pocket_money`, `get_rewards`, `list_deleted_items`, `list_screen_messages`, `list_attention_items`, `get_weather_forecast`, `get_week_summary` |
 | `notes:read` | `list_notes` |
 | `calendar:write` | `create_calendar_event`, `update_calendar_event`, `delete_calendar_event`, `add_countdown`, `delete_countdown` |
 | `tasks:write` | `create_task`, `complete_task`, `reopen_task`, `update_task`, `delete_task`, `restore_task`, `dismiss_attention_item` |

@@ -395,7 +395,10 @@ test.describe("it is wired in where the maintainer ruled", () => {
     ["src/lib/school-days.ts", 1],
     ["src/lib/attention/signals.ts", 1],
     ["src/app/api/integration/v1/calendars/route.ts", 1],
-    ["src/app/api/integration/v1/calendar/events/route.ts", 2],
+    // The listing's calendar read lives in lib/integration-event-search.ts
+    // (familyCalendarIds), shared with the week summary; the create stays here.
+    ["src/app/api/integration/v1/calendar/events/route.ts", 1],
+    ["src/lib/integration-event-search.ts", 1],
     ["src/app/api/integration/v1/family/summary/route.ts", 2],
     ["src/app/api/calendar/feed/route.ts", 1],
     ["src/app/api/cron/schedule-event-reminders/route.ts", 1],
