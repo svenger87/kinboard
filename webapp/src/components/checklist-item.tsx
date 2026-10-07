@@ -49,12 +49,14 @@ export function ChecklistItem({
       </span>
       <label
         htmlFor={id}
-        className={cn("min-w-0 flex-1 cursor-pointer text-sm", compact && "flex items-center self-stretch py-1.5", checked && "line-through")}
+        className={cn("min-w-0 flex-1 cursor-pointer text-sm [overflow-wrap:anywhere]", compact && "flex items-center self-stretch py-1.5", checked && "line-through")}
       >
         {label}
       </label>
+      {/* Capped so a long amount ("2 Stück + 1 Packung") wraps inside the row
+          instead of pushing the row past its card; an avatar never gets near. */}
       {meta != null && (
-        <span className="ml-auto shrink-0 text-sm text-muted-foreground">{meta}</span>
+        <span className="ml-auto max-w-[45%] shrink-0 text-right text-sm text-muted-foreground [overflow-wrap:anywhere]">{meta}</span>
       )}
     </div>
   );

@@ -655,11 +655,11 @@ export default function EinkaufenPage() {
                                   tabIndex={0}
                                   aria-label={t("markDoneAria", { name: item.name })}
                                 >
-                                  <p className="font-medium text-lg truncate">
+                                  <p className="font-medium text-lg [overflow-wrap:anywhere]" data-testid="einkaufen-item-name">
                                     {item.name}
                                   </p>
                                   {(item.quantity || item.notes) && (
-                                    <p className="text-sm text-muted-foreground truncate">
+                                    <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]" data-testid="einkaufen-item-quantity">
                                       {item.quantity && (
                                         <span>
                                           {item.quantity}
@@ -763,7 +763,7 @@ export default function EinkaufenPage() {
                                 tabIndex={0}
                                 aria-label={t("markUndoneAria", { name: item.name })}
                               >
-                                <p className="font-medium text-lg truncate line-through text-muted-foreground">
+                                <p className="font-medium text-lg line-through text-muted-foreground [overflow-wrap:anywhere]">
                                   {item.name}
                                 </p>
                               </div>

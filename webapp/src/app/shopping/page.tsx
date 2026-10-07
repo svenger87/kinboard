@@ -80,6 +80,7 @@ import { OfflineBanner, OfflineIndicator } from "@/components/offline-banner";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/empty-state";
 import { CATEGORIES, detectCategory } from "@/lib/shopping-categories";
+import { cn } from "@/lib/utils";
 import { ChecklistItem } from "@/components/checklist-item";
 import { PersonAvatar } from "@/components/person-avatar";
 import { markEinkaufenEntry } from "@/lib/einkaufen-entry";
@@ -1036,7 +1037,7 @@ export default function ShoppingPage() {
             {/* Phones scroll the page itself: the fixed-height viewport was
                 taller than the space left below the form, so its last rows sat
                 behind the nav and were only reachable by a second scroll. */}
-            <ScrollArea className="h-auto md:h-[calc(100vh-420px)]">
+            <ScrollArea fitWidth className="h-auto md:h-[calc(100vh-420px)]">
               <AnimatePresence mode="popLayout">
                 {sortedCategories.length === 0 ? (
                   <motion.div
@@ -1101,7 +1102,8 @@ export default function ShoppingPage() {
                               allChecked ? "opacity-55" : ""
                             }`}
                           >
-                            <CardContent className="p-4">
+                            {/* p-3 on phones: every px of this row goes to the name. */}
+                            <CardContent className="p-3 sm:p-4">
                             {/* Category Header — functional-color dot + mono label */}
                             <div className="flex items-center gap-2 mb-3">
                               <span
@@ -1109,10 +1111,10 @@ export default function ShoppingPage() {
                                 style={{ backgroundColor: category.color }}
                                 aria-hidden="true"
                               />
-                              <h2 className="text-kiosk-label">
+                              <h2 className="text-kiosk-label min-w-0">
                                 {tCategories(category.labelKey)}
                               </h2>
-                              <Badge variant="neutral" className="ml-auto">
+                              <Badge variant="neutral" className="ml-auto shrink-0" data-testid="shopping-group-count">
                                 {categoryItems.filter((i) => !i.checked).length}/
                                 {categoryItems.length}
                               </Badge>
@@ -1131,18 +1133,30 @@ export default function ShoppingPage() {
                                       animate={{ opacity: 1, x: 0 }}
                                       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
                                       transition={{ duration: 0.2 }}
-                                      className="group flex items-stretch gap-2"
+                                      /* From sm up the card is the ChecklistItem and the
+                                         stepper and ⋮ stand beside it. On a phone that left
+                                         the card ~55% of the row, so this row becomes the
+                                         card instead: name on the first line, then amount,
+                                         stepper and ⋮ together underneath, all inside it. */
+                                      className={cn(
+                                        "group flex sm:items-stretch sm:gap-2",
+                                        "max-sm:flex-wrap max-sm:items-center max-sm:rounded-xl max-sm:border max-sm:border-border max-sm:bg-card max-sm:pb-1 max-sm:pr-1 max-sm:elev-sm",
+                                        item.checked && "max-sm:opacity-55",
+                                        item._syncStatus !== "synced" && "max-sm:border-primary max-sm:ring-2 max-sm:ring-primary/20"
+                                      )}
+                                      data-testid="shopping-item"
                                     >
-                                      <div className="flex-1 min-w-0">
+                                      <div className="min-w-0 max-sm:basis-full sm:flex-1">
                                         <ChecklistItem
                                           checked={item.checked}
                                           onCheckedChange={() => handleToggleItem(item.id)}
                                           color={category.color}
-                                          className={
-                                            item._syncStatus !== "synced"
-                                              ? "border-primary ring-2 ring-primary/20"
-                                              : undefined
-                                          }
+                                          className={cn(
+                                            "gap-2.5 px-3 sm:gap-3 sm:px-4",
+                                            // on a phone the row draws the card (above)
+                                            "max-sm:min-h-[44px] max-sm:border-0 max-sm:bg-transparent max-sm:pt-2 max-sm:opacity-100 max-sm:shadow-none",
+                                            item._syncStatus !== "synced" && "sm:border-primary sm:ring-2 sm:ring-primary/20"
+                                          )}
                                           label={
                                             <span className="flex items-center gap-2">
                                               <button
@@ -1169,7 +1183,9 @@ export default function ShoppingPage() {
                                                   </span>
                                                 )}
                                               </button>
-                                              <span className="min-w-0 flex-1 truncate font-medium">
+                                              {/* Long names wrap rather than truncate, so the whole
+                                                  name is always readable. */}
+                                              <span className="min-w-0 flex-1 font-medium [overflow-wrap:anywhere]" data-testid="shopping-item-name">
                                                 {item.name}
                                               </span>
                                               {item.recipe_id && (
@@ -1186,9 +1202,9 @@ export default function ShoppingPage() {
                                             </span>
                                           }
                                           meta={
-                                            <span className="flex items-center gap-2">
+                                            <span className="flex items-center justify-end gap-2">
                                               {formatQuantity(item) && (
-                                                <span className="tabular-nums text-xs">
+                                                <span className="hidden tabular-nums text-xs [overflow-wrap:anywhere] sm:inline" data-testid="shopping-item-quantity">
                                                   {formatQuantity(item)}
                                                 </span>
                                               )}
@@ -1208,12 +1224,25 @@ export default function ShoppingPage() {
                                         />
                                       </div>
 
-                                      {/* Quantity stepper — visible on mobile, hover on desktop */}
-                                      <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                      {/* Phone only: the amount opens the line under the name,
+                                          beside the stepper. From sm up it is the row's meta. */}
+                                      <span
+                                        className={cn(
+                                          "min-w-0 flex-1 pl-3 text-xs tabular-nums text-muted-foreground [overflow-wrap:anywhere] sm:hidden",
+                                          item.checked && "line-through"
+                                        )}
+                                        data-testid="shopping-item-quantity"
+                                      >
+                                        {formatQuantity(item)}
+                                      </span>
+
+                                      {/* Quantity stepper — visible on mobile, hover on desktop.
+                                          44px targets on a phone, as before from sm up. */}
+                                      <div className="flex shrink-0 items-center sm:gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity" data-testid="shopping-item-stepper">
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="size-9"
+                                          className="size-11 sm:size-9"
                                           onClick={() => handleUpdateItemQuantity(item.id, -1)}
                                           aria-label={t("decreaseAria", { name: item.name })}
                                         >
@@ -1228,7 +1257,7 @@ export default function ShoppingPage() {
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="size-9"
+                                          className="size-11 sm:size-9"
                                           onClick={() => handleUpdateItemQuantity(item.id, 1)}
                                           aria-label={t("increaseAria", { name: item.name })}
                                         >
@@ -1248,7 +1277,7 @@ export default function ShoppingPage() {
                                         }}
                                       >
                                         <PopoverTrigger asChild>
-                                          <Button variant="ghost" size="icon" className="size-9 shrink-0 self-center" aria-label={t("editItemAria", { name: item.name })}>
+                                          <Button variant="ghost" size="icon" className="size-11 shrink-0 self-center sm:size-9" aria-label={t("editItemAria", { name: item.name })} data-testid="shopping-item-menu">
                                             <MoreVertical className="size-4" />
                                           </Button>
                                         </PopoverTrigger>
