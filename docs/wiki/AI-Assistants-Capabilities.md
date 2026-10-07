@@ -75,11 +75,11 @@ settings. See [Calendar](Calendar).
 
 | Tool | What it does | Permission | Notes |
 |---|---|---|---|
-| `list_tasks` | The active tasks, with whether they're done and when they're due | `family:read` | Reads |
-| `create_task` | Add a task. Optionally for someone, with a due date, repeating (once, daily, weekly, every other week, monthly, or on picked weekdays), with a priority (high, medium, low), an icon and points (0 to 10,000) | `tasks:write` | Adds. The assistant never invents a due date, an assignee or a repetition; when you left them out it asks once afterwards |
+| `list_tasks` | The active tasks, with whether they're done and when they're due; for a task people take turns at, who takes part and whose turn it is today | `family:read` | Reads |
+| `create_task` | Add a task. Optionally for someone, with a due date, repeating (once, daily, weekly, every other week, monthly, or on picked weekdays), with a priority (high, medium, low), an icon and points (0 to 10,000). A repeating task can also go round between people who take turns | `tasks:write` | Adds. The assistant never invents a due date, an assignee or a repetition; when you left them out it asks once afterwards |
 | `complete_task` | Mark a task done. A repeating task is done for today, in the family's time zone, and comes due again on its next day | `tasks:write` | Changes. A child's task with points awards them, just as ticking it off on a screen does |
 | `reopen_task` | Mark a one-off task not done again | `tasks:write` | Changes. Repeating tasks can't be reopened; Kinboard has no undo for a day already marked done |
-| `update_task` | Change a task's title, due date, assignee, repetition, priority, icon or points | `tasks:write` | Changes. A changed field's previous value is not kept |
+| `update_task` | Change a task's title, due date, assignee, repetition, priority, icon or points, or who takes turns (or stop the turns) | `tasks:write` | Changes. A changed field's previous value is not kept |
 | `delete_task` | Delete a task | `tasks:write` | Changes. Goes to the recycle bin; `restore_task` or **Settings → Recycle bin** brings it back |
 
 > "Add 'take the bins out' for Enno, every Tuesday, 5 points." ·
@@ -94,6 +94,16 @@ When you add a task without saying who it's for or when, the assistant saves it
 anyway and then asks you once, briefly, about what's missing: who it's for, a
 day if one makes sense, and points if it's for a child (never for a grown-up).
 Say "just add it" and it won't ask.
+
+**Taking turns.** Ask for a chore that goes round ("the kids take turns
+washing up, every day") and the assistant sets up one repeating task with the
+people in order, as *Take turns* does in the task dialog. If you didn't say who
+takes part, it asks once; it never assumes all the children. Points on such a
+task go to whoever's turn it was when it's ticked off, and only if that's a
+child. Asking "whose turn is it to wash up?" reads today's person from the task.
+
+> "Mira and Jonas take turns emptying the dishwasher, every day, 2 points." ·
+> "Mira und Jonas räumen abwechselnd die Spülmaschine aus, jeden Tag, 2 Punkte."
 
 ## Shopping list
 

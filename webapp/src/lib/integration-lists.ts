@@ -19,8 +19,9 @@
  *   - Only todos carry a due date.
  */
 
-import { isRecurring, isTodoOpen } from "@/lib/todo-recurrence";
+import { dayKeyIn, isRecurring, isTodoOpen } from "@/lib/todo-recurrence";
 import { formatQuantity } from "@/lib/shopping-merge";
+import { todayPerson } from "@/lib/todo-turns";
 
 export type ListId = "shopping" | "tasks";
 
@@ -69,6 +70,15 @@ export interface ListItem {
   due: string | null;
   /** Shopping only: how much, as the list prints it ("2 Stück", "500 g"), or null. */
   amount?: string | null;
+  /**
+   * A task whose people take turns (#341): who, in order, and whose turn it
+   * is today -- the open turn's, or the first turn's before the schedule
+   * starts. Only on such a task, so every other item keeps its shape.
+   */
+  rotation_person_ids?: string[];
+  today_person_id?: string | null;
+  /** A repeating task whose done / not done is written down each due day. Only when true. */
+  track_completion?: true;
 }
 
 /** The extra shopping columns an item's amount is read from. */
@@ -79,7 +89,7 @@ export const RECURRENCE_COLUMNS = [
   "recurrence", "last_completed", "created_at",
   // Taking turns and tracking (#341): a scheduled task is done while its open day is.
   "last_completed_day", "rotation_person_ids", "track_completion", "schedule_start_day", "carry_day",
-  "schedule_anchor_day", "rotation_offset",
+  "schedule_anchor_day", "rotation_offset", "person_id",
 ] as const;
 
 /**
@@ -125,6 +135,15 @@ export function toListItem(
     const quantity = row.quantity === null || row.quantity === undefined ? null : Number(row.quantity);
     item.amount = formatQuantity({ quantity: Number.isFinite(quantity) ? quantity : null, unit: (row.unit as string | null | undefined) ?? null });
   }
+  if (def.table !== "todos") return item;
+  if (task.rotation_person_ids && task.rotation_person_ids.length > 0) {
+    item.rotation_person_ids = task.rotation_person_ids;
+    item.today_person_id = todayPerson(
+      { ...task, person_id: (row.person_id as string | null | undefined) ?? null },
+      dayKeyIn(at.now, at.timeZone),
+    );
+  }
+  if (task.track_completion) item.track_completion = true;
   return item;
 }
 

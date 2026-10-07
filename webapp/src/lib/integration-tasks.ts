@@ -112,7 +112,132 @@ export function parseTaskExtras(body: Record<string, unknown>): Outcome<TaskExtr
 }
 
 /** The body fields only a task has; a shopping item refuses them. */
-export const TASK_ONLY_FIELDS = ["person_id", "recurrence", "priority", "icon", "points"] as const;
+export const TASK_ONLY_FIELDS = ["person_id", "recurrence", "priority", "icon", "points", "rotation_person_ids", "track_completion"] as const;
+
+/** More people than any household has; past this the list is a mistake. */
+export const MAX_ROTATION_PEOPLE = 20;
+
+/** Taking turns and tracking (#341), as the task form stores them. */
+export interface TaskTurns {
+  rotation_person_ids?: string[] | null;
+  track_completion?: boolean;
+}
+
+/**
+ * The people who take turns, and whether done / not done is tracked, from a
+ * request body: the task form's `turnFields` (app/todos/page.tsx), with its
+ * two rules made refusals rather than silent corrections, because an
+ * assistant that asked for turns must hear when it gets none:
+ *
+ *   - both only mean anything on a repeating task, so asking for either on a
+ *     task that does not repeat is refused (`turnsNeedRepetition`);
+ *   - a rotation with nobody in it is no rotation, so a create that sends an
+ *     empty one is refused. On an edit, an empty list or null stops the
+ *     rotation, as clearing every person in the form does.
+ *
+ * Each id must be a person of this family who is not in the recycle bin,
+ * checked with `familyPersonId` like any assignee. The database would drop
+ * a stranger silently (`todo_clean_rotation`); refusing says so. Nobody may
+ * appear twice: the database keeps only the first, which is not what was
+ * asked for. Only keys present in the body appear in the result.
+ * Throws on a database error.
+ */
+export async function parseTaskTurns(
+  db: TaskDb,
+  familyId: string,
+  body: Record<string, unknown>,
+  mode: "create" | "update",
+): Promise<Outcome<TaskTurns>> {
+  const out: TaskTurns = {};
+  const bad = (error: string) => ({ ok: false as const, error });
+
+  if ("rotation_person_ids" in body) {
+    const ids = body.rotation_person_ids;
+    if (ids === null || (mode === "update" && Array.isArray(ids) && ids.length === 0)) {
+      out.rotation_person_ids = null;
+    } else if (!Array.isArray(ids)) {
+      return bad("`rotation_person_ids` must be a list of person ids, or null");
+    } else if (ids.length === 0) {
+      return bad("`rotation_person_ids` needs at least one person; leave it out for a task nobody takes turns on");
+    } else if (ids.length > MAX_ROTATION_PEOPLE) {
+      return bad(`\`rotation_person_ids\` takes at most ${MAX_ROTATION_PEOPLE} people`);
+    } else if (new Set(ids).size !== ids.length) {
+      return bad("`rotation_person_ids` names someone twice; each person takes one turn in the round");
+    } else {
+      // On a task that takes turns, whose turn it is decides who it is for:
+      // the database sets the assignee from the rotation and would quietly
+      // overwrite one sent alongside it.
+      if (body.person_id !== undefined && body.person_id !== null) {
+        return bad("send `person_id` or `rotation_person_ids`, not both: on a task that takes turns, whose turn it is decides who it is for");
+      }
+      for (const id of ids) {
+        if (!isUuid(id)) return bad("`rotation_person_ids` must be a list of person ids, or null");
+        const person = await familyPersonId(db, familyId, id);
+        if (!person.ok) return bad(`\`rotation_person_ids\`: ${person.error}`);
+      }
+      out.rotation_person_ids = ids as string[];
+    }
+  }
+  if ("track_completion" in body) {
+    if (typeof body.track_completion !== "boolean") return bad("`track_completion` must be true or false");
+    out.track_completion = body.track_completion;
+  }
+  return { ok: true, value: out };
+}
+
+/** True when the turns ask for a schedule: someone takes turns, or done / not done is tracked. */
+export function turnsWanted(turns: TaskTurns): boolean {
+  return (turns.rotation_person_ids?.length ?? 0) > 0 || turns.track_completion === true;
+}
+
+/**
+ * The form's other rule: taking turns and tracking need a repeating task.
+ * `recurrence` is the one the task will have once written. Null when fine.
+ */
+export function turnsNeedRepetition(recurrence: string | null | undefined, turns: TaskTurns): string | null {
+  if (!turnsWanted(turns) || (recurrence ?? "once") !== "once") return null;
+  return "taking turns (`rotation_person_ids`) and `track_completion` need a repeating task: send a recurrence other than once";
+}
+
+/**
+ * The turns part of PATCH /lists/tasks/{id}: what to write, or why not.
+ *
+ * Whether the task repeats is the repetition it will have after the patch --
+ * the one sent, or else the stored one, read only when needed. Setting the
+ * repetition to once also switches turns and tracking off, as the form does
+ * (the database drops the rotation then anyway, `todo_schedule_update`).
+ * `not_found` when the task had to be read and is not this family's.
+ * Throws on a database error.
+ */
+export async function taskTurnsPatch(
+  db: TaskDb,
+  familyId: string,
+  taskId: string,
+  body: Record<string, unknown>,
+  recurrence: string | undefined,
+): Promise<{ ok: true; value: TaskTurns } | { ok: false; error: string } | { ok: false; notFound: true }> {
+  const turns = await parseTaskTurns(db, familyId, body, "update");
+  if (!turns.ok) return turns;
+  if (recurrence === "once") {
+    const unrepeated = turnsNeedRepetition(recurrence, turns.value);
+    if (unrepeated) return { ok: false, error: unrepeated };
+    return { ok: true, value: { rotation_person_ids: null, track_completion: false } };
+  }
+  if (recurrence === undefined && turnsWanted(turns.value)) {
+    const { data, error } = await (db as any)
+      .from("todos")
+      .select("recurrence")
+      .eq("id", taskId)
+      .eq("family_id", familyId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return { ok: false, notFound: true };
+    const unrepeated = turnsNeedRepetition(data.recurrence, turns.value);
+    if (unrepeated) return { ok: false, error: unrepeated };
+  }
+  return turns;
+}
 
 type Created = { status: number; response: Record<string, unknown> };
 
@@ -129,8 +254,12 @@ export async function createListTask(db: TaskDb, familyId: string, body: Record<
 
   const extras = parseTaskExtras(body);
   if (!extras.ok) return invalidRequest(extras.error);
+  const turns = await parseTaskTurns(db, familyId, body, "create");
+  if (!turns.ok) return invalidRequest(turns.error);
+  const unrepeated = turnsNeedRepetition(extras.value.recurrence, turns.value);
+  if (unrepeated) return invalidRequest(unrepeated);
 
-  const row: Record<string, unknown> = { family_id: familyId, title: summary, completed: false, ...extras.value };
+  const row: Record<string, unknown> = { family_id: familyId, title: summary, completed: false, ...extras.value, ...turns.value };
   if (due.value) row.due_date = due.value;
 
   if (body.person_id !== undefined) {

@@ -6,7 +6,7 @@ import { logApiError } from "@/lib/api-error";
 import { LISTS, isListId, itemDue, itemSummary } from "@/lib/integration-lists";
 import { completionUpdate } from "@/lib/task-completion";
 import { familyTimeZone } from "@/lib/family-time";
-import { TASK_ONLY_FIELDS, familyPersonId, parseTaskExtras } from "@/lib/integration-tasks";
+import { TASK_ONLY_FIELDS, familyPersonId, parseTaskExtras, taskTurnsPatch } from "@/lib/integration-tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -70,8 +70,8 @@ export async function PATCH(
 
     const patch: Record<string, unknown> = {};
 
-    // Assignee, repetition, priority, icon and points are task columns; the
-    // shopping list has none of them.
+    // Assignee, repetition, priority, icon, points and turns are task
+    // columns; the shopping list has none of them.
     if (list !== "tasks") {
       const taskOnly = TASK_ONLY_FIELDS.find((field) => field in body);
       if (taskOnly) {
@@ -87,6 +87,24 @@ export async function PATCH(
       return NextResponse.json({ error: extras.error, code: "invalid_request" }, { status: 400 });
     }
     Object.assign(patch, extras.value);
+
+    // Taking turns and tracking (#341): the people must be this family's,
+    // and either one needs the task to repeat once the patch is applied.
+    if (list === "tasks") {
+      try {
+        const turns = await taskTurnsPatch(supabase, context.familyId, item, body, extras.value.recurrence);
+        if (!turns.ok) {
+          if ("notFound" in turns) {
+            return NextResponse.json({ error: "no such item", code: "not_found" }, { status: 404 });
+          }
+          return NextResponse.json({ error: turns.error, code: "invalid_request" }, { status: 400 });
+        }
+        Object.assign(patch, turns.value);
+      } catch (err) {
+        await logApiError(`integration/lists/${list}/update`, err);
+        return NextResponse.json({ error: "Could not update the item", code: "internal_error" }, { status: 500 });
+      }
+    }
 
     if ("status" in body) {
       const status = body.status;
@@ -119,7 +137,12 @@ export async function PATCH(
           // new one, as the edit and the tick would be if made one after the
           // other.
           const result = completionUpdate(
-            { ...taskRow, recurrence: extras.value.recurrence ?? taskRow.recurrence },
+            {
+              ...taskRow,
+              recurrence: extras.value.recurrence ?? taskRow.recurrence,
+              ...("rotation_person_ids" in patch ? { rotation_person_ids: patch.rotation_person_ids as string[] | null } : {}),
+              ...("track_completion" in patch ? { track_completion: patch.track_completion as boolean } : {}),
+            },
             status,
             new Date(),
             await familyTimeZone(context.familyId),
@@ -191,7 +214,7 @@ export async function PATCH(
 
     if (Object.keys(patch).length === 0) {
       return NextResponse.json(
-        { error: "nothing to change — send status, summary, due, person_id, recurrence, priority, icon or points", code: "invalid_request" },
+        { error: "nothing to change — send status, summary, due, person_id, recurrence, priority, icon, points, rotation_person_ids or track_completion", code: "invalid_request" },
         { status: 400 },
       );
     }

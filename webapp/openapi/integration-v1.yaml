@@ -2368,6 +2368,24 @@ paths:
                   description: |
                     Tasks only. Awarded when the task is completed, but only
                     when it is assigned to a child.
+                rotation_person_ids:
+                  type: [array, "null"]
+                  items: { type: string, format: uuid }
+                  minItems: 1
+                  maxItems: 20
+                  description: |
+                    Tasks only. The people who take turns, in turn order, each
+                    a person of the same family and each once; the task's
+                    person then follows the turn, so `person_id` is refused
+                    alongside a non-empty list. Needs a `recurrence` other
+                    than `once`. An empty list, a stranger or someone named
+                    twice is refused with `400`. Points on such a task go to
+                    whoever's turn it was when it is ticked off, if a child.
+                track_completion:
+                  type: boolean
+                  description: |
+                    Tasks only. Write down each due day as done or missed.
+                    `true` needs a `recurrence` other than `once`.
       responses:
         "200":
           description: Shopping only — merged into an item already on the list.
@@ -2414,8 +2432,9 @@ paths:
         longer be changed.
 
         `person_id` (tasks only) assigns or unassigns the task; it must be a
-        person in the same family, or `null`. `recurrence`, `priority`, `icon`
-        and `points` (tasks only) take the same values as on create.
+        person in the same family, or `null`. `recurrence`, `priority`, `icon`,
+        `points`, `rotation_person_ids` and `track_completion` (tasks only)
+        take the same values as on create.
       parameters:
         - name: list
           in: path
@@ -2471,6 +2490,21 @@ paths:
                   description: |
                     Tasks only (refused with `400` on any other list). Awarded when the task is completed, but only
                     when it is assigned to a child.
+                rotation_person_ids:
+                  type: [array, "null"]
+                  items: { type: string, format: uuid }
+                  maxItems: 20
+                  description: |
+                    Tasks only (refused with `400` on any other list). The
+                    people who take turns, in order, as on create; `null` or
+                    an empty list stops the turns. The task must repeat once
+                    the patch is applied (the `recurrence` sent, or else the
+                    stored one). A new list or order applies from the next
+                    due day. Setting `recurrence: once` also stops the turns
+                    and tracking.
+                track_completion:
+                  type: boolean
+                  description: Tasks only (refused with `400` on any other list). As on create.
       responses:
         "200": { description: Updated }
         "400": { $ref: "#/components/responses/InvalidRequest" }
@@ -3086,6 +3120,23 @@ components:
           description: |
             Shopping only: quantity and unit as the list prints them ("2 Stück",
             "500 g", "2 Stück + 1 Packung"), or null for none.
+        rotation_person_ids:
+          type: array
+          items: { type: string, format: uuid }
+          description: |
+            Read, tasks only, and only on a task whose people take turns: who,
+            in turn order.
+        today_person_id:
+          type: [string, "null"]
+          format: uuid
+          description: |
+            Read, tasks only, alongside `rotation_person_ids`: whose turn it is
+            today, in the family's time zone (before the turns start, the first
+            person's).
+        track_completion:
+          type: boolean
+          enum: [true]
+          description: Read, tasks only, and only when the task writes down each due day as done or missed.
 
     ShoppingAddResult:
       allOf:
