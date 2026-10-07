@@ -96,8 +96,7 @@ export type CreatureWrite = { status: number; body: Record<string, unknown> };
 
 /**
  * Writes a checked creature patch: the one path for PATCH
- * /api/creatures/[personId] and, for one release, the creature fields the old
- * account PATCH still forwards.
+ * /api/creatures/[personId].
  *
  *   - a parental field puts the whole write behind the settings PIN
  *   - the creature must exist; kid-side fields need it switched on

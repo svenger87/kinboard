@@ -54,9 +54,6 @@ const PIN_FREE_BY_DESIGN: Record<string, string> = {
   // parent decides it, and that decision (rewards/redemptions/[id]) checks
   // the PIN.
   "rewards/redemptions/route.ts": "a child's own request to redeem points, not the decision on it",
-  // The same request on its old path, kept one release (RFC-017): it looks
-  // the account's child up in the session's family and asks for them.
-  "pocket-money/accounts/[id]/redemptions/route.ts": "a child's own request to redeem points, on its old path for one release",
   // Buying something for their creature in the shop (RFC-017 §5) is the
   // child's own action, paid from their own points, like asking for a
   // reward. A parent's say is the Shop switch (creatures.shop_enabled, behind
@@ -68,15 +65,29 @@ const PIN_FREE_BY_DESIGN: Record<string, string> = {
 };
 
 /**
- * Thin forwards kept for one release (RFC-017 review): an old path that hands
- * the request to the new route, which does every check. Each must import the
- * route it names, contain nothing but the hand-over, and say it goes away.
+ * The old reward paths (RFC-017 step 1) forwarded to the new routes for one
+ * release (1.13) and are gone: a screen on the 1.12 bundle has long reloaded.
  */
-const FORWARDS: Record<string, string> = {
-  "pocket-money/rewards/route.ts": "rewards/route.ts",
-  "pocket-money/rewards/[id]/route.ts": "rewards/[id]/route.ts",
-  "pocket-money/redemptions/[id]/route.ts": "rewards/redemptions/[id]/route.ts",
-};
+const REMOVED = [
+  "pocket-money/rewards/route.ts",
+  "pocket-money/rewards/[id]/route.ts",
+  "pocket-money/redemptions/[id]/route.ts",
+  "pocket-money/accounts/[id]/redemptions/route.ts",
+];
+
+/** Every .ts/.tsx file under `dir`. */
+function walkSources(dir: string): string[] {
+  const found: string[] = [];
+  const walk = (d: string) => {
+    for (const entry of readdirSync(d)) {
+      const full = join(d, entry);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (/\.(ts|tsx)$/.test(entry)) found.push(full);
+    }
+  };
+  walk(dir);
+  return found;
+}
 
 function routeFiles(root: string): string[] {
   const found: string[] = [];
@@ -105,7 +116,6 @@ test("every mutating pocket-money, creature and reward route checks the settings
     const source = readFileSync(join(API, rel), "utf8");
     if (!MUTATING_VERB.test(source)) continue; // read-only: nothing to gate
     if (rel in PIN_FREE_BY_DESIGN) continue;
-    if (rel in FORWARDS) continue; // checked below: the target is what holds the PIN
     if (!source.includes("requireSettingsUnlock")) missing.push(rel);
   }
 
@@ -118,26 +128,20 @@ test("the kid-side allowlist is the only thing keeping those routes PIN-free", (
   // first test would pass empty and hide that the allowlist protects nothing.
   const flagged = allRoutes().filter((rel) => {
     const source = readFileSync(join(API, rel), "utf8");
-    return MUTATING_VERB.test(source) && !source.includes("requireSettingsUnlock") && !(rel in FORWARDS);
+    return MUTATING_VERB.test(source) && !source.includes("requireSettingsUnlock");
   });
 
   expect(flagged.sort()).toEqual(Object.keys(PIN_FREE_BY_DESIGN).sort());
 });
 
-test("each forward only hands over to a route that checks the PIN, and is marked for removal", () => {
-  const forwards = Object.entries(FORWARDS);
-  expect(forwards.length).toBe(3);
-  for (const [from, to] of forwards) {
-    const source = readFileSync(join(API, from), "utf8");
-    const target = readFileSync(join(API, to), "utf8");
-    expect(source, from).toContain(`from "@/app/api/${to.replace(/\/route\.ts$/, "/route")}"`);
-    expect(source, from).toMatch(/REMOVE in the release after RFC-017 step 1/);
-    // no client, no write of its own
-    expect(source, from).not.toMatch(/createAdminClient|\.from\(/);
-    for (const verb of source.match(/export function (POST|PATCH|PUT|DELETE)/g) ?? []) {
-      const name = verb.split(" ").pop()!;
-      expect(target, `${to} ${name}`).toMatch(new RegExp(`export async function ${name}[\\s\\S]*?requireSettingsUnlock`));
-    }
+test("the old reward paths kept for one release are gone, and nothing still names them", () => {
+  const present = new Set(allRoutes());
+  for (const rel of REMOVED) expect(present.has(rel), rel).toBe(false);
+  const sources = walkSources(join(__dirname, "..", "src"));
+  expect(sources.length, "guard the guard: the walk reaches the source").toBeGreaterThan(100);
+  for (const file of sources) {
+    const code = codeOnly(readFileSync(file, "utf8"));
+    expect(code, file).not.toMatch(/\/api\/pocket-money\/(rewards|redemptions)\b|\/api\/pocket-money\/accounts\/[^"'`]*\/redemptions/);
   }
 });
 
@@ -359,29 +363,6 @@ test.describe("live: the decide route 403s a device that never entered the PIN",
     expect(creature("species || '|' || style || '|' || grows_with || '|' || best_tier || '|' || look::text")).toBe(before);
     expect(psql(`SELECT count(*) FROM information_schema.columns WHERE table_name = 'pocket_money_accounts'
       AND column_name IN ('avatar_species', 'avatar_style', 'avatar_look', 'best_tier', 'last_seen_tier', 'reward_mode')`)).toBe("0");
-  });
-
-  test("the old reward paths forward for one release", async () => {
-    lock();
-    const add = await api.post("/api/pocket-money/rewards", { data: { title: `${P}old-path`, cost_points: 1 } });
-    expect(add.status(), await add.text()).toBe(403);
-    await unlock();
-    const added = await api.post("/api/pocket-money/rewards", { data: { title: `${P}old-path`, cost_points: 1 } });
-    expect(added.status(), await added.text()).toBe(201);
-    const id = (await added.json()).reward.id;
-    expect((await api.patch(`/api/pocket-money/rewards/${id}`, { data: { cost_points: 2 } })).status()).toBe(200);
-    psql(`INSERT INTO todo_point_awards (family_id, person_id, points, completion_key) VALUES ('${famId}', '${childId}', 5, 'claude-pin-old')`);
-    lock();
-    const ask = await api.post(`/api/pocket-money/accounts/${accountId}/redemptions`, { data: { reward_id: id } });
-    expect(ask.status(), await ask.text()).toBe(201);
-    const redemption = (await ask.json()).redemption;
-    expect(redemption.person_id).toBe(childId);
-    const decide = await api.patch(`/api/pocket-money/redemptions/${redemption.id}`, { data: { status: "denied" } });
-    expect(decide.status(), await decide.text()).toBe(403);
-    await unlock();
-    expect((await api.patch(`/api/pocket-money/redemptions/${redemption.id}`, { data: { status: "denied" } })).status()).toBe(200);
-    expect((await api.delete(`/api/pocket-money/rewards/${id}`)).status()).toBe(200);
-    psql(`DELETE FROM todo_point_awards WHERE completion_key = 'claude-pin-old'`);
   });
 
   test("a child in the recycle bin cannot be given a creature, and cannot redeem", async () => {

@@ -417,7 +417,6 @@ test.describe("the notifier is part of every ask and every decision", () => {
     for (const path of [
       "src/app/api/rewards/redemptions/route.ts",
       "src/app/api/rewards/redemptions/[id]/route.ts",
-      "src/app/api/pocket-money/accounts/[id]/redemptions/route.ts",
       "src/app/api/integration/v1/rewards/requests/route.ts",
     ]) {
       expect(read(...path.split("/")), path).toMatch(/liveRewardNotifier\(db\)/);
