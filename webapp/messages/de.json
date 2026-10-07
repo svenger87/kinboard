@@ -4952,7 +4952,7 @@
     "scope_shopping_write": "Einkaufsartikel hinzufügen, abhaken, umbenennen und löschen",
     "scope_notes_write": "Notizen anlegen, bearbeiten und löschen",
     "scope_energy_read": "Die unter Energie eingerichteten Energiesensoren lesen (Solar, Akku, Netz, Verbrauch)",
-    "scope_meals_write": "Mahlzeiten eintragen und entfernen",
+    "scope_meals_write": "Mahlzeiten eintragen und entfernen, Rezepte speichern",
     "scope_announcements_write": "Eine Nachricht an die Bildschirme der Familie senden, als gesehen markieren und eine Kamera auf den Wanddisplays zeigen",
     "scope_home_read": "Die im Gerätekatalog erfassten Geräte und ihren Zustand lesen",
     "scope_home_control": "Geräte aus deinem Katalog steuern — Schlösser, Alarmanlagen, Garagentore, Szenen, Skripte und Schalter erst, nachdem jemand mit der Einstellungs-PIN bestätigt hat",

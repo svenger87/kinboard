@@ -823,12 +823,88 @@ paths:
                 type: object
                 required: [recipes]
                 properties:
+                  language:
+                    type: [string, "null"]
+                    description: |
+                      The family's language (the saved one, else the holiday
+                      region's), for writing a new recipe in it. Null when it
+                      could not be read; the search itself still answers.
                   recipes:
                     type: array
                     items: { $ref: "#/components/schemas/RecipeSummary" }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "429": { $ref: "#/components/responses/RateLimited" }
+    post:
+      tags: [state]
+      summary: Save a recipe to the family's collection
+      description: |
+        What the recipe page's "new recipe" writes: the recipe (total time
+        is prep plus cook; steps numbered from 1 in the order sent), its
+        ingredients in the order sent, and its tags, an existing tag of the
+        family being reused whatever its case. No picture, no source, not a
+        favourite. Every field is checked and a wrong one refused (400);
+        nothing is written then. All or nothing: if the ingredients or tags
+        cannot be stored, the recipe is taken back out. The answer is the
+        recipe as `GET /recipes/{id}` gives it, with each ingredient's `id`
+        for `POST /recipes/{id}/shopping`. Uses `meals:write`, the scope
+        that plans meals.
+      x-required-scope: meals:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, ingredients, instructions]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200, description: Trimmed first. }
+                description: { type: string, maxLength: 2000 }
+                servings: { type: integer, minimum: 1, maximum: 50, default: 4 }
+                prep_time_minutes: { type: integer, minimum: 0, maximum: 1440 }
+                cook_time_minutes: { type: integer, minimum: 0, maximum: 1440 }
+                tags:
+                  type: array
+                  maxItems: 10
+                  items: { type: string, minLength: 1, maxLength: 50 }
+                ingredients:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name: { type: string, minLength: 1, maxLength: 200 }
+                      quantity: { type: number, exclusiveMinimum: 0, maximum: 100000 }
+                      unit: { type: string, maxLength: 30 }
+                      group: { type: string, maxLength: 100 }
+                      notes: { type: string, maxLength: 300 }
+                instructions:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        "201":
+          description: The recipe was saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recipe]
+                properties:
+                  recipe: { $ref: "#/components/schemas/RecipeDetail" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The recipe could not be saved. }
 
   /recipes/{id}:
     get:

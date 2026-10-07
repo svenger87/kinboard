@@ -42,7 +42,7 @@ See [Prompt injection](AI-Assistants-Permissions-and-Safety#text-in-your-data-is
 | `list_calendar_events` | Events overlapping a date and time range | `family:read` | Reads |
 | `search_calendar_events` | Find appointments by name: the title, place or description contains the words, ignoring case | `family:read` | Reads. From today to 365 days ahead unless a range is given (at most 370 days); at most 100 events, earliest first |
 | `list_writable_calendars` | The calendars an event can be added to, including connected Google and CalDAV calendars | `family:read` | Reads. An event is always created on a calendar picked from this list |
-| `create_calendar_event` | Add a timed or all-day event, optionally for someone | `calendar:write` | Adds, outside Kinboard: written through to Google or CalDAV when the calendar is connected; the assistant is told to report a sync failure |
+| `create_calendar_event` | Add a timed or all-day event, optionally for someone | `calendar:write` | Adds, outside Kinboard: written through to Google or CalDAV when the calendar is connected; the assistant is told to report a sync failure. Without a time it asks first (all day, or when?); without a person it adds the event, then asks once who it's for |
 | `update_calendar_event` | Change an event's title, time, all-day dates, place, description or who it is for | `calendar:write` | Changes, outside Kinboard. The previous values are overwritten, in Kinboard and in Google or CalDAV, and cannot be restored. One occurrence of a repeating CalDAV event can't be edited |
 | `delete_calendar_event` | Delete an event, including from Google or CalDAV | `calendar:write` | Changes, outside Kinboard. Cannot be undone: calendar events have no recycle bin. If the provider refuses, the event is kept. One occurrence of a repeating CalDAV event can't be deleted |
 
@@ -126,10 +126,11 @@ Say "just add it" and it won't ask.
 | Tool | What it does | Permission | Notes |
 |---|---|---|---|
 | `get_meal_plan` | Planned meals in a date range, at most 31 days: each with its date, slot (breakfast, lunch, dinner or snack) and a recipe or a free-text note | `family:read` | Reads |
-| `add_meal` | Add a meal to a date and slot: one of the family's recipes, or a free-text note of up to 200 characters | `meals:write` | Adds. Adds to the slot rather than replacing what's there; a slot can hold more than one meal |
+| `add_meal` | Add a meal to a date and slot: one of the family's recipes, or a free-text note of up to 200 characters | `meals:write` | Adds. Adds to the slot rather than replacing what's there; a slot can hold more than one meal. When you didn't say which meal, the assistant asks ("tonight" means dinner) |
 | `remove_meal` | Remove a meal plan entry | `meals:write` | Changes. Goes to the recycle bin; `restore_meal` brings it back |
 | `search_recipes` | Find the family's own saved recipes by title or tag; with neither, favourites first | `family:read` | Reads. At most 50 results. Never searches the web |
 | `get_recipe` | One recipe: servings, times, tags, ingredients and the steps | `family:read` | Reads |
+| `create_recipe` | Save a recipe to your collection: title, a short description, servings, prep and cook time, tags, ingredients (quantity, unit, name, group, notes) and the steps in order. No picture | `meals:write` | Adds. The assistant looks for a saved recipe first and asks before saving a second one with the same name |
 | `add_recipe_to_shopping_list` | Put a recipe's ingredients on the shopping list, all of them or only the ones picked, scaled to the servings asked for (up to 50) | `shopping:write` | Adds, outside Kinboard when Bring! sync is on, and Kinboard can't take them back off the Bring! list. Each call adds the items again, even if they are already on the list |
 
 > "Put the ingredients for the lasagne recipe on the shopping list." ·
@@ -138,8 +139,22 @@ Say "just add it" and it won't ask.
 > "…but only for 6 people, and we've got the onions." ·
 > "…aber für 6 Personen, und Zwiebeln haben wir."
 >
+> "Come up with a nice dinner for tonight." ·
+> "Denk dir ein schönes Abendessen für heute aus."
+>
+> "Save that recipe to Kinboard." · "Speicher das Rezept in Kinboard."
+>
 > "Plan spaghetti bolognese for dinner on Saturday." ·
 > "Plan für Samstagabend Spaghetti Bolognese ein."
+
+**Inventing or saving a recipe.** Asked for a dinner idea, the assistant first
+looks through your own recipes; only when nothing fits does it write a new one,
+in your family's language, in metric units and sized for your household unless
+you said otherwise. It saves it, plans it for the day you asked, and asks once
+whether you already have some of the ingredients before putting the rest on the
+shopping list. A recipe you worked out together is saved exactly as agreed, and
+then the assistant only offers to plan it or shop for it. It never makes claims
+about nutrition or allergies.
 
 See [Recipes & meal planning](Recipes).
 
@@ -314,7 +329,7 @@ See [Vehicles](Vehicles).
 | `tasks:write` | `create_task`, `complete_task`, `reopen_task`, `update_task`, `delete_task`, `restore_task`, `dismiss_attention_item` |
 | `shopping:write` | `add_shopping_item`, `check_shopping_item`, `uncheck_shopping_item`, `rename_shopping_item`, `delete_shopping_item`, `add_recipe_to_shopping_list` |
 | `notes:write` | `create_note`, `update_note`, `delete_note`, `restore_note` |
-| `meals:write` | `add_meal`, `remove_meal`, `restore_meal` |
+| `meals:write` | `add_meal`, `remove_meal`, `restore_meal`, `create_recipe` |
 | `announcements:write` | `send_message`, `acknowledge_message` |
 | `energy:read` | `get_solar_production`, `get_energy_status` |
 | `home:read` | `list_home_devices`, `get_device_state` |

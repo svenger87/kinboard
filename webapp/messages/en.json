@@ -4952,7 +4952,7 @@
     "scope_shopping_write": "Add, tick off, rename and delete shopping items",
     "scope_notes_write": "Add, edit and delete notes",
     "scope_energy_read": "Read the energy sensors set up in Energy (solar, battery, grid, consumption)",
-    "scope_meals_write": "Add and remove meals",
+    "scope_meals_write": "Add and remove meals, and save recipes",
     "scope_announcements_write": "Send a message to your family's screens, mark one as seen, and show a camera on the wall displays",
     "scope_home_read": "List your home's cataloged devices and their state",
     "scope_home_control": "Control devices from your catalogue — locks, alarms, garage doors, scenes, scripts and switches only after someone confirms with the settings PIN",

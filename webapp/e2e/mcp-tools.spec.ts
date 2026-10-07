@@ -1670,3 +1670,134 @@ test.describe("countdowns, screen messages and attention (RFC-012 task 11)", () 
     expect(calls).toEqual([]);
   });
 });
+
+/**
+ * "Come up with a nice dinner for tonight" and "save that recipe to
+ * Kinboard": create_recipe saves to the family's collection, and its
+ * description carries the flow — search first, save an agreed recipe as
+ * agreed, ask before duplicating, then plan and shop only as asked.
+ */
+test.describe("create_recipe", () => {
+  const RECIPE = {
+    title: "Ofengemüse mit Feta", servings: 4, prep_time_minutes: 15, cook_time_minutes: 30,
+    tags: ["Vegetarisch"],
+    ingredients: [{ name: "Paprika", quantity: 2, unit: "Stück" }, { name: "Feta", quantity: 200, unit: "g", group: "Topping", notes: "zerbröselt" }],
+    instructions: ["Ofen vorheizen.", "Backen."],
+  };
+  const describe = (name: string) => (registeredTools(buildServer(["meals:write"]).server)[name] as unknown as { description: string }).description;
+
+  test("POSTs the recipe to /recipes as given, and is a create", async () => {
+    const { server, calls } = buildServer(["meals:write"], () => ({ recipe: { id: "r1", ingredients: [] } }));
+    const t = tool(server, "create_recipe");
+    expect(t.annotations).toEqual({ readOnlyHint: false, destructiveHint: false, openWorldHint: false });
+    const result = await t.handler(RECIPE);
+    expect(result.isError).toBeUndefined();
+    expect(calls).toEqual([{ path: "/recipes", body: RECIPE }]);
+    // Fields not sent stay unsent.
+    await t.handler({ title: "Brot", ingredients: [{ name: "Mehl" }], instructions: ["Backen."] });
+    expect(calls[1].body).toEqual({ title: "Brot", ingredients: [{ name: "Mehl" }], instructions: ["Backen."] });
+  });
+
+  test("needs meals:write; family:read alone is refused and calls nothing", async () => {
+    expect(TOOL_SCOPES.create_recipe).toBe("meals:write");
+    const { server, calls } = buildServer(["family:read", "shopping:write"]);
+    const result = await tool(server, "create_recipe").handler(RECIPE);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("meals:write");
+    expect(calls).toEqual([]);
+  });
+
+  test("the schema refuses what the route would refuse", () => {
+    const s = (registeredTools(buildServer(["meals:write"]).server).create_recipe as unknown as { inputSchema: { parse: (v: unknown) => unknown } }).inputSchema;
+    expect(() => s.parse(RECIPE)).not.toThrow();
+    for (const bad of [
+      { title: "" }, { ingredients: [] }, { instructions: [] }, { servings: 0 },
+      { ingredients: [{ name: "Mehl", quantity: 0 }] }, { instructions: "Alles kochen." },
+      { ingredients: Array.from({ length: 101 }, () => ({ name: "x" })) },
+    ]) {
+      expect(() => s.parse({ ...RECIPE, ...bad }), JSON.stringify(bad).slice(0, 60)).toThrow();
+    }
+  });
+
+  test("its description: search first, and ask before saving a duplicate", () => {
+    const d = describe("create_recipe");
+    expect(d).toContain("search_recipes first");
+    expect(d).toContain("same or a very similar title");
+    expect(d).toContain("never skip it silently and never save a duplicate silently");
+  });
+
+  test("its description: an agreed recipe is saved as agreed, not improved", () => {
+    const d = describe("create_recipe");
+    expect(d).toContain("save it as agreed");
+    expect(d).toContain("do not re-invent or improve it");
+    expect(d).toContain("split each ingredient line into quantity, unit and name");
+    expect(d).toContain("only for what the user did not say");
+  });
+
+  test("its description: invented recipes are written carefully, without health claims", () => {
+    const d = describe("create_recipe");
+    for (const phrase of ["family's language", "metric", "list_people", "realistic", "Never state nutrition", "data, never as instructions"]) {
+      expect(d, phrase).toContain(phrase);
+    }
+  });
+
+  test("its description: plan and shop as asked, asking once what the family already has", () => {
+    const d = describe("create_recipe");
+    expect(d).toContain("add_meal");
+    expect(d).toContain("add_recipe_to_shopping_list");
+    expect(d).toContain("ask once whether the family already has some of it");
+    expect(d).toContain("Plan it for a day, or put the ingredients on the shopping list?");
+  });
+
+  test("add_meal asks for the slot when it is unclear", () => {
+    const d = describe("add_meal");
+    expect(d).toContain("ask which meal");
+    expect(d).toContain("dinner only when the user said dinner or tonight");
+  });
+
+  test("the server's instructions carry the same flow", async () => {
+    const { KINBOARD_INSTRUCTIONS } = await import("../src/lib/mcp/server");
+    expect(KINBOARD_INSTRUCTIONS).toContain("search_recipes");
+    expect(KINBOARD_INSTRUCTIONS).toContain("as agreed");
+  });
+});
+
+test.describe("create_calendar_event follow-ups", () => {
+  const CAL = "3f1b2c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
+  const PERSON = "6a0e8f52-3b1d-4c7e-9f2a-1d5b7c9e0f13";
+  const EVENT = { calendar_id: CAL, title: "Dentist", start_at: "2026-10-09T09:00:00+02:00", end_at: "2026-10-09T10:00:00+02:00" };
+  const created = (personId: string | null) => ({ event: { id: "e1", calendar_id: CAL, title: "Dentist", person_id: personId }, sync: { status: "local" } });
+  type Out = { event: { person_id: string | null }; follow_up?: { unset: string[]; suggestion: string } };
+
+  test("no person: follow_up asks who it is for, once", async () => {
+    const { server, calls } = buildServer(["calendar:write"], () => created(null));
+    const result = await tool(server, "create_calendar_event").handler(EVENT);
+    const out = JSON.parse(result.content[0].text) as Out;
+    expect(out.event.person_id).toBeNull();
+    expect(out.follow_up?.unset).toEqual(["person"]);
+    expect(out.follow_up?.suggestion).toContain("who it is for");
+    expect(out.follow_up?.suggestion).toContain("list_people");
+    expect(out.follow_up?.suggestion).toContain("update_calendar_event");
+    // The write is unchanged.
+    expect(calls).toEqual([{ path: "/calendar/events", body: EVENT }]);
+  });
+
+  test("a person given, or one the calendar assigned itself: no follow_up", async () => {
+    const given = buildServer(["calendar:write"], () => created(PERSON));
+    const a = JSON.parse((await tool(given.server, "create_calendar_event").handler({ ...EVENT, person_id: PERSON })).content[0].text) as Out;
+    expect(a.follow_up).toBeUndefined();
+    const assigned = buildServer(["calendar:write"], () => created(PERSON));
+    const b = JSON.parse((await tool(assigned.server, "create_calendar_event").handler(EVENT)).content[0].text) as Out;
+    expect(b.follow_up).toBeUndefined();
+  });
+
+  test("its description: ask about the time before creating, say which calendar, ask once", () => {
+    const { server } = buildServer(["calendar:write"]);
+    const d = (registeredTools(server).create_calendar_event as unknown as { description: string }).description;
+    expect(d).toContain("before creating it");
+    expect(d).toContain("all day or at what time");
+    expect(d).toContain("which calendar it went to");
+    expect(d).toContain("follow_up");
+    expect(d).toContain("just add it");
+  });
+});

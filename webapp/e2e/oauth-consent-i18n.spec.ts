@@ -50,8 +50,14 @@ test("write scopes say they edit and delete, and home control says what waits fo
   expect(en.oauthConsent.scope_shopping_write).toBe("Add, tick off, rename and delete shopping items");
   expect(en.oauthConsent.scope_calendar_write).toBe("Add, change and delete calendar events and countdowns");
   expect(en.oauthConsent.scope_notes_write).toBe("Add, edit and delete notes");
-  expect(en.oauthConsent.scope_meals_write).toBe("Add and remove meals");
+  expect(en.oauthConsent.scope_meals_write).toBe("Add and remove meals, and save recipes");
   for (const dict of [en, de, fr]) expect(dict.oauthConsent.scope_home_control).toMatch(/PIN/);
+});
+
+test("saving a recipe is named where it is granted, in every language", () => {
+  expect(de.oauthConsent.scope_meals_write).toMatch(/Rezepte/);
+  expect(fr.oauthConsent.scope_meals_write).toMatch(/recettes/);
+  expect(en.oauthConsent.scope_meals_write).toMatch(/recipes/);
 });
 
 test("countdowns and marking a message seen are named where they are granted, in every language", () => {

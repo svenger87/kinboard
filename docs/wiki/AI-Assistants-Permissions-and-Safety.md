@@ -22,7 +22,7 @@ a write permission does not include reading what it writes.
 | `shopping:write` | Add, tick off, rename and delete shopping items | Adding, checking, unchecking, renaming and deleting items; putting a recipe's ingredients on the list |
 | `notes:write` | Add, edit and delete notes | Adding, editing, pinning and deleting notes; restoring a deleted note |
 | `energy:read` | Read the energy sensors set up in Energy (solar, battery, grid, consumption) | Reading the sensors chosen under **Settings → Energy**, never any other Home Assistant entity |
-| `meals:write` | Add and remove meals | Adding and removing meal plan entries; restoring a removed one. There is no edit: remove a meal and add another |
+| `meals:write` | Add and remove meals, and save recipes | Adding and removing meal plan entries; restoring a removed one; saving a new recipe to the family's collection. There is no edit: remove a meal and add another. A saved recipe is changed or deleted on Kinboard's recipe page, not by an assistant |
 | `announcements:write` | Send a message to your family's screens, mark one as seen, and show a camera on the wall displays | Sending a message to every screen and phone; marking one as seen; putting one of the family's cameras full screen on the wall displays for up to five minutes, with a push to every phone (the Integration API's `show_camera`, which has no assistant tool yet but which a connection holding this permission can call) |
 | `home:read` | List your home's cataloged devices and their state | Listing the devices in your catalogue and reading their state; seeing the details of attention hints built from Home Assistant |
 | `home:control` | Control devices from your catalogue — locks, alarms, garage doors, scenes, scripts and switches only after someone confirms with the settings PIN | Running an allowed action on a catalogue device; following a request that waits for confirmation. Grant `home:read` too if the assistant should look before it acts |
@@ -236,7 +236,8 @@ Whatever permissions you grant, and whatever someone approves:
   device than the one checked.
 - **No emptying the recycle bin**, and no erasing anything in it for good.
 - **No web recipes.** Recipe search covers the family's own collection
-  only.
+  only. An assistant can save a new recipe to it, but not change or delete
+  one.
 - **No settings.** No tool changes the PIN, the catalogue, the switch or
   any other setting.
 

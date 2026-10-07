@@ -185,6 +185,17 @@ test.describe("the spec says the things a consumer has to get right", () => {
     expect(limit?.schema?.maximum).toBe(200);
   });
 
+  test("recipes: searching is family:read, saving one is meals:write, as the route asks", () => {
+    const paths = spec.paths as Record<string, Record<string, { "x-required-scope"?: string }>>;
+    expect(Object.keys(paths["/recipes"])).toEqual(["get", "post"]);
+    expect(paths["/recipes"].get["x-required-scope"]).toBe("family:read");
+    expect(paths["/recipes"].post["x-required-scope"]).toBe("meals:write");
+    const route = readFileSync(join(ROUTES_ROOT, "recipes", "route.ts"), "utf8");
+    expect(route).toContain('withIntegrationAuth(request, "family:read"');
+    expect(route).toContain('withIntegrationAuth(request, "meals:write"');
+    expect(route).toMatch(/export async function POST/);
+  });
+
   test("points and rewards: each path with its scope, and the creature as five fields that never include its look", () => {
     const paths = spec.paths as Record<string, Record<string, { "x-required-scope"?: string }>>;
     expect(paths["/rewards"].get["x-required-scope"]).toBe("family:read");

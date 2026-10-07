@@ -1,6 +1,6 @@
 /**
- * Recipes for assistants (RFC-012): find the family's recipes, read one, and
- * put its ingredients on the shopping list.
+ * Recipes for assistants (RFC-012): find the family's recipes, read one, save
+ * a new one, and put its ingredients on the shopping list.
  *
  * The add is the recipe page's `useAddRecipeToShoppingList`
  * (hooks/use-recipes.ts) on the server: quantities scaled by target over
@@ -28,6 +28,7 @@ import { matchCatalogItems, type CatalogMatch } from "@/lib/catalog-match";
 import { pushToBring, type BringPushDeps } from "@/lib/shopping-enrich";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import type { ServerBringSettings } from "@/lib/bring-server";
+import { syncRecipeTags } from "@/lib/recipe-tags";
 
 const defaultLoadBringSettings = (familyId: string) =>
   getMergedSetting<ServerBringSettings>(familyId, "bring_settings");
@@ -398,4 +399,251 @@ export async function addRecipeToShoppingList(
   }
 
   return { added };
+}
+
+// ---------------------------------------------------------------------------
+// Saving a recipe: what the recipe page's useCreateRecipe writes
+// (hooks/use-recipes.ts), from an assistant. The bounds are the Integration
+// API's, not the form's (the form has none): enough for any real recipe, and
+// small enough that a runaway model cannot fill the collection with a novel.
+// ---------------------------------------------------------------------------
+
+export const MAX_RECIPE_TITLE = 200;
+export const MAX_RECIPE_DESCRIPTION = 2000;
+/** A day, for prep and for cooking each. */
+export const MAX_RECIPE_MINUTES = 1440;
+export const MAX_RECIPE_TAGS = 10;
+export const MAX_RECIPE_TAG = 50;
+export const MAX_RECIPE_INGREDIENTS = 100;
+export const MAX_INGREDIENT_NAME = 200;
+export const MAX_INGREDIENT_UNIT = 30;
+export const MAX_INGREDIENT_GROUP = 100;
+export const MAX_INGREDIENT_NOTES = 300;
+/** `recipe_ingredients.quantity` is DECIMAL(10,2); this stays well inside it. */
+export const MAX_INGREDIENT_QUANTITY = 100_000;
+export const MAX_RECIPE_STEPS = 50;
+export const MAX_RECIPE_STEP = 2000;
+
+export interface NewIngredient {
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  group: string | null;
+  notes: string | null;
+}
+
+export interface NewRecipe {
+  title: string;
+  description: string | null;
+  servings: number;
+  prepTimeMinutes: number | null;
+  cookTimeMinutes: number | null;
+  tags: string[];
+  ingredients: NewIngredient[];
+  steps: string[];
+}
+
+/** A trimmed string of 1..max characters, absent, or a refusal. */
+function optionalText(value: unknown, max: number, field: string): Result<string | null> {
+  if (value === undefined || value === null) return { ok: true, value: null };
+  if (typeof value !== "string" || value.trim().length > max) {
+    return { ok: false, error: `\`${field}\` must be text of at most ${max} characters` };
+  }
+  return { ok: true, value: value.trim() || null };
+}
+
+function wholeNumber(value: unknown, min: number, max: number, field: string): Result<number | null> {
+  if (value === undefined || value === null) return { ok: true, value: null };
+  if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
+    return { ok: false, error: `\`${field}\` must be a whole number from ${min} to ${max}` };
+  }
+  return { ok: true, value };
+}
+
+/**
+ * The POST body, checked. Every field is refused rather than dropped when it
+ * is wrong: a recipe saved without the quantity the user agreed on is worse
+ * than a 400 the assistant can read and fix.
+ */
+export function parseRecipeCreate(body: Record<string, unknown>): Result<NewRecipe> {
+  const bad = (error: string): Result<NewRecipe> => ({ ok: false, error });
+
+  if (typeof body.title !== "string" || !body.title.trim() || body.title.trim().length > MAX_RECIPE_TITLE) {
+    return bad(`\`title\` is required, at most ${MAX_RECIPE_TITLE} characters`);
+  }
+  const description = optionalText(body.description, MAX_RECIPE_DESCRIPTION, "description");
+  if (!description.ok) return bad(description.error);
+  const servings = wholeNumber(body.servings, 1, MAX_RECIPE_SERVINGS, "servings");
+  if (!servings.ok) return bad(servings.error);
+  const prep = wholeNumber(body.prep_time_minutes, 0, MAX_RECIPE_MINUTES, "prep_time_minutes");
+  if (!prep.ok) return bad(prep.error);
+  const cook = wholeNumber(body.cook_time_minutes, 0, MAX_RECIPE_MINUTES, "cook_time_minutes");
+  if (!cook.ok) return bad(cook.error);
+
+  const tags: string[] = [];
+  if (body.tags !== undefined && body.tags !== null) {
+    const tagError = `\`tags\` must be a list of at most ${MAX_RECIPE_TAGS} names of 1 to ${MAX_RECIPE_TAG} characters`;
+    if (!Array.isArray(body.tags) || body.tags.length > MAX_RECIPE_TAGS) return bad(tagError);
+    const seen = new Set<string>();
+    for (const raw of body.tags) {
+      if (typeof raw !== "string" || !raw.trim() || raw.trim().length > MAX_RECIPE_TAG) return bad(tagError);
+      const name = raw.trim();
+      // The page matches tags case-insensitively; two spellings are one tag.
+      if (seen.has(name.toLowerCase())) continue;
+      seen.add(name.toLowerCase());
+      tags.push(name);
+    }
+  }
+
+  const ingredientsError = `\`ingredients\` must be a list of 1 to ${MAX_RECIPE_INGREDIENTS}, each with a \`name\``;
+  if (!Array.isArray(body.ingredients) || body.ingredients.length === 0 || body.ingredients.length > MAX_RECIPE_INGREDIENTS) {
+    return bad(ingredientsError);
+  }
+  const ingredients: NewIngredient[] = [];
+  for (const [index, raw] of body.ingredients.entries()) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return bad(ingredientsError);
+    const ing = raw as Record<string, unknown>;
+    const at = `ingredients[${index}]`;
+    if (typeof ing.name !== "string" || !ing.name.trim() || ing.name.trim().length > MAX_INGREDIENT_NAME) {
+      return bad(`\`${at}.name\` is required, at most ${MAX_INGREDIENT_NAME} characters`);
+    }
+    let quantity: number | null = null;
+    if (ing.quantity !== undefined && ing.quantity !== null) {
+      if (typeof ing.quantity !== "number" || !Number.isFinite(ing.quantity) || ing.quantity <= 0 || ing.quantity > MAX_INGREDIENT_QUANTITY) {
+        return bad(`\`${at}.quantity\` must be a number above 0 and at most ${MAX_INGREDIENT_QUANTITY}, or left out`);
+      }
+      quantity = ing.quantity;
+    }
+    const unit = optionalText(ing.unit, MAX_INGREDIENT_UNIT, `${at}.unit`);
+    if (!unit.ok) return bad(unit.error);
+    const group = optionalText(ing.group, MAX_INGREDIENT_GROUP, `${at}.group`);
+    if (!group.ok) return bad(group.error);
+    const notes = optionalText(ing.notes, MAX_INGREDIENT_NOTES, `${at}.notes`);
+    if (!notes.ok) return bad(notes.error);
+    ingredients.push({ name: ing.name.trim(), quantity, unit: unit.value, group: group.value, notes: notes.value });
+  }
+
+  const stepsError = `\`instructions\` must be a list of 1 to ${MAX_RECIPE_STEPS} steps, each 1 to ${MAX_RECIPE_STEP} characters`;
+  if (!Array.isArray(body.instructions) || body.instructions.length === 0 || body.instructions.length > MAX_RECIPE_STEPS) {
+    return bad(stepsError);
+  }
+  const steps: string[] = [];
+  for (const raw of body.instructions) {
+    if (typeof raw !== "string" || !raw.trim() || raw.trim().length > MAX_RECIPE_STEP) return bad(stepsError);
+    steps.push(raw.trim());
+  }
+
+  return {
+    ok: true,
+    value: {
+      title: body.title.trim(),
+      description: description.value,
+      servings: servings.value ?? DEFAULT_SERVINGS,
+      prepTimeMinutes: prep.value,
+      cookTimeMinutes: cook.value,
+      tags,
+      ingredients,
+      steps,
+    },
+  };
+}
+
+/**
+ * Take a recipe whose save failed half way back out: delete (which the soft
+ * delete turns into the recycle bin) and then purge, as the recycle bin's
+ * own "delete forever" does, so no half recipe is left in the collection or
+ * the bin. A failure here is logged; the original error is what the caller
+ * gets.
+ */
+async function discardRecipe(db: RecipeDb, familyId: string, recipeId: string) {
+  try {
+    const { error } = await (db as any).from("recipes").delete().eq("id", recipeId).eq("family_id", familyId);
+    if (error) throw error;
+    const purged = await (db as any).rpc("purge_deleted", { p_table: "recipes", p_id: recipeId });
+    if (purged.error) throw purged.error;
+  } catch (err) {
+    console.error("[integration-recipes] could not take a half-saved recipe back out:", recipeId, err);
+  }
+}
+
+/**
+ * Save a recipe to the family's collection as the recipe page does: the
+ * recipe (total time is prep plus cook, as the form computes it; steps
+ * numbered from 1), its ingredients in the order given, and its tags through
+ * the page's own syncRecipeTags. No picture, no source, not a favourite.
+ *
+ * All or nothing: if the ingredients or the tags cannot be stored, the
+ * recipe is taken back out and the error thrown. Answers what was stored,
+ * with the ids add_meal and add_recipe_to_shopping_list take.
+ */
+export async function createRecipe(familyId: string, input: NewRecipe, db: RecipeDb = createAdminClient()): Promise<RecipeDetail> {
+  const total = input.prepTimeMinutes === null && input.cookTimeMinutes === null
+    ? null
+    : (input.prepTimeMinutes ?? 0) + (input.cookTimeMinutes ?? 0);
+  const { data: recipe, error } = await (db as any)
+    .from("recipes")
+    .insert({
+      family_id: familyId,
+      title: input.title,
+      description: input.description,
+      servings: input.servings,
+      prep_time_minutes: input.prepTimeMinutes,
+      cook_time_minutes: input.cookTimeMinutes,
+      total_time_minutes: total,
+      instructions: input.steps.map((text, index) => ({ step: index + 1, text })),
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  const recipeId = String(recipe.id);
+
+  let stored: IngredientRow[];
+  try {
+    const { data, error: ingredientsError } = await (db as any)
+      .from("recipe_ingredients")
+      .insert(input.ingredients.map((ing, index) => ({
+        recipe_id: recipeId,
+        name: ing.name,
+        quantity: ing.quantity,
+        unit: ing.unit,
+        group_name: ing.group,
+        notes: ing.notes,
+        category: null,
+        sort_order: index,
+      })))
+      .select("id, name, quantity, unit, group_name, notes, category, sort_order");
+    if (ingredientsError) throw ingredientsError;
+    stored = (data ?? []) as IngredientRow[];
+    if (input.tags.length > 0) await syncRecipeTags(db, familyId, recipeId, input.tags);
+  } catch (err) {
+    await discardRecipe(db, familyId, recipeId);
+    throw err;
+  }
+
+  return {
+    id: recipeId,
+    title: input.title,
+    servings: input.servings,
+    total_time_minutes: total,
+    prep_time_minutes: input.prepTimeMinutes,
+    cook_time_minutes: input.cookTimeMinutes,
+    difficulty: null,
+    tags: input.tags,
+    is_favorite: false,
+    image_url: null,
+    description: input.description,
+    source_url: null,
+    ingredients: [...stored]
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .map((ing) => ({
+        id: String(ing.id),
+        name: ing.name,
+        quantity: toNumber(ing.quantity),
+        unit: ing.unit ?? null,
+        group: ing.group_name ?? null,
+        notes: ing.notes ?? null,
+        sort_order: ing.sort_order ?? 0,
+      })),
+    instructions: input.steps,
+  };
 }
