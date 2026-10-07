@@ -43,6 +43,7 @@ import { GET as vehicles } from "@/app/api/integration/v1/vehicles/route";
 import { GET as recipes, POST as createRecipeRoute } from "@/app/api/integration/v1/recipes/route";
 import { GET as recipe } from "@/app/api/integration/v1/recipes/[id]/route";
 import { POST as recipeShopping } from "@/app/api/integration/v1/recipes/[id]/shopping/route";
+import { MAX_QUANTITY_TEXT } from "@/lib/shopping-merge";
 import {
   MAX_RECIPE_RESULTS, MAX_RECIPE_SERVINGS, MAX_INGREDIENT_IDS,
   MAX_RECIPE_TITLE, MAX_RECIPE_DESCRIPTION, MAX_RECIPE_MINUTES, MAX_RECIPE_TAGS, MAX_RECIPE_TAG,
@@ -484,8 +485,9 @@ export function createKinboardMcpServer(
     () => call(people, { path: "/people" }));
   register("list_shopping_items", "Read the family's shopping list.", z.object({}), readOnly,
     () => call(listGet, { path: "/lists/shopping", params: { list: "shopping" } }));
-  register("add_shopping_item", "Add an item to the family's shopping list.", z.object({ name: z.string().trim().min(1).max(200) }), externalCreateAction,
-    ({ name }) => call(listPost, { path: "/lists/shopping", params: { list: "shopping" }, body: { summary: name } }));
+  register("add_shopping_item", `Add an item to the family's shopping list. quantity is optional free text that starts with a number, up to ${MAX_QUANTITY_TEXT} characters: "2", "500 g", "1 Packung". If the same item (ignoring case and simple plurals) is already on the list and not ticked off, nothing new is added: it is merged into that item, quantities in the same unit are added up (different units are listed side by side, "2 + 1 Packung"), and the answer has merged: true and the item as it now stands — tell the user it was already there. A ticked-off item is not merged into; it is added again.`,
+    z.object({ name: z.string().trim().min(1).max(200), quantity: z.string().trim().min(1).max(MAX_QUANTITY_TEXT).optional() }), externalCreateAction,
+    ({ name, quantity }) => call(listPost, { path: "/lists/shopping", params: { list: "shopping" }, body: { summary: name, ...(quantity ? { quantity } : {}) } }));
   register("check_shopping_item", "Mark a shopping list item bought.",
     z.object({ shopping_item_id: z.uuid() }), editAction,
     ({ shopping_item_id }) => call(listItemPatch, { path: `/lists/shopping/${shopping_item_id}`, params: { list: "shopping", item: shopping_item_id }, method: "PATCH", body: { status: "completed" } }));
@@ -575,7 +577,7 @@ export function createKinboardMcpServer(
         .describe("The steps in order, one per entry, without numbers; Kinboard numbers them."),
     }), createAction,
     (args) => call(createRecipeRoute, { path: "/recipes", body: definedOnly(args) }));
-  register("add_recipe_to_shopping_list", "Put a recipe's ingredients on the family's shopping list, scaled to servings (default: the recipe's own). Send ingredient_ids (from get_recipe or create_recipe) to add only some — for example, what the family does not already have. Each call adds new items, even if the same ingredients are already on the list. When Bring! two-way sync is on, the items are also added to the family's Bring! list, which Kinboard cannot take back.",
+  register("add_recipe_to_shopping_list", "Put a recipe's ingredients on the family's shopping list, scaled to servings (default: the recipe's own), each with its scaled quantity. Send ingredient_ids (from get_recipe or create_recipe) to add only some — for example, what the family does not already have at home. Ingredients already on the shopping list need not be left out: one that is there and not ticked off is merged into that item instead of added twice — quantities in the same unit are added up — and comes back with merged: true and the combined amount; a ticked-off one is added again. When Bring! two-way sync is on, the items are also added to the family's Bring! list, which Kinboard cannot take back.",
     z.object({
       recipe_id: z.uuid(),
       servings: z.number().int().min(1).max(MAX_RECIPE_SERVINGS).optional(),

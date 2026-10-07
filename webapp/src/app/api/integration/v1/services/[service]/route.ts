@@ -114,9 +114,10 @@ export const SERVICES: Record<string, ServiceDef> = {
 
       // Parsed, categorised, pictured and pushed to Bring! the way the
       // shopping page does it (lib/shopping-enrich.ts); `name` in the answer
-      // is the name as stored.
-      const { id, item } = await addShoppingItemFromText(familyId, name);
-      return { status: 201, response: { id, name: item.name } };
+      // is the name as stored. Already on the list, unticked: merged into
+      // that item, 200 and `merged: true`.
+      const { merged, item } = await addShoppingItemFromText(familyId, { text: name });
+      return { status: merged ? 200 : 201, response: { id: item.id, name: item.name, merged } };
     },
   },
 

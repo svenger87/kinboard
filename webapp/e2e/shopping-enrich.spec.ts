@@ -6,7 +6,7 @@ import {
   pushToBring,
   type BringPushDeps,
   type CatalogSearchFn,
-  type EnrichedShoppingItem,
+  type ShoppingStore,
 } from "../src/lib/shopping-enrich";
 import type { CatalogSearchParams, CatalogSearchResult } from "../src/lib/catalog-search";
 import type { ServerBringSettings } from "../src/lib/bring-server";
@@ -173,6 +173,12 @@ test.describe("pushToBring", () => {
     expect(await pushToBring(FAMILY, item, b.deps)).toBe("pushed");
   });
 
+  test("a quantity without a unit goes across as the bare number", async () => {
+    const b = bring(connected);
+    await pushToBring(FAMILY, { name: "Milch", quantity: 2, unit: null }, b.deps);
+    expect(b.adds[0].specification).toBe("2");
+  });
+
   test("no quantity → no specification", async () => {
     const b = bring(connected);
     await pushToBring(FAMILY, { name: "Milch", quantity: null, unit: null }, b.deps);
@@ -187,24 +193,30 @@ test.describe("pushToBring", () => {
 
 test.describe("addShoppingItemFromText — the whole add", () => {
   function inserter() {
-    const rows: { familyId: string; item: EnrichedShoppingItem }[] = [];
-    const insert = async (familyId: string, item: EnrichedShoppingItem) => {
-      rows.push({ familyId, item });
-      return "row-1";
+    const rows: { familyId: string; row: Record<string, unknown> }[] = [];
+    let fail: Error | null = null;
+    const store: ShoppingStore = {
+      openItems: async () => [],
+      insert: async (familyId, newRows) => {
+        if (fail) throw fail;
+        rows.push(...newRows.map((row) => ({ familyId, row })));
+        return newRows.map(() => "row-1");
+      },
+      update: async () => {},
     };
-    return { insert, rows };
+    return { store, rows, failWith(e: Error) { fail = e; } };
   }
 
   test("inserts the enriched row and pushes once to Bring!", async () => {
     const { search } = catalog([bananas]);
-    const { insert, rows } = inserter();
+    const { store, rows } = inserter();
     const b = bring(connected);
-    const out = await addShoppingItemFromText(FAMILY, "2 kg Bananen", { search, insert, bring: b.deps });
+    const out = await addShoppingItemFromText(FAMILY, { text: "2 kg Bananen" }, { search, store, bring: b.deps });
 
-    expect(out).toMatchObject({ id: "row-1", bring: "pushed" });
+    expect(out).toMatchObject({ merged: false, item: { id: "row-1" }, bring: "pushed" });
     expect(rows).toEqual([{
       familyId: FAMILY,
-      item: {
+      row: {
         name: "Bananen", quantity: 2, unit: "kg", notes: null, category: "obst_gemuese",
         image_url: "https://img.example/bananen-thumb.jpg", catalog_item_id: "cat-bananen",
       },
@@ -214,26 +226,27 @@ test.describe("addShoppingItemFromText — the whole add", () => {
 
   test("the catalogue throwing still adds the item, without a picture", async () => {
     const search: CatalogSearchFn = async () => { throw new Error("network"); };
-    const { insert, rows } = inserter();
-    const out = await addShoppingItemFromText(FAMILY, "Bananen", { search, insert, bring: bring(null).deps });
-    expect(out.id).toBe("row-1");
-    expect(rows[0].item.image_url).toBeNull();
+    const { store, rows } = inserter();
+    const out = await addShoppingItemFromText(FAMILY, { text: "Bananen" }, { search, store, bring: bring(null).deps });
+    expect(out.item.id).toBe("row-1");
+    expect(rows[0].row.image_url).toBeNull();
   });
 
   test("Bring! throwing still adds the item", async () => {
     const { search } = catalog([]);
-    const { insert, rows } = inserter();
+    const { store, rows } = inserter();
     const b = bring(connected, async () => { throw new Error("Bring down"); });
-    const out = await addShoppingItemFromText(FAMILY, "Bananen", { search, insert, bring: b.deps });
-    expect(out).toMatchObject({ id: "row-1", bring: "failed" });
+    const out = await addShoppingItemFromText(FAMILY, { text: "Bananen" }, { search, store, bring: b.deps });
+    expect(out).toMatchObject({ item: { id: "row-1" }, bring: "failed" });
     expect(rows).toHaveLength(1);
   });
 
   test("a failed insert fails the add and never reaches Bring!", async () => {
     const { search } = catalog([]);
     const b = bring(connected);
-    const insert = async () => { throw new Error("db down"); };
-    await expect(addShoppingItemFromText(FAMILY, "Bananen", { search, insert, bring: b.deps })).rejects.toThrow("db down");
+    const ins = inserter();
+    ins.failWith(new Error("db down"));
+    await expect(addShoppingItemFromText(FAMILY, { text: "Bananen" }, { search, store: ins.store, bring: b.deps })).rejects.toThrow("db down");
     expect(b.adds).toHaveLength(0);
     expect(b.loaded).toHaveLength(0);
   });
@@ -244,13 +257,13 @@ test.describe("both Integration API writers go through it, for the token's own f
 
   test("POST /lists/shopping enriches with the authenticated family, not one from the body", () => {
     const src = read("src/app/api/integration/v1/lists/[list]/route.ts");
-    expect(src).toMatch(/addShoppingItemFromText\(context\.familyId,\s*summary\)/);
+    expect(src).toMatch(/addShoppingItemFromText\(context\.familyId,\s*\{\s*text:\s*summary,\s*quantity\s*\}\)/);
   });
 
   test("the add_shopping_item service does too, and no longer inserts a bare row itself", () => {
     const src = read("src/app/api/integration/v1/services/[service]/route.ts");
     // familyId here is the handler's argument, which POST fills from context.familyId.
-    expect(src).toMatch(/addShoppingItemFromText\(familyId,\s*name\)/);
+    expect(src).toMatch(/addShoppingItemFromText\(familyId,\s*\{\s*text:\s*name\s*\}\)/);
     expect(src).toMatch(/def\.handle\(\{\s*familyId:\s*context\.familyId/);
     expect(src).not.toMatch(/from\("shopping_items"\)/);
   });

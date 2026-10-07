@@ -55,7 +55,14 @@ test.describe("the two lists differ where they must", () => {
 test.describe("rows become to-do items", () => {
   test("an unchecked shopping row needs action", () => {
     const item = toListItem(LISTS.shopping, { id: "a", name: "Milch", checked: false });
-    expect(item).toEqual({ id: "a", summary: "Milch", status: "needs_action", due: null });
+    expect(item).toEqual({ id: "a", summary: "Milch", status: "needs_action", due: null, amount: null });
+  });
+
+  test("a shopping row carries its amount as the list prints it; a task has none", () => {
+    expect(toListItem(LISTS.shopping, { id: "a", name: "Mehl", quantity: "500.00", unit: "g" }).amount).toBe("500 g");
+    expect(toListItem(LISTS.shopping, { id: "a", name: "Eier", quantity: 2, unit: "Stück + 1 Packung" }).amount).toBe("2 Stück + 1 Packung");
+    expect(toListItem(LISTS.shopping, { id: "a", name: "Salz", quantity: null, unit: null }).amount).toBeNull();
+    expect(toListItem(LISTS.tasks, { id: "b", title: "Müll" })).not.toHaveProperty("amount");
   });
 
   test("a null `checked` needs action, not a third state", () => {

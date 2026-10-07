@@ -1072,6 +1072,59 @@ test.describe("add_recipe_to_shopping_list", () => {
   });
 });
 
+test.describe("add_shopping_item with a quantity, and merging", () => {
+  test("POSTs the quantity alongside the name, and leaves it out when not given", async () => {
+    const { server, calls } = buildServer(["shopping:write"]);
+    const t = tool(server, "add_shopping_item");
+    await t.handler({ name: "Milch", quantity: "2" });
+    await t.handler({ name: "Mehl", quantity: "500 g" });
+    await t.handler({ name: "Brot" });
+    expect(calls).toEqual([
+      { path: "/lists/shopping", params: { list: "shopping" }, body: { summary: "Milch", quantity: "2" } },
+      { path: "/lists/shopping", params: { list: "shopping" }, body: { summary: "Mehl", quantity: "500 g" } },
+      { path: "/lists/shopping", params: { list: "shopping" }, body: { summary: "Brot" } },
+    ]);
+  });
+
+  test("the merged answer reaches the assistant as the route gave it", async () => {
+    const answer = {
+      id: "i1", summary: "Milch", status: "needs_action", due: null, merged: true,
+      item: { id: "i1", name: "Milch", quantity: 2, unit: "Stück", amount: "2 Stück" },
+    };
+    const { server } = buildServer(["shopping:write"], () => answer);
+    const result = await tool(server, "add_shopping_item").handler({ name: "milch", quantity: "1" });
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(result.content[0].text)).toEqual(answer);
+  });
+
+  test("its schema bounds the quantity, and the description explains the merge", () => {
+    const { server } = buildServer(["shopping:write"]);
+    const t = tool(server, "add_shopping_item") as unknown as Annotated;
+    expect(() => t.inputSchema.parse({ name: "Milch", quantity: "" })).toThrow();
+    expect(() => t.inputSchema.parse({ name: "Milch", quantity: "1".repeat(41) })).toThrow();
+    expect(t.inputSchema.parse({ name: "Milch" })).toEqual({ name: "Milch" });
+    const description = (registeredTools(server).add_shopping_item as unknown as { description: string }).description;
+    expect(description).toContain("merged: true");
+    expect(description).toContain("ticked");
+    const recipeDescription = (registeredTools(server).add_recipe_to_shopping_list as unknown as { description: string }).description;
+    expect(recipeDescription).toContain("merged");
+    expect(recipeDescription).not.toContain("even if the same ingredients are already on the list");
+    // create_recipe sends the assistant here with the ids of what is missing at home; ids may come from either tool.
+    expect(recipeDescription).toContain("from get_recipe or create_recipe");
+    expect(recipeDescription).toContain("need not be left out");
+  });
+
+  test("still needs shopping:write, and nothing new", async () => {
+    expect(TOOL_SCOPES.add_shopping_item).toBe("shopping:write");
+    expect(TOOL_SCOPES.add_recipe_to_shopping_list).toBe("shopping:write");
+    const { server, calls } = buildServer(["family:read"]);
+    const result = await tool(server, "add_shopping_item").handler({ name: "Milch", quantity: "2" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("shopping:write");
+    expect(calls).toEqual([]);
+  });
+});
+
 const TIMER = "aaaaaaaa-aaaa-aaaa-aaaa-000000000001";
 
 test.describe("list_timers", () => {

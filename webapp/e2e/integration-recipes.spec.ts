@@ -42,6 +42,7 @@ type Row = Record<string, unknown>;
 
 function fakeDb(tables: Record<string, Row[]>) {
   const inserted: Record<string, Row[]> = {};
+  const updated: Array<{ table: string; patch: Row; filters: Array<[string, string, unknown]> }> = [];
   const selects: Array<{ table: string; columns: string; filters: Array<[string, string, unknown]>; ops: string[] }> = [];
   let failInsert: unknown = null;
   let nextId = 1;
@@ -53,7 +54,10 @@ function fakeDb(tables: Record<string, Row[]>) {
       const entry = { table, columns: "", filters, ops: [] as string[] };
       const run = () => {
         const rows = (tables[table] ?? []).filter((row) =>
-          filters.every(([op, column, value]) => (op === "is" ? (row[column] ?? null) === value : row[column] === value)),
+          filters.every(([op, column, value]) =>
+            op === "is" ? (row[column] ?? null) === value
+              : op === "not.is" ? (row[column] ?? null) !== value
+                : row[column] === value),
         );
         return rows.slice(0, rowLimit);
       };
@@ -65,6 +69,21 @@ function fakeDb(tables: Record<string, Row[]>) {
         },
         eq(column: string, value: unknown) { filters.push(["eq", column, value]); return chain; },
         is(column: string, value: unknown) { filters.push(["is", column, value]); return chain; },
+        not(column: string, op: string, value: unknown) { filters.push([`not.${op}`, column, value]); return chain; },
+        update(patch: Row) {
+          const where: Array<[string, string, unknown]> = [];
+          updated.push({ table, patch, filters: where });
+          const upd = {
+            eq(column: string, value: unknown) { where.push(["eq", column, value]); return upd; },
+            then(resolve: (v: { error: null }) => unknown) {
+              for (const r of tables[table] ?? []) {
+                if (where.every(([, c, v]) => r[c] === v)) Object.assign(r, patch);
+              }
+              return Promise.resolve({ error: null }).then(resolve);
+            },
+          };
+          return upd;
+        },
         order(column: string) { entry.ops.push(`order:${column}`); return chain; },
         limit(n: number) { entry.ops.push("limit"); rowLimit = n; return chain; },
         async maybeSingle() { return { data: run()[0] ?? null, error: null }; },
@@ -75,6 +94,7 @@ function fakeDb(tables: Record<string, Row[]>) {
               if (failInsert) return { data: null, error: failInsert };
               const stored = rows.map((row) => ({ id: `item-${nextId++}`, ...row }));
               (inserted[table] ??= []).push(...stored);
+              (tables[table] ??= []).push(...stored);
               return { data: stored, error: null };
             },
           };
@@ -86,6 +106,7 @@ function fakeDb(tables: Record<string, Row[]>) {
   return {
     db: db as unknown as RecipeDb,
     inserted,
+    updated,
     selects,
     failInsertWith(error: unknown) { failInsert = error; },
   };
@@ -289,9 +310,9 @@ test.describe("addRecipeToShoppingList", () => {
     }
     expect(f.inserted.shopping_items[0].notes).toBe("al dente");
     expect(addedOf(result)).toEqual([
-      { id: "item-1", name: "Spaghetti", quantity: 400, unit: "g" },
-      { id: "item-2", name: "Hackfleisch", quantity: 500, unit: "g" },
-      { id: "item-3", name: "Salz", quantity: null, unit: null },
+      { id: "item-1", name: "Spaghetti", quantity: 400, unit: "g", amount: "400 g", merged: false },
+      { id: "item-2", name: "Hackfleisch", quantity: 500, unit: "g", amount: "500 g", merged: false },
+      { id: "item-3", name: "Salz", quantity: null, unit: null, amount: null, merged: false },
     ]);
   });
 
@@ -420,6 +441,65 @@ test.describe("addRecipeToShoppingList", () => {
     const result = await addRecipeToShoppingList(OURS, PASTA, {}, { db: f.db, match: noCatalog, bring: b.deps });
     expect(addedOf(result)).toHaveLength(3);
     expect(b.adds).toHaveLength(3);
+  });
+});
+
+test.describe("addRecipeToShoppingList merges into what is already on the list", () => {
+  const shopping = (rows: Row[]) => rows.map((r, i) => ({ id: `old-${i + 1}`, family_id: OURS, checked: false, notes: null, ...r }));
+
+  test("an ingredient already on the list, unticked, is merged and its quantities added up", async () => {
+    const f = fakeDb({ recipes: recipeRows(), shopping_items: shopping([{ name: "spaghetti", quantity: 100, unit: "g" }]) });
+    const result = await addRecipeToShoppingList(OURS, PASTA, {}, { db: f.db, match: noCatalog, bring: bringOff });
+    expect(addedOf(result)[0]).toEqual({ id: "old-1", name: "spaghetti", quantity: 500, unit: "g", amount: "500 g", merged: true });
+    expect(f.inserted.shopping_items.map((r) => r.name)).toEqual(["Hackfleisch", "Salz"]);
+    expect(f.updated).toEqual([{
+      table: "shopping_items",
+      patch: { quantity: 500, unit: "g", notes: "al dente" },
+      filters: [["eq", "id", "old-1"], ["eq", "family_id", OURS]],
+    }]);
+  });
+
+  test("two recipes that both need the same thing leave one item", async () => {
+    const f = fakeDb({ recipes: recipeRows() });
+    await addRecipeToShoppingList(OURS, PASTA, {}, { db: f.db, match: noCatalog, bring: bringOff });
+    await addRecipeToShoppingList(OURS, PASTA, { servings: 2 }, { db: f.db, match: noCatalog, bring: bringOff });
+    const items = (f.inserted.shopping_items ?? []).map((r) => [r.name, r.quantity]);
+    expect(items).toEqual([["Spaghetti", 600], ["Hackfleisch", 750], ["Salz", null]]);
+  });
+
+  test("a ticked item is not merged into, and another family's never is", async () => {
+    const f = fakeDb({
+      recipes: recipeRows(),
+      shopping_items: [
+        { id: "bought", family_id: OURS, name: "Salz", checked: true, quantity: null, unit: null },
+        { id: "theirs", family_id: THEIRS, name: "Salz", checked: false, quantity: null, unit: null },
+      ],
+    });
+    const result = await addRecipeToShoppingList(OURS, PASTA, { ingredientIds: [ING(3)] }, { db: f.db, match: noCatalog, bring: bringOff });
+    expect(addedOf(result)).toEqual([expect.objectContaining({ name: "Salz", merged: false })]);
+    expect(f.updated).toEqual([]);
+  });
+
+  test("ingredient_ids still decides what is added; the rest of the recipe is not merged in", async () => {
+    const f = fakeDb({ recipes: recipeRows(), shopping_items: shopping([{ name: "Hackfleisch", quantity: 250, unit: "g" }]) });
+    const result = await addRecipeToShoppingList(OURS, PASTA, { ingredientIds: [ING(2)] }, { db: f.db, match: noCatalog, bring: bringOff });
+    expect(addedOf(result)).toEqual([{ id: "old-1", name: "Hackfleisch", quantity: 750, unit: "g", amount: "750 g", merged: true }]);
+    expect(f.inserted.shopping_items).toBeUndefined();
+  });
+
+  test("Bring! hears the merged item under its existing name with the combined amount, and nothing about an unchanged one", async () => {
+    const f = fakeDb({
+      recipes: recipeRows(),
+      shopping_items: shopping([{ name: "spaghetti", quantity: 1, unit: "Packung" }, { name: "Salz", quantity: null, unit: null }]),
+    });
+    const adds: Parameters<BringPushDeps["add"]>[0][] = [];
+    await addRecipeToShoppingList(OURS, PASTA, {}, {
+      db: f.db, match: noCatalog,
+      bring: { loadSettings: async () => ({ credentials: { accessToken: "t" }, selectedListId: "l", twoWaySync: true }), add: async (a) => { adds.push(a); } },
+    });
+    expect(adds.map((a) => [a.itemName, a.specification]).sort()).toEqual([
+      ["Hackfleisch", "500 g"], ["spaghetti", "1 Packung + 400 g"],
+    ]);
   });
 });
 

@@ -6,7 +6,9 @@
  * (hooks/use-recipes.ts) on the server: quantities scaled by target over
  * recipe servings, the catalogue match for category, picture (thumbnail
  * first) and catalogue id, the ingredient's own category and then
- * "sonstiges" as fallbacks, `recipe_id` on every row, one bulk insert. Two
+ * "sonstiges" as fallbacks, `recipe_id` on every row, one bulk insert —
+ * except that an ingredient already on the list, unticked, is merged into
+ * that item instead (lib/shopping-merge.ts), which the page does not do. Two
  * additions the page does not need: each added item is put on Bring! when
  * two-way sync is on (the page's shopping list does that itself; an
  * assistant has no page), and an ingredient id that is not in the recipe is
@@ -25,7 +27,13 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { parseInstructions } from "@/lib/recipe-instructions";
 import { matchCatalogItems, type CatalogMatch } from "@/lib/catalog-match";
-import { pushToBring, type BringPushDeps } from "@/lib/shopping-enrich";
+import {
+  addOrMergeShoppingItems,
+  pushToBring,
+  supabaseShoppingStore,
+  type BringPushDeps,
+  type ShoppingAddRow,
+} from "@/lib/shopping-enrich";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import type { ServerBringSettings } from "@/lib/bring-server";
 import { syncRecipeTags } from "@/lib/recipe-tags";
@@ -298,8 +306,13 @@ export type CatalogMatchFn = (familyId: string, names: string[]) => Promise<Reco
 export interface AddedShoppingItem {
   id: string;
   name: string;
+  /** The item's quantity now — after a merge, the combined one. */
   quantity: number | null;
   unit: string | null;
+  /** quantity and unit as printed on the list ("750 g", "2 Stück + 1 Packung"). */
+  amount: string | null;
+  /** True when this ingredient went into an item already on the list. */
+  merged: boolean;
 }
 
 export type AddRecipeResult =
@@ -352,10 +365,9 @@ export async function addRecipeToShoppingList(
     console.error("[integration-recipes] catalogue match failed, adding without pictures:", err);
   }
 
-  const rows = ingredients.map((ing) => {
+  const rows: ShoppingAddRow[] = ingredients.map((ing) => {
     const found = matches[ing.name.toLowerCase().trim()];
     return {
-      family_id: familyId,
       name: ing.name,
       quantity: scaleQuantity(toNumber(ing.quantity), multiplier),
       unit: ing.unit ?? null,
@@ -366,21 +378,20 @@ export async function addRecipeToShoppingList(
       recipe_id: recipe.id,
       // An assistant is not a Kinboard screen; no device added these.
       source_device_id: null,
-      checked: false,
     };
   });
 
-  const { data, error } = await (db as any)
-    .from("shopping_items")
-    .insert(rows)
-    .select("id, name, quantity, unit");
-  if (error) throw error;
-
-  const added: AddedShoppingItem[] = ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
-    id: String(row.id),
-    name: String(row.name),
-    quantity: toNumber(row.quantity),
-    unit: (row.unit as string | null) ?? null,
+  // An ingredient already on the list (unticked) is merged into it rather
+  // than added twice — two recipes that both need milk leave one milk
+  // (lib/shopping-merge.ts). A merged item keeps the recipe it came from.
+  const { outcomes, changed } = await addOrMergeShoppingItems(familyId, rows, supabaseShoppingStore(db));
+  const added: AddedShoppingItem[] = outcomes.map(({ merged, item }) => ({
+    id: item.id,
+    name: item.name,
+    quantity: item.quantity,
+    unit: item.unit,
+    amount: item.amount,
+    merged,
   }));
 
   // In parallel: each push has its own timeout, and a recipe's worth of
@@ -395,7 +406,7 @@ export async function addRecipeToShoppingList(
   }
   if (settings) {
     const bring = { ...deps.bring, loadSettings: async () => settings };
-    await Promise.all(added.map((item) => pushToBring(familyId, item, bring)));
+    await Promise.all(changed.map((item) => pushToBring(familyId, item, bring)));
   }
 
   return { added };

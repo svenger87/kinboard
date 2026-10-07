@@ -99,8 +99,8 @@ Say "just add it" and it won't ask.
 
 | Tool | What it does | Permission | Notes |
 |---|---|---|---|
-| `list_shopping_items` | The shopping list | `family:read` | Reads |
-| `add_shopping_item` | Add an item | `shopping:write` | Adds, outside Kinboard when Bring! sync is on |
+| `list_shopping_items` | The shopping list, with how much of each item | `family:read` | Reads |
+| `add_shopping_item` | Add an item, optionally with a quantity ("2", "500 g", "1 Packung") | `shopping:write` | Adds, outside Kinboard when Bring! sync is on. If the item is already on the list and not ticked off, it is merged into it instead (see below) |
 | `check_shopping_item` | Mark an item bought | `shopping:write` | Changes |
 | `uncheck_shopping_item` | Mark an item not bought | `shopping:write` | Changes |
 | `rename_shopping_item` | Change an item's name | `shopping:write` | Changes. The previous name is not kept |
@@ -108,7 +108,37 @@ Say "just add it" and it won't ask.
 
 > "Put milk and butter on the shopping list." · "Schreib Milch und Butter auf die Einkaufsliste."
 >
+> "Put 500 g of flour on the list." · "Schreib 500 g Mehl auf die Liste."
+>
 > "What do we still need to buy?" · "Was müssen wir noch einkaufen?"
+
+### Adding something that's already on the list
+
+When an assistant adds something that is already on the shopping list and
+not yet ticked off, Kinboard doesn't add it a second time. It adds to the
+item that's there, and the assistant is told so, so it can say "milk was
+already on the list, it's 3 now".
+
+- **Same item** means the same name, ignoring upper and lower case, extra
+  spaces and simple plurals: *egg* and *eggs*, *tomato* and *tomatoes*,
+  *Zwiebel* and *Zwiebeln*. Nothing looser than that: *milk* and *oat milk*
+  stay two items, and so do *Ei* and *Eis*.
+- **Quantities add up** when they are in the same unit: 2 and 1 make 3,
+  500 g and 250 g make 750 g. A plain number and *Stück* count the same.
+  Different units are not converted but written side by side: 2 and
+  1 Packung become *2 + 1 Packung*.
+- **No quantity means "some".** A second *salt* without a quantity leaves
+  the salt that's there as it is, rather than turning it into *2 salt*.
+- **A ticked-off item is never merged into.** Once it's bought, needing it
+  again is a new need, so a new item is added.
+- With Bring! sync on, Bring! gets the item's new quantity under the name
+  it already has there, so Bring! updates its item rather than listing it
+  twice.
+
+The same applies to `add_recipe_to_shopping_list`, so two recipes that both
+need milk leave one milk on the list, and to Home Assistant's shopping
+to-do list. Items added on a Kinboard screen are not merged: there you can
+see the list and use the + button on the item that's already there.
 
 ## Notes
 
@@ -131,7 +161,7 @@ Say "just add it" and it won't ask.
 | `search_recipes` | Find the family's own saved recipes by title or tag; with neither, favourites first | `family:read` | Reads. At most 50 results. Never searches the web |
 | `get_recipe` | One recipe: servings, times, tags, ingredients and the steps | `family:read` | Reads |
 | `create_recipe` | Save a recipe to your collection: title, a short description, servings, prep and cook time, tags, ingredients (quantity, unit, name, group, notes) and the steps in order. No picture | `meals:write` | Adds. The assistant looks for a saved recipe first and asks before saving a second one with the same name |
-| `add_recipe_to_shopping_list` | Put a recipe's ingredients on the shopping list, all of them or only the ones picked, scaled to the servings asked for (up to 50) | `shopping:write` | Adds, outside Kinboard when Bring! sync is on, and Kinboard can't take them back off the Bring! list. Each call adds the items again, even if they are already on the list |
+| `add_recipe_to_shopping_list` | Put a recipe's ingredients on the shopping list, all of them or only the ones picked, scaled to the servings asked for (up to 50) | `shopping:write` | Adds, outside Kinboard when Bring! sync is on, and Kinboard can't take them back off the Bring! list. Each ingredient keeps its quantity. One that's already on the list and not ticked off is [merged into that item](#adding-something-thats-already-on-the-list) rather than added again |
 
 > "Put the ingredients for the lasagne recipe on the shopping list." ·
 > "Pack die Zutaten vom Lasagne-Rezept auf die Einkaufsliste."

@@ -948,7 +948,11 @@ paths:
         ingredients; an id that is not in this recipe is refused and nothing
         is added. With Bring! two-way sync on, each item is also put on the
         family's Bring! list; the catalogue or Bring! failing never fails
-        the add. Every call adds new items. No body means every ingredient
+        the add. An ingredient already on the list and not ticked off is
+        merged into that item instead of added again (same name ignoring
+        case and simple plurals; quantities in the same unit add up, a
+        different unit is appended, "2 + 1 Packung"), and comes back with
+        `merged: true`; a ticked-off item is never merged into. No body means every ingredient
         at the recipe's servings; a body that is not a JSON object is
         refused (400) and nothing is added.
       x-required-scope: shopping:write
@@ -986,12 +990,14 @@ paths:
                     type: array
                     items:
                       type: object
-                      required: [id, name, quantity, unit]
+                      required: [id, name, quantity, unit, amount, merged]
                       properties:
                         id: { type: string, format: uuid }
-                        name: { type: string }
-                        quantity: { type: [number, "null"] }
+                        name: { type: string, description: The item's name on the list; after a merge, the existing item's. }
+                        quantity: { type: [number, "null"], description: The item's quantity now; after a merge, the combined one. }
                         unit: { type: [string, "null"] }
+                        amount: { type: [string, "null"], description: 'Quantity and unit as the list prints them, e.g. "750 g" or "2 Stück + 1 Packung".' }
+                        merged: { type: boolean, description: True when this ingredient went into an item already on the list. }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { description: No such recipe in this family. }
@@ -2149,6 +2155,14 @@ paths:
 
         A task can also be created with an assignee, a repetition, a
         priority, an icon and points, the fields the task form offers.
+
+        A shopping item can carry a `quantity`. When an item with the same
+        name (ignoring case and simple plurals such as egg/eggs or
+        Zwiebel/Zwiebeln) is already on the list and not ticked off, nothing
+        new is added: the add is merged into that item, quantities in the
+        same unit are added up and a different unit is appended
+        ("2 + 1 Packung"). The answer is then `200` with `merged: true` and
+        the item as it now stands. A ticked-off item is never merged into.
       parameters:
         - name: list
           in: path
@@ -2167,6 +2181,14 @@ paths:
               required: [summary]
               properties:
                 summary: { type: string }
+                quantity:
+                  type: string
+                  maxLength: 40
+                  description: |
+                    Shopping only. A number with an optional unit: "2", "2x",
+                    "500 g", "1,5 kg", "1 Packung". Replaces a quantity in
+                    `summary`. Text that does not start with a positive number
+                    is refused with `400`.
                 due:
                   type: [string, "null"]
                   description: Calendar day. Ignored by lists that have no due date.
@@ -2201,11 +2223,19 @@ paths:
                     Tasks only. Awarded when the task is completed, but only
                     when it is assigned to a child.
       responses:
-        "201":
-          description: Created
+        "200":
+          description: Shopping only — merged into an item already on the list.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ListItem" }
+              schema: { $ref: "#/components/schemas/ShoppingAddResult" }
+        "201":
+          description: Created. On the shopping list the answer also has `merged` (false) and the item.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: "#/components/schemas/ListItem" }
+                  - { $ref: "#/components/schemas/ShoppingAddResult" }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "409": { description: The Idempotency-Key was used with different arguments. }
@@ -2850,6 +2880,28 @@ components:
           type: [string, "null"]
           format: date
           description: Always null for lists without a due date.
+        amount:
+          type: [string, "null"]
+          description: |
+            Shopping only: quantity and unit as the list prints them ("2 Stück",
+            "500 g", "2 Stück + 1 Packung"), or null for none.
+
+    ShoppingAddResult:
+      allOf:
+        - { $ref: "#/components/schemas/ListItem" }
+        - type: object
+          required: [merged, item]
+          properties:
+            merged: { type: boolean }
+            item:
+              type: object
+              required: [id, name, quantity, unit, amount]
+              properties:
+                id: { type: string, format: uuid }
+                name: { type: string }
+                quantity: { type: [number, "null"] }
+                unit: { type: [string, "null"] }
+                amount: { type: [string, "null"] }
 
     ServiceName:
       type: string

@@ -5,6 +5,7 @@ import { logApiError } from "@/lib/api-error";
 import { familyTimeZone } from "@/lib/family-time";
 import {
   LISTS,
+  QUANTITY_COLUMNS,
   RECURRENCE_COLUMNS,
   isListId,
   itemDue,
@@ -19,6 +20,7 @@ import {
   validateIdempotencyKey,
 } from "@/lib/integration-idempotency";
 import { addShoppingItemFromText } from "@/lib/shopping-enrich";
+import { parseQuantityText, type Quantity } from "@/lib/shopping-merge";
 import { createListTask } from "@/lib/integration-tasks";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +51,7 @@ export async function GET(
     const def = LISTS[list];
     const supabase = createAdminClient();
 
-    const columns = ["id", def.titleColumn, def.doneColumn, def.dueColumn, ...(list === "tasks" ? RECURRENCE_COLUMNS : [])]
+    const columns = ["id", def.titleColumn, def.doneColumn, def.dueColumn, ...(list === "tasks" ? RECURRENCE_COLUMNS : QUANTITY_COLUMNS)]
       .filter(Boolean)
       .join(", ");
 
@@ -117,6 +119,16 @@ export async function POST(
       return NextResponse.json({ error: "`due` must start with YYYY-MM-DD", code: "invalid_request" }, { status: 400 });
     }
 
+    // Shopping only: how much, as free text ("2", "500 g", "1 Packung").
+    let quantity: Quantity | null = null;
+    if (list === "shopping" && body.quantity !== undefined && body.quantity !== null && body.quantity !== "") {
+      const parsed = parseQuantityText(body.quantity);
+      if (!parsed.ok) {
+        return NextResponse.json({ error: parsed.error, code: "invalid_request" }, { status: 400 });
+      }
+      quantity = parsed.value;
+    }
+
     const requestHash = fingerprintRequest(`lists/${list}`, body);
     const previous = await findStoredResult(context.familyId, key.key);
     if (previous) {
@@ -137,19 +149,33 @@ export async function POST(
       // quantity and unit parsed out, a category, a catalogue picture and,
       // with two-way sync on, a copy on Bring!. The stored name is the parsed
       // one ("2 kg Bananen" is stored as "Bananen", 2 kg), and the answer
-      // reports what was stored.
+      // reports what was stored. An explicit `quantity` wins over one in the
+      // text.
+      //
+      // When the same thing is already on the list, unticked, it is merged
+      // into that item — quantities added up where they can be — and the
+      // answer is 200 with `merged: true` and the item as it now stands, so
+      // an assistant can say "milk was already on the list, now 2".
       if (list === "shopping") {
-        const { id, item } = await addShoppingItemFromText(context.familyId, summary);
-        const response = { id, summary: item.name, status: "needs_action", due: due.value };
+        const out = await addShoppingItemFromText(context.familyId, { text: summary, quantity });
+        const status = out.merged ? 200 : 201;
+        const response = {
+          id: out.item.id,
+          summary: out.item.name,
+          status: "needs_action",
+          due: due.value,
+          merged: out.merged,
+          item: out.item,
+        };
         await storeResult({
           familyId: context.familyId,
           key: key.key,
           service: `lists/${list}`,
           requestHash,
-          status: 201,
+          status,
           response,
         });
-        return NextResponse.json(response, { status: 201 });
+        return NextResponse.json(response, { status });
       }
 
       // A task may also carry an assignee (checked against this family),

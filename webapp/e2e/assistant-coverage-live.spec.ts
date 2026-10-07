@@ -260,12 +260,88 @@ test("recipes: search, read, shop scaled; replay, 409 on a reused key, 404 for a
   const conflict = await json(await integ("POST", `/recipes/${ids.recipe}/shopping`, { servings: 2 }, key), 409);
   expect(conflict.code).toBe("conflict");
 
-  // Only what was picked; an id from another recipe adds nothing.
-  await json(await integ("POST", `/recipes/${ids.recipe}/shopping`, { ingredient_ids: [ids.ingOnion] }), 201);
+  // Only what was picked; an id from another recipe adds nothing. The onion
+  // is already on the list, unticked, so it is merged: 2 + 1, still two rows.
+  const onion = await json(await integ("POST", `/recipes/${ids.recipe}/shopping`, { ingredient_ids: [ids.ingOnion] }), 201);
+  expect(onion.added).toEqual([expect.objectContaining({ name: `${P}onion`, quantity: 3, merged: true })]);
   await json(await integ("POST", `/recipes/${ids.recipe}/shopping`, { ingredient_ids: [randomUUID()] }), 400);
   await json(await integ("POST", `/recipes/${ids.foreignRecipe}/shopping`, {}), 404);
-  expect(one(`SELECT count(*) FROM shopping_items WHERE family_id = '${famA}'`)).toBe("3");
+  expect(one(`SELECT count(*) FROM shopping_items WHERE family_id = '${famA}'`)).toBe("2");
+  expect(one(`SELECT quantity::text FROM shopping_items WHERE family_id = '${famA}' AND name = '${P}onion'`)).toBe("3.00");
   expect(one(`SELECT count(*) FROM shopping_items WHERE family_id = '${famB}'`)).toBe("0");
+});
+
+// ── shopping: quantities and merging ──────────────────────────────────────
+
+test("shopping: a quantity is stored, the same item merges (200, merged: true), a ticked one does not; shopping:write enforced", async () => {
+  test.setTimeout(120_000);
+  const name = `${P}Milch`;
+  const first = await json(await integ("POST", "/lists/shopping", { summary: name, quantity: "1" }), 201);
+  expect(first).toMatchObject({ merged: false, item: { name, quantity: 1, unit: "Stück", amount: "1 Stück" } });
+
+  // Case and a plural; the quantities add up.
+  const second = await json(await integ("POST", "/lists/shopping", { summary: `${P}MILCHS`, quantity: "2x" }), 200);
+  expect(second).toMatchObject({ id: first.id, merged: true, item: { id: first.id, name, quantity: 3, amount: "3 Stück" } });
+  // A different unit is put beside it.
+  const third = await json(await integ("POST", "/lists/shopping", { summary: name, quantity: "1 Packung" }), 200);
+  expect(third.item.amount).toBe("3 Stück + 1 Packung");
+  expect(one(`SELECT count(*) || '|' || max(quantity)::text || '|' || max(unit) FROM shopping_items WHERE family_id = '${famA}' AND name ILIKE '${P}milch%'`))
+    .toBe("1|3.00|Stück + 1 Packung");
+
+  // The list shows the amount.
+  const listed = await json(await integ("GET", "/lists/shopping"), 200);
+  expect(listed.items.find((i: { id: string }) => i.id === first.id)).toMatchObject({ amount: "3 Stück + 1 Packung" });
+
+  // Ticked: bought, so another one is a new need — a second row.
+  psql(`UPDATE shopping_items SET checked = true WHERE id = '${first.id}'`);
+  const again = await json(await integ("POST", "/lists/shopping", { summary: name }), 201);
+  expect(again.merged).toBe(false);
+  expect(again.id).not.toBe(first.id);
+  expect(one(`SELECT count(*) FROM shopping_items WHERE family_id = '${famA}' AND name = '${name}'`)).toBe("2");
+
+  // A replay answers what the first call answered and merges nothing again.
+  const key = randomUUID();
+  const merged = await json(await integ("POST", "/lists/shopping", { summary: name, quantity: "500 g" }, key), 200);
+  const replay = await integ("POST", "/lists/shopping", { summary: name, quantity: "500 g" }, key);
+  expect(await json(replay, 200)).toEqual(merged);
+  expect(replay.headers()["idempotent-replay"]).toBe("true");
+  expect(one(`SELECT unit FROM shopping_items WHERE id = '${again.id}'`)).toBe("g");
+  expect(one(`SELECT quantity::text FROM shopping_items WHERE id = '${again.id}'`)).toBe("500.00");
+
+  // A quantity nobody can add to is refused, and nothing is stored.
+  const refused = await json(await integ("POST", "/lists/shopping", { summary: `${P}Salz`, quantity: "a pinch" }), 400);
+  expect(refused.code).toBe("invalid_request");
+  expect(one(`SELECT count(*) FROM shopping_items WHERE family_id = '${famA}' AND name = '${P}Salz'`)).toBe("0");
+
+  // Another family's identical item is never merged into.
+  psql(`INSERT INTO shopping_items (family_id, name, quantity, checked) VALUES ('${famB}', '${P}Brot', 1, false)`);
+  const bread = await json(await integ("POST", "/lists/shopping", { summary: `${P}Brot` }), 201);
+  expect(bread.merged).toBe(false);
+  expect(one(`SELECT quantity::text FROM shopping_items WHERE family_id = '${famB}' AND name = '${P}Brot'`)).toBe("1.00");
+
+  // Scope: no token is 401, and so is a real token without shopping:write
+  // (deliberately not 403 — lib/integration-auth.ts); it adds nothing, while
+  // the same token may read the list.
+  const anon = await api.fetch("/api/integration/v1/lists/shopping", { method: "POST", headers: { "idempotency-key": randomUUID() }, data: { summary: name } });
+  expect(anon.status()).toBe(401);
+  const readOnly = `kbi_${P}${randomBytes(16).toString("hex")}`;
+  psql(`INSERT INTO integration_tokens (family_id, name, token_hash, scopes) VALUES ('${famA}', '${P}read', '${createHash("sha256").update(readOnly).digest("hex")}', '{family:read}')`);
+  const before = one(`SELECT count(*) || '|' || coalesce(sum(quantity), 0)::text FROM shopping_items WHERE family_id = '${famA}'`);
+  const forbidden = await api.fetch("/api/integration/v1/lists/shopping", {
+    method: "POST",
+    headers: { authorization: `Bearer ${readOnly}`, "idempotency-key": randomUUID() },
+    data: { summary: name, quantity: "5" },
+  });
+  expect(forbidden.status(), await forbidden.text()).toBe(401);
+  const readable = await api.fetch("/api/integration/v1/lists/shopping", { headers: { authorization: `Bearer ${readOnly}` } });
+  expect(readable.status()).toBe(200);
+  expect(one(`SELECT count(*) || '|' || coalesce(sum(quantity), 0)::text FROM shopping_items WHERE family_id = '${famA}'`)).toBe(before);
+
+  // Through MCP: the tool forwards the quantity and hands back merged: true.
+  const viaMcp = await client.callTool({ name: "add_shopping_item", arguments: { name, quantity: "250 g" } });
+  const text = (viaMcp.content as Array<{ text: string }>)[0].text;
+  expect(viaMcp.isError, text).toBeFalsy();
+  expect(JSON.parse(text)).toMatchObject({ merged: true, item: { id: again.id, amount: "750 g" } });
 });
 
 // ── timers ─────────────────────────────────────────────────────────────────

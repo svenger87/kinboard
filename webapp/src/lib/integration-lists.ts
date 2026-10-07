@@ -20,6 +20,7 @@
  */
 
 import { isRecurring, isTodoOpen } from "@/lib/todo-recurrence";
+import { formatQuantity } from "@/lib/shopping-merge";
 
 export type ListId = "shopping" | "tasks";
 
@@ -66,7 +67,12 @@ export interface ListItem {
   summary: string;
   status: "needs_action" | "completed";
   due: string | null;
+  /** Shopping only: how much, as the list prints it ("2 Stück", "500 g"), or null. */
+  amount?: string | null;
 }
+
+/** The extra shopping columns an item's amount is read from. */
+export const QUANTITY_COLUMNS = ["quantity", "unit"] as const;
 
 /** The extra todo columns a recurring task's status is derived from. */
 export const RECURRENCE_COLUMNS = [
@@ -109,12 +115,17 @@ export function toListItem(
   const done = def.table === "todos" && isRecurring(task)
     ? !isTodoOpen(task, at.now, at.timeZone)
     : task.completed;
-  return {
+  const item: ListItem = {
     id: String(row.id),
     summary: String(row[def.titleColumn] ?? ""),
     status: done ? "completed" : "needs_action",
     due: def.dueColumn ? ((row[def.dueColumn] as string | null) ?? null) : null,
   };
+  if (def.table === "shopping_items") {
+    const quantity = row.quantity === null || row.quantity === undefined ? null : Number(row.quantity);
+    item.amount = formatQuantity({ quantity: Number.isFinite(quantity) ? quantity : null, unit: (row.unit as string | null | undefined) ?? null });
+  }
+  return item;
 }
 
 /** Trim, reject empty, and bound — free text on its way to a database column. */

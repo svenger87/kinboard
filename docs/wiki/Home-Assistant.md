@@ -139,7 +139,9 @@ used — which is exactly what you want to know *after* revoking something.
   overlap the window being viewed, so a week's holiday appears on every day of
   it.
 - **Two to-do lists** — the shopping list and tasks, both two-way. Tick an item
-  in Home Assistant and it ticks here.
+  in Home Assistant and it ticks here. Adding something to the shopping list
+  that is already on it, not ticked off, adds to that item instead of listing
+  it twice ([how](AI-Assistants-Capabilities#adding-something-thats-already-on-the-list)).
 - **Events** on the Home Assistant bus, so an automation can trigger the moment
   a task is completed or something is added to the shopping list.
 
