@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted 2026-10-06 (§8); implementation in progress |
+| **Status** | Accepted 2026-10-06 (§8); implemented in #376, shipped in v1.13.0-rc.17 |
 | **Prompted by** | Discussion #349 (a household running Kinboard behind a Cloudflare Tunnel) |
 
 ## 1. Why
