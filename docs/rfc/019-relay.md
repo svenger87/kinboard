@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft 2026-10-07, for review. Tunnel and GDPR approach decided (§3.1, §9.1) |
+| **Status** | Accepted 2026-10-07 (§12). Paths A and B are to be built; path C waits for the legal gate in §9.1 |
 | **Prompted by** | Listing Kinboard in the Claude connector directory and ChatGPT's app directory; families who can't expose their Kinboard to the internet |
 
 ## 1. Why
@@ -169,8 +169,21 @@ This is a reading, not legal advice. Path C waits for a legal check (see the las
 3. **Claude directory listing** on the §6 pattern.
 4. **Path C** (ChatGPT directory), after B has run for a while.
 
-## 12. Open questions
+## 12. Decisions (2026-10-07)
 
-- **Label recovery:** if an instance loses its key (a restore onto new hardware), how does it reclaim its label without letting anyone else claim it? One option is a recovery code shown once at enrolment.
-- **Uptime promise:** none, or "best effort"? Settings and docs should say.
-- **Abuse contact** for the relay and its addresses.
+All decisions take the most secure and the most cautious legal option.
+
+1. **Tunnel:** frp, narrowly configured (§3.1).
+2. **`kinboard-tunnel` is its own container.** The TLS private key and the instance's Ed25519 key live only there, never in the webapp.
+3. **Data protection:** path B ships with the privacy-policy update and Hetzner's AVV in place. Path C does not ship until the gate in §9.1 is passed.
+4. **Label recovery: a recovery code, never the key in backups.**
+   - At enrolment the relay shows a 26-character base32 recovery code once (128 bits) and stores only an Argon2id hash of it.
+   - After a restore onto new hardware, the new instance creates a fresh key pair and claims its old label with that code. Every earlier key for the label stops working at once, and a notice appears on the family's screens.
+   - Without the code, the family enrols under a new label.
+   - Instance keys are never written into Kinboard's backups. A stolen backup then can't take over the address.
+5. **Uptime: best effort, no guarantee.** Settings and the docs say so in plain words, and that path A never depends on the relay.
+6. **Abuse and security contacts:**
+   - `abuse@kinboard.app` and `security@kinboard.app`, forwarding to the maintainer;
+   - a `/.well-known/security.txt` on kinboard.app and on the relay;
+   - a reported label can be suspended at the relay. Its content stays encrypted, so the response is to cut the address, never to inspect it.
+7. **Rollout as in §11.** The steps that cost nothing and take longest come first: the Public Suffix List, the delegated subzone and CAA.
