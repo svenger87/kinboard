@@ -2,8 +2,17 @@
 
 | | |
 |---|---|
-| **Status** | Accepted 2026-10-07 (§12). Paths A and B are to be built; path C waits for the legal gate in §9.1 |
+| **Status** | **Paused 2026-10-07.** Designed and decided (§12), not built. Running a relay makes the project a service operator with legal duties; the owner chose not to take those on for now |
 | **Prompted by** | Listing Kinboard in the Claude connector directory and ChatGPT's app directory; families who can't expose their Kinboard to the internet |
+
+## 0. Why this is paused
+
+The design holds: a blind relay would let families reach Kinboard from anywhere and connect assistants without exposing their server. Running it, though, turns Kinboard from software people run themselves into a service someone operates:
+- connection metadata under GDPR, with a privacy policy, a data processing agreement and abuse handling;
+- for path C, family content including children's data, a US transfer and a legal review;
+- uptime and support expectations, while there is no cash flow to carry them.
+
+Until that changes, families who want remote access or assistants use path A: their own tunnel or reverse proxy, as the wiki describes. The decisions below stay valid if this is picked up again. Unfinished stage-1 code was kept out of the repo.
 
 ## 1. Why
 
