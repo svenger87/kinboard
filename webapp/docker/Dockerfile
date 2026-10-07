@@ -201,7 +201,13 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/NOTICE ./licenses/NOTICE
 COPY --from=builder /app/src/lib/holidays/data/LICENSE ./licenses/date-holidays-LICENSE
 COPY --from=builder /app/src/lib/emoji/data/LICENSE ./licenses/emojibase-LICENSE
-RUN test -f ./licenses/NOTICE && test -f ./licenses/date-holidays-LICENSE && test -f ./licenses/emojibase-LICENSE
+# The fonts in .next/static/media are SIL OFL 1.1; the licence travels with them.
+COPY --from=builder /app/src/assets/fonts/bricolage-grotesque/OFL.txt ./licenses/fonts/bricolage-grotesque-OFL.txt
+COPY --from=builder /app/src/assets/fonts/hanken-grotesk/OFL.txt ./licenses/fonts/hanken-grotesk-OFL.txt
+COPY --from=builder /app/src/assets/fonts/space-mono/OFL.txt ./licenses/fonts/space-mono-OFL.txt
+RUN test -f ./licenses/NOTICE && test -f ./licenses/date-holidays-LICENSE && test -f ./licenses/emojibase-LICENSE \
+ && test -f ./licenses/fonts/bricolage-grotesque-OFL.txt && test -f ./licenses/fonts/hanken-grotesk-OFL.txt \
+ && test -f ./licenses/fonts/space-mono-OFL.txt
 
 # Bake migrations + entrypoint script into the image. The entrypoint
 # applies migrations against the db before exec'ing the Next.js

@@ -63,3 +63,21 @@ School holiday data, when a family turns on the optional sync, is fetched
 at runtime from the OpenHolidays API (https://www.openholidaysapi.org) under
 the Open Database License 1.0 (https://opendatacommons.org/licenses/odbl/1-0/)
 and is not distributed with Kinboard.
+
+Fonts
+-----
+Kinboard ships three typefaces, each under the SIL Open Font License,
+Version 1.1 (https://openfontlicense.org). The PolyForm Noncommercial License
+does not apply to them. The full license text sits next to each font in
+webapp/src/assets/fonts/<family>/OFL.txt (in the Docker image:
+/app/licenses/fonts/<family>-OFL.txt).
+
+  Bricolage Grotesque — Copyright 2022 The Bricolage Grotesque Project Authors
+  (https://github.com/ateliertriay/bricolage)
+  Hanken Grotesk — Copyright 2021 The Hanken Grotesk Project Authors
+  (https://github.com/marcologous/hanken-grotesk)
+  Space Mono — Copyright 2016 The Space Mono Project Authors
+  (https://github.com/googlefonts/spacemono)
+
+The files are woff2 conversions, subset to the characters Google Fonts serves
+for these families, of the fonts in https://github.com/google/fonts.

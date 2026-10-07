@@ -54,3 +54,28 @@ test("no OpenHolidays data ships: the fixture stays out of the build context and
     .join("\n");
   for (const id of ids) expect(shipped.includes(id), id).toBe(false);
 });
+
+test("the fonts ship with their OFL, NOTICE names them, and the image carries the licences", () => {
+  const dirs = readdirSync(join(process.cwd(), "src/assets/fonts"));
+  expect(dirs.sort()).toEqual(["bricolage-grotesque", "hanken-grotesk", "space-mono"]);
+  const notice = flat(read("NOTICE"));
+  const dockerfile = read("docker/Dockerfile");
+  for (const dir of dirs) {
+    const files = readdirSync(join(process.cwd(), "src/assets/fonts", dir));
+    expect(files.filter((f) => f.endsWith(".woff2")).length, dir).toBeGreaterThan(0);
+    expect(read(`src/assets/fonts/${dir}/OFL.txt`)).toContain("SIL Open Font License, Version 1.1");
+    expect(dockerfile).toContain(`COPY --from=builder /app/src/assets/fonts/${dir}/OFL.txt ./licenses/fonts/${dir}-OFL.txt`);
+    expect(dockerfile).toContain(`test -f ./licenses/fonts/${dir}-OFL.txt`);
+  }
+  for (const name of ["Bricolage Grotesque", "Hanken Grotesk", "Space Mono"]) expect(notice).toContain(name);
+  expect(notice).toContain("SIL Open Font License, Version 1.1");
+});
+
+test("no font is fetched from Google at build time", () => {
+  // next/font/google downloads the files during `next build`; when Google is
+  // unreachable the build dies. Every font comes from src/assets/fonts instead.
+  const offenders = walk(join(process.cwd(), "src"))
+    .filter((f) => [".ts", ".tsx", ".css"].includes(extname(f)))
+    .filter((f) => /["']next\/font\/google["']|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(readFileSync(f, "utf8")));
+  expect(offenders).toEqual([]);
+});

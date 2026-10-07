@@ -2,6 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Metric-matched fallbacks for the three fonts in src/app/fonts.ts, shown until
+   the real font has loaded so the text does not jump when it swaps in. These
+   are the exact numbers next/font/google generated (its precalculated metrics
+   for each family); next/font/local would measure a variable file's default
+   instance and get Bricolage's wrong by 7%. */
+@font-face {
+  font-family: "Bricolage Grotesque Fallback";
+  src: local("Arial");
+  ascent-override: 88.21%;
+  descent-override: 25.61%;
+  line-gap-override: 0.00%;
+  size-adjust: 105.43%;
+}
+@font-face {
+  font-family: "Hanken Grotesk Fallback";
+  src: local("Arial");
+  ascent-override: 99.07%;
+  descent-override: 30.02%;
+  line-gap-override: 0.00%;
+  size-adjust: 100.94%;
+}
+@font-face {
+  font-family: "Space Mono Fallback";
+  src: local("Arial");
+  ascent-override: 81.58%;
+  descent-override: 26.30%;
+  line-gap-override: 0.00%;
+  size-adjust: 137.28%;
+}
+
 /* Centered dialogs are portals, outside page shells that provide safe-area
    padding. Keep their panels clear of notches and home indicators, including
    short landscape viewports. The custom-property fallbacks let layout tests
