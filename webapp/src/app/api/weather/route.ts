@@ -4,35 +4,15 @@ import {
   windSpeedForDisplay,
   visibilityForDisplay,
 } from "@/lib/weather-units";
-
-const OPENWEATHERMAP_API_KEY = process.env.OPENWEATHERMAP_API_KEY;
-const BASE_URL = process.env.OPENWEATHERMAP_BASE_URL || "https://api.openweathermap.org/data/2.5";
-
-interface OpenWeatherResponse {
-  main: {
-    temp: number;
-    feels_like: number;
-    humidity: number;
-    temp_min: number;
-    temp_max: number;
-  };
-  weather: Array<{
-    id: number;
-    main: string;
-    description: string;
-    icon: string;
-  }>;
-  wind: {
-    speed: number;
-  };
-  visibility: number;
-  sys: {
-    sunrise: number;
-    sunset: number;
-  };
-  name: string;
-  timezone: number;
-}
+import {
+  fetchOpenWeather,
+  mapCondition,
+  openWeatherApiKey,
+  OpenWeatherError,
+  placeFrom,
+  weatherLang,
+  type OpenWeatherCurrent,
+} from "@/lib/weather-provider";
 
 function formatTime(timestamp: number, timezoneOffset: number): string {
   const date = new Date((timestamp + timezoneOffset) * 1000);
@@ -41,71 +21,41 @@ function formatTime(timestamp: number, timezoneOffset: number): string {
   return `${hours}:${minutes}`;
 }
 
-const CONDITION_LABELS: Record<string, Record<string, string>> = {
-  de: { Clear: "Klar", Clouds: "Bewölkt", Rain: "Regen", Drizzle: "Nieselregen", Thunderstorm: "Gewitter", Snow: "Schnee", Mist: "Nebel", Fog: "Nebel", Haze: "Dunst" },
-  en: { Clear: "Clear", Clouds: "Cloudy", Rain: "Rain", Drizzle: "Drizzle", Thunderstorm: "Thunderstorm", Snow: "Snow", Mist: "Mist", Fog: "Fog", Haze: "Haze" },
-  fr: { Clear: "Dégagé", Clouds: "Nuageux", Rain: "Pluie", Drizzle: "Bruine", Thunderstorm: "Orage", Snow: "Neige", Mist: "Brume", Fog: "Brouillard", Haze: "Brume sèche" },
-};
-
-function mapCondition(weatherMain: string, lang: string): string {
-  return CONDITION_LABELS[lang]?.[weatherMain] ?? CONDITION_LABELS.de[weatherMain] ?? weatherMain;
-}
-
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const lat = searchParams.get("lat");
   const lon = searchParams.get("lon");
   const city = searchParams.get("city");
-  const rawLang = searchParams.get("lang") || "en";
-  const lang = ["de", "en", "fr"].includes(rawLang) ? rawLang : "en";
+  const lang = weatherLang(searchParams.get("lang"));
   const units = toUnitSystem(searchParams.get("units"));
+  const apiKey = openWeatherApiKey();
 
-  if (!OPENWEATHERMAP_API_KEY) {
+  if (!apiKey) {
     return NextResponse.json({ configured: false }, { status: 200 });
   }
 
+  const where = placeFrom(lat, lon, city);
+  if (!where.ok) {
+    return where.reason === "invalid_coordinates"
+      ? NextResponse.json({ error: "Invalid coordinates configured" }, { status: 400 })
+      : NextResponse.json({ error: "Either lat/lon or city parameter required" }, { status: 400 });
+  }
+
   try {
-    let url: string;
-
-    if (lat && lon) {
-      // Parsed to numbers rather than interpolated as strings: these come
-      // from a settings row, and a value containing `&` would otherwise
-      // append parameters of its own to the upstream request. The city
-      // branch below has always been encoded; this one was not.
-      const latNum = Number(lat);
-      const lonNum = Number(lon);
-      if (!Number.isFinite(latNum) || !Number.isFinite(lonNum) ||
-          latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) {
-        return NextResponse.json(
-          { error: "Invalid coordinates configured" },
-          { status: 400 },
-        );
-      }
-      url = `${BASE_URL}/weather?lat=${latNum}&lon=${lonNum}&units=${units}&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
-    } else if (city) {
-      url = `${BASE_URL}/weather?q=${encodeURIComponent(city)}&units=${units}&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
-    } else {
-      return NextResponse.json(
-        { error: "Either lat/lon or city parameter required" },
-        { status: 400 }
-      );
-    }
-
-    const response = await fetch(url, {
-      next: { revalidate: 600 }, // Cache for 10 minutes
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
+    // Through lib/weather-provider so the assistant's /weather shares this
+    // request's cache entry (10 minutes) instead of paying for its own.
+    let data: OpenWeatherCurrent;
+    try {
+      data = await fetchOpenWeather<OpenWeatherCurrent>("weather", where.place, units, lang, apiKey);
+    } catch (err) {
+      if (err instanceof OpenWeatherError && err.status === 404) {
         return NextResponse.json(
           { error: "Location not found" },
           { status: 404 }
         );
       }
-      throw new Error(`OpenWeatherMap API error: ${response.status}`);
+      throw err;
     }
-
-    const data: OpenWeatherResponse = await response.json();
 
     // Transform to our format
     const weather = {

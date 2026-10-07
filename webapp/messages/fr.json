@@ -4945,7 +4945,7 @@
     "scopesHeading": "Il pourra…",
     "availableHeading": "Également disponible — {client} ne l'a pas demandé",
     "availableHint": "Kinboard a ajouté ces autorisations depuis la configuration de cet assistant. Cochez celles que vous voulez lui accorder.",
-    "scope_family_read": "Lire le résumé familial, le calendrier, les membres de la famille, les tâches, la liste de courses, les repas, les recettes, l’emploi du temps, les anniversaires, les soldes d’argent de poche, les points, les récompenses ainsi que l’espèce et le stade de chaque créature, les minuteurs, les comptes à rebours, les messages des écrans, les conseils et la corbeille",
+    "scope_family_read": "Lire le résumé familial, le calendrier, les membres de la famille, les tâches, la liste de courses, les repas, les recettes, l’emploi du temps, les anniversaires, les soldes d’argent de poche, les points, les récompenses ainsi que l’espèce et le stade de chaque créature, les minuteurs, les comptes à rebours, les messages des écrans, les conseils, les prévisions météo et la corbeille",
     "scope_notes_read": "Lire les notes",
     "scope_calendar_write": "Ajouter, modifier et supprimer des événements du calendrier et des comptes à rebours",
     "scope_tasks_write": "Ajouter, cocher, modifier et supprimer des tâches",

@@ -112,9 +112,9 @@ test("the pocket money scope needs the PIN, and names rewards too, in every lang
 // four it started with.
 test("the family read scope names everything it reads, in every language", () => {
   const names: Record<"en" | "de" | "fr", RegExp[]> = {
-    en: [/calendar/, /people/, /tasks/, /shopping list/, /meal plan/, /recipes/, /school timetable/, /birthdays/, /pocket money/, /points, rewards/, /species and stage/, /timers/, /countdowns/, /screen messages/, /attention hints/, /recycle bin/],
-    de: [/Kalender/, /Personen/, /Aufgaben/, /Einkaufsliste/, /Mahlzeiten/, /Rezepte/, /Stundenplan/, /Geburtstage/, /Taschengeld/, /Belohnungen/, /Art und Stufe/, /Timer/, /Countdowns/, /Nachrichten/, /Hinweise/, /Papierkorb/],
-    fr: [/calendrier/, /membres/, /tâches/, /courses/, /repas/, /recettes/, /emploi du temps/, /anniversaires/, /argent de poche/, /récompenses/, /espèce et le stade/, /minuteurs/, /comptes à rebours/, /messages/, /conseils/, /corbeille/],
+    en: [/calendar/, /people/, /tasks/, /shopping list/, /meal plan/, /recipes/, /school timetable/, /birthdays/, /pocket money/, /points, rewards/, /species and stage/, /timers/, /countdowns/, /screen messages/, /attention hints/, /weather forecast/, /recycle bin/],
+    de: [/Kalender/, /Personen/, /Aufgaben/, /Einkaufsliste/, /Mahlzeiten/, /Rezepte/, /Stundenplan/, /Geburtstage/, /Taschengeld/, /Belohnungen/, /Art und Stufe/, /Timer/, /Countdowns/, /Nachrichten/, /Hinweise/, /Wettervorhersage/, /Papierkorb/],
+    fr: [/calendrier/, /membres/, /tâches/, /courses/, /repas/, /recettes/, /emploi du temps/, /anniversaires/, /argent de poche/, /récompenses/, /espèce et le stade/, /minuteurs/, /comptes à rebours/, /messages/, /conseils/, /prévisions météo/, /corbeille/],
   };
   const dicts = { en, de, fr };
   for (const locale of ["en", "de", "fr"] as const) {

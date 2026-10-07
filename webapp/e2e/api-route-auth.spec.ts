@@ -326,3 +326,25 @@ test("the allowlist is the only thing keeping those routes out of the scan", () 
 
   expect(flagged.sort()).toEqual(Object.keys(PUBLIC_BY_DESIGN).sort());
 });
+
+test("every Integration API handler answers only through withIntegrationAuth", () => {
+  // The scan above reaches an Integration API route only when the route file
+  // itself names a privileged helper; most read through a lib and name none.
+  // Their boundary is the token, so check it directly: each exported handler
+  // is wrapped, one wrapper per handler, whatever the route reads.
+  const v1 = join(ROOT, "integration", "v1");
+  const files = routeFiles(v1);
+  const rels = files.map((f) => f.slice(v1.length + 1));
+  expect(rels.length).toBeGreaterThan(30);
+  // Listed so a rename cannot drop them from the walk unnoticed.
+  for (const rel of ["family/summary/route.ts", "birthdays/route.ts", "weather/route.ts"]) expect(rels).toContain(rel);
+
+  const unwrapped: string[] = [];
+  for (const file of files) {
+    const source = readFileSync(file, "utf8");
+    const handlers = source.match(/^export (async function|const) (GET|POST|PUT|PATCH|DELETE)\b/gm) ?? [];
+    const wrapped = source.match(/return withIntegrationAuth\(request,/g) ?? [];
+    if (handlers.length === 0 || handlers.length !== wrapped.length) unwrapped.push(file.slice(v1.length + 1));
+  }
+  expect(unwrapped).toEqual([]);
+});

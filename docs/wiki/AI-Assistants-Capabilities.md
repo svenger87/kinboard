@@ -297,6 +297,20 @@ See [Recycle bin](Recycle-Bin).
 
 See [Messages](Messages).
 
+## Weather
+
+| Tool | What it does | Permission | Notes |
+|---|---|---|---|
+| `get_weather_forecast` | The weather now, today's forecast in 3-hour steps, and each day for about five days ahead: lowest and highest temperature, the condition, and the chance of rain as a percentage (0% included). The same forecast the Weather widget shows | `family:read` | Reads. Always the place chosen under **Settings → Weather**, in the units chosen there; the assistant cannot ask about another town. Days are your family's days, in your time zone. Shares the widget's cached forecast instead of fetching a copy of its own |
+
+> "Will it rain on the school trip on Thursday?" · "Regnet es am Donnerstag beim Schulausflug?"
+>
+> "Do the kids need a jacket this afternoon?" · "Brauchen die Kinder heute Nachmittag eine Jacke?"
+
+If weather isn't set up yet (no location chosen, or no OpenWeatherMap key on
+the server), the assistant says so instead of guessing. See
+[OpenWeatherMap](OpenWeatherMap).
+
 ## Energy
 
 | Tool | What it does | Permission | Notes |
@@ -353,7 +367,7 @@ See [Vehicles](Vehicles).
 
 | Permission | Tools |
 |---|---|
-| `family:read` | `get_family_summary`, `get_next_birthday`, `list_calendar_events`, `search_calendar_events`, `list_writable_calendars`, `list_people`, `get_school_timetable`, `list_tasks`, `list_shopping_items`, `get_meal_plan`, `search_recipes`, `get_recipe`, `list_timers`, `list_birthdays`, `list_countdowns`, `list_pocket_money`, `get_rewards`, `list_deleted_items`, `list_screen_messages`, `list_attention_items` |
+| `family:read` | `get_family_summary`, `get_next_birthday`, `list_calendar_events`, `search_calendar_events`, `list_writable_calendars`, `list_people`, `get_school_timetable`, `list_tasks`, `list_shopping_items`, `get_meal_plan`, `search_recipes`, `get_recipe`, `list_timers`, `list_birthdays`, `list_countdowns`, `list_pocket_money`, `get_rewards`, `list_deleted_items`, `list_screen_messages`, `list_attention_items`, `get_weather_forecast` |
 | `notes:read` | `list_notes` |
 | `calendar:write` | `create_calendar_event`, `update_calendar_event`, `delete_calendar_event`, `add_countdown`, `delete_countdown` |
 | `tasks:write` | `create_task`, `complete_task`, `reopen_task`, `update_task`, `delete_task`, `restore_task`, `dismiss_attention_item` |

@@ -6,55 +6,18 @@ import {
   precipitationForDisplay,
 } from "@/lib/weather-units";
 import { LOCALES } from "@/i18n/locales";
-
-const OPENWEATHERMAP_API_KEY = process.env.OPENWEATHERMAP_API_KEY;
-const BASE_URL = process.env.OPENWEATHERMAP_BASE_URL || "https://api.openweathermap.org/data/2.5";
-
-interface ForecastItem {
-  dt: number;
-  main: {
-    temp: number;
-    feels_like: number;
-    temp_min: number;
-    temp_max: number;
-    humidity: number;
-  };
-  weather: Array<{
-    id: number;
-    main: string;
-    description: string;
-    icon: string;
-  }>;
-  wind: {
-    speed: number;
-  };
-  pop: number; // Probability of precipitation
-  rain?: { "3h": number };
-  snow?: { "3h": number };
-  dt_txt: string;
-}
-
-interface OpenWeatherForecastResponse {
-  list: ForecastItem[];
-  city: {
-    name: string;
-    coord: {
-      lat: number;
-      lon: number;
-    };
-    timezone: number;
-  };
-}
-
-const CONDITION_LABELS: Record<string, Record<string, string>> = {
-  de: { Clear: "Klar", Clouds: "Bewölkt", Rain: "Regen", Drizzle: "Nieselregen", Thunderstorm: "Gewitter", Snow: "Schnee", Mist: "Nebel", Fog: "Nebel", Haze: "Dunst" },
-  en: { Clear: "Clear", Clouds: "Cloudy", Rain: "Rain", Drizzle: "Drizzle", Thunderstorm: "Thunderstorm", Snow: "Snow", Mist: "Mist", Fog: "Fog", Haze: "Haze" },
-  fr: { Clear: "Dégagé", Clouds: "Nuageux", Rain: "Pluie", Drizzle: "Bruine", Thunderstorm: "Orage", Snow: "Neige", Mist: "Brume", Fog: "Brouillard", Haze: "Brume sèche" },
-};
-
-function mapCondition(weatherMain: string, lang: string): string {
-  return CONDITION_LABELS[lang]?.[weatherMain] ?? CONDITION_LABELS.de[weatherMain] ?? weatherMain;
-}
+import {
+  dayRainChance,
+  fetchOpenWeather,
+  groupForecastByDay,
+  mapCondition,
+  middayItem,
+  openWeatherApiKey,
+  OpenWeatherError,
+  placeFrom,
+  weatherLang,
+  type OpenWeatherForecast,
+} from "@/lib/weather-provider";
 
 // No default locale: every caller passes one, and a default of "de-DE" meant a
 // missing parameter silently produced German day names for everybody.
@@ -76,74 +39,45 @@ export async function GET(request: NextRequest) {
   const lat = searchParams.get("lat");
   const lon = searchParams.get("lon");
   const city = searchParams.get("city");
-  const rawLang = searchParams.get("lang") || "en";
-  const lang = ["de", "en", "fr"].includes(rawLang) ? rawLang : "en";
+  const lang = weatherLang(searchParams.get("lang"));
   const units = toUnitSystem(searchParams.get("units"));
+  const apiKey = openWeatherApiKey();
 
-  if (!OPENWEATHERMAP_API_KEY) {
+  if (!apiKey) {
     return NextResponse.json({ configured: false }, { status: 200 });
   }
 
+  const where = placeFrom(lat, lon, city);
+  if (!where.ok) {
+    return where.reason === "invalid_coordinates"
+      ? NextResponse.json({ error: "Invalid coordinates configured" }, { status: 400 })
+      : NextResponse.json({ error: "Either lat/lon or city parameter required" }, { status: 400 });
+  }
+
   try {
-    let url: string;
-
-    if (lat && lon) {
-      // Parsed to numbers rather than interpolated as strings: these come
-      // from a settings row, and a value containing `&` would otherwise
-      // append parameters of its own to the upstream request. The city
-      // branch below has always been encoded; this one was not.
-      const latNum = Number(lat);
-      const lonNum = Number(lon);
-      if (!Number.isFinite(latNum) || !Number.isFinite(lonNum) ||
-          latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) {
-        return NextResponse.json(
-          { error: "Invalid coordinates configured" },
-          { status: 400 },
-        );
-      }
-      url = `${BASE_URL}/forecast?lat=${latNum}&lon=${lonNum}&units=${units}&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
-    } else if (city) {
-      url = `${BASE_URL}/forecast?q=${encodeURIComponent(city)}&units=${units}&lang=${lang}&appid=${OPENWEATHERMAP_API_KEY}`;
-    } else {
-      return NextResponse.json(
-        { error: "Either lat/lon or city parameter required" },
-        { status: 400 }
-      );
-    }
-
-    const response = await fetch(url, {
-      next: { revalidate: 1800 }, // Cache for 30 minutes
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
+    // Through lib/weather-provider so the assistant's /weather shares this
+    // request's cache entry (30 minutes) instead of paying for its own.
+    let data: OpenWeatherForecast;
+    try {
+      data = await fetchOpenWeather<OpenWeatherForecast>("forecast", where.place, units, lang, apiKey);
+    } catch (err) {
+      if (err instanceof OpenWeatherError && err.status === 404) {
         return NextResponse.json(
           { error: "Location not found" },
           { status: 404 }
         );
       }
-      throw new Error(`OpenWeatherMap API error: ${response.status}`);
+      throw err;
     }
-
-    const data: OpenWeatherForecastResponse = await response.json();
 
     // Seconds east of UTC for the forecast location.
     const tzOffset = data.city.timezone ?? 0;
 
     // Group forecasts by the day they fall on *where the weather is*.
-    const dailyForecasts: Record<string, ForecastItem[]> = {};
-
-    for (const item of data.list) {
-      const dateKey = localDateKey(item.dt, tzOffset);
-
-      if (!dailyForecasts[dateKey]) {
-        dailyForecasts[dateKey] = [];
-      }
-      dailyForecasts[dateKey].push(item);
-    }
+    const dailyForecasts = groupForecastByDay(data.list, (dt) => localDateKey(dt, tzOffset));
 
     // Process each day to get summary
-    const days = Object.entries(dailyForecasts).map(([dateKey, items]) => {
+    const days = dailyForecasts.map(([dateKey, items]) => {
       // `dateKey` is a bare YYYY-MM-DD, which parses as UTC midnight —
       // hence the UTC timeZone in getDayName, or a browser west of
       // Greenwich would name the previous day.
@@ -152,17 +86,13 @@ export async function GET(request: NextRequest) {
       const maxTemp = Math.round(Math.max(...temps));
       const minTemp = Math.round(Math.min(...temps));
 
-      // Get most common weather condition (prefer midday)
-      const middayItem = items.find(i => {
-        // getUTCHours on the shifted instant = the hour where the weather
-        // is. getHours() read the container's zone, so the "midday" icon
-        // for a distant city came from the middle of its night.
-        const hour = localHour(i.dt, tzOffset);
-        return hour >= 11 && hour <= 14;
-      }) || items[Math.floor(items.length / 2)];
+      // Get most common weather condition (prefer midday). The hour is the
+      // one where the weather is: getHours() read the container's zone, so
+      // the "midday" icon for a distant city came from the middle of its night.
+      const midday = middayItem(items, (dt) => localHour(dt, tzOffset));
 
       // Calculate max precipitation probability
-      const maxPop = Math.round(Math.max(...items.map(i => i.pop)) * 100);
+      const maxPop = dayRainChance(items);
 
       // Calculate total precipitation
       const totalRain = items.reduce((sum, i) => sum + (i.rain?.["3h"] || 0), 0);
@@ -173,9 +103,9 @@ export async function GET(request: NextRequest) {
         dayName: getDayName(date, bcp47ForLang(lang)),
         tempMax: maxTemp,
         tempMin: minTemp,
-        condition: mapCondition(middayItem.weather[0].main, lang),
-        conditionMain: middayItem.weather[0].main,
-        conditionIcon: middayItem.weather[0].icon,
+        condition: mapCondition(midday.weather[0].main, lang),
+        conditionMain: midday.weather[0].main,
+        conditionIcon: midday.weather[0].icon,
         humidity: Math.round(items.reduce((sum, i) => sum + i.main.humidity, 0) / items.length),
         windSpeed: windSpeedForDisplay(
           items.reduce((sum, i) => sum + i.wind.speed, 0) / items.length,
