@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AlertCircle, RefreshCw, Home } from "lucide-react";
 import Link from "next/link";
+import {
+  isChunkLoadError,
+  noteStaleBundleRetry,
+  recoverFromStaleBundle,
+  staleBundleRetryDelayMs,
+} from "@/lib/stale-bundle";
 
 /**
  * Kinboard's main job is an always-on wall display that nobody stands in
@@ -35,7 +41,10 @@ let lastAutoRetryAt = 0;
 const RETRY_BUDGET_RESET_MS = 15 * 60_000;
 
 /** Delay before the next automatic retry, or `null` once the budget is spent. */
-function nextRetryDelayMs(): number | null {
+function nextRetryDelayMs(chunkError: boolean): number | null {
+  // A chunk error retries with a full reload, which would start the
+  // module-scope count from zero; its budget is kept across reloads instead.
+  if (chunkError) return staleBundleRetryDelayMs(AUTO_RETRY_DELAYS_MS, RETRY_BUDGET_RESET_MS);
   if (Date.now() - lastAutoRetryAt > RETRY_BUDGET_RESET_MS) autoRetryCount = 0;
   return AUTO_RETRY_DELAYS_MS[autoRetryCount] ?? null;
 }
@@ -52,23 +61,43 @@ export default function Error({
     console.error("App error:", error);
   }, [error]);
 
+  /*
+    A chunk that failed to load means this page is running a build the
+    server no longer has (#383). `reset()` re-renders with the same old
+    bundle, which asks for the same missing file and fails again — and so
+    does a client-side <Link>. Only a full document load gets the new build,
+    so reload straight away, and say so calmly rather than show the raw
+    "Failed to load chunk /_next/…" text.
+
+    If the reload is refused — another chunk error within a minute of the
+    last one, so the new build itself is likely broken — fall back to the
+    countdown, but every way out is still a full load.
+  */
+  const chunkError = isChunkLoadError(error);
+  const [reloading, setReloading] = useState(chunkError);
+  useEffect(() => {
+    if (chunkError && !recoverFromStaleBundle()) setReloading(false);
+  }, [chunkError]);
+  const retry = chunkError ? () => window.location.reload() : reset;
+
   // `null` once the budget is spent — the countdown line then says so
   // instead of pretending something is still going to happen. Seeded from
   // the same helper the effect uses, so the very first paint already shows
   // the real countdown rather than a flash of "gave up".
   const [secondsLeft, setSecondsLeft] = useState<number | null>(() => {
-    const delay = nextRetryDelayMs();
+    const delay = nextRetryDelayMs(chunkError);
     return delay === null ? null : Math.round(delay / 1000);
   });
 
   // Held in a ref so the per-second countdown re-render can't restart the
   // timer: if `reset` ever changed identity between renders, an effect that
   // depended on it would reschedule every tick and never actually fire.
-  const resetRef = useRef(reset);
-  resetRef.current = reset;
+  const resetRef = useRef(retry);
+  resetRef.current = retry;
 
   useEffect(() => {
-    const delay = nextRetryDelayMs();
+    if (reloading) return;
+    const delay = nextRetryDelayMs(chunkError);
     if (delay === null) {
       setSecondsLeft(null);
       return;
@@ -78,8 +107,12 @@ export default function Error({
       setSecondsLeft((s) => (s !== null && s > 0 ? s - 1 : 0));
     }, 1000);
     const timer = setTimeout(() => {
-      autoRetryCount += 1;
-      lastAutoRetryAt = Date.now();
+      if (chunkError) {
+        noteStaleBundleRetry(RETRY_BUDGET_RESET_MS);
+      } else {
+        autoRetryCount += 1;
+        lastAutoRetryAt = Date.now();
+      }
       resetRef.current();
     }, delay);
 
@@ -87,7 +120,18 @@ export default function Error({
       clearInterval(tick);
       clearTimeout(timer);
     };
-  }, []);
+  }, [reloading, chunkError]);
+
+  if (reloading) {
+    return (
+      <div className="min-h-page flex items-center justify-center p-4">
+        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
+          <RefreshCw className="size-4 animate-spin" />
+          {t("newVersion")}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-page flex items-center justify-center p-4 relative overflow-hidden">
@@ -116,7 +160,7 @@ export default function Error({
             {t("title")}
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
-            {error.message || t("fallback")}
+            {chunkError ? t("newVersionBroken") : error.message || t("fallback")}
           </p>
 
           {/* Quiet, but never silent: an unattended panel reloading itself
@@ -128,15 +172,26 @@ export default function Error({
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button onClick={reset} className="gap-2">
+            <Button onClick={retry} className="gap-2">
               <RefreshCw className="size-4" />
               {t("retry")}
             </Button>
             <Button variant="outline" className="gap-2" asChild>
-              <Link href="/">
-                <Home className="size-4" />
-                {t("home")}
-              </Link>
+              {chunkError ? (
+                // A plain anchor on purpose: a full load is the only thing
+                // that gets past a stale bundle; <Link> would ask the old
+                // bundle for the same missing chunk.
+                // eslint-disable-next-line @next/next/no-html-link-for-pages
+                <a href="/">
+                  <Home className="size-4" />
+                  {t("home")}
+                </a>
+              ) : (
+                <Link href="/">
+                  <Home className="size-4" />
+                  {t("home")}
+                </Link>
+              )}
             </Button>
           </div>
         </Card>

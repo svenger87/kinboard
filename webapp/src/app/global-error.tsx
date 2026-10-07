@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  isChunkLoadError,
+  noteStaleBundleRetry,
+  recoverFromStaleBundle,
+  staleBundleRetryDelayMs,
+} from "@/lib/stale-bundle";
 
 /**
  * This page replaces the root layout when rendering fails there, so there is
@@ -10,7 +16,7 @@ import { useEffect, useRef, useState } from "react";
  * at the one moment nothing else on screen could explain itself.
  *
  * A three-language table inline is the whole fix. It stays in step with
- * messages/*.json by being tiny: six strings and a single `{seconds}`
+ * messages/*.json by being tiny: eight strings and a single `{seconds}`
  * placeholder, substituted by hand — there is no ICU formatter here either.
  */
 const STRINGS = {
@@ -21,6 +27,8 @@ const STRINGS = {
     home: "Go to dashboard",
     autoRetry: "Retrying automatically in {seconds}s…",
     autoRetryExhausted: "Automatic retries stopped.",
+    newVersion: "A new version is available — reloading…",
+    newVersionBroken: "The new version didn't load properly.",
   },
   de: {
     heading: "Kritischer Fehler",
@@ -29,6 +37,8 @@ const STRINGS = {
     home: "Zum Dashboard",
     autoRetry: "Automatischer Neuversuch in {seconds}s…",
     autoRetryExhausted: "Automatische Neuversuche beendet.",
+    newVersion: "Eine neue Version ist da – wird neu geladen…",
+    newVersionBroken: "Die neue Version wurde nicht richtig geladen.",
   },
   fr: {
     heading: "Une erreur grave est survenue",
@@ -37,6 +47,8 @@ const STRINGS = {
     home: "Aller au tableau de bord",
     autoRetry: "Nouvelle tentative automatique dans {seconds} s…",
     autoRetryExhausted: "Tentatives automatiques arrêtées.",
+    newVersion: "Une nouvelle version est disponible — rechargement…",
+    newVersionBroken: "La nouvelle version ne s'est pas chargée correctement.",
   },
 } as const;
 
@@ -63,7 +75,10 @@ let autoRetryCount = 0;
 let lastAutoRetryAt = 0;
 
 /** Delay before the next automatic retry, or `null` once the budget is spent. */
-function nextRetryDelayMs(): number | null {
+function nextRetryDelayMs(chunkError: boolean): number | null {
+  // A chunk error retries with a full reload, which would start the
+  // module-scope count from zero; its budget is kept across reloads instead.
+  if (chunkError) return staleBundleRetryDelayMs(AUTO_RETRY_DELAYS_MS, RETRY_BUDGET_RESET_MS);
   if (Date.now() - lastAutoRetryAt > RETRY_BUDGET_RESET_MS) autoRetryCount = 0;
   return AUTO_RETRY_DELAYS_MS[autoRetryCount] ?? null;
 }
@@ -110,10 +125,24 @@ export default function GlobalError({
   useEffect(() => setLocale(detectLocale()), []);
   const t = STRINGS[locale];
 
+  /*
+    A chunk that failed to load means this page runs a build the server no
+    longer has (#383). `reset()` would re-render the same old bundle into the
+    same missing file, so reload straight away instead, and say so calmly.
+    If that reload is refused (another chunk error within a minute — the new
+    build is likely broken), fall back to the countdown, with full loads only.
+  */
+  const chunkError = isChunkLoadError(error);
+  const [reloading, setReloading] = useState(chunkError);
+  useEffect(() => {
+    if (chunkError && !recoverFromStaleBundle()) setReloading(false);
+  }, [chunkError]);
+  const retry = chunkError ? () => window.location.reload() : reset;
+
   // Seeded from the same helper the timer effect uses, so the first paint
   // already shows the real countdown instead of flashing "retries stopped".
   const [secondsLeft, setSecondsLeft] = useState<number | null>(() => {
-    const delay = nextRetryDelayMs();
+    const delay = nextRetryDelayMs(chunkError);
     return delay === null ? null : Math.round(delay / 1000);
   });
 
@@ -121,11 +150,12 @@ export default function GlobalError({
   // effect that depended on `reset` directly would reschedule its timer on
   // every one of those renders if the identity ever changed — so it would
   // never actually fire.
-  const resetRef = useRef(reset);
-  resetRef.current = reset;
+  const resetRef = useRef(retry);
+  resetRef.current = retry;
 
   useEffect(() => {
-    const delay = nextRetryDelayMs();
+    if (reloading) return;
+    const delay = nextRetryDelayMs(chunkError);
     if (delay === null) {
       setSecondsLeft(null);
       return;
@@ -135,8 +165,12 @@ export default function GlobalError({
       setSecondsLeft((s) => (s !== null && s > 0 ? s - 1 : 0));
     }, 1000);
     const timer = setTimeout(() => {
-      autoRetryCount += 1;
-      lastAutoRetryAt = Date.now();
+      if (chunkError) {
+        noteStaleBundleRetry(RETRY_BUDGET_RESET_MS);
+      } else {
+        autoRetryCount += 1;
+        lastAutoRetryAt = Date.now();
+      }
       resetRef.current();
     }, delay);
 
@@ -144,7 +178,32 @@ export default function GlobalError({
       clearInterval(tick);
       clearTimeout(timer);
     };
-  }, []);
+  }, [reloading, chunkError]);
+
+  if (reloading) {
+    return (
+      <html lang={locale}>
+        <body>
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              minHeight: "100vh",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#0a0a0a",
+              color: "#a1a1aa",
+              fontFamily: "system-ui, -apple-system, sans-serif",
+              fontSize: "0.875rem",
+            }}
+          >
+            {t.newVersion}
+          </div>
+        </body>
+      </html>
+    );
+  }
 
   return (
     <html lang={locale}>
@@ -184,7 +243,7 @@ export default function GlobalError({
               {t.heading}
             </h2>
             <p style={{ color: "#71717a", marginBottom: "1rem", fontSize: "0.875rem", lineHeight: 1.6 }}>
-              {error.message || t.fallback}
+              {chunkError ? t.newVersionBroken : error.message || t.fallback}
             </p>
             {/* Quiet, but never silent — a panel that reloads itself out of
                 nowhere is baffling to whoever does eventually look at it. */}
@@ -198,7 +257,7 @@ export default function GlobalError({
             </p>
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
               <button
-                onClick={reset}
+                onClick={retry}
                 style={{
                   padding: "0.625rem 1.25rem",
                   backgroundColor: "#3b82f6",

@@ -34,7 +34,9 @@
       "title": "Something went wrong",
       "fallback": "An unexpected error occurred.",
       "retry": "Try again",
-      "home": "Go to dashboard"
+      "home": "Go to dashboard",
+      "newVersion": "A new version is available — reloading…",
+      "newVersionBroken": "The new version didn't load properly."
     },
     "notFound": {
       "title": "Page not found",

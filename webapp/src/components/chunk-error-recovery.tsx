@@ -1,52 +1,28 @@
 "use client";
 
 import { useEffect } from "react";
+import { isChunkLoadError, recoverFromStaleBundle } from "@/lib/stale-bundle";
 
-// Auto-reload once when the browser hits a stale-bundle chunk error,
-// which happens when:
-//   - the webapp container was recreated (Watchtower auto-update,
-//     manual `start.sh up`, or release deploy) while a tab held the
-//     old build's bootstrap.js
-//   - the user clicks a route whose JS chunk was renamed by the new
-//     build, so the old bootstrap requests a chunk that doesn't exist
-//     in the new container (-> 404 -> ChunkLoadError)
+// Reload onto the new build when a page still running the old one hits a
+// chunk that no longer exists — after the webapp was recreated (a release,
+// Diun's self-update, `start.sh up`) while this page held the old bundle.
 //
-// Without this, the user sees a cryptic console error and broken
-// navigation. With it, they see a brief flash + a fresh load on the
-// new build. The sessionStorage guard prevents reload loops if the
-// reload itself produces a chunk error (would mean the deploy is
-// genuinely broken, in which case looping makes it worse).
-
-const RELOADED_KEY = "kinboard-chunk-reloaded-once";
-
-const CHUNK_ERROR_PATTERNS = [
-  /ChunkLoadError/i,
-  /Loading chunk \d+ failed/i,
-  /Loading CSS chunk \d+ failed/i,
-  /Failed to fetch dynamically imported module/i,
-  /error loading dynamically imported module/i,
-];
-
-function looksLikeChunkError(message: unknown): boolean {
-  if (typeof message !== "string") {
-    if (message instanceof Error) message = message.message;
-    else return false;
-  }
-  return CHUNK_ERROR_PATTERNS.some((p) => p.test(message as string));
-}
+// This catches the chunk errors nothing else did: a failed dynamic import
+// outside rendering, a rejected promise. A chunk error during navigation is
+// caught by the App Router error boundaries (error.tsx, global-error.tsx)
+// and never reaches these listeners — they call the same recovery
+// themselves. See src/lib/stale-bundle.ts for the guard against loops.
 
 export function ChunkErrorRecovery() {
   useEffect(() => {
     const onError = (event: ErrorEvent) => {
-      if (looksLikeChunkError(event.error?.message ?? event.message)) {
-        recoverOnce();
+      if (isChunkLoadError(event.error) || isChunkLoadError(event.message)) {
+        recoverFromStaleBundle();
       }
     };
     const onUnhandled = (event: PromiseRejectionEvent) => {
-      const reason = event.reason as { message?: string } | string | undefined;
-      const msg = typeof reason === "string" ? reason : reason?.message;
-      if (looksLikeChunkError(msg)) {
-        recoverOnce();
+      if (isChunkLoadError(event.reason)) {
+        recoverFromStaleBundle();
       }
     };
     window.addEventListener("error", onError);
@@ -57,22 +33,4 @@ export function ChunkErrorRecovery() {
     };
   }, []);
   return null;
-}
-
-function recoverOnce() {
-  try {
-    if (sessionStorage.getItem(RELOADED_KEY)) return;
-    sessionStorage.setItem(RELOADED_KEY, "1");
-  } catch {
-    // sessionStorage blocked — proceed anyway; one reload is still
-    // better than a frozen UI.
-  }
-  // Clear the SW caches so the reload picks up the new chunks instead
-  // of bouncing off the same stale ones from the cache.
-  if (typeof caches !== "undefined") {
-    caches.keys().then((names) => Promise.all(names.map((n) => caches.delete(n))))
-      .finally(() => window.location.reload());
-  } else {
-    window.location.reload();
-  }
 }

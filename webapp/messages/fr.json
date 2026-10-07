@@ -34,7 +34,9 @@
       "title": "Une erreur s'est produite",
       "fallback": "Une erreur inattendue s'est produite.",
       "retry": "Réessayer",
-      "home": "Aller au tableau de bord"
+      "home": "Aller au tableau de bord",
+      "newVersion": "Une nouvelle version est disponible — rechargement…",
+      "newVersionBroken": "La nouvelle version ne s'est pas chargée correctement."
     },
     "notFound": {
       "title": "Page non trouvée",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { reloadOntoWaitingWorker } from "@/lib/stale-bundle";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -69,26 +70,9 @@ export function useServiceWorker() {
       return;
     }
 
-    // Reload once the new worker is actually in control. Reloading
-    // immediately after posting the message races activation, and a page
-    // that reloads too early is served by the OLD worker and comes back
-    // on the old build — the update appearing not to have worked.
-    navigator.serviceWorker.addEventListener(
-      "controllerchange",
-      () => window.location.reload(),
-      { once: true },
-    );
-
-    // If activation never completes, fall back rather than leaving the
-    // user staring at a button that did something invisible.
-    const fallback = window.setTimeout(() => window.location.reload(), 3000);
-    navigator.serviceWorker.addEventListener(
-      "controllerchange",
-      () => window.clearTimeout(fallback),
-      { once: true },
-    );
-
-    waiting.postMessage("skipWaiting");
+    // Reload once the new worker is actually in control, with a fallback if
+    // activation never completes (shared with the stale-bundle recovery).
+    reloadOntoWaitingWorker(waiting);
   }, [registration]);
 
   return { isRegistered, isUpdateAvailable, updateServiceWorker };

@@ -34,7 +34,9 @@
       "title": "Etwas ist schiefgelaufen",
       "fallback": "Ein unerwarteter Fehler ist aufgetreten.",
       "retry": "Erneut versuchen",
-      "home": "Zum Dashboard"
+      "home": "Zum Dashboard",
+      "newVersion": "Eine neue Version ist da – wird neu geladen…",
+      "newVersionBroken": "Die neue Version wurde nicht richtig geladen."
     },
     "notFound": {
       "title": "Seite nicht gefunden",
