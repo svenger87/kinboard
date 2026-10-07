@@ -16,7 +16,7 @@ interface Props {
   picked: AvatarSpecies | null;
   onPick: (species: AvatarSpecies) => void;
   /**
-   * The child's avatar_style, when there is a child already: every preview
+   * The creature's style, when there is a child already: every preview
    * is drawn in it (CreatureAvatar falls back per species). Left out at
    * setup, where each species shows its Gumdrop drawing, or its classic
    * pictures if it has no drawing.

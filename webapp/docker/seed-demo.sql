@@ -597,12 +597,27 @@ FROM generate_series(1, 42) AS i;
 -- different avatar tiers, which is what makes the progression legible.
 INSERT INTO public.pocket_money_accounts
     (family_id, person_id, currency, balance_cents, apr_bps, weekly_allowance_cents,
-     allowance_day_of_week, avatar_species, lifetime_saved_cents, last_seen_tier, best_tier)
+     allowance_day_of_week, lifetime_saved_cents)
 VALUES
     ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a3',
-     'EUR', 2480, 300, 500, 6, 'dragon', 7300, 4, 4),
+     'EUR', 2480, 300, 500, 6, 7300),
     ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a4',
-     'EUR', 640, 300, 300, 6, 'turtle', 1900, 2, 2);
+     'EUR', 640, 300, 300, 6, 1900);
+
+-- Their creatures (RFC-017): a dragon and a turtle growing with the money
+-- above, at the stages the demo has always shown. They lived on the account until
+-- 1.13, and the columns are gone since (migration_zzzzzzzz_pocket_money_
+-- creatures_out_zz_drop.sql); an older box without the table gets the
+-- classic dragon its account columns default to.
+DO $seed$
+BEGIN
+  IF to_regclass('public.creatures') IS NOT NULL THEN
+    INSERT INTO public.creatures (person_id, family_id, species, best_tier, last_seen_tier, grows_with) VALUES
+      ('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-000000000001', 'dragon', 4, 4, 'money'),
+      ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-000000000001', 'turtle', 2, 2, 'money')
+    ON CONFLICT (person_id) DO NOTHING;
+  END IF;
+END $seed$;
 
 -- =========================================================================
 -- Everything shipped since this seed was first written

@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { request as pwRequest, type APIRequestContext } from "@playwright/test";
 import { postJoin } from "./session";
 import { psql, psqlRow, sqlText } from "./helpers/assistant-connect";
+import { codeOnly } from "./source-helpers";
 
 /**
  * Approving or denying a pocket-money withdrawal, and every parental
@@ -146,19 +147,17 @@ test("the kid-side allowlist names routes that exist", () => {
   expect(stale).toEqual([]);
 });
 
-test("the account PATCH gates the money settings, and forwards the creature's old fields under the creature's rules", () => {
-  // Until RFC-017 the account carried the creature too. For one release it
-  // still takes those fields from a screen on the previous bundle, renames
-  // them and hands them to applyCreaturePatch: one PIN check covers both
-  // halves, before either is written.
-  const source = readFileSync(join(API, "pocket-money/accounts/[id]/route.ts"), "utf8");
-  const moved = source.slice(source.indexOf("MOVED_TO_CREATURES: Record"), source.indexOf("};", source.indexOf("MOVED_TO_CREATURES: Record")));
-  for (const [old, now] of [["avatar_species", "species"], ["avatar_style", "style"], ["avatar_look", "look"], ["best_tier", "best_tier"], ["last_seen_tier", "last_seen_tier"], ["reward_mode", "grows_with"]]) {
-    expect(moved, old).toContain(`${old}: "${now}"`);
+test("the account PATCH gates the money settings, and no longer takes the creature's old fields", () => {
+  // Until RFC-017 the account carried the creature too, and for one release
+  // (1.13) this PATCH still forwarded those fields to the creature. The
+  // columns are gone now (RFC-017 step 5), and so is the forwarding: the
+  // creature is written through /api/creatures/[personId] only.
+  const source = codeOnly(readFileSync(join(API, "pocket-money/accounts/[id]/route.ts"), "utf8"));
+  expect(source).toMatch(/if \(PIN_PROTECTED_FIELDS\.some\(\(field\) => body\[field\] !== undefined\)\) \{\s*const locked = await requireSettingsUnlock/);
+  expect(source).not.toMatch(/MOVED_TO_CREATURES|applyCreaturePatch|parseCreaturePatch/);
+  for (const old of ["avatar_species", "avatar_style", "avatar_look", "best_tier", "last_seen_tier", "reward_mode"]) {
+    expect(source, old).not.toContain(old);
   }
-  expect(source).toMatch(/PIN_PROTECTED_FIELDS\.some\(.*\) \|\| \(creature\?\.ok && creature\.parental\)\) \{\s*const locked = await requireSettingsUnlock/);
-  expect(source.indexOf("requireSettingsUnlock(auth.session)")).toBeLessThan(source.indexOf("applyCreaturePatch({"));
-  expect(source).toMatch(/REMOVE in the release after RFC-017 step 1/);
 });
 
 test("the shop: buying is the child's, a refund is the parent's and checks the PIN before anything moves", () => {
@@ -347,34 +346,19 @@ test.describe("live: the decide route 403s a device that never entered the PIN",
     psql(`DELETE FROM todo_point_awards WHERE completion_key = 'claude-pin-stage'`);
   });
 
-  test("the old account PATCH forwards the creature's fields for one release, under the creature's rules", async () => {
+  test("the old account PATCH no longer takes the creature's fields: nothing is written, the creature is untouched", async () => {
     lock();
-    // kid-side: the style, no PIN
-    const style = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_style: "storybook" } });
-    expect(style.status(), await style.text()).toBe(200);
-    expect((await style.json()).account.id).toBe(accountId);
-    expect(creature("style")).toBe("storybook");
-    // the stage, clamped like the new route
-    const stage = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, best_tier: 8 } });
-    expect(stage.status(), await stage.text()).toBe(200);
-    expect(Number(creature("best_tier"))).toBeLessThan(8);
-    // parental: the species and the mode need the PIN, and a look sent with them is not written either
-    const before = creature("species || '|' || grows_with || '|' || look::text");
-    for (const data of [{ avatar_species: "cat", avatar_look: { body: "#56B6E8" } }, { reward_mode: "money" }]) {
+    const before = creature("species || '|' || style || '|' || grows_with || '|' || best_tier || '|' || look::text");
+    for (const data of [{ avatar_style: "storybook" }, { best_tier: 8 }, { avatar_species: "cat", avatar_look: { body: "#56B6E8" } }, { reward_mode: "money" }]) {
       const res = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, ...data } });
-      expect(res.status(), `${JSON.stringify(data)}: ${await res.text()}`).toBe(403);
+      expect(res.status(), `${JSON.stringify(data)}: ${await res.text()}`).toBe(400);
     }
-    expect(creature("species || '|' || grows_with || '|' || look::text")).toBe(before);
-    // nothing outside the editor's sets
-    const bogus = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_style: "neon" } });
-    expect(bogus.status(), await bogus.text()).toBe(400);
-    // with the PIN, the species goes to the creature; the account column stays as it was
     await unlock();
     const species = await api.patch(`/api/pocket-money/accounts/${accountId}`, { data: { family_id: famId, avatar_species: "cat" } });
-    expect(species.status(), await species.text()).toBe(200);
-    expect(creature("species")).toBe("cat");
-    expect(psql(`SELECT avatar_species || '|' || avatar_style FROM pocket_money_accounts WHERE id = '${accountId}'`)).toBe("dragon|classic");
-    expect((await api.patch(`/api/creatures/${childId}`, { data: { species: "dragon", style: "sticker" } })).status()).toBe(200);
+    expect(species.status(), await species.text()).toBe(400);
+    expect(creature("species || '|' || style || '|' || grows_with || '|' || best_tier || '|' || look::text")).toBe(before);
+    expect(psql(`SELECT count(*) FROM information_schema.columns WHERE table_name = 'pocket_money_accounts'
+      AND column_name IN ('avatar_species', 'avatar_style', 'avatar_look', 'best_tier', 'last_seen_tier', 'reward_mode')`)).toBe("0");
   });
 
   test("the old reward paths forward for one release", async () => {

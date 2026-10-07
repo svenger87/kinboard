@@ -21,17 +21,26 @@ import {
  * points where reward_mode was 'points' and with money otherwise -- the
  * classic dragon nobody ever touched included, since the child has one today.
  * A child with no account gets none. It runs once, with the table: a second
- * boot creates nothing, and a creature already there is never touched.
+ * boot creates nothing, and a creature already there is never touched. The
+ * account columns it reads are dropped right after it, by
+ * migration_zzzzzzzz_pocket_money_creatures_out_zz_drop.sql (RFC-017 step 5).
  *
- * The live part runs in one psql session inside BEGIN ... ROLLBACK: drop the
- * table and the new column, seed a family, apply the migration twice, probe,
- * roll everything back.
+ * The live part runs in one psql session inside BEGIN ... ROLLBACK: put back
+ * rc.13's schema (no creatures, the account columns, no person on a request),
+ * seed a family, apply this migration and the drop twice, probe, roll
+ * everything back.
  */
 
 const FILE = "migration_zzzzzzzz_pocket_money_creatures_out.sql";
 const DIR = join(process.cwd(), "docker");
 const MIGRATION = readFileSync(join(DIR, FILE), "utf8");
+const DROP = readFileSync(join(DIR, "migration_zzzzzzzz_pocket_money_creatures_out_zz_drop.sql"), "utf8");
 const SQL = codeOnly(MIGRATION, { sql: true });
+/** The statement that creates the table, and the backfill in it. */
+const CREATE = (() => {
+  const at = SQL.indexOf("IF to_regclass('public.creatures') IS NULL THEN\n    CREATE TABLE");
+  return SQL.slice(at, SQL.indexOf("END IF;", at));
+})();
 
 test.describe("the file", () => {
   test("sorts after what it copies and before the pocket-money revoke", () => {
@@ -49,19 +58,18 @@ test.describe("the file", () => {
   });
 
   test("the backfill runs only in the statement that creates the table", () => {
-    const block = SQL.slice(SQL.indexOf("IF to_regclass('public.creatures') IS NULL THEN\n    CREATE TABLE"));
-    const end = block.indexOf("END IF;");
-    expect(block.slice(0, end)).toContain("PERFORM public.creatures_from_accounts(NULL);");
-    // and nowhere else
-    expect(SQL.match(/creatures_from_accounts\(NULL\)/g)).toHaveLength(1);
+    expect(CREATE).toContain("CREATE TABLE public.creatures");
+    expect(CREATE).toContain("INSERT INTO public.creatures");
+    // and nowhere else: no function a later boot or an import could call
+    expect(SQL.match(/INSERT INTO public\.creatures/g)).toHaveLength(1);
+    expect(SQL).not.toContain("creatures_from_accounts");
   });
 
   test("the backfill's rule: every account, points mode grows with points, the rest with money", () => {
-    const fn = SQL.slice(SQL.indexOf("FUNCTION public.creatures_from_accounts("), SQL.indexOf("DO $$"));
-    expect(fn).toContain("CASE WHEN a.reward_mode = 'points' THEN 'points' ELSE 'money' END");
-    expect(fn).toContain("FROM public.pocket_money_accounts a");
-    expect(fn).toMatch(/NOT EXISTS \(SELECT 1 FROM public\.creatures c WHERE c\.person_id = a\.person_id\)/);
-    expect(fn).not.toMatch(/ON CONFLICT/);
+    expect(CREATE).toContain("CASE WHEN a.reward_mode = 'points' THEN 'points' ELSE 'money' END");
+    expect(CREATE).toContain("FROM public.pocket_money_accounts a");
+    expect(CREATE).toContain("LEAST(8, GREATEST(1, COALESCE(a.best_tier, 1)))");
+    expect(CREATE).not.toMatch(/ON CONFLICT/);
   });
 
   test("the fill-keys trigger exists before the backfill and the NOT NULL, so an rc.13 insert mid-run is filled in", () => {
@@ -80,12 +88,11 @@ test.describe("the file", () => {
   });
 
   test("only children, and switched on only where the family has pocket money on", () => {
-    const fn = SQL.slice(SQL.indexOf("FUNCTION public.creatures_from_accounts("), SQL.indexOf("DO $$"));
-    expect(fn).toContain("JOIN public.people p ON p.id = a.person_id AND p.family_id = a.family_id AND p.is_child");
-    expect(fn).toMatch(/NOT EXISTS \(SELECT 1 FROM public\.settings s\s+WHERE s\.family_id = a\.family_id AND s\.key = 'enabled_plugins'\s+AND s\.value -> 'pocket-money' = 'false'::jsonb\)/);
+    expect(CREATE).toContain("JOIN public.people p ON p.id = a.person_id AND p.family_id = a.family_id AND p.is_child");
+    expect(CREATE).toMatch(/NOT EXISTS \(SELECT 1 FROM public\.settings s\s+WHERE s\.family_id = a\.family_id AND s\.key = 'enabled_plugins'\s+AND s\.value -> 'pocket-money' = 'false'::jsonb\)/);
   });
 
-  test("the old account columns stay, and nothing drops them", () => {
+  test("this file drops nothing: the old columns go in their own migration, right after it", () => {
     expect(SQL).not.toMatch(/DROP COLUMN/i);
     expect(SQL).not.toMatch(/DROP FUNCTION/i);
     expect(SQL).not.toMatch(/ALTER TABLE public\.pocket_money_accounts/i);
@@ -105,7 +112,7 @@ test.describe("against the database", () => {
     ).trim();
   }
 
-  test("backfill, re-key, a second run, and what a rollback to rc.13 still finds", () => {
+  test("backfill from rc.13's columns, re-key, the columns dropped, and a second boot", () => {
     const fam = randomUUID();
     const offFam = randomUUID();
     const [money, points, cat, none, late, adult, offKid] = [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()];
@@ -116,10 +123,18 @@ test.describe("against the database", () => {
         FROM public.creatures WHERE person_id = '${p}'), 'none');`;
 
     const out = psql(`BEGIN;
--- rc.13's schema: no creatures, no person on a request, no trigger filling it.
+-- rc.13's schema: no creatures, no person on a request, no trigger filling it,
+-- and the creature on the account, with its CHECKs.
 DROP TABLE public.creatures;
 DROP TRIGGER point_redemptions_fill_keys ON public.point_redemptions;
 ALTER TABLE public.point_redemptions DROP COLUMN person_id CASCADE;
+ALTER TABLE public.pocket_money_accounts
+  ADD COLUMN avatar_species TEXT NOT NULL DEFAULT 'dragon',
+  ADD COLUMN last_seen_tier INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN best_tier INTEGER NOT NULL DEFAULT 1 CONSTRAINT pocket_money_accounts_best_tier_range CHECK (best_tier BETWEEN 1 AND 8),
+  ADD COLUMN reward_mode TEXT NOT NULL DEFAULT 'money' CONSTRAINT pocket_money_accounts_reward_mode_check CHECK (reward_mode IN ('money', 'points')),
+  ADD COLUMN avatar_style TEXT NOT NULL DEFAULT 'classic' CONSTRAINT pocket_money_accounts_avatar_style_check CHECK (avatar_style IN ('classic', 'gumdrop', 'sticker', 'storybook')),
+  ADD COLUMN avatar_look JSONB NOT NULL DEFAULT '{}'::jsonb CONSTRAINT pocket_money_accounts_avatar_look_check CHECK (jsonb_typeof(avatar_look) = 'object');
 INSERT INTO public.families (id, name, join_code) VALUES ('${fam}', 'claude-creatures-mig', 'CM' || upper(substr(md5(random()::text), 1, 8)));
 INSERT INTO public.people (id, family_id, name, is_child) VALUES
   ('${money}', '${fam}', 'money', true), ('${points}', '${fam}', 'points', true),
@@ -144,6 +159,7 @@ INSERT INTO public.settings (family_id, key, value) VALUES ('${offFam}', 'enable
 INSERT INTO public.people (id, family_id, name, is_child) VALUES ('${offKid}', '${offFam}', 'off', true);
 INSERT INTO public.pocket_money_accounts (id, family_id, person_id, avatar_species) VALUES ('${aOff}', '${offFam}', '${offKid}', 'fox');
 ${MIGRATION}
+${DROP}
 ${creature(adult, "ADULT")}
 ${creature(offKid, "OFF")}
 ${creature(money, "MONEY")}
@@ -153,28 +169,29 @@ ${creature(none, "NONE")}
 SELECT 'KEYS|' || string_agg(id::text || '=' || person_id::text, ',' ORDER BY title) FROM public.point_redemptions WHERE family_id = '${fam}';
 SELECT 'NN|' || is_nullable FROM information_schema.columns WHERE table_name = 'point_redemptions' AND column_name = 'person_id';
 SELECT 'TOT|' || public.point_person_totals('${fam}', '${points}')::text;
-SELECT 'OLDTOT|' || public.point_account_totals('${fam}', '${aPoints}')::text;
+SELECT 'COLS|' || count(*) FROM information_schema.columns WHERE table_name = 'pocket_money_accounts'
+  AND column_name IN ('avatar_species', 'avatar_style', 'avatar_look', 'best_tier', 'last_seen_tier', 'reward_mode');
+SELECT 'CHECKS|' || count(*) FROM pg_constraint WHERE conname IN ('pocket_money_accounts_reward_mode_check',
+  'pocket_money_accounts_best_tier_range', 'pocket_money_accounts_avatar_style_check', 'pocket_money_accounts_avatar_look_check');
+SELECT 'GONE|' || count(*) FROM pg_proc WHERE pronamespace = 'public'::regnamespace
+  AND proname IN ('point_account_totals', 'request_point_redemption', 'creatures_from_accounts', 'pocket_money_best_tier_only_climbs');
 -- A parent switches the money child's creature off; the points child restyles.
 UPDATE public.creatures SET enabled = false WHERE person_id = '${money}';
 UPDATE public.creatures SET style = 'gumdrop' WHERE person_id = '${points}';
 -- A pocket-money account added after the upgrade.
 INSERT INTO public.pocket_money_accounts (id, family_id, person_id) VALUES ('${aLate}', '${fam}', '${late}');
 ${MIGRATION}
+${DROP}
 ${creature(money, "MONEY2")}
 ${creature(points, "POINTS2")}
 ${creature(late, "LATE2")}
 SELECT 'COUNT2|' || count(*) FROM public.creatures WHERE family_id = '${fam}';
--- The rule as a function (an old backup's import): only where none exists.
-SELECT 'FN|' || public.creatures_from_accounts('${fam}');
-SELECT 'FN2|' || public.creatures_from_accounts('${fam}');
-${creature(money, "MONEY3")}
--- rc.13 after a rollback: its columns are there and readable, its insert
--- names only the account, its functions answer.
-SELECT 'COLS|' || count(*) FROM information_schema.columns WHERE table_name = 'pocket_money_accounts'
+SELECT 'COLS2|' || count(*) FROM information_schema.columns WHERE table_name = 'pocket_money_accounts'
   AND column_name IN ('avatar_species', 'avatar_style', 'avatar_look', 'best_tier', 'last_seen_tier', 'reward_mode');
+-- A row that names only the account still gets its child: the fill-keys
+-- trigger is not creature data and stays.
 INSERT INTO public.point_redemptions (family_id, account_id, title, cost_points) VALUES ('${fam}', '${aPoints}', 'claude-rc13', 1);
 SELECT 'RC13|' || (person_id = '${points}') FROM public.point_redemptions WHERE title = 'claude-rc13';
-SELECT 'RC13FN|' || (public.request_point_redemption('${fam}', '${aPoints}', NULL, NULL)->>'error');
 INSERT INTO public.point_redemptions (family_id, person_id, title, cost_points) VALUES ('${fam}', '${points}', 'claude-new', 1);
 SELECT 'NEWACCT|' || (account_id = '${aPoints}') FROM public.point_redemptions WHERE title = 'claude-new';
 -- Deleting the account no longer deletes the child's requests.
@@ -200,20 +217,17 @@ ROLLBACK;
     expect(line("KEYS")).toBe(`${rPending}=${points},${rApproved}=${points}`);
     expect(line("NN")).toBe("NO");
     expect(JSON.parse(line("TOT")!)).toEqual({ earned: 100, spent: 20, pending: 10, balance: 80, owed: 0 });
-    expect(line("OLDTOT")).toBe(line("TOT"));
+    // and the drop right after: the columns, their CHECKs and the functions gone
+    expect(line("COLS")).toBe("0");
+    expect(line("CHECKS")).toBe("0");
+    expect(line("GONE")).toBe("0");
     // the second run: nothing switched back on, nothing restyled, nothing new
     expect(line("MONEY2")).toBe("dragon|classic|{}|4|4|money|true|false");
     expect(line("POINTS2")).toContain("|gumdrop|");
     expect(line("LATE2")).toBe("none");
     expect(line("COUNT2")).toBe("3");
-    // the function: creates only what is missing, then nothing
-    expect(line("FN")).toBe("1");
-    expect(line("FN2")).toBe("0");
-    expect(line("MONEY3")).toBe("dragon|classic|{}|4|4|money|true|false");
-    // rc.13
-    expect(line("COLS")).toBe("6");
+    expect(line("COLS2")).toBe("0");
     expect(line("RC13")).toBe("true");
-    expect(line("RC13FN")).toBe("no_reward");
     expect(line("NEWACCT")).toBe("true");
     expect(line("KEPT")).toBe("4|0");
     expect(line("KEPTC")).toBe("1");
@@ -235,7 +249,6 @@ ROLLBACK;
     }
     expect(psql(`SELECT count(*) FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'creatures';`)).toBe("1");
     for (const fn of [
-      "public.creatures_from_accounts(uuid)",
       "public.point_person_totals(uuid, uuid)",
       "public.request_person_point_redemption(uuid, uuid, uuid, uuid)",
     ]) {

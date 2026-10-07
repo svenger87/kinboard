@@ -14,10 +14,13 @@ import {
 /**
  * migration_zzzzzzzz_pocket_money_avatar_style.sql: every account gets
  * avatar_style 'classic' -- so nothing changes until a child picks a look --
- * and the database takes only the four styles the app knows.
+ * and the database takes only the four styles the app knows. Only on an
+ * install from before the creatures moved out (RFC-017): once `creatures`
+ * exists the file adds nothing, since the column is dropped again by
+ * migration_zzzzzzzz_pocket_money_creatures_out_zz_drop.sql.
  *
  * The live part runs in one psql session inside BEGIN ... ROLLBACK: it drops
- * the column (as on an install that never had it), seeds an account, applies
+ * the creatures table (as on an install from before RFC-017), seeds an account, applies
  * the migration twice and probes the CHECK, then rolls everything back. It
  * holds the whole-database lock (./whole-database.ts) because the migration
  * alters a table every family shares.
@@ -35,13 +38,17 @@ test.describe("the file", () => {
     // The look (Step 3) builds on the style and sorts after it on purpose.
     const LOOK = "migration_zzzzzzzz_pocket_money_avatar_style_look.sql";
     expect(files.indexOf(LOOK)).toBeGreaterThan(at);
-    const touching = files.filter((f) => f !== FILE && f !== LOOK && /pocket_money_accounts/.test(readFileSync(join(DIR, f), "utf8")));
+    // The drop (RFC-017 step 5) takes the column away again and sorts after on purpose.
+    const DROP = "migration_zzzzzzzz_pocket_money_creatures_out_zz_drop.sql";
+    expect(files.indexOf(DROP)).toBeGreaterThan(at);
+    const touching = files.filter((f) => f !== FILE && f !== LOOK && f !== DROP && /pocket_money_accounts/.test(readFileSync(join(DIR, f), "utf8")));
     for (const other of touching.filter((f) => /ALTER TABLE (public\.)?pocket_money_accounts/.test(readFileSync(join(DIR, f), "utf8")))) {
       expect(files.indexOf(other), `${other} must sort before ${FILE}`).toBeLessThan(at);
     }
   });
 
   test("is safe to run twice, and its CHECK lists exactly the app's styles", () => {
+    expect(MIGRATION).toMatch(/IF to_regclass\('public\.creatures'\) IS NOT NULL THEN RETURN; END IF;/);
     expect(MIGRATION).toMatch(/ADD COLUMN IF NOT EXISTS avatar_style TEXT NOT NULL DEFAULT 'classic'/);
     expect(MIGRATION).toMatch(/IF NOT EXISTS \(SELECT 1 FROM pg_constraint WHERE conname = 'pocket_money_accounts_avatar_style_check'\)/);
     const check = MIGRATION.match(/CHECK \(avatar_style IN \(([^)]*)\)\)/);
@@ -75,10 +82,8 @@ test.describe("against the database", () => {
     const accepted = AVATAR_STYLES.map((v, i) => probe(v, `ok${i}`)).join("\n");
     const out = psql(`BEGIN;
 -- As on an install from before the creatures moved out (RFC-017): no
--- creatures table, no column yet. Rolled back below.
+-- creatures table, and so no column yet. Rolled back below.
 DROP TABLE public.creatures CASCADE;
-ALTER TABLE public.pocket_money_accounts DROP CONSTRAINT IF EXISTS pocket_money_accounts_avatar_style_check;
-ALTER TABLE public.pocket_money_accounts DROP COLUMN IF EXISTS avatar_style;
 INSERT INTO public.families (id, name, join_code) VALUES ('${fam}', 'avatar-style-test', 'AS' || upper(substr(md5(random()::text), 1, 8)));
 INSERT INTO public.people (id, family_id, name, is_child) VALUES ('${kid}', '${fam}', 'avatar-style-kid', true);
 INSERT INTO public.pocket_money_accounts (id, family_id, person_id) VALUES ('${acct}', '${fam}', '${kid}');
@@ -118,16 +123,11 @@ ROLLBACK;
     expect(out).toContain("R|null|23502");
     expect(out).toContain(`Z|${AVATAR_STYLES[AVATAR_STYLES.length - 1]}`);
 
-    // Nothing left behind, and the real column is back as it was.
     expect(psql(`SELECT count(*) FROM public.families WHERE id = '${fam}';`)).toBe("0");
-    // A rollback to this release after a later one dropped the column
-    // (RFC-017 step 5): the creatures exist, and the file adds nothing back.
-    expect(psql(`BEGIN;
-ALTER TABLE public.pocket_money_accounts DROP CONSTRAINT IF EXISTS pocket_money_accounts_avatar_style_check;
-ALTER TABLE public.pocket_money_accounts DROP COLUMN IF EXISTS avatar_style;
-${MIGRATION}
-SELECT count(*) FROM information_schema.columns WHERE table_name = 'pocket_money_accounts' AND column_name = 'avatar_style';
-ROLLBACK;`)).toBe("0");
-    expect(psql(`SELECT column_default FROM information_schema.columns WHERE table_name = 'pocket_money_accounts' AND column_name = 'avatar_style';`)).toBe("'classic'::text");
+    // Nothing left behind: the column is gone again (RFC-017 step 5) ...
+    const column = `SELECT count(*) FROM information_schema.columns WHERE table_name = 'pocket_money_accounts' AND column_name = 'avatar_style';`;
+    expect(psql(column)).toBe("0");
+    // ... and a boot with the creatures moved out does not put it back.
+    expect(psql(`BEGIN;\n${MIGRATION}\n${column}\nROLLBACK;`)).toBe("0");
   });
 });

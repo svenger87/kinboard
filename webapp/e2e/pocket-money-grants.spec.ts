@@ -212,8 +212,8 @@ test.describe("live database", () => {
                      || (SELECT count(*) FROM pocket_money_transactions WHERE id = '${tx}')
                      || (SELECT count(*) FROM pocket_money_withdrawal_requests WHERE id = '${wr}');
       ${attempt("acct-balance", `UPDATE pocket_money_accounts SET balance_cents = 999999 WHERE id = '${acct}'`)}
-      ${attempt("acct-best-tier", `UPDATE pocket_money_accounts SET best_tier = 8 WHERE id = '${acct}'`)}
-      ${attempt("acct-reward-mode", `UPDATE pocket_money_accounts SET reward_mode = 'points' WHERE id = '${acct}'`)}
+      ${attempt("acct-apr", `UPDATE pocket_money_accounts SET apr_bps = 10000 WHERE id = '${acct}'`)}
+      ${attempt("acct-allowance", `UPDATE pocket_money_accounts SET weekly_allowance_cents = 99999 WHERE id = '${acct}'`)}
       ${attempt("acct-insert", `INSERT INTO pocket_money_accounts (family_id, person_id) VALUES ('${fam}', '${child}')`)}
       ${attempt("acct-delete", `DELETE FROM pocket_money_accounts WHERE id = '${acct}'`)}
       ${attempt("goal-update", `UPDATE pocket_money_goals SET target_amount_cents = 1 WHERE id = '${goal}'`)}

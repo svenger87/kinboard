@@ -145,9 +145,10 @@ test.describe("the stages a child's screen may record", () => {
     expect(clamp).toBeGreaterThan(0);
     expect(clamp).toBeLessThan(src.indexOf(".update(patch)"));
     expect(src).toContain("const growsWith = patch.grows_with ?? creature.grows_with;");
-    // and both routes that write a creature use it
+    // and the route that writes a creature uses it; the account PATCH, which
+    // forwarded the old field names for one release, no longer writes one
     expect(read("src/app/api/creatures/[personId]/route.ts")).toContain("applyCreaturePatch({");
-    expect(read("src/app/api/pocket-money/accounts/[id]/route.ts")).toContain("applyCreaturePatch({");
+    expect(read("src/app/api/pocket-money/accounts/[id]/route.ts")).not.toContain("applyCreaturePatch");
   });
 
   test("a child in the recycle bin is not in the family, for every creature route", () => {
@@ -255,7 +256,10 @@ test.describe("backups across the move", () => {
     expect(redemptions).toContain('requiredFks: ["person_id"]');
     expect(redemptions).toContain('nullableFks: ["account_id", "reward_id"]');
     expect(imp).toContain("personForOldRedemptions(payload.data);");
-    expect(imp).toMatch(/if \(!backupHasCreatures\(payload\.data\)\) \{\s*const \{ error \} = await db\.rpc\("creatures_from_accounts", \{ p_family_id: newFamilyId \}\)/);
+    // An old backup's creatures are derived before the inserts, in TypeScript
+    // (creatures-drop-account-columns.spec.ts): the columns they came from are gone.
+    expect(imp).toContain("moveCreaturesOffOldAccounts(payload.data);");
+    expect(imp).not.toContain("creatures_from_accounts");
   });
 });
 

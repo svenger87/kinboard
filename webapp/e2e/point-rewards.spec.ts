@@ -219,11 +219,11 @@ test.describe("who may write", () => {
     expect(src).toContain("familyId: auth.session.familyId");
   });
 
-  test("what a creature grows with takes the PIN, on the creature now; the account refuses it", () => {
+  test("what a creature grows with takes the PIN, on the creature now; the account no longer takes it", () => {
     const rules = codeOnly(read("src/lib/creatures/rules.ts"));
     expect(/PARENTAL_FIELDS = \[([^\]]*)\]/.exec(rules)?.[1]).toContain('"grows_with"');
     const account = codeOnly(read("src/app/api/pocket-money/accounts/[id]/route.ts"));
-    expect(account.slice(account.indexOf("MOVED_TO_CREATURES: Record"))).toContain('reward_mode: "grows_with"');
+    expect(account).not.toContain("reward_mode");
   });
 
   test("the tables are read-only to the browser, family-scoped, published, and the functions are the service role's", () => {
@@ -237,23 +237,22 @@ test.describe("who may write", () => {
       expect(browserWriteGrants(sql, table), table).toEqual([]);
       expect(sql).toMatch(new RegExp(`ALTER PUBLICATION supabase_realtime ADD TABLE public\\.${table};`));
     }
-    for (const fn of ["point_account_totals", "request_point_redemption", "decide_point_redemption"]) {
-      expect(sql).toContain(`'public.${fn}(`);
-    }
-    expect(sql).toMatch(/REVOKE ALL ON FUNCTION %s FROM authenticated/);
-    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION %s TO service_role/);
-    // best_tier only climbs, and never past stage 8, in the database.
+    // The functions are per child, in creatures_out (below); the account-keyed
+    // ones that stood here are gone (RFC-017 step 5), so a boot no longer puts
+    // a decision that reads reward_mode back in place, even for a moment.
+    expect(sql).not.toMatch(/FUNCTION public\.(point_account_totals|request_point_redemption|decide_point_redemption)\(/);
+    // best_tier only climbs, and never past stage 8, on an install from
+    // before the creatures moved out; on the creature itself since.
     expect(sql).toMatch(/NEW\.best_tier := LEAST\(8, GREATEST\(LEAST\(8, COALESCE\(OLD\.best_tier, 1\)\), COALESCE\(NEW\.best_tier, 1\), 1\)\);/);
     expect(sql).toMatch(/CHECK \(best_tier BETWEEN 1 AND 8\)/);
-    // The account is locked before the redemption, the order a delete cascades in.
-    const decide = sql.slice(sql.indexOf("FUNCTION public.decide_point_redemption("));
-    expect(decide.indexOf("FOR UPDATE OF a")).toBeGreaterThan(0);
-    expect(decide.indexOf("FOR UPDATE OF a")).toBeLessThan(decide.indexOf("FROM public.point_redemptions\n   WHERE id = p_redemption_id AND family_id = p_family_id FOR UPDATE"));
+    const out = codeOnly(read("docker/migration_zzzzzzzz_pocket_money_creatures_out.sql"), { sql: true });
+    expect(out).toMatch(/NEW\.best_tier := LEAST\(8, GREATEST\(LEAST\(8, COALESCE\(OLD\.best_tier, 1\)\), COALESCE\(NEW\.best_tier, 1\), 1\)\);/);
+    expect(out).toMatch(/CONSTRAINT creatures_best_tier_range CHECK \(best_tier BETWEEN 1 AND 8\)/);
   });
 
   test("per child since RFC-017: the balance, the request and the decision lock the child, not an account", () => {
     const sql = codeOnly(read("docker/migration_zzzzzzzz_pocket_money_creatures_out.sql"), { sql: true });
-    const totals = sql.slice(sql.indexOf("FUNCTION public.point_person_totals("), sql.indexOf("FUNCTION public.point_account_totals("));
+    const totals = sql.slice(sql.indexOf("FUNCTION public.point_person_totals("), sql.indexOf("FUNCTION public.point_lock_person("));
     expect(totals).toMatch(/FROM public\.todo_point_awards\s+WHERE person_id = p_person_id/);
     expect(totals).toMatch(/FROM public\.point_redemptions WHERE person_id = p_person_id/);
     expect(totals).toContain("GREATEST(0, v_earned - v_spent)");
@@ -263,9 +262,17 @@ test.describe("who may write", () => {
     expect(decide.indexOf("point_lock_person(v_person)")).toBeGreaterThan(0);
     expect(decide.indexOf("point_lock_person(v_person)")).toBeLessThan(decide.indexOf("FOR UPDATE"));
     expect(decide).toContain("point_person_totals(p_family_id, v_req.person_id)");
-    // rc.13's names stay as wrappers for one release.
-    for (const fn of ["point_person_totals", "point_account_totals", "request_person_point_redemption", "request_point_redemption", "decide_point_redemption", "creatures_from_accounts"]) {
+    // EXECUTE for the service role only, on every one of them.
+    for (const fn of ["point_person_totals", "point_lock_person", "request_person_point_redemption", "decide_point_redemption"]) {
       expect(sql).toContain(`'public.${fn}(`);
+    }
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION %s FROM authenticated/);
+    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION %s TO service_role/);
+    // rc.13's account-keyed wrappers stood here for one release (1.13), and
+    // the backfill rule as a function; gone with the columns (RFC-017 step 5).
+    for (const fn of ["point_account_totals", "request_point_redemption", "creatures_from_accounts"]) {
+      expect(sql).not.toContain(`FUNCTION public.${fn}(`);
+      expect(sql).not.toContain(`'public.${fn}(`);
     }
   });
 

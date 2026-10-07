@@ -242,27 +242,28 @@ test.describe("per child, no pocket-money account needed (RFC-017)", () => {
     expect(await totals()).toEqual({ earned: 0, spent: 0, purchased: 0, pending: 0, balance: 0, owed: 0 });
   });
 
-  test("a child's request carries their account too, when they have one, so rc.13 still adds it up", async () => {
+  test("a child's request carries their account too, when they have one", async () => {
     await reset(100);
     expect((await ask(REWARD)).status).toBe(201);
     const { data } = await db.from("point_redemptions").select("account_id").eq("person_id", CHILD).single();
     expect(data.account_id).toBe(ACCOUNT);
-    const { data: old } = await db.rpc("point_account_totals", { p_family_id: FAMILY, p_account_id: ACCOUNT });
-    expect(old).toEqual(await totals());
   });
 
-  test("rc.13 after a rollback: a row with only the account gets its child, and the old request function still works", async () => {
+  test("a row with only the account gets its child; the account-keyed functions are gone (RFC-017 step 5)", async () => {
     await reset(100);
     const { data, error } = await db.from("point_redemptions")
       .insert({ family_id: FAMILY, account_id: ACCOUNT, title: "claude-pt-rc13", cost_points: 5 })
       .select("person_id").single();
     expect(error).toBeNull();
     expect(data.person_id).toBe(CHILD);
-    const { data: answer } = await db.rpc("request_point_redemption", {
-      p_family_id: FAMILY, p_account_id: ACCOUNT, p_reward_id: REWARD, p_device_id: null,
-    });
-    expect(answer.ok).toBe(true);
-    expect(answer.redemption.person_id).toBe(CHILD);
+    for (const [fn, args] of [
+      ["request_point_redemption", { p_family_id: FAMILY, p_account_id: ACCOUNT, p_reward_id: REWARD, p_device_id: null }],
+      ["point_account_totals", { p_family_id: FAMILY, p_account_id: ACCOUNT }],
+      ["creatures_from_accounts", { p_family_id: FAMILY }],
+    ] as const) {
+      const { error: gone } = await db.rpc(fn, args);
+      expect(gone?.code, fn).toBe("PGRST202");
+    }
   });
 
   test("deleting the pocket-money account keeps the child's requests", async () => {
@@ -280,23 +281,8 @@ test.describe("per child, no pocket-money account needed (RFC-017)", () => {
 });
 
 test.describe("best_tier only climbs, and never past the last stage", () => {
-  const bestTier = async () =>
-    (await db.from("pocket_money_accounts").select("best_tier").eq("id", ACCOUNT).single()).data.best_tier;
-
-  test("a lower value written to it is ignored", async () => {
-    await db.from("pocket_money_accounts").update({ best_tier: 5 }).eq("id", ACCOUNT);
-    await db.from("pocket_money_accounts").update({ best_tier: 2 }).eq("id", ACCOUNT);
-    expect(await bestTier()).toBe(5);
-  });
-
-  test("a value past stage 8 is held at 8, and a new account can't start out of range", async () => {
-    await db.from("pocket_money_accounts").update({ best_tier: 99 }).eq("id", ACCOUNT);
-    expect(await bestTier()).toBe(8);
-    const { error } = await db.from("pocket_money_accounts")
-      .insert({ family_id: OTHER_FAMILY, person_id: CHILD, best_tier: 99 });
-    expect(error?.code).toBe("23514");
-  });
-
+  // On the creature: the account's own best_tier, and the trigger that held
+  // it, are gone since RFC-017 step 5.
   const creatureBest = async () =>
     (await db.from("creatures").select("best_tier").eq("person_id", CHILD).single()).data.best_tier;
 
@@ -347,10 +333,8 @@ test.describe("a browser's token reads its family's rows and writes nothing", ()
       await mine.from("point_rewards").update({ cost_points: 1 }).eq("id", REWARD),
       await mine.from("point_rewards").delete().eq("id", REWARD),
       await mine.rpc("decide_point_redemption", { p_family_id: FAMILY, p_redemption_id: id, p_decision: "approved", p_device_id: null }),
-      await mine.rpc("request_point_redemption", { p_family_id: FAMILY, p_account_id: ACCOUNT, p_reward_id: REWARD, p_device_id: null }),
       await mine.rpc("request_person_point_redemption", { p_family_id: FAMILY, p_person_id: CHILD, p_reward_id: REWARD, p_device_id: null }),
       await mine.rpc("point_person_totals", { p_family_id: FAMILY, p_person_id: CHILD }),
-      await mine.rpc("creatures_from_accounts", { p_family_id: FAMILY }),
       await mine.from("creatures").update({ best_tier: 8, enabled: true }).eq("person_id", CHILD),
       await mine.from("creatures").insert({ family_id: FAMILY, person_id: CHILD2 }),
       await mine.from("creatures").delete().eq("person_id", CHILD),

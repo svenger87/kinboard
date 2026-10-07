@@ -1,8 +1,8 @@
 /**
- * How a child's avatar is drawn (pocket_money_accounts.avatar_style).
+ * How a child's creature is drawn (creatures.style).
  *
  * "classic" is the static SVG set in public/pocket-money/avatars/, and the
- * default: an account that never chose keeps looking exactly as before. The
+ * default: a creature that never chose keeps looking exactly as before. The
  * other three are drawn in code by ./skeleton.tsx and a species module, and
  * only swap colours, outlines and lighting -- the shapes are the species'.
  *

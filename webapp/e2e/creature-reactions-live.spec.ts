@@ -55,9 +55,10 @@ test.beforeAll(() => {
   });
   psql(`INSERT INTO families (id, name, join_code, setup_completed) VALUES ('${FAMILY}', 'claude-creature-live', '${JOIN_CODE}', true);
     INSERT INTO people (id, family_id, name, is_child, color) VALUES ('${CHILD}', '${FAMILY}', 'claude-creature-kid', true, '#56B6E8');
-    INSERT INTO pocket_money_accounts (id, family_id, person_id, balance_cents, reward_mode, avatar_species, avatar_style, best_tier, last_seen_tier)
-      VALUES ('${ACCOUNT}', '${FAMILY}', '${CHILD}', 0, 'points', 'dragon', 'gumdrop', 1, 1);
-    SELECT public.creatures_from_accounts('${FAMILY}');
+    INSERT INTO pocket_money_accounts (id, family_id, person_id, balance_cents)
+      VALUES ('${ACCOUNT}', '${FAMILY}', '${CHILD}', 0);
+    INSERT INTO creatures (person_id, family_id, species, style, best_tier, last_seen_tier, grows_with)
+      VALUES ('${CHILD}', '${FAMILY}', 'dragon', 'gumdrop', 1, 1, 'points');
     INSERT INTO todos (id, family_id, title, person_id, recurrence, points)
       VALUES ('${SMALL_TASK}', '${FAMILY}', 'claude-creature feed the cat', '${CHILD}', 'once', 5),
              ('${BIG_TASK}', '${FAMILY}', 'claude-creature tidy the room', '${CHILD}', 'once', 60);

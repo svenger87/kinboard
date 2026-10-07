@@ -18,7 +18,7 @@ import {
 export interface CreatureAvatarProps {
   species: AvatarSpecies;
   tier: AvatarTier;
-  /** The account's avatar_style. Classic, or a species without drawings, shows the classic picture. */
+  /** The creature's style (creatures.style). Classic, or a species without drawings, shows the classic picture. */
   style?: AvatarStyle | string | null;
   /**
    * "normal" unless told: the screens showing a child's creature now pass

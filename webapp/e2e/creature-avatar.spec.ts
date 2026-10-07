@@ -196,11 +196,13 @@ test.describe("export and import", () => {
     for (const bad of ["neon", "", null, undefined, 3, { s: "sticker" }]) expect(restorableAvatarStyle(bad)).toBe("classic");
   });
 
-  test("the import runs it on every account row, and the export takes the whole row", () => {
+  test("the import runs it on every creature row -- an old backup's included, derived from its accounts first -- and the export takes the whole row", () => {
     const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
     const imp = read("src/app/api/import/route.ts");
-    const spec = imp.slice(imp.indexOf('spec("pocket_money_accounts"'), imp.indexOf('spec("pocket_money_goals"'));
-    expect(spec).toContain("row.avatar_style = restorableAvatarStyle(row.avatar_style)");
+    const spec = imp.slice(imp.indexOf('spec("creatures"'), imp.indexOf('spec("settings"'));
+    expect(spec).toContain("row.style = restorableAvatarStyle(row.style)");
+    expect(imp.indexOf("moveCreaturesOffOldAccounts(payload.data);")).toBeGreaterThan(0);
+    expect(imp.indexOf("moveCreaturesOffOldAccounts(payload.data);")).toBeLessThan(imp.indexOf("for (const tableSpec of TABLE_SPECS)"));
     expect(imp).toMatch(/tableSpec\.normalize\?\.\(out\);\s*return out;/);
     const exp = read("src/app/api/export/route.ts");
     expect(exp).toMatch(/from\("pocket_money_accounts"\)\.select\("\*"\)/);

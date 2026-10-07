@@ -8,7 +8,7 @@ import { withHolidayRegion } from "@/lib/holidays/region";
 import { clientIp, hitLimit } from "@/lib/rate-limit";
 import { restorableAvatarStyle } from "@/lib/pocket-money/creatures/styles";
 import { restorableLook } from "@/lib/pocket-money/creatures/look";
-import { backupHasCreatures, personForOldRedemptions } from "@/lib/creatures/backup";
+import { moveCreaturesOffOldAccounts, personForOldRedemptions } from "@/lib/creatures/backup";
 
 // POST /api/import — restore a family from a Kinboard backup file
 // (Milestone D Task 3; inverts GET /api/export).
@@ -43,7 +43,8 @@ import { backupHasCreatures, personForOldRedemptions } from "@/lib/creatures/bac
 //     optionally: account_id is nullable since RFC-017)
 //   people → point_purchases (RFC-017 §5, the creature shop)
 //   people → creatures (RFC-017; a backup from before it has none, and gets
-//     them derived from its accounts by the migration's own rule)
+//     them derived from its accounts by the migration's own rule, before
+//     anything is inserted: moveCreaturesOffOldAccounts)
 //   settings (family_id only)
 //
 // NEVER imported (matches export's NEVER-exported list): families.join_code
@@ -150,19 +151,10 @@ const TABLE_SPECS: TableSpec[] = [
   }),
   spec("vehicles"),
   spec("tickers"),
-  spec("pocket_money_accounts", {
-    requiredFks: ["person_id"],
-    // A look this release does not know -- a backup from a newer one, or a
-    // hand-edited file -- restores as classic instead of tripping the CHECK.
-    // A backup from before the column existed has none, and gets the default.
-    // The same for a child's own look: anything the editor would refuse --
-    // an unknown key, a colour outside the sets -- restores as {}, the
-    // creature's own look, so a cosmetic field never fails a restore.
-    normalize: (row) => {
-      if ("avatar_style" in row) row.avatar_style = restorableAvatarStyle(row.avatar_style);
-      if ("avatar_look" in row) row.avatar_look = restorableLook(row.avatar_look);
-    },
-  }),
+  // The creature's old fields (avatar_species, reward_mode, ...) are taken off
+  // every account row before this runs, and become `creatures` rows for a
+  // backup that has none (moveCreaturesOffOldAccounts): the columns are gone.
+  spec("pocket_money_accounts", { requiredFks: ["person_id"] }),
   spec("pocket_money_goals", { hasFamilyId: false, requiredFks: ["account_id"] }),
   spec("pocket_money_transactions", {
     hasFamilyId: false,
@@ -192,8 +184,11 @@ const TABLE_SPECS: TableSpec[] = [
   spec("creatures", {
     hasOwnId: false,
     requiredFks: ["person_id"],
-    // As on the account: a style or a look this release would refuse
-    // restores as classic or {}, never failing the restore.
+    // A style this release does not know -- a backup from a newer one, or a
+    // hand-edited file -- restores as classic instead of tripping the CHECK;
+    // a look the editor would refuse -- an unknown key, a colour outside the
+    // sets -- restores as {}, the creature's own look. A cosmetic field never
+    // fails a restore.
     normalize: (row) => {
       row.style = restorableAvatarStyle(row.style);
       row.look = restorableLook(row.look);
@@ -322,6 +317,7 @@ export async function POST(request: NextRequest) {
   // Added before the id map below, so the row is remapped like any other.
   payload.data.settings = withHolidayRegion(payload.data.settings ?? [], () => crypto.randomUUID());
   personForOldRedemptions(payload.data);
+  moveCreaturesOffOldAccounts(payload.data);
 
   const supabase = createAdminClient();
   const db = supabase as any;
@@ -523,19 +519,6 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
-    }
-  }
-
-  // A backup from before RFC-017 has no creatures: derive them from its
-  // accounts by the migration's own rule (creatures_from_accounts in
-  // migration_zzzzzzzz_pocket_money_creatures_out.sql), so a restored child
-  // has the creature they had. A backup that carries the key -- even empty,
-  // a family with none switched on -- is taken as it is.
-  if (!backupHasCreatures(payload.data)) {
-    const { error } = await db.rpc("creatures_from_accounts", { p_family_id: newFamilyId });
-    if (error) {
-      await rollback();
-      return NextResponse.json({ error: error.message, table: "creatures" }, { status: 500 });
     }
   }
 

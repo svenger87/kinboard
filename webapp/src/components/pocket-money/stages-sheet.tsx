@@ -20,9 +20,9 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   species: AvatarSpecies;
-  /** The account's avatar_style: every stage is shown in the child's own look. */
+  /** The creature's style: every stage is shown in the child's own look. */
   avatarStyle?: string | null;
-  /** The child's own look (avatar_look). */
+  /** The child's own look (creatures.look). */
   look?: CreatureLook;
   /** What the avatar shows, in money or points mode (avatarStage). */
   stage: AvatarStage;

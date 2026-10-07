@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { codeOnly } from "./source-helpers";
 import { CreatureAvatar } from "../src/components/pocket-money/creature-avatar";
 import {
   ACCESSORIES,
@@ -201,11 +202,10 @@ test.describe("export and import", () => {
     expect(validateLook(stored).ok).toBe(false);
   });
 
-  test("the import normalises it on every account and creature row, and the export takes the whole rows", () => {
+  test("the import normalises it on every creature row -- an old backup's derived from its accounts first -- and the export takes the whole rows", () => {
     const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
     const imp = read("src/app/api/import/route.ts");
-    const spec = imp.slice(imp.indexOf('spec("pocket_money_accounts"'), imp.indexOf('spec("pocket_money_goals"'));
-    expect(spec).toContain("row.avatar_look = restorableLook(row.avatar_look)");
+    expect(imp).toContain("moveCreaturesOffOldAccounts(payload.data);");
     const creatures = imp.slice(imp.indexOf('spec("creatures"'), imp.indexOf('spec("settings"'));
     expect(creatures).toContain("row.look = restorableLook(row.look)");
     const exp = read("src/app/api/export/route.ts");
@@ -225,10 +225,10 @@ test.describe("the creature PATCH (RFC-017; the account PATCH until then)", () =
     expect(parental).not.toContain("look");
     const route = readFileSync(join(process.cwd(), "src/app/api/creatures/[personId]/route.ts"), "utf8");
     expect(route).toMatch(/if \(!parsed\.ok\) return NextResponse\.json\(\{ error: parsed\.error \}, \{ status: 400 \}\)/);
-    // The account PATCH only forwards it, for one release, through the same rules.
-    const account = readFileSync(join(process.cwd(), "src/app/api/pocket-money/accounts/[id]/route.ts"), "utf8");
-    expect(account.slice(account.indexOf("MOVED_TO_CREATURES: Record"))).toContain('avatar_look: "look"');
-    expect(account).toContain("parseCreaturePatch(creatureBody)");
+    // The account PATCH forwarded it for one release (1.13); it no longer
+    // takes the creature's fields at all (RFC-017 step 5).
+    const account = codeOnly(readFileSync(join(process.cwd(), "src/app/api/pocket-money/accounts/[id]/route.ts"), "utf8"));
+    expect(account).not.toMatch(/avatar_look|parseCreaturePatch|applyCreaturePatch/);
   });
 });
 

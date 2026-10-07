@@ -25,27 +25,15 @@
 -- need the PIN; a child's request does not). EXECUTE on the functions belongs
 -- to the service role only.
 --
--- ROLLBACK TO rc.13 must keep working. What keeps it working is what this
--- file leaves in the tables, not the functions: rc.13 re-runs its own
--- migration_zzzzzzz_point_rewards.sql on boot, which puts back its own
--- point_account_totals(), request_point_redemption() and
--- decide_point_redemption() over the ones defined here. So:
---   * point_redemptions.account_id stays, nullable now, and the
---     point_redemptions_fill_keys trigger -- which rc.13 knows nothing about
---     and leaves in place -- fills it from the child's account on every insert,
---     and fills person_id from account_id. rc.13's functions insert with only
---     account_id and read per account: the new NOT NULL never refuses them,
---     and their sums still see the rows written here.
---   * the account columns (avatar_species, avatar_style, avatar_look,
---     best_tier, last_seen_tier, reward_mode) stay, with their CHECKs and the
---     best_tier trigger. The app no longer writes them, so rc.13 finds them as
---     they were on the day of the upgrade, which is a valid creature.
--- What a rollback loses: anything rc.13 writes to those columns while it
--- runs (a new account, a mode or style change) stays on the account, and the
--- creature does not pick it up on the next upgrade -- the backfill below runs
--- only when the table is created.
--- A later release drops the old columns, the wrappers and the trigger
--- (RFC-017 §7 step 5).
+-- ROLLBACK TO rc.13 worked for one release (1.13): this file left the
+-- account columns, their CHECKs and the best_tier trigger in place, and kept
+-- point_redemptions.account_id filled (the point_redemptions_fill_keys
+-- trigger below), so rc.13 -- which re-creates its own functions on boot --
+-- found its data as it was on the day of the upgrade.
+-- migration_zzzzzzzz_pocket_money_creatures_out_zz_drop.sql (RFC-017 §7 step 5)
+-- then drops the old columns, the trigger and the account-keyed wrappers, so
+-- from that release on a rollback to rc.13 is no longer possible.
+-- account_id and its fill-keys trigger stay.
 --
 -- Safe to run twice, and twice at once: the webapp entrypoint and
 -- `./start.sh migrate` can apply the same file concurrently. The session
@@ -86,40 +74,15 @@ SELECT pg_advisory_lock(hashtextextended('migration_zzzzzzzz_pocket_money_creatu
 -- switch on under Settings -> Creatures & rewards. The plugin is on unless the
 -- family's enabled_plugins setting says false, as in the app.
 --
--- Used by the one-time backfill below and by /api/import for a backup made
--- before this table existed, so both derive creatures by the same rule.
--- p_family_id NULL means every family. Only where the child has no creature
--- yet: one that exists -- switched off, re-styled, moved to points -- is never
--- touched. There is deliberately no ON CONFLICT: the NOT EXISTS is the rule,
--- and a broken one fails loudly on the primary key instead of passing.
-CREATE OR REPLACE FUNCTION public.creatures_from_accounts(p_family_id UUID DEFAULT NULL)
-RETURNS INTEGER
-LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, pg_temp AS $$
-DECLARE
-  n INTEGER;
-BEGIN
-  IF to_regclass('public.creatures') IS NULL THEN RETURN 0; END IF;
-  INSERT INTO public.creatures
-    (person_id, family_id, species, style, look, best_tier, last_seen_tier, grows_with, shop_enabled, enabled)
-  SELECT a.person_id, a.family_id,
-         COALESCE(a.avatar_species, 'dragon'),
-         COALESCE(a.avatar_style, 'classic'),
-         CASE WHEN jsonb_typeof(a.avatar_look) = 'object' THEN a.avatar_look ELSE '{}'::jsonb END,
-         LEAST(8, GREATEST(1, COALESCE(a.best_tier, 1))),
-         LEAST(8, GREATEST(1, COALESCE(a.last_seen_tier, 1))),
-         CASE WHEN a.reward_mode = 'points' THEN 'points' ELSE 'money' END,
-         true,
-         NOT EXISTS (SELECT 1 FROM public.settings s
-                      WHERE s.family_id = a.family_id AND s.key = 'enabled_plugins'
-                        AND s.value -> 'pocket-money' = 'false'::jsonb)
-    FROM public.pocket_money_accounts a
-    JOIN public.people p ON p.id = a.person_id AND p.family_id = a.family_id AND p.is_child
-   WHERE (p_family_id IS NULL OR a.family_id = p_family_id)
-     AND NOT EXISTS (SELECT 1 FROM public.creatures c WHERE c.person_id = a.person_id);
-  GET DIAGNOSTICS n = ROW_COUNT;
-  RETURN n;
-END $$;
-
+-- The backfill runs here, in the statement that creates the table, and
+-- nowhere else. It reads the account columns, which exist exactly as long as
+-- `creatures` does not: the migrations that add them skip once it exists, and
+-- migration_zzzzzzzz_pocket_money_creatures_out_zz_drop.sql drops them only once
+-- it does. A backup from before this table existed is restored by the same
+-- rule in TypeScript (creaturesFromOldAccounts, src/lib/creatures/backup.ts),
+-- since by then the columns are gone. There is deliberately no ON CONFLICT:
+-- the table is new and empty, and a broken rule fails loudly on the primary
+-- key instead of passing.
 DO $$
 BEGIN
   IF to_regclass('public.creatures') IS NULL THEN
@@ -144,7 +107,21 @@ BEGIN
     );
     -- In the statement that created the table, so it runs once and only once:
     -- a crash before this line leaves no table, and the next boot does both.
-    PERFORM public.creatures_from_accounts(NULL);
+    INSERT INTO public.creatures
+      (person_id, family_id, species, style, look, best_tier, last_seen_tier, grows_with, shop_enabled, enabled)
+    SELECT a.person_id, a.family_id,
+           COALESCE(a.avatar_species, 'dragon'),
+           COALESCE(a.avatar_style, 'classic'),
+           CASE WHEN jsonb_typeof(a.avatar_look) = 'object' THEN a.avatar_look ELSE '{}'::jsonb END,
+           LEAST(8, GREATEST(1, COALESCE(a.best_tier, 1))),
+           LEAST(8, GREATEST(1, COALESCE(a.last_seen_tier, 1))),
+           CASE WHEN a.reward_mode = 'points' THEN 'points' ELSE 'money' END,
+           true,
+           NOT EXISTS (SELECT 1 FROM public.settings s
+                        WHERE s.family_id = a.family_id AND s.key = 'enabled_plugins'
+                          AND s.value -> 'pocket-money' = 'false'::jsonb)
+      FROM public.pocket_money_accounts a
+      JOIN public.people p ON p.id = a.person_id AND p.family_id = a.family_id AND p.is_child;
   END IF;
 END $$;
 
@@ -294,14 +271,14 @@ CREATE POLICY point_redemptions_family_read ON public.point_redemptions
 -- 3. The balance, a request, a decision -- per person
 -- ---------------------------------------------------------------------------
 --
--- NAMES. The per-person functions get new names: request_point_redemption(
+-- NAMES. The per-person functions got new names: request_point_redemption(
 -- family, account, reward, device) and a per-person version would have the
--- same argument types, so they cannot share a name. The account ones stay as
--- thin wrappers for one release, for anything of this release that still
--- names them; they do NOT serve an rc.13 rollback, which re-creates its own
--- versions on boot (see the top of this file). decide_point_redemption() is
--- keyed on the request, not the child, so it keeps its name and arguments and
--- only its body changes.
+-- same argument types, so they cannot share a name. The account-keyed ones,
+-- point_account_totals() and request_point_redemption(), stood here as thin
+-- wrappers for one release and are dropped by
+-- migration_zzzzzzzz_pocket_money_creatures_out_zz_drop.sql.
+-- decide_point_redemption() is keyed on the request, not the child, so it
+-- keeps its name and arguments and only its body changed.
 
 -- A child's points: earned (todo_point_awards), spent (approved requests),
 -- waiting (pending requests) and the balance, max(0, earned - spent), with
@@ -330,15 +307,6 @@ BEGIN
     'balance', GREATEST(0, v_earned - v_spent),
     'owed', GREATEST(0, v_spent - v_earned));
 END $$;
-
--- The account's child's points, under the old name, for one release.
-CREATE OR REPLACE FUNCTION public.point_account_totals(p_family_id UUID, p_account_id UUID)
-RETURNS JSONB
-LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public, pg_temp AS $$
-  SELECT public.point_person_totals(p_family_id, a.person_id)
-    FROM public.pocket_money_accounts a
-   WHERE a.id = p_account_id AND a.family_id = p_family_id;
-$$;
 
 -- Every request and decision for one child is served in turn: a lock per
 -- child, held to the end of the transaction. An advisory lock rather than a
@@ -395,20 +363,6 @@ BEGIN
      (SELECT id FROM public.devices WHERE id = p_device_id AND family_id = p_family_id))
   RETURNING * INTO v_row;
   RETURN jsonb_build_object('ok', true, 'redemption', to_jsonb(v_row));
-END $$;
-
--- The account's child asks, under the old name, for one release.
-CREATE OR REPLACE FUNCTION public.request_point_redemption(
-  p_family_id UUID, p_account_id UUID, p_reward_id UUID, p_device_id UUID DEFAULT NULL
-) RETURNS JSONB
-LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, pg_temp AS $$
-DECLARE
-  v_person UUID;
-BEGIN
-  SELECT person_id INTO v_person FROM public.pocket_money_accounts
-   WHERE id = p_account_id AND family_id = p_family_id;
-  IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'error', 'not_found'); END IF;
-  RETURN public.request_person_point_redemption(p_family_id, v_person, p_reward_id, p_device_id);
 END $$;
 
 -- A parent decides. Answers:
@@ -475,12 +429,9 @@ DECLARE
   fn TEXT;
 BEGIN
   FOREACH fn IN ARRAY ARRAY[
-    'public.creatures_from_accounts(UUID)',
     'public.point_person_totals(UUID, UUID)',
-    'public.point_account_totals(UUID, UUID)',
     'public.point_lock_person(UUID)',
     'public.request_person_point_redemption(UUID, UUID, UUID, UUID)',
-    'public.request_point_redemption(UUID, UUID, UUID, UUID)',
     'public.decide_point_redemption(UUID, UUID, TEXT, UUID)'
   ] LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', fn);

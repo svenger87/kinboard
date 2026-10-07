@@ -1565,14 +1565,7 @@ export interface Database {
           last_accrued_date: string | null;
           last_allowance_at: string | null;
           interest_committed_at: string | null;
-          avatar_species: string;
           lifetime_saved_cents: number;
-          last_seen_tier: number;
-          best_tier: number;
-          reward_mode: "money" | "points";
-          avatar_style: "classic" | "gumdrop" | "sticker" | "storybook";
-          /** A child's own look (lib/pocket-money/creatures/look.ts); {} is the creature's own. */
-          avatar_look: Json;
           created_at: string;
           updated_at: string;
         };
@@ -1592,13 +1585,7 @@ export interface Database {
           last_accrued_date?: string | null;
           last_allowance_at?: string | null;
           interest_committed_at?: string | null;
-          avatar_species?: string;
           lifetime_saved_cents?: number;
-          last_seen_tier?: number;
-          best_tier?: number;
-          reward_mode?: "money" | "points";
-          avatar_style?: "classic" | "gumdrop" | "sticker" | "storybook";
-          avatar_look?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -1618,13 +1605,7 @@ export interface Database {
           last_accrued_date?: string | null;
           last_allowance_at?: string | null;
           interest_committed_at?: string | null;
-          avatar_species?: string;
           lifetime_saved_cents?: number;
-          last_seen_tier?: number;
-          best_tier?: number;
-          reward_mode?: "money" | "points";
-          avatar_style?: "classic" | "gumdrop" | "sticker" | "storybook";
-          avatar_look?: Json;
           created_at?: string;
           updated_at?: string;
         };

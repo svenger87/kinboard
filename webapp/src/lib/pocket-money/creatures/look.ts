@@ -7,7 +7,7 @@
  * Everything is chosen from the fixed sets below, the creature workshop's,
  * so every combination still looks good and the eyes stay readable on every
  * body. The server refuses anything else (validateLook, used by
- * PATCH /api/pocket-money/accounts/[id]); a restore and the screens keep the
+ * PATCH /api/creatures/[personId]); a restore and the screens keep the
  * valid keys of a stored look and drop the rest (restorableLook), since a
  * cosmetic field must never fail a restore.
  *

@@ -205,10 +205,11 @@ test.describe("live: changing a child's creature", () => {
     // A child well along: stage 6 reached, the money spent back down since,
     // in the Sticker style, a princess with her own look.
     accountId = psqlRow(`INSERT INTO pocket_money_accounts
-      (family_id, person_id, currency, balance_cents, lifetime_saved_cents, best_tier, last_seen_tier, avatar_species, avatar_style, avatar_look)
-      VALUES ('${famId}', '${childId}', 'EUR', 700, 30000, 6, 6, 'princess', 'sticker', ${sqlText(JSON.stringify(LOOK))}::jsonb) RETURNING id`);
-    // Her creature, as the RFC-017 migration derives it from that account.
-    psql(`SELECT public.creatures_from_accounts('${famId}')`);
+      (family_id, person_id, currency, balance_cents, lifetime_saved_cents)
+      VALUES ('${famId}', '${childId}', 'EUR', 700, 30000) RETURNING id`);
+    // Her creature, growing with that money.
+    psql(`INSERT INTO creatures (person_id, family_id, species, style, look, best_tier, last_seen_tier, grows_with)
+      VALUES ('${childId}', '${famId}', 'princess', 'sticker', ${sqlText(JSON.stringify(LOOK))}::jsonb, 6, 6, 'money')`);
 
     api = await pwRequest.newContext({ baseURL: BASE });
     const join = await postJoin(api, { joinCode: code, hardwareId: `${P}api`, deviceName: `${P}api` });

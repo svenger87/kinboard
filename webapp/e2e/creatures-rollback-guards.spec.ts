@@ -93,5 +93,6 @@ test("creatures_out still builds the creatures from those columns, after all fou
   const out = sqlOf(OUT);
   const create = out.indexOf("IF to_regclass('public.creatures') IS NULL THEN\n    CREATE TABLE public.creatures");
   expect(create).toBeGreaterThan(0);
-  expect(out.slice(create, out.indexOf("END IF;", create))).toContain("PERFORM public.creatures_from_accounts(NULL);");
+  // inline since RFC-017 step 5, which dropped creatures_from_accounts()
+  expect(out.slice(create, out.indexOf("END IF;", create))).toContain("FROM public.pocket_money_accounts a");
 });
