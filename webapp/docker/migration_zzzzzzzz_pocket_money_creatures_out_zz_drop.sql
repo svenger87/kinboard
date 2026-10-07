@@ -24,10 +24,10 @@
 -- dropping them is a separate decision.
 --
 -- A ROLLBACK to rc.13 is not possible after this has run: rc.13 reads these
--- columns. That is why it ships a release after 1.13.0, which kept them. A
--- rollback to a 1.13 whose migrations add the columns without the guard (see
--- THE MIGRATIONS THAT ADD THESE COLUMNS below)
--- does not start either: its migration_pocket_money_best_tier.sql and
+-- columns. That is why it ships a release after 1.13.0, which kept them.
+-- 1.13.0 carries the guards described below (#382), so going back to it
+-- starts. A release without them -- 1.12, or a 1.13 release candidate --
+-- does not: its migration_pocket_money_best_tier.sql and
 -- migration_zzzzzzz_point_rewards.sql fail on the missing columns on every
 -- boot, and the entrypoint refuses to start on a failed migration.
 --
