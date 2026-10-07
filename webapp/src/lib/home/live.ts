@@ -2,15 +2,16 @@
  * The real dependencies of the home routes (`lib/home/devices.ts`).
  *
  * `requestConfirmation` stores a sensitive action and pushes the family
- * (`lib/home/action-requests.ts`, RFC-011 §4.3); `recordAction` writes the
+ * (`lib/home/action-requests.ts`, RFC-011 §4.3) — or, for an assistant the
+ * family trusts, runs it now through the confirm path (`submitActionRequest`); `recordAction` writes the
  * attribution row for an action that ran without confirmation (RFC-011 §7).
  */
 
 import type { HomeDeps } from "@/lib/home/devices";
 import { catalogueEntities, catalogueEntity } from "@/lib/home/catalogue";
 import { callHaService, getHaState, getHaStates } from "@/lib/home/ha-client";
-import { createActionRequest, recordHomeAction } from "@/lib/home/action-requests";
-import { liveActionStore, liveConfirmationBudget, pushActionRequest } from "@/lib/home/action-requests-live";
+import { recordHomeAction, submitActionRequest } from "@/lib/home/action-requests";
+import { liveActionStore, liveConfirmationBudget, liveSubmitDeps } from "@/lib/home/action-requests-live";
 import { familyHasPin } from "@/lib/settings-pin";
 
 export const liveHomeDeps: HomeDeps = {
@@ -21,7 +22,7 @@ export const liveHomeDeps: HomeDeps = {
   callHaService: (familyId, domain, service, entityId, data) =>
     callHaService(familyId, domain, service, entityId, data),
   requestConfirmation: async (request) => {
-    const { id, expiresAt } = await createActionRequest(
+    const { id, expiresAt, request: ran } = await submitActionRequest(
       {
         familyId: request.familyId,
         tokenId: request.tokenId,
@@ -33,9 +34,9 @@ export const liveHomeDeps: HomeDeps = {
         service: request.service,
         data: request.data,
       },
-      { store: liveActionStore, push: pushActionRequest },
+      liveSubmitDeps,
     );
-    return { requestId: id, expiresAt };
+    return { requestId: id, expiresAt, ran };
   },
   familyHasPin: (familyId) => familyHasPin(familyId),
   confirmationBudget: liveConfirmationBudget,

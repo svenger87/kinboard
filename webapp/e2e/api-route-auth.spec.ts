@@ -218,6 +218,11 @@ test("a route that still takes family_id checks it against the session", () => {
     // `family_id` column it writes and the local `familyId`, both taken from
     // auth.session.familyId; the request body carries only `enabled`.
     "assistants/route.ts",
+    // "Trust this assistant": the regex matches the `family_id` column the
+    // UPDATE is scoped by and the local `familyId`, both from
+    // auth.session.familyId; the request carries a token id (path) and
+    // `{ trusted, pin }`, never a family id.
+    "assistants/[id]/trust/route.ts",
     // Sensitive assistant actions awaiting a person (RFC-011 §4.3). The
     // regex matches the local `familyId` destructured from auth.session; the
     // request carries only a request id (path) and `{ decision, pin }`.

@@ -112,6 +112,59 @@ pocket-money request, or a screen still on the old version shows a generic
 line with no amount or child. See [Self-hosting
 notes](AI-Assistants-Self-Hosting#upgrading).
 
+## Trusting an assistant
+
+Confirmation on the screens is the default for every assistant. You can switch it off for one assistant you
+trust: **Settings → Integration tokens**, find the row with the **Assistant**
+label, and turn on **Trust this assistant**. Kinboard asks for the settings
+PIN and shows this before it does anything:
+
+> *Everything this assistant asks for will happen right away — including
+> unlocking doors, opening the garage, switching off the alarm, booking
+> pocket money and deciding rewards. Nobody is asked first. A message
+> someone sends it, or text on a web page it reads, could make it do things
+> you didn't intend.*
+
+That is the trade-off, said plainly. Confirmation is what stands between a
+prompt injection (see [below](#text-in-your-data-is-data-not-instructions))
+and your front door. With trust on, the only thing standing there is the
+assistant's own judgement. Turn it on only for an assistant that only you
+use, and only if you're comfortable with that.
+
+What trust changes, and what it doesn't:
+
+- **It's one switch per assistant, for everything, until you turn it off.**
+  There is no "doors yes, pocket money no" and no time limit. If you want
+  that, leave it off.
+- **It's tied to that connection.** A second assistant in the same family
+  still asks. If you revoke the assistant, or switch off **Allow AI
+  assistants**, the trust is gone with it, and connecting again starts
+  untrusted. A token refreshing itself in the background keeps it.
+- **It skips the person, not the checks.** A trusted request goes through
+  exactly the steps an allowed one does: the assistant must still be
+  connected, the device must still be in your catalogue and the action
+  still on its list of allowed actions; a withdrawal still can't exceed the
+  balance, and a reward decision still fails if someone answered it in the
+  app first or the points no longer cover it. The limits stay too: at most
+  5 such requests per 10 minutes. A family with no settings PIN can't trust
+  an assistant, and still gets no sensitive actions.
+- **You see what it did.** Each time, every Kinboard screen shows a quiet
+  message, *"Done without asking: open Garage door"*, **via** the
+  assistant's name. No push and no sound. It stays until someone taps
+  **Got it**, and an assistant can't tap it away for you. The record of
+  each action stays in Kinboard either way, marked as allowed by trust.
+- **A retry doesn't run it twice.** If the assistant's request times out
+  and it sends the same request again, Kinboard recognises it and answers
+  with what happened the first time, or says it's still running, instead
+  of opening the door or booking the money a second time.
+- **Turning it on needs the PIN, typed right then.** An unlocked settings
+  screen isn't enough, and wrong guesses count against the same limit as
+  every other PIN prompt. No assistant can turn it on for itself: there is
+  no tool or Integration API call for it.
+- **Turning it off needs nothing.** Anyone at a screen can switch it off,
+  and it holds from the very next request. A request that was just starting
+  when you switched it off goes back to waiting on the screens.
+
 ## Rewards
 
 Asking for a reward with `request_reward` is the same as the child tapping
@@ -249,8 +302,9 @@ Whatever permissions you grant, and whatever someone approves:
 - **No presence.** Who is home is never read.
 - **No vehicle location.** `list_vehicles` never returns where a car is.
 - **No alarm or lock codes.** An assistant never holds or passes on a code;
-  arming, disarming, locking and unlocking always go through PIN
-  confirmation instead.
+  arming, disarming, locking and unlocking go through PIN confirmation
+  instead, or, for an assistant you [trust](#trusting-an-assistant), run
+  without one.
 - **No generic Home Assistant calls.** `homeassistant.*` (which can reach
   any domain), `automation.*`, `update.*`, `shell_command.*` and every
   domain not in the table above are unreachable. So is targeting a different
@@ -259,8 +313,8 @@ Whatever permissions you grant, and whatever someone approves:
 - **No web recipes.** Recipe search covers the family's own collection
   only. An assistant can save a new recipe to it, but not change or delete
   one.
-- **No settings.** No tool changes the PIN, the catalogue, the switch or
-  any other setting.
+- **No settings.** No tool changes the PIN, the catalogue, the switch,
+  an assistant's trust or any other setting.
 
 ## Text in your data is data, not instructions
 
@@ -275,7 +329,9 @@ Kinboard handles it in layers:
 - Every tool that returns family text tells the assistant to treat it as
   data, never as instructions.
 - What an injected instruction could do without a person is bounded: no
-  sensitive home action and no pocket-money booking runs without the PIN,
+  sensitive home action and no pocket-money booking runs without the PIN
+  (unless you [trust the assistant](#trusting-an-assistant), which removes
+  exactly this layer),
   and the edit-and-delete limit stops a "clean everything up" long before
   the lists are empty.
 - Deleted tasks, notes, meals and birthdays can be brought back.
@@ -289,7 +345,8 @@ needs to answer questions needs only the read permissions.
 
 - **One connection:** **Settings → Integration tokens**, find the row with
   the **Assistant** label and select **Revoke**. It stops working at once,
-  and any request it left waiting is ended. The row stays, marked revoked, so
+  and any request it left waiting is ended, and its trust, if you gave it,
+  is gone. The row stays, marked revoked, so
   you can still see what it was and when it was last used.
 - **Every assistant:** switch off **Allow AI assistants** on the same page.
   This revokes every assistant connection your family has. Hand-made tokens

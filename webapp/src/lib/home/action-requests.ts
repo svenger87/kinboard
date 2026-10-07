@@ -49,6 +49,15 @@
  * 5. A row left `approved` for over a minute (the server stopped between the
  *    claim and the answer) is reported, and marked best-effort, as `failed`
  *    with `reason: "unknown_outcome"`: it may or may not have happened.
+ *
+ * A trusted assistant (Settings → Integrations → "Trust this assistant",
+ * `integration_tokens.trusted_at`) skips only the person:
+ * `submitActionRequest` stores its request already `approved`, with
+ * `decided_by_trust` and no deciding device, and runs it at once through
+ * `runApproved` — the very steps 4 above that a PIN approval runs: the
+ * assistant re-checked, the kind's `validate`, its `execute`, `finish`. The
+ * PIN, the screens and the push are what it skips; nothing it is checked
+ * against is.
  */
 
 import { decideHomeAction, ENTITY_ID } from "@/lib/home/policy";
@@ -124,15 +133,22 @@ export interface ActionRequestRow {
   decided_at: string | null;
   decided_by_device_id: string | null;
   result: ActionResult | null;
+  /**
+   * True when nobody confirmed it because the family trusts this assistant
+   * (`submitActionRequest`). Absent or false otherwise — the column defaults
+   * to false, and an untrusted request is written exactly as before.
+   */
+  decided_by_trust?: boolean;
 }
 
 export type NewActionRow = Omit<ActionRequestRow, "id" | "created_at">;
 
 export interface ActionPatch {
   status: ActionStatus;
-  decided_at?: string;
+  decided_at?: string | null;
   decided_by_device_id?: string | null;
   result?: ActionResult | null;
+  decided_by_trust?: boolean;
 }
 
 export interface ActionRequestStore {
@@ -326,9 +342,21 @@ export async function createActionRequest(
     result: null,
   });
 
+  await pushFor(row, input, deps.push);
+
+  return { id: row.id, expiresAt: row.expires_at };
+}
+
+/** Tell the family's phones about a stored request; never fails, never waits over five seconds. */
+async function pushFor(
+  row: ActionRequestRow,
+  input: CreateActionInput | CreateKindRequestInput,
+  push: CreateDeps["push"],
+): Promise<void> {
+  const home = !("kind" in input);
   let timer: ReturnType<typeof setTimeout> | undefined;
   await Promise.race([
-    deps.push({
+    push({
       familyId: input.familyId,
       requestId: row.id,
       request: {
@@ -344,8 +372,6 @@ export async function createActionRequest(
     new Promise<void>((resolve) => { timer = setTimeout(resolve, PUSH_TIMEOUT_MS); }),
   ]);
   clearTimeout(timer);
-
-  return { id: row.id, expiresAt: row.expires_at };
 }
 
 /**
@@ -524,7 +550,9 @@ export function toAssistantRequest(row: ActionRequestRow) {
  * the same, plus what kind of request it is and what it asked for, in words.
  */
 export function toAssistantStatus(row: ActionRequestRow, t: ActionTranslator) {
-  return { ...toAssistantRequest(row), kind: row.kind, description: describeRequestVerb(t, row) };
+  const status = { ...toAssistantRequest(row), kind: row.kind, description: describeRequestVerb(t, row) };
+  // Only on a request nobody confirmed: every other answer is as it was.
+  return row.decided_by_trust ? { ...status, allowed_by_trust: true as const } : status;
 }
 
 // ── deciding ────────────────────────────────────────────────────────────────
@@ -1004,10 +1032,37 @@ export async function decideActionRequest(input: DecideInput, deps: DecideDeps):
   );
   if (!approved) return conflict(id, familyId, deps, clock());
 
+  return runApproved(approved, familyId, deps);
+}
+
+/**
+ * Steps 5 to 7: run a request that is `approved` — by a person with the PIN
+ * (`decideActionRequest`), or by the family's trust in its assistant
+ * (`submitActionRequest`). One path for both, so trust can skip the person
+ * and nothing else: the assistant is re-checked, the kind's `validate`
+ * re-reads what it must, `execute` runs exactly what was stored.
+ *
+ * `beforeRun`, for the trusted path only, is asked after the assistant was
+ * re-checked and before `validate`: a non-null answer stops here with that
+ * result, unrun.
+ */
+async function runApproved(
+  approved: ActionRequestRow,
+  familyId: string,
+  deps: DecideDeps,
+  beforeRun?: () => Promise<DecideResult | null>,
+): Promise<DecideResult> {
+  const id = approved.id;
+
   // 5. Revoked while the PIN was being typed: nothing runs.
   if (!(await deps.store.tokenActive(approved.token_id, familyId))) {
     const denied = await deps.store.transition(id, familyId, "approved", { status: "denied", result: null });
     return { status: 409, error: "revoked", request: denied ?? approved };
+  }
+
+  if (beforeRun) {
+    const stopped = await beforeRun();
+    if (stopped) return stopped;
   }
 
   // 6. Its kind may still run it — for home: still in the catalogue, and
@@ -1058,4 +1113,169 @@ async function finish(
   }
   const reread = (await deps.store.get(id, familyId)) ?? current;
   return { status: 200, request: reread ?? { ...approved, status, result } };
+}
+
+// ── trusted assistants ──────────────────────────────────────────────────────
+
+export interface SubmitDeps extends CreateDeps {
+  /**
+   * Does this family trust this assistant right now? True only for a
+   * connection of this family that is trusted and not revoked. A throw is
+   * "not trusted": the request then waits for a person, as before.
+   */
+  trusted?: (familyId: string, tokenId: string) => Promise<boolean>;
+  /** What a trusted request runs with: the same dependencies a PIN approval uses. */
+  decide?: DecideDeps;
+  /** The quiet notice on the screens after a trusted request ran. A throw is logged, never the request's. */
+  notice?: (row: ActionRequestRow) => Promise<void>;
+}
+
+export interface SubmitResult {
+  id: string;
+  expiresAt: string;
+  /**
+   * Set when the assistant was trusted: the request as it ended — `done`,
+   * `failed`, `denied` (disconnected meanwhile), or `pending` again when the
+   * trust was taken away while it was starting. Absent for a request that
+   * simply waits for a person.
+   */
+  request?: ActionRequestRow;
+}
+
+/**
+ * Store a request that needs a person — or, when the family trusts this
+ * assistant, run it now without one.
+ *
+ * Untrusted (the default, and whenever trust cannot be read): exactly
+ * `createActionRequest`, nothing else.
+ *
+ * Trusted: the row is written already `approved`, `decided_by_trust`, with
+ * no deciding device — so it never shows on a screen as a question — and
+ * goes through `runApproved`, the same steps a PIN approval takes: the
+ * assistant re-checked, the kind's `validate`, `execute` exactly as stored,
+ * `finish`. Between the token re-check and `validate` the trust is read
+ * once more: switched off by then, the row goes back to `pending` and is
+ * pushed like any other request. That re-read is not under a lock — a
+ * request already past it when the switch is turned off still finishes;
+ * revoking the assistant is what stops it, at the token re-check, if it has
+ * not got that far either. A trusted request that ran (`done`) leaves a
+ * notice on the screens (`trustedNoticeText`).
+ */
+export async function submitActionRequest(
+  input: CreateActionInput | CreateKindRequestInput,
+  deps: SubmitDeps,
+): Promise<SubmitResult> {
+  const isTrusted = async () => {
+    if (!deps.trusted || !deps.decide) return false;
+    try {
+      return (await deps.trusted(input.familyId, input.tokenId)) === true;
+    } catch (err) {
+      console.error("[assistant-actions] could not read trust:", err instanceof Error ? err.name : "error");
+      return false;
+    }
+  };
+  if (!(await isTrusted())) return createActionRequest(input, deps);
+  const decide = deps.decide as DecideDeps;
+
+  const now = (deps.now ?? (() => new Date()))();
+  const home = !("kind" in input);
+  const row = await deps.store.insert({
+    family_id: input.familyId,
+    token_id: input.tokenId,
+    client_name: input.clientName.slice(0, MAX_NAME),
+    kind: home ? "home" : input.kind,
+    entity_id: home ? input.entityId : null,
+    entity_name: home ? input.entityName.slice(0, MAX_NAME) : null,
+    domain: home ? input.domain : null,
+    service: home ? input.service : null,
+    data: input.data,
+    status: "approved",
+    expires_at: new Date(now.getTime() + ACTION_REQUEST_TTL_MS).toISOString(),
+    decided_at: now.toISOString(),
+    decided_by_device_id: null,
+    decided_by_trust: true,
+    result: null,
+  });
+
+  const outcome = await runApproved(row, input.familyId, decide, async () => {
+    if (await isTrusted()) return null;
+    // Trust was taken away while this was starting: ask, as for any assistant.
+    const back = await decide.store.transition(row.id, input.familyId, "approved", {
+      status: "pending", decided_at: null, decided_by_device_id: null, decided_by_trust: false,
+    });
+    if (!back) return { status: 409, error: "already_decided", request: (await decide.store.get(row.id, input.familyId)) ?? row };
+    await pushFor(back, input, deps.push);
+    return { status: 200, request: back };
+  });
+
+  const ended = outcome.request ?? row;
+  if (ended.status === "done" && ended.decided_by_trust && deps.notice) {
+    try {
+      await deps.notice(ended);
+    } catch (err) {
+      console.error("[assistant-actions] notice failed:", err instanceof Error ? err.name : "error");
+    }
+  }
+  return { id: row.id, expiresAt: row.expires_at, request: ended };
+}
+
+/** Failures after which something may or may not have happened. */
+const UNCERTAIN: ReadonlySet<ActionFailureReason> = new Set(["unknown_outcome", "booking_failed", "reward_decision_failed"]);
+
+/**
+ * What a route answers for a request `submitActionRequest` ran under trust:
+ * 200 `done`; 202 `pending_confirmation`, as for any request, when the trust
+ * was taken away while it started; 409 when it was refused before it ran
+ * (with the reason) or the assistant was disconnected meanwhile; 502 when it
+ * may or may not have happened. Always with `request_id`, which
+ * `get_action_status` reports the same way.
+ */
+export function trustedAnswer(row: ActionRequestRow): { status: number; body: Record<string, unknown> } {
+  if (row.status === "pending") {
+    return { status: 202, body: { status: "pending_confirmation", request_id: row.id, expires_at: row.expires_at } };
+  }
+  const base = { request_id: row.id, allowed_by_trust: true };
+  if (row.status === "done") return { status: 200, body: { status: "done", ...base } };
+  if (row.status === "denied") {
+    return {
+      status: 409,
+      body: { error: "This assistant was disconnected before it ran. Nothing was done.", code: "conflict", status: "denied", reason: "revoked", ...base },
+    };
+  }
+  const reason = row.status === "failed" ? row.result?.reason : "unknown_outcome";
+  if (row.status === "failed" && reason && !UNCERTAIN.has(reason)) {
+    return {
+      status: 409,
+      body: { error: `It was not done (${reason}). Nothing changed.`, code: "conflict", status: "failed", reason, ...base },
+    };
+  }
+  return {
+    status: 502,
+    body: {
+      error: "It ran without confirmation, but Kinboard could not confirm that it happened. It may or may not have happened; check before trying again.",
+      code: "upstream_unavailable", status: "failed", reason: reason ?? null, ...base,
+    },
+  };
+}
+
+/** How long a trusted action's notice may be: a screen message's own limit. */
+export const TRUSTED_NOTICE_MAX = 200;
+
+/**
+ * The notice a trusted request leaves on the screens, in `t`'s language:
+ * "Done without asking: add €5.00 to Mira's pocket money (note: 'mowing')".
+ * It is the request's own description, so anything an assistant wrote that
+ * reaches it — a booking's note — is already one line, without invisible or
+ * direction-changing characters, without quotation marks of its own, at most
+ * 100 characters, and in quotes (`bookingNoteLabel`); reward titles and names
+ * likewise (`rewardTitleLabel`, `rewardChildLabel`). The whole is cut to a
+ * screen message's 200 characters. `sender` is the assistant's name for the
+ * "via" line: one line, nothing invisible, at most 40 characters.
+ */
+export function trustedNoticeText(t: ActionTranslator, row: ActionRequestRow): { body: string; sender: string } {
+  const body = stripInvisible(t("trustedNotice", { action: describeRequestVerb(t, row) })).trim();
+  return {
+    body: body.length > TRUSTED_NOTICE_MAX ? `${body.slice(0, TRUSTED_NOTICE_MAX - 1).trimEnd()}…` : body,
+    sender: clientLabel(stripInvisible(row.client_name)),
+  };
 }

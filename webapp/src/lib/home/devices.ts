@@ -26,7 +26,9 @@
  *    data, and the call is recorded (`recordAction`) so every action is
  *    attributable to the assistant that asked (RFC-011 §7). Sensitive →
  *    `requestConfirmation` stores it (`lib/home/action-requests.ts`), and
- *    nothing runs until a family member approves it with the settings PIN.
+ *    nothing runs until a family member approves it with the settings PIN —
+ *    unless the family trusts this assistant, when it runs at once through
+ *    the approval's own steps and the answer says how it ended.
  */
 
 import { allowedActionsFor, decideHomeAction, ENTITY_ID } from "@/lib/home/policy";
@@ -34,6 +36,7 @@ import { CatalogueUnavailable, HomeUnavailable, HomeUpstreamError } from "@/lib/
 import type { CatalogueEntity } from "@/lib/home/catalogue";
 import type { HaState } from "@/lib/home/ha-client";
 import { retryAfterSeconds, type Budget } from "@/lib/integration-limits";
+import { trustedAnswer, type ActionRequestRow } from "@/lib/home/action-requests";
 
 export interface ConfirmationRequest {
   familyId: string;
@@ -65,8 +68,12 @@ export interface HomeDeps {
   callHaService: (
     familyId: string, domain: string, service: string, entityId: string, data: Record<string, unknown>,
   ) => Promise<{ ok: boolean; status: number }>;
-  /** Store a sensitive action until a family member decides it (RFC-011 §4.3). */
-  requestConfirmation: (request: ConfirmationRequest) => Promise<{ requestId: string; expiresAt: string }>;
+  /**
+   * Store a sensitive action until a family member decides it (RFC-011 §4.3).
+   * `ran` is set when the family trusts this assistant and it already ran,
+   * through the confirm path (`submitActionRequest`), with how it ended.
+   */
+  requestConfirmation: (request: ConfirmationRequest) => Promise<{ requestId: string; expiresAt: string; ran?: ActionRequestRow }>;
   /** Attribute an action that ran (RFC-011 §7). A failure is logged, never the action's. */
   recordAction: (record: ActionRecord) => Promise<void>;
   /** Whether the family has a settings PIN — without one, nobody could approve. Throws when unreadable. */
@@ -78,6 +85,12 @@ export interface HomeDeps {
    */
   confirmationBudget: (familyId: string, tokenId: string) => Promise<Budget>;
 }
+
+/**
+ * What in `HomeDeps` acts — everything else only reads. The first of these a
+ * request calls is where it starts to have an effect (`markBefore`).
+ */
+export const HOME_SIDE_EFFECTS = ["callHaService", "requestConfirmation", "recordAction"] as const satisfies readonly (keyof HomeDeps)[];
 
 export interface HomeResult {
   status: number;
@@ -326,6 +339,9 @@ export async function runHomeAction(
       familyId, tokenId: input.tokenId, tokenName: input.tokenName,
       entityId, entityName: entity.name, room: entity.room, domain, service, data: decision.data,
     });
+    // Trusted: it has already run, or not — through the same steps as an
+    // approval, catalogue and policy re-checked. Say how it ended.
+    if (pending.ran) return trustedAnswer(pending.ran);
     return {
       status: 202,
       body: { status: "pending_confirmation", request_id: pending.requestId, expires_at: pending.expiresAt },

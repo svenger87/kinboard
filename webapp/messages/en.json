@@ -2757,7 +2757,22 @@
       "assistantsToggle": "Allow AI assistants",
       "assistantsOff": "AI assistants are switched off. Turn this on to connect Claude or ChatGPT.",
       "assistantsOffHint": "Switching this off disconnects every connected assistant.",
-      "assistantsToggleFailed": "Could not change the setting. Try again."
+      "assistantsToggleFailed": "Could not change the setting. Try again.",
+      "trustToggle": "Trust this assistant",
+      "trustBadge": "Trusted",
+      "trustOnHint": "Runs everything it asks for right away, without asking anyone.",
+      "trustWarning": "Everything this assistant asks for will happen right away — including unlocking doors, opening the garage, switching off the alarm, booking pocket money and deciding rewards. Nobody is asked first. A message someone sends it, or text on a web page it reads, could make it do things you didn’t intend.",
+      "trustNotice": "Each time, every Kinboard screen shows a short note saying what it did.",
+      "trustDialogTitle": "Trust {name}?",
+      "trustPinLabel": "Settings PIN",
+      "trustConfirm": "Trust it",
+      "trustCancel": "Cancel",
+      "trustOn": "{name} is trusted. Its requests now run without asking.",
+      "trustOff": "{name} asks again before anything sensitive.",
+      "trustFailed": "Couldn’t change that. Please try again.",
+      "trustPinInvalid": "That PIN isn’t right.",
+      "trustRateLimited": "Too many wrong tries. Wait a minute, then try again.",
+      "trustPinRequired": "Set a settings PIN first. Without one, no assistant can be trusted."
     },
     "itemIntegrationTokensLabel": "Integration tokens",
     "itemIntegrationTokensDescription": "Let Home Assistant and other programs talk to Kinboard",
@@ -5073,7 +5088,8 @@
       "decision": "Decision",
       "approve": "Approve",
       "decline": "Decline"
-    }
+    },
+    "trustedNotice": "Done without asking: {action}"
   },
   "creaturesWidget": {
     "title": "Creatures",

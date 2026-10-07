@@ -624,6 +624,8 @@ test.describe("decide_reward_request", () => {
     for (const words of [
       "This tool does not decide it", "a parent confirms it on a Kinboard screen with the settings PIN",
       "get_action_status reports the outcome", "only status done", "the family's own text",
+      // A trusted assistant's decision runs at once (e2e/assistant-trust.spec.ts); the description says so.
+      "When the family trusts this assistant", "allowed_by_trust", "pending_confirmation",
     ]) {
       expect(tool.description, words).toContain(words);
     }
@@ -656,7 +658,8 @@ test.describe("guards", () => {
       "lib/pocket-money/rewards.ts", // its definition
     ].sort());
     const live = read("src", "lib", "home", "action-requests-live.ts");
-    // Inside liveDecideDeps, which only decideActionRequest uses.
+    // Inside liveDecideDeps: what decideActionRequest runs after a PIN, and what
+    // submitActionRequest runs for a trusted assistant -- the same handler and re-read.
     const deps = live.slice(live.indexOf("export const liveDecideDeps"));
     expect(deps.indexOf("decideRedemption(")).toBeGreaterThan(0);
     expect(deps.indexOf("decideRedemption(")).toBeLessThan(deps.indexOf("\n};"));
@@ -672,12 +675,16 @@ test.describe("guards", () => {
     expect(read("src", "lib", "home", "action-requests-live.ts")).toContain("verifyPin: (familyId, pin) => verifySettingsPin(familyId, pin)");
   });
 
-  test("the asking route is pocket_money:write, idempotent, and remembers only a 202", () => {
+  test("the asking route is pocket_money:write, idempotent, and remembers a 202 or a trusted decision's answer", () => {
     const route = read("src", "app", "api", "integration", "v1", "rewards", "requests", "[id]", "decision", "route.ts");
     expect(route.match(/withIntegrationAuth\(request, "([a-z_:]+)"/g)).toEqual(['withIntegrationAuth(request, "pocket_money:write"']);
     expect(route).not.toMatch(/export async function (GET|PATCH|PUT|DELETE)/);
     expect(route).toContain("validateIdempotencyKey(");
-    expect(route).toMatch(/if \(result\.status === 202\) \{\s*await storeResult/);
+    // The key is reserved before it runs (withIdempotency), and remembered for
+    // rememberStoredRequest: a 202, or a request that exists (a trusted
+    // assistant's, already run) -- a retry replays it, never decides twice.
+    expect(route).toMatch(/withIdempotency\(\s*\{[^}]*remember: rememberStoredRequest \}/);
+    expect(route).not.toContain("findStoredResult(");
     expect(route).toContain("liveRewardDecisionDeps");
     expect(route).not.toMatch(/decide_point_redemption|decideRedemption|decideActionRequest/);
   });

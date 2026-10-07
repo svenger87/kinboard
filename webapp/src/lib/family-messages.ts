@@ -223,6 +223,50 @@ export async function sendFamilyMessage(
   return { ok: true, message };
 }
 
+/**
+ * The notice a trusted assistant's action leaves on the screens ("Done
+ * without asking: open Garage door", via Claude) — a screen message like any
+ * other, inserted the way `sendFamilyMessage` inserts, but with no push:
+ * it is a quiet record that something happened, not an alarm. Linked to the
+ * request by `action_request_id`, which is also what stops an assistant from
+ * acknowledging it away (`isTrustNotice`). Throws when it cannot be written.
+ */
+export async function postTrustedNotice(
+  params: { familyId: string; body: string; senderLabel: string; actionRequestId: string },
+  db: ReturnType<typeof createAdminClient> = createAdminClient(),
+): Promise<void> {
+  const body = params.body.length > MAX_MESSAGE_BODY ? `${params.body.slice(0, MAX_MESSAGE_BODY - 1)}…` : params.body;
+  const { error } = await (db as any).from("messages").insert({
+    family_id: params.familyId,
+    body,
+    sender_device_id: null,
+    sender_label: storedSenderLabel(params.senderLabel),
+    action_request_id: params.actionRequestId,
+  });
+  if (error) throw new Error(`Failed to post the notice: ${error.message}`);
+}
+
+/**
+ * Is this message the notice of an action a trusted assistant ran? Such a
+ * notice is for the family to see and acknowledge — an assistant must not
+ * be able to clear the trace of what it just did. Throws on a database error.
+ */
+export async function isTrustNotice(
+  familyId: string,
+  id: string,
+  db: ReturnType<typeof createAdminClient> = createAdminClient(),
+): Promise<boolean> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return false;
+  const { data, error } = await (db as any)
+    .from("messages")
+    .select("action_request_id")
+    .eq("id", id)
+    .eq("family_id", familyId)
+    .maybeSingle();
+  if (error) throw error;
+  return !!data?.action_request_id;
+}
+
 /*
  * Reading and acknowledging messages through the Integration API (RFC-012
  * task 11: GET /messages and POST /messages/{id}/acknowledge). Both make the

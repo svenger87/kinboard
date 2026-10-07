@@ -2757,7 +2757,22 @@
       "assistantsToggle": "KI-Assistenten erlauben",
       "assistantsOff": "KI-Assistenten sind ausgeschaltet. Schalte das ein, um Claude oder ChatGPT zu verbinden.",
       "assistantsOffHint": "Wenn du das ausschaltest, werden alle verbundenen Assistenten getrennt.",
-      "assistantsToggleFailed": "Die Einstellung konnte nicht geändert werden. Versuche es erneut."
+      "assistantsToggleFailed": "Die Einstellung konnte nicht geändert werden. Versuche es erneut.",
+      "trustToggle": "Diesem Assistenten vertrauen",
+      "trustBadge": "Vertraut",
+      "trustOnHint": "Führt alles, worum er bittet, sofort aus, ohne jemanden zu fragen.",
+      "trustWarning": "Alles, worum dieser Assistent bittet, passiert sofort — auch Türen aufschließen, die Garage öffnen, die Alarmanlage ausschalten, Taschengeld buchen und über Belohnungen entscheiden. Niemand wird vorher gefragt. Eine Nachricht, die ihm jemand schickt, oder Text auf einer Webseite, die er liest, könnte ihn Dinge tun lassen, die ihr nicht wolltet.",
+      "trustNotice": "Jedes Mal zeigt jeder Kinboard-Bildschirm eine kurze Notiz, was er getan hat.",
+      "trustDialogTitle": "{name} vertrauen?",
+      "trustPinLabel": "Einstellungs-PIN",
+      "trustConfirm": "Vertrauen",
+      "trustCancel": "Abbrechen",
+      "trustOn": "{name} wird vertraut. Seine Anfragen laufen jetzt ohne Rückfrage.",
+      "trustOff": "{name} fragt wieder nach, bevor er etwas Heikles tut.",
+      "trustFailed": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
+      "trustPinInvalid": "Diese PIN stimmt nicht.",
+      "trustRateLimited": "Zu viele falsche Versuche. Warte eine Minute und versuche es dann noch einmal.",
+      "trustPinRequired": "Lege zuerst eine Einstellungs-PIN fest. Ohne sie kann keinem Assistenten vertraut werden."
     },
     "itemIntegrationTokensLabel": "Integrations-Tokens",
     "itemIntegrationTokensDescription": "Home Assistant und andere Programme mit Kinboard sprechen lassen",
@@ -5073,7 +5088,8 @@
       "decision": "Entscheidung",
       "approve": "Genehmigen",
       "decline": "Ablehnen"
-    }
+    },
+    "trustedNotice": "Ohne Rückfrage erledigt: {action}"
   },
   "creaturesWidget": {
     "title": "Kreaturen",

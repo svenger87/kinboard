@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { KeyRound, Copy, Check, Ban, Bot } from "lucide-react";
+import { KeyRound, Copy, Check, Ban, Bot, ShieldCheck } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,6 +15,9 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmDestructive } from "@/components/confirm-destructive";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { isPinRequired, relockSettings } from "@/lib/pin-session";
 
 interface TokenRow {
@@ -26,7 +29,16 @@ interface TokenRow {
   expires_at: string | null;
   revoked_at: string | null;
   oauth_client_id: string | null;
+  /** "Trust this assistant": when it was switched on, or null. */
+  trusted_at?: string | null;
 }
+
+/** What the trust route's refusals mean, as the key of their words. */
+const TRUST_ERRORS: Record<string, string> = {
+  pin_invalid: "trustPinInvalid",
+  rate_limited: "trustRateLimited",
+  pin_required: "trustPinRequired",
+};
 
 /**
  * Integration tokens — the credentials Home Assistant (and later the Bridge)
@@ -108,6 +120,44 @@ export default function IntegrationsPage() {
     },
     onError: () => toast.error(t("revokeFailed")),
   });
+
+  // "Trust this assistant", per assistant connection. On asks for the
+  // settings PIN in a dialog that says plainly what it means; the server
+  // checks the PIN (lib/assistant-trust.ts). Off needs nothing.
+  const [trusting, setTrusting] = useState<TokenRow | null>(null);
+  const [trustPin, setTrustPin] = useState("");
+  const [trustError, setTrustError] = useState<string | null>(null);
+
+  const setTrust = useMutation({
+    mutationFn: async (input: { token: TokenRow; trusted: boolean; pin?: string }) => {
+      const r = await fetch(`/api/assistants/${input.token.id}/trust`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input.trusted ? { trusted: true, pin: input.pin } : { trusted: false }),
+      });
+      const body = (await r.json().catch(() => ({}))) as { error?: string };
+      if (!r.ok) throw new Error(TRUST_ERRORS[body.error ?? ""] ?? "trustFailed");
+      return input;
+    },
+    onSuccess: (input) => {
+      toast.success(t(input.trusted ? "trustOn" : "trustOff", { name: input.token.name }));
+      setTrusting(null);
+      setTrustPin("");
+      setTrustError(null);
+      void qc.invalidateQueries({ queryKey: ["integration-tokens"] });
+    },
+    onError: (e: Error, input) => {
+      setTrustPin("");
+      if (input.trusted) setTrustError(t(e.message));
+      else toast.error(t(e.message));
+    },
+  });
+
+  const openTrust = (token: TokenRow) => {
+    setTrustPin("");
+    setTrustError(null);
+    setTrusting(token);
+  };
 
   // "Allow AI assistants" (RFC-010), off by default. While it is off the
   // OAuth and MCP routes answer 404, so the address below would only lead
@@ -331,6 +381,26 @@ export default function IntegrationsPage() {
                       ? t("lastUsed", { date: fmt(token.last_used_at) })
                       : t("neverUsed")}
                   </p>
+                  {token.oauth_client_id && !revoked && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2" data-assistant-trust={token.id}>
+                      <Switch
+                        id={`trust-${token.id}`}
+                        checked={Boolean(token.trusted_at)}
+                        disabled={setTrust.isPending}
+                        onCheckedChange={(on) => (on ? openTrust(token) : setTrust.mutate({ token, trusted: false }))}
+                      />
+                      <Label htmlFor={`trust-${token.id}`} className="text-sm font-normal">{t("trustToggle")}</Label>
+                      {token.trusted_at && (
+                        <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                          <ShieldCheck className="size-3" aria-hidden />
+                          {t("trustBadge")}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {token.oauth_client_id && !revoked && token.trusted_at && (
+                    <p className="mt-1 text-xs text-muted-foreground">{t("trustOnHint")}</p>
+                  )}
                 </div>
 
                 {!revoked && (
@@ -351,6 +421,43 @@ export default function IntegrationsPage() {
           );
         })}
       </div>
+
+      <Dialog open={trusting !== null} onOpenChange={(open) => { if (!open && !setTrust.isPending) setTrusting(null); }}>
+        <DialogContent data-trust-dialog className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("trustDialogTitle", { name: trusting?.name ?? "" })}</DialogTitle>
+            <DialogDescription data-trust-warning>{t("trustWarning")}</DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t("trustNotice")}</p>
+          <form
+            id="trust-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (trusting && trustPin.length === 4) setTrust.mutate({ token: trusting, trusted: true, pin: trustPin });
+            }}
+          >
+            <Label htmlFor="trust-pin">{t("trustPinLabel")}</Label>
+            <Input
+              id="trust-pin"
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              value={trustPin}
+              onChange={(e) => setTrustPin(e.target.value.replace(/\D/g, ""))}
+            />
+            {trustError && <p role="alert" className="mt-2 text-sm text-destructive">{trustError}</p>}
+          </form>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTrusting(null)} disabled={setTrust.isPending}>
+              {t("trustCancel")}
+            </Button>
+            <Button type="submit" form="trust-form" disabled={trustPin.length !== 4 || setTrust.isPending}>
+              {t("trustConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     </main>
   );

@@ -27,9 +27,9 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { familyHasPin } from "@/lib/settings-pin";
 import { retryAfterSeconds, type Budget } from "@/lib/integration-limits";
 import {
-  UUID, createActionRequest, rewardDecisionFrom, type CreateKindRequestInput, type RewardDecision,
+  UUID, submitActionRequest, trustedAnswer, rewardDecisionFrom, type ActionRequestRow, type CreateKindRequestInput, type RewardDecision,
 } from "@/lib/home/action-requests";
-import { liveActionStore, liveConfirmationBudget, pushActionRequest } from "@/lib/home/action-requests-live";
+import { liveConfirmationBudget, liveSubmitDeps } from "@/lib/home/action-requests-live";
 
 const db = () => createAdminClient() as any;
 
@@ -43,6 +43,12 @@ export interface RewardRequestNow {
   status: string;
 }
 
+/**
+ * What in `RewardDecisionRequestDeps` acts: storing (or, for a trusted assistant, running) the
+ * request. Everything before it only reads (`markBefore`).
+ */
+export const REWARD_DECISION_SIDE_EFFECTS = ["createRequest"] as const satisfies readonly (keyof RewardDecisionRequestDeps)[];
+
 export interface RewardDecisionRequestDeps {
   /** One reward request of this family whose child is not in the recycle bin, or null. Throws when unreadable. */
   lookupRedemption: (familyId: string, redemptionId: string) => Promise<RewardRequestNow | null>;
@@ -53,7 +59,8 @@ export interface RewardDecisionRequestDeps {
   familyHasPin: (familyId: string) => Promise<boolean>;
   /** `liveConfirmationBudget`: spends the budget when it says yes; throws when unreadable. */
   confirmationBudget: (familyId: string, tokenId: string) => Promise<Budget>;
-  createRequest: (input: CreateKindRequestInput) => Promise<{ id: string; expiresAt: string }>;
+  /** `submitActionRequest`: `request` is set when a trusted assistant's request already ran. */
+  createRequest: (input: CreateKindRequestInput) => Promise<{ id: string; expiresAt: string; request?: ActionRequestRow }>;
 }
 
 export interface RewardDecisionRequestInput {
@@ -177,6 +184,16 @@ export async function requestRewardDecision(
     clientName: input.clientName,
     data: { ...data },
   });
+  const rewardRequest = {
+    id: request.id, person_id: request.person_id, child_name: request.child_name,
+    title: request.title, cost_points: request.cost_points,
+  };
+  // A trusted assistant's decision has already run, or not, through the same
+  // handler an approval uses — with its re-read of the reward request.
+  if (pending.request) {
+    const answer = trustedAnswer(pending.request);
+    return { status: answer.status, body: { ...answer.body, decision: parsed.decision, reward_request: rewardRequest } };
+  }
   return {
     status: 202,
     body: {
@@ -236,5 +253,5 @@ export const liveRewardDecisionDeps: RewardDecisionRequestDeps = {
   decisionPending: liveDecisionPending,
   familyHasPin: (familyId) => familyHasPin(familyId),
   confirmationBudget: liveConfirmationBudget,
-  createRequest: (input) => createActionRequest(input, { store: liveActionStore, push: pushActionRequest }),
+  createRequest: (input) => submitActionRequest(input, liveSubmitDeps),
 };

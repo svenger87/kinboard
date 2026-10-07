@@ -20,14 +20,17 @@ import { sendPushToMultiple, isVapidConfigured, type DatabaseSubscription } from
 import { getPushTranslator, getTranslator } from "@/lib/notifications/messages";
 import { getFamilyLocale } from "@/lib/family-locale";
 import { CONFIRM_MAX_PENDING, confirmationBudget, hitConfirmLimit, type Budget } from "@/lib/integration-limits";
+import { postTrustedNotice } from "@/lib/family-messages";
 import {
   describeRequest,
+  trustedNoticeText,
   type ActionRequestRow,
   type ActionRequestStore,
   type ActionTranslator,
   type DecideDeps,
   type PushRequest,
   type RewardRedemptionNow,
+  type SubmitDeps,
 } from "@/lib/home/action-requests";
 
 const TABLE = "assistant_action_requests";
@@ -173,3 +176,47 @@ export async function liveConfirmationBudget(familyId: string, tokenId: string):
   const expiries = ((data ?? []) as { expires_at: string }[]).map((r) => r.expires_at);
   return confirmationBudget(expiries, now, () => hitConfirmLimit(tokenId));
 }
+
+/**
+ * Does this family trust this assistant right now? Read from the connection
+ * itself (`integration_tokens.trusted_at`), on every request — never cached,
+ * so switching trust off in Settings holds for the very next request. True
+ * only for an assistant connection (an OAuth client) of this family that is
+ * trusted and not revoked; a hand-made token is never trusted. Throws when
+ * unreadable, which `submitActionRequest` treats as "not trusted".
+ */
+export async function liveAssistantTrusted(familyId: string, tokenId: string): Promise<boolean> {
+  const { data, error } = await db()
+    .from("integration_tokens")
+    .select("family_id, trusted_at, revoked_at, oauth_client_id")
+    .eq("id", tokenId)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to read the assistant's trust: ${error.message}`);
+  return !!data && data.family_id === familyId && !!data.trusted_at && !data.revoked_at && !!data.oauth_client_id;
+}
+
+/**
+ * After a trusted assistant's request ran: a screen message — "Done without
+ * asking: open Garage door", via the assistant — on every Kinboard screen.
+ * Quiet: no push, no sound; it shows like any message and stays until
+ * someone taps "Got it". In the family's language, as the push would be.
+ */
+export async function liveTrustedNotice(row: ActionRequestRow): Promise<void> {
+  const locale = await getFamilyLocale(row.family_id);
+  const t = getTranslator(locale, "assistantActions") as unknown as ActionTranslator;
+  const { body, sender } = trustedNoticeText(t, row);
+  await postTrustedNotice({ familyId: row.family_id, body, senderLabel: sender, actionRequestId: row.id });
+}
+
+/**
+ * What every assistant request that needs a person is submitted with: store
+ * it and push — or, for a trusted assistant, run it now through the same
+ * `liveDecideDeps` a PIN approval uses, and leave the notice.
+ */
+export const liveSubmitDeps: SubmitDeps = {
+  store: liveActionStore,
+  push: pushActionRequest,
+  trusted: liveAssistantTrusted,
+  decide: liveDecideDeps,
+  notice: liveTrustedNotice,
+};

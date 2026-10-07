@@ -2757,7 +2757,22 @@
       "assistantsToggle": "Autoriser les assistants IA",
       "assistantsOff": "Les assistants IA sont désactivés. Activez cette option pour connecter Claude ou ChatGPT.",
       "assistantsOffHint": "Désactiver cette option déconnecte tous les assistants connectés.",
-      "assistantsToggleFailed": "Impossible de modifier ce réglage. Réessayez."
+      "assistantsToggleFailed": "Impossible de modifier ce réglage. Réessayez.",
+      "trustToggle": "Faire confiance à cet assistant",
+      "trustBadge": "De confiance",
+      "trustOnHint": "Exécute tout ce qu’il demande immédiatement, sans demander à personne.",
+      "trustWarning": "Tout ce que cet assistant demande se fera immédiatement — y compris déverrouiller des portes, ouvrir le garage, désactiver l’alarme, enregistrer de l’argent de poche et décider des récompenses. Personne n’est consulté avant. Un message que quelqu’un lui envoie, ou un texte sur une page web qu’il lit, pourrait lui faire faire des choses que vous n’aviez pas voulues.",
+      "trustNotice": "À chaque fois, chaque écran Kinboard affiche une courte note de ce qu’il a fait.",
+      "trustDialogTitle": "Faire confiance à {name} ?",
+      "trustPinLabel": "Code PIN des réglages",
+      "trustConfirm": "Faire confiance",
+      "trustCancel": "Annuler",
+      "trustOn": "{name} est de confiance. Ses demandes s’exécutent désormais sans confirmation.",
+      "trustOff": "{name} redemande avant toute action sensible.",
+      "trustFailed": "Cela n’a pas fonctionné. Veuillez réessayer.",
+      "trustPinInvalid": "Ce code PIN n’est pas le bon.",
+      "trustRateLimited": "Trop d’essais erronés. Attendez une minute, puis réessayez.",
+      "trustPinRequired": "Définissez d’abord un code PIN des réglages. Sans lui, aucun assistant ne peut être de confiance."
     },
     "itemIntegrationTokensLabel": "Jetons d'intégration",
     "itemIntegrationTokensDescription": "Permettre à Home Assistant et à d'autres programmes de dialoguer avec Kinboard",
@@ -5073,7 +5088,8 @@
       "decision": "Décision",
       "approve": "Accepter",
       "decline": "Refuser"
-    }
+    },
+    "trustedNotice": "Fait sans demander : {action}"
   },
   "creaturesWidget": {
     "title": "Créatures",

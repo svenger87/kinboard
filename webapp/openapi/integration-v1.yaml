@@ -290,8 +290,27 @@ paths:
 
         Every action that runs is recorded against the calling token.
 
-        Only `200` and `202` are remembered against the Idempotency-Key; the
-        key is bound to the entity as well as the body.
+        **A trusted assistant.** When the family has switched on *Trust this
+        assistant* for the calling connection (Settings, with the settings
+        PIN — never through this API), the request does not wait: it runs at
+        once through the same checks an approval runs, and the answer says how
+        it ended — `200` `done`, `409` when it was refused before it ran
+        (`reason` as in `GET /actions/{id}`, or `revoked`), `502` when it may or
+        may not have happened — each with `request_id` and
+        `allowed_by_trust: true`, and remembered against the Idempotency-Key so
+        a retry never runs it twice. A `202 pending_confirmation` is still
+        possible if the trust was switched off as it started.
+
+        The Idempotency-Key is reserved before anything runs. Another request
+        with the same key while the first is running — or after its result
+        could not be recorded, or it failed after it had started — is `409`
+        with `reason: in_progress` (`Retry-After`), and runs nothing. A request
+        that failed before anything ran gives the key back.
+
+        Only `200`, `202`, `502` (Home Assistant was called and did not
+        confirm; it may have happened) and a trusted assistant's answer with a
+        `request_id` are remembered against the Idempotency-Key; the key is
+        bound to the entity as well as the body.
       x-required-scope: home:control
       parameters:
         - $ref: "#/components/parameters/Entity"
@@ -317,7 +336,7 @@ paths:
                   additionalProperties: true
       responses:
         "200":
-          description: Home Assistant ran the action
+          description: "Home Assistant ran the action — not sensitive, or sensitive and the assistant is trusted (then with `request_id` and `allowed_by_trust`)"
           content:
             application/json:
               schema:
@@ -325,6 +344,8 @@ paths:
                 required: [status]
                 properties:
                   status: { type: string, enum: [done] }
+                  request_id: { type: string, format: uuid }
+                  allowed_by_trust: { type: boolean, enum: [true] }
         "202":
           description: Sensitive — stored until a family member confirms it on a Kinboard screen with the settings PIN, or it expires
           content:
@@ -408,7 +429,8 @@ paths:
         `reward_request_gone` (the request or the child is gone) and
         `insufficient_points` (approving, and the points no longer cover
         it) — nothing changed; `reward_decision_failed` — Kinboard could not
-        tell whether the decision was saved.
+        tell whether the decision was saved. A request the family's trust in
+        this assistant ran without confirmation has `allowed_by_trust: true`.
       x-required-scope: [home:control, pocket_money:write]
       parameters:
         - name: id
@@ -1759,6 +1781,23 @@ paths:
         booked. The same limits as home confirmations apply, counted
         together: at most 2 requests waiting and 5 per 10 minutes per token.
 
+        **A trusted assistant.** When the family has switched on *Trust this
+        assistant* for the calling connection (Settings, with the settings
+        PIN — never through this API), the request does not wait: it runs at
+        once through the same checks an approval runs, and the answer says how
+        it ended — `200` `done`, `409` when it was refused before it ran
+        (`reason` as in `GET /actions/{id}`, or `revoked`), `502` when it may or
+        may not have happened — each with `request_id` and
+        `allowed_by_trust: true`, and remembered against the Idempotency-Key so
+        a retry never runs it twice. A `202 pending_confirmation` is still
+        possible if the trust was switched off as it started.
+
+        The Idempotency-Key is reserved before anything runs. Another request
+        with the same key while the first is running — or after its result
+        could not be recorded, or it failed after it had started — is `409`
+        with `reason: in_progress` (`Retry-After`), and runs nothing. A request
+        that failed before anything ran gives the key back.
+
         `person_id` must be a child of this family, not in the recycle bin,
         with a pocket-money account (`GET /pocket-money`): otherwise `404`
         (`reason` `no_person` or `no_account`) or `400` (`reason`
@@ -1776,8 +1815,8 @@ paths:
         asked.
 
         The Idempotency-Key is required. Repeating it with the same body
-        answers the same request (`idempotent-replay`); only a `202` is
-        remembered.
+        answers the same request (`idempotent-replay`); only a `202`, or a
+        trusted assistant's answer with a `request_id`, is remembered.
       x-required-scope: pocket_money:write
       parameters:
         - name: Idempotency-Key
@@ -1797,6 +1836,17 @@ paths:
                 type: { type: string, enum: [deposit, withdrawal] }
                 note: { type: [string, "null"], maxLength: 100, description: Trimmed first. }
       responses:
+        "200":
+          description: "A trusted assistant's request: it ran at once, without confirmation"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, request_id, allowed_by_trust]
+                properties:
+                  status: { type: string, enum: [done] }
+                  request_id: { type: string, format: uuid }
+                  allowed_by_trust: { type: boolean, enum: [true] }
         "202":
           description: Stored until a family member allows it with the settings PIN, denies it, or it expires
           content:
@@ -1812,8 +1862,9 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { description: "The family has no settings PIN, so nobody could allow it (`reason: pin_required`). Nothing was done." }
         "404": { description: "No such person in this family (`reason: no_person`), or the child has no account (`reason: no_account`)." }
-        "409": { description: Idempotency key reused with different arguments. }
+        "409": { description: "Idempotency key reused with different arguments; or a trusted assistant's booking refused before it ran (`allowed_by_trust`, `reason`), nothing booked." }
         "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { description: "A trusted assistant's request ran, but Kinboard could not tell whether it took effect (`allowed_by_trust`, `reason`). It may or may not have happened." }
         "503": { description: "Kinboard could not check the PIN or this assistant's pending requests. Nothing was done." }
 
   /rewards:
@@ -1934,6 +1985,23 @@ paths:
         confirmation apply, counted together: at most 2 requests waiting and
         5 per 10 minutes per token.
 
+        **A trusted assistant.** When the family has switched on *Trust this
+        assistant* for the calling connection (Settings, with the settings
+        PIN — never through this API), the request does not wait: it runs at
+        once through the same checks an approval runs, and the answer says how
+        it ended — `200` `done`, `409` when it was refused before it ran
+        (`reason` as in `GET /actions/{id}`, or `revoked`), `502` when it may or
+        may not have happened — each with `request_id` and
+        `allowed_by_trust: true`, and remembered against the Idempotency-Key so
+        a retry never runs it twice. A `202 pending_confirmation` is still
+        possible if the trust was switched off as it started.
+
+        The Idempotency-Key is reserved before anything runs. Another request
+        with the same key while the first is running — or after its result
+        could not be recorded, or it failed after it had started — is `409`
+        with `reason: in_progress` (`Retry-After`), and runs nothing. A request
+        that failed before anything ran gives the key back.
+
         Allowing it decides the reward request on the server exactly as a
         parent's own Approve or Deny on the rewards page does: still
         pending, and for an approval the child's points still covering it,
@@ -1950,8 +2018,8 @@ paths:
         (`reason: already_asked`).
 
         The Idempotency-Key is required. Repeating it with the same body
-        answers the same request (`idempotent-replay`); only a `202` is
-        remembered.
+        answers the same request (`idempotent-replay`); only a `202`, or a
+        trusted assistant's answer with a `request_id`, is remembered.
       x-required-scope: pocket_money:write
       parameters:
         - name: id
@@ -1972,6 +2040,17 @@ paths:
               properties:
                 decision: { type: string, enum: [approve, decline] }
       responses:
+        "200":
+          description: "A trusted assistant's request: it ran at once, without confirmation"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, request_id, allowed_by_trust]
+                properties:
+                  status: { type: string, enum: [done] }
+                  request_id: { type: string, format: uuid }
+                  allowed_by_trust: { type: boolean, enum: [true] }
         "202":
           description: Stored until a family member allows it with the settings PIN, denies it, or it expires
           content:
@@ -1999,6 +2078,7 @@ paths:
         "404": { description: "No such reward request in this family. Nothing was asked." }
         "409": { description: "Already approved or declined (`reason: already_decided`), not enough points to approve (`reason: insufficient_points`), a decision already waiting (`reason: already_asked`), or the idempotency key reused with different arguments. Nothing was asked." }
         "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { description: "A trusted assistant's request ran, but Kinboard could not tell whether it took effect (`allowed_by_trust`, `reason`). It may or may not have happened." }
         "503": { description: "Kinboard could not check the PIN or this assistant's pending requests. Nothing was asked." }
 
   /people:

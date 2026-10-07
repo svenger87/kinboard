@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { logApiError } from "@/lib/api-error";
 import {
-  findStoredResult, fingerprintRequest, storeResult, validateIdempotencyKey,
+  fingerprintRequest, rememberHomeAction, markBefore, validateIdempotencyKey, withIdempotency,
 } from "@/lib/integration-idempotency";
-import { parseEntityParam, runHomeAction } from "@/lib/home/devices";
+import { HOME_SIDE_EFFECTS, parseEntityParam, runHomeAction } from "@/lib/home/devices";
 import { liveHomeDeps } from "@/lib/home/live";
 
 export const dynamic = "force-dynamic";
@@ -23,8 +23,15 @@ export const dynamic = "force-dynamic";
  *
  * Idempotency as in `calendar/events` POST. The entity is part of the
  * fingerprint, so a key reused for another device is a conflict, and only a
- * completed (200) or accepted (202) result is remembered — a failure may be
- * retried with the same key.
+ * completed (200) or accepted (202) result is remembered, and a 502 (Home
+ * Assistant was called and did not confirm: it may have happened) — any other
+ * failure may be retried with the same key.
+ * The key is reserved before anything runs (`withIdempotency`): a second
+ * request with it while the first runs is 409 `in_progress`, and a result
+ * that could not be written down keeps it taken, so a trusted assistant's
+ * action never runs twice for one key.
+ * A throw before the first side effect (`markBefore`) gives the key back;
+ * one after it keeps it.
  */
 export async function POST(
   request: NextRequest,
@@ -45,24 +52,16 @@ export async function POST(
 
     try {
       const hash = fingerprintRequest(`home/devices/${parseEntityParam(entity) ?? ""}/actions`, body);
-      const previous = await findStoredResult(context.familyId, key.key);
-      if (previous) {
-        if (previous.request_hash !== hash) {
-          return NextResponse.json({ error: "Idempotency-Key reused with different arguments", code: "conflict" }, { status: 409 });
-        }
-        return NextResponse.json(previous.response, { status: previous.status, headers: { "idempotent-replay": "true" } });
-      }
-
-      const result = await runHomeAction(
-        { familyId: context.familyId, tokenId: context.tokenId, tokenName: context.name, rawEntity: entity, body },
-        liveHomeDeps,
+      // The key is reserved before anything runs: a trusted assistant's
+      // request runs at once, so two requests with one key must not both run
+      // it (lib/integration-idempotency.ts, withIdempotency).
+      const result = await withIdempotency(
+        { familyId: context.familyId, key: key.key, service: "home/devices/actions", requestHash: hash, remember: rememberHomeAction },
+        (markExecuting) => runHomeAction(
+          { familyId: context.familyId, tokenId: context.tokenId, tokenName: context.name, rawEntity: entity, body },
+          markBefore(liveHomeDeps, HOME_SIDE_EFFECTS, markExecuting),
+        ),
       );
-      if (result.status === 200 || result.status === 202) {
-        await storeResult({
-          familyId: context.familyId, key: key.key, service: "home/devices/actions",
-          requestHash: hash, status: result.status, response: result.body,
-        });
-      }
       return NextResponse.json(result.body, { status: result.status, headers: result.headers });
     } catch (err) {
       await logApiError("integration/home/devices/actions", err);

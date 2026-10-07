@@ -1761,6 +1761,8 @@ test.describe("points, creatures and rewards (RFC-017)", () => {
     expect(names.filter((n) => /reward|redemption/.test(n)).sort()).toEqual(["decide_reward_request", "get_rewards", "request_reward"]);
     // It ends in a confirmation a parent gives with the PIN (e2e/reward-decisions.spec.ts).
     expect(description(server, "decide_reward_request")).toContain("This tool does not decide it");
+    // Unless the family trusts this assistant: then it runs through that same path at once (e2e/assistant-trust.spec.ts).
+    expect(description(server, "decide_reward_request")).toContain("When the family trusts this assistant");
   });
 });
 

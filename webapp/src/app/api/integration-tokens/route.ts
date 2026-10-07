@@ -36,6 +36,8 @@ interface TokenRow {
   expires_at: string | null;
   revoked_at: string | null;
   oauth_client_id: string | null;
+  /** When the family trusted this assistant ("Trust this assistant"); null when it does not. */
+  trusted_at: string | null;
 }
 
 export async function GET(request: NextRequest) {
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await (supabase as any)
     .from("integration_tokens")
-    .select("id, name, scopes, created_at, last_used_at, expires_at, revoked_at, oauth_client_id")
+    .select("id, name, scopes, created_at, last_used_at, expires_at, revoked_at, oauth_client_id, trusted_at")
     .eq("family_id", session.session.familyId)
     .order("created_at", { ascending: false });
 
@@ -130,7 +132,7 @@ export async function POST(request: NextRequest) {
   const { data, error } = await (supabase as any)
     .from("integration_tokens")
     .insert({ family_id: familyId, name, token_hash: hash, scopes })
-    .select("id, name, scopes, created_at, last_used_at, expires_at, revoked_at, oauth_client_id")
+    .select("id, name, scopes, created_at, last_used_at, expires_at, revoked_at, oauth_client_id, trusted_at")
     .single();
 
   if (error) {

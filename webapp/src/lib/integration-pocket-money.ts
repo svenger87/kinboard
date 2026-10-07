@@ -25,9 +25,9 @@ import { retryAfterSeconds, type Budget } from "@/lib/integration-limits";
 import { amountToCents } from "@/lib/pocket-money/booking";
 import { lookupChild, type ChildLookup } from "@/lib/pocket-money/children";
 import {
-  BOOKING_NOTE_MAX, UUID, createActionRequest, pocketMoneyBookingFrom, stripInvisible, type CreateKindRequestInput, type PocketMoneyBooking,
+  BOOKING_NOTE_MAX, UUID, submitActionRequest, trustedAnswer, pocketMoneyBookingFrom, stripInvisible, type ActionRequestRow, type CreateKindRequestInput, type PocketMoneyBooking,
 } from "@/lib/home/action-requests";
-import { liveActionStore, liveConfirmationBudget, pushActionRequest } from "@/lib/home/action-requests-live";
+import { liveConfirmationBudget, liveSubmitDeps } from "@/lib/home/action-requests-live";
 
 const db = () => createAdminClient() as any;
 
@@ -120,12 +120,19 @@ export async function listPocketMoney(familyId: string): Promise<PocketMoneyAcco
 
 // ── asking for a booking ────────────────────────────────────────────────────
 
+/**
+ * What in `BookingRequestDeps` acts: storing (or, for a trusted assistant, running) the
+ * request. Everything before it only reads (`markBefore`).
+ */
+export const BOOKING_SIDE_EFFECTS = ["createRequest"] as const satisfies readonly (keyof BookingRequestDeps)[];
+
 export interface BookingRequestDeps {
   lookupChild: (familyId: string, personId: string) => Promise<ChildLookup>;
   familyHasPin: (familyId: string) => Promise<boolean>;
   /** `liveConfirmationBudget`: spends the budget when it says yes; throws when unreadable. */
   confirmationBudget: (familyId: string, tokenId: string) => Promise<Budget>;
-  createRequest: (input: CreateKindRequestInput) => Promise<{ id: string; expiresAt: string }>;
+  /** `submitActionRequest`: `request` is set when a trusted assistant's request already ran. */
+  createRequest: (input: CreateKindRequestInput) => Promise<{ id: string; expiresAt: string; request?: ActionRequestRow }>;
 }
 
 export interface BookingRequestInput {
@@ -172,6 +179,9 @@ export function parseBookingBody(body: unknown):
  * Ask the family to allow a booking. Nothing is booked here: the answer is
  * 202 `pending_confirmation` with the request to follow at
  * `GET /actions/{id}`, or a refusal, after which nothing was stored or pushed.
+ * Unless the family trusts this assistant: then the booking runs at once,
+ * through the handler an approval runs, and the answer says how it ended
+ * (`trustedAnswer`).
  */
 export async function requestPocketMoneyBooking(
   input: BookingRequestInput,
@@ -250,6 +260,9 @@ export async function requestPocketMoneyBooking(
     clientName: input.clientName,
     data: { ...data },
   });
+  // A trusted assistant's booking has already run, or not, through the same
+  // handler an approval uses: say what happened.
+  if (pending.request) return trustedAnswer(pending.request);
   return {
     status: 202,
     body: { status: "pending_confirmation", request_id: pending.id, expires_at: pending.expiresAt },
@@ -260,5 +273,5 @@ export const liveBookingRequestDeps: BookingRequestDeps = {
   lookupChild,
   familyHasPin: (familyId) => familyHasPin(familyId),
   confirmationBudget: liveConfirmationBudget,
-  createRequest: (input) => createActionRequest(input, { store: liveActionStore, push: pushActionRequest }),
+  createRequest: (input) => submitActionRequest(input, liveSubmitDeps),
 };
