@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/require-session";
 import { UUID } from "@/lib/home/action-requests";
 import type { RpcClient } from "@/lib/pocket-money/booking";
 import { requestRedemption } from "@/lib/pocket-money/rewards";
+import { liveRewardNotifier } from "@/lib/notifications/rewards";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     personId: account.person_id,
     rewardId: body.reward_id,
     deviceId: auth.session.deviceId,
-  });
+  }, liveRewardNotifier(db));
   return NextResponse.json(result.body, { status: result.status });
 }

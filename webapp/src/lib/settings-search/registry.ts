@@ -248,6 +248,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     { anchor: "tasks", labelKey: "settings.notifications.todoHeading" },
     { anchor: "calendar", labelKey: "settings.notifications.calendarHeading" },
     { anchor: "birthdays", labelKey: "settings.notifications.birthdayTitle" },
+    { anchor: "rewards", labelKey: "settings.notifications.rewardsLabel", descriptionKey: "settings.notifications.rewardsDescription" },
     { anchor: "quiet-hours", labelKey: "settings.notifications.quietHoursHeading" },
   ]),
   ...sectionsOf(language, [
@@ -288,6 +289,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     { anchor: "currency", labelKey: "settings.pocketMoney.currencyLabel" },
   ]),
   ...sectionsOf(creatures, [
+    { anchor: "inbox", labelKey: "settings.pocketMoney.redemptionInboxTitle" },
     { anchor: "children", labelKey: "settings.creatures.speciesLabel", descriptionKey: "settings.creatures.intro" },
     { anchor: "rewards", labelKey: "settings.pocketMoney.rewardsTitle", descriptionKey: "settings.pocketMoney.rewardsDescription" },
   ]),

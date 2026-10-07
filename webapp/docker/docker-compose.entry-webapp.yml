@@ -1,0 +1,11 @@
+# KINBOARD_ENTRY=webapp — the layout every install had before RFC-018, and the
+# one an install keeps until setup.sh or the self-update has checked that Kong
+# can serve the app (kinboard-entry.sh). The webapp publishes WEBAPP_PORT
+# (3001); Kong publishes only its own port (KONG_HTTP_PORT, 8100).
+#
+# See docker-compose.entry-kong.yml for how docker-compose.yml picks between the two.
+services:
+  kong: {}
+  webapp:
+    ports:
+      - "${WEBAPP_PORT:-3001}:3000"

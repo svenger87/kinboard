@@ -8,6 +8,7 @@
 
 import { accentOf, fillOf, s, speciesFrom } from "./parts";
 import { GOLD } from "./skeleton";
+import { wearing } from "./items";
 
 export const penguin = speciesFrom({
   origin: "egg",
@@ -26,7 +27,8 @@ export const penguin = speciesFrom({
       return <path d={`M ${cx - 8} ${cy + r * 0.22} L ${cx + 8} ${cy + r * 0.22} L ${cx} ${cy + r * 0.5} Z`} fill={accentOf(c)} {...s(c, 2.5)} />;
     },
     front(c, cx, cy, r) {
-      if (c.stage < 6) return null;
+      // Its own scarf, unless something from the shop is worn round the neck.
+      if (c.stage < 6 || wearing(c, "neck")) return null;
       return (
         <path data-part="scarf" d={`M ${cx - r * 0.8} ${cy + r * 0.8} Q ${cx} ${cy + r * 1.12} ${cx + r * 0.8} ${cy + r * 0.8} L ${cx + r * 0.84} ${cy + r * 1.02} Q ${cx} ${cy + r * 1.36} ${cx - r * 0.84} ${cy + r * 1.02} Z`} fill="#E8613A" {...s(c, 3)} />
       );

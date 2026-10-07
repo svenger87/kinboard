@@ -46,10 +46,23 @@ export function RedemptionInbox({
   const { data: redemptions = [] } = usePointRedemptions();
   const decide = useDecideRedemption();
   const pending = redemptions.filter((r) => r.status === "pending");
-  if (pending.length === 0) return null;
+
+  // The anchor is always there, empty or not: a push about a request links to
+  // #inbox (lib/notifications/rewards.ts), and by the time someone taps it
+  // another parent may have answered. The link then lands on "nothing
+  // waiting" rather than on the top of the page with no explanation.
+  if (pending.length === 0) {
+    return (
+      <div id="inbox" data-setting="inbox" className="scroll-mt-20">
+        <p className="px-1 text-sm text-muted-foreground" data-testid="redemption-inbox-empty">
+          {t("redemptionInboxEmpty")}
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <Card className="p-4 space-y-2" data-testid="redemption-inbox">
+    <Card id="inbox" data-setting="inbox" className="p-4 space-y-2 scroll-mt-20" data-testid="redemption-inbox">
       <h3 className="font-semibold">{t("redemptionInboxTitle")}</h3>
       {pending.map((r) => (
         <div key={r.id} className="flex flex-wrap items-center justify-between gap-2">

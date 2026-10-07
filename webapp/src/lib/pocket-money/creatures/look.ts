@@ -1,7 +1,8 @@
 /**
- * A child's own look for their creature (pocket_money_accounts.avatar_look):
- * a name, colours, a pattern, eyes, an accessory and, for the princess and
- * the prince, a skin tone, a hair colour and a hairstyle (RFC-016 §4).
+ * A child's own look for their creature (creatures.look): a name, colours, a
+ * pattern, eyes, an accessory and, for the princess and the prince, a skin
+ * tone, a hair colour and a hairstyle (RFC-016 §4) -- and what the child
+ * bought in the shop and wears, one item per slot (RFC-017 §5, ./shop.ts).
  *
  * Everything is chosen from the fixed sets below, the creature workshop's,
  * so every combination still looks good and the eyes stay readable on every
@@ -13,6 +14,8 @@
  * `{}` is the creature's own colours. Every key is optional, so a new option
  * later needs no migration. No React here: the API route imports it.
  */
+
+import { SHOP_SLOTS, itemsIn } from "./shop";
 
 export const LOOK_SWATCHES = {
   body: ["#6FCF97", "#FF8A5B", "#8C7AE6", "#56B6E8", "#FFC83D", "#FF8FC0", "#2EC4B6", "#A47551", "#8FB8DE", "#FFB054"],
@@ -49,6 +52,15 @@ export interface CreatureLook {
   pattern?: Pattern;
   eyes?: EyeShape;
   acc?: Accessory;
+  /**
+   * Shop items worn, by slot (./shop.ts): only items the child owns. The
+   * server refuses an unowned one (wornNotOwned); the screens draw only owned
+   * ones (readLook with the child's purchases).
+   */
+  head?: string;
+  face?: string;
+  neck?: string;
+  background?: string;
 }
 
 const upper = (list: ReadonlyArray<string>) => new Set(list.map((c) => c.toUpperCase()));
@@ -64,10 +76,17 @@ const ALLOWED: Record<Exclude<keyof CreatureLook, "name">, ReadonlySet<string>> 
   pattern: new Set(PATTERNS),
   eyes: new Set(EYE_SHAPES),
   acc: new Set(ACCESSORIES),
+  head: new Set(itemsIn("head").map((i) => i.id)),
+  face: new Set(itemsIn("face").map((i) => i.id)),
+  neck: new Set(itemsIn("neck").map((i) => i.id)),
+  background: new Set(itemsIn("background").map((i) => i.id)),
 };
 const COLOR_KEYS = new Set(["body", "belly", "accent", "skin", "hair"]);
 
-export const LOOK_KEYS: ReadonlyArray<keyof CreatureLook> = ["name", "body", "belly", "accent", "skin", "hair", "hairstyle", "pattern", "eyes", "acc"];
+export const LOOK_KEYS: ReadonlyArray<keyof CreatureLook> = [
+  "name", "body", "belly", "accent", "skin", "hair", "hairstyle", "pattern", "eyes", "acc",
+  ...SHOP_SLOTS,
+];
 
 /**
  * The most a raw name may be before it is cleaned. The route refuses more
@@ -170,9 +189,32 @@ export function restorableLook(value: unknown): CreatureLook {
   return look;
 }
 
-/** A stored look as the screens read it: see restorableLook. */
-export function readLook(value: unknown): CreatureLook {
-  return restorableLook(value);
+/**
+ * The shop items a look wears that the child does not own. The look PATCH
+ * refuses a look with any (409 not_owned): only owned items can be worn.
+ */
+export function wornNotOwned(look: CreatureLook, owned: ReadonlySet<string>): string[] {
+  return SHOP_SLOTS.map((slot) => look[slot]).filter((id): id is string => typeof id === "string" && !owned.has(id));
+}
+
+/** A look with only the shop items the child owns left on. */
+export function onlyOwned(look: CreatureLook, owned: ReadonlySet<string> | null | undefined): CreatureLook {
+  const out: CreatureLook = { ...look };
+  for (const slot of SHOP_SLOTS) {
+    const id = out[slot];
+    if (id !== undefined && !owned?.has(id)) delete out[slot];
+  }
+  return out;
+}
+
+/**
+ * A stored look as the screens draw it: see restorableLook, and a shop item
+ * is drawn only when `owned` -- the child's purchases -- has it. Unknown or
+ * unowned, it is simply not drawn; without the purchases (not loaded yet)
+ * nothing from the shop is.
+ */
+export function readLook(value: unknown, owned?: ReadonlySet<string> | null): CreatureLook {
+  return onlyOwned(restorableLook(value), owned);
 }
 
 /**

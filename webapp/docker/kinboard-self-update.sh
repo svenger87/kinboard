@@ -23,6 +23,17 @@
 #   5. docker restart kinboard-kong        — Kong's DB-less mode doesn't
 #      fully reload from `kong reload`. Only kicked if kong.yml's mtime
 #      is newer than kong's container start time.
+#   NOTE: `docker stop` on the webhook container ends this script without
+#   any trap running (the webhook binary is PID 1 and the script is killed
+#   with the container). A move between 3c and 4a then leaves
+#   webapp/docker/.env.pre-entry behind, and the next run (or ./start.sh up)
+#   puts KINBOARD_ENTRY and the layout back: that is the backstop.
+#   3c/4a/7. kinboard-entry.sh prepare / confirm / switch — an install with
+#      no KINBOARD_ENTRY in .env moves Kong onto port 3001 as the front door
+#      (RFC-018), only after a request through Kong to / reaches the app:
+#      decided before step 4 so its one recreate covers image and port,
+#      confirmed after it, with switch as the fallback. Otherwise it stays on
+#      the webapp and the log says why.
 #
 # Logs to /var/log/kinboard-update.log inside the webhook container —
 # bind-mount that path on the host if you want persistent logs.
@@ -330,6 +341,17 @@ fi
 
 # 3. + 4. compose pull + up -d
 cd webapp/docker
+
+# The front-door helper (RFC-018), with this stack's compose files. Its
+# output goes to the update log line by line.
+entry() {
+  COMPOSE="docker compose" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env KONG_YML=./kong.yml \
+    sh ./kinboard-entry.sh "$@" 2>&1 | while IFS= read -r line; do log "$line"; done
+}
+
+# A KINBOARD_ENTRY compose cannot use ("Kong", a typo) would make every
+# compose command below fail; lower-case it, anything else becomes webapp.
+entry normalise
 log "docker compose $COMPOSE_FILES pull --ignore-buildable"
 # `--ignore-buildable` skips services that have a `build:` directive
 # (the webhook service is locally-built from Dockerfile.webhook, has no
@@ -389,21 +411,40 @@ fi
 SERVICES=$(docker compose $COMPOSE_FILES config --services 2>/dev/null \
             | grep -vE '^(webhook|diun)$' \
             | tr '\n' ' ')
+# 3c. Kong as the front door (RFC-018), decided BEFORE the up: when Kong
+# already serves the app through the route setup.sh merged, KINBOARD_ENTRY=kong
+# is written now (the old .env kept as .env.pre-entry), so the one `up` that
+# installs the new image also moves port 3001 — one webapp restart, not two.
+# A leftover .env.pre-entry from a run that was killed is put back first.
+entry prepare
+
 WEBAPP_BEFORE="$(webapp_container)"
 log "docker compose $COMPOSE_FILES up -d --no-build $SERVICES"
 # shellcheck disable=SC2086
-docker compose $COMPOSE_FILES up -d --no-build $SERVICES >>"$LOG_FILE" 2>&1
+if ! docker compose $COMPOSE_FILES up -d --no-build $SERVICES >>"$LOG_FILE" 2>&1; then
+  # A failed up must not leave a move decided in 3c (KINBOARD_ENTRY=kong)
+  # unconfirmed: put the setting and the old layout back, and back off.
+  entry recover --restart --mark
+  log "=== self-update ABORTED: docker compose up failed ==="
+  exit 1
+fi
+
+# 4a. If 3c moved the port: Kong must publish it and the app answer through
+# it, or .env and the old layout are put back.
+entry confirm
 
 # 4b. The scheduler, when the webapp is new (see recreate_scheduler_if_webapp_changed).
 recreate_scheduler_if_webapp_changed "$WEBAPP_BEFORE"
 
-# 5. Kong restart — only if kong.yml changed during this run.
+# 5. Kong restart — only if kong.yml changed during this run and Kong has not
+# been (re)started since (3c or the up may already have done it).
 KONG_AFTER="$(stat -c %Y kong.yml 2>/dev/null || echo 0)"
-if [ "$KONG_AFTER" != "$KONG_BEFORE" ]; then
+if [ "$KONG_AFTER" != "$KONG_BEFORE" ] \
+   && COMPOSE_FILES="$COMPOSE_FILES" KONG_YML=./kong.yml sh ./kinboard-entry.sh kong-stale; then
   log "kong.yml changed (mtime $KONG_BEFORE → $KONG_AFTER); restarting kinboard-kong"
   docker restart kinboard-kong >>"$LOG_FILE" 2>&1 || log "WARN: kong restart failed (kong may not be running)"
 else
-  log "kong.yml unchanged; skipping kong restart"
+  log "kong.yml unchanged since Kong started; skipping kong restart"
 fi
 
 # 6. Diun restart — only if diun/diun.yml changed during this run.
@@ -419,5 +460,12 @@ if [ "$DIUN_AFTER" != "$DIUN_BEFORE" ]; then
 else
   log "diun.yml unchanged; skipping diun restart"
 fi
+
+# 7. The fallback for an install 3c could not decide (Kong not serving the
+# route yet, the webapp not up): the same check now, and the move on its own
+# (a second webapp restart). A no-op when .env already says kong or webapp.
+WEBAPP_BEFORE="$(webapp_container)"
+entry switch
+recreate_scheduler_if_webapp_changed "$WEBAPP_BEFORE"
 
 log "=== self-update done ==="

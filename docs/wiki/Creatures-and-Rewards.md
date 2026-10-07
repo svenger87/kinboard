@@ -19,7 +19,7 @@ Per child, with the creature on:
 |---|---|
 | **Creature** → *Change* | Another species. The stage, the style and the look stay. |
 | **Grows with** | *Task points* (the default): it grows with every point the child earns and never shrinks, even when points are spent. *Saved money*: it grows with the money in the child's pocket-money account, as the pocket-money avatar always did. Offered only with the Pocket Money plugin on and an account for that child. |
-| **Shop** | Lets the child buy things for their creature with points. Stored now; the shop itself comes in a later release. |
+| **Shop** | Lets the child buy things for their creature with their points, on their Rewards page (see *The shop* below). Off hides the shop; what was bought stays the child's and stays on. Below the switch is the list of what the child bought, with the dates. |
 | **Look** | The drawing style. The child can change it on their own page too, with no PIN. |
 
 The stages, the look editor and the cheering when a task is ticked off are described on the [[Pocket Money|Pocket-Money]] page (*Avatar evolution*, *Avatar style*, *Points instead of euros*); they work the same for every creature.
@@ -55,6 +55,30 @@ A child's **points balance** is the points their tasks have earned, all time, mi
 
 **Redeeming.** A child with a creature sees their points and the rewards on the Rewards page and taps **Redeem**. That only asks: the request waits under *Rewards waiting for approval* on Settings → Creatures & rewards and on the navigation badge. **Approve** spends the points, **Deny** spends nothing. Both need the settings PIN, checked on the server too, so a child's own screen can't approve its own request. Two screens approving at once book it once, and an approval the points no longer cover is refused while the request keeps waiting.
 
+## The shop
+
+On the Rewards page, under the rewards, a child whose shop is on can spend points on things for their creature (*Shop*, *Boutique*). Nineteen items in four places:
+
+| Place | Items and prices (points) |
+|---|---|
+| **Hats & more** | Cap 25, wizard hat 40, pirate hat 40, headphones 30, flower crown 35, space helmet 60 |
+| **Glasses** | Heart glasses 20, monocle 25, star glasses 30 |
+| **Around the neck** | Scarf 20, bow tie 20, medal 35, cape 45 |
+| **Backgrounds** | Starry sky 60, forest 70, snow 70, rainbow 80, beach 80, outer space 120 |
+
+- Each card shows the child's own creature with the item on, in its own style. **Buy** asks once and then spends the points straight away: no PIN, it's the child's own choice. The shop only sells what the child can afford, holding back rewards still waiting for a parent, and each item only once.
+- An item bought is the child's for good. **Wear** puts it on, **Take off** takes it off; *Change look* offers the bought items too. One item per place: a hat from the shop replaces the free bow, party hat or flower (and the crown at the top stage, until it's taken off), shop glasses replace the free sunglasses.
+- Hats and glasses show from the hatchling on, neckwear once the creature is out of its shell; an egg wears only a background (the shop's cards show every item on a grown creature either way). Backgrounds sit behind the creature in a rounded frame. A creature shown as its classic picture changes to its Gumdrop drawing when something is put on, as with *Change look*. The astronaut, the plant and the wizard, which aren't drawn yet, have no shop.
+- **Buying never shrinks a creature**: it grows with the points earned, and a purchase only lowers what's left to spend. The balance is earned minus approved rewards minus purchases.
+- A parent turns the shop off per child under Settings → Creatures & rewards. The shop disappears from the Rewards page; anything bought stays on, and the child can still take it off or put it back on under *Change look*.
+- **Refunds are a parent's.** The same page lists what each child bought, with the dates, and *Refund* (settings PIN) gives the points back and takes the item off if it's being worn. The item leaves the list and can be bought again later. For the child, what they buy stays theirs: only a parent can refund.
+
+## Asking from Home Assistant or an assistant
+
+Home Assistant (the *points balance*, *creature stage* and *reward requests* sensors, and the `kinboard.request_reward` action) and a connected assistant (`get_rewards`, `request_reward`) see each child's points and creature stage, the rewards and what is waiting, and can ask for a reward. Asking is the same as the child tapping **Redeem**: it waits for a parent and the PIN, and nothing outside the family's screens can approve it. The creature's name and look are never sent out.
+
+**Who is told.** A new request pushes the family's phones -- every device except wall displays (kiosks) and those that *belong to* a child -- with *"Mia would like 🎮 An hour of Minecraft (50 ⭐)"*; a tap opens the requests at the top of Settings → Creatures & rewards. An answer pushes the child's own device, if one belongs to them. Quiet hours apply, and each device has a *Reward requests* switch in Settings → Notifications.
+
 ## For operators
 
 - The data lives in the `creatures` table, one row per child that has one (`person_id`, `species`, `style`, `look`, `best_tier`, `last_seen_tier`, `grows_with`, `shop_enabled`, `enabled`). Reward requests (`point_redemptions`) belong to a person; `account_id` stays, nullable, for one release.
@@ -64,5 +88,8 @@ A child's **points balance** is the points their tasks have earned, all time, mi
 - A rollback to v1.13.0-rc.13 keeps working: the old pocket-money columns are still there, unchanged since the upgrade, and a trigger keeps reward requests readable per account. What changes while rolled back (a new account, a mode or style change) stays on the account and is not carried over to the creature on the next upgrade.
 - In a family with the Pocket Money plugin switched off, the migration keeps each child's creature but leaves it switched off; grown-ups with an account get none.
 - A family backup carries the creatures and the requests. Restoring a backup from before this release gives each child the creature their pocket-money account had, by the same rule as the migration.
+- The reward pushes are `reward_requested` and `reward_decided` rows in `scheduled_notifications`, sent by the usual `process-notifications` job. Each device's switch is `notification_preferences.reward_requests` (default on), added by `webapp/docker/migration_zzzzzzzz_reward_notifications.sql`; nothing new streams.
+- The Integration API has `GET /api/integration/v1/rewards` (`family:read`) and `POST /api/integration/v1/rewards/requests` (`pocket_money:write`); `webapp/openapi/integration-v1.yaml` documents both.
 - **Who a device belongs to** is `devices.person_id` (nullable, cleared when the person is deleted), added by `webapp/docker/migration_zzzzzzzzz_device_owner.sql`. Only the server writes it (`PATCH /api/devices/<id>`, settings PIN): the migration narrows the browser roles' INSERT and UPDATE on `devices` to every other column. Nothing new streams, so no realtime restart is needed for it.
+- **The shop** (`webapp/docker/migration_zzzzzzzzz_point_purchases.sql`) adds `point_purchases` (one row per item a child owns: `person_id`, `item_id`, `cost`, `created_at`) and `purchase_person_point_item()`, which buys under the same per-child lock as reward requests and approvals. `point_person_totals()` keeps its name and arguments and gains a `purchased` amount; its `balance` now subtracts purchases, and reward requests and approvals check that balance. The catalogue and its prices live in Kinboard's code (`webapp/src/lib/pocket-money/creatures/shop.ts`); the item ids are stable and stored in the creature's `look` (`head`, `face`, `neck`, `background`). Screens only read the table; buying is `POST /api/creatures/<person id>/purchases` (no PIN), a refund is `DELETE /api/creatures/purchases/<purchase id>` (settings PIN; `refund_person_point_purchase()` deletes the row and takes the item out of the look, under the same lock), wearing is the creature's look, which the server accepts only with owned items. `point_purchases` streams live, so **restart realtime once after upgrading** (`docker restart kinboard-realtime`); until then a purchase shows on the child's other screens only after a reload. Backups carry the purchases. A rollback to rc.15 forgets the purchases in the balance: while rolled back the children get those points back, the rows stay, and they count again after the next upgrade -- so points spent on rewards in between can show as *still to make up*. A backup made on rc.15 has no purchases, so restoring it drops the worn shop items.
 - The emoji picker's names and keywords (Unicode CLDR, via the pinned `emojibase-data`, MIT) are generated into `webapp/src/lib/emoji/` by `node scripts/generate-emoji-data.mjs` and loaded from Kinboard itself, only when a picker opens: no CDN, so it works offline. Emoji newer than Unicode 15.0 are left out, since a Raspberry Pi's emoji font can't draw them yet.

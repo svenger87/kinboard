@@ -2,43 +2,71 @@
 
 This is the deeper deployment guide. If you just want to bring up the stack, see [Quick-start](Quick-start) first.
 
-## What URL should I use? (the most common confusion)
+## What URL should I use?
 
-When you run `setup.sh`, it asks **"Where will you and your family open Kinboard?"** This is the single most important answer to get right — getting it wrong is what causes the dashboard to load but show endless `ERR_CONNECTION_REFUSED` errors in the browser console.
+**Whichever address reaches your server.** Since 1.13 the browser talks to Kinboard's API at the address it opened Kinboard from, so there is nothing to get right in advance: the kitchen tablet can use `http://192.168.1.50:3001`, your phone `https://kinboard.example.com`, and both work against the same stack at the same time.
 
-### Why the URL matters
-
-Kinboard's webapp talks to a Supabase API gateway (Kong) that sits in your stack. The browser running on your phone/laptop/kiosk needs to reach Kong directly — so the URL Kong listens at gets baked into the JavaScript bundle when the webapp container is built. Get it wrong and the browser tries to connect to the wrong place, and every API call fails.
-
-### Pick the right URL for your setup
-
-| Your setup | URL to enter |
+| Your setup | Open Kinboard at |
 |---|---|
-| **Just trying it on the same machine** (browser + docker on your laptop) | `http://localhost:8100` |
-| **Home server / NAS** (browser on phone, server in your basement) | `http://<your-server-LAN-IP>:8100` (find LAN IP with `hostname -I` on Linux, or check your router) |
-| **Cloud server with no domain** (Hetzner, DigitalOcean, etc.) | `http://<your-server-public-IP>:8100` |
-| **You set up a domain + Traefik for HTTPS** | `https://kinboard.your-domain.com` (no port — Traefik handles 443) |
+| **Just trying it on the same machine** | `http://localhost:3001` |
+| **Home server / NAS** (phones and tablets in the house) | `http://<your-server-LAN-IP>:3001` (find it with `hostname -I`, or in your router) |
+| **Cloud server with no domain** | `http://<your-server-public-IP>:3001` |
+| **A domain, through Traefik or a Cloudflare Tunnel** | `https://kinboard.your-domain.com` |
+
+`setup.sh` no longer asks. It prints the address it expects you to use and stores it as `SITE_URL`, which is only used for links Kinboard hands to other apps (the calendar feed you subscribe to on your phone). `./setup.sh --url https://kinboard.example.com` changes it.
+
+### How it works
+
+Two parts of Kinboard answer a browser: the webapp, and the API gateway (Kong) that every piece of data comes from. Kong is now the front door. It listens on port `3001` and sends `/rest`, `/auth`, `/storage` and `/realtime` to the API, and everything else to the webapp. One address, one port, no CORS, and a tablet at home keeps working when the internet is down, because it never leaves the house.
+
+Two settings in `webapp/docker/.env` decide this:
+
+| Setting | Meaning |
+|---|---|
+| `KINBOARD_ENTRY=kong` | Kong answers on `WEBAPP_PORT` (3001). The default for new installs. Kong also keeps its own port, `KONG_HTTP_PORT` (8100). |
+| `KINBOARD_ENTRY=webapp` | The webapp answers on 3001 itself, as before 1.13, and the browser uses `API_EXTERNAL_URL` for data. |
+| `API_EXTERNAL_URL=` (empty) | The browser uses the address the page came from. Leave it empty unless you need the next row. |
+| `API_EXTERNAL_URL=https://api.example.com` | A separate API host, for setups that really keep Kong somewhere else. Set it with `./setup.sh --api-url https://api.example.com`; `--api-url same-origin` switches back. |
+
+The front door needs one route in `webapp/docker/kong.yml`, which `setup.sh` adds for you. It's the block whose lines all end in `# kinboard_entry`. Every other line of that file, including your keys, stays exactly as it was.
+
+### Installs from before 1.13
+
+Your install keeps working exactly as it did: until it has been moved, it has no `KINBOARD_ENTRY` line, which means `webapp`, and the browser keeps using your `API_EXTERNAL_URL`.
+
+The move happens on its own, carefully. `setup.sh` adds the route to `kong.yml`. Then the next `./start.sh up`, or the next auto-update, asks Kong for the start page from inside the stack. **Only if the webapp answers through Kong** does it write `KINBOARD_ENTRY=kong` and move port 3001 from the webapp to Kong. If anything about that fails, the install stays on the webapp, `.env` is put back exactly as it was, and the log says why (`entry: staying on webapp: ...`). Your bookmarks keep working either way: the address and port are the same, only the container behind them changes.
+
+What the move costs: the webapp container is recreated (without its port) and Kong is recreated (with it). During an auto-update that is the same restart the new image needs anyway, so it adds nothing; Kinboard is unreachable on 3001 while the new webapp applies its migrations and starts, as on any update. Run on its own, the move takes that one restart.
+
+Not moved automatically:
+
+- an install whose `API_EXTERNAL_URL` names a **different host** than `SITE_URL`, a separate API host. A proxy (Nginx Proxy Manager, Caddy, cloudflared) may send the app's name to the webapp container and only the API's name to Kong, and that would break. Such an install keeps working as it is and can opt in;
+- an install behind Traefik (below).
+
+If the move is interrupted, only the `KINBOARD_ENTRY` line is put back; everything else in `.env` stays as it is. A stopped `./start.sh` (Ctrl-C) or a failed `docker compose up` does that on the spot, together with the old layout. When nothing can run (the update container stopped with `docker stop`, a power cut), `webapp/docker/.env.pre-entry` is left behind and nothing answers on 3001 until the next `./start.sh up` or update, which restores it. After a move was undone, no new attempt is made for 24 hours (`webapp/docker/.env.entry-state`; delete it to try again now, or set `ENTRY_RETRY_AFTER` in seconds).
+
+**Firewalls:** after the move, port 3001 belongs to the Kong container. Rules that name the port on the host are unaffected; rules keyed to the webapp container (Docker `DOCKER-USER` rules by container IP, or per-container firewall tools) have to follow it to Kong.
+
+Kong waits up to 10 minutes for the webapp on a request (`read_timeout`/`write_timeout` on the front-door service), so restoring a large backup through *Settings → Backup* is not cut off at Kong's default 60 seconds.
+
+- **To stay as you are**, add `KINBOARD_ENTRY=webapp` to `webapp/docker/.env`. Nothing moves an install that has the line. A value other than `kong` or `webapp` (a typo, `Kong`) is corrected to lower case, or to `webapp`, by `setup.sh` and `./start.sh`.
+- **To move by hand**, set `KINBOARD_ENTRY=kong`, run `./setup.sh` (it adds the route if it's missing), then `docker restart kinboard-kong` and `./start.sh up`.
+- **Behind Traefik**, nothing moves automatically: Traefik reaches the containers inside the stack, so host ports don't matter to it. See [Behind Traefik](#behind-traefik) for the simpler one-route setup you can opt into.
 
 ### Common gotchas
 
-- **Don't forget the port `:8100`** unless you're using Traefik. The webapp itself runs on `:3001` but the **API** (which the browser fetches from) runs on `:8100`. The setup script wires both correctly once you give it the URL.
-- **Don't put `localhost` if anyone else will use the app.** A phone visiting `localhost` is asking its OWN device, not your server. Use the LAN IP or domain instead.
-- **HTTP vs HTTPS:** plain HTTP is fine for LAN-only use. For internet-facing setups, you need HTTPS — the easiest path is the [Traefik overlay](Self-hosting#behind-traefik).
-- **Behind Traefik:** if you're using Traefik, your URL is just `https://yourdomain.com` (no port, no `:8100`). Traefik routes `/rest/v1/*` and `/auth/v1/*` to Kong internally.
-- **Browser console shows `CORS policy: No 'Access-Control-Allow-Origin' header`** → the Kong CORS allowlist is missing your webapp's origin. `setup.sh` writes it for you from the URL you enter. If you skipped setup or hand-edited `.env`, see [Changing the URL later](Self-hosting#changing-the-url-later) below — re-running `setup.sh` rewrites the CORS lines in `kong.yml`. (For the curious: each CORS plugin block in `webapp/docker/kong.yml` has a line marked `# webapp_origin` that `setup.sh` substitutes from `SITE_URL`. CORS can't use `*` here because credentials are sent — the spec forbids that combo.)
+- **The page loads but stays empty, or the console shows `CORS` errors**: the install is still on `KINBOARD_ENTRY=webapp` with an `API_EXTERNAL_URL` that this device can't reach. Open Kinboard at that same host, or move the install to Kong as above.
+- **`ERR_CONNECTION_REFUSED` on `/rest/v1/...` from a page on port 3001**: same cause.
+- **Don't use `localhost` on other devices.** A phone visiting `localhost` is asking itself, not your server.
+- **HTTP vs HTTPS:** plain HTTP is fine on the LAN. Push notifications and "Add to Home Screen" need HTTPS; a [Cloudflare Tunnel](#reverse-proxied-via-cloudflare-tunnel) or [Traefik](#behind-traefik) gives you that.
 
-### Changing the URL later
+### Changing the address later
 
-If you set the wrong URL initially:
+There's nothing to change for the browser. For `SITE_URL` (calendar-feed links), run `./setup.sh --url <address>` from the repo root.
 
-1. Edit `webapp/docker/.env` — update `API_EXTERNAL_URL`, `SITE_URL`, and `ADDITIONAL_REDIRECT_URLS` to match
-2. Re-run `./setup.sh` from the repo root — it'll rewrite the `# webapp_origin` line in `kong.yml` to match your new `SITE_URL` (this step is what fixes CORS errors in the browser)
-3. Restart Kong to pick up the new CORS allowlist: `docker restart kinboard-kong` (a `kong reload` is **not** enough — DB-less Kong only re-parses `kong.yml` on container start)
-4. Rebuild the webapp so the JS bundle baked at build time picks up the new `API_EXTERNAL_URL`: `cd webapp/docker && ./start.sh restart`
+If you use a separate API host (`API_EXTERNAL_URL` set): `./setup.sh --api-url <address>` rewrites it, and Kong's CORS allow-list, the lines marked `# webapp_origin` in `kong.yml`, follows `SITE_URL`. Restart Kong afterwards with `docker restart kinboard-kong` (a `kong reload` is not enough, because DB-less Kong only reads `kong.yml` when it starts) and the webapp with `./start.sh up`.
 
-`./setup.sh` (without `--force`) is idempotent — it won't regenerate secrets that already exist, only update the URL-driven values. `--force` regenerates everything and **invalidates existing device join codes**, so prefer the plain re-run unless you want a clean slate.
-
-
+`./setup.sh` without `--force` is idempotent: it won't regenerate secrets that already exist. `--force` regenerates everything and **invalidates existing device join codes**.
 
 ## Compose file overlay
 
@@ -71,8 +99,13 @@ All driven from `webapp/docker/.env`. The shipped `.env.example` has comments ex
 |---|---|---|
 | `PROJECT_NAME` | `kinboard` | Container name prefix (e.g. `kinboard-db`) |
 | `DATA_DIR` | `./data` | Bind path root for db + storage volumes |
-| `WEBAPP_PORT` | `3001` | Host port the webapp listens on |
-| `KONG_HTTP_PORT` | `8100` | Host port for the Supabase API gateway |
+| `WEBAPP_PORT` | `3001` | The port the family opens Kinboard at — published by Kong or the webapp, per `KINBOARD_ENTRY` |
+| `KINBOARD_ENTRY` | `kong` (new installs) | `kong`: Kong is the front door on `WEBAPP_PORT`. `webapp`: the layout before 1.13. See [What URL should I use?](#what-url-should-i-use) |
+| `API_EXTERNAL_URL` | *(empty)* | Empty: the browser uses the address it opened Kinboard from. Set only for a separate API host |
+| `KONG_HTTP_PORT` | `8100` | Kong's own host port, kept in both layouts |
+| `KONG_TRUSTED_IPS` | private ranges (`127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7`) | Whose `X-Forwarded-*` headers Kong believes (https, the client address). Traefik, cloudflared and the LAN are covered. Behind Cloudflare's proxy **without** a tunnel (orange cloud straight to your port), add [Cloudflare's ranges](https://www.cloudflare.com/ips/), or Kinboard sees every request as plain http from Cloudflare |
+| | | The private-range default assumes Docker hands Kong the client's own source address. Rootless Docker, IPv6 through the userland proxy and some NAS setups show every client as a Docker-internal address instead; there, set `KONG_TRUSTED_IPS` to the proxies you really have (or `127.0.0.1/32` if none) |
+| `KONG_REAL_IP_HEADER` / `KONG_REAL_IP_RECURSIVE` | `X-Forwarded-For` / `on` | How Kong finds the client behind those proxies; it passes the result to the webapp as `X-Real-IP` for its rate limits |
 | `KONG_WORKERS` | `2` | nginx worker processes in Kong — nginx would otherwise start one per host CPU |
 | `NETWORK_SUBNET` | `10.200.0.0/24` | Internal Docker network subnet (change if it collides) |
 | `TZ` | `UTC` | Timezone passed to go2rtc |
@@ -102,17 +135,35 @@ Set in `.env`:
 ```
 DOMAIN=kinboard.example.com
 SITE_URL=https://kinboard.example.com
-API_EXTERNAL_URL=https://kinboard.example.com
+API_EXTERNAL_URL=
 ADDITIONAL_REDIRECT_URLS=https://kinboard.example.com
 TRAEFIK_CERT_RESOLVER=letsencrypt
 TRAEFIK_NETWORK=proxy
 ```
 
-The override registers two HTTP routers — Kong on `/rest|/auth|/storage|/realtime` and webapp on everything else — both behind `Host(${DOMAIN})` with the same cert resolver. Traefik prefers the longer `PathPrefix` rules first, so Kong wins for the API paths and the webapp serves the rest.
+`API_EXTERNAL_URL` stays empty: the API is on the same domain as the app, which is exactly what "the address the page was opened from" means.
 
-If you don't want Traefik fronting Kong on the same origin as the webapp, drop the `kong` block from the override — the webapp's `/api/*` routes proxy server-side to `http://kong:8000` over the internal Docker network anyway.
+The override registers two HTTP routers — Kong on `/rest|/auth|/storage|/realtime` and webapp on everything else — both behind `Host(${DOMAIN})` with the same cert resolver. Traefik prefers the longer `PathPrefix` rules first, so Kong wins for the API paths and the webapp serves the rest. Traefik reaches both containers inside the stack, so `KINBOARD_ENTRY` doesn't matter to it, and neither the update nor `./start.sh up` changes a Traefik install's layout on its own.
 
-> **Re-run `setup.sh` after editing `.env`** so it re-pins Kong's CORS allow-list to the new `SITE_URL`. Without that, the browser will reject every API response with `blocked by CORS policy: origin ... is not allowed`.
+#### The simpler version: one route to Kong
+
+With Kong as the front door, Traefik needs only one target: everything for your domain goes to Kong, and Kong sends pages on to the webapp. `docker-compose.traefik-one-route.yml.example` is that variant. It is optional; the two-router overlay above keeps working.
+
+```bash
+cd webapp/docker
+cp docker-compose.traefik-one-route.yml.example docker-compose.traefik.yml
+# KINBOARD_ENTRY=kong in .env, then ./setup.sh (adds Kong's route if missing)
+docker restart kinboard-kong
+./start.sh up
+```
+
+It keeps the guard that stops a `service_role` key arriving from the internet on the API paths. Kong passes Traefik's `X-Forwarded-Proto: https` on to the webapp (`KONG_TRUSTED_IPS`), so the session cookie stays `Secure`.
+
+#### A separate API host
+
+If the API has to live on its own host, for example `api.kinboard.example.com`, set `API_EXTERNAL_URL` to it (`./setup.sh --api-url https://api.kinboard.example.com`), route that host to Kong, and keep `KINBOARD_ENTRY=webapp`. The browser then calls that host directly, and Kong's CORS allow-list (the `# webapp_origin` lines in `kong.yml`) has to name `SITE_URL`.
+
+> **Re-run `setup.sh` after editing `.env`.** With a separate API host it re-pins Kong's CORS allow-list to the new `SITE_URL`; without that the browser rejects every API response with `blocked by CORS policy`.
 
 ### From scratch: Traefik + Let's Encrypt
 
@@ -432,13 +483,14 @@ It's idempotent. It appends new templated env keys (`DATA_DIR`, `DOMAIN`, etc.),
 
 The recommended path is the **Diun + webhook overlay** (`docker-compose.diun.yml.example`). It runs the FULL upgrade sequence end-to-end whenever a new GHCR image lands:
 
-1. `git pull --ff-only origin main` — picks up new `docker-compose.yml`, `kong.yml`, migrations, `init.sql`, `seed-demo.sql`
-2. `./setup.sh --non-interactive` — re-substitutes Kong placeholders if a new release shipped new keys/routes
+1. `git pull --ff-only origin main` — picks up new compose files, migrations, `init.sql`, `seed-demo.sql`
+2. `./setup.sh --non-interactive` — re-substitutes Kong placeholders, and adds routes a release needs to your own `kong.yml` without touching the rest of it
 3. `docker compose -f docker-compose.yml -f docker-compose.image.yml pull --ignore-buildable` — pulls the new GHCR image(s); skips the locally-built webhook image.
    **Name both files.** `docker compose` only auto-loads `docker-compose.yml` and `docker-compose.override.yml`; the published image lives in `docker-compose.image.yml`. Leave it out and compose silently falls back to `build:` and rebuilds from whatever source is on disk — which looks like a successful upgrade that changes nothing. `./start.sh up` adds the overlay for you.
 4. `docker compose up -d` (with webhook + diun excluded — see below) — recreates only services whose image changed; the webapp's entrypoint re-applies all `migration_*.sql` on boot (idempotent)
 5. `docker compose up -d --no-deps --force-recreate cron` — only when step 4 recreated the webapp, because the scheduler reads its jobs from the webapp's labels only when it starts
 6. `docker restart kinboard-kong` — only when `kong.yml`'s mtime moved during the run
+7. `kinboard-entry.sh` — for an install with no `KINBOARD_ENTRY` in `.env`: asks Kong for the start page from inside the stack and, only if the webapp answers, writes `KINBOARD_ENTRY=kong`. That is decided before step 4, so step 4's single recreate installs the new image and moves port 3001 to Kong together; it is confirmed after step 4, with a standalone move as the fallback. Otherwise the install stays on the webapp and the log says why. See [Installs from before 1.13](#installs-from-before-113)
 
 Two containers do this:
 - **Diun** (`crazymax/diun`) — image notifier. Polls GHCR every 30 min, detects new digests on services labeled `diun.enable=true`, fires a webhook. Read-only docker socket.
@@ -604,7 +656,7 @@ KINBOARD_TAG=1.6.0-rc.1
 
 A Cloudflare Tunnel makes Kinboard reachable at `https://kinboard.example.com` from anywhere, without opening a port on your router. You get HTTPS for free, and with it push notifications and "Add to Home Screen" as a real app.
 
-**Read this first.** The browser talks to *two* parts of Kinboard: the webapp (port `3001`), and the API gateway Kong (port `8100`), which every piece of data comes from. A tunnel that only points at `3001` shows the page but never loads any data. The steps below send both through one address.
+Since 1.13 the tunnel needs **one route**, to Kong, which serves the app and its API at the same address. Your screens at home can keep using the LAN address at the same time: every device talks to Kinboard at the address it opened it from.
 
 You need a domain whose DNS is managed by Cloudflare (a free plan is enough) and a running Kinboard.
 
@@ -650,18 +702,36 @@ You need a domain whose DNS is managed by Cloudflare (a free plan is enough) and
 
 4. Back in the Cloudflare dashboard, the tunnel's *Connectors* list should show one connector as **Connected** within a few seconds. Click **Next**.
 
-#### Step 3: Add the two routes
+#### Step 3: Add the route
 
-Under **Public Hostname**, add **two** entries with the same hostname, **in this order**:
+Check that Kong is your front door: `webapp/docker/.env` should say `KINBOARD_ENTRY=kong`. New installs do. An install from before 1.13 gets there by itself on its next update or `./start.sh up`; to do it now, set the line, run `./setup.sh` from the repo root and `docker restart kinboard-kong`. See [Installs from before 1.13](#installs-from-before-113).
+
+Under **Public Hostname**, add one entry:
+
+| Subdomain / Domain | Path | Service type | URL |
+|---|---|---|---|
+| `kinboard` / `example.com` | *(empty)* | HTTP | `kinboard-kong:8000` |
+
+Using a config file instead of the dashboard? The same route looks like this:
+
+```yaml
+ingress:
+  - hostname: kinboard.example.com
+    service: http://kinboard-kong:8000
+  - service: http_status:404
+```
+
+If you changed `PROJECT_NAME` in `.env`, the container is called `<PROJECT_NAME>-kong`. If `cloudflared` runs on another machine, use `http://<server-ip>:3001`.
+
+<details>
+<summary>Keeping the webapp on its own port (<code>KINBOARD_ENTRY=webapp</code>)? Then it takes two routes.</summary>
+
+Add **two** entries with the same hostname, **in this order**, because Cloudflare checks them from top to bottom:
 
 | # | Subdomain / Domain | Path | Service type | URL |
 |---|---|---|---|---|
 | 1 | `kinboard` / `example.com` | `^/(rest\|auth\|storage\|realtime)/` | HTTP | `kinboard-kong:8000` |
 | 2 | `kinboard` / `example.com` | *(empty)* | HTTP | `kinboard-webapp:3000` |
-
-Cloudflare checks entries from top to bottom, so the one with the path must come first. If the list shows them the other way round, delete entry 2 and add it again so it ends up below.
-
-Using a config file instead of the dashboard? The same routes look like this:
 
 ```yaml
 ingress:
@@ -673,40 +743,32 @@ ingress:
   - service: http_status:404
 ```
 
-If you changed `PROJECT_NAME` in `.env`, the containers are called `<PROJECT_NAME>-kong` and `<PROJECT_NAME>-webapp`. If `cloudflared` runs on another machine, use `http://<server-ip>:8100` and `http://<server-ip>:3001` instead.
+In this layout the browser calls the API at `API_EXTERNAL_URL`, so set that to `https://kinboard.example.com` as well in step 4, and screens at home have to use the domain too (step 6).
+</details>
 
 #### Step 4: Tell Kinboard its new address
 
-1. In `webapp/docker/.env`, set all three to the public address, with no port and no trailing slash:
+From the repo root, run:
 
-   ```
-   SITE_URL=https://kinboard.example.com
-   API_EXTERNAL_URL=https://kinboard.example.com
-   ADDITIONAL_REDIRECT_URLS=https://kinboard.example.com
-   ```
+```bash
+./setup.sh --url https://kinboard.example.com
+```
 
-2. From the repo root, run `./setup.sh`, the plain re-run, **not** `--force`. It tells Kong to accept requests from the new address.
-3. Restart Kong and the webapp:
+That sets `SITE_URL` (and `ADDITIONAL_REDIRECT_URLS`), the address Kinboard puts into links it hands to other apps, such as the calendar feed. Then restart the webapp so it picks up the new `SITE_URL`: `cd webapp/docker && ./start.sh up`.
 
-   ```bash
-   docker restart kinboard-kong
-   cd webapp/docker && ./start.sh restart
-   ```
+`API_EXTERNAL_URL` stays empty **on an install set up with 1.13 or later**. On an install from before 1.13 that still has an API address in `.env`, `--url` keeps its old meaning and sets `API_EXTERNAL_URL` to the domain too. Leave it: it is the address the browser needs while the webapp still answers on 3001, and because it is on the same host as `SITE_URL`, the browser ignores it once Kong is the front door and uses the page's own address. (Setting `same-origin` on such an install changes nothing: `setup.sh` puts a working address back until the move.)
 
 #### Step 5: Check it
 
 1. Open `https://kinboard.example.com` on your phone with Wi-Fi switched off, so the request really comes from outside.
 2. Join with the family code. Your calendar, tasks and so on should appear.
-3. If the page loads but stays empty, open the browser console (on a computer: F12):
-   - `blocked by CORS policy`: step 4 wasn't completed. Run `setup.sh` and restart Kong.
-   - `404` or `ERR_` on `/rest/v1/...`: the route from step 3 is missing or below the catch-all.
+3. If something is off:
+   - The tunnel shows Kong's `{"message":"no Route matched with those values"}`: Kong doesn't have its front-door route yet. Run `./setup.sh` and `docker restart kinboard-kong`.
    - Nothing loads at all: check `docker logs kinboard-cloudflared`.
 
 #### Step 6: Screens at home
 
-From now on, every screen loads its data from `https://kinboard.example.com`. **Open that address on the wall display too**, not `http://<server-ip>:3001`. A screen on the old LAN address gets CORS errors, because Kong only accepts the address in `SITE_URL`.
-
-If a screen really has to stay on the LAN address, add its address in `webapp/docker/kong.yml` below each line that ends in `# webapp_origin`, for example `- http://192.168.1.20:3001`, and restart Kong. `setup.sh` leaves such extra lines alone.
+Nothing to do. A wall display can stay on `http://<server-ip>:3001` and keeps working when the internet is down; a phone outside uses the domain. Each one talks to Kinboard at the address it opened it from.
 
 #### Optional: a login in front (Cloudflare Access)
 
@@ -722,7 +784,7 @@ With Access, anyone opening Kinboard first has to log in to Cloudflare or presen
    | `/api/health` | uptime checks |
 
    The consent page an assistant opens, `/oauth/consent`, stays behind the login, because you open it yourself.
-3. **Wall displays:** an Access login expires (after 24 hours by default), and the screen then shows Cloudflare's login page instead of the board. Give your kiosks a long session duration, a client certificate (mTLS), or keep them on the LAN address as in step 6.
+3. **Wall displays:** an Access login expires (after 24 hours by default), and the screen then shows Cloudflare's login page instead of the board. Give your kiosks a long session duration, a client certificate (mTLS), or keep them on the LAN address (step 6).
 
 #### What doesn't go through a tunnel
 

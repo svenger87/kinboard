@@ -30,6 +30,10 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
+# A KINBOARD_ENTRY compose cannot use ("Kong", a typo) would make every
+# compose command fail; lower-case it, anything else becomes webapp (RFC-018).
+ENV_FILE=./.env sh ./kinboard-entry.sh normalise
+
 # Source .env so user-set vars (especially COMPOSE_FILES) take
 # effect for this script's own logic. docker compose reads .env on
 # its own for compose-file substitution, but doesn't propagate
@@ -67,6 +71,9 @@ set -a
 source ./.env
 set +a
 PROJECT_NAME="${PROJECT_NAME:-kinboard}"
+# Exported by the sourcing above, a shell value would beat .env in compose —
+# and the entry steps below rewrite .env. Let compose read the file.
+unset KINBOARD_ENTRY
 
 # NOTE: supabase service-role password alignment (authenticator,
 # supabase_auth_admin, supabase_storage_admin) + the `_realtime` schema now
@@ -362,10 +369,39 @@ case "$cmd" in
     # The one-shot db-init service (docker-compose.yml) aligns role
     # passwords before auth/rest/storage/realtime start, so we just bring
     # the stack up and apply migrations.
+    # An install from before KINBOARD_ENTRY moves to Kong as its front door
+    # (RFC-018), but only once a request through Kong reaches the app;
+    # anything less leaves it on the webapp and says why. No-op when .env
+    # already says kong or webapp. When the stack is already running, prepare
+    # decides before the up (so one recreate covers a new image and the
+    # port); when it is not, prepare does nothing and `switch` decides after
+    # the up. confirm checks a decided move after the up. See
+    # kinboard-entry.sh.
+    entry() {
+      COMPOSE="$COMPOSE" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env KONG_YML=./kong.yml \
+        sh ./kinboard-entry.sh "$@" || true
+    }
+    entry prepare
+
     webapp_before="$(webapp_container)"
+    set +e
     $COMPOSE $COMPOSE_FILES up -d
+    up_status=$?
+    set -e
+    if [[ $up_status -ne 0 ]]; then
+      # A failed up must not leave KINBOARD_ENTRY=kong behind unconfirmed:
+      # put the setting and the old layout back, and back off.
+      entry recover --restart --mark
+      echo "error: docker compose up failed" >&2
+      exit 1
+    fi
     recreate_scheduler_if_webapp_changed "$webapp_before"
     wait_for_migrations
+
+    entry confirm
+    webapp_before="$(webapp_container)"
+    entry switch
+    recreate_scheduler_if_webapp_changed "$webapp_before"
     $COMPOSE $COMPOSE_FILES ps
     ;;
   down)

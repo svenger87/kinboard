@@ -10,9 +10,12 @@
 #
 # Flags:
 #   --url <URL>         the address you'll open Kinboard at, e.g.
-#                       https://kinboard.example.com or http://192.168.1.50:8100.
-#                       Also settable via the KINBOARD_URL env var. Required for
-#                       non-interactive runs that aren't local-only.
+#                       https://kinboard.example.com or http://192.168.1.50:3001.
+#                       Optional: every device reaches the API at the address it
+#                       opened Kinboard from, so this is only used for links
+#                       handed to other apps. Also settable via KINBOARD_URL.
+#   --api-url <URL>     only if the API (Kong) must live on a separate host;
+#                       `same-origin` switches back. Also KINBOARD_API_URL.
 #   --force, -f         regenerate everything from scratch (re-prompts for keys)
 #   --non-interactive   never prompt; useful for CI / Docker entrypoint use
 #   --advanced          also prompt for Immich, Bring, camera, SMTP server
@@ -30,6 +33,9 @@ force=0
 non_interactive=0
 advanced=0
 cli_url="${KINBOARD_URL:-}"
+cli_api_url="${KINBOARD_API_URL:-}"
+cli_api_url_set=0
+[[ -n "${KINBOARD_API_URL+x}" ]] && cli_api_url_set=1
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --force|-f) force=1 ;;
@@ -37,8 +43,10 @@ while [[ $# -gt 0 ]]; do
     --advanced) advanced=1 ;;
     --url=*) cli_url="${1#*=}" ;;
     --url) cli_url="${2:-}"; shift || true ;;
+    --api-url=*) cli_api_url="${1#*=}"; cli_api_url_set=1 ;;
+    --api-url) cli_api_url="${2:-}"; cli_api_url_set=1; shift || true ;;
     --help|-h)
-      sed -n '3,19p' "$0"
+      sed -n '3,22p' "$0"
       exit 0
       ;;
   esac
@@ -67,29 +75,36 @@ fi
 # ----------------------------------------------------------------------
 # 1. Bootstrap the docker stack .env
 # ----------------------------------------------------------------------
+# A new install (or --force) starts from .env.example, which makes Kong the
+# front door (KINBOARD_ENTRY=kong) with the API on the app's own address. An
+# existing .env keeps whatever it has; see step 5a for how it moves.
+fresh_env=0
 if [[ ! -f "$DOCKER_ENV" ]] || [[ $force -eq 1 ]]; then
   echo "→ creating $DOCKER_ENV from .env.example"
   cp "$DOCKER_ENV_EXAMPLE" "$DOCKER_ENV"
+  fresh_env=1
 fi
 
 # ----------------------------------------------------------------------
-# 1b. Resolve the public URL the BROWSER will use to reach Kinboard
+# 1b. Addresses
 # ----------------------------------------------------------------------
-# This URL is baked into the client JS bundle via build-arg NEXT_PUBLIC_
-# SUPABASE_URL. Browsers use it for direct PostgREST + Auth calls. The
-# default `http://localhost:8100` only works when the browser is on the
-# same machine that runs the stack — accessing from another device on
-# the LAN or from the public internet needs the actual server IP/host.
+# The browser reaches the API at the address it opened Kinboard from
+# (RFC-018): Kong serves the app and the API on one port, so a tablet at home
+# uses the LAN address, a phone outside uses the domain, and there is no
+# question to get wrong. API_EXTERNAL_URL stays empty unless the API really
+# has to live on a separate host (--api-url).
 #
-# Which address to suggest for API_EXTERNAL_URL — the absolute URL every
-# browser data call and the realtime socket go to. Getting this wrong does not
-# fail loudly: the page still loads from wherever the user typed, the family
-# step still works (it is a same-origin Next route), and then every call after
-# it hangs until it times out. Discussion #277.
+# Until 1.13 this step asked "where will you open Kinboard?" and baked the
+# answer into every browser call. A wrong answer did not fail loudly: the page
+# loaded from wherever the user typed, and every call after it went nowhere
+# (Discussion #277).
 #
-# Arguments are the detected facts, so the decision can be tested without a
-# network: public IP, this machine's own addresses, the source address of the
-# default route, and whether this is WSL (1/0). Prints "url|reason".
+# Which address to suggest — kept for SITE_URL, the address handed to other
+# apps (calendar feed links). Arguments are the detected facts, so the
+# decision can be tested without a network: public IP, this machine's own
+# addresses, the source address of the default route, and whether this is
+# WSL (1/0). Prints "url|reason", with Kong's own port 8100; site_url_for()
+# below turns that into the address the family opens.
 suggest_api_url() {
   local public_ip="$1" own_ips="$2" route_ip="$3" is_wsl="$4"
 
@@ -123,114 +138,105 @@ suggest_api_url() {
   fi
 }
 
-# We auto-detect a plausible public IP if the user hasn't pre-set
-# API_EXTERNAL_URL. Skipped when the env var is set non-interactively.
-existing_api_url=$(grep -E "^API_EXTERNAL_URL=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
-default_api_url="${existing_api_url:-http://localhost:8100}"
+env_get() {
+  grep -E "^$1=" "$DOCKER_ENV" | tail -n1 | cut -d= -f2- | tr -d '\r"' || true
+}
+
+# Empty and `same-origin` both mean "the address the page was opened from".
+normalise_api_url() {
+  local v="${1%/}"
+  case "$(printf '%s' "$v" | tr '[:upper:]' '[:lower:]')" in
+    ''|same-origin) echo "" ;;
+    *) echo "$v" ;;
+  esac
+}
+
+# An address typed with Kong's port (the habit the old prompt taught) names
+# the API; the family opens the same host on the webapp port.
+site_url_for() {
+  local u="${1%/}"
+  if [[ "$u" == *:8100 || "$u" == *:8100/* ]]; then
+    echo "$u" | sed -E 's|:8100|:3001|; s|/$||'
+  else
+    echo "$u"
+  fi
+}
+
+existing_api_raw="$(env_get API_EXTERNAL_URL)"
+existing_api_url="$(normalise_api_url "$existing_api_raw")"
+existing_site_url="$(env_get SITE_URL)"
+cli_url="${cli_url%/}"
+
+if [[ $cli_api_url_set -eq 1 ]]; then
+  api_url="$(normalise_api_url "$cli_api_url")"
+elif [[ $fresh_env -eq 1 ]]; then
+  api_url=""
+elif [[ -n "$existing_api_url" && -n "$cli_url" ]]; then
+  # An install that already has a separate API address, re-run with --url:
+  # the flag keeps the meaning it had for that install.
+  api_url="$cli_url"
+else
+  api_url="$existing_api_url"
+fi
+
+# `same-origin`, written by somebody on purpose, stays written as it was:
+# empty is what setup.sh itself picks, `same-origin` is a decision.
+api_written="$api_url"
+if [[ -z "$api_url" ]]; then
+  if [[ $cli_api_url_set -eq 1 ]]; then
+    [[ -n "$cli_api_url" ]] && api_written="same-origin"
+  elif [[ $fresh_env -eq 0 ]] && [[ -n "$existing_api_raw" ]]; then
+    api_written="same-origin"
+  fi
+fi
 
 if [[ -n "$cli_url" ]]; then
-  # Explicit URL via --url / KINBOARD_URL — authoritative in any mode
-  # (interactive, piped, or CI). Skips the prompt entirely.
-  api_url="$cli_url"
-  echo "→ using URL from --url/KINBOARD_URL: $api_url"
-elif [[ "$default_api_url" != "http://localhost:8100" ]]; then
-  # A non-localhost URL is already pinned in .env (re-run / pre-seeded /
-  # auto-update path) — reuse it without re-prompting.
-  api_url="$default_api_url"
-elif [[ ! -t 0 ]]; then
-  # stdin is not an interactive terminal AND no URL was supplied. Previously
-  # this SILENTLY defaulted to http://localhost:8100, which breaks every
-  # non-local device with no error. Fail loudly — unless the caller opted
-  # into local-only via --non-interactive.
-  if [[ $non_interactive -eq 1 ]]; then
-    api_url="$default_api_url"
-    echo "⚠ --non-interactive with no --url/KINBOARD_URL: defaulting to" >&2
-    echo "  http://localhost:8100 — only reachable from a browser on THIS" >&2
-    echo "  machine. Pass --url https://your-host[:port] (or set KINBOARD_URL)" >&2
-    echo "  to reach Kinboard from phones, tablets, or the kitchen kiosk." >&2
-  else
-    echo "error: can't determine the address Kinboard will be opened at." >&2
-    echo "       stdin isn't an interactive terminal, so the URL prompt was" >&2
-    echo "       skipped — and defaulting to localhost would silently break" >&2
-    echo "       access from every other device. Re-run one of these ways:" >&2
-    echo "         • interactively:        ./setup.sh" >&2
-    echo "         • with an explicit URL: ./setup.sh --url https://your-host[:port]" >&2
-    echo "         • via the environment:  KINBOARD_URL=https://your-host ./setup.sh" >&2
-    echo "       For local-only testing, pass --non-interactive to accept" >&2
-    echo "       http://localhost:8100." >&2
-    exit 1
-  fi
-elif [[ -t 0 ]] && [[ "$default_api_url" == "http://localhost:8100" ]]; then
-  # Auto-detect plausible defaults for the suggestion line.
+  site_url="$(site_url_for "$cli_url")"
+elif [[ $fresh_env -eq 0 && -n "$existing_site_url" && $cli_api_url_set -eq 0 ]]; then
+  # A re-run keeps the address; --url is how it changes. (It used to be
+  # re-derived from API_EXTERNAL_URL on every run, which for a Kong port
+  # other than 8100 quietly turned SITE_URL into the API's address.)
+  site_url="${existing_site_url%/}"
+elif [[ -n "$api_url" ]]; then
+  # Separate API host: SITE_URL follows it.
+  site_url="$(site_url_for "$api_url")"
+elif [[ -t 0 && $non_interactive -eq 0 ]]; then
+  # No question: a suggestion, said out loud, that --url changes later.
   detected_public_ip=$(curl -s --max-time 3 https://api.ipify.org 2>/dev/null || true)
   detected_own_ips=$(hostname -I 2>/dev/null || true)
   detected_route_ip=$(ip route get 1.1.1.1 2>/dev/null \
     | awk '{for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit }}' || true)
   detected_wsl=0
   grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null && detected_wsl=1
-
   IFS='|' read -r suggested suggestion_reason <<< \
     "$(suggest_api_url "$detected_public_ip" "$detected_own_ips" "$detected_route_ip" "$detected_wsl")"
-
-  cat <<EOF
-
-==============================================================
-  Where will you and your family open Kinboard?
-==============================================================
-
-  This is the address you'll type into a browser to use Kinboard.
-  Pick the option that matches your setup:
-
-  1) Just trying it on this machine?
-        http://localhost:8100
-
-  2) Other devices in your home — phone, tablet, kitchen kiosk?
-        Use this server's LAN IP, e.g.  http://192.168.1.50:8100
-        (find it with: hostname -I)
-
-  3) Accessing from outside your home (and you have a domain + Traefik)?
-        https://kinboard.your-domain.com
-        See the wiki Self-hosting page for the Traefik setup.
-
-  4) Cloud server (Hetzner / DigitalOcean / etc.)?
-        http://YOUR-SERVER-IP:8100
-
-  Don't forget the port (:8100) unless you're using Traefik.
-
-  Suggested: ${suggested}
-             (${suggestion_reason})
-
-EOF
-  read -r -p "  Press Enter to accept, or type a different URL: " user_url
-  api_url="${user_url:-$suggested}"
+  site_url="$(site_url_for "$suggested")"
+  echo "→ Kinboard will answer at ${site_url} (${suggestion_reason})."
+  echo "  Every device can use whichever address reaches this machine — the LAN"
+  echo "  address, a domain, a tunnel. This one is only used for links handed to"
+  echo "  other apps; change it with ./setup.sh --url <address>."
 else
-  api_url="$default_api_url"
+  site_url="http://localhost:3001"
 fi
+site_url="${site_url%/}"
 
-# Strip trailing slash for consistency
-api_url="${api_url%/}"
-
-# Update API_EXTERNAL_URL + SITE_URL + ADDITIONAL_REDIRECT_URLS to match.
-# Default-port deployments expose Kong on :8100 and the webapp on :3001 as
-# two separate host ports — swap the suffix. Reverse-proxy deployments
-# (Traefik / Caddy / Cloudflare Tunnel) front both behind the same
-# hostname with no port — keep api_url as-is so SITE_URL matches.
-if [[ "$api_url" == *:8100 || "$api_url" == *:8100/* ]]; then
-  site_url=$(echo "$api_url" | sed -E 's|:8100|:3001|; s|/$||')
-else
-  site_url="${api_url%/}"
-fi
-
-# Force-update these even on idempotent re-runs since they affect baked-in
-# build args. Use awk so JWT-style chars are handled.
-for kv in "API_EXTERNAL_URL=$api_url" "SITE_URL=$site_url" "ADDITIONAL_REDIRECT_URLS=$site_url"; do
+# Force-update these even on idempotent re-runs. Use awk so JWT-style chars
+# are handled; append a key the file does not have yet.
+for kv in "API_EXTERNAL_URL=$api_written" "SITE_URL=$site_url" "ADDITIONAL_REDIRECT_URLS=$site_url"; do
   k="${kv%%=*}"; v="${kv#*=}"
+  if ! grep -qE "^${k}=" "$DOCKER_ENV"; then
+    printf '%s=\n' "$k" >> "$DOCKER_ENV"
+  fi
   awk -v k="$k" -v v="$v" '
     $0 ~ "^"k"=" { print k"="v; next }
     { print }
   ' "$DOCKER_ENV" > "$DOCKER_ENV.tmp" && mv "$DOCKER_ENV.tmp" "$DOCKER_ENV"
 done
-echo "  API_EXTERNAL_URL=$api_url"
+if [[ -n "$api_url" ]]; then
+  echo "  API_EXTERNAL_URL=$api_url (a separate API address)"
+else
+  echo "  API_EXTERNAL_URL is empty: the browser uses the address it opened Kinboard from"
+fi
 echo "  SITE_URL=$site_url"
 
 # ----------------------------------------------------------------------
@@ -528,6 +534,90 @@ if [[ -f "$KONG_YML" ]]; then
     }
     { print }
   ' "$KONG_YML" > "$KONG_YML.tmp" && mv "$KONG_YML.tmp" "$KONG_YML"
+fi
+
+# ----------------------------------------------------------------------
+# 5a. The front-door route (RFC-018)
+# ----------------------------------------------------------------------
+# Kong serves the app as well as the API through a catch-all route to the
+# webapp. kong.yml is the install's own file, full of its real keys, so the
+# merge only adds the route's lines (at the indent the file uses) and checks
+# the result before it replaces the file; the steps above still rewrite their
+# own lines (keys, the CORS origin) as they always did. The tracked template
+# does not carry the route: every install's kong.yml differs from the
+# template, and a template change would stop `git pull --ff-only` (and with it
+# the self-update) on all of them.
+ENTRY_SH="$REPO_ROOT/webapp/docker/kinboard-entry.sh"
+entry_route=0
+if [[ -f "$KONG_YML" ]]; then
+  if sh "$ENTRY_SH" merge "$KONG_YML"; then
+    entry_route=1
+  fi
+fi
+
+# A KINBOARD_ENTRY compose cannot use ("Kong", a typo) would break every
+# compose command; it is lower-cased, and anything else becomes webapp.
+ENV_FILE="$DOCKER_ENV" sh "$ENTRY_SH" normalise
+
+set_env_key() {
+  local k="$1" v="$2"
+  if grep -qE "^${k}=" "$DOCKER_ENV"; then
+    awk -v k="$k" -v v="$v" '$0 ~ "^"k"=" { print k"="v; next } { print }' \
+      "$DOCKER_ENV" > "$DOCKER_ENV.tmp" && mv "$DOCKER_ENV.tmp" "$DOCKER_ENV"
+  else
+    printf '%s=%s\n' "$k" "$v" >> "$DOCKER_ENV"
+  fi
+}
+
+if [[ $fresh_env -eq 1 ]]; then
+  if [[ $entry_route -eq 1 ]]; then
+    set_env_key KINBOARD_ENTRY kong
+    echo "→ KINBOARD_ENTRY=kong: Kong answers on port 3001 with the app and its API"
+  else
+    # Without the route Kong would answer every page with a 404.
+    set_env_key KINBOARD_ENTRY webapp
+    echo "⚠ KINBOARD_ENTRY=webapp: kong.yml could not take the front-door route (see above)," >&2
+    echo "  so the webapp keeps port 3001 and the API stays on Kong's own port." >&2
+  fi
+fi
+current_entry="$(env_get KINBOARD_ENTRY)"
+
+# The webapp in front (KINBOARD_ENTRY=webapp, or no line yet, which compose
+# treats the same) and no API address: the browser would call /rest on the
+# webapp's own port, and every call would 404. Give it the address the old
+# setup would have: SITE_URL's host on Kong's port, or SITE_URL itself when a
+# proxy fronts both on one name (no port to swap).
+#
+# That is also the answer for a deliberate `same-origin` on an install not
+# moved yet: the address is on SITE_URL's host, so it works now, and once
+# Kong is the front door the browser ignores it and uses the page's own
+# address (lib/supabase/api-base.ts) — which is what `same-origin` asked for.
+# A Kong install keeps `same-origin` exactly as written, and so does one
+# behind Traefik, where one domain already serves both.
+compose_files_now="${COMPOSE_FILES:-$(env_get COMPOSE_FILES)}"
+if [[ "${current_entry:-webapp}" != "kong" && -z "$api_url" && "$compose_files_now" != *traefik* ]]; then
+  kong_port="$(env_get KONG_HTTP_PORT)"; kong_port="${kong_port:-8100}"
+  webapp_port="$(env_get WEBAPP_PORT)"; webapp_port="${webapp_port:-3001}"
+  if [[ "$site_url" =~ ^(https?://[^/]+):${webapp_port}$ ]]; then
+    api_url="${BASH_REMATCH[1]}:${kong_port}"
+  else
+    api_url="$site_url"
+  fi
+  if [[ "$api_written" == "same-origin" ]]; then
+    echo "⚠ API_EXTERNAL_URL=same-origin only works once Kong is the front door" >&2
+    echo "  (KINBOARD_ENTRY=kong). Until then the browser uses $api_url;" >&2
+    echo "  after the move it is ignored, being on SITE_URL's host." >&2
+  fi
+  set_env_key API_EXTERNAL_URL "$api_url"
+  echo "  API_EXTERNAL_URL=$api_url (the webapp answers on its own port, so the API needs an address)"
+fi
+
+if [[ $fresh_env -eq 0 && -z "$current_entry" ]]; then
+  echo "→ this install still answers on the webapp container (no KINBOARD_ENTRY in .env)."
+  echo "  ./start.sh up and the self-update move it to Kong once a request through"
+  echo "  Kong reaches the app. To stay as you are, add KINBOARD_ENTRY=webapp to .env."
+elif [[ $fresh_env -eq 0 ]]; then
+  echo "→ KINBOARD_ENTRY=$current_entry (from .env)"
 fi
 
 # ----------------------------------------------------------------------

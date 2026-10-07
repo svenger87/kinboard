@@ -29,18 +29,20 @@ self-hosted dashboard built for the kitchen wall and every phone in the house.
 
 Kinboard needs Linux, Git, OpenSSL, and Docker with Compose v2. The installer
 downloads the current configuration, generates unique local secrets, walks you
-through the public URL and optional integrations, and starts the stable
-multi-architecture image:
+through optional integrations, and starts the stable multi-architecture image.
+There is no address to configure: every device uses whichever address reaches
+the server.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/svenger87/kinboard/main/install.sh | bash
 ```
 
 The default location is `./kinboard`. Pass `KINBOARD_DIR` to choose another
-path, or `KINBOARD_URL` for a headless install:
+path; without a terminal the install runs headless. `KINBOARD_URL` optionally
+names the address you will open, for links Kinboard hands to other apps:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/svenger87/kinboard/main/install.sh | KINBOARD_DIR="$HOME/kinboard" KINBOARD_URL=http://192.168.1.50:8100 bash
+curl -fsSL https://raw.githubusercontent.com/svenger87/kinboard/main/install.sh | KINBOARD_DIR="$HOME/kinboard" KINBOARD_URL=http://192.168.1.50:3001 bash
 ```
 
 Open the URL printed at the end and create your family. The first device receives

@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/database";
+import { serverSupabaseUrl } from "@/lib/supabase/api-base";
 
 interface CookieToSet {
   name: string;
@@ -12,8 +13,10 @@ interface CookieToSet {
 export async function createClient() {
   const cookieStore = await cookies();
 
+  // The internal address: server code never goes out through the browser's
+  // (RFC-018 — with the API on the page's own origin there is none to use).
   return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serverSupabaseUrl(),
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
@@ -43,7 +46,7 @@ export async function createClient() {
 // (todo_actor() in migration_zzzzzy_todo_turns.sql). Without it a write
 // with this key is logged as the server's.
 export function createAdminClient(options?: { actor?: "integration" }) {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseUrl = serverSupabaseUrl();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!serviceRoleKey) {

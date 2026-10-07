@@ -31,13 +31,13 @@ if [[ -e "$INSTALL_DIR" ]]; then
 fi
 
 # A pipe consumes stdin, so setup.sh cannot use its normal terminal detection.
-# Reattach it to the terminal for the public URL and optional integration
-# prompts. Headless automation can provide KINBOARD_URL instead.
+# Reattach it to the terminal for the optional integration prompts. Headless
+# runs need nothing: every device reaches the API at the address it opened
+# Kinboard from (RFC-018). KINBOARD_URL, when set, names that address for
+# links handed to other apps.
 has_terminal=0
 if [[ -t 1 ]] && [[ -r /dev/tty ]] && [[ -w /dev/tty ]]; then
   has_terminal=1
-elif [[ -z "${KINBOARD_URL:-}" ]]; then
-  fail "no interactive terminal found. Set KINBOARD_URL to the address browsers will use and run again."
 fi
 
 echo "Installing Kinboard in $INSTALL_DIR"

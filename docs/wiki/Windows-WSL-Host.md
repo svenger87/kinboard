@@ -85,6 +85,13 @@ configuration.
 
 ## The second address
 
+> **Since 1.13 there is no second address on a new install.** Kong answers on
+> port 3001 with the page and its data (`KINBOARD_ENTRY=kong` in
+> `webapp/docker/.env`), so the browser fetches everything from the address
+> you typed, and `API_EXTERNAL_URL` stays empty. Everything below applies to an
+> install that still has `KINBOARD_ENTRY=webapp`, or no such line yet. See
+> [Self-hosting → What URL should I use?](Self-hosting#what-url-should-i-use).
+
 This is the part that is easy to get wrong, and the error you get does not
 point at it.
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { logApiError } from "@/lib/api-error";
+import { publicOrigin } from "@/lib/oauth/origin";
+import { absoluteStorageUrl } from "@/lib/supabase/public-url";
 import { parseRecipeSearch, searchRecipes } from "@/lib/integration-recipes";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +22,12 @@ export async function GET(request: NextRequest) {
     }
     try {
       const recipes = await searchRecipes(context.familyId, search.value);
-      return NextResponse.json({ recipes });
+      // Stored image paths are relative (RFC-018 §4); a caller with no page to
+      // resolve them against gets the address it reached us on.
+      const origin = publicOrigin(request.headers, request.nextUrl.origin);
+      return NextResponse.json({
+        recipes: recipes.map((r) => ({ ...r, image_url: absoluteStorageUrl(r.image_url, origin) })),
+      });
     } catch (err) {
       await logApiError("integration/recipes/search", err);
       return NextResponse.json({ error: "Could not read the recipes", code: "internal_error" }, { status: 500 });

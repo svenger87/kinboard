@@ -98,6 +98,8 @@ If you're hitting Kinboard directly (no Traefik), check that `WEBAPP_PORT` in `.
 
 ### App misbehaves (blocked requests, mismatched origin) when opened via `localhost` or a different hostname than expected
 
+This only happens on an install that keeps a separate API address (`KINBOARD_ENTRY=webapp` with `API_EXTERNAL_URL` set): with Kong as the front door, the API is on the page's own origin and CORS never comes into it ([Self-hosting → What URL should I use?](Self-hosting#what-url-should-i-use)).
+
 Kong's `cors` plugin allows only the single origin baked in from `SITE_URL` at setup time (see the `# webapp_origin` line per plugin block in `kong.yml`). If you're opening Kinboard through a hostname `setup.sh` wasn't last run with, or your `kong.yml` predates the current template, requests from that origin get silently rejected. Re-run `./setup.sh` (with `--url` if needed), then `docker restart kinboard-kong` — `kong reload` doesn't fully re-parse declarative config in DB-less mode.
 
 ### Logs show `password authentication failed for user "authenticator"` (auth/rest/storage/realtime crash-loop)
@@ -110,14 +112,16 @@ The Supabase service roles (`authenticator`, `supabase_auth_admin`, `supabase_st
 
 ### Can't open Kinboard from phones / tablets — only works on the machine running it
 
-`setup.sh` was run without telling it the address other devices will use, so it defaulted to `http://localhost:8100`, which only resolves on the server itself. Re-run setup with your LAN IP or domain:
+Your install still answers on the webapp container (`KINBOARD_ENTRY=webapp`, or no such line in `webapp/docker/.env`) and its `API_EXTERNAL_URL` is `http://localhost:8100`, which only resolves on the server itself. Either let Kong be the front door, after which every device uses the address it opened Kinboard from:
 
 ```bash
-./setup.sh --url http://192.168.1.50:8100        # LAN
-./setup.sh --url https://kinboard.example.com    # reverse proxy
+# in webapp/docker/.env: KINBOARD_ENTRY=kong
+./setup.sh                                  # adds Kong's front-door route if missing
+docker restart kinboard-kong
+cd webapp/docker && ./start.sh up
 ```
 
-Then `cd webapp/docker && ./start.sh restart` so the new URL is baked into the client bundle. (Running `setup.sh` non-interactively without `--url` now errors instead of silently defaulting to localhost.)
+or keep the old layout and give it a reachable API address: `./setup.sh --api-url http://192.168.1.50:8100`, then `cd webapp/docker && ./start.sh up`. See [Self-hosting → What URL should I use?](Self-hosting#what-url-should-i-use).
 
 ### "Database is empty / can't load" on dashboard
 

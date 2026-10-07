@@ -893,6 +893,7 @@ html[data-screensaver] nav {
 .creature-tap:focus-visible { outline: 3px solid hsl(var(--primary)); outline-offset: 3px; }
 .creature-body { display: block; width: 100%; height: 100%; transform-origin: 50% 85%; }
 .creature-ground { fill: hsl(var(--foreground) / 0.1); }
+.creature-backdrop-edge { stroke: hsl(var(--foreground) / 0.12); }
 .creature-zzz-text { fill: hsl(var(--muted-foreground)); }
 .creature-part { transform-box: fill-box; }
 .creature-animated .creature-breathe { transform-origin: 50% 100%; animation: creature-breathe 3.2s ease-in-out infinite; }

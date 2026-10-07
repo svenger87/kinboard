@@ -1,6 +1,6 @@
 {
   "name": "kinboard",
-  "version": "1.13.0-rc.14",
+  "version": "1.13.0-rc.17",
   "private": true,
   "license": "PolyForm-Noncommercial-1.0.0",
   "packageManager": "npm@11.19.0",
@@ -104,7 +104,7 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "16.2.4",
     "postcss": "^8.5.18",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2"
   },
@@ -115,7 +115,7 @@
     "brace-expansion": "^2.0.2",
     "undici": "^7.30.0",
     "@babel/core": "^7.29.6",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "js-yaml": "^4.3.2"
   }
 }

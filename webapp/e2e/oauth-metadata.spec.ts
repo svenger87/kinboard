@@ -17,6 +17,18 @@ test.describe("public origin", () => {
     expect(publicOrigin(h({ "x-forwarded-proto": "https, http", "x-forwarded-host": "kb.example.com, inner" }), "http://x"))
       .toBe("https://kb.example.com");
   });
+  test("Kong's portless forwarded host keeps the port Host carries for the same name", () => {
+    expect(publicOrigin(h({ "x-forwarded-proto": "http", "x-forwarded-host": "localhost", host: "localhost:3001" }), "http://webapp:3000"))
+      .toBe("http://localhost:3001");
+    expect(publicOrigin(h({ "x-forwarded-host": "192.168.1.20", host: "192.168.1.20:3001" }), "http://webapp:3000"))
+      .toBe("http://192.168.1.20:3001");
+    // A proxy that rewrote Host to something else: the forwarded host stands alone.
+    expect(publicOrigin(h({ "x-forwarded-proto": "https", "x-forwarded-host": "kb.example.com", host: "webapp:3000" }), "http://x"))
+      .toBe("https://kb.example.com");
+    // A forwarded host with its own port is not second-guessed.
+    expect(publicOrigin(h({ "x-forwarded-host": "kb.example.com:8443", host: "kb.example.com:3001" }), "http://x"))
+      .toBe("http://kb.example.com:8443");
+  });
   test("falls back to Host and the fallback scheme", () => {
     expect(publicOrigin(h({ host: "192.168.1.20:3000" }), "http://192.168.1.20:3000")).toBe("http://192.168.1.20:3000");
   });

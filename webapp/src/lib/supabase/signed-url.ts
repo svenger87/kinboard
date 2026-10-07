@@ -1,3 +1,5 @@
+import { browserApiUrl } from "@/lib/supabase/api-base";
+
 /**
  * Make a signed storage URL reachable from a browser.
  *
@@ -27,7 +29,9 @@
  */
 export function toBrowserStorageUrl(
   signedUrl: string,
-  externalBase: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL,
+  // The browser's API address, or none when it is the page's own origin
+  // (RFC-018) — the URL then stays relative and resolves against it.
+  externalBase: string | undefined = browserApiUrl() ?? undefined,
   anonKey: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
 ): string {
   let parsed: URL;
@@ -45,8 +49,8 @@ export function toBrowserStorageUrl(
 
   const pathAndQuery = `${parsed.pathname}${parsed.search}`;
 
-  // Defensive, and the same choice publicStorageUrl makes: with no external
-  // base configured, a same-origin relative URL still works.
+  // Same origin (RFC-018), and the same choice publicStorageUrl makes: a
+  // relative URL resolves against the address the page was opened from.
   if (!externalBase) return pathAndQuery;
 
   return `${externalBase.replace(/\/$/, "")}${pathAndQuery}`;

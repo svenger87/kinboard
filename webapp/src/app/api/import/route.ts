@@ -41,6 +41,7 @@ import { backupHasCreatures, personForOldRedemptions } from "@/lib/creatures/bac
 //     pocket_money_transactions / pocket_money_withdrawal_requests
 //   point_rewards; people → point_redemptions (pocket_money_accounts too,
 //     optionally: account_id is nullable since RFC-017)
+//   people → point_purchases (RFC-017 §5, the creature shop)
 //   people → creatures (RFC-017; a backup from before it has none, and gets
 //     them derived from its accounts by the migration's own rule)
 //   settings (family_id only)
@@ -184,6 +185,9 @@ const TABLE_SPECS: TableSpec[] = [
     nullableFks: ["account_id", "reward_id"],
     forceNullColumns: ["requested_by_device_id", "decided_by_device_id"],
   }),
+  // The creature shop (RFC-017 §5): the person is remapped like the requests'.
+  // A backup from before the shop has none, and nothing was bought.
+  spec("point_purchases", { requiredFks: ["person_id"] }),
   // Keyed by the child: no id of its own, so person_id is remapped as an FK.
   spec("creatures", {
     hasOwnId: false,

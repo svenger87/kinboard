@@ -19,7 +19,7 @@ export function getPushTranslator(locale: string) {
  */
 export function getTranslator(
   locale: string,
-  namespace: "assistantActions" | "attention.hints" | "holidays",
+  namespace: "assistantActions" | "attention.hints" | "holidays" | "pocketMoney",
   onError?: (error: unknown) => void,
 ) {
   const messages = MESSAGES[locale] ?? MESSAGES.de;

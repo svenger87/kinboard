@@ -128,6 +128,17 @@ services:
   # Supabase Kong (API Gateway)
   # ===================
   kong:
+    # Which container publishes WEBAPP_PORT (3001) is KINBOARD_ENTRY's choice
+    # (RFC-018): `kong` makes Kong the front door, serving the app and its API
+    # at one address; `webapp`, or nothing set, is the layout every install had
+    # before. The port mapping lives in docker-compose.entry-<value>.yml, which
+    # this service and `webapp` extend. Not a profile: profiles switch whole
+    # services on and off, and here the same two services stay and only a port
+    # moves. Not a second -f file either: plain `docker compose up`, the
+    # self-update and every COMPOSE_FILES set pick it up from .env unchanged.
+    extends:
+      file: docker-compose.entry-${KINBOARD_ENTRY:-webapp}.yml
+      service: kong
     logging: *default-logging
     image: kong:3.9.3
     container_name: ${PROJECT_NAME:-kinboard}-kong
@@ -153,6 +164,21 @@ services:
       # two workers is not a compromise. Raise KONG_WORKERS if you are proxying
       # something else through the same gateway. (#252)
       KONG_NGINX_WORKER_PROCESSES: ${KONG_WORKERS:-2}
+      # Whose X-Forwarded-* headers Kong passes on to the webapp instead of
+      # overwriting them with its own view (plain http, port 8000). With Kong
+      # in front of the webapp, a TLS proxy or tunnel ahead of Kong is what
+      # knows the request was https — the session cookie's Secure flag and the
+      # OAuth metadata depend on it. Private ranges only: Traefik, cloudflared
+      # and anything on the Docker networks or the LAN. A client on the
+      # internet hitting Kong directly can then forge neither the protocol nor
+      # its address. Behind Cloudflare's proxy (orange cloud) WITHOUT a tunnel,
+      # Kong sees Cloudflare's addresses: add https://www.cloudflare.com/ips/
+      # to this list, or https and the client address are lost.
+      KONG_TRUSTED_IPS: ${KONG_TRUSTED_IPS:-127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7}
+      # The client address behind those proxies: the last untrusted entry of
+      # X-Forwarded-For becomes X-Real-IP for the webapp (its rate limits).
+      KONG_REAL_IP_HEADER: ${KONG_REAL_IP_HEADER:-X-Forwarded-For}
+      KONG_REAL_IP_RECURSIVE: ${KONG_REAL_IP_RECURSIVE:-on}
     volumes:
       - ./kong.yml:/home/kong/kong.yml:ro
     networks:
@@ -179,7 +205,9 @@ services:
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
-      API_EXTERNAL_URL: ${API_EXTERNAL_URL}
+      # Required by GoTrue. With the API on the app's own address (RFC-018,
+      # API_EXTERNAL_URL empty) that address is SITE_URL.
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-${SITE_URL:-http://localhost:3001}}
 
       GOTRUE_DB_DRIVER: postgres
       GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
@@ -390,6 +418,10 @@ services:
   # Next.js Webapp
   # ===================
   webapp:
+    # Publishes WEBAPP_PORT only when KINBOARD_ENTRY is webapp; see kong above.
+    extends:
+      file: docker-compose.entry-${KINBOARD_ENTRY:-webapp}.yml
+      service: webapp
     logging: *default-logging
     build:
       context: ..
@@ -400,7 +432,11 @@ services:
         # setting them only as runtime env vars would leave the client
         # bundle with whatever was in .env.local at build time (or
         # nothing). These args make the runtime values authoritative.
-        NEXT_PUBLIC_SUPABASE_URL: ${API_EXTERNAL_URL:-http://localhost:8100}
+        #
+        # Empty unless a separate API host is configured: with the API on the
+        # app's own address (RFC-018) there is nothing to bake, and a baked
+        # localhost would be exactly the address a phone cannot reach.
+        NEXT_PUBLIC_SUPABASE_URL: ${API_EXTERNAL_URL:-}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
     container_name: ${PROJECT_NAME:-kinboard}-webapp
     restart: unless-stopped
@@ -487,9 +523,14 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
-    ports:
-      - "${WEBAPP_PORT:-3001}:3000"
     environment:
+      # Where the browser finds the API (RFC-018). With KINBOARD_ENTRY=kong,
+      # or API_EXTERNAL_URL empty or `same-origin`, it is the address the page
+      # was opened from; otherwise API_EXTERNAL_URL, as before. Plain
+      # variables, read per request: Next would freeze a NEXT_PUBLIC_* read
+      # into the build. See src/lib/supabase/api-base.ts.
+      KINBOARD_ENTRY: ${KINBOARD_ENTRY:-webapp}
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-}
       # Use external URL for client-side (browser) access
       NEXT_PUBLIC_SUPABASE_URL: ${API_EXTERNAL_URL}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}

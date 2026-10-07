@@ -96,3 +96,11 @@ docs/superpowers/
 # Generated at runtime by webapp/docker/test-upgrade.sh — the "after" half of
 # an upgrade run. Regenerated on every run; never edited by hand.
 webapp/docker/docker-compose.upgrade-target.yml
+
+# Written next to .env by webapp/docker/kinboard-entry.sh (RFC-018): a
+# temporary copy of kong.yml or .env (both hold real keys) if it is killed
+# mid-write, the KINBOARD_ENTRY line saved while a move to Kong is in
+# progress, and the back-off after a move was undone.
+*.entry-tmp.*
+webapp/docker/.env.pre-entry
+webapp/docker/.env.entry-state

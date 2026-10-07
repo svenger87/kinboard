@@ -174,9 +174,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: bash -n on shipped scripts
         run: |
-          for f in install.sh setup.sh webapp/deploy.sh webapp/docker/start.sh; do
+          for f in install.sh setup.sh webapp/deploy.sh webapp/docker/start.sh webapp/docker/test-entry-switch.sh; do
             echo "checking $f"
             bash -n "$f"
+          done
+          # POSIX sh: these run inside the Alpine webhook container.
+          for f in webapp/docker/kinboard-self-update.sh webapp/docker/kinboard-entry.sh; do
+            echo "checking $f"
+            sh -n "$f"
           done
 
   migrations:

@@ -64,7 +64,7 @@ This usually means Kinboard was set up for a different address, such as the
 LAN address, and the browser blocks requests from the public one. Open
 `https://kinboard.example.com` in the same browser: if the dashboard doesn't
 load there either, it's a server setup problem, not an assistant one. See
-[Self-hosting: Changing the URL later](Self-hosting#changing-the-url-later)
+[Self-hosting: Changing the address later](Self-hosting#changing-the-address-later)
 and [Troubleshooting](Troubleshooting#app-misbehaves-blocked-requests-mismatched-origin-when-opened-via-localhost-or-a-different-hostname-than-expected).
 
 If it is not joined to your family yet, the browser is first sent to the

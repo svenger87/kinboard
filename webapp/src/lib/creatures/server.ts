@@ -10,6 +10,8 @@ import type { SessionContext } from "@/lib/session";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { moneyAvailable, pluginOn, type CreaturePatch } from "./rules";
 import { clampStageWrites, justifiedTiers } from "./stage";
+import { wornNotOwned } from "@/lib/pocket-money/creatures/look";
+import { SHOP_SLOTS, ownedSet } from "@/lib/pocket-money/creatures/shop";
 
 // The admin client is untyped for these tables, as in the other routes.
 type Db = any;
@@ -79,6 +81,17 @@ export async function earnedPoints(db: Db, familyId: string, personId: string): 
   return ((data ?? []) as Array<{ points: number }>).reduce((sum, r) => sum + (r.points ?? 0), 0);
 }
 
+/** The shop items the child owns (point_purchases), in this family. */
+export async function ownedItems(db: Db, familyId: string, personId: string): Promise<ReadonlySet<string>> {
+  const { data, error } = await db
+    .from("point_purchases")
+    .select("item_id")
+    .eq("family_id", familyId)
+    .eq("person_id", personId);
+  if (error) throw new Error(error.message);
+  return ownedSet(data as Array<{ item_id: string }> | null);
+}
+
 export type CreatureWrite = { status: number; body: Record<string, unknown> };
 
 /**
@@ -91,6 +104,7 @@ export type CreatureWrite = { status: number; body: Record<string, unknown> };
  *   - grows_with 'money' only with the plugin on and an account
  *   - best_tier and last_seen_tier are held to what the growth source
  *     justifies right now (clampStageWrites)
+ *   - a look may wear only shop items the child owns (409 not_owned)
  */
 export async function applyCreaturePatch(args: {
   db: Db;
@@ -122,6 +136,22 @@ export async function applyCreaturePatch(args: {
   if (!parental && !creature.enabled) return { status: 409, body: { error: "creature_off" } };
   if (patch.grows_with === "money" && !(await moneyAvailableFor(db, familyId, personId))) {
     return { status: 409, body: { error: "money_unavailable" } };
+  }
+
+  // Only owned items can be worn (RFC-017 §5). The look's values are already
+  // catalogue items for their slots (validateLook); this is whether the
+  // child bought them. A purchase is never taken back, so an item owned here
+  // is still owned when the update below lands.
+  const look = patch.look;
+  if (look && SHOP_SLOTS.some((slot) => look[slot] !== undefined)) {
+    let owned: ReadonlySet<string>;
+    try {
+      owned = await ownedItems(db, familyId, personId);
+    } catch (err) {
+      return { status: 500, body: { error: err instanceof Error ? err.message : "purchases" } };
+    }
+    const missing = wornNotOwned(look, owned);
+    if (missing.length > 0) return { status: 409, body: { error: "not_owned", items: missing } };
   }
 
   if (patch.best_tier !== undefined || patch.last_seen_tier !== undefined) {

@@ -6,6 +6,7 @@ import { Providers } from "./providers";
 import { getMonthTheme } from "@/lib/utils";
 import { ChunkErrorRecovery } from "@/components/chunk-error-recovery";
 import { display, sans, mono } from "./fonts";
+import { publicApiEnv } from "@/lib/supabase/api-base";
 
 export const metadata: Metadata = {
   title: "Kinboard",
@@ -58,10 +59,11 @@ export default async function RootLayout({
   // Build-time NEXT_PUBLIC_* baking still works (source build path);
   // this is a runtime fallback the browser-side supabase client reads
   // first via window.__ENV. See lib/supabase/client.ts.
-  const publicEnv = {
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
-  };
+  //
+  // The API address is decided here, per request (RFC-018): `same-origin`
+  // when Kong serves the app, otherwise API_EXTERNAL_URL. See
+  // lib/supabase/api-base.ts.
+  const publicEnv = publicApiEnv(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "");
 
   return (
     <html lang={locale} className={monthTheme} suppressHydrationWarning>

@@ -50,6 +50,7 @@ type TableName =
   | "todo_occurrences"
   | "point_rewards"
   | "point_redemptions"
+  | "point_purchases"
   | "creatures";
 
 const ALL_TABLES: TableName[] = [
@@ -81,6 +82,7 @@ const ALL_TABLES: TableName[] = [
   "todo_occurrences",
   "point_rewards",
   "point_redemptions",
+  "point_purchases",
   "creatures",
 ];
 
@@ -167,6 +169,11 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
         case "point_redemptions":
           // A child's request, or a parent's decision on another screen.
           queryClient.invalidateQueries({ queryKey: ["point-redemptions", family.id] });
+          break;
+        case "point_purchases":
+          // Something bought in the shop on another screen (RFC-017 §5): the
+          // balance and what the creature may wear both change.
+          queryClient.invalidateQueries({ queryKey: ["point-purchases", family.id] });
           break;
         case "creatures":
           // A creature switched on or off, re-dressed, or its stage recorded

@@ -253,6 +253,13 @@ test("a route that still takes family_id checks it against the session", () => {
     // and ignored (lib/creatures/rules.ts), never compared or used.
     "creatures/route.ts",
     "creatures/[personId]/route.ts",
+    // The shop (RFC-017 §5): the family is auth.session.familyId, handed to
+    // purchase_person_point_item(); the request carries a person id (path)
+    // and `{ item_id }`.
+    "creatures/[personId]/purchases/route.ts",
+    // A parent's refund: the family is auth.session.familyId, handed to
+    // refund_person_point_purchase(); the request carries a purchase id.
+    "creatures/purchases/[id]/route.ts",
     // The old path of a child's reward request, kept one release (RFC-017):
     // the account is looked up in auth.session.familyId; the body carries
     // only `{ reward_id }`.

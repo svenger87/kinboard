@@ -43,16 +43,30 @@ export function hitLimit(key: string, limit: number, windowMs: number): { limite
 }
 
 /**
- * The client's address, as seen through Traefik.
+ * The client's address, as seen through the proxy in front of the webapp.
+ *
+ * With Kong as the front door (KINBOARD_ENTRY=kong, RFC-018) the webapp has
+ * no port of its own: every request reaches it through Kong, or through a
+ * proxy on the stack's own network (Traefik, cloudflared). Kong resolves the
+ * client from X-Forwarded-For, trusting only private-range proxies
+ * (KONG_TRUSTED_IPS, KONG_REAL_IP_RECURSIVE), and sends the result as
+ * X-Real-IP, overwriting whatever the client sent. That is the address to
+ * use. The layout is what makes the header trustworthy, not the header: with
+ * the webapp published itself, anyone can send X-Real-IP, so there the
+ * left-most X-Forwarded-For is read, as before.
  *
  * x-forwarded-for is a client-controlled header, so the *first* entry is the
- * one to trust least — but Traefik appends the real peer and we read the
- * left-most, which is standard. It is a rate-limit key, not an authorization
- * decision: the worst a forged value does is let one attacker spread their
- * attempts across many keys, which is why the endpoints that use this also
- * cap the expensive side effect (a device row) on a value they control.
+ * one to trust least, but it is the standard one to read. It is a rate-limit
+ * key, not an authorization decision: the worst a forged value does is let
+ * one attacker spread their attempts across many keys, which is why the
+ * endpoints that use this also cap the expensive side effect (a device row)
+ * on a value they control.
  */
-export function clientIp(request: NextRequest): string {
+export function clientIp(request: NextRequest, entry: string | undefined = process.env.KINBOARD_ENTRY): string {
+  if ((entry ?? "").trim().toLowerCase() === "kong") {
+    const real = request.headers.get("x-real-ip")?.trim();
+    if (real) return real;
+  }
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
   return request.headers.get("x-real-ip") || "unknown";

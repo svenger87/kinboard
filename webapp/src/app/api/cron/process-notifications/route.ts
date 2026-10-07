@@ -6,7 +6,11 @@ import { getPushTranslator } from "@/lib/notifications/messages";
 import { getFamilyLocale } from "@/lib/family-locale";
 import { recordHeartbeat } from "@/lib/heartbeat";
 import { endedCameraPushes } from "@/lib/camera-takeover";
-import type { PushSubscription, NotificationPreferences } from "@/types/database";
+import type { PushSubscription } from "@/types/database";
+import { clockTime, eligibleFromRead, getPreferenceColumn } from "@/lib/notifications/delivery";
+import {
+  REWARD_DECIDED, REWARD_REQUESTED, audienceFor, batchKey, filterAudience, rewardPushPayload, type DeviceOwnerRow,
+} from "@/lib/notifications/rewards";
 
 export const dynamic = "force-dynamic";
 
@@ -247,10 +251,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ processed: stale.length, sent: 0, stale: stale.length });
   }
 
-  // Group by family_id + notification_type
+  // Group by family_id + notification_type, and by addressee for a push
+  // that goes to one person's device (a reward decision: lib/notifications/rewards.ts).
   const groups = new Map<string, ScheduledNotification[]>();
   for (const notif of pending) {
-    const key = `${notif.family_id}::${notif.notification_type}`;
+    const key = batchKey(notif);
     if (!groups.has(key)) {
       groups.set(key, []);
     }
@@ -301,6 +306,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // A push for some of the family's devices only: a child's reward request
+    // to the parents', a decision to the child's own (lib/notifications/rewards.ts).
+    const audience = audienceFor(notificationType, notifications[0].data);
+    if (audience.kind !== "everyone" && subscriptions.length > 0) {
+      const [{ data: devicesData, error: devicesError }, { data: childrenData, error: childrenError }] = await Promise.all([
+        (supabase as any).from("devices").select("id, person_id, is_kiosk").eq("family_id", familyId),
+        (supabase as any).from("people").select("id").eq("family_id", familyId).eq("is_child", true),
+      ]);
+      if (devicesError || childrenError) {
+        // Unreadable: nobody rather than everybody. A request a parent misses
+        // still waits in the inbox; one pushed to a sibling cannot be unsent.
+        console.error("[process-notifications] Could not read device owners:", devicesError ?? childrenError);
+        subscriptions = [];
+      } else {
+        subscriptions = filterAudience(
+          subscriptions,
+          audience,
+          (devicesData ?? []) as DeviceOwnerRow[],
+          new Set(((childrenData ?? []) as { id: string }[]).map((p) => p.id)),
+        );
+      }
+    }
+
     if (subscriptions.length === 0) {
       // No recipients — mark as processed anyway
       processedIds.push(...notifications.map((n) => n.id));
@@ -309,40 +337,14 @@ export async function POST(request: NextRequest) {
 
     // Check notification preferences
     const prefColumn = getPreferenceColumn(notificationType);
-    const { data: prefsData } = await supabase
+    const prefsRead = await supabase
       .from("notification_preferences")
       .select("device_id, quiet_hours_enabled, quiet_hours_start, quiet_hours_end" + (prefColumn ? `, ${prefColumn}` : ""))
       .eq("family_id", familyId);
 
-    const preferences = (prefsData || []) as unknown as (Pick<NotificationPreferences,
-      "device_id" | "quiet_hours_enabled" | "quiet_hours_start" | "quiet_hours_end"
-    > & Record<string, unknown>)[];
-
-    const prefsMap = new Map(preferences.map((p) => [p.device_id, p]));
-
-    const now = new Date();
-    const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
-
-    const eligible = subscriptions.filter((sub) => {
-      const prefs = prefsMap.get(sub.device_id);
-      if (!prefs) return true;
-
-      // Check type-specific preference
-      if (prefColumn && prefs[prefColumn] === false) return false;
-
-      // Check quiet hours
-      if (prefs.quiet_hours_enabled) {
-        const start = (prefs.quiet_hours_start as string) || "22:00";
-        const end = (prefs.quiet_hours_end as string) || "07:00";
-        if (start > end) {
-          if (currentTime >= start || currentTime <= end) return false;
-        } else {
-          if (currentTime >= start && currentTime <= end) return false;
-        }
-      }
-
-      return true;
-    });
+    // Unreadable preferences: nobody, as for unreadable device owners above.
+    // Quiet hours and switches cannot be honoured without them.
+    const eligible = eligibleFromRead(subscriptions, prefsRead, notificationType, clockTime(new Date()));
 
     if (eligible.length === 0) {
       processedIds.push(...notifications.map((n) => n.id));
@@ -395,27 +397,6 @@ export async function POST(request: NextRequest) {
     failed: totalFailed,
     timestamp: new Date().toISOString(),
   });
-}
-
-/**
- * Map notification_type to the preference column that controls it
- */
-function getPreferenceColumn(type: string): string | null {
-  switch (type) {
-    case "shopping_collaborative":
-      return "shopping_collaborative";
-    case "todo_created":
-    case "todo_assigned":
-      return "todo_collaborative";
-    case "calendar_reminder":
-      return "calendar_reminders";
-    case "birthday_reminder":
-      return "birthday_reminders";
-    case "meal_prep_reminder":
-      return "meal_prep_reminders";
-    default:
-      return null;
-  }
 }
 
 /**
@@ -591,6 +572,11 @@ function buildNotificationPayload(
         url: "/",
       };
     }
+
+    case REWARD_REQUESTED:
+    case REWARD_DECIDED:
+      // One child's request, or one child's answers: lib/notifications/rewards.ts.
+      return rewardPushPayload(type, notifications, t as unknown as Parameters<typeof rewardPushPayload>[2]);
 
     default: {
       const title = notifications[0].title;

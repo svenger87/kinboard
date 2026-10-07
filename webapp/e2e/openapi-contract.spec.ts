@@ -185,6 +185,33 @@ test.describe("the spec says the things a consumer has to get right", () => {
     expect(limit?.schema?.maximum).toBe(200);
   });
 
+  test("points and rewards: each path with its scope, and the creature as five fields that never include its look", () => {
+    const paths = spec.paths as Record<string, Record<string, { "x-required-scope"?: string }>>;
+    expect(paths["/rewards"].get["x-required-scope"]).toBe("family:read");
+    expect(Object.keys(paths["/rewards"])).toEqual(["get"]);
+    expect(paths["/rewards/requests"].post["x-required-scope"]).toBe("pocket_money:write");
+    expect(Object.keys(paths["/rewards/requests"])).toEqual(["post"]);
+    // The route files ask for the same scopes the spec documents.
+    const route = (p: string) => readFileSync(join(ROUTES_ROOT, p, "route.ts"), "utf8");
+    expect(route("rewards")).toContain('withIntegrationAuth(request, "family:read"');
+    expect(route("rewards/requests")).toContain('withIntegrationAuth(request, "pocket_money:write"');
+
+    const schemas = spec.components.schemas as Record<string, {
+      required?: string[]; additionalProperties?: boolean;
+      properties?: Record<string, { properties?: Record<string, unknown>; additionalProperties?: boolean; required?: string[] }>;
+    }>;
+    const creature = schemas.ChildRewards.properties!.creature;
+    expect(Object.keys(creature.properties ?? {}).sort()).toEqual(["grows_with", "next_stage", "species", "stage", "stage_name"]);
+    expect(creature.additionalProperties).toBe(false);
+    expect(Object.keys(schemas.ChildRewards.properties!.points.properties ?? {}).sort())
+      .toEqual(["available", "balance", "earned", "owed", "pending", "purchased"]);
+    const everything = JSON.stringify([schemas.RewardsOverview, schemas.ChildRewards, schemas.RewardRequest]);
+    expect(everything).not.toMatch(/"look"|avatar_look/);
+    // The ask is a POST with an Idempotency-Key, like every other write.
+    const post = (spec.paths["/rewards/requests"] as Record<string, unknown>).post as { parameters: { name: string; required?: boolean }[] };
+    expect(post.parameters.find((p) => p.name === "Idempotency-Key")?.required).toBe(true);
+  });
+
   test("GET /cameras lists each camera's doorbell with the server's own rule, and nothing else", () => {
     // The Home Assistant integration codes against this shape: a doorbell
     // pattern here looser or stricter than the server's would let one side
