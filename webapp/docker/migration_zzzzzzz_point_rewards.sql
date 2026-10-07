@@ -55,46 +55,56 @@
 -- ---------------------------------------------------------------------------
 -- 1. The mode, and best_tier that only climbs
 -- ---------------------------------------------------------------------------
-ALTER TABLE public.pocket_money_accounts
-  ADD COLUMN IF NOT EXISTS reward_mode TEXT NOT NULL DEFAULT 'money';
+-- ONLY BEFORE THE CREATURES MOVED OUT (RFC-017). The mode and the stages live
+-- on `creatures` since then (grows_with, best_tier and its own climbing
+-- trigger), and a later release drops reward_mode, best_tier, this trigger and
+-- its function from the account (RFC-017 §7 step 5). This file re-runs on
+-- every boot: unguarded, a rollback to this release after that drop would put
+-- the column back and fail on the trigger for a column that is gone, and the
+-- app would not start. `creatures` existing is the marker -- it is created and
+-- filled from these columns in one statement -- so a 1.12 install upgrading
+-- still gets them here, before the creatures are built from them.
+DO $guard$
+BEGIN
+  IF to_regclass('public.creatures') IS NOT NULL THEN RETURN; END IF;
 
-DO $$ BEGIN
+  ALTER TABLE public.pocket_money_accounts
+    ADD COLUMN IF NOT EXISTS reward_mode TEXT NOT NULL DEFAULT 'money';
+
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'pocket_money_accounts_reward_mode_check') THEN
     ALTER TABLE public.pocket_money_accounts
       ADD CONSTRAINT pocket_money_accounts_reward_mode_check CHECK (reward_mode IN ('money', 'points'));
   END IF;
-END $$;
 
--- best_tier is the highest stage a child ever reached WITH MONEY. The screens
--- write it (the stage is derived from what they show), so until now a write
--- could also lower it, or raise it past the last stage. A stage reached with
--- money must survive a switch to points and back, so the database keeps the
--- higher of the two -- and never more than stage 8, the last one
--- (TIER_THRESHOLDS_* in webapp/src/lib/pocket-money/types.ts). In points mode
--- the stage comes from the points earned and is never written here, so a
--- task un-ticked takes the stage back down with it.
-CREATE OR REPLACE FUNCTION public.pocket_money_best_tier_only_climbs() RETURNS trigger
-LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
-BEGIN
-  NEW.best_tier := LEAST(8, GREATEST(LEAST(8, COALESCE(OLD.best_tier, 1)), COALESCE(NEW.best_tier, 1), 1));
-  RETURN NEW;
-END $$;
+  -- best_tier is the highest stage a child ever reached WITH MONEY. The screens
+  -- write it (the stage is derived from what they show), so until now a write
+  -- could also lower it, or raise it past the last stage. A stage reached with
+  -- money must survive a switch to points and back, so the database keeps the
+  -- higher of the two -- and never more than stage 8, the last one
+  -- (TIER_THRESHOLDS_* in webapp/src/lib/pocket-money/types.ts). In points mode
+  -- the stage comes from the points earned and is never written here, so a
+  -- task un-ticked takes the stage back down with it.
+  CREATE OR REPLACE FUNCTION public.pocket_money_best_tier_only_climbs() RETURNS trigger
+  LANGUAGE plpgsql SET search_path = public, pg_temp AS $fn$
+  BEGIN
+    NEW.best_tier := LEAST(8, GREATEST(LEAST(8, COALESCE(OLD.best_tier, 1)), COALESCE(NEW.best_tier, 1), 1));
+    RETURN NEW;
+  END $fn$;
 
-DROP TRIGGER IF EXISTS pocket_money_accounts_best_tier_climbs ON public.pocket_money_accounts;
-CREATE TRIGGER pocket_money_accounts_best_tier_climbs
-  BEFORE UPDATE OF best_tier ON public.pocket_money_accounts
-  FOR EACH ROW EXECUTE FUNCTION public.pocket_money_best_tier_only_climbs();
+  DROP TRIGGER IF EXISTS pocket_money_accounts_best_tier_climbs ON public.pocket_money_accounts;
+  CREATE TRIGGER pocket_money_accounts_best_tier_climbs
+    BEFORE UPDATE OF best_tier ON public.pocket_money_accounts
+    FOR EACH ROW EXECUTE FUNCTION public.pocket_money_best_tier_only_climbs();
 
--- Any value already out of range is brought back into it (the trigger above
--- clamps a stored 99 to 8), and then a CHECK holds every row to 1..8,
--- including a new account's.
-UPDATE public.pocket_money_accounts SET best_tier = best_tier WHERE best_tier NOT BETWEEN 1 AND 8;
-DO $$ BEGIN
+  -- Any value already out of range is brought back into it (the trigger above
+  -- clamps a stored 99 to 8), and then a CHECK holds every row to 1..8,
+  -- including a new account's.
+  UPDATE public.pocket_money_accounts SET best_tier = best_tier WHERE best_tier NOT BETWEEN 1 AND 8;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'pocket_money_accounts_best_tier_range') THEN
     ALTER TABLE public.pocket_money_accounts
       ADD CONSTRAINT pocket_money_accounts_best_tier_range CHECK (best_tier BETWEEN 1 AND 8);
   END IF;
-END $$;
+END $guard$;
 
 -- ---------------------------------------------------------------------------
 -- 2. The tables

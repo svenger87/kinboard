@@ -21,9 +21,19 @@
 -- backfill below is derived from, and dropping a column that another
 -- surface may grow to need is not worth the irreversibility.
 
+-- ONLY BEFORE THE CREATURES MOVED OUT. The stage lives on `creatures` since
+-- RFC-017, and a later release drops this column from the account (RFC-017
+-- §7 step 5). This file re-runs on every boot, so without the guard a
+-- rollback to this release after that drop would put the column back, empty
+-- -- or, for best_tier and the trigger, fail and keep the app from starting.
+-- `creatures` existing is the marker: it is created and filled from the
+-- account columns in one statement (migration_zzzzzzzz_pocket_money_creatures_
+-- out.sql), so from then on nothing needs this file to run. A 1.12 install
+-- upgrading has no `creatures` yet and still gets the column here, before the
+-- creatures are built from it.
 DO $$
 BEGIN
-  IF NOT EXISTS (
+  IF to_regclass('public.creatures') IS NULL AND NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public'
       AND table_name = 'pocket_money_accounts'

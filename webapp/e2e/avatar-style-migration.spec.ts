@@ -74,6 +74,9 @@ test.describe("against the database", () => {
     // Each accepted value, then a rejected one inside a savepoint we roll back to.
     const accepted = AVATAR_STYLES.map((v, i) => probe(v, `ok${i}`)).join("\n");
     const out = psql(`BEGIN;
+-- As on an install from before the creatures moved out (RFC-017): no
+-- creatures table, no column yet. Rolled back below.
+DROP TABLE public.creatures CASCADE;
 ALTER TABLE public.pocket_money_accounts DROP CONSTRAINT IF EXISTS pocket_money_accounts_avatar_style_check;
 ALTER TABLE public.pocket_money_accounts DROP COLUMN IF EXISTS avatar_style;
 INSERT INTO public.families (id, name, join_code) VALUES ('${fam}', 'avatar-style-test', 'AS' || upper(substr(md5(random()::text), 1, 8)));
@@ -117,6 +120,14 @@ ROLLBACK;
 
     // Nothing left behind, and the real column is back as it was.
     expect(psql(`SELECT count(*) FROM public.families WHERE id = '${fam}';`)).toBe("0");
+    // A rollback to this release after a later one dropped the column
+    // (RFC-017 step 5): the creatures exist, and the file adds nothing back.
+    expect(psql(`BEGIN;
+ALTER TABLE public.pocket_money_accounts DROP CONSTRAINT IF EXISTS pocket_money_accounts_avatar_style_check;
+ALTER TABLE public.pocket_money_accounts DROP COLUMN IF EXISTS avatar_style;
+${MIGRATION}
+SELECT count(*) FROM information_schema.columns WHERE table_name = 'pocket_money_accounts' AND column_name = 'avatar_style';
+ROLLBACK;`)).toBe("0");
     expect(psql(`SELECT column_default FROM information_schema.columns WHERE table_name = 'pocket_money_accounts' AND column_name = 'avatar_style';`)).toBe("'classic'::text");
   });
 });

@@ -32,10 +32,20 @@
 -- Sorts after migration_zzzzzzzz_pocket_money_avatar_style.sql, the last one to
 -- change this table. Safe to run twice; it runs on every boot.
 
-ALTER TABLE public.pocket_money_accounts
-  ADD COLUMN IF NOT EXISTS avatar_look JSONB NOT NULL DEFAULT '{}'::jsonb;
-
+-- ONLY BEFORE THE CREATURES MOVED OUT. The look lives on `creatures` since
+-- RFC-017, and a later release drops this column from the account (RFC-017
+-- §7 step 5). This file re-runs on every boot, so without the guard a
+-- rollback to this release after that drop would put the column back, empty
+-- -- or, for best_tier and the trigger, fail and keep the app from starting.
+-- `creatures` existing is the marker: it is created and filled from the
+-- account columns in one statement (migration_zzzzzzzz_pocket_money_creatures_
+-- out.sql), so from then on nothing needs this file to run. A 1.12 install
+-- upgrading has no `creatures` yet and still gets the column here, before the
+-- creatures are built from it.
 DO $$ BEGIN
+  IF to_regclass('public.creatures') IS NOT NULL THEN RETURN; END IF;
+  ALTER TABLE public.pocket_money_accounts
+    ADD COLUMN IF NOT EXISTS avatar_look JSONB NOT NULL DEFAULT '{}'::jsonb;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'pocket_money_accounts_avatar_look_check') THEN
     ALTER TABLE public.pocket_money_accounts
       ADD CONSTRAINT pocket_money_accounts_avatar_look_check
