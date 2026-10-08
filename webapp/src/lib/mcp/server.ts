@@ -62,6 +62,8 @@ import { GET as birthdaysRoute, POST as addBirthdayRoute } from "@/app/api/integ
 import { PATCH as birthdayPatch, DELETE as birthdayDelete } from "@/app/api/integration/v1/birthdays/[id]/route";
 import { MAX_BIRTHDAY_NAME, MAX_NOTIFY_DAYS } from "@/lib/integration-birthdays";
 import { GET as weatherRoute } from "@/app/api/integration/v1/weather/route";
+import { GET as holidaysRoute } from "@/app/api/integration/v1/holidays/route";
+import { MAX_HOLIDAY_DAYS } from "@/lib/integration-holidays";
 import { GET as weekSummaryRoute } from "@/app/api/integration/v1/week-summary/route";
 import { MAX_SUMMARY_DAYS } from "@/lib/integration-week-summary";
 import { ENTITY_ID } from "@/lib/home/policy";
@@ -148,6 +150,9 @@ export const TOOL_SCOPES = {
   // A look back over the week: only reads what family:read already reads,
   // so no assistant has to be connected again for it.
   get_week_summary: "family:read",
+  // School and public holidays over a range: the same breaks the timetable
+  // already reads under family:read, so nobody has to connect again.
+  list_school_holidays: "family:read",
 } as const satisfies Record<string, McpScope>;
 
 type ToolName = keyof typeof TOOL_SCOPES;
@@ -874,5 +879,14 @@ export function createKinboardMcpServer(
     readOnly,
     ({ start, end }) => call(weekSummaryRoute, { path: "/week-summary", ...(start && end ? { query: { start, end } } : {}) }));
 
+
+  // ── Holidays ─────────────────────────────────────────────────────────
+  // GET /holidays (family:read): school breaks and public holidays over a
+  // range, from the same read as get_school_timetable (lib/integration-holidays.ts).
+  register("list_school_holidays", "List school holidays", `List the family's school holidays and its region's public holidays over a range of days: by default today and the next 12 months; start and end (YYYY-MM-DD in the family's time zone, both or neither, at most ${MAX_HOLIDAY_DAYS} days) pick another range. Each entry has name (in the family's language for public holidays), start_date and end_date (the first and last day, inclusive; a break under way at start keeps its real first day), days, kind (school or public) and source: manual (typed in by the family), calendar (an event on a calendar marked as holidays), openholidays (synced for the family's region) or public_holiday. A break the family has from two sources is listed once. Kinboard keeps one set of school holidays per family, not per child, so each school break applies to all the children; public holidays are those of region, the family's holiday region (null when none is chosen, and then none are listed). In the US no public holidays are listed, because school districts set their own. These are the same days get_school_timetable treats as no school. Holiday names are the family's own text or come from the holiday data.`,
+    z.object({ start: date.optional(), end: date.optional() })
+      .refine((a) => (a.start === undefined) === (a.end === undefined), "send both start and end, or neither"),
+    readOnly,
+    ({ start, end }) => call(holidaysRoute, { path: "/holidays", ...(start && end ? { query: { start, end } } : {}) }));
   return server;
 }

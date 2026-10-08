@@ -2160,3 +2160,55 @@ test.describe("get_week_summary", () => {
     ]) expect(d, phrase).toContain(phrase);
   });
 });
+
+test.describe("list_school_holidays", () => {
+  const schema = (server: ReturnType<typeof createKinboardMcpServer>) =>
+    (registeredTools(server).list_school_holidays as unknown as { inputSchema: { safeParse: (v: unknown) => { success: boolean } } }).inputSchema;
+
+  test("reads /holidays through family:read, with no query for the next 12 months", async () => {
+    const { server, calls } = buildServer(["family:read"], () => ({ region: "DE-NI", holidays: [] }));
+    const t = tool(server, "list_school_holidays");
+    expect(TOOL_SCOPES.list_school_holidays).toBe("family:read");
+    expect(t.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
+    const result = await t.handler({});
+    expect(calls).toEqual([{ path: "/holidays" }]);
+    expect(JSON.parse(result.content[0].text)).toEqual({ region: "DE-NI", holidays: [] });
+  });
+
+  test("passes a chosen range as start and end", async () => {
+    const { server, calls } = buildServer(["family:read"]);
+    await tool(server, "list_school_holidays").handler({ start: "2026-10-01", end: "2026-11-30" });
+    expect(calls).toEqual([{ path: "/holidays", query: { start: "2026-10-01", end: "2026-11-30" } }]);
+  });
+
+  test("takes both dates or neither, as dates", () => {
+    const s = schema(buildServer(["family:read"]).server);
+    expect(s.safeParse({}).success).toBe(true);
+    expect(s.safeParse({ start: "2026-10-01", end: "2026-11-30" }).success).toBe(true);
+    expect(s.safeParse({ start: "2026-10-01" }).success).toBe(false);
+    expect(s.safeParse({ start: "Herbst", end: "2026-11-30" }).success).toBe(false);
+  });
+
+  test("is refused without family:read, naming it, and calls nothing", async () => {
+    const { server, calls } = buildServer(["calendar:write"]);
+    const result = await tool(server, "list_school_holidays").handler({});
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("family:read");
+    expect(calls).toEqual([]);
+  });
+
+  test("the description says what each field means, whom a break applies to, and where names come from", () => {
+    const d = (registeredTools(buildServer(["family:read"]).server).list_school_holidays as unknown as { description: string }).description;
+    for (const phrase of [
+      "today and the next 12 months", "both or neither", "at most 400 days", "start_date and end_date", "inclusive",
+      "kind (school or public)", "openholidays", "one set of school holidays per family, not per child",
+      "all the children", "region", "In the US no public holidays are listed", "get_school_timetable",
+      "the family's own text",
+    ]) expect(d, phrase).toContain(phrase);
+  });
+
+  test("a trip over the holidays is one all-day event: create_calendar_event takes a first and last day", () => {
+    const d = (registeredTools(buildServer(["calendar:write"]).server).create_calendar_event as unknown as { description: string }).description;
+    expect(d).toContain("start_date and end_date as YYYY-MM-DD, end_date being the last day (inclusive)");
+  });
+});

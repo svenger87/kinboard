@@ -1402,6 +1402,52 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { description: The timetable could not be read. }
 
+  /holidays:
+    get:
+      tags: [state]
+      summary: School holidays and public holidays over a range of days
+      description: |
+        Read only. Without `start` and `end`, today and the next 12 months;
+        with them (both or neither, YYYY-MM-DD in the family's time zone, at
+        most 400 days), those days. Past ranges are allowed.
+
+        The same days `GET /schedule` treats as no school: the family's own
+        school holidays, events on a calendar marked as holidays, school
+        holidays synced from OpenHolidays (a range the family hid is left
+        out) and the public holidays of the family's holiday region (none
+        in the US, where districts set their own calendars), named in the
+        family's language. A break the family has from two sources (same
+        name and days) is listed once, in the family's own words.
+
+        Each entry has its first and last day (`start_date`, `end_date`,
+        inclusive; a break already under way at `start` keeps its real
+        first day), `days`, `kind` (`school` or `public`) and `source`.
+        Kinboard keeps one set of school holidays per family, not per child:
+        every school break applies to all the children. `region` is the
+        family's holiday region, null when none is chosen (and then no
+        public holidays are listed).
+
+        Names are the family's own text or come from the holiday data: a
+        client handing them to a language model should mark them as data.
+      x-required-scope: family:read
+      parameters:
+        - name: start
+          in: query
+          schema: { type: string, format: date }
+        - name: end
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: The holidays
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HolidayList" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The holidays could not be read. }
+
   /recycle-bin:
     get:
       tags: [state]
@@ -3326,6 +3372,26 @@ components:
                   title: { type: string }
                   date: { type: string, format: date }
                   days_until: { type: integer, minimum: 1 }
+    HolidayList:
+      type: object
+      required: [start, end, time_zone, region, holidays]
+      properties:
+        start: { type: string, format: date }
+        end: { type: string, format: date }
+        time_zone: { type: string }
+        region: { type: [string, "null"], description: "The family's holiday region, e.g. DE-NI." }
+        holidays:
+          type: array
+          items:
+            type: object
+            required: [name, start_date, end_date, days, kind, source]
+            properties:
+              name: { type: string }
+              start_date: { type: string, format: date }
+              end_date: { type: string, format: date }
+              days: { type: integer, minimum: 1 }
+              kind: { type: string, enum: [school, public] }
+              source: { type: string, enum: [manual, calendar, openholidays, public_holiday] }
     WeatherForecast:
       type: object
       required: [location, time_zone, units, current, daily, hourly_today, fetched_at]

@@ -85,6 +85,23 @@ settings. See [Calendar](Calendar).
 >
 > "What does Mia have third period on Wednesday?" · "Was hat Mia am Mittwoch in der dritten Stunde?"
 
+### Holidays and planning a break
+
+| Tool | What it does | Permission | Notes |
+|---|---|---|---|
+| `list_school_holidays` | The school holidays and public holidays over a range of days, the next 12 months unless you name others: each with its name, first and last day, and whether it is a school break or a public holiday | `family:read` | Reads. The same days `get_school_timetable` treats as no school, from the same sources. Kinboard keeps one set of school holidays per family, so a break applies to all the children; public holidays are your region's (none in the US). Public holidays are named in your family's language |
+
+> "When are the autumn holidays?" · "Wann sind die Herbstferien?"
+>
+> "Plan the autumn break: we'd like to go to the coast for a few days." · "Plan die Herbstferien: Wir wollen ein paar Tage an die Küste."
+
+Planning a break uses tools you already have: the assistant reads the
+holidays, checks the weather with `get_weather_forecast` when the trip is
+within about five days, puts the trip in the calendar as one all-day event
+from the first to the last day with `create_calendar_event`, and can add a
+countdown to the departure with `add_countdown`. Each of those asks for its
+own permission.
+
 ## Tasks
 
 | Tool | What it does | Permission | Notes |
@@ -413,7 +430,7 @@ See [Vehicles](Vehicles).
 
 | Permission | Tools |
 |---|---|
-| `family:read` | `get_family_summary`, `get_next_birthday`, `list_calendar_events`, `search_calendar_events`, `list_writable_calendars`, `list_people`, `get_school_timetable`, `list_tasks`, `list_shopping_items`, `get_meal_plan`, `search_recipes`, `get_recipe`, `list_timers`, `list_birthdays`, `list_countdowns`, `list_pocket_money`, `get_rewards`, `list_deleted_items`, `list_screen_messages`, `list_attention_items`, `get_weather_forecast`, `get_week_summary` |
+| `family:read` | `get_family_summary`, `get_next_birthday`, `list_calendar_events`, `search_calendar_events`, `list_writable_calendars`, `list_people`, `get_school_timetable`, `list_tasks`, `list_shopping_items`, `get_meal_plan`, `search_recipes`, `get_recipe`, `list_timers`, `list_birthdays`, `list_countdowns`, `list_pocket_money`, `get_rewards`, `list_deleted_items`, `list_screen_messages`, `list_attention_items`, `get_weather_forecast`, `get_week_summary`, `list_school_holidays` |
 | `notes:read` | `list_notes` |
 | `calendar:write` | `create_calendar_event`, `update_calendar_event`, `delete_calendar_event`, `add_countdown`, `delete_countdown` |
 | `tasks:write` | `create_task`, `complete_task`, `reopen_task`, `update_task`, `delete_task`, `restore_task`, `dismiss_attention_item` |
