@@ -16,7 +16,8 @@ import { PATCH as notePatchRoute, DELETE as noteDelete } from "@/app/api/integra
 import { GET as mealPlan, POST as addMealRoute } from "@/app/api/integration/v1/meals/route";
 import { DELETE as removeMealRoute } from "@/app/api/integration/v1/meals/[id]/route";
 import { MEAL_TYPES } from "@/lib/integration-meal-input";
-import { MAX_ROTATION_PEOPLE, MAX_TASK_POINTS, TASK_PRIORITIES } from "@/lib/integration-tasks";
+import { MAX_BATCH_TASKS, MAX_ROTATION_PEOPLE, MAX_TASK_POINTS, TASK_PRIORITIES } from "@/lib/integration-tasks";
+import { POST as tasksBatch } from "@/app/api/integration/v1/tasks/batch/route";
 import { isTodoIcon } from "@/lib/todo-icons";
 import { parseRecurrence } from "@/lib/todo-recurrence";
 import { POST as service } from "@/app/api/integration/v1/services/[service]/route";
@@ -80,6 +81,8 @@ export const TOOL_SCOPES = {
   delete_calendar_event: "calendar:write",
   list_tasks: "family:read",
   create_task: "tasks:write",
+  // Several tasks at once: the same risk as one, so the same scope.
+  create_tasks: "tasks:write",
   complete_task: "tasks:write",
   reopen_task: "tasks:write",
   update_task: "tasks:write",
@@ -234,6 +237,22 @@ const rotationIds = z.array(z.uuid()).max(MAX_ROTATION_PEOPLE)
   .describe("The people who take turns, in turn order, by id from list_people; each once.");
 const trackCompletion = z.boolean()
   .describe("true to write down each due day as done or missed; repeating tasks only.");
+// One new task, as create_task and each entry of create_tasks take it. The
+// route checks it again (prepareListTask).
+const taskCreateItem = z.object({
+  title: z.string().trim().min(1).max(300),
+  due_date: date.optional(),
+  person_id: z.uuid().optional(),
+  recurrence: taskRecurrence.optional(),
+  priority: taskPriority.optional(),
+  icon: taskIcon.optional(),
+  points: taskPoints.optional(),
+  rotation_person_ids: rotationIds.min(1).optional(),
+  track_completion: trackCompletion.optional(),
+})
+  .refine((a) => !(a.rotation_person_ids || a.track_completion) || (a.recurrence ?? "once") !== "once",
+    "taking turns and track_completion need a recurrence other than once")
+  .refine((a) => !(a.rotation_person_ids && a.person_id), "send person_id or rotation_person_ids, not both");
 // A recipe's lists, as create_recipe and update_recipe take them; the route
 // checks them again (parseRecipeCreate / parseRecipeUpdate).
 const recipeTags = z.array(z.string().trim().min(1).max(MAX_RECIPE_TAG)).max(MAX_RECIPE_TAGS)
@@ -346,6 +365,7 @@ export const KINBOARD_INSTRUCTIONS = [
   "When an answer has follow_up, ask once, in one short question, only about what it lists, not when they said \"just add it\", and save the answers (update_task, update_calendar_event).",
   "When a family member must confirm on a Kinboard screen (pocket money, rewards, sensitive device actions), say that nothing has happened yet; only get_action_status done means it did.",
   "Points are for children: never offer points for an adult's task.",
+  "Before create_tasks, show the list and get a yes.",
   "Events: given a day but no time, ask all day or what time before creating it. If you chose the calendar, say which.",
   "Recipes: search_recipes first and offer a saved one that fits; ask before saving one with the same or a very similar title. Save a recipe as agreed, or as written in a photo or link, never improved or with guessed quantities. update_recipe: change only what was asked; before replacing ingredients or steps, confirm the change in one line. Never state nutrition, calories, or allergy or diet safety. Before shopping for a recipe, ask once what the family already has; if they only asked to save it, offer planning and shopping in one line.",
   "If a tool says something is not set up or out of range, say so rather than guess.",
@@ -361,6 +381,10 @@ function taskFieldsBody(args: {
     if (args[key] !== undefined) body[key] = args[key];
   }
   return body;
+}
+/** A new task as POST /lists/tasks names its fields. */
+function taskCreateBody({ title, due_date, ...fields }: z.infer<typeof taskCreateItem>) {
+  return { summary: title, ...(due_date ? { due: due_date } : {}), ...taskFieldsBody(fields) };
 }
 const birthdayDate = z.string()
   .regex(/^(\d{4}|-)-\d{2}-\d{2}$/, "YYYY-MM-DD, or --MM-DD when the year is unknown")
@@ -506,6 +530,37 @@ export function createKinboardMcpServer(
     tools[name] = server.registerTool(name, { title, description, inputSchema, annotations: { title, ...annotations } }, handle as never);
   };
 
+  /**
+   * For each task, whether the people it is for include a child: true, false,
+   * or null when unknown. Whether points are worth offering depends on it.
+   * Only tasks with someone assigned and no points sent need to know, and
+   * only a token that may read the family can ask; one /people read serves
+   * them all. Unknown leaves points out of the follow-up; the tasks are
+   * written either way.
+   */
+  const assigneesAreChildren = async (
+    tasks: { person_id?: string; rotation_person_ids?: string[]; points?: number }[],
+  ): Promise<(boolean | null)[]> => {
+    const assigneesOf = (t: (typeof tasks)[number]) =>
+      t.rotation_person_ids?.length ? t.rotation_person_ids : t.person_id ? [t.person_id] : [];
+    const asking = tasks.map((t) => assigneesOf(t).length > 0 && t.points === undefined);
+    if (!asking.some(Boolean) || !authInfo.scopes.includes("family:read")) return tasks.map(() => null);
+    let found: { id: string; is_child?: boolean | null }[];
+    try {
+      const data = (await call(people, { path: "/people" })) as { people?: { id: string; is_child?: boolean | null }[] } | null;
+      found = data?.people ?? [];
+    } catch {
+      return tasks.map(() => null);
+    }
+    return tasks.map((t, i) => {
+      if (!asking[i]) return null;
+      const assignees = assigneesOf(t);
+      const mine = found.filter((p) => assignees.includes(p.id));
+      if (mine.some((p) => p.is_child === true)) return true;
+      return mine.length === assignees.length ? false : null;
+    });
+  };
+
   register("get_family_summary", "Read family overview", "Read today's family context: upcoming birthday, next event, due tasks, meals, attention, and more. Results include generated_at and the family's local date.", z.object({}), readOnly,
     () => call(familySummary, { path: "/family/summary" }));
   register("get_next_birthday", "Find next birthday", "Find the next family birthday and its date and days remaining. The date is computed in Kinboard's family time zone.", z.object({}), readOnly,
@@ -556,42 +611,31 @@ export function createKinboardMcpServer(
   register("list_tasks", "List tasks", "Read active family tasks, including completion status and due dates. A task whose people take turns also has rotation_person_ids, in turn order, and today_person_id, whose turn it is today (before the turns start, the first person's); track_completion true means each due day is written down as done or missed. Names for the ids come from list_people. Task titles are the family's own text.", z.object({}), readOnly,
     () => call(listGet, { path: "/lists/tasks", params: { list: "tasks" } }));
   register("create_task", "Create task", `Create a family task with a title and, optionally, a due date, an assignee, a repetition, a priority, an icon and points. Only a title is required, so a task can be created before who or when is known. When useful details are missing, the answer includes follow_up: unset lists them (assignee, due_date, points) and suggestion is a question about them, which update_task can save with this task's id. No follow_up means nothing is missing. ${TASK_FIELDS_NOTE} ${TASK_TURNS_NOTE}`,
-    z.object({
-      title: z.string().trim().min(1).max(300),
-      due_date: date.optional(),
-      person_id: z.uuid().optional(),
-      recurrence: taskRecurrence.optional(),
-      priority: taskPriority.optional(),
-      icon: taskIcon.optional(),
-      points: taskPoints.optional(),
-      rotation_person_ids: rotationIds.min(1).optional(),
-      track_completion: trackCompletion.optional(),
-    })
-      .refine((a) => !(a.rotation_person_ids || a.track_completion) || (a.recurrence ?? "once") !== "once",
-        "taking turns and track_completion need a recurrence other than once")
-      .refine((a) => !(a.rotation_person_ids && a.person_id), "send person_id or rotation_person_ids, not both"),
-    createAction,
+    taskCreateItem, createAction,
     async ({ title, due_date, ...fields }) => {
-      const created = await call(listPost, { path: "/lists/tasks", params: { list: "tasks" }, body: { summary: title, ...(due_date ? { due: due_date } : {}), ...taskFieldsBody(fields) } });
-      // Whether the assignee is a child decides whether points are worth
-      // offering. Only that case needs to know, and only a token that may
-      // read the family can ask; when the answer is unknown the follow-up
-      // simply leaves points out. The task is written either way.
-      // With turns, the question is whether any of the people taking turns is.
-      const assignees = fields.rotation_person_ids?.length ? fields.rotation_person_ids : fields.person_id ? [fields.person_id] : [];
-      let assigneeIsChild: boolean | null = null;
-      if (assignees.length > 0 && fields.points === undefined && authInfo.scopes.includes("family:read")) {
-        try {
-          const data = (await call(people, { path: "/people" })) as { people?: { id: string; is_child?: boolean | null }[] } | null;
-          const found = (data?.people ?? []).filter((p) => assignees.includes(p.id));
-          if (found.some((p) => p.is_child === true)) assigneeIsChild = true;
-          else if (found.length === assignees.length) assigneeIsChild = false;
-        } catch {
-          assigneeIsChild = null;
-        }
-      }
+      const created = await call(listPost, { path: "/lists/tasks", params: { list: "tasks" }, body: taskCreateBody({ title, due_date, ...fields }) });
+      const [assigneeIsChild] = await assigneesAreChildren([fields]);
       const followUp = taskFollowUp({ due_date, ...fields }, assigneeIsChild);
       return followUp && created && typeof created === "object" ? { ...created, follow_up: followUp } : created;
+    });
+  register("create_tasks", "Create several tasks", `Create several family tasks at once, ${MAX_BATCH_TASKS} at most: all are created or none. Each task takes the same fields as create_task (title, and optionally due_date, person_id or rotation_person_ids, recurrence, priority, icon, points, track_completion) and is checked the same way; a refused task is named by its position (1-based) and title, and then nothing is created. The answer has created, the new tasks in the order sent, each with its id for update_task, and follow_up when useful details are missing on some of them: tasks lists each such task's position, id and unset fields, and suggestion is one question about all of them. Each call creates new tasks, even ones already in list_tasks. ${TASK_FIELDS_NOTE}`,
+    z.object({ tasks: z.array(taskCreateItem).min(1).max(MAX_BATCH_TASKS) }), createAction,
+    async ({ tasks }) => {
+      const created = (await call(tasksBatch, { path: "/tasks/batch", body: { tasks: tasks.map(taskCreateBody) } })) as { created?: { id: string }[] } | null;
+      const ids = (created?.created ?? []).map((t) => t.id);
+      const children = await assigneesAreChildren(tasks);
+      const missing = tasks
+        .map((task, i) => ({ index: i + 1, id: ids[i], followUp: taskFollowUp(task, children[i]) }))
+        .filter((t) => t.followUp !== null)
+        .map((t) => ({ index: t.index, id: t.id, unset: t.followUp!.unset }));
+      if (missing.length === 0 || !created || typeof created !== "object") return created;
+      return {
+        ...created,
+        follow_up: {
+          tasks: missing,
+          suggestion: "The tasks are saved. Unless the user said to just add them, ask them one short question that covers what is unset across these tasks, not one question per task. Never ask about something they already said, and do not ask again about these tasks. Save the answers with update_task and each task's id.",
+        },
+      };
     });
   register("complete_task", "Complete task", "Mark a task done. A recurring task is marked done for today only, in the family's time zone, and becomes due again on its next occurrence; a recurring task whose people take turns, or that tracks whether it was done, is marked done for its open due day, and fails when its schedule has not started yet; a one-off task is completed outright. Points are awarded only when the task is assigned to a child: completing it then adds its points to that child's points, exactly as ticking it off on a Kinboard screen does. A task assigned to anyone else, or to nobody, awards no points.",
     z.object({ task_id: z.uuid() }), editAction,

@@ -241,36 +241,108 @@ export async function taskTurnsPatch(
 
 type Created = { status: number; response: Record<string, unknown> };
 
+/** A task ready to insert, or why not. */
+type Prepared =
+  | { ok: true; row: Record<string, unknown>; summary: string; due: string | null }
+  | { ok: false; error: string };
+
 /**
- * POST /lists/tasks once the key and idempotency are dealt with: validate
- * everything, then insert. Nothing is written when any field is refused.
- * Throws on a database error.
+ * Everything POST /lists/tasks checks, without writing: the row to insert,
+ * or the first refusal. Shared by the single create and the batch, so the
+ * two cannot accept different tasks. Throws on a database error.
  */
-export async function createListTask(db: TaskDb, familyId: string, body: Record<string, unknown>): Promise<Created> {
+export async function prepareListTask(db: TaskDb, familyId: string, body: Record<string, unknown>): Promise<Prepared> {
   const summary = itemSummary(body.summary);
-  if (!summary) return invalidRequest("`summary` is required");
+  if (!summary) return { ok: false, error: "`summary` is required" };
   const due = itemDue(body.due);
-  if (!due.ok) return invalidRequest("`due` must start with YYYY-MM-DD");
+  if (!due.ok) return { ok: false, error: "`due` must start with YYYY-MM-DD" };
 
   const extras = parseTaskExtras(body);
-  if (!extras.ok) return invalidRequest(extras.error);
+  if (!extras.ok) return extras;
   const turns = await parseTaskTurns(db, familyId, body, "create");
-  if (!turns.ok) return invalidRequest(turns.error);
+  if (!turns.ok) return turns;
   const unrepeated = turnsNeedRepetition(extras.value.recurrence, turns.value);
-  if (unrepeated) return invalidRequest(unrepeated);
+  if (unrepeated) return { ok: false, error: unrepeated };
 
   const row: Record<string, unknown> = { family_id: familyId, title: summary, completed: false, ...extras.value, ...turns.value };
   if (due.value) row.due_date = due.value;
 
   if (body.person_id !== undefined) {
     const person = await familyPersonId(db, familyId, body.person_id);
-    if (!person.ok) return invalidRequest(person.error);
+    if (!person.ok) return person;
     if (person.value) row.person_id = person.value;
   }
+  return { ok: true, row, summary, due: due.value };
+}
 
-  const { data, error } = await (db as any).from("todos").insert(row).select("id").single();
+/**
+ * POST /lists/tasks once the key and idempotency are dealt with: validate
+ * everything, then insert. Nothing is written when any field is refused.
+ * Throws on a database error.
+ */
+export async function createListTask(db: TaskDb, familyId: string, body: Record<string, unknown>): Promise<Created> {
+  const prepared = await prepareListTask(db, familyId, body);
+  if (!prepared.ok) return invalidRequest(prepared.error);
+  const { data, error } = await (db as any).from("todos").insert(prepared.row).select("id").single();
   if (error) throw error;
-  return { status: 201, response: { id: String(data.id), summary, status: "needs_action", due: due.value } };
+  return { status: 201, response: { id: String(data.id), summary: prepared.summary, status: "needs_action", due: prepared.due } };
+}
+
+/** The most tasks one batch creates: a routine, not an import. */
+export const MAX_BATCH_TASKS = 15;
+
+/**
+ * POST /tasks/batch once the key and idempotency are dealt with: several
+ * tasks, all or none. Every task is checked first, exactly as a single
+ * create checks it (prepareListTask); the first refusal is a 400 naming the
+ * task by its position (1-based) and title, and nothing is written. Then all
+ * rows go to the database in ONE insert, a single statement: if any row
+ * fails there (a trigger, a constraint), none is kept. Ids come back in the
+ * order sent. Throws on a database error; one the insert answered with
+ * wrote nothing.
+ */
+export async function createListTasks(
+  db: TaskDb, familyId: string, body: Record<string, unknown>,
+  /** Called right before the insert: everything until then wrote nothing. */
+  beforeWrite: () => void = () => {},
+): Promise<Created> {
+  const tasks = body.tasks;
+  if (!Array.isArray(tasks) || tasks.length === 0) return invalidRequest("`tasks` must be a list of 1 to 15 tasks");
+  if (tasks.length > MAX_BATCH_TASKS) return invalidRequest(`\`tasks\` takes at most ${MAX_BATCH_TASKS} tasks at once`);
+
+  const prepared: Extract<Prepared, { ok: true }>[] = [];
+  for (const [i, task] of tasks.entries()) {
+    const item = task && typeof task === "object" && !Array.isArray(task) ? (task as Record<string, unknown>) : null;
+    const title = item ? itemSummary(item.summary) : null;
+    const which = `task ${i + 1}${title ? ` ("${title}")` : ""}`;
+    const refuse = (error: string) => {
+      const refused = invalidRequest(`${which}: ${error}. Nothing was created.`);
+      return { status: refused.status, response: { ...refused.response, index: i } };
+    };
+    if (!item) return refuse("must be an object");
+    const one = await prepareListTask(db, familyId, item);
+    if (!one.ok) return refuse(one.error);
+    prepared.push(one);
+  }
+
+  beforeWrite();
+  // defaultToNull: false, or PostgREST sends the union of every row's keys
+  // and writes NULL where a row has none, instead of the column's default:
+  // a task without track_completion then breaks its NOT NULL, and one
+  // without priority loses "medium". With it, each row is what a single
+  // create writes.
+  const { data, error } = await (db as any).from("todos")
+    .insert(prepared.map((p) => p.row), { defaultToNull: false })
+    .select("id");
+  if (error) throw error;
+  const ids = ((data ?? []) as { id: unknown }[]).map((r) => String(r.id));
+  if (ids.length !== prepared.length) throw new Error(`batch insert returned ${ids.length} rows for ${prepared.length} tasks`);
+  return {
+    status: 201,
+    response: {
+      created: prepared.map((p, i) => ({ id: ids[i], summary: p.summary, status: "needs_action", due: p.due })),
+    },
+  };
 }
 
 /**

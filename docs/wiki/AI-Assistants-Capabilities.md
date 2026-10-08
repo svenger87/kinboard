@@ -108,6 +108,7 @@ own permission.
 |---|---|---|---|
 | `list_tasks` | The active tasks, with whether they're done and when they're due; for a task people take turns at, who takes part and whose turn it is today | `family:read` | Reads |
 | `create_task` | Add a task. Optionally for someone, with a due date, repeating (once, daily, weekly, every other week, monthly, or on picked weekdays), with a priority (high, medium, low), an icon and points (0 to 10,000). A repeating task can also go round between people who take turns | `tasks:write` | Adds. The assistant never invents a due date, an assignee or a repetition; when you left them out it asks once afterwards |
+| `create_tasks` | Add several tasks at once, up to 15, each with the same choices as `create_task`: a morning routine, a packing list, the chores for the week | `tasks:write` | Adds. All are added or none: if one of them can't be saved, none is, and the assistant hears which one and why. It shows you the list and waits for your yes before adding them |
 | `complete_task` | Mark a task done. A repeating task is done for today, in the family's time zone, and comes due again on its next day | `tasks:write` | Changes. A child's task with points awards them, just as ticking it off on a screen does |
 | `reopen_task` | Mark a one-off task not done again | `tasks:write` | Changes. Repeating tasks can't be reopened; Kinboard has no undo for a day already marked done |
 | `update_task` | Change a task's title, due date, assignee, repetition, priority, icon or points, or who takes turns (or stop the turns) | `tasks:write` | Changes. A changed field's previous value is not kept |
@@ -135,6 +136,15 @@ child. Asking "whose turn is it to wash up?" reads today's person from the task.
 
 > "Mira and Jonas take turns emptying the dishwasher, every day, 2 points." ·
 > "Mira und Jonas räumen abwechselnd die Spülmaschine aus, jeden Tag, 2 Punkte."
+
+**Routines.** Ask for a routine ("make a morning routine for Mira") and the
+assistant suggests a short list of tasks, each repeating, with an icon and a
+few points where they fit, and shows it to you first. Once you say yes it adds
+them all in one go, and if anything is still open (points for a child's task,
+for example) it asks once for the whole list, not task by task.
+
+> "Make a morning routine for Mira: get dressed, brush teeth, pack her school bag, every school day." ·
+> "Mach eine Morgenroutine für Mira: anziehen, Zähne putzen, Schulranzen packen, an jedem Schultag."
 
 ## Shopping list
 
@@ -433,7 +443,7 @@ See [Vehicles](Vehicles).
 | `family:read` | `get_family_summary`, `get_next_birthday`, `list_calendar_events`, `search_calendar_events`, `list_writable_calendars`, `list_people`, `get_school_timetable`, `list_tasks`, `list_shopping_items`, `get_meal_plan`, `search_recipes`, `get_recipe`, `list_timers`, `list_birthdays`, `list_countdowns`, `list_pocket_money`, `get_rewards`, `list_deleted_items`, `list_screen_messages`, `list_attention_items`, `get_weather_forecast`, `get_week_summary`, `list_school_holidays` |
 | `notes:read` | `list_notes` |
 | `calendar:write` | `create_calendar_event`, `update_calendar_event`, `delete_calendar_event`, `add_countdown`, `delete_countdown` |
-| `tasks:write` | `create_task`, `complete_task`, `reopen_task`, `update_task`, `delete_task`, `restore_task`, `dismiss_attention_item` |
+| `tasks:write` | `create_task`, `create_tasks`, `complete_task`, `reopen_task`, `update_task`, `delete_task`, `restore_task`, `dismiss_attention_item` |
 | `shopping:write` | `add_shopping_item`, `check_shopping_item`, `uncheck_shopping_item`, `rename_shopping_item`, `delete_shopping_item`, `add_recipe_to_shopping_list` |
 | `notes:write` | `create_note`, `update_note`, `delete_note`, `restore_note` |
 | `meals:write` | `add_meal`, `remove_meal`, `restore_meal`, `create_recipe`, `update_recipe` |

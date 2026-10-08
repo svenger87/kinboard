@@ -2212,3 +2212,113 @@ test.describe("list_school_holidays", () => {
     expect(d).toContain("start_date and end_date as YYYY-MM-DD, end_date being the last day (inclusive)");
   });
 });
+
+test.describe("create_tasks", () => {
+  const CHILD = "aaaaaaaa-0000-4000-8000-000000000001";
+  const ADULT = "aaaaaaaa-0000-4000-8000-000000000002";
+  const ROUTINE = [
+    { title: "Get dressed", person_id: CHILD, recurrence: "daily", icon: "👕", points: 2 },
+    { title: "Brush teeth", person_id: CHILD, recurrence: "daily", icon: "🪥" },
+    { title: "Make coffee", person_id: ADULT, recurrence: "daily" },
+  ];
+  const build = (scopes = ["tasks:write", "family:read"], batch: (() => unknown) | null = null) =>
+    buildServer(scopes, (c) => {
+      if (c.path === "/people") {
+        return { people: [{ id: CHILD, name: "Mira", is_child: true }, { id: ADULT, name: "Mama", is_child: false }] };
+      }
+      if (batch) return batch();
+      const tasks = (c.body as { tasks: { summary: string }[] }).tasks;
+      return { created: tasks.map((t, i) => ({ id: `t${i + 1}`, summary: t.summary, status: "needs_action", due: null })) };
+    });
+  const schema = (server: ReturnType<typeof createKinboardMcpServer>) =>
+    (registeredTools(server).create_tasks as unknown as { inputSchema: { safeParse: (v: unknown) => { success: boolean; error?: { issues: { path: (string | number)[] }[] } } } }).inputSchema;
+
+  test("posts every task in one call to /tasks/batch, named as POST /lists/tasks names them", async () => {
+    const { server, calls } = build();
+    const t = tool(server, "create_tasks");
+    expect(TOOL_SCOPES.create_tasks).toBe("tasks:write");
+    expect(t.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+    await t.handler({ tasks: ROUTINE });
+    expect(calls[0]).toEqual({
+      path: "/tasks/batch",
+      body: { tasks: [
+        { summary: "Get dressed", person_id: CHILD, recurrence: "daily", icon: "👕", points: 2 },
+        { summary: "Brush teeth", person_id: CHILD, recurrence: "daily", icon: "🪥" },
+        { summary: "Make coffee", person_id: ADULT, recurrence: "daily" },
+      ] },
+    });
+    // One write, so one Idempotency-Key (callIntegration sends one with every POST).
+    expect(calls.filter((c) => c.path === "/tasks/batch")).toHaveLength(1);
+  });
+
+  test("returns each id, and one combined follow_up for what is missing", async () => {
+    const { server } = build();
+    const out = JSON.parse((await tool(server, "create_tasks").handler({ tasks: ROUTINE })).content[0].text) as {
+      created: { id: string }[]; follow_up?: { tasks: { index: number; id: string; unset: string[] }[]; suggestion: string };
+    };
+    expect(out.created.map((t) => t.id)).toEqual(["t1", "t2", "t3"]);
+    // Only the child's task without points; the adult's never gets points.
+    expect(out.follow_up?.tasks).toEqual([{ index: 2, id: "t2", unset: ["points"] }]);
+    expect(out.follow_up?.suggestion).toContain("one short question");
+    expect(out.follow_up?.suggestion).toContain("update_task");
+    expect(out.follow_up?.suggestion).not.toContain("Brush teeth");
+  });
+
+  test("nothing missing: no follow_up; no family:read: points are not offered", async () => {
+    const full = build();
+    const a = JSON.parse((await tool(full.server, "create_tasks").handler({ tasks: [ROUTINE[0]] })).content[0].text);
+    expect(a.follow_up).toBeUndefined();
+    expect(full.calls.map((c) => c.path)).toEqual(["/tasks/batch"]);
+    const noRead = build(["tasks:write"]);
+    const b = JSON.parse((await tool(noRead.server, "create_tasks").handler({ tasks: [ROUTINE[1]] })).content[0].text);
+    expect(b.follow_up).toBeUndefined();
+    expect(noRead.calls.map((c) => c.path)).toEqual(["/tasks/batch"]);
+  });
+
+  test("a refused batch comes back in Kinboard's words, naming the task, with no follow_up", async () => {
+    const { server } = build(undefined, () => {
+      throw new IntegrationCallError('task 2 ("Brush teeth"): no such person in this family. Nothing was created.', 400, "invalid_request");
+    });
+    const result = await tool(server, "create_tasks").handler({ tasks: ROUTINE });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('task 2 ("Brush teeth")');
+    expect(result.content[0].text).toContain("Nothing was created");
+  });
+
+  test("is refused without tasks:write, naming it, and calls nothing", async () => {
+    const { server, calls } = build(["family:read", "calendar:write"]);
+    const result = await tool(server, "create_tasks").handler({ tasks: ROUTINE });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("tasks:write");
+    expect(calls).toEqual([]);
+  });
+
+  test("the schema: 1 to 15 tasks, each checked as create_task checks one, the error pointing at the task", () => {
+    const s = schema(build().server);
+    expect(s.safeParse({ tasks: ROUTINE }).success).toBe(true);
+    expect(s.safeParse({ tasks: [] }).success).toBe(false);
+    expect(s.safeParse({ tasks: Array.from({ length: 16 }, (_, i) => ({ title: `T${i}` })) }).success).toBe(false);
+    expect(s.safeParse({ tasks: Array.from({ length: 15 }, (_, i) => ({ title: `T${i}` })) }).success).toBe(true);
+    const bad = s.safeParse({ tasks: [ROUTINE[0], { title: "Wash", rotation_person_ids: [CHILD] }] });
+    expect(bad.success).toBe(false);
+    expect(bad.error!.issues[0].path.slice(0, 2)).toEqual(["tasks", 1]);
+    const points = s.safeParse({ tasks: [ROUTINE[0], ROUTINE[1], { title: "X", points: 20_000 }] });
+    expect(points.error!.issues[0].path.slice(0, 3)).toEqual(["tasks", 2, "points"]);
+  });
+
+  test("the description says all or none; showing the list first is in the instructions", async () => {
+    const d = (registeredTools(build().server).create_tasks as unknown as { description: string }).description;
+    for (const phrase of ["Create several family tasks at once", "all are created or none", "15 at most", "same fields as create_task",
+      "named by its position (1-based) and title", "then nothing is created", "follow_up", "Each call creates new tasks"]) {
+      expect(d, phrase).toContain(phrase);
+    }
+    const { KINBOARD_INSTRUCTIONS } = await import("../src/lib/mcp/server");
+    expect(KINBOARD_INSTRUCTIONS).toContain("Before create_tasks, show the list and get a yes.");
+  });
+
+  test("create_task still sends exactly what it did", async () => {
+    const { server, calls } = buildServer(["tasks:write"]);
+    await tool(server, "create_task").handler({ title: "Wash", due_date: "2026-10-08", person_id: CHILD, priority: "low" });
+    expect(calls).toEqual([{ path: "/lists/tasks", params: { list: "tasks" }, body: { summary: "Wash", due: "2026-10-08", person_id: CHILD, priority: "low" } }]);
+  });
+});
