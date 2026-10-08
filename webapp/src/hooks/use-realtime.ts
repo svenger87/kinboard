@@ -11,6 +11,7 @@ import { actionChangeMatters } from "@/lib/home/action-prompt";
 import { reactToTaskChange } from "@/stores/creature-reactions";
 import type { TickRow } from "@/lib/pocket-money/creature-reactions";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import { invalidatePocketMoney } from "./use-pocket-money-accounts";
 
 /**
  * How often to re-authenticate the realtime socket.
@@ -51,7 +52,11 @@ type TableName =
   | "point_rewards"
   | "point_redemptions"
   | "point_purchases"
-  | "creatures";
+  | "creatures"
+  | "pocket_money_accounts"
+  | "pocket_money_transactions"
+  | "pocket_money_goals"
+  | "pocket_money_withdrawal_requests";
 
 const ALL_TABLES: TableName[] = [
   "people",
@@ -84,6 +89,10 @@ const ALL_TABLES: TableName[] = [
   "point_redemptions",
   "point_purchases",
   "creatures",
+  "pocket_money_accounts",
+  "pocket_money_transactions",
+  "pocket_money_goals",
+  "pocket_money_withdrawal_requests",
 ];
 
 interface UseRealtimeOptions {
@@ -179,6 +188,17 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           // A creature switched on or off, re-dressed, or its stage recorded
           // on another screen (RFC-017).
           queryClient.invalidateQueries({ queryKey: ["creatures", family.id] });
+          break;
+        case "pocket_money_accounts":
+        case "pocket_money_transactions":
+        case "pocket_money_goals":
+        case "pocket_money_withdrawal_requests":
+          // Every pocket-money write is the server's (#361), so the screen
+          // that asked is often not the one that wrote: an assistant's
+          // booking a parent allowed on the wall, the allowance run, a spend
+          // request decided elsewhere. A booking moves the balance, the
+          // ledger and a goal's progress at once, so all four are refetched.
+          invalidatePocketMoney(queryClient);
           break;
         case "shopping_items":
           queryClient.invalidateQueries({

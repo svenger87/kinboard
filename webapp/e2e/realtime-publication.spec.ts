@@ -47,3 +47,43 @@ test("every realtime subscription has a table in the publication", () => {
 
   expect(subscribed.filter((t) => !published.has(t))).toEqual([]);
 });
+
+/**
+ * What the pocket-money and rewards screens show is written by the server
+ * only (#361), often for another screen: an assistant's booking a parent
+ * allowed on the wall, a reward decided on the kitchen display, the
+ * allowance run. Without realtime on these tables a phone kept showing the
+ * old balance until it happened to refetch (2026-10-08). Named here, so that
+ * dropping a table from both ALL_TABLES and the migration — which the test
+ * above would let through — is caught as well.
+ */
+const SERVER_WRITTEN_FAMILY_MONEY = [
+  "pocket_money_accounts",
+  "pocket_money_transactions",
+  "pocket_money_goals",
+  "pocket_money_withdrawal_requests",
+  "point_rewards",
+  "point_redemptions",
+  "point_purchases",
+  "creatures",
+];
+
+test("pocket money and rewards are subscribed to and published", () => {
+  const subscribed = new Set(subscribedTables());
+  const published = publishedTables();
+  expect(SERVER_WRITTEN_FAMILY_MONEY.filter((t) => !subscribed.has(t))).toEqual([]);
+  expect(SERVER_WRITTEN_FAMILY_MONEY.filter((t) => !published.has(t))).toEqual([]);
+});
+
+test("the pocket-money publication sorts after every file that creates those tables, in byte order and under en_US", () => {
+  const publishing = "migration_zzzzzzz_pocket_money_realtime.sql";
+  const creating = readdirSync(DOCKER)
+    .filter((f) => /^migration.*\.sql$/.test(f) && f !== publishing)
+    .filter((f) => /CREATE TABLE(?: IF NOT EXISTS)? (?:public\.)?pocket_money_/i.test(codeOnly(readFileSync(join(DOCKER, f), "utf8"), { sql: true })));
+  // Guard the guard: the tables are created somewhere.
+  expect(creating.length).toBeGreaterThan(0);
+  for (const order of [undefined, new Intl.Collator("en-US").compare]) {
+    const sorted = [...creating, publishing].sort(order);
+    expect(sorted.at(-1)).toBe(publishing);
+  }
+});

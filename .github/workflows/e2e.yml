@@ -153,6 +153,25 @@ jobs:
         working-directory: ${{ github.workspace }}/webapp/docker
         run: bash start.sh migrate
 
+      - name: Restart realtime after the migrations
+        # Realtime reads the supabase_realtime publication when it starts, and
+        # it started before the webapp's entrypoint (and the step above) had
+        # published the tables the migrations add. Without a restart, a live
+        # spec on such a table (pocket-money-realtime-live) opens its channel
+        # and receives nothing -- the same restart an operator does after an
+        # upgrade that publishes a table.
+        working-directory: ${{ github.workspace }}/webapp/docker
+        env:
+          COMPOSE_FILES: "-f docker-compose.yml -f docker-compose.demo.yml"
+        run: |
+          docker compose $COMPOSE_FILES restart realtime
+          for i in $(seq 1 30); do
+            state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$(docker compose $COMPOSE_FILES ps -q realtime)")"
+            if [ "$state" = "healthy" ] || [ "$state" = "running" ]; then echo "realtime $state (attempt $i)"; exit 0; fi
+            sleep 2
+          done
+          echo "realtime did not come back"; exit 1
+
       - name: Seed demo family
         # Writes the DEMO01 family + HA/cameras/Tesla settings rows that
         # wire the demo family to the mock containers' URLs.
@@ -183,7 +202,7 @@ jobs:
           KONG_PORT="$(grep -E '^KONG_HTTP_PORT=' docker/.env | head -n1 | cut -d= -f2- | tr -d '"\r')"
           echo "::add-mask::$SUPABASE_SERVICE_ROLE_KEY"
           export SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_URL="http://localhost:${KONG_PORT:-8100}"
-          npx playwright test e2e/smoke.spec.ts e2e/same-origin-live.spec.ts e2e/image-url-migration-live.spec.ts e2e/calendar-layout.spec.ts e2e/realtime-publication.spec.ts e2e/rls-coverage.spec.ts e2e/catalogue-migration.spec.ts e2e/health-endpoint.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/task-events-ui.spec.ts e2e/tasks-widget-ui.spec.ts e2e/weather-rain-chance-ui.spec.ts e2e/media-widget-layout.spec.ts e2e/messages-broadcast.spec.ts e2e/message-state.spec.ts e2e/rooms-migration.spec.ts e2e/automation-layout.spec.ts e2e/media-browse-flow.spec.ts e2e/meal-plan-read-only.spec.ts e2e/oauth-migration.spec.ts e2e/mcp-oauth-flow.spec.ts e2e/soft-delete-integration.spec.ts e2e/pocket-money-live.spec.ts e2e/event-search-live.spec.ts e2e/holiday-region-ui.spec.ts e2e/holiday-widget-ui.spec.ts e2e/school-sync-ui.spec.ts e2e/holiday-region-migration.spec.ts e2e/school-holiday-sync-db.spec.ts e2e/school-holidays-grants.spec.ts e2e/todo-turns-db.spec.ts e2e/family-delete-db.spec.ts e2e/todo-turns-ui.spec.ts e2e/camera-takeover-grants.spec.ts e2e/route-transition-layout.spec.ts e2e/calendar-day-tap-layout.spec.ts e2e/holiday-widgets-ui.spec.ts e2e/timetable-holidays-ui.spec.ts e2e/schedule-page-holidays-ui.spec.ts e2e/calendar-school-holidays-ui.spec.ts e2e/time-zone-ui.spec.ts e2e/settings-search-ui.spec.ts e2e/timer-pause-ui.spec.ts e2e/timer-presets-ui.spec.ts e2e/timer-alarm-ui.spec.ts e2e/pocket-money-grants.spec.ts e2e/creature-reactions-live.spec.ts e2e/creature-mood-live.spec.ts e2e/creatures-migration.spec.ts e2e/creatures-live.spec.ts e2e/creatures-surfaces-live.spec.ts e2e/device-owner-db.spec.ts e2e/device-owner-pin.spec.ts e2e/emoji-picker-ui.spec.ts e2e/creature-shop-live.spec.ts e2e/creature-shop-ui-live.spec.ts e2e/stale-chunk-recovery-ui.spec.ts e2e/reward-decisions-live.spec.ts e2e/assistant-trust-live.spec.ts e2e/shopping-phone-layout.spec.ts --project=desktop
+          npx playwright test e2e/smoke.spec.ts e2e/same-origin-live.spec.ts e2e/image-url-migration-live.spec.ts e2e/calendar-layout.spec.ts e2e/realtime-publication.spec.ts e2e/rls-coverage.spec.ts e2e/catalogue-migration.spec.ts e2e/health-endpoint.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/task-events-ui.spec.ts e2e/tasks-widget-ui.spec.ts e2e/weather-rain-chance-ui.spec.ts e2e/media-widget-layout.spec.ts e2e/messages-broadcast.spec.ts e2e/message-state.spec.ts e2e/rooms-migration.spec.ts e2e/automation-layout.spec.ts e2e/media-browse-flow.spec.ts e2e/meal-plan-read-only.spec.ts e2e/oauth-migration.spec.ts e2e/mcp-oauth-flow.spec.ts e2e/soft-delete-integration.spec.ts e2e/pocket-money-live.spec.ts e2e/event-search-live.spec.ts e2e/holiday-region-ui.spec.ts e2e/holiday-widget-ui.spec.ts e2e/school-sync-ui.spec.ts e2e/holiday-region-migration.spec.ts e2e/school-holiday-sync-db.spec.ts e2e/school-holidays-grants.spec.ts e2e/todo-turns-db.spec.ts e2e/family-delete-db.spec.ts e2e/todo-turns-ui.spec.ts e2e/camera-takeover-grants.spec.ts e2e/route-transition-layout.spec.ts e2e/calendar-day-tap-layout.spec.ts e2e/holiday-widgets-ui.spec.ts e2e/timetable-holidays-ui.spec.ts e2e/schedule-page-holidays-ui.spec.ts e2e/calendar-school-holidays-ui.spec.ts e2e/time-zone-ui.spec.ts e2e/settings-search-ui.spec.ts e2e/timer-pause-ui.spec.ts e2e/timer-presets-ui.spec.ts e2e/timer-alarm-ui.spec.ts e2e/pocket-money-grants.spec.ts e2e/creature-reactions-live.spec.ts e2e/creature-mood-live.spec.ts e2e/creatures-migration.spec.ts e2e/creatures-live.spec.ts e2e/creatures-surfaces-live.spec.ts e2e/device-owner-db.spec.ts e2e/device-owner-pin.spec.ts e2e/emoji-picker-ui.spec.ts e2e/creature-shop-live.spec.ts e2e/creature-shop-ui-live.spec.ts e2e/stale-chunk-recovery-ui.spec.ts e2e/reward-decisions-live.spec.ts e2e/assistant-trust-live.spec.ts e2e/shopping-phone-layout.spec.ts e2e/pocket-money-realtime-live.spec.ts --project=desktop
 
       # A separate step so a WebKit-only failure reads as one at a glance rather
       # than as "the smoke suite is flaky". Most of the suite reads source files
@@ -197,7 +216,13 @@ jobs:
           PLAYWRIGHT_BASE_URL: http://localhost:3001
           PLAYWRIGHT_DEVICE_NAME: "CI WebKit (GH Actions)"
           SAME_ORIGIN_URLS: http://localhost:3001,http://127.0.0.1:3001
-        run: npx playwright test e2e/same-origin-live.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/media-widget-layout.spec.ts e2e/messages-broadcast.spec.ts e2e/automation-layout.spec.ts e2e/holiday-region-ui.spec.ts e2e/time-zone-ui.spec.ts e2e/holiday-widget-ui.spec.ts e2e/school-sync-ui.spec.ts e2e/route-transition-layout.spec.ts e2e/calendar-day-tap-layout.spec.ts e2e/holiday-widgets-ui.spec.ts e2e/timetable-holidays-ui.spec.ts e2e/schedule-page-holidays-ui.spec.ts e2e/calendar-school-holidays-ui.spec.ts e2e/settings-search-ui.spec.ts e2e/creatures-surfaces-live.spec.ts e2e/emoji-picker-ui.spec.ts e2e/creature-shop-ui-live.spec.ts e2e/stale-chunk-recovery-ui.spec.ts e2e/reward-decisions-live.spec.ts e2e/assistant-trust-live.spec.ts e2e/shopping-phone-layout.spec.ts --project=webkit
+        # pocket-money-realtime-live's socket check subscribes as a family
+        # from Node, as the smoke step does.
+        run: |
+          NEXT_PUBLIC_SUPABASE_ANON_KEY="$(grep -E '^ANON_KEY=' docker/.env | head -n1 | cut -d= -f2- | tr -d '"\r')"
+          KONG_PORT="$(grep -E '^KONG_HTTP_PORT=' docker/.env | head -n1 | cut -d= -f2- | tr -d '"\r')"
+          export NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_URL="http://localhost:${KONG_PORT:-8100}"
+          npx playwright test e2e/same-origin-live.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/media-widget-layout.spec.ts e2e/messages-broadcast.spec.ts e2e/automation-layout.spec.ts e2e/holiday-region-ui.spec.ts e2e/time-zone-ui.spec.ts e2e/holiday-widget-ui.spec.ts e2e/school-sync-ui.spec.ts e2e/route-transition-layout.spec.ts e2e/calendar-day-tap-layout.spec.ts e2e/holiday-widgets-ui.spec.ts e2e/timetable-holidays-ui.spec.ts e2e/schedule-page-holidays-ui.spec.ts e2e/calendar-school-holidays-ui.spec.ts e2e/settings-search-ui.spec.ts e2e/creatures-surfaces-live.spec.ts e2e/emoji-picker-ui.spec.ts e2e/creature-shop-ui-live.spec.ts e2e/stale-chunk-recovery-ui.spec.ts e2e/reward-decisions-live.spec.ts e2e/assistant-trust-live.spec.ts e2e/shopping-phone-layout.spec.ts e2e/pocket-money-realtime-live.spec.ts --project=webkit
 
       # RFC-018's upgrade path on a real stack: the stack is turned back into
       # a 1.12 install (webapp on 3001, no front-door route), the webapp's own

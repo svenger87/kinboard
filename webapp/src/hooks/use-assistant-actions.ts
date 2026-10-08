@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
 import type { ScreenRequest } from "@/lib/home/action-requests";
 import { isTerminal } from "@/lib/home/action-prompt";
+import { invalidatePocketMoney } from "./use-pocket-money-accounts";
+import { POINT_PURCHASES_KEY, POINT_REDEMPTIONS_KEY, POINT_REWARDS_KEY } from "./use-point-rewards";
 
 const KEY = "assistant-actions";
 
@@ -74,6 +76,17 @@ export function useDecideAssistantAction() {
       const body = (await r.json().catch(() => null)) as { request?: ScreenRequest; error?: string } | null;
       if (!r.ok || !body?.request) throw new DecisionError(body?.error ?? "generic", body?.request);
       return body.request;
+    },
+    onSuccess: (request) => {
+      // An allowed booking or reward decision was written by the server just
+      // now. This screen refetches what it changed straight away rather than
+      // waiting for realtime to bring the change back to it.
+      if (request.kind === "pocket_money" || request.kind === "reward_decision") {
+        invalidatePocketMoney(qc);
+        qc.invalidateQueries({ queryKey: [POINT_REWARDS_KEY] });
+        qc.invalidateQueries({ queryKey: [POINT_REDEMPTIONS_KEY] });
+        qc.invalidateQueries({ queryKey: [POINT_PURCHASES_KEY] });
+      }
     },
     onSettled: () => qc.invalidateQueries({ queryKey: [KEY, family?.id] }),
   });

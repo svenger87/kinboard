@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
 import { isPinRequired, relockSettings } from "@/lib/pin-session";
 import type {
@@ -9,6 +9,20 @@ import type {
 } from "@/types/database";
 
 const KEY = "pocket-money-accounts";
+
+/**
+ * Refetch everything a pocket-money screen shows: the accounts and their
+ * balances, each ledger, the goals and the spend requests. By prefix, so
+ * every account's queries go at once — a change arriving over realtime, or a
+ * booking this screen allowed, says which table moved, not which account's
+ * cache holds it. Keep the strings in sync with the KEY constants in
+ * use-pocket-money-goals.ts and use-pocket-money-withdrawal-requests.ts.
+ */
+export function invalidatePocketMoney(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: [KEY] });
+  qc.invalidateQueries({ queryKey: ["pocket-money-goals"] });
+  qc.invalidateQueries({ queryKey: ["pocket-money-withdrawal-requests"] });
+}
 
 export function usePocketMoneyAccounts() {
   const { family } = useFamilyStore();
