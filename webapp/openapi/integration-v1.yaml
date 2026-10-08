@@ -412,13 +412,21 @@ paths:
         sensitive home action, a pocket-money booking, or a decision on a
         reward request. Needs
         `home:control` **or** `pocket_money:write`: either is enough. Only
-        the calling token's own requests are visible; any other id,
-        including another assistant's in the same family, is `404`.
+        the calling token's own requests are visible, and only of a kind it
+        holds the scope for: a home request needs `home:control`, a
+        pocket-money booking or a reward decision `pocket_money:write`. Any
+        other id -- another assistant's in the same family, another
+        family's, or one of a kind the token may not make -- is `404`, the
+        same answer as an id that does not exist.
 
         The same as `GET /home/actions/{id}`, plus `kind` (`home`,
         `pocket_money` or `reward_decision`) and `description`, the request in words as the
         family was asked about it. `entity_id` and `service` are `null` for
-        a request that is not a home action. `result.reason`
+        a request that is not a home action. A `done` pocket-money booking's
+        `result` is `{ status: 200, booked: true }` -- no account data; a
+        `done` reward decision's is
+        `{ status: 200, decided: approved | declined }`. A failure's is
+        `{ status: 0, reason }`. `result.reason`
         `not_available`: approved, but this Kinboard cannot run that kind of
         request, so nothing was done. For a pocket-money booking:
         `insufficient_funds` (a withdrawal larger than the balance by the
@@ -1902,11 +1910,12 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [status, request_id, allowed_by_trust]
+                required: [status, request_id, allowed_by_trust, result]
                 properties:
                   status: { type: string, enum: [done] }
                   request_id: { type: string, format: uuid }
                   allowed_by_trust: { type: boolean, enum: [true] }
+                  result: { $ref: "#/components/schemas/ActionResult" }
         "202":
           description: Stored until a family member allows it with the settings PIN, denies it, or it expires
           content:
@@ -2106,11 +2115,12 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [status, request_id, allowed_by_trust]
+                required: [status, request_id, allowed_by_trust, result]
                 properties:
                   status: { type: string, enum: [done] }
                   request_id: { type: string, format: uuid }
                   allowed_by_trust: { type: boolean, enum: [true] }
+                  result: { $ref: "#/components/schemas/ActionResult" }
         "202":
           description: Stored until a family member allows it with the settings PIN, denies it, or it expires
           content:
@@ -3166,13 +3176,24 @@ components:
         expires_at: { type: string, format: date-time }
         decided_at: { type: [string, "null"], format: date-time }
         result:
-          type: [object, "null"]
-          required: [status]
-          properties:
-            status: { type: integer, description: "Home Assistant's HTTP status for a home request; 0 when it was not reached or did not answer, and for other kinds." }
-            reason:
-              type: string
-              enum: [not_in_catalogue, catalogue_unavailable, not_allowed, unknown_outcome, not_available, insufficient_funds, no_account, booking_failed, reward_already_decided, reward_request_gone, insufficient_points, reward_decision_failed]
+          $ref: "#/components/schemas/ActionResult"
+
+    ActionResult:
+      type: [object, "null"]
+      required: [status]
+      description: |
+        What became of it, once it ran or failed. A `done` booking says
+        `booked`; a `done` reward decision says how
+        it was decided. A failure carries `status: 0` and, for pocket money
+        and reward decisions always, a `reason`. A home request's `status` is
+        Home Assistant's HTTP status, as at `/home/actions/{id}`.
+      properties:
+        status: { type: integer, description: "Home Assistant's HTTP status for a home request (0 when it was not reached or did not answer). Other kinds: 200 when it ran, 0 when it failed." }
+        reason:
+          type: string
+          enum: [not_in_catalogue, catalogue_unavailable, not_allowed, unknown_outcome, not_available, insufficient_funds, no_account, booking_failed, reward_already_decided, reward_request_gone, insufficient_points, reward_decision_failed]
+        booked: { type: boolean, enum: [true], description: "pocket_money, done: the entry is in the ledger. No account data is returned with it." }
+        decided: { type: string, enum: [approved, declined], description: "reward_decision, done: what the reward request now is." }
 
     VehicleStatus:
       type: object

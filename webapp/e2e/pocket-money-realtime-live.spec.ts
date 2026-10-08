@@ -89,13 +89,14 @@ function purge() {
 }
 
 /** An assistant's token that may ask for bookings: not trusted, so a person must allow each one. */
-function token(): string {
+function token(scopes = ["pocket_money:write"], family = FAMILY): string {
   const value = `kbi_${randomBytes(32).toString("base64url")}`;
-  const hash = createHash("sha256").update(value).digest("hex");
   psql(`INSERT INTO integration_tokens (family_id, name, token_hash, scopes)
-    VALUES ('${FAMILY}', 'claude-pmrt assistant', '${hash}', ARRAY['pocket_money:write'])`);
+    VALUES ('${family}', 'claude-pmrt assistant', '${tokenHash(value)}', ARRAY[${scopes.map((x) => `'${x}'`).join(",")}])`);
   return value;
 }
+
+const tokenHash = (value: string) => createHash("sha256").update(value).digest("hex");
 
 const balance = (account = ACCOUNT) => Number(psql(`SELECT balance_cents FROM pocket_money_accounts WHERE id = '${account}'`));
 
@@ -257,7 +258,8 @@ test("a withdrawal allowed on the wall shows on the phone within seconds, withou
     await phone.evaluate(() => { (window as unknown as { __claudePmrt: number }).__claudePmrt = 1; });
 
     // The assistant asks; nothing is booked yet.
-    const asked = await post("/pocket-money/bookings", token(), { person_id: MIRA, amount: 2.23, type: "withdrawal", note: "claude-pmrt" });
+    const assistant = token();
+    const asked = await post("/pocket-money/bookings", assistant, { person_id: MIRA, amount: 2.23, type: "withdrawal", note: "claude-pmrt" });
     expect(asked.status(), await asked.text()).toBe(202);
     const requestId = (await asked.json()).request_id as string;
     expect(balance()).toBe(START_CENTS);
@@ -270,6 +272,10 @@ test("a withdrawal allowed on the wall shows on the phone within seconds, withou
     await card.getByRole("button", { name: new RegExp(`^(${allow})$`) }).click();
     const outcome = () => `${balance()} ${psql(`SELECT concat_ws(' ', status, result::text) FROM assistant_action_requests WHERE id = '${requestId}'`)}`;
     await expect.poll(outcome, { timeout: 30_000 }).toMatch(new RegExp(`^${START_CENTS - 223} done`));
+    // What the assistant hears back through get_action_status: booked, and no account data.
+    const status = await (await api.get(`/api/integration/v1/actions/${requestId}`, { headers: { authorization: `Bearer ${assistant}` } })).json();
+    expect(status.action).toMatchObject({ kind: "pocket_money", status: "done" });
+    expect(status.action.result).toEqual({ status: 200, booked: true });
 
     // The phone follows on its own: no reload, no navigation, a few seconds.
     const booked = Date.now();
@@ -283,4 +289,39 @@ test("a withdrawal allowed on the wall shows on the phone within seconds, withou
     await phone.context().close();
     await wall.context().close();
   }
+});
+
+test("only the assistant that asked, holding the booking's own scope, can read a booking request", async () => {
+  // A booking request holds a child's name, an amount and a note. It is the
+  // asking token's own: not another assistant's in the family, not another
+  // family's, and not a token that holds only home:control -- which may
+  // follow its own device actions, but has no permission to read pocket money.
+  const mine = token();
+  const asked = await post("/pocket-money/bookings", mine, { person_id: MIRA, amount: 1.5, type: "deposit", note: "claude-pmrt access" });
+  expect(asked.status(), await asked.text()).toBe(202);
+  const id = (await asked.json()).request_id as string;
+  const read = (bearer: string) => api.get(`/api/integration/v1/actions/${id}`, { headers: { authorization: `Bearer ${bearer}` } });
+
+  const own = await read(mine);
+  expect(own.status()).toBe(200);
+  expect((await own.json()).action).toMatchObject({ kind: "pocket_money", status: "pending" });
+
+  const nothing = await (await api.get(`/api/integration/v1/actions/${randomUUID()}`, { headers: { authorization: `Bearer ${mine}` } })).json();
+  for (const [who, bearer] of [
+    ["another assistant of the family", token()],
+    ["another family's assistant", token(["pocket_money:write", "home:control"], OTHER_FAMILY)],
+  ] as const) {
+    const res = await read(bearer);
+    expect(res.status(), who).toBe(404);
+    expect(await res.json(), who).toEqual(nothing);
+  }
+
+  // The same token, left with home:control only: as if there were no such request.
+  psql(`UPDATE integration_tokens SET scopes = ARRAY['home:control'] WHERE token_hash = '${tokenHash(mine)}'`);
+  const narrowed = await read(mine);
+  const body = await narrowed.text();
+  expect(narrowed.status(), body).toBe(404);
+  expect(body).not.toMatch(/claude-Mira|claude-pmrt access|1\.5/);
+  expect(JSON.parse(body)).toEqual(nothing);
+  psql(`UPDATE assistant_action_requests SET status = 'expired' WHERE id = '${id}'`);
 });

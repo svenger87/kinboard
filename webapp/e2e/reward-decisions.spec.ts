@@ -322,6 +322,9 @@ test.describe("confirming on a screen: decideActionRequest with a reward_decisio
     const res = await confirm(d, row.id);
     expect(res.status).toBe(200);
     expect(res.status === 200 && res.request.status).toBe("done");
+    // Stored as decided, and which way: not the bare `status: 0` a failure carries.
+    expect(res.status === 200 && res.request.result).toEqual({ status: 200, decided: "approved" });
+    expect(rows.get(row.id)!.result).toEqual({ status: 200, decided: "approved" });
     expect(calls).toEqual([{ familyId: FAMILY, redemptionId: REDEMPTION, decision: "approved", deviceId: DEVICE }]);
     expect(redemptionNow()?.status).toBe("approved");
     expect(ha).toEqual([]);
@@ -333,6 +336,7 @@ test.describe("confirming on a screen: decideActionRequest with a reward_decisio
     const { d, calls, redemptionNow } = decideDeps(store, { balance: 0 });
     const res = await confirm(d, row.id);
     expect(res.status === 200 && res.request.status).toBe("done");
+    expect(res.status === 200 && res.request.result).toEqual({ status: 200, decided: "declined" });
     expect(calls.map((c) => c.decision)).toEqual(["denied"]);
     expect(redemptionNow()?.status).toBe("denied");
   });

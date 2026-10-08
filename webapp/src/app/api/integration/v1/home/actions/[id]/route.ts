@@ -24,7 +24,7 @@ export async function GET(
   return withIntegrationAuth(request, "home:control", async (context) => {
     try {
       const row = await actionRequestStatus(
-        { id, familyId: context.familyId, tokenId: context.tokenId, kind: "home" },
+        { id, familyId: context.familyId, tokenId: context.tokenId, scopes: context.scopes, kind: "home" },
         { store: liveActionStore },
       );
       if (!row) return NextResponse.json({ error: "No such action request", code: "not_found" }, { status: 404 });

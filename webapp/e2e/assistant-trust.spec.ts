@@ -234,12 +234,21 @@ test.describe("a trusted assistant: runs at once, through the confirm path", () 
     const b = await submitActionRequest(BOOKING, booking.deps);
     expect(booking.bookings).toEqual([{ familyId: FAMILY, accountId: "acc-1", amountCents: 500, type: "manual_deposit", note: "Claude" }]);
     expect(b.request).toMatchObject({ status: "done", decided_by_trust: true });
+    // The answer says it was booked, and carries no account data.
+    expect(trustedAnswer(b.request!)).toEqual({
+      status: 200,
+      body: { status: "done", request_id: b.id, allowed_by_trust: true, result: { status: 200, booked: true } },
+    });
 
     const reward = submitDeps({ trusted: onlyTrusted(TOKEN) });
     const r = await submitActionRequest(REWARD, reward.deps);
     // No screen allowed it, so no device is recorded as the decider.
     expect(reward.decisions).toEqual([{ familyId: FAMILY, redemptionId: REDEMPTION, decision: "approved", deviceId: null }]);
     expect(r.request).toMatchObject({ status: "done", decided_by_trust: true });
+    expect(trustedAnswer(r.request!)).toEqual({
+      status: 200,
+      body: { status: "done", request_id: r.id, allowed_by_trust: true, result: { status: 200, decided: "approved" } },
+    });
   });
 
   test("the handler it runs is the one a PIN approval runs: validate and execute once each, on both paths", async () => {

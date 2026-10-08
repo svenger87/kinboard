@@ -203,6 +203,8 @@ test("untrusted, a booking waits; trusted, it is booked at once, marked, with a 
   expect(ran.status(), JSON.stringify(body)).toBe(200);
   expect(body).toMatchObject({ status: "done", allowed_by_trust: true });
   expect(balance()).toBe(before + 500);
+  // Says booked: not the `status: 0` a failure has, and no balance.
+  expect(body.result).toEqual({ status: 200, booked: true });
 
   const row = psql(`SELECT status, decided_by_trust, coalesce(decided_by_device_id::text, 'null') FROM assistant_action_requests WHERE id = '${body.request_id}'`);
   expect(row).toBe("done|t|null");
@@ -210,6 +212,7 @@ test("untrusted, a booking waits; trusted, it is booked at once, marked, with a 
   // get_action_status says done, and that trust allowed it.
   const status = await (await api.get(`/api/integration/v1/actions/${body.request_id}`, { headers: { authorization: `Bearer ${c.bearer}` } })).json();
   expect(status.action).toMatchObject({ status: "done", allowed_by_trust: true, kind: "pocket_money" });
+  expect(status.action.result).toEqual({ status: 200, booked: true });
 
   // A retry with the same key replays the answer; it is not booked twice.
   const replay = await booking(c.bearer, key);

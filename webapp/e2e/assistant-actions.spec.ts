@@ -40,6 +40,8 @@ import en from "../messages/en.json";
 import de from "../messages/de.json";
 import fr from "../messages/fr.json";
 import { createTranslator } from "next-intl";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * Confirmation for sensitive assistant actions (RFC-011 §4.3).
@@ -53,6 +55,8 @@ import { createTranslator } from "next-intl";
 const FAMILY = "11111111-1111-1111-1111-111111111111";
 const OTHER_FAMILY = "22222222-2222-2222-2222-222222222222";
 const TOKEN = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+/** A token that may make (and so follow) a request of every kind. */
+const BOTH_SCOPES = ["home:control", "pocket_money:write"];
 const OTHER_TOKEN = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const DEVICE = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const T0 = new Date("2026-10-01T12:00:00.000Z");
@@ -431,7 +435,7 @@ test.describe("an approval nobody finished", () => {
     expect(read).toMatchObject({ status: "failed", result: { status: 0, reason: "unknown_outcome" } });
     expect(rows.get(row.id)).toMatchObject({ status: "failed", result: { status: 0, reason: "unknown_outcome" } });
     // get_action_status says the same.
-    expect(await actionRequestStatus({ id: row.id, familyId: FAMILY, tokenId: TOKEN }, { store, ...at }))
+    expect(await actionRequestStatus({ id: row.id, familyId: FAMILY, tokenId: TOKEN, scopes: BOTH_SCOPES }, { store, ...at }))
       .toMatchObject({ status: "failed", result: { reason: "unknown_outcome" } });
   });
 
@@ -574,10 +578,10 @@ test.describe("reading requests", () => {
     const theirs = seed(rows, { token_id: OTHER_TOKEN });
     const otherFamily = seed(rows, { family_id: OTHER_FAMILY });
     const later = { store, now: () => new Date(T0.getTime() + ACTION_REQUEST_TTL_MS + 1) };
-    expect(await actionRequestStatus({ id: theirs.id, familyId: FAMILY, tokenId: TOKEN }, later)).toBeNull();
-    expect(await actionRequestStatus({ id: otherFamily.id, familyId: FAMILY, tokenId: TOKEN }, later)).toBeNull();
-    expect(await actionRequestStatus({ id: "nope", familyId: FAMILY, tokenId: TOKEN }, later)).toBeNull();
-    const status = await actionRequestStatus({ id: mine.id, familyId: FAMILY, tokenId: TOKEN }, later);
+    expect(await actionRequestStatus({ id: theirs.id, familyId: FAMILY, tokenId: TOKEN, scopes: BOTH_SCOPES }, later)).toBeNull();
+    expect(await actionRequestStatus({ id: otherFamily.id, familyId: FAMILY, tokenId: TOKEN, scopes: BOTH_SCOPES }, later)).toBeNull();
+    expect(await actionRequestStatus({ id: "nope", familyId: FAMILY, tokenId: TOKEN, scopes: BOTH_SCOPES }, later)).toBeNull();
+    const status = await actionRequestStatus({ id: mine.id, familyId: FAMILY, tokenId: TOKEN, scopes: BOTH_SCOPES }, later);
     expect(status?.status).toBe("expired");
     expect(rows.get(mine.id)!.status).toBe("expired");
   });
@@ -1008,7 +1012,7 @@ test.describe("following a request: GET /actions/{id} and /home/actions/{id}", (
     const theirs = seed(rows, { kind: "pocket_money", token_id: OTHER_TOKEN, entity_id: null, entity_name: null, domain: null, service: null });
     const otherFamily = seed(rows, { family_id: OTHER_FAMILY, kind: "pocket_money", entity_id: null, entity_name: null, domain: null, service: null });
     const legacy = seed(rows, { token_id: null });
-    const as = (id: string) => actionRequestStatus({ id, familyId: FAMILY, tokenId: TOKEN }, { store, now: () => T0 });
+    const as = (id: string) => actionRequestStatus({ id, familyId: FAMILY, tokenId: TOKEN, scopes: BOTH_SCOPES }, { store, now: () => T0 });
     expect((await as(home.id))?.id).toBe(home.id);
     expect((await as(pocket.id))?.id).toBe(pocket.id);
     expect(await as(theirs.id)).toBeNull();
@@ -1020,9 +1024,37 @@ test.describe("following a request: GET /actions/{id} and /home/actions/{id}", (
     const { store, rows } = fakeStore();
     const home = seed(rows);
     const pocket = seed(rows, { kind: "pocket_money", entity_id: null, entity_name: null, domain: null, service: null });
-    const asHome = (id: string) => actionRequestStatus({ id, familyId: FAMILY, tokenId: TOKEN, kind: "home" }, { store, now: () => T0 });
+    const asHome = (id: string) => actionRequestStatus({ id, familyId: FAMILY, tokenId: TOKEN, kind: "home", scopes: ["home:control"] }, { store, now: () => T0 });
     expect((await asHome(home.id))?.id).toBe(home.id);
     expect(await asHome(pocket.id)).toBeNull();
+  });
+
+  test("a request is read only with its own kind's scope: a home:control-only token cannot see a booking or a reward decision", async () => {
+    // A pocket-money booking holds a child's name, an amount and a note;
+    // home:control is no permission to read those (family:read is).
+    const { store, rows } = fakeStore();
+    const none = { entity_id: null, entity_name: null, domain: null, service: null };
+    const home = seed(rows);
+    const pocket = seed(rows, { kind: "pocket_money", ...none, status: "done", result: { status: 200, booked: true } });
+    const reward = seed(rows, { kind: "reward_decision", ...none });
+    const as = (id: string, scopes: string[]) =>
+      actionRequestStatus({ id, familyId: FAMILY, tokenId: TOKEN, scopes }, { store, now: () => T0 });
+    expect((await as(home.id, ["home:control"]))?.id).toBe(home.id);
+    expect(await as(pocket.id, ["home:control"])).toBeNull();
+    expect(await as(reward.id, ["home:control"])).toBeNull();
+    expect(await as(home.id, ["pocket_money:write"])).toBeNull();
+    expect((await as(pocket.id, ["pocket_money:write"]))?.id).toBe(pocket.id);
+    expect((await as(reward.id, ["pocket_money:write"]))?.id).toBe(reward.id);
+    for (const row of [home, pocket, reward]) expect(await as(row.id, ["family:read", "tasks:write"])).toBeNull();
+    // The same answer as for an id that does not exist: nothing says it is there.
+    expect(await as(pocket.id, ["home:control"])).toEqual(await as("00000000-0000-4000-8000-000000000000", ["home:control"]));
+  });
+
+  test("both status routes hand the token's scopes to the lookup", () => {
+    for (const route of ["src/app/api/integration/v1/actions/[id]/route.ts", "src/app/api/integration/v1/home/actions/[id]/route.ts"]) {
+      const src = readFileSync(join(__dirname, "..", route), "utf8");
+      expect(src, route).toMatch(/actionRequestStatus\(\s*\{[^}]*scopes: context\.scopes[^}]*\}/);
+    }
   });
 
   test("either scope that can make a request may follow one", () => {

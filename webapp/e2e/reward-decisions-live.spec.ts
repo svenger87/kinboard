@@ -228,7 +228,10 @@ test("a screen with the wrong PIN cannot allow it; the right PIN decides it once
   // The child hears about it as from the rewards page.
   expect(psql(`SELECT count(*) FROM scheduled_notifications WHERE family_id = '${FAMILY}'
     AND notification_type = 'reward_decided' AND related_entity_id = '${id}'`)).toBe("1");
-  expect((await actionStatus(writer, asked.request_id)).status).toBe("done");
+  const reported = await actionStatus(writer, asked.request_id);
+  expect(reported.status).toBe("done");
+  // Says how it was decided: not the `status: 0` a failure has.
+  expect(reported.result).toEqual({ status: 200, decided: "approved" });
 
   // Replayed: already decided, and nothing more spent.
   const replay = await decide(screen, asked.request_id, { decision: "approve", pin: PIN });

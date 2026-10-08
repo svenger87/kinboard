@@ -29,7 +29,7 @@ export async function GET(
   return withIntegrationAuth(request, ACTION_STATUS_SCOPES, async (context) => {
     try {
       const row = await actionRequestStatus(
-        { id, familyId: context.familyId, tokenId: context.tokenId },
+        { id, familyId: context.familyId, tokenId: context.tokenId, scopes: context.scopes },
         { store: liveActionStore },
       );
       if (!row) return NextResponse.json({ error: "No such action request", code: "not_found" }, { status: 404 });

@@ -406,7 +406,13 @@ test.describe("an assistant's booking runs only once a family member allowed it 
     expect(res.status).toBe(200);
     expect(lookups).toEqual([`${FAMILY}/${ENNO}`, `${FAMILY}/${ENNO}`]); // validate, then again right before booking
     expect(booked).toEqual([{ familyId: FAMILY, accountId: ACCOUNT, amountCents: 500, type: "manual_deposit", note: "mowing the lawn" }]);
-    expect(rows.get(row.id)).toMatchObject({ status: "done", result: { status: 0 }, decided_by_device_id: DEVICE });
+    expect(rows.get(row.id)).toMatchObject({ status: "done", decided_by_device_id: DEVICE });
+    // Stored and reported as booked: never the bare `status: 0` a failure
+    // carries, which an assistant can take for one. And no account data:
+    // get_action_status is open to home:control, which may not read balances.
+    expect(rows.get(row.id)!.result).toEqual({ status: 200, booked: true });
+    expect(toAssistantStatus(rows.get(row.id)!, EN).result).toEqual({ status: 200, booked: true });
+    expect(JSON.stringify(toAssistantStatus(rows.get(row.id)!, EN))).not.toMatch(/balance|1500/);
     expect(ha).toEqual([]);
   });
 
@@ -514,7 +520,10 @@ test.describe("an assistant's booking runs only once a family member allowed it 
     await decide(d, row.id);
     expect(booked).toHaveLength(1);
     const ended = rows.get(row.id)!;
-    expect(ended).toMatchObject({ status: "failed", result: { status: 0, reason: "insufficient_funds" } });
+    expect(ended).toMatchObject({ status: "failed" });
+    // A failure still says why, and nothing in it says booked.
+    expect(ended.result).toEqual({ status: 0, reason: "insufficient_funds" });
+    expect(toAssistantStatus(ended, EN).result).toEqual({ status: 0, reason: "insufficient_funds" });
     expect(statusMessageKey(ended)).toBe("status.insufficient_funds");
     expect(EN(statusMessageKey(ended))).not.toMatch(/Home Assistant|device/i);
   });

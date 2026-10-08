@@ -45,7 +45,10 @@
  *    stored action is re-checked against the policy; otherwise it ends
  *    `failed` with a `reason` and nothing runs. Then its kind's `execute`
  *    runs it once — for home, one Home Assistant call — and the row becomes
- *    `done` or `failed` with `result = { status }` — the HTTP status only.
+ *    `done` or `failed` with its `result`: for home, `{ status }`, Home
+ *    Assistant's HTTP status only; for a booking or a reward decision that
+ *    ran, `{ status: 200, booked: true }` or
+ *    `{ status: 200, decided }`; for any failure, `{ status: 0, reason }`.
  * 5. A row left `approved` for over a minute (the server stopped between the
  *    claim and the answer) is reported, and marked best-effort, as `failed`
  *    with `reason: "unknown_outcome"`: it may or may not have happened.
@@ -78,6 +81,19 @@ export type ActionKind = (typeof ACTION_KINDS)[number];
  */
 export const ACTION_STATUS_SCOPES = ["home:control", "pocket_money:write"] as const satisfies readonly IntegrationScope[];
 
+/**
+ * The scope a token must hold to read a request of each kind back: the one
+ * that lets it make that kind. `ACTION_STATUS_SCOPES` only opens the door;
+ * this decides which requests are behind it. A booking holds a child's name,
+ * an amount and a note, which a token with only home:control has no business
+ * reading (family:read is what reads pocket money).
+ */
+export const ACTION_KIND_SCOPE: Readonly<Record<ActionKind, IntegrationScope>> = {
+  home: "home:control",
+  pocket_money: "pocket_money:write",
+  reward_decision: "pocket_money:write",
+};
+
 /** RFC-011 §4.3: a request lives two minutes. */
 export const ACTION_REQUEST_TTL_MS = 120_000;
 
@@ -105,9 +121,20 @@ export type ActionFailureReason =
   | "reward_already_decided" | "reward_request_gone" | "insufficient_points" | "reward_decision_failed";
 
 export interface ActionResult {
-  /** Home Assistant's HTTP status; 0 when it was not reached or did not answer. Other kinds: 0. */
+  /**
+   * home: Home Assistant's HTTP status; 0 when it was not reached or did not
+   * answer. Other kinds: 200 when it ran, 0 when it failed (with `reason`).
+   */
   status: number;
   reason?: ActionFailureReason;
+  /**
+   * pocket_money, done: the entry is in the ledger. Nothing about the account
+   * goes with it: a token with home:control alone may follow requests here,
+   * and no balance is that token's to read.
+   */
+  booked?: true;
+  /** reward_decision, done: what the reward request now is. */
+  decided?: "approved" | "declined";
 }
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -488,16 +515,27 @@ export async function familyActionRequest(
 }
 
 /**
- * `get_action_status`: one request, but only for the assistant that made it
- * — any other id, including another assistant's in the same family, is null
- * (404). Expired pending rows are marked `expired` on the way.
+ * `get_action_status`: one request, but only for the assistant that made it,
+ * and only while that token still holds the scope of the request's kind
+ * (`ACTION_KIND_SCOPE`). Any other id — another assistant's in the same
+ * family, another family's, or one of a kind this token may not make — is
+ * null (404), the same as an id that does not exist. Expired pending rows are
+ * marked `expired` on the way.
  */
 export async function actionRequestStatus(
-  input: { id: string; familyId: string; tokenId: string; kind?: ActionKind },
+  input: { id: string; familyId: string; tokenId: string; scopes: readonly string[]; kind?: ActionKind },
   deps: { store: ActionRequestStore; now?: () => Date },
 ): Promise<ActionRequestRow | null> {
+  if (!UUID.test(input.id)) return null;
+  // Checked on the stored row before settling it, so a token that may not see
+  // a request does not even mark it expired.
+  const stored = await deps.store.get(input.id, input.familyId);
+  if (!stored || stored.family_id !== input.familyId) return null;
+  if (stored.token_id === null || stored.token_id !== input.tokenId) return null;
+  const needs = (ACTION_KIND_SCOPE as Record<string, IntegrationScope | undefined>)[stored.kind];
+  if (!needs || !input.scopes.includes(needs)) return null;
   const row = await familyActionRequest(input.id, input.familyId, deps);
-  if (!row || row.token_id === null || row.token_id !== input.tokenId) return null;
+  if (!row || row.token_id !== input.tokenId) return null;
   // `/home/actions/{id}` asks for home requests only.
   if (input.kind && row.kind !== input.kind) return null;
   return row;
@@ -786,7 +824,10 @@ const pocketMoneyHandler: ActionKindHandler = {
         type: deposit ? "manual_deposit" : "withdrawal",
         note: booking.note ?? clientLabel(row.client_name),
       });
-      if (booked.ok) return { ok: true, result: { status: 0 } };
+      // Said in so many words: a bare `status: 0` is what a failure carries.
+      // No balance: the result is read back by get_action_status, which is
+      // not a permission to read pocket money.
+      if (booked.ok) return { ok: true, result: { status: 200, booked: true } };
       if (booked.error === "insufficient_funds") return failed("insufficient_funds");
       if (booked.error === "not_found") return failed("no_account");
       console.error("[assistant-actions] booking failed:", booked.message);
@@ -926,7 +967,9 @@ const rewardDecisionHandler: ActionKindHandler = {
         // The screen that allowed it, as the app records the one that decided.
         deviceId: row.decided_by_device_id,
       });
-      if (answer.status === 200 && answer.body.status === wanted) return { ok: true, result: { status: 0 } };
+      if (answer.status === 200 && answer.body.status === wanted) {
+        return { ok: true, result: { status: 200, decided: wanted === "approved" ? "approved" : "declined" } };
+      }
       if (answer.status === 409 && answer.body.error === "already_decided") return failed("reward_already_decided");
       if (answer.status === 409 && answer.body.error === "insufficient_points") return failed("insufficient_points");
       if (answer.status === 404) return failed("reward_request_gone");
@@ -1224,7 +1267,9 @@ const UNCERTAIN: ReadonlySet<ActionFailureReason> = new Set(["unknown_outcome", 
 
 /**
  * What a route answers for a request `submitActionRequest` ran under trust:
- * 200 `done`; 202 `pending_confirmation`, as for any request, when the trust
+ * 200 `done` (for a booking or a reward decision with its `result`, which
+ * says booked or decided; a home action's answer is as it was); 202
+ * `pending_confirmation`, as for any request, when the trust
  * was taken away while it started; 409 when it was refused before it ran
  * (with the reason) or the assistant was disconnected meanwhile; 502 when it
  * may or may not have happened. Always with `request_id`, which
@@ -1235,7 +1280,10 @@ export function trustedAnswer(row: ActionRequestRow): { status: number; body: Re
     return { status: 202, body: { status: "pending_confirmation", request_id: row.id, expires_at: row.expires_at } };
   }
   const base = { request_id: row.id, allowed_by_trust: true };
-  if (row.status === "done") return { status: 200, body: { status: "done", ...base } };
+  if (row.status === "done") {
+    const said = row.kind !== "home" && row.result ? { result: row.result } : {};
+    return { status: 200, body: { status: "done", ...base, ...said } };
+  }
   if (row.status === "denied") {
     return {
       status: 409,
