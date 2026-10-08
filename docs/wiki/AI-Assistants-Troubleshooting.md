@@ -108,6 +108,12 @@ assistant has to go through the consent page again:
 A token created by hand never expires; it only stops working when it is
 revoked, or at `/api/mcp` while the switch is off.
 
+**Several entries with the same name.** Each time you connect again, Settings
+shows a new entry, for example a second "ChatGPT". The assistant keeps using
+whichever connection it last signed in with, which is not always the newest
+one. Before revoking an entry, check which one has a **last used** time: that
+is the one in use. Revoking it makes the assistant ask to sign in again.
+
 ## "Too many …, slow down"
 
 The assistant ran into one of the [limits](AI-Assistants-Permissions-and-Safety#limits),
@@ -175,6 +181,12 @@ Also check:
   [Notifications](Notifications).
 - **It expired.** A request lasts 2 minutes. Ask again when someone is near
   a screen.
+- **ChatGPT refused it before asking Kinboard.** OpenAI's rules for apps
+  don't allow money transfers, and ChatGPT sometimes treats a pocket-money
+  booking as one, even though no money moves: it is only an entry in
+  Kinboard's own ledger. ChatGPT then says the booking was blocked, and
+  Kinboard never sees the request. Book it in Kinboard on the pocket money
+  page, or ask Claude, which passes it on to the screens as usual.
 
 ## "Allowed, but Kinboard couldn't tell whether it happened"
 
