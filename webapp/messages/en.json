@@ -105,7 +105,8 @@
     },
     "locationAutocomplete": {
       "placeholder": "Enter a location…",
-      "clearAria": "Clear the location"
+      "clearAria": "Clear the location",
+      "attribution": "Search: Photon · © OpenStreetMap contributors"
     },
     "recipeImagePicker": {
       "imageAlt": "Recipe image",

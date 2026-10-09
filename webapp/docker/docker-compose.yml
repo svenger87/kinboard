@@ -557,6 +557,8 @@ services:
       # is wrong for links handed to external calendar apps.
       SITE_URL: ${SITE_URL}
       OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY}
+      # The Location field's place search; empty is komoot's public Photon.
+      PHOTON_URL: ${PHOTON_URL:-}
       # Optional override for the OpenWeatherMap API base URL — lets the
       # demo overlay redirect weather calls to a local mock so the
       # widget renders without burning a real API key. Defaults to the

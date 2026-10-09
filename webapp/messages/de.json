@@ -105,7 +105,8 @@
     },
     "locationAutocomplete": {
       "placeholder": "Ort eingeben…",
-      "clearAria": "Ort löschen"
+      "clearAria": "Ort löschen",
+      "attribution": "Suche: Photon · © OpenStreetMap-Mitwirkende"
     },
     "recipeImagePicker": {
       "imageAlt": "Rezeptbild",

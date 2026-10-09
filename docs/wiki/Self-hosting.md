@@ -112,6 +112,7 @@ All driven from `webapp/docker/.env`. The shipped `.env.example` has comments ex
 | `DOMAIN` | `kinboard.example.com` | Public domain — only consumed by the Traefik overlay |
 | `TRAEFIK_CERT_RESOLVER` | `letsencrypt` | Name of your Traefik cert resolver |
 | `TRAEFIK_NETWORK` | `proxy` | External network Traefik watches |
+| `PHOTON_URL` | *(empty)* | The place search behind the calendar's Location field. Empty: komoot's public [Photon](https://photon.komoot.io) (free, no key). Point it at your own Photon to keep those searches on your network |
 
 ### Secrets
 

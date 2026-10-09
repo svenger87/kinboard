@@ -55,7 +55,7 @@ The blue "+ New event" button opens a dialog:
 - Start + end (date picker)
 - Person assignment (or "family")
 - **Calendar** — pick any of your Google calendars (event will round-trip to Google) or "Local only" (stays inside Kinboard)
-- **Location** (optional) — type three letters or more for address suggestions from OpenStreetMap. They come from the country of your [holiday region](#holidays) (the whole world when none is picked, or when that country has no match), in the app's language, and each address is written the way its country writes it
+- **Location** (optional) — type three letters or more for place and address suggestions from OpenStreetMap, through [Photon](https://photon.komoot.io): shops, schools, doctors and landmarks as well as streets. Places near your [weather location](OpenWeatherMap) come first, and well-known places elsewhere still show, so "Eiffel Tower" finds Paris. With no weather location, suggestions come from the country of your [holiday region](#holidays), or the whole world when none is picked. Names come in the app's language (English, German or French; other languages get each place's local name), and each address is written the way its country writes it, led by the place's name when it has one. Kinboard makes the searches from its own server and keeps answers for a day, so a repeated search stays on your network
 - Notes
 
 Events show up immediately for everyone in the family. If you picked a Google calendar, the event lands on Google within a few seconds and the next sync round-trip cements it. Edits and deletes also propagate.

@@ -105,7 +105,8 @@
     },
     "locationAutocomplete": {
       "placeholder": "Saisir un emplacement…",
-      "clearAria": "Effacer le lieu"
+      "clearAria": "Effacer le lieu",
+      "attribution": "Recherche : Photon · © les contributeurs d’OpenStreetMap"
     },
     "recipeImagePicker": {
       "imageAlt": "Image de la recette",

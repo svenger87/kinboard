@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { MapPin, Loader2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
-import { useHolidayRegion, useLocationSearch, type LocationResult } from "@/hooks";
+import { useHolidayRegion, useLocationSearch, useSetting, type LocationResult } from "@/hooks";
+import type { WeatherLocation } from "@/hooks/use-weather";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { resolveRegion } from "@/lib/holidays/region";
 import { cn } from "@/lib/utils";
 
@@ -30,17 +32,31 @@ export function LocationAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // The family's country (Settings → Holidays, where you live) and the app's
-  // language decide what is searched and how names read; there is no built-in
-  // country. No region picked: the whole world.
+  // Where the family is decides what comes first, and the app's language how
+  // names read; there is no built-in country. Where the family is: the
+  // weather location (Settings → Weather), read with no default -- the weather
+  // widget's own fallback is Hamburg, which must not pull every family's
+  // search towards Hamburg. With none, the family's country (Settings →
+  // Holidays); with neither, the whole world.
   const locale = useLocale();
   const { region } = useHolidayRegion();
+  const { data: weatherLocation } = useSetting<WeatherLocation | null>(SETTINGS_KEYS.weatherLocation, null);
+  const near = useMemo(
+    () =>
+      weatherLocation?.type === "coordinates" && weatherLocation.lat != null && weatherLocation.lon != null
+        ? { lat: weatherLocation.lat, lon: weatherLocation.lon }
+        : null,
+    [weatherLocation],
+  );
+  const nearTown = weatherLocation?.type === "city" ? weatherLocation.city?.trim() || null : null;
 
   const { results, isLoading, search, clear, formatLocation } = useLocationSearch({
     debounceMs: 300,
     limit: 5,
-    countryCode: resolveRegion(region)?.country,
     language: locale,
+    near,
+    nearTown,
+    countryCode: resolveRegion(region)?.country,
   });
 
   // Sync input value with external value
@@ -157,6 +173,8 @@ export function LocationAutocomplete({
               </li>
             ))}
           </ul>
+          {/* OpenStreetMap's licence asks for this wherever its data is shown. */}
+          <p className="border-t border-border px-3 py-1 text-3xs text-muted-foreground">{t("attribution")}</p>
         </div>
       )}
     </div>
