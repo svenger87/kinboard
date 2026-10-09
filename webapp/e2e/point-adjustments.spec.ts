@@ -99,7 +99,8 @@ test("the table holds a task's award positive and lets only an adjustment be neg
   expect(sql).toContain("(kind = 'adjustment' AND points <> 0 AND points BETWEEN -10000 AND 10000 AND todo_id IS NULL)");
   // Only an adjustment can be taken back from here; a task's award goes with an un-tick.
   expect(sql).toMatch(/DELETE FROM public\.todo_point_awards\s+WHERE id = p_adjustment_id AND family_id = p_family_id AND kind = 'adjustment'/);
-  expect(sql).toMatch(/REVOKE ALL ON FUNCTION %s FROM authenticated/);
+  expect(sql).toContain("REVOKE ALL ON FUNCTION public.adjust_person_points(uuid, uuid, integer, text) FROM authenticated;");
+  expect(sql).toContain("REVOKE ALL ON FUNCTION public.remove_person_point_adjustment(uuid, uuid) FROM authenticated;");
   // Both take the child's lock, like a purchase and an approval.
   expect(sql.match(/PERFORM public\.point_lock_person/g)).toHaveLength(2);
 });

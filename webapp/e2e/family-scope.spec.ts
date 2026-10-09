@@ -130,6 +130,9 @@ const SESSION_FAMILY_RPC_ROUTES = new Set([
   // refundPurchase (lib/creatures/purchases.ts): the same, through
   // refund_person_point_purchase().
   "creatures/purchases/[id]/route.ts",
+  // removeAdjustment (lib/creatures/adjustments.ts): the same, through
+  // remove_person_point_adjustment(), which filters on p_family_id (#349).
+  "points/adjustments/[id]/route.ts",
 ]);
 
 test("no dynamic API route uses the admin client without a family filter", () => {

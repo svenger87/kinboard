@@ -119,26 +119,24 @@ BEGIN
     'balance', public.point_person_totals(p_family_id, v_row.person_id)->'balance');
 END $$;
 
--- The service role only, as for a purchase and a refund.
+-- The service role only, as for a purchase and a refund. Written out rather
+-- than built with format(), so every grant is one a spec can read.
+REVOKE ALL ON FUNCTION public.adjust_person_points(uuid, uuid, integer, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.remove_person_point_adjustment(uuid, uuid) FROM PUBLIC;
 DO $$
-DECLARE
-  fn TEXT;
 BEGIN
-  FOREACH fn IN ARRAY ARRAY[
-    'public.adjust_person_points(uuid, uuid, integer, text)',
-    'public.remove_person_point_adjustment(uuid, uuid)'
-  ] LOOP
-    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', fn);
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
-      EXECUTE format('REVOKE ALL ON FUNCTION %s FROM anon', fn);
-    END IF;
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-      EXECUTE format('REVOKE ALL ON FUNCTION %s FROM authenticated', fn);
-    END IF;
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
-      EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role', fn);
-    END IF;
-  END LOOP;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    REVOKE ALL ON FUNCTION public.adjust_person_points(uuid, uuid, integer, text) FROM anon;
+    REVOKE ALL ON FUNCTION public.remove_person_point_adjustment(uuid, uuid) FROM anon;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    REVOKE ALL ON FUNCTION public.adjust_person_points(uuid, uuid, integer, text) FROM authenticated;
+    REVOKE ALL ON FUNCTION public.remove_person_point_adjustment(uuid, uuid) FROM authenticated;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    GRANT EXECUTE ON FUNCTION public.adjust_person_points(uuid, uuid, integer, text) TO service_role;
+    GRANT EXECUTE ON FUNCTION public.remove_person_point_adjustment(uuid, uuid) TO service_role;
+  END IF;
 END $$;
 
 -- ---------------------------------------------------------------------------
