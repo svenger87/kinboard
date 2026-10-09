@@ -32,6 +32,7 @@ import {
 } from "@/hooks";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { RedemptionInbox, RewardCatalogue } from "@/components/pocket-money/rewards-settings";
+import { PointAdjustments } from "@/components/pocket-money/point-adjustments";
 import { CreatureAvatar, type CreatureAvatarProps } from "@/components/pocket-money/creature-avatar";
 import { useCreatureMood } from "@/hooks/use-creature-mood";
 import { ChangeCreatureSheet } from "@/components/pocket-money/change-creature-sheet";
@@ -230,6 +231,10 @@ function ChildCreatureCard({
           </div>
         </div>
       )}
+
+      {/* Points by hand (#349): every child, creature or not -- a family can
+          use task points without creatures. */}
+      <PointAdjustments kid={kid} />
 
       {creature && on && (
         <>

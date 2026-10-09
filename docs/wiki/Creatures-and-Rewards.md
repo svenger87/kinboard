@@ -51,6 +51,10 @@ Tasks and rewards pick their icon from one emoji picker: every emoji except flag
 
 A child's **points balance** is the points their tasks have earned, all time, minus the rewards a parent has approved. It belongs to the child, not to a pocket-money account, and it never shows less than zero. A request that is still waiting is held back.
 
+**What a child sees** next to their name, on the tasks page, the tasks widget and their profile, is that balance: the points they can still spend. Their creature grows with the points earned, so spending never shrinks it.
+
+**Adding or removing points by hand.** Each child's card on Settings → Creatures & rewards has a **Points** section, with or without a creature. Enter a number and an optional note, then **Add** for a bonus (something that was no task) or **Remove** for a correction (a task given 10 points instead of 1, say). It needs the settings PIN. Points added or removed count like task points: a bonus grows the creature, and removing points the child already spent works like un-ticking a task after its points were spent: the balance shows 0, and the difference comes off the next points earned. The last ten changes are listed under the form, each with **Undo**. Home Assistant and the assistants see the new balance at once.
+
 **The catalogue** is on the same settings page: a title, a cost from 1 to 10000 points, an optional emoji from the picker and an *Active* switch. It is shared by every child in the family.
 
 **Redeeming.** A child with a creature sees their points and the rewards on the Rewards page and taps **Redeem**. That only asks: the request waits under *Rewards waiting for approval* on Settings → Creatures & rewards and on the navigation badge. **Approve** spends the points, **Deny** spends nothing. Both need the settings PIN, checked on the server too, so a child's own screen can't approve its own request. Two screens approving at once book it once, and an approval the points no longer cover is refused while the request keeps waiting.

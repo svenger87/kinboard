@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { usePeople, useTodos, useEvents } from "@/hooks";
 import { useTodoPoints } from "@/hooks/use-todo-points";
-import { pointsTotal, showsPoints } from "@/lib/todo-points";
+import { showsPoints } from "@/lib/todo-points";
 import { usePocketMoneyAccounts } from "@/hooks/use-pocket-money-accounts";
 import { useOwnedItems, usePointTotals } from "@/hooks/use-point-rewards";
 import { rewardsHref } from "@/lib/device-owner";
@@ -255,7 +255,7 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
             };
           }
           return showsPoints(selectedPerson, pointAwards, todos)
-            ? { value: pointsTotal(pointAwards, selectedPerson.id), spendable: false, rewardsHref: null }
+            ? { value: totalsFor(selectedPerson.id).balance, spendable: false, rewardsHref: null }
             : null;
         })()}
         onClose={() => setSelectedPerson(null)}

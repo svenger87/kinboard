@@ -265,6 +265,11 @@ test("a route that still takes family_id checks it against the session", () => {
     // A parent's refund: the family is auth.session.familyId, handed to
     // refund_person_point_purchase(); the request carries a purchase id.
     "creatures/purchases/[id]/route.ts",
+    // A parent's points by hand (#349): the family is auth.session.familyId,
+    // handed to adjust_person_points() / remove_person_point_adjustment();
+    // the request carries `{ person_id, points, note }` or an adjustment id.
+    "points/adjustments/route.ts",
+    "points/adjustments/[id]/route.ts",
     // The old path of a child's reward request, kept one release (RFC-017):
     // the account is looked up in auth.session.familyId; the body carries
     // only `{ reward_id }`.

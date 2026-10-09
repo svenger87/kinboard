@@ -593,7 +593,7 @@
     "fieldIcon": "Aufgaben-Icon",
     "fieldPoints": "Punkte bei Erledigung",
     "fieldPointsHint": "Nur für Aufgaben von Kindern. 0 deaktiviert Punkte.",
-    "pointsHeading": "Gesammelte Aufgabenpunkte",
+    "pointsHeading": "Aufgabenpunkte zum Ausgeben",
     "pointsUnit": "Punkte",
     "title": "Aufgaben",
     "subtitle": "{active} offen, {recurring} wiederkehrend, {completed} erledigt",
@@ -696,7 +696,8 @@
     "noTurnOpen": "Der Wechsel dieser Aufgabe hat noch nicht begonnen",
     "toggleTooltipUndo": "Für diese Runde erledigt – tippen zum Zurücknehmen",
     "turnsBetween": "Im Wechsel: {names}",
-    "creatureAria": "Kreatur von {name}"
+    "creatureAria": "Kreatur von {name}",
+    "pointsTitle": "{balance} zum Ausgeben, {earned} insgesamt gesammelt"
   },
   "meals": {
     "title": "Mahlzeitenplanung",
@@ -2905,7 +2906,24 @@
       "refundAria": "{item} erstatten",
       "refundConfirmTitle": "{item} erstatten?",
       "refundConfirmDescription": "{name} bekommt {count, plural, one {# Punkt} other {# Punkte}} zurück, und wenn es gerade getragen wird, wird es ausgezogen.",
-      "refundDone": "{item} erstattet: {count, plural, one {# Punkt} other {# Punkte}} zurück."
+      "refundDone": "{item} erstattet: {count, plural, one {# Punkt} other {# Punkte}} zurück.",
+      "pointsLabel": "Punkte",
+      "pointsHint": "Gib Punkte als Bonus dazu oder nimm welche weg, um einen Fehler zu korrigieren. Sie zählen wie Aufgabenpunkte: Ein Bonus lässt das Wesen wachsen, und weggenommene Punkte, die schon ausgegeben waren, werden von den nächsten abgezogen.",
+      "adjustAmountLabel": "Punkte",
+      "adjustNoteLabel": "Notiz (optional)",
+      "adjustNotePlaceholder": "z. B. beim Autowaschen geholfen",
+      "adjustAdd": "Dazugeben",
+      "adjustRemove": "Abziehen",
+      "adjustAddAria": "{name} Punkte dazugeben",
+      "adjustRemoveAria": "{name} Punkte abziehen",
+      "adjustAdded": "{count, plural, one {# Punkt für {name} dazu} other {# Punkte für {name} dazu}}",
+      "adjustRemoved": "{count, plural, one {# Punkt von {name} abgezogen} other {# Punkte von {name} abgezogen}}",
+      "adjustInvalid": "Gib eine ganze Zahl von 1 bis 10.000 ein.",
+      "adjustmentsLabel": "Von Hand dazugegeben und abgezogen",
+      "adjustmentsEmpty": "Noch nichts.",
+      "adjustTakeBack": "Rückgängig",
+      "adjustTakeBackAria": "Diese Änderung um {count} Punkte rückgängig machen",
+      "adjustTakenBack": "Rückgängig gemacht"
     }
   },
   "settingsSearch": {

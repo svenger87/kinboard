@@ -462,6 +462,10 @@ export interface Database {
           completion_key: string;
           points: number;
           created_at: string;
+          /** 'task': a ticked task's award. 'adjustment': a parent's, by hand, signed (#349). */
+          kind: "task" | "adjustment";
+          /** A parent's reason, on an adjustment. */
+          note: string | null;
         };
         Insert: {
           id?: string;
@@ -1765,6 +1769,7 @@ export type Room = Database["public"]["Tables"]["rooms"]["Row"];
 export type RoomInsert = Database["public"]["Tables"]["rooms"]["Insert"];
 export type Event = Database["public"]["Tables"]["events"]["Row"];
 export type Todo = Database["public"]["Tables"]["todos"]["Row"];
+export type PointAwardRow = Database["public"]["Tables"]["todo_point_awards"]["Row"];
 export type TodoOccurrence = Database["public"]["Tables"]["todo_occurrences"]["Row"];
 export type TodoEvent = Database["public"]["Tables"]["todo_events"]["Row"];
 export type ShoppingItem = Database["public"]["Tables"]["shopping_items"]["Row"];

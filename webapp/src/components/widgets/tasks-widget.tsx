@@ -17,7 +17,7 @@ import Link from "next/link";
 import { useTodos, useUpdateTodo, usePeople, useSetting, useToday } from "@/hooks";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useTodoPoints } from "@/hooks/use-todo-points";
-import { pointsTotal } from "@/lib/todo-points";
+import { usePointTotals } from "@/hooks/use-point-rewards";
 import { toast } from "sonner";
 import type { Todo } from "@/types/database";
 import { WidgetCard } from "@/components/widget-card";
@@ -57,6 +57,8 @@ export function TasksWidget({
   const { data: todos, isLoading, isError } = useTodos();
   const { data: people } = usePeople();
   const { data: pointAwards = [] } = useTodoPoints();
+  // What each child can still spend, as on the tasks page (discussion #349).
+  const { totalsFor: pointTotalsFor } = usePointTotals();
   const updateTodo = useUpdateTodo();
   const { data: taskDisplay } = useSetting<{ large: boolean }>(SETTINGS_KEYS.taskDisplay, { large: false });
   // The day rolls over on a kiosk that stays on: what is "today", and which
@@ -152,7 +154,7 @@ export function TasksWidget({
           <div className="flex flex-wrap gap-2">
             {people?.filter((person) => person.is_child).map((person) => (
               <span key={person.id} className="rounded-md bg-primary/10 px-2 py-1 text-xs text-primary">
-                {person.name} · ⭐ {pointsTotal(pointAwards, person.id)}
+                {person.name} · ⭐ {pointTotalsFor(person.id).balance}
               </span>
             ))}
           </div>

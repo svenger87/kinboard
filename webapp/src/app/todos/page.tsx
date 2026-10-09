@@ -31,6 +31,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { useTodoPoints } from "@/hooks/use-todo-points";
+import { usePointTotals } from "@/hooks/use-point-rewards";
 import { pointsTotal } from "@/lib/todo-points";
 import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
 import { useCreatures, activeCreatureOf } from "@/hooks/use-creatures";
@@ -178,15 +179,21 @@ function ChildChip({
   person,
   creature,
   earned,
+  balance,
   showPoints,
   pointsUnit,
+  pointsTitle,
   creatureAria,
 }: {
   person: Person;
   creature: Creature | undefined;
+  /** Every point earned, all time: what the creature grows with. */
   earned: number;
+  /** What is left to spend: earned, less rewards and shop purchases (#349). */
+  balance: number;
   showPoints: boolean;
   pointsUnit: string;
+  pointsTitle: string;
   creatureAria: string;
 }) {
   const { data: accounts } = usePocketMoneyAccounts();
@@ -220,7 +227,12 @@ function ChildChip({
       )}
       <span className="min-w-0 truncate font-medium">{person.name}</span>
       {showPoints && (
-        <span className="shrink-0 text-primary tabular-nums">⭐ {earned} {pointsUnit}</span>
+        // The points the child can still spend, not all they ever earned: a
+        // child who bought a hat for 50 saw those 50 here and thought they
+        // could buy another (discussion #349).
+        <span className="shrink-0 text-primary tabular-nums" title={pointsTitle} data-testid="todo-child-points">
+          ⭐ {balance} {pointsUnit}
+        </span>
       )}
     </div>
   );
@@ -290,6 +302,7 @@ export default function TodosPage() {
   const { data: todos, isLoading: loadingTodos, error: todosError, refetch: refetchTodos } = useTodos();
   const { data: people, isLoading: loadingPeople, error: peopleError, refetch: refetchPeople } = usePeople();
   const { data: pointAwards = [] } = useTodoPoints();
+  const { totalsFor: pointTotalsFor } = usePointTotals();
   // Each child's creature, beside their name in the points row (RFC-017 §4),
   // cheering on their own ticks (stores/creature-reactions.ts).
   const { data: creatures } = useCreatures();
@@ -957,8 +970,10 @@ export default function TodosPage() {
                     person={person}
                     creature={activeCreatureOf(creatures, person.id)}
                     earned={pointsTotal(pointAwards, person.id)}
+                    balance={pointTotalsFor(person.id).balance}
                     showPoints={showPoints}
                     pointsUnit={t("pointsUnit")}
+                    pointsTitle={t("pointsTitle", { balance: pointTotalsFor(person.id).balance, earned: pointTotalsFor(person.id).earned })}
                     creatureAria={t("creatureAria", { name: person.name })}
                   />
                 ))}

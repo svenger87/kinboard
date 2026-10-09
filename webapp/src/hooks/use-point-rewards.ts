@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { isPinRequired, relockSettings } from "@/lib/pin-session";
-import type { PointPurchase, PointRedemption, PointReward } from "@/types/database";
+import type { PointAwardRow, PointPurchase, PointRedemption, PointReward } from "@/types/database";
 import { useTodoPoints } from "./use-todo-points";
 import { pointsTotal } from "@/lib/todo-points";
 import { pointTotals, type PointTotals } from "@/lib/pocket-money/points";
@@ -21,6 +21,7 @@ import { ownedSet } from "@/lib/pocket-money/creatures/shop";
 export const POINT_REWARDS_KEY = "point-rewards";
 export const POINT_REDEMPTIONS_KEY = "point-redemptions";
 export const POINT_PURCHASES_KEY = "point-purchases";
+export const POINT_ADJUSTMENTS_KEY = "point-adjustments";
 
 export function usePointRewards() {
   const familyId = useFamilyStore((s) => s.family?.id);
@@ -129,6 +130,66 @@ export function useRefundPurchase() {
       // The look may have lost the item.
       qc.invalidateQueries({ queryKey: ["creatures"] });
     },
+  });
+}
+
+/**
+ * The points parents added or removed by hand (discussion #349), newest
+ * first. They are rows of todo_point_awards, so every total already counts
+ * them; this is the list a parent reads and can take one back from.
+ */
+export function usePointAdjustments() {
+  const familyId = useFamilyStore((s) => s.family?.id);
+  return useQuery({
+    queryKey: [POINT_ADJUSTMENTS_KEY, familyId],
+    enabled: Boolean(familyId),
+    queryFn: async (): Promise<PointAwardRow[]> => {
+      const { data, error } = await (createClient() as any)
+        .from("todo_point_awards")
+        .select("*")
+        .eq("family_id", familyId)
+        .eq("kind", "adjustment")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as PointAwardRow[];
+    },
+  });
+}
+
+/** Every query a change to a child's points moves. */
+function useInvalidatePoints() {
+  const qc = useQueryClient();
+  return () => {
+    qc.invalidateQueries({ queryKey: [POINT_ADJUSTMENTS_KEY] });
+    qc.invalidateQueries({ queryKey: ["todo-point-awards"] });
+  };
+}
+
+/** A parent adds (positive) or removes (negative) a child's points. Needs the settings PIN. */
+export function useAdjustPoints() {
+  const invalidate = useInvalidatePoints();
+  return useMutation({
+    mutationFn: async (input: { personId: string; points: number; note?: string }) => {
+      const r = await fetch("/api/points/adjustments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ person_id: input.personId, points: input.points, note: input.note ?? null }),
+      });
+      if (!r.ok) throw await failure(r, "adjust");
+    },
+    onSettled: invalidate,
+  });
+}
+
+/** A parent takes back an adjustment. Needs the settings PIN. */
+export function useRemoveAdjustment() {
+  const invalidate = useInvalidatePoints();
+  return useMutation({
+    mutationFn: async (adjustmentId: string) => {
+      const r = await fetch(`/api/points/adjustments/${adjustmentId}`, { method: "DELETE" });
+      if (!r.ok) throw await failure(r, "remove_adjustment");
+    },
+    onSettled: invalidate,
   });
 }
 

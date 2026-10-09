@@ -52,6 +52,7 @@ type TableName =
   | "point_rewards"
   | "point_redemptions"
   | "point_purchases"
+  | "todo_point_awards"
   | "creatures"
   | "pocket_money_accounts"
   | "pocket_money_transactions"
@@ -88,6 +89,7 @@ const ALL_TABLES: TableName[] = [
   "point_rewards",
   "point_redemptions",
   "point_purchases",
+  "todo_point_awards",
   "creatures",
   "pocket_money_accounts",
   "pocket_money_transactions",
@@ -183,6 +185,12 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           // Something bought in the shop on another screen (RFC-017 §5): the
           // balance and what the creature may wear both change.
           queryClient.invalidateQueries({ queryKey: ["point-purchases", family.id] });
+          break;
+        case "todo_point_awards":
+          // A task's points, or a parent's adjustment by hand (#349), which
+          // touches no task row: every total and the adjustments list move.
+          queryClient.invalidateQueries({ queryKey: ["todo-point-awards", family.id] });
+          queryClient.invalidateQueries({ queryKey: ["point-adjustments", family.id] });
           break;
         case "creatures":
           // A creature switched on or off, re-dressed, or its stage recorded

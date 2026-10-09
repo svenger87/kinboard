@@ -470,6 +470,9 @@ export {
   useOwnedItems,
   useBuyItem,
   useRefundPurchase,
+  usePointAdjustments,
+  useAdjustPoints,
+  useRemoveAdjustment,
 } from "./use-point-rewards";
 export {
   useCreatures,

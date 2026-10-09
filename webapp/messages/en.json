@@ -593,7 +593,7 @@
     "fieldIcon": "Task icon",
     "fieldPoints": "Points on completion",
     "fieldPointsHint": "For tasks assigned to children. Set to 0 to disable points.",
-    "pointsHeading": "Earned task points",
+    "pointsHeading": "Task points to spend",
     "pointsUnit": "points",
     "title": "Tasks",
     "subtitle": "{active} open, {recurring} recurring, {completed} done",
@@ -696,7 +696,8 @@
     "noTurnOpen": "This task's turns haven't started yet",
     "toggleTooltipUndo": "Done for this turn — tap to take it back",
     "turnsBetween": "Turns: {names}",
-    "creatureAria": "{name}'s creature"
+    "creatureAria": "{name}'s creature",
+    "pointsTitle": "{balance} left to spend, {earned} earned in total"
   },
   "meals": {
     "title": "Meal planning",
@@ -2905,7 +2906,24 @@
       "refundAria": "Refund {item}",
       "refundConfirmTitle": "Refund {item}?",
       "refundConfirmDescription": "{name} gets {count, plural, one {# point} other {# points}} back, and if it's being worn it comes off.",
-      "refundDone": "{item} refunded: {count, plural, one {# point} other {# points}} back."
+      "refundDone": "{item} refunded: {count, plural, one {# point} other {# points}} back.",
+      "pointsLabel": "Points",
+      "pointsHint": "Add points as a bonus, or remove some to correct a mistake. They count like task points: a bonus grows the creature, and points removed after they were spent come off the next ones earned.",
+      "adjustAmountLabel": "Points",
+      "adjustNoteLabel": "Note (optional)",
+      "adjustNotePlaceholder": "e.g. Helped wash the car",
+      "adjustAdd": "Add",
+      "adjustRemove": "Remove",
+      "adjustAddAria": "Add points for {name}",
+      "adjustRemoveAria": "Remove points from {name}",
+      "adjustAdded": "{count, plural, one {# point added for {name}} other {# points added for {name}}}",
+      "adjustRemoved": "{count, plural, one {# point removed from {name}} other {# points removed from {name}}}",
+      "adjustInvalid": "Enter a whole number from 1 to 10,000.",
+      "adjustmentsLabel": "Added and removed by hand",
+      "adjustmentsEmpty": "None yet.",
+      "adjustTakeBack": "Undo",
+      "adjustTakeBackAria": "Undo this change of {count} points",
+      "adjustTakenBack": "Undone"
     }
   },
   "settingsSearch": {

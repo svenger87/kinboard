@@ -593,7 +593,7 @@
     "fieldIcon": "Icône de la tâche",
     "fieldPoints": "Points à la réalisation",
     "fieldPointsHint": "Pour les tâches attribuées aux enfants. 0 désactive les points.",
-    "pointsHeading": "Points gagnés",
+    "pointsHeading": "Points de tâches à dépenser",
     "pointsUnit": "points",
     "title": "Tâches",
     "subtitle": "{active} en cours, {recurring} récurrentes, {completed} terminées",
@@ -696,7 +696,8 @@
     "noTurnOpen": "Les tours de cette tâche n'ont pas encore commencé",
     "toggleTooltipUndo": "Fait pour ce tour — touchez pour annuler",
     "turnsBetween": "À tour de rôle : {names}",
-    "creatureAria": "Créature de {name}"
+    "creatureAria": "Créature de {name}",
+    "pointsTitle": "{balance} à dépenser, {earned} gagnés au total"
   },
   "meals": {
     "title": "Planification des repas",
@@ -2905,7 +2906,24 @@
       "refundAria": "Rembourser : {item}",
       "refundConfirmTitle": "Rembourser : {item} ?",
       "refundConfirmDescription": "{name} récupère {count, plural, one {# point} other {# points}}, et si l'objet est porté, il est enlevé.",
-      "refundDone": "{item} remboursé : {count, plural, one {# point rendu} other {# points rendus}}."
+      "refundDone": "{item} remboursé : {count, plural, one {# point rendu} other {# points rendus}}.",
+      "pointsLabel": "Points",
+      "pointsHint": "Ajoutez des points en bonus, ou retirez-en pour corriger une erreur. Ils comptent comme des points de tâches : un bonus fait grandir la créature, et les points retirés déjà dépensés sont pris sur les prochains gagnés.",
+      "adjustAmountLabel": "Points",
+      "adjustNoteLabel": "Note (facultatif)",
+      "adjustNotePlaceholder": "p. ex. a aidé à laver la voiture",
+      "adjustAdd": "Ajouter",
+      "adjustRemove": "Retirer",
+      "adjustAddAria": "Ajouter des points à {name}",
+      "adjustRemoveAria": "Retirer des points à {name}",
+      "adjustAdded": "{count, plural, one {# point ajouté à {name}} other {# points ajoutés à {name}}}",
+      "adjustRemoved": "{count, plural, one {# point retiré à {name}} other {# points retirés à {name}}}",
+      "adjustInvalid": "Saisissez un nombre entier de 1 à 10 000.",
+      "adjustmentsLabel": "Ajoutés et retirés à la main",
+      "adjustmentsEmpty": "Rien pour l’instant.",
+      "adjustTakeBack": "Annuler",
+      "adjustTakeBackAria": "Annuler ce changement de {count} points",
+      "adjustTakenBack": "Annulé"
     }
   },
   "settingsSearch": {

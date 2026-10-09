@@ -47,13 +47,18 @@ test("a grown-up never shows points", () => {
   expect(showsPoints(PARENT, [{ person_id: "parent", points: 9 }], [{ points: 5, person_id: "parent" }])).toBe(false);
 });
 
-test("the tasks page, the tasks widget and the profile all count with the one helper", () => {
+test("the tasks page, the tasks widget and the profile all show what a child can spend, counted once", () => {
   const read = (path: string) => readFileSync(join(__dirname, "..", path), "utf8");
+  // What a child sees next to their name is the balance -- earned, less rewards
+  // and shop purchases -- not everything ever earned: a child who spent 50
+  // saw those 50 still there and thought they could spend them (#349).
   for (const file of ["src/app/todos/page.tsx", "src/components/widgets/tasks-widget.tsx", "src/components/widgets/family-members.tsx"]) {
     const source = read(file);
-    expect(source, file).toContain("pointsTotal(pointAwards");
+    expect(source, file).toMatch(/totalsFor\(\w+(\.id)?\)\.balance/i);
     // No second copy of the sum to drift from the first.
     expect(source, file).not.toMatch(/award\.person_id === .*reduce/);
   }
+  // The balance is the one helper's: usePointTotals sums the awards with pointsTotal.
+  expect(read("src/hooks/use-point-rewards.ts")).toContain("pointsTotal(awardRows, personId)");
   expect(read("src/components/widgets/family-members.tsx")).toContain("showsPoints(selectedPerson, pointAwards, todos)");
 });
