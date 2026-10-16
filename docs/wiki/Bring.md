@@ -10,14 +10,14 @@ Two-way sync between Kinboard's shopping list and the [Bring!](https://www.getbr
 
 - Logs into your Bring! account with email + password
 - Lists your Bring! lists; you pick the active one
-- Auto-syncs every 2 minutes (configurable)
-- Two-way: items added in Kinboard appear in Bring!, and vice versa
+- Auto-syncs every 2 minutes on the server (configurable)
+- Two-way: items added in Kinboard appear in Bring!, items added in Bring! appear in Kinboard, and items bought on either side are ticked off on the other
 - Optionally syncs Bring's category labels back into Kinboard
 
 ## What it does not
 
 - Doesn't sync multiple Bring! lists at once — one active list per family
-- No real-time sync (poll-based)
+- No real-time sync (poll-based): a change made in the Bring! app shows up in Kinboard within about 2 minutes
 - Doesn't sync the recipe-list integration that Bring! has
 
 ## Setup
@@ -45,16 +45,20 @@ After connect, the dropdown shows all your Bring! lists. Pick one — that becom
 | **Two-way sync** | Push Kinboard changes back to Bring! (default on; turn off for one-way "Kinboard mirrors Bring!" mode) |
 | **Sync categories** | Adopt Bring's category names instead of Kinboard's auto-detected ones (default on) |
 
-## How merge conflicts resolve
+## How the sync works
 
-The sync algorithm is "last write wins" per item:
+The Kinboard server reads your selected Bring! list every 2 minutes while **Auto sync** is on. It also reads it when someone opens the shopping page, and when you tap **Sync now** in Settings → Bring!. It does this even when no screen is open.
 
-- An item exists in both → the one with the later modification timestamp wins
-- An item only on Bring! → added to Kinboard
-- An item only in Kinboard → pushed to Bring!
-- An item completed in one → marked completed in the other
+- **Added in the Bring! app**: the item shows up on Kinboard's shopping list. A catalogue item shows in the family's language ("Milk" on an English Kinboard), but Kinboard remembers its Bring! name ("Milch") and uses it when it talks to Bring!.
+- **Bought in the Bring! app**: the item is ticked off in Kinboard.
+- **Put back on the list in the Bring! app**: the ticked item in Kinboard is unticked again.
+- **Added, ticked, unticked or deleted in Kinboard**: Bring! is told straight away from the shopping page. Anything that didn't reach Bring! (shop mode, an assistant, a phone that was offline, a failed push) is sent on the next sync.
 
-In practice this just works for shopping lists — collisions are rare and benign.
+Each item remembers whether it was ticked the last time the two lists agreed. That's how the sync tells "ticked in Kinboard" apart from "put back on the list in Bring!": the side that changed since then wins.
+
+With **Two-way sync** off, Kinboard only mirrors Bring!. Nothing is pushed, and when the two lists disagree, Bring! wins. Items you add only in Kinboard stay on Kinboard's list.
+
+The Bring! sign-in renews itself. If Bring! won't renew it (for example after you change your Bring! password), sign in again under Settings → Bring!.
 
 ## Disconnecting
 

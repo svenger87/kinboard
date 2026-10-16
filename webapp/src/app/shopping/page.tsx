@@ -65,6 +65,8 @@ import {
   useBringSettings,
   useBringAddItem,
   useBringRemoveItem,
+  useBringSync,
+  bringItemName,
   useKeyboardShortcuts,
   useSwipeNavigation,
   useCatalogSearch,
@@ -198,6 +200,14 @@ export default function ShoppingPage() {
 
   const isBringConnected = !!bringSettings?.credentials && !!bringSettings?.selectedListId;
   const isTwoWaySync = bringSettings?.twoWaySync ?? true;
+
+  // Pull what was added or bought in the Bring! app as the page opens; the
+  // server's two-minute sync covers the rest of the time.
+  const bringSync = useBringSync();
+  const bringSyncMutate = bringSync.mutate;
+  useEffect(() => {
+    if (isBringConnected && isOnline) bringSyncMutate();
+  }, [isBringConnected, isOnline, bringSettings?.selectedListId, bringSyncMutate]);
 
   // Input state
   const [inputValue, setInputValue] = useState("");
@@ -405,12 +415,12 @@ export default function ShoppingPage() {
           if (newChecked) {
             await bringRemoveItem.mutateAsync({
               listId: bringSettings.selectedListId,
-              itemName: item.name,
+              itemName: bringItemName(item),
             });
           } else {
             await bringAddItem.mutateAsync({
               listId: bringSettings.selectedListId,
-              itemName: item.name,
+              itemName: bringItemName(item),
             });
           }
         } catch (bringErr) {
@@ -444,7 +454,7 @@ export default function ShoppingPage() {
         try {
           await bringRemoveItem.mutateAsync({
             listId: bringSettings.selectedListId,
-            itemName: item.name,
+            itemName: bringItemName(item),
           });
         } catch (bringErr) {
           console.error("Failed to remove item from Bring!:", bringErr);
@@ -491,7 +501,7 @@ export default function ShoppingPage() {
           try {
             await bringRemoveItem.mutateAsync({
               listId: bringSettings.selectedListId,
-              itemName: item.name,
+              itemName: bringItemName(item),
             });
           } catch (bringErr) {
             console.error("Failed to remove item from Bring!:", bringErr);

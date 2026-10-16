@@ -22,7 +22,7 @@ let bringCatalogCacheTime = 0;
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 // Bring! catalog types
-interface BringCatalogItem {
+export interface BringCatalogItem {
   itemId: string;
   name: string;
   sectionId: string;
@@ -74,7 +74,7 @@ export interface CatalogSearchResult {
 
 // Map Bring! section names to our shopping categories
 // Uses shared BRING_TO_LOCAL_CATEGORY map, falls back to keyword detection
-function mapBringSectionToCategory(
+export function mapBringSectionToCategory(
   sectionName: string,
   itemName?: string,
   useBringCategories = true,
@@ -88,8 +88,9 @@ function mapBringSectionToCategory(
   return "sonstiges";
 }
 
-// Fetch and cache Bring! catalog
-async function getBringCatalog(): Promise<BringCatalogItem[]> {
+// Fetch and cache Bring! catalog (German: its item ids are the keys Bring!
+// lists store, and its section names are what BRING_TO_LOCAL_CATEGORY maps)
+export async function getBringCatalog(): Promise<BringCatalogItem[]> {
   const now = Date.now();
 
   // Return cached data if still valid

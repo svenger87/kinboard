@@ -23,7 +23,7 @@ import { parseShoppingInput } from "@/lib/shopping-input";
 import { detectCategory } from "@/lib/shopping-categories";
 import { searchCatalog, type CatalogSearchParams, type CatalogSearchResult } from "@/lib/catalog-search";
 import { getMergedSetting } from "@/lib/integration-secrets";
-import { addBringListItem, type ServerBringSettings } from "@/lib/bring-server";
+import { addBringListItem, withBringAccess, type ServerBringSettings } from "@/lib/bring-server";
 import {
   findMergeTarget,
   formatQuantity,
@@ -169,14 +169,18 @@ export async function pushToBring(
     if (!accessToken || !listId || settings?.twoWaySync === false) return "skipped";
 
     const specification = bringSpecification(item);
+    const signal = AbortSignal.timeout(BRING_TIMEOUT_MS);
     await withTimeout(
-      add({
-        accessToken,
-        listId,
-        itemName: item.name,
-        specification,
-        signal: AbortSignal.timeout(BRING_TIMEOUT_MS),
-      }),
+      // Renews an expired access token once and retries.
+      withBringAccess(familyId, settings, (token) =>
+        add({
+          accessToken: token,
+          listId,
+          itemName: item.name,
+          specification,
+          signal,
+        }),
+      ),
       BRING_TIMEOUT_MS,
       "Bring! push",
     );

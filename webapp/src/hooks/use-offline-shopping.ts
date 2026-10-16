@@ -135,6 +135,7 @@ export function useOfflineCreateShoppingItem() {
         recipe_id: item.recipe_id ?? null,
         added_by: item.added_by ?? null,
         bring_item_id: null,
+        bring_checked: null,
         created_at: new Date().toISOString(),
         _localId: localId,
         _syncStatus: "pending",

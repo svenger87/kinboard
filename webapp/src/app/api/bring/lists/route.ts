@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { BRING_API_URL, BRING_HEADERS, BringAuthError, withBringAccess } from "@/lib/bring-server";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +15,6 @@ interface BringSettings {
     refreshToken: string;
   } | null;
 }
-
-const BRING_API_URL = "https://api.getbring.com/rest/v2";
-const BRING_API_KEY = "cof4Nc6D8saplXjE3h3HXqHH8m7VU2i1Gs0g85Sp";
 
 interface BringList {
   listUuid: string;
@@ -54,28 +52,22 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
-    const authHeader = `Bearer ${credentials.accessToken}`;
     const uuid = credentials.uuid;
 
-    // Fetch user's lists
-    const response = await fetch(`${BRING_API_URL}/bringusers/${uuid}/lists`, {
-      headers: {
-        Authorization: authHeader,
-        "X-BRING-API-KEY": BRING_API_KEY,
-        "X-BRING-CLIENT": "webApp",
-        "X-BRING-CLIENT-SOURCE": "webApp",
-        "X-BRING-COUNTRY": "DE",
-        "X-BRING-USER-UUID": uuid,
-      },
+    // Fetch user's lists, with the token renewed once if Bring! has expired it
+    const response = await withBringAccess(familyId, settings, async (accessToken) => {
+      const res = await fetch(`${BRING_API_URL}/bringusers/${uuid}/lists`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          ...BRING_HEADERS,
+          "X-BRING-USER-UUID": uuid,
+        },
+      });
+      if (res.status === 401) throw new BringAuthError();
+      return res;
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        return NextResponse.json(
-          { error: "Token expired" },
-          { status: 401 }
-        );
-      }
       throw new Error(`Failed to fetch lists: ${response.status}`);
     }
 
@@ -90,6 +82,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(lists);
   } catch (error) {
+    if (error instanceof BringAuthError) {
+      return NextResponse.json({ error: "Token expired" }, { status: 401 });
+    }
     console.error("Bring lists error:", error);
     return NextResponse.json(
       { error: "Failed to fetch lists" },

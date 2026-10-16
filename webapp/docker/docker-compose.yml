@@ -486,6 +486,11 @@ services:
       ofelia.job-exec.sync-caldav.schedule: "0 15,45 * * * *"
       ofelia.job-exec.sync-caldav.command: "/usr/local/bin/sync-caldav"
       ofelia.job-exec.sync-caldav.no-overlap: "true"
+      # #407: the two minutes Settings → Bring! "Auto sync" promises. The
+      # route skips families with it off, so this costs nothing without Bring!.
+      ofelia.job-exec.sync-bring.schedule: "@every 2m"
+      ofelia.job-exec.sync-bring.command: "/usr/local/bin/sync-bring"
+      ofelia.job-exec.sync-bring.no-overlap: "true"
       # RFC-014 §5.2: daily, counted from container start so installs spread
       # across the day; the route fetches only for families whose last sync is
       # more than a week old.

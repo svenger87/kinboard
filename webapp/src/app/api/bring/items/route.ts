@@ -1,30 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-import { BRING_API_URL, BRING_API_KEY, addBringListItem } from "@/lib/bring-server";
+import {
+  BringAuthError,
+  addBringListItem,
+  getBringList,
+  removeBringListItem,
+  withBringAccess,
+  type ServerBringSettings,
+} from "@/lib/bring-server";
 
 export const dynamic = "force-dynamic";
-
-// Server-side merged shape: unlike the client's BringCredentials, this
-// includes the real access token (re-injected by getMergedSetting from
-// integration_secrets — never sent to the browser).
-interface BringSettings {
-  credentials: {
-    accessToken: string;
-  } | null;
-}
-
-interface BringItem {
-  name: string;
-  specification: string;
-}
-
-interface BringItemsResponse {
-  uuid: string;
-  status: string;
-  purchase: BringItem[];
-  recently: BringItem[];
-}
 
 // Talks to Bring! as the family, with the account credentials stored for them.
 export async function GET(request: NextRequest) {
@@ -46,7 +32,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "not authenticated" }, { status: 401 });
     }
 
-    const settings = await getMergedSetting<BringSettings>(familyId, "bring_settings");
+    const settings = await getMergedSetting<ServerBringSettings>(familyId, "bring_settings");
     const credentials = settings?.credentials;
     if (!credentials?.accessToken) {
       return NextResponse.json(
@@ -54,8 +40,6 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
-    const authHeader = `Bearer ${credentials.accessToken}`;
-
     if (!listId) {
       return NextResponse.json(
         { error: "List ID required" },
@@ -63,28 +47,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch list items
-    const response = await fetch(`${BRING_API_URL}/bringlists/${listId}`, {
-      headers: {
-        Authorization: authHeader,
-        "X-BRING-API-KEY": BRING_API_KEY,
-        "X-BRING-CLIENT": "webApp",
-        "X-BRING-CLIENT-SOURCE": "webApp",
-        "X-BRING-COUNTRY": "DE",
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        return NextResponse.json(
-          { error: "Token expired" },
-          { status: 401 }
-        );
-      }
-      throw new Error(`Failed to fetch items: ${response.status}`);
-    }
-
-    const data: BringItemsResponse = await response.json();
+    const data = await withBringAccess(familyId, settings, (accessToken) =>
+      getBringList({ accessToken, listId })
+    );
 
     return NextResponse.json({
       listId: data.uuid,
@@ -99,6 +64,9 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
+    if (error instanceof BringAuthError) {
+      return NextResponse.json({ error: "Token expired" }, { status: 401 });
+    }
     console.error("Bring items error:", error);
     return NextResponse.json(
       { error: "Failed to fetch items" },
@@ -125,7 +93,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "not authenticated" }, { status: 401 });
     }
 
-    const settings = await getMergedSetting<BringSettings>(familyId, "bring_settings");
+    const settings = await getMergedSetting<ServerBringSettings>(familyId, "bring_settings");
     const credentials = settings?.credentials;
     if (!credentials?.accessToken) {
       return NextResponse.json(
@@ -142,15 +110,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Add item to list
-    await addBringListItem({
-      accessToken: credentials.accessToken,
-      listId,
-      itemName,
-      specification,
-    });
+    await withBringAccess(familyId, settings, (accessToken) =>
+      addBringListItem({ accessToken, listId, itemName, specification })
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof BringAuthError) {
+      return NextResponse.json({ error: "Token expired" }, { status: 401 });
+    }
     console.error("Bring add item error:", error);
     return NextResponse.json(
       { error: "Failed to add item" },
@@ -179,7 +147,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "not authenticated" }, { status: 401 });
     }
 
-    const settings = await getMergedSetting<BringSettings>(familyId, "bring_settings");
+    const settings = await getMergedSetting<ServerBringSettings>(familyId, "bring_settings");
     const credentials = settings?.credentials;
     if (!credentials?.accessToken) {
       return NextResponse.json(
@@ -187,8 +155,6 @@ export async function DELETE(request: NextRequest) {
         { status: 401 }
       );
     }
-    const authHeader = `Bearer ${credentials.accessToken}`;
-
     if (!listId || !itemName) {
       return NextResponse.json(
         { error: "List ID and item name required" },
@@ -197,28 +163,15 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Remove item from list (mark as completed)
-    const response = await fetch(`${BRING_API_URL}/bringlists/${listId}`, {
-      method: "PUT",
-      headers: {
-        Authorization: authHeader,
-        "Content-Type": "application/x-www-form-urlencoded",
-        "X-BRING-API-KEY": BRING_API_KEY,
-        "X-BRING-CLIENT": "webApp",
-        "X-BRING-CLIENT-SOURCE": "webApp",
-        "X-BRING-COUNTRY": "DE",
-      },
-      body: new URLSearchParams({
-        uuid: listId,
-        recently: itemName,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to remove item: ${response.status}`);
-    }
+    await withBringAccess(familyId, settings, (accessToken) =>
+      removeBringListItem({ accessToken, listId, itemName })
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof BringAuthError) {
+      return NextResponse.json({ error: "Token expired" }, { status: 401 });
+    }
     console.error("Bring remove item error:", error);
     return NextResponse.json(
       { error: "Failed to remove item" },

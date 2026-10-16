@@ -99,7 +99,20 @@ test("every family-scoped table is under row-level security", () => {
     "point_rewards", "point_redemptions",
     "creatures",
     "point_purchases",
+    "bring_removals",
   ]);
+
+  // - bring_removals (#407): what the Bring! sync still has to take off the
+  //   Bring! list. RLS on with no policy, REVOKE ALL from anon/authenticated
+  //   and GRANT to service_role only, in migration_bring_pull_sync.sql: only
+  //   the sync reads it, and the trigger that writes it runs as its owner.
+  const bringSql = codeOnly(readFileSync(join(DOCKER, "migration_bring_pull_sync.sql"), "utf8"), { sql: true });
+  expect(bringSql).toMatch(/ALTER TABLE public\.bring_removals ENABLE ROW LEVEL SECURITY;/i);
+  expect(bringSql).toMatch(/REVOKE ALL ON TABLE public\.bring_removals FROM anon;/i);
+  expect(bringSql).toMatch(/REVOKE ALL ON TABLE public\.bring_removals FROM authenticated;/i);
+  expect(bringSql).toMatch(/GRANT ALL ON TABLE public\.bring_removals TO service_role;/i);
+  expect(bringSql).not.toMatch(/CREATE POLICY[^;]*bring_removals/i);
+  expect(browserWriteGrants(bringSql, "bring_removals")).toEqual([]);
 
   // - todo_occurrences / todo_events (#341): their own RLS + a family-scoped
   //   SELECT-only policy, REVOKE ALL from anon/authenticated and only SELECT

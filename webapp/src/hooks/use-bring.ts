@@ -254,6 +254,44 @@ export function useBringRemoveItem() {
   });
 }
 
+/**
+ * Read the selected Bring! list into Kinboard's shopping list now (#407).
+ * The server does the reconciling (lib/bring-sync.ts); the new and ticked
+ * rows reach every screen through realtime, and the invalidation covers a
+ * client whose realtime channel is down.
+ */
+export function useBringSync() {
+  const { family } = useFamilyStore();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!family?.id) throw new Error("No family");
+      const response = await fetch("/api/bring/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ family_id: family.id }),
+      });
+      if (!response.ok) throw new Error("Bring! sync failed");
+      return response.json();
+    },
+    onSuccess: () => {
+      if (!family?.id) return;
+      queryClient.invalidateQueries({ queryKey: queryKeys.shoppingItems(family.id) });
+      queryClient.invalidateQueries({ queryKey: ["bring", "items"] });
+    },
+  });
+}
+
+/**
+ * The name Bring! knows an item by: the key it was pulled with (a German
+ * catalogue name such as "Milch", whatever the item is called in Kinboard),
+ * else its Kinboard name.
+ */
+export function bringItemName(item: { name: string; bring_item_id?: string | null }): string {
+  return item.bring_item_id || item.name;
+}
+
 export function useUpdateBringSettings() {
   const supabase = createClient();
   const updateSetting = useUpdateSetting();

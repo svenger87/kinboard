@@ -142,6 +142,11 @@ RUN echo '#!/bin/sh' > /usr/local/bin/sync-caldav && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-caldav' >> /usr/local/bin/sync-caldav && \
     chmod +x /usr/local/bin/sync-caldav
 
+# Reads each family's Bring! list into its shopping list (#407).
+RUN echo '#!/bin/sh' > /usr/local/bin/sync-bring && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-bring' >> /usr/local/bin/sync-bring && \
+    chmod +x /usr/local/bin/sync-bring
+
 # Syncs school holidays from OpenHolidays for families that turned it on and
 # have not synced for a week (RFC-014 §5.2).
 RUN echo '#!/bin/sh' > /usr/local/bin/sync-school-holidays && \

@@ -26,6 +26,8 @@ export {
   useBringAddItem,
   useBringRemoveItem,
   useUpdateBringSettings,
+  useBringSync,
+  bringItemName,
   useBringCatalog,
   useBringItemSuggestions,
   getBringItemCategory,

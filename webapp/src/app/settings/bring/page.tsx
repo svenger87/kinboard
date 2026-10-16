@@ -44,6 +44,7 @@ import {
   useBringLists,
   useBringItems,
   useUpdateBringSettings,
+  useBringSync,
 } from "@/hooks";
 import { toast } from "sonner";
 
@@ -55,6 +56,7 @@ export default function BringSettingsPage() {
   const loginMutation = useBringLogin();
   const logoutMutation = useBringLogout();
   const updateSettings = useUpdateBringSettings();
+  const bringSync = useBringSync();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -85,6 +87,8 @@ export default function BringSettingsPage() {
   const handleSync = async () => {
     try {
       await refetchLists();
+      // Reads the list into the shopping page, then the count here.
+      await bringSync.mutateAsync();
       await refetchItems();
     } catch {
       toast.error(t("syncFailed"));
@@ -276,12 +280,12 @@ export default function BringSettingsPage() {
                       variant="outline"
                       size="sm"
                       onClick={handleSync}
-                      disabled={isRefetching}
+                      disabled={isRefetching || bringSync.isPending}
                     >
                       <RefreshCw
-                        className={`size-4 mr-2 ${isRefetching ? "animate-spin" : ""}`}
+                        className={`size-4 mr-2 ${isRefetching || bringSync.isPending ? "animate-spin" : ""}`}
                       />
-                      {isRefetching ? t("syncing") : t("syncNow")}
+                      {isRefetching || bringSync.isPending ? t("syncing") : t("syncNow")}
                     </Button>
                   </div>
                 </Card>
