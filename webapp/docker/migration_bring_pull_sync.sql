@@ -12,6 +12,11 @@
 --     Bring!. checked <> bring_checked means Kinboard changed it since; equal
 --     means any difference on Bring! is Bring!'s. NULL means never synced.
 --
+--   * shopping_items.bring_list_id is the Bring! list the link belongs to.
+--     A link to another list (the family picked a different one, or signed
+--     in to another account) counts as no link: otherwise every linked open
+--     item would look bought there and be ticked off.
+--
 --   * bring_removals records an open, Bring!-linked item deleted in Kinboard,
 --     by any path, so the next sync takes it off the Bring! list instead of
 --     reading it straight back in. A trigger, for the same reason the recycle
@@ -21,13 +26,17 @@
 -- Idempotent: safe on every boot.
 
 ALTER TABLE public.shopping_items ADD COLUMN IF NOT EXISTS bring_checked BOOLEAN;
+ALTER TABLE public.shopping_items ADD COLUMN IF NOT EXISTS bring_list_id TEXT;
 
 CREATE TABLE IF NOT EXISTS public.bring_removals (
   id BIGSERIAL PRIMARY KEY,
   family_id UUID NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
   bring_item_id TEXT NOT NULL,
+  bring_list_id TEXT,
   deleted_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.bring_removals ADD COLUMN IF NOT EXISTS bring_list_id TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_bring_removals_family ON public.bring_removals(family_id);
 
@@ -57,8 +66,8 @@ AS $$
 BEGIN
   -- Not when the family itself is being deleted: its items go in the
   -- cascade, and a row pointing at the family would fail that delete.
-  INSERT INTO public.bring_removals (family_id, bring_item_id)
-  SELECT OLD.family_id, OLD.bring_item_id
+  INSERT INTO public.bring_removals (family_id, bring_item_id, bring_list_id)
+  SELECT OLD.family_id, OLD.bring_item_id, OLD.bring_list_id
   WHERE EXISTS (SELECT 1 FROM public.families WHERE id = OLD.family_id);
   RETURN OLD;
 END;

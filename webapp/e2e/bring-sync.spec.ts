@@ -180,7 +180,7 @@ test.describe("applying a plan", () => {
     settings?: ServerBringSettings | null;
     purchase?: BringListItem[];
     rows?: SyncShoppingRow[];
-    removals?: { id: number; bring_item_id: string }[];
+    removals?: { id: number; bring_item_id: string; bring_list_id?: string | null }[];
     failAdd?: boolean;
   }) {
     const calls = {
@@ -242,7 +242,7 @@ test.describe("applying a plan", () => {
     const outcome = await syncBringFamily("fam-c", deps);
     expect(outcome).toEqual({ status: "synced", added: 1, updated: 0, pushed: 0, removed: 0 });
     expect(calls.inserts).toEqual([
-      { name: "Milch", bring_item_id: "Milch", quantity: null, unit: null, notes: null, category: "milchprodukte" },
+      { name: "Milch", bring_item_id: "Milch", quantity: null, unit: null, notes: null, category: "milchprodukte", bring_list_id: "list-1" },
     ]);
     expect(calls.cleared).toEqual([7]);
   });
@@ -251,6 +251,45 @@ test.describe("applying a plan", () => {
     const { deps, calls } = fakeDeps({ rows: [row({ name: "Brot" })], failAdd: true });
     await expect(syncBringFamily("fam-d", deps)).rejects.toThrow("Bring! is down");
     expect(calls.updates).toEqual([]);
+  });
+
+  test("an item gone from the same list was bought there and is ticked off", async () => {
+    const milk = row({ name: "Milch", bring_item_id: "Milch", bring_checked: false, bring_list_id: "list-1" });
+    const { deps, calls } = fakeDeps({ rows: [milk], settings: { credentials: { accessToken: "t" }, selectedListId: "list-1", twoWaySync: false } });
+    await syncBringFamily("fam-f", deps);
+    expect(calls.updates).toEqual([{ id: milk.id, patch: { checked: true, bring_checked: true } }]);
+  });
+
+  test("after switching to another Bring! list, nothing is ticked off for not being on it", async () => {
+    // Linked to the old list; the new one is empty. One-way: left alone.
+    const rows = [
+      row({ name: "Milch", bring_item_id: "Milch", bring_checked: false, bring_list_id: "list-old" }),
+      row({ name: "Brot", bring_item_id: "Brot", bring_checked: false, bring_list_id: null }),
+    ];
+    const oneWay = fakeDeps({ rows, settings: { credentials: { accessToken: "t" }, selectedListId: "list-1", twoWaySync: false } });
+    await syncBringFamily("fam-g", oneWay.deps);
+    expect(oneWay.calls.updates).toEqual([]);
+
+    // Two-way: they go onto the new list and are linked to it.
+    const twoWay = fakeDeps({ rows });
+    await syncBringFamily("fam-h", twoWay.deps);
+    expect(twoWay.calls.adds.sort()).toEqual(["Brot", "Milch"]);
+    for (const update of twoWay.calls.updates) {
+      expect(update.patch).toEqual({ bring_item_id: expect.any(String), bring_checked: false, bring_list_id: "list-1" });
+    }
+    expect(twoWay.calls.updates).toHaveLength(2);
+  });
+
+  test("a deletion recorded against another list is not taken off this one", async () => {
+    const ticked = row({ name: "Milch", checked: true, bring_item_id: "Milch", bring_checked: true, bring_list_id: "list-1" });
+    const { deps, calls } = fakeDeps({
+      purchase: [item("Milch")],
+      rows: [ticked],
+      removals: [{ id: 9, bring_item_id: "Milch", bring_list_id: "list-old" }],
+    });
+    await syncBringFamily("fam-i", deps);
+    expect(calls.removes).toEqual([]);
+    expect(calls.cleared).toEqual([9]);
   });
 
   test("two syncs of one family run one after the other", async () => {

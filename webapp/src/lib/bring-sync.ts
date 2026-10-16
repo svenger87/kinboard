@@ -14,6 +14,10 @@
  *     uses), set once an item has been seen on, or put on, the Bring! list.
  *     An open item that is linked and gone from Bring! was bought there; one
  *     that was never linked never got there.
+ *   - `bring_list_id`, the Bring! list the link belongs to. A link to another
+ *     list — the family picked a different one, or signed in to another
+ *     account — counts as no link, or every linked open item would look
+ *     bought on the new list and be ticked off.
  *   - `bring_checked`, the ticked state last agreed with Bring!. A row whose
  *     `checked` differs from it was ticked or unticked in Kinboard since —
  *     by the shop mode, an assistant, the offline queue, any path — and
@@ -55,6 +59,8 @@ export interface SyncShoppingRow extends Quantity {
   checked: boolean | null;
   bring_item_id: string | null;
   bring_checked: boolean | null;
+  /** The list `bring_item_id` belongs to; the sync drops a link to another list. */
+  bring_list_id?: string | null;
 }
 
 export interface BringSyncInsert extends Quantity {
@@ -68,6 +74,7 @@ export interface BringSyncPatch {
   checked?: boolean;
   bring_item_id?: string;
   bring_checked?: boolean;
+  bring_list_id?: string;
 }
 
 export interface BringSyncPlan {
@@ -212,14 +219,18 @@ export interface BringSyncDeps {
   /** The Kinboard category for a new item. */
   category: (bringKey: string, name: string, useBringCategories: boolean) => Promise<string>;
   rows: (familyId: string) => Promise<SyncShoppingRow[]>;
-  /** Deletions the trigger recorded: their ids (to clear afterwards) and keys. */
-  removals: (familyId: string) => Promise<{ id: number; bring_item_id: string }[]>;
+  /** Deletions the trigger recorded: their ids (to clear afterwards), keys and lists. */
+  removals: (familyId: string) => Promise<{ id: number; bring_item_id: string; bring_list_id?: string | null }[]>;
   clearRemovals: (familyId: string, ids: number[]) => Promise<void>;
-  insert: (familyId: string, rows: Array<BringSyncInsert & { category: string }>) => Promise<void>;
+  insert: (familyId: string, rows: Array<BringSyncInsert & { category: string; bring_list_id: string }>) => Promise<void>;
   update: (familyId: string, id: string, patch: BringSyncPatch) => Promise<void>;
 }
 
-/** Enough for a household's list, ticked items included. */
+/**
+ * Open items a sync reads at most, and ticked ones (newest first). More open
+ * items than this and the sync refuses rather than plan from part of the
+ * list: an open item it did not read would be added again on every run.
+ */
 const MAX_ROWS = 1000;
 const BRING_TIMEOUT_MS = 10_000;
 
@@ -254,17 +265,21 @@ async function syncOnce(familyId: string, deps: BringSyncDeps): Promise<BringSyn
 
   return deps.withAccess(familyId, settings, async (accessToken) => {
     const signal = () => AbortSignal.timeout(BRING_TIMEOUT_MS);
-    const [list, rows, translations, removals] = await Promise.all([
+    const [list, storedRows, translations, removals] = await Promise.all([
       deps.getList({ accessToken, listId, signal: signal() }),
       deps.rows(familyId),
       deps.translations(familyId),
       deps.removals(familyId),
     ]);
+    // A link made with another list says nothing about this one.
+    const rows = storedRows.map((row) =>
+      row.bring_item_id && row.bring_list_id !== listId ? { ...row, bring_item_id: null, bring_checked: null } : row,
+    );
     const plan = planBringSync({
       purchase: list.purchase,
       rows,
       translations,
-      removed: removals.map((r) => r.bring_item_id),
+      removed: removals.filter((r) => r.bring_list_id === listId).map((r) => r.bring_item_id),
       push,
     });
 
@@ -282,11 +297,14 @@ async function syncOnce(familyId: string, deps: BringSyncDeps): Promise<BringSyn
         plan.inserts.map(async (row) => ({
           ...row,
           category: await deps.category(row.bring_item_id, row.name, useBringCategories),
+          bring_list_id: listId,
         })),
       );
       await deps.insert(familyId, withCategories);
     }
-    for (const { id, patch } of plan.updates) await deps.update(familyId, id, patch);
+    for (const { id, patch } of plan.updates) {
+      await deps.update(familyId, id, patch.bring_item_id ? { ...patch, bring_list_id: listId } : patch);
+    }
     if (removals.length > 0) await deps.clearRemovals(familyId, removals.map((r) => r.id));
 
     return {
@@ -355,19 +373,40 @@ export function liveBringSyncDeps(db: ReturnType<typeof createAdminClient> = cre
       return entry ? mapBringSectionToCategory(entry.sectionName, name, useBringCategories) : detectCategory(name);
     },
     async rows(familyId) {
-      const { data, error } = await client
-        .from("shopping_items")
-        .select("id, name, checked, bring_item_id, bring_checked, quantity, unit")
-        .eq("family_id", familyId)
-        .order("created_at", { ascending: true })
-        .limit(MAX_ROWS);
-      if (error) throw error;
-      return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+      // Every open item, and the newest ticked ones: a household that never
+      // clears its bought items still has all its open ones read.
+      const columns = "id, name, checked, bring_item_id, bring_checked, bring_list_id, quantity, unit, created_at";
+      const [open, ticked] = await Promise.all([
+        client
+          .from("shopping_items")
+          .select(columns)
+          .eq("family_id", familyId)
+          .or("checked.is.null,checked.eq.false")
+          .order("created_at", { ascending: true })
+          .limit(MAX_ROWS + 1),
+        client
+          .from("shopping_items")
+          .select(columns)
+          .eq("family_id", familyId)
+          .eq("checked", true)
+          .order("created_at", { ascending: false })
+          .limit(MAX_ROWS),
+      ]);
+      if (open.error) throw open.error;
+      if (ticked.error) throw ticked.error;
+      if ((open.data ?? []).length > MAX_ROWS) {
+        throw new Error(`[bring-sync] more than ${MAX_ROWS} open shopping items; not syncing part of the list`);
+      }
+      const data = [...(open.data ?? []), ...(ticked.data ?? [])] as Record<string, unknown>[];
+      // Oldest first, as planBringSync expects.
+      data.sort((a, b) => Date.parse(String(a.created_at)) - Date.parse(String(b.created_at)));
+      return data.map((row) => ({
         id: String(row.id),
         name: String(row.name ?? ""),
         checked: (row.checked as boolean | null) ?? null,
         bring_item_id: (row.bring_item_id as string | null) ?? null,
         bring_checked: (row.bring_checked as boolean | null) ?? null,
+        bring_list_id: (row.bring_list_id as string | null) ?? null,
         quantity: row.quantity === null || row.quantity === undefined ? null : Number(row.quantity),
         unit: (row.unit as string | null) ?? null,
       }));
@@ -375,14 +414,15 @@ export function liveBringSyncDeps(db: ReturnType<typeof createAdminClient> = cre
     async removals(familyId) {
       const { data, error } = await client
         .from("bring_removals")
-        .select("id, bring_item_id")
+        .select("id, bring_item_id, bring_list_id")
         .eq("family_id", familyId)
         .order("id", { ascending: true })
         .limit(MAX_ROWS);
       if (error) throw error;
-      return ((data ?? []) as Array<{ id: number; bring_item_id: string }>).map((r) => ({
+      return ((data ?? []) as Array<{ id: number; bring_item_id: string; bring_list_id: string | null }>).map((r) => ({
         id: Number(r.id),
         bring_item_id: String(r.bring_item_id),
+        bring_list_id: r.bring_list_id ?? null,
       }));
     },
     async clearRemovals(familyId, ids) {

@@ -495,6 +495,7 @@ export interface Database {
           checked: boolean;
           bring_item_id: string | null;
           bring_checked: boolean | null;
+          bring_list_id: string | null;
           category: string | null;
           quantity: number | null;
           unit: string | null;
@@ -512,6 +513,7 @@ export interface Database {
           checked?: boolean;
           bring_item_id?: string | null;
           bring_checked?: boolean | null;
+          bring_list_id?: string | null;
           category?: string | null;
           quantity?: number | null;
           unit?: string | null;
@@ -529,6 +531,7 @@ export interface Database {
           checked?: boolean;
           bring_item_id?: string | null;
           bring_checked?: boolean | null;
+          bring_list_id?: string | null;
           category?: string | null;
           quantity?: number | null;
           unit?: string | null;
