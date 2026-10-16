@@ -31,6 +31,13 @@ export interface ServerBringSettings {
   syncCategories?: boolean;
 }
 
+/**
+ * A Bring! list id is a UUID. The routes take it from the request, and it
+ * becomes part of the URL path, so anything else is refused before a
+ * request is made (`../` would otherwise walk to another endpoint).
+ */
+const BRING_LIST_ID = /^[A-Za-z0-9-]{1,64}$/;
+
 /** Bring! answered 401: the access token is no longer accepted. */
 export class BringAuthError extends Error {
   constructor(message = "Bring! rejected the access token") {
@@ -53,6 +60,7 @@ export async function addBringListItem({
   specification?: string;
   signal?: AbortSignal;
 }): Promise<void> {
+  if (!BRING_LIST_ID.test(listId)) throw new Error("Invalid Bring! list id");
   const response = await fetch(`${BRING_API_URL}/bringlists/${listId}`, {
     method: "PUT",
     headers: {
@@ -90,6 +98,7 @@ export async function removeBringListItem({
   itemName: string;
   signal?: AbortSignal;
 }): Promise<void> {
+  if (!BRING_LIST_ID.test(listId)) throw new Error("Invalid Bring! list id");
   const response = await fetch(`${BRING_API_URL}/bringlists/${listId}`, {
     method: "PUT",
     headers: {
@@ -129,6 +138,7 @@ export async function getBringList({
   listId: string;
   signal?: AbortSignal;
 }): Promise<BringListContents> {
+  if (!BRING_LIST_ID.test(listId)) throw new Error("Invalid Bring! list id");
   const response = await fetch(`${BRING_API_URL}/bringlists/${listId}`, {
     headers: { Authorization: `Bearer ${accessToken}`, ...BRING_HEADERS },
     signal,

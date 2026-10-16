@@ -6,7 +6,7 @@ import {
   type BringSyncPatch,
   type SyncShoppingRow,
 } from "../src/lib/bring-sync";
-import { BringAuthError, type BringListItem, type ServerBringSettings } from "../src/lib/bring-server";
+import { BringAuthError, getBringList, removeBringListItem, addBringListItem, type BringListItem, type ServerBringSettings } from "../src/lib/bring-server";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -267,6 +267,17 @@ test.describe("applying a plan", () => {
     };
     await Promise.all([syncBringFamily("fam-e", deps), syncBringFamily("fam-e", deps)]);
     expect(peak).toBe(1);
+  });
+});
+
+test.describe("list ids", () => {
+  test("a list id that is not a Bring! id is refused before any request", async () => {
+    // The routes take listId from the request and it goes into the URL path.
+    for (const listId of ["../bringusers/x/lists", "a/b", "", "id?x=1"]) {
+      await expect(getBringList({ accessToken: "t", listId })).rejects.toThrow("Invalid Bring! list id");
+      await expect(removeBringListItem({ accessToken: "t", listId, itemName: "Milch" })).rejects.toThrow("Invalid Bring! list id");
+      await expect(addBringListItem({ accessToken: "t", listId, itemName: "Milch" })).rejects.toThrow("Invalid Bring! list id");
+    }
   });
 });
 
