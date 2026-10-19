@@ -3,6 +3,7 @@ import { useFamilyStore } from "@/stores/family-store";
 import type { CameraConfig, CameraSettings } from "@/types/home-assistant";
 import { safeRandomUUID } from "@/lib/uuid";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { isPinRequired, relockSettings } from "@/lib/pin-session";
 
 const cameraSettingsKey = (familyId: string | undefined) => ["camera-settings", familyId];
 
@@ -97,6 +98,12 @@ export function useSaveCameraSettings() {
       });
 
       if (!response.ok) {
+        // A setting holding a secret needs the settings PIN on the server;
+        // a lapsed unlock puts the PIN screen back up instead of failing.
+        if (await isPinRequired(response)) {
+          relockSettings();
+          throw new Error("pin_required");
+        }
         // The server names what it refused — a doorbell another camera
         // already has, say — so that, not a generic failure, is what the
         // dialog shows.

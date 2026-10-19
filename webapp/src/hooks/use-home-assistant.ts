@@ -14,6 +14,7 @@ import type {
   EntityHistory,
   StatisticsPeriod,
 } from "@/types/home-assistant";
+import { isPinRequired, relockSettings } from "@/lib/pin-session";
 
 // ============================================================================
 // Connection & Status Hooks
@@ -197,6 +198,12 @@ export function useSaveHomeAssistantSettings() {
       });
 
       if (!response.ok) {
+        // A setting holding a secret needs the settings PIN on the server;
+        // a lapsed unlock puts the PIN screen back up instead of failing.
+        if (await isPinRequired(response)) {
+          relockSettings();
+          throw new Error("pin_required");
+        }
         throw new Error("Failed to save Home Assistant settings");
       }
 

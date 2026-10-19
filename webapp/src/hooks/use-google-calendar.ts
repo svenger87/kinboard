@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { isPinRequired, relockSettings } from "@/lib/pin-session";
 
 interface GoogleCalendarSettings {
   access_token: string;
@@ -223,6 +224,12 @@ export function useDisconnectGoogleCalendar() {
       });
 
       if (!response.ok) {
+        // A setting holding a secret needs the settings PIN on the server;
+        // a lapsed unlock puts the PIN screen back up instead of failing.
+        if (await isPinRequired(response)) {
+          relockSettings();
+          throw new Error("pin_required");
+        }
         throw new Error("Failed to disconnect");
       }
 

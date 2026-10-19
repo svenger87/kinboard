@@ -26,6 +26,7 @@ import type {
   BirthdayGiftIdea,
   Note,
 } from "@/types/database";
+import { isPinRequired, relockSettings } from "@/lib/pin-session";
 
 // ===================
 // HELPERS
@@ -2371,7 +2372,14 @@ export function useUpdateSetting<T>() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ family_id: requireFamilyId(family), key, value }),
       });
-      if (!res.ok) throw new Error("Failed to save setting");
+      if (!res.ok) {
+        // Settings holding a secret need the settings PIN on the server.
+        if (await isPinRequired(res)) {
+          relockSettings();
+          throw new Error("pin_required");
+        }
+        throw new Error("Failed to save setting");
+      }
       return res.json();
     },
     onSuccess: (_, { key }) => {
@@ -2395,7 +2403,14 @@ export function useDeleteSetting() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ family_id: requireFamilyId(family), key }),
       });
-      if (!res.ok) throw new Error("Failed to delete setting");
+      if (!res.ok) {
+        // Settings holding a secret need the settings PIN on the server.
+        if (await isPinRequired(res)) {
+          relockSettings();
+          throw new Error("pin_required");
+        }
+        throw new Error("Failed to delete setting");
+      }
       return res.json();
     },
     onSuccess: (_, key) => {

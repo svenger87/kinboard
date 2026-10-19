@@ -11,6 +11,7 @@ import {
   deleteSecrets,
 } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { isFamilyTimeZone } from "@/lib/integration-event-input";
 import { checkCameraDoorbells } from "@/lib/camera-takeover";
@@ -45,6 +46,20 @@ function dedicatedRoute(key: unknown): NextResponse | null {
     { error: `${key} is changed through ${DEDICATED_ROUTE_KEYS[key]}` },
     { status: 403 }
   );
+}
+
+// A setting that holds a secret also says where that secret is sent: change
+// Home Assistant's address, keep the token (resolveSentinels keeps it), and
+// the server hands the token to the new address on its next call. The same
+// goes for Immich's address and a camera's. So writing or deleting one of
+// these needs the settings PIN, like every other parent's setting; with no
+// PIN set it is unlocked, so the setup wizard still works.
+async function requireUnlockForSecrets(
+  session: Parameters<typeof requireSettingsUnlock>[0],
+  key: unknown,
+): Promise<NextResponse | null> {
+  if (typeof key !== "string" || !SECRET_FIELDS[key]) return null;
+  return requireSettingsUnlock(session);
 }
 
 // GET: Fetch a setting by family_id and key
@@ -127,6 +142,9 @@ export async function PUT(request: NextRequest) {
   if (!familyMatchesSession(auth.session, family_id)) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
+
+  const locked = await requireUnlockForSecrets(auth.session, key);
+  if (locked) return locked;
 
   // A camera's doorbell is read by the Home Assistant integration, which calls
   // show_camera when it rings: a malformed id, or one bell on two cameras,
@@ -254,6 +272,9 @@ export async function DELETE(request: NextRequest) {
   if (!familyMatchesSession(auth.session, family_id)) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
+
+  const locked = await requireUnlockForSecrets(auth.session, key);
+  if (locked) return locked;
 
   const supabase = createAdminClient();
 

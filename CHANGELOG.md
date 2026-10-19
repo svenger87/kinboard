@@ -14,6 +14,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Changing where an integration connects now needs the settings PIN, on the server.** Any device that had joined the family could change Home Assistant's address in the background without the PIN, and Kinboard would then have sent the stored Home Assistant token to that address. The same was true for Immich's address, the cameras, Google Calendar, Bring! and Unsplash: every setting that holds a password or a token. Saving or removing one of them now needs the settings PIN, like the other parents' settings; a screen whose unlock has run out shows the PIN entry again instead of an error. With no PIN set nothing changes, so the setup wizard works as before. Found while reviewing #410.
+
 ## [1.13.0] - 2026-10-16
 
 ### Added
