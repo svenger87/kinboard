@@ -42,7 +42,7 @@ import {
   TAB_NAME_MAX,
 } from "@/lib/ha-embed";
 import { safeRandomUUID } from "@/lib/uuid";
-import { EmojiIconField } from "@/components/emoji-picker";
+import { DashboardNavIconField } from "@/components/dashboard-nav-icon";
 import type { HaDashboardChoice, HomeAssistantSettings } from "@/types/home-assistant";
 
 /** The picker's entry for typing a path by hand. */
@@ -324,9 +324,10 @@ export default function HaDashboardsSettingsPage() {
                           <p className="text-sm">{t("navIconLabel")}</p>
                           <p className="text-xs text-muted-foreground">{t("navIconHint")}</p>
                         </div>
-                        <EmojiIconField
+                        <DashboardNavIconField
                           id={`ha-nav-icon-${dashboard.id}`}
                           label={t("navIconLabel")}
+                          disabled={busy}
                           value={dashboard.nav_icon ?? null}
                           onChange={(nav_icon) =>
                             void save({

@@ -1,7 +1,6 @@
-import { LayoutDashboard } from "lucide-react";
 import { NAV_ITEMS, type NavEntry } from "@/lib/constants";
 import { dashboardPageHref, embeddedDashboards, navDashboards } from "@/lib/ha-embed";
-import { emojiNavIcon } from "@/components/nav-emoji-icon";
+import { dashboardNavIcon } from "@/components/dashboard-nav-icon";
 import { applyNavOrder } from "@/lib/nav-order";
 import { useHomeAssistantStatus } from "./use-home-assistant";
 import { useIsPluginEnabled } from "./use-enabled-plugins";
@@ -122,7 +121,7 @@ export function useVisibleNavItems(includeUserHidden = false): NavEntry[] {
     ? navDashboards(embeddedDashboards(haSettings))
         .map((d) => ({
           href: dashboardPageHref(d.id),
-          icon: d.nav_icon ? emojiNavIcon(d.nav_icon) : LayoutDashboard,
+          icon: dashboardNavIcon(d.nav_icon),
           label: d.title,
         }))
         .filter((entry) => includeUserHidden || !hiddenItems.includes(entry.href))

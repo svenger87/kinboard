@@ -1797,7 +1797,7 @@
       "navLabel": "In der Navigation zeigen",
       "navHint": "Ein eigener Eintrag im Menü, der das Dashboard auf einer eigenen Seite öffnet. Unter Hausautomation bleibt es ein Tab, und jedes Gerät kann es unter Einstellungen → Navigation ausblenden.",
       "navIconLabel": "Icon im Menü",
-      "navIconHint": "Ein Emoji für den Eintrag; ohne erscheint ein Dashboard-Symbol."
+      "navIconHint": "Das Symbol neben dem Namen im Menü."
     },
     "homeassistantEnergy": {
       "title": "Energie-Konfiguration",
@@ -5275,5 +5275,42 @@
     "takeOffAria": "{item} ausziehen",
     "useBackgroundAria": "{item} als Hintergrund verwenden",
     "removeBackgroundAria": "Hintergrund {item} entfernen"
+  },
+  "dashboardNavIcons": {
+    "dashboard": "Dashboard",
+    "zap": "Strom",
+    "sun": "Sonne",
+    "battery": "Batterie",
+    "battery-charging": "Laden",
+    "plug": "Steckdose",
+    "gauge": "Zähler",
+    "chart": "Diagramm",
+    "thermometer": "Temperatur",
+    "flame": "Heizung",
+    "snowflake": "Kühlung",
+    "droplets": "Wasser",
+    "wind": "Wind",
+    "cloud": "Wetter",
+    "lightbulb": "Licht",
+    "lamp": "Lampe",
+    "tv": "Fernseher",
+    "music": "Musik",
+    "camera": "Kamera",
+    "shield": "Sicherheit",
+    "lock": "Schloss",
+    "door": "Tür",
+    "car": "Auto",
+    "leaf": "Garten",
+    "flower": "Blumen",
+    "trees": "Bäume",
+    "house": "Haus",
+    "sofa": "Wohnzimmer",
+    "bed": "Schlafzimmer",
+    "kitchen": "Küche",
+    "laundry": "Wäsche",
+    "baby": "Kinderzimmer",
+    "dog": "Hund",
+    "cat": "Katze",
+    "wifi": "Netzwerk"
   }
 }

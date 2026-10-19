@@ -1806,16 +1806,16 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
     };
     try {
       await setDashboardTabs(page, house.familyId, [
-        { id: "probe-nav-energy", title: "Probe energy", path: "dashboard-energie", hide_sidebar: true, hide_header: true, in_nav: true, nav_icon: "⚡" },
+        { id: "probe-nav-energy", title: "Probe energy", path: "dashboard-energie", hide_sidebar: true, hide_header: true, in_nav: true, nav_icon: "zap" },
         { id: "probe-nav-tab", title: "Probe tab only", path: "lovelace", hide_sidebar: true, hide_header: true },
       ]);
       await reloadUntilRendered(page);
 
-      // Only the dashboard switched on has an entry, right after Home automation, with its emoji.
+      // Only the dashboard switched on has an entry, right after Home automation, with its icon.
       const list = await entries();
       const energy = list.filter({ hasText: "Probe energy" });
       await expect(energy).toHaveCount(1, { timeout: 20_000 });
-      await expect(energy).toContainText("⚡");
+      await expect(energy.locator("svg.lucide-zap")).toHaveCount(1);
       await expect(list.filter({ hasText: "Probe tab only" })).toHaveCount(0);
       const names = (await list.allTextContents()).map((text) => text.trim());
       const at = names.findIndex((text) => text.includes("Probe energy"));
@@ -1837,7 +1837,21 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
       await page.goto("/settings/homeassistant/dashboards", { waitUntil: "domcontentloaded" });
       const navSwitch = page.locator("#ha-nav-probe-nav-energy");
       await expect(navSwitch).toHaveAttribute("aria-checked", "true", { timeout: 30_000 });
-      await expect(page.locator("#ha-nav-icon-probe-nav-energy")).toHaveText("⚡");
+      const iconField = page.locator("#ha-nav-icon-probe-nav-energy");
+      await expect(iconField).toHaveAttribute("data-icon", "zap");
+      // Picking another icon from the grid saves it.
+      await iconField.click();
+      await expect(page.getByRole("radio", { name: "Sun", exact: true })).toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath("icon-picker.png") });
+      await page.getByRole("radio", { name: "Sun", exact: true }).click();
+      await expect(iconField).toHaveAttribute("data-icon", "sun", { timeout: 10_000 });
+      const savedIcon = () =>
+        page.evaluate(async (familyId) => {
+          const res = await fetch(`/api/settings?family_id=${familyId}&key=home_assistant`, { cache: "no-store" });
+          const tabs = ((await res.json()).value?.embedded_dashboards ?? []) as { id: string; nav_icon?: string }[];
+          return tabs.find((d) => d.id === "probe-nav-energy")?.nav_icon ?? null;
+        }, house.familyId);
+      await expect.poll(savedIcon, { timeout: 10_000 }).toBe("sun");
       await expect(page.locator("#ha-nav-probe-nav-tab")).toHaveAttribute("aria-checked", "false");
       await expect(page.locator("#ha-nav-icon-probe-nav-tab")).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath("settings-row.png"), fullPage: true });

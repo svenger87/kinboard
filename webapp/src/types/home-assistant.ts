@@ -363,7 +363,7 @@ export interface HaEmbeddedDashboard {
    * page of its own (`/ha/<id>`). Hideable per device like every entry.
    */
   in_nav?: boolean;
-  /** That entry's icon: an emoji from the picker, or none for the default dashboard icon. */
+  /** That entry's icon: a Lucide icon from lib/dashboard-nav-icons.ts, or none for the dashboard icon. */
   nav_icon?: string | null;
 }
 

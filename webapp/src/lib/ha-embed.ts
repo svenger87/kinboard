@@ -14,6 +14,7 @@ import type {
   HaEmbeddedDashboard,
   HomeAssistantSettings,
 } from "@/types/home-assistant";
+import { isDashboardNavIcon, type DashboardNavIconId } from "@/lib/dashboard-nav-icons";
 
 /** The page's own content, the rooms and their devices, as a tab value. */
 export const DEVICES_TAB = "devices";
@@ -162,15 +163,9 @@ export function embeddedDashboards(
   return tabs;
 }
 
-/**
- * A navigation entry's emoji, as it may be stored: one short string from the
- * picker (an emoji with its skin tone and joiners stays well under 32
- * characters), anything else none.
- */
-function navIcon(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed !== "" && trimmed.length <= 32 ? trimmed : null;
+/** A navigation entry's icon, as it may be stored: one of the set's ids, anything else none. */
+function navIcon(value: unknown): DashboardNavIconId | null {
+  return isDashboardNavIcon(value) ? value : null;
 }
 
 /** Where a dashboard opens as a page of its own. */

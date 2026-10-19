@@ -1797,7 +1797,7 @@
       "navLabel": "Afficher dans la navigation",
       "navHint": "Une entrée à part dans le menu, qui ouvre le tableau de bord sur sa propre page. Il reste un onglet sous Domotique, et chaque appareil peut le masquer dans Paramètres → Navigation.",
       "navIconLabel": "Icône du menu",
-      "navIconHint": "Un emoji pour l'entrée ; sans emoji, une icône de tableau de bord s'affiche."
+      "navIconHint": "L'icône à côté de son nom dans le menu."
     },
     "homeassistantEnergy": {
       "title": "Configuration énergétique",
@@ -5275,5 +5275,42 @@
     "takeOffAria": "Enlever : {item}",
     "useBackgroundAria": "Utiliser le décor : {item}",
     "removeBackgroundAria": "Retirer le décor : {item}"
+  },
+  "dashboardNavIcons": {
+    "dashboard": "Tableau de bord",
+    "zap": "Électricité",
+    "sun": "Soleil",
+    "battery": "Batterie",
+    "battery-charging": "Recharge",
+    "plug": "Prise",
+    "gauge": "Compteur",
+    "chart": "Graphique",
+    "thermometer": "Température",
+    "flame": "Chauffage",
+    "snowflake": "Refroidissement",
+    "droplets": "Eau",
+    "wind": "Vent",
+    "cloud": "Météo",
+    "lightbulb": "Lumière",
+    "lamp": "Lampe",
+    "tv": "Télé",
+    "music": "Musique",
+    "camera": "Caméra",
+    "shield": "Sécurité",
+    "lock": "Serrure",
+    "door": "Porte",
+    "car": "Voiture",
+    "leaf": "Jardin",
+    "flower": "Fleurs",
+    "trees": "Arbres",
+    "house": "Maison",
+    "sofa": "Salon",
+    "bed": "Chambre",
+    "kitchen": "Cuisine",
+    "laundry": "Linge",
+    "baby": "Chambre d'enfant",
+    "dog": "Chien",
+    "cat": "Chat",
+    "wifi": "Réseau"
   }
 }
