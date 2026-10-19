@@ -63,7 +63,9 @@ export function MobileNav() {
     <>
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-stretch border-t border-border bg-card"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        // Exactly --nav-spacing tall (border-box: the safe-area padding is inside it), so
+        // what is placed above the nav by that variable meets it without a gap.
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", height: "var(--nav-spacing)" }}
         aria-label={tNav("mobile")}
       >
         {fixedTabs.map((tab) => {

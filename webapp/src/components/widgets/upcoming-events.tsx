@@ -203,7 +203,7 @@ export function UpcomingEvents({
       }
       className={`h-full ${className}`}
     >
-      <ScrollArea className="max-h-[160px] pr-2 sm:max-h-[220px]">
+      <ScrollArea className="pr-2 sm:max-h-[220px]">
         <motion.div variants={container} initial="hidden" animate="show" className="flex flex-col gap-1.5">
           {(() => {
             const sliced = displayEvents.slice(0, maxEvents);

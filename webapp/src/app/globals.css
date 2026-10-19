@@ -46,7 +46,12 @@
 
 @layer base {
   :root {
-    --mobile-nav-height: 5rem;
+    /* MobileNav's height above the safe area: 44px tabs + its 1px top border.
+       The nav takes its height from this, so everything placed by
+       --nav-spacing (bars, the FAB, page padding) sits right on it. It was
+       5rem from before the nav's redesign, and things floated ~35px above
+       the nav on phones. */
+    --mobile-nav-height: 2.8125rem;
     /* 44px items + py-3 = 68px. Must track DesktopNav's real height or the
        fixed bar overlaps page content (raised from 4rem with KB-22). */
     --desktop-nav-height: 4.25rem;

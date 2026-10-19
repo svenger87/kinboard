@@ -629,16 +629,29 @@ function HomeAssistantSettingsContent() {
           </div>
         </Card>
 
-        {/* Sticky resync footer — shown only when connected */}
+        {/*
+          Resync bar, shown only when connected. Fixed above the navigation:
+          `sticky` held it there only while the page was scrolled through, and
+          at the end of the page, or on a page shorter than the screen, it
+          came to rest after the content with the page's bottom padding
+          under it, floating mid-screen. The spacer keeps the last card
+          clear of it.
+        */}
         {isConnected && !needsReauth && (
-          <div className="sticky bottom-[var(--nav-spacing)] -mx-4 mt-2 border-t border-border bg-card px-4 py-3 md:-mx-8 md:px-8">
-            <div className="mx-auto flex max-w-2xl justify-end">
-              <Button variant="outline" onClick={handleResync} disabled={resyncing}>
-                <RefreshCw className={`size-4 mr-2 ${resyncing ? "animate-spin" : ""}`} />
-                {t("resyncButton")}
-              </Button>
+          <>
+            <div aria-hidden="true" className="h-16" />
+            <div
+              data-testid="ha-resync-bar"
+              className="fixed inset-x-0 bottom-[var(--nav-spacing)] z-40 border-t border-border bg-card px-4 py-3 md:px-8"
+            >
+              <div className="mx-auto flex max-w-2xl justify-end">
+                <Button variant="outline" onClick={handleResync} disabled={resyncing}>
+                  <RefreshCw className={`size-4 mr-2 ${resyncing ? "animate-spin" : ""}`} />
+                  {t("resyncButton")}
+                </Button>
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </main>
