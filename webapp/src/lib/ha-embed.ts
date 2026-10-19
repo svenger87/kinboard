@@ -145,7 +145,7 @@ export function embeddedDashboards(
   const tabs: HaEmbeddedDashboard[] = [];
   for (const entry of list) {
     if (!entry || typeof entry !== "object") continue;
-    const { id, title, path, hide_sidebar, hide_header, kiosk } = entry as Record<string, unknown>;
+    const { id, title, path, hide_sidebar, hide_header, kiosk, in_nav, nav_icon } = entry as Record<string, unknown>;
     if (typeof id !== "string" || id === "" || typeof title !== "string") continue;
     if (typeof path !== "string" || cleanDashboardPath(path) === null) continue;
     const both = kiosk === true;
@@ -155,9 +155,32 @@ export function embeddedDashboards(
       path,
       hide_sidebar: typeof hide_sidebar === "boolean" ? hide_sidebar : both,
       hide_header: typeof hide_header === "boolean" ? hide_header : both,
+      in_nav: in_nav === true,
+      nav_icon: navIcon(nav_icon),
     });
   }
   return tabs;
+}
+
+/**
+ * A navigation entry's emoji, as it may be stored: one short string from the
+ * picker (an emoji with its skin tone and joiners stays well under 32
+ * characters), anything else none.
+ */
+function navIcon(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed !== "" && trimmed.length <= 32 ? trimmed : null;
+}
+
+/** Where a dashboard opens as a page of its own. */
+export function dashboardPageHref(id: string): string {
+  return `/ha/${encodeURIComponent(id)}`;
+}
+
+/** The dashboards the household put in the navigation, in their tab order. */
+export function navDashboards(dashboards: readonly HaEmbeddedDashboard[]): HaEmbeddedDashboard[] {
+  return dashboards.filter((d) => d.in_nav === true);
 }
 
 /** The tab to show: the one this display was on while it still exists, else the devices. */

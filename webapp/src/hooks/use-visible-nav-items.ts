@@ -1,4 +1,7 @@
-import { NAV_ITEMS } from "@/lib/constants";
+import { LayoutDashboard } from "lucide-react";
+import { NAV_ITEMS, type NavEntry } from "@/lib/constants";
+import { dashboardPageHref, embeddedDashboards, navDashboards } from "@/lib/ha-embed";
+import { emojiNavIcon } from "@/components/nav-emoji-icon";
 import { applyNavOrder } from "@/lib/nav-order";
 import { useHomeAssistantStatus } from "./use-home-assistant";
 import { useIsPluginEnabled } from "./use-enabled-plugins";
@@ -49,7 +52,7 @@ const REWARDS_HREF = "/rewards";
  * count never changes between renders. See SurfacePlugin.useOwnDataCount
  * for the Rules-of-Hooks invariant.
  */
-export function useVisibleNavItems(includeUserHidden = false): typeof NAV_ITEMS {
+export function useVisibleNavItems(includeUserHidden = false): NavEntry[] {
   const { data: haSettings, isPending: haPending } = useHomeAssistantStatus();
   const navOrder = useNavOrder();
   const hiddenItems = useHiddenNavItems();
@@ -111,5 +114,26 @@ export function useVisibleNavItems(includeUserHidden = false): typeof NAV_ITEMS 
     return true;
   });
 
-  return applyNavOrder(filtered, navOrder) as unknown as typeof NAV_ITEMS;
+  // Home Assistant dashboards the household put in the navigation (Settings ->
+  // Home Assistant -> dashboards), each opening on a page of its own. They
+  // follow Home automation, where they are tabs too, and are hidden per
+  // device like any entry.
+  const dashboards: NavEntry[] = haConnected
+    ? navDashboards(embeddedDashboards(haSettings))
+        .map((d) => ({
+          href: dashboardPageHref(d.id),
+          icon: d.nav_icon ? emojiNavIcon(d.nav_icon) : LayoutDashboard,
+          label: d.title,
+        }))
+        .filter((entry) => includeUserHidden || !hiddenItems.includes(entry.href))
+    : [];
+  const entries: NavEntry[] = [...filtered];
+  if (dashboards.length > 0) {
+    const after = entries.findIndex((item) => item.href === "/home-automation");
+    const before = entries.findIndex((item) => item.href === "/settings");
+    const at = after >= 0 ? after + 1 : before >= 0 ? before : entries.length;
+    entries.splice(at, 0, ...dashboards);
+  }
+
+  return applyNavOrder(entries, navOrder);
 }

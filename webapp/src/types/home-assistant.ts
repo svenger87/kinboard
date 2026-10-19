@@ -358,6 +358,13 @@ export interface HaEmbeddedDashboard {
    */
   hide_sidebar: boolean;
   hide_header: boolean;
+  /**
+   * Also an entry of its own in the navigation, opening the dashboard on a
+   * page of its own (`/ha/<id>`). Hideable per device like every entry.
+   */
+  in_nav?: boolean;
+  /** That entry's icon: an emoji from the picker, or none for the default dashboard icon. */
+  nav_icon?: string | null;
 }
 
 /** One of the household's Home Assistant dashboards, as listed for picking. */

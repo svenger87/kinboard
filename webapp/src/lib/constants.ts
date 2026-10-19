@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import {
   Home,
   CalendarDays,
@@ -95,6 +96,26 @@ export const NAV_ITEMS = [
   { href: "/news", icon: Newspaper, labelKey: "news" },
   { href: "/settings", icon: Settings, labelKey: "settings" },
 ] as const;
+
+/** One of NAV_ITEMS' translated names. */
+export type NavLabelKey = (typeof NAV_ITEMS)[number]["labelKey"];
+
+/** What a navigation entry's icon is drawn with: a Lucide icon, or an emoji drawn the same size. */
+export type NavIcon = ComponentType<{ className?: string; size?: number; strokeWidth?: number }>;
+
+/**
+ * An entry of the navigation: one of NAV_ITEMS, named by its translation, or
+ * one the household added -- a Home Assistant dashboard -- which carries its
+ * own name.
+ */
+export type NavEntry =
+  | { href: string; icon: NavIcon; labelKey: NavLabelKey; label?: undefined }
+  | { href: string; icon: NavIcon; label: string; labelKey?: undefined };
+
+/** An entry's name on screen. */
+export function navEntryLabel(entry: NavEntry, tNav: (key: NavLabelKey) => string): string {
+  return entry.label ?? tNav(entry.labelKey as NavLabelKey);
+}
 
 /**
  * Settings pages that live under another settings page.

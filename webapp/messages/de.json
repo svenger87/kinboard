@@ -1793,7 +1793,11 @@
       "addressSave": "Speichern",
       "addressInvalid": "Gib eine Adresse ein, die mit https:// oder http:// beginnt.",
       "toastAddressSaved": "Adresse gespeichert",
-      "overview": "Übersicht"
+      "overview": "Übersicht",
+      "navLabel": "In der Navigation zeigen",
+      "navHint": "Ein eigener Eintrag im Menü, der das Dashboard auf einer eigenen Seite öffnet. Unter Hausautomation bleibt es ein Tab, und jedes Gerät kann es unter Einstellungen → Navigation ausblenden.",
+      "navIconLabel": "Icon im Menü",
+      "navIconHint": "Ein Emoji für den Eintrag; ohne erscheint ein Dashboard-Symbol."
     },
     "homeassistantEnergy": {
       "title": "Energie-Konfiguration",
@@ -3844,7 +3848,10 @@
     "dashboardNoAddress": "Dieses Dashboard hat keine Adresse, die ein Browser öffnen kann. Prüfe in den Einstellungen seinen Pfad und die Adresse von Home Assistant.",
     "dashboardMixedContent": "Kinboard ist über https:// geöffnet, die Adresse von Home Assistant beginnt aber mit http://, deshalb zeigt der Browser es hier nicht an. Hinterlege in den Einstellungen eine https://-Adresse für den Browser.",
     "dashboardSettingsLink": "Einstellungen öffnen",
-    "tapAgain": "Nochmal tippen"
+    "tapAgain": "Nochmal tippen",
+    "dashboardPageSubtitle": "Aus Home Assistant",
+    "dashboardPageMissing": "Dieses Dashboard ist nicht mehr in Kinboard. Vielleicht wurde es unter Einstellungen → Home Assistant entfernt.",
+    "dashboardPageOpenAutomation": "Hausautomation öffnen"
   },
   "catalogue": {
     "title": "Dinge im Haus",

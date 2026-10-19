@@ -1660,7 +1660,16 @@ test.describe("a script or a scene runs from its tile", () => {
 async function setDashboardTabs(
   page: Page,
   familyId: string,
-  dashboards: { id: string; title: string; path: string; hide_sidebar?: boolean; hide_header?: boolean; kiosk?: boolean }[],
+  dashboards: {
+    id: string;
+    title: string;
+    path: string;
+    hide_sidebar?: boolean;
+    hide_header?: boolean;
+    kiosk?: boolean;
+    in_nav?: boolean;
+    nav_icon?: string | null;
+  }[],
 ): Promise<void> {
   const failure = await page.evaluate(
     async ({ familyId, dashboards }) => {
@@ -1777,6 +1786,84 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
       await expect(device).toBeVisible();
       await expect(page.locator("iframe")).toHaveCount(0);
       expect(opened.every((url) => url.startsWith("https://home-assistant.invalid/"))).toBe(true);
+    } finally {
+      await deleteThrowawayFamily(page, house.familyId, house.familyName);
+    }
+  });
+
+  test("a dashboard put in the navigation opens on a page of its own; one removed says so", async ({
+    page,
+    baseURL,
+  }, testInfo) => {
+    const opened = await stubHomeAssistantPages(page);
+    const house = await stubbedHouse(page, baseURL, testInfo, []);
+    const mobile = testInfo.project.name === "mobile";
+    // The bar on a wide screen; on a phone, the More sheet.
+    const entries = async () => {
+      if (!mobile) return page.locator("nav").getByRole("link");
+      await page.getByRole("button", { name: "More", exact: true }).click();
+      return page.getByRole("dialog").getByRole("button");
+    };
+    try {
+      await setDashboardTabs(page, house.familyId, [
+        { id: "probe-nav-energy", title: "Probe energy", path: "dashboard-energie", hide_sidebar: true, hide_header: true, in_nav: true, nav_icon: "⚡" },
+        { id: "probe-nav-tab", title: "Probe tab only", path: "lovelace", hide_sidebar: true, hide_header: true },
+      ]);
+      await reloadUntilRendered(page);
+
+      // Only the dashboard switched on has an entry, right after Home automation, with its emoji.
+      const list = await entries();
+      const energy = list.filter({ hasText: "Probe energy" });
+      await expect(energy).toHaveCount(1, { timeout: 20_000 });
+      await expect(energy).toContainText("⚡");
+      await expect(list.filter({ hasText: "Probe tab only" })).toHaveCount(0);
+      const names = (await list.allTextContents()).map((text) => text.trim());
+      const at = names.findIndex((text) => text.includes("Probe energy"));
+      expect(names[at - 1], names.join(" | ")).toBe("Automation");
+      await energy.scrollIntoViewIfNeeded();
+      await expect(energy).toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath("nav-entry.png") });
+
+      await energy.click();
+      await expect(page).toHaveURL(/\/ha\/probe-nav-energy$/, { timeout: 20_000 });
+      await expect(page.getByRole("heading", { level: 1, name: "Probe energy" })).toBeVisible({ timeout: 20_000 });
+      const frame = page.frameLocator('iframe[title="Probe energy, from Home Assistant"]');
+      await expect(frame.locator("#where")).toHaveText("https://home-assistant.invalid/dashboard-energie/0?kiosk", {
+        timeout: 20_000,
+      });
+      expect(opened.every((url) => url.startsWith("https://home-assistant.invalid/"))).toBe(true);
+
+      // The settings show the switch on and the emoji; switched off, the entry goes.
+      await page.goto("/settings/homeassistant/dashboards", { waitUntil: "domcontentloaded" });
+      const navSwitch = page.locator("#ha-nav-probe-nav-energy");
+      await expect(navSwitch).toHaveAttribute("aria-checked", "true", { timeout: 30_000 });
+      await expect(page.locator("#ha-nav-icon-probe-nav-energy")).toHaveText("⚡");
+      await expect(page.locator("#ha-nav-probe-nav-tab")).toHaveAttribute("aria-checked", "false");
+      await expect(page.locator("#ha-nav-icon-probe-nav-tab")).toHaveCount(0);
+      await page.screenshot({ path: testInfo.outputPath("settings-row.png"), fullPage: true });
+      await navSwitch.click();
+      const inNav = () =>
+        page.evaluate(async (familyId) => {
+          const res = await fetch(`/api/settings?family_id=${familyId}&key=home_assistant`, { cache: "no-store" });
+          const tabs = ((await res.json()).value?.embedded_dashboards ?? []) as { id: string; in_nav?: boolean }[];
+          return tabs.find((d) => d.id === "probe-nav-energy")?.in_nav ?? null;
+        }, house.familyId);
+      await expect.poll(inNav, { timeout: 10_000 }).toBe(false);
+      await page.goto("/home-automation", { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("heading", { level: 1, name: "Home automation" })).toBeVisible({ timeout: 30_000 });
+      await expect((await entries()).filter({ hasText: "Probe energy" })).toHaveCount(0, { timeout: 20_000 });
+      if (mobile) await page.keyboard.press("Escape");
+
+      // Taken out of Kinboard: the old link says so instead of an empty frame.
+      await setDashboardTabs(page, house.familyId, [
+        { id: "probe-nav-tab", title: "Probe tab only", path: "lovelace", hide_sidebar: true, hide_header: true },
+      ]);
+      await page.goto("/ha/probe-nav-energy", { waitUntil: "domcontentloaded" });
+      await expect(page.getByText("This dashboard isn't in Kinboard any more.", { exact: false })).toBeVisible({
+        timeout: 20_000,
+      });
+      await expect(page.locator("iframe")).toHaveCount(0);
+      await expect(page.getByRole("link", { name: "Open Home automation" })).toHaveAttribute("href", "/home-automation");
     } finally {
       await deleteThrowawayFamily(page, house.familyId, house.familyName);
     }

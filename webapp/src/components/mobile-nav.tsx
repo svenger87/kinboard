@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Home, CalendarDays, ShoppingCart, MoreHorizontal } from "lucide-react";
-import { isNoNavPath } from "@/lib/constants";
+import { isNoNavPath, navEntryLabel } from "@/lib/constants";
 import { useNavBadges } from "@/hooks/use-nav-badges";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
 import { useHiddenNavItems } from "@/hooks/use-hidden-nav-items";
@@ -144,7 +144,7 @@ export function MobileNav() {
                   >
                     <Icon size={22} strokeWidth={1.75} className="shrink-0" />
                     <span className="flex-1 truncate text-sm font-medium">
-                      {tNav(item.labelKey)}
+                      {navEntryLabel(item, tNav)}
                     </span>
                     {badge && (
                       <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-2xs font-bold text-primary-foreground tabular-nums">

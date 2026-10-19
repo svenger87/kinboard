@@ -1793,7 +1793,11 @@
       "addressSave": "Enregistrer",
       "addressInvalid": "Saisissez une adresse commençant par https:// ou http://.",
       "toastAddressSaved": "Adresse enregistrée",
-      "overview": "Aperçu"
+      "overview": "Aperçu",
+      "navLabel": "Afficher dans la navigation",
+      "navHint": "Une entrée à part dans le menu, qui ouvre le tableau de bord sur sa propre page. Il reste un onglet sous Domotique, et chaque appareil peut le masquer dans Paramètres → Navigation.",
+      "navIconLabel": "Icône du menu",
+      "navIconHint": "Un emoji pour l'entrée ; sans emoji, une icône de tableau de bord s'affiche."
     },
     "homeassistantEnergy": {
       "title": "Configuration énergétique",
@@ -3844,7 +3848,10 @@
     "dashboardNoAddress": "Ce tableau de bord n'a pas d'adresse qu'un navigateur puisse ouvrir. Vérifiez son chemin et l'adresse de Home Assistant dans les réglages.",
     "dashboardMixedContent": "Kinboard est ouvert en https://, mais l'adresse de Home Assistant commence par http://, donc le navigateur ne l'affiche pas ici. Indiquez une adresse https:// pour le navigateur dans les réglages.",
     "dashboardSettingsLink": "Ouvrir les réglages",
-    "tapAgain": "Touchez encore"
+    "tapAgain": "Touchez encore",
+    "dashboardPageSubtitle": "Depuis Home Assistant",
+    "dashboardPageMissing": "Ce tableau de bord n'est plus dans Kinboard. Il a peut-être été retiré dans Paramètres → Home Assistant.",
+    "dashboardPageOpenAutomation": "Ouvrir Domotique"
   },
   "catalogue": {
     "title": "Les objets de la maison",

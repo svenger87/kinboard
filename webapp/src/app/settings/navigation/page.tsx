@@ -13,6 +13,7 @@ import { canHideNavItem, getHiddenNavItems, setHiddenNavItems, setSettingsIconOn
 import { useHiddenNavItems, useSettingsIconOnly } from "@/hooks/use-hidden-nav-items";
 import { Switch } from "@/components/ui/switch";
 import { useFamilyStore } from "@/stores/family-store";
+import { navEntryLabel } from "@/lib/constants";
 
 export default function NavigationSettingsPage() {
   const t = useTranslations("settings.navigation");
@@ -89,7 +90,7 @@ export default function NavigationSettingsPage() {
                   href={href}
                   isKiosk={isKiosk}
                   Icon={item.icon}
-                  label={tNav(item.labelKey as never)}
+                  label={navEntryLabel(item, tNav)}
                   enabled={!hiddenItems.includes(href)}
                   onEnabledChange={(enabled) => {
                     const next = new Set(getHiddenNavItems());

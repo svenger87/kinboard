@@ -42,6 +42,7 @@ import {
   TAB_NAME_MAX,
 } from "@/lib/ha-embed";
 import { safeRandomUUID } from "@/lib/uuid";
+import { EmojiIconField } from "@/components/emoji-picker";
 import type { HaDashboardChoice, HomeAssistantSettings } from "@/types/home-assistant";
 
 /** The picker's entry for typing a path by hand. */
@@ -297,6 +298,46 @@ export default function HaDashboardsSettingsPage() {
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">{t("kioskHint")}</p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <Label htmlFor={`ha-nav-${dashboard.id}`} className="text-sm">
+                          {t("navLabel")}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">{t("navHint")}</p>
+                      </div>
+                      <Switch
+                        id={`ha-nav-${dashboard.id}`}
+                        checked={dashboard.in_nav === true}
+                        disabled={busy}
+                        onCheckedChange={(in_nav) =>
+                          void save({
+                            embedded_dashboards: dashboards.map((d) =>
+                              d.id === dashboard.id ? { ...d, in_nav } : d,
+                            ),
+                          })
+                        }
+                      />
+                    </div>
+                    {dashboard.in_nav && (
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm">{t("navIconLabel")}</p>
+                          <p className="text-xs text-muted-foreground">{t("navIconHint")}</p>
+                        </div>
+                        <EmojiIconField
+                          id={`ha-nav-icon-${dashboard.id}`}
+                          label={t("navIconLabel")}
+                          value={dashboard.nav_icon ?? null}
+                          onChange={(nav_icon) =>
+                            void save({
+                              embedded_dashboards: dashboards.map((d) =>
+                                d.id === dashboard.id ? { ...d, nav_icon } : d,
+                              ),
+                            })
+                          }
+                        />
+                      </div>
+                    )}
                   </Card>
                 ))
               )}
