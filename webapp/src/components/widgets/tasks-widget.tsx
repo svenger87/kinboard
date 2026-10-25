@@ -1,7 +1,7 @@
 "use client";
 
 import { toLocalDateKey } from "@/lib/local-date";
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import {
@@ -26,6 +26,8 @@ import { isTodoOpen } from "@/lib/todo-recurrence";
 import { isOverdue, widgetTasks } from "@/lib/tasks-widget-groups";
 import { todayPerson } from "@/lib/todo-turns";
 import { PersonAvatar } from "@/components/person-avatar";
+import { DoneByPicker } from "@/components/done-by-picker";
+import { asksWhoDidIt } from "@/lib/done-by";
 
 interface TasksWidgetProps {
   maxItems?: number;
@@ -79,19 +81,33 @@ export function TasksWidget({
   const displayTodos = openTodos.slice(0, maxItems);
   const totalOpen = openTodos.length;
 
-  const handleToggle = async (todo: Todo) => {
+  // "Who did it?" for a task worth points (lib/done-by.ts): the tick waits
+  // for the answer, and the points go to whoever is picked.
+  const [pickingFor, setPickingFor] = useState<Todo | null>(null);
+
+  const handleToggle = (todo: Todo) => {
+    if (asksWhoDidIt(todo, people ?? [])) {
+      setPickingFor(todo);
+      return;
+    }
+    void completeTask(todo, null);
+  };
+
+  const completeTask = async (todo: Todo, doneBy: string | null) => {
     try {
       if (todo.recurrence && todo.recurrence !== "once") {
         await updateTodo.mutateAsync({
           id: todo.id,
           last_completed: new Date().toISOString(),
           last_completed_day: toLocalDateKey(),
+          ...(doneBy ? { done_by: doneBy } : {}),
         });
         toast.success(t("toastDoneRecurring"));
       } else {
         await updateTodo.mutateAsync({
           id: todo.id,
           completed: true,
+          ...(doneBy ? { done_by: doneBy } : {}),
         });
         toast.success(t("toastDoneOneTime"));
       }
@@ -230,6 +246,17 @@ export function TasksWidget({
           </Link>
         )}
       </WidgetCard>
+      <DoneByPicker
+        task={pickingFor}
+        people={people ?? []}
+        expectedId={pickingFor ? todayPerson(pickingFor, todayStr) : null}
+        onPick={(personId) => {
+          const todo = pickingFor;
+          setPickingFor(null);
+          if (todo) void completeTask(todo, personId);
+        }}
+        onCancel={() => setPickingFor(null)}
+      />
     </motion.div>
   );
 }

@@ -33,6 +33,8 @@ export interface TickRow extends TurnFields {
   id: string;
   completed?: boolean | null;
   last_completed?: string | null;
+  /** Who did it, when the tick said (migration_zzzzzzzzzzzzz_todo_done_by.sql). */
+  last_completed_by?: string | null;
   points?: number | null;
 }
 
@@ -62,6 +64,8 @@ function doneDay(row: TickRow): string | null {
  *   moves it back (or clears it), a second tick on a day already done leaves
  *   it where it was; neither is a tick. A rotating task's child is whoever's
  *   turn that day was.
+ * - Ticked with "who did it" answered: that person, whatever the task's
+ *   assignee or turn.
  */
 export function detectTaskTick(
   prev: TickRow | null | undefined,
@@ -83,6 +87,9 @@ export function detectTaskTick(
       if (next.schedule_start_day || next.carry_day) personId = turnPerson(next, after);
     }
   }
+
+  // Whoever did it gets the points, so their creature is the one that cheers.
+  if (completionKey && next.last_completed_by) personId = next.last_completed_by;
 
   if (!completionKey || !personId || !isChild(personId)) return null;
   return { todoId: next.id, personId, completionKey, points: Math.max(0, next.points ?? 0) };

@@ -387,6 +387,13 @@ export interface Database {
           schedule_anchor_day: string | null;
           rotation_offset: number;
           carry_day: string | null;
+          /**
+           * Who did it, sent with a tick and cleared by the database at once
+           * (migration_zzzzzzzzzzzzz_todo_done_by.sql). Always null on read.
+           */
+          done_by?: string | null;
+          /** Who did the latest completion, when the tick said. Database-set. */
+          last_completed_by?: string | null;
           deleted_at?: string | null;
           created_at: string;
           updated_at: string;
@@ -440,6 +447,8 @@ export interface Database {
           person_id: string | null;
           status: "open" | "done" | "missed";
           completed_at: string | null;
+          /** Who did it, when the tick said; person_id is whose turn it was. */
+          completed_by?: string | null;
           created_at: string;
         };
         Insert: { [key: string]: never };

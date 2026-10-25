@@ -132,6 +132,8 @@ import {
   todayPerson,
 } from "@/lib/todo-turns";
 import type { Todo } from "@/types/database";
+import { DoneByPicker } from "@/components/done-by-picker";
+import { asksWhoDidIt } from "@/lib/done-by";
 
 // Priority types and config
 type Priority = "low" | "medium" | "high";
@@ -417,8 +419,25 @@ export default function TodosPage() {
     }
   };
 
-  const handleToggleTask = async (task: Todo) => {
+  // "Who did it?" for a tick worth points (lib/done-by.ts). Un-ticking never
+  // asks: it takes back whatever the tick recorded.
+  const [pickingFor, setPickingFor] = useState<Todo | null>(null);
+
+  const handleToggleTask = (task: Todo) => {
+    const recurring = !!task.recurrence && task.recurrence !== "once";
+    const unticking = isScheduled(task)
+      ? currentDay(task, todayKey) !== null && !isTurnOpen(task, todayKey)
+      : !recurring && task.completed;
+    if (!unticking && asksWhoDidIt(task, people ?? [])) {
+      setPickingFor(task);
+      return;
+    }
+    void toggleTask(task, null);
+  };
+
+  const toggleTask = async (task: Todo, doneBy: string | null) => {
     const { id, completed, recurrence } = task;
+    const by = doneBy ? { done_by: doneBy } : {};
     try {
       if (isScheduled(task)) {
         // Taking turns or tracked: a tick marks the open day done, and a
@@ -430,6 +449,7 @@ export default function TodosPage() {
           last_completed: done ? null : new Date().toISOString(),
           last_completed_day: todayKey,
           completed: false,
+          ...by,
         });
         return;
       }
@@ -440,11 +460,13 @@ export default function TodosPage() {
           last_completed: new Date().toISOString(),
           last_completed_day: toLocalDateKey(),
           completed: false,
+          ...by,
         });
       } else {
         await updateTodo.mutateAsync({
           id,
           completed: !completed,
+          ...by,
         });
       }
     } catch (err) {
@@ -1360,7 +1382,13 @@ export default function TodosPage() {
                                       })()}
                                       {isRecurring && task.last_completed && (
                                         <span className="text-xs text-muted-foreground">
-                                          {t("lastDone", { date: format(new Date(task.last_completed), "d. MMM", { locale: dateLocale }) })}
+                                          {(() => {
+                                            const date = format(new Date(task.last_completed), "d. MMM", { locale: dateLocale });
+                                            const by = task.last_completed_by
+                                              ? people?.find((p) => p.id === task.last_completed_by)?.name
+                                              : undefined;
+                                            return by ? t("lastDoneBy", { date, name: by }) : t("lastDone", { date });
+                                          })()}
                                         </span>
                                       )}
                                     </div>
@@ -1393,6 +1421,18 @@ export default function TodosPage() {
         </div>
 
         {/* Edit Dialog */}
+        <DoneByPicker
+          task={pickingFor}
+          people={people ?? []}
+          expectedId={pickingFor ? personOf(pickingFor) : null}
+          onPick={(personId) => {
+            const task = pickingFor;
+            setPickingFor(null);
+            if (task) void toggleTask(task, personId);
+          }}
+          onCancel={() => setPickingFor(null)}
+        />
+
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent>
             <DialogHeader>

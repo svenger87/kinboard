@@ -660,6 +660,7 @@
     "dueInDays": "Dans {count, plural, one {# jour} other {# jours}}",
     "overdueByDays": "{count, plural, =0 {À faire aujourd'hui} one {# jour de retard} other {# jours de retard}}",
     "lastDone": "Dernière : {date}",
+    "lastDoneBy": "Dernière : {date}, {name}",
     "deleteAria": "Supprimer {title}",
     "priority": {
       "low": "Basse",
@@ -4218,6 +4219,10 @@
     "loadFailed": "Impossible de charger la famille",
     "statPointsToSpend": "Points à dépenser",
     "rewardsShortcut": "Vers les récompenses"
+  },
+  "doneBy": {
+    "title": "Qui l'a fait ?",
+    "expected": "Sa tâche"
   },
   "tasksWidget": {
     "loadingAria": "Chargement des tâches",

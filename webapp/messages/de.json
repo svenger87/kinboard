@@ -660,6 +660,7 @@
     "dueInDays": "In {count, plural, one {# Tag} other {# Tagen}}",
     "overdueByDays": "{count, plural, =0 {Heute fällig} one {# Tag überfällig} other {# Tage überfällig}}",
     "lastDone": "Zuletzt: {date}",
+    "lastDoneBy": "Zuletzt: {date}, {name}",
     "deleteAria": "{title} löschen",
     "priority": {
       "low": "Niedrig",
@@ -4218,6 +4219,10 @@
     "loadFailed": "Familie konnte nicht geladen werden",
     "statPointsToSpend": "Punkte zum Einlösen",
     "rewardsShortcut": "Zu den Belohnungen"
+  },
+  "doneBy": {
+    "title": "Wer hat's gemacht?",
+    "expected": "Ist dran"
   },
   "tasksWidget": {
     "loadingAria": "Aufgaben werden geladen",

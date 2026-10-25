@@ -69,7 +69,9 @@ The 8 AM job runs in the cron container. Quiet hours respected.
 
 ## Marking done
 
-Tap the circle on the task card → it moves to the **Completed** section, struck through, with a "✓ done by Mama" attribution. Auto-archives after 7 days.
+Tap the circle on the task card → it moves to the **Completed** section, struck through. Auto-archives after 7 days.
+
+**Who did it?** Ticking a task worth points, on the tasks page or the Tasks widget on Home, asks who did it. Tap a name, and that person gets the points: when Jonas takes Mira's turn at the dishes, Jonas earns them and his creature cheers. Whoever the task is for is listed first. Close the dialog to leave the task unticked. A parent who did it earns nobody points. A repeating task shows the name next to *Last*. Tasks without points tick in one tap, as before. A tick from Home Assistant or an assistant doesn't ask: the points go to the assignee or to whoever's turn it was.
 
 If you tap done by accident, tap the checkmark again within ~5 seconds to undo. Deleting a task outright (not just marking it done) shows a separate "Undo" toast that restores it exactly as it was.
 

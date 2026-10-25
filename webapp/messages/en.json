@@ -660,6 +660,7 @@
     "dueInDays": "In {count, plural, one {# day} other {# days}}",
     "overdueByDays": "{count, plural, =0 {Due today} one {# day overdue} other {# days overdue}}",
     "lastDone": "Last: {date}",
+    "lastDoneBy": "Last: {date}, {name}",
     "deleteAria": "Delete {title}",
     "priority": {
       "low": "Low",
@@ -4218,6 +4219,10 @@
     "loadFailed": "Couldn't load your family",
     "statPointsToSpend": "Points to spend",
     "rewardsShortcut": "To the rewards"
+  },
+  "doneBy": {
+    "title": "Who did it?",
+    "expected": "Their task"
   },
   "tasksWidget": {
     "loadingAria": "Loading tasks",
