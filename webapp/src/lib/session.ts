@@ -151,14 +151,25 @@ export async function revokeSession(sessionId: string): Promise<void> {
     .eq("id", sessionId);
 }
 
-/** Sign every device in a family out — for a lost device, or a join-code rotation. */
-export async function revokeFamilySessions(familyId: string): Promise<void> {
+/**
+ * Sign every device in a family out — for a lost device, or a join-code
+ * rotation. `exceptSessionId` keeps the device doing it signed in. Throws
+ * when the update fails: a caller that promised "everyone else is signed
+ * out" must not report success when nobody was.
+ */
+export async function revokeFamilySessions(
+  familyId: string,
+  options: { exceptSessionId?: string } = {},
+): Promise<void> {
   const supabase = createAdminClient();
-  await supabase
+  let query = supabase
     .from("device_sessions")
     .update({ revoked_at: new Date().toISOString() })
     .eq("family_id", familyId)
     .is("revoked_at", null);
+  if (options.exceptSessionId) query = query.neq("id", options.exceptSessionId);
+  const { error } = await query;
+  if (error) throw new Error(`could not revoke sessions: ${error.message}`);
 }
 
 /** The Set-Cookie attributes. Exported so the proxy and the routes can't drift. */

@@ -3,7 +3,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
-import { requireFamilyId } from "./use-supabase-queries";
+import { queryKeys, requireFamilyId } from "./use-supabase-queries";
+import { addOrMergeShoppingItems, shoppingStore } from "@/lib/shopping-add";
 import { syncRecipeTags } from "@/lib/recipe-tags";
 import type {
   Recipe,
@@ -487,18 +488,15 @@ export function useAddRecipeToShoppingList() {
         };
       });
 
-      // Insert all shopping items
-       
-      const { error: insertError } = await (supabase as any)
-        .from("shopping_items")
-        .insert(shoppingItems);
-
-      if (insertError) throw insertError;
+      // Merged into what is already on the list (unticked), not inserted next
+      // to it: milk for two recipes, or a recipe added twice, stays one milk
+      // with the amounts added up — the rules the assistants' adds follow.
+      await addOrMergeShoppingItems(requireFamilyId(family), shoppingItems, shoppingStore(supabase));
 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["shopping_items", requireFamilyId(family)],
+        queryKey: queryKeys.shoppingItems(requireFamilyId(family)),
       });
     },
   });

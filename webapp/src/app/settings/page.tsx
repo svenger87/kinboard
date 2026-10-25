@@ -1155,6 +1155,10 @@ export default function SettingsPage() {
                   onSuccess: () => {
                     toast.success(t("regenerateSuccess"));
                   },
+                  onError: (err) => {
+                    // pin_required puts the PIN screen back up on its own.
+                    if (err.message !== "pin_required") toast.error(t("regenerateFailed"));
+                  },
                 }
               );
             }}

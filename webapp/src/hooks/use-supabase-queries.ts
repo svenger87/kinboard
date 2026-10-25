@@ -2519,48 +2519,34 @@ export function useDeleteSetting() {
 // ===================
 
 export function useRegenerateJoinCode() {
-  const supabase = createClient();
   const queryClient = useQueryClient();
-  const { family, setFamily } = useFamilyStore();
+  const { setFamily } = useFamilyStore();
 
   return useMutation({
+    // Server-side: rotating the code also signs every other device out,
+    // which only the service role can do (api/family/join-code).
     mutationFn: async ({ ttlHours }: { ttlHours?: number | null }) => {
-      const familyId = requireFamilyId(family);
-
-      // Generate a fresh unique code (retry on unique-violation)
-      let newCode = generateJoinCode();
-      let attempts = 0;
-      while (attempts < 10) {
-        const expiresAt =
-          ttlHours != null && ttlHours > 0
-            ? new Date(Date.now() + ttlHours * 3600e3).toISOString()
-            : null;
-
-        const { data, error } = await (supabase as any)
-          .from("families")
-          .update({ join_code: newCode, join_code_expires_at: expiresAt })
-          .eq("id", familyId)
-          .select()
-          .single();
-
-        if (!error) {
-          return data as Family;
+      const response = await fetch("/api/family/join-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ttl_hours: ttlHours ?? null }),
+      });
+      if (!response.ok) {
+        if (await isPinRequired(response)) {
+          relockSettings();
+          throw new Error("pin_required");
         }
-
-        // Postgres unique-violation code: 23505
-        if ((error as { code?: string }).code === "23505") {
-          newCode = generateJoinCode();
-          attempts++;
-          continue;
-        }
-
-        throw error;
+        throw new Error("Could not rotate the join code");
       }
-
-      throw new Error("Could not generate a unique join code after 10 attempts.");
+      const body = await response.json();
+      return body.family as Family;
     },
     onSuccess: (updatedFamily) => {
       setFamily(updatedFamily);
+      queryClient.invalidateQueries({ queryKey: ["family"] });
+    },
+    // A partial failure can still have changed the code; show what is stored.
+    onError: () => {
       queryClient.invalidateQueries({ queryKey: ["family"] });
     },
   });
@@ -2594,17 +2580,4 @@ export function useRenameFamily() {
       queryClient.invalidateQueries({ queryKey: ["family"] });
     },
   });
-}
-
-// ===================
-// HELPER FUNCTIONS
-// ===================
-
-function generateJoinCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let result = "";
-  for (let i = 0; i < 6; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
 }

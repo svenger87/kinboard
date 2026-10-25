@@ -21,6 +21,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Sending a recipe or the week's meal plan to the shopping list no longer duplicates what is already on it.** Milk from a recipe now joins the milk already on the list (1 L + 0.5 L becomes 1.5 L) instead of appearing twice, and adding the same recipe twice no longer doubles every item. Ticked items are left alone: something already bought counts as a new need. These are the same rules assistants have used since 1.13.
+
 - **On a phone, the Events widget shows its third event in full.** The widget lists three events, each under its day, but its list was capped at a height that fit about two and a half and scrolled inside the widget, so the third was cut off. It now shows all three; anything further is on the "more" link, as before.
 - **On a phone, bars and buttons above the navigation sit on it instead of floating above it.** The space reserved for the bottom navigation was still the size it had before its redesign, about 35px taller than the navigation itself, so the add button and the "Re-sync" bar under Settings -> Home Assistant floated with a gap beneath them. The reserved space now matches the navigation exactly. The "Re-sync" bar also no longer drifts up into the page at the end of the scroll.
 - **Scrolled to the end of Tasks, Notes, Calendar, Recipes or Birthdays on a phone, the last entry is no longer under the add button.** The button floats over the end of the page; those pages now leave room for it, as Home and Meals already did, so the last entry's own buttons can be tapped.
@@ -28,6 +30,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **A camera's live picture comes back by itself.** An RTSP camera tile went back to still images when its connection failed, dropped or sent no video, and stayed there until someone tapped Retry or reloaded the page; a picture that stopped moving was never noticed at all. On a wall display that runs for days, that meant a slow slideshow. It now tries again by itself (after 2, 4, 8 and 15 seconds, then every 30), treats a picture with no new frame for 8 seconds as lost, and tries at once when the page is shown again or comes back online. The stills stay on screen in between.
 
 ### Security
+
+- **Changing the family code now signs out every other device.** The confirmation always said every connected device would need to rejoin, but none did. A device stays signed in for a year, so after a lost or stolen phone, changing the code only stopped new devices from joining. Now every other device is signed out, wall display included, and needs the new code. The device that changes the code stays signed in. Changing the code needs the settings PIN when one is set.
 
 - **Changing where an integration connects now needs the settings PIN, on the server.** Any device that had joined the family could change Home Assistant's address in the background without the PIN, and Kinboard would then have sent the stored Home Assistant token to that address. The same was true for Immich's address, the cameras, Google Calendar, Bring! and Unsplash: every setting that holds a password or a token. Saving or removing one of them now needs the settings PIN, like the other parents' settings; a screen whose unlock has run out shows the PIN entry again instead of an error. With no PIN set nothing changes, so the setup wizard works as before. Found while reviewing #410.
 

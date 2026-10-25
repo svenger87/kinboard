@@ -4,7 +4,8 @@ import { toLocalDateKey } from "@/lib/local-date";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
-import { requireFamilyId } from "./use-supabase-queries";
+import { queryKeys, requireFamilyId } from "./use-supabase-queries";
+import { addOrMergeShoppingItems, shoppingStore } from "@/lib/shopping-add";
 import { useWeekStart } from "./use-week-start";
 import type { WeekStartsOn } from "./use-week-start";
 import type {
@@ -530,17 +531,16 @@ export function useGenerateShoppingFromMealPlan() {
         };
       });
 
-      const { error: insertError } = await supabaseAny
-        .from("shopping_items")
-        .insert(shoppingItems);
-
-      if (insertError) throw insertError;
+      // Merged into what is already on the list (unticked), not inserted next
+      // to it: milk for two recipes, or a recipe added twice, stays one milk
+      // with the amounts added up — the rules the assistants' adds follow.
+      await addOrMergeShoppingItems(requireFamilyId(family), shoppingItems, shoppingStore(supabase));
 
       return shoppingItems.length;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["shopping_items", requireFamilyId(family)],
+        queryKey: queryKeys.shoppingItems(requireFamilyId(family)),
       });
     },
   });

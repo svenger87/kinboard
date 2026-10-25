@@ -238,6 +238,9 @@ test("a route that still takes family_id checks it against the session", () => {
     // `family_id` column it writes and the local `familyId`, both taken from
     // auth.session.familyId; the body carries only `{ code }`.
     "holidays/region/route.ts",
+    // Rotating the join code. The regex matches the local `familyId` taken
+    // from auth.session.familyId; the body carries only `{ ttl_hours }`.
+    "family/join-code/route.ts",
     // The school-holiday sync switch and its picker (RFC-014 §5). The regex
     // matches the local `familyId`, taken from auth.session.familyId; the
     // body carries only `{ enabled, region, group }` and the query only
