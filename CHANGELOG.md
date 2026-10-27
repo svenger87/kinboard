@@ -28,6 +28,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Choosing a neutral tone does something again in light mode.** Settings → Design → Neutral tone changed the colours in dark mode only: in light mode every tone looked like Sand, and had since Graphite arrived in 1.13. The light versions of Salbei, Warm grey and Graphite were left out of the built stylesheet.
+
 - **Sending a recipe or the week's meal plan to the shopping list no longer duplicates what is already on it.** Milk from a recipe now joins the milk already on the list (1 L + 0.5 L becomes 1.5 L) instead of appearing twice, and adding the same recipe twice no longer doubles every item. Ticked items are left alone: something already bought counts as a new need. These are the same rules assistants have used since 1.13.
 
 - **On a phone, the Events widget shows its third event in full.** The widget lists three events, each under its day, but its list was capped at a height that fit about two and a half and scrolled inside the widget, so the third was cut off. It now shows all three; anything further is on the "more" link, as before.
