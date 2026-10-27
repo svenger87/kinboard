@@ -40,12 +40,31 @@ type Palette = ThemePalette;
 
 // Neutral palettes — same accent/month themes, different neutral tones: three
 // warm ones and Graphite, which has no tint at all.
-// Swatch HSL values mirror globals.css (light-mode background/card/border).
-const PALETTES: { id: Palette; bg: string; card: string; border: string }[] = [
-  { id: "sand", bg: "38 37% 88%", card: "43 54% 97%", border: "37 31% 85%" },
-  { id: "salbei", bg: "72 25% 92%", card: "75 50% 98%", border: "77 19% 85%" },
-  { id: "warmgrey", bg: "37 18% 91%", card: "40 33% 98%", border: "37 18% 86%" },
-  { id: "graphite", bg: "0 0% 94%", card: "0 0% 99%", border: "0 0% 85%" },
+// Swatch HSL values mirror globals.css: background/card/border/foreground, in
+// light and in dark mode. The picker shows the mode the device is in, so a
+// dark wall display previews the colours it will actually get.
+type Swatch = { bg: string; card: string; border: string; text: string };
+const PALETTES: { id: Palette; light: Swatch; dark: Swatch }[] = [
+  {
+    id: "sand",
+    light: { bg: "38 37% 88%", card: "43 54% 97%", border: "37 31% 85%", text: "30 14% 14%" },
+    dark: { bg: "28 30% 10%", card: "30 27% 14%", border: "32 20% 23%", text: "38 42% 91%" },
+  },
+  {
+    id: "salbei",
+    light: { bg: "72 25% 92%", card: "75 50% 98%", border: "77 19% 85%", text: "90 17% 14%" },
+    dark: { bg: "90 30% 9%", card: "88 26% 13%", border: "86 19% 22%", text: "77 33% 92%" },
+  },
+  {
+    id: "warmgrey",
+    light: { bg: "37 18% 91%", card: "40 33% 98%", border: "37 18% 86%", text: "30 12% 13%" },
+    dark: { bg: "45 9% 10%", card: "45 8% 14%", border: "42 7% 23%", text: "40 20% 92%" },
+  },
+  {
+    id: "graphite",
+    light: { bg: "0 0% 94%", card: "0 0% 99%", border: "0 0% 85%", text: "0 0% 9%" },
+    dark: { bg: "0 0% 5%", card: "0 0% 9%", border: "0 0% 18%", text: "0 0% 93%" },
+  },
 ];
 
 // Per-device text scale (localStorage, not the Supabase theme blob above —
@@ -254,7 +273,7 @@ export default function ThemeSettingsPage() {
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground mb-4">{t("paletteIntro")}</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {PALETTES.map((p) => (
+                  {PALETTES.map(({ id, light, dark }) => ({ id, ...(isDarkMode ? dark : light) })).map((p) => (
                     <button
                       key={p.id}
                       onClick={() => handlePaletteChange(p.id)}
@@ -271,7 +290,7 @@ export default function ThemeSettingsPage() {
                         className="mb-2 h-10 rounded-lg border"
                         style={{ backgroundColor: `hsl(${p.card})`, borderColor: `hsl(${p.border})` }}
                       />
-                      <span className="text-xs font-medium" style={{ color: "hsl(30 14% 14%)" }}>
+                      <span className="text-xs font-medium" style={{ color: `hsl(${p.text})` }}>
                         {t(`palette_${p.id}`)}
                       </span>
                     </button>

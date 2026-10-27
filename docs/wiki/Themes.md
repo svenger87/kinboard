@@ -31,6 +31,14 @@ In **Settings → Theme** you can pick any of the 12 themes manually, overriding
 
 The decorative names ("Frost Blue", "Pumpkin", etc.) are kept in English in both locales — they're branding, not user-facing labels. The actual month names beneath each tile localize via `date-fns`.
 
+Besides the accent, the month puts a **wash** over every page: a soft glow of its colour from the top and a faint rise from the bottom, a little stronger in dark mode. It is one fixed layer for the whole app (`body::before` in `globals.css`), drawn once, so it costs a Raspberry Pi nothing after the first paint.
+
+## Neutral tone (palettes)
+
+Settings → Theme → **Neutral tone** sets the colour of the whole screen: background, cards, borders and muted text. *Sand* (warm brown, the default), *Sage* (olive green), *Warm grey* (grey with a little warmth) and *Graphite* (no tint). The month keeps the accent and the wash, so the two combine. Per family, like the month.
+
+In dark mode the palettes carry their tint at 20–30% saturation (Warm grey less, Graphite none), so they stay apart on a wall display: any two dark palettes' cards are at least 5 ΔE apart, and muted text stays at 4.5:1 or more on every surface (`e2e/palette-tint.spec.ts`). The picker's swatches show the mode the device is in.
+
 ## Dark / light mode
 
 Settings → Theme → **Dark mode** toggle. Defaults to dark (the kitchen wall display use case). Light mode also works for desktop browsers.
