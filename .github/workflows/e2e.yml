@@ -32,7 +32,7 @@ jobs:
   smoke:
     name: Boot stack + smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 45  # cold cache plus the WebKit layout run: ~25-30 min, plus the upgrade-path check
+    timeout-minutes: 60  # alone ~24-29 min (cold cache, WebKit layout run, upgrade-path check); two runs at once took 46 (#420, 2026-10-27)
     defaults:
       run:
         working-directory: webapp
