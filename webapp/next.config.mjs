@@ -121,8 +121,13 @@ const nextConfig = {
       // Belt to frame-ancestors' braces, for anything that still reads it.
       { key: "X-Frame-Options", value: "DENY" },
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-      // Drop ambient access to sensors the app doesn't use.
-      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
+      // Drop ambient access to sensors the app doesn't use. The microphone is the
+      // exception: a Home Assistant dashboard tab may pass it on to a recorder or
+      // intercom card (#425). A frame only gets it when the page allows its origin
+      // here *and* its own `allow` names it, and only a tab the household switched
+      // on carries that (`frameAllow`); a page can't hand a frame a feature it is
+      // refused itself, which is why this is `*` rather than one origin.
+      { key: "Permissions-Policy", value: "camera=(), microphone=*, geolocation=(), interest-cohort=()" },
       // Clickjacking + a couple of cheap wins, none of which constrain scripts:
       // the dashboard cannot be framed, forms cannot be pointed elsewhere, and
       // <base> cannot be hijacked.

@@ -111,6 +111,15 @@ export function dashboardFrameUrl(
 }
 
 /**
+ * What a dashboard's frame may use: fullscreen and autoplay always, the
+ * microphone only for a tab switched on for it. Kinboard's Permissions-Policy
+ * lets the microphone through to frames; this attribute is what decides which.
+ */
+export function frameAllow(dashboard: Pick<HaEmbeddedDashboard, "microphone">): string {
+  return dashboard.microphone === true ? "fullscreen; autoplay; microphone" : "fullscreen; autoplay";
+}
+
+/**
  * An https page cannot show an http frame: the browser blocks it as mixed
  * content and shows nothing, so the tab says why instead.
  */
@@ -146,7 +155,10 @@ export function embeddedDashboards(
   const tabs: HaEmbeddedDashboard[] = [];
   for (const entry of list) {
     if (!entry || typeof entry !== "object") continue;
-    const { id, title, path, hide_sidebar, hide_header, kiosk, in_nav, nav_icon } = entry as Record<string, unknown>;
+    const { id, title, path, hide_sidebar, hide_header, kiosk, in_nav, nav_icon, microphone } = entry as Record<
+      string,
+      unknown
+    >;
     if (typeof id !== "string" || id === "" || typeof title !== "string") continue;
     if (typeof path !== "string" || cleanDashboardPath(path) === null) continue;
     const both = kiosk === true;
@@ -158,6 +170,7 @@ export function embeddedDashboards(
       hide_header: typeof hide_header === "boolean" ? hide_header : both,
       in_nav: in_nav === true,
       nav_icon: navIcon(nav_icon),
+      microphone: microphone === true,
     });
   }
   return tabs;

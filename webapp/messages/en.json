@@ -1812,6 +1812,8 @@
       "hideHeaderLabel": "Hide Home Assistant's header",
       "hideHeaderHint": "The dashboard's own tabs (its views) are in the header. Leave it showing for a dashboard with more than one view.",
       "kioskHint": "Both need the kiosk-mode card from HACS. Without it, they do nothing.",
+      "microphoneLabel": "Allow the microphone",
+      "microphoneHint": "For a voice-recorder or intercom card. The browser asks once, naming Kinboard rather than Home Assistant. Works only when Kinboard is opened over https://.",
       "moveUpAria": "Move {name} up",
       "moveDownAria": "Move {name} down",
       "removeAria": "Remove {name}",

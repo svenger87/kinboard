@@ -1812,6 +1812,8 @@
       "hideHeaderLabel": "Masquer l'en-tête de Home Assistant",
       "hideHeaderHint": "Les onglets propres au tableau de bord (ses vues) sont dans l'en-tête. Laissez-le visible pour un tableau de bord qui a plusieurs vues.",
       "kioskHint": "Les deux nécessitent la carte kiosk-mode de HACS. Sans elle, ils ne font rien.",
+      "microphoneLabel": "Autoriser le microphone",
+      "microphoneHint": "Pour une carte d'enregistrement vocal ou d'interphone. Le navigateur le demande une fois, au nom de Kinboard et non de Home Assistant. Ne fonctionne que si Kinboard est ouvert en https://.",
       "moveUpAria": "Monter {name}",
       "moveDownAria": "Descendre {name}",
       "removeAria": "Retirer {name}",

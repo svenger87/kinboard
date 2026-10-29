@@ -14,6 +14,7 @@ import {
   embedUrlAcceptable,
   dashboardPageHref,
   embeddedDashboards,
+  frameAllow,
   kioskQuery,
   navDashboards,
   moveDashboard,
@@ -108,8 +109,8 @@ test("the tabs come from the settings in their order, without broken entries; a 
     { id: "d", path: "dashboard-y", hide_sidebar: true, hide_header: true },
     good[1],
   ];
-  // Not in the navigation unless switched on, and no icon of its own.
-  const normalised = (d: object) => ({ ...d, in_nav: false, nav_icon: null });
+  // Not in the navigation unless switched on, no icon of its own, and no microphone.
+  const normalised = (d: object) => ({ ...d, in_nav: false, nav_icon: null, microphone: false });
   expect(embeddedDashboards({ embedded_dashboards: mixed as never })).toEqual(good.map(normalised));
   // A tab saved with the single switch it once had reads as both, and nothing of it is kept.
   expect(
@@ -127,6 +128,16 @@ test("the tabs come from the settings in their order, without broken entries; a 
       { id: "g", title: "Old, unset", path: "dashboard-unset", hide_sidebar: false, hide_header: false },
     ].map(normalised),
   );
+  // The microphone only for a tab switched on for it: true, nothing else.
+  const withMic = (microphone: unknown) =>
+    embeddedDashboards({ embedded_dashboards: [{ ...good[0], microphone }] as never })[0].microphone;
+  expect(withMic(true)).toBe(true);
+  expect(withMic("true")).toBe(false);
+  expect(withMic(undefined)).toBe(false);
+  expect(frameAllow({ microphone: true })).toBe("fullscreen; autoplay; microphone");
+  expect(frameAllow({ microphone: false })).toBe("fullscreen; autoplay");
+  expect(frameAllow({})).toBe("fullscreen; autoplay");
+
   expect(kioskQuery({ hide_sidebar: true, hide_header: true })).toBe("?kiosk");
   expect(kioskQuery({ hide_sidebar: true, hide_header: false })).toBe("?hide_sidebar");
   expect(kioskQuery({ hide_sidebar: false, hide_header: true })).toBe("?hide_header");
@@ -265,6 +276,8 @@ test("the frame: Home Assistant's address, a name, no sandbox, and a message ins
     'sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"',
   );
   expect(frame).not.toContain("allow-top-navigation");
+  // What the frame may use comes from the tab: the microphone only when switched on.
+  expect(frame).toContain("allow={frameAllow(dashboard)}");
   // Only the browser knows the page's protocol: checked after mount.
   expect(frame).toMatch(/useEffect\(\(\) => \{[\s\S]*?setMixed\(src !== null && blockedAsMixedContent\(window\.location\.protocol, src\)\);/);
   expect(frame).toContain("if (src === null || mixed) {");
@@ -315,6 +328,8 @@ test("the settings page saves each change with the Home Assistant settings and t
   expect(settings).toMatch(/checked=\{dashboard\.hide_sidebar\}[\s\S]*?d\.id === dashboard\.id \? \{ \.\.\.d, hide_sidebar \} : d/);
   expect(settings).toMatch(/checked=\{dashboard\.hide_header\}[\s\S]*?d\.id === dashboard\.id \? \{ \.\.\.d, hide_header \} : d/);
   expect(settings).toContain('{t("hideHeaderHint")}');
+  expect(settings).toMatch(/checked=\{dashboard\.microphone === true\}[\s\S]*?d\.id === dashboard\.id \? \{ \.\.\.d, microphone \} : d/);
+  expect(settings).toContain('{t("microphoneHint")}');
   expect(settings).toContain("embedded_dashboards: moveDashboard(dashboards, index, -1)");
   expect(settings).toContain("embedded_dashboards: moveDashboard(dashboards, index, 1)");
   expect(settings).toContain("if (dashboards.some((d) => cleanDashboardPath(d.path) === cleanPath)) {");

@@ -1812,6 +1812,8 @@
       "hideHeaderLabel": "Kopfzeile von Home Assistant ausblenden",
       "hideHeaderHint": "Die eigenen Tabs des Dashboards (seine Ansichten) stehen in der Kopfzeile. Bei einem Dashboard mit mehreren Ansichten lass sie sichtbar.",
       "kioskHint": "Beides braucht die Karte kiosk-mode aus HACS. Ohne sie bewirkt es nichts.",
+      "microphoneLabel": "Mikrofon erlauben",
+      "microphoneHint": "Für eine Sprachaufnahme- oder Gegensprech-Karte. Der Browser fragt einmal nach und nennt dabei Kinboard, nicht Home Assistant. Klappt nur, wenn Kinboard über https:// geöffnet ist.",
       "moveUpAria": "{name} nach oben",
       "moveDownAria": "{name} nach unten",
       "removeAria": "{name} entfernen",

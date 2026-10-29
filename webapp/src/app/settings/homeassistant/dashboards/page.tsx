@@ -300,6 +300,26 @@ export default function HaDashboardsSettingsPage() {
                     <p className="text-xs text-muted-foreground">{t("kioskHint")}</p>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
+                        <Label htmlFor={`ha-mic-${dashboard.id}`} className="text-sm">
+                          {t("microphoneLabel")}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">{t("microphoneHint")}</p>
+                      </div>
+                      <Switch
+                        id={`ha-mic-${dashboard.id}`}
+                        checked={dashboard.microphone === true}
+                        disabled={busy}
+                        onCheckedChange={(microphone) =>
+                          void save({
+                            embedded_dashboards: dashboards.map((d) =>
+                              d.id === dashboard.id ? { ...d, microphone } : d,
+                            ),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
                         <Label htmlFor={`ha-nav-${dashboard.id}`} className="text-sm">
                           {t("navLabel")}
                         </Label>

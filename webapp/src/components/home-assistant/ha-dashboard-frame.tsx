@@ -10,6 +10,7 @@ import {
   dashboardFrameUrl,
   EMBED_HELP_URL,
   FRAME_HINT_MS,
+  frameAllow,
 } from "@/lib/ha-embed";
 import type { HaEmbeddedDashboard } from "@/types/home-assistant";
 
@@ -31,10 +32,11 @@ interface HaDashboardFrameProps {
  * `allow-top-navigation`, so nothing framed can send the whole display away
  * from Kinboard. That holds only while Home Assistant is on an origin of its
  * own (a sibling subdomain is fine): under Kinboard's own origin, scripts and
- * the same origin together could reach into Kinboard's page. Camera and
- * microphone stay unavailable in here — Kinboard's Permissions-Policy turns
- * them off for the page and every frame in it, so a camera card's talk button
- * cannot work in a tab.
+ * the same origin together could reach into Kinboard's page. The microphone
+ * reaches the frame only when the tab is switched on for it (`frameAllow`),
+ * and only on an https Kinboard: browsers keep it from any frame whose page
+ * isn't a secure context. The camera stays off — Kinboard's Permissions-Policy
+ * refuses it to the page and every frame in it.
  */
 export function HaDashboardFrame({ dashboard, baseUrl }: HaDashboardFrameProps) {
   const t = useTranslations("homeAutomation");
@@ -76,7 +78,7 @@ export function HaDashboardFrame({ dashboard, baseUrl }: HaDashboardFrameProps) 
         src={src}
         title={t("dashboardFrameTitle", { name: dashboard.title })}
         className="absolute inset-0 size-full border-0"
-        allow="fullscreen; autoplay"
+        allow={frameAllow(dashboard)}
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"
         referrerPolicy="no-referrer"
         onLoad={() => setLoaded(true)}

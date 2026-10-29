@@ -44,3 +44,11 @@ test("the CSP deliberately omits script-src", () => {
 test("the headers apply to every path", () => {
   expect(config).toContain('source: "/:path*"');
 });
+
+test("camera and geolocation stay off; the microphone goes only to a frame that asks for it", () => {
+  // #425: a Home Assistant dashboard tab may pass the microphone to a recorder
+  // card. `*` is needed because a page can't hand a frame a feature it is
+  // refused itself; which frame gets it is the iframe's `allow` (frameAllow).
+  const policy = config.match(/key: "Permissions-Policy", value: "([^"]*)"/)?.[1];
+  expect(policy).toBe("camera=(), microphone=*, geolocation=(), interest-cohort=()");
+});
