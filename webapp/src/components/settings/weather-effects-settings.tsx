@@ -26,7 +26,7 @@ import {
 } from "@/lib/weather-effects";
 
 type ThresholdKey = keyof typeof THRESHOLD_BOUNDS;
-const THRESHOLDS: ThresholdKey[] = ["freezingAtC", "heatAtC", "windAtKmh"];
+const THRESHOLDS: ThresholdKey[] = ["freezingAtC", "heatAtC", "windAtKmh", "rainChanceAt"];
 
 /** Settings -> Weather -> Weather effects on Home (components/weather-effects.tsx draws them). */
 export function WeatherEffectsSettings({ units }: { units: UnitSystem }) {
@@ -34,7 +34,7 @@ export function WeatherEffectsSettings({ units }: { units: UnitSystem }) {
   const { data: stored } = useSetting<unknown>(SETTINGS_KEYS.weatherEffects, DEFAULT_WEATHER_EFFECTS);
   const update = useUpdateSetting();
   const [value, setValue] = useState<WeatherEffectsSettings>(() => normalizeWeatherEffects(stored));
-  const [typed, setTyped] = useState<Record<ThresholdKey, string>>({ freezingAtC: "", heatAtC: "", windAtKmh: "" });
+  const [typed, setTyped] = useState<Record<ThresholdKey, string>>({ freezingAtC: "", heatAtC: "", windAtKmh: "", rainChanceAt: "" });
   // An effect shown right here, over this page, for a minute (or until Stop).
   const [previewing, setPreviewing] = useState<WeatherEffect | null>(null);
   useEffect(() => {
@@ -50,6 +50,7 @@ export function WeatherEffectsSettings({ units }: { units: UnitSystem }) {
       freezingAtC: String(displayThreshold("freezingAtC", next, units)),
       heatAtC: String(displayThreshold("heatAtC", next, units)),
       windAtKmh: String(displayThreshold("windAtKmh", next, units)),
+      rainChanceAt: String(displayThreshold("rainChanceAt", next, units)),
     });
   }, [stored, units]);
 
@@ -75,7 +76,8 @@ export function WeatherEffectsSettings({ units }: { units: UnitSystem }) {
     if (next[key] !== value[key]) void save(next);
   };
 
-  const unit = (key: ThresholdKey) => (key === "windAtKmh" ? UNIT_LABELS[units].speed : UNIT_LABELS[units].temperature);
+  const unit = (key: ThresholdKey) =>
+    key === "rainChanceAt" ? "%" : key === "windAtKmh" ? UNIT_LABELS[units].speed : UNIT_LABELS[units].temperature;
   const choice = (active: boolean) =>
     `rounded-lg border px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
       active ? "border-primary bg-primary/10 font-medium" : "border-border hover:bg-muted/40"
@@ -138,7 +140,7 @@ export function WeatherEffectsSettings({ units }: { units: UnitSystem }) {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             {THRESHOLDS.map((key) => (
               <div key={key}>
                 <Label htmlFor={`weather-effects-${key}`} className="mb-1 block text-sm">

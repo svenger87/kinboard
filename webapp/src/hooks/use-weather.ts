@@ -157,7 +157,8 @@ export function useWeather() {
   });
 }
 
-export function useWeatherForecast() {
+/** `enabled: false` holds the request back, for a caller that may not need it (the weather effects). */
+export function useWeatherForecast(options: { enabled?: boolean } = {}) {
   const locale = useLocale();
   const { data: location, isLoading: locationLoading } = useWeatherLocation();
   const { system: units, isLoading: unitsLoading } = useWeatherUnits();
@@ -189,7 +190,7 @@ export function useWeatherForecast() {
       if (data && data.configured === false) return null;
       return data;
     },
-    enabled: !locationLoading && !unitsLoading,
+    enabled: !locationLoading && !unitsLoading && options.enabled !== false,
     staleTime: 30 * 60 * 1000, // 30 minutes
     refetchInterval: 60 * 60 * 1000, // Refetch every hour
     retry: 2,

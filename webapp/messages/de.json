@@ -1375,7 +1375,8 @@
       "effectsThreshold": {
         "freezingAtC": "Frost bei höchstens",
         "heatAtC": "Hitze ab",
-        "windAtKmh": "Wind ab"
+        "windAtKmh": "Wind ab",
+        "rainChanceAt": "Regen ab (Wahrscheinlichkeit)"
       },
       "effectsListLabel": "Effekte",
       "effectsListHint": "Schalte aus, was du nicht möchtest. Vorschau zeigt einen Effekt eine Minute lang direkt hier, egal bei welchem Wetter.",
@@ -1392,7 +1393,7 @@
       },
       "effectWhen": {
         "snow": "Fallende Flocken, wenn es schneit",
-        "rain": "Regenstreifen, bei Regen oder Nieselregen",
+        "rain": "Regenstreifen, wenn es regnet oder die Regenwahrscheinlichkeit der nächsten Stunden die Schwelle erreicht",
         "storm": "Stärkerer Regen und ab und zu ein Blitz, bei Gewitter",
         "freezing": "Eiskristalle, die von den Rändern her wachsen, bei oder unter der Frosttemperatur",
         "wind": "Böen und Blätter, und schräger Schnee oder Regen, ab der Windgeschwindigkeit",

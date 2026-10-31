@@ -1375,7 +1375,8 @@
       "effectsThreshold": {
         "freezingAtC": "Gel à partir de (ou en dessous)",
         "heatAtC": "Chaleur à partir de",
-        "windAtKmh": "Vent à partir de"
+        "windAtKmh": "Vent à partir de",
+        "rainChanceAt": "Pluie à partir de (probabilité)"
       },
       "effectsListLabel": "Effets",
       "effectsListHint": "Désactivez ceux que vous ne voulez pas. Aperçu en affiche un ici même pendant une minute, quel que soit le temps.",
@@ -1392,7 +1393,7 @@
       },
       "effectWhen": {
         "snow": "Des flocons qui tombent, quand il neige",
-        "rain": "Des traits de pluie, sous la pluie ou la bruine",
+        "rain": "Des traits de pluie, quand il pleut ou que la probabilité de pluie des prochaines heures atteint le seuil",
         "storm": "Une pluie plus forte et un éclair de temps en temps, par orage",
         "freezing": "Des cristaux de glace qui poussent depuis les bords, à la température de gel ou en dessous",
         "wind": "Des rafales et des feuilles, et la neige ou la pluie en biais, à partir de la vitesse du vent",

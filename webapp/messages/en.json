@@ -1375,7 +1375,8 @@
       "effectsThreshold": {
         "freezingAtC": "Freezing at or below",
         "heatAtC": "Hot at or above",
-        "windAtKmh": "Windy at or above"
+        "windAtKmh": "Windy at or above",
+        "rainChanceAt": "Rain at or above (chance)"
       },
       "effectsListLabel": "Effects",
       "effectsListHint": "Switch off any you don't want. Preview shows one right here for a minute, whatever the weather.",
@@ -1392,7 +1393,7 @@
       },
       "effectWhen": {
         "snow": "Flakes falling, when it snows",
-        "rain": "Streaks of rain, in rain or drizzle",
+        "rain": "Streaks of rain, when it rains or the chance of rain in the next few hours reaches the threshold",
         "storm": "Heavier rain and a lightning bolt now and then, in a thunderstorm",
         "freezing": "Ice crystals growing in from the edges, at or below the freezing temperature",
         "wind": "Gusts and leaves blowing across, and snow or rain slanting, at or above the wind speed",

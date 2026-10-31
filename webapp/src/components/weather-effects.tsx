@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMotion } from "@/hooks/use-motion";
 import { useSetting } from "@/hooks/use-supabase-queries";
-import { useWeather, useWeatherUnits } from "@/hooks/use-weather";
+import { useWeather, useWeatherForecast, useWeatherUnits } from "@/hooks/use-weather";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import {
   DEFAULT_WEATHER_EFFECTS,
@@ -43,6 +43,14 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
   const { data: stored } = useSetting<unknown>(SETTINGS_KEYS.weatherEffects, DEFAULT_WEATHER_EFFECTS);
   const settings = useMemo(() => normalizeWeatherEffects(stored), [stored]);
   const { data: weather } = useWeather();
+  // The chance of rain is the forecast's: its next slot, the next few hours.
+  // The weather widget's query; asked for here only when the rain effect is on.
+  const { data: forecast } = useWeatherForecast({ enabled: settings.enabled && settings.effects.rain });
+  const slot = forecast?.hourly?.[0];
+  const reading = useMemo(
+    () => (weather ? { ...weather, nextSlot: slot ? { chance: slot.precipProbability, conditionMain: slot.conditionMain } : undefined } : weather),
+    [weather, slot],
+  );
   const { system } = useWeatherUnits();
   const [preview, setPreview] = useState<WeatherEffect[]>([]);
   const motion = useMotion();
@@ -84,7 +92,7 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
     return () => window.clearTimeout(timer);
   }, [forced]);
 
-  const effects = forced && forced.length > 0 ? forced : preview.length > 0 ? preview : activeEffects(weather, settings, system);
+  const effects = forced && forced.length > 0 ? forced : preview.length > 0 ? preview : activeEffects(reading, settings, system);
   if (effects.length === 0 || motion === "off") return null;
   const on = new Set(effects);
   const intensity = settings.intensity;
