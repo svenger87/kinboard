@@ -172,7 +172,7 @@ export function WeekView({
   })();
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden" data-week-view>
       <CardContent className="p-4">
       {/* Week Header */}
       <div className="grid grid-cols-[2.5rem_repeat(7,1fr)] sm:grid-cols-[4rem_repeat(7,1fr)] border-b border-border/30 pb-2 mb-2">
@@ -188,6 +188,12 @@ export function WeekView({
             <button
               key={day.toISOString()}
               onClick={() => onSelectDate(day)}
+              aria-label={[
+                format(day, "PPPP", { locale: dateLocale }),
+                holiday ? holidayLabel(holiday, tHolidays) : "",
+                taskColors.length ? t("markers.tasksDueCount", { count: taskColors.length }) : "",
+              ].filter(Boolean).join(" · ")}
+              aria-pressed={isSelected ? true : undefined}
               className={`text-center py-2 rounded-lg transition-all ${
                 isSelected ? "bg-primary/10" : "hover:bg-accent/50"
               }`}
