@@ -486,6 +486,8 @@ JSON it copies has the browser, cores, memory, screen and pixel ratio, so
 reports from different Pis can be compared. **Proposed:** step 1 waits for
 numbers from at least a Pi 4 and a Pi 5.
 
+Results are collected in discussion #433.
+
 ## 8. Decisions (owner, 2026-11-01)
 
 1. **Visitors fly over the widgets**, not behind them. The tap target and the
