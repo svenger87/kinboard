@@ -73,6 +73,23 @@ always. After one tap the visitor stops catching taps for the rest of its
 pass, so a tap meant for the Events card that lands on the sleigh costs one
 surprise, not a stuck screen.
 
+**With the weather, never instead of it.** When the weather effects are on,
+a festival never switches them off or takes their place. The two make one
+scene:
+
+- **One wind.** The weather's gust (`gust` in `EffectsCanvas`, 0 when calm, up
+  to 2 in a storm) also pushes the visitor. The sleigh drifts and banks with
+  the snow, lanterns swing, and the bunny's ears blow back.
+- **Depth.** Snow and rain keep falling behind the widgets, as now. While a
+  visitor passes, a few flakes or drops fall in front of it too, so it flies
+  *through* the weather instead of over a picture of it.
+- **Light and air.** In fog a visitor fades in and out of the haze. In a storm
+  it's darker, lit by the lightning's glow. In heat the sun's glare sits over
+  it as over everything else.
+- **Dressing and weather.** The snow caps on the cards stay a still
+  decoration. Real snowfall doesn't pile them higher, because a growing
+  decoration would be motion that never stops.
+
 ![Mockup on a screenshot of Kinboard's screensaver: the sleigh crosses the middle of the screen while snow falls](020/screensaver-christmas.svg)
 
 ### 2.2 Dressing
@@ -283,18 +300,50 @@ to fetch, which matters on LAN-only installs.
 |---|---|---|
 | `lib/festivals.ts` (pure): `festivalDates(id, year)`, `activeFestival(date, chosen, timeZone)`, `commonFestivals(country)` | the holiday region, the family time zone | the date rules and the pre-tick table in §3, the Diwali table, the overlap rule (§2.4). Fast-suite spec with the dates above |
 | A `festivals` family setting (chosen list, on/off) | `useSetting`, `SETTINGS_KEYS`, re-read every minute like the weather effects (#429) | a key and a settings section in en/de/fr |
-| `<FestivalVisitors>` | the `EffectsCanvas` loop: `FRAME_MS`, `devicePixelRatio` capped at 1.5, `visibilitychange`, `useMotion()`, sprites drawn once | a 2-minute scheduler that starts the loop for one pass and stops it again; a canvas above the widgets with `pointer-events: none`, plus one transparent button that follows the sprite and takes the tap |
+| Visitors | the `EffectsCanvas` loop: `FRAME_MS`, `devicePixelRatio` capped at 1.5, `visibilitychange`, `useMotion()`, sprites drawn once | the weather's loop is split into a **scene**: one clock, one wind and one light, drawing the weather's layer behind the widgets and a front layer above them (`pointer-events: none`) for the visitor and the flakes in front of it. A 2-minute scheduler adds a visitor to the scene for one pass. With no weather showing, the loop runs only during that pass. One transparent button follows the sprite and takes the tap |
 | The tap | the creatures' live reaction (#367) | presents and stars on the canvas |
 | Dressing | `<html data-motion>`, set before first paint; same idea | `<html data-festival="christmas">`, plus CSS in `globals.css` on Home's widget grid (one hook on the grid, so none of the widgets changes) |
 | Outfits | RFC-017's head slot, `onHead()`, `items.tsx` | one head item per festival; a kid-side switch to opt out |
 | Colour wash | `body::before` and its opacities (#422) | `--festival-top` and `--festival-bottom`, set with `data-festival`; the month's colour when unset |
 | Screensaver | `components/screensaver.tsx` layers | the visitor canvas above the photo, below the clock |
 
-Home mounts `<FestivalVisitors>` next to `<WeatherEffects>` (`app/page.tsx`).
-Both can run at once, for example snow falling while the sleigh crosses. Each
-visitor sprite is cached and only one visitor flies at a time, so the two
-together should cost close to weather alone. That has to be measured on the
-Pi in step 1, not assumed.
+Weather and festival share that one loop rather than running two side by
+side. Two loops would each wake the Pi 30 times a second and could never
+agree on the wind (§2.1). Only one visitor flies at a time, and its sprites
+are cached, so a pass on a snowy day should cost close to the snow alone.
+That has to be measured on the Pi in step 1, not assumed.
+
+### 5.1 The art: drawn in SVG, flown as sprites
+
+Everything should carry as much detail as the drawing can hold: shading,
+highlights, fur and fabric, a reindeer's legs that really gallop. **SVG is the
+right way to draw it, but not the right way to animate it.** Animating a
+detailed SVG means changing hundreds of nodes every frame, and the browser
+lays out and repaints them all, filters and gradients included. That's
+what a Pi can't afford.
+
+| | Detail | Cost per frame | Fits Kinboard | Verdict |
+|---|---|---|---|---|
+| **SVG drawn once into sprites, moved on the canvas** | everything SVG can draw: gradients, layered shading, highlights, fine strokes | a few `drawImage` calls, whatever the detail | the weather effects already work this way; the art stays code, as in RFC-016 | **use this for visitors** |
+| SVG animated in the DOM (CSS or SMIL) | the same | grows with the drawing; filters and gradients repaint | simple; it's how the mockups move | **use for still or slow parts**: dressing, outfits |
+| WebGL (raw, or a library like PixiJS, a few hundred KB) | shaders: real glow, light, thousands of particles | low on a good GPU; the Pi's GPU and drivers vary | a second renderer next to the weather's canvas | not for one sleigh; reconsider if the scene ever needs real lighting |
+| Lottie / Rive | rich, keyframed or rigged animation | a runtime (Lottie, a few hundred KB of JS; Rive, a WASM renderer) | artwork made in an outside editor (After Effects, the Rive editor), not in code | no: the art would leave the repo's hands |
+| Sprite sheets, animated WebP/AVIF | fixed by the frames | low | fixed resolution; large files; no wind, no depth | no |
+
+So a visitor is **drawn as detailed SVG**, part by part: the sleigh body, each
+reindeer's body, head and four legs, Santa, the reins. Each part is rendered
+once to an `ImageBitmap` at the screen's pixel ratio. Each frame then only
+moves, rotates and layers those parts on the canvas: a gallop cycle for the
+legs, a head bob, the reins following, the whole thing banking in the wind.
+The detail is paid for once, when the festival starts, not 30 times a
+second. Glows, such as the red nose or a lantern's light, are drawn into the
+sprite too, because live canvas blur is slow on a Pi.
+
+**One visual language.** Visitors, dressing and outfits are drawn in the
+soft, rounded style of RFC-016's creatures (*Gumdrop*), with the same light
+from the top left, so the sleigh looks like it belongs to the same world as
+the Drake and the Unicorn. The mockups in this RFC show placement and motion,
+not this level of finish.
 
 ## 6. Steps
 
@@ -324,8 +373,13 @@ and the sleigh can follow in December.
   festive rather than devotional: lights, lanterns, food and animals, no
   religious symbols.
 - **The Pi.** Weather effects already run on it at 30 frames a second. One
-  visitor at a time, cached sprites and a stopped loop between passes keep
-  this in the same budget, but it needs measuring (step 1).
+  shared loop, one visitor at a time, detailed art paid for once as sprites,
+  and a stopped loop between passes keep this in the same budget, but it
+  needs measuring (step 1). That means a snowy day with the sleigh passing
+  on a real Pi, not a laptop.
+- **Sprite memory.** A detailed sleigh at 1.5× on a 1080p wall is on the
+  order of a megabyte or two of bitmaps. They are made when the festival starts and released
+  when it ends, never for festivals that aren't on.
 - **Keeping it fresh.** The Diwali table needs a reminder that fails in time
   (§3.2). Every other date is computed.
 
@@ -340,6 +394,8 @@ and the sleigh can follow in December.
 5. **Nothing on birthdays.**
 6. **The colour wash changes** with the festival (§2.4).
 7. **Sankt Martin and Nikolaus come next, for Germany**, right after step 1 (§6).
+8. **Never replace the weather effects; melt together** with them (§2.1, one loop in §5).
+9. **As much detail as the drawing can hold** (§5.1): drawn in SVG, flown as sprites.
 
 ## 9. Not in this RFC
 

@@ -465,7 +465,7 @@ def model():
     W, H = 1200, 650
     body = [background(W, H)]
     body.append(f'<text x="40" y="46" font-size="20" font-weight="700" fill="{TEXT}">When the canvas runs</text>'
-                f'<text x="40" y="70" font-size="14" fill="{MUTED}">One visitor at a time. Between passes the loop is stopped: no frames, no work.</text>')
+                f'<text x="40" y="70" font-size="14" fill="{MUTED}">One loop for weather and festival, one visitor at a time. Between passes the festival adds no frames.</text>')
     x0, x1 = 210, 1150
     minutes = 12
     def mx(m): return x0 + (x1 - x0) * m / minutes

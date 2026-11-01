@@ -4,7 +4,7 @@
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }</style>
 <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#211912"/><stop offset="1" stop-color="#1b140e"/></linearGradient><radialGradient id="wash" cx="0.5" cy="0" r="0.8"><stop offset="0" stop-color="#3a6ea5" stop-opacity="0.18"/><stop offset="1" stop-color="#3a6ea5" stop-opacity="0"/></radialGradient><linearGradient id="washb" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#3a6ea5" stop-opacity="0.14"/><stop offset="0.45" stop-color="#3a6ea5" stop-opacity="0"/></linearGradient></defs><rect width="1200" height="650" fill="url(#bg)"/><rect width="1200" height="650" fill="url(#wash)"/>
 <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#f5b84a"/></marker></defs>
-<text x="40" y="46" font-size="20" font-weight="700" fill="#f2ebe0">When the canvas runs</text><text x="40" y="70" font-size="14" fill="#a89a88">One visitor at a time. Between passes the loop is stopped: no frames, no work.</text>
+<text x="40" y="46" font-size="20" font-weight="700" fill="#f2ebe0">When the canvas runs</text><text x="40" y="70" font-size="14" fill="#a89a88">One loop for weather and festival, one visitor at a time. Between passes the festival adds no frames.</text>
 <text x="40" y="122" font-size="16" font-weight="600" fill="#f2ebe0">Home</text>
 <rect x="210" y="106" width="940" height="24" rx="6" fill="#3a2f23"/>
 <rect x="361.7" y="100" width="10" height="36" rx="3" fill="#f5b84a"/>
