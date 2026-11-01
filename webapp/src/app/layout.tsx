@@ -61,9 +61,7 @@ export default async function RootLayout({
   // this is a runtime fallback the browser-side supabase client reads
   // first via window.__ENV. See lib/supabase/client.ts.
   //
-  // The API address is decided here, per request (RFC-018): `same-origin`
-  // when Kong serves the app, otherwise API_EXTERNAL_URL. See
-  // lib/supabase/api-base.ts.
+  // The API is on the page's own origin (lib/supabase/api-base.ts).
   const publicEnv = publicApiEnv(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "");
 
   return (

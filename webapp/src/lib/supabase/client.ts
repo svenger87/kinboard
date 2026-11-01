@@ -1,7 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/types/database";
 import { getFamilyToken, invalidateFamilyToken } from "@/lib/supabase/family-token";
-import { resolveBrowserBase } from "@/lib/supabase/api-base";
 
 // Runtime env injected by app/layout.tsx via <script>window.__ENV=...</script>.
 // Reading from window.__ENV first (when set) lets the published Docker image
@@ -29,23 +28,14 @@ function publicEnv(key: "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_ANON_
 }
 
 /**
- * The API base for this browser: the page's own origin in same-origin mode,
- * otherwise the configured address. The runtime value always beats the
- * build-time one, so `same-origin` can never fall through to a baked
- * localhost.
+ * The API base for this browser: the page's own origin, always (1.15 —
+ * `/rest/v1` is served by the webapp itself, see lib/supabase/api-base.ts).
  */
 export function browserApiBase(): string {
   // Server render of a client component: nothing is fetched there (queries
-  // run in effects), but the constructor insists on a URL, and a same-origin
-  // stack has no NEXT_PUBLIC_SUPABASE_URL to give it.
-  if (typeof window === "undefined") {
-    return process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "http://localhost";
-  }
-  return resolveBrowserBase(
-    window.__ENV?.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    window.location.origin,
-  );
+  // run in effects), but the constructor insists on a URL.
+  if (typeof window === "undefined") return "http://localhost";
+  return window.location.origin;
 }
 
 export function createClient() {

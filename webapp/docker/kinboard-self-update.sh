@@ -7,33 +7,20 @@
 #
 # Steps (in order, halting on first error):
 #   1. git fetch + git pull origin main  — pulls new compose files,
-#      kong.yml, migrations, init.sql, seed-demo.sql.
-#   2. ./setup.sh --non-interactive       — re-substitutes kong.yml
-#      placeholders if a new release shipped new keys/routes. No-ops
-#      when nothing's stale.
+#      migrations, init.sql, seed-demo.sql.
+#   2. ./setup.sh --non-interactive       — adds any .env key a new release
+#      needs. No-ops when nothing's missing.
 #   3. docker compose pull                — pulls new GHCR images.
 #   3b. BACKUP                             — a verified database dump and
 #      the storage directory, taken only when the pull actually brought a
 #      new image, and before anything is recreated. See below.
-#   4. docker compose up -d                — recreates only services
-#      whose image changed. The webapp's entrypoint applies new migrations
-#      on boot (migrate.sh).
+#   4. docker compose up -d --remove-orphans — recreates only services
+#      whose image or definition changed, and removes containers of services
+#      a release retired (1.15: kong, auth, realtime, storage, imgproxy). The
+#      webapp's entrypoint applies new migrations on boot (migrate.sh).
 #   4b. docker compose up -d --force-recreate cron — only when step 4
 #      recreated the webapp: ofelia reads job labels only at start.
-#   5. docker restart kinboard-kong        — Kong's DB-less mode doesn't
-#      fully reload from `kong reload`. Only kicked if kong.yml's mtime
-#      is newer than kong's container start time.
-#   NOTE: `docker stop` on the webhook container ends this script without
-#   any trap running (the webhook binary is PID 1 and the script is killed
-#   with the container). A move between 3c and 4a then leaves
-#   webapp/docker/.env.pre-entry behind, and the next run (or ./start.sh up)
-#   puts KINBOARD_ENTRY and the layout back: that is the backstop.
-#   3c/4a/7. kinboard-entry.sh prepare / confirm / switch — an install with
-#      no KINBOARD_ENTRY in .env moves Kong onto port 3001 as the front door
-#      (RFC-018), only after a request through Kong to / reaches the app:
-#      decided before step 4 so its one recreate covers image and port,
-#      confirmed after it, with switch as the fallback. Otherwise it stays on
-#      the webapp and the log says why.
+#   5. docker restart kinboard-diun        — only if diun.yml changed.
 #
 # Logs to /var/log/kinboard-update.log inside the webhook container —
 # bind-mount that path on the host if you want persistent logs.
@@ -92,20 +79,14 @@ log() {
 # daemon to run a container with those paths mounted, and host paths resolve
 # on the host. Everything below goes through that.
 #
-# Two helper images are needed, and they are not the same one.
+# Anything with a shell, tar and gzip will do, so the database's own image
+# serves for all of it.
 #
-# Anything with a shell will do for streaming a file out or pruning old ones,
-# so the database's image serves. The archive is fussier: it needs GNU tar for
-# --xattrs, because storage keeps each object's content type in an extended
-# attribute and busybox tar drops them silently — the photos then restore
-# looking perfect, right sizes and paths, and every one fails to load with
-# ENODATA. See docs/wiki/Self-hosting.md.
-#
-# supabase/postgres carries busybox tar, which is what makes this worth
-# probing rather than assuming: of the images a Kinboard stack already has,
-# kong, imgproxy and realtime carry GNU tar and the rest do not. Probed rather
-# than hardcoded so a base-image change upstream cannot quietly turn the
-# archive into one that restores unusable photos.
+# Until 1.15 the archive needed GNU tar for --xattrs, because storage-api kept
+# each object's content type in an extended attribute, and only Kong, imgproxy
+# and realtime carried GNU tar. Those containers are gone, and so is the
+# reason: uploaded files now live as plain files (FILES_DIR) whose type comes
+# from their name. The busybox tar every remaining image has is enough.
 # ---------------------------------------------------------------------------
 
 BACKUP_KEEP="${BACKUP_KEEP:-5}"
@@ -135,25 +116,7 @@ take_backup() {
     return 1
   fi
 
-  # An image from this stack that has GNU tar.
-  tar_image=""
-  for svc in kong imgproxy realtime webapp db; do
-    # shellcheck disable=SC2086
-    cid="$(docker compose $COMPOSE_FILES ps -q "$svc" 2>/dev/null | head -n1)"
-    [ -n "$cid" ] || continue
-    img="$(docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null)"
-    [ -n "$img" ] || continue
-    if docker run --rm --entrypoint sh "$img" -c 'tar --version 2>/dev/null | grep -q "GNU tar"' >/dev/null 2>&1; then
-      tar_image="$img"
-      break
-    fi
-  done
-  if [ -z "$tar_image" ]; then
-    log "ERROR: no image in this stack has GNU tar; an archive without --xattrs"
-    log "       restores photos that cannot be read. Refusing to upgrade."
-    return 1
-  fi
-  log "backup: using $tar_image for the storage archive"
+  tar_image="$helper_image"
 
   docker run --rm -v "$backup_dir":/out "$helper_image" \
     sh -c 'mkdir -p /out' >>"$LOG_FILE" 2>&1 || {
@@ -199,13 +162,11 @@ take_backup() {
 
   # --- the uploaded files ---
   # Not in the dump, and the half nobody can recreate: family photos, recipe
-  # pictures, vehicle images. --xattrs on create is load-bearing; storage
-  # keeps each object's content type in an extended attribute on the file.
-  # --user 0:0 because the image that has GNU tar is not necessarily one that
-  # runs as root — kong does not — and both the source directory and the
-  # backup directory belong to root on the host.
-  if ! docker run --rm --user 0:0 -v "$data_dir":/data:ro -v "$backup_dir":/out "$tar_image" \
-       tar --xattrs --xattrs-include='*' -czf "/out/pre-upgrade-$stamp-storage.tar.gz" \
+  # pictures, vehicle images. --user 0:0 because both the source directory and
+  # the backup directory belong to root on the host. --entrypoint: the
+  # database image's own would start Postgres.
+  if ! docker run --rm --user 0:0 --entrypoint tar -v "$data_dir":/data:ro -v "$backup_dir":/out "$tar_image" \
+       -czf "/out/pre-upgrade-$stamp-storage.tar.gz" \
        -C /data storage >>"$LOG_FILE" 2>&1; then
     log "ERROR: could not archive the storage directory — refusing to upgrade"
     return 1
@@ -291,7 +252,6 @@ log "git fetch origin main"
 git fetch origin main >>"$LOG_FILE" 2>&1
 LOCAL_SHA="$(git rev-parse HEAD)"
 REMOTE_SHA="$(git rev-parse origin/main)"
-KONG_BEFORE="$(stat -c %Y webapp/docker/kong.yml 2>/dev/null || echo 0)"
 DIUN_BEFORE="$(stat -c %Y webapp/docker/diun/diun.yml 2>/dev/null || echo 0)"
 
 if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
@@ -329,8 +289,8 @@ else
   log "git up-to-date at $LOCAL_SHA"
 fi
 
-# 2. setup.sh — idempotent. Re-substitutes kong.yml placeholders if new
-#    ones landed; does nothing if everything is already substituted.
+# 2. setup.sh — idempotent. Adds .env keys a release needs; does nothing
+#    when none are missing.
 if [ -x ./setup.sh ]; then
   log "running setup.sh --non-interactive"
   ./setup.sh --non-interactive >>"$LOG_FILE" 2>&1 || {
@@ -342,16 +302,6 @@ fi
 # 3. + 4. compose pull + up -d
 cd webapp/docker
 
-# The front-door helper (RFC-018), with this stack's compose files. Its
-# output goes to the update log line by line.
-entry() {
-  COMPOSE="docker compose" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env KONG_YML=./kong.yml \
-    sh ./kinboard-entry.sh "$@" 2>&1 | while IFS= read -r line; do log "$line"; done
-}
-
-# A KINBOARD_ENTRY compose cannot use ("Kong", a typo) would make every
-# compose command below fail; lower-case it, anything else becomes webapp.
-entry normalise
 log "docker compose $COMPOSE_FILES pull --ignore-buildable"
 # `--ignore-buildable` skips services that have a `build:` directive
 # (the webhook service is locally-built from Dockerfile.webhook, has no
@@ -411,43 +361,26 @@ fi
 SERVICES=$(docker compose $COMPOSE_FILES config --services 2>/dev/null \
             | grep -vE '^(webhook|diun)$' \
             | tr '\n' ' ')
-# 3c. Kong as the front door (RFC-018), decided BEFORE the up: when Kong
-# already serves the app through the route setup.sh merged, KINBOARD_ENTRY=kong
-# is written now (the old .env kept as .env.pre-entry), so the one `up` that
-# installs the new image also moves port 3001 — one webapp restart, not two.
-# A leftover .env.pre-entry from a run that was killed is put back first.
-entry prepare
+# 3c. Containers of services a release retired (1.15: kong, auth, realtime,
+# storage, imgproxy) go before the up rather than during it: Kong held
+# WEBAPP_PORT on some installs, and the webapp needs it now. --remove-orphans
+# below would catch them too, but only as part of the same up that has to
+# bind the port. A service an overlay still defines is left alone.
+COMPOSE="docker compose" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env \
+  sh ./kinboard-entry.sh retire 2>&1 | while IFS= read -r line; do log "$line"; done
 
 WEBAPP_BEFORE="$(webapp_container)"
-log "docker compose $COMPOSE_FILES up -d --no-build $SERVICES"
+log "docker compose $COMPOSE_FILES up -d --no-build --remove-orphans $SERVICES"
 # shellcheck disable=SC2086
-if ! docker compose $COMPOSE_FILES up -d --no-build $SERVICES >>"$LOG_FILE" 2>&1; then
-  # A failed up must not leave a move decided in 3c (KINBOARD_ENTRY=kong)
-  # unconfirmed: put the setting and the old layout back, and back off.
-  entry recover --restart --mark
+if ! docker compose $COMPOSE_FILES up -d --no-build --remove-orphans $SERVICES >>"$LOG_FILE" 2>&1; then
   log "=== self-update ABORTED: docker compose up failed ==="
   exit 1
 fi
 
-# 4a. If 3c moved the port: Kong must publish it and the app answer through
-# it, or .env and the old layout are put back.
-entry confirm
-
 # 4b. The scheduler, when the webapp is new (see recreate_scheduler_if_webapp_changed).
 recreate_scheduler_if_webapp_changed "$WEBAPP_BEFORE"
 
-# 5. Kong restart — only if kong.yml changed during this run and Kong has not
-# been (re)started since (3c or the up may already have done it).
-KONG_AFTER="$(stat -c %Y kong.yml 2>/dev/null || echo 0)"
-if [ "$KONG_AFTER" != "$KONG_BEFORE" ] \
-   && COMPOSE_FILES="$COMPOSE_FILES" KONG_YML=./kong.yml sh ./kinboard-entry.sh kong-stale; then
-  log "kong.yml changed (mtime $KONG_BEFORE → $KONG_AFTER); restarting kinboard-kong"
-  docker restart kinboard-kong >>"$LOG_FILE" 2>&1 || log "WARN: kong restart failed (kong may not be running)"
-else
-  log "kong.yml unchanged since Kong started; skipping kong restart"
-fi
-
-# 6. Diun restart — only if diun/diun.yml changed during this run.
+# 5. Diun restart — only if diun/diun.yml changed during this run.
 # Diun reads its config once at startup; a substituted secret or any
 # other live edit won't take effect until the container restarts. We
 # skip Diun in the compose-up above (self-kill protection — Diun is
@@ -460,12 +393,5 @@ if [ "$DIUN_AFTER" != "$DIUN_BEFORE" ]; then
 else
   log "diun.yml unchanged; skipping diun restart"
 fi
-
-# 7. The fallback for an install 3c could not decide (Kong not serving the
-# route yet, the webapp not up): the same check now, and the move on its own
-# (a second webapp restart). A no-op when .env already says kong or webapp.
-WEBAPP_BEFORE="$(webapp_container)"
-entry switch
-recreate_scheduler_if_webapp_changed "$WEBAPP_BEFORE"
 
 log "=== self-update done ==="

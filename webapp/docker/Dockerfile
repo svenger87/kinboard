@@ -96,7 +96,9 @@ WORKDIR /app
 
 # curl: cron job health checks (existing). postgresql-client: provides
 # `psql` + `pg_isready` for the entrypoint's migration-runner logic.
-RUN apk add --no-cache curl postgresql-client
+# su-exec: the entrypoint starts as root to own the uploaded-files directory,
+# then runs the server as nextjs.
+RUN apk add --no-cache curl postgresql-client su-exec
 
 # Add sync script for cron jobs
 RUN echo '#!/bin/sh' > /usr/local/bin/google-sync && \
@@ -228,7 +230,8 @@ COPY --chown=nextjs:nodejs docker/migrations/ ./migrations/
 COPY --chown=nextjs:nodejs docker/migrate.sh docker/webapp-entrypoint.sh ./
 USER root
 RUN chmod +x ./webapp-entrypoint.sh ./migrate.sh
-USER nextjs
+# No `USER nextjs` here: webapp-entrypoint.sh drops to it before starting the
+# server, after the steps that need root (the uploaded-files directory).
 
 EXPOSE 3000
 

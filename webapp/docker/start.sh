@@ -10,13 +10,10 @@
 #   ./start.sh migrate   # apply migrations/NNN_*.sql (migrate.sh)
 #   ./start.sh seed-demo # load optional demo family + subjects
 #
-# Compose file selection: defaults to `docker-compose.yml`. If you
-# also have `docker-compose.image.yml` in this directory, it's
-# auto-included so `up` pulls the published image instead of trying
-# to build from a source tree that may not be on disk (image-pull
-# self-host deployments). Override the full set in .env or your
-# shell, e.g.:
-#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml"
+# Compose file selection: defaults to `docker-compose.yml`, which runs the
+# published image. Override the full set in .env or your shell, e.g.:
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml"
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.build.yml"   # from source
 
 set -euo pipefail
 
@@ -30,10 +27,6 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-# A KINBOARD_ENTRY compose cannot use ("Kong", a typo) would make every
-# compose command fail; lower-case it, anything else becomes webapp (RFC-018).
-ENV_FILE=./.env sh ./kinboard-entry.sh normalise
-
 # Source .env so user-set vars (especially COMPOSE_FILES) take
 # effect for this script's own logic. docker compose reads .env on
 # its own for compose-file substitution, but doesn't propagate
@@ -43,19 +36,10 @@ set -a
 . ./.env
 set +a
 
-# Pick a sensible compose-file default. Source-build self-hosters get
-# the base file; image-pull self-hosters automatically also get the
-# image overlay if they have docker-compose.image.yml present (which
-# they do if they followed the published-image path in the wiki).
-# Reverse-proxy users (Traefik) and demo overlays still need to be
-# specified explicitly via COMPOSE_FILES — they're not always-on.
-if [[ -z "${COMPOSE_FILES:-}" ]]; then
-  if [[ -f docker-compose.image.yml ]]; then
-    COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml"
-  else
-    COMPOSE_FILES="-f docker-compose.yml"
-  fi
-fi
+# The base file runs the published image (docker-compose.image.yml used to be
+# needed for that and is now only kept for COMPOSE_FILES lines that name it).
+# Traefik, a source build and demo overlays go in COMPOSE_FILES explicitly.
+COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.yml}"
 if command -v docker-compose >/dev/null 2>&1; then
   COMPOSE="docker-compose"
 else
@@ -71,16 +55,10 @@ set -a
 source ./.env
 set +a
 PROJECT_NAME="${PROJECT_NAME:-kinboard}"
-# Exported by the sourcing above, a shell value would beat .env in compose —
-# and the entry steps below rewrite .env. Let compose read the file.
-unset KINBOARD_ENTRY
 
-# NOTE: supabase service-role password alignment (authenticator,
-# supabase_auth_admin, supabase_storage_admin) + the `_realtime` schema now
-# happen INSIDE the stack via the one-shot `db-init` service in
-# docker-compose.yml, gated so auth/rest/storage/realtime wait for it. That
-# makes a bare `docker compose up` work without this script. We no longer
-# align passwords from the host here.
+# NOTE: PostgREST's login-role password is aligned INSIDE the stack by the
+# one-shot `db-init` service in docker-compose.yml, which `rest` waits for, so
+# a bare `docker compose up` works without this script.
 
 # Apply the migrations to the running DB from the host, by hand.
 #
@@ -159,34 +137,6 @@ wait_for_migrations() {
   echo "  warning: the webapp had not finished its migrations after 6 minutes." >&2
   echo "           Check: docker logs $container" >&2
   return 0
-}
-
-# Does the port in API_EXTERNAL_URL match the one Kong publishes?
-#
-# Discussion #277 cost somebody an evening to `:8001` instead of `:8100`. The
-# two numbers a self-hoster types are 3001 for the page and 8100 for the API,
-# and getting the second wrong produces the failure that thread was entirely
-# about: the page loads, setting up a family gets one step in, and everything
-# after it goes nowhere. Nothing named the port it was reaching for, and the
-# address is typed once and then lives in a file nobody opens again.
-#
-# Both numbers are right here, so say when they disagree. Prints "match",
-# "mismatch <url-port> <kong-port>", or "none" when the address carries no
-# port at all, which is what a Traefik/domain setup looks like.
-api_url_port_verdict() {
-  url="$1"
-  kong_port="$2"
-  [ -n "$url" ] || { echo none; return 0; }
-
-  # The port is the ":NNNN" after the host, before any path.
-  url_port=$(printf '%s' "$url" \
-    | sed -E 's#^[a-zA-Z][a-zA-Z0-9+.-]*://##; s#/.*$##; s#^[^:]*$##; s#^[^:]*:##')
-
-  case "$url_port" in
-    ''|*[!0-9]*) echo none ;;
-    "$kong_port") echo match ;;
-    *) echo "mismatch $url_port $kong_port" ;;
-  esac
 }
 
 # Refuse to start when the data directory sits on a Windows drive.
@@ -277,25 +227,6 @@ case "$cmd" in
   up)
     check_data_dir_filesystem || exit 1
 
-    # A warning, not a refusal: a reverse proxy listening on a different port
-    # in front of Kong is a legitimate setup, and this cannot tell that apart
-    # from a typo.
-    port_verdict="$(api_url_port_verdict "${API_EXTERNAL_URL:-}" "${KONG_HTTP_PORT:-8100}")"
-    case "$port_verdict" in
-      mismatch*)
-        set -- $port_verdict
-        echo "warning: API_EXTERNAL_URL uses port $2, but Kong is published on $3." >&2
-        echo "         API_EXTERNAL_URL=${API_EXTERNAL_URL}" >&2
-        echo "         The browser loads the page from the webapp port (${WEBAPP_PORT:-3001})" >&2
-        echo "         and then sends every data request to the address above, so if that" >&2
-        echo "         port is wrong the page appears and nothing in it works: setting up" >&2
-        echo "         a family gets one step in, then 'can't reach the Kinboard server'." >&2
-        echo "         If a reverse proxy listens on $2 and forwards to Kong, this is fine." >&2
-        echo "         Otherwise fix API_EXTERNAL_URL in webapp/docker/.env and re-run" >&2
-        echo "         ./setup.sh --non-interactive from the project root." >&2
-        ;;
-    esac
-
     # Say something when the stack is about to build the webapp from source
     # while a published image sits unused on this machine.
     #
@@ -305,60 +236,46 @@ case "$cmd" in
     # containers come up healthy, and only the version in Settings disagrees
     # (issue #106). A warning, not a refusal — building from source on
     # purpose is a supported path.
-    if ! $COMPOSE $COMPOSE_FILES config 2>/dev/null | grep -q 'image: ghcr.io/svenger87/kinboard'; then
+    if $COMPOSE $COMPOSE_FILES config 2>/dev/null | grep -q 'image: kinboard-webapp:local'; then
       if docker image inspect "ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest}" >/dev/null 2>&1; then
         echo "warning: the webapp will be BUILT FROM SOURCE, but the published image" >&2
         echo "         ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest} is already on this machine." >&2
-        echo "         To run the published image instead, load the overlay:" >&2
-        echo "           COMPOSE_FILES=\"-f docker-compose.yml -f docker-compose.image.yml\" ./start.sh up" >&2
+        echo "         To run the published image instead, drop docker-compose.build.yml" >&2
+        echo "         from COMPOSE_FILES." >&2
         echo "         To build on purpose, run 'git pull --ff-only origin main' first, or you" >&2
         echo "         will rebuild the version you are already running." >&2
       fi
     fi
 
-    # The one-shot db-init service (docker-compose.yml) aligns role
-    # passwords before auth/rest/storage/realtime start, so we just bring
-    # the stack up and apply migrations.
-    # An install from before KINBOARD_ENTRY moves to Kong as its front door
-    # (RFC-018), but only once a request through Kong reaches the app;
-    # anything less leaves it on the webapp and says why. No-op when .env
-    # already says kong or webapp. When the stack is already running, prepare
-    # decides before the up (so one recreate covers a new image and the
-    # port); when it is not, prepare does nothing and `switch` decides after
-    # the up. confirm checks a decided move after the up. See
-    # kinboard-entry.sh.
-    entry() {
-      COMPOSE="$COMPOSE" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env KONG_YML=./kong.yml \
-        sh ./kinboard-entry.sh "$@" || true
-    }
-    entry prepare
+    # Containers of services 1.15 retired (kong, auth, realtime, storage,
+    # imgproxy) go first: Kong may hold WEBAPP_PORT, which the webapp
+    # publishes now. --remove-orphans below would get them too, but only in
+    # the same up that has to bind the port. See kinboard-entry.sh.
+    COMPOSE="$COMPOSE" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env sh ./kinboard-entry.sh retire || true
 
     webapp_before="$(webapp_container)"
     set +e
-    $COMPOSE $COMPOSE_FILES up -d
+    $COMPOSE $COMPOSE_FILES up -d --remove-orphans
     up_status=$?
     set -e
     if [[ $up_status -ne 0 ]]; then
-      # A failed up must not leave KINBOARD_ENTRY=kong behind unconfirmed:
-      # put the setting and the old layout back, and back off.
-      entry recover --restart --mark
       echo "error: docker compose up failed" >&2
       exit 1
     fi
     recreate_scheduler_if_webapp_changed "$webapp_before"
     wait_for_migrations
-
-    entry confirm
-    webapp_before="$(webapp_container)"
-    entry switch
-    recreate_scheduler_if_webapp_changed "$webapp_before"
     $COMPOSE $COMPOSE_FILES ps
     ;;
   down)
     $COMPOSE $COMPOSE_FILES down
     ;;
   restart)
-    $COMPOSE $COMPOSE_FILES build --no-cache webapp
+    # Rebuilds only when the build overlay is loaded; otherwise pulls.
+    if $COMPOSE $COMPOSE_FILES config 2>/dev/null | grep -q 'image: kinboard-webapp:local'; then
+      $COMPOSE $COMPOSE_FILES build --no-cache webapp
+    else
+      $COMPOSE $COMPOSE_FILES pull webapp
+    fi
     $COMPOSE $COMPOSE_FILES up -d --no-deps webapp
     $COMPOSE $COMPOSE_FILES up -d --no-deps --force-recreate cron
     ;;

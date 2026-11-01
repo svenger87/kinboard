@@ -53,16 +53,13 @@ test.describe("client IP", () => {
     expect(clientIp(req({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }))).toBe("203.0.113.7");
   });
 
-  test("through Kong as the front door: Kong's X-Real-IP, which a client cannot set (RFC-018)", () => {
-    // Measured on Kong 3.9 with KONG_REAL_IP_HEADER=X-Forwarded-For and
-    // recursive on: X-Real-IP is the client resolved through trusted proxies,
-    // and X-Forwarded-For still carries whatever the client claimed first.
+  test("X-Real-IP does not beat X-Forwarded-For: with the webapp published itself, a client can set it", () => {
+    // Until 1.15, an install with Kong in front (KINBOARD_ENTRY=kong) trusted
+    // X-Real-IP, which Kong overwrote. Kong is gone; an old KINBOARD_ENTRY
+    // line in .env must not bring that trust back.
     const forged = { "x-forwarded-for": "1.2.3.4, 198.51.100.4", "x-real-ip": "198.51.100.4" };
-    expect(clientIp(req(forged), "kong")).toBe("198.51.100.4");
-    expect(clientIp(req({ "x-forwarded-for": "192.168.1.23", "x-real-ip": "192.168.1.23" }), "kong")).toBe("192.168.1.23");
-    // With the webapp published itself, X-Real-IP is the client's own word.
-    expect(clientIp(req(forged), "webapp")).toBe("1.2.3.4");
-    expect(clientIp(req(forged), undefined)).toBe("1.2.3.4");
+    expect(clientIp(req(forged))).toBe("1.2.3.4");
+    expect(readFileSync("src/lib/rate-limit.ts", "utf8")).not.toMatch(/process\.env\.KINBOARD_ENTRY|x-real-ip.*\n.*if \(real\)/);
   });
 
   test("falls back to x-real-ip, then a sentinel", () => {

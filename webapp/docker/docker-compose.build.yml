@@ -1,0 +1,21 @@
+# Build the webapp from this source tree instead of pulling the published
+# image:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# Tagged kinboard-webapp:local so a local build is never mistaken for, or
+# overwritten by, a pulled ghcr.io image (`docker compose pull` skips it).
+#
+# Build from a clean checkout. Next inlines NEXT_PUBLIC_* at build time, and a
+# webapp/.env.local on the build machine ends up in the bundle — the anon key
+# below is the only value baked on purpose; the API address is the page's own
+# origin and needs none.
+
+services:
+  webapp:
+    image: kinboard-webapp:local
+    pull_policy: build
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
