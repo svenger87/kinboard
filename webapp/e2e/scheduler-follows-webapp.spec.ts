@@ -82,7 +82,7 @@ for (const script of SCRIPTS) {
     test("the webapp is looked at before `up -d`, and the scheduler follows it", () => {
       const src = readFileSync(script.file, "utf8");
       // The whole stack's `up -d` (plain, or with the self-update's service list), not a single service's.
-      const upDash = /\n[^#\n]*(docker compose|\$COMPOSE) \$COMPOSE_FILES up -d( --no-build \$SERVICES)? *(>>[^\n]*)?\n/.exec(src);
+      const upDash = /\n[^#\n]*(docker compose|\$COMPOSE) \$COMPOSE_FILES up -d( --no-build)?( --remove-orphans)?( \$SERVICES)? *(>>[^\n]*)?\n/.exec(src);
       expect(upDash, "could not find the stack's `up -d`").not.toBeNull();
       const call = /recreate_scheduler_if_webapp_changed "\$(\w+)"/.exec(src.slice(upDash!.index));
       expect(call, "`up -d` must be followed by recreate_scheduler_if_webapp_changed").not.toBeNull();
