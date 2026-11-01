@@ -143,6 +143,9 @@ export async function GET(request: NextRequest) {
         conditionIcon: item.weather[0].icon,
         precipProbability: Math.round(item.pop * 100),
         windSpeed: windSpeedForDisplay(item.wind.speed, units),
+        // The slot's start, epoch milliseconds: lets a screen tell which slot
+        // covers now as time passes, without asking again.
+        at: item.dt * 1000,
       };
     });
 

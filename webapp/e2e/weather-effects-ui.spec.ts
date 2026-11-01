@@ -113,4 +113,48 @@ test.describe("weather effects on Home", () => {
       await deleteThrowawayFamily(page, familyId, familyName);
     }
   });
+
+  test("without a reload: the rain comes on when the rainy slot begins, and a setting changed elsewhere arrives", async ({ page, baseURL }) => {
+    const familyName = `probe-family-weather-live-${Date.now()}`;
+    const t0 = Date.parse("2026-11-01T18:00:00Z");
+    await page.clock.install({ time: t0 });
+    // The weather and the forecast, answered here: dry now, a dry slot under way, 100% rain from three hours on.
+    await page.route(/\/api\/weather(\?|$)/, (route) =>
+      route.fulfill({ status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
+        temp: 15, feelsLike: 15, condition: "Clouds", conditionMain: "Clouds", conditionIcon: "04d", humidity: 60, windSpeed: 3, high: 17, low: 10, location: "Probe",
+      }) }));
+    await page.route(/\/api\/weather\/forecast/, (route) =>
+      route.fulfill({ status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({
+        location: "Probe", coords: { lat: 0, lon: 0 }, timezone: 0, daily: [],
+        hourly: [0, 1, 2].map((k) => ({
+          time: "00:00", temp: 15, condition: k === 0 ? "Clouds" : "Rain", conditionMain: k === 0 ? "Clouds" : "Rain", conditionIcon: "10d",
+          precipProbability: k === 0 ? 10 : 100, windSpeed: 3, at: t0 - 60 * 60 * 1000 + k * 3 * 60 * 60 * 1000,
+        })),
+      }) }));
+    await page.context().addCookies([{ name: "NEXT_LOCALE", value: "en", url: baseURL ?? "http://localhost:3000" }]);
+    await page.goto("/join", { waitUntil: "domcontentloaded" });
+    const familyId = await createThrowawayFamily(page, familyName);
+    const setEffects = (value: Record<string, unknown>) =>
+      page.evaluate(async ({ familyId, value }) => {
+        const res = await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ family_id: familyId, key: "weather_effects", value }) });
+        return res.ok;
+      }, { familyId, value });
+    try {
+      expect(await setEffects({ enabled: true, intensity: "subtle", rainChanceAt: 50 })).toBe(true);
+      await gotoAfterJoin(page, "/");
+      // Under way: the dry slot (10%): no effects.
+      await expect(page.locator("main")).toBeAttached();
+      await page.waitForTimeout(2_000);
+      await expect(overlay(page)).toHaveCount(0);
+      // Two hours on, the 100% rain slot begins: rain, with no reload.
+      await page.clock.fastForward("02:01:00");
+      await expect(overlay(page)).toHaveAttribute("data-effects", "rain", { timeout: 10_000 });
+      // Switched off on another screen: gone here within a minute.
+      expect(await setEffects({ enabled: false })).toBe(true);
+      await page.clock.fastForward("01:10");
+      await expect(overlay(page)).toHaveCount(0, { timeout: 10_000 });
+    } finally {
+      await deleteThrowawayFamily(page, familyId, familyName);
+    }
+  });
 });

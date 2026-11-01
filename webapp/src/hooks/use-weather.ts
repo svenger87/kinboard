@@ -53,6 +53,8 @@ export interface HourlyForecast {
   conditionIcon: string;
   precipProbability: number;
   windSpeed: number;
+  /** The slot's start, epoch milliseconds (OpenWeatherMap's 3-hour slots). */
+  at?: number;
 }
 
 export interface ForecastData {
@@ -152,7 +154,10 @@ export function useWeather() {
     },
     enabled: !locationLoading && !unitsLoading,
     staleTime: 10 * 60 * 1000, // 10 minutes
-    refetchInterval: 15 * 60 * 1000, // Refetch every 15 minutes
+    // As often as the server's copy changes (lib/weather-provider.ts, 10 min):
+    // a wall display follows the weather without being touched, and asking
+    // sooner would only get the same copy.
+    refetchInterval: 10 * 60 * 1000,
     retry: 2,
   });
 }
@@ -192,7 +197,8 @@ export function useWeatherForecast(options: { enabled?: boolean } = {}) {
     },
     enabled: !locationLoading && !unitsLoading && options.enabled !== false,
     staleTime: 30 * 60 * 1000, // 30 minutes
-    refetchInterval: 60 * 60 * 1000, // Refetch every hour
+    // As often as the server's copy changes (30 min), for the same reason.
+    refetchInterval: 30 * 60 * 1000,
     retry: 2,
   });
 }
