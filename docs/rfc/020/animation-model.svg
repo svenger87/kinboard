@@ -1,59 +1,65 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" width="1200" height="600" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Diagram: when festival animations run, the scheduler, and what each Animations setting allows">
-<title>Diagram: when festival animations run, the scheduler, and what each Animations setting allows</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 650" width="1200" height="650" font-family="'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Diagram: a pass every 2 minutes, the scheduler with the tap, and what each Animations setting allows">
+<title>Diagram: a pass every 2 minutes, the scheduler with the tap, and what each Animations setting allows</title>
 <style>
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }</style>
-<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0f1422"/><stop offset="1" stop-color="#161d30"/></linearGradient><radialGradient id="wash" cx="0.5" cy="0" r="0.8"><stop offset="0" stop-color="#3a6ea5" stop-opacity="0.18"/><stop offset="1" stop-color="#3a6ea5" stop-opacity="0"/></radialGradient></defs><rect width="1200" height="600" fill="url(#bg)"/><rect width="1200" height="600" fill="url(#wash)"/>
+<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#211912"/><stop offset="1" stop-color="#1b140e"/></linearGradient><radialGradient id="wash" cx="0.5" cy="0" r="0.8"><stop offset="0" stop-color="#3a6ea5" stop-opacity="0.18"/><stop offset="1" stop-color="#3a6ea5" stop-opacity="0"/></radialGradient><linearGradient id="washb" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#3a6ea5" stop-opacity="0.14"/><stop offset="0.45" stop-color="#3a6ea5" stop-opacity="0"/></linearGradient></defs><rect width="1200" height="650" fill="url(#bg)"/><rect width="1200" height="650" fill="url(#wash)"/>
 <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#f5b84a"/></marker></defs>
-<text x="40" y="46" font-size="20" font-weight="700" fill="#e8ebf2">When the canvas runs</text><text x="40" y="70" font-size="14" fill="#8c94a8">One visitor at a time. Between passes the loop is stopped: no frames, no work.</text>
-<text x="40" y="132" font-size="16" font-weight="600" fill="#e8ebf2">Home</text>
-<rect x="170" y="116" width="980" height="24" rx="6" fill="#2a3347"/>
-<rect x="593.8" y="110" width="10" height="36" rx="3" fill="#f5b84a"/>
-<rect x="1022.5" y="110" width="10" height="36" rx="3" fill="#f5b84a"/>
-<text x="182" y="133" font-size="13" fill="#8c94a8">idle · canvas stopped</text><text x="611" y="133" font-size="13" fill="#e8ebf2">pass · 30 fps · ~10 s</text>
-<text x="40" y="194" font-size="16" font-weight="600" fill="#e8ebf2">Screensaver</text>
-<rect x="170" y="178" width="980" height="24" rx="6" fill="#2a3347"/>
-<rect x="250.8" y="172" width="10" height="36" rx="3" fill="#f5b84a"/>
-<rect x="361.0" y="172" width="10" height="36" rx="3" fill="#f5b84a"/>
-<rect x="471.2" y="172" width="10" height="36" rx="3" fill="#f5b84a"/>
-<rect x="581.5" y="172" width="10" height="36" rx="3" fill="#f5b84a"/>
-<rect x="691.8" y="172" width="10" height="36" rx="3" fill="#f5b84a"/>
-<rect x="802.0" y="172" width="10" height="36" rx="3" fill="#f5b84a"/>
-<rect x="912.2" y="172" width="10" height="36" rx="3" fill="#f5b84a"/>
-<rect x="1022.5" y="172" width="10" height="36" rx="3" fill="#f5b84a"/>
-<rect x="1120.5" y="172" width="10" height="36" rx="3" fill="#f5b84a"/>
-<text x="40" y="256" font-size="16" font-weight="600" fill="#e8ebf2">Dressing</text>
-<rect x="170" y="240" width="980" height="24" rx="6" fill="#2f5d8a" opacity="0.55"/><text x="182" y="257" font-size="13" fill="#e8ebf2">drawn once by CSS while the festival lasts · no frames at all</text>
-<path d="M170,290 L1150,290" stroke="#8c94a8" stroke-width="1"/>
-<path d="M170.0,290 L170.0,296" stroke="#8c94a8"/><text x="170.0" y="312" text-anchor="middle" font-size="12" fill="#8c94a8">0 min</text>
-<path d="M292.5,290 L292.5,296" stroke="#8c94a8"/><text x="292.5" y="312" text-anchor="middle" font-size="12" fill="#8c94a8">5 min</text>
-<path d="M415.0,290 L415.0,296" stroke="#8c94a8"/><text x="415.0" y="312" text-anchor="middle" font-size="12" fill="#8c94a8">10 min</text>
-<path d="M537.5,290 L537.5,296" stroke="#8c94a8"/><text x="537.5" y="312" text-anchor="middle" font-size="12" fill="#8c94a8">15 min</text>
-<path d="M660.0,290 L660.0,296" stroke="#8c94a8"/><text x="660.0" y="312" text-anchor="middle" font-size="12" fill="#8c94a8">20 min</text>
-<path d="M782.5,290 L782.5,296" stroke="#8c94a8"/><text x="782.5" y="312" text-anchor="middle" font-size="12" fill="#8c94a8">25 min</text>
-<path d="M905.0,290 L905.0,296" stroke="#8c94a8"/><text x="905.0" y="312" text-anchor="middle" font-size="12" fill="#8c94a8">30 min</text>
-<path d="M1027.5,290 L1027.5,296" stroke="#8c94a8"/><text x="1027.5" y="312" text-anchor="middle" font-size="12" fill="#8c94a8">35 min</text>
-<path d="M1150.0,290 L1150.0,296" stroke="#8c94a8"/><text x="1150.0" y="312" text-anchor="middle" font-size="12" fill="#8c94a8">40 min</text>
-<text x="170" y="336" font-size="13" fill="#8c94a8">Home: a pass every 15–20 min (random). Screensaver: every 3–5 min, which also moves pixels against burn-in.</text>
-<text x="40" y="400" font-size="20" font-weight="700" fill="#e8ebf2">The scheduler</text>
-<rect x="40" y="420" width="230" height="64" rx="12" fill="#1b2232" stroke="#2c3549"/><text x="58" y="448" font-size="17" font-weight="700" fill="#e8ebf2">Waiting</text><text x="58" y="470" font-size="13" fill="#8c94a8">timer 15–20 min</text>
-<rect x="330" y="420" width="230" height="64" rx="12" fill="#1b2232" stroke="#2c3549"/><text x="348" y="448" font-size="17" font-weight="700" fill="#e8ebf2">Flying</text><text x="348" y="470" font-size="13" fill="#8c94a8">rAF at 30 fps</text>
-<rect x="620" y="420" width="230" height="64" rx="12" fill="#1b2232" stroke="#2c3549"/><text x="638" y="448" font-size="17" font-weight="700" fill="#e8ebf2">Gone</text><text x="638" y="470" font-size="13" fill="#8c94a8">canvas cleared, loop stopped</text>
-<path d="M270,452 L326,452" stroke="#f5b84a" stroke-width="2" fill="none" marker-end="url(#ah)"/><path d="M560,452 L616,452" stroke="#f5b84a" stroke-width="2" fill="none" marker-end="url(#ah)"/><path d="M735,486 Q735,540 450,540 Q155,540 155,490" stroke="#f5b84a" stroke-width="2" fill="none" marker-end="url(#ah)"/><text x="450" y="532" text-anchor="middle" font-size="13" fill="#8c94a8">next festival day? draw a new wait</text><text x="298" y="442" text-anchor="middle" font-size="12" fill="#8c94a8">time</text><text x="588" y="442" text-anchor="middle" font-size="12" fill="#8c94a8">exits</text>
-<text x="40" y="580" font-size="13" fill="#8c94a8">Page hidden → the loop pauses and resumes where it was (as weather effects do). A device set to Reduced or Off never leaves Waiting.</text>
-<text x="900" y="400" font-size="20" font-weight="700" fill="#e8ebf2">Animations switch</text>
-<text x="1010" y="432" text-anchor="middle" font-size="13" font-weight="600" fill="#8c94a8">On</text>
-<text x="1088" y="432" text-anchor="middle" font-size="13" font-weight="600" fill="#8c94a8">Reduced</text>
-<text x="1166" y="432" text-anchor="middle" font-size="13" font-weight="600" fill="#8c94a8">Off</text>
-<rect x="900" y="444" width="300" height="34" rx="8" fill="#1b2232" stroke="#2c3549"/><text x="912" y="466" font-size="14" fill="#e8ebf2">Visitor</text>
-<text x="1010" y="467" text-anchor="middle" font-size="15" font-weight="700" fill="#4ad66d">✓</text>
-<text x="1088" y="467" text-anchor="middle" font-size="15" font-weight="700" fill="#8c94a8">–</text>
-<text x="1166" y="467" text-anchor="middle" font-size="15" font-weight="700" fill="#8c94a8">–</text>
-<rect x="900" y="484" width="300" height="34" rx="8" fill="#1b2232" stroke="#2c3549"/><text x="912" y="506" font-size="14" fill="#e8ebf2">Dressing</text>
-<text x="1010" y="507" text-anchor="middle" font-size="15" font-weight="700" fill="#4ad66d">✓</text>
-<text x="1088" y="507" text-anchor="middle" font-size="15" font-weight="700" fill="#4ad66d">✓</text>
-<text x="1166" y="507" text-anchor="middle" font-size="15" font-weight="700" fill="#8c94a8">–</text>
-<rect x="900" y="524" width="300" height="34" rx="8" fill="#1b2232" stroke="#2c3549"/><text x="912" y="546" font-size="14" fill="#e8ebf2">Outfit</text>
-<text x="1010" y="547" text-anchor="middle" font-size="15" font-weight="700" fill="#4ad66d">✓</text>
-<text x="1088" y="547" text-anchor="middle" font-size="15" font-weight="700" fill="#f5b84a">still</text>
-<text x="1166" y="547" text-anchor="middle" font-size="15" font-weight="700" fill="#8c94a8">–</text>
+<text x="40" y="46" font-size="20" font-weight="700" fill="#f2ebe0">When the canvas runs</text><text x="40" y="70" font-size="14" fill="#a89a88">One visitor at a time. Between passes the loop is stopped: no frames, no work.</text>
+<text x="40" y="122" font-size="16" font-weight="600" fill="#f2ebe0">Home</text>
+<rect x="210" y="106" width="940" height="24" rx="6" fill="#3a2f23"/>
+<rect x="361.7" y="100" width="10" height="36" rx="3" fill="#f5b84a"/>
+<rect x="518.3" y="100" width="10" height="36" rx="3" fill="#f5b84a"/>
+<rect x="675.0" y="100" width="10" height="36" rx="3" fill="#f5b84a"/>
+<rect x="831.7" y="100" width="10" height="36" rx="3" fill="#f5b84a"/>
+<rect x="988.3" y="100" width="10" height="36" rx="3" fill="#f5b84a"/>
+<rect x="1145.0" y="100" width="10" height="36" rx="3" fill="#f5b84a"/>
+<text x="222" y="123" font-size="13" fill="#a89a88">idle · canvas stopped</text><text x="535" y="123" font-size="13" fill="#f2ebe0">pass · 30 fps · ~10 s</text>
+<text x="40" y="174" font-size="16" font-weight="600" fill="#f2ebe0">Screensaver</text>
+<rect x="210" y="158" width="940" height="24" rx="6" fill="#3a2f23"/>
+<rect x="361.7" y="152" width="10" height="36" rx="3" fill="#f5b84a"/>
+<rect x="518.3" y="152" width="10" height="36" rx="3" fill="#f5b84a"/>
+<rect x="675.0" y="152" width="10" height="36" rx="3" fill="#f5b84a"/>
+<rect x="831.7" y="152" width="10" height="36" rx="3" fill="#f5b84a"/>
+<rect x="988.3" y="152" width="10" height="36" rx="3" fill="#f5b84a"/>
+<rect x="1145.0" y="152" width="10" height="36" rx="3" fill="#f5b84a"/>
+<text x="40" y="226" font-size="16" font-weight="600" fill="#f2ebe0">Dressing</text>
+<rect x="210" y="210" width="940" height="24" rx="6" fill="#2f5d8a" opacity="0.6"/><text x="222" y="227" font-size="13" fill="#f2ebe0">drawn once by CSS while the festival lasts · no frames at all</text>
+<text x="40" y="278" font-size="16" font-weight="600" fill="#f2ebe0">Colour wash</text>
+<rect x="210" y="262" width="940" height="24" rx="6" fill="#8a2f3a" opacity="0.6"/><text x="222" y="279" font-size="13" fill="#f2ebe0">festival colours instead of the month's · CSS variables · no frames</text>
+<path d="M210,304 L1150,304" stroke="#a89a88" stroke-width="1"/>
+<path d="M210.0,304 L210.0,310" stroke="#a89a88"/><text x="210.0" y="326" text-anchor="middle" font-size="12" fill="#a89a88">0 min</text>
+<path d="M366.7,304 L366.7,310" stroke="#a89a88"/><text x="366.7" y="326" text-anchor="middle" font-size="12" fill="#a89a88">2 min</text>
+<path d="M523.3,304 L523.3,310" stroke="#a89a88"/><text x="523.3" y="326" text-anchor="middle" font-size="12" fill="#a89a88">4 min</text>
+<path d="M680.0,304 L680.0,310" stroke="#a89a88"/><text x="680.0" y="326" text-anchor="middle" font-size="12" fill="#a89a88">6 min</text>
+<path d="M836.7,304 L836.7,310" stroke="#a89a88"/><text x="836.7" y="326" text-anchor="middle" font-size="12" fill="#a89a88">8 min</text>
+<path d="M993.3,304 L993.3,310" stroke="#a89a88"/><text x="993.3" y="326" text-anchor="middle" font-size="12" fill="#a89a88">10 min</text>
+<path d="M1150.0,304 L1150.0,310" stroke="#a89a88"/><text x="1150.0" y="326" text-anchor="middle" font-size="12" fill="#a89a88">12 min</text>
+<text x="210" y="350" font-size="13" fill="#a89a88">A pass every 2 min on Home and the screensaver: the loop runs ~8% of the time. On the screensaver it also moves pixels against burn-in.</text>
+<text x="40" y="410" font-size="20" font-weight="700" fill="#f2ebe0">The scheduler</text>
+<rect x="40" y="430" width="230" height="64" rx="12" fill="#2d241a" stroke="#463a2c"/><text x="58" y="458" font-size="17" font-weight="700" fill="#f2ebe0">Waiting</text><text x="58" y="480" font-size="13" fill="#a89a88">timer 2 min</text>
+<rect x="330" y="430" width="230" height="64" rx="12" fill="#2d241a" stroke="#463a2c"/><text x="348" y="458" font-size="17" font-weight="700" fill="#f2ebe0">Flying</text><text x="348" y="480" font-size="13" fill="#a89a88">30 fps · only the sprite takes taps</text>
+<rect x="620" y="430" width="230" height="64" rx="12" fill="#2d241a" stroke="#463a2c"/><text x="638" y="458" font-size="17" font-weight="700" fill="#f2ebe0">Gone</text><text x="638" y="480" font-size="13" fill="#a89a88">canvas cleared, loop stopped</text>
+<path d="M270,462 L326,462" stroke="#f5b84a" stroke-width="2" fill="none" marker-end="url(#ah)"/><path d="M560,462 L616,462" stroke="#f5b84a" stroke-width="2" fill="none" marker-end="url(#ah)"/><path d="M735,496 Q735,550 450,550 Q155,550 155,500" stroke="#f5b84a" stroke-width="2" fill="none" marker-end="url(#ah)"/><text x="178" y="518" font-size="13" fill="#a89a88">draw a new wait</text><text x="298" y="452" text-anchor="middle" font-size="12" fill="#a89a88">time</text><text x="588" y="452" text-anchor="middle" font-size="12" fill="#a89a88">exits</text>
+<rect x="330" y="560" width="270" height="44" rx="12" fill="#2d241a" stroke="#f5b84a"/><text x="348" y="587" font-size="14" fill="#f2ebe0"><tspan font-weight="700">Tapped</tspan><tspan fill="#a89a88"> · presents, stars → Gone</tspan></text><path d="M445,496 L445,556" stroke="#f5b84a" stroke-width="2" fill="none" marker-end="url(#ah)"/><text x="453" y="530" font-size="12" fill="#a89a88">tap</text>
+<text x="40" y="632" font-size="13" fill="#a89a88">Page hidden → the loop pauses and resumes where it was (as weather effects do). A device set to Reduced or Off never leaves Waiting.</text>
+<text x="900" y="410" font-size="20" font-weight="700" fill="#f2ebe0">Animations switch</text>
+<text x="1010" y="442" text-anchor="middle" font-size="13" font-weight="600" fill="#a89a88">On</text>
+<text x="1088" y="442" text-anchor="middle" font-size="13" font-weight="600" fill="#a89a88">Reduced</text>
+<text x="1166" y="442" text-anchor="middle" font-size="13" font-weight="600" fill="#a89a88">Off</text>
+<rect x="900" y="454" width="300" height="34" rx="8" fill="#2d241a" stroke="#463a2c"/><text x="912" y="476" font-size="14" fill="#f2ebe0">Visitor</text>
+<text x="1010" y="477" text-anchor="middle" font-size="15" font-weight="700" fill="#4ad66d">✓</text>
+<text x="1088" y="477" text-anchor="middle" font-size="15" font-weight="700" fill="#a89a88">–</text>
+<text x="1166" y="477" text-anchor="middle" font-size="15" font-weight="700" fill="#a89a88">–</text>
+<rect x="900" y="494" width="300" height="34" rx="8" fill="#2d241a" stroke="#463a2c"/><text x="912" y="516" font-size="14" fill="#f2ebe0">Dressing</text>
+<text x="1010" y="517" text-anchor="middle" font-size="15" font-weight="700" fill="#4ad66d">✓</text>
+<text x="1088" y="517" text-anchor="middle" font-size="15" font-weight="700" fill="#4ad66d">✓</text>
+<text x="1166" y="517" text-anchor="middle" font-size="15" font-weight="700" fill="#a89a88">–</text>
+<rect x="900" y="534" width="300" height="34" rx="8" fill="#2d241a" stroke="#463a2c"/><text x="912" y="556" font-size="14" fill="#f2ebe0">Outfit</text>
+<text x="1010" y="557" text-anchor="middle" font-size="15" font-weight="700" fill="#4ad66d">✓</text>
+<text x="1088" y="557" text-anchor="middle" font-size="15" font-weight="700" fill="#f5b84a">still</text>
+<text x="1166" y="557" text-anchor="middle" font-size="15" font-weight="700" fill="#a89a88">–</text>
+<rect x="900" y="574" width="300" height="34" rx="8" fill="#2d241a" stroke="#463a2c"/><text x="912" y="596" font-size="14" fill="#f2ebe0">Colour wash</text>
+<text x="1010" y="597" text-anchor="middle" font-size="15" font-weight="700" fill="#4ad66d">✓</text>
+<text x="1088" y="597" text-anchor="middle" font-size="15" font-weight="700" fill="#4ad66d">✓</text>
+<text x="1166" y="597" text-anchor="middle" font-size="15" font-weight="700" fill="#4ad66d">✓</text>
 </svg>
